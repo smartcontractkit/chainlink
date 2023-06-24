@@ -4,6 +4,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 )
 
 // This config is part of the job spec and is loaded only once on node boot/job creation.
@@ -17,8 +18,8 @@ type PluginConfig struct {
 	PruneBatchSize                  uint32                     `json:"pruneBatchSize"`
 	ListenerEventHandlerTimeoutSec  uint32                     `json:"listenerEventHandlerTimeoutSec"`
 	MaxRequestSizeBytes             uint32                     `json:"maxRequestSizeBytes"`
-	MaxS4PayloadSizeBytes           uint32                     `json:"maxS4PayloadSizeBytes"`
-	MaxS4SlotsPerUser               uint32                     `json:"maxS4SlotsPerUser"`
+	AllowlistBlockConfirmations     int64                      `json:"allowlistBlockConfirmations"`
+	S4Constraints                   *s4.Constraints            `json:"s4Constraints"`
 	GatewayConnectorConfig          *connector.ConnectorConfig `json:"gatewayConnectorConfig"`
 }
 

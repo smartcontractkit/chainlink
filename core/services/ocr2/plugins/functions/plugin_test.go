@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	gfmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
@@ -27,8 +28,9 @@ func TestNewConnector_Success(t *testing.T) {
 	chainID := big.NewInt(80001)
 	ethKeystore := ksmocks.NewEth(t)
 	s4Storage := s4mocks.NewStorage(t)
+	allowlist := gfmocks.NewOnchainAllowlist(t)
 	ethKeystore.On("EnabledKeysForChain", mock.Anything).Return([]ethkey.KeyV2{{Address: common.HexToAddress(address)}}, nil)
-	_, err := functions.NewConnector(gwcCfg, ethKeystore, chainID, s4Storage, logger.TestLogger(t))
+	_, err := functions.NewConnector(gwcCfg, ethKeystore, chainID, s4Storage, allowlist, logger.TestLogger(t))
 	require.NoError(t, err)
 }
 
@@ -46,7 +48,8 @@ func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	chainID := big.NewInt(80001)
 	ethKeystore := ksmocks.NewEth(t)
 	s4Storage := s4mocks.NewStorage(t)
+	allowlist := gfmocks.NewOnchainAllowlist(t)
 	ethKeystore.On("EnabledKeysForChain", mock.Anything).Return([]ethkey.KeyV2{{Address: common.HexToAddress(addresses[1])}}, nil)
-	_, err := functions.NewConnector(gwcCfg, ethKeystore, chainID, s4Storage, logger.TestLogger(t))
+	_, err := functions.NewConnector(gwcCfg, ethKeystore, chainID, s4Storage, allowlist, logger.TestLogger(t))
 	require.Error(t, err)
 }

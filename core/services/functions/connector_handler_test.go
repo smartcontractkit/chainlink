@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	gfmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	s4mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 
@@ -27,8 +28,9 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	privateKey, addr := testutils.NewPrivateKeyAndAddress(t)
 	storage := s4mocks.NewStorage(t)
 	connector := gcmocks.NewGatewayConnector(t)
+	allowlist := gfmocks.NewOnchainAllowlist(t)
 
-	handler := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, logger)
+	handler := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, logger)
 	require.NotNil(t, handler)
 
 	handler.SetConnector(connector)
@@ -54,6 +56,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		t.Run("secrets_list", func(t *testing.T) {
 			msg := api.Message{
 				Body: api.MessageBody{
+					DonId:     "fun4",
 					MessageId: "1",
 					Method:    "secrets_list",
 					Sender:    addr.Hex(),
@@ -67,6 +70,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 				{SlotId: 2, Version: 2, Expiration: 2},
 			}
 			storage.On("List", ctx, addr).Return(snapshot, nil).Once()
+			allowlist.On("Allow", addr).Return(true).Once()
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
@@ -74,18 +78,24 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 			}).Return(nil).Once()
 
-			handler.HandleGatewayMessage(ctx, "gw1", &msg)
+			handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
 
 			t.Run("orm error", func(t *testing.T) {
 				storage.On("List", ctx, addr).Return(nil, errors.New("boom")).Once()
+				allowlist.On("Allow", addr).Return(true).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
-					require.Equal(t, `{"success":false,"error":"Failed to list secrets: boom"}`, string(msg.Body.Payload))
+					require.Equal(t, `{"success":false,"error_message":"Failed to list secrets: boom"}`, string(msg.Body.Payload))
 
 				}).Return(nil).Once()
 
-				handler.HandleGatewayMessage(ctx, "gw1", &msg)
+				handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
+			})
+
+			t.Run("not allowed", func(t *testing.T) {
+				allowlist.On("Allow", addr).Return(false).Once()
+				handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
 			})
 		})
 
@@ -106,6 +116,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 			msg := api.Message{
 				Body: api.MessageBody{
+					DonId:     "fun4",
 					MessageId: "1",
 					Method:    "secrets_set",
 					Sender:    addr.Hex(),
@@ -115,6 +126,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			require.NoError(t, msg.Sign(privateKey))
 
 			storage.On("Put", ctx, &key, &record, signature).Return(nil).Once()
+			allowlist.On("Allow", addr).Return(true).Once()
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
@@ -122,46 +134,65 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 			}).Return(nil).Once()
 
-			handler.HandleGatewayMessage(ctx, "gw1", &msg)
+			handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
 
 			t.Run("orm error", func(t *testing.T) {
 				storage.On("Put", ctx, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("boom")).Once()
+				allowlist.On("Allow", addr).Return(true).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
-					require.Equal(t, `{"success":false,"error":"Failed to set secret: boom"}`, string(msg.Body.Payload))
+					require.Equal(t, `{"success":false,"error_message":"Failed to set secret: boom"}`, string(msg.Body.Payload))
 
 				}).Return(nil).Once()
 
-				handler.HandleGatewayMessage(ctx, "gw1", &msg)
+				handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
 			})
 
 			t.Run("missing signature", func(t *testing.T) {
 				msg.Body.Payload = json.RawMessage(`{"slot_id":3,"version":4,"expiration":5,"payload":"dGVzdA=="}`)
 				require.NoError(t, msg.Sign(privateKey))
 				storage.On("Put", ctx, mock.Anything, mock.Anything, mock.Anything).Return(s4.ErrWrongSignature).Once()
+				allowlist.On("Allow", addr).Return(true).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
-					require.Equal(t, `{"success":false,"error":"Failed to set secret: wrong signature"}`, string(msg.Body.Payload))
+					require.Equal(t, `{"success":false,"error_message":"Failed to set secret: wrong signature"}`, string(msg.Body.Payload))
 
 				}).Return(nil).Once()
 
-				handler.HandleGatewayMessage(ctx, "gw1", &msg)
+				handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
 			})
 
 			t.Run("malformed request", func(t *testing.T) {
 				msg.Body.Payload = json.RawMessage(`{sdfgdfgoscsicosd:sdf:::sdf ::; xx}`)
 				require.NoError(t, msg.Sign(privateKey))
+				allowlist.On("Allow", addr).Return(true).Once()
 				connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 					msg, ok := args[2].(*api.Message)
 					require.True(t, ok)
-					require.Equal(t, `{"success":false,"error":"Bad request to set secret: invalid character 's' looking for beginning of object key string"}`, string(msg.Body.Payload))
+					require.Equal(t, `{"success":false,"error_message":"Bad request to set secret: invalid character 's' looking for beginning of object key string"}`, string(msg.Body.Payload))
 
 				}).Return(nil).Once()
 
-				handler.HandleGatewayMessage(ctx, "gw1", &msg)
+				handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
 			})
+		})
+
+		t.Run("unsupported method", func(t *testing.T) {
+			msg := api.Message{
+				Body: api.MessageBody{
+					DonId:     "fun4",
+					MessageId: "1",
+					Method:    "foobar",
+					Sender:    addr.Hex(),
+					Payload:   []byte("whatever"),
+				},
+			}
+			require.NoError(t, msg.Sign(privateKey))
+
+			allowlist.On("Allow", addr).Return(true).Once()
+			handler.HandleGatewayMessage(testutils.Context(t), "gw1", &msg.Body)
 		})
 	})
 }

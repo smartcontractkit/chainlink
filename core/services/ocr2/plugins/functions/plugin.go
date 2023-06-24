@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	gwFunctions "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -35,7 +36,7 @@ type FunctionsServicesConfig struct {
 	DB              *sqlx.DB
 	Chain           evm.Chain
 	ContractID      string
-	Lggr            logger.Logger
+	Logger          logger.Logger
 	MailMon         *utils.MailboxMonitor
 	URLsMonEndpoint commontypes.MonitoringEndpoint
 	EthKeystore     keystore.Eth
@@ -49,23 +50,16 @@ const (
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
 func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
-	pluginORM := functions.NewORM(conf.DB, conf.Lggr, conf.QConfig, common.HexToAddress(conf.ContractID))
-	s4ORM := s4.NewPostgresORM(conf.DB, conf.Lggr, conf.QConfig, s4.SharedTableName, FunctionsS4Namespace)
+	pluginORM := functions.NewORM(conf.DB, conf.Logger, conf.QConfig, common.HexToAddress(conf.ContractID))
+	s4ORM := s4.NewPostgresORM(conf.DB, conf.Logger, conf.QConfig, s4.SharedTableName, FunctionsS4Namespace)
 
 	var pluginConfig config.PluginConfig
-	err := json.Unmarshal(conf.Job.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
-	if err != nil {
+	if err := json.Unmarshal(conf.Job.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig); err != nil {
 		return nil, err
 	}
-	err = config.ValidatePluginConfig(pluginConfig)
-	if err != nil {
+	if err := config.ValidatePluginConfig(pluginConfig); err != nil {
 		return nil, err
 	}
-
-	s4Storage := s4.NewStorage(conf.Lggr, s4.Constraints{
-		MaxPayloadSizeBytes: uint(pluginConfig.MaxS4PayloadSizeBytes),
-		MaxSlotsPerUser:     uint(pluginConfig.MaxS4SlotsPerUser),
-	}, s4ORM, utils.NewRealClock())
 
 	allServices := []job.ServiceCtx{}
 	contractAddress := common.HexToAddress(conf.Job.OCR2OracleSpec.ContractID)
@@ -73,7 +67,7 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Functi
 	if err != nil {
 		return nil, errors.Wrapf(err, "Functions: failed to create a FunctionsOracle wrapper for address: %v", contractAddress)
 	}
-	listenerLogger := conf.Lggr.Named("FunctionsListener")
+	listenerLogger := conf.Logger.Named("FunctionsListener")
 	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
 	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, bridgeAccessor, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), listenerLogger, conf.MailMon, conf.URLsMonEndpoint)
 	allServices = append(allServices, functionsListener)
@@ -89,19 +83,26 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Functi
 	}
 	allServices = append(allServices, job.NewServiceAdapter(functionsReportingPluginOracle))
 
-	if pluginConfig.GatewayConnectorConfig != nil {
-		connectorLogger := conf.Lggr.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
-		connector, err := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, connectorLogger)
-		if err != nil {
+	if pluginConfig.GatewayConnectorConfig != nil && pluginConfig.S4Constraints != nil {
+		allowlist, err2 := gwFunctions.NewOnchainAllowlist(conf.Chain.Client(), contractAddress, pluginConfig.AllowlistBlockConfirmations, conf.Logger)
+		if err2 != nil {
+			return nil, errors.Wrap(err, "failed to call NewOnchainAllowlist while creating a Functions Reporting Plugin")
+		}
+		s4Storage := s4.NewStorage(conf.Logger, *pluginConfig.S4Constraints, s4ORM, utils.NewRealClock())
+		connectorLogger := conf.Logger.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
+		connector, err3 := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, connectorLogger)
+		if err3 != nil {
 			return nil, errors.Wrap(err, "failed to create a GatewayConnector")
 		}
 		allServices = append(allServices, connector)
+	} else {
+		conf.Logger.Warn("No GatewayConnectorConfig or S4Constraints found in the plugin config, GatewayConnector will not be enabled")
 	}
 
 	return allServices, nil
 }
 
-func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, lggr logger.Logger) (connector.GatewayConnector, error) {
+func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, allowlist gwFunctions.OnchainAllowlist, lggr logger.Logger) (connector.GatewayConnector, error) {
 	enabledKeys, err := ethKeystore.EnabledKeysForChain(chainID)
 	if err != nil {
 		return nil, err
@@ -112,9 +113,9 @@ func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, c
 		return nil, errors.New("key for configured node address not found")
 	}
 	signerKey := enabledKeys[idx].ToEcdsaPrivKey()
-	signerID := enabledKeys[idx].ID()
+	nodeAddreess := enabledKeys[idx].ID()
 
-	handler := functions.NewFunctionsConnectorHandler(signerID, signerKey, s4Storage, lggr)
+	handler := functions.NewFunctionsConnectorHandler(nodeAddreess, signerKey, s4Storage, allowlist, lggr)
 	connector, err := connector.NewGatewayConnector(gwcCfg, handler, handler, utils.NewRealClock(), lggr)
 	if err != nil {
 		return nil, err

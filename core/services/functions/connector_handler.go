@@ -10,18 +10,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 )
 
 type functionsConnectorHandler struct {
-	connector connector.GatewayConnector
-	signerKey *ecdsa.PrivateKey
-	signerID  string
-	storage   s4.Storage
-	lggr      logger.Logger
+	connector   connector.GatewayConnector
+	signerKey   *ecdsa.PrivateKey
+	nodeAddress string
+	storage     s4.Storage
+	allowlist   functions.OnchainAllowlist
+	lggr        logger.Logger
 }
 
 const (
@@ -34,12 +35,13 @@ var (
 	_ connector.GatewayConnectorHandler = &functionsConnectorHandler{}
 )
 
-func NewFunctionsConnectorHandler(signerID string, signerKey *ecdsa.PrivateKey, storage s4.Storage, lggr logger.Logger) *functionsConnectorHandler {
+func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, lggr logger.Logger) *functionsConnectorHandler {
 	return &functionsConnectorHandler{
-		signerID:  signerID,
-		signerKey: signerKey,
-		storage:   storage,
-		lggr:      lggr.Named("functionsConnectorHandler"),
+		nodeAddress: nodeAddress,
+		signerKey:   signerKey,
+		storage:     storage,
+		allowlist:   allowlist,
+		lggr:        lggr.Named("functionsConnectorHandler"),
 	}
 }
 
@@ -51,28 +53,22 @@ func (h *functionsConnectorHandler) Sign(data ...[]byte) ([]byte, error) {
 	return common.SignData(h.signerKey, data...)
 }
 
-func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
-	// Gateway should have signature verified, therefore if it fails validation here, it is likely a maliscious gateway.
-	signer, err := msg.ValidateSignature()
-	if err != nil {
-		h.lggr.Errorw("failed to validate message signature", "id", gatewayId, "error", err)
+func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, body *api.MessageBody) {
+	fromAddr := ethCommon.HexToAddress(body.Sender)
+	if !h.allowlist.Allow(fromAddr) {
+		h.lggr.Errorw("allowlist prevented the request from this address", "id", gatewayId, "address", fromAddr)
 		return
 	}
-	if ethCommon.BytesToAddress(signer) != ethCommon.HexToAddress(msg.Body.Sender) {
-		h.lggr.Errorw("signer address does not match sender", "id", gatewayId, "sender", msg.Body.Sender, "signer", utils.StringToHex(string(signer)))
-		return
-	}
-	fromAddr := ethCommon.BytesToAddress(signer)
 
-	h.lggr.Debugw("handling gateway request", "id", gatewayId, "method", msg.Body.Method)
+	h.lggr.Debugw("handling gateway request", "id", gatewayId, "method", body.Method)
 
-	switch msg.Body.Method {
+	switch body.Method {
 	case methodSecretsList:
-		h.handleSecretsList(ctx, gatewayId, msg, fromAddr)
+		h.handleSecretsList(ctx, gatewayId, body, fromAddr)
 	case methodSecretsSet:
-		h.handleSecretsSet(ctx, gatewayId, msg, fromAddr)
+		h.handleSecretsSet(ctx, gatewayId, body, fromAddr)
 	default:
-		h.lggr.Errorw("unsupported method", "id", gatewayId, "method", msg.Body.Method)
+		h.lggr.Errorw("unsupported method", "id", gatewayId, "method", body.Method)
 	}
 }
 
@@ -84,7 +80,7 @@ func (h *functionsConnectorHandler) Close() error {
 	return nil
 }
 
-func (h *functionsConnectorHandler) handleSecretsList(ctx context.Context, gatewayId string, msg *api.Message, fromAddr ethCommon.Address) {
+func (h *functionsConnectorHandler) handleSecretsList(ctx context.Context, gatewayId string, body *api.MessageBody, fromAddr ethCommon.Address) {
 	type ListRow struct {
 		SlotID     uint   `json:"slot_id"`
 		Version    uint64 `json:"version"`
@@ -92,9 +88,9 @@ func (h *functionsConnectorHandler) handleSecretsList(ctx context.Context, gatew
 	}
 
 	type ListResponse struct {
-		Success bool      `json:"success"`
-		Error   string    `json:"error,omitempty"`
-		Rows    []ListRow `json:"rows,omitempty"`
+		Success      bool      `json:"success"`
+		ErrorMessage string    `json:"error_message,omitempty"`
+		Rows         []ListRow `json:"rows,omitempty"`
 	}
 
 	var response ListResponse
@@ -110,15 +106,15 @@ func (h *functionsConnectorHandler) handleSecretsList(ctx context.Context, gatew
 			}
 		}
 	} else {
-		response.Error = fmt.Sprintf("Failed to list secrets: %v", err)
+		response.ErrorMessage = fmt.Sprintf("Failed to list secrets: %v", err)
 	}
 
-	if err := h.sendResponse(ctx, gatewayId, msg, response); err != nil {
+	if err := h.sendResponse(ctx, gatewayId, body, response); err != nil {
 		h.lggr.Errorw("failed to send response to gateway", "id", gatewayId, "error", err)
 	}
 }
 
-func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewayId string, msg *api.Message, fromAddr ethCommon.Address) {
+func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewayId string, body *api.MessageBody, fromAddr ethCommon.Address) {
 	type SetRequest struct {
 		SlotID     uint   `json:"slot_id"`
 		Version    uint64 `json:"version"`
@@ -128,13 +124,13 @@ func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewa
 	}
 
 	type SetResponse struct {
-		Success bool   `json:"success"`
-		Error   string `json:"error,omitempty"`
+		Success      bool   `json:"success"`
+		ErrorMessage string `json:"error_message,omitempty"`
 	}
 
 	var request SetRequest
 	var response SetResponse
-	err := json.Unmarshal(msg.Body.Payload, &request)
+	err := json.Unmarshal(body.Payload, &request)
 	if err == nil {
 		key := s4.Key{
 			Address: fromAddr,
@@ -149,18 +145,18 @@ func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewa
 		if err == nil {
 			response.Success = true
 		} else {
-			response.Error = fmt.Sprintf("Failed to set secret: %v", err)
+			response.ErrorMessage = fmt.Sprintf("Failed to set secret: %v", err)
 		}
 	} else {
-		response.Error = fmt.Sprintf("Bad request to set secret: %v", err)
+		response.ErrorMessage = fmt.Sprintf("Bad request to set secret: %v", err)
 	}
 
-	if err := h.sendResponse(ctx, gatewayId, msg, response); err != nil {
+	if err := h.sendResponse(ctx, gatewayId, body, response); err != nil {
 		h.lggr.Errorw("failed to send response to gateway", "id", gatewayId, "error", err)
 	}
 }
 
-func (h *functionsConnectorHandler) sendResponse(ctx context.Context, gatewayId string, request *api.Message, payload any) error {
+func (h *functionsConnectorHandler) sendResponse(ctx context.Context, gatewayId string, requestBody *api.MessageBody, payload any) error {
 	payloadJson, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -168,10 +164,10 @@ func (h *functionsConnectorHandler) sendResponse(ctx context.Context, gatewayId 
 
 	msg := &api.Message{
 		Body: api.MessageBody{
-			MessageId: request.Body.MessageId,
-			DonId:     request.Body.DonId,
-			Method:    request.Body.Method,
-			Sender:    h.signerID,
+			MessageId: requestBody.MessageId,
+			DonId:     requestBody.DonId,
+			Method:    requestBody.Method,
+			Sender:    h.nodeAddress,
 			Payload:   payloadJson,
 		},
 	}
@@ -181,7 +177,7 @@ func (h *functionsConnectorHandler) sendResponse(ctx context.Context, gatewayId 
 
 	err = h.connector.SendToGateway(ctx, gatewayId, msg)
 	if err == nil {
-		h.lggr.Debugw("sent to gateway", "id", gatewayId, "messageId", request.Body.MessageId, "donId", request.Body.DonId, "method", request.Body.Method)
+		h.lggr.Debugw("sent to gateway", "id", gatewayId, "messageId", requestBody.MessageId, "donId", requestBody.DonId, "method", requestBody.Method)
 	}
 	return err
 }

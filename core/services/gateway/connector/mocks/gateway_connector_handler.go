@@ -29,9 +29,9 @@ func (_m *GatewayConnectorHandler) Close() error {
 	return r0
 }
 
-// HandleGatewayMessage provides a mock function with given fields: ctx, gatewayId, msg
-func (_m *GatewayConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
-	_m.Called(ctx, gatewayId, msg)
+// HandleGatewayMessage provides a mock function with given fields: ctx, gatewayId, body
+func (_m *GatewayConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, body *api.MessageBody) {
+	_m.Called(ctx, gatewayId, body)
 }
 
 // Start provides a mock function with given fields: _a0
