@@ -46,7 +46,7 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
   // for mercury config
   bool public useArbitrumBlockNum;
   string[] public feedsHex = ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"];
-  string public constant feedParamKey = "feedIDHex";
+  string public constant feedParamKey = "feedIdHex";
   string public constant timeParamKey = "blockNumber";
 
   constructor(bool _useArbitrumBlockNum) {

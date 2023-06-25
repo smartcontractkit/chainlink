@@ -244,7 +244,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, upke
 		}
 		results[m.Index] = m.Bytes
 	}
-	r.lggr.Debugf("FeedLookup upkeep %s retryable %s reqErr %w", upkeepId.String(), retryable && !allSuccess, reqErr)
+	r.lggr.Debugf("FeedLookup upkeep %s retryable %s reqErr %v", upkeepId.String(), retryable && !allSuccess, reqErr)
 	// only retry when not all successful AND none are not retryable
 	return results, retryable && !allSuccess, reqErr
 }
