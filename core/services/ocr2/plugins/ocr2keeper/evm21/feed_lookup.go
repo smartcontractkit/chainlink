@@ -143,7 +143,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 		// only eligible upkeeps will reach here
 		upkeepResults[i].Eligible = true
 		upkeepResults[i].PerformData = performData
-		r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %+v", upkeepId, block, performData)
+		r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %+v", upkeepId, block, hexutil.Encode(performData))
 	}
 
 	return upkeepResults, nil
