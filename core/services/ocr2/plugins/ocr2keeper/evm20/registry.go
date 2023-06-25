@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -67,11 +66,6 @@ type Registry interface {
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
 }
 
-//go:generate mockery --quiet --name HttpClient --output ./mocks/ --case=underscore
-type HttpClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
 type LatestBlockGetter interface {
 	LatestBlock() int64
 }
@@ -104,7 +98,6 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, lggr logger.Lo
 		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
 		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
-		hc:       http.DefaultClient,
 		enc:      EVMAutomationEncoder20{},
 	}
 
@@ -161,7 +154,6 @@ type EvmRegistry struct {
 	headFunc      func(ocr2keepers.BlockKey)
 	runState      int
 	runError      error
-	hc            HttpClient
 	enc           EVMAutomationEncoder20
 }
 

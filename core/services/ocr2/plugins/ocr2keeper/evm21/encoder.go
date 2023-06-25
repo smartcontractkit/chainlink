@@ -102,12 +102,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			link = ext.LinkNative
 		}
 
-		id, ok := new(big.Int).SetString(string(result.Payload.Upkeep.ID), 10)
-		if !ok {
-			return nil, fmt.Errorf("failed to parse big int from upkeep id: %s", string(result.Payload.Upkeep.ID))
-		}
-
-		ids[i] = id
+		ids[i] = new(big.Int).SetBytes(result.Payload.Upkeep.ID)
 		gasLimits[i] = new(big.Int).SetUint64(result.GasAllocated)
 
 		trExt, ok := result.Payload.Trigger.Extension.(logTriggerExtension)

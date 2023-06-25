@@ -113,7 +113,8 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 			continue
 		}
 
-		r.lggr.Debugf("[FeedLookup] upkeep %s block %d values: %v\nextraData: %v", upkeepId, block, values, feedLookup.extraData)
+		r.lggr.Debugf("[FeedLookup] upkeep %s mercury results[0]=%s", upkeepId, hexutil.Encode(values[0]))
+		r.lggr.Debugf("[FeedLookup] upkeep %s block %d extraData: %v", upkeepId, block, hexutil.Encode(feedLookup.extraData))
 		mercuryBytes, err := r.checkCallback(ctx, upkeepId, values, feedLookup.extraData, uint32(block.Uint64()))
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d checkCallback err: %v", upkeepId, block, err)

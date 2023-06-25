@@ -15,15 +15,6 @@ interface IVerifierProxy {
   function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
 }
 
-struct LogTriggerConfig {
-  address contractAddress;
-  uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
-  bytes32 topic0;
-  bytes32 topic1;
-  bytes32 topic2;
-  bytes32 topic3;
-}
-
 contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface {
   event PerformingLogTriggerUpkeep(
     address indexed from,
@@ -46,11 +37,19 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
   // for mercury config
   bool public useArbitrumBlockNum;
   string[] public feedsHex = ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"];
-  string public constant feedParamKey = "feedIdHex";
-  string public constant timeParamKey = "blockNumber";
+  string public feedParamKey = "feedIdHex";
+  string public timeParamKey = "blockNumber";
 
   constructor(bool _useArbitrumBlockNum) {
     useArbitrumBlockNum = _useArbitrumBlockNum;
+  }
+
+  function setTimeParamKey(string memory timeParam) external {
+    timeParamKey = timeParam;
+  }
+
+  function setFeedParamKey(string memory feedParam) external {
+    feedParamKey = feedParam;
   }
 
   function setFeedsHex(string[] memory newFeeds) external {
@@ -107,35 +106,5 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
     } else {
       return block.number;
     }
-  }
-
-  function getBasicLogTriggerConfig(address targetContract) external view returns (bytes memory logTrigger) {
-    LogTriggerConfig memory cfg = LogTriggerConfig({
-      contractAddress: targetContract,
-      filterSelector: 0, // not applying any filter, if 1, it will check topic1, if 3, it will check both topic1 and topic2, if 5, it will check both topic1 and topic3
-      topic0: executedSig, // only triggerSig will be available at `checkLog` this will always apply
-      topic1: 0x000000000000000000000000000000000000000000000000000000000000000,
-      topic2: 0x000000000000000000000000000000000000000000000000000000000000000,
-      topic3: 0x000000000000000000000000000000000000000000000000000000000000000
-    });
-    return abi.encode(cfg);
-  }
-
-  function getAdvancedLogTriggerConfig(
-    address targetContract,
-    uint8 selector,
-    bytes32 topic0,
-    bytes32 topic1,
-    bytes32 topic2
-  ) external view returns (bytes memory logTrigger) {
-    LogTriggerConfig memory cfg = LogTriggerConfig({
-      contractAddress: targetContract,
-      filterSelector: selector, // not applying any filter, if 1, it will check topic1, if 3, it will check both topic1 and topic2, if 5, it will check both topic1 and topic3
-      topic0: topic0,
-      topic1: topic1,
-      topic2: topic2,
-      topic3: 0x000000000000000000000000000000000000000000000000000000000000000
-    });
-    return abi.encode(cfg);
   }
 }
