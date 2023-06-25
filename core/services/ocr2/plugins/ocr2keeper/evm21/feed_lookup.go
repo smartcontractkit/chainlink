@@ -26,8 +26,8 @@ import (
 
 const (
 	BlockNumber        = "blockNumber" // valid for v0.2
-	FeedID             = "feedID"      // valid for v0.3
-	FeedIDHex          = "feedIDHex"   // valid for v0.2
+	FeedID             = "feedId"      // valid for v0.3
+	FeedIDHex          = "feedIdHex"   // valid for v0.2
 	MercuryPathV2      = "/client?"
 	MercuryPathV3      = "/v1/reports?"
 	MercuryBatchPathV3 = "/v1/reports/bulk?"
