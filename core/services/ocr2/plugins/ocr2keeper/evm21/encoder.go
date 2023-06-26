@@ -31,10 +31,12 @@ var (
 	Uint256Arr            = mustNewType("uint256[]", "", nil)
 	BytesArr              = mustNewType("bytes[]", "", nil)
 	TriggerMarshalingArgs = []abi.ArgumentMarshaling{
-		{Name: "blockNumber", Type: "uint32"},
+		{Name: "txHash", Type: "bytes32"},
+		{Name: "logIndex", Type: "uint32"},
+		{Name: "blockNum", Type: "uint32"},
 		{Name: "blockHash", Type: "bytes32"},
 	}
-	TriggerArr          = mustNewType("tuple(uint32,bytes32)[]", "", TriggerMarshalingArgs)
+	TriggerArr          = mustNewType("tuple(bytes32, uint32, uint32,bytes32)[]", "", TriggerMarshalingArgs)
 	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
 	packFn              = reportArgs.Pack
 	unpackIntoMapFn     = reportArgs.UnpackIntoMap
@@ -92,14 +94,17 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 	for i, result := range results {
 		ext, ok := result.Extension.(EVMAutomationResultExtension21)
 		if !ok {
-			return nil, fmt.Errorf("unexpected check result extension struct")
-		}
-
-		// only take these values from the first result
-		// TODO: find a new way to get these values
-		if i == 0 {
-			fastGas = ext.FastGasWei
-			link = ext.LinkNative
+			//TODO: remove this hardocoding once we get a proper struct
+			fastGas = big.NewInt(1000000000)
+			link = big.NewInt(3293546100000000)
+			//return nil, fmt.Errorf("unexpected check result extension struct")
+		} else {
+			// only take these values from the first result
+			// TODO: find a new way to get these values
+			if i == 0 {
+				fastGas = ext.FastGasWei
+				link = ext.LinkNative
+			}
 		}
 
 		ids[i] = new(big.Int).SetBytes(result.Payload.Upkeep.ID)
@@ -107,19 +112,25 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 
 		trExt, ok := result.Payload.Trigger.Extension.(logTriggerExtension)
 		if !ok {
-			return nil, fmt.Errorf("unrecognized trigger extension data")
-		}
-
-		hex, err := common.ParseHexOrString(trExt.TxHash)
-		if err != nil {
-			return nil, fmt.Errorf("tx hash parse error: %w", err)
-		}
-
-		triggers[i] = wrappedTrigger{
-			TxHash:      common.BytesToHash(hex[:]),
-			LogIndex:    uint32(trExt.LogIndex),
-			BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
-			BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
+			//TODO: remove this hardocoding once we get a proper struct
+			triggers[i] = wrappedTrigger{
+				TxHash:      common.HexToHash(result.Payload.Trigger.BlockHash),
+				LogIndex:    uint32(0),
+				BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
+				BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
+			}
+			//return nil, fmt.Errorf("unrecognized trigger extension data")
+		} else {
+			hex, err := common.ParseHexOrString(trExt.TxHash)
+			if err != nil {
+				return nil, fmt.Errorf("tx hash parse error: %w", err)
+			}
+			triggers[i] = wrappedTrigger{
+				TxHash:      common.BytesToHash(hex[:]),
+				LogIndex:    uint32(trExt.LogIndex),
+				BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
+				BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
+			}
 		}
 		performDatas[i] = result.PerformData
 	}
