@@ -115,16 +115,18 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			{Name: mKeys[0], Type: TriggerArr},
 		}
 		if !ok {
-
 			//TODO: remove this hardocoding once we get a proper struct
-			triggers[i], _ =
-				triggerArgs.Pack(
-					wrappedTrigger{
-						TxHash:      common.HexToHash(result.Payload.Trigger.BlockHash),
-						LogIndex:    uint32(0),
-						BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
-						BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
-					})
+			trg, err := triggerArgs.Pack(
+				&wrappedTrigger{
+					TxHash:      common.HexToHash(result.Payload.Trigger.BlockHash),
+					LogIndex:    uint32(0),
+					BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
+					BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
+				})
+			if err != nil {
+				return nil, fmt.Errorf("trigger parse error: %w", err)
+			}
+			triggers[i] = trg
 			//return nil, fmt.Errorf("unrecognized trigger extension data")
 		} else {
 			hex, err := common.ParseHexOrString(trExt.TxHash)
