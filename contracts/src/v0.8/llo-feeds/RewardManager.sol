@@ -175,6 +175,22 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     // @inheritdoc IRewardManager
+    function payRecipients(bytes32[] calldata poolIds, address[] calldata recipients) external {
+        //the interface to _claimRewards requires an array of calldata poolIds. Forcing this to be passed as an array will improve code readability and optimize on gas
+        if(recipients.length != 1) revert InvalidPoolId();
+
+        //loop each recipient and claim the rewards for each of the pools and assets
+        for (uint256 i; i < recipients.length;) {
+            _claimRewards(recipients[i], poolIds, LINK_ADDRESS);
+            _claimRewards(recipients[i], poolIds, WRAPPED_NATIVE_ADDRESS);
+            unchecked {
+                //there will never be enough recipients for i to overflow
+                ++i;
+            }
+        }
+    }
+
+    // @inheritdoc IRewardManager
     function claimRewards(bytes32[] calldata poolIds) external override {
         //claim the rewards for each asset
         _claimRewards(msg.sender, poolIds, WRAPPED_NATIVE_ADDRESS);
