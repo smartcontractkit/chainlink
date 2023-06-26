@@ -120,8 +120,8 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 			continue
 		}
 		if has, upkeepLogs := block.Has(id, log); has {
-			lggr.Debugw("Skipping existing log", "blockNumber", log.BlockNumber,
-				"blockHash", log.BlockHash, "txHash", log.TxHash, "logIndex", log.LogIndex)
+			// lggr.Debugw("Skipping existing log", "blockNumber", log.BlockNumber,
+			// 	"blockHash", log.BlockHash, "txHash", log.TxHash, "logIndex", log.LogIndex)
 			continue
 		} else if upkeepLogs+1 > maxUpkeepLogs {
 			lggr.Debugw("Reached max logs number per upkeep, dropping log", "blockNumber", log.BlockNumber,

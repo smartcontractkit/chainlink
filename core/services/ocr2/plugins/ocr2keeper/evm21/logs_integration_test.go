@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -50,8 +51,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	defer db.Close()
 
 	opts := &kevm21.LogEventProviderOptions{
-		FetchInterval:   time.Second / 2,
-		FetchPartitions: 2,
+		ReadInterval: time.Second / 2,
 	}
 	logProvider, lp, ethClient := setupLogProvider(t, db, backend, opts)
 
@@ -131,8 +131,9 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	defer db.Close()
 
 	opts := &kevm21.LogEventProviderOptions{
-		FetchInterval:   time.Second / 2,
-		FetchPartitions: 2,
+		BlockRateLimit:  rate.Every(time.Minute),
+		BlockLimitBurst: 5,
+		ReadInterval:    time.Second / 2,
 	}
 	logProvider, lp, ethClient := setupLogProvider(t, db, backend, opts)
 
@@ -143,38 +144,39 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	poll := pollFn(ctx, t, lp, ethClient)
 
 	var wg sync.WaitGroup
-
 	for i := 0; i < 3; i++ {
-		triggerEvents(ctx, t, backend, carrol, 25, poll, contracts...)
+		triggerEvents(ctx, t, backend, carrol, n, poll, contracts...)
 		poll(backend.Commit())
-		fetchWorkers := 20
+		for dummyBlocks := 0; dummyBlocks < n*5; dummyBlocks++ {
+			_ = backend.Commit()
+		}
+		poll(backend.Commit())
+		workers := 20
 		limitErrs := int32(0)
-		for i := 0; i < fetchWorkers; i++ {
+		for i := 0; i < workers; i++ {
 			idsCp := make([]*big.Int, len(ids))
 			copy(idsCp, ids)
 			wg.Add(1)
 			go func(i int, ids []*big.Int) {
 				defer wg.Done()
-				err := logProvider.FetchLogs(ctx, true, ids...)
+				err := logProvider.ReadLogs(ctx, true, ids...)
 				if err != nil {
 					require.True(t, strings.Contains(err.Error(), "block limit exceeded"))
 					atomic.AddInt32(&limitErrs, 1)
 				}
 			}(i, idsCp)
 		}
-		_ = backend.Commit()
 		poll(backend.Commit())
 
 		wg.Wait()
-		require.GreaterOrEqual(t, 1, 1)
+		require.GreaterOrEqual(t, atomic.LoadInt32(&limitErrs), int32(1), "failed to apply limits")
 	}
 
 	logs, err := logProvider.GetLogs()
 	require.NoError(t, err)
 	require.NoError(t, logProvider.Close())
 
-	require.GreaterOrEqual(t, len(logs), 1, "failed to fetch logs")
-	require.LessOrEqual(t, len(logs), n, "failed to apply limits")
+	require.GreaterOrEqual(t, len(logs), n, "failed to read logs")
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
@@ -189,9 +191,9 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	defer db.Close()
 
 	logProvider, lp, ethClient := setupLogProvider(t, db, backend, &kevm21.LogEventProviderOptions{
-		FetchInterval:     time.Second / 2,
+		ReadInterval:      time.Second / 2,
 		LogBlocksLookback: 512,
-		FetchPartitions:   2,
+		ReadMaxBatchSize:  10,
 	})
 
 	n := 20

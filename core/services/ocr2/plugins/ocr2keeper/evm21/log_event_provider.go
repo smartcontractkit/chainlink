@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"hash"
 	"math/big"
+	"runtime"
 	"sync"
 	"time"
 
@@ -43,10 +44,12 @@ type LogEventProviderOptions struct {
 	BlockRateLimit rate.Limit
 	// BlockLimitBurst is the burst limit for fetching logs per block.
 	BlockLimitBurst int
-	// FetchInterval is the interval to fetch logs in the background.
-	FetchInterval time.Duration
-	// FetchPartitions is the number of partitions to use for fetching logs.
-	FetchPartitions int
+	// ReadInterval is the interval to fetch logs in the background.
+	ReadInterval time.Duration
+	// ReadMaxBatchSize is the max number of items in one read batch / partition.
+	ReadMaxBatchSize int
+	// Readers is the number of reader workers to spawn.
+	Readers int
 }
 
 // Defaults sets the default values for the options.
@@ -73,13 +76,16 @@ func (o *LogEventProviderOptions) Defaults() {
 		o.BlockRateLimit = rate.Every(time.Second)
 	}
 	if o.BlockLimitBurst == 0 {
-		o.BlockLimitBurst = int(o.LogBlocksLookback) + 1
+		o.BlockLimitBurst = int(o.LogBlocksLookback)
 	}
-	if o.FetchInterval == 0 {
-		o.FetchInterval = time.Second
+	if o.ReadInterval == 0 {
+		o.ReadInterval = time.Second
 	}
-	if o.FetchPartitions == 0 {
-		o.FetchPartitions = 2
+	if o.ReadMaxBatchSize == 0 {
+		o.ReadMaxBatchSize = 32
+	}
+	if o.Readers == 0 {
+		o.Readers = 2
 	}
 }
 
@@ -112,7 +118,7 @@ type LogEventProvider interface {
 
 type LogEventProviderTest interface {
 	LogEventProvider
-	FetchLogs(ctx context.Context, force bool, ids ...*big.Int) error
+	ReadLogs(ctx context.Context, force bool, ids ...*big.Int) error
 }
 
 // logEventProvider manages log filters for upkeeps and enables to read the log events.
@@ -157,31 +163,20 @@ func (p *logEventProvider) Start(pctx context.Context) error {
 	p.cancel = cancel
 	p.lock.Unlock()
 
-	h := sha256.New()
+	readQ := make(chan []*big.Int, 32)
 
-	ticker := time.NewTicker(p.opts.FetchInterval)
-	defer ticker.Stop()
-
-	numOfPartitions := p.opts.FetchPartitions
-	partitionIdx := 0
-	lggr := p.lggr.With("numOfPartitions", numOfPartitions)
-
-	for {
-		select {
-		case <-ticker.C:
-			ids := p.getPartitionIds(h, partitionIdx%numOfPartitions, numOfPartitions)
-			if len(ids) != 0 {
-				go func(ids []*big.Int, lggr logger.Logger) {
-					if err := p.FetchLogs(ctx, true, ids...); err != nil {
-						lggr.Warnw("failed to fetch logs", "err", err)
-					}
-				}(ids, lggr.With("ids", len(ids), "partitionIdx", partitionIdx))
-				partitionIdx = (partitionIdx + 1) % numOfPartitions
-			}
-		case <-ctx.Done():
-			return nil
-		}
+	for i := 0; i < p.opts.Readers; i++ {
+		go p.startReader(ctx, readQ)
 	}
+
+	return p.scheduleReadJobs(ctx, func(ids []*big.Int) {
+		select {
+		case readQ <- ids:
+		case <-ctx.Done():
+		default:
+			p.lggr.Warnw("readQ is full, dropping ids", "ids", ids)
+		}
+	})
 }
 
 func (p *logEventProvider) Close() error {
@@ -258,17 +253,17 @@ func (p *logEventProvider) GetLogs() ([]UpkeepPayload, error) {
 	return payloads, nil
 }
 
-// FetchLogs fetches the logs for the given upkeeps.
-func (p *logEventProvider) FetchLogs(ctx context.Context, force bool, ids ...*big.Int) error {
+// ReadLogs fetches the logs for the given upkeeps.
+func (p *logEventProvider) ReadLogs(ctx context.Context, force bool, ids ...*big.Int) error {
 	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 	entries := p.getEntries(latest, force, ids...)
 
-	// p.lggr.Debugw("fetching logs for entries", "latestBlock", latest, "entries", len(entries))
+	// p.lggr.Debugw("reading logs for entries", "latestBlock", latest, "entries", len(entries))
 
-	err = p.fetchLogs(ctx, latest, entries...)
+	err = p.readLogs(ctx, latest, entries...)
 	p.updateEntriesLastPoll(entries)
 	if err != nil {
 		return fmt.Errorf("fetched logs with errors: %w", err)
@@ -277,20 +272,82 @@ func (p *logEventProvider) FetchLogs(ctx context.Context, force bool, ids ...*bi
 	return nil
 }
 
+// scheduleReadJobs starts a scheduler that pushed ids to readQ for reading logs in the background.
+func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([]*big.Int)) error {
+	ctx, cancel := context.WithCancel(pctx)
+	defer cancel()
+
+	ticker := time.NewTicker(p.opts.ReadInterval)
+	defer ticker.Stop()
+
+	h := sha256.New()
+	partitionIdx := 0
+
+	for {
+		select {
+		case <-ticker.C:
+			ids := p.getPartitionIds(h, partitionIdx)
+			if len(ids) > 0 {
+				maxBatchSize := p.opts.ReadMaxBatchSize
+				for len(ids) > maxBatchSize {
+					batch := ids[:maxBatchSize]
+					execute(batch)
+					ids = ids[maxBatchSize:]
+					runtime.Gosched()
+				}
+				execute(ids)
+			}
+			partitionIdx++
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+// startReader starts a reader that reads logs from the ids coming from readQ.
+func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big.Int) {
+	ctx, cancel := context.WithCancel(pctx)
+	defer cancel()
+
+	lggr := p.lggr.With("where", "reader")
+
+	for {
+		select {
+		case batch := <-readQ:
+			if err := p.ReadLogs(ctx, true, batch...); err != nil {
+				lggr.Warnw("failed to read logs", "err", err)
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
 // getPartitionIds returns the upkeepIDs for the given partition and the number of partitions.
 // Partitioning is done by hashing the upkeepID and taking the modulus of the number of partitions.
-func (p *logEventProvider) getPartitionIds(hashFn hash.Hash, partition, numOfPartitions int) []*big.Int {
+func (p *logEventProvider) getPartitionIds(hashFn hash.Hash, partition int) []*big.Int {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
+
+	numOfPartitions := len(p.active) / p.opts.ReadMaxBatchSize
+	if numOfPartitions < 1 {
+		numOfPartitions = 1
+	}
+	partition = partition % numOfPartitions
 
 	var ids []*big.Int
 	for _, entry := range p.active {
 		if len(entry.filter.Addresses) == 0 {
 			continue
 		}
-		h := hashFn.Sum(entry.filter.Addresses[0].Bytes())
+		n, err := hashFn.Write(entry.filter.Addresses[0].Bytes())
+		if err != nil || n == 0 {
+			p.lggr.Warnw("failed to hash upkeep address", "err", err, "addr", entry.filter.Addresses[0])
+			continue
+		}
+		h := hashFn.Sum(nil)
 		// taking only 6 bytes to avoid working with big numbers
-		i := big.NewInt(0).SetBytes(h[:6])
+		i := big.NewInt(0).SetBytes(h[len(h)-6:])
 		if int(i.Int64())%numOfPartitions == partition {
 			ids = append(ids, entry.id)
 		}
@@ -348,9 +405,11 @@ func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big
 	return filters
 }
 
-// fetchLogs calls log poller to get the logs for the given upkeep entries.
-// TODO: think more about reorgs, currently we use p.opts.LookbackBuffer to check for reorgs based logs
-func (p *logEventProvider) fetchLogs(ctx context.Context, latest int64, entries ...*upkeepFilterEntry) (merr error) {
+// readLogs calls log poller to get the logs for the given upkeep entries.
+// we use p.opts.LookbackBuffer to check for reorgs based logs.
+//
+// TODO: batch entries by contract address and call log poller once per contract address
+func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries ...*upkeepFilterEntry) (merr error) {
 	// mainLggr := p.lggr.With("latestBlock", latest)
 	logBlocksLookback := p.opts.LogBlocksLookback
 	maxBurst := int(logBlocksLookback*2 + 1)
@@ -376,7 +435,6 @@ func (p *logEventProvider) fetchLogs(ctx context.Context, latest int64, entries 
 			continue
 		}
 		// lggr = lggr.With("startBlock", start)
-		// TODO: TBD what function to use to get logs
 		logs, err := p.poller.LogsWithSigs(start, latest, entry.filter.EventSigs, entry.filter.Addresses[0], pg.WithParentCtx(ctx))
 		if err != nil {
 			resv.Cancel() // cancels limit reservation as we failed to get logs
