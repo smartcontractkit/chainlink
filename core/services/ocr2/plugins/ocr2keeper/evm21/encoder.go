@@ -110,7 +110,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		ids[i] = new(big.Int).SetBytes(result.Payload.Upkeep.ID)
 		gasLimits[i] = new(big.Int).SetUint64(result.GasAllocated)
 
-		trExt, ok := result.Payload.Trigger.Extension.(logTriggerExtension)
+		//trExt, ok := result.Payload.Trigger.Extension.(logTriggerExtension)
 		triggerArgs := abi.Arguments{
 			{Name: mKeys[0], Type: Trigger},
 		}
@@ -118,10 +118,10 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			//TODO: remove this hardocoding once we get a proper struct
 			trg, err := triggerArgs.Pack(
 				&wrappedTrigger{
-					TxHash:      common.HexToHash(result.Payload.Trigger.BlockHash),
+					TxHash:      common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 					LogIndex:    uint32(0),
-					BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
-					BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
+					BlockNumber: uint32(0),
+					BlockHash:   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 				})
 			if err != nil {
 				return nil, fmt.Errorf("trigger parse error: %w", err)
@@ -129,17 +129,17 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			triggers[i] = trg
 			//return nil, fmt.Errorf("unrecognized trigger extension data")
 		} else {
-			hex, err := common.ParseHexOrString(trExt.TxHash)
-			if err != nil {
+			//hex, err := common.ParseHexOrString(trExt.TxHash)
+			/*if err != nil {
 				return nil, fmt.Errorf("tx hash parse error: %w", err)
-			}
+			}*/
 			//TODO: remove this hardocoding once we get a proper struct
 			trg, err := triggerArgs.Pack(
 				&wrappedTrigger{
-					TxHash:      common.BytesToHash(hex[:]),
-					LogIndex:    uint32(trExt.LogIndex),
-					BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
-					BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
+					TxHash:      common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
+					LogIndex:    uint32(0),
+					BlockNumber: uint32(0),
+					BlockHash:   common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000"),
 				})
 			if err != nil {
 				return nil, fmt.Errorf("trigger parse error: %w", err)
