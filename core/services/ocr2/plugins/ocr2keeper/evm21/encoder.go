@@ -132,14 +132,17 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 				return nil, fmt.Errorf("tx hash parse error: %w", err)
 			}
 			//TODO: remove this hardocoding once we get a proper struct
-			triggers[i], _ =
-				triggerArgs.Pack(
-					wrappedTrigger{
-						TxHash:      common.BytesToHash(hex[:]),
-						LogIndex:    uint32(trExt.LogIndex),
-						BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
-						BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
-					})
+			trg, err := triggerArgs.Pack(
+				&wrappedTrigger{
+					TxHash:      common.BytesToHash(hex[:]),
+					LogIndex:    uint32(trExt.LogIndex),
+					BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
+					BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
+				})
+			if err != nil {
+				return nil, fmt.Errorf("trigger parse error: %w", err)
+			}
+			triggers[i] = trg
 		}
 		performDatas[i] = result.PerformData
 	}
