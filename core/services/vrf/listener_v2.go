@@ -1318,7 +1318,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.l.Debugw("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+			lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
 			return
 		} else if consumed {
 			return
@@ -1339,7 +1339,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+			lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
 			return
 		} else if consumed {
 			return

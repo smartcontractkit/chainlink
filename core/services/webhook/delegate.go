@@ -51,7 +51,7 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {
 	err := d.externalInitiatorManager.Notify(*jb.WebhookSpecID)
 	if err != nil {
 		d.lggr.Errorw("Webhook delegate AfterJobCreated errored",
-			"error", err,
+			"err", err,
 			"jobID", jb.ID,
 		)
 	}
@@ -61,7 +61,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {
 	err := d.externalInitiatorManager.DeleteJob(*spec.WebhookSpecID)
 	if err != nil {
 		d.lggr.Errorw("Webhook delegate OnDeleteJob errored",
-			"error", err,
+			"err", err,
 			"jobID", spec.ID,
 		)
 	}
@@ -174,7 +174,7 @@ func (r *webhookJobRunner) RunJob(ctx context.Context, jobUUID uuid.UUID, reques
 
 	_, err := r.runner.Run(ctx, &run, jobLggr, true, nil)
 	if err != nil {
-		jobLggr.Errorw("Error running pipeline for webhook job", "error", err)
+		jobLggr.Errorw("Error running pipeline for webhook job", "err", err)
 		return 0, err
 	}
 	if run.ID == 0 {
