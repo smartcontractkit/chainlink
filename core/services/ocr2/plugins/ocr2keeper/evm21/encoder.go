@@ -148,8 +148,10 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		}
 		performDatas[i] = result.PerformData
 	}
-
+	fmt.Println("[encoder]", "fastGas", fastGas, "link", link, "ids", ids, "gasLimits", gasLimits, "triggers", triggers, "performDatas", performDatas)
 	bts, err := packFn(fastGas, link, ids, gasLimits, triggers, performDatas)
+	fmt.Printf("[encoder] encoded bytes: %x\n", bts)
+
 	if err != nil {
 		return []byte{}, fmt.Errorf("%w: failed to pack report data", err)
 	}
