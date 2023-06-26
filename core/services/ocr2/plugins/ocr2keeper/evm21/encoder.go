@@ -46,7 +46,7 @@ var (
 		{Name: mKeys[1], Type: Uint256},
 		{Name: mKeys[2], Type: Uint256Arr},
 		{Name: mKeys[3], Type: Uint256Arr},
-		{Name: mKeys[4], Type: TriggerArr},
+		{Name: mKeys[4], Type: BytesArr},
 		{Name: mKeys[5], Type: BytesArr},
 	}
 )
@@ -88,7 +88,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 
 	ids := make([]*big.Int, len(results))
 	gasLimits := make([]*big.Int, len(results))
-	triggers := make([]wrappedTrigger, len(results))
+	triggers := make([][]byte, len(results))
 	performDatas := make([][]byte, len(results))
 
 	for i, result := range results {
@@ -111,26 +111,35 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		gasLimits[i] = new(big.Int).SetUint64(result.GasAllocated)
 
 		trExt, ok := result.Payload.Trigger.Extension.(logTriggerExtension)
+		triggerArgs := abi.Arguments{
+			{Name: mKeys[0], Type: TriggerArr},
+		}
 		if !ok {
+
 			//TODO: remove this hardocoding once we get a proper struct
-			triggers[i] = wrappedTrigger{
-				TxHash:      common.HexToHash(result.Payload.Trigger.BlockHash),
-				LogIndex:    uint32(0),
-				BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
-				BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
-			}
+			triggers[i], _ =
+				triggerArgs.Pack(
+					wrappedTrigger{
+						TxHash:      common.HexToHash(result.Payload.Trigger.BlockHash),
+						LogIndex:    uint32(0),
+						BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
+						BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
+					})
 			//return nil, fmt.Errorf("unrecognized trigger extension data")
 		} else {
 			hex, err := common.ParseHexOrString(trExt.TxHash)
 			if err != nil {
 				return nil, fmt.Errorf("tx hash parse error: %w", err)
 			}
-			triggers[i] = wrappedTrigger{
-				TxHash:      common.BytesToHash(hex[:]),
-				LogIndex:    uint32(trExt.LogIndex),
-				BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
-				BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
-			}
+			//TODO: remove this hardocoding once we get a proper struct
+			triggers[i], _ =
+				triggerArgs.Pack(
+					wrappedTrigger{
+						TxHash:      common.BytesToHash(hex[:]),
+						LogIndex:    uint32(trExt.LogIndex),
+						BlockNumber: uint32(result.Payload.Trigger.BlockNumber),
+						BlockHash:   common.HexToHash(result.Payload.Trigger.BlockHash),
+					})
 		}
 		performDatas[i] = result.PerformData
 	}
