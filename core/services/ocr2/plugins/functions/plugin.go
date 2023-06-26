@@ -83,8 +83,8 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Functi
 	}
 	allServices = append(allServices, job.NewServiceAdapter(functionsReportingPluginOracle))
 
-	if pluginConfig.GatewayConnectorConfig != nil && pluginConfig.S4Constraints != nil {
-		allowlist, err2 := gwFunctions.NewOnchainAllowlist(conf.Chain.Client(), contractAddress, pluginConfig.AllowlistBlockConfirmations, conf.Logger)
+	if pluginConfig.GatewayConnectorConfig != nil && pluginConfig.S4Constraints != nil && pluginConfig.OnchainAllowlist != nil {
+		allowlist, err2 := gwFunctions.NewOnchainAllowlist(conf.Chain.Client(), *pluginConfig.OnchainAllowlist, conf.Logger)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to call NewOnchainAllowlist while creating a Functions Reporting Plugin")
 		}
@@ -96,7 +96,7 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Functi
 		}
 		allServices = append(allServices, connector)
 	} else {
-		conf.Logger.Warn("No GatewayConnectorConfig or S4Constraints found in the plugin config, GatewayConnector will not be enabled")
+		listenerLogger.Warn("No GatewayConnectorConfig, S4Constraints or OnchainAllowlist is found in the plugin config, GatewayConnector will not be enabled")
 	}
 
 	return allServices, nil

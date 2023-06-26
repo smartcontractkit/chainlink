@@ -12,11 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 )
 
 type functionsConnectorHandler struct {
+	utils.StartStopOnce
+
 	connector   connector.GatewayConnector
 	signerKey   *ecdsa.PrivateKey
 	nodeAddress string
@@ -73,11 +76,15 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 }
 
 func (h *functionsConnectorHandler) Start(ctx context.Context) error {
-	return nil
+	return h.StartOnce("FunctionsConnectorHandler", func() error {
+		return h.allowlist.Start(ctx)
+	})
 }
 
 func (h *functionsConnectorHandler) Close() error {
-	return nil
+	return h.StopOnce("FunctionsConnectorHandler", func() error {
+		return h.allowlist.Close()
+	})
 }
 
 func (h *functionsConnectorHandler) handleSecretsList(ctx context.Context, gatewayId string, body *api.MessageBody, fromAddr ethCommon.Address) {

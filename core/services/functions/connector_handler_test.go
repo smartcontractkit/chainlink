@@ -29,11 +29,18 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	storage := s4mocks.NewStorage(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	allowlist := gfmocks.NewOnchainAllowlist(t)
-
+	allowlist.On("Start", mock.Anything).Return(nil)
+	allowlist.On("Close", mock.Anything).Return(nil)
 	handler := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, logger)
 	require.NotNil(t, handler)
 
 	handler.SetConnector(connector)
+
+	err := handler.Start(testutils.Context(t))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		assert.NoError(t, handler.Close())
+	})
 
 	t.Run("Sign", func(t *testing.T) {
 		signature, err := handler.Sign([]byte("test"))
@@ -42,14 +49,6 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		signer, err := common.ValidateSignature(signature, []byte("test"))
 		require.NoError(t, err)
 		require.Equal(t, addr.Bytes(), signer)
-	})
-
-	t.Run("Start", func(t *testing.T) {
-		assert.Nil(t, handler.Start(testutils.Context(t)))
-	})
-
-	t.Run("Close", func(t *testing.T) {
-		assert.Nil(t, handler.Close())
 	})
 
 	t.Run("HandleGatewayMessage", func(t *testing.T) {
