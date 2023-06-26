@@ -69,7 +69,7 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
       bytes memory t3 = abi.encodePacked(log.topics[3]);
       address exchange = abi.decode(t3, (address));
 
-      revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encodePacked(orderId, amount, exchange));
+      revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(orderId, amount, exchange));
     }
     revert("could not find matching event sig");
   }
