@@ -36,7 +36,7 @@ var (
 		{Name: "blockNum", Type: "uint32"},
 		{Name: "blockHash", Type: "bytes32"},
 	}
-	TriggerArr          = mustNewType("tuple(bytes32, uint32, uint32,bytes32)[]", "", TriggerMarshalingArgs)
+	Trigger             = mustNewType("tuple(bytes32, uint32, uint32,bytes32)", "", TriggerMarshalingArgs)
 	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
 	packFn              = reportArgs.Pack
 	unpackIntoMapFn     = reportArgs.UnpackIntoMap
@@ -112,7 +112,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 
 		trExt, ok := result.Payload.Trigger.Extension.(logTriggerExtension)
 		triggerArgs := abi.Arguments{
-			{Name: mKeys[0], Type: TriggerArr},
+			{Name: mKeys[0], Type: Trigger},
 		}
 		if !ok {
 			//TODO: remove this hardocoding once we get a proper struct
