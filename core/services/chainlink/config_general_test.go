@@ -4,7 +4,9 @@ package chainlink
 
 import (
 	_ "embed"
+	"fmt"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,61 +15,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
-
-type TestSecrets struct {
-	TestConfigSecrets
-}
-
-type TestConfigSecrets struct {
-	Database   TestDatabaseSecrets          `toml:",omitempty"`
-	Explorer   TestExplorerSecrets          `toml:",omitempty"`
-	Password   TestPasswordsSecrets         `toml:",omitempty"`
-	Pyroscope  TestPyroscopeSecrets         `toml:",omitempty"`
-	Prometheus TestPrometheusSecrets        `toml:",omitempty"`
-	Mercury    TestMercurySecrets           `toml:",omitempty"`
-	Threshold  TestThresholdKeyShareSecrets `toml:",omitempty"`
-}
-
-type TestDatabaseSecrets struct {
-	URL                  models.URL
-	BackupURL            models.URL
-	AllowSimplePasswords *bool
-}
-
-type TestExplorerSecrets struct {
-	AccessKey string
-	Secret    string
-}
-
-type TestPasswordsSecrets struct {
-	Keystore string
-	VRF      string
-}
-
-type TestPyroscopeSecrets struct {
-	AuthToken string
-}
-
-type TestPrometheusSecrets struct {
-	AuthToken string
-}
-
-type TestMercurySecrets struct {
-	Credentials map[string]TestMercuryCredentials
-}
-
-type TestMercuryCredentials struct {
-	URL      models.URL
-	Username string
-	Password string
-}
-
-type TestThresholdKeyShareSecrets struct {
-	ThresholdKeyShare string
-}
 
 func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New()
@@ -179,11 +129,32 @@ func TestConfig_LogSQL(t *testing.T) {
 	assert.Equal(t, config.Database().LogSQL(), false)
 }
 
+//go:embed testdata/mergingsecretsdata/secrets-database.toml
+var databaseSecretsTOML string
+
+//go:embed testdata/mergingsecretsdata/secrets-explorer.toml
+var explorerSecretsTOML string
+
+//go:embed testdata/mergingsecretsdata/secrets-password.toml
+var passwordSecretsTOML string
+
+//go:embed testdata/mergingsecretsdata/secrets-pyroscope.toml
+var pyroscopeSecretsTOML string
+
+//go:embed testdata/mergingsecretsdata/secrets-prometheus.toml
+var prometheusSecretsTOML string
+
+//go:embed testdata/mergingsecretsdata/secrets-mercury_a.toml
+var mercurySecretsTOML_a string
+
+//go:embed testdata/mergingsecretsdata/secrets-mercury_b.toml
+var mercurySecretsTOML_b string
+
+//go:embed testdata/mergingsecretsdata/secrets-threshold.toml
+var thresholdSecretsTOML string
+
 func TestConfig_SecretsMerging(t *testing.T) {
 	setInFile := "set in config file"
-	allow := false
-	dbURL := "postgres://172.17.0.1:5432/primary"
-	backupDbURL := "postgres://172.17.0.1:5433/replica"
 	testConfigFileContents := Config{
 		Core: toml.Core{
 			RootDir: &setInFile,
@@ -195,115 +166,82 @@ func TestConfig_SecretsMerging(t *testing.T) {
 			},
 		},
 	}
-	testSecretsFileContentsComplete := TestSecrets{
-		TestConfigSecrets: TestConfigSecrets{
-			Database: TestDatabaseSecrets{
-				URL:                  *models.MustParseURL(dbURL),
-				BackupURL:            *models.MustParseURL(backupDbURL),
-				AllowSimplePasswords: &allow,
-			},
-			Explorer: TestExplorerSecrets{
-				AccessKey: "EXPLORER_ACCESS_KEY",
-				Secret:    "EXPLORER_TOKEN",
-			},
-			Password: TestPasswordsSecrets{
-				Keystore: "mysecretpassword",
-				VRF:      "mysecretvrfpassword",
-			},
-			Pyroscope: TestPyroscopeSecrets{
-				AuthToken: "PYROSCOPE_TOKEN",
-			},
-			Prometheus: TestPrometheusSecrets{
-				AuthToken: "PROM_TOKEN",
-			},
-			Mercury: TestMercurySecrets{
-				Credentials: map[string]TestMercuryCredentials{
-					"key1": {
-						URL:      *models.MustParseURL("https://mercury.stage.link"),
-						Username: "user",
-						Password: "user_pass",
-					},
-					"key2": {
-						URL:      *models.MustParseURL("https://mercury.stage.link"),
-						Username: "user",
-						Password: "user_pass",
-					},
-				},
-			},
-			Threshold: TestThresholdKeyShareSecrets{
-				ThresholdKeyShare: "THRESHOLD_SECRET",
-			},
-		},
-	}
 
-	additionalMercurySecrets := TestMercurySecrets{
-		Credentials: map[string]TestMercuryCredentials{
-			"key3": {
-				URL:      *models.MustParseURL("https://mercury.stage.link"),
-				Username: "user",
-				Password: "user_pass",
-			},
-			"key4": {
-				URL:      *models.MustParseURL("https://mercury.stage.link"),
-				Username: "user",
-				Password: "user_pass",
-			},
-		},
-	}
-	t.Run("verify secrets merging", func(t *testing.T) {
+	t.Run("verify secrets merging in GeneralConfigOpts.New()", func(t *testing.T) {
+		databaseSecrets, err := parseSecrets(databaseSecretsTOML)
+		require.NoErrorf(t, err, "error: %s", err)
+		explorerSecrets, err1 := parseSecrets(explorerSecretsTOML)
+		require.NoErrorf(t, err1, "error: %s", err1)
+		passwordSecrets, err2 := parseSecrets(passwordSecretsTOML)
+		require.NoErrorf(t, err2, "error: %s", err2)
+		pyroscopeSecrets, err3 := parseSecrets(pyroscopeSecretsTOML)
+		require.NoErrorf(t, err3, "error: %s", err3)
+		prometheusSecrets, err4 := parseSecrets(prometheusSecretsTOML)
+		require.NoErrorf(t, err4, "error: %s", err4)
+		mercurySecrets_a, err5 := parseSecrets(mercurySecretsTOML_a)
+		require.NoErrorf(t, err5, "error: %s", err5)
+		mercurySecrets_b, err6 := parseSecrets(mercurySecretsTOML_b)
+		require.NoErrorf(t, err6, "error: %s", err6)
+		thresholdSecrets, err7 := parseSecrets(thresholdSecretsTOML)
+		require.NoErrorf(t, err7, "error: %s", err7)
+
 		opts := new(GeneralConfigOpts)
 		configFiles := []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")}
 		secretsFiles := []string{
-			utils.MakeTestFile(t, TestSecrets{TestConfigSecrets: TestConfigSecrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1.toml"),
-			utils.MakeTestFile(t, TestSecrets{TestConfigSecrets: TestConfigSecrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets2.toml"),
-			utils.MakeTestFile(t, TestSecrets{TestConfigSecrets: TestConfigSecrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets3.toml"),
-			utils.MakeTestFile(t, TestSecrets{TestConfigSecrets: TestConfigSecrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets4.toml"),
-			utils.MakeTestFile(t, TestSecrets{TestConfigSecrets: TestConfigSecrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets5.toml"),
-			utils.MakeTestFile(t, TestSecrets{TestConfigSecrets: TestConfigSecrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets6.toml"),
-			utils.MakeTestFile(t, TestSecrets{TestConfigSecrets: TestConfigSecrets{Mercury: additionalMercurySecrets}}, "test_secrets6a.toml"),
-			utils.MakeTestFile(t, TestSecrets{TestConfigSecrets: TestConfigSecrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets7.toml"),
+			"testdata/mergingsecretsdata/secrets-database.toml",
+			"testdata/mergingsecretsdata/secrets-explorer.toml",
+			"testdata/mergingsecretsdata/secrets-password.toml",
+			"testdata/mergingsecretsdata/secrets-pyroscope.toml",
+			"testdata/mergingsecretsdata/secrets-prometheus.toml",
+			"testdata/mergingsecretsdata/secrets-mercury_a.toml",
+			"testdata/mergingsecretsdata/secrets-mercury_b.toml",
+			"testdata/mergingsecretsdata/secrets-threshold.toml",
 		}
-		err := opts.Setup(configFiles, secretsFiles)
+		err = opts.Setup(configFiles, secretsFiles)
 		require.NoErrorf(t, err, "error: %s", err)
 
 		err = opts.parse()
-		require.NoErrorf(t, err, "error: %s", err)
-
 		require.NoErrorf(t, err, "error testing: %s, %s", configFiles, secretsFiles)
 
-		assert.Equal(t, dbURL, opts.Secrets.Database.URL.URL().String())
-		assert.Equal(t, backupDbURL, opts.Secrets.Database.BackupURL.URL().String())
-		assert.Equal(t, testSecretsFileContentsComplete.Explorer.AccessKey, opts.Secrets.Explorer.AccessKey.XXXTestingOnlyString())
-		assert.Equal(t, testSecretsFileContentsComplete.Explorer.Secret, opts.Secrets.Explorer.Secret.XXXTestingOnlyString())
-		assert.Equal(t, testSecretsFileContentsComplete.Password.Keystore, opts.Secrets.Password.Keystore.XXXTestingOnlyString())
-		assert.Equal(t, testSecretsFileContentsComplete.Password.VRF, opts.Secrets.Password.VRF.XXXTestingOnlyString())
-		assert.Equal(t, testSecretsFileContentsComplete.Pyroscope.AuthToken, opts.Secrets.Pyroscope.AuthToken.XXXTestingOnlyString())
-		assert.Equal(t, testSecretsFileContentsComplete.Prometheus.AuthToken, opts.Secrets.Prometheus.AuthToken.XXXTestingOnlyString())
-		assert.Equal(t, *merge(testSecretsFileContentsComplete.Mercury, additionalMercurySecrets), convertMercurySecrets(opts.Secrets.Mercury))
-		assert.Equal(t, testSecretsFileContentsComplete.Threshold.ThresholdKeyShare, opts.Secrets.Threshold.ThresholdKeyShare.XXXTestingOnlyString())
+		assert.Equal(t, databaseSecrets.Database.URL.URL().String(), opts.Secrets.Database.URL.URL().String())
+		assert.Equal(t, databaseSecrets.Database.BackupURL.URL().String(), opts.Secrets.Database.BackupURL.URL().String())
+
+		assert.Equal(t, (string)(*explorerSecrets.Explorer.AccessKey), (string)(*opts.Secrets.Explorer.AccessKey))
+		assert.Equal(t, (string)(*explorerSecrets.Explorer.Secret), (string)(*opts.Secrets.Explorer.Secret))
+		assert.Equal(t, (string)(*passwordSecrets.Password.Keystore), (string)(*opts.Secrets.Password.Keystore))
+		assert.Equal(t, (string)(*passwordSecrets.Password.VRF), (string)(*opts.Secrets.Password.VRF))
+		assert.Equal(t, (string)(*pyroscopeSecrets.Pyroscope.AuthToken), (string)(*opts.Secrets.Pyroscope.AuthToken))
+		assert.Equal(t, (string)(*prometheusSecrets.Prometheus.AuthToken), (string)(*opts.Secrets.Prometheus.AuthToken))
+		assert.Equal(t, (string)(*thresholdSecrets.Threshold.ThresholdKeyShare), (string)(*opts.Secrets.Threshold.ThresholdKeyShare))
+
+		assertDeepEqualityMercurySecrets(*merge(mercurySecrets_a.Mercury, mercurySecrets_b.Mercury), opts.Secrets.Mercury)
 	})
 }
 
-func convertMercurySecrets(mercurySecrets toml.MercurySecrets) TestMercurySecrets {
-	testSecrets := TestMercurySecrets{
-		Credentials: make(map[string]TestMercuryCredentials),
+func parseSecrets(secrets string) (*Secrets, error) {
+	var s Secrets
+	if err := config.DecodeTOML(strings.NewReader(secrets), &s); err != nil {
+		return nil, fmt.Errorf("failed to decode secrets TOML: %w", err)
 	}
 
-	for key, credentials := range mercurySecrets.Credentials {
-		testCredentials := TestMercuryCredentials{
-			URL:      (models.URL)(*credentials.URL),
-			Username: (string)(*credentials.Username),
-			Password: (string)(*credentials.Password),
-		}
-
-		testSecrets.Credentials[key] = testCredentials
-	}
-
-	return testSecrets
+	return &s, nil
 }
 
-func merge(map1 TestMercurySecrets, map2 TestMercurySecrets) *TestMercurySecrets {
-	combinedMap := make(map[string]TestMercuryCredentials)
+func assertDeepEqualityMercurySecrets(expected toml.MercurySecrets, actual toml.MercurySecrets) error {
+	if len(expected.Credentials) != len(actual.Credentials) {
+		return fmt.Errorf("maps are not equal in length: len(expected): %d, len(actual): %d", len(expected.Credentials), len(actual.Credentials))
+	}
+
+	for key, value := range expected.Credentials {
+		if actual.Credentials[key] != value {
+			return fmt.Errorf("maps are not equal: expected[%s] = %s, actual[%s] = %s", key, value, key, actual.Credentials[key])
+		}
+	}
+	return nil
+}
+
+func merge(map1 toml.MercurySecrets, map2 toml.MercurySecrets) *toml.MercurySecrets {
+	combinedMap := make(map[string]toml.MercuryCredentials)
 
 	for key, value := range map1.Credentials {
 		combinedMap[key] = value
@@ -313,5 +251,5 @@ func merge(map1 TestMercurySecrets, map2 TestMercurySecrets) *TestMercurySecrets
 		combinedMap[key] = value
 	}
 
-	return &TestMercurySecrets{Credentials: combinedMap}
+	return &toml.MercurySecrets{Credentials: combinedMap}
 }
