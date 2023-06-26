@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {IERC165} from "../vendor/IERC165.sol";
+import {IERC165} from "../shared/vendor/IERC165.sol";
+import {Common} from "../libraries/internal/Common.sol";
 
 // OCR2 standard
 uint256 constant MAX_NUM_ORACLES = 31;
@@ -189,7 +190,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifier
-  function verify(bytes calldata signedReport, address sender) external override returns (bytes memory response) {
+  function verify(bytes calldata signedReport, address sender) external override returns (bytes memory response, bytes memory quote) {
     if (msg.sender != i_verifierProxyAddr) revert AccessForbidden();
     (
       bytes32[3] memory reportContext,
@@ -223,7 +224,11 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     _verifySignatures(hashedReport, reportContext, rs, ss, rawVs, s_config);
     emit ReportVerified(feedId, sender);
-    return reportData;
+
+    //read and validate the quote
+    bytes memory quoteData = new bytes(0);
+
+    return (reportData, quoteData);
   }
 
   /// @notice Validates parameters of the report
@@ -403,7 +408,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     uint8 f,
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
-    bytes memory offchainConfig
+    bytes memory offchainConfig,
+    Common.AddressAndWeight[] memory recipientAddressAndWeights
   ) external override checkConfigValid(signers.length, f) onlyOwner {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
@@ -440,7 +446,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       });
     }
 
-    IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest);
+    IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest, recipientAddressAndWeights);
 
     emit ConfigSet(
       feedId,

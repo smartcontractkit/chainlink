@@ -9,6 +9,10 @@ import {ErroredVerifier} from "./mocks/ErroredVerifier.sol";
 import {Verifier} from "../Verifier.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
+import {FeeManager} from "../FeeManager.sol";
+import {RewardManager} from "../RewardManager.sol";
+import {IERC20} from "../../shared/vendor/SafeERC20.sol";
+import {Common} from "../../libraries/internal/Common.sol";
 
 contract BaseTest is Test {
   uint256 internal constant MAX_ORACLES = 31;
@@ -41,6 +45,10 @@ contract BaseTest is Test {
   Verifier internal s_verifier;
   Verifier internal s_verifier_2;
   ErroredVerifier internal s_erroredVerifier;
+  FeeManager internal s_feeManager;
+  RewardManager internal s_rewardManager;
+  IERC20 internal s_link;
+  IERC20 internal s_native;
 
   struct Signer {
     uint256 mockPrivateKey;
@@ -81,7 +89,10 @@ contract BaseTest is Test {
       abi.encodeWithSelector(IERC165.supportsInterface.selector, IVerifier.verify.selector),
       abi.encode(true)
     );
-    s_verifierProxy = new VerifierProxy(AccessControllerInterface(address(0)));
+
+    s_feeManager = new FeeManager(address(s_native), address(s_link));
+    s_rewardManager = new RewardManager(address(s_native), address(s_link));
+    s_verifierProxy = new VerifierProxy(AccessControllerInterface(address(0)), s_feeManager, s_rewardManager);
 
     s_verifier = new Verifier(address(s_verifierProxy));
     s_verifier_2 = new Verifier(address(s_verifierProxy));
@@ -226,7 +237,8 @@ contract BaseTestWithConfiguredVerifier is BaseTest {
       FAULT_TOLERANCE,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
   }
 }
@@ -258,7 +270,8 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       FAULT_TOLERANCE_TWO,
       bytes(""),
       2,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
     (, , s_configDigestTwo) = s_verifier.latestConfigDetails(FEED_ID);
 
@@ -271,7 +284,8 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       FAULT_TOLERANCE_THREE,
       bytes(""),
       3,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
     (s_numConfigsSet, , s_configDigestThree) = s_verifier.latestConfigDetails(FEED_ID);
 
@@ -283,7 +297,8 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       FAULT_TOLERANCE,
       bytes(""),
       4,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
     (, , s_configDigestFour) = s_verifier.latestConfigDetails(FEED_ID_2);
 
@@ -296,7 +311,8 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       FAULT_TOLERANCE,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
     (, , s_configDigestFive) = s_verifier_2.latestConfigDetails(FEED_ID_3);
   }

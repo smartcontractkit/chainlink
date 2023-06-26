@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {AccessControllerInterface} from "../interfaces/AccessControllerInterface.sol";
-import {IERC165} from "../vendor/IERC165.sol";
+import {IERC165} from "../shared/vendor/IERC165.sol";
+import {IRewardManager} from "./interfaces/IRewardManager.sol";
+import {IFeeManager} from "./interfaces/IFeeManager.sol";
+import {SafeERC20} from "../shared/vendor/SafeERC20.sol";
+import {IERC20} from "../shared/vendor/IERC20.sol";
+import {Common} from "../libraries/internal/Common.sol";
 
 /**
  * The verifier proxy contract is the gateway for all report verification requests
@@ -14,6 +19,8 @@ import {IERC165} from "../vendor/IERC165.sol";
  * it to the correct verifier contract.
  */
 contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterface {
+  using SafeERC20 for IERC20;
+
   /// @notice This event is emitted whenever a new verifier contract is set
   /// @param oldConfigDigest The config digest that was previously the latest config
   /// digest of the verifier contract at the verifier address.
@@ -62,6 +69,12 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @param configDigest The digest for which a verifier is not found
   error VerifierNotFound(bytes32 configDigest);
 
+  /// @notice This error is thrown if a bad weight was passed when setting default recipients
+  error BadWeight();
+
+  /// @notice This error is thrown when the verifier does not include the correct amount of funds to verify a report
+  error InvalidDepositAmount();
+
   /// @notice Mapping of authorized verifiers
   mapping(address => bool) private s_initializedVerifiers;
 
@@ -71,8 +84,16 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @notice The contract to control addresses that are allowed to verify reports
   AccessControllerInterface private s_accessController;
 
-  constructor(AccessControllerInterface accessController) ConfirmedOwner(msg.sender) {
+  /// @notice The contract to control fees for report verification
+  IFeeManager private immutable s_feeManager;
+
+  /// @notice The contract to control reward distribution for report verification
+  IRewardManager private immutable s_rewardsManager;
+
+  constructor(AccessControllerInterface accessController, IFeeManager feeManager, IRewardManager rewardManager) ConfirmedOwner(msg.sender) {
     s_accessController = accessController;
+    s_feeManager = feeManager;
+    s_rewardsManager = rewardManager;
   }
 
   /// @dev reverts if the caller does not have access by the accessController contract or is the contract itself.
@@ -141,7 +162,21 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     bytes32 configDigest = bytes32(signedReport);
     address verifierAddress = s_verifiersByConfig[configDigest];
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);
-    return IVerifier(verifierAddress).verify(signedReport, msg.sender);
+    (bytes memory verifiedReport, bytes memory quoteData) = IVerifier(verifierAddress).verify(signedReport, msg.sender);
+
+    //if we have a registered fee and rewards manager, bill the verifier
+    if(address(s_feeManager) != address(0) && address(s_rewardsManager) != address(0)) {
+        //decode the fee
+        Common.Asset memory asset = s_feeManager.getFee(msg.sender, verifiedReport, quoteData);
+
+        //some users might not be billed
+        if(asset.amount > 0) {
+          //bill the payee
+          s_rewardsManager.onFeePaid(configDigest, msg.sender, asset);
+        }
+    }
+
+    return verifiedReport;
   }
 
   /// @inheritdoc IVerifierProxy
@@ -155,9 +190,14 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @inheritdoc IVerifierProxy
   function setVerifier(
     bytes32 currentConfigDigest,
-    bytes32 newConfigDigest
+    bytes32 newConfigDigest,
+    Common.AddressAndWeight[] memory addressAndWeights
   ) external override onlyUnsetConfigDigest(newConfigDigest) onlyInitializedVerifier {
     s_verifiersByConfig[newConfigDigest] = msg.sender;
+
+    //Set the reward recipients for this digest
+    s_rewardsManager.setRewardRecipients(newConfigDigest, addressAndWeights);
+
     emit VerifierSet(currentConfigDigest, newConfigDigest, msg.sender);
   }
 

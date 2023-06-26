@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
+import {Common} from "../../libraries/internal/Common.sol";
+
 interface IVerifierProxy {
   /**
    * @notice Verifies that the data encoded has been signed
@@ -14,9 +16,10 @@ interface IVerifierProxy {
    * @notice Sets a new verifier for a config digest
    * @param currentConfigDigest The current config digest
    * @param newConfigDigest The config digest to set
+   * @param addressAndWeights The addresses and weights of reward recipients
    * reports for a given config digest.
    */
-  function setVerifier(bytes32 currentConfigDigest, bytes32 newConfigDigest) external;
+  function setVerifier(bytes32 currentConfigDigest, bytes32 newConfigDigest, Common.AddressAndWeight[] memory addressAndWeights) external;
 
   /**
    * @notice Sets the verifier address to initialized

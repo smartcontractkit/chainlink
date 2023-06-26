@@ -4,6 +4,7 @@ pragma solidity 0.8.16;
 import {BaseTest, BaseTestWithConfiguredVerifier} from "../BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
 import {SimpleWriteAccessController} from "../../../SimpleWriteAccessController.sol";
+import {Common} from "../../../libraries/internal/Common.sol";
 
 contract Verifier_setConfig is BaseTest {
   address[] internal s_signerAddrs;
@@ -23,7 +24,8 @@ contract Verifier_setConfig is BaseTest {
       FAULT_TOLERANCE,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
   }
 }

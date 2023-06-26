@@ -2,13 +2,14 @@
 pragma solidity 0.8.16;
 
 import {IVerifier} from "../../interfaces/IVerifier.sol";
+import {Common} from "../../../libraries/internal/Common.sol";
 
 contract ErroredVerifier is IVerifier {
   function supportsInterface(bytes4 interfaceId) public pure override returns (bool) {
     return interfaceId == this.verify.selector;
   }
 
-  function verify(bytes memory /**signedReport**/, address /**sender**/) external pure override returns (bytes memory) {
+  function verify(bytes memory /**signedReport**/, address /**sender**/) external pure override returns (bytes memory, bytes memory) {
     revert("Failed to verify");
   }
 
@@ -19,7 +20,8 @@ contract ErroredVerifier is IVerifier {
     uint8,
     bytes memory,
     uint64,
-    bytes memory
+    bytes memory,
+    Common.AddressAndWeight[] memory
   ) external pure override {
     revert("Failed to set config");
   }

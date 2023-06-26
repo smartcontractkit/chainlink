@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {IERC165} from "../../vendor/IERC165.sol";
+import {IERC165} from "../../shared/vendor/IERC165.sol";
+import {Common} from "../../libraries/internal/Common.sol";
 
 interface IVerifier is IERC165 {
+
   /**
    * @notice Verifies that the data encoded has been signed
    * correctly by routing to the correct verifier.
@@ -14,8 +16,9 @@ interface IVerifier is IERC165 {
    * we can't just use msg.sender to log the requester as the msg.sender
    * contract will always be the proxy.
    * @return response The encoded verified response.
+   * @return quote The quote included within the report
    */
-  function verify(bytes memory signedReport, address requester) external returns (bytes memory response);
+  function verify(bytes memory signedReport, address requester) external returns (bytes memory response, bytes memory quote);
 
   /**
    * @notice sets offchain reporting protocol configuration incl. participating oracles
@@ -26,6 +29,7 @@ interface IVerifier is IERC165 {
    * @param onchainConfig serialized configuration used by the contract (and possibly oracles)
    * @param offchainConfigVersion version number for offchainEncoding schema
    * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
+   * @param recipientAddressAndWeights the address and weights of all the recipients to receive rewards
    */
   function setConfig(
     bytes32 feedId,
@@ -34,7 +38,8 @@ interface IVerifier is IERC165 {
     uint8 f,
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
-    bytes memory offchainConfig
+    bytes memory offchainConfig,
+    Common.AddressAndWeight[] memory recipientAddressAndWeights
   ) external;
 
   /**

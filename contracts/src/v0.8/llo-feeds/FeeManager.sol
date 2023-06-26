@@ -6,6 +6,7 @@ import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {IERC165} from "../shared/vendor/IERC165.sol";
 import {ByteUtil} from "../libraries/internal/ByteUtil.sol";
+import {Common} from "../libraries/internal/Common.sol";
 
 /*
  * @title FeeManager
@@ -40,14 +41,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
     //the error thrown if the discount exceeds the maximum allowed
     error InvalidDiscount();
-
-    //the struct to store the fee data
-    struct FeeData {
-        // The token address of the fee
-        address token;
-        // The amount of the fee
-        uint256 amount;
-    }
 
     /**
      * @notice Construct the FeeManager contract
@@ -90,13 +83,13 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     // @inheritdoc IFeeManager
-    function getFee(address sender, bytes calldata signedReport, bytes calldata quoteMetadata) external view returns (bytes memory feeData) {
+    function getFee(address sender, bytes calldata signedReport, bytes calldata quoteMetadata) external view returns (Common.Asset memory asset) {
         //The quote
-        FeeData memory fee;
+        Common.Asset memory fee;
 
         //any report without a fee will default to 0
         if (signedReport.length < LINK_FEE_INDEX) {
-            return abi.encode(fee);
+            return fee;
         }
 
         //decode the quoteMetadata to get the desired fee
@@ -104,10 +97,10 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
         //calculate either the LINK fee or native fee if it's within the report
         if(quoteFeeAddress == LINK_ADDRESS) {
-            fee.token = LINK_ADDRESS;
+            fee.assetAddress = LINK_ADDRESS;
             fee.amount = signedReport.readUint256(LINK_FEE_INDEX);
         } else {
-            fee.token = NATIVE_ADDRESS;
+            fee.assetAddress = NATIVE_ADDRESS;
             fee.amount = signedReport.readUint256(NATIVE_FEE_INDEX);
         }
 
@@ -117,7 +110,17 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
         //set the fee amount to the discounted fee, rounding down
         fee.amount = fee.amount - (fee.amount * subscriberDiscounts[sender][feedId][quoteFeeAddress] / TOTAL_DISCOUNT);
 
-        //return the encoded fee data
-        return abi.encode(fee);
+        //return the fee
+        return fee;
+    }
+
+    // @inheritdoc IFeeManager
+    function updateSubscriberDiscountAddress(address newSubscriberAddress, bytes32 feedId) external {
+        //update the subscriber discount address for both link and native, removing the old address
+        subscriberDiscounts[newSubscriberAddress][feedId][LINK_ADDRESS] = subscriberDiscounts[msg.sender][feedId][LINK_ADDRESS];
+        subscriberDiscounts[newSubscriberAddress][feedId][NATIVE_ADDRESS] = subscriberDiscounts[msg.sender][feedId][NATIVE_ADDRESS];
+
+        delete subscriberDiscounts[msg.sender][feedId][LINK_ADDRESS];
+        delete subscriberDiscounts[msg.sender][feedId][NATIVE_ADDRESS];
     }
 }

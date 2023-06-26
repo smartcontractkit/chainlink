@@ -2,6 +2,7 @@
 pragma solidity 0.8.16;
 
 import {IERC165} from "../../shared/vendor/IERC165.sol";
+import {Common} from "../../libraries/internal/Common.sol";
 
 interface IFeeManager is IERC165 {
 
@@ -29,11 +30,12 @@ interface IFeeManager is IERC165 {
 	 * @param feeMetadata any metadata required to fetch the fee
 	 * @return feeData fee data containing token and amount
      */
-    function getFee(address sender, bytes calldata signedReport, bytes calldata feeMetadata) external returns (bytes memory feeData);
+    function getFee(address sender, bytes calldata signedReport, bytes calldata feeMetadata) external returns (Common.Asset memory feeData);
 
-    // @notice The asset struct to hold the address of the asset and the amount
-    struct Asset {
-        address assetAddress;
-        uint256 amount;
-    }
+    /**
+     * @notice Updates the subscriber address for a discount
+     * @param newSubscriberAddress new subscriber address
+     * @param feedId feed id the discount is applied to
+     */
+    function updateSubscriberDiscountAddress(address newSubscriberAddress, bytes32 feedId) external;
 }

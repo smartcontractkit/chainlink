@@ -5,6 +5,7 @@ import {BaseTestWithConfiguredVerifier} from "./BaseVerifierTest.t.sol";
 import {Verifier} from "../Verifier.sol";
 import {VerifierProxy} from "../VerifierProxy.sol";
 import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
+import {Common} from "../../libraries/internal/Common.sol";
 
 contract VerifierVerifyTest is BaseTestWithConfiguredVerifier {
   bytes32[3] internal s_reportContext;
@@ -200,7 +201,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
       _getSigners(FAULT_TOLERANCE + 1)
     );
     changePrank(address(s_verifierProxy));
-    bytes memory response = s_verifier.verify(signedReport, msg.sender);
+    (bytes memory response, bytes memory quote) = s_verifier.verify(signedReport, msg.sender);
 
     assertReportsEqual(response, s_testReportOne);
   }
@@ -248,7 +249,8 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
       FAULT_TOLERANCE_TWO,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
     (, , s_newConfigDigest) = s_verifier.latestConfigDetails(FEED_ID);
   }
@@ -273,7 +275,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
       _getSigners(FAULT_TOLERANCE + 1)
     );
     changePrank(address(s_verifierProxy));
-    bytes memory response = s_verifier.verify(signedReport, msg.sender);
+    (bytes memory response, bytes memory quote) = s_verifier.verify(signedReport, msg.sender);
     assertReportsEqual(response, s_testReportOne);
   }
 
@@ -285,7 +287,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
       _getSigners(FAULT_TOLERANCE_TWO + 1)
     );
     changePrank(address(s_verifierProxy));
-    bytes memory response = s_verifier.verify(signedReport, msg.sender);
+    (bytes memory response, bytes memory quote) = s_verifier.verify(signedReport, msg.sender);
     assertReportsEqual(response, s_testReportOne);
   }
 

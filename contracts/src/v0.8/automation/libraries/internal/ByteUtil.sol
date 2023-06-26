@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 /*
- * @title FeeManager
+ * @title ByteUtil
  * @author Michael Fletcher
  * @notice Byte utility functions for efficiently parsing and manipulating byte data
  */
@@ -85,7 +85,7 @@ library ByteUtil {
      */
     function readAddress(bytes memory data, uint256 offset) internal pure returns (address result) {
         //bounds check
-        require(offset + 20 <= data.length, "Invalid offset");
+        if(offset + 20 > data.length) revert InvalidOffset();
 
         assembly {
             //load 32 byte word accounting for 32 bit length and offset
@@ -103,7 +103,7 @@ library ByteUtil {
      */
     function readBytes32(bytes memory data, uint256 offset) internal pure returns (bytes32 result) {
         //bounds check
-        require(offset + 32 <= data.length, "Invalid offset");
+        if(offset + 32 > data.length) revert InvalidOffset();
 
         assembly {
             //load 32 byte word accounting for 32 bit length and offset
