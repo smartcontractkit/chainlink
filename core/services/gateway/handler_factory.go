@@ -3,7 +3,6 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -31,15 +30,7 @@ func NewHandlerFactory(chains evm.ChainSet, lggr logger.Logger) HandlerFactory {
 func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error) {
 	switch handlerType {
 	case FunctionsHandlerType:
-		chainId, ok := big.NewInt(0).SetString(donConfig.ChainId, 10)
-		if !ok {
-			return nil, fmt.Errorf("invalid chain ID %s", donConfig.ChainId)
-		}
-		chain, err := hf.chains.Get(chainId)
-		if err != nil {
-			return nil, err
-		}
-		return functions.NewFunctionsHandler(handlerConfig, donConfig, don, chain, hf.lggr)
+		return functions.NewFunctionsHandler(handlerConfig, donConfig, don, hf.chains, hf.lggr)
 	case DummyHandlerType:
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
 	default:

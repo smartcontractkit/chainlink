@@ -19,7 +19,6 @@ type ConnectionManagerConfig struct {
 }
 
 type DONConfig struct {
-	ChainId       string
 	DonId         string
 	HandlerName   string
 	HandlerConfig json.RawMessage
