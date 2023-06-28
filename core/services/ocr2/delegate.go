@@ -995,7 +995,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		DB:              d.db,
 		Chain:           chain,
 		ContractID:      spec.ContractID,
-		Lggr:            lggr,
+		Logger:          lggr,
 		MailMon:         d.mailMon,
 		URLsMonEndpoint: d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
 		EthKeystore:     d.ethKs,

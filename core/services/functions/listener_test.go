@@ -52,12 +52,12 @@ func ptr[T any](t T) *T { return &t }
 
 var (
 	RequestID         functions_service.RequestID = newRequestID()
-	RequestIDStr      string                      = fmt.Sprintf("0x%x", [32]byte(RequestID))
+	RequestIDStr                                  = fmt.Sprintf("0x%x", [32]byte(RequestID))
 	SubscriptionOwner common.Address              = common.BigToAddress(big.NewInt(42069))
-	SubscriptionID    uint64                      = 5
-	ResultBytes       []byte                      = []byte{0xab, 0xcd}
-	ErrorBytes        []byte                      = []byte{0xff, 0x11}
-	Domains           []string                    = []string{"github.com", "google.com"}
+	SubscriptionID                                = uint64(5)
+	ResultBytes                                   = []byte{0xab, 0xcd}
+	ErrorBytes                                    = []byte{0xff, 0x11}
+	Domains                                       = []string{"github.com", "google.com"}
 )
 
 func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySec int) *FunctionsListenerUniverse {
@@ -131,7 +131,7 @@ func PrepareAndStartFunctionsListener(t *testing.T, cbor []byte) (*FunctionsList
 		RequestId:          RequestID,
 		RequestingContract: common.Address{},
 		RequestInitiator:   common.Address{},
-		SubscriptionId:     SubscriptionID,
+		SubscriptionId:     uint64(SubscriptionID),
 		SubscriptionOwner:  SubscriptionOwner,
 		Data:               cbor,
 	}
@@ -345,7 +345,7 @@ func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 		args.Get(3).(pg.QOpt)(&queryerWrapper)
 		<-queryerWrapper.ParentCtx.Done()
 		ormCallExited.Done()
-	}).Return(errors.New("timeout!"))
+	}).Return(errors.New("timeout"))
 
 	uni.service.HandleLog(log)
 
