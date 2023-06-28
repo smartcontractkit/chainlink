@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"math/big"
-	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -18,23 +16,17 @@ import (
 )
 
 type FunctionsHandlerConfig struct {
-	AllowlistCheckEnabled       bool   `json:"allowlistCheckEnabled"`
-	AllowlistChainID            int64  `json:"allowlistChainID"`
-	AllowlistContractAddress    string `json:"allowlistContractAddress"`
-	AllowlistBlockConfirmations int64  `json:"allowlistBlockConfirmations"`
-	AllowlistUpdateFrequencySec int    `json:"allowlistUpdateFrequencySec"`
-	AllowlistUpdateTimeoutSec   int    `json:"allowlistUpdateTimeoutSec"`
+	OnchainAllowlistChainID string `json:"onchainAllowlistChainId"`
+	// Not specifying OnchainAllowlist config disables allowlist checks
+	OnchainAllowlist *OnchainAllowlistConfig `json:"onchainAllowlist"`
 }
 
 type functionsHandler struct {
-	handlerConfig     *FunctionsHandlerConfig
-	donConfig         *config.DONConfig
-	don               handlers.DON
-	allowlist         OnchainAllowlist
-	serviceContext    context.Context
-	serviceCancel     context.CancelFunc
-	shutdownWaitGroup sync.WaitGroup
-	lggr              logger.Logger
+	handlerConfig *FunctionsHandlerConfig
+	donConfig     *config.DONConfig
+	don           handlers.DON
+	allowlist     OnchainAllowlist
+	lggr          logger.Logger
 }
 
 var _ handlers.Handler = (*functionsHandler)(nil)
@@ -45,25 +37,26 @@ func NewFunctionsHandler(handlerConfig json.RawMessage, donConfig *config.DONCon
 		return nil, err
 	}
 	var allowlist OnchainAllowlist
-	if cfg.AllowlistCheckEnabled {
-		chain, err := chains.Get(big.NewInt(cfg.AllowlistChainID))
+	if cfg.OnchainAllowlist != nil {
+		chainId, ok := big.NewInt(0).SetString(cfg.OnchainAllowlistChainID, 10)
+		if !ok {
+			return nil, errors.New("invalid chain ID")
+		}
+		chain, err := chains.Get(chainId)
 		if err != nil {
 			return nil, err
 		}
-		allowlist, err = NewOnchainAllowlist(chain.Client(), common.HexToAddress(cfg.AllowlistContractAddress), cfg.AllowlistBlockConfirmations, lggr)
+		allowlist, err = NewOnchainAllowlist(chain.Client(), *cfg.OnchainAllowlist, lggr)
 		if err != nil {
 			return nil, err
 		}
 	}
-	serviceContext, serviceCancel := context.WithCancel(context.Background())
 	return &functionsHandler{
-		handlerConfig:  cfg,
-		donConfig:      donConfig,
-		don:            don,
-		allowlist:      allowlist,
-		serviceContext: serviceContext,
-		serviceCancel:  serviceCancel,
-		lggr:           lggr,
+		handlerConfig: cfg,
+		donConfig:     donConfig,
+		don:           don,
+		allowlist:     allowlist,
+		lggr:          lggr,
 	}, nil
 }
 
@@ -72,31 +65,20 @@ func ParseConfig(handlerConfig json.RawMessage) (*FunctionsHandlerConfig, error)
 	if err := json.Unmarshal(handlerConfig, &cfg); err != nil {
 		return nil, err
 	}
-	if cfg.AllowlistCheckEnabled {
-		if !common.IsHexAddress(cfg.AllowlistContractAddress) {
-			return nil, errors.New("allowlistContractAddress is not a valid hex address")
-		}
-		if cfg.AllowlistUpdateFrequencySec <= 0 {
-			return nil, errors.New("allowlistUpdateFrequencySec must be positive")
-		}
-		if cfg.AllowlistUpdateTimeoutSec <= 0 {
-			return nil, errors.New("allowlistUpdateTimeoutSec must be positive")
-		}
-	}
 	return &cfg, nil
 }
 
 func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
 	if err := msg.Validate(); err != nil {
-		h.lggr.Debug("received invalid message", "err", err)
+		h.lggr.Debugw("received invalid message", "err", err)
 		return err
 	}
 	sender := common.HexToAddress(msg.Body.Sender)
 	if h.allowlist != nil && !h.allowlist.Allow(sender) {
-		h.lggr.Debug("received a message from a non-allowlisted address", "sender", msg.Body.Sender)
+		h.lggr.Debugw("received a message from a non-allowlisted address", "sender", msg.Body.Sender)
 		return errors.New("sender not allowlisted")
 	}
-	h.lggr.Debug("received a valid message", "sender", msg.Body.Sender)
+	h.lggr.Debugw("received a valid message", "sender", msg.Body.Sender)
 	return nil
 }
 
@@ -104,21 +86,16 @@ func (h *functionsHandler) HandleNodeMessage(ctx context.Context, msg *api.Messa
 	return nil
 }
 
-func (h *functionsHandler) Start(ctx context.Context) error {
+func (h *functionsHandler) Start(ctx context.Context) (err error) {
 	if h.allowlist != nil {
-		checkFreq := time.Duration(h.handlerConfig.AllowlistUpdateFrequencySec) * time.Second
-		checkTimeout := time.Duration(h.handlerConfig.AllowlistUpdateTimeoutSec) * time.Second
-		h.shutdownWaitGroup.Add(1)
-		go func() {
-			h.allowlist.UpdatePeriodically(h.serviceContext, checkFreq, checkTimeout)
-			h.shutdownWaitGroup.Done()
-		}()
+		err = h.allowlist.Start(ctx)
 	}
-	return nil
+	return
 }
 
-func (h *functionsHandler) Close() error {
-	h.serviceCancel()
-	h.shutdownWaitGroup.Wait()
-	return nil
+func (h *functionsHandler) Close() (err error) {
+	if h.allowlist != nil {
+		err = h.allowlist.Close()
+	}
+	return
 }

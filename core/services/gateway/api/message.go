@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
+	"strings"
 
 	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -62,7 +63,7 @@ func (m *Message) Validate() error {
 		return err
 	}
 	hexSigner := utils.StringToHex(string(signerBytes))
-	if m.Body.Sender != "" && m.Body.Sender != hexSigner {
+	if m.Body.Sender != "" && !strings.EqualFold(m.Body.Sender, hexSigner) {
 		return errors.New("sender doesn't match signer")
 	}
 	m.Body.Sender = hexSigner
