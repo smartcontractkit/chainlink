@@ -182,6 +182,6 @@ func MakeTestFile(t *testing.T, contents any, fileName string) string {
 	b, err := toml.Marshal(contents)
 	require.NoError(t, err)
 
-	require.NoError(t, os.WriteFile(p, b, 0777))
+	require.NoError(t, os.WriteFile(p, b, 0600))
 	return p
 }
