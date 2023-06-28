@@ -234,8 +234,21 @@ func assertDeepEqualityMercurySecrets(expected toml.MercurySecrets, actual toml.
 	}
 
 	for key, value := range expected.Credentials {
-		if actual.Credentials[key] != value {
-			return fmt.Errorf("maps are not equal: expected[%s] = %s, actual[%s] = %s", key, value, key, actual.Credentials[key])
+		equal := true
+		actualValue := actual.Credentials[key]
+		if (string)(*value.Username) != (string)(*actualValue.Username) {
+			equal = false
+		}
+		if (string)(*value.Password) != (string)(*actualValue.Password) {
+			equal = false
+		}
+		if value.URL.URL().String() != actualValue.URL.URL().String() {
+			equal = false
+		}
+		if !equal {
+			return fmt.Errorf("maps are not equal: expected[%s] = {%s, %s, %s}, actual[%s] = {%s, %s, %s}",
+				key, (string)(*value.Username), (string)(*value.Password), value.URL.URL().String(),
+				key, (string)(*actualValue.Username), (string)(*actualValue.Password), actualValue.URL.URL().String())
 		}
 	}
 	return nil

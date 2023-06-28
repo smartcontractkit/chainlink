@@ -2,8 +2,6 @@ package utils
 
 import (
 	"fmt"
-	"github.com/pelletier/go-toml/v2"
-	"github.com/stretchr/testify/require"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -11,6 +9,9 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/pelletier/go-toml/v2"
+	"github.com/stretchr/testify/require"
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
