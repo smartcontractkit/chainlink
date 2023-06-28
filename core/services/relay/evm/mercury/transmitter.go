@@ -193,7 +193,7 @@ func (mt *mercuryTransmitter) runloop() {
 			return
 		} else if err != nil {
 			mt.transmitConnectionErrorCount.Inc()
-			mt.lggr.Errorw("Transmit report failed", "req", t.Req, "error", err, "reportCtx", t.ReportCtx)
+			mt.lggr.Errorw("Transmit report failed", "error", err, "reportCtx", t.ReportCtx)
 			if ok := mt.queue.Push(t.Req, t.ReportCtx); !ok {
 				mt.lggr.Error("Failed to push report to transmit queue; queue is closed")
 				return
@@ -240,7 +240,7 @@ func (mt *mercuryTransmitter) runloop() {
 					}
 				}
 				transmitServerErrorCount.WithLabelValues(mt.feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
-				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
+				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
 	}
