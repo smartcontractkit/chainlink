@@ -38,7 +38,7 @@ type FunctionsServicesConfig struct {
 	DB                *sqlx.DB
 	Chain             evm.Chain
 	ContractID        string
-	Lggr              logger.Logger
+	Logger            logger.Logger
 	MailMon           *utils.MailboxMonitor
 	URLsMonEndpoint   commontypes.MonitoringEndpoint
 	EthKeystore       keystore.Eth
@@ -53,7 +53,8 @@ const (
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
 func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
-	pluginORM := functions.NewORM(conf.DB, conf.Lggr, conf.QConfig, common.HexToAddress(conf.ContractID))
+	pluginORM := functions.NewORM(conf.DB, conf.Logger, conf.QConfig, common.HexToAddress(conf.ContractID))
+	s4ORM := s4.NewPostgresORM(conf.DB, conf.Logger, conf.QConfig, s4.SharedTableName, FunctionsS4Namespace)
 
 	var pluginConfig config.PluginConfig
 	if err := json.Unmarshal(conf.Job.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig); err != nil {
@@ -78,7 +79,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs *libocr2.OCR2
 			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextBytes),
 			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextIdLength),
 			time.Duration(pluginConfig.DecryptionQueueConfig.CompletedCacheTimeoutSec)*time.Second,
-			conf.Lggr.Named("DecryptionQueue"),
+			conf.Logger.Named("DecryptionQueue"),
 		)
 		decryptor = decryptionQueue
 		thresholdServicesConfig := threshold.ThresholdServicesConfig{
@@ -92,10 +93,10 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs *libocr2.OCR2
 		}
 		allServices = append(allServices, thresholdService)
 	} else {
-		conf.Lggr.Warn("ThresholdKeyShare is empty. Threshold secrets decryption plugin is disabled.")
+		conf.Logger.Warn("ThresholdKeyShare is empty. Threshold secrets decryption plugin is disabled.")
 	}
 
-	listenerLogger := conf.Lggr.Named("FunctionsListener")
+	listenerLogger := conf.Logger.Named("FunctionsListener")
 	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
 	functionsListener := functions.NewFunctionsListener(
 		oracleContract,
