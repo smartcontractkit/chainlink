@@ -220,21 +220,9 @@ const encodeLogTrigger = (logTrigger: LogTrigger) => {
 }
 
 const encodeReport = (report: Report) => {
-  // TODO - we should update the report bytes to match the struct
-  // return (
-  //   '0x' +
-  //   automationUtils.interface.encodeFunctionData('_report', [report]).slice(10)
-  // )
-  return ethers.utils.defaultAbiCoder.encode(
-    ['uint256', 'uint256', 'uint256[]', 'uint256[]', 'bytes[]', 'bytes[]'],
-    [
-      report.fastGasWei,
-      report.linkNative,
-      report.upkeepIds,
-      report.gasLimits,
-      report.triggers,
-      report.performDatas,
-    ],
+  return (
+    '0x' +
+    automationUtils.interface.encodeFunctionData('_report', [report]).slice(10)
   )
 }
 
