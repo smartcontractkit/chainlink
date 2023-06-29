@@ -413,9 +413,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return d.newServicesOCR2Keepers(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
 	case job.OCR2Functions:
-		thresholdPluginId := int32(1)
+		const (
+			_ int32 = iota
+			thresholdPluginId
+			s4PluingId
+		)
 		thresholdPluginDB := NewDB(d.db, spec.ID, thresholdPluginId, lggr, d.cfg.Database())
-		return d.newServicesOCR2Functions(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, thresholdPluginDB, lc, ocrLogger)
+		s4PluginDB := NewDB(d.db, spec.ID, s4PluingId, lggr, d.cfg.Database())
+		return d.newServicesOCR2Functions(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -933,6 +938,7 @@ func (d *Delegate) newServicesOCR2Functions(
 	kb ocr2key.KeyBundle,
 	functionsOcrDB *db,
 	thresholdOcrDB *db,
+	s4OcrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
@@ -986,6 +992,21 @@ func (d *Delegate) newServicesOCR2Functions(
 		ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
 	}
 
+	s4OracleArgs := libocr2.OCR2OracleArgs{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractTransmitter:          functionsProvider.ContractTransmitter(),
+		ContractConfigTracker:        functionsProvider.ContractConfigTracker(),
+		Database:                     s4OcrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2S4),
+		OffchainConfigDigester:       functionsProvider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kb,
+		ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
+	}
+
 	encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()
 	var thresholdKeyShare []byte
 	if len(encryptedThresholdKeyShare) > 0 {
@@ -1014,7 +1035,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		ThresholdKeyShare: thresholdKeyShare,
 	}
 
-	functionsServices, err := functions.NewFunctionsServices(&functionsOracleArgs, nil, &functionsServicesConfig)
+	functionsServices, err := functions.NewFunctionsServices(&functionsOracleArgs, nil, &s4OracleArgs, &functionsServicesConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewFunctionsServices")
 	}
