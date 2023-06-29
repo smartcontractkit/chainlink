@@ -3,6 +3,7 @@ package functions
 import (
 	"encoding/json"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -23,23 +24,25 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type FunctionsServicesConfig struct {
-	Job             job.Job
-	JobORM          job.ORM
-	BridgeORM       bridges.ORM
-	QConfig         pg.QConfig
-	DB              *sqlx.DB
-	Chain           evm.Chain
-	ContractID      string
-	Logger          logger.Logger
-	MailMon         *utils.MailboxMonitor
-	URLsMonEndpoint commontypes.MonitoringEndpoint
-	EthKeystore     keystore.Eth
+	Job               job.Job
+	JobORM            job.ORM
+	BridgeORM         bridges.ORM
+	QConfig           pg.QConfig
+	DB                *sqlx.DB
+	Chain             evm.Chain
+	ContractID        string
+	Logger            logger.Logger
+	MailMon           *utils.MailboxMonitor
+	URLsMonEndpoint   commontypes.MonitoringEndpoint
+	EthKeystore       keystore.Eth
+	ThresholdKeyShare []byte
 }
 
 const (
@@ -49,7 +52,7 @@ const (
 )
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
-func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
+func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
 	pluginORM := functions.NewORM(conf.DB, conf.Logger, conf.QConfig, common.HexToAddress(conf.ContractID))
 	s4ORM := s4.NewPostgresORM(conf.DB, conf.Logger, conf.QConfig, s4.SharedTableName, FunctionsS4Namespace)
 
@@ -67,17 +70,54 @@ func NewFunctionsServices(sharedOracleArgs *libocr2.OCR2OracleArgs, conf *Functi
 	if err != nil {
 		return nil, errors.Wrapf(err, "Functions: failed to create a FunctionsOracle wrapper for address: %v", contractAddress)
 	}
+
+	var decryptor threshold.Decryptor
+	// thresholdOracleArgs nil check will be removed once the Threshold plugin is fully integrated w/ Functions
+	if len(conf.ThresholdKeyShare) > 0 && thresholdOracleArgs != nil {
+		decryptionQueue := threshold.NewDecryptionQueue(
+			int(pluginConfig.DecryptionQueueConfig.MaxQueueLength),
+			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextBytes),
+			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextIdLength),
+			time.Duration(pluginConfig.DecryptionQueueConfig.CompletedCacheTimeoutSec)*time.Second,
+			conf.Logger.Named("DecryptionQueue"),
+		)
+		decryptor = decryptionQueue
+		thresholdServicesConfig := threshold.ThresholdServicesConfig{
+			DecryptionQueue:    decryptionQueue,
+			KeyshareWithPubKey: conf.ThresholdKeyShare,
+			ConfigParser:       config.ThresholdConfigParser{},
+		}
+		thresholdService, err2 := threshold.NewThresholdService(thresholdOracleArgs, &thresholdServicesConfig)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "error calling NewThresholdServices")
+		}
+		allServices = append(allServices, thresholdService)
+	} else {
+		conf.Logger.Warn("ThresholdKeyShare is empty. Threshold secrets decryption plugin is disabled.")
+	}
+
 	listenerLogger := conf.Logger.Named("FunctionsListener")
 	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
-	functionsListener := functions.NewFunctionsListener(oracleContract, conf.Job, bridgeAccessor, pluginORM, pluginConfig, conf.Chain.LogBroadcaster(), listenerLogger, conf.MailMon, conf.URLsMonEndpoint)
+	functionsListener := functions.NewFunctionsListener(
+		oracleContract,
+		conf.Job,
+		bridgeAccessor,
+		pluginORM,
+		pluginConfig,
+		conf.Chain.LogBroadcaster(),
+		listenerLogger,
+		conf.MailMon,
+		conf.URLsMonEndpoint,
+		decryptor,
+	)
 	allServices = append(allServices, functionsListener)
 
-	sharedOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
-		Logger:    sharedOracleArgs.Logger,
+	functionsOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
+		Logger:    functionsOracleArgs.Logger,
 		PluginORM: pluginORM,
 		JobID:     conf.Job.ExternalJobID,
 	}
-	functionsReportingPluginOracle, err := libocr2.NewOracle(*sharedOracleArgs)
+	functionsReportingPluginOracle, err := libocr2.NewOracle(*functionsOracleArgs)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to call NewOracle to create a Functions Reporting Plugin")
 	}

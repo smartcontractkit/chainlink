@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -128,13 +129,25 @@ type FunctionsListener struct {
 	logger            logger.Logger
 	mailMon           *utils.MailboxMonitor
 	urlsMonEndpoint   commontypes.MonitoringEndpoint
+	decryptor         threshold.Decryptor
 }
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, bridgeAccessor BridgeAccessor, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
+func NewFunctionsListener(
+	oracle *ocr2dr_oracle.OCR2DROracle,
+	job job.Job,
+	bridgeAccessor BridgeAccessor,
+	pluginORM ORM,
+	pluginConfig config.PluginConfig,
+	logBroadcaster log.Broadcaster,
+	lggr logger.Logger,
+	mailMon *utils.MailboxMonitor,
+	urlsMonEndpoint commontypes.MonitoringEndpoint,
+	decryptor threshold.Decryptor,
+) *FunctionsListener {
 	return &FunctionsListener{
 		oracle:          oracle,
 		oracleHexAddr:   oracle.Address().Hex(),
@@ -148,6 +161,7 @@ func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, bridg
 		logger:          lggr,
 		mailMon:         mailMon,
 		urlsMonEndpoint: urlsMonEndpoint,
+		decryptor:       decryptor,
 	}
 }
 
@@ -352,7 +366,26 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 		return
 	}
 
-	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, "", requestData)
+	nodeProvidedSecrets := ""
+	if l.decryptor != nil && requestData.SecretsLocation == LocationRemote && len(requestData.Secrets) > 0 {
+		thresholdEncSecrets, userError, err2 := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
+		if err2 != nil {
+			l.logger.Errorw("failed to fetch encrypted secrets", "requestID", requestIDStr, "err", err2)
+		}
+		if len(userError) != 0 {
+			l.logger.Debugw("no valid threshold encrypted secrets detected - falling back to legacy secrets", "requestID", requestIDStr, "err", string(userError))
+		}
+		if len(thresholdEncSecrets) != 0 {
+			decryptedSecrets, err2 := l.decryptor.Decrypt(ctx, []byte(requestIDStr), thresholdEncSecrets)
+			if err2 != nil {
+				l.logger.Debugw("threshold decryption of user secrets failed", "requestID", requestIDStr, "err", err2)
+			} else {
+				nodeProvidedSecrets = string(decryptedSecrets)
+			}
+		}
+	}
+
+	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, nodeProvidedSecrets, requestData)
 
 	if err != nil {
 		l.logger.Errorw("internal adapter error", "requestID", requestIDStr, "err", err)
