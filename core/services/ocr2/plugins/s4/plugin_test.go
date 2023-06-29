@@ -128,7 +128,7 @@ func TestPlugin_NewReportingPlugin(t *testing.T) {
 		config := createPluginConfig(1)
 		config.NSnapshotShards = 0
 
-		_, err := s4.NewReportingPluginInstance(logger, config, orm)
+		_, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.ErrorIs(t, err, s4_svc.ErrInvalidIntervals)
 	})
 
@@ -136,7 +136,7 @@ func TestPlugin_NewReportingPlugin(t *testing.T) {
 		config := createPluginConfig(1)
 		config.MaxObservationEntries = 0
 
-		_, err := s4.NewReportingPluginInstance(logger, config, orm)
+		_, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.ErrorContains(t, err, "max number of observation entries cannot be zero")
 	})
 
@@ -144,7 +144,7 @@ func TestPlugin_NewReportingPlugin(t *testing.T) {
 		config := createPluginConfig(1)
 		config.MaxReportEntries = 0
 
-		_, err := s4.NewReportingPluginInstance(logger, config, orm)
+		_, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.ErrorContains(t, err, "max number of report entries cannot be zero")
 	})
 
@@ -152,13 +152,13 @@ func TestPlugin_NewReportingPlugin(t *testing.T) {
 		config := createPluginConfig(1)
 		config.MaxDeleteExpiredEntries = 0
 
-		_, err := s4.NewReportingPluginInstance(logger, config, orm)
+		_, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.ErrorContains(t, err, "max number of delete expired entries cannot be zero")
 	})
 
 	t.Run("happy", func(t *testing.T) {
 		config := createPluginConfig(1)
-		p, err := s4.NewReportingPluginInstance(logger, config, orm)
+		p, err := s4.NewReportingPlugin(logger, config, orm)
 		assert.NoError(t, err)
 		assert.NotNil(t, p)
 	})
@@ -170,7 +170,7 @@ func TestPlugin_Close(t *testing.T) {
 	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewReportingPluginInstance(logger, config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	err = plugin.Close()
@@ -183,7 +183,7 @@ func TestPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewReportingPluginInstance(logger, config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), types.ReportTimestamp{}, nil)
@@ -197,7 +197,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewReportingPluginInstance(logger, config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	t.Run("happy", func(t *testing.T) {
@@ -243,7 +243,7 @@ func TestPlugin_Query(t *testing.T) {
 	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewReportingPluginInstance(logger, config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	t.Run("happy", func(t *testing.T) {
@@ -320,7 +320,7 @@ func TestPlugin_Observation(t *testing.T) {
 	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewReportingPluginInstance(logger, config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	t.Run("all unconfirmed", func(t *testing.T) {
@@ -396,7 +396,7 @@ func TestPlugin_Report(t *testing.T) {
 	logger := relaylogger.NewOCRWrapper(logger.TestLogger(t), true, func(msg string) {})
 	config := createPluginConfig(10)
 	orm := s4_mocks.NewORM(t)
-	plugin, err := s4.NewReportingPluginInstance(logger, config, orm)
+	plugin, err := s4.NewReportingPlugin(logger, config, orm)
 	assert.NoError(t, err)
 
 	rows := generateTestRows(t, 10, time.Minute)

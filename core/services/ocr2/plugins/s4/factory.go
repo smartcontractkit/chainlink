@@ -33,7 +33,7 @@ func (f S4ReportingPluginFactory) NewReportingPlugin(rpConfig types.ReportingPlu
 		UniqueReports: false,
 		Limits:        *limits,
 	}
-	plugin, err := NewReportingPluginInstance(f.Logger, config, f.ORM)
+	plugin, err := NewReportingPlugin(f.Logger, config, f.ORM)
 	if err != nil {
 		f.Logger.Error("unable to create S4 reporting plugin", commontypes.LogFields{})
 		return nil, types.ReportingPluginInfo{}, err

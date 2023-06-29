@@ -129,8 +129,8 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to call NewOnchainAllowlist while creating a Functions Reporting Plugin")
 		}
-		connectorLogger := conf.Logger.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
 		s4Storage := s4.NewStorage(conf.Logger, *pluginConfig.S4Constraints, s4ORM, utils.NewRealClock())
+		connectorLogger := conf.Logger.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
 		connector, err3 := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, connectorLogger)
 		if err3 != nil {
 			return nil, errors.Wrap(err, "failed to create a GatewayConnector")
@@ -152,7 +152,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		}
 		allServices = append(allServices, job.NewServiceAdapter(s4ReportingPluginOracle))
 	} else {
-		conf.Logger.Warn("s4OracleArgs is nil. S4 plugin is disabled.")
+		listenerLogger.Warn("s4OracleArgs is nil. S4 plugin is disabled.")
 	}
 
 	return allServices, nil

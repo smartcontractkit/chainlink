@@ -57,7 +57,7 @@ func newDON(t *testing.T, size int, config *s4.PluginConfig) *don {
 		orms[i] = orm
 
 		ocrLogger := relaylogger.NewOCRWrapper(logger, true, func(msg string) {})
-		plugin, err := s4.NewReportingPluginInstance(ocrLogger, config, orm)
+		plugin, err := s4.NewReportingPlugin(ocrLogger, config, orm)
 		require.NoError(t, err)
 		plugins[i] = plugin
 	}
