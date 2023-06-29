@@ -256,7 +256,7 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 					}
 				}
 				transmitServerErrorCount.WithLabelValues(mt.feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
-				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
+				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
 
@@ -292,7 +292,7 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		Payload: payload,
 	}
 
-	mt.lggr.Debugw("Transmit enqueue", "req", req, "report", report, "reportCtx", reportCtx, "signatures", signatures)
+	mt.lggr.Tracew("Transmit enqueue", "req", req, "report", report, "reportCtx", reportCtx, "signatures", signatures)
 
 	if err := mt.persistenceManager.Insert(ctx, req, reportCtx); err != nil {
 		return err

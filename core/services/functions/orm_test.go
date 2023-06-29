@@ -337,7 +337,7 @@ func TestORM_PruneOldestRequests_Large(t *testing.T) {
 	orm := setupORM(t)
 	now := time.Now()
 	// store 1000 requests
-	for offset := -1000; offset <= -1; offset += 1 {
+	for offset := -1000; offset <= -1; offset++ {
 		_, _ = createRequestWithTimestamp(t, orm, now.Add(time.Duration(offset)*time.Minute))
 	}
 
