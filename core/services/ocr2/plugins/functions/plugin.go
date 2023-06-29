@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	s4_plugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
@@ -52,7 +53,7 @@ const (
 )
 
 // Create all OCR2 plugin Oracles and all extra services needed to run a Functions job.
-func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
+func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig) ([]job.ServiceCtx, error) {
 	pluginORM := functions.NewORM(conf.DB, conf.Logger, conf.QConfig, common.HexToAddress(conf.ContractID))
 	s4ORM := s4.NewPostgresORM(conf.DB, conf.Logger, conf.QConfig, s4.SharedTableName, FunctionsS4Namespace)
 
@@ -137,6 +138,21 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs *libocr2.OCR2
 		allServices = append(allServices, connector)
 	} else {
 		listenerLogger.Warn("No GatewayConnectorConfig, S4Constraints or OnchainAllowlist is found in the plugin config, GatewayConnector will not be enabled")
+	}
+
+	if s4OracleArgs != nil {
+		s4OracleArgs.ReportingPluginFactory = s4_plugin.S4ReportingPluginFactory{
+			Logger:        s4OracleArgs.Logger,
+			ORM:           s4ORM,
+			ConfigDecoder: config.S4ConfigDecoder,
+		}
+		s4ReportingPluginOracle, err := libocr2.NewOracle(*s4OracleArgs)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to call NewOracle to create a S4 Reporting Plugin")
+		}
+		allServices = append(allServices, job.NewServiceAdapter(s4ReportingPluginOracle))
+	} else {
+		listenerLogger.Warn("s4OracleArgs is nil. S4 plugin is disabled.")
 	}
 
 	return allServices, nil
