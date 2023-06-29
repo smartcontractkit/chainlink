@@ -8,8 +8,11 @@ import (
 
 	decryptionPluginConfig "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin/config"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
+	s4PluginConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 )
 
@@ -100,4 +103,30 @@ func (ThresholdConfigParser) ParseConfig(config []byte) (*decryptionPluginConfig
 			RequireLocalRequestCheck:  thresholdPluginConfig.RequireLocalRequestCheck,
 		},
 	}, nil
+}
+
+func S4ConfigDecoder(config []byte) (*s4PluginConfig.PluginConfig, *types.ReportingPluginLimits, error) {
+	reportingPluginConfigWrapper, err := DecodeReportingPluginConfig(config)
+	if err != nil {
+		return nil, nil, errors.New("failed to decode S4 plugin config")
+	}
+
+	pluginConfig := reportingPluginConfigWrapper.Config.S4PluginConfig
+	if pluginConfig == nil {
+		return nil, nil, fmt.Errorf("PluginConfig bytes %x did not contain s4 plugin config", config)
+	}
+
+	return &s4PluginConfig.PluginConfig{
+			ProductName:             "functions",
+			NSnapshotShards:         uint(pluginConfig.NSnapshotShards),
+			MaxObservationEntries:   uint(pluginConfig.MaxObservationEntries),
+			MaxReportEntries:        uint(pluginConfig.MaxReportEntries),
+			MaxDeleteExpiredEntries: uint(pluginConfig.MaxDeleteExpiredEntries),
+		},
+		&types.ReportingPluginLimits{
+			MaxQueryLength:       int(pluginConfig.MaxQueryLengthBytes),
+			MaxObservationLength: int(pluginConfig.MaxObservationLengthBytes),
+			MaxReportLength:      int(pluginConfig.MaxReportLengthBytes),
+		},
+		nil
 }
