@@ -209,7 +209,7 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 			return
 		} else if err != nil {
 			mt.transmitConnectionErrorCount.Inc()
-			mt.lggr.Errorw("Transmit report failed", "req", t.Req, "err", err, "reportCtx", t.ReportCtx)
+			mt.lggr.Errorw("Transmit report failed", "error", err, "reportCtx", t.ReportCtx)
 			if ok := mt.queue.Push(t.Req, t.ReportCtx); !ok {
 				mt.lggr.Error("Failed to push report to transmit queue; queue is closed")
 				return
@@ -261,7 +261,7 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 		}
 
 		if err := mt.persistenceManager.Delete(runloopCtx, t.Req); err != nil {
-			mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "req", t.Req, "reportCtx", t.ReportCtx)
+			mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "reportCtx", t.ReportCtx)
 			return
 		}
 	}
