@@ -29,6 +29,7 @@ import (
 	functions_mocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	threshold_mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
@@ -46,6 +47,7 @@ type FunctionsListenerUniverse struct {
 	pluginORM      *functions_mocks.ORM
 	logBroadcaster *log_mocks.Broadcaster
 	ingressClient  *sync_mocks.TelemetryIngressClient
+	decryptor      *threshold_mocks.Decryptor
 }
 
 func ptr[T any](t T) *T { return &t }
@@ -58,6 +60,9 @@ var (
 	ResultBytes                                   = []byte{0xab, 0xcd}
 	ErrorBytes                                    = []byte{0xff, 0x11}
 	Domains                                       = []string{"github.com", "google.com"}
+	EncryptedSecretsUrls []byte                   = []byte{0x11, 0x22}
+	EncryptedSecrets     []byte                   = []byte(`{"TDH2Ctxt":"eyJHcm","SymCtxt":"+yHR","Nonce":"kgjHyT3Jar0M155E"}`)
+	DecryptedSecrets     []byte                   = []byte(`{"0x0":"lhcK"}`)
 )
 
 func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySec int) *FunctionsListenerUniverse {
@@ -94,6 +99,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	}
 	eaClient := functions_mocks.NewExternalAdapterClient(t)
 	bridgeAccessor := functions_mocks.NewBridgeAccessor(t)
+	decryptor := threshold_mocks.NewDecryptor(t)
 
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
@@ -106,7 +112,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
 	monEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.FunctionsRequests)
 
-	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, bridgeAccessor, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint)
+	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, bridgeAccessor, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint, decryptor)
 
 	return &FunctionsListenerUniverse{
 		service:        functionsListener,
@@ -115,6 +121,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 		pluginORM:      pluginORM,
 		logBroadcaster: broadcaster,
 		ingressClient:  ingressClient,
+		decryptor:      decryptor,
 	}
 }
 
@@ -150,6 +157,39 @@ func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
 	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
 	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
+	uni.pluginORM.On("SetResult", RequestID, mock.Anything, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
+
+	uni.service.HandleLog(log)
+	<-doneCh
+	uni.service.Close()
+}
+
+func TestFunctionsListener_ThresholdDecryptedSecrets(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	reqData := &struct {
+		SecretsLocation int    `cbor:"secretsLocation"`
+		Secrets         []byte `cbor:"secrets"`
+	}{
+		SecretsLocation: 1,
+		Secrets:         EncryptedSecretsUrls,
+	}
+	cborBytes, err := cbor.Marshal(reqData)
+	require.NoError(t, err)
+	// Remove first byte (map header) to make it "diet" CBOR
+	cborBytes = cborBytes[1:]
+
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, cborBytes)
+
+	uni.pluginORM.On("CreateRequest", RequestID, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.eaClient.On("FetchEncryptedSecrets", mock.Anything, mock.Anything, RequestIDStr, mock.Anything, mock.Anything).Return(EncryptedSecrets, nil, nil)
+	uni.decryptor.On("Decrypt", mock.Anything, []byte(RequestIDStr), EncryptedSecrets).Return(DecryptedSecrets, nil)
+	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, string(DecryptedSecrets), mock.Anything).Return(ResultBytes, nil, nil, nil)
 	uni.pluginORM.On("SetResult", RequestID, mock.Anything, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		close(doneCh)
 	}).Return(nil)
