@@ -164,7 +164,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);
     (bytes memory verifiedReport, bytes memory quoteData) = IVerifier(verifierAddress).verify(signedReport, msg.sender);
 
-    //if we have a registered fee and rewards manager, bill the verifier
+    //if we have a registered fee and reward-manager manager, bill the verifier
     if(address(s_feeManager) != address(0) && address(s_rewardsManager) != address(0)) {
         //decode the fee
         Common.Asset memory asset = s_feeManager.getFee(msg.sender, verifiedReport, quoteData);
@@ -195,8 +195,11 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   ) external override onlyUnsetConfigDigest(newConfigDigest) onlyInitializedVerifier {
     s_verifiersByConfig[newConfigDigest] = msg.sender;
 
-    //Set the reward recipients for this digest
-    s_rewardsManager.setRewardRecipients(newConfigDigest, addressAndWeights);
+    //empty recipients array will be ignored and will need to be set off chain
+    if(addressAndWeights.length > 0) {
+      //Set the reward recipients for this digest
+      s_rewardsManager.setRewardRecipients(newConfigDigest, addressAndWeights);
+    }
 
     emit VerifierSet(currentConfigDigest, newConfigDigest, msg.sender);
   }

@@ -27,8 +27,8 @@ interface IRewardManager is IERC165 {
     function onFeePaid(bytes32 poolId, address payee, Common.Asset calldata fee) external;
 
     /**
-     * @notice Claims the rewards for a specific asset in the pot for a specific pool id
-     * @param poolIds array of poolIds to claim rewards for
+     * @notice Claims the rewards in a specific pool
+     * @param poolIds array of poolIds to claim reward-manager for
      */
     function claimRewards(bytes32[] calldata poolIds) external;
 
@@ -47,7 +47,7 @@ interface IRewardManager is IERC165 {
     function setRewardRecipients(bytes32 poolId, Common.AddressAndWeight[] calldata rewardRecipientAndWeights) external;
 
     /**
-     * @notice Gets a list of pool ids which have rewards for a specific recipient.
+     * @notice Gets a list of pool ids which have reward-manager for a specific recipient.
      * @param recipient address of the recipient to get pool ids for
      */
     function getAvailableRewardPoolIds(address recipient) external view returns (bytes32[] memory);
@@ -64,4 +64,10 @@ interface IRewardManager is IERC165 {
      * @param recipients array of recipients to pay within the pool
      */
     function payRecipients(bytes32[] calldata poolIds, address[] calldata recipients) external;
+
+    /**
+     * @notice Sets the verifier proxy. This needs to be done post construction to prevent a circular dependency.
+     * @param newVerifierProxy address of the new verifier proxy
+     */
+    function setVerifierProxy(address newVerifierProxy) external;
 }

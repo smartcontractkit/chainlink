@@ -9,7 +9,7 @@ pragma solidity 0.8.16;
 library ByteUtil {
 
     // Error message when an offset is out of bounds
-    error InvalidOffset();
+    error MalformedData();
 
     /**
      * @dev Reads n bytes from a position within a byte array
@@ -20,7 +20,7 @@ library ByteUtil {
      */
     function readBytes(bytes memory data, uint256 offset, uint256 n) internal pure returns (bytes memory) {
         //bounds check
-        if(offset + n > data.length) revert InvalidOffset();
+        if(offset + n > data.length) revert MalformedData();
 
         //allocate n bytes of memory
         bytes memory result = new bytes(n);
@@ -69,7 +69,7 @@ library ByteUtil {
      */
     function readUint256(bytes memory data, uint256 offset) internal pure returns (uint256 result) {
         //bounds check
-        if(offset + 32 > data.length) revert InvalidOffset();
+        if(offset + 32 > data.length) revert MalformedData();
 
         assembly {
             //load 32 byte word accounting for 32 bit length and offset
@@ -85,7 +85,7 @@ library ByteUtil {
      */
     function readAddress(bytes memory data, uint256 offset) internal pure returns (address result) {
         //bounds check
-        if(offset + 20 > data.length) revert InvalidOffset();
+        if(offset + 20 > data.length) revert MalformedData();
 
         assembly {
             //load 32 byte word accounting for 32 bit length and offset
@@ -103,7 +103,7 @@ library ByteUtil {
      */
     function readBytes32(bytes memory data, uint256 offset) internal pure returns (bytes32 result) {
         //bounds check
-        if(offset + 32 > data.length) revert InvalidOffset();
+        if(offset + 32 > data.length) revert MalformedData();
 
         assembly {
             //load 32 byte word accounting for 32 bit length and offset

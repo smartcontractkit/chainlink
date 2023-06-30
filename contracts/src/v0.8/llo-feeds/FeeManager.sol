@@ -82,10 +82,18 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
         delete subscriberDiscounts[subscriber][feedId][token];
     }
 
+    // Error message when an offset is out of bounds
+    error InvalidOffset(uint256 expected, uint256 actual);
+
     // @inheritdoc IFeeManager
     function getFee(address sender, bytes calldata signedReport, bytes calldata quoteMetadata) external view returns (Common.Asset memory asset) {
         //The quote
         Common.Asset memory fee;
+
+        //without a quote the fee will default to 0
+        if (quoteMetadata.length == 0) {
+            return fee;
+        }
 
         //any report without a fee will default to 0
         if (signedReport.length < LINK_FEE_INDEX) {

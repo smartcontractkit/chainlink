@@ -29,7 +29,7 @@ interface IVerifier is IERC165 {
    * @param onchainConfig serialized configuration used by the contract (and possibly oracles)
    * @param offchainConfigVersion version number for offchainEncoding schema
    * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
-   * @param recipientAddressAndWeights the address and weights of all the recipients to receive rewards
+   * @param recipientAddressAndWeights the address and weights of all the recipients to receive reward-manager
    */
   function setConfig(
     bytes32 feedId,
