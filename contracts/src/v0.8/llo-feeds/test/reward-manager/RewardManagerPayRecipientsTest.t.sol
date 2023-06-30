@@ -8,9 +8,9 @@ import "forge-std/console.sol";
 /**
   * @title BaseRewardManagerTest
   * @author Michael Fletcher
-  * @notice This contract will test the functionality of the RewardManager contract around paying recipients.
+  * @notice This contract will test the pay recipients functionality of the RewardManager contract
   */
-contract RewardManagerPayRecipientsTest is BaseRewardManagerTest {
+contract RewardManagerMisconfigurationTest is BaseRewardManagerTest {
 
     uint256 internal constant POOL_DEPOSIT_AMOUNT = 10e18;
 
@@ -25,473 +25,143 @@ contract RewardManagerPayRecipientsTest is BaseRewardManagerTest {
         addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
     }
 
-    function test_claimAllRecipients() public {
-        //claim funds for each user of the pool
-        for(uint256 i; i < getPrimaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
+    function test_payAllRecipients() public {
+        //pay all the recipients in the pool
+        payRecipients(PRIMARY_POOL_ID, getPrimaryRecipientAddresses(), ADMIN);
 
-            //claim the individual rewards for each recipient
-            claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
+        //each recipient should receive 1/4 of the pool
+        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
 
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), POOL_DEPOSIT_AMOUNT / 4);
+        //check each recipient received the correct amount
+        for(uint256 i = 0; i < getPrimaryRecipientAddresses().length; i++) {
+            assertEq(getAssetBalance(getPrimaryRecipientAddresses()[i]), expectedRecipientAmount);
         }
     }
 
-    function test_claimSingleRecipient() public {
-        //get the recipient we're claiming for
-        Common.AddressAndWeight memory recipient = getPrimaryRecipients()[0];
+    function test_paySingleRecipient() public {
+        //get the first individual recipient
+        address recipient = getPrimaryRecipientAddresses()[0];
 
-        //claim the individual rewards for this recipient
-        claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
+        //get a single recipient as an array
+        address[] memory recipients = new address[](1);
+        recipients[0] = recipient;
 
-        //expected recipient amount is 1/4 of the pool deposit
+        //pay a single recipient
+        payRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+
+        //the recipient should have received 1/4 of the deposit amount
         uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
 
-        //check the recipients balance matches the ratio they should have received
-        assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
-
-        //check the rewardManager has the remaining quantity
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT - expectedRecipientAmount);
+        assertEq(getAssetBalance(recipient), expectedRecipientAmount);
     }
 
-    function test_claimMultipleRecipients() public {
-        //claim the individual rewards for each recipient
-        claimRewards(PRIMARY_POOL_ARRAY, getPrimaryRecipients()[0].addr);
-        claimRewards(PRIMARY_POOL_ARRAY, getPrimaryRecipients()[1].addr);
+    function test_payRecipientWithInvalidPool() public {
+        //get the first individual recipient
+        address recipient = getPrimaryRecipientAddresses()[0];
 
-        //expected recipient amount is 1/4 of the pool deposit
-        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
+        //get a single recipient as an array
+        address[] memory recipients = new address[](1);
+        recipients[0] = recipient;
 
-        //check the recipients balance matches the ratio they should have received
-        assertEq(getAssetBalance(getPrimaryRecipients()[0].addr), expectedRecipientAmount);
-        assertEq(getAssetBalance(getPrimaryRecipients()[1].addr), expectedRecipientAmount);
+        //pay a single recipient
+        payRecipients(SECONDARY_POOL_ID, recipients, ADMIN);
 
-        //check the rewardManager has the remaining quantity
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT - (expectedRecipientAmount * 2));
+        //the recipient should have received nothing
+        assertEq(getAssetBalance(recipient), 0);
     }
 
-    function test_claimUnregisteredRecipient() public {
-        //claim the rewards for a recipient who isn't in this pool
-        claimRewards(PRIMARY_POOL_ARRAY, getSecondaryRecipients()[1].addr);
+    function test_payRecipientsEmptyRecipientList() public {
+        //get a single recipient
+        address[] memory recipients = new address[](0);
 
-        //check the recipients didn't receive any fees from this pool
-        assertEq(getAssetBalance(getSecondaryRecipients()[1].addr), 0);
+        //pay a single recipient
+        payRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
 
-        //check the rewardManager has the remaining quantity
+        //rewardManager should have the full balance
         assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
     }
 
+    function test_payAllRecipientsWithAdditionalUnregisteredRecipient() public {
+        //load all the recipients and add an additional one who is not in the pool
+        address[] memory recipients = new address[](getPrimaryRecipientAddresses().length + 1);
+        for(uint256 i = 0; i < getPrimaryRecipientAddresses().length; i++) {
+            recipients[i] = getPrimaryRecipientAddresses()[i];
+        }
+        recipients[recipients.length - 1] = DEFAULT_RECIPIENT_5;
 
-    function test_claimUnevenAmountRoundsDown() public {
-        //adding 1 to the pool should leave 1 wei worth of dust, which we don't handle due to it being economically infeasible
-        addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(1));
+        //pay the recipients
+        payRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
 
-        //expected recipient amount is 1/4 of the pool deposit
+        //each recipient should receive 1/4 of the pool except the last
         uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
 
-        //claim funds for each user of the pool
-        for(uint256 i; i < getPrimaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
-
-            //claim the individual rewards for each recipient
-            claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
-
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
+        //check each recipient received the correct amount
+        for(uint256 i = 0; i < getPrimaryRecipientAddresses().length; i++) {
+            assertEq(getAssetBalance(getPrimaryRecipientAddresses()[i]), expectedRecipientAmount);
         }
 
-        //check the rewardManager has the remaining quantity equals 1 wei
-        assertEq(getAssetBalance(address(rewardManager)), 1);
+        //the unregistered recipient should receive nothing
+        assertEq(getAssetBalance(DEFAULT_RECIPIENT_5), 0);
     }
 
-    function test_claimUnregisteredPoolId() public {
-        //get the recipient we're claiming for
-        Common.AddressAndWeight memory recipient = getPrimaryRecipients()[0];
+    function test_payAllRecipientsWithAdditionalInvalidRecipient() public {
+        //load all the recipients and add an additional one which is invalid, that should receive nothing
+        address[] memory recipients = new address[](getPrimaryRecipientAddresses().length + 1);
+        for(uint256 i = 0; i < getPrimaryRecipientAddresses().length; i++) {
+            recipients[i] = getPrimaryRecipientAddresses()[i];
+        }
+        recipients[recipients.length - 1] = INVALID_RECIPIENT;
 
-        //claim the individual rewards for this recipient
-        claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
+        //pay the recipients
+        payRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
 
-        //check the recipients balance is still 0 as there's no pool to receive fees from
-        assertEq(getAssetBalance(recipient.addr), 0);
-
-        //check the rewardManager has the full amount
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
-    }
-
-    function test_singleRecipientClaimMultipleDeposits() public {
-        //get the recipient we're claiming for
-        Common.AddressAndWeight memory recipient = getPrimaryRecipients()[0];
-
-        //claim the individual rewards for this recipient
-        claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
-
-        //expected recipient amount is 1/4 of the pool deposit
+        //each recipient should receive 1/4 of the pool except the last
         uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
 
-        //check the recipients balance matches the ratio they should have received
-        assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
-
-        //check the rewardManager has the remaining quantity, which is 3/4 of the initial deposit
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT - expectedRecipientAmount);
-
-        //add funds to the pool to be split among the recipients
-        addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-
-        //claim the individual rewards for this recipient
-        claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
-
-        //check the recipients balance matches the ratio they should have received, which is 1/4 of each deposit
-        assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount * 2);
-
-        //check the rewardManager has the remaining quantity, which is now 3/4 of both deposits
-        assertEq(getAssetBalance(address(rewardManager)),POOL_DEPOSIT_AMOUNT * 2 - (expectedRecipientAmount * 2));
+        //check each recipient received the correct amount
+        for(uint256 i = 0; i < getPrimaryRecipientAddresses().length; i++) {
+            assertEq(getAssetBalance(getPrimaryRecipientAddresses()[i]), expectedRecipientAmount);
+        }
     }
 
-    function test_recipientsClaimMultipleDeposits() public {
-        //expected recipient amount is 1/4 of the pool deposit
+    function test_paySubsetOfRecipientsInPool() public {
+        //load a subset of the recipients into an array
+        address[] memory recipients = new address[](getPrimaryRecipientAddresses().length - 1);
+        for(uint256 i = 0; i < recipients.length; i++) {
+            recipients[i] = getPrimaryRecipientAddresses()[i];
+        }
+
+        //pay the subset of recipients
+        payRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+
+        //each recipient should receive 1/4 of the pool except the last
         uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
 
-        //claim funds for each user of the pool
-        for(uint256 i; i < getPrimaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
-
-            //claim the individual rewards for each recipient
-            claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
-
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
+        //check each subset of recipients received the correct amount
+        for(uint256 i = 0; i < recipients.length - 1; i++) {
+            assertEq(getAssetBalance(recipients[i]), expectedRecipientAmount);
         }
+    }
 
-        //the reward manager  balance should be 0 as all of the funds have been claimed
-        assertEq(getAssetBalance(address(rewardManager)), 0);
+    function test_payAllRecipientsFromNonAdminUser() public {
+        //should revert if the caller isn't an admin or recipient within the pool
+        vm.expectRevert(UNAUTHORIZED_ERROR_SELECTOR);
 
-        //add funds to the pool to be split among the recipients
-        addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+        //pay all the recipients in the pool
+        payRecipients(PRIMARY_POOL_ID, getPrimaryRecipientAddresses(), USER);
+    }
 
-        //claim funds for each user of the pool
-        for(uint256 i; i < getPrimaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
+    function test_payAllRecipientsFromRecipientInPool() public {
+        //pay all the recipients in the pool
+        payRecipients(PRIMARY_POOL_ID, getPrimaryRecipientAddresses(), DEFAULT_RECIPIENT_1);
 
-            //claim the individual rewards for each recipient
-            claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
+        //each recipient should receive 1/4 of the pool
+        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
 
-            //expected recipient amount is 1/4 of the pool deposit
-            expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4 * 2;
-
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
+        //check each recipient received the correct amount
+        for(uint256 i = 0; i < getPrimaryRecipientAddresses().length; i++) {
+            assertEq(getAssetBalance(getPrimaryRecipientAddresses()[i]), expectedRecipientAmount);
         }
-
-        //the reward manager balance should again be 0 as all of the funds have been claimed
-        assertEq(getAssetBalance(address(rewardManager)), 0);
     }
 }
-
-contract RewardManagerPayRecipientsMultiplePoolsTest is BaseRewardManagerTest {
-    uint256 internal constant POOL_DEPOSIT_AMOUNT = 10e18;
-
-    function setUp() public override {
-        //setup contracts
-        super.setUp();
-
-        //create a two pools
-        createPrimaryPool();
-        createSecondaryPool();
-
-        //add funds to each of the pools to be split among the recipients
-        addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-        addFundsToPool(SECONDARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-    }
-
-    function test_claimAllRecipientsSinglePool() public {
-        //expected recipient amount is 1/4 of the pool deposit
-        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
-        //claim funds for each user of the pool
-        for(uint256 i; i < getPrimaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
-
-            //claim the individual rewards for each recipient
-            claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
-
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
-        }
-
-        //check the pool balance is still equal to 1 * DEPOSIT_AMOUNT as we only claimed for one of the pools
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
-    }
-
-    function test_claimMultipleRecipientsSinglePool() public {
-        //claim the individual rewards for each recipient
-        claimRewards(SECONDARY_POOL_ARRAY, getSecondaryRecipients()[0].addr);
-        claimRewards(SECONDARY_POOL_ARRAY, getSecondaryRecipients()[1].addr);
-
-        //expected recipient amount is 1/4 of the pool deposit
-        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
-        //check the recipients balance matches the ratio they should have received
-        assertEq(getAssetBalance(getSecondaryRecipients()[0].addr), expectedRecipientAmount);
-        assertEq(getAssetBalance(getSecondaryRecipients()[1].addr), expectedRecipientAmount);
-
-        //check the rewardManager has the remaining quantity
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT * 2 - (expectedRecipientAmount * 2));
-    }
-
-    function test_claimMultipleRecipientsMultiplePools() public {
-        //claim the individual rewards for each recipient
-        claimRewards(PRIMARY_POOL_ARRAY, getPrimaryRecipients()[0].addr);
-        claimRewards(PRIMARY_POOL_ARRAY, getPrimaryRecipients()[1].addr);
-        claimRewards(SECONDARY_POOL_ARRAY, getSecondaryRecipients()[0].addr);
-        claimRewards(SECONDARY_POOL_ARRAY, getSecondaryRecipients()[1].addr);
-
-        //expected recipient amount is 1/4 of the pool deposit
-        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
-        //check the recipients balance matches the ratio they should have received. The first recipient is shared across both pools
-        assertEq(getAssetBalance(getPrimaryRecipients()[0].addr), expectedRecipientAmount * 2);
-        assertEq(getAssetBalance(getPrimaryRecipients()[1].addr), expectedRecipientAmount);
-        assertEq(getAssetBalance(getSecondaryRecipients()[1].addr), expectedRecipientAmount);
-
-        //check the rewardManager has the remaining quantity
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
-    }
-
-    function test_claimAllRecipientsMultiplePools() public {
-        //expected recipient amount is 1/4 of the pool deposit
-        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
-        //claim funds for each user of the pool
-        for(uint256 i = 1; i < getPrimaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
-
-            //claim the individual rewards for each recipient
-            claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
-
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
-        }
-
-        //claim funds for each user of the pool
-        for(uint256 i = 1; i < getSecondaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getSecondaryRecipients()[i];
-
-            //claim the individual rewards for each recipient
-            claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
-
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
-        }
-
-        //special case to handle the first recipient of each pool as they're the same address
-        Common.AddressAndWeight memory recipient = getPrimaryRecipients()[0];
-
-        //claim the individual rewards for each recipient
-        claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
-        claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
-
-        //check their balance matches the ratio they should have received, which is 1/4 of each deposit for each pool
-        assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount * 2);
-    }
-
-    function test_claimSingleUniqueRecipient() public {
-        //the first recipient of the secondary pool is in both pools, so take the second recipient which is unique
-        Common.AddressAndWeight memory recipient = getSecondaryRecipients()[1];
-
-        //claim the individual rewards for this recipient
-        claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
-        claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
-
-        //the user should have received 1/4 of the deposit amount
-        uint256 recipientExpectedAmount = POOL_DEPOSIT_AMOUNT / 4;
-
-        //this recipient
-        assertEq(getAssetBalance(recipient.addr), recipientExpectedAmount);
-
-        //check the rewardManager has the remaining quantity
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT * 2 - recipientExpectedAmount);
-    }
-
-    function test_claimSingleRecipientMultiplePools() public {
-        //the first recipient of the secondary pool is in both pools
-        Common.AddressAndWeight memory recipient = getSecondaryRecipients()[0];
-
-        //claim the individual rewards for this recipient
-        claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
-        claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
-
-        //the user should have received 1/4 of the deposit amount for each pool
-        uint256 recipientExpectedAmount = POOL_DEPOSIT_AMOUNT / 4 * 2;
-
-        //this recipient belongs in both pools so should have received 1/4 of each
-        assertEq(getAssetBalance(recipient.addr), recipientExpectedAmount);
-
-        //check the rewardManager has the remaining quantity
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT * 2 - recipientExpectedAmount);
-    }
-
-    function test_claimUnregisteredRecipient() public {
-        //claim the individual rewards for this recipient
-        claimRewards(PRIMARY_POOL_ARRAY, getSecondaryRecipients()[1].addr);
-        claimRewards(SECONDARY_POOL_ARRAY, getPrimaryRecipients()[1].addr);
-
-        //check the recipients didn't receive any fees from this pool
-        assertEq(getAssetBalance(getSecondaryRecipients()[1].addr), 0);
-        assertEq(getAssetBalance(getPrimaryRecipients()[1].addr), 0);
-
-        //check the rewardManager has the remaining quantity
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT * 2);
-    }
-
-    function test_claimUnevenAmountRoundsDown() public {
-        //adding 1 to the pool should leave 1 wei worth of dust, which we don't handle due to it being economically infeasible
-        addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(3));
-        addFundsToPool(SECONDARY_POOL_ID, USER, getAsset(1));
-
-        //the user should have received 1/4 of the deposit amount for each pool
-        uint256 recipientExpectedAmount = POOL_DEPOSIT_AMOUNT / 4;
-
-        //claim funds for each user of the pool
-        for(uint256 i; i < getPrimaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
-
-            //claim the individual rewards for each recipient
-            claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
-
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), recipientExpectedAmount);
-        }
-
-        //special case to handle the first recipient of each pool as they're the same address
-        claimRewards(SECONDARY_POOL_ARRAY, getSecondaryRecipients()[0].addr);
-
-        //check their balance matches the ratio they should have received
-        assertEq(getAssetBalance(getSecondaryRecipients()[0].addr), recipientExpectedAmount * 2);
-
-        //claim funds for each user of the secondary pool except the first
-        for(uint256 i = 1; i < getSecondaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getSecondaryRecipients()[i];
-
-            //claim the individual rewards for each recipient
-            claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
-
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), recipientExpectedAmount);
-        }
-
-        //contract should have 4 remaining
-        assertEq(getAssetBalance(address(rewardManager)), 4);
-    }
-
-    function test_singleRecipientClaimMultipleDeposits() public {
-        //get the recipient we're claiming for
-        Common.AddressAndWeight memory recipient = getSecondaryRecipients()[0];
-
-        //claim the individual rewards for this recipient
-        claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
-
-        //the user should have received 1/4 of the deposit amount
-        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
-        //check the recipients balance matches the ratio they should have received
-        assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
-
-        //check the rewardManager has the remaining quantity, which is 3/4 of the initial deposit plus the deposit from the second pool
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT * 2 - expectedRecipientAmount);
-
-        //add funds to the pool to be split among the recipients
-        addFundsToPool(SECONDARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-
-        //claim the individual rewards for this recipient
-        claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
-
-        //the user should have received 1/4 of the next deposit amount
-        expectedRecipientAmount += POOL_DEPOSIT_AMOUNT / 4;
-
-        //check the recipients balance matches the ratio they should have received, which is 1/4 of each deposit
-        assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
-
-        //check the rewardManager has the remaining quantity, which is now 3/4 of both deposits
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT * 3 - expectedRecipientAmount);
-    }
-
-    function test_recipientsClaimMultipleDeposits() public {
-        //the user should have received 1/4 of the deposit amount
-        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
-        //claim funds for each user of the pool
-        for(uint256 i; i < getSecondaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getSecondaryRecipients()[i];
-
-            //claim the individual rewards for each recipient
-            claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
-
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
-        }
-
-        //the reward manager balance should contain only the funds of the secondary pool
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
-
-        //add funds to the pool to be split among the recipients
-        addFundsToPool(SECONDARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-
-        //special case to handle the first recipient of each pool as they're the same address
-        claimRewards(SECONDARY_POOL_ARRAY, getSecondaryRecipients()[0].addr);
-
-        //check their balance matches the ratio they should have received
-        assertEq(getAssetBalance(getSecondaryRecipients()[0].addr), expectedRecipientAmount * 2);
-
-        //claim funds for each user of the pool
-        for(uint256 i = 1; i < getSecondaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getSecondaryRecipients()[i];
-
-            //claim the individual rewards for each recipient
-            claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
-
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount * 2);
-        }
-
-        //the reward manager balance should again be the balance of the secondary pool as the primary pool has been emptied twice
-        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
-    }
-
-    function test_withdrawEmptyPoolWhenSecondPoolContainsFunds() public {
-        //the user should have received 1/4 of the deposit amount
-        uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
-        //claim all rewards for each user in the primary pool
-        for(uint256 i; i < getPrimaryRecipients().length; i++) {
-            //get the recipient we're claiming for
-            Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
-
-            //claim the individual rewards for each recipient
-            claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
-
-            //check their balance matches the ratio they should have received
-            assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
-        }
-
-        //claim all the rewards again for the first user as that address is a member of both pools
-        claimRewards(PRIMARY_POOL_ARRAY, getSecondaryRecipients()[0].addr);
-
-        //the users balance should still be 1/4 of the deposit amount
-        assertEq(getAssetBalance(getSecondaryRecipients()[0].addr), expectedRecipientAmount);
-    }
-}
-
-
 

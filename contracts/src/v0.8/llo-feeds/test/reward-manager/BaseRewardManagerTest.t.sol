@@ -52,6 +52,9 @@ contract BaseRewardManagerTest is Test {
     //reward scalar (this should match the const in the contract)
     uint256 internal constant POOL_SCALAR = 10000;
 
+    //the selector for the Unauthorized error
+    bytes4 internal constant UNAUTHORIZED_ERROR_SELECTOR = bytes4(keccak256("Unauthorized()"));
+
     function setUp() public virtual {
         //change to admin user
         vm.startPrank(ADMIN);
@@ -102,6 +105,19 @@ contract BaseRewardManagerTest is Test {
         return recipients;
     }
 
+    function getPrimaryRecipientAddresses() public returns (address[] memory) {
+        //array of recipients
+        address[] memory recipients = new address[](4);
+
+        //init each recipient with even weights. 2500 = 25% of pool
+        recipients[0] = DEFAULT_RECIPIENT_1;
+        recipients[1] = DEFAULT_RECIPIENT_2;
+        recipients[2] = DEFAULT_RECIPIENT_3;
+        recipients[3] = DEFAULT_RECIPIENT_4;
+
+        return recipients;
+    }
+
     //override this to test variations of different recipients. changing this function will require existing tests to be updated as constants are hardcoded to be explicit
     function getSecondaryRecipients() public virtual returns (Common.AddressAndWeight[] memory) {
         //array of recipients
@@ -112,6 +128,19 @@ contract BaseRewardManagerTest is Test {
         recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 2500);
         recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, 2500);
         recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, 2500);
+
+        return recipients;
+    }
+
+    function getSecondaryRecipientAddresses() public returns (address[] memory) {
+        //array of recipients
+        address[] memory recipients = new address[](4);
+
+        //init each recipient with even weights
+        recipients[0] = DEFAULT_RECIPIENT_1;
+        recipients[1] = DEFAULT_RECIPIENT_5;
+        recipients[2] = DEFAULT_RECIPIENT_6;
+        recipients[3] = DEFAULT_RECIPIENT_7;
 
         return recipients;
     }
@@ -147,13 +176,25 @@ contract BaseRewardManagerTest is Test {
         return unsupported.balanceOf(addr);
     }
 
-    function claimRewards(bytes32[] memory poolIds, address recipient) public {
+    function claimRewards(bytes32[] memory poolIds, address sender) public {
         //record the current address and switch to the recipient
         address originalAddr = msg.sender;
-        changePrank(recipient);
+        changePrank(sender);
 
         //claim the rewards under this recipient address
         rewardManager.claimRewards(poolIds);
+
+        //change back to the original address
+        changePrank(originalAddr);
+    }
+
+    function payRecipients(bytes32 poolId, address[] memory recipients, address sender) public {
+        //record the current address and switch to the recipient
+        address originalAddr = msg.sender;
+        changePrank(sender);
+
+        //pay the recipients
+        rewardManager.payRecipients(poolId, recipients);
 
         //change back to the original address
         changePrank(originalAddr);

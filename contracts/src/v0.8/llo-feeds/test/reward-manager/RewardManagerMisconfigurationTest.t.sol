@@ -12,6 +12,6 @@ import "forge-std/console.sol";
   */
 contract RewardManagerMisconfigurationTest is BaseRewardManagerTest {
 
-
+    //test weights and addresses of 0 are rejected
 }
 

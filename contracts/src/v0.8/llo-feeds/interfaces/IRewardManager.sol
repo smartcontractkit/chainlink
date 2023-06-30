@@ -60,10 +60,10 @@ interface IRewardManager is IERC165 {
 
     /**
      * @notice Pays all the recipients for each of the pool ids
-     * @param poolIds an array containing the single poolId to pay
+     * @param poolId the pool id to pay recipients for
      * @param recipients array of recipients to pay within the pool
      */
-    function payRecipients(bytes32[] calldata poolIds, address[] calldata recipients) external;
+    function payRecipients(bytes32 poolId, address[] calldata recipients) external;
 
     /**
      * @notice Sets the verifier proxy. This needs to be done post construction to prevent a circular dependency.

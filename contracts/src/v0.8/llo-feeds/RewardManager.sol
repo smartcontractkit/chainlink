@@ -97,6 +97,11 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
         _;
     }
 
+    modifier onlyOwnerOrRecipientInPool(bytes32 poolId) {
+        if (msg.sender != owner() && rewardRecipientWeights[poolId][msg.sender] == 0) revert Unauthorized();
+        _;
+    }
+
     // @inheritdoc IRewardManager
     function onFeePaid(bytes32 poolId, address payee, Common.Asset calldata fee) external override {
         //fee must be link
@@ -170,13 +175,15 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     // @inheritdoc IRewardManager
-    function payRecipients(bytes32[] calldata poolIds, address[] calldata recipients) external {
-        //the interface to _claimRewards requires an array of calldata poolIds. Forcing this to be passed as an array will improve code readability and optimize on gas
-        if (recipients.length != 1) revert InvalidPoolId();
+    function payRecipients(bytes32 poolId, address[] calldata recipients) external onlyOwnerOrRecipientInPool(poolId) {
+
+        //convert poolIds to an array to match the interface of _claimRewards
+        bytes32[] memory poolIdsArray = new bytes32[](1);
+        poolIdsArray[0] = poolId;
 
         //loop each recipient and claim the reward-manager for each of the pools and assets
         for (uint256 i; i < recipients.length;) {
-            _claimRewards(recipients[i], poolIds);
+            _claimRewards(recipients[i], poolIdsArray);
 
             unchecked {
                 //there will never be enough recipients for i to overflow
@@ -186,7 +193,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     // @inheritdoc IRewardManager
-    function claimRewards(bytes32[] calldata poolIds) external override {
+    function claimRewards(bytes32[] memory poolIds) external override {
         _claimRewards(msg.sender, poolIds);
     }
 
@@ -222,7 +229,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
 
     // wrapper impl for claimRewards
-    function _claimRewards(address recipient, bytes32[] calldata poolIds) internal {
+    function _claimRewards(address recipient, bytes32[] memory poolIds) internal {
         //get the total amount claimable for this recipient
         uint256 claimAmount;
 
@@ -242,7 +249,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
                 if (claimableAmount == 0) continue;
 
                 //calculate the recipients share of the fees, which is their weighted share of the difference between the last amount they claimed and the current amount in the pot. This can never be more than the total amount in existence
-                uint256 recipientShare = claimableAmount * rewardRecipientWeights[poolId][msg.sender] / PERCENTAGE_SCALAR;
+                uint256 recipientShare = claimableAmount * rewardRecipientWeights[poolId][recipient] / PERCENTAGE_SCALAR;
 
                 //keep track of the total amount claimable, this can never be more than the total amount in existence
                 claimAmount += recipientShare;
@@ -307,7 +314,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
             //if the recipient has a weight, they are a recipient of this poolId
             if (recipientWeight > 0) {
-                //update the recipients weight to the new billing address
+                //update the recipients new billing address weight to the existing weight
                 rewardRecipientWeights[poolId][newBillingAddress] = recipientWeight;
                 //delete the old weight
                 delete rewardRecipientWeights[poolId][msg.sender];
