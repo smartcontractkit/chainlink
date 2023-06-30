@@ -40,6 +40,12 @@ func GenLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, 
 	}
 }
 
+func GenTimestampedLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, topic1 []byte, address common.Address, timestamp time.Time) logpoller.Log {
+	log := GenLog(chainID, logIndex, blockNum, blockHash, topic1, address)
+	log.BlockTimestamp = timestamp
+	return log
+}
+
 func TestLogPoller_Batching(t *testing.T) {
 	t.Parallel()
 	th := SetupTH(t, 2, 3, 2)
@@ -1015,6 +1021,156 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	logs, err = orm.SelectIndexedLogsWithSigsExcluding(requestSigB, responseSigB, 1, addressB, 2, 13, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
+}
+
+func TestOrderingInSelectLogsAndIndexedLogsCreatedAfter(t *testing.T) {
+	th := SetupTH(t, 2, 3, 2)
+
+	currentTime := time.Now()
+	past := currentTime.Add(-24 * time.Hour)
+	expectedOrder := []string{"0x6", "0x2", "0x1", "0x4"}
+
+	event := EmitterABI.Events["Log1"].ID
+	address := common.HexToAddress("0xA")
+
+	logs := []logpoller.Log{
+		GenTimestampedLog(th.ChainID, 3, 1, "0x1", event[:], address, currentTime),
+		GenTimestampedLog(th.ChainID, 2, 1, "0x2", event[:], address, currentTime),
+		GenTimestampedLog(th.ChainID, 4, 1, "0x4", event[:], address, currentTime),
+		GenTimestampedLog(th.ChainID, 1, 1, "0x6", event[:], address, currentTime),
+	}
+	require.NoError(t, th.ORM.InsertLogs(logs))
+	for _, l := range logs {
+		require.NoError(t, th.ORM.InsertBlock(l.BlockHash, l.BlockNumber, l.BlockTimestamp))
+	}
+
+	indexedLogsCreatedAfter, err := th.ORM.SelectIndexedLogsCreatedAfter(address, event, 0, []common.Hash{event}, past, 0)
+	require.NoError(t, err)
+	require.Len(t, indexedLogsCreatedAfter, len(expectedOrder))
+
+	logsCreatedAfter, err := th.ORM.SelectLogsCreatedAfter(event[:], address, past, 0)
+	require.NoError(t, err)
+	require.Len(t, logsCreatedAfter, len(expectedOrder))
+
+	for i, hash := range expectedOrder {
+		require.Equal(t, indexedLogsCreatedAfter[i].BlockHash, common.HexToHash(hash))
+		require.Equal(t, logsCreatedAfter[i].BlockHash, common.HexToHash(hash))
+	}
+}
+
+func TestSelectLogsAndIndexedLogsCreatedAfter(t *testing.T) {
+	th := SetupTH(t, 2, 3, 2)
+
+	firstBlockTimestamp := time.Date(2010, 1, 1, 10, 0, 0, 0, time.UTC)
+	secondBlockTimestamp := time.Date(2012, 1, 1, 10, 0, 0, 0, time.UTC)
+	thirdBlockTimestamp := time.Date(2014, 1, 1, 10, 0, 0, 0, time.UTC)
+
+	beforeFirstBlock := firstBlockTimestamp.Add(-(time.Hour * 10))
+	beforeSecondBlock := secondBlockTimestamp.Add(-(time.Hour * 10))
+
+	event := EmitterABI.Events["Log1"].ID
+	address1 := common.HexToAddress("0xA")
+	address2 := common.HexToAddress("0xB")
+
+	logs := []logpoller.Log{
+		GenTimestampedLog(th.ChainID, 1, 1, "0x1", event[:], address2, firstBlockTimestamp),
+		GenTimestampedLog(th.ChainID, 2, 1, "0x2", event[:], address1, firstBlockTimestamp),
+		GenTimestampedLog(th.ChainID, 2, 2, "0x4", event[:], address1, secondBlockTimestamp),
+		GenTimestampedLog(th.ChainID, 2, 3, "0x6", event[:], address1, thirdBlockTimestamp),
+	}
+	require.NoError(t, th.ORM.InsertLogs(logs))
+
+	for _, l := range logs {
+		require.NoError(t, th.ORM.InsertBlock(l.BlockHash, l.BlockNumber, l.BlockTimestamp))
+	}
+
+	tests := []struct {
+		name         string
+		addr         common.Address
+		event        common.Hash
+		topicValues  []common.Hash
+		after        time.Time
+		confs        int
+		expectedLogs []string
+	}{
+		{
+			name:         "pick all logs",
+			addr:         address1,
+			event:        event,
+			topicValues:  []common.Hash{event},
+			after:        beforeFirstBlock,
+			confs:        0,
+			expectedLogs: []string{"0x2", "0x4", "0x6"},
+		},
+		{
+			name:         "pick only logs after first timestamp",
+			addr:         address1,
+			event:        event,
+			topicValues:  []common.Hash{event},
+			after:        beforeSecondBlock,
+			confs:        0,
+			expectedLogs: []string{"0x4", "0x6"},
+		},
+		{
+			name:         "pick only the logs after first timestamp with at least 1 confirmation",
+			addr:         address1,
+			event:        event,
+			topicValues:  []common.Hash{event},
+			after:        beforeSecondBlock,
+			confs:        1,
+			expectedLogs: []string{"0x4"},
+		},
+		{
+			name:         "no results when created at is after all blocks",
+			addr:         address1,
+			event:        event,
+			topicValues:  []common.Hash{event},
+			after:        time.Date(2030, 1, 1, 10, 0, 0, 0, time.UTC),
+			confs:        0,
+			expectedLogs: nil,
+		},
+		{
+			name:         "no results when too many confirmations are required",
+			addr:         address1,
+			event:        event,
+			topicValues:  []common.Hash{event},
+			after:        beforeFirstBlock,
+			confs:        3,
+			expectedLogs: nil,
+		},
+		{
+			name:         "no results when address doesn't match",
+			addr:         common.HexToAddress("0xC"),
+			event:        event,
+			topicValues:  []common.Hash{event},
+			after:        beforeFirstBlock,
+			confs:        0,
+			expectedLogs: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			indexedLogsCreatedAfter, err := th.ORM.SelectIndexedLogsCreatedAfter(tt.addr, tt.event, 0, tt.topicValues, tt.after, tt.confs)
+			require.NoError(t, err)
+
+			logsCreatedAfter, err := th.ORM.SelectLogsCreatedAfter(tt.event[:], tt.addr, tt.after, tt.confs)
+			require.NoError(t, err)
+
+			if tt.expectedLogs == nil {
+				assert.Nil(t, indexedLogsCreatedAfter)
+				assert.Nil(t, logsCreatedAfter)
+				return
+			}
+
+			assert.Len(t, indexedLogsCreatedAfter, len(tt.expectedLogs))
+			assert.Len(t, logsCreatedAfter, len(tt.expectedLogs))
+			for i, hash := range tt.expectedLogs {
+				assert.Equal(t, indexedLogsCreatedAfter[i].BlockHash, common.HexToHash(hash))
+				assert.Equal(t, logsCreatedAfter[i].BlockHash, common.HexToHash(hash))
+			}
+		})
+	}
 }
 
 func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
