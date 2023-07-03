@@ -34,6 +34,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
@@ -342,7 +343,7 @@ func TestIntegration_Mercury(t *testing.T) {
 
 			seen[feedID][req.pk] = struct{}{}
 			if len(seen[feedID]) == n {
-				t.Logf("all oracles reported for feed %x (0x%x)", feed.name, feed.id)
+				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
 				delete(seen, feedID)
 				if len(seen) == 0 {
 					break // saw all oracles; success!
@@ -405,7 +406,7 @@ func TestIntegration_Mercury(t *testing.T) {
 
 			seen[feedID][req.pk] = struct{}{}
 			if len(seen[feedID]) == n {
-				t.Logf("all oracles reported for feed %x (0x%x)", feed.name, feed.id)
+				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
 				delete(seen, feedID)
 				if len(seen) == 0 {
 					break // saw all oracles; success!
