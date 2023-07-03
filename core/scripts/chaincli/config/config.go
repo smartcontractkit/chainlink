@@ -80,6 +80,10 @@ type Config struct {
 	UseArbBlockNumber               bool                   `mapstructure:"USE_ARB_BLOCK_NUMBER"`
 	VerifiableLoadContractAddress   string                 `mapstructure:"VERIFIABLE_LOAD_CONTRACT_ADDRESS"`
 	UpkeepType                      UpkeepType             `mapstructure:"UPKEEP_TYPE"`
+	Selector                        uint8                  `mapstructure:"SELECTOR"`
+	Target                          string                 `mapstructure:"TARGET"`
+	Topic0                          string                 `mapstructure:"TOPIC0"`
+	Topic1                          string                 `mapstructure:"TOPIC1"`
 
 	// Node config scraping and verification
 	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`

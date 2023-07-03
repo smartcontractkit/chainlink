@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/umbracle/ethgo/abi"
 
@@ -25,6 +26,7 @@ import (
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_feed_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
@@ -622,6 +624,37 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			if err != nil {
 				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
 			}
+		case config.LogTriggeredFeedLookup:
+			upkeepAddr, deployUpkeepTx, _, err = log_triggered_feed_lookup_wrapper.DeployLogTriggeredFeedLookup(
+				k.buildTxOpts(ctx),
+				k.client,
+				k.cfg.UseArbBlockNumber,
+			)
+			if err != nil {
+				log.Fatal(i, ": Deploy Upkeep failed - ", err)
+			}
+
+			logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
+			logTriggerConfig, err := abi.Encode(map[string]interface{}{
+				"contractAddress": k.cfg.Target,
+				"filterSelector":  k.cfg.Selector, // no indexed topics filtered
+				"topic0":          k.cfg.Topic0,   // event sig for LimitOrderExecuted(uint256,uint256,address)
+				"topic1":          k.cfg.Topic1,
+				"topic2":          "0x",
+				"topic3":          "0x",
+			}, logTriggerConfigType)
+			if err != nil {
+				log.Fatal("failed to encode log trigger config", err)
+			}
+			k.waitDeployment(ctx, deployUpkeepTx)
+			log.Println(i, upkeepAddr.Hex(), ": Upkeep deployed - ", helpers.ExplorerLink(k.cfg.ChainID, deployUpkeepTx.Hash()))
+			registerUpkeepTx, err = deployer.RegisterUpkeepV2(k.buildTxOpts(ctx),
+				upkeepAddr, k.cfg.UpkeepGasLimit, k.fromAddr, 1, []byte{}, logTriggerConfig, []byte{},
+			)
+			if err != nil {
+				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
+			}
+
 		default:
 			log.Fatal("unexpected upkeep type")
 		}
@@ -718,6 +751,23 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			} else {
 				log.Printf("upkeep privilege config is set for %s", id.String())
 			}
+
+			triggerType, err := reg21.GetTriggerType(nil, id)
+			if err != nil {
+				log.Fatalf("failed to get trigger type: %v", err)
+			}
+			log.Printf("trigger type is: %d", triggerType)
+
+			triggerConfig, err := reg21.GetLogTriggerConfig(nil, id)
+			if err != nil {
+				log.Fatalf("failed to get trigger config: %v", err)
+			}
+			log.Printf("trigger config Contract Address: %s", triggerConfig.ContractAddress.String())
+			log.Printf("trigger config Filter Selector: %d", triggerConfig.FilterSelector)
+			log.Printf("trigger config topic0: %s", hexutil.Encode(triggerConfig.Topic0[:]))
+			log.Printf("trigger config topic1: %s", hexutil.Encode(triggerConfig.Topic1[:]))
+			log.Printf("trigger config topic2: %s", hexutil.Encode(triggerConfig.Topic2[:]))
+			log.Printf("trigger config topic3: %s", hexutil.Encode(triggerConfig.Topic3[:]))
 
 			info, err := reg21.GetUpkeep(nil, id)
 			if err != nil {
