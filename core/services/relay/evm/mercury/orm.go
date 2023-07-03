@@ -37,7 +37,7 @@ func (o *ORM) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.
 	return err
 }
 
-// DeleteTransmitRequest deletes one transmit request if it exists.
+// DeleteTransmitRequest deletes the given transmit requests if they exist.
 func (o *ORM) DeleteTransmitRequests(reqs []*pb.TransmitRequest, qopts ...pg.QOpt) error {
 	if len(reqs) == 0 {
 		return nil
@@ -105,14 +105,11 @@ func (o *ORM) PruneTransmitRequests(maxSize int, qopts ...pg.QOpt) error {
 	// Prune the oldest requests by epoch and round.
 	return q.ExecQ(`
 		DELETE FROM mercury_transmit_requests
-		WHERE payload_hash IN (
+		WHERE payload_hash NOT IN (
 		    SELECT payload_hash
 			FROM mercury_transmit_requests
-			ORDER BY epoch, round
-			LIMIT ( 
-			    SELECT GREATEST(COUNT(*) - $1, 0)
-			    FROM mercury_transmit_requests
-			)
+			ORDER BY epoch DESC, round DESC
+			LIMIT $1
 		)
 	`, maxSize)
 }

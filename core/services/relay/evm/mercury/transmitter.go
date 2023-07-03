@@ -162,11 +162,14 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 
 func (mt *mercuryTransmitter) Close() error {
 	return mt.StopOnce("MercuryTransmitter", func() error {
-		// Stop runQueueLoop before stopping its dependencies
+		if err := mt.queue.Close(); err != nil {
+			return err
+		}
+		if err := mt.persistenceManager.Close(); err != nil {
+			return err
+		}
 		close(mt.stopCh)
 		mt.wg.Wait()
-		_ = mt.queue.Close()              // Close always returns nil
-		_ = mt.persistenceManager.Close() // Close always returns nil
 		return mt.rpcClient.Close()
 	})
 }

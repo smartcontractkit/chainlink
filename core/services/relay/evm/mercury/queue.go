@@ -123,11 +123,6 @@ func (tq *TransmitQueue) BlockingPop() (t *Transmission) {
 			return nil
 		}
 	}
-
-	for i, tr := range *tq.pq {
-		tq.lggr.Infof("QUEUE %d: %s", i, tr.Req.Payload)
-	}
-
 	return t
 }
 

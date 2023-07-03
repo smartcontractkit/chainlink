@@ -77,7 +77,7 @@ func (pm *PersistenceManager) runFlushDeletesLoop() {
 	ctx, cancel := pm.stopCh.Ctx(context.Background())
 	defer cancel()
 
-	ticker := time.NewTicker(flushDeletesFrequency)
+	ticker := time.NewTicker(utils.WithJitter(flushDeletesFrequency))
 	for {
 		select {
 		case <-ctx.Done():
@@ -100,7 +100,7 @@ func (pm *PersistenceManager) runPruneLoop() {
 	ctx, cancel := pm.stopCh.Ctx(context.Background())
 	defer cancel()
 
-	ticker := time.NewTicker(pruneFrequency)
+	ticker := time.NewTicker(utils.WithJitter(pruneFrequency))
 	for {
 		select {
 		case <-ctx.Done():
@@ -108,7 +108,7 @@ func (pm *PersistenceManager) runPruneLoop() {
 			return
 		case <-ticker.C:
 			pm.lggr.Trace("Pruning transmit requests table")
-			if err := pm.orm.PruneTransmitRequests(maxTransmitQueueSize, pg.WithParentCtx(ctx)); err != nil {
+			if err := pm.orm.PruneTransmitRequests(maxTransmitQueueSize, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout()); err != nil {
 				pm.lggr.Errorw("Failed to prune transmit requests table", "err", err)
 			}
 		}
