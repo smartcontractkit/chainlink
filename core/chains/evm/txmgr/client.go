@@ -51,7 +51,7 @@ func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, updateBroadcas
 	if len(reqs) != len(attempts) {
 		lenErr := fmt.Errorf("Returned request data length (%d) != number of tx attempts (%d)", len(reqs), len(attempts))
 		err = errors.Join(err, lenErr)
-		lggr.Criticalw("Mismatched length", "error", err)
+		lggr.Criticalw("Mismatched length", "err", err)
 		return
 	}
 
