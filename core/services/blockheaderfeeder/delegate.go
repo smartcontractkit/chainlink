@@ -247,7 +247,7 @@ func (s *service) runFeeder() {
 		s.logger.Debugw("BlockHeaderFeeder run completed successfully")
 	} else {
 		s.logger.Errorw("BlockHeaderFeeder run was at least partially unsuccessful",
-			"error", err)
+			"err", err)
 	}
 }
 

@@ -58,7 +58,7 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 	for _, entry := range logObserver.All() {
 		for _, field := range entry.Context {
 			switch field.Key {
-			case "error":
+			case "err":
 				require.Equal(t, "failed to get upkeep config: failure in calling contract [chain connection error example]: getConfig v1.2", field.String)
 			case "upkeepID":
 				require.Equal(t, fmt.Sprintf("UPx%064s", "429ab990419450db80821"), field.String)
@@ -71,6 +71,6 @@ func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {
 		}
 	}
 
-	require.Equal(t, map[string]bool{"upkeepID": true, "error": true, "registryContract": true}, keys)
+	require.Equal(t, map[string]bool{"upkeepID": true, "err": true, "registryContract": true}, keys)
 	require.Equal(t, 1, count, "callback function should run")
 }
