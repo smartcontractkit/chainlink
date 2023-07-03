@@ -360,13 +360,13 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.St
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
-			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "error", err)
+			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "err", err)
 		}
 	} else {
 		ethClient := chain.Client()
 		bal, err = ethClient.BalanceAt(ctx, state.Address.Address(), nil)
 		if err != nil {
-			ekc.lggr.Errorw("Failed to get ETH balance", "chainID", chainID, "address", state.Address, "error", err)
+			ekc.lggr.Errorw("Failed to get ETH balance", "chainID", chainID, "address", state.Address, "err", err)
 		}
 	}
 	return presenters.SetETHKeyEthBalance((*assets.Eth)(bal))
@@ -381,14 +381,14 @@ func (ekc *ETHKeysController) setLinkBalance(ctx context.Context, state ethkey.S
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
-			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "error", err)
+			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
 	} else {
 		ethClient := chain.Client()
 		addr := common.HexToAddress(chain.Config().EVM().LinkContractAddress())
 		bal, err = ethClient.LINKBalance(ctx, state.Address.Address(), addr)
 		if err != nil {
-			ekc.lggr.Errorw("Failed to get LINK balance", "chainID", chainID, "address", state.Address, "error", err)
+			ekc.lggr.Errorw("Failed to get LINK balance", "chainID", chainID, "address", state.Address, "err", err)
 		}
 	}
 	return presenters.SetETHKeyLinkBalance(bal)
@@ -403,7 +403,7 @@ func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddres
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
-			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "error", err)
+			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
 	} else {
 		price = chain.Config().EVM().KeySpecificMaxGasPriceWei(keyAddress)

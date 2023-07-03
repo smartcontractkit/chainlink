@@ -313,7 +313,7 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 func (lsn *listenerV1) shouldProcessLog(lb log.Broadcast) bool {
 	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
-		lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
 		return false
 	}
