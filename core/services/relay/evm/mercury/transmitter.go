@@ -212,7 +212,7 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 			return
 		} else if err != nil {
 			mt.transmitConnectionErrorCount.Inc()
-			mt.lggr.Errorw("Transmit report failed", "error", err, "reportCtx", t.ReportCtx)
+			mt.lggr.Errorw("Transmit report failed", "err", err, "reportCtx", t.ReportCtx)
 			if ok := mt.queue.Push(t.Req, t.ReportCtx); !ok {
 				mt.lggr.Error("Failed to push report to transmit queue; queue is closed")
 				return
