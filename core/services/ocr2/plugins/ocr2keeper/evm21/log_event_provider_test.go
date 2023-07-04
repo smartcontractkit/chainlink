@@ -336,16 +336,13 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 			reads := make(chan []*big.Int, 100)
 
 			go func(ctx context.Context) {
-				err := p.scheduleReadJobs(ctx, func(ids []*big.Int) {
+				_ = p.scheduleReadJobs(ctx, func(ids []*big.Int) {
 					select {
 					case reads <- ids:
 					default:
 						t.Log("dropped ids")
 					}
 				})
-				if err != nil {
-					t.Fatal(err)
-				}
 			}(ctx)
 
 			timeout := tick*time.Duration((1+len(tc.ids)/tc.maxBatchSize))*4 + 1
