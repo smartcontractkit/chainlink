@@ -25,8 +25,8 @@ import (
 
 const (
 	BlockNumber        = "blockNumber" // valid for v0.2
-	FeedID             = "feedID"      // valid for v0.3
-	FeedIDHex          = "feedIDHex"   // valid for v0.2
+	FeedId             = "feedId"      // valid for v0.3
+	FeedIdHex          = "feedIdHex"   // valid for v0.2
 	MercuryPathV2      = "/client?"
 	MercuryPathV3      = "/v1/reports?"
 	MercuryBatchPathV3 = "/v1/reports/bulk?"
@@ -208,12 +208,12 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, upke
 	// TODO (AUTO-3253): if no feed labels are provided in v0.3, request for all feeds
 	resultLen := len(ml.feeds)
 	ch := make(chan MercuryBytes, resultLen)
-	if ml.feedParamKey == FeedIDHex && ml.timeParamKey == BlockNumber {
+	if ml.feedParamKey == FeedIdHex && ml.timeParamKey == BlockNumber {
 		// only mercury v0.2
 		for i := range ml.feeds {
 			go r.singleFeedRequest(ctx, ch, upkeepId, i, ml, MercuryV02)
 		}
-	} else if ml.feedParamKey == FeedID && ml.timeParamKey == Timestamp {
+	} else if ml.feedParamKey == FeedId && ml.timeParamKey == Timestamp {
 		// only mercury v0.3
 		if resultLen == 1 {
 			go r.singleFeedRequest(ctx, ch, upkeepId, 0, ml, MercuryV03)
@@ -332,7 +332,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 // multiFeedsRequest sends a Mercury request for a multi-feed report
 func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBytes, upkeepId *big.Int, ml *FeedLookup) {
 	q := url.Values{
-		FeedID:    {strings.Join(ml.feeds, ",")},
+		FeedId:    {strings.Join(ml.feeds, ",")},
 		Timestamp: {ml.time.String()},
 		UserId:    {upkeepId.String()},
 	}
