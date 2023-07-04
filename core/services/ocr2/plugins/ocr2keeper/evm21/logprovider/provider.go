@@ -1,7 +1,6 @@
-package evm
+package logprovider
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"fmt"
@@ -11,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"golang.org/x/time/rate"
 
@@ -22,75 +19,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+var (
+	ErrHeadNotAvailable = fmt.Errorf("head not available")
+	logTriggerType      = 1
+)
+
 type LogDataPacker interface {
 	PackLogData(log logpoller.Log) ([]byte, error)
 }
 
-// LogEventProviderOptions holds the options for the log event provider.
-type LogEventProviderOptions struct {
-	// LogRetention is the amount of time to retain logs for.
-	LogRetention time.Duration
-	// AllowedLogsPerBlock is the maximum number of logs allowed per block in the buffer.
-	BufferMaxBlockSize int
-	// LogBufferSize is the number of blocks in the buffer.
-	LogBufferSize int
-	// AllowedLogsPerBlock is the maximum number of logs allowed per block & upkeep in the buffer.
-	AllowedLogsPerBlock int
-	// LogBlocksLookback is the number of blocks to look back for logs.
-	LogBlocksLookback int64
-	// LookbackBuffer is the number of blocks to add as a buffer to the lookback.
-	LookbackBuffer int64
-	// BlockRateLimit is the rate limit for fetching logs per block.
-	BlockRateLimit rate.Limit
-	// BlockLimitBurst is the burst limit for fetching logs per block.
-	BlockLimitBurst int
-	// ReadInterval is the interval to fetch logs in the background.
-	ReadInterval time.Duration
-	// ReadMaxBatchSize is the max number of items in one read batch / partition.
-	ReadMaxBatchSize int
-	// Readers is the number of reader workers to spawn.
-	Readers int
-}
-
-// Defaults sets the default values for the options.
-func (o *LogEventProviderOptions) Defaults() {
-	if o.LogRetention == 0 {
-		o.LogRetention = 24 * time.Hour
-	}
-	if o.BufferMaxBlockSize == 0 {
-		o.BufferMaxBlockSize = 1024
-	}
-	if o.AllowedLogsPerBlock == 0 {
-		o.AllowedLogsPerBlock = 128
-	}
-	if o.LogBlocksLookback == 0 {
-		o.LogBlocksLookback = 512
-	}
-	if o.LogBufferSize == 0 {
-		o.LogBufferSize = int(o.LogBlocksLookback * 3)
-	}
-	if o.LookbackBuffer == 0 {
-		o.LookbackBuffer = 32
-	}
-	if o.BlockRateLimit == 0 {
-		o.BlockRateLimit = rate.Every(time.Second)
-	}
-	if o.BlockLimitBurst == 0 {
-		o.BlockLimitBurst = int(o.LogBlocksLookback)
-	}
-	if o.ReadInterval == 0 {
-		o.ReadInterval = time.Second
-	}
-	if o.ReadMaxBatchSize == 0 {
-		o.ReadMaxBatchSize = 32
-	}
-	if o.Readers == 0 {
-		o.Readers = 2
-	}
-}
-
 // LogTriggerConfig is an alias for log trigger config.
-type LogTriggerConfig = i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
+type LogTriggerConfig i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
 
 // upkeepFilterEntry holds the upkeep filter, rate limiter and last polled block.
 type upkeepFilterEntry struct {
@@ -139,7 +78,7 @@ type logEventProvider struct {
 	opts *LogEventProviderOptions
 }
 
-func NewLogEventProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, opts *LogEventProviderOptions) *logEventProvider {
+func New(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, opts *LogEventProviderOptions) *logEventProvider {
 	if opts == nil {
 		opts = new(LogEventProviderOptions)
 	}
@@ -190,44 +129,6 @@ func (p *logEventProvider) Close() error {
 	return nil
 }
 
-func (p *logEventProvider) RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfig) error {
-	if err := p.validateLogTriggerConfig(cfg); err != nil {
-		return errors.Wrap(err, "invalid log trigger config")
-	}
-	filter := p.newLogFilter(upkeepID, cfg)
-
-	// TODO: optimize locking, currently we lock the whole map while registering the filter
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
-	uid := upkeepID.String()
-	if _, ok := p.active[uid]; ok {
-		// TODO: check for updates
-		return errors.Errorf("filter for upkeep with id %s already registered", uid)
-	}
-	if err := p.poller.RegisterFilter(filter); err != nil {
-		return errors.Wrap(err, "failed to register upkeep filter")
-	}
-	p.active[uid] = upkeepFilterEntry{
-		id:           upkeepID,
-		filter:       filter,
-		cfg:          cfg,
-		blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
-	}
-
-	return nil
-}
-
-func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
-	err := p.poller.UnregisterFilter(p.filterName(upkeepID), nil)
-	if err == nil {
-		p.lock.Lock()
-		delete(p.active, upkeepID.String())
-		p.lock.Unlock()
-	}
-	return errors.Wrap(err, "failed to unregister upkeep filter")
-}
-
 func (p *logEventProvider) GetLogs() ([]UpkeepPayload, error) {
 	latest := p.buffer.latestBlockSeen()
 	diff := latest - p.opts.LogBlocksLookback
@@ -246,7 +147,7 @@ func (p *logEventProvider) GetLogs() ([]UpkeepPayload, error) {
 			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
 			continue
 		}
-		payload := NewUpkeepPayload(l.id, int(logTrigger), trig, checkData)
+		payload := NewUpkeepPayload(l.id, logTriggerType, trig, checkData)
 		payloads = append(payloads, payload)
 	}
 
@@ -363,7 +264,10 @@ func (p *logEventProvider) updateEntriesLastPoll(entries []*upkeepFilterEntry) {
 
 	for _, entry := range entries {
 		// for successful queries, the last poll block was updated
-		orig := p.active[entry.id.String()]
+		orig, ok := p.active[entry.id.String()]
+		if !ok {
+			continue // entry was removed
+		}
 		if entry.lastPollBlock == orig.lastPollBlock {
 			continue
 		}
@@ -374,8 +278,6 @@ func (p *logEventProvider) updateEntriesLastPoll(entries []*upkeepFilterEntry) {
 
 // getEntries returns the filters for the given upkeepIDs,
 // returns empty filter for inactive upkeeps.
-//
-// TODO: group filters by contract address?
 func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big.Int) []*upkeepFilterEntry {
 	p.lock.RLock()
 	defer p.lock.RUnlock()
@@ -409,6 +311,7 @@ func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big
 // we use p.opts.LookbackBuffer to check for reorgs based logs.
 //
 // TODO: batch entries by contract address and call log poller once per contract address
+// NOTE: the entries are already grouped by contract address
 func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries ...*upkeepFilterEntry) (merr error) {
 	// mainLggr := p.lggr.With("latestBlock", latest)
 	logBlocksLookback := p.opts.LogBlocksLookback
@@ -461,51 +364,4 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries .
 	}
 
 	return merr
-}
-
-// newLogFilter creates logpoller.Filter from the given upkeep config
-func (p *logEventProvider) newLogFilter(upkeepID *big.Int, cfg LogTriggerConfig) logpoller.Filter {
-	sigs := p.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
-	sigs = append([]common.Hash{common.BytesToHash(cfg.Topic0[:])}, sigs...)
-	return logpoller.Filter{
-		Name:      p.filterName(upkeepID),
-		EventSigs: sigs,
-		Addresses: []common.Address{cfg.ContractAddress},
-		Retention: p.opts.LogRetention,
-	}
-}
-
-func (p *logEventProvider) validateLogTriggerConfig(cfg LogTriggerConfig) error {
-	var zeroAddr common.Address
-	var zeroBytes [32]byte
-	if bytes.Equal(cfg.ContractAddress[:], zeroAddr[:]) {
-		return errors.New("invalid contract address: zeroed")
-	}
-	if bytes.Equal(cfg.Topic0[:], zeroBytes[:]) {
-		return errors.New("invalid topic0: zeroed")
-	}
-	return nil
-}
-
-// getFiltersBySelector the filters based on the filterSelector
-func (p *logEventProvider) getFiltersBySelector(filterSelector uint8, filters ...[]byte) []common.Hash {
-	var sigs []common.Hash
-	var zeroBytes [32]byte
-	for i, f := range filters {
-		// bitwise AND the filterSelector with the index to check if the filter is needed
-		mask := uint8(1 << uint8(i))
-		a := filterSelector & mask
-		if a == uint8(0) {
-			continue
-		}
-		if bytes.Equal(f, zeroBytes[:]) {
-			continue
-		}
-		sigs = append(sigs, common.BytesToHash(common.LeftPadBytes(f, 32)))
-	}
-	return sigs
-}
-
-func (p *logEventProvider) filterName(upkeepID *big.Int) string {
-	return logpoller.FilterName("KeepersRegistry LogUpkeep", upkeepID.String())
 }

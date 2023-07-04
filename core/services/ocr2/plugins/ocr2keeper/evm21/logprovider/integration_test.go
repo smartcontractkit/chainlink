@@ -1,4 +1,4 @@
-package evm_test
+package logprovider_test
 
 import (
 	"context"
@@ -37,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	kevm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 )
 
 func TestIntegration_LogEventProvider(t *testing.T) {
@@ -50,7 +51,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 
-	opts := &kevm21.LogEventProviderOptions{
+	opts := &logprovider.LogEventProviderOptions{
 		ReadInterval: time.Second / 2,
 	}
 	logProvider, lp, ethClient := setupLogProvider(t, db, backend, opts)
@@ -130,7 +131,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 
-	opts := &kevm21.LogEventProviderOptions{
+	opts := &logprovider.LogEventProviderOptions{
 		BlockRateLimit:  rate.Every(time.Minute),
 		BlockLimitBurst: 5,
 		ReadInterval:    time.Second / 2,
@@ -190,7 +191,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 
-	logProvider, lp, ethClient := setupLogProvider(t, db, backend, &kevm21.LogEventProviderOptions{
+	logProvider, lp, ethClient := setupLogProvider(t, db, backend, &logprovider.LogEventProviderOptions{
 		ReadInterval:      time.Second / 2,
 		LogBlocksLookback: 512,
 		ReadMaxBatchSize:  10,
@@ -268,7 +269,7 @@ func deployUpkeepCounter(
 	n int,
 	backend *backends.SimulatedBackend,
 	account *bind.TransactOpts,
-	logProvider kevm21.LogEventProvider,
+	logProvider logprovider.LogEventProvider,
 ) ([]*big.Int, []common.Address, []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
 	var ids []*big.Int
 	var contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter
@@ -294,15 +295,15 @@ func deployUpkeepCounter(
 	return ids, contractsAddrs, contracts
 }
 
-func newPlainLogTriggerConfig(upkeepAddr common.Address) kevm21.LogTriggerConfig {
-	return kevm21.LogTriggerConfig{
+func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerConfig {
+	return logprovider.LogTriggerConfig{
 		ContractAddress: upkeepAddr,
 		FilterSelector:  0,
 		Topic0:          common.HexToHash("0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d"),
 	}
 }
 
-func setupLogProvider(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBackend, opts *kevm21.LogEventProviderOptions) (kevm21.LogEventProviderTest, logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
+func setupLogProvider(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBackend, opts *logprovider.LogEventProviderOptions) (logprovider.LogEventProviderTest, logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
 	ethClient := evmclient.NewSimulatedBackendClient(t, backend, big.NewInt(1337))
 	pollerLggr := logger.TestLogger(t)
 	pollerLggr.SetLogLevel(zapcore.WarnLevel)
@@ -314,7 +315,7 @@ func setupLogProvider(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBack
 	require.NoError(t, err)
 	logDataABI, err := abi.JSON(strings.NewReader(i_log_automation.ILogAutomationABI))
 	require.NoError(t, err)
-	logProvider := kevm21.NewLogEventProvider(lggr, lp, kevm21.NewEvmRegistryPackerV2_1(keeperRegistryABI, logDataABI), opts)
+	logProvider := logprovider.New(lggr, lp, kevm21.NewEvmRegistryPackerV2_1(keeperRegistryABI, logDataABI), opts)
 
 	return logProvider, lp, ethClient
 }

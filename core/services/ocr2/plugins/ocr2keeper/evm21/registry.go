@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_log_automation"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -122,7 +123,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		},
 		hc:               http.DefaultClient,
 		enc:              EVMAutomationEncoder21{},
-		logEventProvider: NewLogEventProvider(lggr, client.LogPoller(), packer, nil),
+		logEventProvider: logprovider.New(lggr, client.LogPoller(), packer, nil), // TODO: pass opts
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -191,7 +192,7 @@ type EvmRegistry struct {
 	hc            HttpClient
 	enc           EVMAutomationEncoder21
 
-	logEventProvider *logEventProvider
+	logEventProvider logprovider.LogEventProvider
 }
 
 // GetActiveUpkeepIDs uses the latest head and map of all active upkeeps to build a
@@ -903,7 +904,7 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to unpack log upkeep config")
 		}
-		if err := r.logEventProvider.RegisterFilter(id, LogTriggerConfig(parsed)); err != nil {
+		if err := r.logEventProvider.RegisterFilter(id, logprovider.LogTriggerConfig(parsed)); err != nil {
 			return errors.Wrap(err, "failed to register log filter")
 		}
 		r.lggr.Debugw("registered log filter", "upkeepID", uid, "cfg", parsed)

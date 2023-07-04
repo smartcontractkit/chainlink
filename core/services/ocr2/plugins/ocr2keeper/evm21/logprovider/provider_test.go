@@ -1,4 +1,4 @@
-package evm
+package logprovider
 
 import (
 	"context"
@@ -20,196 +20,8 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func TestLogEventProvider_LifeCycle(t *testing.T) {
-	tests := []struct {
-		name       string
-		errored    bool
-		upkeepID   *big.Int
-		upkeepCfg  LogTriggerConfig
-		mockPoller bool
-	}{
-		{
-			"new upkeep",
-			false,
-			big.NewInt(111),
-			LogTriggerConfig{
-				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
-				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
-			},
-			true,
-		},
-		{
-			"empty config",
-			true,
-			big.NewInt(111),
-			LogTriggerConfig{},
-			false,
-		},
-		{
-			"invalid config",
-			true,
-			big.NewInt(111),
-			LogTriggerConfig{
-				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{}, 20)),
-				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{}, 32)),
-			},
-			false,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			mp := new(mocks.LogPoller)
-			if tc.mockPoller {
-				mp.On("RegisterFilter", mock.Anything).Return(nil)
-				mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
-			}
-			p := NewLogEventProvider(logger.TestLogger(t), mp, &mockedPacker{}, nil)
-			err := p.RegisterFilter(tc.upkeepID, tc.upkeepCfg)
-			if tc.errored {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.NoError(t, p.UnregisterFilter(tc.upkeepID))
-			}
-		})
-	}
-}
-
-func TestLogEventProvider_GetFiltersBySelector(t *testing.T) {
-	var zeroBytes [32]byte
-	tests := []struct {
-		name           string
-		filterSelector uint8
-		filters        [][]byte
-		expectedSigs   []common.Hash
-	}{
-		{
-			"invalid filters",
-			1,
-			[][]byte{
-				zeroBytes[:],
-			},
-			[]common.Hash{},
-		},
-		{
-			"selector 000",
-			0,
-			[][]byte{
-				{1},
-			},
-			[]common.Hash{},
-		},
-		{
-			"selector 001",
-			1,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{1}, 32)),
-			},
-		},
-		{
-			"selector 010",
-			2,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{2}, 32)),
-			},
-		},
-		{
-			"selector 011",
-			3,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{1}, 32)),
-				common.BytesToHash(common.LeftPadBytes([]byte{2}, 32)),
-			},
-		},
-		{
-			"selector 100",
-			4,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{3}, 32)),
-			},
-		},
-		{
-			"selector 101",
-			5,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{1}, 32)),
-				common.BytesToHash(common.LeftPadBytes([]byte{3}, 32)),
-			},
-		},
-		{
-			"selector 110",
-			6,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{2}, 32)),
-				common.BytesToHash(common.LeftPadBytes([]byte{3}, 32)),
-			},
-		},
-		{
-			"selector 111",
-			7,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{1}, 32)),
-				common.BytesToHash(common.LeftPadBytes([]byte{2}, 32)),
-				common.BytesToHash(common.LeftPadBytes([]byte{3}, 32)),
-			},
-		},
-	}
-
-	p := NewLogEventProvider(logger.TestLogger(t), nil, &mockedPacker{}, nil)
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			sigs := p.getFiltersBySelector(tc.filterSelector, tc.filters...)
-			if len(sigs) != len(tc.expectedSigs) {
-				t.Fatalf("expected %v, got %v", len(tc.expectedSigs), len(sigs))
-			}
-			for i := range sigs {
-				if sigs[i] != tc.expectedSigs[i] {
-					t.Fatalf("expected %v, got %v", tc.expectedSigs[i], sigs[i])
-				}
-			}
-		})
-	}
-}
-
 func TestLogEventProvider_GetEntries(t *testing.T) {
-	p := NewLogEventProvider(logger.TestLogger(t), nil, &mockedPacker{}, nil)
+	p := New(logger.TestLogger(t), nil, &mockedPacker{}, nil)
 
 	_, f := newEntry(p, 1)
 	p.lock.Lock()
@@ -245,6 +57,56 @@ func TestLogEventProvider_GetEntries(t *testing.T) {
 		entries = p.getEntries(1, true, f.id)
 		require.Len(t, entries, 1)
 		require.Greater(t, len(entries[0].filter.Addresses), 0)
+	})
+}
+
+func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
+	p := New(logger.TestLogger(t), nil, &mockedPacker{}, nil)
+
+	n := 10
+
+	entries := map[string]upkeepFilterEntry{}
+	for i := 0; i < n; i++ {
+		_, f := newEntry(p, i+1)
+		entries[f.id.String()] = f
+	}
+	p.lock.Lock()
+	p.active = entries
+	p.lock.Unlock()
+
+	t.Run("no entries", func(t *testing.T) {
+		_, f := newEntry(p, n*2)
+		f.lastPollBlock = 10
+		p.updateEntriesLastPoll([]*upkeepFilterEntry{&f})
+
+		p.lock.RLock()
+		defer p.lock.RUnlock()
+		for _, f := range p.active {
+			require.Equal(t, int64(0), f.lastPollBlock)
+		}
+	})
+
+	t.Run("update entries", func(t *testing.T) {
+		_, f2 := newEntry(p, n-2)
+		f2.lastPollBlock = 10
+		_, f1 := newEntry(p, n-1)
+		f1.lastPollBlock = 10
+		p.updateEntriesLastPoll([]*upkeepFilterEntry{&f1, &f2})
+
+		p.lock.RLock()
+		e := p.active[f1.id.String()]
+		require.Equal(t, int64(10), e.lastPollBlock)
+		e = p.active[f2.id.String()]
+		require.Equal(t, int64(10), e.lastPollBlock)
+		p.lock.RUnlock()
+		// update with same block
+		p.updateEntriesLastPoll([]*upkeepFilterEntry{&f1})
+
+		_, f := newEntry(p, 1)
+		p.lock.RLock()
+		defer p.lock.RUnlock()
+		e = p.active[f.id.String()]
+		require.Equal(t, int64(0), e.lastPollBlock)
 	})
 }
 
@@ -319,7 +181,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 			defer cancel()
 
 			tick := 10 * time.Millisecond
-			p := NewLogEventProvider(logger.TestLogger(t), mp, &mockedPacker{}, &LogEventProviderOptions{
+			p := New(logger.TestLogger(t), mp, &mockedPacker{}, &LogEventProviderOptions{
 				ReadMaxBatchSize: tc.maxBatchSize,
 				ReadInterval:     tick,
 			})
@@ -390,7 +252,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 		},
 	}, nil)
 
-	p := NewLogEventProvider(logger.TestLogger(t), mp, &mockedPacker{}, nil)
+	p := New(logger.TestLogger(t), mp, &mockedPacker{}, nil)
 
 	var ids []*big.Int
 	for i := 0; i < 10; i++ {
