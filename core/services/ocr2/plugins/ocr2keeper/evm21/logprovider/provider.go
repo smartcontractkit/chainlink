@@ -24,10 +24,6 @@ var (
 	logTriggerType      = 1
 )
 
-type LogDataPacker interface {
-	PackLogData(log logpoller.Log) ([]byte, error)
-}
-
 // LogTriggerConfig is an alias for log trigger config.
 type LogTriggerConfig i_keeper_registry_master_wrapper_2_1.KeeperRegistryBase21LogTriggerConfig
 

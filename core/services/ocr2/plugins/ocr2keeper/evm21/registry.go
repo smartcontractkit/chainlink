@@ -88,11 +88,12 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
+	packer := NewEvmRegistryPackerV2_1(keeperRegistryABI)
 	logDataABI, err := abi.JSON(strings.NewReader(i_log_automation.ILogAutomationABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
-	packer := NewEvmRegistryPackerV2_1(keeperRegistryABI, logDataABI)
+	logPacker := logprovider.NewLogEventsPacker(logDataABI)
 
 	registry, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
 	if err != nil {
@@ -123,7 +124,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		},
 		hc:               http.DefaultClient,
 		enc:              EVMAutomationEncoder21{},
-		logEventProvider: logprovider.New(lggr, client.LogPoller(), packer, nil), // TODO: pass opts
+		logEventProvider: logprovider.New(lggr, client.LogPoller(), logPacker, nil), // TODO: pass opts
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {

@@ -17,7 +17,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_log_automation"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -65,10 +64,6 @@ func NewLogProvider(
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
-	logDataABI, err := abi.JSON(strings.NewReader(i_log_automation.ILogAutomationABI))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
-	}
 
 	// Add log filters for the log poller so that it can poll and find the logs that
 	// we need.
@@ -93,7 +88,7 @@ func NewLogProvider(
 		lookbackBlocks:    lookbackBlocks,
 		registry:          contract,
 		client:            client,
-		packer:            NewEvmRegistryPackerV2_1(keeperABI, logDataABI),
+		packer:            NewEvmRegistryPackerV2_1(keeperABI),
 		txCheckBlockCache: pluginutils.NewCache[string](time.Hour),
 		cacheCleaner:      pluginutils.NewIntervalCacheCleaner[string](time.Minute),
 	}, nil
