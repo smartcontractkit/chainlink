@@ -19,9 +19,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+const (
+	BlockLimitExceeded = "block limit exceeded"
+	logTriggerType     = 1
+)
+
 var (
 	ErrHeadNotAvailable = fmt.Errorf("head not available")
-	logTriggerType      = 1
 )
 
 // LogTriggerConfig is an alias for log trigger config.
@@ -330,7 +334,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries .
 		}
 		resv := entry.blockLimiter.ReserveN(time.Now(), int(latest-start))
 		if !resv.OK() {
-			merr = multierr.Append(merr, fmt.Errorf("log upkeep block limit exceeded for upkeep %s", entry.id.String()))
+			merr = multierr.Append(merr, fmt.Errorf("%s: %s", BlockLimitExceeded, entry.id.String()))
 			continue
 		}
 		// lggr = lggr.With("startBlock", start)

@@ -141,41 +141,42 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	ids, _, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(n))
 	poll := pollFn(ctx, t, lp, ethClient)
+	rounds := 4
 
-	var wg sync.WaitGroup
-	for i := 0; i < 3; i++ {
+	for i := 0; i < rounds; i++ {
 		triggerEvents(ctx, t, backend, carrol, n, poll, contracts...)
 		poll(backend.Commit())
-		for dummyBlocks := 0; dummyBlocks < n*5; dummyBlocks++ {
+		for dummyBlocks := 0; dummyBlocks < n; dummyBlocks++ {
 			_ = backend.Commit()
 		}
-		poll(backend.Commit())
-		workers := 20
-		limitErrs := int32(0)
-		for i := 0; i < workers; i++ {
-			idsCp := make([]*big.Int, len(ids))
-			copy(idsCp, ids)
-			wg.Add(1)
-			go func(i int, ids []*big.Int) {
-				defer wg.Done()
-				err := logProvider.ReadLogs(ctx, true, ids...)
-				if err != nil {
-					require.True(t, strings.Contains(err.Error(), "block limit exceeded"))
-					atomic.AddInt32(&limitErrs, 1)
-				}
-			}(i, idsCp)
-		}
-		poll(backend.Commit())
-
-		wg.Wait()
-		require.GreaterOrEqual(t, atomic.LoadInt32(&limitErrs), int32(1), "failed to apply limits")
 	}
+
+	var wg sync.WaitGroup
+	workers := 20
+	limitErrs := int32(0)
+	for i := 0; i < workers; i++ {
+		idsCp := make([]*big.Int, len(ids))
+		copy(idsCp, ids)
+		wg.Add(1)
+		go func(i int, ids []*big.Int) {
+			defer wg.Done()
+			err := logProvider.ReadLogs(ctx, true, ids...)
+			if err != nil {
+				require.True(t, strings.Contains(err.Error(), logprovider.BlockLimitExceeded))
+				atomic.AddInt32(&limitErrs, 1)
+			}
+		}(i, idsCp)
+	}
+	poll(backend.Commit())
+
+	wg.Wait()
+	require.GreaterOrEqual(t, atomic.LoadInt32(&limitErrs), int32(1), "didn't got rate limit errors")
 
 	logs, err := logProvider.GetLogs()
 	require.NoError(t, err)
 	require.NoError(t, logProvider.Close())
 
-	require.GreaterOrEqual(t, len(logs), n, "failed to read logs")
+	require.Equal(t, len(logs), n*rounds, "failed to read all logs")
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
