@@ -162,10 +162,9 @@ func (p *logEventProvider) ReadLogs(ctx context.Context, force bool, ids ...*big
 	}
 	entries := p.getEntries(latest, force, ids...)
 
-	// p.lggr.Debugw("reading logs for entries", "latestBlock", latest, "entries", len(entries))
-
 	err = p.readLogs(ctx, latest, entries...)
 	p.updateEntriesLastPoll(entries)
+	// p.lggr.Debugw("read logs for entries", "latestBlock", latest, "entries", len(entries), "err", err)
 	if err != nil {
 		return fmt.Errorf("fetched logs with errors: %w", err)
 	}
@@ -323,19 +322,20 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries .
 		}
 		// lggr := mainLggr.With("upkeep", entry.id.String(), "addrs", entry.filter.Addresses, "sigs", entry.filter.EventSigs)
 		start := entry.lastPollBlock
-		if start == 0 {
-			// first time polling, using a larger lookback and burst
+		if start == 0 || start < latest-logBlocksLookback {
+			// long range or first time polling,
+			// using a larger lookback and burst
 			start = latest - logBlocksLookback*2
 			entry.blockLimiter.SetBurst(maxBurst)
-		}
-		start = start - p.opts.LookbackBuffer // adding a buffer to check for reorgs
-		if start < 0 {
-			start = 0
 		}
 		resv := entry.blockLimiter.ReserveN(time.Now(), int(latest-start))
 		if !resv.OK() {
 			merr = multierr.Append(merr, fmt.Errorf("%s: %s", BlockLimitExceeded, entry.id.String()))
 			continue
+		}
+		start = start - p.opts.LookbackBuffer // adding a buffer to check for reorgs
+		if start < 0 {
+			start = 0
 		}
 		// lggr = lggr.With("startBlock", start)
 		logs, err := p.poller.LogsWithSigs(start, latest, entry.filter.EventSigs, entry.filter.Addresses[0], pg.WithParentCtx(ctx))
