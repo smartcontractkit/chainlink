@@ -2,6 +2,7 @@
 pragma solidity 0.8.16;
 
 import "./KeeperRegistryBase2_1.sol";
+import "./interfaces/ILogAutomation.sol";
 
 /**
  * @notice this file exposes structs that are otherwise internal to the automation registry
@@ -21,4 +22,6 @@ contract AutomationUtils2_1 {
   function _logTrigger(KeeperRegistryBase2_1.LogTrigger memory) external {}
 
   function _conditionalTrigger(KeeperRegistryBase2_1.ConditionalTrigger memory) external {}
+
+  function _log(Log memory) external {}
 }
