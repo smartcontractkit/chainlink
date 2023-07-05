@@ -26,7 +26,7 @@ func (p *logEventsPacker) PackLogData(log logpoller.Log) ([]byte, error) {
 	for _, topic := range log.GetTopics() {
 		topics = append(topics, topic)
 	}
-	return p.abi.Pack("checkLog", &i_log_automation.Log{
+	b, err := p.abi.Pack("checkLog", &i_log_automation.Log{
 		Index:       big.NewInt(log.LogIndex),
 		TxIndex:     big.NewInt(0), // TODO
 		TxHash:      log.TxHash,
@@ -36,4 +36,8 @@ func (p *logEventsPacker) PackLogData(log logpoller.Log) ([]byte, error) {
 		Topics:      topics,
 		Data:        log.Data,
 	})
+	if err != nil {
+		return nil, err
+	}
+	return b[4:], nil
 }
