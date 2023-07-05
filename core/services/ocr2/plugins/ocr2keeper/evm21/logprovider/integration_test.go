@@ -150,6 +150,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			_ = backend.Commit()
 		}
 	}
+	require.NoError(t, logProvider.ReadLogs(ctx, true, ids...))
 
 	var wg sync.WaitGroup
 	workers := 20
@@ -171,6 +172,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 
 	wg.Wait()
 	require.GreaterOrEqual(t, atomic.LoadInt32(&limitErrs), int32(1), "didn't got rate limit errors")
+	t.Logf("got %d rate limit errors", atomic.LoadInt32(&limitErrs))
 
 	logs, err := logProvider.GetLogs()
 	require.NoError(t, err)
@@ -191,19 +193,24 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	defer db.Close()
 
 	logProvider, lp, ethClient := setupLogProvider(t, db, backend, &logprovider.LogEventProviderOptions{
-		ReadInterval:      time.Second / 2,
-		LogBlocksLookback: 512,
-		ReadMaxBatchSize:  10,
+		ReadInterval: time.Second / 4,
 	})
 
-	n := 20
+	n := 10
 	pollerTimeout := time.Second * 2
 
 	_, _, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
-	lp.PollAndSaveLogs(ctx, int64(n))
 
-	logsRounds := 50
 	poll := pollFn(ctx, t, lp, ethClient)
+
+	rounds := 8
+	for i := 0; i < rounds; i++ {
+		poll(backend.Commit())
+		triggerEvents(ctx, t, backend, carrol, n, poll, contracts...)
+		poll(backend.Commit())
+	}
+
+	<-time.After(pollerTimeout) // let the log poller work
 
 	go func() {
 		if err := logProvider.Start(ctx); err != nil {
@@ -213,12 +220,14 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	}()
 	defer logProvider.Close()
 
-	triggerEvents(ctx, t, backend, carrol, logsRounds, poll, contracts...)
+	go func(dummyPolls int) {
+		for i := 0; i < dummyPolls; i++ {
+			poll(backend.Commit())
+			time.Sleep(20 * time.Millisecond)
+		}
+	}(n * rounds)
 
-	_ = backend.Commit()
-	poll(backend.Commit())
-
-	<-time.After(pollerTimeout * 2) // let the log poller work
+	<-time.After(pollerTimeout * 2) // let the provider work
 
 	logs, err := logProvider.GetLogs()
 	require.NoError(t, err)
