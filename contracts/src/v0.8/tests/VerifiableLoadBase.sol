@@ -2,13 +2,34 @@
 pragma solidity ^0.8.6;
 
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import "../automation/2_0/KeeperRegistrar2_0.sol";
 import "../dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol";
 import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import "../dev/automation/2_1/AutomationRegistrar2_1.sol";
+
+// this struct is the same as LogTriggerConfig defined in KeeperRegistryLogicA2_1 contract
+struct LogTriggerConfig {
+  address contractAddress;
+  uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
+  bytes32 topic0;
+  bytes32 topic1;
+  bytes32 topic2;
+  bytes32 topic3;
+}
+
+interface IVerifierProxy {
+  /**
+   * @notice Verifies that the data encoded has been signed
+   * correctly by routing to the correct verifier.
+   * @param signedReport The encoded data to be verified.
+   * @return verifierResponse The encoded response from the verifier.
+   */
+  function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
+}
 
 abstract contract VerifiableLoadBase is ConfirmedOwner {
   error IndexOutOfRange();
 
+  event LogEmitted(uint256 indexed upkeepId, uint256 logBlockNum, uint256 blockNum);
   event UpkeepsRegistered(uint256[] upkeepIds);
   event UpkeepsCancelled(uint256[] upkeepIds);
   event RegistrarSet(address newRegistrar);
@@ -20,6 +41,8 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
 
   using EnumerableSet for EnumerableSet.UintSet;
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
+  IVerifierProxy internal constant VERIFIER = IVerifierProxy(0x09DFf56A4fF44e0f4436260A04F5CFa65636A481);
+  bytes32 constant emittedSig = 0x8d98eacef480ad8f47c29266a1194f1874fdb68bcc98624964400d6ce72e69ec;
 
   mapping(uint256 => uint256) public lastTopUpBlocks;
   mapping(uint256 => uint256) public intervals;
@@ -40,7 +63,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   mapping(uint256 => uint16) public timestampBuckets;
   mapping(uint256 => uint16) public buckets;
   EnumerableSet.UintSet internal s_upkeepIDs;
-  KeeperRegistrar2_0 public registrar;
+  AutomationRegistrar2_1 public registrar;
   LinkTokenInterface public linkToken;
   IKeeperRegistryMaster public registry;
   // check if an upkeep is eligible for adding funds at this interval
@@ -62,8 +85,8 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
    * @param useArb if this contract will use arbitrum block number
    */
   constructor(address registrarAddress, bool useArb) ConfirmedOwner(msg.sender) {
-    registrar = KeeperRegistrar2_0(registrarAddress);
-    (, , , address registryAddress, ) = registrar.getRegistrationConfig();
+    registrar = AutomationRegistrar2_1(registrarAddress);
+    (address registryAddress, ) = registrar.getConfig();
     registry = IKeeperRegistryMaster(payable(address(registryAddress)));
     linkToken = registrar.LINK();
     useArbitrumBlockNum = useArb;
@@ -93,9 +116,9 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
    * @notice sets registrar, registry, and link token address.
    * @param newRegistrar the new registrar address
    */
-  function setConfig(KeeperRegistrar2_0 newRegistrar) external {
+  function setConfig(AutomationRegistrar2_1 newRegistrar) external {
     registrar = newRegistrar;
-    (, , , address registryAddress, ) = registrar.getRegistrationConfig();
+    (address registryAddress, ) = registrar.getConfig();
     registry = IKeeperRegistryMaster(payable(address(registryAddress)));
     linkToken = registrar.LINK();
 
@@ -126,7 +149,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
    * @param params a registration params struct
    * @return an upkeep ID
    */
-  function _registerUpkeep(KeeperRegistrar2_0.RegistrationParams memory params) private returns (uint256) {
+  function _registerUpkeep(AutomationRegistrar2_1.RegistrationParams memory params) private returns (uint256) {
     uint256 upkeepId = registrar.registerUpkeep(params);
     s_upkeepIDs.add(upkeepId);
     gasLimits[upkeepId] = params.gasLimit;
@@ -134,10 +157,24 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     return upkeepId;
   }
 
+  function getLogTriggerConfig(uint256 upkeepId) external view returns (bytes memory logTrigger) {
+    LogTriggerConfig memory cfg = LogTriggerConfig({
+      contractAddress: address(this),
+      filterSelector: 1, // only filter by topic1
+      topic0: emittedSig,
+      topic1: bytes32(abi.encode(upkeepId)),
+      topic2: 0x000000000000000000000000000000000000000000000000000000000000000,
+      topic3: 0x000000000000000000000000000000000000000000000000000000000000000
+    });
+    return abi.encode(cfg);
+  }
+
   /**
    * @notice batch registering upkeeps.
    * @param number the number of upkeeps to be registered
    * @param gasLimit the gas limit of each upkeep
+   * @param triggerType the trigger type of this upkeep, 0 for conditional, 1 for log trigger
+   * @param triggerConfig the trigger config of this upkeep
    * @param amount the amount of LINK to fund each upkeep
    * @param checkGasToBurn the amount of check gas to burn
    * @param performGasToBurn the amount of perform gas to burn
@@ -145,17 +182,21 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   function batchRegisterUpkeeps(
     uint8 number,
     uint32 gasLimit,
+    uint8 triggerType,
+    bytes memory triggerConfig,
     uint96 amount,
     uint256 checkGasToBurn,
     uint256 performGasToBurn
   ) external {
-    KeeperRegistrar2_0.RegistrationParams memory params = KeeperRegistrar2_0.RegistrationParams({
+    AutomationRegistrar2_1.RegistrationParams memory params = AutomationRegistrar2_1.RegistrationParams({
       name: "test",
       encryptedEmail: bytes(""),
       upkeepContract: address(this),
       gasLimit: gasLimit,
       adminAddress: address(this), // use address of this contract as the admin
+      triggerType: triggerType,
       checkData: bytes(""), // update pipeline data later bc upkeep id is not available now
+      triggerConfig: triggerConfig,
       offchainConfig: bytes(""),
       amount: amount
     });
@@ -165,6 +206,10 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     uint256[] memory upkeepIds = new uint256[](number);
     for (uint8 i = 0; i < number; i++) {
       uint256 upkeepId = _registerUpkeep(params);
+      if (triggerType == 1) {
+        bytes memory triggerCfg = this.getLogTriggerConfig(upkeepId);
+        registry.setUpkeepTriggerConfig(upkeepId, triggerCfg);
+      }
       upkeepIds[i] = upkeepId;
       checkGasToBurns[upkeepId] = checkGasToBurn;
       performGasToBurns[upkeepId] = performGasToBurn;

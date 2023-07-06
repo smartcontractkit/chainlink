@@ -1,66 +1,64 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity 0.8.16;
 
 import "./VerifiableLoadBase.sol";
+import "../dev/automation/2_1/interfaces/ILogAutomation.sol";
 import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
-contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface {
-  string[] public feedsHex = [
-    "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-    "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
-    "0x555344432d5553442d415242495452554d2d544553544e455400000000000000"
-  ];
-  string public constant feedParamKey = "feedIdHex";
-  string public constant timeParamKey = "blockNumber";
-
-  event MercuryPerformEvent(
-    address indexed origin,
-    uint256 indexed upkeepId,
-    uint256 indexed blockNumber,
-    bytes v0,
-    bytes ed
+contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, ILogAutomation, FeedLookupCompatibleInterface {
+  event PerformingLogTriggerUpkeep(
+    address indexed from,
+    uint256 upkeepId,
+    uint256 counter,
+    uint256 logBlockNum,
+    uint256 blockNum,
+    bytes blob,
+    bytes verified
   );
 
-  constructor(address registrarAddress, bool useArb) VerifiableLoadBase(registrarAddress, useArb) {}
+  // for mercury config
+  string[] public feedsHex = [
+    "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+    "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
+  ];
+  string public feedParamKey = "feedIdHex";
+  string public timeParamKey = "blockNumber";
+
+  constructor(address _registrar, bool _useL1BlockNumber) VerifiableLoadBase(_registrar, _useL1BlockNumber) {}
 
   function setFeedsHex(string[] memory newFeeds) external {
     feedsHex = newFeeds;
   }
 
-  function checkCallback(
-    bytes[] memory values,
-    bytes memory extraData
-  ) external pure override returns (bool, bytes memory) {
-    // do sth about the chainlinkBlob data in values and extraData
-    bytes memory performData = abi.encode(values, extraData);
-    return (true, performData);
-  }
-
-  function checkUpkeep(bytes calldata checkData) external returns (bool, bytes memory) {
+  function checkLog(Log calldata log) external override returns (bool upkeepNeeded, bytes memory performData) {
     uint256 startGas = gasleft();
-    uint256 upkeepId = abi.decode(checkData, (uint256));
-
-    uint256 performDataSize = performDataSizes[upkeepId];
-    uint256 checkGasToBurn = checkGasToBurns[upkeepId];
-    bytes memory pData = abi.encode(upkeepId, new bytes(performDataSize));
     uint256 blockNum = getBlockNumber();
-    bool needed = eligible(upkeepId);
-    while (startGas - gasleft() + 10000 < checkGasToBurn) {
-      // 10K margin over gas to burn
-      // Hard coded check gas to burn
-      dummyMap[blockhash(blockNum)] = false; // arbitrary storage writes
-    }
-    if (!needed) {
-      return (false, pData);
-    }
 
-    revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId));
+    // filter by event signature
+    if (log.topics[0] == emittedSig) {
+      // filter by indexed parameters
+      bytes memory t1 = abi.encodePacked(log.topics[1]); // bytes32 to bytes
+      uint256 upkeepId = abi.decode(t1, (uint256));
+      bool needed = eligible(upkeepId);
+      if (needed) {
+        uint256 checkGasToBurn = checkGasToBurns[upkeepId];
+        while (startGas - gasleft() + 10000 < checkGasToBurn) {
+          // 10K margin over gas to burn
+          // Hard coded check gas to burn
+          dummyMap[blockhash(blockNum)] = false; // arbitrary storage writes
+        }
+
+        revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, log.blockNumber));
+      }
+    }
+    revert("could not find matching event sig");
   }
 
-  function performUpkeep(bytes calldata performData) external {
+  function performUpkeep(bytes calldata performData) external override {
     uint256 startGas = gasleft();
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
-    uint256 upkeepId = abi.decode(extraData, (uint256));
+    (uint256 upkeepId, uint256 logBlockNumber) = abi.decode(extraData, (uint256, uint256));
+
     uint256 firstPerformBlock = firstPerformBlocks[upkeepId];
     uint256 previousPerformBlock = previousPerformBlocks[upkeepId];
     uint256 blockNum = getBlockNumber();
@@ -109,14 +107,31 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatible
       }
     }
 
+    bytes memory verifiedResponse = VERIFIER.verify(values[0]);
+    emit LogEmitted(upkeepId, logBlockNumber, blockNum);
+    emit PerformingLogTriggerUpkeep(
+      tx.origin,
+      upkeepId,
+      counter,
+      logBlockNumber,
+      blockNum,
+      values[0],
+      verifiedResponse
+    );
+
     uint256 performGasToBurn = performGasToBurns[upkeepId];
     while (startGas - gasleft() + 10000 < performGasToBurn) {
       // 10K margin over gas to burn
       dummyMap[blockhash(blockNum)] = false; // arbitrary storage writes
     }
+  }
 
-    //    bytes memory v0 = VERIFIER.verify(values[0]);
-    //    bytes memory v1 = VERIFIER.verify(values[1]);
-    emit MercuryPerformEvent(tx.origin, upkeepId, blockNum, values[0], extraData);
+  function checkCallback(
+    bytes[] memory values,
+    bytes memory extraData
+  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+    // do sth about the chainlinkBlob data in values and extraData
+    bytes memory performData = abi.encode(values, extraData);
+    return (true, performData);
   }
 }
