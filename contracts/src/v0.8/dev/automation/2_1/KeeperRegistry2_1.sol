@@ -384,31 +384,17 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   /**
    * @dev _decodeReport decodes a serialized report into a Report struct
    */
-  function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
-    (
-      uint256 fastGasWei,
-      uint256 linkNative,
-      uint256[] memory upkeepIds,
-      uint256[] memory gasLimits,
-      bytes[] memory triggers,
-      bytes[] memory performDatas
-    ) = abi.decode(rawReport, (uint256, uint256, uint256[], uint256[], bytes[], bytes[]));
+  function _decodeReport(bytes calldata rawReport) internal pure returns (Report memory) {
+    Report memory report = abi.decode(rawReport, (Report));
+    uint256 expectedLength = report.upkeepIds.length;
     if (
-      upkeepIds.length != gasLimits.length ||
-      upkeepIds.length != triggers.length ||
-      upkeepIds.length != performDatas.length
+      report.gasLimits.length != expectedLength ||
+      report.triggers.length != expectedLength ||
+      report.performDatas.length != expectedLength
     ) {
       revert InvalidReport();
     }
-    return
-      Report({
-        fastGasWei: fastGasWei,
-        linkNative: linkNative,
-        upkeepIds: upkeepIds,
-        gasLimits: gasLimits,
-        triggers: triggers,
-        performDatas: performDatas
-      });
+    return report;
   }
 
   /**
