@@ -33,7 +33,7 @@ func TestUnpackTransmitTxInputErrors(t *testing.T) {
 			abi, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 			assert.Nil(t, err)
 
-			packer := &evmRegistryPackerV2_1{abi: abi}
+			packer := NewEvmRegistryPackerV2_1(abi)
 			_, err = packer.UnpackTransmitTxInput(hexutil.MustDecode(test.RawData))
 			assert.NotNil(t, err)
 		})
@@ -57,7 +57,7 @@ func TestUnpackPerformResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := &evmRegistryPackerV2_1{abi: registryABI}
+			packer := NewEvmRegistryPackerV2_1(registryABI)
 			rs, err := packer.UnpackPerformResult(test.RawData)
 			assert.Nil(t, err)
 			assert.True(t, rs)
@@ -106,7 +106,7 @@ func TestUnpackCheckCallbackResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := &evmRegistryPackerV2_1{abi: registryABI}
+			packer := NewEvmRegistryPackerV2_1(registryABI)
 			needed, pd, failureReason, gasUsed, err := packer.UnpackCheckCallbackResult(test.CallbackResp)
 
 			if test.ErrorString != "" {
@@ -154,7 +154,7 @@ func TestUnpackLogTriggerConfig(t *testing.T) {
 		},
 	}
 
-	packer := &evmRegistryPackerV2_1{abi: keeperRegistryABI}
+	packer := NewEvmRegistryPackerV2_1(keeperRegistryABI)
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
