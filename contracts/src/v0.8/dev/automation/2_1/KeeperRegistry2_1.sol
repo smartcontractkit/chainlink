@@ -446,7 +446,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     }
     if (
       (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
-      trigger.blockNum >= block.number
+      trigger.blockNum >= _blockNum()
     ) {
       // There are two cases of reorged report
       // 1. trigger block number is in future: this is an edge case during extreme deep reorgs of chain
@@ -464,7 +464,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
     if (
       (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
-      trigger.blockNum >= block.number
+      trigger.blockNum >= _blockNum()
     ) {
       // Reorg protection is same as conditional trigger upkeeps
       emit ReorgedUpkeepReport(upkeepId, rawTrigger);

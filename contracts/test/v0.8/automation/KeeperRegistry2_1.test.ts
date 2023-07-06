@@ -21,6 +21,7 @@ import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../t
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
+import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { AutomationUtils2_1 as AutomationUtils } from '../../../typechain/AutomationUtils2_1'
 import { MercuryUpkeep } from '../../../typechain/MercuryUpkeep'
@@ -39,6 +40,10 @@ import {
   InsufficientFundsUpkeepReportEvent,
   CancelledUpkeepReportEvent,
 } from '../../../typechain/IKeeperRegistryMaster'
+import {
+  deployMockContract,
+  MockContract,
+} from '@ethereum-waffle/mock-contract'
 import { deployRegistry21 } from './helpers'
 
 const describeMaybe = process.env.SKIP_SLOW ? describe.skip : describe
@@ -76,6 +81,7 @@ type Report = Parameters<AutomationUtils['_report']>[0]
 type OnChainConfig = Parameters<AutomationUtils['_onChainConfig']>[0]
 type LogTrigger = Parameters<AutomationUtils['_logTrigger']>[0]
 type ConditionalTrigger = Parameters<AutomationUtils['_conditionalTrigger']>[0]
+type Log = Parameters<AutomationUtils['_log']>[0]
 
 // -----------------------------------------------------------------------------------------------
 // These are the gas overheads that off chain systems should provide to check upkeep / transmit
@@ -153,7 +159,7 @@ let mgRegistry: IKeeperRegistry // "migrate registry" used in migration tests
 let blankRegistry: IKeeperRegistry // used to test initial configurations
 let mock: UpkeepMock
 let autoFunderUpkeep: UpkeepAutoFunder
-let ltUpkeep: UpkeepMock
+let ltUpkeep: MockContract
 let transcoder: UpkeepTranscoder
 let mockArbGasInfo: MockArbGasInfo
 let mockOVMGasPriceOracle: MockOVMGasPriceOracle
@@ -216,6 +222,12 @@ const encodeLogTrigger = (logTrigger: LogTrigger) => {
     automationUtils.interface
       .encodeFunctionData('_logTrigger', [logTrigger])
       .slice(10)
+  )
+}
+
+const encodeLog = (log: Log) => {
+  return (
+    '0x' + automationUtils.interface.encodeFunctionData('_log', [log]).slice(10)
   )
 }
 
@@ -968,7 +980,7 @@ describe('KeeperRegistry2_1', () => {
       )
     afUpkeepId = await getUpkeepID(tx)
 
-    ltUpkeep = await upkeepMockFactory.deploy()
+    ltUpkeep = await deployMockContract(owner, ILogAutomationactory.abi)
     tx = await registry
       .connect(owner)
       ['registerUpkeep(address,uint32,address,uint8,bytes,bytes,bytes)'](
@@ -3032,8 +3044,9 @@ describe('KeeperRegistry2_1', () => {
 
     context('when the registration is funded', () => {
       beforeEach(async () => {
-        await linkToken.connect(admin).approve(registry.address, toWei('100'))
+        await linkToken.connect(admin).approve(registry.address, toWei('200'))
         await registry.connect(admin).addFunds(upkeepId, toWei('100'))
+        await registry.connect(admin).addFunds(logUpkeepId, toWei('100'))
       })
 
       it('returns false, error code, and revert data if the target check reverts', async () => {
@@ -3143,6 +3156,30 @@ describe('KeeperRegistry2_1', () => {
         expect(checkUpkeepResult.gasLimit).to.equal(executeGas)
         assert.isTrue(checkUpkeepResult.fastGasWei.eq(gasWei))
         assert.isTrue(checkUpkeepResult.linkNative.eq(linkEth))
+      })
+
+      it('calls checkLog for log-trigger upkeeps', async () => {
+        const log: Log = {
+          index: 0,
+          txIndex: 0,
+          txHash: ethers.utils.randomBytes(32),
+          blockNumber: 100,
+          blockHash: ethers.utils.randomBytes(32),
+          source: randomAddress(),
+          topics: [ethers.utils.randomBytes(32), ethers.utils.randomBytes(32)],
+          data: ethers.utils.randomBytes(1000),
+        }
+
+        await ltUpkeep.mock.checkLog.withArgs(log).returns(true, '0x1234')
+
+        const checkData = encodeLog(log)
+
+        const checkUpkeepResult = await registry
+          .connect(zeroAddress)
+          .callStatic['checkUpkeep(uint256,bytes)'](logUpkeepId, checkData)
+
+        expect(checkUpkeepResult.upkeepNeeded).to.be.true
+        expect(checkUpkeepResult.performData).to.equal('0x1234')
       })
 
       itMaybe(
