@@ -113,51 +113,56 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomat
 	var wg sync.WaitGroup
 	for i, lookup := range lookups {
 		wg.Add(1)
-		values, retryable, err := r.doMercuryRequest(ctx, lookup)
-		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s retryable %v doMercuryRequest: %v", lookup.upkeepId, retryable, err)
-			upkeepResults[i].Retryable = retryable
-			continue
-		}
-		for j, v := range values {
-			r.lggr.Infof("[FeedLookup] checkCallback values[%d]=%s", j, hexutil.Encode(v))
-		}
-
-		mercuryBytes, err := r.checkCallback(ctx, values, lookup)
-		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d checkCallback err: %v", lookup.upkeepId, lookup.block, err)
-			continue
-		}
-		r.lggr.Infof("[FeedLookup] checkCallback mercuryBytes=%s", hexutil.Encode(mercuryBytes))
-
-		needed, performData, failureReason, _, err := r.packer.UnpackCheckCallbackResult(mercuryBytes)
-		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d UnpackCheckCallbackResult err: %v", lookup.upkeepId, lookup.block, err)
-			continue
-		}
-
-		if int(failureReason) == UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
-			r.lggr.Debugf("[FeedLookup] upkeep %s block %d mercury callback reverts", lookup.upkeepId, lookup.block)
-			continue
-		}
-
-		if !needed {
-			upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
-			r.lggr.Debugf("[FeedLookup] upkeep %s block %d callback reports upkeep not needed", lookup.upkeepId, lookup.block)
-			continue
-		}
-
-		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_NONE
-		upkeepResults[i].Eligible = true
-		upkeepResults[i].PerformData = performData
-		r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %s", lookup.upkeepId, lookup.block, hexutil.Encode(performData))
-		wg.Done()
+		r.doLookup(ctx, &wg, lookup, i, upkeepResults)
 	}
 	wg.Wait()
 
 	// don't surface error to plugin bc FeedLookup process should be self-contained.
 	return upkeepResults, nil
+}
+
+func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *FeedLookup, i int, upkeepResults []EVMAutomationUpkeepResult21) {
+	defer wg.Done()
+
+	values, retryable, err := r.doMercuryRequest(ctx, lookup)
+	if err != nil {
+		r.lggr.Errorf("[FeedLookup] upkeep %s retryable %v doMercuryRequest: %v", lookup.upkeepId, retryable, err)
+		upkeepResults[i].Retryable = retryable
+		return
+	}
+	for j, v := range values {
+		r.lggr.Infof("[FeedLookup] checkCallback values[%d]=%s", j, hexutil.Encode(v))
+	}
+
+	mercuryBytes, err := r.checkCallback(ctx, values, lookup)
+	if err != nil {
+		r.lggr.Errorf("[FeedLookup] upkeep %s block %d checkCallback err: %v", lookup.upkeepId, lookup.block, err)
+		return
+	}
+	r.lggr.Infof("[FeedLookup] checkCallback mercuryBytes=%s", hexutil.Encode(mercuryBytes))
+
+	needed, performData, failureReason, _, err := r.packer.UnpackCheckCallbackResult(mercuryBytes)
+	if err != nil {
+		r.lggr.Errorf("[FeedLookup] upkeep %s block %d UnpackCheckCallbackResult err: %v", lookup.upkeepId, lookup.block, err)
+		return
+	}
+
+	if int(failureReason) == UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED {
+		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
+		r.lggr.Debugf("[FeedLookup] upkeep %s block %d mercury callback reverts", lookup.upkeepId, lookup.block)
+		return
+	}
+
+	if !needed {
+		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
+		r.lggr.Debugf("[FeedLookup] upkeep %s block %d callback reports upkeep not needed", lookup.upkeepId, lookup.block)
+		return
+	}
+
+	upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_NONE
+	upkeepResults[i].Eligible = true
+	upkeepResults[i].PerformData = performData
+	r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %s", lookup.upkeepId, lookup.block, hexutil.Encode(performData))
 }
 
 // allowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
