@@ -758,7 +758,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 
 func TestEvmRegistry_CheckCallback(t *testing.T) {
 	upkeepId := big.NewInt(123456789)
-	blockNumber := uint32(999)
+	blockNumber := uint64(999)
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
 	values := [][]byte{bs}
 	tests := []struct {
@@ -841,7 +841,7 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 				"to":   r.addr.Hex(),
 				"data": hexutil.Bytes(payload),
 			}
-			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(uint64(tt.lookup.block))).Return(tt.callbackErr).
+			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(tt.lookup.block)).Return(tt.callbackErr).
 				Run(func(args mock.Arguments) {
 					by := args.Get(1).(*hexutil.Bytes)
 					*by = tt.callbackResp

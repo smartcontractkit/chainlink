@@ -48,7 +48,7 @@ type FeedLookup struct {
 	time         *big.Int
 	extraData    []byte
 	upkeepId     *big.Int
-	block        uint32
+	block        uint64
 }
 
 // MercuryResponse is used in both single feed endpoint and bulk endpoint because bulk endpoint will return ONE
@@ -105,7 +105,9 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomat
 			continue
 		}
 		lookup.upkeepId = upkeepId
-		lookup.block = block
+		// the block here is exclusively used to call checkCallback at this block, not to be confused with the block number
+		// in the revert for mercury v0.2, which is denoted by time in the struct bc starting from v0.3, only timestamp will be supported
+		lookup.block = uint64(block)
 		r.lggr.Infof("[FeedLookup] upkeep %s block %d decodeFeedLookup feedKey=%s timeKey=%s feeds=%v time=%s extraData=%s", upkeepId, block, lookup.feedParamKey, lookup.timeParamKey, lookup.feeds, lookup.time, hexutil.Encode(lookup.extraData))
 		lookups[i] = lookup
 	}
@@ -113,7 +115,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []EVMAutomat
 	var wg sync.WaitGroup
 	for i, lookup := range lookups {
 		wg.Add(1)
-		r.doLookup(ctx, &wg, lookup, i, upkeepResults)
+		go r.doLookup(ctx, &wg, lookup, i, upkeepResults)
 	}
 	wg.Wait()
 
@@ -217,7 +219,8 @@ func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup
 		"data": hexutil.Bytes(payload),
 	}
 
-	err = r.client.CallContext(ctx, &b, "eth_call", args, hexutil.EncodeUint64(uint64(lookup.block)))
+	// call checkCallback function at the block which OCR3 has agreed upon
+	err = r.client.CallContext(ctx, &b, "eth_call", args, hexutil.EncodeUint64(lookup.block))
 	if err != nil {
 		return nil, err
 	}
