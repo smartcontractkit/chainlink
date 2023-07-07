@@ -334,7 +334,7 @@ func (o *ORM) SelectLatestBlockNumberEventSigsAddrsWithConfs(eventSigs []common.
 					(block_number + $4) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)`,
 		o.chainID.Int64(), sigs, addrs, confs)
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to execute query")
+		return 0, err
 	}
 	return blockNumber, nil
 }
