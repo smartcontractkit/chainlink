@@ -30,7 +30,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, ILogAutomation, F
     feedsHex = newFeeds;
   }
 
-  function checkLog(Log calldata log) external override returns (bool upkeepNeeded, bytes memory performData) {
+  function checkLog(Log calldata log) external override returns (bool, bytes memory) {
     uint256 startGas = gasleft();
     uint256 blockNum = getBlockNumber();
 
@@ -129,7 +129,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, ILogAutomation, F
   function checkCallback(
     bytes[] memory values,
     bytes memory extraData
-  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+  ) external view override returns (bool, bytes memory) {
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
     return (true, performData);
