@@ -942,7 +942,8 @@ func (r *Resolver) CreateAPIToken(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	if !utils.CheckPasswordHash(args.Input.Password, dbUser.HashedPassword) {
+	err = r.App.SessionORM().TestPassword(dbUser.Email, args.Input.Password)
+	if err != nil {
 		r.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]interface{}{"user": dbUser.Email})
 
 		return NewCreateAPITokenPayload(nil, map[string]string{
@@ -975,7 +976,8 @@ func (r *Resolver) DeleteAPIToken(ctx context.Context, args struct {
 		return nil, err
 	}
 
-	if !utils.CheckPasswordHash(args.Input.Password, dbUser.HashedPassword) {
+	err = r.App.SessionORM().TestPassword(dbUser.Email, args.Input.Password)
+	if err != nil {
 		r.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]interface{}{"user": dbUser.Email})
 
 		return NewDeleteAPITokenPayload(nil, map[string]string{

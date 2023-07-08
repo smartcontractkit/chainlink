@@ -25,7 +25,7 @@ import (
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -79,7 +79,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			})
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
+			sessionORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 			lggr := logger.TestLogger(t)
 
@@ -171,7 +171,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
+			sessionORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and

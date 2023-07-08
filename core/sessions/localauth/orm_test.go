@@ -1,12 +1,12 @@
-package sessions_test
+package localauth_test
 
 import (
 	"encoding/json"
 	"testing"
 	"time"
 
-	"github.com/go-webauthn/webauthn/protocol"
-	"github.com/go-webauthn/webauthn/webauthn"
+	"github.com/duo-labs/webauthn/protocol"
+	"github.com/duo-labs/webauthn/webauthn"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -18,14 +18,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func setupORM(t *testing.T) (*sqlx.DB, sessions.ORM) {
+func setupORM(t *testing.T) (*sqlx.DB, sessions.UserManager) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), pgtest.NewQConfig(true), &audit.AuditLoggerService{})
+	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), pgtest.NewQConfig(true), &audit.AuditLoggerService{})
 
 	return db, orm
 }
@@ -66,7 +67,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
-			orm := sessions.NewORM(db, test.sessionDuration, logger.TestLogger(t), pgtest.NewQConfig(true), &audit.AuditLoggerService{})
+			orm := localauth.NewORM(db, test.sessionDuration, logger.TestLogger(t), pgtest.NewQConfig(true), &audit.AuditLoggerService{})
 
 			user := cltest.MustRandomUser(t)
 			require.NoError(t, orm.CreateUser(&user))

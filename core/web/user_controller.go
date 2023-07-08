@@ -228,7 +228,9 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("unable to creatae API token"))
 		return
 	}
-	if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
+	// In order to create an API token, login validation with provided password must succeed
+	err = c.App.SessionORM().TestPassword(sessionUser.Email, request.Password)
+	if err != nil {
 		c.App.GetAuditLogger().Audit(audit.APITokenCreateAttemptPasswordMismatch, map[string]interface{}{"user": user.Email})
 		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
 		return
@@ -262,7 +264,8 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("unable to delete API token"))
 		return
 	}
-	if !utils.CheckPasswordHash(request.Password, user.HashedPassword) {
+	err = c.App.SessionORM().TestPassword(sessionUser.Email, request.Password)
+	if err != nil {
 		c.App.GetAuditLogger().Audit(audit.APITokenDeleteAttemptPasswordMismatch, map[string]interface{}{"user": user.Email})
 		jsonAPIError(ctx, http.StatusUnauthorized, errors.New("incorrect password"))
 		return

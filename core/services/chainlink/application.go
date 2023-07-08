@@ -52,6 +52,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -82,7 +84,7 @@ type Application interface {
 	EVMORM() evmtypes.Configs
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
-	SessionORM() sessions.ORM
+	SessionORM() sessions.UserManager
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
@@ -115,7 +117,7 @@ type ChainlinkApplication struct {
 	pipelineORM              pipeline.ORM
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
-	sessionORM               sessions.ORM
+	sessionORM               sessions.UserManager
 	txmStorageService        txmgr.EvmTxStore
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
@@ -245,10 +247,31 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		return nil, fmt.Errorf("no evm chains found")
 	}
 
+	// Initialize Sessions ORM based on environment configured authenticator
+	// localDB auth or remote LDAP auth
+	authMethod := cfg.WebServer().AuthenticationMethod()
+	var sessionsORM sessions.UserManager
+	var sessionReaper utils.SleeperTask
+
+	switch authMethod {
+	case string(sessions.LDAPAuth):
+		var err error
+		sessionsORM, err = ldapauth.NewLDAPAuthenticator(
+			db, cfg.Database(), cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
+		}
+		sessionReaper = ldapauth.NewLDAPServerStateSync(db, cfg.Database(), cfg.WebServer().LDAP(), globalLogger)
+	default:
+		sessionsORM = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		sessionReaper = localauth.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger)
+	}
+
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
-		sessionORM     = sessions.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		sessionORM     = sessionsORM
 		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
@@ -446,7 +469,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
 		KeyStore:                 keyStore,
-		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger),
+		SessionReaper:            sessionReaper,
 		ExternalInitiatorManager: externalInitiatorManager,
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
@@ -612,7 +635,7 @@ func (app *ChainlinkApplication) BridgeORM() bridges.ORM {
 	return app.bridgeORM
 }
 
-func (app *ChainlinkApplication) SessionORM() sessions.ORM {
+func (app *ChainlinkApplication) SessionORM() sessions.UserManager {
 	return app.sessionORM
 }
 

@@ -279,7 +279,7 @@ func (store *WebAuthnSessionStore) GetWebauthnSession(key string) (data webauthn
 	return
 }
 
-func AddCredentialToUser(o ORM, email string, credential *webauthn.Credential) error {
+func AddCredentialToUser(o UserManager, email string, credential *webauthn.Credential) error {
 	credj, err := json.Marshal(credential)
 	if err != nil {
 		return err

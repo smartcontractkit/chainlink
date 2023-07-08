@@ -330,7 +330,7 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 	return &MockAPIInitializer{t: t}
 }
 
-func (m *MockAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+func (m *MockAPIInitializer) Initialize(orm sessions.UserManager, lggr logger.Logger) (sessions.User, error) {
 	if user, err := orm.FindUser(APIEmailAdmin); err == nil {
 		return user, err
 	}

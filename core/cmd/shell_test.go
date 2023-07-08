@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -155,7 +156,7 @@ func TestTerminalAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			lggr := logger.TestLogger(t)
-			orm := sessions.NewORM(db, time.Minute, lggr, pgtest.NewQConfig(true), audit.NoopLogger)
+			orm := localauth.NewORM(db, time.Minute, lggr, pgtest.NewQConfig(true), audit.NoopLogger)
 
 			mock := &cltest.MockCountingPrompter{T: t, EnteredStrings: test.enteredStrings, NotTerminal: !test.isTerminal}
 			tai := cmd.NewPromptingAPIInitializer(mock)
@@ -186,7 +187,7 @@ func TestTerminalAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	lggr := logger.TestLogger(t)
-	orm := sessions.NewORM(db, time.Minute, lggr, cfg.Database(), audit.NoopLogger)
+	orm := localauth.NewORM(db, time.Minute, lggr, cfg.Database(), audit.NoopLogger)
 
 	// Clear out fixture users/users created from the other test cases
 	// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -223,7 +224,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			lggr := logger.TestLogger(t)
-			orm := sessions.NewORM(db, time.Minute, lggr, pgtest.NewQConfig(true), audit.NoopLogger)
+			orm := localauth.NewORM(db, time.Minute, lggr, pgtest.NewQConfig(true), audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -248,7 +249,7 @@ func TestFileAPIInitializer_InitializeWithoutAPIUser(t *testing.T) {
 func TestFileAPIInitializer_InitializeWithExistingAPIUser(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	orm := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
+	orm := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 	tests := []struct {
 		name      string

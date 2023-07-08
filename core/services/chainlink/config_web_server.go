@@ -113,6 +113,14 @@ func (w *webServerConfig) MFA() config.MFA {
 	return &mfaConfig{c: w.c.MFA}
 }
 
+func (w *webServerConfig) LDAP() config.LDAP {
+	return &ldapConfig{c: w.c.LDAP}
+}
+
+func (w *webServerConfig) AuthenticationMethod() string {
+	return *w.c.AuthenticationMethod
+}
+
 func (w *webServerConfig) AllowOrigins() string {
 	return *w.c.AllowOrigins
 }
@@ -167,4 +175,84 @@ func (w *webServerConfig) SessionTimeout() models.Duration {
 
 func (w *webServerConfig) ListenIP() net.IP {
 	return *w.c.ListenIP
+}
+
+type ldapConfig struct {
+	c v2.WebServerLDAP
+}
+
+func (l *ldapConfig) ServerAddress() string {
+	return *l.c.ServerAddress
+}
+
+func (l *ldapConfig) ReadOnlyUserLogin() string {
+	return *l.c.ReadOnlyUserLogin
+}
+
+func (l *ldapConfig) ReadOnlyUserPass() string {
+	return *l.c.ReadOnlyUserPass
+}
+
+func (l *ldapConfig) ServerTls() bool {
+	return *l.c.ServerTls
+}
+
+func (r *ldapConfig) SessionTimeout() models.Duration {
+	return *r.c.SessionTimeout
+}
+
+func (l *ldapConfig) QueryTimeout() time.Duration {
+	return l.c.QueryTimeout.Duration()
+}
+
+func (l *ldapConfig) UserAPITokenDuration() time.Duration {
+	return l.c.UserAPITokenDuration.Duration()
+}
+
+func (l *ldapConfig) BaseUserAttr() string {
+	return *l.c.BaseUserAttr
+}
+
+func (l *ldapConfig) BaseDn() string {
+	return *l.c.BaseDn
+}
+
+func (l *ldapConfig) UsersDn() string {
+	return *l.c.UsersDn
+}
+
+func (l *ldapConfig) GroupsDn() string {
+	return *l.c.GroupsDn
+}
+
+func (l *ldapConfig) ActiveAttribute() string {
+	return *l.c.ActiveAttribute
+}
+
+func (l *ldapConfig) ActiveAttributeAllowedValue() string {
+	return *l.c.ActiveAttributeAllowedValue
+}
+
+func (l *ldapConfig) AdminUserGroupCn() string {
+	return *l.c.AdminUserGroupCn
+}
+
+func (l *ldapConfig) EditUserGroupCn() string {
+	return *l.c.EditUserGroupCn
+}
+
+func (l *ldapConfig) RunUserGroupCn() string {
+	return *l.c.RunUserGroupCn
+}
+
+func (l *ldapConfig) ReadUserGroupCn() string {
+	return *l.c.ReadUserGroupCn
+}
+
+func (l *ldapConfig) UserApiTokenEnabled() bool {
+	return *l.c.UserApiTokenEnabled
+}
+
+func (l *ldapConfig) UpstreamSyncInterval() models.Duration {
+	return *l.c.UpstreamSyncInterval
 }

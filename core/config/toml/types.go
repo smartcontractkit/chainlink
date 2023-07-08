@@ -592,6 +592,7 @@ func (l *LogFile) setFrom(f *LogFile) {
 }
 
 type WebServer struct {
+	AuthenticationMethod    *string
 	AllowOrigins            *string
 	BridgeResponseURL       *models.URL
 	BridgeCacheTTL          *models.Duration
@@ -607,9 +608,13 @@ type WebServer struct {
 	MFA       WebServerMFA       `toml:",omitempty"`
 	RateLimit WebServerRateLimit `toml:",omitempty"`
 	TLS       WebServerTLS       `toml:",omitempty"`
+	LDAP      WebServerLDAP      `toml:",omitempty"`
 }
 
 func (w *WebServer) setFrom(f *WebServer) {
+	if v := f.AuthenticationMethod; v != nil {
+		w.AuthenticationMethod = v
+	}
 	if v := f.AllowOrigins; v != nil {
 		w.AllowOrigins = v
 	}
@@ -712,6 +717,88 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 	}
 	if v := f.ListenIP; v != nil {
 		w.ListenIP = v
+	}
+}
+
+type WebServerLDAP struct {
+	ServerAddress               *string
+	ReadOnlyUserLogin           *string
+	ReadOnlyUserPass            *string
+	ServerTls                   *bool
+	SessionTimeout              *models.Duration
+	QueryTimeout                *models.Duration
+	BaseUserAttr                *string
+	BaseDn                      *string
+	UsersDn                     *string
+	GroupsDn                    *string
+	ActiveAttribute             *string
+	ActiveAttributeAllowedValue *string
+	AdminUserGroupCn            *string
+	EditUserGroupCn             *string
+	RunUserGroupCn              *string
+	ReadUserGroupCn             *string
+	UserApiTokenEnabled         *bool
+	UserAPITokenDuration        *models.Duration
+	UpstreamSyncInterval        *models.Duration
+}
+
+func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
+	if v := f.ServerAddress; v != nil {
+		w.ServerAddress = v
+	}
+	if v := f.ReadOnlyUserLogin; v != nil {
+		w.ReadOnlyUserLogin = v
+	}
+	if v := f.ReadOnlyUserPass; v != nil {
+		w.ReadOnlyUserPass = v
+	}
+	if v := f.ServerTls; v != nil {
+		w.ServerTls = v
+	}
+	if v := f.SessionTimeout; v != nil {
+		w.SessionTimeout = v
+	}
+	if v := f.SessionTimeout; v != nil {
+		w.SessionTimeout = v
+	}
+	if v := f.QueryTimeout; v != nil {
+		w.QueryTimeout = v
+	}
+	if v := f.BaseUserAttr; v != nil {
+		w.BaseUserAttr = v
+	}
+	if v := f.BaseDn; v != nil {
+		w.BaseDn = v
+	}
+	if v := f.UsersDn; v != nil {
+		w.UsersDn = v
+	}
+	if v := f.GroupsDn; v != nil {
+		w.GroupsDn = v
+	}
+	if v := f.ActiveAttribute; v != nil {
+		w.ActiveAttribute = v
+	}
+	if v := f.ActiveAttributeAllowedValue; v != nil {
+		w.ActiveAttributeAllowedValue = v
+	}
+	if v := f.AdminUserGroupCn; v != nil {
+		w.AdminUserGroupCn = v
+	}
+	if v := f.EditUserGroupCn; v != nil {
+		w.EditUserGroupCn = v
+	}
+	if v := f.RunUserGroupCn; v != nil {
+		w.RunUserGroupCn = v
+	}
+	if v := f.ReadUserGroupCn; v != nil {
+		w.ReadUserGroupCn = v
+	}
+	if v := f.UserApiTokenEnabled; v != nil {
+		w.UserApiTokenEnabled = v
+	}
+	if v := f.UpstreamSyncInterval; v != nil {
+		w.UpstreamSyncInterval = v
 	}
 }
 

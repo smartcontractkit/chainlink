@@ -440,15 +440,15 @@ func (_m *Application) SecretGenerator() chainlink.SecretGenerator {
 }
 
 // SessionORM provides a mock function with given fields:
-func (_m *Application) SessionORM() sessions.ORM {
+func (_m *Application) SessionORM() sessions.UserManager {
 	ret := _m.Called()
 
-	var r0 sessions.ORM
-	if rf, ok := ret.Get(0).(func() sessions.ORM); ok {
+	var r0 sessions.UserManager
+	if rf, ok := ret.Get(0).(func() sessions.UserManager); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sessions.ORM)
+			r0 = ret.Get(0).(sessions.UserManager)
 		}
 	}
 

@@ -777,7 +777,7 @@ func (f *fileSessionRequestBuilder) Build(file string) (sessions.SessionRequest,
 // needed to access the API. Does nothing if API user already exists.
 type APIInitializer interface {
 	// Initialize creates a new user for API access, or does nothing if one exists.
-	Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error)
+	Initialize(orm sessions.UserManager, lggr logger.Logger) (sessions.User, error)
 }
 
 type promptingAPIInitializer struct {
@@ -791,9 +791,9 @@ func NewPromptingAPIInitializer(prompter Prompter) APIInitializer {
 }
 
 // Initialize uses the terminal to get credentials that it then saves in the store.
-func (t *promptingAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+func (t *promptingAPIInitializer) Initialize(orm sessions.UserManager, lggr logger.Logger) (sessions.User, error) {
 	// Load list of users to determine which to assume, or if a user needs to be created
-	dbUsers, err := orm.ListUsers()
+	dbUsers, err := orm.LocalAdminListUsers()
 	if err != nil {
 		return sessions.User{}, err
 	}
@@ -813,7 +813,7 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logge
 				lggr.Errorw("Error creating API user", "err", err2)
 				continue
 			}
-			if err = orm.CreateUser(&user); err != nil {
+			if err = orm.LocalAdminCreateUser(&user); err != nil {
 				lggr.Errorf("Error creating API user: ", err, "err")
 			}
 			return user, err
@@ -827,7 +827,7 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logge
 
 	// Otherwise, multiple admin users exist, prompt for which to use
 	email := t.prompter.Prompt("Enter email of API user account to assume: ")
-	user, err := orm.FindUser(email)
+	user, err := orm.LocalAdminFindUser(email)
 
 	if err != nil {
 		return sessions.User{}, err
@@ -845,14 +845,14 @@ func NewFileAPIInitializer(file string) APIInitializer {
 	return fileAPIInitializer{file: file}
 }
 
-func (f fileAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (sessions.User, error) {
+func (f fileAPIInitializer) Initialize(orm sessions.UserManager, lggr logger.Logger) (sessions.User, error) {
 	request, err := credentialsFromFile(f.file, lggr)
 	if err != nil {
 		return sessions.User{}, err
 	}
 
 	// Load list of users to determine which to assume, or if a user needs to be created
-	dbUsers, err := orm.ListUsers()
+	dbUsers, err := orm.LocalAdminListUsers()
 	if err != nil {
 		return sessions.User{}, err
 	}
@@ -863,7 +863,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (se
 		if err2 != nil {
 			return user, errors.Wrap(err2, "failed to instantiate new user")
 		}
-		return user, orm.CreateUser(&user)
+		return user, orm.LocalAdminCreateUser(&user)
 	}
 
 	// Attempt to contextually return the correct admin user, CLI access here implies admin
@@ -872,7 +872,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.ORM, lggr logger.Logger) (se
 	}
 
 	// Otherwise, multiple admin users exist, attempt to load email specified in session request
-	user, err := orm.FindUser(request.Email)
+	user, err := orm.LocalAdminFindUser(request.Email)
 	if err != nil {
 		return sessions.User{}, err
 	}
