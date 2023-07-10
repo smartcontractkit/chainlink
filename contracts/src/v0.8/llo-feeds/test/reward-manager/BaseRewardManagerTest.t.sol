@@ -35,12 +35,13 @@ contract BaseRewardManagerTest is Test {
     address internal constant DEFAULT_RECIPIENT_7 = address(9);
 
     //default address for unregistered recipient
-    address internal constant INVALID_RECIPIENT = address(0);
+    address internal constant INVALID_ADDRESS = address(0);
 
     //two pools should be enough to test all edge cases
     bytes32 internal constant PRIMARY_POOL_ID = keccak256("primary_pool");
     bytes32 internal constant SECONDARY_POOL_ID = keccak256("secondary_pool");
     bytes32 internal constant INVALID_POOL_ID = keccak256("invalid_pool");
+    bytes32 internal constant ZERO_POOL_ID = bytes32(0);
 
     //convenience arrays of all pool combinations used for testing
     bytes32[] internal PRIMARY_POOL_ARRAY = [PRIMARY_POOL_ID];
@@ -53,8 +54,11 @@ contract BaseRewardManagerTest is Test {
     //reward scalar (this should match the const in the contract)
     uint256 internal constant POOL_SCALAR = 10000;
 
-    //the selector for the Unauthorized error
+    //the selector for each error
     bytes4 internal constant UNAUTHORIZED_ERROR_SELECTOR = bytes4(keccak256("Unauthorized()"));
+    bytes4 internal constant INVALID_ADDRESS_ERROR_SELECTOR = bytes4(keccak256("InvalidAddress()"));
+    bytes4 internal constant INVALID_WEIGHT_ERROR_SELECTOR = bytes4(keccak256("InvalidWeights()"));
+    bytes4 internal constant INVALID_POOL_ID_ERROR_SELECTOR = bytes4(keccak256("InvalidPoolId()"));
 
     function setUp() public virtual {
         //change to admin user
@@ -196,6 +200,30 @@ contract BaseRewardManagerTest is Test {
 
         //pay the recipients
         rewardManager.payRecipients(poolId, recipients);
+
+        //change back to the original address
+        changePrank(originalAddr);
+    }
+
+    function setRewardRecipients(bytes32 poolId, Common.AddressAndWeight[] memory recipients, address sender) public {
+        //record the current address and switch to the recipient
+        address originalAddr = msg.sender;
+        changePrank(sender);
+
+        //pay the recipients
+        rewardManager.setRewardRecipients(poolId, recipients);
+
+        //change back to the original address
+        changePrank(originalAddr);
+    }
+
+    function setVerifierProxy(address verifierProxy, address sender) public {
+        //record the current address and switch to the recipient
+        address originalAddr = msg.sender;
+        changePrank(sender);
+
+        //update the proxy
+        rewardManager.setVerifierProxy(verifierProxy);
 
         //change back to the original address
         changePrank(originalAddr);

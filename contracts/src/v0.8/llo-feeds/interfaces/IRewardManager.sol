@@ -7,18 +7,6 @@ import {Common} from "../../libraries/internal/Common.sol";
 interface IRewardManager is IERC165 {
 
     /**
-     * @notice Add a contract address to the authorized contracts list
-     * @param contractAddress address of the contract to add
-     */
-    function addAuthorizedContract(address contractAddress) external;
-
-    /**
-      * @notice Remove a contract address from the authorized contracts list
-      * @param contractAddress address of the contract to remove
-      */
-    function removeAuthorizedContract(address contractAddress) external;
-
-    /**
     * @notice Record the fee received for a particular pool
     * @param poolId poolId of the report being verified
     * @param payee the user the funds should be deposited from
@@ -51,12 +39,6 @@ interface IRewardManager is IERC165 {
      * @param recipient address of the recipient to get pool ids for
      */
     function getAvailableRewardPoolIds(address recipient) external view returns (bytes32[] memory);
-
-    /**
-     * @notice Updates the billing address for a specific recipient
-     * @param newBillingAddress address of the recipient to update billing address for
-     */
-    function updateBillingAddress(address newBillingAddress) external;
 
     /**
      * @notice Pays all the recipients for each of the pool ids

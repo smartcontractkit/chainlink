@@ -110,7 +110,7 @@ contract RewardManagerMisconfigurationTest is BaseRewardManagerTest {
         for(uint256 i = 0; i < getPrimaryRecipientAddresses().length; i++) {
             recipients[i] = getPrimaryRecipientAddresses()[i];
         }
-        recipients[recipients.length - 1] = INVALID_RECIPIENT;
+        recipients[recipients.length - 1] = INVALID_ADDRESS;
 
         //pay the recipients
         payRecipients(PRIMARY_POOL_ID, recipients, ADMIN);

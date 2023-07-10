@@ -494,6 +494,33 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
         //the balance should still be 1/4 of the deposit amount
         assertEq(getAssetBalance(getSecondaryRecipients()[0].addr), expectedRecipientAmount);
     }
+
+    function test_getRewardsAvailableToRecipientInBothPools() public {
+        //get index 0 as this recipient is in both default pools
+        bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr);
+
+        //check the recipient is in both pools
+        assertEq(poolIds[0], PRIMARY_POOL_ID);
+        assertEq(poolIds[1], SECONDARY_POOL_ID);
+    }
+
+    function test_getRewardsAvailableToRecipientInSinglePool() public {
+        //get index 0 as this recipient is in both default pools
+        bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[1].addr);
+
+        //check the recipient is in both pools
+        assertEq(poolIds[0], PRIMARY_POOL_ID);
+        assertEq(poolIds[1], ZERO_POOL_ID);
+    }
+
+    function test_getRewardsAvailableToRecipientInNoPools() public {
+        //get index 0 as this recipient is in both default pools
+        bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(USER);
+
+        //check the recipient is in neither pool
+        assertEq(poolIds[0], ZERO_POOL_ID);
+        assertEq(poolIds[1], ZERO_POOL_ID);
+    }
 }
 
 contract RewardManagerRecipientClaimDifferentWeightsTest is BaseRewardManagerTest {
