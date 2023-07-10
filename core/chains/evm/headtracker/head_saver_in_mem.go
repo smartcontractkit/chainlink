@@ -153,7 +153,8 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) TrimOldHeads(historyDepth 
 // trimHeads() is an internal function without locking to prevent deadlocks
 func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) trimHeads(historyDepth int64) {
 	for headNumber, headNumberList := range hs.HeadsNumber {
-		if hs.latestHead.BlockNumber()-headNumber > historyDepth {
+		// Checks if the block lies within the historyDepth
+		if hs.latestHead.BlockNumber()-headNumber >= historyDepth {
 			for _, head := range headNumberList {
 				delete(hs.Heads, head.BlockHash())
 			}
