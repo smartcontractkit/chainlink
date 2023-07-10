@@ -56,14 +56,11 @@ interface IFunctionsBilling {
 
   /**
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
-   * @param subscriptionId A unique subscription ID allocated by billing system,
-   * a client can make requests from different contracts referencing the same subscription
    * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param gasLimit Gas limit for the fulfillment callback
    * @return billedCost Cost in Juels (1e18) of LINK
    */
   function estimateCost(
-    uint64 subscriptionId,
     bytes calldata data,
     uint32 gasLimit,
     uint256 gasPrice

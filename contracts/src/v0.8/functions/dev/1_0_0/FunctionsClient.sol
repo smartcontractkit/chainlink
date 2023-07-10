@@ -29,19 +29,17 @@ abstract contract FunctionsClient is IFunctionsClient {
   /**
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
    * @param req The initialized Functions.Request
-   * @param subscriptionId The subscription ID
    * @param gasLimit gas limit for the fulfillment callback
    * @return billedCost Cost in Juels (1e18) of LINK
    */
   function estimateCost(
     Functions.Request memory req,
-    uint64 subscriptionId,
     uint32 gasLimit,
     uint256 gasPrice,
     bytes32 jobId
   ) public view returns (uint96) {
     IFunctionsBilling coordinator = IFunctionsBilling(s_router.getRoute(jobId));
-    return coordinator.estimateCost(subscriptionId, Functions.encodeCBOR(req), gasLimit, gasPrice);
+    return coordinator.estimateCost(Functions.encodeCBOR(req), gasLimit, gasPrice);
   }
 
   /**

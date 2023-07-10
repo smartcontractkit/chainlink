@@ -14,7 +14,7 @@ import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol"
  * @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-abstract contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
+contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
   uint16 constant REQUEST_DATA_VERSION = Functions.REQUEST_DATA_VERSION;
 
   event OracleRequest(
