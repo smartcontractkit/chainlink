@@ -429,7 +429,6 @@ func getEVMTransmitterID(jb *job.Job, chainSet evm.ChainSet, chainID int64, lggr
 
 		effectiveTransmitterID, err := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
 		if err == nil {
-			jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []string{effectiveTransmitterID.String()}
 			return effectiveTransmitterID.String(), nil
 		} else if spec.TransmitterID.Valid {
 			lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", err)
