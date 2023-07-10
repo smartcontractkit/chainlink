@@ -377,14 +377,14 @@ generate_proof          [type=vrfv2plus
 estimate_gas            [type=estimategaslimit
                          to="%s"
                          multiplier="1.1"
-                         data="$(vrf.output)"]
+                         data="$(generate_proof.output)"]
 simulate_fulfillment    [type=ethcall
                          to="%s"
 		                 gas="$(estimate_gas)"
 		                 gasPrice="$(jobSpec.maxGasPrice)"
 		                 extractRevertReason=true
 		                 contract="%s"
-		                 data="$(vrf.output)"]
+		                 data="$(generate_proof.output)"]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
@@ -425,7 +425,7 @@ observationSource = """
 		toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
 	}
 	if vrfVersion == vrfcommon.V2 {
-		toml = toml + "\n" + fmt.Sprintf(`ownerAddress = "%s"`, vrfOwnerAddress)
+		toml = toml + "\n" + fmt.Sprintf(`vrfOwnerAddress = "%s"`, vrfOwnerAddress)
 	}
 
 	return VRFSpec{VRFSpecParams: VRFSpecParams{
@@ -585,17 +585,18 @@ ds -> ds_parse -> ds_multiply;
 
 // BlockhashStoreSpecParams defines params for building a blockhash store job spec.
 type BlockhashStoreSpecParams struct {
-	JobID                 string
-	Name                  string
-	CoordinatorV1Address  string
-	CoordinatorV2Address  string
-	WaitBlocks            int
-	LookbackBlocks        int
-	BlockhashStoreAddress string
-	PollPeriod            time.Duration
-	RunTimeout            time.Duration
-	EVMChainID            int64
-	FromAddresses         []string
+	JobID                    string
+	Name                     string
+	CoordinatorV1Address     string
+	CoordinatorV2Address     string
+	CoordinatorV2PlusAddress string
+	WaitBlocks               int
+	LookbackBlocks           int
+	BlockhashStoreAddress    string
+	PollPeriod               time.Duration
+	RunTimeout               time.Duration
+	EVMChainID               int64
+	FromAddresses            []string
 }
 
 // BlockhashStoreSpec defines a blockhash store job spec.
@@ -625,6 +626,10 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 
 	if params.CoordinatorV2Address == "" {
 		params.CoordinatorV2Address = "0x2498e651Ae17C2d98417C4826F0816Ac6366A95E"
+	}
+
+	if params.CoordinatorV2PlusAddress == "" {
+		params.CoordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 	}
 
 	if params.WaitBlocks == 0 {
@@ -664,6 +669,7 @@ schemaVersion = 1
 name = "%s"
 coordinatorV1Address = "%s"
 coordinatorV2Address = "%s"
+coordinatorV2PlusAddress = "%s"
 waitBlocks = %d
 lookbackBlocks = %d
 blockhashStoreAddress = "%s"
@@ -673,7 +679,7 @@ evmChainID = "%d"
 fromAddresses = %s
 `
 	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
-		params.CoordinatorV2Address, params.WaitBlocks, params.LookbackBlocks,
+		params.CoordinatorV2Address, params.CoordinatorV2PlusAddress, params.WaitBlocks, params.LookbackBlocks,
 		params.BlockhashStoreAddress, params.PollPeriod.String(), params.RunTimeout.String(),
 		params.EVMChainID, formattedFromAddresses)
 
@@ -686,6 +692,7 @@ type BlockHeaderFeederSpecParams struct {
 	Name                       string
 	CoordinatorV1Address       string
 	CoordinatorV2Address       string
+	CoordinatorV2PlusAddress   string
 	WaitBlocks                 int
 	LookbackBlocks             int
 	BlockhashStoreAddress      string
@@ -725,6 +732,10 @@ func GenerateBlockHeaderFeederSpec(params BlockHeaderFeederSpecParams) BlockHead
 
 	if params.CoordinatorV2Address == "" {
 		params.CoordinatorV2Address = "0x2d7F888fE0dD469bd81A12f77e6291508f714d4B"
+	}
+
+	if params.CoordinatorV2PlusAddress == "" {
+		params.CoordinatorV2PlusAddress = "0x2d7F888fE0dD469bd81A12f77e6291508f714d4B"
 	}
 
 	if params.WaitBlocks == 0 {
@@ -776,6 +787,7 @@ schemaVersion = 1
 name = "%s"
 coordinatorV1Address = "%s"
 coordinatorV2Address = "%s"
+coordinatorV2PlusAddress = "%s"
 waitBlocks = %d
 lookbackBlocks = %d
 blockhashStoreAddress = "%s"
@@ -788,7 +800,7 @@ getBlockhashesBatchSize = %d
 storeBlockhashesBatchSize = %d
 `
 	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
-		params.CoordinatorV2Address, params.WaitBlocks, params.LookbackBlocks,
+		params.CoordinatorV2Address, params.CoordinatorV2PlusAddress, params.WaitBlocks, params.LookbackBlocks,
 		params.BlockhashStoreAddress, params.BatchBlockhashStoreAddress, params.PollPeriod.String(),
 		params.RunTimeout.String(), params.EVMChainID, formattedFromAddresses, params.GetBlockhashesBatchSize,
 		params.StoreBlockhashesBatchSize)

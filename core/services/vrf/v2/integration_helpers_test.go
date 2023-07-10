@@ -215,9 +215,20 @@ func testMultipleConsumersNeedBHS(
 		gasLanePriceWei)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
+	var (
+		v2CoordinatorAddress     string
+		v2PlusCoordinatorAddress string
+	)
+
+	if vrfVersion == vrfcommon.V2 {
+		v2CoordinatorAddress = coordinatorAddress.String()
+	} else if vrfVersion == vrfcommon.V2Plus {
+		v2PlusCoordinatorAddress = coordinatorAddress.String()
+	}
+
 	_ = vrftesthelpers.CreateAndStartBHSJob(
 		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
-		coordinatorAddress.String())
+		v2CoordinatorAddress, v2PlusCoordinatorAddress)
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
@@ -558,10 +569,19 @@ func testBlockHeaderFeeder(
 		false,
 		gasLanePriceWei)
 	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
+	var (
+		v2coordinatorAddress     string
+		v2plusCoordinatorAddress string
+	)
+	if vrfVersion == vrfcommon.V2 {
+		v2coordinatorAddress = coordinatorAddress.String()
+	} else if vrfVersion == vrfcommon.V2Plus {
+		v2plusCoordinatorAddress = coordinatorAddress.String()
+	}
 
 	_ = vrftesthelpers.CreateAndStartBlockHeaderFeederJob(
 		t, bhfKeys, app, uni.bhsContractAddress.String(), uni.batchBHSContractAddress.String(), "",
-		coordinatorAddress.String())
+		v2coordinatorAddress, v2plusCoordinatorAddress)
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())

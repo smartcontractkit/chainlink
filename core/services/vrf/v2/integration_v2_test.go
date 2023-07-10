@@ -2141,7 +2141,6 @@ func TestMaliciousConsumer(t *testing.T) {
 	// by the node.
 	var attempts []txmgr.TxAttempt
 	gomega.NewWithT(t).Eventually(func() bool {
-		//runs, err = app.PipelineORM().GetAllRuns()
 		attempts, _, err = app.TxmStorageService().TxAttempts(0, 1000)
 		require.NoError(t, err)
 		// It possible that we send the test request

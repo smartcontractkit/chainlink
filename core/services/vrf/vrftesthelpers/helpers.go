@@ -49,21 +49,22 @@ func CreateAndStartBHSJob(
 	t *testing.T,
 	fromAddresses []string,
 	app *cltest.TestApplication,
-	bhsAddress, coordinatorV1Address, coordinatorV2Address string,
+	bhsAddress, coordinatorV1Address, coordinatorV2Address, coordinatorV2PlusAddress string,
 ) job.Job {
 	jid := uuid.New()
 	s := testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{
-		JobID:                 jid.String(),
-		Name:                  "blockhash-store",
-		CoordinatorV1Address:  coordinatorV1Address,
-		CoordinatorV2Address:  coordinatorV2Address,
-		WaitBlocks:            100,
-		LookbackBlocks:        200,
-		BlockhashStoreAddress: bhsAddress,
-		PollPeriod:            time.Second,
-		RunTimeout:            100 * time.Millisecond,
-		EVMChainID:            1337,
-		FromAddresses:         fromAddresses,
+		JobID:                    jid.String(),
+		Name:                     "blockhash-store",
+		CoordinatorV1Address:     coordinatorV1Address,
+		CoordinatorV2Address:     coordinatorV2Address,
+		CoordinatorV2PlusAddress: coordinatorV2PlusAddress,
+		WaitBlocks:               100,
+		LookbackBlocks:           200,
+		BlockhashStoreAddress:    bhsAddress,
+		PollPeriod:               time.Second,
+		RunTimeout:               100 * time.Millisecond,
+		EVMChainID:               1337,
+		FromAddresses:            fromAddresses,
 	})
 	jb, err := blockhashstore.ValidatedSpec(s.Toml())
 	require.NoError(t, err)
@@ -86,7 +87,7 @@ func CreateAndStartBlockHeaderFeederJob(
 	t *testing.T,
 	fromAddresses []string,
 	app *cltest.TestApplication,
-	bhsAddress, batchBHSAddress, coordinatorV1Address, coordinatorV2Address string,
+	bhsAddress, batchBHSAddress, coordinatorV1Address, coordinatorV2Address, coordinatorV2PlusAddress string,
 ) job.Job {
 	jid := uuid.New()
 	s := testspecs.GenerateBlockHeaderFeederSpec(testspecs.BlockHeaderFeederSpecParams{
@@ -94,6 +95,7 @@ func CreateAndStartBlockHeaderFeederJob(
 		Name:                       "block-header-feeder",
 		CoordinatorV1Address:       coordinatorV1Address,
 		CoordinatorV2Address:       coordinatorV2Address,
+		CoordinatorV2PlusAddress:   coordinatorV2PlusAddress,
 		WaitBlocks:                 256,
 		LookbackBlocks:             1000,
 		BlockhashStoreAddress:      bhsAddress,

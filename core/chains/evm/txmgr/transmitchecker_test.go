@@ -70,7 +70,7 @@ func TestFactory(t *testing.T) {
 	})
 
 	t.Run("vrf v2 plus checker", func(t *testing.T) {
-		c, err := factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
+		c, err := factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2Plus,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 			VRFRequestBlockNumber: big.NewInt(1),
@@ -79,7 +79,7 @@ func TestFactory(t *testing.T) {
 		require.IsType(t, &txmgr.VRFV2Checker{}, c)
 
 		// request block number not provided should error out.
-		c, err = factory.BuildChecker(txmgr.EvmTransmitCheckerSpec{
+		c, err = factory.BuildChecker(txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2Plus,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		})

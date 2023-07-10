@@ -132,7 +132,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	batchBHSAddress, _, batchBHSContract, err := batch_blockhash_store.DeployBatchBlockhashStore(neil, backend, bhsAddress)
 	require.NoError(t, err, "failed to deploy BatchBlockhashStore contract to simulated ethereum blockchain")
 
-	// Deploy VRF V2 coordinator
+	// Deploy VRF V2plus coordinator
 	coordinatorAddress, _, coordinatorContract, err :=
 		vrf_coordinator_v2plus.DeployVRFCoordinatorV2Plus(
 			neil, backend, bhsAddress)
@@ -1041,7 +1041,7 @@ func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
 
 func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
 	t.Parallel()
-	config, _ := heavyweight.FullTestDBV2(t, "vrf_v2_integration_malicious", func(c *chainlink.Config, s *chainlink.Secrets) {
+	config, _ := heavyweight.FullTestDBV2(t, "vrf_v2plus_integration_malicious", func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](2_000_000)
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(1)
 		c.EVM[0].GasEstimator.PriceDefault = assets.GWei(1)
@@ -1064,6 +1064,7 @@ func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
 	s := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 		JobID:                    jid.String(),
 		Name:                     "vrf-primary",
+		VRFVersion:               vrfcommon.V2Plus,
 		FromAddresses:            []string{key.Address.String()},
 		CoordinatorAddress:       uni.rootContractAddress.String(),
 		BatchCoordinatorAddress:  uni.batchCoordinatorContractAddress.String(),
@@ -1100,7 +1101,6 @@ func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
 	// by the node.
 	var attempts []txmgr.TxAttempt
 	gomega.NewWithT(t).Eventually(func() bool {
-		//runs, err = app.PipelineORM().GetAllRuns()
 		attempts, _, err = app.TxmStorageService().TxAttempts(0, 1000)
 		require.NoError(t, err)
 		// It possible that we send the test request
@@ -1127,7 +1127,7 @@ func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
 		fulfillments = append(fulfillments, it.Event())
 	}
 	require.Equal(t, 1, len(fulfillments))
-	require.Equal(t, false, fulfillments[0].Success)
+	require.Equal(t, false, fulfillments[0].Success())
 
 	// It should not have succeeded in placing another request.
 	it2, err2 := uni.rootContract.FilterRandomWordsRequested(nil, nil, nil, nil)
