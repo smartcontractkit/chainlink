@@ -7,14 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-func TestCoreDefaults_notNil(t *testing.T) {
-	cfgtest.AssertFieldsNotNil(t, &defaults)
-}
 
 func TestMercurySecrets_valid(t *testing.T) {
 	ms := MercurySecrets{

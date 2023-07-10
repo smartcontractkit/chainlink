@@ -4,7 +4,6 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"strings"
@@ -18,9 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -56,22 +53,6 @@ type Core struct {
 	Pyroscope        Pyroscope        `toml:",omitempty"`
 	Sentry           Sentry           `toml:",omitempty"`
 	Insecure         Insecure         `toml:",omitempty"`
-}
-
-var (
-	defaults Core
-)
-
-func init() {
-	if err := cfgtest.DocDefaultsOnly(strings.NewReader(docs.CoreDefaultsTOML), &defaults, configutils.DecodeTOML); err != nil {
-		log.Fatalf("Failed to initialize defaults from docs: %v", err)
-	}
-}
-
-func CoreDefaults() (c Core) {
-	c.SetFrom(&defaults)
-	c.Database.Dialect = dialects.Postgres // not user visible - overridden for tests only
-	return
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)

@@ -16,6 +16,7 @@ import (
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -61,7 +62,7 @@ func (c *Config) Validate() error {
 
 // setDefaults initializes unset fields with default values.
 func (c *Config) setDefaults() {
-	core := toml.CoreDefaults()
+	core := docs.CoreDefaults()
 	core.SetFrom(&c.Core)
 	c.Core = core
 
