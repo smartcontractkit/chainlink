@@ -632,7 +632,7 @@ func (r *runner) runReaper() {
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.ReaperThreshold())
 	if err != nil {
-		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
+		r.lggr.Errorw("Pipeline run reaper failed", "err", err)
 		r.SvcErrBuffer.Append(err)
 	} else {
 		r.lggr.Debugw("Pipeline run reaper completed successfully")
@@ -666,7 +666,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 			if ctx.Err() != nil {
 				return
 			} else if err != nil {
-				r.lggr.Errorw("Pipeline run init job resumption failed", "error", err)
+				r.lggr.Errorw("Pipeline run init job resumption failed", "err", err)
 			}
 		}()
 
@@ -678,6 +678,6 @@ func (r *runner) scheduleUnfinishedRuns() {
 	if ctx.Err() != nil {
 		return
 	} else if err != nil {
-		r.lggr.Errorw("Pipeline run init job failed", "error", err)
+		r.lggr.Errorw("Pipeline run init job failed", "err", err)
 	}
 }
