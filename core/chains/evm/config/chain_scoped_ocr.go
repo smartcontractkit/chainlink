@@ -3,11 +3,11 @@ package config
 import (
 	"time"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
 type ocrConfig struct {
-	c v2.OCR
+	c toml.OCR
 }
 
 func (o *ocrConfig) ContractConfirmations() uint16 {

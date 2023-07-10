@@ -3,11 +3,11 @@ package config
 import (
 	"time"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
 type transactionsConfig struct {
-	c v2.Transactions
+	c toml.Transactions
 }
 
 func (t *transactionsConfig) ForwardersEnabled() bool {

@@ -10,12 +10,12 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	gencfg "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func NewTOMLChainScopedConfig(genCfg gencfg.AppConfig, chain *v2.EVMConfig, lggr logger.Logger) *ChainScoped {
+func NewTOMLChainScopedConfig(genCfg gencfg.AppConfig, chain *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
 	return &ChainScoped{AppConfig: genCfg, cfg: chain, lggr: lggr}
 }
 
@@ -24,7 +24,7 @@ type ChainScoped struct {
 	gencfg.AppConfig
 	lggr logger.Logger
 
-	cfg *v2.EVMConfig
+	cfg *toml.EVMConfig
 }
 
 func (c *ChainScoped) Validate() (err error) {
@@ -46,7 +46,7 @@ func (c *ChainScoped) Validate() (err error) {
 }
 
 type evmConfig struct {
-	c *v2.EVMConfig
+	c *toml.EVMConfig
 }
 
 func (e *evmConfig) BalanceMonitor() BalanceMonitor {

@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -242,7 +242,7 @@ func (cll *chainSet) SendTx(ctx context.Context, chainID, from, to string, amoun
 
 type GeneralConfig interface {
 	config.AppConfig
-	v2.HasEVMConfigs
+	toml.HasEVMConfigs
 }
 
 type ChainSetOpts struct {
@@ -270,7 +270,7 @@ func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 		return nil, err
 	}
 	chains := opts.Config.EVMConfigs()
-	var enabled []*v2.EVMConfig
+	var enabled []*toml.EVMConfig
 	for i := range chains {
 		if chains[i].IsEnabled() {
 			enabled = append(enabled, chains[i])

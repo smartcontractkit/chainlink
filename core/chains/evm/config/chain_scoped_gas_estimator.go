@@ -4,12 +4,12 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
 type gasEstimatorConfig struct {
-	c                       v2.GasEstimator
-	k                       v2.KeySpecificConfig
+	c                       toml.GasEstimator
+	k                       toml.KeySpecificConfig
 	blockDelay              *uint16
 	transactionsMaxInFlight *uint32
 }
@@ -109,7 +109,7 @@ func (g *gasEstimatorConfig) LimitJobType() LimitJobType {
 }
 
 type limitJobTypeConfig struct {
-	c v2.GasLimitJobType
+	c toml.GasLimitJobType
 }
 
 func (l *limitJobTypeConfig) OCR() *uint32 {
@@ -137,7 +137,7 @@ func (l *limitJobTypeConfig) VRF() *uint32 {
 }
 
 type blockHistoryConfig struct {
-	c             v2.BlockHistoryEstimator
+	c             toml.BlockHistoryEstimator
 	blockDelay    *uint16
 	bumpThreshold *uint32
 }
