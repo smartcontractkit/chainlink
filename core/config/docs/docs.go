@@ -23,7 +23,7 @@ var (
 	//go:embed secrets.toml
 	secretsTOML string
 	//go:embed core.toml
-	coreDefaultsTOML string
+	coreTOML string
 	//go:embed chains-evm.toml
 	chainsEVMTOML string
 	//go:embed chains-cosmos.toml
@@ -38,7 +38,7 @@ var (
 	//go:embed example-secrets.toml
 	exampleSecrets string
 
-	docsTOML = coreDefaultsTOML + chainsEVMTOML + chainsCosmosTOML + chainsSolanaTOML + chainsStarknetTOML
+	docsTOML = coreTOML + chainsEVMTOML + chainsCosmosTOML + chainsSolanaTOML + chainsStarknetTOML
 )
 
 // GenerateConfig returns MarkDown documentation generated from core.toml & chains-*.toml.
