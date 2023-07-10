@@ -56,7 +56,8 @@ func (h *functionsConnectorHandler) Sign(data ...[]byte) ([]byte, error) {
 	return common.SignData(h.signerKey, data...)
 }
 
-func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, body *api.MessageBody) {
+func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
+	body := &msg.Body
 	fromAddr := ethCommon.HexToAddress(body.Sender)
 	if !h.allowlist.Allow(fromAddr) {
 		h.lggr.Errorw("allowlist prevented the request from this address", "id", gatewayId, "address", fromAddr)

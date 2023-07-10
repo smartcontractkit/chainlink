@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -103,7 +103,7 @@ func NewMedianServices(ctx context.Context,
 		CreatedAt:    time.Now(),
 	}, lggr)
 
-	if cmdName := v2.EnvMedianPluginCmd.Get(); cmdName != "" {
+	if cmdName := env.MedianPluginCmd.Get(); cmdName != "" {
 		medianLggr := lggr.Named("Median")
 		// use logger name to ensure unique naming
 		cmdFn, telem, err2 := cfg.RegisterLOOP(medianLggr.Name(), cmdName)
