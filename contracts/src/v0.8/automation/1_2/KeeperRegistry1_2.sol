@@ -655,7 +655,7 @@ contract KeeperRegistry1_2 is
     bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas);
     MigratableKeeperRegistryInterface(destination).receiveUpkeeps(
       UpkeepTranscoderInterface(s_transcoder).transcodeUpkeeps(
-        UpkeepFormat.V1,
+        UpkeepFormat.V12,
         MigratableKeeperRegistryInterface(destination).upkeepTranscoderVersion(),
         encodedUpkeeps
       )
@@ -666,7 +666,7 @@ contract KeeperRegistry1_2 is
   /**
    * @inheritdoc MigratableKeeperRegistryInterface
    */
-  UpkeepFormat public constant override upkeepTranscoderVersion = UpkeepFormat.V1;
+  UpkeepFormat public constant override upkeepTranscoderVersion = UpkeepFormat.V12;
 
   /**
    * @inheritdoc MigratableKeeperRegistryInterface

@@ -3,7 +3,8 @@
 pragma solidity ^0.8.0;
 
 enum UpkeepFormat {
-  V1,
-  V2,
-  V3
+  V12,
+  V13,
+  V20,
+  V21
 }
