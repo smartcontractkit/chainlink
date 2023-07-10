@@ -183,7 +183,7 @@ func (m *connectionManager) parseAuthHeader(authHeader []byte) (nodeAddress stri
 		return "", nil, errors.New("unable to parse auth header")
 	}
 	signature := authHeader[n-network.HandshakeSignatureLen:]
-	signer, err := common.ValidateSignature(signature, authHeader[:n-network.HandshakeSignatureLen])
+	signer, err := common.ExtractSigner(signature, authHeader[:n-network.HandshakeSignatureLen])
 	nodeAddress = "0x" + hex.EncodeToString(signer)
 	return
 }
@@ -210,7 +210,7 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 	if !ok {
 		return errors.New("connection attempt not found")
 	}
-	signer, err := common.ValidateSignature(response, attempt.challenge)
+	signer, err := common.ExtractSigner(response, attempt.challenge)
 	if err != nil {
 		return errors.New("invalid challenge response")
 	}
@@ -256,7 +256,11 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 		case item := <-nodeState.conn.ReadChannel():
 			msg, err := m.codec.DecodeResponse(item.Data)
 			if err != nil {
-				m.lggr.Error("parse error when reading from node ", nodeAddress, err)
+				m.lggr.Errorw("parse error when reading from node", "nodeAddress", nodeAddress, "err", err)
+				break
+			}
+			if err = msg.Validate(); err != nil {
+				m.lggr.Errorw("message validation error when reading from node", "nodeAddress", nodeAddress, "err", err)
 				break
 			}
 			err = m.handler.HandleNodeMessage(ctx, msg, nodeAddress)

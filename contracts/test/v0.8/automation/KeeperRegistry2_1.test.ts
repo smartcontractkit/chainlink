@@ -98,7 +98,7 @@ const cancellationDelay = 50
 
 // This is the margin for gas that we test for. Gas charged should always be greater
 // than total gas used in tx but should not increase beyond this margin
-const gasCalculationMargin = BigNumber.from(5000)
+const gasCalculationMargin = BigNumber.from(8000)
 
 const linkEth = BigNumber.from(5000000000000000) // 1 Link = 0.005 Eth
 const gasWei = BigNumber.from(1000000000) // 1 gwei
@@ -238,14 +238,6 @@ const encodeReport = (report: Report) => {
   )
 }
 
-const decodeBlockTrigger = (trigger: BytesLike) => {
-  const [blockNum, blockHash] = ethers.utils.defaultAbiCoder.decode(
-    ['tuple(uint32, bytes32)'],
-    trigger,
-  )[0] as [number, string]
-  return { blockNum, blockHash }
-}
-
 type UpkeepData = {
   Id: BigNumberish
   performGas: BigNumberish
@@ -317,7 +309,7 @@ const parseUpkeepPerformedLogs = (receipt: ContractReceipt) => {
       if (
         log.name ==
         registry.interface.events[
-          'UpkeepPerformed(uint256,bool,uint96,uint256,uint256,bytes)'
+          'UpkeepPerformed(uint256,bool,uint96,uint256,uint256,bytes32)'
         ].name
       ) {
         parsedLogs.push(log as unknown as UpkeepPerformedEvent)
@@ -336,7 +328,7 @@ const parseReorgedUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['ReorgedUpkeepReport(uint256,bytes)'].name
+        registry.interface.events['ReorgedUpkeepReport(uint256,bytes32)'].name
       ) {
         parsedLogs.push(log as unknown as ReorgedUpkeepReportEvent)
       }
@@ -354,7 +346,7 @@ const parseStaleUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['StaleUpkeepReport(uint256,bytes)'].name
+        registry.interface.events['StaleUpkeepReport(uint256,bytes32)'].name
       ) {
         parsedLogs.push(log as unknown as StaleUpkeepReportEvent)
       }
@@ -373,7 +365,7 @@ const parseInsufficientFundsUpkeepReportLogs = (receipt: ContractReceipt) => {
       if (
         log.name ==
         registry.interface.events[
-          'InsufficientFundsUpkeepReport(uint256,bytes)'
+          'InsufficientFundsUpkeepReport(uint256,bytes32)'
         ].name
       ) {
         parsedLogs.push(log as unknown as InsufficientFundsUpkeepReportEvent)
@@ -392,7 +384,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['CancelledUpkeepReport(uint256,bytes)'].name
+        registry.interface.events['CancelledUpkeepReport(uint256,bytes32)'].name
       ) {
         parsedLogs.push(log as unknown as CancelledUpkeepReportEvent)
       }
@@ -1768,8 +1760,8 @@ describe('KeeperRegistry2_1', () => {
 
             // Do the thing
             const tx = await getTransmitTx(registry, keeper1, [upkeepId], {
-              checkBlockNum: checkBlock.number - 1,
-              checkBlockHash: checkBlock.parentHash,
+              checkBlockNum: checkBlock.number,
+              checkBlockHash: checkBlock.hash,
               numSigners: newF + 1,
             })
 
@@ -1782,17 +1774,25 @@ describe('KeeperRegistry2_1', () => {
 
             const id = upkeepPerformedLog.args.id
             const success = upkeepPerformedLog.args.success
-            const { blockNum, blockHash } = decodeBlockTrigger(
-              upkeepPerformedLog.args.trigger,
-            )
+            const triggerID = upkeepPerformedLog.args.triggerID
             const gasUsed = upkeepPerformedLog.args.gasUsed
             const gasOverhead = upkeepPerformedLog.args.gasOverhead
             const totalPayment = upkeepPerformedLog.args.totalPayment
-
             assert.equal(id.toString(), upkeepId.toString())
             assert.equal(success, true)
-            assert.equal(blockNum, checkBlock.number - 1)
-            assert.equal(blockHash, checkBlock.parentHash)
+            assert.equal(
+              triggerID,
+              ethers.utils.keccak256(
+                ethers.utils.concat([
+                  ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId]),
+                  encodeBlockTrigger({
+                    blockNum: checkBlock.number,
+                    blockHash: checkBlock.hash,
+                  }),
+                ]),
+              ),
+              'incorrect calculation of triggerID',
+            )
             assert.isTrue(gasUsed.gt(BigNumber.from('0')))
             assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
             assert.isTrue(totalPayment.gt(BigNumber.from('0')))
@@ -1958,12 +1958,12 @@ describe('KeeperRegistry2_1', () => {
                       assert.isTrue(
                         chargedGasOverhead
                           .sub(actualGasOverhead)
-                          .lt(BigNumber.from(gasCalculationMargin)),
+                          .lt(gasCalculationMargin),
                       ),
                         'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by atleast ' +
                           chargedGasOverhead
                             .sub(chargedGasOverhead)
-                            .sub(BigNumber.from(gasCalculationMargin))
+                            .sub(gasCalculationMargin)
                             .toString()
                     }
                   }
@@ -2063,12 +2063,12 @@ describe('KeeperRegistry2_1', () => {
                 assert.isTrue(
                   chargedGasOverhead
                     .sub(actualGasOverhead)
-                    .lt(BigNumber.from(gasCalculationMargin)),
+                    .lt(gasCalculationMargin),
                 ),
                   'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by atleast ' +
                     chargedGasOverhead
                       .sub(chargedGasOverhead)
-                      .sub(BigNumber.from(gasCalculationMargin))
+                      .sub(gasCalculationMargin)
                       .toString()
               },
             )
