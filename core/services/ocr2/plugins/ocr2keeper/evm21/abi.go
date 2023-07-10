@@ -209,16 +209,28 @@ func (rp *evmRegistryPackerV2_1) UnpackTrigger(id *big.Int, raw []byte) (trigger
 	upkeepType := getUpkeepType(id.Bytes())
 	switch upkeepType {
 	case conditionTrigger:
-		var trig automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger
-		err := rp.utilsAbi.UnpackIntoInterface(&trig, "_conditionalTrigger", raw)
+		unpacked, err := rp.utilsAbi.Methods["_conditionalTrigger"].Inputs.Unpack(raw)
+		if err != nil {
+			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack log trigger", err)
+		}
+		converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)).(*automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)
+		if !ok {
+			return automation_utils_2_1.KeeperRegistryBase21LogTrigger{}, fmt.Errorf("failed to convert type")
+		}
 		return triggerWrapper{
-			BlockNum:  trig.BlockNum,
-			BlockHash: trig.BlockHash,
-		}, err
+			BlockNum:  converted.BlockNum,
+			BlockHash: converted.BlockHash,
+		}, nil
 	case logTrigger:
-		var trig automation_utils_2_1.KeeperRegistryBase21LogTrigger
-		err := rp.utilsAbi.UnpackIntoInterface(&trig, "_logTrigger", raw)
-		return triggerWrapper(trig), err
+		unpacked, err := rp.utilsAbi.Methods["_logTrigger"].Inputs.Unpack(raw)
+		if err != nil {
+			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack log trigger", err)
+		}
+		converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21LogTrigger)).(*automation_utils_2_1.KeeperRegistryBase21LogTrigger)
+		if !ok {
+			return automation_utils_2_1.KeeperRegistryBase21LogTrigger{}, fmt.Errorf("failed to convert type")
+		}
+		return triggerWrapper(*converted), nil
 	default:
 		return triggerWrapper{}, fmt.Errorf("unknown trigger type: %d", upkeepType)
 	}
@@ -234,10 +246,13 @@ func (rp *evmRegistryPackerV2_1) PackReport(report automation_utils_2_1.KeeperRe
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error) {
-	var report automation_utils_2_1.KeeperRegistryBase21Report
-	err := rp.utilsAbi.UnpackIntoInterface(&report, "_report", raw)
+	unpacked, err := rp.utilsAbi.Methods["_report"].Inputs.Unpack(raw)
 	if err != nil {
-		return report, fmt.Errorf("%w: failed to unpack report", err)
+		return automation_utils_2_1.KeeperRegistryBase21Report{}, fmt.Errorf("%w: failed to unpack report", err)
 	}
-	return report, nil
+	converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21Report)).(*automation_utils_2_1.KeeperRegistryBase21Report)
+	if !ok {
+		return automation_utils_2_1.KeeperRegistryBase21Report{}, fmt.Errorf("failed to convert type")
+	}
+	return *converted, nil
 }

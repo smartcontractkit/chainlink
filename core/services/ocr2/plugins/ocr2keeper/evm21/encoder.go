@@ -98,9 +98,9 @@ func (enc EVMAutomationEncoder21) DecodeReport(raw []byte) ([]ocr2keepers.Upkeep
 		return nil, err
 	}
 
-	fmt.Printf("decoded report: %+v\n", report)
-
-	// TODO: validate report
+	if err := enc.validateReport(report); err != nil {
+		return nil, err
+	}
 
 	res := make([]ocr2keepers.UpkeepResult, len(report.UpkeepIds))
 
@@ -120,7 +120,6 @@ func (enc EVMAutomationEncoder21) DecodeReport(raw []byte) ([]ocr2keepers.Upkeep
 			CheckBlockNumber: trigger.BlockNum,
 			CheckBlockHash:   trigger.BlockHash,
 		}
-		fmt.Printf("decoded result: %+v\n", r)
 		res[i] = ocr2keepers.UpkeepResult(r)
 	}
 
@@ -166,6 +165,20 @@ func (enc EVMAutomationEncoder21) KeysFromReport(b []byte) ([]ocr2keepers.Upkeep
 	}
 
 	return keys, nil
+}
+
+// TODO: add more validations?
+func (enc EVMAutomationEncoder21) validateReport(report automation_utils_2_1.KeeperRegistryBase21Report) error {
+	if len(report.UpkeepIds) != len(report.GasLimits) {
+		return fmt.Errorf("invalid report: upkeepIds and gasLimits must be the same length")
+	}
+	if len(report.UpkeepIds) != len(report.Triggers) {
+		return fmt.Errorf("invalid report: upkeepIds and triggers must be the same length")
+	}
+	if len(report.UpkeepIds) != len(report.PerformDatas) {
+		return fmt.Errorf("invalid report: upkeepIds and performDatas must be the same length")
+	}
+	return nil
 }
 
 type BlockKeyHelper[T uint32 | int64] struct {
