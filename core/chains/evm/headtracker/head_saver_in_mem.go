@@ -22,6 +22,7 @@ type inMemoryHeadSaver[H types.HeadTrackerHead[BLOCK_HASH, CHAIN_ID], BLOCK_HASH
 	HeadsNumber map[int64][]H
 	mu          sync.RWMutex
 	getNilHead  func() H
+	getNilHash  func() BLOCK_HASH
 	setParent   func(H, H)
 }
 
@@ -36,6 +37,7 @@ func NewInMemoryHeadSaver[
 	config htrktypes.Config,
 	lggr logger.Logger,
 	getNilHead func() H,
+	getNilHash func() BLOCK_HASH,
 	setParent func(H, H),
 ) *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID] {
 	return &inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]{
@@ -44,6 +46,7 @@ func NewInMemoryHeadSaver[
 		Heads:       make(map[BLOCK_HASH]H),
 		HeadsNumber: make(map[int64][]H),
 		getNilHead:  getNilHead,
+		getNilHash:  getNilHash,
 		setParent:   setParent,
 	}
 }
@@ -54,6 +57,7 @@ func NewEvmInMemoryHeadSaver(config Config, lggr logger.Logger) *EvmInMemoryHead
 		evmConfig,
 		lggr,
 		func() *evmtypes.Head { return nil },
+		func() common.Hash { return common.Hash{} },
 		func(head, parent *evmtypes.Head) { head.Parent = parent },
 	)
 }
@@ -112,16 +116,19 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) AddHeads(historyDepth int6
 	for _, head := range newHeads {
 		blockHash := head.BlockHash()
 		blockNumber := head.BlockNumber()
+		parentHash := head.GetParentHash()
 
 		if _, exists := hs.Heads[blockHash]; exists {
 			continue
 		}
 
-		if parent, exists := hs.Heads[blockHash]; exists {
-			hs.setParent(head, parent)
-		} else {
-			// If parent's head is too old, we should set it to nil
-			hs.setParent(head, hs.getNilHead())
+		if parentHash != hs.getNilHash() {
+			if parent, exists := hs.Heads[parentHash]; exists {
+				hs.setParent(head, parent)
+			} else {
+				// If parent's head is too old, we should set it to nil
+				hs.setParent(head, hs.getNilHead())
+			}
 		}
 
 		hs.Heads[blockHash] = head
