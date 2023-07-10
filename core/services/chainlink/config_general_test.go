@@ -144,11 +144,11 @@ var pyroscopeSecretsTOML string
 //go:embed testdata/mergingsecretsdata/secrets-prometheus.toml
 var prometheusSecretsTOML string
 
-//go:embed testdata/mergingsecretsdata/secrets-mercury_a.toml
-var mercurySecretsTOML_a string
+//go:embed testdata/mergingsecretsdata/secrets-mercury-split-one.toml
+var mercurySecretsTOMLSplitOne string
 
-//go:embed testdata/mergingsecretsdata/secrets-mercury_b.toml
-var mercurySecretsTOML_b string
+//go:embed testdata/mergingsecretsdata/secrets-mercury-split-two.toml
+var mercurySecretsTOMLSplitTwo string
 
 //go:embed testdata/mergingsecretsdata/secrets-threshold.toml
 var thresholdSecretsTOML string
@@ -178,9 +178,9 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		require.NoErrorf(t, err3, "error: %s", err3)
 		prometheusSecrets, err4 := parseSecrets(prometheusSecretsTOML)
 		require.NoErrorf(t, err4, "error: %s", err4)
-		mercurySecrets_a, err5 := parseSecrets(mercurySecretsTOML_a)
+		mercurySecrets_a, err5 := parseSecrets(mercurySecretsTOMLSplitOne)
 		require.NoErrorf(t, err5, "error: %s", err5)
-		mercurySecrets_b, err6 := parseSecrets(mercurySecretsTOML_b)
+		mercurySecrets_b, err6 := parseSecrets(mercurySecretsTOMLSplitTwo)
 		require.NoErrorf(t, err6, "error: %s", err6)
 		thresholdSecrets, err7 := parseSecrets(thresholdSecretsTOML)
 		require.NoErrorf(t, err7, "error: %s", err7)
