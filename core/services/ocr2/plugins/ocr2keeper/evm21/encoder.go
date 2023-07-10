@@ -159,7 +159,9 @@ func (enc EVMAutomationEncoder21) KeysFromReport(b []byte) ([]ocr2keepers.Upkeep
 	return keys, nil
 }
 
-// TODO: add more validations?
+// validateReport checks that the report is valid, currently checking that all
+// lists are the same length.
+// TODO: add more validations? e.g. parse validate triggers
 func (enc EVMAutomationEncoder21) validateReport(report automation_utils_2_1.KeeperRegistryBase21Report) error {
 	if len(report.UpkeepIds) != len(report.GasLimits) {
 		return fmt.Errorf("invalid report: upkeepIds and gasLimits must be the same length")
