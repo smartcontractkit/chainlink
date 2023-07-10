@@ -133,7 +133,7 @@ func TestIntegration_Functions_MultipleRequests_SuccessWithThresholdDecryption(t
 	defer ticker.Stop()
 
 	// bootstrap node and job
-	bootstrapNodePort := uint16(39999)
+	bootstrapNodePort := uint16(38999)
 	bootstrapNode := utils.StartNewNode(t, owner, bootstrapNodePort, "bootstrap", b, uint32(maxGas), nil, nil, "")
 	utils.AddBootstrapJob(t, bootstrapNode.App, oracleContractAddress)
 
