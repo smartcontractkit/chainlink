@@ -1,14 +1,35 @@
 package v2
 
 import (
+	gethcommon "github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 )
 
 type gasEstimatorConfig struct {
 	c                       GasEstimator
+	k                       KeySpecificConfig
 	blockDelay              *uint16
 	transactionsMaxInFlight *uint32
+}
+
+func (g *gasEstimatorConfig) PriceMaxKey(addr gethcommon.Address) *assets.Wei {
+	var keySpecific *assets.Wei
+	for i := range g.k {
+		ks := g.k[i]
+		if ks.Key.Address() == addr {
+			keySpecific = ks.GasEstimator.PriceMax
+			break
+		}
+	}
+
+	chainSpecific := g.c.PriceMax
+	if keySpecific != nil && !keySpecific.IsZero() && keySpecific.Cmp(chainSpecific) < 0 {
+		return keySpecific
+	}
+
+	return g.c.PriceMax
 }
 
 func (g *gasEstimatorConfig) BlockHistory() config.BlockHistory {
