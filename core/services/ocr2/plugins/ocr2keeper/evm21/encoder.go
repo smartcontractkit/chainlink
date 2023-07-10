@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"reflect"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 
@@ -15,14 +14,6 @@ import (
 type EVMAutomationEncoder21 struct {
 	encoding.BasicEncoder
 	packer *evmRegistryPackerV2_1
-}
-
-func mustNewType(t string, internalType string, components []abi.ArgumentMarshaling) abi.Type {
-	a, err := abi.NewType(t, internalType, components)
-	if err != nil {
-		panic(err)
-	}
-	return a
 }
 
 var (
