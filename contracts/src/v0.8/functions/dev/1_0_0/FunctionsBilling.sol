@@ -216,13 +216,13 @@ abstract contract FunctionsBilling is Route, IFunctionsBilling {
   // |                  Cost Estimation Methods                     |
   // ================================================================
   /**
-   * @inheritdoc IFunctionsBilling
+   * @notice Uses current fees from DON and admin to estimate a cost
    */
   function estimateCost(
     bytes calldata data,
     uint32 callbackGasLimit,
     uint256 gasPrice
-  ) external view override returns (uint96) {
+  ) external view returns (uint96) {
     RequestBilling memory billing = RequestBilling(
       0, /*Use mock subscriptionId */
       msg.sender,

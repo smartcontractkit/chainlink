@@ -287,7 +287,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     address implAddr = s_route[id];
     bytes32 currentConfigHash;
     if (implAddr == address(this)) {
-      currentConfigHash = getConfigHash();
+      currentConfigHash = s_config_hash;
     } else {
       currentConfigHash = IConfigurable(implAddr).getConfigHash();
     }

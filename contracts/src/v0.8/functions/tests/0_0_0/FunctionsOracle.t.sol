@@ -1,8 +1,8 @@
 pragma solidity ^0.8.6;
 
 import {BaseTest} from "../BaseTest.t.sol";
-import {FunctionsOracle, FunctionsOracleWithInit} from "../testhelpers/FunctionsOracleWithInit.sol";
-import {FunctionsBillingRegistryWithInit} from "../testhelpers/FunctionsBillingRegistryWithInit.sol";
+import {FunctionsOracle, FunctionsOracleWithInit} from "./testhelpers/FunctionsOracleWithInit.sol";
+import {FunctionsBillingRegistryWithInit} from "./testhelpers/FunctionsBillingRegistryWithInit.sol";
 import {ConfirmedOwnerUpgradeable} from "../../dev/0_0_0/accessControl/ConfirmedOwnerUpgradeable.sol";
 
 // import {LinkToken} from "../../../../src/v0.4/LinkToken.sol";

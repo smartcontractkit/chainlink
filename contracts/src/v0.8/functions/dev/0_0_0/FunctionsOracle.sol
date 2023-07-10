@@ -24,6 +24,7 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   event UserCallbackError(bytes32 indexed requestId, string reason);
   event UserCallbackRawError(bytes32 indexed requestId, bytes lowLevelData);
   event InvalidRequestID(bytes32 indexed requestId);
+  event ResponseTransmitted(bytes32 indexed requestId, address transmitter);
 
   error EmptyRequestData();
   error InconsistentReportData();

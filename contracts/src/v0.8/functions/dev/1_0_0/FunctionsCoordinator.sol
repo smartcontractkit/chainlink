@@ -14,7 +14,7 @@ import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol"
  * @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
+abstract contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
   uint16 constant REQUEST_DATA_VERSION = Functions.REQUEST_DATA_VERSION;
 
   event OracleRequest(
@@ -56,16 +56,16 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc IFunctionsCoordinator
    */
   function getThresholdPublicKey() external view override returns (bytes memory) {
     return s_thresholdPublicKey;
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc IFunctionsCoordinator
    */
-  function setThresholdPublicKey(bytes calldata thresholdPublicKey) external override onlyOwner {
+  function setThresholdPublicKey(bytes calldata thresholdPublicKey) external override onlyRouterOwner {
     if (thresholdPublicKey.length == 0) {
       revert EmptyPublicKey();
     }
