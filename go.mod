@@ -23,7 +23,7 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-webauthn/webauthn v0.8.2
 	github.com/gogo/protobuf v1.3.3
-	github.com/google/pprof v0.0.0-20230510103437-eeec1cb781c3
+	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
@@ -55,8 +55,8 @@ require (
 	github.com/pressly/goose/v3 v3.5.3
 	github.com/prometheus/client_golang v1.15.1
 	github.com/prometheus/client_model v0.4.0
-	github.com/prometheus/common v0.42.0
-	github.com/prometheus/prometheus v0.44.0
+	github.com/prometheus/common v0.44.0
+	github.com/prometheus/prometheus v0.45.0
 	github.com/pyroscope-io/client v0.7.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-internal v1.10.0
