@@ -121,7 +121,7 @@ func initHostNames() (discoveryHost, loopHost string) {
 		}
 	}
 
-	loopHost, exists = env.LooppHostName.Lookup()
+	loopHost, exists = env.LOOPPHostName.Lookup()
 	if !exists {
 		// this is the expected case; no known uses for the env var other than
 		// as an escape hatch.

@@ -24,7 +24,7 @@ var (
 	PrometheusDiscoveryHostName = Var("CL_PROMETHEUS_DISCOVERY_HOSTNAME")
 	// EnvLooopHostName is the hostname used for HTTP communication between the
 	// node and LOOPps. In most cases this does not need to be set explicitly.
-	LooppHostName = Var("CL_LOOPP_HOSTNAME")
+	LOOPPHostName = Var("CL_LOOPP_HOSTNAME")
 
 	DatabaseAllowSimplePasswords = Var("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
 	DatabaseURL                  = Secret("CL_DATABASE_URL")
