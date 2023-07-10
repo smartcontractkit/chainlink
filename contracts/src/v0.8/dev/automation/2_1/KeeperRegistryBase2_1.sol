@@ -359,6 +359,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     Trigger triggerType;
     uint256 gasUsed;
     uint256 gasOverhead;
+    bytes32 triggerID;
   }
 
   struct Transmitter {
@@ -433,15 +434,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 totalPayment,
     uint256 gasUsed,
     uint256 gasOverhead,
-    bytes trigger
+    bytes32 triggerID
   );
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
-  event StaleUpkeepReport(uint256 indexed id, bytes trigger);
-  event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
-  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
+  event StaleUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event ReorgedUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event CancelledUpkeepReport(uint256 indexed id, bytes32 triggerID);
   event Paused(address account);
   event Unpaused(address account);
 
@@ -712,6 +713,16 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     } else {
       return blockhash(n);
     }
+  }
+
+  /**
+   * @notice returns a unique identifier for an upkeep/trigger combo
+   * @param upkeepID the upkeep id
+   * @param trigger the raw trigger bytes
+   * @return triggerID the unique identifier for the upkeep/trigger combo
+   */
+  function _triggerID(uint256 upkeepID, bytes memory trigger) internal pure returns (bytes32 triggerID) {
+    return keccak256(abi.encodePacked(upkeepID, trigger));
   }
 
   /**
