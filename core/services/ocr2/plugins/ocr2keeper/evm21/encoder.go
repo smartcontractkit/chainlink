@@ -39,6 +39,7 @@ type EVMAutomationUpkeepResult21 struct {
 	Retryable        bool
 }
 
+// TODO: align once we merge with ocr2keepers new types (ocr2keepers.CheckResult)
 func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResult) ([]byte, error) {
 	if len(toReport) == 0 {
 		return nil, nil

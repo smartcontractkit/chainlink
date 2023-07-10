@@ -33,6 +33,8 @@ const (
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
 
+// triggerWrapper is a wrapper for the different trigger types (log and condition triggers).
+// NOTE: we use log trigger because it extends condition trigger,
 type triggerWrapper = automation_utils_2_1.KeeperRegistryBase21LogTrigger
 
 type evmRegistryPackerV2_1 struct {

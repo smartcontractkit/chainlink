@@ -13,7 +13,7 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
-// TODO: fix tests
+// TODO: fix tests once we merge with ocr2keepers new types (ocr2keepers.CheckResult)
 func TestEVMAutomationEncoder21(t *testing.T) {
 	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	assert.Nil(t, err)
