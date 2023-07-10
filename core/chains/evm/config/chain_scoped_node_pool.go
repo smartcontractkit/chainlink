@@ -1,11 +1,13 @@
-package v2
+package config
 
 import (
 	"time"
+
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 )
 
 type nodePoolConfig struct {
-	c NodePool
+	c v2.NodePool
 }
 
 func (n *nodePoolConfig) PollFailureThreshold() uint32 {

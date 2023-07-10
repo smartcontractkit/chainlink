@@ -1,15 +1,15 @@
-package v2
+package config
 
 import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 )
 
 type gasEstimatorConfig struct {
-	c                       GasEstimator
-	k                       KeySpecificConfig
+	c                       v2.GasEstimator
+	k                       v2.KeySpecificConfig
 	blockDelay              *uint16
 	transactionsMaxInFlight *uint32
 }
@@ -32,7 +32,7 @@ func (g *gasEstimatorConfig) PriceMaxKey(addr gethcommon.Address) *assets.Wei {
 	return g.c.PriceMax
 }
 
-func (g *gasEstimatorConfig) BlockHistory() config.BlockHistory {
+func (g *gasEstimatorConfig) BlockHistory() BlockHistory {
 	return &blockHistoryConfig{c: g.c.BlockHistory, blockDelay: g.blockDelay, bumpThreshold: g.c.BumpThreshold}
 }
 
@@ -104,12 +104,12 @@ func (g *gasEstimatorConfig) Mode() string {
 	return *g.c.Mode
 }
 
-func (g *gasEstimatorConfig) LimitJobType() config.LimitJobType {
+func (g *gasEstimatorConfig) LimitJobType() LimitJobType {
 	return &limitJobTypeConfig{c: g.c.LimitJobType}
 }
 
 type limitJobTypeConfig struct {
-	c GasLimitJobType
+	c v2.GasLimitJobType
 }
 
 func (l *limitJobTypeConfig) OCR() *uint32 {
@@ -137,7 +137,7 @@ func (l *limitJobTypeConfig) VRF() *uint32 {
 }
 
 type blockHistoryConfig struct {
-	c             BlockHistoryEstimator
+	c             v2.BlockHistoryEstimator
 	blockDelay    *uint16
 	bumpThreshold *uint32
 }

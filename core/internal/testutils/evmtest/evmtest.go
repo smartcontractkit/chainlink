@@ -50,7 +50,7 @@ func NewChainScopedConfig(t testing.TB, cfg evm.GeneralConfig) evmconfig.ChainSc
 		}
 	}
 
-	return v2.NewTOMLChainScopedConfig(cfg, evmCfg, logger.TestLogger(t))
+	return evmconfig.NewTOMLChainScopedConfig(cfg, evmCfg, logger.TestLogger(t))
 
 }
 

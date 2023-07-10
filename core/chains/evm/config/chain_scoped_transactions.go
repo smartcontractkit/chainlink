@@ -1,9 +1,13 @@
-package v2
+package config
 
-import "time"
+import (
+	"time"
+
+	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+)
 
 type transactionsConfig struct {
-	c Transactions
+	c v2.Transactions
 }
 
 func (t *transactionsConfig) ForwardersEnabled() bool {
