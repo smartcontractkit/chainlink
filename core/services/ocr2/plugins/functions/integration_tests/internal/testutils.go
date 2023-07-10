@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -45,10 +46,14 @@ import (
 )
 
 var (
-	DefaultSecretsBytes  = []byte{0xaa, 0xbb, 0xcc}
-	DefaultSecretsBase64 = "qrvM"
-	DefaultArg1          = "arg1"
-	DefaultArg2          = "arg2"
+	DefaultSecretsBytes      = []byte{0xaa, 0xbb, 0xcc}
+	DefaultSecretsBase64     = "qrvM"
+	DefaultSecretsUrlsBytes  = []byte{0x01, 0x02, 0x03}
+	DefaultSecretsUrlsBase64 = "AQID"
+	// DefaultThresholdSecretsHex decrypts to the JSON string `{"0x0":"qrvM"}`
+	DefaultThresholdSecretsHex = "0x7b225444483243747874223a2265794a48636d393163434936496c41794e5459694c434a44496a6f69533035305a5559325448593056553168543341766148637955584a4b65545a68626b3177527939794f464e78576a59356158646d636a6c4f535430694c434a4d59574a6c62434936496b464251554642515546425155464251554642515546425155464251554642515546425155464251554642515546425155464251554642515545394969776956534936496b4a45536c6c7a51334e7a623055334d6e6444574846474e557056634770585a573157596e565265544d796431526d4d32786c636c705a647a4671536e6c47627a5256615735744e6d773355456855546e6b7962324e746155686f626c51354d564a6a4e6e5230656c70766147644255326372545430694c434a5658324a6863694936496b4a4961544e69627a5a45536d396a4d324d344d6c46614d5852724c325645536b4a484d336c5a556d783555306834576d684954697472623264575a306f33546e4e456232314b5931646853544979616d63305657644f556c526e57465272655570325458706952306c4a617a466e534851314f4430694c434a46496a6f694d7a524956466c354d544e474b307836596e5a584e7a6c314d6d356c655574514e6b397a656e467859335253513239705a315534534652704e4430694c434a47496a6f69557a5132596d6c6952545a584b314176546d744252445677575459796148426862316c6c6330684853556869556c56614e303155556c6f345554306966513d3d222c2253796d43747874223a2253764237652f4a556a552b433358757873384e5378316967454e517759755051623730306a4a6144222c224e6f6e6365223a224d31714b557a6b306b77374767593538227d"
+	DefaultArg1                = "arg1"
+	DefaultArg2                = "arg2"
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -67,6 +72,14 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 			MaxRequestBatchSize:       uint32(batchSize),
 			DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
 			UniqueReports:             true,
+			ThresholdPluginConfig: &functionsConfig.ThresholdReportingPluginConfig{
+				MaxQueryLengthBytes:       10_000,
+				MaxObservationLengthBytes: 10_000,
+				MaxReportLengthBytes:      10_000,
+				RequestCountLimit:         100,
+				RequestTotalBytesLimit:    1_000,
+				RequireLocalRequestCheck:  true,
+			},
 		},
 	})
 	require.NoError(t, err)
@@ -240,6 +253,8 @@ func StartNewNode(
 	b *backends.SimulatedBackend,
 	maxGas uint32,
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
+	ocr2Keystore []byte,
+	thresholdKeyShare string,
 ) *Node {
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
@@ -264,6 +279,10 @@ func StartNewNode(
 		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(maxGas)
+
+		if len(thresholdKeyShare) > 0 {
+			s.Threshold.ThresholdKeyShare = models.NewSecret(thresholdKeyShare)
+		}
 	})
 
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, b, p2pKey)
@@ -289,7 +308,12 @@ func StartNewNode(
 	require.NoError(t, err)
 	b.Commit()
 
-	kb, err := app.GetKeyStore().OCR2().Create("evm")
+	var kb ocr2key.KeyBundle
+	if ocr2Keystore != nil {
+		kb, err = app.GetKeyStore().OCR2().Import(ocr2Keystore, "testPassword")
+	} else {
+		kb, err = app.GetKeyStore().OCR2().Create("evm")
+	}
 	require.NoError(t, err)
 
 	err = app.Start(testutils.Context(t))
@@ -385,21 +409,42 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		require.NoError(t, err)
 		var jsonMap map[string]any
 		require.NoError(t, json.Unmarshal(b, &jsonMap))
-		data := jsonMap["data"].(map[string]any)
-		require.Equal(t, functions.LanguageJavaScript, int(data["language"].(float64)))
-		require.Equal(t, functions.LocationInline, int(data["codeLocation"].(float64)))
-		require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
-		require.Equal(t, DefaultSecretsBase64, data["secrets"].(string))
-		args := data["args"].([]interface{})
-		require.Equal(t, 2, len(args))
-		require.Equal(t, DefaultArg1, args[0].(string))
-		require.Equal(t, DefaultArg2, args[1].(string))
-		source := data["source"].(string)
+		var responsePayload []byte
+		if jsonMap["endpoint"].(string) == "lambda" {
+			responsePayload = mockEALambdaExecutionResponse(t, jsonMap)
+		} else if jsonMap["endpoint"].(string) == "fetcher" {
+			responsePayload = mockEASecretsFetchResponse(t, jsonMap)
+		} else {
+			require.Fail(t, "unknown external adapter endpoint '%s'", jsonMap["endpoint"].(string))
+		}
 		res.WriteHeader(http.StatusOK)
-		// prepend "0xab" to source and return as result
-		_, err = res.Write([]byte(fmt.Sprintf(`{"result": "success", "statusCode": 200, "data": {"result": "0xab%s", "error": ""}}`, source)))
+		_, err = res.Write(responsePayload)
 		require.NoError(t, err)
 	}))
+}
+
+func mockEALambdaExecutionResponse(t *testing.T, request map[string]any) []byte {
+	data := request["data"].(map[string]any)
+	require.Equal(t, functions.LanguageJavaScript, int(data["language"].(float64)))
+	require.Equal(t, functions.LocationInline, int(data["codeLocation"].(float64)))
+	require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
+	if data["secrets"] != DefaultSecretsBase64 && request["nodeProvidedSecrets"] != fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64) {
+		assert.Fail(t, "expected secrets or nodeProvidedSecrets to be '%s'", DefaultSecretsBase64)
+	}
+	args := data["args"].([]interface{})
+	require.Equal(t, 2, len(args))
+	require.Equal(t, DefaultArg1, args[0].(string))
+	require.Equal(t, DefaultArg2, args[1].(string))
+	source := data["source"].(string)
+	// prepend "0xab" to source and return as result
+	return []byte(fmt.Sprintf(`{"result": "success", "statusCode": 200, "data": {"result": "0xab%s", "error": ""}}`, source))
+}
+
+func mockEASecretsFetchResponse(t *testing.T, request map[string]any) []byte {
+	data := request["data"].(map[string]any)
+	require.Equal(t, "fetchThresholdEncryptedSecrets", data["requestType"], "expected requestType to be 'fetchThresholdEncryptedSecrets' but got '%s'", data["requestType"])
+	require.Equal(t, DefaultSecretsUrlsBase64, data["encryptedSecretsUrls"], "expected encryptedSecretsUrls to be '%s' but got '%s'", DefaultSecretsUrlsBase64, data["encryptedSecretsUrls"])
+	return []byte(fmt.Sprintf(`{"result": "success", "statusCode": 200, "data": {"result": "%s", "error": ""}}`, DefaultThresholdSecretsHex))
 }
 
 // Mock EA prepends 0xab to source and user contract crops the answer to first 32 bytes
