@@ -40,6 +40,7 @@ contract BaseRewardManagerTest is Test {
     //two pools should be enough to test all edge cases
     bytes32 internal constant PRIMARY_POOL_ID = keccak256("primary_pool");
     bytes32 internal constant SECONDARY_POOL_ID = keccak256("secondary_pool");
+    bytes32 internal constant INVALID_POOL_ID = keccak256("invalid_pool");
 
     //convenience arrays of all pool combinations used for testing
     bytes32[] internal PRIMARY_POOL_ARRAY = [PRIMARY_POOL_ID];

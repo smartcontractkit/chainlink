@@ -141,6 +141,9 @@ contract RewardManagerMisconfigurationTest is BaseRewardManagerTest {
         for(uint256 i = 0; i < recipients.length - 1; i++) {
             assertEq(getAssetBalance(recipients[i]), expectedRecipientAmount);
         }
+
+        //check the pool has the remaining balance
+        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT - expectedRecipientAmount * recipients.length);
     }
 
     function test_payAllRecipientsFromNonAdminUser() public {
@@ -162,6 +165,14 @@ contract RewardManagerMisconfigurationTest is BaseRewardManagerTest {
         for(uint256 i = 0; i < getPrimaryRecipientAddresses().length; i++) {
             assertEq(getAssetBalance(getPrimaryRecipientAddresses()[i]), expectedRecipientAmount);
         }
+    }
+
+    function test_payRecipientsWithInvalidPoolId() public {
+        //pay all the recipients in the pool
+        payRecipients(INVALID_POOL_ID, getPrimaryRecipientAddresses(), ADMIN);
+
+        //pool should still contain the full balance
+        assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
     }
 }
 
