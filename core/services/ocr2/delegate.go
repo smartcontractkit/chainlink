@@ -401,6 +401,10 @@ func getEVMTransmitterID(jb *job.Job, chainSet evm.ChainSet, chainID int64, lggr
 	spec := jb.OCR2OracleSpec
 	transmitterID := spec.TransmitterID.String
 
+	if spec.PluginType == job.Mercury {
+		return transmitterID, nil
+	}
+
 	if spec.RelayConfig["sendingKeys"] == nil {
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []string{transmitterID}
 	} else if !spec.TransmitterID.Valid {
