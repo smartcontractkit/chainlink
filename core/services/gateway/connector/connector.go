@@ -40,7 +40,7 @@ type Signer interface {
 type GatewayConnectorHandler interface {
 	job.ServiceCtx
 
-	HandleGatewayMessage(ctx context.Context, gatewayId string, body *api.MessageBody)
+	HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message)
 }
 
 type gatewayConnector struct {
@@ -142,7 +142,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				c.lggr.Errorw("failed to validate message signature", "id", gatewayState.config.Id, "error", err)
 				break
 			}
-			c.handler.HandleGatewayMessage(ctx, gatewayState.config.Id, &msg.Body)
+			c.handler.HandleGatewayMessage(ctx, gatewayState.config.Id, msg)
 		}
 	}
 }
