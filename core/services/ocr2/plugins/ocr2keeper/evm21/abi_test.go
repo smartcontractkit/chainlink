@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
@@ -30,10 +31,8 @@ func TestUnpackTransmitTxInputErrors(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			abi, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-			assert.Nil(t, err)
-
-			packer := NewEvmRegistryPackerV2_1(abi)
+			packer, err := newPacker()
+			assert.NoError(t, err)
 			_, err = packer.UnpackTransmitTxInput(hexutil.MustDecode(test.RawData))
 			assert.NotNil(t, err)
 		})
@@ -41,11 +40,6 @@ func TestUnpackTransmitTxInputErrors(t *testing.T) {
 }
 
 func TestUnpackPerformResult(t *testing.T) {
-	registryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	if err != nil {
-		assert.Nil(t, err)
-	}
-
 	tests := []struct {
 		Name    string
 		RawData string
@@ -57,7 +51,8 @@ func TestUnpackPerformResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := NewEvmRegistryPackerV2_1(registryABI)
+			packer, err := newPacker()
+			assert.NoError(t, err)
 			rs, err := packer.UnpackPerformResult(test.RawData)
 			assert.Nil(t, err)
 			assert.True(t, rs)
@@ -66,11 +61,6 @@ func TestUnpackPerformResult(t *testing.T) {
 }
 
 func TestUnpackCheckCallbackResult(t *testing.T) {
-	registryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	if err != nil {
-		assert.Nil(t, err)
-	}
-
 	tests := []struct {
 		Name          string
 		CallbackResp  []byte
@@ -106,7 +96,9 @@ func TestUnpackCheckCallbackResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := NewEvmRegistryPackerV2_1(registryABI)
+			packer, err := newPacker()
+			assert.NoError(t, err)
+
 			needed, pd, failureReason, gasUsed, err := packer.UnpackCheckCallbackResult(test.CallbackResp)
 
 			if test.ErrorString != "" {
@@ -123,8 +115,6 @@ func TestUnpackCheckCallbackResult(t *testing.T) {
 }
 
 func TestUnpackLogTriggerConfig(t *testing.T) {
-	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	assert.NoError(t, err)
 	tests := []struct {
 		name    string
 		raw     []byte
@@ -154,11 +144,10 @@ func TestUnpackLogTriggerConfig(t *testing.T) {
 		},
 	}
 
-	packer := NewEvmRegistryPackerV2_1(keeperRegistryABI)
-
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-
+			packer, err := newPacker()
+			assert.NoError(t, err)
 			res, err := packer.UnpackLogTriggerConfig(tc.raw)
 			if tc.errored {
 				assert.Error(t, err)
@@ -168,4 +157,16 @@ func TestUnpackLogTriggerConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newPacker() (*evmRegistryPackerV2_1, error) {
+	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
+	if err != nil {
+		return nil, err
+	}
+	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
+	if err != nil {
+		return nil, err
+	}
+	return NewEvmRegistryPackerV2_1(keepersABI, utilsABI), nil
 }

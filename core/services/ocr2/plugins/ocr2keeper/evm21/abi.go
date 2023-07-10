@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
@@ -32,12 +33,15 @@ const (
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
 
+type triggerWrapper = automation_utils_2_1.KeeperRegistryBase21LogTrigger
+
 type evmRegistryPackerV2_1 struct {
-	abi abi.ABI
+	abi      abi.ABI
+	utilsAbi abi.ABI
 }
 
-func NewEvmRegistryPackerV2_1(abi abi.ABI) *evmRegistryPackerV2_1 {
-	return &evmRegistryPackerV2_1{abi: abi}
+func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV2_1 {
+	return &evmRegistryPackerV2_1{abi: abi, utilsAbi: utilsAbi}
 }
 
 // TODO: remove for 2.1
@@ -174,4 +178,66 @@ func (rp *evmRegistryPackerV2_1) UnpackLogTriggerConfig(raw []byte) (iregistry21
 		return cfg, fmt.Errorf("failed to convert type")
 	}
 	return *converted, nil
+}
+
+func (rp *evmRegistryPackerV2_1) PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
+	var trigger []byte
+	var err error
+	upkeepType := getUpkeepType(id.Bytes())
+	switch upkeepType {
+	case conditionTrigger:
+		trig := automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger{
+			BlockNum:  trig.BlockNum,
+			BlockHash: trig.BlockHash,
+		}
+		trigger, err = rp.utilsAbi.Pack("_conditionalTrigger", &trig)
+	case logTrigger:
+		logTrig := automation_utils_2_1.KeeperRegistryBase21LogTrigger{
+			BlockNum:  trig.BlockNum,
+			BlockHash: trig.BlockHash,
+			LogIndex:  trig.LogIndex,
+			TxHash:    trig.TxHash,
+		}
+		trigger, err = rp.utilsAbi.Pack("_logTrigger", &logTrig)
+	default:
+		err = fmt.Errorf("unknown trigger type: %d", upkeepType)
+	}
+	return trigger[4:], err
+}
+
+func (rp *evmRegistryPackerV2_1) UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
+	upkeepType := getUpkeepType(id.Bytes())
+	switch upkeepType {
+	case conditionTrigger:
+		var trig automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger
+		err := rp.utilsAbi.UnpackIntoInterface(&trig, "_conditionalTrigger", raw)
+		return triggerWrapper{
+			BlockNum:  trig.BlockNum,
+			BlockHash: trig.BlockHash,
+		}, err
+	case logTrigger:
+		var trig automation_utils_2_1.KeeperRegistryBase21LogTrigger
+		err := rp.utilsAbi.UnpackIntoInterface(&trig, "_logTrigger", raw)
+		return triggerWrapper(trig), err
+	default:
+		return triggerWrapper{}, fmt.Errorf("unknown trigger type: %d", upkeepType)
+	}
+}
+
+func (rp *evmRegistryPackerV2_1) PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error) {
+	bts, err := rp.utilsAbi.Pack("_report", &report)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to pack report", err)
+	}
+
+	return bts[4:], nil
+}
+
+func (rp *evmRegistryPackerV2_1) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error) {
+	var report automation_utils_2_1.KeeperRegistryBase21Report
+	err := rp.utilsAbi.UnpackIntoInterface(&report, "_report", raw)
+	if err != nil {
+		return report, fmt.Errorf("%w: failed to unpack report", err)
+	}
+	return report, nil
 }
