@@ -14,7 +14,7 @@ type gasEstimatorConfig struct {
 	transactionsMaxInFlight *uint32
 }
 
-func (g *gasEstimatorConfig) MaxPriceKey(addr gethcommon.Address) *assets.Wei {
+func (g *gasEstimatorConfig) PriceMaxKey(addr gethcommon.Address) *assets.Wei {
 	var keySpecific *assets.Wei
 	for i := range g.k {
 		ks := g.k[i]

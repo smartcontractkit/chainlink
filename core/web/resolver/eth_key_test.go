@@ -66,7 +66,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 	statesError := fmt.Errorf("error getting key states: %v", gError)
 
 	evmMockConfig := mockEvmConfig{linkAddr: "0x5431F5F973781809D18643b87B44921b11355d81", gasEstimatorMock: mocks2.NewGasEstimator(t)}
-	evmMockConfig.gasEstimatorMock.On("MaxPriceKey", mock.Anything).Return(assets.NewWeiI(1))
+	evmMockConfig.gasEstimatorMock.On("PriceMaxKey", mock.Anything).Return(assets.NewWeiI(1))
 
 	testCases := []GQLTestCase{
 		unauthorizedTestCase(GQLTestCase{query: query}, "ethKeys"),

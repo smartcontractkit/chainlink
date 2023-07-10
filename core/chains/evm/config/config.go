@@ -94,7 +94,7 @@ type GasEstimator interface {
 	PriceMax() *assets.Wei
 	PriceMin() *assets.Wei
 	Mode() string
-	MaxPriceKey(gethcommon.Address) *assets.Wei
+	PriceMaxKey(gethcommon.Address) *assets.Wei
 }
 
 type LimitJobType interface {

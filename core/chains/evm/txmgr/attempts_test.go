@@ -48,7 +48,7 @@ func newFeeConfig() *feeConfig {
 func (g *feeConfig) EIP1559DynamicFees() bool                        { return g.eip1559DynamicFees }
 func (g *feeConfig) TipCapMin() *assets.Wei                          { return g.tipCapMin }
 func (g *feeConfig) PriceMin() *assets.Wei                           { return g.priceMin }
-func (g *feeConfig) MaxPriceKey(addr gethcommon.Address) *assets.Wei { return g.priceMax }
+func (g *feeConfig) PriceMaxKey(addr gethcommon.Address) *assets.Wei { return g.priceMax }
 
 func TestTxm_SignTx(t *testing.T) {
 	t.Parallel()
