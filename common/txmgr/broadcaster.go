@@ -57,10 +57,10 @@ type ProcessUnstartedTxs[ADDR types.Hashable] func(ctx context.Context, fromAddr
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
 type TransmitCheckerFactory[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
@@ -69,10 +69,10 @@ type TransmitCheckerFactory[
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
 type TransmitChecker[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 
@@ -97,12 +97,12 @@ type TransmitChecker[
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
 type Broadcaster[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	logger  logger.Logger
@@ -146,12 +146,12 @@ type Broadcaster[
 }
 
 func NewBroadcaster[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](
 	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE],
@@ -302,7 +302,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) ethT
 			}
 			addr, err := eb.parseAddr(ev.Payload)
 			if err != nil {
-				eb.logger.Errorw("failed to parse address in trigger", "error", err)
+				eb.logger.Errorw("failed to parse address in trigger", "err", err)
 				continue
 			}
 			eb.Trigger(addr)
@@ -767,7 +767,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) incr
 	return eb.ks.IncrementNextSequence(address, eb.chainID, currentSequence, qopts...)
 }
 
-func observeTimeUntilBroadcast[CHAIN_ID txmgrtypes.ID](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {
+func observeTimeUntilBroadcast[CHAIN_ID types.ID](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {
 	duration := float64(broadcastAt.Sub(createdAt))
 	promTimeUntilBroadcast.WithLabelValues(chainID.String()).Observe(duration)
 }

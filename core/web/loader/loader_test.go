@@ -284,16 +284,16 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 
 	ethTxIDs := []int64{1, 2, 3}
 
-	attempt1 := txmgr.EvmTxAttempt{
+	attempt1 := txmgr.TxAttempt{
 		ID:   int64(1),
 		TxID: ethTxIDs[0],
 	}
-	attempt2 := txmgr.EvmTxAttempt{
+	attempt2 := txmgr.TxAttempt{
 		ID:   int64(1),
 		TxID: ethTxIDs[1],
 	}
 
-	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmTxAttempt{
+	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.TxAttempt{
 		attempt1, attempt2,
 	}, nil)
 	app.On("TxmStorageService").Return(txStore)
@@ -304,9 +304,9 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	found := batcher.loadByEthTransactionIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []txmgr.EvmTxAttempt{}, found[0].Data)
-	assert.Equal(t, []txmgr.EvmTxAttempt{attempt2}, found[1].Data)
-	assert.Equal(t, []txmgr.EvmTxAttempt{attempt1}, found[2].Data)
+	assert.Equal(t, []txmgr.TxAttempt{}, found[0].Data)
+	assert.Equal(t, []txmgr.TxAttempt{attempt2}, found[1].Data)
+	assert.Equal(t, []txmgr.TxAttempt{attempt1}, found[2].Data)
 }
 
 func TestLoader_SpecErrorsByJobID(t *testing.T) {
@@ -370,19 +370,19 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 	ethTxID := int64(3)
 	ethTxHash := utils.NewHash()
 
-	receipt := txmgr.EvmReceipt{
+	receipt := txmgr.Receipt{
 		ID:     int64(1),
 		TxHash: ethTxHash,
 	}
 
-	attempt1 := txmgr.EvmTxAttempt{
+	attempt1 := txmgr.TxAttempt{
 		ID:       int64(1),
 		TxID:     ethTxID,
 		Hash:     ethTxHash,
-		Receipts: []txmgr.EvmChainReceipt{txmgr.DbReceiptToEvmReceipt(&receipt)},
+		Receipts: []txmgr.ChainReceipt{txmgr.DbReceiptToEvmReceipt(&receipt)},
 	}
 
-	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxID}).Return([]txmgr.EvmTxAttempt{
+	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxID}).Return([]txmgr.TxAttempt{
 		attempt1,
 	}, nil)
 
@@ -394,5 +394,5 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 	found := batcher.loadByEthTransactionIDs(ctx, keys)
 
 	require.Len(t, found, 1)
-	assert.Equal(t, []txmgr.EvmTxAttempt{attempt1}, found[0].Data)
+	assert.Equal(t, []txmgr.TxAttempt{attempt1}, found[0].Data)
 }

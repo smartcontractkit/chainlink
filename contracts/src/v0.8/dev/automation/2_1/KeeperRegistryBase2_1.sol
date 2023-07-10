@@ -173,7 +173,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     PERFORM_DATA_EXCEEDS_LIMIT,
     INSUFFICIENT_BALANCE,
     CALLBACK_REVERTED,
-    REVERT_DATA_EXCEEDS_LIMIT
+    REVERT_DATA_EXCEEDS_LIMIT,
+    REGISTRY_PAUSED
   }
 
   /**
@@ -292,7 +293,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 0 bytes left in 1st EVM word - not written to in transmit
     uint96 amountSpent;
     uint96 balance;
-    uint32 lastPerformedBlockNumber; // TODO time expires in 2100
+    uint32 lastPerformedBlockNumber;
     // 2 bytes left in 2nd EVM word - written in transmit path
     address target;
     // 12 bytes left in 3rd EVM word - neither written to nor read in transmit
@@ -373,7 +374,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint8 index;
   }
 
-  struct BlockTriggerConfig {
+  struct ConditionalTriggerConfig {
     uint32 checkCadance; // how often to check in blocks
   }
 
@@ -390,10 +391,10 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice the trigger structure for both conditional and ready trigger types
+   * @notice the trigger structure conditional trigger type
    */
-  struct BlockTrigger {
-    uint32 blockNum; // TODO - only 34 years worth of blocks on arbitrum...
+  struct ConditionalTrigger {
+    uint32 blockNum;
     bytes32 blockHash;
   }
 
@@ -451,7 +452,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(Mode mode, address link, address linkNativeFeed, address fastGasFeed) ConfirmedOwner(msg.sender) {
-    // TODO - logic contracts don't need an owner or ownable functions
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
@@ -461,8 +461,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   /////////////
   // GETTERS //
   /////////////
-
-  // TODO - these don't need to be on the Base contract
 
   function getMode() external view returns (Mode) {
     return i_mode;
@@ -669,7 +667,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   function getTriggerType(uint256 upkeepId) public pure returns (Trigger) {
-    // TODO - alternatively, we could just look this up from storage
     bytes32 rawID = bytes32(upkeepId);
     bytes1 empty = bytes1(0);
     for (uint256 idx = 4; idx < 15; idx++) {

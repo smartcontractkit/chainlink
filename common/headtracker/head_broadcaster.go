@@ -7,24 +7,24 @@ import (
 	"sync"
 	"time"
 
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const TrackableCallbackTimeout = 2 * time.Second
 
-type callbackSet[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] map[int]commontypes.HeadTrackable[H, BLOCK_HASH]
+type callbackSet[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] map[int]types.HeadTrackable[H, BLOCK_HASH]
 
-func (set callbackSet[H, BLOCK_HASH]) values() []commontypes.HeadTrackable[H, BLOCK_HASH] {
-	var values []commontypes.HeadTrackable[H, BLOCK_HASH]
+func (set callbackSet[H, BLOCK_HASH]) values() []types.HeadTrackable[H, BLOCK_HASH] {
+	var values []types.HeadTrackable[H, BLOCK_HASH]
 	for _, callback := range set {
 		values = append(values, callback)
 	}
 	return values
 }
 
-type HeadBroadcaster[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hashable] struct {
+type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
 	logger    logger.Logger
 	callbacks callbackSet[H, BLOCK_HASH]
 	mailbox   *utils.Mailbox[H]
@@ -38,8 +38,8 @@ type HeadBroadcaster[H commontypes.Head[BLOCK_HASH], BLOCK_HASH commontypes.Hash
 
 // NewHeadBroadcaster creates a new HeadBroadcaster
 func NewHeadBroadcaster[
-	H commontypes.Head[BLOCK_HASH],
-	BLOCK_HASH commontypes.Hashable,
+	H types.Head[BLOCK_HASH],
+	BLOCK_HASH types.Hashable,
 ](
 	lggr logger.Logger,
 ) *HeadBroadcaster[H, BLOCK_HASH] {
@@ -89,7 +89,7 @@ func (hb *HeadBroadcaster[H, BLOCK_HASH]) BroadcastNewLongestChain(head H) {
 
 // Subscribe subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
 // or unsubscribe callback is called explicitly
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) Subscribe(callback commontypes.HeadTrackable[H, BLOCK_HASH]) (currentLongestChain H, unsubscribe func()) {
+func (hb *HeadBroadcaster[H, BLOCK_HASH]) Subscribe(callback types.HeadTrackable[H, BLOCK_HASH]) (currentLongestChain H, unsubscribe func()) {
 	hb.mutex.Lock()
 	defer hb.mutex.Unlock()
 
@@ -147,7 +147,7 @@ func (hb *HeadBroadcaster[H, BLOCK_HASH]) executeCallbacks() {
 	defer cancel()
 
 	for _, callback := range callbacks {
-		go func(trackable commontypes.HeadTrackable[H, BLOCK_HASH]) {
+		go func(trackable types.HeadTrackable[H, BLOCK_HASH]) {
 			defer wg.Done()
 			start := time.Now()
 			cctx, cancel := context.WithTimeout(ctx, TrackableCallbackTimeout)
