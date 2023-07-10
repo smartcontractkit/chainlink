@@ -55,7 +55,9 @@ $SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/KeeperRegistryLogicA2_1.s
 $SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/KeeperRegistryLogicB2_1.sol
 $SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol
 $SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/interfaces/ILogAutomation.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/AutomationUtils2_1.sol
 $SCRIPTPATH/native_solc8_6_compile dev/automation/tests/LogUpkeepCounter.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/tests/LogTriggeredFeedLookup.sol
 $SCRIPTPATH/native_solc8_6_compile automation/UpkeepTranscoder.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VerifiableLoadUpkeep.sol
 $SCRIPTPATH/native_solc8_6_compile tests/VerifiableLoadMercuryUpkeep.sol

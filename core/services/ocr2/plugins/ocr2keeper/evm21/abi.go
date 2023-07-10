@@ -73,8 +73,9 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 	result.FailureReason = *abi.ConvertType(out[2], new(uint8)).(*uint8)
 	result.GasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	result.FastGasWei = *abi.ConvertType(out[4], new(*big.Int)).(**big.Int)
-	result.LinkNative = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
+	result.ExecuteGas = *abi.ConvertType(out[4], new(uint32)).(*uint32)
+	result.FastGasWei = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
+	result.LinkNative = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
 
 	if !upkeepNeeded {
 		result.Eligible = false
@@ -83,11 +84,6 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || (result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
 		result.PerformData = rawPerformData
 	}
-
-	// This is a default placeholder which is used since we do not get the execute gas
-	// from checkUpkeep result. This field is overwritten later from the execute gas
-	// we have for an upkeep in memory. TODO (AUTO-1482): Refactor this
-	result.ExecuteGas = 5_000_000
 
 	return result, nil
 }

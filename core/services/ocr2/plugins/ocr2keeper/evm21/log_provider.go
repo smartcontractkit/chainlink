@@ -43,7 +43,7 @@ type LogProvider struct {
 }
 
 func LogProviderFilterName(addr common.Address) string {
-	return logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr)
+	return logpoller.FilterName("KeepersRegistry LogProvider", addr)
 }
 
 func NewLogProvider(
@@ -60,7 +60,7 @@ func NewLogProvider(
 		return nil, err
 	}
 
-	abi, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
+	keeperABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
@@ -88,7 +88,7 @@ func NewLogProvider(
 		lookbackBlocks:    lookbackBlocks,
 		registry:          contract,
 		client:            client,
-		packer:            NewEvmRegistryPackerV2_1(abi),
+		packer:            NewEvmRegistryPackerV2_1(keeperABI),
 		txCheckBlockCache: pluginutils.NewCache[string](time.Hour),
 		cacheCleaner:      pluginutils.NewIntervalCacheCleaner[string](time.Minute),
 	}, nil

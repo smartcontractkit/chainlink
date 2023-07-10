@@ -109,7 +109,7 @@ contract KeeperRegistryLogicA2_1 is
     if (triggerType == Trigger.CONDITION) {
       callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
     } else {
-      callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, checkData);
+      callData = bytes.concat(CHECK_LOG_SELECTOR, checkData);
     }
     gasUsed = gasleft();
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
