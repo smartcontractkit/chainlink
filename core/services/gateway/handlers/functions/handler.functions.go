@@ -69,10 +69,6 @@ func ParseConfig(handlerConfig json.RawMessage) (*FunctionsHandlerConfig, error)
 }
 
 func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
-	if err := msg.Validate(); err != nil {
-		h.lggr.Debugw("received invalid message", "err", err)
-		return err
-	}
 	sender := common.HexToAddress(msg.Body.Sender)
 	if h.allowlist != nil && !h.allowlist.Allow(sender) {
 		h.lggr.Debugw("received a message from a non-allowlisted address", "sender", msg.Body.Sender)
