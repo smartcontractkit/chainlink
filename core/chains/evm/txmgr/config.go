@@ -31,7 +31,7 @@ type FeeConfig interface {
 	TipCapMin() *assets.Wei
 	PriceMax() *assets.Wei
 	PriceMin() *assets.Wei
-	KeySpecificMaxPrice(gethcommon.Address) *assets.Wei
+	MaxPriceKey(gethcommon.Address) *assets.Wei
 }
 
 type DatabaseConfig interface {

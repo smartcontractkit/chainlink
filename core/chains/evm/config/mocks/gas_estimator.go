@@ -120,22 +120,6 @@ func (_m *GasEstimator) FeeCapDefault() *assets.Wei {
 	return r0
 }
 
-// KeySpecificMaxPrice provides a mock function with given fields: _a0
-func (_m *GasEstimator) KeySpecificMaxPrice(_a0 common.Address) *assets.Wei {
-	ret := _m.Called(_a0)
-
-	var r0 *assets.Wei
-	if rf, ok := ret.Get(0).(func(common.Address) *assets.Wei); ok {
-		r0 = rf(_a0)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*assets.Wei)
-		}
-	}
-
-	return r0
-}
-
 // LimitDefault provides a mock function with given fields:
 func (_m *GasEstimator) LimitDefault() uint32 {
 	ret := _m.Called()
@@ -203,6 +187,22 @@ func (_m *GasEstimator) LimitTransfer() uint32 {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(uint32)
+	}
+
+	return r0
+}
+
+// MaxPriceKey provides a mock function with given fields: _a0
+func (_m *GasEstimator) MaxPriceKey(_a0 common.Address) *assets.Wei {
+	ret := _m.Called(_a0)
+
+	var r0 *assets.Wei
+	if rf, ok := ret.Get(0).(func(common.Address) *assets.Wei); ok {
+		r0 = rf(_a0)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*assets.Wei)
+		}
 	}
 
 	return r0

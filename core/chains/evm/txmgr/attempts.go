@@ -35,7 +35,7 @@ type evmTxAttemptBuilderFeeConfig interface {
 	EIP1559DynamicFees() bool
 	TipCapMin() *assets.Wei
 	PriceMin() *assets.Wei
-	KeySpecificMaxPrice(common.Address) *assets.Wei
+	MaxPriceKey(common.Address) *assets.Wei
 }
 
 func NewEvmTxAttemptBuilder(chainID big.Int, feeConfig evmTxAttemptBuilderFeeConfig, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
@@ -55,7 +55,7 @@ func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx Tx, lggr log
 // NewTxAttemptWithType builds a new attempt with a new fee estimation where the txType can be specified by the caller
 // used for L2 re-estimation on broadcasting (note EIP1559 must be disabled otherwise this will fail with mismatched fees + tx type)
 func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx Tx, lggr logger.Logger, txType int, opts ...feetypes.Opt) (attempt TxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
-	keySpecificMaxGasPriceWei := c.feeConfig.KeySpecificMaxPrice(etx.FromAddress)
+	keySpecificMaxGasPriceWei := c.feeConfig.MaxPriceKey(etx.FromAddress)
 	fee, feeLimit, err = c.EvmFeeEstimator.GetFee(ctx, etx.EncodedPayload, etx.FeeLimit, keySpecificMaxGasPriceWei, opts...)
 	if err != nil {
 		return attempt, fee, feeLimit, true, errors.Wrap(err, "failed to get fee") // estimator errors are retryable
@@ -68,7 +68,7 @@ func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx Tx, 
 // NewBumpTxAttempt builds a new attempt with a bumped fee - based on the previous attempt tx type
 // used in the txm broadcaster + confirmer when tx ix rejected for too low fee or is not included in a timely manner
 func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx Tx, previousAttempt TxAttempt, priorAttempts []TxAttempt, lggr logger.Logger) (attempt TxAttempt, bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
-	keySpecificMaxGasPriceWei := c.feeConfig.KeySpecificMaxPrice(etx.FromAddress)
+	keySpecificMaxGasPriceWei := c.feeConfig.MaxPriceKey(etx.FromAddress)
 
 	bumpedFee, bumpedFeeLimit, err = c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.TxFee, etx.FeeLimit, keySpecificMaxGasPriceWei, newEvmPriorAttempts(priorAttempts))
 	if err != nil {
@@ -164,7 +164,7 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx Tx, fee gas.DynamicFee, g
 var Max256BitUInt = big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil)
 
 type keySpecificEstimator interface {
-	KeySpecificMaxPrice(addr common.Address) *assets.Wei
+	MaxPriceKey(addr common.Address) *assets.Wei
 }
 
 // validateDynamicFeeGas is a sanity check - we have other checks elsewhere, but this
@@ -192,7 +192,7 @@ func validateDynamicFeeGas(kse keySpecificEstimator, tipCapMinimum *assets.Wei, 
 	}
 
 	// Configuration sanity-check
-	max := kse.KeySpecificMaxPrice(etx.FromAddress)
+	max := kse.MaxPriceKey(etx.FromAddress)
 	if gasFeeCap.Cmp(max) > 0 {
 		return errors.Errorf("cannot create tx attempt: specified gas fee cap of %s would exceed max configured gas price of %s for key %s", gasFeeCap.String(), max.String(), etx.FromAddress.String())
 	}
@@ -255,7 +255,7 @@ func validateLegacyGas(kse keySpecificEstimator, minGasPriceWei, gasPrice *asset
 	if gasPrice == nil {
 		panic("gas price missing")
 	}
-	max := kse.KeySpecificMaxPrice(etx.FromAddress)
+	max := kse.MaxPriceKey(etx.FromAddress)
 	if gasPrice.Cmp(max) > 0 {
 		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.String())
 	}

@@ -495,7 +495,7 @@ decode_log->vrf->encode_tx->submit_tx
 		require.NoError(tt, err)
 
 		gasEstimator := mocks.NewGasEstimator(t)
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, gasEstimator.KeySpecificMaxPrice))
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, gasEstimator.MaxPriceKey))
 	})
 
 	t.Run("returns nil error on valid gas lane <=> key specific gas price setting", func(tt *testing.T) {
@@ -506,7 +506,7 @@ decode_log->vrf->encode_tx->submit_tx
 
 		gasEstimator := mocks.NewGasEstimator(t)
 		for _, a := range fromAddresses {
-			gasEstimator.On("KeySpecificMaxPrice", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
+			gasEstimator.On("MaxPriceKey", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
 		}
 		defer gasEstimator.AssertExpectations(tt)
 
@@ -522,7 +522,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, gasEstimator.KeySpecificMaxPrice))
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, gasEstimator.MaxPriceKey))
 	})
 
 	t.Run("returns error on invalid setting", func(tt *testing.T) {
@@ -532,10 +532,10 @@ decode_log->vrf->encode_tx->submit_tx
 		}
 
 		gasEstimator := mocks.NewGasEstimator(t)
-		gasEstimator.On("KeySpecificMaxPrice", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
-		gasEstimator.On("KeySpecificMaxPrice", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
+		gasEstimator.On("MaxPriceKey", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
+		gasEstimator.On("MaxPriceKey", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
 		// last from address has wrong key-specific max gas price
-		gasEstimator.On("KeySpecificMaxPrice", common.HexToAddress(fromAddresses[2])).Return(assets.GWei(50)).Once()
+		gasEstimator.On("MaxPriceKey", common.HexToAddress(fromAddresses[2])).Return(assets.GWei(50)).Once()
 		defer gasEstimator.AssertExpectations(tt)
 
 		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
@@ -550,7 +550,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, gasEstimator.KeySpecificMaxPrice))
+		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, gasEstimator.MaxPriceKey))
 	})
 }
 
@@ -634,11 +634,11 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 
 		gasEstimator := mocks.NewGasEstimator(t)
 		for _, a := range fromAddresses {
-			gasEstimator.On("KeySpecificMaxPrice", common.HexToAddress(a)).Return(assets.GWei(100))
+			gasEstimator.On("MaxPriceKey", common.HexToAddress(a)).Return(assets.GWei(100))
 		}
 		defer gasEstimator.AssertExpectations(tt)
 
-		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, gasEstimator.KeySpecificMaxPrice))
+		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, gasEstimator.MaxPriceKey))
 	})
 
 	t.Run("one max gas price not equal to others", func(tt *testing.T) {
@@ -661,12 +661,12 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 
 		gasEstimator := mocks.NewGasEstimator(t)
 		for _, a := range fromAddresses[:3] {
-			gasEstimator.On("KeySpecificMaxPrice", common.HexToAddress(a)).Return(assets.GWei(100))
+			gasEstimator.On("MaxPriceKey", common.HexToAddress(a)).Return(assets.GWei(100))
 		}
-		gasEstimator.On("KeySpecificMaxPrice", common.HexToAddress(fromAddresses[len(fromAddresses)-1])).
+		gasEstimator.On("MaxPriceKey", common.HexToAddress(fromAddresses[len(fromAddresses)-1])).
 			Return(assets.GWei(200)) // doesn't match the rest
 		defer gasEstimator.AssertExpectations(tt)
 
-		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, gasEstimator.KeySpecificMaxPrice))
+		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, gasEstimator.MaxPriceKey))
 	})
 }
