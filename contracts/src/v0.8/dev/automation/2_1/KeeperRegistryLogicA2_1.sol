@@ -85,6 +85,8 @@ contract KeeperRegistryLogicA2_1 is
     Trigger triggerType = getTriggerType(id);
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
+
+    if (hotVars.paused) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.executeGas, 0, 0);
     if (upkeep.maxValidBlocknumber != UINT32_MAX)
       return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.executeGas, 0, 0);
     if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.executeGas, 0, 0);
@@ -107,7 +109,7 @@ contract KeeperRegistryLogicA2_1 is
     if (triggerType == Trigger.CONDITION) {
       callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
     } else {
-      callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, checkData);
+      callData = bytes.concat(CHECK_LOG_SELECTOR, checkData);
     }
     gasUsed = gasleft();
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
@@ -267,7 +269,7 @@ contract KeeperRegistryLogicA2_1 is
         admin,
         Trigger.CONDITION,
         checkData,
-        abi.encode(BlockTriggerConfig({checkCadance: 1})),
+        abi.encode(ConditionalTriggerConfig({checkCadance: 1})),
         offchainConfig
       );
   }

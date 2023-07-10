@@ -112,6 +112,9 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawRes
 	if err != nil {
 		return newError(g.codec, "", api.UserMessageParseError, err.Error())
 	}
+	if err = msg.Validate(); err != nil {
+		return newError(g.codec, msg.Body.MessageId, api.UserMessageParseError, err.Error())
+	}
 	// find correct handler
 	handler, ok := g.handlers[msg.Body.DonId]
 	if !ok {

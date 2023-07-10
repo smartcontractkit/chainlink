@@ -214,6 +214,6 @@ func (s *service) runFeeder() {
 		s.logger.Debugw("BHS feeder run completed successfully")
 	} else {
 		s.logger.Errorw("BHS feeder run was at least partially unsuccessful",
-			"error", err)
+			"err", err)
 	}
 }

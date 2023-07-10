@@ -8,13 +8,13 @@ import (
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	v2types "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type p2p struct {
-	c v2types.P2P
+	c toml.P2P
 }
 
 func (p *p2p) Enabled() bool {
@@ -50,7 +50,7 @@ func (p *p2p) V1() config.V1 {
 }
 
 type p2pv1 struct {
-	c v2types.P2PV1
+	c toml.P2PV1
 }
 
 func (v *p2pv1) Enabled() bool {
@@ -103,7 +103,7 @@ func (v *p2pv1) PeerstoreWriteInterval() time.Duration {
 }
 
 type p2pv2 struct {
-	c v2types.P2PV2
+	c toml.P2PV2
 }
 
 func (v *p2pv2) Enabled() bool {

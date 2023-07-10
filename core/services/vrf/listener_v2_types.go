@@ -212,7 +212,7 @@ func (lsn *listenerV2) getUnconsumed(l logger.Logger, reqs []pendingRequest) (un
 			l.Errorw("Could not determine if log was already consumed",
 				"reqID", req.req.RequestId.String(),
 				"txHash", req.req.Raw.TxHash,
-				"error", err)
+				"err", err)
 		} else if consumed {
 			processed = append(processed, req.req.RequestId.String())
 		} else {
