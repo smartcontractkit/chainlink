@@ -46,7 +46,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 		signature, err := handler.Sign([]byte("test"))
 		require.NoError(t, err)
 
-		signer, err := common.ValidateSignature(signature, []byte("test"))
+		signer, err := common.ExtractSigner(signature, []byte("test"))
 		require.NoError(t, err)
 		require.Equal(t, addr.Bytes(), signer)
 	})
@@ -77,7 +77,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 			}).Return(nil).Once()
 
-			handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
+			handler.HandleGatewayMessage(ctx, "gw1", &msg)
 
 			t.Run("orm error", func(t *testing.T) {
 				storage.On("List", ctx, addr).Return(nil, errors.New("boom")).Once()
@@ -89,12 +89,12 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 				}).Return(nil).Once()
 
-				handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
+				handler.HandleGatewayMessage(ctx, "gw1", &msg)
 			})
 
 			t.Run("not allowed", func(t *testing.T) {
 				allowlist.On("Allow", addr).Return(false).Once()
-				handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
+				handler.HandleGatewayMessage(ctx, "gw1", &msg)
 			})
 		})
 
@@ -133,7 +133,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 			}).Return(nil).Once()
 
-			handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
+			handler.HandleGatewayMessage(ctx, "gw1", &msg)
 
 			t.Run("orm error", func(t *testing.T) {
 				storage.On("Put", ctx, mock.Anything, mock.Anything, mock.Anything).Return(errors.New("boom")).Once()
@@ -145,7 +145,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 				}).Return(nil).Once()
 
-				handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
+				handler.HandleGatewayMessage(ctx, "gw1", &msg)
 			})
 
 			t.Run("missing signature", func(t *testing.T) {
@@ -160,7 +160,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 				}).Return(nil).Once()
 
-				handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
+				handler.HandleGatewayMessage(ctx, "gw1", &msg)
 			})
 
 			t.Run("malformed request", func(t *testing.T) {
@@ -174,7 +174,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 				}).Return(nil).Once()
 
-				handler.HandleGatewayMessage(ctx, "gw1", &msg.Body)
+				handler.HandleGatewayMessage(ctx, "gw1", &msg)
 			})
 		})
 
@@ -191,7 +191,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			require.NoError(t, msg.Sign(privateKey))
 
 			allowlist.On("Allow", addr).Return(true).Once()
-			handler.HandleGatewayMessage(testutils.Context(t), "gw1", &msg.Body)
+			handler.HandleGatewayMessage(testutils.Context(t), "gw1", &msg)
 		})
 	})
 }
