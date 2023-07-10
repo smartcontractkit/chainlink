@@ -321,38 +321,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		lggr = logger.Sugared(lggr.With("evmChainID", chainID))
 
-		if spec.PluginType != job.Mercury {
-			if spec.RelayConfig["sendingKeys"] == nil {
-				spec.RelayConfig["sendingKeys"] = []string{transmitterID}
-			} else if !spec.TransmitterID.Valid {
-				castedSendingKeys, ok := spec.RelayConfig["sendingKeys"].([]string)
-				if !ok {
-					return nil, errors.Wrap(err, "transmitterID is not defined and sending keys are of wrong type")
-				}
-				if len(castedSendingKeys) == 0 {
-					return nil, errors.Wrap(err, "transmitterID is not defined and sending keys are empty")
-				}
-				transmitterID, effectiveTransmitterID = castedSendingKeys[0], castedSendingKeys[0]
-			}
-		}
-
-		// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
-		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
-		// ForwardingAllowed cannot be set with Mercury, so this should always be false for mercury jobs
-		if jb.ForwardingAllowed {
-			chain, err := d.chainSet.Get(big.NewInt(chainID))
-			if err != nil {
-				return nil, errors.Wrap(err, "ServicesForSpec failed to get chainset")
-			}
-
-			fwdrAddress, fwderr := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
-			if fwderr == nil {
-				effectiveTransmitterID = fwdrAddress.String()
-			} else if spec.TransmitterID.Valid {
-				lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", fwderr)
-			} else {
-				return nil, errors.New("ServicesForSpec failed to get forwarder address and transmitterID is not set")
-			}
+		effectiveTransmitterID, err = getEVMTransmitterID(&jb, d.chainSet, chainID, lggr)
+		if err != nil {
+			return nil, errors.Wrap(err, "ServicesForSpec failed to get evm transmitterID")
 		}
 	}
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
@@ -424,6 +395,46 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
+}
+
+func getEVMTransmitterID(jb *job.Job, chainSet evm.ChainSet, chainID int64, lggr logger.SugaredLogger) (string, error) {
+	spec := jb.OCR2OracleSpec
+	transmitterID := spec.TransmitterID.String
+
+	if spec.RelayConfig["sendingKeys"] == nil {
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []string{transmitterID}
+	} else if !spec.TransmitterID.Valid {
+		castedSendingKeys, ok := spec.RelayConfig["sendingKeys"].([]string)
+		if !ok {
+			return "", errors.New("transmitterID is not defined and sending keys are of wrong type")
+		}
+		if len(castedSendingKeys) == 0 {
+			return "", errors.New("transmitterID is not defined and sending keys are empty")
+		}
+		transmitterID = castedSendingKeys[0]
+	}
+
+	// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
+	// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
+	// ForwardingAllowed cannot be set with Mercury, so this should always be false for mercury jobs
+	if jb.ForwardingAllowed {
+		chain, err := chainSet.Get(big.NewInt(chainID))
+		if err != nil {
+			return "", errors.Wrap(err, "failed to get chainset")
+		}
+
+		effectiveTransmitterID, err := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
+		if err == nil {
+			jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []string{effectiveTransmitterID.String()}
+			return effectiveTransmitterID.String(), nil
+		} else if spec.TransmitterID.Valid {
+			lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", err)
+		} else {
+			return "", errors.New("failed to get forwarder address and transmitterID is not set")
+		}
+	}
+
+	return transmitterID, nil
 }
 
 func (d *Delegate) newServicesMercury(
