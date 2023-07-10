@@ -2,11 +2,11 @@
 pragma solidity 0.8.16;
 
 import {BaseTestWithConfiguredVerifier} from "./BaseVerifierTest.t.sol";
-import {IVerifier} from "../interfaces/IVerifier.sol";
-import {VerifierProxy} from "../VerifierProxy.sol";
-import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
-import {IERC165} from "../../shared/vendor/IERC165.sol";
-import {Common} from "../../libraries/internal/Common.sol";
+import {IVerifier} from "../../interfaces/IVerifier.sol";
+import {VerifierProxy} from "../../VerifierProxy.sol";
+import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
+import {IERC165} from "../../../shared/vendor/IERC165.sol";
+import {Common} from "../../../libraries/internal/Common.sol";
 
 
 contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifier {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {BaseTest, BaseTestWithConfiguredVerifier} from "../BaseVerifierTest.t.sol";
+import {BaseTest, BaseTestWithConfiguredVerifier} from "../verifier/BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
 import {SimpleWriteAccessController} from "../../../SimpleWriteAccessController.sol";
 import {Common} from "../../../libraries/internal/Common.sol";

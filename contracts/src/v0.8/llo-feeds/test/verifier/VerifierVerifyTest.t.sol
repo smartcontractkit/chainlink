@@ -2,10 +2,10 @@
 pragma solidity 0.8.16;
 
 import {BaseTestWithConfiguredVerifier} from "./BaseVerifierTest.t.sol";
-import {Verifier} from "../Verifier.sol";
-import {VerifierProxy} from "../VerifierProxy.sol";
-import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
-import {Common} from "../../libraries/internal/Common.sol";
+import {Verifier} from "../../Verifier.sol";
+import {VerifierProxy} from "../../VerifierProxy.sol";
+import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
+import {Common} from "../../../libraries/internal/Common.sol";
 
 contract VerifierVerifyTest is BaseTestWithConfiguredVerifier {
   bytes32[3] internal s_reportContext;

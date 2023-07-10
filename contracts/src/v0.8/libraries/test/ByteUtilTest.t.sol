@@ -93,5 +93,4 @@ contract ByteUtilTest is Test {
         //read the first 20 bytes of an empty array
         address result = B_EMPTY.readAddress(0);
     }
-
 }
