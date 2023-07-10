@@ -406,7 +406,7 @@ func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddres
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
 	} else {
-		price = chain.Config().EVM().KeySpecificMaxGasPriceWei(keyAddress)
+		price = chain.Config().EVM().GasEstimator().PriceMaxKey(keyAddress)
 	}
 	return presenters.SetETHKeyMaxGasPriceWei(utils.NewBig(price.ToInt()))
 }

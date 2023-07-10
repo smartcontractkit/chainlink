@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/multierr"
 
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
@@ -71,7 +70,7 @@ func (e *evmConfig) OCR2() config.OCR2 {
 }
 
 func (e *evmConfig) GasEstimator() config.GasEstimator {
-	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay, transactionsMaxInFlight: e.c.Transactions.MaxInFlight}
+	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay, transactionsMaxInFlight: e.c.Transactions.MaxInFlight, k: e.c.KeySpecific}
 }
 
 func (e *evmConfig) AutoCreateKey() bool {
@@ -123,24 +122,6 @@ func (e *evmConfig) ChainType() gencfg.ChainType {
 
 func (e *evmConfig) ChainID() *big.Int {
 	return e.c.ChainID.ToInt()
-}
-
-func (e *evmConfig) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
-	var keySpecific *assets.Wei
-	for i := range e.c.KeySpecific {
-		ks := e.c.KeySpecific[i]
-		if ks.Key.Address() == addr {
-			keySpecific = ks.GasEstimator.PriceMax
-			break
-		}
-	}
-
-	chainSpecific := e.GasEstimator().PriceMax()
-	if keySpecific != nil && !keySpecific.IsZero() && keySpecific.Cmp(chainSpecific) < 0 {
-		return keySpecific
-	}
-
-	return e.GasEstimator().PriceMax()
 }
 
 func (e *evmConfig) MinIncomingConfirmations() uint32 {
