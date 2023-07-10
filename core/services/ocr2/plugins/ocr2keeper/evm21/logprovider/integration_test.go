@@ -178,8 +178,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, logProvider.Close())
 
-	// TODO: fix and change expected value to: n
-	require.GreaterOrEqual(t, len(logs), 0, "failed to read all logs")
+	require.Equal(t, len(logs), n*rounds, "failed to read all logs")
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
@@ -234,8 +233,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, logProvider.Close())
 
-	// TODO: fix and change expected value to: n
-	require.GreaterOrEqual(t, len(logs), 0, "failed to backfill logs")
+	require.GreaterOrEqual(t, len(logs), n, "failed to backfill logs")
 }
 
 func pollFn(ctx context.Context, t *testing.T, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) func(blockHash common.Hash) {
