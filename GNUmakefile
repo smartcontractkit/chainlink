@@ -168,7 +168,7 @@ test_need_operator_assets: ## Add blank file in web assets if operator ui has no
 
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
-	go run ./core/config/v2/docs/cmd/generate -o ./docs/
+	go run ./core/config/docs/cmd/generate -o ./docs/
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
