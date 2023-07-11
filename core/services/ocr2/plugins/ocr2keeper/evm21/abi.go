@@ -182,6 +182,8 @@ func (rp *evmRegistryPackerV2_1) UnpackLogTriggerConfig(raw []byte) (iregistry21
 	return *converted, nil
 }
 
+// PackTrigger packs the trigger into the format expected by the contract,
+// according to the upkeep type of the given id.
 func (rp *evmRegistryPackerV2_1) PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 	var trigger []byte
 	var err error
@@ -204,9 +206,13 @@ func (rp *evmRegistryPackerV2_1) PackTrigger(id *big.Int, trig triggerWrapper) (
 	default:
 		err = fmt.Errorf("unknown trigger type: %d", upkeepType)
 	}
-	return trigger[4:], err
+	if err != nil {
+		return nil, err
+	}
+	return trigger[4:], nil
 }
 
+// UnpackTrigger unpacks the trigger from the given raw data, according to the upkeep type of the given id.
 func (rp *evmRegistryPackerV2_1) UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
 	upkeepType := getUpkeepType(id.Bytes())
 	switch upkeepType {
@@ -238,6 +244,7 @@ func (rp *evmRegistryPackerV2_1) UnpackTrigger(id *big.Int, raw []byte) (trigger
 	}
 }
 
+// PackReport packs the report with abi definitions from the contract.
 func (rp *evmRegistryPackerV2_1) PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error) {
 	bts, err := rp.utilsAbi.Pack("_report", &report)
 	if err != nil {
@@ -247,6 +254,7 @@ func (rp *evmRegistryPackerV2_1) PackReport(report automation_utils_2_1.KeeperRe
 	return bts[4:], nil
 }
 
+// UnpackReport unpacks the report from the given raw data.
 func (rp *evmRegistryPackerV2_1) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error) {
 	unpacked, err := rp.utilsAbi.Methods["_report"].Inputs.Unpack(raw)
 	if err != nil {

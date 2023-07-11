@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -12,9 +13,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
-func TestUnpackTransmitTxInputErrors(t *testing.T) {
+func TestPacker_UnpackTransmitTxInputErrors(t *testing.T) {
 
 	tests := []struct {
 		Name    string
@@ -39,7 +41,7 @@ func TestUnpackTransmitTxInputErrors(t *testing.T) {
 	}
 }
 
-func TestUnpackPerformResult(t *testing.T) {
+func TestPacker_UnpackPerformResult(t *testing.T) {
 	tests := []struct {
 		Name    string
 		RawData string
@@ -60,7 +62,7 @@ func TestUnpackPerformResult(t *testing.T) {
 	}
 }
 
-func TestUnpackCheckCallbackResult(t *testing.T) {
+func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 	tests := []struct {
 		Name          string
 		CallbackResp  []byte
@@ -114,7 +116,7 @@ func TestUnpackCheckCallbackResult(t *testing.T) {
 	}
 }
 
-func TestUnpackLogTriggerConfig(t *testing.T) {
+func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		raw     []byte
@@ -154,6 +156,57 @@ func TestUnpackLogTriggerConfig(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.res, res)
+			}
+		})
+	}
+}
+
+func TestPacker_PackingTrigger(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      ocr2keepers.UpkeepIdentifier
+		trigger triggerWrapper
+		encoded []byte
+		err     error
+	}{
+		{
+			"happy flow",
+			append([]byte{1}, common.LeftPadBytes([]byte{1}, 15)...),
+			triggerWrapper{
+				BlockNum:  1,
+				BlockHash: common.HexToHash("0x01111111"),
+			},
+			func() []byte {
+				b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+				return b
+			}(),
+			nil,
+		},
+		{
+			"invalid type",
+			append([]byte{1}, common.LeftPadBytes([]byte{8}, 15)...),
+			triggerWrapper{},
+			[]byte{},
+			fmt.Errorf("unknown trigger type: %d", 8),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			packer, err := newPacker()
+			assert.NoError(t, err)
+			id, ok := big.NewInt(0).SetString(hexutil.Encode(tc.id)[2:], 16)
+			assert.True(t, ok)
+
+			encoded, err := packer.PackTrigger(id, tc.trigger)
+			if tc.err != nil {
+				assert.EqualError(t, err, tc.err.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.encoded, encoded)
+				decoded, err := packer.UnpackTrigger(id, encoded)
+				assert.NoError(t, err)
+				assert.Equal(t, tc.trigger.BlockNum, decoded.BlockNum)
 			}
 		})
 	}
