@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
+	"golang.org/x/exp/slices"
 	"reflect"
 	"time"
 
@@ -240,55 +242,60 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			if jb.OCR2OracleSpec.PluginType == Mercury {
-				if jb.ForwardingAllowed {
-					return errors.New("forwarding is not currently supported for mercury jobs")
+			sendingKeysDefined, err := areSendingKeysDefined(jb.OCR2OracleSpec)
+			if err != nil {
+				return err
+			}
+
+			if !sendingKeysDefined && !jb.OCR2OracleSpec.TransmitterID.Valid {
+				return errors.New("neither sending keys nor transmitter ID is defined")
+			}
+
+			if sendingKeysDefined && jb.OCR2OracleSpec.TransmitterID.Valid {
+				return errors.New("sending keys and transmitter ID can't both be defined")
+			}
+
+			if jb.OCR2OracleSpec.Relay == relay.EVM && jb.OCR2OracleSpec.TransmitterID.Valid {
+				transmitterID := jb.OCR2OracleSpec.TransmitterID.String
+				if !common.IsHexAddress(transmitterID) {
+					return errors.Errorf("transmitterID is not valid EVM hex address, got: %v", transmitterID)
 				}
-				if jb.OCR2OracleSpec.FeedID == (common.Hash{}) {
-					return errors.New("feed ID is required for mercury plugin type")
-				}
-				// if sending keys are set and plugin type is VRF, no need to check transmitter ID
-			} else if !(jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil && jb.OCR2OracleSpec.PluginType == OCR2VRF) {
-				if jb.OCR2OracleSpec.Relay == relay.EVM {
-					if !jb.OCR2OracleSpec.TransmitterID.Valid {
-						return errors.Errorf("expected a transmitterID to be specified")
-					}
-					transmitterID := jb.OCR2OracleSpec.TransmitterID.String
-					if !common.IsHexAddress(transmitterID) {
-						return errors.Errorf("transmitterID is not valid EVM hex address, got: %v", transmitterID)
-					}
-				}
-				if jb.OCR2OracleSpec.FeedID != (common.Hash{}) {
-					return errors.New("feed ID is not currently supported for non-mercury jobs")
-				}
+			}
+
+			if jb.ForwardingAllowed && !slices.Contains(forwarders.SupportedPlugins, jb.OCR2OracleSpec.PluginType) {
+				return errors.Errorf("forwarding is not currently supported for %s jobs", jb.OCR2OracleSpec.PluginType)
+			}
+
+			if jb.OCR2OracleSpec.PluginType != Mercury && jb.OCR2OracleSpec.FeedID != (common.Hash{}) {
+				return errors.New("feed ID is not currently supported for non-mercury jobs")
 			}
 
 			if jb.OCR2OracleSpec.TransmitterID.Valid {
 				transmitterID := jb.OCR2OracleSpec.TransmitterID.String
 				if jb.OCR2OracleSpec.PluginType == Mercury {
-					_, err := o.keyStore.CSA().Get(transmitterID)
+					_, err = o.keyStore.CSA().Get(transmitterID)
 					if err != nil {
 						return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", transmitterID)
 					}
 				} else {
 					switch jb.OCR2OracleSpec.Relay {
 					case relay.EVM:
-						_, err := o.keyStore.Eth().Get(transmitterID)
+						_, err = o.keyStore.Eth().Get(transmitterID)
 						if err != nil {
 							return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", transmitterID)
 						}
 					case relay.Cosmos:
-						_, err := o.keyStore.Cosmos().Get(transmitterID)
+						_, err = o.keyStore.Cosmos().Get(transmitterID)
 						if err != nil {
 							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", transmitterID)
 						}
 					case relay.Solana:
-						_, err := o.keyStore.Solana().Get(transmitterID)
+						_, err = o.keyStore.Solana().Get(transmitterID)
 						if err != nil {
 							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", transmitterID)
 						}
 					case relay.StarkNet:
-						_, err := o.keyStore.StarkNet().Get(transmitterID)
+						_, err = o.keyStore.StarkNet().Get(transmitterID)
 						if err != nil {
 							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", transmitterID)
 						}
@@ -298,7 +305,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
-				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
+				err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				if err != nil {
 					return errors.Wrap(err, "failed to parse plugin config")
 				}
@@ -318,7 +325,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
 					NOW(), NOW())
 			RETURNING id;`
-			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.OCR2OracleSpec)
+			err = pg.PrepareQueryRowx(tx, sql, &specID, jb.OCR2OracleSpec)
 			if err != nil {
 				return errors.Wrap(err, "failed to create Offchainreporting2OracleSpec")
 			}
@@ -470,6 +477,26 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	}
 
 	return o.findJob(jb, "id", jobID, qopts...)
+}
+
+func areSendingKeysDefined(spec *OCR2OracleSpec) (bool, error) {
+	if spec.RelayConfig["sendingKeys"] != nil {
+		sendingKeys, ok := spec.RelayConfig["sendingKeys"].([]string)
+		if !ok {
+			return false, errors.New("sending keys are of wrong type")
+		}
+
+		if spec.Relay == relay.EVM {
+			for _, sendingKey := range sendingKeys {
+				if !common.IsHexAddress(sendingKey) {
+					return false, errors.Errorf("sendingKey is not valid EVM hex address, got: %v", sendingKey)
+				}
+			}
+		}
+
+		return len(sendingKeys) != 0, nil
+	}
+	return false, nil
 }
 
 func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) error {
