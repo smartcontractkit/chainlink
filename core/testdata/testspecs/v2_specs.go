@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	vrfv2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 )
@@ -201,6 +200,7 @@ contractID		= "0x613a38AC1659769640aaE063C651F48E0250454C"
 [relayConfig]
 chainID			= 1337
 `
+	RandomWordsRequestedV2PlusABI = "event RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
 )
 
 type KeeperSpecParams struct {
@@ -387,7 +387,7 @@ simulate_fulfillment    [type=ethcall
 		                 contract="%s"
 		                 data="$(vrf.output)"]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
-`, vrfv2.RandomWordsRequestedV2PlusABI, coordinatorAddress, coordinatorAddress, coordinatorAddress)
+`, RandomWordsRequestedV2PlusABI, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
 	if params.ObservationSource != "" {
 		observationSource = params.ObservationSource
