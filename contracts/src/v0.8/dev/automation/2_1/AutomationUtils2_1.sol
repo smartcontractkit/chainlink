@@ -23,5 +23,5 @@ contract AutomationUtils2_1 {
 
   function _conditionalTrigger(KeeperRegistryBase2_1.ConditionalTrigger memory) external {}
 
-  function _log(Log memory) external {}
+  function checkLog(Log memory) external {}
 }

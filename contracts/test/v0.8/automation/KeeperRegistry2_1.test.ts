@@ -226,7 +226,7 @@ const encodeLogTrigger = (logTrigger: LogTrigger) => {
 }
 
 const encodeCheckLogCalldata = (log: Log) => {
-  return automationUtils.interface.encodeFunctionData('_log', [log])
+  return automationUtils.interface.encodeFunctionData('checkLog', [log])
 }
 
 const encodeReport = (report: Report) => {
