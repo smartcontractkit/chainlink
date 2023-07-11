@@ -7,6 +7,7 @@ import "../../../interfaces/TypeAndVersionInterface.sol";
 import {KeeperRegistryBase2_1 as R21} from "./KeeperRegistryBase2_1.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
 import "../../../automation/UpkeepFormat.sol";
+import {AutomationRegistryBaseInterface, UpkeepInfo} from "../../../interfaces/automation/2_0/AutomationRegistryInterface2_0.sol";
 
 /**
  * @dev structs copied directly from source (can't import without changing the contract version)
@@ -51,7 +52,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
 
   /**
    * @notice versions:
-   * - UpkeepTranscoder 4.0.0: adds support for registry 2.1
+   * - UpkeepTranscoder 4.0.0: adds support for registry 2.1; adds support for offchainConfigs
    * - UpkeepTranscoder 3.0.0: works with registry 2.0; adds temporary workaround for UpkeepFormat enum bug
    */
   string public constant override typeAndVersion = "UpkeepTranscoder 4.0.0";
@@ -101,7 +102,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
         });
         admins[idx] = upkeepV12.admin;
       }
-      return abi.encode(ids, newUpkeeps, checkDatas, admins);
+      return abi.encode(ids, newUpkeeps, admins, checkDatas, new bytes[](ids.length), new bytes[](ids.length));
     }
     // v1.3 => v2.1
     if (fromVersion == UpkeepFormat.V13) {
@@ -129,7 +130,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
         });
         admins[idx] = upkeepV13.admin;
       }
-      return abi.encode(ids, newUpkeeps, checkDatas, admins);
+      return abi.encode(ids, newUpkeeps, admins, checkDatas, new bytes[](ids.length), new bytes[](ids.length));
     }
     // v2.0 => v2.1
     if (fromVersion == UpkeepFormat.V20) {
@@ -138,7 +139,10 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
       if (ids.length != upkeepsV20.length || ids.length != checkDatas.length) {
         revert InvalidTranscoding();
       }
+      // bit of a hack - transcodeUpkeeps should be a pure function
+      AutomationRegistryBaseInterface registry20 = AutomationRegistryBaseInterface(msg.sender);
       R21.Upkeep[] memory newUpkeeps = new R21.Upkeep[](ids.length);
+      bytes[] memory offchainConfigs = new bytes[](ids.length);
       UpkeepV20 memory upkeepV20;
       for (uint256 idx = 0; idx < ids.length; idx++) {
         upkeepV20 = upkeepsV20[idx];
@@ -152,8 +156,9 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
           balance: upkeepV20.balance,
           lastPerformedBlockNumber: 0
         });
+        offchainConfigs[idx] = registry20.getUpkeep(ids[idx]).offchainConfig;
       }
-      return abi.encode(ids, newUpkeeps, checkDatas, admins);
+      return abi.encode(ids, newUpkeeps, admins, checkDatas, new bytes[](ids.length), offchainConfigs);
     }
 
     revert InvalidTranscoding();
