@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
@@ -170,14 +171,29 @@ func TestPacker_PackingTrigger(t *testing.T) {
 		err     error
 	}{
 		{
-			"happy flow",
+			"happy flow log trigger",
 			append([]byte{1}, common.LeftPadBytes([]byte{1}, 15)...),
+			triggerWrapper{
+				BlockNum:  1,
+				BlockHash: common.HexToHash("0x01111111"),
+				LogIndex:  1,
+				TxHash:    common.HexToHash("0x01111111"),
+			},
+			func() []byte {
+				b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000001111111000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+				return b
+			}(),
+			nil,
+		},
+		{
+			"happy flow conditional trigger",
+			append([]byte{1}, common.LeftPadBytes([]byte{0}, 15)...),
 			triggerWrapper{
 				BlockNum:  1,
 				BlockHash: common.HexToHash("0x01111111"),
 			},
 			func() []byte {
-				b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+				b, _ := hexutil.Decode("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
 				return b
 			}(),
 			nil,
