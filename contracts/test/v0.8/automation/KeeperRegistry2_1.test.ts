@@ -1145,6 +1145,26 @@ describe('KeeperRegistry2_1', () => {
       assert.equal(insufficientFundsUpkeepReportLogs.length, 1)
     })
 
+    it('permits retrying log triggers after funds are added', async () => {
+      const txHash = ethers.utils.randomBytes(32)
+      let tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
+        txHash,
+        logIndex: 0,
+      })
+      let receipt = await tx.wait()
+      const insufficientFundsLogs =
+        parseInsufficientFundsUpkeepReportLogs(receipt)
+      assert.equal(insufficientFundsLogs.length, 1)
+      registry.connect(admin).addFunds(logUpkeepId, toWei('100'))
+      tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
+        txHash,
+        logIndex: 0,
+      })
+      receipt = await tx.wait()
+      const performedLogs = parseUpkeepPerformedLogs(receipt)
+      assert.equal(performedLogs.length, 1)
+    })
+
     context('When the upkeep is funded', async () => {
       beforeEach(async () => {
         // Fund the upkeep
