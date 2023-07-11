@@ -71,7 +71,7 @@ dev:
           - integration-tests
           - testdata
         uploadExcludeFile: .dockerignore
-    # Open a terminal and use the following command to start Chainlink
+    # Open a terminal and use the following command
     terminal:
       command: bash
     ssh:
