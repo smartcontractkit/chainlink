@@ -31,7 +31,9 @@ func getReportTypes() abi.Arguments {
 		{Name: "benchmarkPrice", Type: mustNewType("int192")},
 		{Name: "bid", Type: mustNewType("int192")},
 		{Name: "ask", Type: mustNewType("int192")},
-		// todo: linkFee, nativeFee
+		{Name: "expiresAt", Type: mustNewType("uint32")},
+		{Name: "linkFee", Type: mustNewType("int192")},
+		{Name: "nativeFee", Type: mustNewType("int192")},
 	})
 }
 
@@ -55,6 +57,7 @@ func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, 
 	paos = append([]relaymercury.ParsedObservation{}, paos...)
 
 	timestamp := relaymercury.GetConsensusTimestamp(paos)
+	expiresAt := relaymercury.GetConsensusExpiresAt(paos)
 
 	// todo: add checks for validFromTimestamp
 
@@ -70,8 +73,16 @@ func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, 
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusAsk failed")
 	}
+	linkFee, err := relaymercury.GetConsensusLinkFee(paos, f)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetConsensusLinkFee failed")
+	}
+	nativeFee, err := relaymercury.GetConsensusNativeFee(paos, f)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetConsensusNativeFee failed")
+	}
 
-	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, validFromTimestamp, benchmarkPrice, bid, ask)
+	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, validFromTimestamp, benchmarkPrice, bid, ask, expiresAt, linkFee, nativeFee)
 	return ocrtypes.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
 }
 
