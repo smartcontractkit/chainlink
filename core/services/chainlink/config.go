@@ -220,7 +220,7 @@ func (s *Secrets) setEnv() error {
 		}
 	}
 	if env.DatabaseAllowSimplePasswords.IsTrue() {
-		s.setDefaults()
+		s.Database.AllowSimplePasswords = new(bool)
 		*s.Database.AllowSimplePasswords = true
 	}
 	if explorerKey := env.ExplorerAccessKey.Get(); explorerKey != "" {
