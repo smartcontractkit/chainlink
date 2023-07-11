@@ -1405,7 +1405,7 @@ func (lsn *listenerV2) simulateFulfillment(
 					// that's all we need in the event of a force-fulfillment.
 					m := trr.Result.Value.(map[string]any)
 					res.payload = m["output"].(string)
-					res.proof = FromVRFV2Proof(m["proof"].(vrf_coordinator_v2.VRFProof))
+					res.proof = FromV2Proof(m["proof"].(vrf_coordinator_v2.VRFProof))
 					res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
 				}
 			}
@@ -1431,14 +1431,14 @@ func (lsn *listenerV2) simulateFulfillment(
 		if trr.Task.Type() == pipeline.TaskTypeVRFV2 {
 			m := trr.Result.Value.(map[string]interface{})
 			res.payload = m["output"].(string)
-			res.proof = FromVRFV2Proof(m["proof"].(vrf_coordinator_v2.VRFProof))
+			res.proof = FromV2Proof(m["proof"].(vrf_coordinator_v2.VRFProof))
 			res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
 		}
 
 		if trr.Task.Type() == pipeline.TaskTypeVRFV2Plus {
 			m := trr.Result.Value.(map[string]interface{})
 			res.payload = m["output"].(string)
-			res.proof = FromVRFV2PlusProof(m["proof"].(vrf_coordinator_v2plus.VRFProof))
+			res.proof = FromV2PlusProof(m["proof"].(vrf_coordinator_v2plus.VRFProof))
 			res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
 		}
 

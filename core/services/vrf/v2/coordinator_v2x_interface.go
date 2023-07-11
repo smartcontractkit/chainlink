@@ -359,43 +359,39 @@ func (c *GetConfig) StalenessSeconds() uint32 {
 }
 
 type VRFProof struct {
-	Pk            [2]*big.Int
-	Gamma         [2]*big.Int
-	C             *big.Int
-	S             *big.Int
-	Seed          *big.Int
-	UWitness      common.Address
-	CGammaWitness [2]*big.Int
-	SHashWitness  [2]*big.Int
-	ZInv          *big.Int
+	VRFVersion vrfcommon.Version
+	V2         vrf_coordinator_v2.VRFProof
+	V2Plus     vrf_coordinator_v2plus.VRFProof
 }
 
-func FromVRFV2Proof(proof vrf_coordinator_v2.VRFProof) VRFProof {
+func FromV2Proof(proof vrf_coordinator_v2.VRFProof) VRFProof {
 	return VRFProof{
-		Pk:            proof.Pk,
-		Gamma:         proof.CGammaWitness,
-		C:             proof.C,
-		S:             proof.S,
-		Seed:          proof.Seed,
-		UWitness:      proof.UWitness,
-		CGammaWitness: proof.CGammaWitness,
-		SHashWitness:  proof.SHashWitness,
-		ZInv:          proof.ZInv,
+		VRFVersion: vrfcommon.V2,
+		V2:         proof,
 	}
 }
 
-func FromVRFV2PlusProof(proof vrf_coordinator_v2plus.VRFProof) VRFProof {
+func FromV2PlusProof(proof vrf_coordinator_v2plus.VRFProof) VRFProof {
 	return VRFProof{
-		Pk:            proof.Pk,
-		Gamma:         proof.CGammaWitness,
-		C:             proof.C,
-		S:             proof.S,
-		Seed:          proof.Seed,
-		UWitness:      proof.UWitness,
-		CGammaWitness: proof.CGammaWitness,
-		SHashWitness:  proof.SHashWitness,
-		ZInv:          proof.ZInv,
+		VRFVersion: vrfcommon.V2Plus,
+		V2Plus:     proof,
 	}
+}
+
+func ToV2Proofs(proofs []VRFProof) []vrf_coordinator_v2.VRFProof {
+	v2Proofs := make([]vrf_coordinator_v2.VRFProof, len(proofs))
+	for i, proof := range proofs {
+		v2Proofs[i] = proof.V2
+	}
+	return v2Proofs
+}
+
+func ToV2PlusProofs(proofs []VRFProof) []vrf_coordinator_v2plus.VRFProof {
+	v2Proofs := make([]vrf_coordinator_v2plus.VRFProof, len(proofs))
+	for i, proof := range proofs {
+		v2Proofs[i] = proof.V2Plus
+	}
+	return v2Proofs
 }
 
 type RequestCommitment struct {

@@ -10,7 +10,6 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -20,7 +19,7 @@ import (
 // batchFulfillment contains all the information needed in order to
 // perform a batch fulfillment operation on the batch VRF coordinator.
 type batchFulfillment struct {
-	proofs        []batch_vrf_coordinator_v2.VRFTypesProof
+	proofs        []VRFProof
 	commitments   []RequestCommitment
 	totalGasLimit uint32
 	runs          []*pipeline.Run
@@ -34,8 +33,8 @@ type batchFulfillment struct {
 
 func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address, version vrfcommon.Version) *batchFulfillment {
 	return &batchFulfillment{
-		proofs: []batch_vrf_coordinator_v2.VRFTypesProof{
-			batch_vrf_coordinator_v2.VRFTypesProof(result.proof),
+		proofs: []VRFProof{
+			result.proof,
 		},
 		commitments: []RequestCommitment{
 			result.reqCommitment,
@@ -93,7 +92,7 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.
 			b.currIndex++
 		} else {
 			// we're okay on gas, add to current batch
-			currBatch.proofs = append(currBatch.proofs, batch_vrf_coordinator_v2.VRFTypesProof(result.proof))
+			currBatch.proofs = append(currBatch.proofs, result.proof)
 			currBatch.commitments = append(currBatch.commitments, result.reqCommitment)
 			currBatch.totalGasLimit += result.gasLimit
 			currBatch.runs = append(currBatch.runs, &result.run)
@@ -122,7 +121,7 @@ func (lsn *listenerV2) processBatch(
 		err     error
 	)
 	if batch.version == vrfcommon.V2 {
-		payload, err = batchCoordinatorV2ABI.Pack("fulfillRandomWords", batch.proofs, ToV2Commitments(batch.commitments))
+		payload, err = batchCoordinatorV2ABI.Pack("fulfillRandomWords", ToV2Proofs(batch.proofs), ToV2Commitments(batch.commitments))
 		if err != nil {
 			// should never happen
 			l.Errorw("Failed to pack batch fulfillRandomWords payload",
@@ -130,7 +129,7 @@ func (lsn *listenerV2) processBatch(
 			return
 		}
 	} else if batch.version == vrfcommon.V2Plus {
-		payload, err = batchCoordinatorV2PlusABI.Pack("fulfillRandomWords", batch.proofs, ToV2PlusCommitments(batch.commitments))
+		payload, err = batchCoordinatorV2PlusABI.Pack("fulfillRandomWords", ToV2PlusProofs(batch.proofs), ToV2PlusCommitments(batch.commitments))
 		if err != nil {
 			// should never happen
 			l.Errorw("Failed to pack batch fulfillRandomWords payload",

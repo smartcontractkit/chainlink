@@ -52,8 +52,7 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   }
 
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
-    Response memory resp = s_requests[requestId];
-    require(resp.requestId != 0, "request ID is incorrect");
+    require(requestId == s_recentRequestId, "request ID is incorrect");
     s_requests[requestId].randomWords = randomWords;
     s_requests[requestId].fulfilled = true;
     s_requests[requestId].cost = s_vrfCoordinator.s_requestPayments(requestId);
