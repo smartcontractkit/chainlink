@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	testtomlutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -154,19 +154,6 @@ var mercurySecretsTOMLSplitTwo string
 var thresholdSecretsTOML string
 
 func TestConfig_SecretsMerging(t *testing.T) {
-	setInFile := "set in config file"
-	testConfigFileContents := Config{
-		Core: toml.Core{
-			RootDir: &setInFile,
-			P2P: toml.P2P{
-				V2: toml.P2PV2{
-					AnnounceAddresses: &[]string{setInFile},
-					ListenAddresses:   &[]string{setInFile},
-				},
-			},
-		},
-	}
-
 	t.Run("verify secrets merging in GeneralConfigOpts.New()", func(t *testing.T) {
 		databaseSecrets, err := parseSecrets(databaseSecretsTOML)
 		require.NoErrorf(t, err, "error: %s", err)
@@ -186,15 +173,17 @@ func TestConfig_SecretsMerging(t *testing.T) {
 		require.NoErrorf(t, err7, "error: %s", err7)
 
 		opts := new(GeneralConfigOpts)
-		configFiles := []string{utils.MakeTestFile(t, testConfigFileContents, "test.toml")}
+		configFiles := []string{
+			"testdata/mergingsecretsdata/config.toml",
+		}
 		secretsFiles := []string{
 			"testdata/mergingsecretsdata/secrets-database.toml",
 			"testdata/mergingsecretsdata/secrets-explorer.toml",
 			"testdata/mergingsecretsdata/secrets-password.toml",
 			"testdata/mergingsecretsdata/secrets-pyroscope.toml",
 			"testdata/mergingsecretsdata/secrets-prometheus.toml",
-			"testdata/mergingsecretsdata/secrets-mercury_a.toml",
-			"testdata/mergingsecretsdata/secrets-mercury_b.toml",
+			"testdata/mergingsecretsdata/secrets-mercury-split-one.toml",
+			"testdata/mergingsecretsdata/secrets-mercury-split-two.toml",
 			"testdata/mergingsecretsdata/secrets-threshold.toml",
 		}
 		err = opts.Setup(configFiles, secretsFiles)
