@@ -1,13 +1,16 @@
 package testutils
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"math/big"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -45,42 +49,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var (
-	DefaultSecretsBytes      = []byte{0xaa, 0xbb, 0xcc}
-	DefaultSecretsBase64     = "qrvM"
-	DefaultSecretsUrlsBytes  = []byte{0x01, 0x02, 0x03}
-	DefaultSecretsUrlsBase64 = "AQID"
-	// DefaultThresholdSecretsHex decrypts to the JSON string `{"0x0":"qrvM"}`
-	DefaultThresholdSecretsHex = "0x7b225444483243747874223a2265794a48636d393163434936496c41794e5459694c434a44496a6f69533035305a5559325448593056553168543341766148637955584a4b65545a68626b3177527939794f464e78576a59356158646d636a6c4f535430694c434a4d59574a6c62434936496b464251554642515546425155464251554642515546425155464251554642515546425155464251554642515546425155464251554642515545394969776956534936496b4a45536c6c7a51334e7a623055334d6e6444574846474e557056634770585a573157596e565265544d796431526d4d32786c636c705a647a4671536e6c47627a5256615735744e6d773355456855546e6b7962324e746155686f626c51354d564a6a4e6e5230656c70766147644255326372545430694c434a5658324a6863694936496b4a4961544e69627a5a45536d396a4d324d344d6c46614d5852724c325645536b4a484d336c5a556d783555306834576d684954697472623264575a306f33546e4e456232314b5931646853544979616d63305657644f556c526e57465272655570325458706952306c4a617a466e534851314f4430694c434a46496a6f694d7a524956466c354d544e474b307836596e5a584e7a6c314d6d356c655574514e6b397a656e467859335253513239705a315534534652704e4430694c434a47496a6f69557a5132596d6c6952545a584b314176546d744252445677575459796148426862316c6c6330684853556869556c56614e303155556c6f345554306966513d3d222c2253796d43747874223a2253764237652f4a556a552b433358757873384e5378316967454e517759755051623730306a4a6144222c224e6f6e6365223a224d31714b557a6b306b77374767593538227d"
-	DefaultArg1                = "arg1"
-	DefaultArg2                = "arg2"
-)
-
 func ptr[T any](v T) *T { return &v }
 
-func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr2dr_oracle.OCR2DROracle, oracles []confighelper2.OracleIdentityExtra, batchSize int) {
+func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr2dr_oracle.OCR2DROracle, oracles []confighelper2.OracleIdentityExtra, batchSize int, functionsPluginConfig *functionsConfig.ReportingPluginConfig) {
 	S := make([]int, len(oracles))
 	for i := 0; i < len(S); i++ {
 		S[i] = 1
 	}
 
 	reportingPluginConfigBytes, err := functionsConfig.EncodeReportingPluginConfig(&functionsConfig.ReportingPluginConfigWrapper{
-		Config: &functionsConfig.ReportingPluginConfig{
-			MaxQueryLengthBytes:       10_000,
-			MaxObservationLengthBytes: 10_000,
-			MaxReportLengthBytes:      10_000,
-			MaxRequestBatchSize:       uint32(batchSize),
-			DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
-			UniqueReports:             true,
-			ThresholdPluginConfig: &functionsConfig.ThresholdReportingPluginConfig{
-				MaxQueryLengthBytes:       10_000,
-				MaxObservationLengthBytes: 10_000,
-				MaxReportLengthBytes:      10_000,
-				RequestCountLimit:         100,
-				RequestTotalBytesLimit:    1_000,
-				RequireLocalRequestCheck:  true,
-			},
-		},
+		Config: functionsPluginConfig,
 	})
 	require.NoError(t, err)
 
@@ -442,8 +420,8 @@ func mockEALambdaExecutionResponse(t *testing.T, request map[string]any) []byte 
 
 func mockEASecretsFetchResponse(t *testing.T, request map[string]any) []byte {
 	data := request["data"].(map[string]any)
-	require.Equal(t, "fetchThresholdEncryptedSecrets", data["requestType"], "expected requestType to be 'fetchThresholdEncryptedSecrets' but got '%s'", data["requestType"])
-	require.Equal(t, DefaultSecretsUrlsBase64, data["encryptedSecretsUrls"], "expected encryptedSecretsUrls to be '%s' but got '%s'", DefaultSecretsUrlsBase64, data["encryptedSecretsUrls"])
+	require.Equal(t, "fetchThresholdEncryptedSecrets", data["requestType"])
+	require.Equal(t, DefaultSecretsUrlsBase64, data["encryptedSecretsUrls"])
 	return []byte(fmt.Sprintf(`{"result": "success", "statusCode": 200, "data": {"result": "%s", "error": ""}}`, DefaultThresholdSecretsHex))
 }
 
@@ -458,4 +436,106 @@ func GetExpectedResponse(source []byte) [32]byte {
 		resp[j+1] = source[j]
 	}
 	return resp
+}
+
+func CreateFunctionsNodes(
+	t *testing.T,
+	owner *bind.TransactOpts,
+	b *backends.SimulatedBackend,
+	oracleContractAddress common.Address,
+	startingPort uint16,
+	nOracleNodes int,
+	maxGas int,
+	ocr2Keystores [][]byte,
+	thresholdKeyShares []string,
+) (bootstrapNode *Node, oracleNodes []*cltest.TestApplication, oracleIdentites []confighelper2.OracleIdentityExtra) {
+	t.Helper()
+
+	if len(thresholdKeyShares) != 0 && len(thresholdKeyShares) != nOracleNodes {
+		require.Fail(t, "thresholdKeyShares must be empty or have length equal to nOracleNodes")
+	}
+	if len(ocr2Keystores) != 0 && len(ocr2Keystores) != nOracleNodes {
+		require.Fail(t, "ocr2Keystores must be empty or have length equal to nOracleNodes")
+	}
+	if len(ocr2Keystores) != len(thresholdKeyShares) {
+		require.Fail(t, "ocr2Keystores and thresholdKeyShares must have the same length")
+	}
+
+	bootstrapNode = StartNewNode(t, owner, startingPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
+	AddBootstrapJob(t, bootstrapNode.App, oracleContractAddress)
+
+	// oracle nodes with jobs, bridges and mock EAs
+	for i := 0; i < nOracleNodes; i++ {
+		var thresholdKeyShare string
+		if len(thresholdKeyShares) == 0 {
+			thresholdKeyShare = ""
+		} else {
+			thresholdKeyShare = thresholdKeyShares[i]
+		}
+		var ocr2Keystore []byte
+		if len(ocr2Keystores) == 0 {
+			ocr2Keystore = nil
+		} else {
+			ocr2Keystore = ocr2Keystores[i]
+		}
+		oracleNode := StartNewNode(t, owner, startingPort+1+uint16(i), fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
+			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", startingPort)}},
+		}, ocr2Keystore, thresholdKeyShare)
+		oracleNodes = append(oracleNodes, oracleNode.App)
+		oracleIdentites = append(oracleIdentites, oracleNode.OracleIdentity)
+
+		ea := StartNewMockEA(t)
+		t.Cleanup(ea.Close)
+
+		_ = AddOCR2Job(t, oracleNodes[i], oracleContractAddress, oracleNode.Keybundle.ID(), oracleNode.Transmitter, ea.URL)
+	}
+
+	return bootstrapNode, oracleNodes, oracleIdentites
+}
+
+func ClientTestRequests(
+	t *testing.T,
+	owner *bind.TransactOpts,
+	b *backends.SimulatedBackend,
+	linkToken *link_token_interface.LinkToken,
+	registryAddress common.Address,
+	registryContract *ocr2dr_registry.OCR2DRRegistry,
+	clientContracts []deployedClientContract,
+	requestLenBytes int,
+	timeout time.Duration,
+) {
+	subscriptionId := CreateAndFundSubscriptions(t, owner, linkToken, registryAddress, registryContract, clientContracts)
+	// send requests
+	requestSources := make([][]byte, len(clientContracts))
+	rnd := rand.New(rand.NewSource(666))
+	for i, client := range clientContracts {
+		requestSources[i] = make([]byte, requestLenBytes)
+		for j := 0; j < requestLenBytes; j++ {
+			requestSources[i][j] = byte(rnd.Uint32() % 256)
+		}
+		_, err := client.Contract.SendRequest(
+			owner,
+			hex.EncodeToString(requestSources[i]),
+			DefaultSecretsBytes,
+			[]string{DefaultArg1, DefaultArg2},
+			subscriptionId)
+		require.NoError(t, err)
+	}
+	CommitWithFinality(b)
+
+	// validate that all client contracts got correct responses to their requests
+	var wg sync.WaitGroup
+	for i := 0; i < len(clientContracts); i++ {
+		ic := i
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			gomega.NewGomegaWithT(t).Eventually(func() [32]byte {
+				answer, err := clientContracts[ic].Contract.LastResponse(nil)
+				require.NoError(t, err)
+				return answer
+			}, timeout, 1*time.Second).Should(gomega.Equal(GetExpectedResponse(requestSources[ic])))
+		}()
+	}
+	wg.Wait()
 }
