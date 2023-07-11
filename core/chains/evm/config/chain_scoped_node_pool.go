@@ -1,11 +1,13 @@
-package v2
+package config
 
 import (
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 )
 
 type nodePoolConfig struct {
-	c NodePool
+	c toml.NodePool
 }
 
 func (n *nodePoolConfig) PollFailureThreshold() uint32 {
