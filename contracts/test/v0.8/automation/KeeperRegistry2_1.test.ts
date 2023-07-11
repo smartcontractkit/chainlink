@@ -3190,11 +3190,11 @@ describe('KeeperRegistry2_1', () => {
 
         await ltUpkeep.mock.checkLog.withArgs(log).returns(true, '0x1234')
 
-        const checkData = encodeCheckLogCalldata(log)
+        const checkCalldata = encodeCheckLogCalldata(log)
 
         const checkUpkeepResult = await registry
           .connect(zeroAddress)
-          .callStatic['checkUpkeep(uint256,bytes)'](logUpkeepId, checkData)
+          .callStatic['checkUpkeep(uint256,bytes)'](logUpkeepId, checkCalldata)
 
         expect(checkUpkeepResult.upkeepNeeded).to.be.true
         expect(checkUpkeepResult.performData).to.equal('0x1234')
