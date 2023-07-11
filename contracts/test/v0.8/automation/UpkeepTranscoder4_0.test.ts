@@ -4,7 +4,6 @@ import { UpkeepTranscoder4_0 as UpkeepTranscoder } from '../../../typechain/Upke
 import { KeeperRegistry2_0__factory as KeeperRegistry2_0Factory } from '../../../typechain/factories/KeeperRegistry2_0__factory'
 import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
-import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { evmRevert } from '../../test-helpers/matchers'
 import { BigNumber, Signer } from 'ethers'
 import { getUsers, Personas } from '../../test-helpers/setup'

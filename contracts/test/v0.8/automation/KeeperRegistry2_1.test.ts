@@ -23,6 +23,7 @@ import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typec
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
+import { AutomationForwarder__factory as ForwarderFactory } from '../../../typechain/factories/AutomationForwarder__factory'
 import { AutomationUtils2_1 as AutomationUtils } from '../../../typechain/AutomationUtils2_1'
 import { MercuryUpkeep } from '../../../typechain/MercuryUpkeep'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
@@ -4734,6 +4735,11 @@ describe('KeeperRegistry2_1', () => {
         expect(reg1Upkeep.forwarder).to.not.equal(ethers.constants.AddressZero)
         expect(reg1Upkeep.offchainConfig).to.equal(offchainBytes)
         expect((await registry.getState()).state.numUpkeeps).to.equal(numUpkeps)
+        const forwarderFactory = await ethers.getContractFactory(
+          'AutomationForwarder',
+        )
+        const forwarder = await forwarderFactory.attach(reg1Upkeep.forwarder)
+        expect(await forwarder.getRegistry()).to.equal(registry.address)
         // Set an upkeep admin transfer in progress too
         await registry
           .connect(admin)
@@ -4764,6 +4770,8 @@ describe('KeeperRegistry2_1', () => {
         expect((await mgRegistry.getUpkeep(upkeepId)).forwarder).to.equal(
           reg1Upkeep.forwarder,
         )
+        // test that registry is updated on forwarder
+        expect(await forwarder.getRegistry()).to.equal(mgRegistry.address)
         // migration will delete the upkeep and nullify admin transfer
         await expect(
           registry.connect(payee1).acceptUpkeepAdmin(upkeepId),

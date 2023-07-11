@@ -352,7 +352,6 @@ contract KeeperRegistryLogicA2_1 is
     uint256[] calldata ids,
     address destination
   ) external override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2) {
-    // TODO - call updateRegistry on forwarder
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
