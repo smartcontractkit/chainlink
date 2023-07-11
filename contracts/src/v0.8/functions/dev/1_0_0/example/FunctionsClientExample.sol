@@ -26,20 +26,20 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
   /**
    * @notice Send a simple request
    * @param source JavaScript source code
-   * @param secrets Encrypted secrets payload
+   * @param encryptedSecretsReferences Encrypted secrets payload
    * @param args List of arguments accessible from within the source code
    * @param subscriptionId Billing ID
    */
   function sendRequest(
     string calldata source,
-    bytes calldata secrets,
+    bytes calldata encryptedSecretsReferences,
     string[] calldata args,
     uint64 subscriptionId,
     bytes32 jobId
   ) external onlyOwner {
     Functions.Request memory req;
     req.initializeRequestForInlineJavaScript(source);
-    if (secrets.length > 0) req.addRemoteSecrets(secrets);
+    if (encryptedSecretsReferences.length > 0) req.addRemoteSecrets(encryptedSecretsReferences);
     if (args.length > 0) req.addArgs(args);
     lastRequestId = _sendRequest(req, subscriptionId, MAX_CALLBACK_GAS, jobId);
   }
@@ -51,11 +51,7 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
    * @param err Aggregated error from the user code or from the execution pipeline
    * Either response or error parameter will be set, but never both
    */
-  function fulfillRequest(
-    bytes32 requestId,
-    bytes memory response,
-    bytes memory err
-  ) internal override {
+  function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
     if (lastRequestId != requestId) {
       revert UnexpectedRequestID(requestId);
     }

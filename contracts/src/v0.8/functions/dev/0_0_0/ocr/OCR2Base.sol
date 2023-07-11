@@ -60,8 +60,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     Role role; // Role of the address which mapped to this struct
   }
 
-  mapping(address => Oracle) /* signer OR transmitter address */
-    internal s_oracles;
+  mapping(address => Oracle) /* signer OR transmitter address */ internal s_oracles;
 
   // s_signers contains the signing address of each oracle
   address[] internal s_signers;
@@ -102,11 +101,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     view
     virtual
     override
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    )
+    returns (bool scanLogs, bytes32 configDigest, uint32 epoch)
   {
     return (true, bytes32(0), uint32(0));
   }
@@ -234,11 +229,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     external
     view
     override
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 configDigest
-    )
+    returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest)
   {
     return (s_configCount, s_latestConfigBlockNumber, s_configInfo.latestConfigDigest);
   }

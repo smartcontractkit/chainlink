@@ -48,7 +48,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   event SubscriptionFunded(uint64 indexed subscriptionId, uint256 oldBalance, uint256 newBalance);
   event SubscriptionConsumerAdded(uint64 indexed subscriptionId, address consumer);
   event SubscriptionConsumerRemoved(uint64 indexed subscriptionId, address consumer);
-  event SubscriptionCanceled(uint64 indexed subscriptionId, address to, uint256 amount);
+  event SubscriptionCanceled(uint64 indexed subscriptionId, address fundsRecipient, uint256 fundsAmount);
   event SubscriptionOwnerTransferRequested(uint64 indexed subscriptionId, address from, address to);
   event SubscriptionOwnerTransferred(uint64 indexed subscriptionId, address from, address to);
 
@@ -76,7 +76,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     address coordinator;
     address client;
     uint64 subscriptionId;
-    uint32 gasLimit;
+    uint32 callbackGasLimit;
     uint96 estimatedCost;
     uint256 timeoutTimestamp;
     uint256 gasAfterPaymentCalculation;
@@ -97,13 +97,24 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     LINK = LinkTokenInterface(link);
   }
 
-  function getTotalBalance() external view returns (uint256) {
-    return s_totalBalance;
-  }
-
   // ================================================================
   // |                      Getter methods                          |
   // ================================================================
+
+  /**
+   * @inheritdoc IFunctionsSubscriptions
+   */
+  function getTotalBalance() external view returns (uint96) {
+    return s_totalBalance;
+  }
+
+  /**
+   * @inheritdoc IFunctionsSubscriptions
+   */
+  function getSubscriptionCount() external view returns (uint64) {
+    return s_currentsubscriptionId;
+  }
+
   function _isValidSubscription(uint64 subscriptionId) internal view {
     if (s_subscriptions[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
@@ -172,17 +183,22 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint96 estimatedCost,
     uint256 gasAfterPaymentCalculation,
     uint96 adminFee,
-    uint32 gasLimit,
+    uint32 callbackGasLimit,
     uint96 juelsPerGas,
     uint96 costWithoutFulfillment
-  ) internal returns (IFunctionsRouter.FulfillResult) {
-    if (gasleft() < gasLimit + gasAfterPaymentCalculation) {
-      return IFunctionsRouter.FulfillResult.INSUFFICIENT_GAS;
+  ) internal returns (uint8) {
+    // Check that the transmitter has supplied enough gas for the callback to succeed
+    if (gasleft() < callbackGasLimit + gasAfterPaymentCalculation) {
+      return 3; // IFunctionsRouter.FulfillResult.INSUFFICIENT_GAS;
     }
 
-    if (adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(gasLimit)) > estimatedCost) {
-      return IFunctionsRouter.FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE;
+    // Check that the cost has not exceeded the quoted cost
+    if (adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(callbackGasLimit)) > estimatedCost) {
+      return 4; // IFunctionsRouter.FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE
     }
+
+    // If checks pass, continue as default, 0 = USER_SUCCESS;
+    return 0;
   }
 
   /**
@@ -229,9 +245,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // |                      Owner methods                           |
   // ================================================================
   /**
-   * @notice Owner cancel subscription, sends remaining link directly to the subscription owner.
-   * @param subscriptionId subscription id
-   * @dev notably can be called even if there are pending requests, outstanding ones may fail onchain
+   * @inheritdoc IFunctionsSubscriptions
    */
   function ownerCancelSubscription(uint64 subscriptionId) external onlyRouterOwner {
     address owner = s_subscriptions[subscriptionId].owner;
@@ -242,8 +256,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   }
 
   /**
-   * @notice Recover link sent with transfer instead of transferAndCall.
-   * @param to address to send link to
+   * @inheritdoc IFunctionsSubscriptions
    */
   function recoverFunds(address to) external onlyRouterOwner {
     uint256 externalBalance = LINK.balanceOf(address(this));
@@ -325,14 +338,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // |                    Subscription methods                      |
   // ================================================================
   /**
-   * @notice Create a new subscription.
-   * @return subscriptionId - A unique subscription id.
-   * @dev You can manage the consumer set dynamically with addConsumer/removeConsumer.
-   * @dev Note to fund the subscription, use transferAndCall. For example
-   * @dev  LINKTOKEN.transferAndCall(
-   * @dev    address(REGISTRY),
-   * @dev    amount,
-   * @dev    abi.encode(subscriptionId));
+   * @inheritdoc IFunctionsSubscriptions
    */
   function createSubscription() external nonReentrant onlyAuthorizedUsers returns (uint64) {
     s_currentsubscriptionId++;
@@ -351,9 +357,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   }
 
   /**
-   * @notice Request subscription owner transfer.
-   * @param subscriptionId - ID of the subscription
-   * @param newOwner - proposed new owner of the subscription
+   * @inheritdoc IFunctionsSubscriptions
    */
   function requestSubscriptionOwnerTransfer(
     uint64 subscriptionId,
@@ -367,10 +371,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   }
 
   /**
-   * @notice Request subscription owner transfer.
-   * @param subscriptionId - ID of the subscription
-   * @dev will revert if original owner of subscriptionId has
-   * not requested that msg.sender become the new owner.
+   * @inheritdoc IFunctionsSubscriptions
    */
   function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external nonReentrant onlyAuthorizedUsers {
     if (s_subscriptions[subscriptionId].owner == address(0)) {
@@ -386,9 +387,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   }
 
   /**
-   * @notice Remove a consumer from a Chainlink Functions subscription.
-   * @param subscriptionId - ID of the subscription
-   * @param consumer - Consumer to remove from the subscription
+   * @inheritdoc IFunctionsSubscriptions
    */
   function removeConsumer(
     uint64 subscriptionId,
@@ -419,9 +418,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   }
 
   /**
-   * @notice Add a consumer to a Chainlink Functions subscription.
-   * @param subscriptionId - ID of the subscription
-   * @param consumer - New consumer which can use the subscription
+   * @inheritdoc IFunctionsSubscriptions
    */
   function addConsumer(
     uint64 subscriptionId,
@@ -443,15 +440,13 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   }
 
   /**
-   * @notice Cancel a subscription
-   * @param subscriptionId - ID of the subscription
-   * @param to - Where to send the remaining LINK to
+   * @inheritdoc IFunctionsSubscriptions
    */
   function cancelSubscription(
     uint64 subscriptionId,
     address to
   ) external onlySubscriptionOwner(subscriptionId) nonReentrant {
-    if (pendingRequestExists(subscriptionId)) {
+    if (this.pendingRequestExists(subscriptionId)) {
       revert PendingRequestExists();
     }
     cancelSubscriptionHelper(subscriptionId, to);
@@ -474,15 +469,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   }
 
   /**
-   * @notice Check to see if there exists a request commitment for all consumers for a given sub.
-   * @param subscriptionId - ID of the subscription
-   * @return true if there exists at least one unfulfilled request for the subscription, false
-   * otherwise.
-   * @dev Looping is bounded to MAX_CONSUMERS*(number of DONs).
-   * @dev Used to disable subscription canceling while outstanding request are present.
+   * @inheritdoc IFunctionsSubscriptions
    */
-
-  function pendingRequestExists(uint64 subscriptionId) public view returns (bool) {
+  function pendingRequestExists(uint64 subscriptionId) external view returns (bool) {
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
     for (uint256 i = 0; i < consumers.length; i++) {
       Consumer memory consumer = s_consumers[consumers[i]][subscriptionId];
@@ -551,9 +540,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @dev The allow list is kept on the Router contract. This modifier checks if a user is authorized from there.
    */
-  modifier onlyAuthorizedUsers() virtual {
+  modifier onlyAuthorizedUsers() {
+    // TODO: TOS allow list
     _;
   }
+
   modifier onlyRouterOwner() virtual {
     _;
   }

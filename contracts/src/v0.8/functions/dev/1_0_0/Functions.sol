@@ -24,10 +24,10 @@ library Functions {
 
   struct Request {
     Location codeLocation;
-    Location secretsLocation;
+    Location secretsLocation; // Only Remote secrets are supported
     CodeLanguage language;
     string source; // Source code for Location.Inline or url for Location.Remote
-    bytes secrets; // Encrypted secrets blob for Location.Inline or url for Location.Remote
+    bytes encryptedSecretsReference; // URLS for Location.Remote secrets
     string[] args;
   }
 
@@ -63,14 +63,14 @@ library Functions {
       CBOR.endSequence(buffer);
     }
 
-    if (self.secrets.length > 0) {
+    if (self.encryptedSecretsReference.length > 0) {
       if (self.secretsLocation == Location.Inline) {
         revert NoInlineSecrets();
       }
       CBOR.writeString(buffer, "secretsLocation");
       CBOR.writeUInt256(buffer, uint256(self.secretsLocation));
       CBOR.writeString(buffer, "secrets");
-      CBOR.writeBytes(buffer, self.secrets);
+      CBOR.writeBytes(buffer, self.encryptedSecretsReference);
     }
 
     return buffer.buf.buf;
@@ -80,19 +80,19 @@ library Functions {
    * @notice Initializes a Chainlink Functions Request
    * @dev Sets the codeLocation and code on the request
    * @param self The uninitialized request
-   * @param location The user provided source code location
+   * @param codeLocation The user provided source code location
    * @param language The programming language of the user code
    * @param source The user provided source code or a url
    */
   function initializeRequest(
     Request memory self,
-    Location location,
+    Location codeLocation,
     CodeLanguage language,
     string memory source
   ) internal pure {
     if (bytes(source).length == 0) revert EmptySource();
 
-    self.codeLocation = location;
+    self.codeLocation = codeLocation;
     self.language = language;
     self.source = source;
   }
@@ -116,7 +116,7 @@ library Functions {
     if (encryptedSecretsURLs.length == 0) revert EmptySecrets();
 
     self.secretsLocation = Location.Remote;
-    self.secrets = encryptedSecretsURLs;
+    self.encryptedSecretsReference = encryptedSecretsURLs;
   }
 
   /**
@@ -131,7 +131,7 @@ library Functions {
   }
 
   /**
-   * @notice Add request data version to the request CBOR 
+   * @notice Add request data version to the request CBOR
    */
   function encodeRequest(bytes memory requestCBOR) internal pure returns (bytes memory) {
     return abi.encode(REQUEST_DATA_VERSION, requestCBOR);

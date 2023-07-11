@@ -5,7 +5,7 @@ pragma solidity ^0.8.6;
  * @title Configurable contract interface.
  */
 interface IConfigurable {
-    /**
+  /**
    * @notice Get the hash of the current configuration
    * @return config hash of config bytes
    */

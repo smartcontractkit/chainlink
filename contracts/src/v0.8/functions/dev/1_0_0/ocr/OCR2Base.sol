@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.0;
 
+import {ConfirmedOwner} from "../../../../ConfirmedOwner.sol";
 import {OCR2Abstract} from "./OCR2Abstract.sol";
 
 /**
@@ -13,12 +14,12 @@ import {OCR2Abstract} from "./OCR2Abstract.sol";
  * will be folded directly into the application contract. Inheritance prevents us from doing lots
  * of juicy storage layout optimizations, leading to a substantial increase in gas cost.
  */
-abstract contract OCR2Base is OCR2Abstract {
+abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   error ReportInvalid();
 
   bool internal immutable i_uniqueReports;
 
-  constructor(bool uniqueReports) {
+  constructor(bool uniqueReports) ConfirmedOwner(msg.sender) {
     i_uniqueReports = uniqueReports;
   }
 
@@ -59,8 +60,7 @@ abstract contract OCR2Base is OCR2Abstract {
     Role role; // Role of the address which mapped to this struct
   }
 
-  mapping(address => Oracle) /* signer OR transmitter address */
-    internal s_oracles;
+  mapping(address => Oracle) /* signer OR transmitter address */ internal s_oracles;
 
   // s_signers contains the signing address of each oracle
   address[] internal s_signers;
@@ -101,11 +101,7 @@ abstract contract OCR2Base is OCR2Abstract {
     view
     virtual
     override
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    )
+    returns (bool scanLogs, bytes32 configDigest, uint32 epoch)
   {
     return (true, bytes32(0), uint32(0));
   }
@@ -126,7 +122,7 @@ abstract contract OCR2Base is OCR2Abstract {
     bytes memory _onchainConfig,
     uint64 _offchainConfigVersion,
     bytes memory _offchainConfig
-  ) external override checkConfigValid(_signers.length, _transmitters.length, _f) onlyRouterOwner {
+  ) external override checkConfigValid(_signers.length, _transmitters.length, _f) onlyOwner {
     SetConfigArgs memory args = SetConfigArgs({
       signers: _signers,
       transmitters: _transmitters,
@@ -233,11 +229,7 @@ abstract contract OCR2Base is OCR2Abstract {
     external
     view
     override
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 configDigest
-    )
+    returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest)
   {
     return (s_configCount, s_latestConfigBlockNumber, s_configInfo.latestConfigDigest);
   }
@@ -387,9 +379,5 @@ abstract contract OCR2Base is OCR2Abstract {
     }
 
     _report(initialGas, msg.sender, signerCount, signed, report);
-  }
-
-  modifier onlyRouterOwner() virtual {
-    _;
   }
 }

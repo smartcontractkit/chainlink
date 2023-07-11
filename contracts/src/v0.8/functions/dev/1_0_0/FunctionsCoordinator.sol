@@ -2,12 +2,12 @@
 pragma solidity ^0.8.6;
 
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {IFunctionsBilling, FunctionsBilling, Route, ITypeAndVersion} from "./FunctionsBilling.sol";
+import {IFunctionsBilling, FunctionsBilling, Routable, ITypeAndVersion} from "./FunctionsBilling.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
-import {Functions} from "./Functions.sol";
 import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
+import {FulfillResult} from "./FulfillResultCodes.sol";
 
 /**
  * @title Functions Coordinator contract
@@ -15,24 +15,19 @@ import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol"
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
-  uint16 constant REQUEST_DATA_VERSION = Functions.REQUEST_DATA_VERSION;
-
   event OracleRequest(
     bytes32 indexed requestId,
     address requestingContract,
     address requestInitiator,
     uint64 subscriptionId,
     address subscriptionOwner,
-    bytes data
+    bytes data,
+    uint16 dataVersion
   );
-  event OracleResponse(bytes32 indexed requestId);
-  event UserCallbackError(bytes32 indexed requestId, string reason);
-  // event RawError(bytes32 indexed requestId, bytes lowLevelData); TODO
+  event OracleResponse(bytes32 indexed requestId, address transmitter);
   event InvalidRequestID(bytes32 indexed requestId);
-  event ResponseTransmitted(bytes32 indexed requestId, address transmitter);
   event InsufficientGasProvided(bytes32 indexed requestId);
 
-  error UnsupportedRequestDataVersion();
   error EmptyRequestData();
   error InconsistentReportData();
   error EmptyPublicKey();
@@ -56,14 +51,14 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc IFunctionsCoordinator
    */
   function getThresholdPublicKey() external view override returns (bytes memory) {
     return s_thresholdPublicKey;
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc IFunctionsCoordinator
    */
   function setThresholdPublicKey(bytes calldata thresholdPublicKey) external override onlyOwner {
     if (thresholdPublicKey.length == 0) {
@@ -107,7 +102,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function setNodePublicKey(address node, bytes calldata publicKey) external override {
     // Owner can set anything. Transmitters can set only their own key.
-    if (!(msg.sender == IOwnable(address(s_router)).owner() || (_isTransmitter(msg.sender) && msg.sender == node))) {
+    if (!(msg.sender == this.owner() || (_isTransmitter(msg.sender) && msg.sender == node))) {
       revert UnauthorizedPublicKeyChange();
     }
     s_nodePublicKeys[node] = publicKey;
@@ -118,7 +113,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function deleteNodePublicKey(address node) external override {
     // Owner can delete anything. Others can delete only their own key.
-    if (!(msg.sender == IOwnable(address(s_router)).owner() || msg.sender == node)) {
+    if (!(msg.sender == this.owner() || msg.sender == node)) {
       revert UnauthorizedPublicKeyChange();
     }
     delete s_nodePublicKeys[node];
@@ -140,41 +135,39 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    * @inheritdoc IFunctionsCoordinator
    */
   function sendRequest(
-    uint64 subscriptionId,
-    bytes calldata data,
-    uint32 callbackGasLimit,
-    address caller,
-    address subscriptionOwner
+    Request calldata request
   )
     external
     override
     onlyRouter
     returns (bytes32 requestId, uint96 estimatedCost, uint256 gasAfterPaymentCalculation, uint256 requestTimeoutSeconds)
   {
-    {
-      if (data.length == 0) {
-        revert EmptyRequestData();
-      }
-
-      (uint16 version, ) = Functions.decodeRequest(data);
-
-      if (version != REQUEST_DATA_VERSION) {
-        revert UnsupportedRequestDataVersion();
-      }
+    if (request.data.length == 0) {
+      revert EmptyRequestData();
     }
 
-    (, bytes memory requestCBOR) = Functions.decodeRequest(data);
-
     RequestBilling memory billing = IFunctionsBilling.RequestBilling(
-      subscriptionId,
-      caller,
-      callbackGasLimit,
+      request.subscriptionId,
+      request.caller,
+      request.callbackGasLimit,
       tx.gasprice
     );
 
-    (requestId, estimatedCost, gasAfterPaymentCalculation, requestTimeoutSeconds) = _startBilling(requestCBOR, billing);
+    (requestId, estimatedCost, gasAfterPaymentCalculation, requestTimeoutSeconds) = _startBilling(
+      request.data,
+      request.dataVersion,
+      billing
+    );
 
-    emit OracleRequest(requestId, caller, tx.origin, subscriptionId, subscriptionOwner, requestCBOR);
+    emit OracleRequest(
+      requestId,
+      request.caller,
+      tx.origin,
+      request.subscriptionId,
+      request.subscriptionOwner,
+      request.data,
+      request.dataVersion
+    );
   }
 
   function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {
@@ -217,31 +210,26 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     }
 
     for (uint256 i = 0; i < requestIds.length; i++) {
-      IFunctionsRouter.FulfillResult result = _fulfillAndBill(
-        requestIds[i],
-        results[i],
-        errors[i]
-        /* metadata[i], */
+      FulfillResult result = FulfillResult(
+        _fulfillAndBill(
+          requestIds[i],
+          results[i],
+          errors[i]
+          /* metadata[i], */
+        )
       );
 
-      if (result == IFunctionsRouter.FulfillResult.USER_SUCCESS) {
-        emit OracleResponse(requestIds[i]);
-        emit ResponseTransmitted(requestIds[i], msg.sender);
-      } else if (result == IFunctionsRouter.FulfillResult.USER_ERROR) {
-        emit UserCallbackError(requestIds[i], "error in callback");
-        emit ResponseTransmitted(requestIds[i], msg.sender);
-      } else if (result == IFunctionsRouter.FulfillResult.INVALID_REQUEST_ID) {
+      if (result == FulfillResult.USER_SUCCESS || result == FulfillResult.USER_ERROR) {
+        emit OracleResponse(requestIds[i], msg.sender);
+      } else if (result == FulfillResult.INVALID_REQUEST_ID) {
         emit InvalidRequestID(requestIds[i]);
-      } else if (result == IFunctionsRouter.FulfillResult.INSUFFICIENT_GAS) {
+      } else if (result == FulfillResult.INSUFFICIENT_GAS) {
         emit InsufficientGasProvided(requestIds[i]);
       }
-      // else if (result == IFunctionsRouter.FulfillResult.RAW) {
-      //   emit RawError(requestIds[i]);
-      // }
     }
   }
 
-  modifier onlyRouterOwner() override(OCR2Base, Route) {
+  modifier onlyRouterOwner() override {
     if (msg.sender != IOwnable(address(s_router)).owner()) {
       revert OnlyCallableByRouterOwner();
     }

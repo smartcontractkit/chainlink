@@ -25,6 +25,7 @@ interface IFunctionsBilling {
    * @return fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
    * @return gasOverhead average gas execution cost used in estimating total cost
    * @return linkPriceFeed address of contract for a conversion price between LINK token and native token
+   * @return maxSupportedRequestDataVersion The highest support request data version supported by the node
    */
   function getConfig()
     external
@@ -35,7 +36,8 @@ interface IFunctionsBilling {
       uint256 gasAfterPaymentCalculation,
       int256 fallbackWeiPerUnitLink,
       uint32 gasOverhead,
-      address linkPriceFeed
+      address linkPriceFeed,
+      uint16 maxSupportedRequestDataVersion
     );
 
   /**
@@ -56,16 +58,16 @@ interface IFunctionsBilling {
 
   /**
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
-   * @param subscriptionId A unique subscription ID allocated by billing system,
-   * a client can make requests from different contracts referencing the same subscription
+   * @param subscriptionId An identifier of the billing account
    * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
-   * @param gasLimit Gas limit for the fulfillment callback
+   * @param callbackGasLimit Gas limit for the fulfillment callback
+   * @param gasPrice The blockchain's gas price to estimate with
    * @return billedCost Cost in Juels (1e18) of LINK
    */
   function estimateCost(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit,
+    uint32 callbackGasLimit,
     uint256 gasPrice
   ) external view returns (uint96);
 

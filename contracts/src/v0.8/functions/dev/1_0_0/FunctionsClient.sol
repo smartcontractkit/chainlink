@@ -27,24 +27,6 @@ abstract contract FunctionsClient is IFunctionsClient {
   }
 
   /**
-   * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-imbursement, plus DON fee, plus Registry fee
-   * @param req The initialized Functions.Request
-   * @param subscriptionId The subscription ID
-   * @param gasLimit gas limit for the fulfillment callback
-   * @return billedCost Cost in Juels (1e18) of LINK
-   */
-  function estimateCost(
-    Functions.Request memory req,
-    uint64 subscriptionId,
-    uint32 gasLimit,
-    uint256 gasPrice,
-    bytes32 jobId
-  ) public view returns (uint96) {
-    IFunctionsBilling coordinator = IFunctionsBilling(s_router.getRoute(jobId));
-    return coordinator.estimateCost(subscriptionId, Functions.encodeCBOR(req), gasLimit, gasPrice);
-  }
-
-  /**
    * @notice Sends a Chainlink Functions request to the stored oracle address
    * @param req The initialized Functions.Request
    * @param subscriptionId The subscription ID
@@ -55,10 +37,10 @@ abstract contract FunctionsClient is IFunctionsClient {
     Functions.Request memory req,
     uint64 subscriptionId,
     uint32 callbackGasLimit,
-    bytes32 jobId
+    bytes32 donId
   ) internal returns (bytes32) {
-    bytes memory requestData = Functions.encodeRequest(Functions.encodeCBOR(req));
-    bytes32 requestId = _sendRequestBytes(requestData, subscriptionId, callbackGasLimit, jobId);
+    bytes memory requestData = Functions.encodeCBOR(req);
+    bytes32 requestId = _sendRequestBytes(requestData, subscriptionId, callbackGasLimit, donId);
     return requestId;
   }
 
@@ -73,10 +55,16 @@ abstract contract FunctionsClient is IFunctionsClient {
     bytes memory data,
     uint64 subscriptionId,
     uint32 callbackGasLimit,
-    bytes32 jobId
+    bytes32 donId
   ) internal returns (bytes32) {
-    bytes32 requestId = s_router.sendRequest(subscriptionId, data, callbackGasLimit, jobId);
-    s_pendingRequests[requestId] = s_router.getRoute(jobId);
+    bytes32 requestId = s_router.sendRequest(
+      subscriptionId,
+      data,
+      Functions.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      donId
+    );
+    s_pendingRequests[requestId] = s_router.getRoute(donId);
     emit RequestSent(requestId);
     return requestId;
   }

@@ -7,15 +7,6 @@ import {IRouterBase} from "./IRouterBase.sol";
  * @title Chainlink Functions Router interface.
  */
 interface IFunctionsRouter is IRouterBase {
-  enum FulfillResult {
-    USER_SUCCESS,
-    USER_ERROR,
-    INVALID_REQUEST_ID,
-    INSUFFICIENT_GAS,
-    INSUFFICIENT_SUBSCRIPTION_BALANCE,
-    INTERNAL_ERROR
-  }
-
   /**
    * @notice The fee that will be paid to the Router owner for operating the network
    * @return fee Cost in Juels (1e18) of LINK
@@ -27,15 +18,17 @@ interface IFunctionsRouter is IRouterBase {
    * @param subscriptionId A unique subscription ID allocated by billing system,
    * a client can make requests from different contracts referencing the same subscription
    * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
-   * @param gasLimit Gas limit for the fulfillment callback
-   * @param jobId A jobId that identifies which route to send the request to
+   * @param dataVersion Gas limit for the fulfillment callback
+   * @param callbackGasLimit Gas limit for the fulfillment callback
+   * @param donId An identifier used to determine which route to send the request along
    * @return requestId A unique request identifier
    */
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit,
-    bytes32 jobId
+    uint16 dataVersion,
+    uint32 callbackGasLimit,
+    bytes32 donId
   ) external returns (bytes32);
 
   /**
@@ -59,5 +52,5 @@ interface IFunctionsRouter is IRouterBase {
     uint96 juelsPerGas,
     uint96 costWithoutFulfillment,
     address transmitter
-  ) external returns (FulfillResult, uint96);
+  ) external returns (uint8, uint96);
 }

@@ -1,12 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {IFunctionsSubscriptions} from "./IFunctionsSubscriptions.sol";
-
 /**
  * @title Chainlink Functions oracle interface.
  */
 interface IFunctionsCoordinator {
+  struct Request {
+    uint64 subscriptionId; // Identifier of the subscription that will be charged for the request
+    bytes data; // Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
+    uint16 dataVersion; // The version of the structure of the encoded data
+    uint32 callbackGasLimit; // The amount of gas that the callback to the consuming contract can utilize
+    address caller; // The client contract that is sending the request
+    address subscriptionOwner; // The owner of the subscription
+  }
+
   /**
    * @notice Returns the DON's threshold encryption public key used to encrypt secrets
    * @dev All nodes on the DON have separate key shares of the threshold decryption key
@@ -61,20 +68,11 @@ interface IFunctionsCoordinator {
   /**
    * @notice Sends a request (encoded as data) using the provided subscriptionId
    * @dev Callable only by the Router
-   * @param subscriptionId Identifier of the subscription that will be charged for the request
-   * @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
-   * @param caller The client contract that is sending the request
-   * @param subscriptionOwner The owner of the subscription
+   * @param request The request information, @dev see the struct for field descriptions
    * @return requestId A unique request identifier (unique per DON)
    * @return estimatedCost The cost in Juels of LINK that the request is estimated to charge if market conditions were to stay the same
-   * @return gasAfterPaymentCalculation The amount of gas overhead that will be used after balances have already been changed 
+   * @return gasAfterPaymentCalculation The amount of gas overhead that will be used after balances have already been changed
    * @return requestTimeoutSeconds The amount of time in seconds before this request is considered stale
    */
-  function sendRequest(
-    uint64 subscriptionId,
-    bytes calldata data,
-    uint32 gasLimit,
-    address caller,
-    address subscriptionOwner
-  ) external returns (bytes32, uint96, uint256, uint256);
+  function sendRequest(Request calldata request) external returns (bytes32, uint96, uint256, uint256);
 }

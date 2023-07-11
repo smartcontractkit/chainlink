@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-abstract contract OCR2Abstract {
+import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
+
+abstract contract OCR2Abstract is ITypeAndVersion {
   // Maximum number of oracles the offchain reporting protocol is designed for
   uint256 internal constant maxNumOracles = 31;
 
@@ -57,11 +59,7 @@ abstract contract OCR2Abstract {
     external
     view
     virtual
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 configDigest
-    );
+    returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest);
 
   function _configDigestFromConfigData(
     uint256 chainId,
@@ -115,11 +113,7 @@ abstract contract OCR2Abstract {
     external
     view
     virtual
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    );
+    returns (bool scanLogs, bytes32 configDigest, uint32 epoch);
 
   /**
    * @notice transmit is called to post a new report to the contract

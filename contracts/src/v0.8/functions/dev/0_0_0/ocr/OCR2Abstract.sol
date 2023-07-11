@@ -59,11 +59,7 @@ abstract contract OCR2Abstract is ITypeAndVersion {
     external
     view
     virtual
-    returns (
-      uint32 configCount,
-      uint32 blockNumber,
-      bytes32 configDigest
-    );
+    returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest);
 
   function _configDigestFromConfigData(
     uint256 chainId,
@@ -117,11 +113,7 @@ abstract contract OCR2Abstract is ITypeAndVersion {
     external
     view
     virtual
-    returns (
-      bool scanLogs,
-      bytes32 configDigest,
-      uint32 epoch
-    );
+    returns (bool scanLogs, bytes32 configDigest, uint32 epoch);
 
   /**
    * @notice transmit is called to post a new report to the contract

@@ -90,8 +90,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     address newOwner,
     uint16 timelockBlocks,
     uint16 maximumTimelockBlocks,
-    bytes32[] memory initialIds,
-    address[] memory initialAddresses,
     bytes memory config
   ) ConfirmedOwnerWithProposal(newOwner, address(0)) Pausable() {
     // Set initial timelock
@@ -101,13 +99,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     s_route[routerId] = address(this);
     _setConfig(config);
     s_config_hash = keccak256(config);
-    // Fill initial routes, from empty addresses to current implementation contracts
-    address[] memory emptyAddresses = new address[](initialIds.length);
-    _validateProposal(initialIds, emptyAddresses, initialAddresses);
-    s_proposalSet = ProposalSet(initialIds, emptyAddresses, initialAddresses, block.number);
-    for (uint8 i = 0; i < s_proposalSet.ids.length; i++) {
-      s_route[s_proposalSet.ids[i]] = s_proposalSet.to[i];
-    }
   }
 
   // ================================================================
@@ -129,13 +120,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @inheritdoc IRouterBase
    */
   function getRoute(bytes32 id) public view returns (address) {
-    return _getLatestRoute(id);
-  }
-
-  /**
-   * @dev Helper function to get a contract from the current routes
-   */
-  function _getLatestRoute(bytes32 id) internal view returns (address) {
     address currentImplementation = s_route[id];
     if (currentImplementation == address(0)) {
       revert RouteNotFound(id);
@@ -148,17 +132,16 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    */
   function getRoute(bytes32 id, bool useProposed) public view returns (address) {
     if (useProposed == true) {
-      for (uint8 i = 0; i < s_proposalSet.ids.length; i++) {
-        if (id == s_proposalSet.ids[i]) {
-          // NOTE: proposals can be used immediately
-          // if (block.number < s_proposalSet.proposedAtBlock + s_timelockBlocks) {
-          //   revert TimelockInEffect();
-          // }
-          return s_proposalSet.to[i];
-        }
+      return getRoute(id);
+    }
+
+    for (uint8 i = 0; i < s_proposalSet.ids.length; i++) {
+      if (id == s_proposalSet.ids[i]) {
+        // NOTE: proposals can be used immediately
+        return s_proposalSet.to[i];
       }
     }
-    return _getLatestRoute(id);
+    revert RouteNotFound(id);
   }
 
   // ================================================================
@@ -232,14 +215,14 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @inheritdoc IRouterBase
    */
   function validateProposal(bytes32 id, bytes calldata data) external override {
-    _smoke(id, data);
+    _validateProposal(id, data);
   }
 
   /**
    * @dev Must be implemented by the inheriting contract
    * Use to test an end to end request through the system
    */
-  function _smoke(bytes32 id, bytes calldata data) internal virtual returns (bytes32);
+  function _validateProposal(bytes32 id, bytes calldata data) internal virtual returns (bytes32);
 
   /**
    * @inheritdoc IRouterBase
@@ -287,7 +270,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     address implAddr = s_route[id];
     bytes32 currentConfigHash;
     if (implAddr == address(this)) {
-      currentConfigHash = getConfigHash();
+      currentConfigHash = this.getConfigHash();
     } else {
       currentConfigHash = IConfigurable(implAddr).getConfigHash();
     }

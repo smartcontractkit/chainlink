@@ -22,7 +22,7 @@ interface IRouterBase {
   function getRoute(bytes32 id) external view returns (address);
 
   /**
-   * @notice Get the current or proposed next contract given an ID
+   * @notice Get the proposed next contract given an ID
    * @param id A bytes32 identifier for the route
    * @return contract The current or proposed contract address
    */

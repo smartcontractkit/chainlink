@@ -4,17 +4,16 @@ pragma solidity ^0.8.6;
 import {RouterBase, ITypeAndVersion} from "./RouterBase.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {AuthorizedOriginReceiver} from "./accessControl/AuthorizedOriginReceiver.sol";
 import {IFunctionsSubscriptions, FunctionsSubscriptions, IFunctionsBilling} from "./FunctionsSubscriptions.sol";
 
-contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiver, FunctionsSubscriptions {
+contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions {
   event RequestStart(bytes32 indexed requestId, Request request);
   event RequestEnd(
     bytes32 indexed requestId,
     uint64 indexed subscriptionId,
     uint96 totalCostJuels,
     address transmitter,
-    FulfillResult resultCode,
+    uint8 resultCode,
     bytes response
   );
 
@@ -45,16 +44,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
   constructor(
     uint16 timelockBlocks,
     uint16 maximumTimelockBlocks,
-    bool useAllowList,
     address linkToken,
-    bytes32[] memory initialIds,
-    address[] memory initialAddresses,
     bytes memory config
-  )
-    RouterBase(msg.sender, timelockBlocks, maximumTimelockBlocks, initialIds, initialAddresses, config)
-    AuthorizedOriginReceiver(useAllowList)
-    FunctionsSubscriptions(linkToken)
-  {}
+  ) RouterBase(msg.sender, timelockBlocks, maximumTimelockBlocks, config) FunctionsSubscriptions(linkToken) {}
 
   /**
    * @inheritdoc ITypeAndVersion
@@ -90,15 +82,16 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
 
   function _sendRequest(
     bytes32 donId,
-    bool isProposed,
+    bool useProposed,
     uint64 subscriptionId,
     bytes memory data,
-    uint32 gasLimit
+    uint16 dataVersion,
+    uint32 callbackGasLimit
   ) internal returns (bytes32) {
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
 
-    address route = this.getRoute(donId, isProposed);
+    address route = this.getRoute(donId, useProposed);
     IFunctionsCoordinator coordinator = IFunctionsCoordinator(route);
 
     (, , address owner, , ) = this.getSubscription(subscriptionId);
@@ -106,9 +99,11 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     (
       bytes32 requestId,
       uint96 estimatedCost,
-      uint256 gasAfterPaymentCalculation,
+      uint256 gasAfterPaymentCalculation, // Used to ensure that the transmitter supplies enough gas
       uint256 requestTimeoutSeconds
-    ) = coordinator.sendRequest(subscriptionId, data, gasLimit, msg.sender, owner);
+    ) = coordinator.sendRequest(
+        IFunctionsCoordinator.Request(subscriptionId, data, dataVersion, callbackGasLimit, msg.sender, owner)
+      );
 
     _blockBalance(msg.sender, subscriptionId, estimatedCost);
 
@@ -117,7 +112,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
       route,
       msg.sender,
       subscriptionId,
-      gasLimit,
+      callbackGasLimit,
       estimatedCost,
       block.timestamp + requestTimeoutSeconds,
       gasAfterPaymentCalculation,
@@ -129,9 +124,12 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     return requestId;
   }
 
-  function _smoke(bytes32 donId, bytes calldata data) internal override onlyAuthorizedUsers returns (bytes32) {
-    (uint64 subscriptionId, bytes memory reqData, uint32 gasLimit) = abi.decode(data, (uint64, bytes, uint32));
-    return _sendRequest(donId, true, subscriptionId, reqData, gasLimit);
+  function _validateProposal(bytes32 donId, bytes calldata data) internal override returns (bytes32) {
+    (uint64 subscriptionId, bytes memory reqData, uint16 reqDataVersion, uint32 callbackGasLimit) = abi.decode(
+      data,
+      (uint64, bytes, uint16, uint32)
+    );
+    return _sendRequest(donId, true, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
   }
 
   /**
@@ -140,10 +138,11 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
-    uint32 gasLimit,
+    uint16 dataVersion,
+    uint32 callbackGasLimit,
     bytes32 donId
-  ) external override onlyAuthorizedUsers nonReentrant returns (bytes32) {
-    return _sendRequest(donId, false, subscriptionId, data, gasLimit);
+  ) external override nonReentrant returns (bytes32) {
+    return _sendRequest(donId, false, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
   /**
@@ -156,30 +155,32 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     uint96 juelsPerGas,
     uint96 costWithoutFulfillment,
     address transmitter
-  ) external override nonReentrant returns (FulfillResult resultCode, uint96 callbackGasCostJuels) {
+  ) external override nonReentrant returns (uint8 resultCode, uint96 callbackGasCostJuels) {
     Request memory request = s_requests[requestId];
 
     if (request.client == address(0)) {
-      resultCode = FulfillResult.INVALID_REQUEST_ID;
+      resultCode = 2; // FulfillResult.INVALID_REQUEST_ID
       return (resultCode, callbackGasCostJuels);
     }
     if (msg.sender != request.coordinator) {
       revert OnlyCallableFromCoordinator();
     }
 
-    _checkBalance(
+    resultCode = _checkBalance(
       request.estimatedCost,
       request.gasAfterPaymentCalculation,
       request.adminFee,
-      request.gasLimit,
+      request.callbackGasLimit,
       juelsPerGas,
       costWithoutFulfillment
     );
 
     delete s_requests[requestId];
 
-    CallbackResult memory result = _callback(requestId, response, err, request.gasLimit, request.client);
-    resultCode = result.success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
+    CallbackResult memory result = _callback(requestId, response, err, request.callbackGasLimit, request.client);
+    resultCode = result.success
+      ? 0 // FulfillResult.USER_SUCCESS
+      : 1; // FulfillResult.USER_ERROR
 
     Receipt memory receipt = _pay(
       request.subscriptionId,
@@ -207,7 +208,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     bytes32 requestId,
     bytes memory response,
     bytes memory err,
-    uint32 gasLimit,
+    uint32 callbackGasLimit,
     address client
   ) private returns (CallbackResult memory result) {
     bytes memory encodedCallback = abi.encodeWithSelector(
@@ -223,22 +224,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_reentrancyLock = true;
-    (bool success, uint256 gasUsed) = _callWithExactGas(gasLimit, client, encodedCallback);
-    s_reentrancyLock = false;
-
-    result = CallbackResult(success, gasUsed);
-  }
-
-  /**
-   * @dev calls target address with exactly gasAmount gas and data as calldata
-   * or reverts if at least gasAmount gas is not available.
-   */
-  function _callWithExactGas(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool success, uint256 gasUsed) {
-    // solhint-disable-next-line no-inline-assembly
+    bool success;
+    uint256 gasUsed;
     assembly {
       let g := gas()
       // GAS_FOR_CALL_EXACT_CHECK = 5000
@@ -254,33 +241,26 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, AuthorizedOriginReceiv
       g := sub(g, 5000)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
-      if iszero(gt(sub(g, div(g, 64)), gasAmount)) {
+      if iszero(gt(sub(g, div(g, 64)), callbackGasLimit)) {
         revert(0, 0)
       }
       // solidity calls check that a contract actually exists at the destination, so we do the same
-      if iszero(extcodesize(target)) {
+      if iszero(extcodesize(client)) {
         revert(0, 0)
       }
       // call and return whether we succeeded. ignore return data
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-      success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
+      success := call(callbackGasLimit, client, 0, add(encodedCallback, 0x20), mload(encodedCallback), 0, 0)
       gasUsed := sub(g, gas())
     }
-    return (success, gasUsed);
+    s_reentrancyLock = false;
+
+    result = CallbackResult(success, gasUsed);
   }
 
   // ================================================================
   // |                           Modifiers                          |
   // ================================================================
-
-  function _canSetAuthorizedSenders() internal view override onlyOwner returns (bool) {
-    return msg.sender == owner();
-  }
-
-  modifier onlyAuthorizedUsers() override {
-    _validateIsAuthorizedSender();
-    _;
-  }
 
   modifier onlyRouterOwner() override {
     _validateOwnership();
