@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -23,7 +24,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+
 	// "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -83,8 +86,7 @@ type mercuryTransmitter struct {
 	rpcClient  wsrpc.Client
 	cfgTracker ConfigTracker
 
-	feedID      [32]byte
-	feedIDHex   string
+	feedID      types.FeedID
 	fromAccount string
 
 	stopCh utils.StopChan
@@ -116,14 +118,13 @@ func getPayloadTypes() abi.Arguments {
 }
 
 func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte) *mercuryTransmitter {
-	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
+	feedIDHex := types.FeedID(feedID).Hex()
 	return &mercuryTransmitter{
 		utils.StartStopOnce{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		rpcClient,
 		cfgTracker,
 		feedID,
-		feedIDHex,
 		fmt.Sprintf("%x", fromAccount),
 		make(chan (struct{})),
 		NewTransmitQueue(lggr, feedIDHex, MaxTransmitQueueSize),
@@ -293,29 +294,68 @@ func (mt *mercuryTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (c
 
 func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Context) (*int64, error) {
 	mt.lggr.Trace("FetchInitialMaxFinalizedBlockNumber")
+
+	report, err := mt.latestReport(ctx, mt.feedID)
+	if err != nil {
+		return nil, err
+	}
+
+	if report == nil {
+		mt.lggr.Debugw("FetchInitialMaxFinalizedBlockNumber success; got nil report")
+		return nil, nil
+	}
+
+	mt.lggr.Debugw("FetchInitialMaxFinalizedBlockNumber success", "currentBlockNum", report.CurrentBlockNumber)
+
+	return &report.CurrentBlockNumber, nil
+}
+
+func (mt *mercuryTransmitter) LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error) {
+	mt.lggr.Trace("LatestPrice")
+
+	report, err := mt.latestReport(ctx, mt.feedID)
+	if err != nil {
+		return nil, err
+	}
+	if report == nil {
+		return nil, fmt.Errorf("mercury server is missing feed with id %s", types.FeedID(feedID))
+	}
+	price, err := relaymercury.DecodeValueInt192(report.Price)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to decode report.Price as *big.Int")
+	}
+	return price, nil
+}
+
+func (mt *mercuryTransmitter) latestReport(ctx context.Context, feedID [32]byte) (*pb.Report, error) {
+	mt.lggr.Trace("latestReport")
+
 	req := &pb.LatestReportRequest{
-		FeedId: mt.feedID[:],
+		FeedId: feedID[:],
 	}
 	resp, err := mt.rpcClient.LatestReport(ctx, req)
 	if err != nil {
-		mt.lggr.Errorw("FetchInitialMaxFinalizedBlockNumber failed", "err", err)
-		return nil, pkgerrors.Wrap(err, "FetchInitialMaxFinalizedBlockNumber failed to fetch LatestReport")
+		mt.lggr.Warnw("latestReport failed", "err", err)
+		return nil, pkgerrors.Wrap(err, "latestReport failed")
 	}
 	if resp == nil {
-		return nil, errors.New("FetchInitialMaxFinalizedBlockNumber expected LatestReport to return non-nil response")
+		return nil, errors.New("latestReport expected non-nil response")
 	}
 	if resp.Error != "" {
 		err = errors.New(resp.Error)
-		mt.lggr.Errorw("FetchInitialMaxFinalizedBlockNumber failed; mercury server returned error", "err", err)
+		mt.lggr.Warnw("latestReport failed; mercury server returned error", "err", err)
 		return nil, err
 	}
 	if resp.Report == nil {
+		mt.lggr.Tracew("latestReport success: returned nil")
 		return nil, nil
-	} else if !bytes.Equal(resp.Report.FeedId, mt.feedID[:]) {
-		return nil, fmt.Errorf("FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID, resp.Report.FeedId)
+	} else if !bytes.Equal(resp.Report.FeedId, feedID[:]) {
+		err = fmt.Errorf("latestReport failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID[:], resp.Report.FeedId[:])
+		mt.lggr.Errorw("latestReport failed", "err", err)
+		return nil, err
 	}
 
-	mt.lggr.Debugw("FetchInitialMaxFinalizedBlockNumber success", "currentBlockNum", resp.Report.CurrentBlockNumber)
+	mt.lggr.Tracew("latestReport success", "currentBlockNum", resp.Report.CurrentBlockNumber)
 
-	return &resp.Report.CurrentBlockNumber, nil
+	return resp.Report, nil
 }

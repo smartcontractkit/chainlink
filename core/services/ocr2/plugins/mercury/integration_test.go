@@ -70,7 +70,7 @@ func randomFeedID() [32]byte {
 	return [32]byte(utils.NewHash())
 }
 
-func TestIntegration_Mercury(t *testing.T) {
+func TestIntegration_Mercury_V0(t *testing.T) {
 	t.Parallel()
 
 	// test constants
@@ -663,4 +663,11 @@ fromBlock = %[13]d
 		fromBlock,
 		feedName,
 	))
+}
+
+func TestIntegration_Mercury_V1(t *testing.T) {
+	t.Fatal("TODO")
+}
+func TestIntegration_Mercury_V2(t *testing.T) {
+	t.Fatal("TODO")
 }

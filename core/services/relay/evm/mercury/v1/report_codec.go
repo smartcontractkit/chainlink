@@ -12,6 +12,7 @@ import (
 	reportcodec "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 )
 
 var ReportTypes = getReportTypes()
@@ -31,7 +32,9 @@ func getReportTypes() abi.Arguments {
 		{Name: "benchmarkPrice", Type: mustNewType("int192")},
 		{Name: "bid", Type: mustNewType("int192")},
 		{Name: "ask", Type: mustNewType("int192")},
-		// todo: linkFee, nativeFee
+		{Name: "expiresAt", Type: mustNewType("uint32")},
+		{Name: "linkFee", Type: mustNewType("int192")},
+		{Name: "nativeFee", Type: mustNewType("int192")},
 	})
 }
 
@@ -39,14 +42,14 @@ var _ reportcodec.ReportCodec = &ReportCodec{}
 
 type ReportCodec struct {
 	logger logger.Logger
-	feedID [32]byte
+	feedID types.FeedID
 }
 
 func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
 	return &ReportCodec{lggr, feedID}
 }
 
-func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, validFromTimestamp uint32) (ocrtypes.Report, error) {
+func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, validFromTimestamp, expiresAt uint32) (ocrtypes.Report, error) {
 	if len(paos) == 0 {
 		return nil, errors.Errorf("cannot build report from empty attributed observations")
 	}
@@ -56,22 +59,30 @@ func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, 
 
 	timestamp := relaymercury.GetConsensusTimestamp(paos)
 
+	// todo: add checks for validFromTimestamp
+
 	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(paos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBenchmarkPrice failed")
 	}
-
 	bid, err := relaymercury.GetConsensusBid(paos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBid failed")
 	}
-
 	ask, err := relaymercury.GetConsensusAsk(paos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusAsk failed")
 	}
+	linkFee, err := relaymercury.GetConsensusLinkFee(paos, f)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetConsensusLinkFee failed")
+	}
+	nativeFee, err := relaymercury.GetConsensusNativeFee(paos, f)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetConsensusNativeFee failed")
+	}
 
-	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, validFromTimestamp, benchmarkPrice, bid, ask)
+	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, validFromTimestamp, benchmarkPrice, bid, ask, expiresAt, linkFee, nativeFee)
 	return ocrtypes.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
 }
 
