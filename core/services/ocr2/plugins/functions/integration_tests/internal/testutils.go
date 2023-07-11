@@ -502,8 +502,10 @@ func ClientTestRequests(
 	registryContract *ocr2dr_registry.OCR2DRRegistry,
 	clientContracts []deployedClientContract,
 	requestLenBytes int,
+	expectedSecrets []byte,
 	timeout time.Duration,
 ) {
+	t.Helper()
 	subscriptionId := CreateAndFundSubscriptions(t, owner, linkToken, registryAddress, registryContract, clientContracts)
 	// send requests
 	requestSources := make([][]byte, len(clientContracts))
@@ -516,7 +518,7 @@ func ClientTestRequests(
 		_, err := client.Contract.SendRequest(
 			owner,
 			hex.EncodeToString(requestSources[i]),
-			DefaultSecretsBytes,
+			expectedSecrets,
 			[]string{DefaultArg1, DefaultArg2},
 			subscriptionId)
 		require.NoError(t, err)
