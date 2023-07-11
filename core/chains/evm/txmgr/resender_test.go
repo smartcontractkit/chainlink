@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -108,9 +108,9 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 	// Set this to the smallest non-zero value possible for the attempt to be eligible for resend
 	delay := models.MustNewDuration(1 * time.Nanosecond)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0] = &v2.EVMConfig{
-			Chain: v2.Defaults(utils.NewBig(big.NewInt(0)), &v2.Chain{
-				Transactions: v2.Transactions{ResendAfterThreshold: delay},
+		c.EVM[0] = &toml.EVMConfig{
+			Chain: toml.Defaults(utils.NewBig(big.NewInt(0)), &toml.Chain{
+				Transactions: toml.Transactions{ResendAfterThreshold: delay},
 			}),
 		}
 	})

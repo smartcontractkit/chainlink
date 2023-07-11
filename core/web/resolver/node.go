@@ -9,13 +9,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	evmtoml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 )
 
 // NodeResolver resolves the Node type.
 type NodeResolver struct {
-	node   v2.Node
+	node   evmtoml.Node
 	status types.NodeStatus
 }
 
