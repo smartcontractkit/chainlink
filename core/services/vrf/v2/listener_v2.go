@@ -635,7 +635,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 			}
 		}
 
-		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecific-MaxPrice value.
 		fromAddresses := lsn.fromAddresses()
 		maxGasPriceWei := lsn.feeCfg.PriceMaxKey(fromAddresses[0])
 
@@ -969,7 +969,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 			}
 		}
 
-		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecific-MaxPrice value.
 		fromAddresses := lsn.fromAddresses()
 		maxGasPriceWei := lsn.feeCfg.PriceMaxKey(fromAddresses[0])
 		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version(), unfulfilled)
@@ -1497,7 +1497,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.l.Debugw("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+			lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
 			return
 		} else if consumed {
 			return
@@ -1518,7 +1518,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+			lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
 			return
 		} else if consumed {
 			return
