@@ -19,7 +19,11 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   }
   mapping(uint256 /* request id */ => Response /* response */) public s_requests;
 
-  constructor(address vrfCoordinator, address link, address subOwner) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(vrfCoordinator, subOwner) {
+  constructor(
+    address vrfCoordinator,
+    address link,
+    address subOwner
+  ) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(vrfCoordinator, subOwner) {
     s_vrfCoordinator = IVRFCoordinatorV2Plus(vrfCoordinator);
     s_linkToken = LinkTokenInterface(link);
   }
@@ -39,7 +43,14 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
     bytes32 keyHash,
     bool nativePayment
   ) external {
-    uint256 requestId = s_vrfCoordinator.requestRandomWords(keyHash, subId, requestConfirmations, callbackGasLimit, numWords, nativePayment);
+    uint256 requestId = s_vrfCoordinator.requestRandomWords(
+      keyHash,
+      subId,
+      requestConfirmations,
+      callbackGasLimit,
+      numWords,
+      nativePayment
+    );
     Response memory resp = Response({
       requestId: requestId,
       randomWords: new uint256[](0),
