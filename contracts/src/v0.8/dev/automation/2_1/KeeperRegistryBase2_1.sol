@@ -76,7 +76,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   mapping(uint256 => address) internal s_upkeepAdmin;
   mapping(uint256 => address) internal s_proposedAdmin;
   mapping(uint256 => bytes) internal s_checkData;
-  mapping(bytes32 => bool) internal s_observedLogTriggers;
+  mapping(bytes32 => bool) internal s_dedupKeys;
   // Registry config and state
   EnumerableSet.AddressSet internal s_registrars;
   mapping(address => Transmitter) internal s_transmitters;
@@ -350,6 +350,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member paymentParams the paymentParams for this upkeep
    * @member performSuccess whether the perform was successful
    * @member gasUsed gasUsed by this upkeep in perform
+   * @member gasOverhead gasOverhead for this upkeep
+   * @member triggerID unique ID used to identify an upkeep/trigger combo
+   * @member dedupID unique ID used to dedup an upkeep/trigger combo
    */
   struct UpkeepTransmitInfo {
     Upkeep upkeep;
@@ -359,6 +362,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     Trigger triggerType;
     uint256 gasUsed;
     uint256 gasOverhead;
+    bytes32 triggerID;
+    bytes32 dedupID;
   }
 
   struct Transmitter {
@@ -433,15 +438,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 totalPayment,
     uint256 gasUsed,
     uint256 gasOverhead,
-    bytes trigger
+    bytes32 triggerID
   );
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
-  event StaleUpkeepReport(uint256 indexed id, bytes trigger);
-  event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
-  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
+  event StaleUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event ReorgedUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event CancelledUpkeepReport(uint256 indexed id, bytes32 triggerID);
   event Paused(address account);
   event Unpaused(address account);
 
@@ -712,6 +717,16 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     } else {
       return blockhash(n);
     }
+  }
+
+  /**
+   * @notice returns a unique identifier for an upkeep/trigger combo
+   * @param upkeepID the upkeep id
+   * @param trigger the raw trigger bytes
+   * @return triggerID the unique identifier for the upkeep/trigger combo
+   */
+  function _triggerID(uint256 upkeepID, bytes memory trigger) internal pure returns (bytes32 triggerID) {
+    return keccak256(abi.encodePacked(upkeepID, trigger));
   }
 
   /**
