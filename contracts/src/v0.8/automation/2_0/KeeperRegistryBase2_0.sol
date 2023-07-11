@@ -57,8 +57,8 @@ abstract contract KeeperRegistryBase2_0 is ConfirmedOwner, ExecutionPrevention {
    * MigratableKeeperRegistryInterfaceV1 - it should be removed in future versions in favor of
    * UPKEEP_VERSION_BASE and MigratableKeeperRegistryInterfaceV2
    */
-  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V12;
-  uint8 internal constant UPKEEP_VERSION_BASE = uint8(UpkeepFormat.V20);
+  UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
+  uint8 internal constant UPKEEP_VERSION_BASE = uint8(UpkeepFormat.V3);
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";

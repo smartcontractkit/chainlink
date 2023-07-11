@@ -1,7 +1,7 @@
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
-import { UpkeepTranscoder3_0__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder3_0__factory'
-import { UpkeepTranscoder3_0 as UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder3_0'
+import { UpkeepTranscoder30__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder30__factory'
+import { UpkeepTranscoder30 as UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder30'
 import { KeeperRegistry2_0__factory as KeeperRegistry2_0Factory } from '../../../typechain/factories/KeeperRegistry2_0__factory'
 import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
@@ -26,9 +26,9 @@ let keeperRegistryLogicFactory20: KeeperRegistryLogic20Factory
 let keeperRegistryLogicFactory13: KeeperRegistryLogicFactory
 let personas: Personas
 let owner: Signer
-let upkeepsV12: any[]
-let upkeepsV13: any[]
-let upkeepsV20: any[]
+let upkeepsV1: any[]
+let upkeepsV2: any[]
+let upkeepsV3: any[]
 let admins: string[]
 let admin0: Signer
 let admin1: Signer
@@ -57,9 +57,9 @@ const target1 = '0xfffffffffffffffffffffffffffffffffffffffe'
 const lastKeeper0 = '0x233a95ccebf3c9f934482c637c08b4015cdd6ddd'
 const lastKeeper1 = '0x233a95ccebf3c9f934482c637c08b4015cdd6ddc'
 enum UpkeepFormat {
-  V12,
-  V13,
-  V20,
+  V1,
+  V2,
+  V3,
   V4,
 }
 const idx = [123, 124]
@@ -81,7 +81,7 @@ const encodeConfig = (config: any) => {
   )
 }
 
-const encodeUpkeepV12 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
+const encodeUpkeepV1 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
   return ethers.utils.defaultAbiCoder.encode(
     [
       'uint256[]',
@@ -92,7 +92,7 @@ const encodeUpkeepV12 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
   )
 }
 
-const encodeUpkeepV13 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
+const encodeUpkeepV2 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
   return ethers.utils.defaultAbiCoder.encode(
     [
       'uint256[]',
@@ -103,7 +103,7 @@ const encodeUpkeepV13 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
   )
 }
 
-const encodeUpkeepV20 = (
+const encodeUpkeepV3 = (
   ids: number[],
   upkeeps: any[],
   checkDatas: any[],
@@ -362,31 +362,31 @@ describe('UpkeepTranscoder3_0', () => {
   describe('#transcodeUpkeeps', () => {
     const encodedData = '0xabcd'
 
-    it('reverts if the from type is not V12 or V13', async () => {
+    it('reverts if the from type is not V1 or V2', async () => {
       await evmRevert(
         transcoder.transcodeUpkeeps(
-          UpkeepFormat.V20,
-          UpkeepFormat.V12,
+          UpkeepFormat.V3,
+          UpkeepFormat.V1,
           encodedData,
         ),
       )
       await evmRevert(
         transcoder.transcodeUpkeeps(
           UpkeepFormat.V4,
-          UpkeepFormat.V12,
+          UpkeepFormat.V1,
           encodedData,
         ),
       )
     })
 
     context('when from and to versions are correct', () => {
-      upkeepsV20 = [
+      upkeepsV3 = [
         [executeGas, 2 ** 32 - 1, false, target0, amountSpent, balance, 0],
         [executeGas, 2 ** 32 - 1, false, target1, amountSpent, balance, 0],
       ]
 
-      it('transcodes V12 upkeeps to V20 properly, regardless of toVersion value', async () => {
-        upkeepsV12 = [
+      it('transcodes V1 upkeeps to V3 properly, regardless of toVersion value', async () => {
+        upkeepsV1 = [
           [
             balance,
             lastKeeper0,
@@ -408,18 +408,18 @@ describe('UpkeepTranscoder3_0', () => {
         ]
 
         const data = await transcoder.transcodeUpkeeps(
-          UpkeepFormat.V12,
-          UpkeepFormat.V12,
-          encodeUpkeepV12(idx, upkeepsV12, ['0xabcd', '0xffff']),
+          UpkeepFormat.V1,
+          UpkeepFormat.V1,
+          encodeUpkeepV1(idx, upkeepsV1, ['0xabcd', '0xffff']),
         )
         assert.equal(
-          encodeUpkeepV20(idx, upkeepsV20, ['0xabcd', '0xffff'], admins),
+          encodeUpkeepV3(idx, upkeepsV3, ['0xabcd', '0xffff'], admins),
           data,
         )
       })
 
-      it('transcodes V13 upkeeps to V20 properly, regardless of toVersion value', async () => {
-        upkeepsV13 = [
+      it('transcodes V2 upkeeps to V3 properly, regardless of toVersion value', async () => {
+        upkeepsV2 = [
           [
             balance,
             lastKeeper0,
@@ -443,12 +443,12 @@ describe('UpkeepTranscoder3_0', () => {
         ]
 
         const data = await transcoder.transcodeUpkeeps(
-          UpkeepFormat.V13,
-          UpkeepFormat.V13,
-          encodeUpkeepV13(idx, upkeepsV13, ['0xabcd', '0xffff']),
+          UpkeepFormat.V2,
+          UpkeepFormat.V2,
+          encodeUpkeepV2(idx, upkeepsV2, ['0xabcd', '0xffff']),
         )
         assert.equal(
-          encodeUpkeepV20(idx, upkeepsV20, ['0xabcd', '0xffff'], admins),
+          encodeUpkeepV3(idx, upkeepsV3, ['0xabcd', '0xffff'], admins),
           data,
         )
       })

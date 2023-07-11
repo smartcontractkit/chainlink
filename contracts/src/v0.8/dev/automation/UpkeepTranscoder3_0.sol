@@ -41,7 +41,7 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
     bytes calldata encodedUpkeeps
   ) external view override returns (bytes memory) {
     // this transcoder only handles upkeep V1/V2 to V3, all other formats are invalid.
-    if (fromVersion == UpkeepFormat.V12) {
+    if (fromVersion == UpkeepFormat.V1) {
       (uint256[] memory ids, UpkeepV1[] memory upkeepsV1, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV1[], bytes[])
@@ -70,7 +70,7 @@ contract UpkeepTranscoder3_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
       return abi.encode(ids, newUpkeeps, checkDatas, admins);
     }
 
-    if (fromVersion == UpkeepFormat.V13) {
+    if (fromVersion == UpkeepFormat.V2) {
       (uint256[] memory ids, UpkeepV2[] memory upkeepsV2, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV2[], bytes[])

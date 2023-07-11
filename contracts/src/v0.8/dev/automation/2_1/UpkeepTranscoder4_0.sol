@@ -2,12 +2,18 @@
 
 pragma solidity 0.8.16;
 
-import "../../../interfaces/automation/UpkeepTranscoderInterface.sol";
+import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
 import "../../../interfaces/TypeAndVersionInterface.sol";
 import {KeeperRegistryBase2_1 as R21} from "./KeeperRegistryBase2_1.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
-import "../../../automation/UpkeepFormat.sol";
 import {AutomationRegistryBaseInterface, UpkeepInfo} from "../../../interfaces/automation/2_0/AutomationRegistryInterface2_0.sol";
+
+enum UpkeepFormat {
+  V12,
+  V13,
+  V20,
+  V21
+}
 
 /**
  * @dev structs copied directly from source (can't import without changing the contract version)
@@ -47,7 +53,7 @@ struct UpkeepV20 {
  * @notice UpkeepTranscoder allows converting upkeep data from previous keeper registry versions 1.2, 1.3, and
  * 2.0 to registry 2.1
  */
-contract UpkeepTranscoder4_0 is UpkeepTranscoderInterface, TypeAndVersionInterface {
+contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInterface {
   error InvalidTranscoding();
 
   /**
@@ -72,12 +78,12 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
    * to ensure it is not used in any other migration paths.
    */
   function transcodeUpkeeps(
-    UpkeepFormat fromVersion,
-    UpkeepFormat,
+    uint8 fromVersion,
+    uint8,
     bytes calldata encodedUpkeeps
   ) external view override returns (bytes memory) {
     // v1.2 => v2.1
-    if (fromVersion == UpkeepFormat.V12) {
+    if (fromVersion == uint8(UpkeepFormat.V12)) {
       (uint256[] memory ids, UpkeepV12[] memory upkeepsV12, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV12[], bytes[])
@@ -105,7 +111,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
       return abi.encode(ids, newUpkeeps, admins, checkDatas, new bytes[](ids.length), new bytes[](ids.length));
     }
     // v1.3 => v2.1
-    if (fromVersion == UpkeepFormat.V13) {
+    if (fromVersion == uint8(UpkeepFormat.V13)) {
       (uint256[] memory ids, UpkeepV13[] memory upkeepsV13, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV13[], bytes[])
@@ -133,7 +139,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
       return abi.encode(ids, newUpkeeps, admins, checkDatas, new bytes[](ids.length), new bytes[](ids.length));
     }
     // v2.0 => v2.1
-    if (fromVersion == UpkeepFormat.V20) {
+    if (fromVersion == uint8(UpkeepFormat.V20)) {
       (uint256[] memory ids, UpkeepV20[] memory upkeepsV20, bytes[] memory checkDatas, address[] memory admins) = abi
         .decode(encodedUpkeeps, (uint256[], UpkeepV20[], bytes[], address[]));
       if (ids.length != upkeepsV20.length || ids.length != checkDatas.length) {
