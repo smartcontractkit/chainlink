@@ -408,14 +408,17 @@ func getEVMTransmitterID(jb *job.Job, chainSet evm.ChainSet, chainID int64, lggr
 	if spec.RelayConfig["sendingKeys"] == nil {
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []string{transmitterID}
 	} else if !spec.TransmitterID.Valid {
-		castedSendingKeys, ok := spec.RelayConfig["sendingKeys"].([]string)
+		sendingKeys, ok := spec.RelayConfig["sendingKeys"].([]string)
 		if !ok {
 			return "", errors.New("transmitterID is not defined and sending keys are of wrong type")
 		}
-		if len(castedSendingKeys) == 0 {
+		if len(sendingKeys) == 0 {
 			return "", errors.New("transmitterID is not defined and sending keys are empty")
 		}
-		transmitterID = castedSendingKeys[0]
+		if len(sendingKeys) > 1 && spec.PluginType != job.OCR2VRF {
+			return "", errors.New("only ocr2 vrf should have more than 1 sending key")
+		}
+		transmitterID = sendingKeys[0]
 	}
 
 	// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
