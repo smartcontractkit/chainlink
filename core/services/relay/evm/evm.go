@@ -34,8 +34,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	reportcodecv0 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v0"
 	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
-	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -113,8 +113,8 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 		return nil, errors.WithStack(err)
 	}
 
-	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV1"))
-	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV2"))
+	reportCodecV0 := reportcodecv0.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV1"))
+	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV2"))
 
 	if !relayConfig.EffectiveTransmitterID.Valid {
 		return nil, errors.New("EffectiveTransmitterID must be specified")
@@ -130,7 +130,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	}
 	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, *relayConfig.FeedID)
 
-	return NewMercuryProvider(configWatcher, transmitter, reportCodecV1, reportCodecV2, mercuryConfig.ReportSchemaVersion, r.lggr), nil
+	return NewMercuryProvider(configWatcher, transmitter, reportCodecV0, reportCodecV1, mercuryConfig.ReportSchemaVersion, r.lggr), nil
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {

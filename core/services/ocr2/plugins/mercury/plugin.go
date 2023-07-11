@@ -7,8 +7,8 @@ import (
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
+	relaymercuryv0 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v0"
 	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
-	relaymercuryv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	mercuryv0 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v0"
 	mercuryv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
-	mercuryv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
 )
 
 type Config interface {
@@ -52,26 +52,25 @@ func NewServices(
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
 	switch ocr2Provider.ReportSchemaVersion() {
-	case 2:
-		ds := mercuryv2.NewDataSource(
-			pipelineRunner,
-			jb,
-			*jb.PipelineSpec,
-			lggr,
-			runResults,
-			chEnhancedTelem,
-			chainHeadTracker,
-			ocr2Provider.ContractTransmitter(),
-			pluginConfig.InitialBlockNumber.Ptr(),
-		)
-		argsNoPlugin.MercuryPluginFactory = relaymercuryv2.NewFactory(
-			ds,
-			lggr,
-			ocr2Provider.OnchainConfigCodec(),
-			ocr2Provider.ReportCodecV2(),
-		)
-	default:
-		// defaulting to v1 for backwards compatibility
+		case 0:
+			ds := mercuryv0.NewDataSource(
+				pipelineRunner,
+				jb,
+				*jb.PipelineSpec,
+				lggr,
+				runResults,
+				chEnhancedTelem,
+				chainHeadTracker,
+				ocr2Provider.ContractTransmitter(),
+				pluginConfig.InitialBlockNumber.Ptr(),
+			)
+			argsNoPlugin.MercuryPluginFactory = relaymercuryv0.NewFactory(
+				ds,
+				lggr,
+				ocr2Provider.OnchainConfigCodec(),
+				ocr2Provider.ReportCodecV0(),
+			)
+	case 1:
 		ds := mercuryv1.NewDataSource(
 			pipelineRunner,
 			jb,
@@ -89,6 +88,8 @@ func NewServices(
 			ocr2Provider.OnchainConfigCodec(),
 			ocr2Provider.ReportCodecV1(),
 		)
+	default:
+		panic("unknown schema version")
 	}
 
 	oracle, err := libocr2.NewOracle(argsNoPlugin)
