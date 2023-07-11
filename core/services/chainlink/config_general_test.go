@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	maps "golang.org/x/exp/maps"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -244,14 +246,7 @@ func assertDeepEqualityMercurySecrets(expected toml.MercurySecrets, actual toml.
 
 func merge(map1 toml.MercurySecrets, map2 toml.MercurySecrets) *toml.MercurySecrets {
 	combinedMap := make(map[string]toml.MercuryCredentials)
-
-	for key, value := range map1.Credentials {
-		combinedMap[key] = value
-	}
-
-	for key, value := range map2.Credentials {
-		combinedMap[key] = value
-	}
-
+	maps.Copy(combinedMap, map1.Credentials)
+	maps.Copy(combinedMap, map2.Credentials)
 	return &toml.MercurySecrets{Credentials: combinedMap}
 }
