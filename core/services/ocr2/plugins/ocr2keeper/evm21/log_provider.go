@@ -16,6 +16,7 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -43,7 +44,7 @@ type LogProvider struct {
 }
 
 func LogProviderFilterName(addr common.Address) string {
-	return logpoller.FilterName("OCR2KeeperRegistry - LogProvider", addr)
+	return logpoller.FilterName("KeepersRegistry LogProvider", addr)
 }
 
 func NewLogProvider(
@@ -60,7 +61,11 @@ func NewLogProvider(
 		return nil, err
 	}
 
-	abi, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
+	keeperABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+	}
+	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
@@ -88,7 +93,7 @@ func NewLogProvider(
 		lookbackBlocks:    lookbackBlocks,
 		registry:          contract,
 		client:            client,
-		packer:            NewEvmRegistryPackerV2_1(abi),
+		packer:            NewEvmRegistryPackerV2_1(keeperABI, utilsABI),
 		txCheckBlockCache: pluginutils.NewCache[string](time.Hour),
 		cacheCleaner:      pluginutils.NewIntervalCacheCleaner[string](time.Minute),
 	}, nil

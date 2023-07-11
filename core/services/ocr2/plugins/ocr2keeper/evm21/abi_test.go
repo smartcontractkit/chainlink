@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -10,10 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
-func TestUnpackTransmitTxInputErrors(t *testing.T) {
+func TestPacker_UnpackTransmitTxInputErrors(t *testing.T) {
 
 	tests := []struct {
 		Name    string
@@ -30,22 +34,15 @@ func TestUnpackTransmitTxInputErrors(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			abi, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-			assert.Nil(t, err)
-
-			packer := &evmRegistryPackerV2_1{abi: abi}
+			packer, err := newPacker()
+			assert.NoError(t, err)
 			_, err = packer.UnpackTransmitTxInput(hexutil.MustDecode(test.RawData))
 			assert.NotNil(t, err)
 		})
 	}
 }
 
-func TestUnpackPerformResult(t *testing.T) {
-	registryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	if err != nil {
-		assert.Nil(t, err)
-	}
-
+func TestPacker_UnpackPerformResult(t *testing.T) {
 	tests := []struct {
 		Name    string
 		RawData string
@@ -57,7 +54,8 @@ func TestUnpackPerformResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := &evmRegistryPackerV2_1{abi: registryABI}
+			packer, err := newPacker()
+			assert.NoError(t, err)
 			rs, err := packer.UnpackPerformResult(test.RawData)
 			assert.Nil(t, err)
 			assert.True(t, rs)
@@ -65,12 +63,7 @@ func TestUnpackPerformResult(t *testing.T) {
 	}
 }
 
-func TestUnpackCheckCallbackResult(t *testing.T) {
-	registryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	if err != nil {
-		assert.Nil(t, err)
-	}
-
+func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 	tests := []struct {
 		Name          string
 		CallbackResp  []byte
@@ -106,7 +99,9 @@ func TestUnpackCheckCallbackResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := &evmRegistryPackerV2_1{abi: registryABI}
+			packer, err := newPacker()
+			assert.NoError(t, err)
+
 			needed, pd, failureReason, gasUsed, err := packer.UnpackCheckCallbackResult(test.CallbackResp)
 
 			if test.ErrorString != "" {
@@ -122,9 +117,7 @@ func TestUnpackCheckCallbackResult(t *testing.T) {
 	}
 }
 
-func TestUnpackLogTriggerConfig(t *testing.T) {
-	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	assert.NoError(t, err)
+func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		raw     []byte
@@ -154,11 +147,10 @@ func TestUnpackLogTriggerConfig(t *testing.T) {
 		},
 	}
 
-	packer := &evmRegistryPackerV2_1{abi: keeperRegistryABI}
-
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-
+			packer, err := newPacker()
+			assert.NoError(t, err)
 			res, err := packer.UnpackLogTriggerConfig(tc.raw)
 			if tc.errored {
 				assert.Error(t, err)
@@ -168,4 +160,103 @@ func TestUnpackLogTriggerConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPacker_PackingTrigger(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      ocr2keepers.UpkeepIdentifier
+		trigger triggerWrapper
+		encoded []byte
+		err     error
+	}{
+		{
+			"happy flow log trigger",
+			append([]byte{1}, common.LeftPadBytes([]byte{1}, 15)...),
+			triggerWrapper{
+				BlockNum:  1,
+				BlockHash: common.HexToHash("0x01111111"),
+				LogIndex:  1,
+				TxHash:    common.HexToHash("0x01111111"),
+			},
+			func() []byte {
+				b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000001111111000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+				return b
+			}(),
+			nil,
+		},
+		{
+			"happy flow conditional trigger",
+			append([]byte{1}, common.LeftPadBytes([]byte{0}, 15)...),
+			triggerWrapper{
+				BlockNum:  1,
+				BlockHash: common.HexToHash("0x01111111"),
+			},
+			func() []byte {
+				b, _ := hexutil.Decode("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+				return b
+			}(),
+			nil,
+		},
+		{
+			"invalid type",
+			append([]byte{1}, common.LeftPadBytes([]byte{8}, 15)...),
+			triggerWrapper{
+				BlockNum:  1,
+				BlockHash: common.HexToHash("0x01111111"),
+			},
+			[]byte{},
+			fmt.Errorf("unknown trigger type: %d", 8),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			packer, err := newPacker()
+			assert.NoError(t, err)
+			id, ok := big.NewInt(0).SetString(hexutil.Encode(tc.id)[2:], 16)
+			assert.True(t, ok)
+
+			encoded, err := packer.PackTrigger(id, tc.trigger)
+			if tc.err != nil {
+				assert.EqualError(t, err, tc.err.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.encoded, encoded)
+				decoded, err := packer.UnpackTrigger(id, encoded)
+				assert.NoError(t, err)
+				assert.Equal(t, tc.trigger.BlockNum, decoded.BlockNum)
+			}
+		})
+	}
+
+	t.Run("unpacking invalid trigger", func(t *testing.T) {
+		packer, err := newPacker()
+		assert.NoError(t, err)
+		_, err = packer.UnpackTrigger(big.NewInt(0), []byte{1, 2, 3})
+		assert.Error(t, err)
+	})
+
+	t.Run("unpacking unknown type", func(t *testing.T) {
+		packer, err := newPacker()
+		assert.NoError(t, err)
+		uid := append([]byte{1}, common.LeftPadBytes([]byte{8}, 15)...)
+		id, ok := big.NewInt(0).SetString(hexutil.Encode(uid)[2:], 16)
+		assert.True(t, ok)
+		decoded, _ := hexutil.Decode("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+		_, err = packer.UnpackTrigger(id, decoded)
+		assert.EqualError(t, err, "unknown trigger type: 8")
+	})
+}
+
+func newPacker() (*evmRegistryPackerV2_1, error) {
+	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
+	if err != nil {
+		return nil, err
+	}
+	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
+	if err != nil {
+		return nil, err
+	}
+	return NewEvmRegistryPackerV2_1(keepersABI, utilsABI), nil
 }
