@@ -225,10 +225,8 @@ const encodeLogTrigger = (logTrigger: LogTrigger) => {
   )
 }
 
-const encodeLog = (log: Log) => {
-  return (
-    '0x' + automationUtils.interface.encodeFunctionData('_log', [log]).slice(10)
-  )
+const encodeCheckLogCalldata = (log: Log) => {
+  return automationUtils.interface.encodeFunctionData('_log', [log])
 }
 
 const encodeReport = (report: Report) => {
@@ -3192,7 +3190,7 @@ describe('KeeperRegistry2_1', () => {
 
         await ltUpkeep.mock.checkLog.withArgs(log).returns(true, '0x1234')
 
-        const checkData = encodeLog(log)
+        const checkData = encodeCheckLogCalldata(log)
 
         const checkUpkeepResult = await registry
           .connect(zeroAddress)

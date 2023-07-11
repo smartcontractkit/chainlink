@@ -59,7 +59,7 @@ contract KeeperRegistryLogicA2_1 is
       uint256 linkNative
     )
   {
-    return checkUpkeep(id, s_checkData[id]);
+    return checkUpkeep(id, abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]));
   }
 
   /**
@@ -68,7 +68,7 @@ contract KeeperRegistryLogicA2_1 is
    */
   function checkUpkeep(
     uint256 id,
-    bytes memory checkData
+    bytes memory checkCallData
   )
     public
     cannotExecute
@@ -105,14 +105,8 @@ contract KeeperRegistryLogicA2_1 is
       return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.executeGas, 0, 0);
     }
 
-    bytes memory callData;
-    if (triggerType == Trigger.CONDITION) {
-      callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
-    } else {
-      callData = bytes.concat(CHECK_LOG_SELECTOR, checkData);
-    }
     gasUsed = gasleft();
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(checkCallData);
     gasUsed = gasUsed - gasleft();
 
     if (!success) {
