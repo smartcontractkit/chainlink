@@ -44,7 +44,7 @@ func TestJsonRPCRequest_Encode(t *testing.T) {
 	var msg api.Message
 	msg.Body = api.MessageBody{
 		MessageId: "aA-bB",
-		Sender:    "0x1234",
+		Receiver:  "0x1234",
 		Method:    "upload",
 	}
 	codec := api.JsonRPCCodec{}
@@ -54,7 +54,7 @@ func TestJsonRPCRequest_Encode(t *testing.T) {
 	decoded, err := codec.DecodeRequest(bytes)
 	require.NoError(t, err)
 	require.Equal(t, "aA-bB", decoded.Body.MessageId)
-	require.Equal(t, "0x1234", decoded.Body.Sender)
+	require.Equal(t, "0x1234", decoded.Body.Receiver)
 	require.Equal(t, "upload", decoded.Body.Method)
 }
 
@@ -76,7 +76,7 @@ func TestJsonRPCResponse_Encode(t *testing.T) {
 	var msg api.Message
 	msg.Body = api.MessageBody{
 		MessageId: "aA-bB",
-		Sender:    "0x1234",
+		Receiver:  "0x1234",
 		Method:    "upload",
 	}
 	codec := api.JsonRPCCodec{}
@@ -86,6 +86,6 @@ func TestJsonRPCResponse_Encode(t *testing.T) {
 	decoded, err := codec.DecodeResponse(bytes)
 	require.NoError(t, err)
 	require.Equal(t, "aA-bB", decoded.Body.MessageId)
-	require.Equal(t, "0x1234", decoded.Body.Sender)
+	require.Equal(t, "0x1234", decoded.Body.Receiver)
 	require.Equal(t, "upload", decoded.Body.Method)
 }

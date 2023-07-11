@@ -333,10 +333,11 @@ func TestNewUserCache(t *testing.T) {
 }
 
 func TestSetupSolanaRelayer(t *testing.T) {
-	reg := plugins.NewLoopRegistry()
+	lggr := logger.TestLogger(t)
+	reg := plugins.NewLoopRegistry(lggr)
 	ks := mocks.NewSolana(t)
 	rf := cmd.RelayerFactory{
-		Logger:        logger.TestLogger(t),
+		Logger:        lggr,
 		DB:            pgtest.NewSqlxDB(t),
 		GeneralConfig: configtest.NewGeneralConfig(t, nil),
 		LoopRegistry:  reg,
@@ -364,10 +365,11 @@ func TestSetupSolanaRelayer(t *testing.T) {
 }
 
 func TestSetupStarkNetRelayer(t *testing.T) {
-	reg := plugins.NewLoopRegistry()
+	lggr := logger.TestLogger(t)
+	reg := plugins.NewLoopRegistry(lggr)
 	ks := mocks.NewStarkNet(t)
 	rf := cmd.RelayerFactory{
-		Logger:        logger.TestLogger(t),
+		Logger:        lggr,
 		DB:            pgtest.NewSqlxDB(t),
 		GeneralConfig: configtest.NewGeneralConfig(t, nil),
 		LoopRegistry:  reg,
