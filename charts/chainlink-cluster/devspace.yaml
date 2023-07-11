@@ -1,0 +1,88 @@
+version: v2beta1
+name: chainlink
+
+vars:
+  DEVSPACE_IMAGE:
+    source: env
+
+# This is a list of `pipelines` that DevSpace can execute (you can define your own)
+pipelines:
+  # This is the pipeline for the main command: `devspace dev` (or `devspace run-pipeline dev`)
+  dev:
+    run: |-
+      run_dependencies --all       # 1. Deploy any projects this project needs (see "dependencies")
+      ensure_pull_secrets --all    # 2. Ensure pull secrets
+      create_deployments --all 
+      start_dev app                # 4. Start dev mode "app" (see "dev" section)
+  # You can run this pipeline via `devspace deploy` (or `devspace run-pipeline deploy`)
+  deploy:
+    run: |-
+      run_dependencies --all                            # 1. Deploy any projects this project needs (see "dependencies")
+      ensure_pull_secrets --all                         # 2. Ensure pull secrets
+      build_images --all -t $(git describe --always)    # 3. Build, tag (git commit hash) and push all images (see "images")
+      create_deployments --all                          # 4. Deploy Helm charts and manifests specfied as "deployments"
+
+images:
+  app:
+    image: ${DEVSPACE_IMAGE}
+    dockerfile: ../../core/chainlink.devspace.Dockerfile
+    context: ../..
+
+# This is a list of `deployments` that DevSpace can create for this project
+deployments:
+  app:
+    helm:
+      chart:
+        name: cl-cluster
+        path: .
+      values:
+        chainlink:
+          nodes:
+            - name: node-1
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+            - name: node-2
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+            - name: node-3
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+            - name: node-4
+              image: ${DEVSPACE_IMAGE}
+              version: latest
+
+# This is a list of `dev` containers that are based on the containers created by your deployments
+dev:
+  app:
+    container: node
+    labelSelector:
+      instance: node-1
+    # Sync files between the local filesystem and the development container
+    sync:
+      - path: ../../core/services/chainlink:/home/root/chainlink/core/services/chainlink
+      - path: ../..:/home/root/chainlink
+        uploadExcludePaths:
+          - .github
+          - charts
+          - contracts
+          - node_modules
+          - integration
+          - integration-scripts
+          - integration-tests
+          - testdata
+        uploadExcludeFile: .dockerignore
+    # Open a terminal and use the following command to start Chainlink
+    terminal:
+      command: bash
+    ssh:
+      enabled: true
+    proxyCommands:
+      - command: devspace
+      - command: kubectl
+      - command: helm
+      - gitCredentials: true
+    ports:
+      - port: "2345"
+      - port: "6688"
+    open:
+      - url: http://localhost:6688

@@ -31,6 +31,10 @@ mkShell {
     golangci-lint
     github-cli
 
+    # deployment
+    kubectl
+    kubernetes-helm
+
     # gofuzz
   ] ++ lib.optionals stdenv.isLinux [
     # some dependencies needed for node-gyp on pnpm install
@@ -46,5 +50,14 @@ mkShell {
   shellHook = ''
     export GOPATH=$HOME/go
     export PATH=$GOPATH/bin:$PATH
+
+    # devspace binary
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "your root password will be prompted, required for k8s filesync to work"
+        echo "downloading..."
+        curl -L -o devspace "https://github.com/loft-sh/devspace/releases/latest/download/devspace-darwin-amd64" && sudo install -c -m 0755 devspace /usr/local/bin
+    else
+        echo "devspace is only supported on OS X, please install it manually on other platforms https://www.devspace.sh/docs/getting-started/installation"
+    fi
   '';
 }
