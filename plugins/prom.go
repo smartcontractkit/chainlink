@@ -60,6 +60,7 @@ func NewPromServer(port int, lggr logger.Logger, opts ...PromServerOpt) *PromSer
 
 // Start start HTTP server on specified port to handle metrics requests
 func (p *PromServer) Start() error {
+	p.lggr.Debugf("Starting prom server on port %d", p.port)
 	err := p.setupListener()
 	if err != nil {
 		return err
