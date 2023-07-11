@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_log_automation"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 )
 
 type LogDataPacker interface {
@@ -17,8 +17,8 @@ type logEventsPacker struct {
 	abi abi.ABI
 }
 
-func NewLogEventsPacker(logDataABI abi.ABI) *logEventsPacker {
-	return &logEventsPacker{abi: logDataABI}
+func NewLogEventsPacker(utilsABI abi.ABI) *logEventsPacker {
+	return &logEventsPacker{abi: utilsABI}
 }
 
 func (p *logEventsPacker) PackLogData(log logpoller.Log) ([]byte, error) {
@@ -26,7 +26,7 @@ func (p *logEventsPacker) PackLogData(log logpoller.Log) ([]byte, error) {
 	for _, topic := range log.GetTopics() {
 		topics = append(topics, topic)
 	}
-	b, err := p.abi.Pack("checkLog", &i_log_automation.Log{
+	b, err := p.abi.Pack("_log", &automation_utils_2_1.Log{
 		Index:       big.NewInt(log.LogIndex),
 		TxIndex:     big.NewInt(0), // TODO
 		TxHash:      log.TxHash,
