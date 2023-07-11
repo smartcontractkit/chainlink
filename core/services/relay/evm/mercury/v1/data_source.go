@@ -13,7 +13,6 @@ import (
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -26,12 +25,6 @@ type Runner interface {
 	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run pipeline.Run, trrs pipeline.TaskRunResults, err error)
 }
 
-type Fetcher interface {
-	// FetchInitialMaxFinalizedBlockNumber should fetch the initial max
-	// finalized block number from the mercury server.
-	FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error)
-}
-
 type datasource struct {
 	pipelineRunner Runner
 	jb             job.Job
@@ -41,21 +34,56 @@ type datasource struct {
 
 	mu sync.RWMutex
 
-	chEnhancedTelem    chan<- ocrcommon.EnhancedTelemetryMercuryData
-	chainHeadTracker   mercury.ChainHeadTracker
-	fetcher            Fetcher
-	initialBlockNumber *int64
+	chEnhancedTelem chan<- ocrcommon.EnhancedTelemetryMercuryData
 }
 
 var _ relaymercuryv1.DataSource = &datasource{}
 
-func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker mercury.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber}
+func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, enhancedTelemChan}
 }
 
-func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs relaymercuryv1.Observation, err error) {
-	// todo
-	return relaymercuryv1.Observation{}, err
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp) (obs relaymercuryv1.Observation, err error) {
+	var trrs pipeline.TaskRunResults
+	var run pipeline.Run
+	run, trrs, err = ds.executeRun(ctx)
+	if err != nil {
+		err = fmt.Errorf("Observe failed while executing run: %w", err)
+		return
+	}
+	select {
+	case ds.runResults <- run:
+	default:
+		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
+	}
+
+	var finaltrrs []pipeline.TaskRunResult
+	for _, trr := range trrs {
+		if trr.IsTerminal() {
+			finaltrrs = append(finaltrrs, trr)
+		}
+	}
+
+	var parsed parseOutput
+	parsed, err = ds.parse(finaltrrs)
+	if err != nil {
+		err = fmt.Errorf("Observe failed while parsing run results: %w", err)
+		return
+	}
+	obs.BenchmarkPrice = parsed.benchmarkPrice
+	obs.Bid = parsed.bid
+	obs.Ask = parsed.ask
+
+	// todo: implement telemetry
+	// if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
+	// 	ocrcommon.EnqueueEnhancedTelem(ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
+	// 		TaskRunResults: trrs,
+	// 		Observation:    obs,
+	// 		RepTimestamp:   repts,
+	// 	})
+	// }
+
+	return obs, err
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
@@ -72,12 +100,6 @@ type parseOutput struct {
 	ask            relaymercury.ObsResult[*big.Int]
 }
 
-// parse expects the output of observe to be three values, in the following order:
-// 1. benchmark price
-// 2. bid
-// 3. ask
-//
-// returns error on parse errors: if something is the wrong type
 func (ds *datasource) parse(trrs pipeline.TaskRunResults) (o parseOutput, merr error) {
 	var finaltrrs []pipeline.TaskRunResult
 	for _, trr := range trrs {
