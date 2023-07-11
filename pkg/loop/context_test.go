@@ -22,7 +22,7 @@ func TestContextValues(t *testing.T) {
 			ContractID:    utils.MustParseURL("http://example.com"),
 			FeedID:        big.NewInt(1234567890987654321),
 			TransmitterID: "0xfake-test-id",
-		}, len: 8},
+		}, len: 10},
 		{name: "feedless", vals: ContextValues{
 			JobID:      42,
 			JobName:    "name",
