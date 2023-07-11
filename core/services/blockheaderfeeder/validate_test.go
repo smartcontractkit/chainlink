@@ -132,7 +132,7 @@ getBlockhashesBatchSize = 20
 storeBlockhashesBatchSize = 10
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Equal(t, err.Error(), `at least one of "coordinatorV1Address" and "coordinatorV2Address" must be set`)
+				require.Equal(t, err.Error(), `at least one of "coordinatorV1Address", "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`)
 			},
 		},
 		{
