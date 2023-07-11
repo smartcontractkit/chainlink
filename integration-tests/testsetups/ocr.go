@@ -3,15 +3,16 @@ package testsetups
 
 import (
 	"context"
+	"fmt"
 	"math/big"
-	"math/rand"
 	"testing"
 	"time"
 
 	geth "github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -29,8 +30,9 @@ import (
 
 // OCRSoakTest defines a typical OCR soak test
 type OCRSoakTest struct {
-	Inputs       *OCRSoakTestInputs
-	TestReporter testreporters.OCRSoakTestReporter
+	Inputs                *OCRSoakTestInputs
+	TestReporter          testreporters.OCRSoakTestReporter
+	OperatorForwarderFlow bool
 
 	testEnvironment *environment.Environment
 	bootstrapNode   *client.Chainlink
@@ -38,10 +40,14 @@ type OCRSoakTest struct {
 	chainClient     blockchain.EVMClient
 	mockServer      *ctfClient.MockserverClient
 	mockPath        string
+	filterQuery     geth.FilterQuery
 
-	ocrInstances          []contracts.OffchainAggregator
-	ocrInstanceMap        map[string]contracts.OffchainAggregator // address : instance
-	OperatorForwarderFlow bool
+	expectedEvents []*testreporters.OCRTestState
+	actualEvents   []*testreporters.OCRTestState
+	combinedEvents [][]string
+
+	ocrInstances   []contracts.OffchainAggregator
+	ocrInstanceMap map[string]contracts.OffchainAggregator // address : instance
 }
 
 // OCRSoakTestInputs define required inputs to run an OCR soak test
@@ -64,9 +70,10 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 	return &OCRSoakTest{
 		Inputs: inputs,
 		TestReporter: testreporters.OCRSoakTestReporter{
-			ContractReports:       make(map[string]*testreporters.OCRSoakTestReport),
 			ExpectedRoundDuration: inputs.ExpectedRoundTime,
 		},
+		expectedEvents: make([]*testreporters.OCRTestState, 0),
+		actualEvents:   make([]*testreporters.OCRTestState, 0),
 		mockPath:       "ocr",
 		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
 	}
@@ -139,11 +146,6 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 	require.NoError(t, err, "Error waiting for OCR contracts to be deployed")
 	for _, ocrInstance := range o.ocrInstances {
 		o.ocrInstanceMap[ocrInstance.Address()] = ocrInstance
-		o.TestReporter.ContractReports[ocrInstance.Address()] = testreporters.NewOCRSoakTestReport(
-			ocrInstance.Address(),
-			o.Inputs.StartingAdapterValue,
-			o.Inputs.ExpectedRoundTime,
-		)
 	}
 	l.Info().Msg("OCR Soak Test Setup Complete")
 }
@@ -151,6 +153,24 @@ func (o *OCRSoakTest) Setup(t *testing.T, env *environment.Environment) {
 // Run starts the OCR soak test
 func (o *OCRSoakTest) Run(t *testing.T) {
 	l := utils.GetTestLogger(t)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
+	cancel()
+	require.NoError(t, err, "Error getting current block number")
+
+	ocrAddresses := make([]common.Address, len(o.ocrInstances))
+	for i, ocrInstance := range o.ocrInstances {
+		ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
+	}
+	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
+	require.NoError(t, err, "Error retrieving OCR contract ABI")
+	o.filterQuery = geth.FilterQuery{
+		Addresses: ocrAddresses,
+		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
+		FromBlock: big.NewInt(0).SetUint64(latestBlockNum),
+	}
+
 	if o.OperatorForwarderFlow {
 		actions.CreateOCRJobsWithForwarder(t, o.ocrInstances, o.bootstrapNode, o.workerNodes, 5, o.mockServer)
 	} else {
@@ -164,46 +184,46 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 		Int("Number of OCR Contracts", len(o.ocrInstances)).
 		Msg("Starting OCR Soak Test")
 
-	testDuration := time.NewTimer(o.Inputs.TestDuration)
+	testDuration := time.After(o.Inputs.TestDuration)
 
 	// *********************
 	// ***** Test Loop *****
 	// *********************
 	lastAdapterValue, currentAdapterValue := o.Inputs.StartingAdapterValue, o.Inputs.StartingAdapterValue*25
-	newRoundTrigger, expiredRoundTrigger := time.NewTimer(0), time.NewTimer(o.Inputs.RoundTimeout)
-	answerUpdated := make(chan *offchainaggregator.OffchainAggregatorAnswerUpdated)
-	o.subscribeOCREvents(t, answerUpdated)
-	remainingExpectedAnswers := len(o.ocrInstances)
-	testOver := false
+	newRoundTrigger := time.NewTimer(0)
+	defer newRoundTrigger.Stop()
+	err = o.subscribeOCREvents(l)
+	require.NoError(t, err, "Error subscribing to OCR events")
+
+testLoop:
 	for {
 		select {
-		case <-testDuration.C:
-			testOver = true
-			l.Warn().Msg("Soak Test Duration Reached. Completing Final Round")
-		case answer := <-answerUpdated:
-			if o.processNewAnswer(t, answer) {
-				remainingExpectedAnswers--
-			}
-			if remainingExpectedAnswers <= 0 {
-				if testOver {
-					l.Info().Msg("Soak Test Complete")
-					return
-				}
-				l.Info().
-					Str("Wait time", o.Inputs.TimeBetweenRounds.String()).
-					Msg("All Expected Answers Reported. Waiting to Start a New Round")
-				remainingExpectedAnswers = len(o.ocrInstances)
-				newRoundTrigger, expiredRoundTrigger = time.NewTimer(o.Inputs.TimeBetweenRounds), time.NewTimer(o.Inputs.RoundTimeout)
-			}
+		case <-testDuration:
+			break testLoop
 		case <-newRoundTrigger.C:
 			lastAdapterValue, currentAdapterValue = currentAdapterValue, lastAdapterValue
 			o.triggerNewRound(t, currentAdapterValue)
-		case <-expiredRoundTrigger.C:
-			l.Warn().Msg("OCR round timed out")
-			expiredRoundTrigger = time.NewTimer(o.Inputs.RoundTimeout)
-			remainingExpectedAnswers = len(o.ocrInstances)
-			o.triggerNewRound(t, rand.Intn(o.Inputs.StartingAdapterValue*25-1-o.Inputs.StartingAdapterValue)+o.Inputs.StartingAdapterValue) // #nosec G404 | Just triggering a random number
+			newRoundTrigger.Reset(o.Inputs.TimeBetweenRounds)
+		case t := <-o.chainClient.ConnectionIssue():
+			o.expectedEvents = append(o.expectedEvents, &testreporters.OCRTestState{
+				Time:    t,
+				Message: "Lost Connection",
+			})
+		case t := <-o.chainClient.ConnectionRestored():
+			o.expectedEvents = append(o.expectedEvents, &testreporters.OCRTestState{
+				Time:    t,
+				Message: "Reconnected",
+			})
 		}
+	}
+
+	l.Info().Msg("Test Complete, collecting on-chain events to be collected")
+	// Keep trying to collect events until we get them, no
+	timeout := time.Second * 5
+	err = o.collectEvents(l, timeout)
+	for err != nil {
+		timeout *= 2
+		err = o.collectEvents(l, timeout)
 	}
 }
 
@@ -222,94 +242,95 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 // ****** Helpers ******
 // *********************
 
-func (o *OCRSoakTest) processNewEvent(
-	t *testing.T,
-	eventSub geth.Subscription,
-	answerUpdated chan *offchainaggregator.OffchainAggregatorAnswerUpdated,
-	event *types.Log,
-	eventDetails *abi.Event,
-	ocrInstance contracts.OffchainAggregator,
-	contractABI *abi.ABI,
-) {
-	l := utils.GetTestLogger(t)
-	errorChan := make(chan error)
-	eventConfirmed := make(chan bool)
-	err := o.chainClient.ProcessEvent(eventDetails.Name, event, eventConfirmed, errorChan)
+// subscribeOCREvents subscribes to OCR events and logs them to the test logger
+func (o *OCRSoakTest) subscribeOCREvents(logger zerolog.Logger) error {
+	eventLogs := make(chan types.Log)
+	errorChan := make(chan error, 1)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	eventSub, err := o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
 	if err != nil {
-		l.Error().Err(err).Str("Hash", event.TxHash.Hex()).Str("Event", eventDetails.Name).Msg("Error trying to process event")
-		return
+		errorChan <- err
 	}
-	l.Debug().
-		Str("Event", eventDetails.Name).
-		Str("Address", event.Address.Hex()).
-		Str("Hash", event.TxHash.Hex()).
-		Msg("Attempting to Confirm Event")
-	for {
-		select {
-		case err := <-errorChan:
-			l.Error().Err(err).Msg("Error while confirming event")
-			return
-		case confirmed := <-eventConfirmed:
-			if confirmed {
-				if eventDetails.Name == "AnswerUpdated" { // Send AnswerUpdated events to answerUpdated channel to handle in main loop
-					answer, err := ocrInstance.ParseEventAnswerUpdated(*event)
-					require.NoError(t, err, "Parsing AnswerUpdated event log in OCR instance shouldn't fail")
-					answerUpdated <- answer
+
+	go func() {
+		defer cancel()
+		for {
+			select {
+			case event := <-eventLogs:
+				logger.Info().
+					Str("Address", event.Address.Hex()).
+					Str("Event", "AnswerUpdated").
+					Uint64("Block Number", event.BlockNumber).
+					Msg("Found Event")
+			case err = <-eventSub.Err():
+				errorChan <- err
+			case err = <-errorChan:
+				logger.Warn().
+					Err(err).
+					Interface("Query", o.filterQuery).
+					Msg("Error while subscribed to OCR Logs. Resubscribing")
+				ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+				eventSub, err = o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
+				if err != nil { // We failed subscription, come on back and try again
+					errorChan <- err
 				}
-				l.Info().
-					Str("Contract", event.Address.Hex()).
-					Str("Event Name", eventDetails.Name).
-					Uint64("Header Number", event.BlockNumber).
-					Msg("Contract Event Published")
 			}
-			return
 		}
-	}
-}
+	}()
 
-// marshalls new answer events into manageable Go struct for further processing and reporting
-func (o *OCRSoakTest) processNewAnswer(t *testing.T, newAnswer *offchainaggregator.OffchainAggregatorAnswerUpdated) bool {
-	l := utils.GetTestLogger(t)
-	// Updated Info
-	answerAddress := newAnswer.Raw.Address.Hex()
-	_, tracked := o.TestReporter.ContractReports[answerAddress]
-	if !tracked {
-		l.Error().Str("Untracked Address", answerAddress).Msg("Received AnswerUpdated event on an untracked OCR instance")
-		return false
-	}
-	processedAnswer := &testreporters.OCRAnswerUpdated{}
-	processedAnswer.ContractAddress = newAnswer.Raw.Address.Hex()
-	processedAnswer.UpdatedTime = time.Unix(newAnswer.UpdatedAt.Int64(), 0)
-	processedAnswer.UpdatedRoundId = newAnswer.RoundId.Uint64()
-	processedAnswer.UpdatedBlockNum = newAnswer.Raw.BlockNumber
-	processedAnswer.UpdatedAnswer = int(newAnswer.Current.Int64())
-	processedAnswer.UpdatedBlockHash = newAnswer.Raw.BlockHash.Hex()
-	processedAnswer.RoundTxHash = newAnswer.Raw.TxHash.Hex()
-
-	// On-Chain Info
-	updatedOCRInstance := o.ocrInstanceMap[answerAddress]
-	onChainData, err := updatedOCRInstance.GetRound(context.Background(), newAnswer.RoundId)
-	require.NoError(t, err, "Error retrieving on-chain data for '%s' at round '%d'", answerAddress, processedAnswer.UpdatedRoundId)
-	processedAnswer.OnChainAnswer = int(onChainData.Answer.Int64())
-	processedAnswer.OnChainRoundId = onChainData.RoundId.Uint64()
-
-	return o.TestReporter.ContractReports[answerAddress].NewAnswerUpdated(processedAnswer)
+	return nil
 }
 
 // triggers a new OCR round by setting a new mock adapter value
 func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
 	l := utils.GetTestLogger(t)
-	startingBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
-	require.NoError(t, err, "Error retrieving latest block number")
 
-	for _, report := range o.TestReporter.ContractReports {
-		report.NewAnswerExpected(currentAdapterValue, startingBlockNum)
-	}
-	err = actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.workerNodes, o.mockServer)
+	err := actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.workerNodes, o.mockServer)
 	require.NoError(t, err, "Error setting adapter responses")
+	o.expectedEvents = append(o.expectedEvents, &testreporters.OCRTestState{
+		Time:    time.Now(),
+		Message: fmt.Sprintf("New Round Started, Adapter Value: %d", currentAdapterValue),
+	})
 	l.Info().
 		Int("Value", currentAdapterValue).
 		Msg("Starting a New OCR Round")
+}
+
+func (o *OCRSoakTest) collectEvents(logger zerolog.Logger, timeout time.Duration) error {
+	start := time.Now()
+	logger.Info().Msg("Collecting on-chain events")
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	contractEvents, err := o.chainClient.FilterLogs(ctx, o.filterQuery)
+	if err != nil {
+		log.Error().
+			Err(err).
+			Str("Time", time.Since(start).String()).
+			Msg("Error collecting on-chain events")
+		return err
+	}
+
+	for _, event := range contractEvents {
+		if event.Removed {
+			continue
+		}
+		answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("Time", time.Since(start).String()).
+				Msg("Error collecting on-chain events")
+			return err
+		}
+		o.actualEvents = append(o.actualEvents, &testreporters.OCRTestState{
+			Time:    time.Unix(answerUpdated.UpdatedAt.Int64(), 0),
+			Message: fmt.Sprintf("%s Round: %d Answer: %d", event.Address.Hex(), answerUpdated.RoundId.Uint64(), answerUpdated.Current.Int64()),
+		})
+	}
+	logger.Info().
+		Str("Time", time.Since(start).String()).
+		Msg("Collected on-chain events")
+	return nil
 }
 
 // ensureValues ensures that all values needed to run the test are present
@@ -325,47 +346,4 @@ func (o *OCRSoakTest) ensureInputValues(t *testing.T) {
 	require.GreaterOrEqual(t, inputs.RoundTimeout, inputs.ExpectedRoundTime, "Expected RoundTimeout to be greater than ExpectedRoundTime")
 	require.NotNil(t, inputs.TimeBetweenRounds, "Expected TimeBetweenRounds to be set")
 	require.Less(t, inputs.TimeBetweenRounds, time.Hour, "TimeBetweenRounds must be less than 1 hour")
-}
-
-// subscribeToAnswerUpdatedEvent subscribes to the event log for AnswerUpdated event and
-// verifies if the answer is matching with the expected value
-func (o *OCRSoakTest) subscribeOCREvents(
-	t *testing.T,
-	answerUpdated chan *offchainaggregator.OffchainAggregatorAnswerUpdated,
-) {
-	l := utils.GetTestLogger(t)
-	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
-	require.NoError(t, err, "Getting contract abi for OCR shouldn't fail")
-	latestBlockNum, err := o.chainClient.LatestBlockNumber(context.Background())
-	require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
-	query := geth.FilterQuery{
-		FromBlock: big.NewInt(0).SetUint64(latestBlockNum),
-		Addresses: []common.Address{},
-	}
-	for i := 0; i < len(o.ocrInstances); i++ {
-		query.Addresses = append(query.Addresses, common.HexToAddress(o.ocrInstances[i].Address()))
-	}
-	eventLogs := make(chan types.Log)
-	sub, err := o.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-	require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
-
-	go func() {
-		defer sub.Unsubscribe()
-
-		for {
-			select {
-			case err := <-sub.Err():
-				l.Error().Err(err).Msg("Error while watching for new contract events. Retrying Subscription")
-				sub.Unsubscribe()
-
-				sub, err = o.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-				require.NoError(t, err, "Subscribing to contract event log for OCR instance shouldn't fail")
-			case vLog := <-eventLogs:
-				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
-				require.NoError(t, err, "Getting event details for OCR instances shouldn't fail")
-
-				go o.processNewEvent(t, sub, answerUpdated, &vLog, eventDetails, o.ocrInstances[0], contractABI)
-			}
-		}
-	}()
 }
