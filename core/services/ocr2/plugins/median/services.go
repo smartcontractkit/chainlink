@@ -104,8 +104,9 @@ func NewMedianServices(ctx context.Context,
 	}, lggr)
 
 	if cmdName := env.MedianPluginCmd.Get(); cmdName != "" {
-		medianLggr := lggr.Named("Median")
-		// use logger name to ensure unique naming
+
+		// use unique logger names so we can use it to register a loop
+		medianLggr := lggr.Named("Median").Named(spec.ContractID).Named(spec.GetID())
 		cmdFn, telem, err2 := cfg.RegisterLOOP(medianLggr.Name(), cmdName)
 		if err2 != nil {
 			err = fmt.Errorf("failed to register loop: %w", err2)

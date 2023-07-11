@@ -168,7 +168,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		MailMon:          mailMon,
 	}
 
-	loopRegistry := plugins.NewLoopRegistry()
+	loopRegistry := plugins.NewLoopRegistry(appLggr.Named("LoopRegistry"))
 
 	var chains chainlink.Chains
 	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
