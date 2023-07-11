@@ -52,26 +52,8 @@ func NewServices(
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
 	switch ocr2Provider.ReportSchemaVersion() {
-		case 0:
-			ds := mercuryv0.NewDataSource(
-				pipelineRunner,
-				jb,
-				*jb.PipelineSpec,
-				lggr,
-				runResults,
-				chEnhancedTelem,
-				chainHeadTracker,
-				ocr2Provider.ContractTransmitter(),
-				pluginConfig.InitialBlockNumber.Ptr(),
-			)
-			argsNoPlugin.MercuryPluginFactory = relaymercuryv0.NewFactory(
-				ds,
-				lggr,
-				ocr2Provider.OnchainConfigCodec(),
-				ocr2Provider.ReportCodecV0(),
-			)
-	case 1:
-		ds := mercuryv1.NewDataSource(
+	case 0:
+		ds := mercuryv0.NewDataSource(
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
@@ -81,6 +63,21 @@ func NewServices(
 			chainHeadTracker,
 			ocr2Provider.ContractTransmitter(),
 			pluginConfig.InitialBlockNumber.Ptr(),
+		)
+		argsNoPlugin.MercuryPluginFactory = relaymercuryv0.NewFactory(
+			ds,
+			lggr,
+			ocr2Provider.OnchainConfigCodec(),
+			ocr2Provider.ReportCodecV0(),
+		)
+	case 1:
+		ds := mercuryv1.NewDataSource(
+			pipelineRunner,
+			jb,
+			*jb.PipelineSpec,
+			lggr,
+			runResults,
+			chEnhancedTelem,
 		)
 		argsNoPlugin.MercuryPluginFactory = relaymercuryv1.NewFactory(
 			ds,

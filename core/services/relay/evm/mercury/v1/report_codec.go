@@ -46,7 +46,7 @@ func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
 	return &ReportCodec{lggr, feedID}
 }
 
-func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, validFromTimestamp int64) (ocrtypes.Report, error) {
+func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, validFromTimestamp uint32) (ocrtypes.Report, error) {
 	if len(paos) == 0 {
 		return nil, errors.Errorf("cannot build report from empty attributed observations")
 	}
@@ -56,16 +56,16 @@ func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, 
 
 	timestamp := relaymercury.GetConsensusTimestamp(paos)
 
-	// todo: add checks for validFromTimestamp
-
 	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(paos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBenchmarkPrice failed")
 	}
+
 	bid, err := relaymercury.GetConsensusBid(paos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBid failed")
 	}
+
 	ask, err := relaymercury.GetConsensusAsk(paos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusAsk failed")
@@ -85,48 +85,25 @@ func (r *ReportCodec) MaxReportLength(n int) (int, error) {
 		nil
 }
 
-func (r *ReportCodec) CurrentTimestampFromReport(report ocrtypes.Report) (int64, error) {
+func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error) {
 	reportElems := map[string]interface{}{}
 	if err := ReportTypes.UnpackIntoMap(reportElems, report); err != nil {
 		return 0, errors.Errorf("error during unpack: %v", err)
 	}
 
-	blockNumIface, ok := reportElems["currentBlockNum"]
+	timestampIface, ok := reportElems["timestamp"]
 	if !ok {
-		return 0, errors.Errorf("unpacked report has no 'currentBlockNum' field")
+		return 0, errors.Errorf("unpacked report has no 'timestamp' field")
 	}
 
-	blockNum, ok := blockNumIface.(uint64)
+	timestamp, ok := timestampIface.(uint32)
 	if !ok {
-		return 0, errors.Errorf("cannot cast blockNum to int64, type is %T", blockNumIface)
+		return 0, errors.Errorf("cannot cast timestamp to uint32, type is %T", timestampIface)
 	}
 
-	if blockNum > math.MaxInt64 {
-		return 0, errors.Errorf("blockNum overflows max int64, got: %d", blockNum)
+	if timestamp > math.MaxUint32 {
+		return 0, errors.Errorf("timestamp overflows max uint32, got: %d", timestamp)
 	}
 
-	return int64(blockNum), nil
-}
-
-func (r *ReportCodec) ValidFromTimestampFromReport(report ocrtypes.Report) (int64, error) {
-	reportElems := map[string]interface{}{}
-	if err := ReportTypes.UnpackIntoMap(reportElems, report); err != nil {
-		return 0, errors.Errorf("error during unpack: %v", err)
-	}
-
-	timestampIface, ok := reportElems["validFromTimestamp"]
-	if !ok {
-		return 0, errors.Errorf("unpacked report has no 'validFromTimestamp' field")
-	}
-
-	timestamp, ok := timestampIface.(uint64)
-	if !ok {
-		return 0, errors.Errorf("cannot cast blockNum to int64, type is %T", timestampIface)
-	}
-
-	if timestamp > math.MaxInt64 {
-		return 0, errors.Errorf("timestamp overflows max int64, got: %d", timestamp)
-	}
-
-	return int64(timestamp), nil
+	return timestamp, nil
 }
