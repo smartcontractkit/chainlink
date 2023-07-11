@@ -312,7 +312,7 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     address sender,
     uint64 subId,
     uint64 nonce
-  ) private pure returns (uint256, uint256) {
+  ) internal pure returns (uint256, uint256) {
     uint256 preSeed = uint256(keccak256(abi.encode(keyHash, sender, subId, nonce)));
     return (uint256(keccak256(abi.encode(keyHash, preSeed))), preSeed);
   }
