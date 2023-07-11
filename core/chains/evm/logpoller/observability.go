@@ -125,10 +125,7 @@ func withObservedQuery[T any](o *ObservedLogPoller, queryName string, query func
 	queryStarted := time.Now()
 	defer func() {
 		o.histogram.
-			WithLabelValues(
-				o.chainId,
-				queryName,
-			).
+			WithLabelValues(o.chainId, queryName).
 			Observe(float64(time.Since(queryStarted)))
 	}()
 	return query()
