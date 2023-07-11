@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -13,7 +14,6 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
-// TODO: fix tests once we merge with ocr2keepers new types (ocr2keepers.CheckResult)
 func TestEVMAutomationEncoder21(t *testing.T) {
 	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	assert.Nil(t, err)
@@ -36,11 +36,6 @@ func TestEVMAutomationEncoder21(t *testing.T) {
 	})
 
 	t.Run("successfully encodes and decodes a single upkeep result", func(t *testing.T) {
-		// trig, err := encoder.packer.PackTrigger(big.NewInt(10), triggerWrapper{
-		// 	BlockNum:  1,
-		// 	BlockHash: [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
-		// })
-		// assert.Nil(t, err)
 		upkeepResult := EVMAutomationUpkeepResult21{
 			Block:            1,
 			ID:               big.NewInt(10),
@@ -73,155 +68,43 @@ func TestEVMAutomationEncoder21(t *testing.T) {
 		assert.Equal(t, upkeep.CheckBlockHash, upkeepResult.CheckBlockHash)
 	})
 
-	// 	t.Run("an error is returned when unpacking into a map fails", func(t *testing.T) {
-	// 		oldUnpackIntoMapFn := unpackIntoMapFn
-	// 		unpackIntoMapFn = func(v map[string]interface{}, data []byte) error {
-	// 			return errors.New("failed to unpack into map")
-	// 		}
-	// 		defer func() {
-	// 			unpackIntoMapFn = oldUnpackIntoMapFn
-	// 		}()
+	t.Run("successfully encodes and decodes multiple upkeep results", func(t *testing.T) {
+		n := 5
+		results := make([]ocr2keepers.UpkeepResult, n)
+		for i := 0; i < n; i++ {
+			block := uint32(i + 1)
+			results[i] = EVMAutomationUpkeepResult21{
+				Block:            block,
+				ID:               big.NewInt(int64(block) * 10),
+				Eligible:         true,
+				GasUsed:          big.NewInt(100),
+				PerformData:      []byte(fmt.Sprintf("data-%d", i)),
+				FastGasWei:       big.NewInt(100),
+				LinkNative:       big.NewInt(100),
+				CheckBlockNumber: block,
+				CheckBlockHash:   [32]byte{uint8(block), 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
+				ExecuteGas:       10,
+			}
+		}
 
-	// 		upkeeps, err := encoder.DecodeReport(b)
-	// 		assert.Error(t, err, "failed to unpack into map")
-	// 		assert.Len(t, upkeeps, 0)
-	// 	})
+		b, err := encoder.EncodeReport(results)
+		assert.Nil(t, err)
+		assert.Len(t, b, 1792)
 
-	// 	t.Run("an error is returned when an expected key is missing from the map", func(t *testing.T) {
-	// 		oldMKeys := mKeys
-	// 		mKeys = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas", "thisKeyWontExist"}
-	// 		defer func() {
-	// 			mKeys = oldMKeys
-	// 		}()
-
-	// 		upkeeps, err := encoder.DecodeReport(b)
-	// 		assert.Error(t, err, "decoding error")
-	// 		assert.Len(t, upkeeps, 0)
-	// 	})
-
-	// 	t.Run("an error is returned when the third element of the map is not a slice of big.Int", func(t *testing.T) {
-	// 		oldMKeys := mKeys
-	// 		mKeys = []string{"fastGasWei", "linkNative", "wrappedPerformDatas", "upkeepIds"}
-	// 		defer func() {
-	// 			mKeys = oldMKeys
-	// 		}()
-
-	// 		upkeeps, err := encoder.DecodeReport(b)
-	// 		assert.Error(t, err, "upkeep ids of incorrect type in report")
-	// 		assert.Len(t, upkeeps, 0)
-	// 	})
-
-	// 	t.Run("an error is returned when the fourth element of the map is not a struct of perform data", func(t *testing.T) {
-	// 		oldMKeys := mKeys
-	// 		mKeys = []string{"fastGasWei", "linkNative", "upkeepIds", "upkeepIds"}
-	// 		defer func() {
-	// 			mKeys = oldMKeys
-	// 		}()
-
-	// 		upkeeps, err := encoder.DecodeReport(b)
-	// 		assert.Error(t, err, "performs of incorrect structure in report")
-	// 		assert.Len(t, upkeeps, 0)
-	// 	})
-
-	// 	t.Run("an error is returned when the upkeep ids and performDatas are of different lengths", func(t *testing.T) {
-	// 		oldUnpackIntoMapFn := unpackIntoMapFn
-	// 		unpackIntoMapFn = func(v map[string]interface{}, data []byte) error {
-	// 			v["fastGasWei"] = 1
-	// 			v["linkNative"] = 2
-	// 			v["upkeepIds"] = []*big.Int{big.NewInt(123), big.NewInt(456)}
-	// 			v["wrappedPerformDatas"] = []struct {
-	// 				CheckBlockNumber uint32   `json:"checkBlockNumber"`
-	// 				CheckBlockhash   [32]byte `json:"checkBlockhash"`
-	// 				PerformData      []byte   `json:"performData"`
-	// 			}{
-	// 				{
-	// 					CheckBlockNumber: 1,
-	// 					CheckBlockhash:   [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
-	// 					PerformData:      []byte{},
-	// 				},
-	// 			}
-	// 			return nil
-	// 		}
-	// 		defer func() {
-	// 			unpackIntoMapFn = oldUnpackIntoMapFn
-	// 		}()
-
-	// 		upkeeps, err := encoder.DecodeReport(b)
-	// 		assert.Error(t, err, "upkeep ids and performs should have matching length")
-	// 		assert.Len(t, upkeeps, 0)
-	// 	})
-
-	// 	t.Run("an error is returned when the first element of the map is not a big int", func(t *testing.T) {
-	// 		oldMKeys := mKeys
-	// 		mKeys = []string{"upkeepIds", "linkNative", "upkeepIds", "wrappedPerformDatas"}
-	// 		defer func() {
-	// 			mKeys = oldMKeys
-	// 		}()
-
-	// 		upkeeps, err := encoder.DecodeReport(b)
-	// 		assert.Error(t, err, "fast gas as wrong type")
-	// 		assert.Len(t, upkeeps, 0)
-	// 	})
-
-	// 	t.Run("an error is returned when the second element of the map is not a big int", func(t *testing.T) {
-	// 		oldMKeys := mKeys
-	// 		mKeys = []string{"fastGasWei", "upkeepIds", "upkeepIds", "wrappedPerformDatas"}
-	// 		defer func() {
-	// 			mKeys = oldMKeys
-	// 		}()
-
-	// 		upkeeps, err := encoder.DecodeReport(b)
-	// 		assert.Error(t, err, "link native as wrong type")
-	// 		assert.Len(t, upkeeps, 0)
-	// 	})
-	// })
-
-	// t.Run("successfully encodes multiple upkeep results", func(t *testing.T) {
-	// 	upkeepResult0 := EVMAutomationUpkeepResult21{
-	// 		Block:            1,
-	// 		ID:               big.NewInt(10),
-	// 		Eligible:         true,
-	// 		GasUsed:          big.NewInt(100),
-	// 		PerformData:      []byte("data0"),
-	// 		FastGasWei:       big.NewInt(100),
-	// 		LinkNative:       big.NewInt(100),
-	// 		CheckBlockNumber: 1,
-	// 		CheckBlockHash:   [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
-	// 		ExecuteGas:       10,
-	// 	}
-	// 	upkeepResult1 := EVMAutomationUpkeepResult21{
-	// 		Block:            1,
-	// 		ID:               big.NewInt(10),
-	// 		Eligible:         true,
-	// 		GasUsed:          big.NewInt(200),
-	// 		PerformData:      []byte("data1"),
-	// 		FastGasWei:       big.NewInt(200),
-	// 		LinkNative:       big.NewInt(200),
-	// 		CheckBlockNumber: 2,
-	// 		CheckBlockHash:   [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
-	// 		ExecuteGas:       20,
-	// 	}
-	// 	b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{upkeepResult0, upkeepResult1})
-	// 	assert.Nil(t, err)
-	// 	assert.Len(t, b, 640)
-	// })
-
-	// t.Run("an error is returned when pack fails", func(t *testing.T) {
-	// 	upkeepResult0 := EVMAutomationUpkeepResult21{
-	// 		Block:            1,
-	// 		ID:               big.NewInt(10),
-	// 		Eligible:         true,
-	// 		GasUsed:          big.NewInt(100),
-	// 		PerformData:      []byte("data0"),
-	// 		FastGasWei:       big.NewInt(100),
-	// 		LinkNative:       big.NewInt(100),
-	// 		CheckBlockNumber: 1,
-	// 		CheckBlockHash:   [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
-	// 		ExecuteGas:       10,
-	// 	}
-	// 	b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{upkeepResult0})
-	// 	assert.Errorf(t, err, "pack failed: failed to pack report data")
-	// 	assert.Len(t, b, 0)
-	// })
-
+		decoded, err := encoder.DecodeReport(b)
+		assert.Nil(t, err)
+		assert.Len(t, decoded, len(results))
+		for i, dec := range decoded {
+			result := dec.(EVMAutomationUpkeepResult21)
+			expected := results[i].(EVMAutomationUpkeepResult21)
+			assert.Equal(t, result.Block, expected.Block)
+			assert.Equal(t, result.ID, expected.ID)
+			assert.Equal(t, result.Eligible, expected.Eligible)
+			assert.Equal(t, result.PerformData, expected.PerformData)
+			assert.Equal(t, result.FastGasWei, expected.FastGasWei)
+			assert.Equal(t, result.LinkNative, expected.LinkNative)
+			assert.Equal(t, result.CheckBlockNumber, expected.CheckBlockNumber)
+			assert.Equal(t, result.CheckBlockHash, expected.CheckBlockHash)
+		}
+	})
 }
