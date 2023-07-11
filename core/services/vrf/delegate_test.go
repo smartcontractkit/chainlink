@@ -497,8 +497,8 @@ decode_log->vrf->encode_tx->submit_tx
 		jb, err := vrfcommon.ValidatedVRFSpec(spec)
 		require.NoError(tt, err)
 
-		cfg := vrf_mocks.NewConfig(t)
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.KeySpecificMaxGasPriceWei))
+		cfg := vrf_mocks.NewFeeConfig(t)
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.PriceMaxKey))
 	})
 
 	t.Run("returns nil error on valid gas lane <=> key specific gas price setting", func(tt *testing.T) {
@@ -507,9 +507,9 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := vrf_mocks.NewConfig(t)
+		cfg := vrf_mocks.NewFeeConfig(t)
 		for _, a := range fromAddresses {
-			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
+			cfg.On("PriceMaxKey", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
 		}
 		defer cfg.AssertExpectations(tt)
 
@@ -525,7 +525,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.KeySpecificMaxGasPriceWei))
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.PriceMaxKey))
 	})
 
 	t.Run("returns error on invalid setting", func(tt *testing.T) {
@@ -534,11 +534,11 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := vrf_mocks.NewConfig(t)
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
+		cfg := vrf_mocks.NewFeeConfig(t)
+		cfg.On("PriceMaxKey", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
+		cfg.On("PriceMaxKey", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
 		// last from address has wrong key-specific max gas price
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[2])).Return(assets.GWei(50)).Once()
+		cfg.On("PriceMaxKey", common.HexToAddress(fromAddresses[2])).Return(assets.GWei(50)).Once()
 		defer cfg.AssertExpectations(tt)
 
 		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
@@ -553,7 +553,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.KeySpecificMaxGasPriceWei))
+		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.PriceMaxKey))
 	})
 }
 
@@ -635,13 +635,13 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}).Toml())
 		require.NoError(tt, err)
 
-		cfg := vrf_mocks.NewConfig(t)
+		cfg := vrf_mocks.NewFeeConfig(t)
 		for _, a := range fromAddresses {
-			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+			cfg.On("PriceMaxKey", common.HexToAddress(a)).Return(assets.GWei(100))
 		}
 		defer cfg.AssertExpectations(tt)
 
-		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.KeySpecificMaxGasPriceWei))
+		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.PriceMaxKey))
 	})
 
 	t.Run("one max gas price not equal to others", func(tt *testing.T) {
@@ -662,14 +662,14 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}).Toml())
 		require.NoError(tt, err)
 
-		cfg := vrf_mocks.NewConfig(t)
+		cfg := vrf_mocks.NewFeeConfig(t)
 		for _, a := range fromAddresses[:3] {
-			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+			cfg.On("PriceMaxKey", common.HexToAddress(a)).Return(assets.GWei(100))
 		}
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[len(fromAddresses)-1])).
+		cfg.On("PriceMaxKey", common.HexToAddress(fromAddresses[len(fromAddresses)-1])).
 			Return(assets.GWei(200)) // doesn't match the rest
 		defer cfg.AssertExpectations(tt)
 
-		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.KeySpecificMaxGasPriceWei))
+		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.PriceMaxKey))
 	})
 }
