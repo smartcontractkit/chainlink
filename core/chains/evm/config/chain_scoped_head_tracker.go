@@ -1,9 +1,13 @@
-package v2
+package config
 
-import "time"
+import (
+	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+)
 
 type headTrackerConfig struct {
-	c HeadTracker
+	c toml.HeadTracker
 }
 
 func (h *headTrackerConfig) HistoryDepth() uint32 {

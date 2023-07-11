@@ -116,6 +116,13 @@ type BlockHistory interface {
 	TransactionPercentile() uint16
 }
 
+type NodePool interface {
+	PollFailureThreshold() uint32
+	PollInterval() time.Duration
+	SelectionMode() string
+	SyncThreshold() uint32
+}
+
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
 	config.AppConfig
