@@ -4,7 +4,8 @@ pragma solidity 0.8.16;
 
 import "../../../interfaces/automation/UpkeepTranscoderInterface.sol";
 import "../../../interfaces/TypeAndVersionInterface.sol";
-import {KeeperRegistryBase2_1} from "./KeeperRegistryBase2_1.sol";
+import {KeeperRegistryBase2_1 as R21} from "./KeeperRegistryBase2_1.sol";
+import {AutomationForwarder} from "./AutomationForwarder.sol";
 import "../../../automation/UpkeepFormat.sol";
 
 /**
@@ -38,7 +39,7 @@ struct UpkeepV20 {
   address target;
   uint96 amountSpent;
   uint96 balance;
-  uint32 lastPerformBlockNumber;
+  uint32 lastPerformedBlockNumber;
 }
 
 /**
@@ -55,6 +56,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
    */
   string public constant override typeAndVersion = "UpkeepTranscoder 4.0.0";
   uint32 internal constant UINT32_MAX = type(uint32).max;
+  AutomationForwarder internal constant ZERO_FORWARDER = AutomationForwarder(address(0));
 
   /**
    * @notice transcodeUpkeeps transforms upkeep data from the format expected by
@@ -73,61 +75,83 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterface, TypeAndVersionInterfa
     UpkeepFormat,
     bytes calldata encodedUpkeeps
   ) external view override returns (bytes memory) {
-    // this transcoder only handles upkeep V1/V2 to V3, all other formats are invalid.
+    // v1.2 => v2.1
     if (fromVersion == UpkeepFormat.V12) {
-      (uint256[] memory ids, UpkeepV12[] memory upkeepsV1, bytes[] memory checkDatas) = abi.decode(
+      (uint256[] memory ids, UpkeepV12[] memory upkeepsV12, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV12[], bytes[])
       );
-
-      if (ids.length != upkeepsV1.length || ids.length != checkDatas.length) {
+      if (ids.length != upkeepsV12.length || ids.length != checkDatas.length) {
         revert InvalidTranscoding();
       }
-
       address[] memory admins = new address[](ids.length);
-      UpkeepV20[] memory newUpkeeps = new UpkeepV20[](ids.length);
-      UpkeepV12 memory upkeepV1;
+      R21.Upkeep[] memory newUpkeeps = new R21.Upkeep[](ids.length);
+      UpkeepV12 memory upkeepV12;
       for (uint256 idx = 0; idx < ids.length; idx++) {
-        upkeepV1 = upkeepsV1[idx];
-        newUpkeeps[idx] = UpkeepV20({
-          executeGas: upkeepV1.executeGas,
+        upkeepV12 = upkeepsV12[idx];
+        newUpkeeps[idx] = R21.Upkeep({
+          executeGas: upkeepV12.executeGas,
           maxValidBlocknumber: UINT32_MAX, // maxValidBlocknumber is uint64 in V1, hence a new default value is provided
           paused: false, // migrated upkeeps are not paused by default
-          target: upkeepV1.target,
-          amountSpent: upkeepV1.amountSpent,
-          balance: upkeepV1.balance,
-          lastPerformBlockNumber: 0
+          target: upkeepV12.target,
+          forwarder: ZERO_FORWARDER,
+          amountSpent: upkeepV12.amountSpent,
+          balance: upkeepV12.balance,
+          lastPerformedBlockNumber: 0
         });
-        admins[idx] = upkeepV1.admin;
+        admins[idx] = upkeepV12.admin;
       }
       return abi.encode(ids, newUpkeeps, checkDatas, admins);
     }
-
+    // v1.3 => v2.1
     if (fromVersion == UpkeepFormat.V13) {
-      (uint256[] memory ids, UpkeepV13[] memory upkeepsV2, bytes[] memory checkDatas) = abi.decode(
+      (uint256[] memory ids, UpkeepV13[] memory upkeepsV13, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV13[], bytes[])
       );
-
-      if (ids.length != upkeepsV2.length || ids.length != checkDatas.length) {
+      if (ids.length != upkeepsV13.length || ids.length != checkDatas.length) {
         revert InvalidTranscoding();
       }
-
       address[] memory admins = new address[](ids.length);
-      UpkeepV20[] memory newUpkeeps = new UpkeepV20[](ids.length);
-      UpkeepV13 memory upkeepV2;
+      R21.Upkeep[] memory newUpkeeps = new R21.Upkeep[](ids.length);
+      UpkeepV13 memory upkeepV13;
       for (uint256 idx = 0; idx < ids.length; idx++) {
-        upkeepV2 = upkeepsV2[idx];
-        newUpkeeps[idx] = UpkeepV20({
-          executeGas: upkeepV2.executeGas,
-          maxValidBlocknumber: upkeepV2.maxValidBlocknumber,
-          paused: upkeepV2.paused,
-          target: upkeepV2.target,
-          amountSpent: upkeepV2.amountSpent,
-          balance: upkeepV2.balance,
-          lastPerformBlockNumber: 0
+        upkeepV13 = upkeepsV13[idx];
+        newUpkeeps[idx] = R21.Upkeep({
+          executeGas: upkeepV13.executeGas,
+          maxValidBlocknumber: upkeepV13.maxValidBlocknumber,
+          paused: upkeepV13.paused,
+          target: upkeepV13.target,
+          forwarder: ZERO_FORWARDER,
+          amountSpent: upkeepV13.amountSpent,
+          balance: upkeepV13.balance,
+          lastPerformedBlockNumber: 0
         });
-        admins[idx] = upkeepV2.admin;
+        admins[idx] = upkeepV13.admin;
+      }
+      return abi.encode(ids, newUpkeeps, checkDatas, admins);
+    }
+    // v2.0 => v2.1
+    if (fromVersion == UpkeepFormat.V20) {
+      (uint256[] memory ids, UpkeepV20[] memory upkeepsV20, bytes[] memory checkDatas, address[] memory admins) = abi
+        .decode(encodedUpkeeps, (uint256[], UpkeepV20[], bytes[], address[]));
+      if (ids.length != upkeepsV20.length || ids.length != checkDatas.length) {
+        revert InvalidTranscoding();
+      }
+      R21.Upkeep[] memory newUpkeeps = new R21.Upkeep[](ids.length);
+      UpkeepV20 memory upkeepV20;
+      for (uint256 idx = 0; idx < ids.length; idx++) {
+        upkeepV20 = upkeepsV20[idx];
+        newUpkeeps[idx] = R21.Upkeep({
+          executeGas: upkeepV20.executeGas,
+          maxValidBlocknumber: upkeepV20.maxValidBlocknumber,
+          paused: upkeepV20.paused,
+          target: upkeepV20.target,
+          forwarder: ZERO_FORWARDER,
+          amountSpent: upkeepV20.amountSpent,
+          balance: upkeepV20.balance,
+          lastPerformedBlockNumber: 0
+        });
       }
       return abi.encode(ids, newUpkeeps, checkDatas, admins);
     }
