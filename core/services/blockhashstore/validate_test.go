@@ -112,7 +112,7 @@ blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"
 fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.EqualError(t, err, `at least one of "coordinatorV1Address" and "coordinatorV2Address" must be set`)
+				require.EqualError(t, err, `at least one of "coordinatorV1Address", "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`)
 			},
 		},
 		{

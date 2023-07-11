@@ -850,7 +850,8 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		vrfOwnerAddressSpec := lsn.job.VRFSpec.VRFOwnerAddress.Address()
 		lsn.l.Infow("addresses diff", "wrapper_address", vrfOwnerAddress1, "spec_address", vrfOwnerAddressSpec)
 
-		txData, err := vrfOwnerABI.Pack("fulfillRandomWords", p.proof, p.reqCommitment.Get())
+		lsn.l.Infow("fulfillRandomWords payload", "proof", p.proof, "commitment", p.reqCommitment.Get(), "payload", p.payload)
+		txData := hexutil.MustDecode(p.payload)
 		if err != nil {
 			return errors.Wrap(err, "abi pack VRFOwner.fulfillRandomWords")
 		}
