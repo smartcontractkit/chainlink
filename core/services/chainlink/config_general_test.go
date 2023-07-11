@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	testtomlutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
