@@ -33,7 +33,14 @@ contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2 {
     bool nativePayment
   ) external onlyOwner {
     // Will revert if subscription is not funded.
-    s_requestId = COORDINATOR.requestRandomWords(keyHash, subId, requestConfirmations, callbackGasLimit, numWords, nativePayment);
+    s_requestId = COORDINATOR.requestRandomWords(
+      keyHash,
+      subId,
+      requestConfirmations,
+      callbackGasLimit,
+      numWords,
+      nativePayment
+    );
   }
 
   function transferOwnership(address newOwner) external onlyOwner {

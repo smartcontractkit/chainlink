@@ -160,10 +160,10 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
   }
 
   /*
-    * @notice Oracle withdraw ETH earned through fulfilling requests
-    * @param recipient where to send the funds
-    * @param amount amount to withdraw
-  */
+   * @notice Oracle withdraw ETH earned through fulfilling requests
+   * @param recipient where to send the funds
+   * @param amount amount to withdraw
+   */
   function oracleWithdrawEth(address payable recipient, uint96 amount) external nonReentrant {
     if (s_withdrawableEth[msg.sender] < amount) {
       revert InsufficientBalance();
@@ -199,7 +199,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function fundSubscriptionWithEth(uint64 subId) external override payable nonReentrant {
+  function fundSubscriptionWithEth(uint64 subId) external payable override nonReentrant {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -218,7 +218,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
    */
   function getSubscription(
     uint64 subId
-  ) external override view returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) {
+  ) external view override returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -251,7 +251,10 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external override onlySubOwner(subId) nonReentrant {
+  function requestSubscriptionOwnerTransfer(
+    uint64 subId,
+    address newOwner
+  ) external override onlySubOwner(subId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
       s_subscriptionConfigs[subId].requestedOwner = newOwner;

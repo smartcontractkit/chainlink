@@ -106,8 +106,6 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     FeeConfig feeConfig
   );
 
-  mapping(uint256 /* requestId */ => uint96 /* payment */) public s_requestPayments;
-
   constructor(address blockhashStore) SubscriptionAPI() {
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
   }
@@ -448,10 +446,6 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
       // Include payment in the event for tracking costs.
       // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bool nativePayment, bool success);
       emit RandomWordsFulfilled(output.requestId, output.randomness, payment, rc.nativePayment, success);
-
-      // Update the payment field in the request payments mapping so that
-      // consumers know how much they've paid and can charge end-users accordingly.
-      s_requestPayments[output.requestId] = payment;
 
       return payment;
     }

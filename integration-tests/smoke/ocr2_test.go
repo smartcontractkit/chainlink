@@ -29,7 +29,7 @@ import (
 
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
-	testEnvironment, testNetwork := setupOCR2Test(t)
+	testEnvironment, testNetwork := setupOCR2Test(t, false)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -56,10 +56,20 @@ func TestOCRv2Basic(t *testing.T) {
 	err = actions.FundChainlinkNodes(workerNodes, chainClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, contractDeployer, workerNodes, chainClient)
+	// Gather transmitters
+	var transmitters []string
+	for _, node := range workerNodes {
+		addr, err := node.PrimaryEthAddress()
+		if err != nil {
+			require.NoError(t, fmt.Errorf("error getting node's primary ETH address: %w", err))
+		}
+		transmitters = append(transmitters, addr)
+	}
+
+	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, contractDeployer, transmitters, chainClient)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
-	err = actions.CreateOCRv2Jobs(aggregatorContracts, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())
+	err = actions.CreateOCRv2Jobs(aggregatorContracts, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64(), false)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	ocrv2Config, err := actions.BuildMedianOCR2Config(workerNodes)
@@ -90,7 +100,7 @@ func TestOCRv2Basic(t *testing.T) {
 	)
 }
 
-func setupOCR2Test(t *testing.T) (
+func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
 	testEnvironment *environment.Environment,
 	testNetwork blockchain.EVMNetwork,
 ) {
@@ -103,8 +113,16 @@ func setupOCR2Test(t *testing.T) (
 			WsURLs:      testNetwork.URLs,
 		})
 	}
+
+	var toml string
+	if forwardersEnabled {
+		toml = client.AddNetworkDetailedConfig(config.BaseOCR2Config, config.ForwarderNetworkDetailConfig, testNetwork)
+	} else {
+		toml = client.AddNetworksConfig(config.BaseOCR2Config, testNetwork)
+	}
+
 	chainlinkChart, err := chainlink.NewDeployment(6, map[string]interface{}{
-		"toml": client.AddNetworksConfig(config.BaseOCR2Config, testNetwork),
+		"toml": toml,
 	})
 	require.NoError(t, err, "Error creating chainlink deployment")
 

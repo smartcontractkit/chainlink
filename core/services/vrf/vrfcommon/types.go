@@ -16,11 +16,12 @@ type GethKeyStore interface {
 //go:generate mockery --quiet --name Config --output ../mocks/ --case=underscore
 type Config interface {
 	FinalityDepth() uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	MinIncomingConfirmations() uint32
 }
 
+//go:generate mockery --quiet --name FeeConfig --output ../mocks/ --case=underscore
 type FeeConfig interface {
 	LimitDefault() uint32
 	LimitJobType() config.LimitJobType
+	PriceMaxKey(addr common.Address) *assets.Wei
 }

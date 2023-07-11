@@ -14,15 +14,17 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   uint256 public s_recentRequestId;
 
   struct Response {
-    uint256 requestId;
-    uint256[] randomWords;
     bool fulfilled;
     address requester;
-    uint256 cost;
+    uint256 requestId;
+    uint256[] randomWords;
   }
   mapping(uint256 /* request id */ => Response /* response */) public s_requests;
 
-  constructor(address vrfCoordinator, address link) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(vrfCoordinator) {
+  constructor(
+    address vrfCoordinator, 
+    address link
+  ) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(vrfCoordinator) {
     s_vrfCoordinator = IVRFCoordinatorV2Plus(vrfCoordinator);
     s_linkToken = LinkTokenInterface(link);
   }
@@ -55,16 +57,6 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
     require(requestId == s_recentRequestId, "request ID is incorrect");
     s_requests[requestId].randomWords = randomWords;
     s_requests[requestId].fulfilled = true;
-    s_requests[requestId].cost = s_vrfCoordinator.s_requestPayments(requestId);
-  }
-
-  function redeemRandomness(uint256 requestId) external payable returns (uint256[] memory randomWords) {
-    Response memory resp = s_requests[requestId];
-    require(resp.requestId != 0, "request ID is incorrect");
-    require(resp.fulfilled, "request not fulfilled yet");
-    require(resp.requester == msg.sender, "only callable by requesting address");
-    require(msg.value >= resp.cost, "insufficient funds");
-    randomWords = resp.randomWords;
   }
 
   function requestRandomWords(
@@ -74,13 +66,18 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
     bytes32 keyHash,
     bool nativePayment
   ) external {
-    uint256 requestId = s_vrfCoordinator.requestRandomWords(keyHash, s_subId, requestConfirmations, callbackGasLimit, numWords, nativePayment);
+    uint256 requestId = s_vrfCoordinator.requestRandomWords(
+        keyHash, 
+        s_subId, 
+        requestConfirmations, 
+        callbackGasLimit, 
+        numWords, 
+        nativePayment);
     Response memory resp = Response({
       requestId: requestId,
       randomWords: new uint256[](0),
       fulfilled: false,
-      requester: msg.sender,
-      cost: 0
+      requester: msg.sender
     });
     s_requests[requestId] = resp;
     s_recentRequestId = requestId;

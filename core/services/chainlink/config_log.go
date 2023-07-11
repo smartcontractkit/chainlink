@@ -4,21 +4,21 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var _ config.Log = (*logConfig)(nil)
 
 type logConfig struct {
-	c            v2.Log
+	c            toml.Log
 	rootDir      func() string
 	defaultLevel zapcore.Level
 	level        func() zapcore.Level
 }
 
 type fileConfig struct {
-	c       v2.LogFile
+	c       toml.LogFile
 	rootDir func() string
 }
 

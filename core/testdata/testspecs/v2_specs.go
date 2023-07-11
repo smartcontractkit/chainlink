@@ -200,6 +200,7 @@ contractID		= "0x613a38AC1659769640aaE063C651F48E0250454C"
 [relayConfig]
 chainID			= 1337
 `
+	RandomWordsRequestedV2PlusABI = "event RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
 )
 
 type KeeperSpecParams struct {

@@ -140,17 +140,18 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
   }
 
   /**
-    * @inheritdoc IVRFMigratableConsumerV2Plus
-  */
+   * @inheritdoc IVRFMigratableConsumerV2Plus
+   */
   function setVRFCoordinator(address _vrfCoordinator) external override {
     if (msg.sender != subOwner) {
       revert OnlySubOwnerCanSetVRFCoordinator(msg.sender, subOwner);
     }
     vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
   }
+
   function _setSubOwner(address _subOwner) internal {
     if (_subOwner == address(0)) {
-        revert ZeroAddress();
+      revert ZeroAddress();
     }
     subOwner = _subOwner;
   }
