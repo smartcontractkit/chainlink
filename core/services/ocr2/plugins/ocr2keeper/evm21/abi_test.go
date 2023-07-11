@@ -201,7 +201,10 @@ func TestPacker_PackingTrigger(t *testing.T) {
 		{
 			"invalid type",
 			append([]byte{1}, common.LeftPadBytes([]byte{8}, 15)...),
-			triggerWrapper{},
+			triggerWrapper{
+				BlockNum:  1,
+				BlockHash: common.HexToHash("0x01111111"),
+			},
 			[]byte{},
 			fmt.Errorf("unknown trigger type: %d", 8),
 		},
@@ -226,6 +229,24 @@ func TestPacker_PackingTrigger(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("unpacking invalid trigger", func(t *testing.T) {
+		packer, err := newPacker()
+		assert.NoError(t, err)
+		_, err = packer.UnpackTrigger(big.NewInt(0), []byte{1, 2, 3})
+		assert.Error(t, err)
+	})
+
+	t.Run("unpacking unknown type", func(t *testing.T) {
+		packer, err := newPacker()
+		assert.NoError(t, err)
+		uid := append([]byte{1}, common.LeftPadBytes([]byte{8}, 15)...)
+		id, ok := big.NewInt(0).SetString(hexutil.Encode(uid)[2:], 16)
+		assert.True(t, ok)
+		decoded, _ := hexutil.Decode("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+		_, err = packer.UnpackTrigger(id, decoded)
+		assert.EqualError(t, err, "unknown trigger type: 8")
+	})
 }
 
 func newPacker() (*evmRegistryPackerV2_1, error) {

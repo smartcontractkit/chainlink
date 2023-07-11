@@ -219,7 +219,7 @@ func (rp *evmRegistryPackerV2_1) UnpackTrigger(id *big.Int, raw []byte) (trigger
 	case conditionTrigger:
 		unpacked, err := rp.utilsAbi.Methods["_conditionalTrigger"].Inputs.Unpack(raw)
 		if err != nil {
-			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack log trigger", err)
+			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack conditional trigger", err)
 		}
 		converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)).(*automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)
 		if !ok {
