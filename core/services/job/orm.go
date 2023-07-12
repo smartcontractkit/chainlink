@@ -447,34 +447,32 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 // validateKeyStoreMatch confirms that the key has a valid match in the keystore
 func validateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
-	if spec.TransmitterID.Valid {
-		if spec.PluginType == Mercury {
-			_, err := keyStore.CSA().Get(key)
+	if spec.PluginType == Mercury {
+		_, err := keyStore.CSA().Get(key)
+		if err != nil {
+			return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", key)
+		}
+	} else {
+		switch spec.Relay {
+		case relay.EVM:
+			_, err := keyStore.Eth().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", key)
+				return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", key)
 			}
-		} else {
-			switch spec.Relay {
-			case relay.EVM:
-				_, err := keyStore.Eth().Get(key)
-				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", key)
-				}
-			case relay.Cosmos:
-				_, err := keyStore.Cosmos().Get(key)
-				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", key)
-				}
-			case relay.Solana:
-				_, err := keyStore.Solana().Get(key)
-				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", key)
-				}
-			case relay.StarkNet:
-				_, err := keyStore.StarkNet().Get(key)
-				if err != nil {
-					return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", key)
-				}
+		case relay.Cosmos:
+			_, err := keyStore.Cosmos().Get(key)
+			if err != nil {
+				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", key)
+			}
+		case relay.Solana:
+			_, err := keyStore.Solana().Get(key)
+			if err != nil {
+				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", key)
+			}
+		case relay.StarkNet:
+			_, err := keyStore.StarkNet().Get(key)
+			if err != nil {
+				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", key)
 			}
 		}
 	}
