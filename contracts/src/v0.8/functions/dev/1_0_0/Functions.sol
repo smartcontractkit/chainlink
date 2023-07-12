@@ -14,7 +14,8 @@ library Functions {
 
   enum Location {
     Inline,
-    Remote
+    Remote,
+    DONHosted
   }
 
   enum CodeLanguage {
@@ -26,8 +27,8 @@ library Functions {
     Location codeLocation;
     Location secretsLocation; // Only Remote secrets are supported
     CodeLanguage language;
-    string source; // Source code for Location.Inline or url for Location.Remote
-    bytes encryptedSecretsReference; // URLS for Location.Remote secrets
+    string source; // Source code for Location.Inline, url for Location.Remote or slot decimal number for Location.DONHosted
+    bytes encryptedSecretsReference; // Encrypted urls for Location.Remote or slot decimal number for Location.DONHosted
     string[] args;
   }
 
@@ -117,6 +118,17 @@ library Functions {
 
     self.secretsLocation = Location.Remote;
     self.encryptedSecretsReference = encryptedSecretsReference;
+  }
+
+  /**
+   * @notice Adds DON-hosted user slot id (referencing secrets) to a Request
+   * @param self The initialized request
+   * @param donSlotID Slot ID of the user's secrets hosted on DON
+   */
+  function addDONHostedSecrets(Request memory self, bytes1 donSlotID) internal pure {
+    self.secretsLocation = Location.DONHosted;
+    self.encryptedSecretsReference = new bytes(1);
+    self.encryptedSecretsReference[0] = bytes1(donSlotID);
   }
 
   /**
