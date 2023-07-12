@@ -33,8 +33,8 @@ type OCRSoakTest struct {
 	TestReporter testreporters.OCRSoakTestReporter
 
 	testEnvironment *environment.Environment
-	bootstrapNode   *client.Chainlink
-	workerNodes     []*client.Chainlink
+	bootstrapNode   *client.ChainlinkK8sClient
+	workerNodes     []*client.ChainlinkK8sClient
 	chainClient     blockchain.EVMClient
 	mockServer      *ctfClient.MockserverClient
 	mockPath        string
@@ -211,7 +211,7 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 	*testing.T,
 	*environment.Environment,
-	[]*client.Chainlink,
+	[]*client.ChainlinkK8sClient,
 	reportModel.TestReporter,
 	blockchain.EVMClient,
 ) {
