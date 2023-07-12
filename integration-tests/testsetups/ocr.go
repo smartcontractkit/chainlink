@@ -3,8 +3,8 @@ package testsetups
 
 import (
 	"context"
-	"fmt"
 	"math/big"
+	"sort"
 	"testing"
 	"time"
 
@@ -42,8 +42,8 @@ type OCRSoakTest struct {
 	mockPath        string
 	filterQuery     geth.FilterQuery
 
-	expectedEvents []*testreporters.OCRTestState
-	actualEvents   []*testreporters.OCRTestState
+	ocrTestStates  []*testreporters.OCRTestState
+	rpcIssues      []*testreporters.RPCIssue
 	combinedEvents [][]string
 
 	ocrInstances   []contracts.OffchainAggregator
@@ -72,8 +72,7 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 		TestReporter: testreporters.OCRSoakTestReporter{
 			ExpectedRoundDuration: inputs.ExpectedRoundTime,
 		},
-		expectedEvents: make([]*testreporters.OCRTestState, 0),
-		actualEvents:   make([]*testreporters.OCRTestState, 0),
+		ocrTestStates:  make([]*testreporters.OCRTestState, 0),
 		mockPath:       "ocr",
 		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
 	}
@@ -192,7 +191,7 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 	lastAdapterValue, currentAdapterValue := o.Inputs.StartingAdapterValue, o.Inputs.StartingAdapterValue*25
 	newRoundTrigger := time.NewTimer(0)
 	defer newRoundTrigger.Stop()
-	err = o.subscribeOCREvents(l)
+	err = o.observeOCREvents(l)
 	require.NoError(t, err, "Error subscribing to OCR events")
 
 testLoop:
@@ -205,27 +204,27 @@ testLoop:
 			o.triggerNewRound(t, currentAdapterValue)
 			newRoundTrigger.Reset(o.Inputs.TimeBetweenRounds)
 		case t := <-o.chainClient.ConnectionIssue():
-			o.expectedEvents = append(o.expectedEvents, &testreporters.OCRTestState{
-				Time:    t,
-				Message: "Lost Connection",
+			o.rpcIssues = append(o.rpcIssues, &testreporters.RPCIssue{
+				StartTime: t,
+				Message:   "RPC Connection Lost",
 			})
 		case t := <-o.chainClient.ConnectionRestored():
-			o.expectedEvents = append(o.expectedEvents, &testreporters.OCRTestState{
-				Time:    t,
-				Message: "Reconnected",
+			o.rpcIssues = append(o.rpcIssues, &testreporters.RPCIssue{
+				StartTime: t,
+				Message:   "RPC Connection Restored",
 			})
 		}
 	}
 
 	l.Info().Msg("Test Complete, collecting on-chain events to be collected")
-	// Keep trying to collect events until we get them, no
+	// Keep trying to collect events until we get them, no exceptions
 	timeout := time.Second * 5
 	err = o.collectEvents(l, timeout)
 	for err != nil {
 		timeout *= 2
 		err = o.collectEvents(l, timeout)
 	}
-	o.TestReporter.RecordEvents(o.expectedEvents, o.actualEvents)
+	o.TestReporter.RecordEvents(o.ocrTestStates, o.rpcIssues)
 }
 
 // Networks returns the networks that the test is running on
@@ -243,8 +242,9 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 // ****** Helpers ******
 // *********************
 
-// subscribeOCREvents subscribes to OCR events and logs them to the test logger
-func (o *OCRSoakTest) subscribeOCREvents(logger zerolog.Logger) error {
+// observeOCREvents subscribes to OCR events and logs them to the test logger
+// WARNING: Should only be used for observation and logging. This is not a reliable way to collect events.
+func (o *OCRSoakTest) observeOCREvents(logger zerolog.Logger) error {
 	eventLogs := make(chan types.Log)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -293,12 +293,20 @@ func (o *OCRSoakTest) subscribeOCREvents(logger zerolog.Logger) error {
 func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
 	l := utils.GetTestLogger(t)
 
+	if len(o.ocrTestStates) > 0 {
+		o.ocrTestStates[len(o.ocrTestStates)-1].EndTime = time.Now()
+	}
 	err := actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.workerNodes, o.mockServer)
 	require.NoError(t, err, "Error setting adapter responses")
-	o.expectedEvents = append(o.expectedEvents, &testreporters.OCRTestState{
-		Time:    time.Now(),
-		Message: fmt.Sprintf("New Round Started, Adapter Value: %d", currentAdapterValue),
-	})
+	expectedState := &testreporters.OCRTestState{
+		StartTime:   time.Now(),
+		Answer:      int64(currentAdapterValue),
+		FoundEvents: make(map[string][]*testreporters.FoundEvent),
+	}
+	for _, ocrInstance := range o.ocrInstances {
+		expectedState.FoundEvents[ocrInstance.Address()] = make([]*testreporters.FoundEvent, 0)
+	}
+	o.ocrTestStates = append(o.ocrTestStates)
 	l.Info().
 		Int("Value", currentAdapterValue).
 		Msg("Starting a New OCR Round")
@@ -306,6 +314,7 @@ func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
 
 func (o *OCRSoakTest) collectEvents(logger zerolog.Logger, timeout time.Duration) error {
 	start := time.Now()
+	o.ocrTestStates[len(o.ocrTestStates)-1].EndTime = start // Set end time for last expected event
 	logger.Info().Msg("Collecting on-chain events")
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
@@ -318,10 +327,8 @@ func (o *OCRSoakTest) collectEvents(logger zerolog.Logger, timeout time.Duration
 		return err
 	}
 
+	sortedFoundEvents := make([]*testreporters.FoundEvent, 0)
 	for _, event := range contractEvents {
-		if event.Removed {
-			continue
-		}
 		answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
 		if err != nil {
 			log.Error().
@@ -330,11 +337,36 @@ func (o *OCRSoakTest) collectEvents(logger zerolog.Logger, timeout time.Duration
 				Msg("Error collecting on-chain events")
 			return err
 		}
-		o.actualEvents = append(o.actualEvents, &testreporters.OCRTestState{
-			Time:    time.Unix(answerUpdated.UpdatedAt.Int64(), 0),
-			Message: fmt.Sprintf("%s Round: %d Answer: %d", event.Address.Hex(), answerUpdated.RoundId.Uint64(), answerUpdated.Current.Int64()),
+		sortedFoundEvents = append(sortedFoundEvents, &testreporters.FoundEvent{
+			StartTime:   time.Unix(answerUpdated.UpdatedAt.Int64(), 0),
+			Address:     event.Address.Hex(),
+			Answer:      answerUpdated.Current.Int64(),
+			RoundID:     answerUpdated.RoundId.Uint64(),
+			BlockNumber: event.BlockNumber,
 		})
 	}
+
+	// Sort our events by time to make sure they are in order (don't trust RPCs)
+	sort.Slice(sortedFoundEvents, func(i, j int) bool {
+		return sortedFoundEvents[i].StartTime.Before(sortedFoundEvents[j].StartTime)
+	})
+
+	// Now match each found event with the expected event time frame
+	expectedIndex := 0
+	for _, event := range sortedFoundEvents {
+		if !event.StartTime.Before(o.ocrTestStates[expectedIndex].EndTime) {
+			expectedIndex++
+			if expectedIndex >= len(o.ocrTestStates) {
+				logger.Warn().
+					Str("Event Time", event.StartTime.String()).
+					Str("Expected End Time", o.ocrTestStates[expectedIndex].EndTime.String()).
+					Msg("Found events after last expected end time, adding event to that final report, things might be weird")
+			}
+		}
+		o.ocrTestStates[expectedIndex].FoundEvents[event.Address] = append(o.ocrTestStates[expectedIndex].FoundEvents[event.Address], event)
+		o.ocrTestStates[expectedIndex].TimeLineEvents = append(o.ocrTestStates[expectedIndex].TimeLineEvents, event)
+	}
+
 	logger.Info().
 		Str("Time", time.Since(start).String()).
 		Msg("Collected on-chain events")

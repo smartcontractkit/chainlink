@@ -31,7 +31,7 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.12.1-0.20230711191356-9433e54d5d36
+replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.12.1-0.20230712194424-6ca954ff3793
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect

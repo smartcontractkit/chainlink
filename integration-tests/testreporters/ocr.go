@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
@@ -14,19 +15,138 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 )
 
+//TODO: This whole process can definitely be simplified and improved, but for some reason I'm getting brain block at the moment
+
 // OCRSoakTestReporter collates all OCRAnswerUpdated events into a single report
 type OCRSoakTestReporter struct {
 	ExpectedRoundDuration time.Duration
 	AnomaliesDetected     bool
 
-	timeLine    []*OCRTestState
+	anomalies   [][]string
+	timeLine    [][]string
 	namespace   string
 	csvLocation string
 }
 
+// TimeLineEvent represents a single event in the timeline
+type TimeLineEvent interface {
+	Time() time.Time
+	CSV() [][]string
+}
+
+// RPCIssue is a single RPC issue, either a disconnect or reconnect
+type RPCIssue struct {
+	StartTime time.Time
+	Message   string
+}
+
+func (r *RPCIssue) Time() time.Time {
+	return r.StartTime
+}
+
+func (r *RPCIssue) CSV() [][]string {
+	return [][]string{{r.StartTime.String(), r.Message}}
+}
+
+// OCRTestState indicates that a round per contract should complete within this time with this answer
 type OCRTestState struct {
-	Time    time.Time
-	Message string
+	StartTime      time.Time
+	EndTime        time.Time // Time when the round should end, only used for analysis
+	Answer         int64
+	anomalous      bool
+	anomalies      [][]string
+	FoundEvents    map[string][]*FoundEvent // Address -> FoundEvents, possible to have multiple found events per round, and need to call it out
+	TimeLineEvents []TimeLineEvent
+}
+
+func (e *OCRTestState) Time() time.Time {
+	return e.StartTime
+}
+
+// CSV returns a CSV representation of the test state and all events
+func (e *OCRTestState) CSV() [][]string {
+	rows := [][]string{{e.StartTime.String(), fmt.Sprintf("Expecting new Answer: %d", e.Answer)}}
+	for _, anomaly := range e.anomalies {
+		rows = append(rows, anomaly)
+	}
+	return rows
+}
+
+// Validate checks that
+// 1. There is a FoundEvent for every address
+// 2. There is only one FoundEvent for every address
+// 3. The answer is correct
+func (e *OCRTestState) Validate() bool {
+	anomalies := [][]string{}
+	for address, eventList := range e.FoundEvents {
+		if len(eventList) == 0 {
+			e.anomalous = true
+			anomalies = append(anomalies, []string{e.StartTime.String(), fmt.Sprintf("No AnswerUpdated for address '%s'", address)})
+		} else if len(eventList) > 1 {
+			e.anomalous = true
+			anomalies = append(anomalies, []string{e.StartTime.String(),
+				fmt.Sprintf("Multiple AnswerUpdated for address '%s', possible double-transmission", address)},
+			)
+		} else {
+			event := eventList[0]
+			if event.Answer != e.Answer {
+				e.anomalous = true
+				anomalies = append(e.anomalies, []string{e.StartTime.String(),
+					fmt.Sprintf("FoundEvent for address '%s' has wrong answer '%d'", address, event.Answer)},
+				)
+			}
+		}
+	}
+	e.anomalies = anomalies
+	return e.anomalous
+}
+
+// FoundEvent is a single round update event
+type FoundEvent struct {
+	StartTime   time.Time
+	BlockNumber uint64
+	Address     string
+	Answer      int64
+	RoundID     uint64
+}
+
+func (a *FoundEvent) Time() time.Time {
+	return a.StartTime
+}
+
+// CSV returns a CSV representation of the event
+func (a *FoundEvent) CSV() [][]string {
+	return [][]string{{
+		a.StartTime.String(),
+		fmt.Sprintf("Address: %s", a.Address),
+		fmt.Sprintf("Round: %d", a.RoundID),
+		fmt.Sprintf("Answer: %d", a.Answer),
+		fmt.Sprintf("Block: %d", a.BlockNumber),
+	}}
+}
+
+// RecordEvents takes in a list of test states and RPC issues, orders them, and records them in the timeline
+func (o *OCRSoakTestReporter) RecordEvents(testStates []*OCRTestState, rpcIssues []*RPCIssue) {
+	events := []TimeLineEvent{}
+	for _, expectedEvent := range testStates {
+		if expectedEvent.Validate() {
+			o.AnomaliesDetected = true
+		}
+		events = append(events, expectedEvent)
+		events = append(events, expectedEvent.TimeLineEvents...)
+	}
+	if len(rpcIssues) > 0 {
+		o.AnomaliesDetected = true
+	}
+	for _, rpcIssue := range rpcIssues {
+		events = append(events, rpcIssue)
+	}
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].Time().Before(events[j].Time())
+	})
+	for _, event := range events {
+		o.timeLine = append(o.timeLine, event.CSV()...)
+	}
 }
 
 // SetNamespace sets the namespace of the report for clean reports
@@ -34,29 +154,61 @@ func (o *OCRSoakTestReporter) SetNamespace(namespace string) {
 	o.namespace = namespace
 }
 
-func (o *OCRSoakTestReporter) RecordEvents(expectedEvents, actualEvents []*OCRTestState) {
-	expectedEventIndex, actualEventIndex := 0, 0
-	for expectedEventIndex < len(expectedEvents) || actualEventIndex < len(actualEvents) {
-		if expectedEventIndex >= len(expectedEvents) {
-			o.timeLine = append(o.timeLine, actualEvents[actualEventIndex])
-			actualEventIndex++
-		} else if actualEventIndex >= len(actualEvents) {
-			o.timeLine = append(o.timeLine, expectedEvents[expectedEventIndex])
-			expectedEventIndex++
-		} else if expectedEvents[expectedEventIndex].Time.Before(actualEvents[actualEventIndex].Time) {
-			o.timeLine = append(o.timeLine, expectedEvents[expectedEventIndex])
-			expectedEventIndex++
-		} else {
-			o.timeLine = append(o.timeLine, actualEvents[actualEventIndex])
-			actualEventIndex++
-		}
-	}
-}
-
-// WriteReport writes OCR Soak test report to logs
+// WriteReport writes OCR Soak test report to a CSV file and final report
 func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
 	log.Debug().Msg("Writing OCR Soak Test Report")
-	return o.writeCSV(folderLocation)
+	reportLocation := filepath.Join(folderLocation, "./ocr_soak_report.csv")
+	o.csvLocation = reportLocation
+	ocrReportFile, err := os.Create(reportLocation)
+	if err != nil {
+		return err
+	}
+	defer ocrReportFile.Close()
+
+	ocrReportWriter := csv.NewWriter(ocrReportFile)
+
+	err = ocrReportWriter.Write([]string{"OCR Soak Test Report"})
+	if err != nil {
+		return err
+	}
+
+	err = ocrReportWriter.Write([]string{
+		"Namespace",
+		o.namespace,
+	})
+	if err != nil {
+		return err
+	}
+
+	err = ocrReportWriter.Write([]string{})
+	if err != nil {
+		return err
+	}
+
+	err = ocrReportWriter.Write([]string{"Timeline"})
+	if err != nil {
+		return err
+	}
+
+	err = ocrReportWriter.Write([]string{
+		"Time",
+		"Message",
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, event := range o.timeLine {
+		err = ocrReportWriter.Write(event)
+		if err != nil {
+			return err
+		}
+	}
+
+	ocrReportWriter.Flush()
+
+	log.Info().Str("Location", reportLocation).Msg("Wrote CSV file")
+	return nil
 }
 
 // SendNotification sends a slack message to a slack webhook and uploads test artifacts
@@ -89,40 +241,4 @@ func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *s
 		Channels:        []string{testreporters.SlackChannel},
 		ThreadTimestamp: ts,
 	})
-}
-
-// writes a CSV report on the test runner
-func (o *OCRSoakTestReporter) writeCSV(folderLocation string) error {
-	reportLocation := filepath.Join(folderLocation, "./ocr_soak_report.csv")
-	o.csvLocation = reportLocation
-	ocrReportFile, err := os.Create(reportLocation)
-	if err != nil {
-		return err
-	}
-	defer ocrReportFile.Close()
-
-	ocrReportWriter := csv.NewWriter(ocrReportFile)
-
-	err = ocrReportWriter.Write([]string{
-		"Time",
-		"Message",
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, event := range o.timeLine {
-		err = ocrReportWriter.Write([]string{
-			event.Time.String(),
-			event.Message,
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	ocrReportWriter.Flush()
-
-	log.Info().Str("Location", reportLocation).Msg("Wrote CSV file")
-	return nil
 }
