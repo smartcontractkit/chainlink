@@ -11,12 +11,14 @@ import { KeeperRegistryLogic2_0__factory as KeeperRegistryLogic20Factory } from 
 import { KeeperRegistry1_3__factory as KeeperRegistry1_3Factory } from '../../../typechain/factories/KeeperRegistry1_3__factory'
 import { KeeperRegistryLogic1_3__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic1_3__factory'
 import { toWei } from '../../test-helpers/helpers'
+import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import {
   LinkToken,
   MockV3Aggregator,
   KeeperRegistry1_2,
   KeeperRegistry1_3,
   KeeperRegistry2_0,
+  IKeeperRegistryMaster,
   UpkeepMock,
 } from '../../../typechain'
 import {} from '../../../typechain'
@@ -29,6 +31,10 @@ let keeperRegistryFactory13: KeeperRegistry1_3Factory
 let keeperRegistryLogicFactory20: KeeperRegistryLogic20Factory
 let keeperRegistryLogicFactory13: KeeperRegistryLogicFactory
 let linkToken: LinkToken
+let registry12: KeeperRegistry1_2
+let registry13: KeeperRegistry1_3
+let registry20: KeeperRegistry2_0
+let registry21: IKeeperRegistryMaster
 let gasPriceFeed: MockV3Aggregator
 let linkEthFeed: MockV3Aggregator
 let mock: UpkeepMock
@@ -40,6 +46,9 @@ let upkeepsV21: any[]
 let admins: string[]
 let admin0: Signer
 let admin1: Signer
+let id12: BigNumber
+let id13: BigNumber
+let id20: BigNumber
 const executeGas = BigNumber.from('100000')
 const paymentPremiumPPB = BigNumber.from('250000000')
 const flatFeeMicroLink = BigNumber.from(0)
@@ -142,151 +151,7 @@ const encodeUpkeepV21 = (
   )
 }
 
-before(async () => {
-  personas = (await getUsers()).personas
-  owner = personas.Norbert
-  admin0 = personas.Neil
-  admin1 = personas.Nick
-  admins = [
-    (await admin0.getAddress()).toLowerCase(),
-    (await admin1.getAddress()).toLowerCase(),
-  ]
-
-  const upkeepTranscoderFactory = await ethers.getContractFactory(
-    'UpkeepTranscoder4_0',
-  )
-  transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
-
-  linkTokenFactory = await ethers.getContractFactory('LinkToken')
-  linkToken = await linkTokenFactory.connect(owner).deploy()
-  // need full path because there are two contracts with name MockV3Aggregator
-  const mockV3AggregatorFactory = (await ethers.getContractFactory(
-    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
-  )) as unknown as MockV3AggregatorFactory
-
-  gasPriceFeed = await mockV3AggregatorFactory.connect(owner).deploy(0, gasWei)
-  linkEthFeed = await mockV3AggregatorFactory.connect(owner).deploy(9, linkEth)
-
-  const upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
-  mock = await upkeepMockFactory.deploy()
-
-  const keeper1 = personas.Carol
-  const keeper2 = personas.Eddy
-  const keeper3 = personas.Nancy
-  const keeper4 = personas.Norbert
-  const keeper5 = personas.Nick
-  const payee1 = personas.Nelly
-  const payee2 = personas.Norbert
-  const payee3 = personas.Nick
-  const payee4 = personas.Eddy
-  const payee5 = personas.Carol
-  // signers
-  const signer1 = new ethers.Wallet(
-    '0x7777777000000000000000000000000000000000000000000000000000000001',
-  )
-  const signer2 = new ethers.Wallet(
-    '0x7777777000000000000000000000000000000000000000000000000000000002',
-  )
-  const signer3 = new ethers.Wallet(
-    '0x7777777000000000000000000000000000000000000000000000000000000003',
-  )
-  const signer4 = new ethers.Wallet(
-    '0x7777777000000000000000000000000000000000000000000000000000000004',
-  )
-  const signer5 = new ethers.Wallet(
-    '0x7777777000000000000000000000000000000000000000000000000000000005',
-  )
-
-  keeperAddresses = [
-    await keeper1.getAddress(),
-    await keeper2.getAddress(),
-    await keeper3.getAddress(),
-    await keeper4.getAddress(),
-    await keeper5.getAddress(),
-  ]
-
-  payees = [
-    await payee1.getAddress(),
-    await payee2.getAddress(),
-    await payee3.getAddress(),
-    await payee4.getAddress(),
-    await payee5.getAddress(),
-  ]
-  const signers = [signer1, signer2, signer3, signer4, signer5]
-
-  signerAddresses = signers.map((signer) => signer.address)
-
-  upkeepsV12 = [
-    [
-      balance,
-      lastKeeper0,
-      executeGas,
-      2 ** 32,
-      target0,
-      amountSpent,
-      await admin0.getAddress(),
-    ],
-    [
-      balance,
-      lastKeeper1,
-      executeGas,
-      2 ** 32,
-      target1,
-      amountSpent,
-      await admin1.getAddress(),
-    ],
-  ]
-
-  upkeepsV13 = [
-    [
-      balance,
-      lastKeeper0,
-      amountSpent,
-      await admin0.getAddress(),
-      executeGas,
-      2 ** 32 - 1,
-      target0,
-      false,
-    ],
-    [
-      balance,
-      lastKeeper1,
-      amountSpent,
-      await admin1.getAddress(),
-      executeGas,
-      2 ** 32 - 1,
-      target1,
-      false,
-    ],
-  ]
-
-  upkeepsV21 = [
-    [
-      false,
-      executeGas,
-      2 ** 32 - 1,
-      AddressZero, // forwarder will always be zero
-      amountSpent,
-      balance,
-      0,
-      target0,
-    ],
-    [
-      false,
-      executeGas,
-      2 ** 32 - 1,
-      AddressZero, // forwarder will always be zero
-      amountSpent,
-      balance,
-      0,
-      target1,
-    ],
-  ]
-})
-
-async function deployLegacyRegistry1_2(): Promise<
-  [BigNumber, KeeperRegistry1_2]
-> {
+async function deployRegistry1_2(): Promise<[BigNumber, KeeperRegistry1_2]> {
   const keeperRegistryFactory = await ethers.getContractFactory(
     'KeeperRegistry1_2',
   )
@@ -318,9 +183,7 @@ async function deployLegacyRegistry1_2(): Promise<
   return [id, registry12]
 }
 
-async function deployLegacyRegistry1_3(): Promise<
-  [BigNumber, KeeperRegistry1_3]
-> {
+async function deployRegistry1_3(): Promise<[BigNumber, KeeperRegistry1_3]> {
   keeperRegistryFactory13 = await ethers.getContractFactory('KeeperRegistry1_3')
   keeperRegistryLogicFactory13 = await ethers.getContractFactory(
     'KeeperRegistryLogic1_3',
@@ -464,7 +327,157 @@ async function deployRegistry2_1() {
   return registry
 }
 
+const setup = async () => {
+  personas = (await getUsers()).personas
+  owner = personas.Norbert
+  admin0 = personas.Neil
+  admin1 = personas.Nick
+  admins = [
+    (await admin0.getAddress()).toLowerCase(),
+    (await admin1.getAddress()).toLowerCase(),
+  ]
+
+  const upkeepTranscoderFactory = await ethers.getContractFactory(
+    'UpkeepTranscoder4_0',
+  )
+  transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
+
+  linkTokenFactory = await ethers.getContractFactory('LinkToken')
+  linkToken = await linkTokenFactory.connect(owner).deploy()
+  // need full path because there are two contracts with name MockV3Aggregator
+  const mockV3AggregatorFactory = (await ethers.getContractFactory(
+    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
+  )) as unknown as MockV3AggregatorFactory
+
+  gasPriceFeed = await mockV3AggregatorFactory.connect(owner).deploy(0, gasWei)
+  linkEthFeed = await mockV3AggregatorFactory.connect(owner).deploy(9, linkEth)
+
+  const upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
+  mock = await upkeepMockFactory.deploy()
+
+  const keeper1 = personas.Carol
+  const keeper2 = personas.Eddy
+  const keeper3 = personas.Nancy
+  const keeper4 = personas.Norbert
+  const keeper5 = personas.Nick
+  const payee1 = personas.Nelly
+  const payee2 = personas.Norbert
+  const payee3 = personas.Nick
+  const payee4 = personas.Eddy
+  const payee5 = personas.Carol
+  // signers
+  const signer1 = new ethers.Wallet(
+    '0x7777777000000000000000000000000000000000000000000000000000000001',
+  )
+  const signer2 = new ethers.Wallet(
+    '0x7777777000000000000000000000000000000000000000000000000000000002',
+  )
+  const signer3 = new ethers.Wallet(
+    '0x7777777000000000000000000000000000000000000000000000000000000003',
+  )
+  const signer4 = new ethers.Wallet(
+    '0x7777777000000000000000000000000000000000000000000000000000000004',
+  )
+  const signer5 = new ethers.Wallet(
+    '0x7777777000000000000000000000000000000000000000000000000000000005',
+  )
+
+  keeperAddresses = [
+    await keeper1.getAddress(),
+    await keeper2.getAddress(),
+    await keeper3.getAddress(),
+    await keeper4.getAddress(),
+    await keeper5.getAddress(),
+  ]
+
+  payees = [
+    await payee1.getAddress(),
+    await payee2.getAddress(),
+    await payee3.getAddress(),
+    await payee4.getAddress(),
+    await payee5.getAddress(),
+  ]
+  const signers = [signer1, signer2, signer3, signer4, signer5]
+
+  signerAddresses = signers.map((signer) => signer.address)
+  ;[id12, registry12] = await deployRegistry1_2()
+  ;[id13, registry13] = await deployRegistry1_3()
+  ;[id20, registry20] = await deployRegistry2_0()
+  registry21 = await deployRegistry2_1()
+
+  upkeepsV12 = [
+    [
+      balance,
+      lastKeeper0,
+      executeGas,
+      2 ** 32,
+      target0,
+      amountSpent,
+      await admin0.getAddress(),
+    ],
+    [
+      balance,
+      lastKeeper1,
+      executeGas,
+      2 ** 32,
+      target1,
+      amountSpent,
+      await admin1.getAddress(),
+    ],
+  ]
+
+  upkeepsV13 = [
+    [
+      balance,
+      lastKeeper0,
+      amountSpent,
+      await admin0.getAddress(),
+      executeGas,
+      2 ** 32 - 1,
+      target0,
+      false,
+    ],
+    [
+      balance,
+      lastKeeper1,
+      amountSpent,
+      await admin1.getAddress(),
+      executeGas,
+      2 ** 32 - 1,
+      target1,
+      false,
+    ],
+  ]
+
+  upkeepsV21 = [
+    [
+      false,
+      executeGas,
+      2 ** 32 - 1,
+      AddressZero, // forwarder will always be zero
+      amountSpent,
+      balance,
+      0,
+      target0,
+    ],
+    [
+      false,
+      executeGas,
+      2 ** 32 - 1,
+      AddressZero, // forwarder will always be zero
+      amountSpent,
+      balance,
+      0,
+      target1,
+    ],
+  ]
+}
+
 describe('UpkeepTranscoder4_0', () => {
+  beforeEach(async () => {
+    await loadFixture(setup)
+  })
+
   describe('#typeAndVersion', () => {
     it('uses the correct type and version', async () => {
       const typeAndVersion = await transcoder.typeAndVersion()
@@ -527,13 +540,10 @@ describe('UpkeepTranscoder4_0', () => {
       // DEV cannot test raw transcoding 2.0 => 2.1 because transcodeUpkeeps is not pure
 
       it('migrates upkeeps from 1.2 registry to 2.1', async () => {
-        const [id, registry12] = await deployLegacyRegistry1_2()
-        const registry21 = await deployRegistry2_1()
-
         await linkToken
           .connect(owner)
           .approve(registry12.address, toWei('1000'))
-        await registry12.connect(owner).addFunds(id, toWei('1000'))
+        await registry12.connect(owner).addFunds(id12, toWei('1000'))
 
         await registry12.setPeerRegistryMigrationPermission(
           registry21.address,
@@ -544,38 +554,43 @@ describe('UpkeepTranscoder4_0', () => {
           2,
         )
 
-        expect((await registry12.getUpkeep(id)).balance).to.equal(toWei('1000'))
-        expect((await registry12.getUpkeep(id)).checkData).to.equal(randomBytes)
+        expect((await registry12.getUpkeep(id12)).balance).to.equal(
+          toWei('1000'),
+        )
+        expect((await registry12.getUpkeep(id12)).checkData).to.equal(
+          randomBytes,
+        )
         expect((await registry12.getState()).state.numUpkeeps).to.equal(1)
 
         await registry12
           .connect(admin0)
-          .migrateUpkeeps([id], registry21.address)
+          .migrateUpkeeps([id12], registry21.address)
 
         expect((await registry12.getState()).state.numUpkeeps).to.equal(0)
         expect((await registry21.getState()).state.numUpkeeps).to.equal(1)
-        expect((await registry12.getUpkeep(id)).balance).to.equal(0)
-        expect((await registry12.getUpkeep(id)).checkData).to.equal('0x')
-        expect((await registry21.getUpkeep(id)).balance).to.equal(toWei('1000'))
+        expect((await registry12.getUpkeep(id12)).balance).to.equal(0)
+        expect((await registry12.getUpkeep(id12)).checkData).to.equal('0x')
+        expect((await registry21.getUpkeep(id12)).balance).to.equal(
+          toWei('1000'),
+        )
         expect(
           (await registry21.getState()).state.expectedLinkBalance,
         ).to.equal(toWei('1000'))
         expect(await linkToken.balanceOf(registry21.address)).to.equal(
           toWei('1000'),
         )
-        expect((await registry21.getUpkeep(id)).checkData).to.equal(randomBytes)
-        expect((await registry21.getUpkeep(id)).offchainConfig).to.equal('0x')
-        expect(await registry21.getUpkeepTriggerConfig(id)).to.equal('0x')
+        expect((await registry21.getUpkeep(id12)).checkData).to.equal(
+          randomBytes,
+        )
+        expect((await registry21.getUpkeep(id12)).offchainConfig).to.equal('0x')
+        expect(await registry21.getUpkeepTriggerConfig(id12)).to.equal('0x')
       })
 
       it('migrates upkeeps from 1.3 registry to 2.1', async () => {
-        const [id, registry13] = await deployLegacyRegistry1_3()
-        const registry21 = await deployRegistry2_1()
-
         await linkToken
           .connect(owner)
           .approve(registry13.address, toWei('1000'))
-        await registry13.connect(owner).addFunds(id, toWei('1000'))
+        await registry13.connect(owner).addFunds(id13, toWei('1000'))
 
         await registry13.setPeerRegistryMigrationPermission(
           registry21.address,
@@ -586,38 +601,43 @@ describe('UpkeepTranscoder4_0', () => {
           2,
         )
 
-        expect((await registry13.getUpkeep(id)).balance).to.equal(toWei('1000'))
-        expect((await registry13.getUpkeep(id)).checkData).to.equal(randomBytes)
+        expect((await registry13.getUpkeep(id13)).balance).to.equal(
+          toWei('1000'),
+        )
+        expect((await registry13.getUpkeep(id13)).checkData).to.equal(
+          randomBytes,
+        )
         expect((await registry13.getState()).state.numUpkeeps).to.equal(1)
 
         await registry13
           .connect(admin0)
-          .migrateUpkeeps([id], registry21.address)
+          .migrateUpkeeps([id13], registry21.address)
 
         expect((await registry13.getState()).state.numUpkeeps).to.equal(0)
         expect((await registry21.getState()).state.numUpkeeps).to.equal(1)
-        expect((await registry13.getUpkeep(id)).balance).to.equal(0)
-        expect((await registry13.getUpkeep(id)).checkData).to.equal('0x')
-        expect((await registry21.getUpkeep(id)).balance).to.equal(toWei('1000'))
+        expect((await registry13.getUpkeep(id13)).balance).to.equal(0)
+        expect((await registry13.getUpkeep(id13)).checkData).to.equal('0x')
+        expect((await registry21.getUpkeep(id13)).balance).to.equal(
+          toWei('1000'),
+        )
         expect(
           (await registry21.getState()).state.expectedLinkBalance,
         ).to.equal(toWei('1000'))
         expect(await linkToken.balanceOf(registry21.address)).to.equal(
           toWei('1000'),
         )
-        expect((await registry21.getUpkeep(id)).checkData).to.equal(randomBytes)
-        expect((await registry21.getUpkeep(id)).offchainConfig).to.equal('0x')
-        expect(await registry21.getUpkeepTriggerConfig(id)).to.equal('0x')
+        expect((await registry21.getUpkeep(id13)).checkData).to.equal(
+          randomBytes,
+        )
+        expect((await registry21.getUpkeep(id13)).offchainConfig).to.equal('0x')
+        expect(await registry21.getUpkeepTriggerConfig(id13)).to.equal('0x')
       })
 
       it('migrates upkeeps from 2.0 registry to 2.1', async () => {
-        const [id, registry20] = await deployRegistry2_0()
-        const registry21 = await deployRegistry2_1()
-
         await linkToken
           .connect(owner)
           .approve(registry20.address, toWei('1000'))
-        await registry20.connect(owner).addFunds(id, toWei('1000'))
+        await registry20.connect(owner).addFunds(id20, toWei('1000'))
 
         await registry20.setPeerRegistryMigrationPermission(
           registry21.address,
@@ -628,33 +648,41 @@ describe('UpkeepTranscoder4_0', () => {
           2,
         )
 
-        expect((await registry20.getUpkeep(id)).balance).to.equal(toWei('1000'))
-        expect((await registry20.getUpkeep(id)).checkData).to.equal(randomBytes)
-        expect((await registry20.getUpkeep(id)).offchainConfig).to.equal(
+        expect((await registry20.getUpkeep(id20)).balance).to.equal(
+          toWei('1000'),
+        )
+        expect((await registry20.getUpkeep(id20)).checkData).to.equal(
+          randomBytes,
+        )
+        expect((await registry20.getUpkeep(id20)).offchainConfig).to.equal(
           randomBytes,
         )
         expect((await registry20.getState()).state.numUpkeeps).to.equal(1)
 
         await registry20
           .connect(admin0)
-          .migrateUpkeeps([id], registry21.address)
+          .migrateUpkeeps([id20], registry21.address)
 
         expect((await registry20.getState()).state.numUpkeeps).to.equal(0)
         expect((await registry21.getState()).state.numUpkeeps).to.equal(1)
-        expect((await registry20.getUpkeep(id)).balance).to.equal(0)
-        expect((await registry20.getUpkeep(id)).checkData).to.equal('0x')
-        expect((await registry21.getUpkeep(id)).balance).to.equal(toWei('1000'))
+        expect((await registry20.getUpkeep(id20)).balance).to.equal(0)
+        expect((await registry20.getUpkeep(id20)).checkData).to.equal('0x')
+        expect((await registry21.getUpkeep(id20)).balance).to.equal(
+          toWei('1000'),
+        )
         expect(
           (await registry21.getState()).state.expectedLinkBalance,
         ).to.equal(toWei('1000'))
         expect(await linkToken.balanceOf(registry21.address)).to.equal(
           toWei('1000'),
         )
-        expect((await registry21.getUpkeep(id)).checkData).to.equal(randomBytes)
-        expect((await registry21.getUpkeep(id)).offchainConfig).to.equal(
+        expect((await registry21.getUpkeep(id20)).checkData).to.equal(
           randomBytes,
         )
-        expect(await registry21.getUpkeepTriggerConfig(id)).to.equal('0x')
+        expect((await registry21.getUpkeep(id20)).offchainConfig).to.equal(
+          randomBytes,
+        )
+        expect(await registry21.getUpkeepTriggerConfig(id20)).to.equal('0x')
       })
     })
   })
