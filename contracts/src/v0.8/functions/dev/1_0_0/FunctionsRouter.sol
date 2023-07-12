@@ -115,11 +115,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
         IFunctionsCoordinator.Request(subscriptionId, data, dataVersion, callbackGasLimit, msg.sender, owner)
       );
 
-    // Earmark subscription funds
-    s_subscriptions[subscriptionId].blockedBalance += estimatedCost;
-
-    // Increment sent requests
-    s_consumers[msg.sender][subscriptionId].initiatedRequests += 1;
+    _markRequestInFlight(msg.sender, subscriptionId, estimatedCost);
 
     // Store a commitment about the request
     s_requests[requestId] = Request(
@@ -133,15 +129,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       s_config.adminFee
     );
 
-    emit RequestStart(
-      requestId,
-      donId,
-      subscriptionId,
-      owner,
-      msg.sender,
-      tx.origin,
-      callbackGasLimit
-    );
+    emit RequestStart(requestId, donId, subscriptionId, owner, msg.sender, tx.origin, callbackGasLimit);
 
     return requestId;
   }
