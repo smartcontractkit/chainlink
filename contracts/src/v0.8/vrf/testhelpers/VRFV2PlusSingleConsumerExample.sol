@@ -4,8 +4,9 @@ pragma solidity ^0.8.0;
 
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../VRFConsumerBaseV2.sol";
+import "../VRFConsumerBaseV2Plus.sol";
 
+/// @notice This contract is used for testing only and should not be used for production.
 contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
   IVRFCoordinatorV2Plus COORDINATOR;
   LinkTokenInterface LINKTOKEN;
@@ -31,7 +32,7 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
     uint32 numWords,
     bytes32 keyHash,
     bool nativePayment
-  ) VRFConsumerBaseV2(vrfCoordinator) {
+  ) VRFConsumerBaseV2Plus(vrfCoordinator) {
     COORDINATOR = IVRFCoordinatorV2Plus(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
     s_owner = msg.sender;

@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../VRFConsumerBaseV2.sol";
+import "../VRFConsumerBaseV2Plus.sol";
 
 // VRFV2RevertingExample will always revert. Used for testing only, useless in prod.
 contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
@@ -14,7 +14,7 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
   uint64 public s_subId;
   uint256 public s_gasAvailable;
 
-  constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
+  constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {
     COORDINATOR = IVRFCoordinatorV2Plus(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
   }
