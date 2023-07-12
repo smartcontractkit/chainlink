@@ -35,14 +35,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   uint96 private s_totalBalance;
 
   mapping(uint64 => IFunctionsSubscriptions.Subscription) /* subscriptionId */ /* subscription */
-    private s_subscriptions;
+    internal s_subscriptions;
 
   // We need to maintain a list of addresses that can consume a subscription.
   // This bound ensures we are able to loop over them as needed.
   // Should a user require more consumers, they can use multiple subscriptions.
   uint16 public constant MAX_CONSUMERS = 100;
   mapping(address => mapping(uint64 => IFunctionsSubscriptions.Consumer)) /* consumer */ /* subscriptionId */ /* Consumer data */
-    private s_consumers;
+    internal s_consumers;
 
   event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
   event SubscriptionFunded(uint64 indexed subscriptionId, uint256 oldBalance, uint256 newBalance);
@@ -89,6 +89,18 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint96 callbackGasCostJuels;
     uint96 totalCostJuels;
   }
+
+  event RequestStart(
+    bytes32 indexed requestId,
+    uint64 indexed subscriptionId,
+    address subscriptionOwner,
+    address requestingContract,
+    address requestInitiator,
+    bytes data,
+    uint16 dataVersion,
+    uint32 callbackGasLimit,
+    address coordinator
+  );
 
   // ================================================================
   // |                       Initialization                         |
@@ -165,15 +177,38 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // |                 Internal Payment methods                     |
   // ================================================================
   /**
-   * @notice Blocks funds on a subscription account to be used for an in flight request
+   * @notice Sets a request as in-flight
    * @dev Only callable within the Router
-   * @param client - the consumer contract that initiated the request
-   * @param subscriptionId - The subscription ID to block funds for
-   * @param amount - The amount to transfer
+   * @param requestId -
+   * @param request  -
    */
-  function _blockBalance(address client, uint64 subscriptionId, uint96 amount) internal {
-    s_subscriptions[subscriptionId].blockedBalance += amount;
-    s_consumers[client][subscriptionId].initiatedRequests += 1;
+  function _markRequestInFlight(
+    bytes32 requestId,
+    bytes memory data,
+    uint16 dataVersion,
+    address owner,
+    Request memory request
+  ) internal {
+    // Earmark subscription funds
+    s_subscriptions[request.subscriptionId].blockedBalance += request.estimatedCost;
+
+    // Increment sent requests
+    s_consumers[request.client][request.subscriptionId].initiatedRequests += 1;
+
+    // Store a commitment about the request
+    s_requests[requestId] = request;
+
+    emit RequestStart(
+      requestId,
+      request.subscriptionId,
+      owner,
+      request.client,
+      tx.origin,
+      data,
+      dataVersion,
+      request.callbackGasLimit,
+      request.coordinator
+    );
   }
 
   /**
@@ -186,7 +221,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint32 callbackGasLimit,
     uint96 juelsPerGas,
     uint96 costWithoutFulfillment
-  ) internal returns (uint8) {
+  ) internal view returns (uint8) {
     // Check that the transmitter has supplied enough gas for the callback to succeed
     if (gasleft() < callbackGasLimit + gasAfterPaymentCalculation) {
       return 3; // IFunctionsRouter.FulfillResult.INSUFFICIENT_GAS;

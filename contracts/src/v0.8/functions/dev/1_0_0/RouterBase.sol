@@ -90,15 +90,17 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     address newOwner,
     uint16 timelockBlocks,
     uint16 maximumTimelockBlocks,
-    bytes memory config
+    bytes memory selfConfig
   ) ConfirmedOwnerWithProposal(newOwner, address(0)) Pausable() {
-    // Set initial timelock
+    // Set initial value for the number of blocks of the timelock
     s_timelockBlocks = timelockBlocks;
+    // Set maximum number of blocks that the timelock can be
+    // NOTE: this cannot be later modified
     MAXIMUM_TIMELOCK_BLOCKS = maximumTimelockBlocks;
-    // Set the initial config
+    // Set the initial configuration for the Router
     s_route[routerId] = address(this);
-    _setConfig(config);
-    s_config_hash = keccak256(config);
+    _setConfig(selfConfig);
+    s_config_hash = keccak256(selfConfig);
   }
 
   // ================================================================

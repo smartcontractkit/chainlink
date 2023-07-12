@@ -106,16 +106,6 @@ abstract contract FunctionsClient is IFunctionsClient {
   }
 
   /**
-   * @notice Allows for a request which was created on another contract to be fulfilled
-   * on this contract
-   * @param oracleAddress The address of the Coordinator contract that will fulfill the request
-   * @param requestId The request ID used for the response
-   */
-  function addExternalRequest(address oracleAddress, bytes32 requestId) internal notPendingRequest(requestId) {
-    s_pendingRequests[requestId] = oracleAddress;
-  }
-
-  /**
    * @dev Reverts if the sender is not the oracle that serviced the request.
    * Emits RequestFulfilled event.
    * @param requestId The request ID for fulfillment

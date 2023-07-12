@@ -9,12 +9,14 @@ import {IFunctionsSubscriptions, FunctionsSubscriptions, IFunctionsBilling} from
 contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions {
   event RequestStart(
     bytes32 indexed requestId,
-    uint64 subscriptionId,
-    bytes calldata data,
-    uint16 dataVersion,
-    uint32 callbackGasLimit,
-    bytes32 donId
+    bytes32 indexed donId,
+    uint64 indexed subscriptionId,
+    address subscriptionOwner,
+    address requestingContract,
+    address requestInitiator,
+    uint32 callbackGasLimit
   );
+
   event RequestEnd(
     bytes32 indexed requestId,
     uint64 indexed subscriptionId,
@@ -98,11 +100,12 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
 
-    address route = this.getRoute(donId, useProposed);
-    IFunctionsCoordinator coordinator = IFunctionsCoordinator(route);
+    address coordinatorAddress = this.getRoute(donId, useProposed);
+    IFunctionsCoordinator coordinator = IFunctionsCoordinator(coordinatorAddress);
 
     (, , address owner, , ) = this.getSubscription(subscriptionId);
 
+    // Forward request to DON
     (
       bytes32 requestId,
       uint96 estimatedCost,
@@ -112,11 +115,15 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
         IFunctionsCoordinator.Request(subscriptionId, data, dataVersion, callbackGasLimit, msg.sender, owner)
       );
 
-    _blockBalance(msg.sender, subscriptionId, estimatedCost);
+    // Earmark subscription funds
+    s_subscriptions[subscriptionId].blockedBalance += estimatedCost;
+
+    // Increment sent requests
+    s_consumers[msg.sender][subscriptionId].initiatedRequests += 1;
 
     // Store a commitment about the request
     s_requests[requestId] = Request(
-      route,
+      coordinatorAddress,
       msg.sender,
       subscriptionId,
       callbackGasLimit,
@@ -126,7 +133,15 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       s_config.adminFee
     );
 
-    emit RequestStart(requestId, s_requests[requestId]);
+    emit RequestStart(
+      requestId,
+      donId,
+      subscriptionId,
+      owner,
+      msg.sender,
+      tx.origin,
+      callbackGasLimit
+    );
 
     return requestId;
   }
@@ -224,15 +239,29 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       response,
       err
     );
-    // Call with explicitly the amount of callback gas requested
-    // Important to not let them exhaust the gas budget and avoid payment.
     // Do not allow any non-view/non-pure coordinator functions to be called
     // during the consumers callback code via reentrancyLock.
+    s_reentrancyLock = true;
+    // Call with explicitly the amount of callback gas requested
+    // Important to not let them exhaust the gas budget and avoid payment.
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
-    s_reentrancyLock = true;
-    bool success;
-    uint256 gasUsed;
+    (bool success, uint256 gasUsed) = _callWithExactGas(callbackGasLimit, client, encodedCallback);
+    s_reentrancyLock = false;
+
+    result = CallbackResult(success, gasUsed);
+  }
+
+  /**
+   * @dev calls target address with exactly gasAmount gas and data as calldata
+   * or reverts if at least gasAmount gas is not available.
+   */
+  function _callWithExactGas(
+    uint256 gasAmount,
+    address target,
+    bytes memory data
+  ) private returns (bool success, uint256 gasUsed) {
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // GAS_FOR_CALL_EXACT_CHECK = 5000
@@ -248,21 +277,19 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       g := sub(g, 5000)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
-      if iszero(gt(sub(g, div(g, 64)), callbackGasLimit)) {
+      if iszero(gt(sub(g, div(g, 64)), gasAmount)) {
         revert(0, 0)
       }
       // solidity calls check that a contract actually exists at the destination, so we do the same
-      if iszero(extcodesize(client)) {
+      if iszero(extcodesize(target)) {
         revert(0, 0)
       }
       // call and return whether we succeeded. ignore return data
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-      success := call(callbackGasLimit, client, 0, add(encodedCallback, 0x20), mload(encodedCallback), 0, 0)
+      success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
       gasUsed := sub(g, gas())
     }
-    s_reentrancyLock = false;
-
-    result = CallbackResult(success, gasUsed);
+    return (success, gasUsed);
   }
 
   // ================================================================
