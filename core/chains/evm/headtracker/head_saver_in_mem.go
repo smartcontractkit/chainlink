@@ -134,6 +134,16 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) AddHeads(historyDepth int6
 		hs.Heads[blockHash] = head
 		hs.HeadsNumber[blockNumber] = append(hs.HeadsNumber[blockNumber], head)
 
+		// Set the parent of the existing heads to the new heads added
+		for _, existingHead := range hs.Heads {
+			parentHash := existingHead.GetParentHash()
+			if parentHash != hs.getNilHash() {
+				if parent, exists := hs.Heads[parentHash]; exists {
+					hs.setParent(existingHead, parent)
+				}
+			}
+		}
+
 		if !hs.latestHead.IsValid() {
 			hs.latestHead = head
 		} else if head.BlockNumber() > hs.latestHead.BlockNumber() {
