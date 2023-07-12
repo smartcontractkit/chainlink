@@ -74,7 +74,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 
 	var decryptor threshold.Decryptor
 	// thresholdOracleArgs nil check will be removed once the Threshold plugin is fully integrated w/ Functions
-	if len(conf.ThresholdKeyShare) > 0 && thresholdOracleArgs != nil {
+	if len(conf.ThresholdKeyShare) > 0 && thresholdOracleArgs != nil && pluginConfig.DecryptionQueueConfig != nil {
 		decryptionQueue := threshold.NewDecryptionQueue(
 			int(pluginConfig.DecryptionQueueConfig.MaxQueueLength),
 			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextBytes),
@@ -94,7 +94,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		}
 		allServices = append(allServices, thresholdService)
 	} else {
-		conf.Logger.Warn("ThresholdKeyShare is empty. Threshold secrets decryption plugin is disabled.")
+		conf.Logger.Warn("Threshold configuration is incomplete. Threshold secrets decryption plugin is disabled.")
 	}
 
 	listenerLogger := conf.Logger.Named("FunctionsListener")
@@ -140,7 +140,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		listenerLogger.Warn("No GatewayConnectorConfig, S4Constraints or OnchainAllowlist is found in the plugin config, GatewayConnector will not be enabled")
 	}
 
-	if s4OracleArgs != nil {
+	if s4OracleArgs != nil && pluginConfig.S4Constraints != nil {
 		s4OracleArgs.ReportingPluginFactory = s4_plugin.S4ReportingPluginFactory{
 			Logger:        s4OracleArgs.Logger,
 			ORM:           s4ORM,
@@ -152,7 +152,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		}
 		allServices = append(allServices, job.NewServiceAdapter(s4ReportingPluginOracle))
 	} else {
-		listenerLogger.Warn("s4OracleArgs is nil. S4 plugin is disabled.")
+		listenerLogger.Warn("s4OracleArgs is nil or S4Constraints are not configured. S4 plugin is disabled.")
 	}
 
 	return allServices, nil
