@@ -16,7 +16,7 @@ contract AutomationForwarderSetUp is BaseTest {
   UpkeepCounter internal default_target;
   uint256 constant GAS = 1e18;
 
-  function setUp() public override{
+  function setUp() public override {
     default_registry = IAutomationRegistryConsumer(new MockKeeperRegistry2_1());
     default_target = new UpkeepCounter(10000, 1);
     vm.startPrank(address(default_registry));
