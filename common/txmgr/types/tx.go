@@ -119,10 +119,10 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 }
 
 type TxAttempt[
-	CHAIN_ID ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	ID    int64
@@ -145,10 +145,10 @@ func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) String() stri
 }
 
 type Tx[
-	CHAIN_ID ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	ID             int64

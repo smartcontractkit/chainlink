@@ -763,7 +763,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinato
 		`, subID)
 		require.NoError(t, err)
 		for _, tx := range txs {
-			var evmTx txmgr.EvmTx
+			var evmTx txmgr.Tx
 			txmgr.DbEthTxToEthTx(tx, &evmTx)
 			meta, err := evmTx.GetMeta()
 			require.NoError(t, err)
@@ -2108,7 +2108,7 @@ func TestMaliciousConsumer(t *testing.T) {
 
 	// We expect the request to be serviced
 	// by the node.
-	var attempts []txmgr.EvmTxAttempt
+	var attempts []txmgr.TxAttempt
 	gomega.NewWithT(t).Eventually(func() bool {
 		//runs, err = app.PipelineORM().GetAllRuns()
 		attempts, _, err = app.TxmStorageService().TxAttempts(0, 1000)
@@ -2395,21 +2395,21 @@ func TestStartingCountsV1(t *testing.T) {
 	b := time.Now()
 	n1, n2, n3, n4 := evmtypes.Nonce(0), evmtypes.Nonce(1), evmtypes.Nonce(2), evmtypes.Nonce(3)
 	reqID := utils.PadByteToHash(0x10)
-	m1 := txmgr.EvmTxMeta{
+	m1 := txmgr.TxMeta{
 		RequestID: &reqID,
 	}
 	md1, err := json.Marshal(&m1)
 	require.NoError(t, err)
 	md1_ := datatypes.JSON(md1)
 	reqID2 := utils.PadByteToHash(0x11)
-	m2 := txmgr.EvmTxMeta{
+	m2 := txmgr.TxMeta{
 		RequestID: &reqID2,
 	}
 	md2, err := json.Marshal(&m2)
 	md2_ := datatypes.JSON(md2)
 	require.NoError(t, err)
 	chainID := utils.NewBig(big.NewInt(1337))
-	confirmedTxes := []txmgr.EvmTx{
+	confirmedTxes := []txmgr.Tx{
 		{
 			Sequence:           &n1,
 			FromAddress:        k.Address,
@@ -2460,16 +2460,16 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 	}
 	// add unconfirmed txes
-	unconfirmedTxes := []txmgr.EvmTx{}
+	unconfirmedTxes := []txmgr.Tx{}
 	for i := int64(4); i < 6; i++ {
 		reqID3 := utils.PadByteToHash(0x12)
-		md, err := json.Marshal(&txmgr.EvmTxMeta{
+		md, err := json.Marshal(&txmgr.TxMeta{
 			RequestID: &reqID3,
 		})
 		require.NoError(t, err)
 		md1 := datatypes.JSON(md)
 		newNonce := evmtypes.Nonce(i + 1)
-		unconfirmedTxes = append(unconfirmedTxes, txmgr.EvmTx{
+		unconfirmedTxes = append(unconfirmedTxes, txmgr.Tx{
 			Sequence:           &newNonce,
 			FromAddress:        k.Address,
 			Error:              null.String{},
@@ -2494,9 +2494,9 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 
 	// add eth_tx_attempts for confirmed
 	broadcastBlock := int64(1)
-	txAttempts := []txmgr.EvmTxAttempt{}
+	txAttempts := []txmgr.TxAttempt{}
 	for i := range confirmedTxes {
-		txAttempts = append(txAttempts, txmgr.EvmTxAttempt{
+		txAttempts = append(txAttempts, txmgr.TxAttempt{
 			TxID:                    int64(i + 1),
 			TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(100)},
 			SignedRawTx:             []byte(`blah`),
@@ -2509,7 +2509,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	}
 	// add eth_tx_attempts for unconfirmed
 	for i := range unconfirmedTxes {
-		txAttempts = append(txAttempts, txmgr.EvmTxAttempt{
+		txAttempts = append(txAttempts, txmgr.TxAttempt{
 			TxID:                  int64(i + 1 + len(confirmedTxes)),
 			TxFee:                 gas.EvmFee{Legacy: assets.NewWeiI(100)},
 			SignedRawTx:           []byte(`blah`),
@@ -2532,9 +2532,9 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	}
 
 	// add eth_receipts
-	receipts := []txmgr.EvmReceipt{}
+	receipts := []txmgr.Receipt{}
 	for i := 0; i < 4; i++ {
-		receipts = append(receipts, txmgr.EvmReceipt{
+		receipts = append(receipts, txmgr.Receipt{
 			BlockHash:        utils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,

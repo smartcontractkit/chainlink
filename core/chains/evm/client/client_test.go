@@ -35,10 +35,10 @@ func mustNewClient(t *testing.T, wsURL string, sendonlys ...url.URL) evmclient.C
 }
 
 func mustNewClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) evmclient.Client {
-	cfg := evmclient.TestNodeConfig{
-		SelectionMode: evmclient.NodeSelectionMode_RoundRobin,
+	cfg := evmclient.TestNodePoolConfig{
+		NodeSelectionMode: evmclient.NodeSelectionMode_RoundRobin,
 	}
-	c, err := evmclient.NewClientWithTestNode(t, cfg, wsURL, nil, sendonlys, 42, chainID)
+	c, err := evmclient.NewClientWithTestNode(t, cfg, time.Second*0, wsURL, nil, sendonlys, 42, chainID)
 	require.NoError(t, err)
 	return c
 }

@@ -54,7 +54,7 @@ type Listener struct {
 	Job             job.Job
 	Q               pg.Q
 	HeadBroadcaster httypes.HeadBroadcasterRegistry
-	Txm             txmgr.EvmTxManager
+	Txm             txmgr.TxManager
 	GethKs          vrfcommon.GethKeyStore
 	MailMon         *utils.MailboxMonitor
 	ReqLogs         *utils.Mailbox[log.Broadcast]

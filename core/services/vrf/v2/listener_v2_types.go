@@ -158,7 +158,7 @@ func (lsn *listenerV2) processBatch(
 		"gasMultiplier", lsn.job.VRFSpec.BatchFulfillmentGasMultiplier,
 	)
 	ll.Info("Enqueuing batch fulfillment")
-	var ethTX txmgr.EvmTx
+	var ethTX txmgr.Tx
 	err = lsn.q.Transaction(func(tx pg.Queryer) error {
 		if err = lsn.pipelineRunner.InsertFinishedRuns(batch.runs, true, pg.WithQueryer(tx)); err != nil {
 			return errors.Wrap(err, "inserting finished pipeline runs")
@@ -169,33 +169,22 @@ func (lsn *listenerV2) processBatch(
 		}
 
 		maxLink, maxEth := accumulateMaxLinkAndMaxEth(batch)
-		// check if maxLink is zero, if it is, no need to set it
-		// in the meta below
-		var maxLinkStr, maxEthStr *string
-		if maxLink.Cmp(big.NewInt(0)) > 0 {
-			tmp := maxLink.String()
-			maxLinkStr = &tmp
-		}
-		if maxEth.Cmp(big.NewInt(0)) > 0 {
-			tmp := maxEth.String()
-			maxEthStr = &tmp
-		}
 		txHashes := []common.Hash{}
 		copy(txHashes, batch.txHashes)
 		reqIDHashes := []common.Hash{}
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-		ethTX, err = lsn.txm.CreateTransaction(txmgr.EvmTxRequest{
+		ethTX, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
 			FeeLimit:       totalGasLimitBumped,
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
-			Meta: &txmgr.EvmTxMeta{
+			Meta: &txmgr.TxMeta{
 				RequestIDs:      reqIDHashes,
-				MaxLink:         maxLinkStr,
-				MaxEth:          maxEthStr,
+				MaxLink:         &maxLink,
+				MaxEth:          &maxEth,
 				SubID:           &subID,
 				RequestTxHashes: txHashes,
 			},
@@ -264,21 +253,21 @@ func batchFulfillmentGasEstimate(
 	)
 }
 
-func accumulateMaxLinkAndMaxEth(batch *batchFulfillment) (maxLink *big.Int, maxEth *big.Int) {
-	maxLink = big.NewInt(0)
-	maxEth = big.NewInt(0)
+func accumulateMaxLinkAndMaxEth(batch *batchFulfillment) (maxLinkStr string, maxEthStr string) {
+	maxLink := big.NewInt(0)
+	maxEth := big.NewInt(0)
 	for i := range batch.commitments {
 		if batch.commitments[i].VRFVersion == vrfcommon.V2 {
 			// v2 always bills in link
-			maxLink = maxLink.Add(maxLink, batch.maxFees[i])
+			maxLink.Add(maxLink, batch.maxFees[i])
 		} else {
 			// v2plus can bill in link or eth, depending on the commitment
 			if batch.commitments[i].NativePayment() {
-				maxEth = maxEth.Add(maxEth, batch.maxFees[i])
+				maxEth.Add(maxEth, batch.maxFees[i])
 			} else {
-				maxLink = maxLink.Add(maxLink, batch.maxFees[i])
+				maxLink.Add(maxLink, batch.maxFees[i])
 			}
 		}
 	}
-	return
+	return maxLink.String(), maxEth.String()
 }

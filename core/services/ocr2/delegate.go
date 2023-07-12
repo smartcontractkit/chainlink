@@ -55,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -478,7 +479,7 @@ func (d *Delegate) newServicesMercury(
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.OCR2Mercury),
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.OCR3Mercury),
 		OffchainConfigDigester:       mercuryProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
@@ -955,7 +956,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		},
 		lggr.Named("FunctionsRelayer"),
 		d.ethKs,
-		d.eventBroadcaster,
+		functionsRelay.FunctionsPlugin,
 	)
 	if err2 != nil {
 		return nil, err2
@@ -990,7 +991,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		Job:             jb,
 		JobORM:          d.jobORM,
 		BridgeORM:       d.bridgeORM,
-		OCR2JobConfig:   d.cfg.Database(),
+		QConfig:         d.cfg.Database(),
 		DB:              d.db,
 		Chain:           chain,
 		ContractID:      spec.ContractID,

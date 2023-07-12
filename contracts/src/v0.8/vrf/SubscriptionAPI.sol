@@ -5,8 +5,9 @@ import "../interfaces/LinkTokenInterface.sol";
 import "../ConfirmedOwner.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
+import "../interfaces/IVRFSubscriptionV2Plus.sol";
 
-contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInterface {
+abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInterface, IVRFSubscriptionV2Plus {
   /// @dev may not be provided upon construction on some chains due to lack of availability
   LinkTokenInterface public LINK;
 
@@ -34,7 +35,11 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
     uint96 balance; // Common link balance used for all consumer requests.
+    // a uint96 is large enough to hold around ~8e28 wei, or 80 billion ether.
+    // That should be enough to cover most (if not all) subscriptions.
     uint96 ethBalance; // Common eth balance used for all consumer requests.
+
+    // TODO: put back request count?
   }
   // We use the config for the mgmt APIs
   struct SubscriptionConfig {
@@ -154,6 +159,11 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
     }
   }
 
+  /*
+    * @notice Oracle withdraw ETH earned through fulfilling requests
+    * @param recipient where to send the funds
+    * @param amount amount to withdraw
+  */
   function oracleWithdrawEth(address payable recipient, uint96 amount) external nonReentrant {
     if (s_withdrawableEth[msg.sender] < amount) {
       revert InsufficientBalance();
@@ -187,15 +197,16 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
   }
 
   /**
-   * @notice Fund a subscription with ETH.
-   * @param subId - ID of the subscription
+   * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function fundSubscriptionWithEth(uint64 subId) external payable nonReentrant {
+  function fundSubscriptionWithEth(uint64 subId) external override payable nonReentrant {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     // We do not check that the msg.sender is the subscription owner,
     // anyone can fund a subscription.
+    // We also do not check that msg.value > 0, since that's just a no-op
+    // and would be a waste of gas on the caller's part.
     uint256 oldEthBalance = s_subscriptions[subId].ethBalance;
     s_subscriptions[subId].ethBalance += uint96(msg.value);
     s_totalEthBalance += uint96(msg.value);
@@ -203,16 +214,11 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
   }
 
   /**
-   * @notice Get a VRF subscription.
-   * @param subId - ID of the subscription
-   * @return balance - LINK balance of the subscription in juels.
-   * @return ethBalance - ETH balance of the subscription in wei.
-   * @return owner - owner of the subscription.
-   * @return consumers - list of consumer address which are able to use this subscription.
+   * @inheritdoc IVRFSubscriptionV2Plus
    */
   function getSubscription(
     uint64 subId
-  ) external view returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) {
+  ) external override view returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -225,16 +231,9 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
   }
 
   /**
-   * @notice Create a VRF subscription.
-   * @return subId - A unique subscription id.
-   * @dev You can manage the consumer set dynamically with addConsumer/removeConsumer.
-   * @dev Note to fund the subscription with LINK, use transferAndCall. For example
-   * @dev  LINKTOKEN.transferAndCall(
-   * @dev    address(COORDINATOR),
-   * @dev    amount,
-   * @dev    abi.encode(subId));
+   * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function createSubscription() external nonReentrant returns (uint64) {
+  function createSubscription() external override nonReentrant returns (uint64) {
     s_currentSubId++;
     uint64 currentSubId = s_currentSubId;
     address[] memory consumers = new address[](0);
@@ -250,11 +249,9 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
   }
 
   /**
-   * @notice Request subscription owner transfer.
-   * @param subId - ID of the subscription
-   * @param newOwner - proposed new owner of the subscription
+   * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external onlySubOwner(subId) nonReentrant {
+  function requestSubscriptionOwnerTransfer(uint64 subId, address newOwner) external override onlySubOwner(subId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptionConfigs[subId].requestedOwner != newOwner) {
       s_subscriptionConfigs[subId].requestedOwner = newOwner;
@@ -263,12 +260,9 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
   }
 
   /**
-   * @notice Request subscription owner transfer.
-   * @param subId - ID of the subscription
-   * @dev will revert if original owner of subId has
-   * not requested that msg.sender become the new owner.
+   * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function acceptSubscriptionOwnerTransfer(uint64 subId) external nonReentrant {
+  function acceptSubscriptionOwnerTransfer(uint64 subId) external override nonReentrant {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -282,11 +276,9 @@ contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInter
   }
 
   /**
-   * @notice Add a consumer to a VRF subscription.
-   * @param subId - ID of the subscription
-   * @param consumer - New consumer which can use the subscription
+   * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function addConsumer(uint64 subId, address consumer) external onlySubOwner(subId) nonReentrant {
+  function addConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
     // Already maxed, cannot add any more consumers.
     if (s_subscriptionConfigs[subId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();

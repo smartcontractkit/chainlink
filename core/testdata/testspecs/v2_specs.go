@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	vrfv2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 )
@@ -365,28 +366,28 @@ decode_log->vrf->estimate_gas->simulate
 	}
 	if vrfVersion == vrfcommon.V2Plus {
 		observationSource = fmt.Sprintf(`
-decode_log   [type=ethabidecodelog
-              abi="event RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrfv2
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-estimate_gas [type=estimategaslimit
-              to="%s"
-              multiplier="1.1"
-              data="$(vrf.output)"]
-simulate [type=ethcall
-          to="%s"
-		  gas="$(estimate_gas)"
-		  gasPrice="$(jobSpec.maxGasPrice)"
-		  extractRevertReason=true
-		  contract="%s"
-		  data="$(vrf.output)"]
-decode_log->vrf->estimate_gas->simulate
-`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
+decode_log              [type=ethabidecodelog
+                         abi="%s"
+                         data="$(jobRun.logData)"
+                         topics="$(jobRun.logTopics)"]
+generate_proof          [type=vrfv2
+                         publicKey="$(jobSpec.publicKey)"
+                         requestBlockHash="$(jobRun.logBlockHash)"
+                         requestBlockNumber="$(jobRun.logBlockNumber)"
+                         topics="$(jobRun.logTopics)"]
+estimate_gas            [type=estimategaslimit
+                         to="%s"
+                         multiplier="1.1"
+                         data="$(vrf.output)"]
+simulate_fulfillment    [type=ethcall
+                         to="%s"
+		                 gas="$(estimate_gas)"
+		                 gasPrice="$(jobSpec.maxGasPrice)"
+		                 extractRevertReason=true
+		                 contract="%s"
+		                 data="$(vrf.output)"]
+decode_log->generate_proof->estimate_gas->simulate_fulfillment
+`, vrfv2.RandomWordsRequestedV2PlusABI, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
 	if params.ObservationSource != "" {
 		observationSource = params.ObservationSource

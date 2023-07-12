@@ -9,13 +9,13 @@ import "./VRFTypes.sol";
  * @notice provided VRFCoordinatorV2Plus contract efficiently in a single transaction.
  */
 contract BatchVRFCoordinatorV2Plus {
-  VRFCoordinatorV2Plus public immutable COORDINATOR;
+  IVRFCoordinatorV2Plus public immutable COORDINATOR;
 
   event ErrorReturned(uint256 indexed requestId, string reason);
   event RawErrorReturned(uint256 indexed requestId, bytes lowLevelData);
 
   constructor(address coordinatorAddr) {
-    COORDINATOR = VRFCoordinatorV2Plus(coordinatorAddr);
+    COORDINATOR = IVRFCoordinatorV2Plus(coordinatorAddr);
   }
 
   /**
@@ -56,7 +56,7 @@ contract BatchVRFCoordinatorV2Plus {
   }
 }
 
-interface VRFCoordinatorV2Plus {
+interface IVRFCoordinatorV2Plus {
   function fulfillRandomWords(
     VRFTypes.Proof memory proof,
     VRFTypes.RequestCommitmentV2Plus memory rc

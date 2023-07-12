@@ -9,7 +9,6 @@ import "../../ConfirmedOwner.sol";
 /// @notice Example VRF V2Plus consumer which passes costs to the end user.
 contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   IVRFCoordinatorV2Plus public s_vrfCoordinator;
-  LinkTokenInterface public s_linkToken;
 
   struct Response {
     uint256 requestId;
@@ -20,9 +19,8 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   }
   mapping(uint256 /* request id */ => Response /* response */) public s_requests;
 
-  constructor(address vrfCoordinator, address link, address subOwner) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(vrfCoordinator, subOwner) {
+  constructor(address vrfCoordinator, address subOwner) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(vrfCoordinator, subOwner) {
     s_vrfCoordinator = IVRFCoordinatorV2Plus(vrfCoordinator);
-    s_linkToken = LinkTokenInterface(link);
   }
 
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {

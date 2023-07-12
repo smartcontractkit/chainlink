@@ -67,6 +67,10 @@ const (
 
 	// backoffFactor is the factor by which to increase the delay each time a request fails.
 	backoffFactor = 1.3
+
+	// RandomWordsRequestedV2PlusABI is the ABI of the RandomWordsRequested event
+	// for V2Plus.
+	RandomWordsRequestedV2PlusABI = "event RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
 )
 
 type errPossiblyInsufficientFunds struct{}
@@ -93,7 +97,7 @@ func New(
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	vrfOwner vrf_owner.VRFOwnerInterface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
-	txm txmgr.EvmTxManager,
+	txm txmgr.TxManager,
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
@@ -168,7 +172,7 @@ type listenerV2 struct {
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
-	txm            txmgr.EvmTxManager
+	txm            txmgr.TxManager
 	mailMon        *utils.MailboxMonitor
 
 	coordinator      CoordinatorV2_X
@@ -523,7 +527,7 @@ func MaybeSubtractReservedEth(q pg.Q, startBalance *big.Int, chainID, subID uint
 	if reservedEther != "" {
 		reservedLinkInt, success := big.NewInt(0).SetString(reservedEther, 10)
 		if !success {
-			return nil, fmt.Errorf("converting reserved LINK %s", reservedEther)
+			return nil, fmt.Errorf("converting reserved ether %s", reservedEther)
 		}
 
 		return new(big.Int).Sub(startBalance, reservedLinkInt), nil
@@ -815,7 +819,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 	ctx context.Context,
 	p vrfPipelineResult,
 	fromAddress common.Address,
-) (etx txmgr.EvmTx, err error) {
+) (etx txmgr.Tx, err error) {
 	if lsn.job.VRFSpec.VRFOwnerAddress == nil {
 		err = errors.New("vrf owner address not set in job spec, recreate job and provide it to force-fulfill")
 		return
@@ -865,13 +869,13 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 		subID := p.req.req.SubID()
 		requestTxHash := p.req.req.Raw().TxHash
-		etx, err = lsn.txm.CreateTransaction(txmgr.EvmTxRequest{
+		etx, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
 			FeeLimit:       uint32(estimateGasLimit),
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
-			Meta: &txmgr.EvmTxMeta{
+			Meta: &txmgr.TxMeta{
 				RequestID:     &requestID,
 				SubID:         &subID,
 				RequestTxHash: &requestTxHash,
@@ -920,7 +924,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 	l := lsn.l.With(
 		"subID", subID,
 		"eligibleSubReqs", len(reqs),
-		"startLinkBalance", startBalance.String(),
+		"startBalance", startBalance.String(),
 		"startBalanceNoReserved", startBalanceNoReserved.String(),
 		"subIsActive", subIsActive,
 	)
@@ -1042,7 +1046,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 			}
 
 			ll.Infow("Enqueuing fulfillment")
-			var transaction txmgr.EvmTx
+			var transaction txmgr.Tx
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
 				if err = lsn.pipelineRunner.InsertFinishedRun(&p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err
@@ -1062,12 +1066,12 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				coordinatorAddress := lsn.coordinator.Address()
 				subID := p.req.req.SubID()
 				requestTxHash := p.req.req.Raw().TxHash
-				transaction, err = lsn.txm.CreateTransaction(txmgr.EvmTxRequest{
+				transaction, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					FeeLimit:       p.gasLimit,
-					Meta: &txmgr.EvmTxMeta{
+					Meta: &txmgr.TxMeta{
 						RequestID:     &requestID,
 						MaxLink:       maxLink,
 						MaxEth:        maxEth,
@@ -1075,7 +1079,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 						RequestTxHash: &requestTxHash,
 					},
 					Strategy: txmgrcommon.NewSendEveryStrategy(),
-					Checker: txmgr.EvmTransmitCheckerSpec{
+					Checker: txmgr.TransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw().BlockNumber),
@@ -1289,24 +1293,26 @@ func (lsn *listenerV2) estimateFee(
 	req *RandomWordsRequested,
 	maxGasPriceWei *assets.Wei,
 ) (*big.Int, error) {
-	// In the event we are using LINK we need to estimate the fee in juels
-	if req.VRFVersion == vrfcommon.V2 || (req.V2Plus != nil && !req.V2Plus.NativePayment) {
-		// Don't use up too much time to get this info, it's not critical for operating vrf.
-		callCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
-		defer cancel()
-		roundData, err := lsn.aggregator.LatestRoundData(&bind.CallOpts{Context: callCtx})
-		if err != nil {
-			return nil, errors.Wrap(err, "get aggregator latestAnswer")
-		}
-
-		return EstimateFeeJuels(
-			req.CallbackGasLimit(),
-			maxGasPriceWei.ToInt(),
-			roundData.Answer,
-		)
+	// NativePayment() returns true if and only if the version is V2+ and the
+	// request was made in ETH.
+	if req.NativePayment() {
+		return EstimateFeeWei(req.CallbackGasLimit(), maxGasPriceWei.ToInt())
 	}
-	// otherwise we estimate the fee in wei
-	return EstimateFeeWei(req.CallbackGasLimit(), maxGasPriceWei.ToInt())
+
+	// In the event we are using LINK we need to estimate the fee in juels
+	// Don't use up too much time to get this info, it's not critical for operating vrf.
+	callCtx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	defer cancel()
+	roundData, err := lsn.aggregator.LatestRoundData(&bind.CallOpts{Context: callCtx})
+	if err != nil {
+		return nil, errors.Wrap(err, "get aggregator latestAnswer")
+	}
+
+	return EstimateFeeJuels(
+		req.CallbackGasLimit(),
+		maxGasPriceWei.ToInt(),
+		roundData.Answer,
+	)
 }
 
 // Here we use the pipeline to parse the log, generate a vrf response

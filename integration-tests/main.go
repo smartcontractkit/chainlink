@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	gh "github.com/cli/go-gh/v2"
 )
@@ -30,10 +29,6 @@ Follow the prompts to run an E2E test. Type to search, use arrow keys to scroll,
 var (
 	testDirectories = []string{helpText, "smoke", "soak", "performance", "reorg", "chaos", "benchmark"}
 )
-
-func init() {
-	os.Setenv("SELECTED_NETWORKS", "SIMULATED") // We'll check for this on start and fail if it ain't there
-}
 
 func main() {
 	// This can take a while to retrieve, start it at the beginning asynchronously
