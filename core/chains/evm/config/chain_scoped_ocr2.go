@@ -1,9 +1,11 @@
-package v2
+package config
 
-import "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+import (
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+)
 
 type ocr2Automation struct {
-	c Automation
+	c toml.Automation
 }
 
 func (o *ocr2Automation) GasLimit() uint32 {
@@ -11,10 +13,10 @@ func (o *ocr2Automation) GasLimit() uint32 {
 }
 
 type ocr2Config struct {
-	c OCR2
+	c toml.OCR2
 }
 
-func (o *ocr2Config) Automation() config.OCR2Automation {
+func (o *ocr2Config) Automation() OCR2Automation {
 	return &ocr2Automation{c: o.c.Automation}
 }
 

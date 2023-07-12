@@ -1,24 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {IAutomationRegistryConsumer} from "../../interfaces/IAutomationRegistryConsumer.sol";
-import {AutomationForwarder} from "../../AutomationForwarder.sol";
-import {MockKeeperRegistry2_1} from "../../mocks/MockKeeperRegistry2_1.sol";
-import {UpkeepCounter} from "../../mocks/UpkeepCounter.sol";
-import "forge-std/Test.sol";
+import {IAutomationRegistryConsumer} from "../interfaces/IAutomationRegistryConsumer.sol";
+import {AutomationForwarder} from "../AutomationForwarder.sol";
+import {MockKeeperRegistry2_1} from "../mocks/MockKeeperRegistry2_1.sol";
+import {UpkeepCounter} from "../mocks/UpkeepCounter.sol";
+import {BaseTest} from "./BaseTest.t.sol";
 
 // in contracts directory, run
-// forge test --match-path src/v0.8/dev/automation/2_1/test/AutomationForwarder/AutomationForwarder.t.sol
+// forge test --match-path src/v0.8/dev/automation/2_1/test/AutomationForwarder.t.sol
 
-contract AutomationForwarderSetUp is Test {
+contract AutomationForwarderSetUp is BaseTest {
   AutomationForwarder internal forwarder;
   IAutomationRegistryConsumer internal default_registry;
   UpkeepCounter internal default_target;
-  address internal OWNER;
-  address internal constant STRANGER = address(999);
   uint256 constant GAS = 1e18;
 
-  function setUp() public {
+  function setUp() public override {
     default_registry = IAutomationRegistryConsumer(new MockKeeperRegistry2_1());
     default_target = new UpkeepCounter(10000, 1);
     vm.startPrank(address(default_registry));
@@ -32,7 +30,7 @@ contract AutomationForwarderSetUp is Test {
   }
 }
 
-contract AutomationForwarderTest_forward is AutomationForwarderSetUp {
+contract AutomationForwarder_forward is AutomationForwarderSetUp {
   function testBasicSuccess() public {
     uint256 prevCount = default_target.counter();
     bytes memory selector = getSelector("performUpkeep(bytes)", "performDataHere");
@@ -63,7 +61,7 @@ contract AutomationForwarderTest_forward is AutomationForwarderSetUp {
   }
 }
 
-contract AutomationForwarderTest_updateRegistry is AutomationForwarderSetUp {
+contract AutomationForwarder_updateRegistry is AutomationForwarderSetUp {
   function testBasicSuccess() public {
     address newRegistry = address(1);
     forwarder.updateRegistry(address(newRegistry));

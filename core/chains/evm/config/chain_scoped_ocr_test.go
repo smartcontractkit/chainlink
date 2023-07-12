@@ -1,4 +1,4 @@
-package v2_test
+package config_test
 
 import (
 	"testing"

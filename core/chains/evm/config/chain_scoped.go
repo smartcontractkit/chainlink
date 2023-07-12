@@ -1,4 +1,4 @@
-package v2
+package config
 
 import (
 	"math/big"
@@ -10,12 +10,12 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	gencfg "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func NewTOMLChainScopedConfig(genCfg gencfg.AppConfig, chain *EVMConfig, lggr logger.Logger) *ChainScoped {
+func NewTOMLChainScopedConfig(genCfg gencfg.AppConfig, chain *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
 	return &ChainScoped{AppConfig: genCfg, cfg: chain, lggr: lggr}
 }
 
@@ -24,7 +24,7 @@ type ChainScoped struct {
 	gencfg.AppConfig
 	lggr logger.Logger
 
-	cfg *EVMConfig
+	cfg *toml.EVMConfig
 }
 
 func (c *ChainScoped) Validate() (err error) {
@@ -46,30 +46,30 @@ func (c *ChainScoped) Validate() (err error) {
 }
 
 type evmConfig struct {
-	c *EVMConfig
+	c *toml.EVMConfig
 }
 
-func (e *evmConfig) BalanceMonitor() config.BalanceMonitor {
+func (e *evmConfig) BalanceMonitor() BalanceMonitor {
 	return &balanceMonitorConfig{c: e.c.BalanceMonitor}
 }
 
-func (e *evmConfig) Transactions() config.Transactions {
+func (e *evmConfig) Transactions() Transactions {
 	return &transactionsConfig{c: e.c.Transactions}
 }
 
-func (e *evmConfig) HeadTracker() config.HeadTracker {
+func (e *evmConfig) HeadTracker() HeadTracker {
 	return &headTrackerConfig{c: e.c.HeadTracker}
 }
 
-func (e *evmConfig) OCR() config.OCR {
+func (e *evmConfig) OCR() OCR {
 	return &ocrConfig{c: e.c.OCR}
 }
 
-func (e *evmConfig) OCR2() config.OCR2 {
+func (e *evmConfig) OCR2() OCR2 {
 	return &ocr2Config{c: e.c.OCR2}
 }
 
-func (e *evmConfig) GasEstimator() config.GasEstimator {
+func (e *evmConfig) GasEstimator() GasEstimator {
 	return &gasEstimatorConfig{c: e.c.GasEstimator, blockDelay: e.c.RPCBlockQueryDelay, transactionsMaxInFlight: e.c.Transactions.MaxInFlight, k: e.c.KeySpecific}
 }
 
@@ -128,7 +128,7 @@ func (e *evmConfig) MinIncomingConfirmations() uint32 {
 	return *e.c.MinIncomingConfirmations
 }
 
-func (e *evmConfig) NodePool() config.NodePool {
+func (e *evmConfig) NodePool() NodePool {
 	return &nodePoolConfig{c: e.c.NodePool}
 }
 
@@ -136,7 +136,7 @@ func (e *evmConfig) NodeNoNewHeadsThreshold() time.Duration {
 	return e.c.NoNewHeadsThreshold.Duration()
 }
 
-func (c *ChainScoped) EVM() config.EVM {
+func (c *ChainScoped) EVM() EVM {
 	return &evmConfig{c: c.cfg}
 }
 
