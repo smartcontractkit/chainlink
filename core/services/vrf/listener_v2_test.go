@@ -39,7 +39,7 @@ func addEthTx(t *testing.T, db *sqlx.DB, from common.Address, state txmgrtypes.T
 		0,              // value
 		0,              // limit
 		state,
-		txmgr.EvmTxMeta{
+		txmgr.TxMeta{
 			MaxLink:       &maxLink,
 			SubID:         &subID,
 			RequestTxHash: &reqTxHash,
@@ -63,7 +63,7 @@ func addConfirmedEthTx(t *testing.T, db *sqlx.DB, from common.Address, maxLink s
 		[]byte(`blah`), // payload
 		0,              // value
 		0,              // limit
-		txmgr.EvmTxMeta{
+		txmgr.TxMeta{
 			MaxLink: &maxLink,
 			SubID:   &subID,
 		},

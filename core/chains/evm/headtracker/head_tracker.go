@@ -33,7 +33,7 @@ func NewHeadTracker(
 	return headtracker.NewHeadTracker[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash](
 		lggr,
 		ethClient,
-		NewWrappedConfig(config),
+		config,
 		htConfig,
 		headBroadcaster,
 		headSaver,

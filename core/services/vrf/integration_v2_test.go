@@ -31,7 +31,7 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -760,7 +760,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, uni coordinato
 		`, subID)
 		require.NoError(t, err)
 		for _, tx := range txs {
-			var evmTx txmgr.EvmTx
+			var evmTx txmgr.Tx
 			txmgr.DbEthTxToEthTx(tx, &evmTx)
 			meta, err := evmTx.GetMeta()
 			require.NoError(t, err)
@@ -882,10 +882,10 @@ func testEoa(t *testing.T, batchingEnabled bool) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_eoa_request", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -1002,10 +1002,10 @@ func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_eip150_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -1063,10 +1063,10 @@ func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_eip150_revert", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(gasLimit))
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -1144,10 +1144,10 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_wrapper", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -1222,10 +1222,10 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	callBackGasLimit := int64(2_000_000) // base callback gas.
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_wrapper_high_gas_revert", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](3_500_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -1347,10 +1347,10 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(100)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_bigcallback_sandwich", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(100), v2.KeySpecific{
+		simulatedOverrides(t, assets.GWei(100), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].GasEstimator.LimitDefault = ptr[uint32](5_000_000)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
@@ -1450,14 +1450,14 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	cheapGasLane := assets.GWei(10)
 	expensiveGasLane := assets.GWei(1000)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_multiplegaslanes", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Cheap gas lane.
 			Key:          ptr(cheapKey.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: cheapGasLane},
-		}, v2.KeySpecific{
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: cheapGasLane},
+		}, toml.KeySpecific{
 			// Expensive gas lane.
 			Key:          ptr(expensiveKey.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: expensiveGasLane},
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: expensiveGasLane},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -1550,10 +1550,10 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_singleconsumer_alwaysrevertingcallback", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -1610,13 +1610,13 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 	key2 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2_consumerproxy_happypath", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
 			// Gas lane.
 			Key:          ptr(key1.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
-		}, v2.KeySpecific{
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		}, toml.KeySpecific{
 			Key:          ptr(key2.EIP55Address),
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -1726,7 +1726,7 @@ func TestVRFV2Integration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T) {
 	require.Error(t, err)
 }
 
-func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...v2.KeySpecific) func(*chainlink.Config, *chainlink.Secrets) {
+func simulatedOverrides(t *testing.T, defaultGasPrice *assets.Wei, ks ...toml.KeySpecific) func(*chainlink.Config, *chainlink.Secrets) {
 	return func(c *chainlink.Config, s *chainlink.Secrets) {
 		require.Zero(t, testutils.SimulatedChainID.Cmp(c.EVM[0].ChainID.ToInt()))
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
@@ -1868,9 +1868,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, _ := heavyweight.FullTestDBV2(t, "vrf_v2_integration", func(c *chainlink.Config, s *chainlink.Secrets) {
-		simulatedOverrides(t, gasPrice, v2.KeySpecific{
+		simulatedOverrides(t, gasPrice, toml.KeySpecific{
 			Key:          &key.EIP55Address,
-			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
 		})(c, s)
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 	})
@@ -2039,7 +2039,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	require.NoError(t, err)
 
 	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config.Database())
-	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ConfiguredChainID().Uint64(), chain.Config().EvmFinalityDepth())
+	counts := vrf.GetStartingResponseCountsV2(q, app.Logger, chain.Client().ConfiguredChainID().Uint64(), chain.Config().EVM().FinalityDepth())
 	t.Log(counts, rf[0].RequestId.String())
 	assert.Equal(t, uint64(1), counts[rf[0].RequestId.String()])
 }
@@ -2105,7 +2105,7 @@ func TestMaliciousConsumer(t *testing.T) {
 
 	// We expect the request to be serviced
 	// by the node.
-	var attempts []txmgr.EvmTxAttempt
+	var attempts []txmgr.TxAttempt
 	gomega.NewWithT(t).Eventually(func() bool {
 		//runs, err = app.PipelineORM().GetAllRuns()
 		attempts, _, err = app.TxmStorageService().TxAttempts(0, 1000)
@@ -2392,21 +2392,21 @@ func TestStartingCountsV1(t *testing.T) {
 	b := time.Now()
 	n1, n2, n3, n4 := evmtypes.Nonce(0), evmtypes.Nonce(1), evmtypes.Nonce(2), evmtypes.Nonce(3)
 	reqID := utils.PadByteToHash(0x10)
-	m1 := txmgr.EvmTxMeta{
+	m1 := txmgr.TxMeta{
 		RequestID: &reqID,
 	}
 	md1, err := json.Marshal(&m1)
 	require.NoError(t, err)
 	md1_ := datatypes.JSON(md1)
 	reqID2 := utils.PadByteToHash(0x11)
-	m2 := txmgr.EvmTxMeta{
+	m2 := txmgr.TxMeta{
 		RequestID: &reqID2,
 	}
 	md2, err := json.Marshal(&m2)
 	md2_ := datatypes.JSON(md2)
 	require.NoError(t, err)
 	chainID := utils.NewBig(big.NewInt(1337))
-	confirmedTxes := []txmgr.EvmTx{
+	confirmedTxes := []txmgr.Tx{
 		{
 			Sequence:           &n1,
 			FromAddress:        k.Address,
@@ -2457,16 +2457,16 @@ func TestStartingCountsV1(t *testing.T) {
 		},
 	}
 	// add unconfirmed txes
-	unconfirmedTxes := []txmgr.EvmTx{}
+	unconfirmedTxes := []txmgr.Tx{}
 	for i := int64(4); i < 6; i++ {
 		reqID3 := utils.PadByteToHash(0x12)
-		md, err := json.Marshal(&txmgr.EvmTxMeta{
+		md, err := json.Marshal(&txmgr.TxMeta{
 			RequestID: &reqID3,
 		})
 		require.NoError(t, err)
 		md1 := datatypes.JSON(md)
 		newNonce := evmtypes.Nonce(i + 1)
-		unconfirmedTxes = append(unconfirmedTxes, txmgr.EvmTx{
+		unconfirmedTxes = append(unconfirmedTxes, txmgr.Tx{
 			Sequence:           &newNonce,
 			FromAddress:        k.Address,
 			Error:              null.String{},
@@ -2491,9 +2491,9 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 
 	// add eth_tx_attempts for confirmed
 	broadcastBlock := int64(1)
-	txAttempts := []txmgr.EvmTxAttempt{}
+	txAttempts := []txmgr.TxAttempt{}
 	for i := range confirmedTxes {
-		txAttempts = append(txAttempts, txmgr.EvmTxAttempt{
+		txAttempts = append(txAttempts, txmgr.TxAttempt{
 			TxID:                    int64(i + 1),
 			TxFee:                   gas.EvmFee{Legacy: assets.NewWeiI(100)},
 			SignedRawTx:             []byte(`blah`),
@@ -2506,7 +2506,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	}
 	// add eth_tx_attempts for unconfirmed
 	for i := range unconfirmedTxes {
-		txAttempts = append(txAttempts, txmgr.EvmTxAttempt{
+		txAttempts = append(txAttempts, txmgr.TxAttempt{
 			TxID:                  int64(i + 1 + len(confirmedTxes)),
 			TxFee:                 gas.EvmFee{Legacy: assets.NewWeiI(100)},
 			SignedRawTx:           []byte(`blah`),
@@ -2529,9 +2529,9 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	}
 
 	// add eth_receipts
-	receipts := []txmgr.EvmReceipt{}
+	receipts := []txmgr.Receipt{}
 	for i := 0; i < 4; i++ {
-		receipts = append(receipts, txmgr.EvmReceipt{
+		receipts = append(receipts, txmgr.Receipt{
 			BlockHash:        utils.NewHash(),
 			TxHash:           txAttempts[i].Hash,
 			BlockNumber:      broadcastBlock,

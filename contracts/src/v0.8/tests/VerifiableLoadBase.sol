@@ -3,7 +3,8 @@ pragma solidity ^0.8.6;
 
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../automation/2_0/KeeperRegistrar2_0.sol";
-import "../automation/2_0/KeeperRegistry2_0.sol";
+import "../dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol";
+import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 abstract contract VerifiableLoadBase is ConfirmedOwner {
   error IndexOutOfRange();
@@ -41,7 +42,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   EnumerableSet.UintSet internal s_upkeepIDs;
   KeeperRegistrar2_0 public registrar;
   LinkTokenInterface public linkToken;
-  KeeperRegistry2_0 public registry;
+  IKeeperRegistryMaster public registry;
   // check if an upkeep is eligible for adding funds at this interval
   uint256 public upkeepTopUpCheckInterval = 5;
   // an upkeep will get this amount of LINK for every top up
@@ -63,7 +64,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   constructor(address registrarAddress, bool useArb) ConfirmedOwner(msg.sender) {
     registrar = KeeperRegistrar2_0(registrarAddress);
     (, , , address registryAddress, ) = registrar.getRegistrationConfig();
-    registry = KeeperRegistry2_0(payable(address(registryAddress)));
+    registry = IKeeperRegistryMaster(payable(address(registryAddress)));
     linkToken = registrar.LINK();
     useArbitrumBlockNum = useArb;
   }
@@ -95,7 +96,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   function setConfig(KeeperRegistrar2_0 newRegistrar) external {
     registrar = newRegistrar;
     (, , , address registryAddress, ) = registrar.getRegistrationConfig();
-    registry = KeeperRegistry2_0(payable(address(registryAddress)));
+    registry = IKeeperRegistryMaster(payable(address(registryAddress)));
     linkToken = registrar.LINK();
 
     emit RegistrarSet(address(registrar));
@@ -154,7 +155,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
       upkeepContract: address(this),
       gasLimit: gasLimit,
       adminAddress: address(this), // use address of this contract as the admin
-      checkData: bytes(""), // update check data later bc upkeep id is not available now
+      checkData: bytes(""), // update pipeline data later bc upkeep id is not available now
       offchainConfig: bytes(""),
       amount: amount
     });
@@ -183,13 +184,13 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   }
 
   /**
-   * @notice updates check data for an upkeep. In order for the upkeep to be performed, the check data must be the abi encoded upkeep ID.
+   * @notice updates pipeline data for an upkeep. In order for the upkeep to be performed, the pipeline data must be the abi encoded upkeep ID.
    * @param upkeepId the upkeep ID
-   * @param checkData the new check data for the upkeep
+   * @param pipelineData the new pipeline data for the upkeep
    */
-  function updateCheckData(uint256 upkeepId, bytes calldata checkData) external {
-    registry.updateCheckData(upkeepId, checkData);
-    checkDatas[upkeepId] = checkData;
+  function updateUpkeepPipelineData(uint256 upkeepId, bytes calldata pipelineData) external {
+    registry.setUpkeepCheckData(upkeepId, pipelineData);
+    checkDatas[upkeepId] = pipelineData;
   }
 
   function withdrawLinks(uint256 upkeepId) external {
@@ -297,14 +298,14 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   }
 
   /**
-   * @notice batch updating check data for all upkeeps.
+   * @notice batch updating pipeline data for all upkeeps.
    * @param upkeepIds an array of upkeep IDs
    */
-  function batchUpdateCheckData(uint256[] calldata upkeepIds) external {
+  function batchUpdatePipelineData(uint256[] calldata upkeepIds) external {
     uint256 len = upkeepIds.length;
     for (uint256 i = 0; i < len; i++) {
       uint256 upkeepId = upkeepIds[i];
-      this.updateCheckData(upkeepId, abi.encode(upkeepId));
+      this.updateUpkeepPipelineData(upkeepId, abi.encode(upkeepId));
     }
   }
 

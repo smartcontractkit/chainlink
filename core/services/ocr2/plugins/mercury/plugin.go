@@ -55,6 +55,7 @@ func NewServices(
 		chEnhancedTelem,
 		chainHeadTracker,
 		ocr2Provider.ContractTransmitter(),
+		pluginConfig.InitialBlockNumber.Ptr(),
 	)
 	argsNoPlugin.MercuryPluginFactory = relaymercury.NewFactory(
 		ds,

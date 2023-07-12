@@ -23,6 +23,7 @@ type DONConfig struct {
 	HandlerName   string
 	HandlerConfig json.RawMessage
 	Members       []NodeConfig
+	F             int
 }
 
 type NodeConfig struct {

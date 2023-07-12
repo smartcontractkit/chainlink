@@ -15,7 +15,7 @@ import (
 )
 
 type transmitter interface {
-	CreateTransaction(txRequest txmgr.EvmTxRequest, qopts ...pg.QOpt) (tx txmgr.EvmTx, err error)
+	CreateTransaction(txRequest txmgr.TxRequest, qopts ...pg.QOpt) (tx txmgr.Tx, err error)
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -34,12 +34,12 @@ type orm struct {
 	q        pg.Q
 	txm      transmitter
 	strategy types.TxStrategy
-	checker  txmgr.EvmTransmitCheckerSpec
+	checker  txmgr.TransmitCheckerSpec
 	logger   logger.Logger
 }
 
 // NewORM initializes a new ORM
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy types.TxStrategy, checker txmgr.EvmTransmitCheckerSpec) ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, txm transmitter, strategy types.TxStrategy, checker txmgr.TransmitCheckerSpec) ORM {
 	namedLogger := lggr.Named("FluxMonitorORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{
@@ -121,7 +121,7 @@ func (o *orm) CreateEthTransaction(
 	qopts ...pg.QOpt,
 ) (err error) {
 
-	_, err = o.txm.CreateTransaction(txmgr.EvmTxRequest{
+	_, err = o.txm.CreateTransaction(txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
 		EncodedPayload: payload,

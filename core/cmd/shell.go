@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -41,7 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -167,7 +168,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		MailMon:          mailMon,
 	}
 
-	loopRegistry := plugins.NewLoopRegistry()
+	loopRegistry := plugins.NewLoopRegistry(appLggr.Named("LoopRegistry"))
 
 	var chains chainlink.Chains
 	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
@@ -270,7 +271,7 @@ func (r relayerFactory) NewSolana(ks keystore.Solana) (loop.Relayer, error) {
 		}
 	}
 
-	if cmdName := v2.EnvSolanaPluginCmd.Get(); cmdName != "" {
+	if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
 		// setup the solana relayer to be a LOOP
 		tomls, err := toml.Marshal(struct {
 			Solana solana.SolanaConfigs
@@ -321,7 +322,7 @@ func (r relayerFactory) NewStarkNet(ks keystore.StarkNet) (loop.Relayer, error) 
 		}
 	}
 
-	if cmdName := v2.EnvStarknetPluginCmd.Get(); cmdName != "" {
+	if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
 		// setup the starknet relayer to be a LOOP
 		tomls, err := toml.Marshal(struct {
 			Starknet starknet.StarknetConfigs
@@ -467,7 +468,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	timeoutDuration := config.WebServer().StartTimeout()
 	if ws.HTTPPort() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
-			return server.run(ws.HTTPPort(), config.WebServer().HTTPWriteTimeout())
+			return server.run(ws.ListenIP(), ws.HTTPPort(), config.WebServer().HTTPWriteTimeout())
 		})
 	}
 
@@ -475,6 +476,7 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	if tls.HTTPSPort() != 0 {
 		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
 			return server.runTLS(
+				tls.ListenIP(),
 				tls.HTTPSPort(),
 				tls.CertFile(),
 				tls.KeyFile(),
@@ -555,24 +557,25 @@ type server struct {
 	lggr       logger.Logger
 }
 
-func (s *server) run(port uint16, writeTimeout time.Duration) error {
-	s.lggr.Infof("Listening and serving HTTP on port %d", port)
-	s.httpServer = createServer(s.handler, port, writeTimeout)
+func (s *server) run(ip net.IP, port uint16, writeTimeout time.Duration) error {
+	addr := fmt.Sprintf("%s:%d", ip.String(), port)
+	s.lggr.Infow(fmt.Sprintf("Listening and serving HTTP on %s", addr), "ip", ip, "port", port)
+	s.httpServer = createServer(s.handler, addr, writeTimeout)
 	err := s.httpServer.ListenAndServe()
 	return errors.Wrap(err, "failed to run plaintext HTTP server")
 }
 
-func (s *server) runTLS(port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
-	s.lggr.Infof("Listening and serving HTTPS on port %d", port)
-	s.tlsServer = createServer(s.handler, port, writeTimeout)
+func (s *server) runTLS(ip net.IP, port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
+	addr := fmt.Sprintf("%s:%d", ip.String(), port)
+	s.lggr.Infow(fmt.Sprintf("Listening and serving HTTPS on %s", addr), "ip", ip, "port", port)
+	s.tlsServer = createServer(s.handler, addr, writeTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
 	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTPSPort=0 in your config)")
 }
 
-func createServer(handler *gin.Engine, port uint16, writeTimeout time.Duration) *http.Server {
-	url := fmt.Sprintf(":%d", port)
+func createServer(handler *gin.Engine, addr string, writeTimeout time.Duration) *http.Server {
 	s := &http.Server{
-		Addr:           url,
+		Addr:           addr,
 		Handler:        handler,
 		ReadTimeout:    5 * time.Second,
 		WriteTimeout:   writeTimeout,

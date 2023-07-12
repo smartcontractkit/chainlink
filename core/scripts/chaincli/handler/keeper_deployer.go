@@ -152,7 +152,6 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	offC, err := json.Marshal(offchain.OffchainConfig{
 		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 		MinConfirmations:     1,
-		MercuryLookup:        d.cfg.UpkeepType == config.Mercury,
 	})
 	if err != nil {
 		panic(err)
@@ -293,7 +292,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	offC, err := json.Marshal(offchain.OffchainConfig{
 		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 		MinConfirmations:     1,
-		MercuryLookup:        d.cfg.UpkeepType == config.Mercury,
+		MercuryLookup:        d.cfg.UpkeepType == config.Mercury || d.cfg.UpkeepType == config.LogTriggeredFeedLookup,
 	})
 	if err != nil {
 		panic(err)
@@ -347,29 +346,33 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		{Name: "max_perform_gas", Type: "uint32"},
 		{Name: "max_check_data_size", Type: "uint32"},
 		{Name: "max_perform_data_size", Type: "uint32"},
+		{Name: "max_revert_data_size", Type: "uint32"},
 		{Name: "fallback_gas_price", Type: "uint256"},
 		{Name: "fallback_link_price", Type: "uint256"},
 		{Name: "transcoder", Type: "address"},
 		{Name: "registrars", Type: "address[]"},
+		{Name: "upkeep_privilege_manager", Type: "address"},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error creating onChainConfigType: %v", err)
 	}
 	var args gethabi.Arguments = []gethabi.Argument{{Type: onchainConfigType}}
 	onchainConfig, err := args.Pack(iregistry21.KeeperRegistryBase21OnchainConfig{
-		PaymentPremiumPPB:    d.cfg.PaymentPremiumPBB,
-		FlatFeeMicroLink:     d.cfg.PaymentPremiumPBB,
-		CheckGasLimit:        d.cfg.CheckGasLimit,
-		StalenessSeconds:     big.NewInt(d.cfg.StalenessSeconds),
-		GasCeilingMultiplier: d.cfg.GasCeilingMultiplier,
-		MinUpkeepSpend:       big.NewInt(d.cfg.MinUpkeepSpend),
-		MaxPerformGas:        d.cfg.MaxPerformGas,
-		MaxCheckDataSize:     d.cfg.MaxCheckDataSize,
-		MaxPerformDataSize:   d.cfg.MaxPerformDataSize,
-		FallbackGasPrice:     big.NewInt(d.cfg.FallbackGasPrice),
-		FallbackLinkPrice:    big.NewInt(d.cfg.FallbackLinkPrice),
-		Transcoder:           common.HexToAddress(d.cfg.Transcoder),
-		Registrars:           []common.Address{common.HexToAddress(d.cfg.Registrar)},
+		PaymentPremiumPPB:      d.cfg.PaymentPremiumPBB,
+		FlatFeeMicroLink:       d.cfg.FlatFeeMicroLink,
+		CheckGasLimit:          d.cfg.CheckGasLimit,
+		StalenessSeconds:       big.NewInt(d.cfg.StalenessSeconds),
+		GasCeilingMultiplier:   d.cfg.GasCeilingMultiplier,
+		MinUpkeepSpend:         big.NewInt(d.cfg.MinUpkeepSpend),
+		MaxPerformGas:          d.cfg.MaxPerformGas,
+		MaxCheckDataSize:       d.cfg.MaxCheckDataSize,
+		MaxPerformDataSize:     d.cfg.MaxPerformDataSize,
+		MaxRevertDataSize:      d.cfg.MaxRevertDataSize,
+		FallbackGasPrice:       big.NewInt(d.cfg.FallbackGasPrice),
+		FallbackLinkPrice:      big.NewInt(d.cfg.FallbackLinkPrice),
+		Transcoder:             common.HexToAddress(d.cfg.Transcoder),
+		Registrars:             []common.Address{common.HexToAddress(d.cfg.Registrar)},
+		UpkeepPrivilegeManager: common.HexToAddress(d.cfg.UpkeepPrivilegeManager),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("error packing onChainConfigType: %v", err)

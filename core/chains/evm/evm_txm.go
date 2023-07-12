@@ -15,33 +15,36 @@ import (
 
 func newEvmTxm(
 	db *sqlx.DB,
-	cfg evmconfig.ChainScopedConfig,
+	cfg evmconfig.EVM,
+	evmRPCEnabled bool,
+	databaseConfig txmgr.DatabaseConfig,
+	listenerConfig txmgr.ListenerConfig,
 	client evmclient.Client,
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainSetOpts,
-) (txm txmgr.EvmTxManager,
+) (txm txmgr.TxManager,
 	estimator gas.EvmFeeEstimator,
 	err error,
 ) {
 	chainID := cfg.ChainID()
-	if !cfg.EVMRPCEnabled() {
-		txm = &txmgr.NullEvmTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+	if !evmRPCEnabled {
+		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 		return txm, nil, nil
 	}
 
 	lggr = lggr.Named("Txm")
 	lggr.Infow("Initializing EVM transaction manager",
-		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
-		"maxInFlightTransactions", cfg.EVM().Transactions().MaxInFlight(),
-		"maxQueuedTransactions", cfg.EVM().Transactions().MaxQueued(),
-		"nonceAutoSync", cfg.EvmNonceAutoSync(),
-		"gasLimitDefault", cfg.EvmGasLimitDefault(),
+		"bumpTxDepth", cfg.GasEstimator().BumpTxDepth(),
+		"maxInFlightTransactions", cfg.Transactions().MaxInFlight(),
+		"maxQueuedTransactions", cfg.Transactions().MaxQueued(),
+		"nonceAutoSync", cfg.NonceAutoSync(),
+		"limitDefault", cfg.GasEstimator().LimitDefault(),
 	)
 
 	// build estimator from factory
 	if opts.GenGasEstimator == nil {
-		estimator = gas.NewEstimator(lggr, client, cfg, cfg.EVM().GasEstimator())
+		estimator = gas.NewEstimator(lggr, client, cfg, cfg.GasEstimator())
 	} else {
 		estimator = opts.GenGasEstimator(chainID)
 	}
@@ -50,9 +53,10 @@ func newEvmTxm(
 		txm, err = txmgr.NewTxm(
 			db,
 			cfg,
-			cfg.EVM().Transactions(),
-			cfg.Database(),
-			cfg.Database().Listener(),
+			txmgr.NewEvmTxmFeeConfig(cfg.GasEstimator()),
+			cfg.Transactions(),
+			databaseConfig,
+			listenerConfig,
 			client,
 			lggr,
 			logPoller,

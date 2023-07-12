@@ -109,7 +109,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 	orm := log.NewORM(c.db, lggr, config.Database(), cltest.FixtureChainID)
-	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, c.highestSeenHead, mailMon)
+	lb := log.NewTestBroadcaster(orm, ethClient, config.EVM(), lggr, c.highestSeenHead, mailMon)
 	kst := cltest.NewKeyStore(t, c.db, globalConfig.Database())
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{

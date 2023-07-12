@@ -32,7 +32,7 @@ func DeployOCRv2Contracts(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
-	chainlinkWorkerNodes []*client.Chainlink,
+	transmitters []string,
 	client blockchain.EVMClient,
 ) ([]contracts.OffchainAggregatorV2, error) {
 	var ocrInstances []contracts.OffchainAggregatorV2
@@ -57,14 +57,9 @@ func DeployOCRv2Contracts(
 		return nil, fmt.Errorf("error waiting for OCRv2 contract deployments: %w", err)
 	}
 
-	// Gather transmitter and address payees
-	var transmitters, payees []string
-	for _, node := range chainlinkWorkerNodes {
-		addr, err := node.PrimaryEthAddress()
-		if err != nil {
-			return nil, fmt.Errorf("error getting node's primary ETH address: %w", err)
-		}
-		transmitters = append(transmitters, addr)
+	// Gather address payees
+	var payees []string
+	for _ = range transmitters {
 		payees = append(payees, client.GetDefaultWallet().Address())
 	}
 
@@ -252,7 +247,7 @@ func GetOracleIdentitiesWithKeyIndex(
 	return S, oracleIdentities, eg.Wait()
 }
 
-// CreateOCRJobs bootstraps the first node and to the other nodes sends ocr jobs that
+// CreateOCRv2Jobs bootstraps the first node and to the other nodes sends ocr jobs that
 // read from different adapters, to be used in combination with SetAdapterResponses
 func CreateOCRv2Jobs(
 	ocrInstances []contracts.OffchainAggregatorV2,
@@ -262,6 +257,7 @@ func CreateOCRv2Jobs(
 	mockServerPath string, // Path on the mock server for the Chainlink nodes to query
 	mockServerValue int, // Value to get from the mock server when querying the path
 	chainId uint64, // EVM chain ID
+	forwardingAllowed bool,
 ) error {
 	// Collect P2P ID
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -332,6 +328,7 @@ func CreateOCRv2Jobs(
 				JobType:           "offchainreporting2",
 				MaxTaskDuration:   "1m",
 				ObservationSource: client.ObservationSourceSpecBridge(bta),
+				ForwardingAllowed: forwardingAllowed,
 				OCR2OracleSpec: job.OCR2OracleSpec{
 					PluginType: "median",
 					Relay:      "evm",

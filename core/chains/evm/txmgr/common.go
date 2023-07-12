@@ -20,7 +20,7 @@ import (
 func batchSendTransactions(
 	ctx context.Context,
 	updateBroadcastTime func(now time.Time, txIDs []int64) error,
-	attempts []EvmTxAttempt,
+	attempts []TxAttempt,
 	batchSize int,
 	logger logger.Logger,
 	ethClient evmclient.Client) ([]rpc.BatchElem, error) {

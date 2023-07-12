@@ -65,6 +65,11 @@ install_gotestfmt:
 build_test_image:
 	./scripts/buildTestImage $(tag) $(base_tag) "$(suite)" $(push)
 
+## Test Runner
+.PHONY: run
+run: # Need to set network first in case it's unset. Doesn't matter for the runner
+	SELECTED_NETWORKS="SIMULATED" go run .
+
 ## All commands will use 16 threads to run tests in parallel. To change this, use -test.parallel n
 
 # Smoke

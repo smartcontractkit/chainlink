@@ -57,10 +57,10 @@ type ProcessUnstartedTxs[ADDR types.Hashable] func(ctx context.Context, fromAddr
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
 type TransmitCheckerFactory[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
@@ -69,10 +69,10 @@ type TransmitCheckerFactory[
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
 type TransmitChecker[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 
@@ -97,12 +97,12 @@ type TransmitChecker[
 // - transition of eth_txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved eth_tx_attempt
 type Broadcaster[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	logger  logger.Logger
@@ -112,7 +112,8 @@ type Broadcaster[
 	sequenceSyncer SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH]
 	resumeCallback ResumeCallback
 	chainID        CHAIN_ID
-	config         txmgrtypes.BroadcasterConfig
+	config         txmgrtypes.BroadcasterChainConfig
+	feeConfig      txmgrtypes.BroadcasterFeeConfig
 	txConfig       txmgrtypes.BroadcasterTransactionsConfig
 	listenerConfig txmgrtypes.BroadcasterListenerConfig
 
@@ -145,17 +146,18 @@ type Broadcaster[
 }
 
 func NewBroadcaster[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	HEAD types.Head[BLOCK_HASH],
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](
 	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	client txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	config txmgrtypes.BroadcasterConfig,
+	config txmgrtypes.BroadcasterChainConfig,
+	feeConfig txmgrtypes.BroadcasterFeeConfig,
 	txConfig txmgrtypes.BroadcasterTransactionsConfig,
 	listenerConfig txmgrtypes.BroadcasterListenerConfig,
 	keystore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
@@ -176,6 +178,7 @@ func NewBroadcaster[
 		sequenceSyncer:   sequenceSyncer,
 		chainID:          client.ConfiguredChainID(),
 		config:           config,
+		feeConfig:        feeConfig,
 		txConfig:         txConfig,
 		listenerConfig:   listenerConfig,
 		eventBroadcaster: eventBroadcaster,
@@ -299,7 +302,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) ethT
 			}
 			addr, err := eb.parseAddr(ev.Payload)
 			if err != nil {
-				eb.logger.Errorw("failed to parse address in trigger", "error", err)
+				eb.logger.Errorw("failed to parse address in trigger", "err", err)
 				continue
 			}
 			eb.Trigger(addr)
@@ -686,12 +689,12 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryA
 	lgr.With(
 		"sendError", txError,
 		"attemptFee", attempt.TxFee,
-		"maxGasPriceConfig", eb.config.MaxFeePrice(),
+		"maxGasPriceConfig", eb.feeConfig.MaxFeePrice(),
 	).Errorf("attempt fee %v was rejected by the node for being too low. "+
 		"Node returned: '%s'. "+
 		"Will bump and retry. ACTION REQUIRED: This is a configuration error. "+
 		"Consider increasing FeeEstimator.PriceDefault (current value: %s)",
-		attempt.TxFee, txError.Error(), eb.config.FeePriceDefault())
+		attempt.TxFee, txError.Error(), eb.feeConfig.FeePriceDefault())
 
 	replacementAttempt, bumpedFee, bumpedFeeLimit, retryable, err := eb.NewBumpTxAttempt(ctx, etx, attempt, nil, lgr)
 	if err != nil {
@@ -764,7 +767,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) incr
 	return eb.ks.IncrementNextSequence(address, eb.chainID, currentSequence, qopts...)
 }
 
-func observeTimeUntilBroadcast[CHAIN_ID txmgrtypes.ID](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {
+func observeTimeUntilBroadcast[CHAIN_ID types.ID](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {
 	duration := float64(broadcastAt.Sub(createdAt))
 	promTimeUntilBroadcast.WithLabelValues(chainID.String()).Observe(duration)
 }

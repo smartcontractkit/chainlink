@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/protobuf/proto"
@@ -18,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -127,13 +129,25 @@ type FunctionsListener struct {
 	logger            logger.Logger
 	mailMon           *utils.MailboxMonitor
 	urlsMonEndpoint   commontypes.MonitoringEndpoint
+	decryptor         threshold.Decryptor
 }
 
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
 
-func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, bridgeAccessor BridgeAccessor, pluginORM ORM, pluginConfig config.PluginConfig, logBroadcaster log.Broadcaster, lggr logger.Logger, mailMon *utils.MailboxMonitor, urlsMonEndpoint commontypes.MonitoringEndpoint) *FunctionsListener {
+func NewFunctionsListener(
+	oracle *ocr2dr_oracle.OCR2DROracle,
+	job job.Job,
+	bridgeAccessor BridgeAccessor,
+	pluginORM ORM,
+	pluginConfig config.PluginConfig,
+	logBroadcaster log.Broadcaster,
+	lggr logger.Logger,
+	mailMon *utils.MailboxMonitor,
+	urlsMonEndpoint commontypes.MonitoringEndpoint,
+	decryptor threshold.Decryptor,
+) *FunctionsListener {
 	return &FunctionsListener{
 		oracle:          oracle,
 		oracleHexAddr:   oracle.Address().Hex(),
@@ -147,6 +161,7 @@ func NewFunctionsListener(oracle *ocr2dr_oracle.OCR2DROracle, job job.Job, bridg
 		logger:          lggr,
 		mailMon:         mailMon,
 		urlsMonEndpoint: urlsMonEndpoint,
+		decryptor:       decryptor,
 	}
 }
 
@@ -239,7 +254,7 @@ func (l *FunctionsListener) processOracleEvents() {
 				}
 				was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 				if err != nil {
-					l.logger.Errorw("Could not determine if log was already consumed", "error", err)
+					l.logger.Errorw("Could not determine if log was already consumed", "err", err)
 					continue
 				} else if was {
 					continue
@@ -300,25 +315,23 @@ func (l *FunctionsListener) setError(ctx context.Context, requestId RequestID, r
 
 func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
-	l.logger.Infow("oracle request received", "requestID", formatRequestId(request.RequestId))
-
-	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
-
-	startTime := time.Now()
-	defer func() {
-		duration := time.Since(startTime)
-		promComputationDuration.WithLabelValues(l.oracleHexAddr).Observe(float64(duration.Milliseconds()))
-	}()
-
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
+	l.logger.Infow("oracle request received", "requestID", formatRequestId(request.RequestId))
 
 	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, pg.WithParentCtx(ctx))
 	if err != nil {
-		l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
+		if errors.Is(err, ErrDuplicateRequestID) {
+			l.logger.Warnw("received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
+			l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+		} else {
+			l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
+		}
 		return
 	}
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+
+	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
 
 	if l.pluginConfig.MaxRequestSizeBytes > 0 && uint32(len(request.Data)) > l.pluginConfig.MaxRequestSizeBytes {
 		l.logger.Errorw("request too big", "requestID", formatRequestId(request.RequestId), "requestSize", len(request.Data), "maxRequestSize", l.pluginConfig.MaxRequestSizeBytes)
@@ -338,6 +351,11 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 }
 
 func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byte, subscriptionId uint64, subscriptionOwner common.Address, requestData *RequestData) {
+	startTime := time.Now()
+	defer func() {
+		duration := time.Since(startTime)
+		promComputationDuration.WithLabelValues(l.oracleHexAddr).Observe(float64(duration.Milliseconds()))
+	}()
 	requestIDStr := formatRequestId(requestID)
 	l.logger.Infow("processing request", "requestID", requestIDStr)
 
@@ -348,7 +366,26 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 		return
 	}
 
-	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, "", requestData)
+	nodeProvidedSecrets := ""
+	if l.decryptor != nil && requestData.SecretsLocation == LocationRemote && len(requestData.Secrets) > 0 {
+		thresholdEncSecrets, userError, err2 := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
+		if err2 != nil {
+			l.logger.Errorw("failed to fetch encrypted secrets", "requestID", requestIDStr, "err", err2)
+		}
+		if len(userError) != 0 {
+			l.logger.Debugw("no valid threshold encrypted secrets detected - falling back to legacy secrets", "requestID", requestIDStr, "err", string(userError))
+		}
+		if len(thresholdEncSecrets) != 0 {
+			decryptedSecrets, err2 := l.decryptor.Decrypt(ctx, []byte(requestIDStr), thresholdEncSecrets)
+			if err2 != nil {
+				l.logger.Debugw("threshold decryption of user secrets failed", "requestID", requestIDStr, "err", err2)
+			} else {
+				nodeProvidedSecrets = string(decryptedSecrets)
+			}
+		}
+	}
+
+	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, nodeProvidedSecrets, requestData)
 
 	if err != nil {
 		l.logger.Errorw("internal adapter error", "requestID", requestIDStr, "err", err)

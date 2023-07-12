@@ -20,7 +20,7 @@ import (
 func TestEthTxResource(t *testing.T) {
 	t.Parallel()
 
-	tx := txmgr.EvmTx{
+	tx := txmgr.Tx{
 		ID:             1,
 		EncodedPayload: []byte(`{"data": "is wilding out"}`),
 		FromAddress:    common.HexToAddress("0x1"),
@@ -68,7 +68,7 @@ func TestEthTxResource(t *testing.T) {
 	)
 
 	tx.Sequence = &nonce
-	txa := txmgr.EvmTxAttempt{
+	txa := txmgr.TxAttempt{
 		Tx:                      tx,
 		Hash:                    hash,
 		TxFee:                   gas.EvmFee{Legacy: gasPrice},

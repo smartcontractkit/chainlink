@@ -192,7 +192,7 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 
 	size, err := n.totalProfileBytes()
 	if err != nil {
-		n.log.Errorw("could not fetch total profile bytes", loggerFields.With("error", err).Slice()...)
+		n.log.Errorw("could not fetch total profile bytes", loggerFields.With("err", err).Slice()...)
 		return
 	} else if size >= uint64(n.cfg.MaxProfileSize()) {
 		n.log.Warnw("cannot write pprof profile, total profile size exceeds configured PPROF_MAX_PROFILE_SIZE",
@@ -205,7 +205,7 @@ func (n *Nurse) gatherVitals(reason string, meta Meta) {
 
 	err = n.appendLog(now, reason, meta)
 	if err != nil {
-		n.log.Warnw("cannot write pprof profile", loggerFields.With("error", err).Slice()...)
+		n.log.Warnw("cannot write pprof profile", loggerFields.With("err", err).Slice()...)
 		return
 	}
 	var wg sync.WaitGroup
@@ -291,14 +291,14 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 	defer n.log.Debugf("gather cpu %d done", now.UnixMicro())
 	wc, err := n.createFile(now, cpuProfName, false)
 	if err != nil {
-		n.log.Errorw("could not write cpu profile", "error", err)
+		n.log.Errorw("could not write cpu profile", "err", err)
 		return
 	}
 	defer wc.Close()
 
 	err = pprof.StartCPUProfile(wc)
 	if err != nil {
-		n.log.Errorw("could not start cpu profile", "error", err)
+		n.log.Errorw("could not start cpu profile", "err", err)
 		return
 	}
 
@@ -314,7 +314,7 @@ func (n *Nurse) gatherCPU(now time.Time, wg *sync.WaitGroup) {
 
 	err = wc.Close()
 	if err != nil {
-		n.log.Errorw("could not close cpu profile", "error", err)
+		n.log.Errorw("could not close cpu profile", "err", err)
 		return
 	}
 
@@ -327,14 +327,14 @@ func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 	defer n.log.Debugf("gather trace %d done", now.UnixMicro())
 	wc, err := n.createFile(now, traceProfName, true)
 	if err != nil {
-		n.log.Errorw("could not write trace profile", "error", err)
+		n.log.Errorw("could not write trace profile", "err", err)
 		return
 	}
 	defer wc.Close()
 
 	err = trace.Start(wc)
 	if err != nil {
-		n.log.Errorw("could not start trace profile", "error", err)
+		n.log.Errorw("could not start trace profile", "err", err)
 		return
 	}
 
@@ -347,7 +347,7 @@ func (n *Nurse) gatherTrace(now time.Time, wg *sync.WaitGroup) {
 
 	err = wc.Close()
 	if err != nil {
-		n.log.Errorw("could not close trace profile", "error", err)
+		n.log.Errorw("could not close trace profile", "err", err)
 		return
 	}
 }
@@ -366,7 +366,7 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 
 	p0, err := collectProfile(p)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not collect %v profile", typ), "error", err)
+		n.log.Errorw(fmt.Sprintf("could not collect %v profile", typ), "err", err)
 		return
 	}
 
@@ -381,7 +381,7 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 
 	p1, err := collectProfile(p)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not collect %v profile", typ), "error", err)
+		n.log.Errorw(fmt.Sprintf("could not collect %v profile", typ), "err", err)
 		return
 	}
 	ts := p1.TimeNanos
@@ -391,7 +391,7 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 
 	p1, err = profile.Merge([]*profile.Profile{p0, p1})
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not compute delta for %v profile", typ), "error", err)
+		n.log.Errorw(fmt.Sprintf("could not compute delta for %v profile", typ), "err", err)
 		return
 	}
 
@@ -400,19 +400,19 @@ func (n *Nurse) gather(typ string, now time.Time, wg *sync.WaitGroup) {
 
 	wc, err := n.createFile(now, typ, false)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "error", err)
+		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "err", err)
 		return
 	}
 	defer wc.Close()
 
 	err = p1.Write(wc)
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "error", err)
+		n.log.Errorw(fmt.Sprintf("could not write %v profile", typ), "err", err)
 		return
 	}
 	err = wc.Close()
 	if err != nil {
-		n.log.Errorw(fmt.Sprintf("could not close file for %v profile", typ), "error", err)
+		n.log.Errorw(fmt.Sprintf("could not close file for %v profile", typ), "err", err)
 		return
 	}
 }
