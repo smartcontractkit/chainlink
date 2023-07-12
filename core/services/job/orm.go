@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"golang.org/x/exp/slices"
 	"reflect"
 	"time"
@@ -262,7 +261,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			if jb.ForwardingAllowed && !slices.Contains(forwarders.SupportedPlugins, jb.OCR2OracleSpec.PluginType) {
+			if jb.ForwardingAllowed && !slices.Contains(ForwardersSupportedPlugins, jb.OCR2OracleSpec.PluginType) {
 				return errors.Errorf("forwarding is not currently supported for %s jobs", jb.OCR2OracleSpec.PluginType)
 			}
 

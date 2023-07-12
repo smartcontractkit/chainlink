@@ -1,7 +1,6 @@
 package forwarders
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,5 +16,3 @@ type Forwarder struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
-
-var SupportedPlugins = []job.OCR2PluginType{job.Median, job.DKG, job.OCR2VRF, job.OCR2Keeper, job.OCR2Functions}
