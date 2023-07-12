@@ -1,17 +1,24 @@
-package handlers_test
+package common_test
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
 func TestRateLimiter_Simple(t *testing.T) {
 	t.Parallel()
 
-	rl := handlers.NewRateLimiter(3.0, 3, 1.0, 2)
+	config := common.RateLimiterConfig{
+		GlobalRPS:    3.0,
+		GlobalBurst:  3,
+		PerUserRPS:   1.0,
+		PerUserBurst: 2,
+	}
+	rl, err := common.NewRateLimiter(config)
+	require.NoError(t, err)
 	require.True(t, rl.Allow("user1"))
 	require.True(t, rl.Allow("user2"))
 	require.True(t, rl.Allow("user1"))
