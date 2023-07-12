@@ -187,7 +187,7 @@ func CreateOCRJobs(
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
 ) error {
-	for i, ocrInstance := range ocrInstances {
+	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 		if err != nil {
 			return fmt.Errorf("reading P2P keys from bootstrap node have failed: %w", err)
@@ -229,15 +229,13 @@ func CreateOCRJobs(
 				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(nodeContractPairID, "/")),
 			}
 			// only create the bridge on the first loop of the nodes
-			if i < 1 {
-				err = SetAdapterResponse(mockValue, ocrInstance, node, mockserver)
-				if err != nil {
-					return fmt.Errorf("setting adapter response for OCR node failed: %w", err)
-				}
-				err = node.MustCreateBridge(bta)
-				if err != nil {
-					return fmt.Errorf("creating bridge job have failed: %w", err)
-				}
+			err = SetAdapterResponse(mockValue, ocrInstance, node, mockserver)
+			if err != nil {
+				return fmt.Errorf("setting adapter response for OCR node failed: %w", err)
+			}
+			err = node.MustCreateBridge(bta)
+			if err != nil {
+				return fmt.Errorf("creating bridge job have failed: %w", err)
 			}
 
 			ocrSpec := &client.OCRTaskJobSpec{

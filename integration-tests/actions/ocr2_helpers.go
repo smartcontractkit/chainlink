@@ -59,7 +59,7 @@ func DeployOCRv2Contracts(
 
 	// Gather address payees
 	var payees []string
-	for _ = range transmitters {
+	for range transmitters {
 		payees = append(payees, client.GetDefaultWallet().Address())
 	}
 
