@@ -5,7 +5,7 @@ import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../VRFConsumerBaseV2.sol";
 
-contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2 {
+contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2Plus {
   IVRFCoordinatorV2Plus COORDINATOR;
   LinkTokenInterface LINKTOKEN;
 
