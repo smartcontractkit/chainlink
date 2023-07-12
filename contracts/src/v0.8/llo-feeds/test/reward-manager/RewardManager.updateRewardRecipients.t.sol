@@ -124,29 +124,11 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     recipients[6] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, 2500);
     recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, 2500);
 
+    //should revert as you cannot add new recipients
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+
     //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
-
-    //check each primary recipient received the correct amount
-    for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //check the balance matches the ratio the recipient should have received
-      assertEq(getAssetBalance(getPrimaryRecipients()[i].addr), expectedRecipientAmount);
-    }
-
-    //the reward manager should have no funds remaining
-    assertEq(getAssetBalance(address(rewardManager)), 0);
-
-    //add more funds to the pool to check new distribution
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-
-    //loop through the new recipients and claim the rewards
-    for (uint256 i = 4; i < recipients.length; i++) {
-      //claim the rewards for this recipient
-      claimRewards(PRIMARY_POOL_ARRAY, recipients[i].addr);
-
-      //check the balance matches the ratio the recipient should have received
-      assertEq(getAssetBalance(recipients[i].addr), expectedRecipientAmount);
-    }
   }
 
   function test_updateRecipientsToDifferentPartialSet() public {
@@ -164,32 +146,11 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 5000);
     recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, 5000);
 
+    //should revert as you cannot remove recipients
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+
     //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
-
-    //check each primary recipient received the correct amount
-    for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //check the balance matches the ratio the recipient should have received
-      assertEq(getAssetBalance(getPrimaryRecipients()[i].addr), expectedRecipientAmount);
-    }
-
-    //the reward manager should have no funds remaining
-    assertEq(getAssetBalance(address(rewardManager)), 0);
-
-    //add more funds to the pool to check new distribution
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-
-    //expected recipient amount is 1/2 of the pool deposit for new recipients
-    uint256 expectedNewRecipientAmount = POOL_DEPOSIT_AMOUNT / 2;
-
-    //loop through the new recipients and claim the rewards
-    for (uint256 i = 4; i < recipients.length; i++) {
-      //claim the rewards for this recipient
-      claimRewards(PRIMARY_POOL_ARRAY, recipients[i].addr);
-
-      //check the balance matches the ratio the recipient should have received
-      assertEq(getAssetBalance(recipients[i].addr), expectedNewRecipientAmount);
-    }
   }
 
   function test_updateRecipientsToDifferentLargerSet() public {
@@ -210,32 +171,11 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, 2000);
     recipients[8] = Common.AddressAndWeight(DEFAULT_RECIPIENT_9, 2000);
 
+    //should revert as changing the recipient set is not allowed
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+
     //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
-
-    //check each primary recipient received the correct amount
-    for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //check the balance matches the ratio the recipient should have received
-      assertEq(getAssetBalance(getPrimaryRecipients()[i].addr), expectedRecipientAmount);
-    }
-
-    //the reward manager should have no funds remaining
-    assertEq(getAssetBalance(address(rewardManager)), 0);
-
-    //add more funds to the pool to check new distribution
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-
-    //expected recipient amount is 1/2 of the pool deposit for new recipients
-    uint256 expectedNewRecipientAmount = POOL_DEPOSIT_AMOUNT / 5;
-
-    //loop through the new recipients and claim the rewards
-    for (uint256 i = 4; i < recipients.length; i++) {
-      //claim the rewards for this recipient
-      claimRewards(PRIMARY_POOL_ARRAY, recipients[i].addr);
-
-      //check the balance matches the ratio the recipient should have received
-      assertEq(getAssetBalance(recipients[i].addr), expectedNewRecipientAmount);
-    }
   }
 
   function test_updateRecipientsUpdateAndRemoveExistingForLargerSet() public {
@@ -258,40 +198,11 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, 1000);
     recipients[8] = Common.AddressAndWeight(DEFAULT_RECIPIENT_9, 1000);
 
+    //should revert as you cannot remove recipients
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+
     //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
-
-    //check each primary recipient received the correct amount
-    for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //check the balance matches the ratio the recipient should have received
-      assertEq(getAssetBalance(getPrimaryRecipients()[i].addr), expectedRecipientAmount);
-    }
-
-    //the reward manager should have no funds remaining
-    assertEq(getAssetBalance(address(rewardManager)), 0);
-
-    //add more funds to the pool to check new distribution
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-
-    //expected recipient amount for the new recipients is 10% of the pool
-    uint256 expectedNewRecipientAmount = POOL_DEPOSIT_AMOUNT / 10;
-
-    //claim the rewards for the updated recipients manually
-    claimRewards(PRIMARY_POOL_ARRAY, recipients[2].addr);
-    claimRewards(PRIMARY_POOL_ARRAY, recipients[3].addr);
-
-    //check the balance matches the ratio the recipient who were updated should have received
-    assertEq(getAssetBalance(recipients[2].addr), (POOL_DEPOSIT_AMOUNT * 3000) / 10000 + expectedRecipientAmount);
-    assertEq(getAssetBalance(recipients[3].addr), (POOL_DEPOSIT_AMOUNT * 2000) / 10000 + expectedRecipientAmount);
-
-    //loop through the new recipients and claim the rewards
-    for (uint256 i = 4; i < recipients.length; i++) {
-      //claim the rewards for this recipient
-      claimRewards(PRIMARY_POOL_ARRAY, recipients[i].addr);
-
-      //check the balance matches the ratio the recipient should have received
-      assertEq(getAssetBalance(recipients[i].addr), expectedNewRecipientAmount);
-    }
   }
 
   function test_updateRecipientsUpdateAndRemoveExistingForSmallerSet() public {
@@ -310,35 +221,11 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     //add the new recipients individually
     recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 5000);
 
+    //should revert as you cannot remove recipients
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+
     //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
-
-    //check each primary recipient received the correct amount
-    for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //check the balance matches the ratio the recipient should have received
-      assertEq(getAssetBalance(getPrimaryRecipients()[i].addr), expectedRecipientAmount);
-    }
-
-    //the reward manager should have no funds remaining
-    assertEq(getAssetBalance(address(rewardManager)), 0);
-
-    //add more funds to the pool to check new distribution
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-
-    //expected recipient amount for the new recipient is 50% of the pool
-    uint256 expectedNewRecipientAmount = POOL_DEPOSIT_AMOUNT / 2;
-
-    //claim the rewards for the updated recipients manually
-    claimRewards(PRIMARY_POOL_ARRAY, recipients[2].addr);
-    claimRewards(PRIMARY_POOL_ARRAY, recipients[3].addr);
-
-    //check the balance matches the ratio the recipient who were updated should have received
-    assertEq(getAssetBalance(recipients[2].addr), (POOL_DEPOSIT_AMOUNT * 3000) / 10000 + expectedRecipientAmount);
-    assertEq(getAssetBalance(recipients[3].addr), (POOL_DEPOSIT_AMOUNT * 2000) / 10000 + expectedRecipientAmount);
-
-    //the remaining recipient should receive 50% upon claiming
-    claimRewards(PRIMARY_POOL_ARRAY, recipients[4].addr);
-    assertEq(getAssetBalance(recipients[4].addr), expectedNewRecipientAmount);
   }
 
   function test_updateRecipientsToDifferentSetWithInvalidWeights() public {
@@ -353,8 +240,8 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 5000);
     recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, 1000);
 
-    //should revert as the weights do not add up to 10000
-    vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
+    //should revert as the addresses are not in the configured set
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
 
     //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
@@ -371,37 +258,20 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 5000);
     recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 5000);
 
+    //should revert as changing the recipients is not allowed
+    vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
+
     //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
-
-    //check each recipient received the correct amount
-    for (uint256 i; i < recipients.length; i++) {
-      //check the balance matches the ratio the recipient should have received
-      assertEq(getAssetBalance(recipients[i].addr), expectedRecipientAmount);
-    }
-
-    //the reward manager should have no funds remaining
-    assertEq(getAssetBalance(address(rewardManager)), 0);
-
-    //add more funds to the pool to check new distribution
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-
-    //claim the rewards for the updated recipients manually
-    claimRewards(PRIMARY_POOL_ARRAY, recipients[2].addr);
-    claimRewards(PRIMARY_POOL_ARRAY, recipients[3].addr);
-
-    //check the balance matches the ratio the recipient who were updated should have received
-    assertEq(getAssetBalance(recipients[2].addr), (POOL_DEPOSIT_AMOUNT * 5000) / 10000 + expectedRecipientAmount);
-    assertEq(getAssetBalance(recipients[3].addr), (POOL_DEPOSIT_AMOUNT * 5000) / 10000 + expectedRecipientAmount);
   }
 
-  function test_updatePartialRecipientsToDifferentSetUnderWeight() public {
+  function test_updatePartialRecipientsTowithUnderWeight() public {
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 0);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 0);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 2500);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, 2499);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 1000);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 1000);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 1000);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 1000);
 
     //should revert as the new weights exceed the previous weights being replaced
     vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
@@ -410,13 +280,13 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
   }
 
-  function test_updatePartialRecipientsToDifferentExcessiveWeight() public {
+  function test_updatePartialRecipientsWithExcessiveWeight() public {
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 0);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 0);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 2500);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, 2501);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 1000);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 1000);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 1000);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 10000);
 
     //should revert as the new weights exceed the previous weights being replaced
     vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
@@ -530,10 +400,10 @@ contract RewardManagerUpdateRewardRecipientsMultiplePoolsTest is BaseRewardManag
 
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 0);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 0);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 5000);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 5000);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 4000);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 4000);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 1000);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 1000);
 
     //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
@@ -550,15 +420,16 @@ contract RewardManagerUpdateRewardRecipientsMultiplePoolsTest is BaseRewardManag
     //add more funds to the pool to check new distribution
     addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
 
-    //expected recipient amount for the new recipient is 50% of the pool
-    uint256 expectedNewRecipientAmount = POOL_DEPOSIT_AMOUNT / 2;
-
     //claim the rewards for the updated recipients manually
+    claimRewards(PRIMARY_POOL_ARRAY, recipients[0].addr);
+    claimRewards(PRIMARY_POOL_ARRAY, recipients[1].addr);
     claimRewards(PRIMARY_POOL_ARRAY, recipients[2].addr);
     claimRewards(PRIMARY_POOL_ARRAY, recipients[3].addr);
 
     //check the balance matches the ratio the recipient who were updated should have received
-    assertEq(getAssetBalance(recipients[2].addr), (POOL_DEPOSIT_AMOUNT * 5000) / 10000 + expectedRecipientAmount);
-    assertEq(getAssetBalance(recipients[3].addr), (POOL_DEPOSIT_AMOUNT * 5000) / 10000 + expectedRecipientAmount);
+    assertEq(getAssetBalance(recipients[0].addr), (POOL_DEPOSIT_AMOUNT * 4000) / 10000 + expectedRecipientAmount);
+    assertEq(getAssetBalance(recipients[1].addr), (POOL_DEPOSIT_AMOUNT * 4000) / 10000 + expectedRecipientAmount);
+    assertEq(getAssetBalance(recipients[2].addr), (POOL_DEPOSIT_AMOUNT * 1000) / 10000 + expectedRecipientAmount);
+    assertEq(getAssetBalance(recipients[3].addr), (POOL_DEPOSIT_AMOUNT * 1000) / 10000 + expectedRecipientAmount);
   }
 }

@@ -111,12 +111,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     //it's more efficient to check for duplicates separately as opposed to handling them in the loop below
     if (Common.hasDuplicateAddresses(newRewardRecipients)) revert InvalidAddress();
 
-    //loop all the reward recipients with the following rules:
-    //if existing weight is 0, a new user is being added
-    //if the existing weight is greater than 0, the user is being updated or removed
-    //if the new weight is 0, the user will be removed
-    //if the new weight is greater than 0, the users weight will be updated
-    //the sum of the existing weights must equal to the new collective weight
+    //loop all the reward recipients and claim their rewards before updating their weights
     uint256 existingTotalWeight;
     for (uint256 i; i < newRewardRecipients.length; ) {
       //get the address
@@ -124,18 +119,11 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       //get the existing weight
       uint256 existingWeight = rewardRecipientWeights[poolId][recipientAddress];
 
-      //if existing weight is 0, a new recipient is being added so we must set their totalRewardRecipientFeesLastClaimedAmounts to the current amount in the pot, which will prevent them having a claim over previous fees
-      if (existingWeight == 0) {
-        totalRewardRecipientFeesLastClaimedAmounts[poolId][recipientAddress] = totalRewardRecipientFees[poolId];
-      } else {
-        //if their existing weight is set, then their weight is being updated, so we should claim reward-manager to ensure the new weight doesn't apply to historic fees
-        _claimRewards(newRewardRecipients[i].addr, poolIds);
-      }
+      //if the existing weight is 0, the recipient isn't part of this configuration
+      if(existingWeight == 0) revert InvalidAddress();
 
-      //if the new weight is 0, the recipient is being removed, so we can remove their totalRewardRecipientFeesLastClaimedAmounts as their reward-manager have been claimed
-      if (newRewardRecipients[i].weight == 0) {
-        delete totalRewardRecipientFeesLastClaimedAmounts[poolId][recipientAddress];
-      }
+      //if we're updating a recipient, we need to claim their rewards first they can't claim previous fees at the new weight
+      _claimRewards(newRewardRecipients[i].addr, poolIds);
 
       unchecked {
         //keep tally of the weights so we know the expected collective weight
@@ -208,6 +196,8 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
       //ensure the reward recipient address is not zero
       if (recipientAddress == address(0)) revert InvalidAddress();
+      //ensure the weight is not zero
+      if (recipientWeight == 0) revert InvalidWeights();
 
       //save/overwrite the weight for the reward recipient
       rewardRecipientWeights[poolId][recipientAddress] = recipientWeight;

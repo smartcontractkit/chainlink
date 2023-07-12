@@ -44,6 +44,9 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 2500);
     recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 0);
 
+    //Zero weight should fail
+    vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
+
     //set the recipients with a recipient with a weight of 0
     setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
   }
