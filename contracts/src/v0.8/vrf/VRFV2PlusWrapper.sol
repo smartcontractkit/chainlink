@@ -3,24 +3,26 @@ pragma solidity ^0.8.6;
 
 import "../ConfirmedOwner.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
-import "./VRFConsumerBaseV2.sol";
+import "./VRFConsumerBaseV2Plus.sol";
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../interfaces/VRFV2WrapperInterface.sol";
-import "./VRFV2WrapperConsumerBase.sol";
+import "../interfaces/IVRFCoordinatorV2Plus.sol";
+import "../interfaces/VRFV2PlusWrapperInterface.sol";
+import "./VRFV2PlusWrapperConsumerBase.sol";
 import "../ChainSpecificUtil.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
  * @notice requests for randomness.
  */
-contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2, VRFV2WrapperInterface {
+contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, VRFV2PlusWrapperInterface {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
-  LinkTokenInterface public immutable LINK;
-  AggregatorV3Interface public immutable LINK_ETH_FEED;
-  ExtendedVRFCoordinatorV2Interface public immutable COORDINATOR;
+  error LinkAlreadySet();
+
+  LinkTokenInterface public s_link;
+  AggregatorV3Interface public s_linkEthFeed;
+  ExtendedVRFCoordinatorV2PlusInterface public immutable COORDINATOR;
   uint64 public immutable SUBSCRIPTION_ID;
   /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
   /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
@@ -60,6 +62,10 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   // charges.
   uint32 private s_fulfillmentFlatFeeLinkPPM;
 
+  // s_fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2
+  // charges.
+  uint32 private s_fulfillmentFlatFeeEthPPM;
+
   // Other configuration
 
   // s_wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
@@ -87,8 +93,6 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     address callbackAddress;
     uint32 callbackGasLimit;
     uint256 requestGasPrice;
-    int256 requestWeiPerUnitLink;
-    uint256 juelsPaid;
   }
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
 
@@ -96,15 +100,39 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     address _link,
     address _linkEthFeed,
     address _coordinator
-  ) ConfirmedOwner(msg.sender) VRFConsumerBaseV2(_coordinator) {
-    LINK = LinkTokenInterface(_link);
-    LINK_ETH_FEED = AggregatorV3Interface(_linkEthFeed);
-    COORDINATOR = ExtendedVRFCoordinatorV2Interface(_coordinator);
+  ) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(_coordinator, msg.sender) {
+    if (_link != address(0)) {
+      s_link = LinkTokenInterface(_link);
+    }
+    if (_linkEthFeed != address(0)) {
+      s_linkEthFeed = AggregatorV3Interface(_linkEthFeed);
+    }
+    COORDINATOR = ExtendedVRFCoordinatorV2PlusInterface(_coordinator);
 
     // Create this wrapper's subscription and add itself as a consumer.
-    uint64 subId = ExtendedVRFCoordinatorV2Interface(_coordinator).createSubscription();
+    uint64 subId = ExtendedVRFCoordinatorV2PlusInterface(_coordinator).createSubscription();
     SUBSCRIPTION_ID = subId;
-    ExtendedVRFCoordinatorV2Interface(_coordinator).addConsumer(subId, address(this));
+    ExtendedVRFCoordinatorV2PlusInterface(_coordinator).addConsumer(subId, address(this));
+  }
+
+  /**
+   * @notice set the link token to be used by this wrapper
+   * @param link address of the link token
+   */ 
+  function setLINK(address link) external onlyOwner {
+    // Disallow re-setting link token because the logic wouldn't really make sense
+    if (address(s_link) != address(0)) {
+      revert LinkAlreadySet();
+    }
+    s_link = LinkTokenInterface(link);
+  }
+
+  /**
+   * @notice set the link eth feed to be used by this wrapper
+   * @param linkEthFeed address of the link eth feed
+   */
+  function setLinkEthFeed(address linkEthFeed) external onlyOwner {
+    s_linkEthFeed = AggregatorV3Interface(linkEthFeed);
   }
 
   /**
@@ -148,7 +176,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     // Get other configuration from coordinator
     (, , s_stalenessSeconds, ) = COORDINATOR.getConfig();
     s_fallbackWeiPerUnitLink = COORDINATOR.getFallbackWeiPerUnitLink();
-    (s_fulfillmentFlatFeeLinkPPM, , , , , , , , ) = COORDINATOR.getFeeConfig();
+    (s_fulfillmentFlatFeeLinkPPM, s_fulfillmentFlatFeeEthPPM) = COORDINATOR.getFeeConfig();
   }
 
   /**
@@ -160,7 +188,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    * @return stalenessSeconds is the number of seconds before we consider the feed price to be stale
    *         and fallback to fallbackWeiPerUnitLink.
    *
-   * @return fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2
+   * @return fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2Plus
    *         charges.
    *
    * @return wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
@@ -220,6 +248,12 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     return calculateRequestPriceInternal(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
   }
 
+  function calculateRequestPriceNative(
+    uint32 _callbackGasLimit
+  ) external view override onlyConfiguredNotDisabled returns (uint256) {
+    return calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
+  }
+
   /**
    * @notice Estimates the price of a VRF request with a specific gas limit and gas price.
    *
@@ -235,6 +269,34 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   ) external view override onlyConfiguredNotDisabled returns (uint256) {
     int256 weiPerUnitLink = getFeedData();
     return calculateRequestPriceInternal(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
+  }
+
+  function estimateRequestPriceNative(
+    uint32 _callbackGasLimit,
+    uint256 _requestGasPriceWei
+  ) external view override onlyConfiguredNotDisabled returns (uint256) {
+    return calculateRequestPriceNativeInternal(_callbackGasLimit, _requestGasPriceWei);
+  }
+
+  function calculateRequestPriceNativeInternal(
+    uint256 _gas,
+    uint256 _requestGasPrice
+  ) internal view returns (uint256) {
+    // costWei is the base fee denominated in wei (native)
+    // costWei takes into account the L1 posting costs of the VRF fulfillment
+    // transaction, if we are on an L2.
+    uint256 costWei = (_requestGasPrice *
+      (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) +
+      ChainSpecificUtil.getL1CalldataGasCost(s_fulfillmentTxSizeBytes));
+    // ((wei/gas * (gas)) + l1wei)
+    // baseFee is the base fee denominated in wei
+    uint256 baseFee = costWei;
+    // feeWithPremium is the fee after the percentage premium is applied
+    uint256 feeWithPremium = (baseFee * (s_wrapperPremiumPercentage + 100)) / 100;
+    // feeWithFlatFee is the fee after the flat fee is applied on top of the premium
+    uint256 feeWithFlatFee = feeWithPremium + (1e12 * uint256(s_fulfillmentFlatFeeEthPPM));
+
+    return feeWithFlatFee;
   }
 
   function calculateRequestPriceInternal(
@@ -273,7 +335,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    *        uint16 requestConfirmations, and uint32 numWords.
    */
   function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
-    require(msg.sender == address(LINK), "only callable from LINK");
+    require(msg.sender == address(s_link), "only callable from LINK");
 
     (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords) = abi.decode(
       _data,
@@ -290,16 +352,38 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       SUBSCRIPTION_ID,
       requestConfirmations,
       callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
-      numWords
+      numWords,
+      false
     );
     s_callbacks[requestId] = Callback({
       callbackAddress: _sender,
       callbackGasLimit: callbackGasLimit,
-      requestGasPrice: tx.gasprice,
-      requestWeiPerUnitLink: weiPerUnitLink,
-      juelsPaid: _amount
+      requestGasPrice: tx.gasprice
     });
     lastRequestId = requestId;
+  }
+
+  function requestRandomWordsInNative(uint32 _callbackGasLimit, uint16 _requestConfirmations, uint32 _numWords) override external payable returns (uint256 requestId) {
+    uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
+    uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
+    require(msg.value >= price, "fee too low");
+    require(_numWords <= s_maxNumWords, "numWords too high");
+
+    requestId = COORDINATOR.requestRandomWords(
+      s_keyHash,
+      SUBSCRIPTION_ID,
+      _requestConfirmations,
+      _callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
+      _numWords,
+      true
+    );
+    s_callbacks[requestId] = Callback({
+      callbackAddress: msg.sender,
+      callbackGasLimit: _callbackGasLimit,
+      requestGasPrice: tx.gasprice
+    });
+
+    return requestId;
   }
 
   /**
@@ -310,8 +394,21 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    * @param _amount is the amount of LINK in Juels that should be withdrawn.
    */
   function withdraw(address _recipient, uint256 _amount) external onlyOwner {
-    LINK.transfer(_recipient, _amount);
+    s_link.transfer(_recipient, _amount);
   }
+
+    /**
+   * @notice withdraw is used by the VRFV2Wrapper's owner to withdraw native revenue.
+   *
+   * @param _recipient is the address that should receive the native funds.
+   *
+   * @param _amount is the amount of native in Wei that should be withdrawn.
+   */
+  function withdrawNative(address _recipient, uint256 _amount) external onlyOwner {
+    (bool success, ) = payable(_recipient).call{value: _amount}("");
+    require(success, "failed to withdraw native");
+  }
+
 
   /**
    * @notice enable this contract so that new requests can be accepted.
@@ -333,7 +430,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     delete s_callbacks[_requestId];
     require(callback.callbackAddress != address(0), "request not found"); // This should never happen
 
-    VRFV2WrapperConsumerBase c;
+    VRFV2PlusWrapperConsumerBase c;
     bytes memory resp = abi.encodeWithSelector(c.rawFulfillRandomWords.selector, _requestId, _randomWords);
 
     bool success = callWithExactGas(callback.callbackGasLimit, callback.callbackAddress, resp);
@@ -346,7 +443,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     bool staleFallback = s_stalenessSeconds > 0;
     uint256 timestamp;
     int256 weiPerUnitLink;
-    (, weiPerUnitLink, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
+    (, weiPerUnitLink, , timestamp, ) = s_linkEthFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (staleFallback && s_stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
@@ -407,7 +504,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   }
 }
 
-interface ExtendedVRFCoordinatorV2Interface is VRFCoordinatorV2Interface {
+interface ExtendedVRFCoordinatorV2PlusInterface is IVRFCoordinatorV2Plus {
   function getConfig()
     external
     view
@@ -424,14 +521,7 @@ interface ExtendedVRFCoordinatorV2Interface is VRFCoordinatorV2Interface {
     external
     view
     returns (
-      uint32 fulfillmentFlatFeeLinkPPMTier1,
-      uint32 fulfillmentFlatFeeLinkPPMTier2,
-      uint32 fulfillmentFlatFeeLinkPPMTier3,
-      uint32 fulfillmentFlatFeeLinkPPMTier4,
-      uint32 fulfillmentFlatFeeLinkPPMTier5,
-      uint24 reqsForTier2,
-      uint24 reqsForTier3,
-      uint24 reqsForTier4,
-      uint24 reqsForTier5
+      uint32 fulfillmentFlatFeeLinkPPM,
+      uint32 fulfillmentFlatFeeEthPPM
     );
 }
