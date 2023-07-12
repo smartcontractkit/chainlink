@@ -176,96 +176,45 @@ func (enc EVMAutomationEncoder21) KeysFromReport(b []byte) ([]ocr2keepers.Upkeep
 	return keys, nil
 }
 
-// should accept/transmit reports from plugin will call extract function
-func (enc EVMAutomationEncoder21) Extract(report []byte) ([]ocr2keepers.ReportedUpkeep, error) {
-	// m := make(map[string]interface{})
-	// if err := unpackIntoMapFn(m, report); err != nil {
-	// 	return nil, err
-	// }
+// Extract the plugin will call this function to accept/transmit reports
+func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error) {
+	report, err := enc.packer.UnpackReport(raw)
+	if err != nil {
+		return nil, err
+	}
+	reportedUpkeeps := make([]ocr2keepers.ReportedUpkeep, len(report.UpkeepIds))
+	for i, upkeepId := range report.UpkeepIds {
+		triggerW, err := enc.packer.UnpackTrigger(upkeepId, report.Triggers[i])
+		if err != nil {
+			// TODO: log error and continue instead?
+			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
+		}
+		logExt := logTriggerExtension{}
 
-	// for _, key := range mKeys {
-	// 	if _, ok := m[key]; !ok {
-	// 		return nil, fmt.Errorf("decoding error: %s missing from struct", key)
-	// 	}
-	// }
-
-	// var (
-	// 	res       []ocr2keepers.ReportedUpkeep
-	// 	ok        bool
-	// 	upkeepIds []*big.Int
-	// 	performs  [][]byte
-	// 	// gasLimits []*big.Int // TODO
-	// 	//wei  *big.Int
-	// 	//link *big.Int
-	// )
-
-	// if upkeepIds, ok = m[mKeys[2]].([]*big.Int); !ok {
-	// 	return res, fmt.Errorf("upkeep ids of incorrect type in report")
-	// }
-
-	// // TODO: a type assertion on `wrappedTrigger` did not work, even with the
-	// // exact same struct definition as what follows. reflect was used to get the
-	// // struct definition. not sure yet how to clean this up.
-	// // ex:
-	// // t := reflect.TypeOf(rawPerforms)
-	// // fmt.Printf("%v\n", t)
-
-	// //triggers, ok := m[mKeys[4]].([]struct {
-	// //  TxHash      [32]byte `abi:"txHash"`
-	// //  LogIndex    uint32   `abi:"logIndex"`
-	// //	BlockNumber uint32   `abi:"blockNum"`
-	// //	BlockHash   [32]byte `abi:"blockHash"`
-	// //})
-
-	// // use the struct tentatively, swap to the above logic
-	// triggers, ok := m[mKeys[4]].([]wrappedTrigger)
-	// if !ok {
-	// 	return res, fmt.Errorf("triggers of incorrect structure in report")
-	// }
-
-	// if len(upkeepIds) != len(triggers) {
-	// 	return res, fmt.Errorf("upkeep ids and triggers should have matching length")
-	// }
-
-	// //if wei, ok = m[mKeys[0]].(*big.Int); !ok {
-	// //	return res, fmt.Errorf("fast gas as wrong type")
-	// //}
-	// //
-	// //if link, ok = m[mKeys[1]].(*big.Int); !ok {
-	// //	return res, fmt.Errorf("link native as wrong type")
-	// //}
-	// // if gasLimits, ok = m[mKeys[3]].([]*big.Int); !ok {
-	// // 	return res, fmt.Errorf("gas limits as wrong type")
-	// // }
-
-	// if performs, ok = m[mKeys[5]].([][]byte); !ok {
-	// 	return res, fmt.Errorf("perform datas as wrong type")
-	// }
-
-	// for i, upkeepId := range upkeepIds {
-	// 	// follow getLogs in log_event_provider
-	// 	trigger := ocr2keepers.NewTrigger(
-	// 		int64(triggers[i].BlockNumber),
-	// 		string(triggers[i].BlockHash[:]),
-	// 		logTriggerExtension{
-	// 			TxHash:   common.BytesToHash(triggers[i].TxHash[:]).Hex(),
-	// 			LogIndex: int64(triggers[i].LogIndex),
-	// 		},
-	// 	)
-	// 	payload := ocr2keepers.NewUpkeepPayload(
-	// 		upkeepId,
-	// 		int(logTrigger),
-	// 		"",
-	// 		trigger,
-	// 		[]byte{},
-	// 	)
-	// 	res[i] = ocr2keepers.ReportedUpkeep{
-	// 		ID:          payload.ID,
-	// 		PerformData: performs[i],
-	// 	}
-	// }
-
-	// return res, nil
+		switch getUpkeepType(upkeepId.Bytes()) {
+		case logTrigger:
+			logExt.TxHash = common.BytesToHash(triggerW.TxHash[:]).Hex()
+			logExt.LogIndex = int64(triggerW.LogIndex)
+		default:
+		}
+		trigger := ocr2keepers.NewTrigger(
+			int64(triggerW.BlockNum),
+			string(triggerW.BlockHash[:]),
+			logExt,
+		)
+		payload := ocr2keepers.NewUpkeepPayload(
+			upkeepId,
+			int(logTrigger),
+			"",
+			trigger,
+			[]byte{},
+		)
+		reportedUpkeeps[i] = ocr2keepers.ReportedUpkeep{
+			ID:          payload.ID,
+			PerformData: report.PerformDatas[i],
+		}
+	}
+	return reportedUpkeeps, nil
 }
 
 // validateReport checks that the report is valid, currently checking that all
