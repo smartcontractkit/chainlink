@@ -6,7 +6,7 @@ import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../VRFConsumerBaseV2.sol";
 
 // VRFV2RevertingExample will always revert. Used for testing only, useless in prod.
-contract VRFV2PlusRevertingExample is VRFConsumerBaseV2 {
+contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
   IVRFCoordinatorV2Plus COORDINATOR;
