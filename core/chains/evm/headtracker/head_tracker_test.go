@@ -818,7 +818,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		assert.Equal(t, int64(12), h.Number)
 		require.NotNil(t, h.Parent)
 		assert.Equal(t, int64(11), h.Parent.Number)
-		require.NotNil(t, h.Parent)
+		require.NotNil(t, h.Parent.Parent)
 		assert.Equal(t, int64(10), h.Parent.Parent.Number)
 		require.NotNil(t, h.Parent.Parent.Parent)
 		assert.Equal(t, int64(9), h.Parent.Parent.Parent.Number)
