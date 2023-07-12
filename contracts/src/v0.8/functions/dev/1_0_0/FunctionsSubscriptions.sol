@@ -72,7 +72,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // |                       Request state                          |
   // ================================================================
 
-  struct Request {
+  struct Commitment {
     address coordinator;
     address client;
     uint64 subscriptionId;
@@ -83,7 +83,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint96 adminFee;
   }
 
-  mapping(bytes32 => Request) /* request ID */ /* Request data */ internal s_requests;
+  mapping(bytes32 => Commitment) /* request ID */ /* Request data */ internal s_requestCommitments;
 
   struct Receipt {
     uint96 callbackGasCostJuels;
@@ -498,7 +498,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override nonReentrant {
     for (uint256 i = 0; i < requestIdsToTimeout.length; i++) {
       bytes32 requestId = requestIdsToTimeout[i];
-      Request memory request = s_requests[requestId];
+      Commitment memory request = s_requestCommitments[requestId];
 
       // Check that the message sender is the subscription owner
       (, , address owner, , ) = this.getSubscription(request.subscriptionId);
@@ -518,7 +518,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
         s_subscriptions[request.subscriptionId].blockedBalance -= request.estimatedCost;
         s_consumers[request.client][request.subscriptionId].completedRequests += 1;
         // Delete commitment
-        delete s_requests[requestId];
+        delete s_requestCommitments[requestId];
       }
     }
   }

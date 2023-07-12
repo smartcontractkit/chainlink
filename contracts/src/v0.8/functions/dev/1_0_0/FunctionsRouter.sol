@@ -118,7 +118,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     _markRequestInFlight(msg.sender, subscriptionId, estimatedCost);
 
     // Store a commitment about the request
-    s_requests[requestId] = Request(
+    s_requestCommitments[requestId] = Commitment(
       coordinatorAddress,
       msg.sender,
       subscriptionId,
@@ -166,37 +166,37 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint96 costWithoutFulfillment,
     address transmitter
   ) external override nonReentrant returns (uint8 resultCode, uint96 callbackGasCostJuels) {
-    Request memory request = s_requests[requestId];
+    Commitment memory commitment = s_requestCommitments[requestId];
 
-    if (request.client == address(0)) {
+    if (commitment.client == address(0)) {
       resultCode = 2; // FulfillResult.INVALID_REQUEST_ID
       return (resultCode, callbackGasCostJuels);
     }
-    if (msg.sender != request.coordinator) {
+    if (msg.sender != commitment.coordinator) {
       revert OnlyCallableFromCoordinator();
     }
 
     resultCode = _checkBalance(
-      request.estimatedCost,
-      request.gasAfterPaymentCalculation,
-      request.adminFee,
-      request.callbackGasLimit,
+      commitment.estimatedCost,
+      commitment.gasAfterPaymentCalculation,
+      commitment.adminFee,
+      commitment.callbackGasLimit,
       juelsPerGas,
       costWithoutFulfillment
     );
 
-    delete s_requests[requestId];
+    delete s_requestCommitments[requestId];
 
-    CallbackResult memory result = _callback(requestId, response, err, request.callbackGasLimit, request.client);
+    CallbackResult memory result = _callback(requestId, response, err, commitment.callbackGasLimit, commitment.client);
     resultCode = result.success
       ? 0 // FulfillResult.USER_SUCCESS
       : 1; // FulfillResult.USER_ERROR
 
     Receipt memory receipt = _pay(
-      request.subscriptionId,
-      request.estimatedCost,
-      request.client,
-      request.adminFee,
+      commitment.subscriptionId,
+      commitment.estimatedCost,
+      commitment.client,
+      commitment.adminFee,
       juelsPerGas,
       result.gasUsed,
       costWithoutFulfillment
@@ -204,7 +204,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
     emit RequestEnd(
       requestId,
-      request.subscriptionId,
+      commitment.subscriptionId,
       receipt.totalCostJuels,
       transmitter,
       resultCode,
