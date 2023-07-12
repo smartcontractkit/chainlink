@@ -190,7 +190,10 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifier
-  function verify(bytes calldata signedReport, address sender) external override returns (bytes memory response, bytes memory quote) {
+  function verify(
+    bytes calldata signedReport,
+    address sender
+  ) external override returns (bytes memory response, bytes memory quote) {
     if (msg.sender != i_verifierProxyAddr) revert AccessForbidden();
     (
       bytes32[3] memory reportContext,
@@ -349,7 +352,9 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     if (configDigest == bytes32("")) revert DigestEmpty();
     if (feedVerifierState.s_verificationDataConfigs[configDigest].f == 0) revert DigestNotSet(feedId, configDigest);
-    if (configDigest == feedVerifierState.latestConfigDigest) revert CannotDeactivateLatestConfig(feedId, configDigest);
+    if (configDigest == feedVerifierState.latestConfigDigest) {
+      revert CannotDeactivateLatestConfig(feedId, configDigest);
+    }
     feedVerifierState.s_verificationDataConfigs[configDigest].isActive = false;
     emit ConfigDeactivated(feedId, configDigest);
   }
@@ -446,7 +451,11 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       });
     }
 
-    IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest, recipientAddressAndWeights);
+    IVerifierProxy(i_verifierProxyAddr).setVerifier(
+      feedVerifierState.latestConfigDigest,
+      configDigest,
+      recipientAddressAndWeights
+    );
 
     emit ConfigSet(
       feedId,

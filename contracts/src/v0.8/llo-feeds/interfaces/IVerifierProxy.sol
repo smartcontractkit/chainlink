@@ -19,7 +19,11 @@ interface IVerifierProxy {
    * @param addressAndWeights The addresses and weights of reward recipients
    * reports for a given config digest.
    */
-  function setVerifier(bytes32 currentConfigDigest, bytes32 newConfigDigest, Common.AddressAndWeight[] memory addressAndWeights) external;
+  function setVerifier(
+    bytes32 currentConfigDigest,
+    bytes32 newConfigDigest,
+    Common.AddressAndWeight[] memory addressAndWeights
+  ) external;
 
   /**
    * @notice Sets the verifier address to initialized

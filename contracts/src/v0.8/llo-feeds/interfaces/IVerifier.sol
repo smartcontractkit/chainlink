@@ -5,7 +5,6 @@ import {IERC165} from "../../shared/vendor/IERC165.sol";
 import {Common} from "../../libraries/internal/Common.sol";
 
 interface IVerifier is IERC165 {
-
   /**
    * @notice Verifies that the data encoded has been signed
    * correctly by routing to the correct verifier.
@@ -18,7 +17,10 @@ interface IVerifier is IERC165 {
    * @return response The encoded verified response.
    * @return quote The quote included within the report
    */
-  function verify(bytes memory signedReport, address requester) external returns (bytes memory response, bytes memory quote);
+  function verify(
+    bytes memory signedReport,
+    address requester
+  ) external returns (bytes memory response, bytes memory quote);
 
   /**
    * @notice sets offchain reporting protocol configuration incl. participating oracles

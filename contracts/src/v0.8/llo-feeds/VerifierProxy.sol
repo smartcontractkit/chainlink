@@ -90,7 +90,11 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @notice The contract to control reward distribution for report verification
   IRewardManager private immutable s_rewardsManager;
 
-  constructor(AccessControllerInterface accessController, IFeeManager feeManager, IRewardManager rewardManager) ConfirmedOwner(msg.sender) {
+  constructor(
+    AccessControllerInterface accessController,
+    IFeeManager feeManager,
+    IRewardManager rewardManager
+  ) ConfirmedOwner(msg.sender) {
     s_accessController = accessController;
     s_feeManager = feeManager;
     s_rewardsManager = rewardManager;
@@ -165,15 +169,15 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     (bytes memory verifiedReport, bytes memory quoteData) = IVerifier(verifierAddress).verify(signedReport, msg.sender);
 
     //if we have a registered fee and reward-manager manager, bill the verifier
-    if(address(s_feeManager) != address(0) && address(s_rewardsManager) != address(0)) {
-        //decode the fee
-        Common.Asset memory asset = s_feeManager.getFee(msg.sender, verifiedReport, quoteData);
+    if (address(s_feeManager) != address(0) && address(s_rewardsManager) != address(0)) {
+      //decode the fee
+      Common.Asset memory asset = s_feeManager.getFee(msg.sender, verifiedReport, quoteData);
 
-        //some users might not be billed
-        if(asset.amount > 0) {
-          //bill the payee
-          s_rewardsManager.onFeePaid(configDigest, msg.sender, asset);
-        }
+      //some users might not be billed
+      if (asset.amount > 0) {
+        //bill the payee
+        s_rewardsManager.onFeePaid(configDigest, msg.sender, asset);
+      }
     }
 
     return verifiedReport;
@@ -196,7 +200,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     s_verifiersByConfig[newConfigDigest] = msg.sender;
 
     //empty recipients array will be ignored and will need to be set off chain
-    if(addressAndWeights.length > 0) {
+    if (addressAndWeights.length > 0) {
       //Set the reward recipients for this digest
       s_rewardsManager.setRewardRecipients(newConfigDigest, addressAndWeights);
     }

@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity 0.8.16;
+
+import {BaseRewardManagerTest} from "./BaseRewardManagerTest.t.sol";
+import {Common} from "../../../libraries/internal/Common.sol";
+import {RewardManager} from "../../RewardManager.sol";
+import "forge-std/console.sol";
+
+/**
+ * @title BaseRewardManagerTest
+ * @author Michael Fletcher
+ * @notice This contract will test the setRecipient functionality of the RewardManager contract
+ */
+contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
+  function setUp() public override {
+    //setup contracts
+    super.setUp();
+  }
+
+  function test_setRewardRecipients() public {
+    //set the recipients with an empty array
+    setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), ADMIN);
+  }
+
+  function test_setRewardRecipientsIsEmpty() public {
+    //array of recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
+
+    //should revert if the recipients array is empty
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+
+    //set the recipients with an empty array
+    setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_setRewardRecipientWithZeroWeight() public {
+    //array of recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](5);
+
+    //init each recipient with even weights
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 2500);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 2500);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 2500);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 2500);
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 0);
+
+    //set the recipients with a recipient with a weight of 0
+    setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_setRewardRecipientWithZeroAddress() public {
+    //array of recipients
+    Common.AddressAndWeight[] memory recipients = getPrimaryRecipients();
+
+    //override the first recipient with a zero address
+    recipients[0].addr = address(0);
+
+    //should revert if the recipients array is empty
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+
+    //set the recipients with a recipient with a weight of 0
+    setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_setRewardRecipientWeights() public {
+    //array of recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
+
+    //init each recipient with even weights
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 25);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 25);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 25);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 25);
+
+    //should revert if the recipients array is empty
+    vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
+
+    //set the recipients with a recipient with a weight of 0
+    setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_setSingleRewardRecipient() public {
+    //array of recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](1);
+
+    //init each recipient with even weights
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 10000);
+
+    //set the recipients with a recipient with a weight of 0
+    setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
+  }
+
+  function test_setRewardRecipientTwice() public {
+    //set the recipients with an empty array
+    setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), ADMIN);
+
+    //should revert if recipients for this pool have already been set
+    vm.expectRevert(INVALID_POOL_ID_ERROR_SELECTOR);
+
+    //set the recipients again
+    setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), ADMIN);
+  }
+
+  function test_setRewardRecipientFromNonOwnerOrProxyAddress() public {
+    //should revert if the sender is not the owner or proxy
+    vm.expectRevert(UNAUTHORIZED_ERROR_SELECTOR);
+
+    //set the recipients with an empty array
+    setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), USER);
+  }
+
+  function test_setRewardRecipientFromProxyAddress() public {
+    //update the proxy address
+    setVerifierProxy(USER, ADMIN);
+
+    //set the recipients with an empty array
+    setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), USER);
+  }
+
+  function test_onlyConfiguredAddressCanPayIntoPool() public {
+    //should revert if the unconfigured address tries to pay into the pool
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+
+    //try and add funds to the pool from an unconfigured address
+    rewardManager.onFeePaid(PRIMARY_POOL_ID, msg.sender, getUnsupportedAsset(1));
+  }
+}

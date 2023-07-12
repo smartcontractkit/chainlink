@@ -8,7 +8,6 @@ import {AccessControllerInterface} from "../../../interfaces/AccessControllerInt
 import {IERC165} from "../../../shared/vendor/IERC165.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 
-
 contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifier {
   function test_revertsIfNotCorrectVerifier() public {
     vm.expectRevert(abi.encodeWithSelector(VerifierProxy.AccessForbidden.selector));

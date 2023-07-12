@@ -9,7 +9,24 @@ contract ErroredVerifier is IVerifier {
     return interfaceId == this.verify.selector;
   }
 
-  function verify(bytes memory /**signedReport**/, address /**sender**/) external pure override returns (bytes memory, bytes memory) {
+  function verify(
+    bytes memory,
+    /**
+     * signedReport*
+     */
+    address
+  )
+    external
+    pure
+    override
+    returns (
+      /**
+       * sender*
+       */
+      bytes memory,
+      bytes memory
+    )
+  {
     revert("Failed to verify");
   }
 
