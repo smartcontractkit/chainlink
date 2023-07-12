@@ -107,7 +107,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Block:         26046145,
 					FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 					ID:            upkeepId,
-					PerformData:   []byte{125, 221, 147, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 141, 110, 193, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 72, 101, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 53, 53, 52, 52, 56, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+					PerformData:   []byte{125, 221, 147, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 141, 110, 193, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 100, 72, 101, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 53, 53, 52, 52, 56, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				},
 			},
 			blob:              "0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000159761000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000648a1fbb000000000000000000000000000000000000000000000000000000274421041500000000000000000000000000000000000000000000000000000027437c6ecd0000000000000000000000000000000000000000000000000000002744c5995d00000000000000000000000000000000000000000000000000000000018d6ec108936dfe39c48715572a51ac868129958f937fb95ef5abdf73a239cf86a4fee700000000000000000000000000000000000000000000000000000000018d6ec100000000000000000000000000000000000000000000000000000000648a1fbb00000000000000000000000000000000000000000000000000000000000000028a26e557ee2feb91ccb116f3ab4eb1469afe5c3b012538cb151dbe3fbceaf6f117b24ac2a82cff25b286ae0a9b903dc6badaa16f6e67bf0983461b008574e30a00000000000000000000000000000000000000000000000000000000000000020db5c5924481061b98df59caefd9c4c1e72657c4976bf7c7568730fbdaf828080bff6b1edea2c8fed5e8bbac5574aa94cf809d898f5055cb1db14a16f1493726",
@@ -236,11 +236,11 @@ func TestEvmRegistry_DecodeFeedLookup(t *testing.T) {
 	}{
 		{
 			name: "success - decode to feed lookup",
-			data: []byte{125, 221, 147, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 138, 215, 253, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 72, 101, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 53, 53, 52, 52, 56, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 50, 53, 52, 52, 51, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			data: []byte{125, 221, 147, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 138, 215, 253, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 100, 72, 101, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 53, 53, 52, 52, 56, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 50, 53, 52, 52, 51, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			expected: &FeedLookup{
-				feedParamKey: "feedIDHex",
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(25876477),
 				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
 			},
@@ -338,7 +338,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 
 	tests := []struct {
 		name               string
-		ml                 *FeedLookup
+		lookup             *FeedLookup
 		mockHttpStatusCode int
 		mockChainlinkBlobs []string
 		expectedValues     [][]byte
@@ -347,12 +347,13 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 	}{
 		{
 			name: "success",
-			ml: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(25880526),
 				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				upkeepId:     upkeepId,
 			},
 			mockHttpStatusCode: http.StatusOK,
 			mockChainlinkBlobs: []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
@@ -362,12 +363,13 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		},
 		{
 			name: "failure - retryable",
-			ml: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(25880526),
 				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				upkeepId:     upkeepId,
 			},
 			mockHttpStatusCode: http.StatusInternalServerError,
 			mockChainlinkBlobs: []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
@@ -377,12 +379,13 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		},
 		{
 			name: "failure - not retryable",
-			ml: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(25880526),
 				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				upkeepId:     upkeepId,
 			},
 			mockHttpStatusCode: http.StatusBadGateway,
 			mockChainlinkBlobs: []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
@@ -414,7 +417,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			}
 			r.hc = hc
 
-			values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.ml, upkeepId)
+			values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup)
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
 			if tt.expectedError != nil {
@@ -429,7 +432,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 	tests := []struct {
 		name           string
 		index          int
-		ml             *FeedLookup
+		lookup         *FeedLookup
 		mv             MercuryVersion
 		blob           string
 		statusCode     int
@@ -441,11 +444,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		{
 			name:  "success - mercury responds in the first try",
 			index: 0,
-			ml: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			mv:   MercuryV02,
 			blob: "0xab2123dc00000012",
@@ -453,11 +457,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		{
 			name:  "success - retry for 404",
 			index: 0,
-			ml: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			mv:             MercuryV02,
 			blob:           "0xab2123dcbabbad",
@@ -468,11 +473,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		{
 			name:  "success - retry for 500",
 			index: 0,
-			ml: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			mv:             MercuryV02,
 			blob:           "0xab2123dcbbabad",
@@ -483,11 +489,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		{
 			name:  "failure - returns retryable",
 			index: 0,
-			ml: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			mv:           MercuryV02,
 			blob:         "0xab2123dc",
@@ -499,11 +506,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		{
 			name:  "failure - returns retryable and then non-retryable",
 			index: 0,
-			ml: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			mv:             MercuryV02,
 			blob:           "0xab2123dc",
@@ -515,11 +523,12 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 		{
 			name:  "failure - returns not retryable",
 			index: 0,
-			ml: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			mv:           MercuryV02,
 			blob:         "0xab2123dc",
@@ -573,7 +582,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			r.hc = hc
 
 			ch := make(chan MercuryBytes, 1)
-			r.singleFeedRequest(context.Background(), ch, upkeepId, tt.index, tt.ml, tt.mv)
+			r.singleFeedRequest(context.Background(), ch, tt.index, tt.lookup, tt.mv)
 
 			m := <-ch
 			assert.Equal(t, tt.index, m.Index)
@@ -595,7 +604,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 	upkeepId := big.NewInt(123456789)
 	tests := []struct {
 		name           string
-		ml             *FeedLookup
+		lookup         *FeedLookup
 		blob           string
 		statusCode     int
 		lastStatusCode int
@@ -605,21 +614,23 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 	}{
 		{
 			name: "success - mercury responds in the first try",
-			ml: &FeedLookup{
-				feedParamKey: "feedID",
+			lookup: &FeedLookup{
+				feedParamKey: FeedId,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "timestamp",
+				timeParamKey: Timestamp,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			blob: "0xab2123dc00000012",
 		},
 		{
 			name: "success - retry for 404",
-			ml: &FeedLookup{
-				feedParamKey: "feedID",
+			lookup: &FeedLookup{
+				feedParamKey: FeedId,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "timestamp",
+				timeParamKey: Timestamp,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			blob:           "0xab2123dcbabbad",
 			retryNumber:    1,
@@ -628,11 +639,12 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		},
 		{
 			name: "success - retry for 500",
-			ml: &FeedLookup{
-				feedParamKey: "feedID",
+			lookup: &FeedLookup{
+				feedParamKey: FeedId,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "timestamp",
+				timeParamKey: Timestamp,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			blob:           "0xab2123dcbbabad",
 			retryNumber:    2,
@@ -641,11 +653,12 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		},
 		{
 			name: "failure - returns retryable",
-			ml: &FeedLookup{
-				feedParamKey: "feedID",
+			lookup: &FeedLookup{
+				feedParamKey: FeedId,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "timestamp",
+				timeParamKey: Timestamp,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			blob:         "0xab2123dc",
 			retryNumber:  TotalAttempt,
@@ -655,11 +668,12 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		},
 		{
 			name: "failure - returns retryable and then non-retryable",
-			ml: &FeedLookup{
-				feedParamKey: "feedID",
+			lookup: &FeedLookup{
+				feedParamKey: FeedId,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "timestamp",
+				timeParamKey: Timestamp,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			blob:           "0xab2123dc",
 			retryNumber:    1,
@@ -669,11 +683,12 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		},
 		{
 			name: "failure - returns not retryable",
-			ml: &FeedLookup{
-				feedParamKey: "feedID",
+			lookup: &FeedLookup{
+				feedParamKey: FeedId,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "timestamp",
+				timeParamKey: Timestamp,
 				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
 			},
 			blob:         "0xab2123dc",
 			statusCode:   http.StatusBadGateway,
@@ -726,7 +741,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			r.hc = hc
 
 			ch := make(chan MercuryBytes, 1)
-			r.multiFeedsRequest(context.Background(), ch, upkeepId, tt.ml)
+			r.multiFeedsRequest(context.Background(), ch, tt.lookup)
 
 			m := <-ch
 			assert.Equal(t, 0, m.Index)
@@ -745,15 +760,15 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 }
 
 func TestEvmRegistry_CheckCallback(t *testing.T) {
+	upkeepId := big.NewInt(123456789)
+	blockNumber := uint64(999)
 	bs := []byte{183, 114, 215, 10, 0, 0, 0, 0, 0, 0}
 	values := [][]byte{bs}
 	tests := []struct {
-		name          string
-		mercuryLookup *FeedLookup
-		values        [][]byte
-		statusCode    int
-		upkeepId      *big.Int
-		blockNumber   uint32
+		name       string
+		lookup     *FeedLookup
+		values     [][]byte
+		statusCode int
 
 		callbackMsg  ethereum.CallMsg
 		callbackResp []byte
@@ -765,17 +780,17 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 	}{
 		{
 			name: "success - empty extra data",
-			mercuryLookup: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"ETD-USD", "BTC-ETH"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(100),
 				extraData:    []byte{48, 120, 48, 48},
+				upkeepId:     upkeepId,
+				block:        blockNumber,
 			},
 			values:       values,
 			statusCode:   http.StatusOK,
-			upkeepId:     big.NewInt(123456789),
-			blockNumber:  999,
 			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			upkeepNeeded: true,
 			performData:  []byte{48, 120, 48, 48},
@@ -783,18 +798,18 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 		},
 		{
 			name: "success - with extra data",
-			mercuryLookup: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(18952430),
 				// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
 				extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				upkeepId:  upkeepId,
+				block:     blockNumber,
 			},
 			values:       values,
 			statusCode:   http.StatusOK,
-			upkeepId:     big.NewInt(123456789),
-			blockNumber:  999,
 			callbackResp: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			upkeepNeeded: true,
 			performData:  []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
@@ -802,17 +817,17 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 		},
 		{
 			name: "failure - bad response",
-			mercuryLookup: &FeedLookup{
-				feedParamKey: "feedIDHex",
+			lookup: &FeedLookup{
+				feedParamKey: FeedIdHex,
 				feeds:        []string{"ETD-USD", "BTC-ETH"},
-				timeParamKey: "blockNumber",
+				timeParamKey: BlockNumber,
 				time:         big.NewInt(100),
 				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				upkeepId:     upkeepId,
+				block:        blockNumber,
 			},
 			values:       values,
 			statusCode:   http.StatusOK,
-			upkeepId:     big.NewInt(123456789),
-			blockNumber:  999,
 			callbackResp: []byte{},
 			callbackErr:  errors.New("bad response"),
 			wantErr:      assert.Error,
@@ -823,21 +838,20 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := new(evmClientMocks.Client)
 			r := setupEVMRegistry(t)
-			payload, err := r.abi.Pack("checkCallback", tt.upkeepId, values, tt.mercuryLookup.extraData)
+			payload, err := r.abi.Pack("checkCallback", tt.lookup.upkeepId, values, tt.lookup.extraData)
 			require.Nil(t, err)
 			args := map[string]interface{}{
 				"to":   r.addr.Hex(),
 				"data": hexutil.Bytes(payload),
 			}
-			// if args don't match, just use mock.Anything
-			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(uint64(tt.blockNumber))).Return(tt.callbackErr).
+			client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(tt.lookup.block)).Return(tt.callbackErr).
 				Run(func(args mock.Arguments) {
 					by := args.Get(1).(*hexutil.Bytes)
 					*by = tt.callbackResp
 				}).Once()
 			r.client = client
 
-			_, err = r.checkCallback(context.Background(), tt.upkeepId, tt.values, tt.mercuryLookup.extraData, tt.blockNumber)
+			_, err = r.checkCallback(context.Background(), tt.values, tt.lookup)
 			tt.wantErr(t, err, fmt.Sprintf("Error asserion failed: %v", tt.name))
 		})
 	}
