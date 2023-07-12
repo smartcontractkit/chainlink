@@ -8,7 +8,7 @@ import {KeeperRegistryBase2_1 as R21} from "./KeeperRegistryBase2_1.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
 import {AutomationRegistryBaseInterface, UpkeepInfo} from "../../../interfaces/automation/2_0/AutomationRegistryInterface2_0.sol";
 
-enum UpkeepFormat {
+enum RegistryVersion {
   V12,
   V13,
   V20,
@@ -83,7 +83,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
     bytes calldata encodedUpkeeps
   ) external view override returns (bytes memory) {
     // v1.2 => v2.1
-    if (fromVersion == uint8(UpkeepFormat.V12)) {
+    if (fromVersion == uint8(RegistryVersion.V12)) {
       (uint256[] memory ids, UpkeepV12[] memory upkeepsV12, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV12[], bytes[])
@@ -111,7 +111,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
       return abi.encode(ids, newUpkeeps, admins, checkDatas, new bytes[](ids.length), new bytes[](ids.length));
     }
     // v1.3 => v2.1
-    if (fromVersion == uint8(UpkeepFormat.V13)) {
+    if (fromVersion == uint8(RegistryVersion.V13)) {
       (uint256[] memory ids, UpkeepV13[] memory upkeepsV13, bytes[] memory checkDatas) = abi.decode(
         encodedUpkeeps,
         (uint256[], UpkeepV13[], bytes[])
@@ -139,7 +139,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
       return abi.encode(ids, newUpkeeps, admins, checkDatas, new bytes[](ids.length), new bytes[](ids.length));
     }
     // v2.0 => v2.1
-    if (fromVersion == uint8(UpkeepFormat.V20)) {
+    if (fromVersion == uint8(RegistryVersion.V20)) {
       (uint256[] memory ids, UpkeepV20[] memory upkeepsV20, bytes[] memory checkDatas, address[] memory admins) = abi
         .decode(encodedUpkeeps, (uint256[], UpkeepV20[], bytes[], address[]));
       if (ids.length != upkeepsV20.length || ids.length != checkDatas.length) {
@@ -165,6 +165,10 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
         offchainConfigs[idx] = registry20.getUpkeep(ids[idx]).offchainConfig;
       }
       return abi.encode(ids, newUpkeeps, admins, checkDatas, new bytes[](ids.length), offchainConfigs);
+    }
+    // v2.1 => v2.1
+    if (fromVersion == uint8(RegistryVersion.V21)) {
+      return encodedUpkeeps;
     }
 
     revert InvalidTranscoding();

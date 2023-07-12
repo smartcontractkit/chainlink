@@ -36,7 +36,6 @@ let personas: Personas
 let owner: Signer
 let upkeepsV12: any[]
 let upkeepsV13: any[]
-let upkeepsV20: any[]
 let upkeepsV21: any[]
 let admins: string[]
 let admin0: Signer
@@ -476,14 +475,7 @@ describe('UpkeepTranscoder4_0', () => {
   describe('#transcodeUpkeeps', () => {
     const encodedData = '0xabcd'
 
-    it('reverts if the from type is not v1.2, v1.3, or v2.0', async () => {
-      await evmRevert(
-        transcoder.transcodeUpkeeps(
-          UpkeepFormat.V21,
-          UpkeepFormat.V12,
-          encodedData,
-        ),
-      )
+    it('reverts if the from type is not v1.2, v1.3, v2.0, or v2.1', async () => {
       await evmRevert(
         transcoder.transcodeUpkeeps(
           UpkeepFormat.V30,
@@ -531,6 +523,8 @@ describe('UpkeepTranscoder4_0', () => {
           data,
         )
       })
+
+      // DEV cannot test raw transcoding 2.0 => 2.1 because transcodeUpkeeps is not pure
 
       it('migrates upkeeps from 1.2 registry to 2.1', async () => {
         const [id, registry12] = await deployLegacyRegistry1_2()
