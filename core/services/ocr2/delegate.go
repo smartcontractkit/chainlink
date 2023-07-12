@@ -321,7 +321,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		lggr = logger.Sugared(lggr.With("evmChainID", chainID))
 
-		effectiveTransmitterID, err = getEVMTransmitterID(&jb, d.chainSet, chainID, lggr)
+		effectiveTransmitterID, err = getEVMEffectiveTransmitterID(&jb, d.chainSet, chainID, lggr)
 		if err != nil {
 			return nil, errors.Wrap(err, "ServicesForSpec failed to get evm transmitterID")
 		}
@@ -397,7 +397,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 }
 
-func getEVMTransmitterID(jb *job.Job, chainSet evm.ChainSet, chainID int64, lggr logger.SugaredLogger) (string, error) {
+func getEVMEffectiveTransmitterID(jb *job.Job, chainSet evm.ChainSet, chainID int64, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
 	transmitterID := spec.TransmitterID.String
 
