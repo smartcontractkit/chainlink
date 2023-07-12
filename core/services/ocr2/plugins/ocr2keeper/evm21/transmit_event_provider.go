@@ -174,108 +174,27 @@ func (c *TransmitEventProvider) Events(ctx context.Context) ([]ocr2keepers.Trans
 
 	vals := []ocr2keepers.TransmitEvent{}
 
-PerformLoop:
 	for _, p := range performed {
-		// abi decode trigger bytes into `wrappedTrigger`
-
-		var Uint32 = mustNewType("uint32", "", nil)
-		var Hash = mustNewType("bytes32", "", nil)
-		args := abi.Arguments{
-			{Name: mKeys[0], Type: Hash},
-			{Name: mKeys[1], Type: Uint32},
-			{Name: mKeys[2], Type: Uint32},
-			{Name: mKeys[3], Type: Hash},
-		}
-
-		/*
-		  TODO: two different structs exist in the contract. we are assuming the
-		  the LogTrigger struct here, but it could be the BlockTrigger as well
-		  struct BlockTrigger {
-		    uint32 blockNum; // TODO - only 34 years worth of blocks on arbitrum...
-		    bytes32 blockHash;
-		  }
-
-		  struct LogTrigger {
-		    bytes32 txHash;
-		    uint32 logIndex;
-		    uint32 blockNum;
-		    bytes32 blockHash;
-		  }
-		*/
-
-		keys := []string{"txHash", "logIndex", "blockNum", "blockHash"}
-		values := make(map[string]interface{})
-		if err := args.UnpackIntoMap(values, p.Trigger); err != nil {
-			c.logger.Error("error unpacking trigger values: %w", err)
-			continue PerformLoop
-		}
-
-		for _, key := range keys {
-			if _, ok := values[key]; !ok {
-				c.logger.Error("error unpacking trigger values: %s missing from struct", key)
-				continue PerformLoop
-			}
-		}
-
-		tHsh, ok := values[keys[0]].([32]byte)
-		if !ok {
-			c.logger.Error("error unpacking trigger values: %s is incorrect type", keys[0])
-			continue PerformLoop
-		}
-
-		lIdx, ok := values[keys[1]].(uint32)
-		if !ok {
-			c.logger.Error("error unpacking trigger values: %s is incorrect type", keys[1])
-			continue PerformLoop
-		}
-
-		bln, ok := values[keys[2]].(uint32)
-		if !ok {
-			c.logger.Error("error unpacking trigger values: %s is incorrect type", keys[2])
-			continue PerformLoop
-		}
-
-		bHsh, ok := values[keys[3]].([32]byte)
-		if !ok {
-			c.logger.Error("error unpacking trigger values: %s is incorrect type", keys[3])
-			continue PerformLoop
-		}
-
-		trigger := ocr2keepers.NewTrigger(
-			int64(bln),
-			common.BytesToHash(bHsh[:]).Hex(),
-			logTriggerExtension{
-				TxHash:   common.BytesToHash(tHsh[:]).Hex(),
-				LogIndex: int64(lIdx),
-			},
-		)
-		payload := ocr2keepers.NewUpkeepPayload(
-			p.Id,
-			int(logTrigger),
-			ocr2keepers.BlockKey(fmt.Sprintf("%d", trigger.BlockNumber)),
-			trigger,
-			nil,
-		)
-
-		/*
-			upkeepId := ocr2keepers.UpkeepIdentifier(p.Id.String())
-			checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(p.TxHash, upkeepId)
+		var checkBlockNumber ocr2keepers.BlockKey
+		upkeepId := ocr2keepers.UpkeepIdentifier(p.Id.Bytes())
+		switch getUpkeepType(upkeepId) {
+		case conditionTrigger:
+			checkBlockNumber, err = c.getCheckBlockNumberFromTxHash(p.TxHash, upkeepId)
 			if err != nil {
-				c.logger.Error("error while fetching checkBlockNumber from reorged report log: %w", err)
+				c.logger.Error("error while fetching checkBlockNumber from perform report log: %w", err)
 				continue
 			}
-		*/
-
-		l := ocr2keepers.TransmitEvent{
+		default:
+		}
+		vals = append(vals, ocr2keepers.TransmitEvent{
 			Type:            ocr2keepers.PerformEvent,
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
 			Confirmations:   end - p.BlockNumber,
 			TransactionHash: p.TxHash.Hex(),
-			ID:              payload.ID,
-			UpkeepID:        payload.Upkeep.ID,
-			CheckBlock:      "", // TODO: the checkblock should be set for conditional upkeeps
-		}
-		vals = append(vals, l)
+			ID:              string(p.TriggerID[:]), // TODO: check how to encode
+			UpkeepID:        upkeepId,
+			CheckBlock:      checkBlockNumber,
+		})
 	}
 
 	return vals, nil
