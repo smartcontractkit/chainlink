@@ -74,6 +74,14 @@ func randomFeedID() [32]byte {
 func TestIntegration_Mercury(t *testing.T) {
 	t.Parallel()
 
+	t.Cleanup(func() {
+		// Sleep for a little to give time for wsrpc's client goroutines to pick up
+		// the connection closures and emit any final logs. Otherwise, there's a chance
+		// that the logs will be emitted after this test is completed, causing the
+		// test to panic.
+		time.Sleep(100 * time.Millisecond)
+	})
+
 	// test constants
 	const f = uint8(1)
 	const n = 4         // number of nodes
