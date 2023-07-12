@@ -1,32 +1,27 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity 0.8.6;
 
-import "forge-std/Test.sol";
-import {HeartbeatRequester, IAggregatorProxy, IOffchainAggregator} from "../HeartbeatRequester.sol";
+import {HeartbeatRequester, IAggregatorProxy} from "../HeartbeatRequester.sol";
 import {MockAggregator} from "../mocks/MockAggregator.sol";
 import {MockAggregatorProxy} from "../mocks/MockAggregatorProxy.sol";
-import {MockOffchainAggregator} from "../mocks/MockOffchainAggregator.sol";
+import {BaseTest} from "./BaseTest.t.sol";
 
 // from contracts directory,
-// forge test --match-path src/v0.8/test/HeartbeatRequester.t.sol
+// forge test --match-path src/v0.8/automation/test/HeartbeatRequester.t.sol
 
-contract HeartbeatRequesterSetUp is Test {
+contract HeartbeatRequesterSetUp is BaseTest {
   HeartbeatRequester internal heartbeatRequester;
   MockAggregator internal aggregator;
   IAggregatorProxy internal aggregatorProxy;
   MockAggregator internal aggregator2;
   IAggregatorProxy internal aggregatorProxy2;
-  address internal OWNER;
-  address internal constant STRANGER = address(999);
 
   event HeartbeatPermitted(address indexed permittedCaller, address newProxy, address oldProxy);
   event HeartbeatRemoved(address indexed permittedCaller, address removedProxy);
   error HeartbeatNotPermitted();
 
-  function setUp() public {
-    OWNER = address(this);
-    deal(OWNER, 1e20);
-    vm.startPrank(OWNER);
+  function setUp() public override {
+    BaseTest.setUp();
     heartbeatRequester = new HeartbeatRequester();
     aggregator = new MockAggregator();
     aggregatorProxy = IAggregatorProxy(new MockAggregatorProxy(address(aggregator)));
@@ -48,12 +43,12 @@ contract HeartbeatRequester_permitHeartbeat is HeartbeatRequesterSetUp {
 
   function testBasicDeployerSuccess() public {
     vm.expectEmit();
-    emit HeartbeatPermitted(address(this), address(aggregatorProxy), address(0));
-    heartbeatRequester.permitHeartbeat(address(this), aggregatorProxy);
+    emit HeartbeatPermitted(OWNER, address(aggregatorProxy), address(0));
+    heartbeatRequester.permitHeartbeat(OWNER, aggregatorProxy);
 
     vm.expectEmit();
-    emit HeartbeatPermitted(address(this), address(aggregatorProxy2), address(aggregatorProxy));
-    heartbeatRequester.permitHeartbeat(address(this), aggregatorProxy2);
+    emit HeartbeatPermitted(OWNER, address(aggregatorProxy2), address(aggregatorProxy));
+    heartbeatRequester.permitHeartbeat(OWNER, aggregatorProxy2);
   }
 
   function testOnlyCallableByOwnerReverts() public {
@@ -66,18 +61,18 @@ contract HeartbeatRequester_permitHeartbeat is HeartbeatRequesterSetUp {
 contract HeartbeatRequester_removeHeartbeat is HeartbeatRequesterSetUp {
   function testBasicSuccess() public {
     vm.expectEmit();
-    emit HeartbeatPermitted(address(this), address(aggregatorProxy), address(0));
-    heartbeatRequester.permitHeartbeat(address(this), aggregatorProxy);
+    emit HeartbeatPermitted(STRANGER, address(aggregatorProxy), address(0));
+    heartbeatRequester.permitHeartbeat(STRANGER, aggregatorProxy);
 
     vm.expectEmit();
-    emit HeartbeatRemoved(address(this), address(aggregatorProxy));
-    heartbeatRequester.removeHeartbeat(address(this));
+    emit HeartbeatRemoved(STRANGER, address(aggregatorProxy));
+    heartbeatRequester.removeHeartbeat(STRANGER);
   }
 
   function testRemoveNoPermitsSuccess() public {
     vm.expectEmit();
-    emit HeartbeatRemoved(address(this), address(0));
-    heartbeatRequester.removeHeartbeat(address(this));
+    emit HeartbeatRemoved(STRANGER, address(0));
+    heartbeatRequester.removeHeartbeat(STRANGER);
   }
 
   function testOnlyCallableByOwnerReverts() public {
@@ -88,10 +83,10 @@ contract HeartbeatRequester_removeHeartbeat is HeartbeatRequesterSetUp {
 }
 
 contract HeartbeatRequester_getAggregatorRequestHeartbeat is HeartbeatRequesterSetUp {
-  function testBasicSuxxess() public {
+  function testBasicSuccess() public {
     vm.expectEmit();
-    emit HeartbeatPermitted(address(this), address(aggregatorProxy), address(0));
-    heartbeatRequester.permitHeartbeat(address(this), aggregatorProxy);
+    emit HeartbeatPermitted(OWNER, address(aggregatorProxy), address(0));
+    heartbeatRequester.permitHeartbeat(OWNER, aggregatorProxy);
     heartbeatRequester.getAggregatorAndRequestHeartbeat(address(aggregatorProxy));
     // getter for newRoundCalled value
     bool val = aggregator.newRoundCalled();

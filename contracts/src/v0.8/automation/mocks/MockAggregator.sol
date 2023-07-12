@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import {IOffchainAggregator} from "../HeartbeatRequester.sol";
 
@@ -16,8 +16,6 @@ contract MockAggregator is IOffchainAggregator {
   }
 
   function requestNewRound() external override returns (uint80) {
-    // do we need the actual logic of requestNewRound?
-    // or is dummy requestNewRound ok?
     newRoundCalled = true;
     return 1;
   }
