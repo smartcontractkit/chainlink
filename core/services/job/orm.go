@@ -242,7 +242,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			sendingKeysDefined, err := areSendingKeysDefined(jb.OCR2OracleSpec)
+			// checks if they are present and if they are valid
+			sendingKeysDefined, err := areSendingKeysDefined(jb.OCR2OracleSpec, o.keyStore)
 			if err != nil {
 				return err
 			}
@@ -255,14 +256,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.New("sending keys and transmitter ID can't both be defined")
 			}
 
-			if sendingKeysDefined {
-				jb.OCR2OracleSpec.TransmitterID.String = jb.OCR2OracleSpec.RelayConfig["sendingKeys"].([]string)[0]
-			}
-
-			if jb.OCR2OracleSpec.Relay == relay.EVM && jb.OCR2OracleSpec.TransmitterID.Valid {
-				transmitterID := jb.OCR2OracleSpec.TransmitterID.String
-				if !common.IsHexAddress(transmitterID) {
-					return errors.Errorf("transmitterID is not valid EVM hex address, got: %v", transmitterID)
+			if !sendingKeysDefined {
+				if err = validateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
+					return err
 				}
 			}
 
@@ -272,39 +268,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 			if jb.OCR2OracleSpec.PluginType != Mercury && jb.OCR2OracleSpec.FeedID != (common.Hash{}) {
 				return errors.New("feed ID is not currently supported for non-mercury jobs")
-			}
-
-			if jb.OCR2OracleSpec.TransmitterID.Valid {
-				transmitterID := jb.OCR2OracleSpec.TransmitterID.String
-				if jb.OCR2OracleSpec.PluginType == Mercury {
-					_, err = o.keyStore.CSA().Get(transmitterID)
-					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", transmitterID)
-					}
-				} else {
-					switch jb.OCR2OracleSpec.Relay {
-					case relay.EVM:
-						_, err = o.keyStore.Eth().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", transmitterID)
-						}
-					case relay.Cosmos:
-						_, err = o.keyStore.Cosmos().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", transmitterID)
-						}
-					case relay.Solana:
-						_, err = o.keyStore.Solana().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", transmitterID)
-						}
-					case relay.StarkNet:
-						_, err = o.keyStore.StarkNet().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", transmitterID)
-						}
-					}
-				}
 			}
 
 			if jb.OCR2OracleSpec.PluginType == Median {
@@ -483,18 +446,52 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	return o.findJob(jb, "id", jobID, qopts...)
 }
 
-func areSendingKeysDefined(spec *OCR2OracleSpec) (bool, error) {
+// validateKeyStoreMatch confirms that the key has a valid match in the keystore
+func validateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
+	if spec.TransmitterID.Valid {
+		if spec.PluginType == Mercury {
+			_, err := keyStore.CSA().Get(key)
+			if err != nil {
+				return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", key)
+			}
+		} else {
+			switch spec.Relay {
+			case relay.EVM:
+				_, err := keyStore.Eth().Get(key)
+				if err != nil {
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", key)
+				}
+			case relay.Cosmos:
+				_, err := keyStore.Cosmos().Get(key)
+				if err != nil {
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", key)
+				}
+			case relay.Solana:
+				_, err := keyStore.Solana().Get(key)
+				if err != nil {
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", key)
+				}
+			case relay.StarkNet:
+				_, err := keyStore.StarkNet().Get(key)
+				if err != nil {
+					return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", key)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func areSendingKeysDefined(spec *OCR2OracleSpec, keystore keystore.Master) (bool, error) {
 	if spec.RelayConfig["sendingKeys"] != nil {
 		sendingKeys, ok := spec.RelayConfig["sendingKeys"].([]string)
 		if !ok {
 			return false, errors.New("sending keys are of wrong type")
 		}
 
-		if spec.Relay == relay.EVM {
-			for _, sendingKey := range sendingKeys {
-				if !common.IsHexAddress(sendingKey) {
-					return false, errors.Errorf("sendingKey is not valid EVM hex address, got: %v", sendingKey)
-				}
+		for _, sendingKey := range sendingKeys {
+			if err := validateKeyStoreMatch(spec, keystore, sendingKey); err != nil {
+				return false, err
 			}
 		}
 
