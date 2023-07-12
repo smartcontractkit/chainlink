@@ -348,7 +348,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	txCodes, txErrs, err := ec.client.BatchSendTransactions(ctx, ec.txStore.UpdateBroadcastAts, attempts, int(ec.chainConfig.RPCDefaultBatchSize()), ec.lggr)
+	txCodes, txErrs, broadcastTime, txIDs, err := ec.client.BatchSendTransactions(ctx, attempts, int(ec.chainConfig.RPCDefaultBatchSize()), ec.lggr)
+	// update broadcast times before checking additional errors
+	if len(txIDs) > 0 {
+		if updateErr := ec.txStore.UpdateBroadcastAts(broadcastTime, txIDs); updateErr != nil {
+			err = fmt.Errorf("%w: failed to update broadcast time: %w", err, updateErr)
+		}
+	}
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
