@@ -13,7 +13,8 @@ library Functions {
 
   enum Location {
     Inline,
-    Remote
+    Remote,
+    DON
   }
 
   enum CodeLanguage {
@@ -25,8 +26,8 @@ library Functions {
     Location codeLocation;
     Location secretsLocation;
     CodeLanguage language;
-    string source; // Source code for Location.Inline or url for Location.Remote
-    bytes secrets; // Encrypted secrets blob for Location.Inline or url for Location.Remote
+    string source; // Source code for Location.Inline, url for Location.Remote or slot decimal number for Location.DON
+    bytes secrets; // Encrypted urls for Location.Remote or slot decimal number for Location.DON
     string[] args;
   }
 
