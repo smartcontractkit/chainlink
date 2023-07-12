@@ -42,7 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -168,7 +168,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		MailMon:          mailMon,
 	}
 
-	loopRegistry := plugins.NewLoopRegistry()
+	loopRegistry := plugins.NewLoopRegistry(appLggr.Named("LoopRegistry"))
 
 	var chains chainlink.Chains
 	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
@@ -271,7 +271,7 @@ func (r relayerFactory) NewSolana(ks keystore.Solana) (loop.Relayer, error) {
 		}
 	}
 
-	if cmdName := v2.EnvSolanaPluginCmd.Get(); cmdName != "" {
+	if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
 		// setup the solana relayer to be a LOOP
 		tomls, err := toml.Marshal(struct {
 			Solana solana.SolanaConfigs
@@ -322,7 +322,7 @@ func (r relayerFactory) NewStarkNet(ks keystore.StarkNet) (loop.Relayer, error) 
 		}
 	}
 
-	if cmdName := v2.EnvStarknetPluginCmd.Get(); cmdName != "" {
+	if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
 		// setup the starknet relayer to be a LOOP
 		tomls, err := toml.Marshal(struct {
 			Starknet starknet.StarknetConfigs

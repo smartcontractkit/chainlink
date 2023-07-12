@@ -302,7 +302,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) ethT
 			}
 			addr, err := eb.parseAddr(ev.Payload)
 			if err != nil {
-				eb.logger.Errorw("failed to parse address in trigger", "error", err)
+				eb.logger.Errorw("failed to parse address in trigger", "err", err)
 				continue
 			}
 			eb.Trigger(addr)

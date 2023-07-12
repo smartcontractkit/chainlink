@@ -26,24 +26,20 @@ var _ TxAttemptBuilder = (*evmTxAttemptBuilder)(nil)
 
 type evmTxAttemptBuilder struct {
 	chainID   big.Int
-	config    evmTxAttemptBuilderConfig
 	feeConfig evmTxAttemptBuilderFeeConfig
 	keystore  TxAttemptSigner[common.Address]
 	gas.EvmFeeEstimator
-}
-
-type evmTxAttemptBuilderConfig interface {
-	KeySpecificMaxGasPriceWei(common.Address) *assets.Wei
 }
 
 type evmTxAttemptBuilderFeeConfig interface {
 	EIP1559DynamicFees() bool
 	TipCapMin() *assets.Wei
 	PriceMin() *assets.Wei
+	PriceMaxKey(common.Address) *assets.Wei
 }
 
-func NewEvmTxAttemptBuilder(chainID big.Int, config evmTxAttemptBuilderConfig, feeConfig evmTxAttemptBuilderFeeConfig, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
-	return &evmTxAttemptBuilder{chainID, config, feeConfig, keystore, estimator}
+func NewEvmTxAttemptBuilder(chainID big.Int, feeConfig evmTxAttemptBuilderFeeConfig, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
+	return &evmTxAttemptBuilder{chainID, feeConfig, keystore, estimator}
 }
 
 // NewTxAttempt builds an new attempt using the configured fee estimator + using the EIP1559 config to determine tx type
@@ -59,7 +55,7 @@ func (c *evmTxAttemptBuilder) NewTxAttempt(ctx context.Context, etx Tx, lggr log
 // NewTxAttemptWithType builds a new attempt with a new fee estimation where the txType can be specified by the caller
 // used for L2 re-estimation on broadcasting (note EIP1559 must be disabled otherwise this will fail with mismatched fees + tx type)
 func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx Tx, lggr logger.Logger, txType int, opts ...feetypes.Opt) (attempt TxAttempt, fee gas.EvmFee, feeLimit uint32, retryable bool, err error) {
-	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	keySpecificMaxGasPriceWei := c.feeConfig.PriceMaxKey(etx.FromAddress)
 	fee, feeLimit, err = c.EvmFeeEstimator.GetFee(ctx, etx.EncodedPayload, etx.FeeLimit, keySpecificMaxGasPriceWei, opts...)
 	if err != nil {
 		return attempt, fee, feeLimit, true, errors.Wrap(err, "failed to get fee") // estimator errors are retryable
@@ -72,7 +68,7 @@ func (c *evmTxAttemptBuilder) NewTxAttemptWithType(ctx context.Context, etx Tx, 
 // NewBumpTxAttempt builds a new attempt with a bumped fee - based on the previous attempt tx type
 // used in the txm broadcaster + confirmer when tx ix rejected for too low fee or is not included in a timely manner
 func (c *evmTxAttemptBuilder) NewBumpTxAttempt(ctx context.Context, etx Tx, previousAttempt TxAttempt, priorAttempts []TxAttempt, lggr logger.Logger) (attempt TxAttempt, bumpedFee gas.EvmFee, bumpedFeeLimit uint32, retryable bool, err error) {
-	keySpecificMaxGasPriceWei := c.config.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	keySpecificMaxGasPriceWei := c.feeConfig.PriceMaxKey(etx.FromAddress)
 
 	bumpedFee, bumpedFeeLimit, err = c.EvmFeeEstimator.BumpFee(ctx, previousAttempt.TxFee, etx.FeeLimit, keySpecificMaxGasPriceWei, newEvmPriorAttempts(priorAttempts))
 	if err != nil {
@@ -137,7 +133,7 @@ func (c *evmTxAttemptBuilder) NewEmptyTxAttempt(nonce evmtypes.Nonce, feeLimit u
 }
 
 func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx Tx, fee gas.DynamicFee, gasLimit uint32) (attempt TxAttempt, err error) {
-	if err = validateDynamicFeeGas(c.config, c.feeConfig.TipCapMin(), fee, gasLimit, etx); err != nil {
+	if err = validateDynamicFeeGas(c.feeConfig, c.feeConfig.TipCapMin(), fee, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
 
@@ -167,9 +163,13 @@ func (c *evmTxAttemptBuilder) newDynamicFeeAttempt(etx Tx, fee gas.DynamicFee, g
 
 var Max256BitUInt = big.NewInt(0).Exp(big.NewInt(2), big.NewInt(256), nil)
 
+type keySpecificEstimator interface {
+	PriceMaxKey(addr common.Address) *assets.Wei
+}
+
 // validateDynamicFeeGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateDynamicFeeGas(cfg evmTxAttemptBuilderConfig, tipCapMinimum *assets.Wei, fee gas.DynamicFee, gasLimit uint32, etx Tx) error {
+func validateDynamicFeeGas(kse keySpecificEstimator, tipCapMinimum *assets.Wei, fee gas.DynamicFee, gasLimit uint32, etx Tx) error {
 	gasTipCap, gasFeeCap := fee.TipCap, fee.FeeCap
 
 	if gasTipCap == nil {
@@ -192,7 +192,7 @@ func validateDynamicFeeGas(cfg evmTxAttemptBuilderConfig, tipCapMinimum *assets.
 	}
 
 	// Configuration sanity-check
-	max := cfg.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	max := kse.PriceMaxKey(etx.FromAddress)
 	if gasFeeCap.Cmp(max) > 0 {
 		return errors.Errorf("cannot create tx attempt: specified gas fee cap of %s would exceed max configured gas price of %s for key %s", gasFeeCap.String(), max.String(), etx.FromAddress.String())
 	}
@@ -218,7 +218,7 @@ func newDynamicFeeTransaction(nonce uint64, to common.Address, value *big.Int, g
 }
 
 func (c *evmTxAttemptBuilder) newLegacyAttempt(etx Tx, gasPrice *assets.Wei, gasLimit uint32) (attempt TxAttempt, err error) {
-	if err = validateLegacyGas(c.config, c.feeConfig.PriceMin(), gasPrice, gasLimit, etx); err != nil {
+	if err = validateLegacyGas(c.feeConfig, c.feeConfig.PriceMin(), gasPrice, gasLimit, etx); err != nil {
 		return attempt, errors.Wrap(err, "error validating gas")
 	}
 
@@ -251,11 +251,11 @@ func (c *evmTxAttemptBuilder) newLegacyAttempt(etx Tx, gasPrice *assets.Wei, gas
 
 // validateLegacyGas is a sanity check - we have other checks elsewhere, but this
 // makes sure we _never_ create an invalid attempt
-func validateLegacyGas(cfg evmTxAttemptBuilderConfig, minGasPriceWei, gasPrice *assets.Wei, gasLimit uint32, etx Tx) error {
+func validateLegacyGas(kse keySpecificEstimator, minGasPriceWei, gasPrice *assets.Wei, gasLimit uint32, etx Tx) error {
 	if gasPrice == nil {
 		panic("gas price missing")
 	}
-	max := cfg.KeySpecificMaxGasPriceWei(etx.FromAddress)
+	max := kse.PriceMaxKey(etx.FromAddress)
 	if gasPrice.Cmp(max) > 0 {
 		return errors.Errorf("cannot create tx attempt: specified gas price of %s would exceed max configured gas price of %s for key %s", gasPrice.String(), max.String(), etx.FromAddress.String())
 	}

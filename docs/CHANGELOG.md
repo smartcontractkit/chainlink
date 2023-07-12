@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 <!-- unreleased -->
 
 ## [dev]
+
+...
+
+## 2.3.0 - UNRELEASED
+
 ### Added
 - Add a new field called `Order` (range from 1 to 100) to `EVM.Nodes` that is used for the `PriorityLevel` node selector and also as a tie-breaker for `HighestHead` and `TotalDifficulty`. `Order` levels are considered in ascending order. If not defined it will default to `Order = 100` (last level).
 - Added new node selection mode called `PriorityLevel` for EVM, it is a tiered round-robin in ascending order of the`Order` field. Example:

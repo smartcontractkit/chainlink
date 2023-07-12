@@ -3,7 +3,6 @@ package functions
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -80,7 +79,7 @@ type secretsPayload struct {
 
 type secretsData struct {
 	RequestType          string `json:"requestType"`
-	EncryptedSecretsUrls string `json:"encryptedSecretsUrls"`
+	EncryptedSecretsUrls []byte `json:"encryptedSecretsUrls"`
 }
 
 type response struct {
@@ -147,11 +146,9 @@ func (ea *externalAdapterClient) RunComputation(
 }
 
 func (ea *externalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encryptedSecretsUrls []byte, requestId string, jobName string) (encryptedSecrets, userError []byte, err error) {
-	encodedSecretsUrls := base64.StdEncoding.EncodeToString(encryptedSecretsUrls)
-
 	data := secretsData{
 		RequestType:          "fetchThresholdEncryptedSecrets",
-		EncryptedSecretsUrls: encodedSecretsUrls,
+		EncryptedSecretsUrls: encryptedSecretsUrls,
 	}
 
 	payload := secretsPayload{

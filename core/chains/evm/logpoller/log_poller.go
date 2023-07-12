@@ -120,7 +120,7 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
-		lggr:              lggr,
+		lggr:              lggr.Named("LogPoller"),
 		replayStart:       make(chan int64),
 		replayComplete:    make(chan error),
 		pollPeriod:        pollPeriod,
