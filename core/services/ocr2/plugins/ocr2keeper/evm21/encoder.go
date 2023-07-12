@@ -16,11 +16,6 @@ var (
 	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
 )
 
-type logTriggerExtension struct {
-	TxHash   string
-	LogIndex int64
-}
-
 type EVMAutomationEncoder21 struct {
 	encoding.BasicEncoder
 	packer *evmRegistryPackerV2_1
@@ -90,7 +85,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		}
 		switch getUpkeepType(id.Bytes()) {
 		case logTrigger:
-			trExt, ok := result.Payload.Trigger.Extension.(logTriggerExtension)
+			trExt, ok := result.Payload.Trigger.Extension.(logprovider.LogTriggerExtension)
 			if !ok {
 				return nil, fmt.Errorf("unrecognized trigger extension data")
 			}
@@ -191,7 +186,7 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 			// TODO: log error and continue instead?
 			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
 		}
-		logExt := logTriggerExtension{}
+		logExt := logprovider.LogTriggerExtension{}
 
 		switch getUpkeepType(upkeepId.Bytes()) {
 		case logTrigger:
