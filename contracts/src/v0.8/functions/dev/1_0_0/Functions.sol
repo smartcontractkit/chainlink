@@ -30,6 +30,7 @@ library Functions {
     string source; // Source code for Location.Inline, url for Location.Remote or slot decimal number for Location.DONHosted
     bytes encryptedSecretsReference; // Encrypted urls for Location.Remote or slot decimal number for Location.DONHosted
     string[] args;
+    bytes[] bytesArgs;
   }
 
   error EmptySource();
@@ -134,12 +135,23 @@ library Functions {
   /**
    * @notice Adds args for the user run function
    * @param self The initialized request
-   * @param args The array of args (must not be empty)
+   * @param args The array of string args (must not be empty)
    */
   function addArgs(Request memory self, string[] memory args) internal pure {
     if (args.length == 0) revert EmptyArgs();
 
     self.args = args;
+  }
+
+  /**
+   * @notice Adds bytes args for the user run function
+   * @param self The initialized request
+   * @param args The array of bytes args (must not be empty)
+   */
+  function addBytesArgs(Request memory self, bytes[] memory args) internal pure {
+    if (args.length == 0) revert EmptyArgs();
+
+    self.bytesArgs = args;
   }
 
   /**
