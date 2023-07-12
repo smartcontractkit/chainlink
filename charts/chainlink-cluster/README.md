@@ -5,11 +5,12 @@ Enter the shell
 ```
 nix develop
 ```
-If you are not on `OS X`, please install [devspace](https://www.devspace.sh/docs/getting-started/installation?x0=3) manually
 
 # Develop
 
 ## New cluster
+We are using [devspace](https://www.devspace.sh/docs/getting-started/installation?x0=3)
+
 Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./values.yaml) comments
 
 `Caveat`: currently it's working only with `dockerhub`
