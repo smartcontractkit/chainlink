@@ -85,18 +85,16 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   // @inheritdoc IRewardManager
-  function onFeePaid(bytes32 poolId, address payee, Common.Asset calldata fee) external override {
-    //fee must be link
-    if (fee.assetAddress != LINK_ADDRESS) revert InvalidAddress();
+  function onFeePaid(bytes32 poolId, address payee, uint256 fee) external override {
 
     //update the total fees collected for this pot
     unchecked {
       //the total amount for any ERC20 asset cannot exceed 2^256 - 1
-      totalRewardRecipientFees[poolId] += fee.amount;
+      totalRewardRecipientFees[poolId] += fee;
     }
 
     //transfer the fee to this contract
-    IERC20(LINK_ADDRESS).safeTransferFrom(payee, address(this), fee.amount);
+    IERC20(LINK_ADDRESS).safeTransferFrom(payee, address(this), fee);
   }
 
   // @inheritdoc IRewardManager

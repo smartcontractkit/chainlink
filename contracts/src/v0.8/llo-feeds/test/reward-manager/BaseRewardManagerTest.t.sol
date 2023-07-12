@@ -62,6 +62,7 @@ contract BaseRewardManagerTest is Test {
   bytes4 internal constant INVALID_WEIGHT_ERROR_SELECTOR = bytes4(keccak256("InvalidWeights()"));
   bytes4 internal constant INVALID_POOL_ID_ERROR_SELECTOR = bytes4(keccak256("InvalidPoolId()"));
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
+  bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
 
   function setUp() public virtual {
     //change to admin user
@@ -162,7 +163,7 @@ contract BaseRewardManagerTest is Test {
     ERC20Mock(amount.assetAddress).approve(address(rewardManager), amount.amount);
 
     //this represents the verifier adding some funds to the pool
-    rewardManager.onFeePaid(poolId, sender, amount);
+    rewardManager.onFeePaid(poolId, sender, amount.amount);
 
     //change back to the original address
     changePrank(originalAddr);

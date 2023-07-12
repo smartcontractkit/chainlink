@@ -176,7 +176,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
       //some users might not be billed
       if (asset.amount > 0) {
         //bill the payee
-        s_rewardsManager.onFeePaid(configDigest, msg.sender, asset);
+        s_rewardsManager.onFeePaid(configDigest, msg.sender, asset.amount);
       }
     }
 

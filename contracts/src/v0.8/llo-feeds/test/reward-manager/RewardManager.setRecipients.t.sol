@@ -122,9 +122,9 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
 
   function test_onlyConfiguredAddressCanPayIntoPool() public {
     //should revert if the unconfigured address tries to pay into the pool
-    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+    vm.expectRevert(INSUFFICIENT_ALLOWANCE_ERROR);
 
     //try and add funds to the pool from an unconfigured address
-    rewardManager.onFeePaid(PRIMARY_POOL_ID, msg.sender, getUnsupportedAsset(1));
+    rewardManager.onFeePaid(PRIMARY_POOL_ID, msg.sender, 1);
   }
 }
