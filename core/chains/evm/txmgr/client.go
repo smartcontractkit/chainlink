@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ EvmTxmClient = (*evmTxmClient)(nil)
+var _ TxmClient = (*evmTxmClient)(nil)
 
 type evmTxmClient struct {
 	client evmclient.Client
@@ -39,7 +39,7 @@ func (c *evmTxmClient) ConfiguredChainID() *big.Int {
 	return c.client.ConfiguredChainID()
 }
 
-func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, updateBroadcastTime func(now time.Time, txIDs []int64) error, attempts []EvmTxAttempt, batchSize int, lggr logger.Logger) (codes []clienttypes.SendTxReturnCode, txErrs []error, err error) {
+func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, updateBroadcastTime func(now time.Time, txIDs []int64) error, attempts []TxAttempt, batchSize int, lggr logger.Logger) (codes []clienttypes.SendTxReturnCode, txErrs []error, err error) {
 	// preallocate
 	codes = make([]clienttypes.SendTxReturnCode, len(attempts))
 	txErrs = make([]error, len(attempts))
@@ -51,7 +51,7 @@ func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, updateBroadcas
 	if len(reqs) != len(attempts) {
 		lenErr := fmt.Errorf("Returned request data length (%d) != number of tx attempts (%d)", len(reqs), len(attempts))
 		err = errors.Join(err, lenErr)
-		lggr.Criticalw("Mismatched length", "error", err)
+		lggr.Criticalw("Mismatched length", "err", err)
 		return
 	}
 
@@ -77,7 +77,7 @@ func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, updateBroadcas
 	return
 }
 
-func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx EvmTx, attempt EvmTxAttempt, lggr logger.Logger) (clienttypes.SendTxReturnCode, error) {
+func (c *evmTxmClient) SendTransactionReturnCode(ctx context.Context, etx Tx, attempt TxAttempt, lggr logger.Logger) (clienttypes.SendTxReturnCode, error) {
 	signedTx, err := GetGethSignedTx(attempt.SignedRawTx)
 	if err != nil {
 		lggr.Criticalw("Fatal error signing transaction", "err", err, "etx", etx)
@@ -102,7 +102,7 @@ func (c *evmTxmClient) SequenceAt(ctx context.Context, addr common.Address, bloc
 	return c.client.SequenceAt(ctx, addr, blockNum)
 }
 
-func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []EvmTxAttempt) (txReceipt []*evmtypes.Receipt, txErr []error, funcErr error) {
+func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []TxAttempt) (txReceipt []*evmtypes.Receipt, txErr []error, funcErr error) {
 	var reqs []rpc.BatchElem
 	for _, attempt := range attempts {
 		res := &evmtypes.Receipt{}
@@ -129,7 +129,7 @@ func (c *evmTxmClient) BatchGetReceipts(ctx context.Context, attempts []EvmTxAtt
 // May be useful for clearing stuck nonces
 func (c *evmTxmClient) SendEmptyTransaction(
 	ctx context.Context,
-	newTxAttempt func(seq evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt EvmTxAttempt, err error),
+	newTxAttempt func(seq evmtypes.Nonce, feeLimit uint32, fee gas.EvmFee, fromAddress common.Address) (attempt TxAttempt, err error),
 	seq evmtypes.Nonce,
 	gasLimit uint32,
 	fee gas.EvmFee,
@@ -151,7 +151,7 @@ func (c *evmTxmClient) SendEmptyTransaction(
 	return signedTx.Hash().String(), err
 }
 
-func (c *evmTxmClient) CallContract(ctx context.Context, a EvmTxAttempt, blockNumber *big.Int) (rpcErr fmt.Stringer, extractErr error) {
+func (c *evmTxmClient) CallContract(ctx context.Context, a TxAttempt, blockNumber *big.Int) (rpcErr fmt.Stringer, extractErr error) {
 	_, errCall := c.client.CallContract(ctx, ethereum.CallMsg{
 		From:       a.Tx.FromAddress,
 		To:         &a.Tx.ToAddress,

@@ -18,11 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig, txConfig txmgrtypes.ReaperTransactionsConfig, cid *big.Int) *txmgr.EvmReaper {
+func newReaperWithChainID(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig, cid *big.Int) *txmgr.Reaper {
 	return txmgr.NewEvmReaper(logger.TestLogger(t), db, cfg, txConfig, cid)
 }
 
-func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperConfig, txConfig txmgrtypes.ReaperTransactionsConfig) *txmgr.EvmReaper {
+func newReaper(t *testing.T, db txmgrtypes.TxHistoryReaper[*big.Int], cfg txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig) *txmgr.Reaper {
 	return newReaperWithChainID(t, db, cfg, txConfig, &cltest.FixtureChainID)
 }
 

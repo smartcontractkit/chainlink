@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/patrickmn/go-cache"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"go.uber.org/multierr"
 
@@ -26,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -69,11 +66,6 @@ type Registry interface {
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
 }
 
-//go:generate mockery --quiet --name HttpClient --output ./mocks/ --case=underscore
-type HttpClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
 type LatestBlockGetter interface {
 	LatestBlock() int64
 }
@@ -106,7 +98,6 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, lggr logger.Lo
 		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
 		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
-		hc:       http.DefaultClient,
 		enc:      EVMAutomationEncoder20{},
 	}
 
@@ -142,14 +133,6 @@ type activeUpkeep struct {
 	CheckData       []byte
 }
 
-type MercuryConfig struct {
-	cred          *models.MercuryCredentials
-	abi           abi.ABI
-	upkeepCache   *cache.Cache
-	cooldownCache *cache.Cache
-	apiErrCache   *cache.Cache
-}
-
 type EvmRegistry struct {
 	HeadProvider
 	sync          utils.StartStopOnce
@@ -171,7 +154,6 @@ type EvmRegistry struct {
 	headFunc      func(ocr2keepers.BlockKey)
 	runState      int
 	runError      error
-	hc            HttpClient
 	enc           EVMAutomationEncoder20
 }
 

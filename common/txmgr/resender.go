@@ -37,11 +37,11 @@ const (
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
 type Resender[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	txStore             txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -49,7 +49,7 @@ type Resender[
 	ks                  txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	chainID             CHAIN_ID
 	interval            time.Duration
-	config              txmgrtypes.ResenderConfig
+	config              txmgrtypes.ResenderChainConfig
 	txConfig            txmgrtypes.ResenderTransactionsConfig
 	logger              logger.Logger
 	lastAlertTimestamps map[string]time.Time
@@ -60,11 +60,11 @@ type Resender[
 }
 
 func NewResender[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](
 	lggr logger.Logger,
@@ -72,7 +72,7 @@ func NewResender[
 	client txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	ks txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	pollInterval time.Duration,
-	config txmgrtypes.ResenderConfig,
+	config txmgrtypes.ResenderChainConfig,
 	txConfig txmgrtypes.ResenderTransactionsConfig,
 ) *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	if txConfig.ResendAfterThreshold() == 0 {
@@ -198,10 +198,10 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) logStuckAttem
 }
 
 func findOldestUnconfirmedAttempt[
-	CHAIN_ID txmgrtypes.ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], bool) {
 	var oldestAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]

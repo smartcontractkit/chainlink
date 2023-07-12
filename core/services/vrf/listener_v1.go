@@ -45,6 +45,7 @@ type listenerV1 struct {
 	utils.StartStopOnce
 
 	cfg             Config
+	feeCfg          FeeConfig
 	l               logger.SugaredLogger
 	logBroadcaster  log.Broadcaster
 	coordinator     *solidity_vrf_coordinator_interface.VRFCoordinator
@@ -52,7 +53,7 @@ type listenerV1 struct {
 	job             job.Job
 	q               pg.Q
 	headBroadcaster httypes.HeadBroadcasterRegistry
-	txm             txmgr.EvmTxManager
+	txm             txmgr.TxManager
 	gethks          GethKeyStore
 	mailMon         *utils.MailboxMonitor
 	reqLogs         *utils.Mailbox[log.Broadcast]
@@ -228,7 +229,7 @@ func (lsn *listenerV1) runHeadListener(unsubscribe func()) {
 
 func (lsn *listenerV1) runLogListener(unsubscribes []func(), minConfs uint32) {
 	lsn.l.Infow("Listening for run requests",
-		"gasLimit", lsn.cfg.EvmGasLimitDefault(),
+		"gasLimit", lsn.feeCfg.LimitDefault(),
 		"minConfs", minConfs)
 	for {
 		select {
@@ -312,7 +313,7 @@ func (lsn *listenerV1) handleLog(lb log.Broadcast, minConfs uint32) {
 func (lsn *listenerV1) shouldProcessLog(lb log.Broadcast) bool {
 	consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
-		lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+		lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
 		// Do not process, let lb resend it as a retry mechanism.
 		return false
 	}

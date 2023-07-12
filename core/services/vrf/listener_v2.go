@@ -79,6 +79,7 @@ func (errBlockhashNotInStore) Error() string {
 
 func newListenerV2(
 	cfg Config,
+	feeCfg FeeConfig,
 	l logger.Logger,
 	ethClient evmclient.Client,
 	chainID *big.Int,
@@ -88,7 +89,7 @@ func newListenerV2(
 	batchCoordinator batch_vrf_coordinator_v2.BatchVRFCoordinatorV2Interface,
 	vrfOwner vrf_owner.VRFOwnerInterface,
 	aggregator *aggregator_v3_interface.AggregatorV3Interface,
-	txm txmgr.EvmTxManager,
+	txm txmgr.TxManager,
 	pipelineRunner pipeline.Runner,
 	gethks keystore.Eth,
 	job job.Job,
@@ -101,6 +102,7 @@ func newListenerV2(
 ) *listenerV2 {
 	return &listenerV2{
 		cfg:                cfg,
+		feeCfg:             feeCfg,
 		l:                  logger.Sugared(l),
 		ethClient:          ethClient,
 		chainID:            chainID,
@@ -153,11 +155,12 @@ type vrfPipelineResult struct {
 type listenerV2 struct {
 	utils.StartStopOnce
 	cfg            Config
+	feeCfg         FeeConfig
 	l              logger.SugaredLogger
 	ethClient      evmclient.Client
 	chainID        *big.Int
 	logBroadcaster log.Broadcaster
-	txm            txmgr.EvmTxManager
+	txm            txmgr.TxManager
 	mailMon        *utils.MailboxMonitor
 
 	coordinator      vrf_coordinator_v2.VRFCoordinatorV2Interface
@@ -208,9 +211,10 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 		confCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		conf, err := lsn.coordinator.GetConfig(&bind.CallOpts{Context: confCtx})
-		gasLimit := lsn.cfg.EvmGasLimitDefault()
-		if lsn.cfg.EvmGasLimitVRFJobType() != nil {
-			gasLimit = *lsn.cfg.EvmGasLimitVRFJobType()
+		gasLimit := lsn.feeCfg.LimitDefault()
+		vrfLimit := lsn.feeCfg.LimitJobType().VRF()
+		if vrfLimit != nil {
+			gasLimit = *vrfLimit
 		}
 		if err != nil {
 			lsn.l.Criticalw("Error getting coordinator config for gas limit check, starting anyway.", "err", err)
@@ -595,9 +599,9 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 			}
 		}
 
-		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecific-MaxPrice value.
 		fromAddresses := lsn.fromAddresses()
-		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
+		maxGasPriceWei := lsn.feeCfg.PriceMaxKey(fromAddresses[0])
 
 		// Cases:
 		// 1. Never simulated: in this case, we want to observe the time until simulated
@@ -721,7 +725,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 	ctx context.Context,
 	p vrfPipelineResult,
 	fromAddress common.Address,
-) (etx txmgr.EvmTx, err error) {
+) (etx txmgr.Tx, err error) {
 	if lsn.job.VRFSpec.VRFOwnerAddress == nil {
 		err = errors.New("vrf owner address not set in job spec, recreate job and provide it to force-fulfill")
 		return
@@ -769,13 +773,13 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		}
 
 		requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
-		etx, err = lsn.txm.CreateTransaction(txmgr.EvmTxRequest{
+		etx, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
 			FeeLimit:       uint32(estimateGasLimit),
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
-			Meta: &txmgr.EvmTxMeta{
+			Meta: &txmgr.TxMeta{
 				RequestID:     &requestID,
 				SubID:         &p.req.req.SubId,
 				RequestTxHash: &p.req.req.Raw.TxHash,
@@ -792,7 +796,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 // otherwise true.
 func (lsn *listenerV2) isConsumerValidAfterFinalityDepthElapsed(ctx context.Context, req pendingRequest) bool {
 	latestHead := lsn.getLatestHead()
-	if latestHead-req.req.Raw.BlockNumber > uint64(lsn.cfg.EvmFinalityDepth()) {
+	if latestHead-req.req.Raw.BlockNumber > uint64(lsn.cfg.FinalityDepth()) {
 		code, err := lsn.ethClient.CodeAt(ctx, req.req.Sender, big.NewInt(int64(latestHead)))
 		if err != nil {
 			lsn.l.Warnw("Failed to fetch contract code", "err", err)
@@ -875,9 +879,9 @@ func (lsn *listenerV2) processRequestsPerSub(
 			}
 		}
 
-		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecific-MaxPrice value.
 		fromAddresses := lsn.fromAddresses()
-		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
+		maxGasPriceWei := lsn.feeCfg.PriceMaxKey(fromAddresses[0])
 		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, v2, unfulfilled)
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		for _, p := range pipelines {
@@ -952,7 +956,7 @@ func (lsn *listenerV2) processRequestsPerSub(
 			}
 
 			ll.Infow("Enqueuing fulfillment")
-			var transaction txmgr.EvmTx
+			var transaction txmgr.Tx
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
 				if err = lsn.pipelineRunner.InsertFinishedRun(&p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err
@@ -964,19 +968,19 @@ func (lsn *listenerV2) processRequestsPerSub(
 				maxLinkString := p.maxLink.String()
 				requestID := common.BytesToHash(p.req.req.RequestId.Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
-				transaction, err = lsn.txm.CreateTransaction(txmgr.EvmTxRequest{
+				transaction, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
 					FeeLimit:       p.gasLimit,
-					Meta: &txmgr.EvmTxMeta{
+					Meta: &txmgr.TxMeta{
 						RequestID:     &requestID,
 						MaxLink:       &maxLinkString,
 						SubID:         &p.req.req.SubId,
 						RequestTxHash: &p.req.req.Raw.TxHash,
 					},
 					Strategy: txmgrcommon.NewSendEveryStrategy(),
-					Checker: txmgr.EvmTransmitCheckerSpec{
+					Checker: txmgr.TransmitCheckerSpec{
 						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw.BlockNumber),
@@ -1314,7 +1318,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.l.Debugw("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+			lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
 			return
 		} else if consumed {
 			return
@@ -1335,7 +1339,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+			lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
 			return
 		} else if consumed {
 			return

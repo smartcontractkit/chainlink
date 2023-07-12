@@ -45,7 +45,7 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	store, err := blockhash_store.NewBlockhashStore(bhsAddress, chain.Client())
 	require.NoError(t, err)
 	bhs, err := blockhashstore.NewBulletproofBHS(
-		chain.Config(),
+		chain.Config().EVM().GasEstimator(),
 		chain.Config().Database(),
 		fromAddresses,
 		txm,
@@ -55,13 +55,13 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmTxRequest) bool {
+	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 		return tx.FromAddress.String() == k1.Address.String()
-	}), mock.Anything).Once().Return(txmgr.EvmTx{}, nil)
+	}), mock.Anything).Once().Return(txmgr.Tx{}, nil)
 
-	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmTxRequest) bool {
+	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 		return tx.FromAddress.String() == k2.Address.String()
-	}), mock.Anything).Once().Return(txmgr.EvmTx{}, nil)
+	}), mock.Anything).Once().Return(txmgr.Tx{}, nil)
 
 	// store 2 blocks
 	err = bhs.Store(context.Background(), 1)

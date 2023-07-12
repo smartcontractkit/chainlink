@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
-	vrf_mocks "github.com/smartcontractkit/chainlink/v2/core/services/vrf/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -300,7 +300,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Ensure we queue up a valid eth transaction
 		// Linked to requestID
 		vuni.txm.On("CreateTransaction",
-			mock.MatchedBy(func(txRequest txmgr.EvmTxRequest) bool {
+			mock.MatchedBy(func(txRequest txmgr.TxRequest) bool {
 				meta := txRequest.Meta
 				return txRequest.FromAddress == vuni.submitter &&
 					txRequest.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
@@ -308,7 +308,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),
-		).Once().Return(txmgr.EvmTx{}, nil)
+		).Once().Return(txmgr.Tx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
@@ -494,8 +494,8 @@ decode_log->vrf->encode_tx->submit_tx
 		jb, err := vrf.ValidatedVRFSpec(spec)
 		require.NoError(tt, err)
 
-		cfg := vrf_mocks.NewConfig(t)
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		gasEstimator := mocks.NewGasEstimator(t)
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, gasEstimator.PriceMaxKey))
 	})
 
 	t.Run("returns nil error on valid gas lane <=> key specific gas price setting", func(tt *testing.T) {
@@ -504,11 +504,11 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := vrf_mocks.NewConfig(t)
+		gasEstimator := mocks.NewGasEstimator(t)
 		for _, a := range fromAddresses {
-			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
+			gasEstimator.On("PriceMaxKey", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
 		}
-		defer cfg.AssertExpectations(tt)
+		defer gasEstimator.AssertExpectations(tt)
 
 		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
@@ -522,7 +522,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, gasEstimator.PriceMaxKey))
 	})
 
 	t.Run("returns error on invalid setting", func(tt *testing.T) {
@@ -531,12 +531,12 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := vrf_mocks.NewConfig(t)
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
+		gasEstimator := mocks.NewGasEstimator(t)
+		gasEstimator.On("PriceMaxKey", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
+		gasEstimator.On("PriceMaxKey", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
 		// last from address has wrong key-specific max gas price
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[2])).Return(assets.GWei(50)).Once()
-		defer cfg.AssertExpectations(tt)
+		gasEstimator.On("PriceMaxKey", common.HexToAddress(fromAddresses[2])).Return(assets.GWei(50)).Once()
+		defer gasEstimator.AssertExpectations(tt)
 
 		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
@@ -550,7 +550,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, gasEstimator.PriceMaxKey))
 	})
 }
 
@@ -632,13 +632,13 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}).Toml())
 		require.NoError(tt, err)
 
-		cfg := vrf_mocks.NewConfig(t)
+		gasEstimator := mocks.NewGasEstimator(t)
 		for _, a := range fromAddresses {
-			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+			gasEstimator.On("PriceMaxKey", common.HexToAddress(a)).Return(assets.GWei(100))
 		}
-		defer cfg.AssertExpectations(tt)
+		defer gasEstimator.AssertExpectations(tt)
 
-		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, gasEstimator.PriceMaxKey))
 	})
 
 	t.Run("one max gas price not equal to others", func(tt *testing.T) {
@@ -659,14 +659,14 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}).Toml())
 		require.NoError(tt, err)
 
-		cfg := vrf_mocks.NewConfig(t)
+		gasEstimator := mocks.NewGasEstimator(t)
 		for _, a := range fromAddresses[:3] {
-			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+			gasEstimator.On("PriceMaxKey", common.HexToAddress(a)).Return(assets.GWei(100))
 		}
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[len(fromAddresses)-1])).
+		gasEstimator.On("PriceMaxKey", common.HexToAddress(fromAddresses[len(fromAddresses)-1])).
 			Return(assets.GWei(200)) // doesn't match the rest
-		defer cfg.AssertExpectations(tt)
+		defer gasEstimator.AssertExpectations(tt)
 
-		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, gasEstimator.PriceMaxKey))
 	})
 }

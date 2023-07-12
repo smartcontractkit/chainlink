@@ -13,7 +13,7 @@ import (
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -31,15 +31,15 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD commontypes.Head[BLOCK_HASH],
-	ADDR commontypes.Hashable,
-	TX_HASH commontypes.Hashable,
-	BLOCK_HASH commontypes.Hashable,
-	SEQ txmgrtypes.Sequence,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
-	commontypes.HeadTrackable[HEAD, BLOCK_HASH]
+	types.HeadTrackable[HEAD, BLOCK_HASH]
 	services.ServiceCtx
 	Trigger(addr ADDR)
 	CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
@@ -59,19 +59,19 @@ type reset struct {
 }
 
 type Txm[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD commontypes.Head[BLOCK_HASH],
-	ADDR commontypes.Hashable,
-	TX_HASH commontypes.Hashable,
-	BLOCK_HASH commontypes.Hashable,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	utils.StartStopOnce
 	logger         logger.Logger
 	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	config         txmgrtypes.TransactionManagerConfig
+	config         txmgrtypes.TransactionManagerChainConfig
 	txConfig       txmgrtypes.TransactionManagerTransactionsConfig
 	keyStore       txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	chainID        CHAIN_ID
@@ -103,17 +103,17 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterRe
 
 // NewTxm creates a new Txm with the given configuration.
 func NewTxm[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD commontypes.Head[BLOCK_HASH],
-	ADDR commontypes.Hashable,
-	TX_HASH commontypes.Hashable,
-	BLOCK_HASH commontypes.Hashable,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](
 	chainId CHAIN_ID,
-	cfg txmgrtypes.TransactionManagerConfig,
+	cfg txmgrtypes.TransactionManagerChainConfig,
 	txCfg txmgrtypes.TransactionManagerTransactionsConfig,
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	lggr logger.Logger,
@@ -498,11 +498,11 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 }
 
 type NullTxManager[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD commontypes.Head[BLOCK_HASH],
-	ADDR commontypes.Hashable,
-	TX_HASH, BLOCK_HASH commontypes.Hashable,
-	SEQ txmgrtypes.Sequence,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH, BLOCK_HASH types.Hashable,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	ErrMsg string

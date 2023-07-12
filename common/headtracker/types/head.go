@@ -1,12 +1,11 @@
 package types
 
 import (
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 //go:generate mockery --quiet --name Head --output ./mocks/ --case=underscore
-type Head[BLOCK_HASH types.Hashable, CHAIN_ID txmgrtypes.ID] interface {
+type Head[BLOCK_HASH types.Hashable, CHAIN_ID types.ID] interface {
 	types.Head[BLOCK_HASH]
 	// ChainID returns the chain ID that the head is for
 	ChainID() CHAIN_ID

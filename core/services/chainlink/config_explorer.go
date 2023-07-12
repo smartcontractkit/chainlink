@@ -3,13 +3,13 @@ package chainlink
 import (
 	"net/url"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type explorerConfig struct {
 	explorerURL *models.URL
-	s           v2.ExplorerSecrets
+	s           toml.ExplorerSecrets
 }
 
 func (e *explorerConfig) URL() *url.URL {
