@@ -143,6 +143,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   // @inheritdoc IFeeManager
   function setNativePremium(uint16 premium) external onlyOwner {
+    if (premium > TOTAL_DISCOUNT) revert InvalidPremium();
+
     nativePremium = premium;
   }
 }

@@ -228,21 +228,12 @@ contract FeeManagerTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE);
   }
 
-  function test_nativePremiumExceeds100Percent() public {
-    //native premium
-    uint16 nativePremium = FEE_SCALAR * 3;
+  function test_nativePremiumCannotExceed100Percent() public {
+    //should revert if premium is greater than 100%
+    vm.expectRevert(INVALID_PREMIUM_ERROR);
 
     //set the premium
-    setNativePremium(nativePremium, ADMIN);
-
-    //get the fee required by the feeManager
-    Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
-
-    //calculate the expected premium
-    uint256 expectedPremium = ((DEFAULT_REPORT_NATIVE_FEE * nativePremium) / FEE_SCALAR);
-
-    //expected fee should the base fee offset by the premium and discount
-    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium);
+    setNativePremium(FEE_SCALAR + 1, ADMIN);
   }
 
   function test_discountIsAppliedWith100PercentPremium() public {
@@ -262,28 +253,6 @@ contract FeeManagerTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE * 2 - expectedDiscount);
   }
 
-  function test_discountIsAppliedWithExcessivePremium() public {
-    //native premium
-    uint16 nativePremium = FEE_SCALAR * 3;
-
-    //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 2, ADMIN);
-
-    //set the premium
-    setNativePremium(nativePremium, ADMIN);
-
-    //get the fee required by the feeManager
-    Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
-
-    //calculate the expected premium
-    uint256 expectedPremium = ((DEFAULT_REPORT_NATIVE_FEE * nativePremium) / FEE_SCALAR);
-
-    //calculate the expected discount quantity
-    uint256 expectedDiscount = ((DEFAULT_REPORT_NATIVE_FEE + expectedPremium) / 2);
-
-    //fee should be zero
-    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium - expectedDiscount);
-  }
 
   function test_feeIsZeroWith100PercentDiscount() public {
     //set the subscriber discount to 50%
@@ -349,7 +318,7 @@ contract FeeManagerTest is BaseFeeManagerTest {
     //should revert with invalid discount
     vm.expectRevert(INVALID_DISCOUNT_ERROR);
 
-    //set the subscriber discount to 50%
+    //set the subscriber discount to over 100%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR + 1, ADMIN);
   }
 
