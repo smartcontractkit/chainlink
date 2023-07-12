@@ -29,6 +29,8 @@ func NewChainlinkK8sClient(c *ChainlinkConfig, podName, chartName string) (*Chai
 			pageSize:  25,
 			Config:    c,
 		},
+		ChartName: chartName,
+		PodName:   podName,
 	}, nil
 }
 
