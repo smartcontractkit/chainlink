@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "./ChainSpecificUtil.sol";
+import "../ChainSpecificUtil.sol";
 
 /**
  * @title BlockhashStore
@@ -22,7 +22,7 @@ contract BlockhashStore {
    * @param n the number of the block whose blockhash should be stored
    */
   function store(uint256 n) public {
-    bytes32 h = ChainSpecificUtil.getBlockhash(n);
+    bytes32 h = ChainSpecificUtil.getBlockhash(uint64(n));
     require(h != 0x0, "blockhash(n) failed");
     s_blockhashes[n] = h;
   }
