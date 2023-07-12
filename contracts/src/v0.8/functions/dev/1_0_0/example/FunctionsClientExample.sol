@@ -39,7 +39,7 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
   ) external onlyOwner {
     Functions.Request memory req;
     req.initializeRequestForInlineJavaScript(source);
-    if (encryptedSecretsReferences.length > 0) req.addRemoteSecrets(encryptedSecretsReferences);
+    if (encryptedSecretsReferences.length > 0) req.addSecretsReference(encryptedSecretsReferences);
     if (args.length > 0) req.addArgs(args);
     lastRequestId = _sendRequest(req, subscriptionId, MAX_CALLBACK_GAS, jobId);
   }

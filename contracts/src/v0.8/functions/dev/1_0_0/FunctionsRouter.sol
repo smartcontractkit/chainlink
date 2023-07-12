@@ -7,7 +7,14 @@ import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {IFunctionsSubscriptions, FunctionsSubscriptions, IFunctionsBilling} from "./FunctionsSubscriptions.sol";
 
 contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions {
-  event RequestStart(bytes32 indexed requestId, Request request);
+  event RequestStart(
+    bytes32 indexed requestId,
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint16 dataVersion,
+    uint32 callbackGasLimit,
+    bytes32 donId
+  );
   event RequestEnd(
     bytes32 indexed requestId,
     uint64 indexed subscriptionId,

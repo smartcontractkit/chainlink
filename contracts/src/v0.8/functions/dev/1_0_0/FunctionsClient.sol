@@ -101,14 +101,14 @@ abstract contract FunctionsClient is IFunctionsClient {
    * @notice Gets the stored address of the router contract
    * @return The address of the router contract
    */
-  function getChainlinkFunctionsRouterAddress() internal view returns (address) {
+  function getRouter() internal view returns (address) {
     return address(s_router);
   }
 
   /**
    * @notice Allows for a request which was created on another contract to be fulfilled
    * on this contract
-   * @param oracleAddress The address of the oracle contract that will fulfill the request
+   * @param oracleAddress The address of the Coordinator contract that will fulfill the request
    * @param requestId The request ID used for the response
    */
   function addExternalRequest(address oracleAddress, bytes32 requestId) internal notPendingRequest(requestId) {

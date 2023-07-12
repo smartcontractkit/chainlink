@@ -158,7 +158,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @dev Helper function to validate a proposal set
    */
-  function _validateProposal(
+  function _validateProposalSet(
     bytes32[] memory proposalSetIds,
     address[] memory proposalSetFromAddresses,
     address[] memory proposalSetToAddresses
@@ -202,7 +202,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     address[] memory proposalSetFromAddresses,
     address[] memory proposalSetToAddresses
   ) external override onlyOwner {
-    _validateProposal(proposalSetIds, proposalSetFromAddresses, proposalSetToAddresses);
+    _validateProposalSet(proposalSetIds, proposalSetFromAddresses, proposalSetToAddresses);
     uint timelockEndBlock = block.number + s_timelockBlocks;
     s_proposalSet = ProposalSet(proposalSetIds, proposalSetFromAddresses, proposalSetToAddresses, timelockEndBlock);
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH

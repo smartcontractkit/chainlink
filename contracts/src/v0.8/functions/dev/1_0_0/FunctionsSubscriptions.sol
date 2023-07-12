@@ -288,7 +288,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     s_withdrawableTokens[address(this)] -= amount;
     s_totalBalance -= amount;
     if (!LINK.transfer(recipient, amount)) {
-      revert InsufficientSubscriptionBalance();
+      uint256 externalBalance = LINK.balanceOf(address(this));
+      uint256 internalBalance = uint256(s_totalBalance);
+      revert BalanceInvariantViolated(internalBalance, externalBalance);
     }
   }
 
@@ -300,7 +302,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function oracleWithdraw(address recipient, uint96 amount) external nonReentrant {
     if (amount == 0) {
-      amount = s_withdrawableTokens[msg.sender];
+      revert InvalidCalldata();
     }
     if (s_withdrawableTokens[msg.sender] < amount) {
       revert InsufficientSubscriptionBalance();
