@@ -306,7 +306,7 @@ func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
 	for _, ocrInstance := range o.ocrInstances {
 		expectedState.FoundEvents[ocrInstance.Address()] = make([]*testreporters.FoundEvent, 0)
 	}
-	o.ocrTestStates = append(o.ocrTestStates)
+	o.ocrTestStates = append(o.ocrTestStates, expectedState)
 	l.Info().
 		Int("Value", currentAdapterValue).
 		Msg("Starting a New OCR Round")
