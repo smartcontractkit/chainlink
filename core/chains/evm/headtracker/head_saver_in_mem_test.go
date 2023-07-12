@@ -59,7 +59,7 @@ func TestInMemoryHeadSaver_Save(t *testing.T) {
 		latest = saver.LatestChain()
 		require.Equal(t, int64(3), latest.BlockNumber())
 
-		// Get total number of heads
+		// Check total number of heads
 		require.Equal(t, 3, len(saver.Heads))
 	})
 
@@ -181,7 +181,7 @@ func TestInMemoryHeadSaver_TrimOldHeads(t *testing.T) {
 		}
 		wg.Wait()
 
-		// Concurrently trim old heads with different block numbers
+		// Concurrently trim old heads of depth 3
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
