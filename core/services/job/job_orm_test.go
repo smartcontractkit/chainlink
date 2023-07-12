@@ -705,6 +705,63 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T) {
+	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
+
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		enabled := true
+		c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+			ChainID: customChainID,
+			Chain:   evmcfg.Defaults(customChainID),
+			Enabled: &enabled,
+			Nodes:   evmcfg.EVMNodes{{}},
+		})
+	})
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db, lggr, config.Database())
+
+	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+
+	require.NoError(t, evm.EnsureChains(db, lggr, config.Database(), []utils.Big{*customChainID}))
+
+	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	require.NoError(t, err)
+
+	t.Run("sending keys or transmitterID must be defined", func(t *testing.T) {
+		jb.OCR2OracleSpec.TransmitterID = null.String{}
+		assert.Equal(t, "CreateJobFailed: neither sending keys nor transmitter ID is defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
+	t.Run("sending keys validation works properly", func(t *testing.T) {
+		jb.OCR2OracleSpec.TransmitterID = null.String{}
+		_, address2 := cltest.MustInsertRandomKey(t, keyStore.Eth())
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []string{address.String(), address2.String(), "sending key that doesn't have a match in key store"}
+		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"sending key that doesn't have a match in key store\": no such transmitter key exists", jobORM.CreateJob(&jb).Error())
+
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []int{1, 2, 3}
+		assert.Equal(t, "CreateJobFailed: sending keys are of wrong type", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("sending keys and transmitter ID can't both be defined", func(t *testing.T) {
+		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []string{address.String()}
+		assert.Equal(t, "CreateJobFailed: sending keys and transmitter ID can't both be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("transmitter validation works", func(t *testing.T) {
+		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("transmitterID that doesn't have a match in key store")
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = nil
+		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"transmitterID that doesn't have a match in key store\": no such transmitter key exists", jobORM.CreateJob(&jb).Error())
+	})
+}
+
 func Test_FindJobs(t *testing.T) {
 	t.Parallel()
 
