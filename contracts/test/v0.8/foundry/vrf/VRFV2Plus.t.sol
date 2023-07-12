@@ -20,7 +20,6 @@ import {console} from "forge-std/console.sol";
 
 contract VRFV2Plus is BaseTest {
     address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
-    address internal ENTRY_POINT;
 
     // Bytecode for a VRFV2PlusConsumerExample contract.
     bytes constant initializeCode = type(VRFV2PlusConsumerExample).creationCode;

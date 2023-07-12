@@ -175,7 +175,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
     // Get other configuration from coordinator
     (, , s_stalenessSeconds, ) = COORDINATOR.getConfig();
-    s_fallbackWeiPerUnitLink = COORDINATOR.getFallbackWeiPerUnitLink();
+    s_fallbackWeiPerUnitLink = COORDINATOR.s_fallbackWeiPerUnitLink();
     (s_fulfillmentFlatFeeLinkPPM, s_fulfillmentFlatFeeEthPPM) = COORDINATOR.getFeeConfig();
   }
 
@@ -515,7 +515,7 @@ interface ExtendedVRFCoordinatorV2PlusInterface is IVRFCoordinatorV2Plus {
       uint32 gasAfterPaymentCalculation
     );
 
-  function getFallbackWeiPerUnitLink() external view returns (int256);
+  function s_fallbackWeiPerUnitLink() external view returns (int256);
 
   function getFeeConfig()
     external
