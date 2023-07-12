@@ -244,7 +244,7 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
 		}
 		was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			l.logger.Errorw("Could not determine if log was already consumed", "error", err)
+			l.logger.Errorw("Could not determine if log was already consumed", "err", err)
 			continue
 		} else if was {
 			continue

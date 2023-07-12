@@ -27,6 +27,7 @@ import (
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -39,6 +40,8 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	addr := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
 	require.Nil(t, err, "need registry abi")
+	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
+	require.Nil(t, err, "need utils abi")
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
 	var headTracker httypes.HeadTracker
@@ -62,7 +65,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		registry: mockRegistry,
 		abi:      keeperRegistryABI,
 		active:   make(map[string]activeUpkeep),
-		packer:   &evmRegistryPackerV2_1{abi: keeperRegistryABI},
+		packer:   NewEvmRegistryPackerV2_1(keeperRegistryABI, utilsABI),
 		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{

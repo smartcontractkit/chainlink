@@ -97,7 +97,7 @@ func (rs *RegistrySynchronizer) syncUpkeepWithCallback(getter upkeepGetter, regi
 	defer doneCallback()
 
 	if err := rs.syncUpkeep(getter, registry, upkeepID); err != nil {
-		rs.logger.With("error", err.Error()).With(
+		rs.logger.With("err", err.Error()).With(
 			"upkeepID", NewUpkeepIdentifier(upkeepID).String(),
 			"registryContract", registry.ContractAddress.Hex(),
 		).Error("unable to sync upkeep on registry")

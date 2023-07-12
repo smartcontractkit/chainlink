@@ -18,9 +18,9 @@ import (
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 type SolanaConfigs []*SolanaConfig
@@ -31,30 +31,30 @@ func (cs SolanaConfigs) ValidateConfig() (err error) {
 
 func (cs SolanaConfigs) validateKeys() (err error) {
 	// Unique chain IDs
-	chainIDs := v2.UniqueStrings{}
+	chainIDs := config.UniqueStrings{}
 	for i, c := range cs {
 		if chainIDs.IsDupe(c.ChainID) {
-			err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), *c.ChainID))
+			err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), *c.ChainID))
 		}
 	}
 
 	// Unique node names
-	names := v2.UniqueStrings{}
+	names := config.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
 			if names.IsDupe(n.Name) {
-				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
+				err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
 			}
 		}
 	}
 
 	// Unique URLs
-	urls := v2.UniqueStrings{}
+	urls := config.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
 			u := (*url.URL)(n.URL)
 			if urls.IsDupeFmt(u) {
-				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.URL", i, j), u.String()))
+				err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.URL", i, j), u.String()))
 			}
 		}
 	}
@@ -288,13 +288,13 @@ func setFromChain(c, f *solcfg.Chain) {
 
 func (c *SolanaConfig) ValidateConfig() (err error) {
 	if c.ChainID == nil {
-		err = multierr.Append(err, v2.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
+		err = multierr.Append(err, config.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
 	} else if *c.ChainID == "" {
-		err = multierr.Append(err, v2.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+		err = multierr.Append(err, config.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 	}
 
 	if len(c.Nodes) == 0 {
-		err = multierr.Append(err, v2.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
+		err = multierr.Append(err, config.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
 	}
 	return
 }
