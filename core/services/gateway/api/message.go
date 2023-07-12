@@ -4,6 +4,9 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
+	"strings"
+
+	"github.com/ethereum/go-ethereum/crypto"
 
 	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -23,7 +26,7 @@ const (
  *   - universal fields identifying the request, the sender and the target DON/service
  *   - product-specific payload
  *
- * Signature and Sender are hex-encoded with a "0x" prefix.
+ * Signature, Receiver and Sender are hex-encoded with a "0x" prefix.
  */
 type Message struct {
 	Signature string      `json:"signature"`
@@ -85,6 +88,7 @@ func (m *Message) Sign(privateKey *ecdsa.PrivateKey) error {
 		return err
 	}
 	m.Signature = utils.StringToHex(string(signature))
+	m.Body.Sender = strings.ToLower(crypto.PubkeyToAddress(privateKey.PublicKey).Hex())
 	return nil
 }
 

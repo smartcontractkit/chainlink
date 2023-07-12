@@ -28,11 +28,6 @@ type functionsConnectorHandler struct {
 	lggr        logger.Logger
 }
 
-const (
-	methodSecretsSet  = "secrets_set"
-	methodSecretsList = "secrets_list"
-)
-
 var (
 	_ connector.Signer                  = &functionsConnectorHandler{}
 	_ connector.GatewayConnectorHandler = &functionsConnectorHandler{}
@@ -67,9 +62,9 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 	h.lggr.Debugw("handling gateway request", "id", gatewayId, "method", body.Method)
 
 	switch body.Method {
-	case methodSecretsList:
+	case functions.MethodSecretsList:
 		h.handleSecretsList(ctx, gatewayId, body, fromAddr)
-	case methodSecretsSet:
+	case functions.MethodSecretsSet:
 		h.handleSecretsSet(ctx, gatewayId, body, fromAddr)
 	default:
 		h.lggr.Errorw("unsupported method", "id", gatewayId, "method", body.Method)
@@ -89,25 +84,13 @@ func (h *functionsConnectorHandler) Close() error {
 }
 
 func (h *functionsConnectorHandler) handleSecretsList(ctx context.Context, gatewayId string, body *api.MessageBody, fromAddr ethCommon.Address) {
-	type ListRow struct {
-		SlotID     uint   `json:"slot_id"`
-		Version    uint64 `json:"version"`
-		Expiration int64  `json:"expiration"`
-	}
-
-	type ListResponse struct {
-		Success      bool      `json:"success"`
-		ErrorMessage string    `json:"error_message,omitempty"`
-		Rows         []ListRow `json:"rows,omitempty"`
-	}
-
-	var response ListResponse
+	var response functions.SecretsListResponse
 	snapshot, err := h.storage.List(ctx, fromAddr)
 	if err == nil {
 		response.Success = true
-		response.Rows = make([]ListRow, len(snapshot))
+		response.Rows = make([]functions.SecretsListRow, len(snapshot))
 		for i, row := range snapshot {
-			response.Rows[i] = ListRow{
+			response.Rows[i] = functions.SecretsListRow{
 				SlotID:     row.SlotId,
 				Version:    row.Version,
 				Expiration: row.Expiration,
@@ -123,21 +106,8 @@ func (h *functionsConnectorHandler) handleSecretsList(ctx context.Context, gatew
 }
 
 func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewayId string, body *api.MessageBody, fromAddr ethCommon.Address) {
-	type SetRequest struct {
-		SlotID     uint   `json:"slot_id"`
-		Version    uint64 `json:"version"`
-		Expiration int64  `json:"expiration"`
-		Payload    []byte `json:"payload"`
-		Signature  []byte `json:"signature"`
-	}
-
-	type SetResponse struct {
-		Success      bool   `json:"success"`
-		ErrorMessage string `json:"error_message,omitempty"`
-	}
-
-	var request SetRequest
-	var response SetResponse
+	var request functions.SecretsSetRequest
+	var response functions.SecretsSetResponse
 	err := json.Unmarshal(body.Payload, &request)
 	if err == nil {
 		key := s4.Key{
@@ -175,7 +145,7 @@ func (h *functionsConnectorHandler) sendResponse(ctx context.Context, gatewayId 
 			MessageId: requestBody.MessageId,
 			DonId:     requestBody.DonId,
 			Method:    requestBody.Method,
-			Sender:    h.nodeAddress,
+			Receiver:  requestBody.Sender,
 			Payload:   payloadJson,
 		},
 	}
