@@ -86,7 +86,6 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
   // @inheritdoc IRewardManager
   function onFeePaid(bytes32 poolId, address payee, uint256 fee) external override {
-
     //update the total fees collected for this pot
     unchecked {
       //the total amount for any ERC20 asset cannot exceed 2^256 - 1
@@ -118,7 +117,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       uint256 existingWeight = rewardRecipientWeights[poolId][recipientAddress];
 
       //if the existing weight is 0, the recipient isn't part of this configuration
-      if(existingWeight == 0) revert InvalidAddress();
+      if (existingWeight == 0) revert InvalidAddress();
 
       //if we're updating a recipient, we need to claim their rewards first they can't claim previous fees at the new weight
       _claimRewards(newRewardRecipients[i].addr, poolIds);

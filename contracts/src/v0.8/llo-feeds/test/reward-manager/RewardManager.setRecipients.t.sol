@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {BaseRewardManagerTest} from "./BaseRewardManagerTest.t.sol";
+import {BaseRewardManagerTest} from "./BaseRewardManager.t.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 import {RewardManager} from "../../RewardManager.sol";
-import "forge-std/console.sol";
 
 /**
  * @title BaseRewardManagerTest

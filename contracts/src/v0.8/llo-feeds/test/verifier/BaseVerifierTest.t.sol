@@ -14,7 +14,6 @@ import {RewardManager} from "../../RewardManager.sol";
 import {IERC20} from "../../../shared/vendor/SafeERC20.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 import {ERC20Mock} from "../../../shared/vendor/ERC20Mock.sol";
-import "forge-std/console.sol";
 
 contract BaseTest is Test {
   uint256 internal constant MAX_ORACLES = 31;

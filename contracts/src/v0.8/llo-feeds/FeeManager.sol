@@ -36,11 +36,23 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   //the index of the link fee data in the report
   uint16 private constant NATIVE_FEE_INDEX = 32 + 4 + 24 + 24 + 24 + 8 + 32 + 8 + 32;
 
-  //the index of the  fee data in the quote
+  //the index of the fee data in the quote
   uint16 private constant QUOTE_METADATA_FEE_ADDRESS_INDEX = 0;
 
-  //the error thrown if the discount exceeds the maximum allowed
+  //the premium fee to be paid if paying in native
+  uint16 private nativePremium;
+
+  //the error thrown if the discount or premium is invalid
+  error InvalidPremium();
+
+  //the error thrown if the token is invalid
+  error InvalidToken();
+
+  //the error thrown if the discount is invalid
   error InvalidDiscount();
+
+  //the error thrown if the address is invalid
+  error InvalidAddress();
 
   /**
    * @notice Construct the FeeManager contract
@@ -72,6 +84,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   ) external onlyOwner {
     //make sure the discount is not greater than the total discount that can be applied
     if (discount > TOTAL_DISCOUNT) revert InvalidDiscount();
+    //make sure the token is either LINK or native
+    if (token != LINK_ADDRESS && token != NATIVE_ADDRESS) revert InvalidAddress();
 
     subscriberDiscounts[subscriber][feedId][token] = discount;
   }
@@ -86,8 +100,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   // @inheritdoc IFeeManager
   function getFee(
-    address sender,
-    bytes calldata signedReport,
+    address subscriber,
+    bytes calldata report,
     bytes calldata quoteMetadata
   ) external view returns (Common.Asset memory asset) {
     //The quote
@@ -99,7 +113,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     //any report without a fee will default to 0
-    if (signedReport.length < LINK_FEE_INDEX) {
+    if (report.length <= LINK_FEE_INDEX) {
       return fee;
     }
 
@@ -109,33 +123,26 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //calculate either the LINK fee or native fee if it's within the report
     if (quoteFeeAddress == LINK_ADDRESS) {
       fee.assetAddress = LINK_ADDRESS;
-      fee.amount = signedReport.readUint256(LINK_FEE_INDEX);
+      fee.amount = report.readUint256(LINK_FEE_INDEX);
     } else {
       fee.assetAddress = NATIVE_ADDRESS;
-      fee.amount = signedReport.readUint256(NATIVE_FEE_INDEX);
+      fee.amount = (report.readUint256(NATIVE_FEE_INDEX) * (TOTAL_DISCOUNT + nativePremium)) / TOTAL_DISCOUNT;
     }
 
     //decode the feedId from the report to calculate the discount being applied
-    bytes32 feedId = bytes32(signedReport);
+    bytes32 feedId = bytes32(report);
 
     //set the fee amount to the discounted fee, rounding down
-    fee.amount = fee.amount - ((fee.amount * subscriberDiscounts[sender][feedId][quoteFeeAddress]) / TOTAL_DISCOUNT);
+    fee.amount =
+      fee.amount -
+      ((fee.amount * subscriberDiscounts[subscriber][feedId][quoteFeeAddress]) / TOTAL_DISCOUNT);
 
     //return the fee
     return fee;
   }
 
   // @inheritdoc IFeeManager
-  function updateSubscriberDiscountAddress(address newSubscriberAddress, bytes32 feedId) external {
-    //update the subscriber discount address for both link and native, removing the old address
-    subscriberDiscounts[newSubscriberAddress][feedId][LINK_ADDRESS] = subscriberDiscounts[msg.sender][feedId][
-      LINK_ADDRESS
-    ];
-    subscriberDiscounts[newSubscriberAddress][feedId][NATIVE_ADDRESS] = subscriberDiscounts[msg.sender][feedId][
-      NATIVE_ADDRESS
-    ];
-
-    delete subscriberDiscounts[msg.sender][feedId][LINK_ADDRESS];
-    delete subscriberDiscounts[msg.sender][feedId][NATIVE_ADDRESS];
+  function setNativePremium(uint16 premium) external onlyOwner {
+    nativePremium = premium;
   }
 }

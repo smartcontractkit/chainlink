@@ -5,13 +5,12 @@ import {Test} from "forge-std/Test.sol";
 import {ERC20Mock} from "../../../shared/vendor/ERC20Mock.sol";
 import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
-import "forge-std/console.sol";
 
 /**
  * @title BaseRewardManagerTest
  * @author Michael Fletcher
  * @notice Base class for all reward manager tests
- * @dev This contract is intended to be inherited from and not used directly. It contains functionality to setup a primary and secondary
+ * @dev This contract is intended to be inherited from and not used directly. It contains functionality to setup a primary and secondary pool
  */
 contract BaseRewardManagerTest is Test {
   //contracts

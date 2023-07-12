@@ -69,9 +69,6 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @param configDigest The digest for which a verifier is not found
   error VerifierNotFound(bytes32 configDigest);
 
-  /// @notice This error is thrown if a bad weight was passed when setting default recipients
-  error BadWeight();
-
   /// @notice This error is thrown when the verifier does not include the correct amount of funds to verify a report
   error InvalidDepositAmount();
 

@@ -36,9 +36,8 @@ interface IFeeManager is IERC165 {
   ) external returns (Common.Asset memory feeData);
 
   /**
-   * @notice Updates the subscriber address for a discount
-   * @param newSubscriberAddress new subscriber address
-   * @param feedId feed id the discount is applied to
+   * @notice Sets the native premium
+   * @param premium premium to be paid if paying in native
    */
-  function updateSubscriberDiscountAddress(address newSubscriberAddress, bytes32 feedId) external;
+  function setNativePremium(uint16 premium) external;
 }
