@@ -246,11 +246,11 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 // subscribeOCREvents subscribes to OCR events and logs them to the test logger
 func (o *OCRSoakTest) subscribeOCREvents(logger zerolog.Logger) error {
 	eventLogs := make(chan types.Log)
-	errorChan := make(chan error, 1)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	eventSub, err := o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
 	if err != nil {
-		errorChan <- err
+		return err
 	}
 
 	go func() {
@@ -258,22 +258,29 @@ func (o *OCRSoakTest) subscribeOCREvents(logger zerolog.Logger) error {
 		for {
 			select {
 			case event := <-eventLogs:
+				answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
+				if err != nil {
+					log.Warn().
+						Err(err).
+						Str("Address", event.Address.Hex()).
+						Uint64("Block Number", event.BlockNumber).
+						Msg("Error parsing event as AnswerUpdated")
+					continue
+				}
 				logger.Info().
 					Str("Address", event.Address.Hex()).
-					Str("Event", "AnswerUpdated").
 					Uint64("Block Number", event.BlockNumber).
-					Msg("Found Event")
+					Uint64("Round ID", answerUpdated.RoundId.Uint64()).
+					Int64("Answer", answerUpdated.Current.Int64()).
+					Msg("Answer Updated Event")
 			case err = <-eventSub.Err():
-				errorChan <- err
-			case err = <-errorChan:
-				logger.Warn().
-					Err(err).
-					Interface("Query", o.filterQuery).
-					Msg("Error while subscribed to OCR Logs. Resubscribing")
-				ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-				eventSub, err = o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
-				if err != nil { // We failed subscription, come on back and try again
-					errorChan <- err
+				for err != nil {
+					logger.Trace().
+						Err(err).
+						Interface("Query", o.filterQuery).
+						Msg("Error while subscribed to OCR Logs. Resubscribing")
+					ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+					eventSub, err = o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
 				}
 			}
 		}
