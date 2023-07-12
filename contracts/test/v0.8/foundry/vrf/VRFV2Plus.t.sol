@@ -204,7 +204,7 @@ contract VRFV2Plus is BaseTest {
         -block-hash 0xc65a7bb8d6351c1cf70c95a316cc6a92839c986682d98bc35f958f4883f9d2a8 \
         -block-num 10 \
         -sender 0x0CbB6E5072E30A66041d56e4685Bc89A212a823b \
-        - native-payment true
+        -native-payment true
         */
         VRF.Proof memory proof = VRF.Proof({
             pk: [
