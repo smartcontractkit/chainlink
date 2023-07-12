@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/rand"
 	"flag"
 	"fmt"
@@ -63,6 +64,19 @@ func NewAddress() common.Address {
 func NewAddressPtr() *common.Address {
 	a := common.BytesToAddress(randomBytes(20))
 	return &a
+}
+
+// NewPrivateKeyAndAddress returns a new private key and the corresponding address
+func NewPrivateKeyAndAddress(t testing.TB) (*ecdsa.PrivateKey, common.Address) {
+	privateKey, err := crypto.GenerateKey()
+	require.NoError(t, err)
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	require.True(t, ok)
+
+	address := crypto.PubkeyToAddress(*publicKeyECDSA)
+	return privateKey, address
 }
 
 // NewRandomPositiveInt64 returns a (non-cryptographically secure) random positive int64

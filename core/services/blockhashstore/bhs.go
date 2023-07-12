@@ -25,7 +25,7 @@ import (
 var _ BHS = &BulletproofBHS{}
 
 type bpBHSConfig interface {
-	EvmGasLimitDefault() uint32
+	LimitDefault() uint32
 }
 
 type bpBHSDatabaseConfig interface {
@@ -39,7 +39,7 @@ type BulletproofBHS struct {
 	dbConfig      bpBHSDatabaseConfig
 	jobID         uuid.UUID
 	fromAddresses []ethkey.EIP55Address
-	txm           txmgr.EvmTxManager
+	txm           txmgr.TxManager
 	abi           *abi.ABI
 	bhs           blockhash_store.BlockhashStoreInterface
 	chainID       *big.Int
@@ -51,7 +51,7 @@ func NewBulletproofBHS(
 	config bpBHSConfig,
 	dbConfig bpBHSDatabaseConfig,
 	fromAddresses []ethkey.EIP55Address,
-	txm txmgr.EvmTxManager,
+	txm txmgr.TxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
 	chainID *big.Int,
 	gethks keystore.Eth,
@@ -86,11 +86,11 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateTransaction(txmgr.EvmTxRequest{
+	_, err = c.txm.CreateTransaction(txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
-		FeeLimit:       c.config.EvmGasLimitDefault(),
+		FeeLimit:       c.config.LimitDefault(),
 
 		// Set a queue size of 256. At most we store the blockhash of every block, and only the
 		// latest 256 can possibly be stored.
@@ -134,11 +134,11 @@ func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
 		return errors.Wrap(err, "getting next from address")
 	}
 
-	_, err = c.txm.CreateTransaction(txmgr.EvmTxRequest{
+	_, err = c.txm.CreateTransaction(txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      c.bhs.Address(),
 		EncodedPayload: payload,
-		FeeLimit:       c.config.EvmGasLimitDefault(),
+		FeeLimit:       c.config.LimitDefault(),
 		Strategy:       txmgrcommon.NewSendEveryStrategy(),
 	}, pg.WithParentCtx(ctx))
 	if err != nil {

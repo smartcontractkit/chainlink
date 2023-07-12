@@ -1,6 +1,7 @@
 name: 'SigScanner Check'
 
 on:
+  merge_group:
   push:
 
 jobs:

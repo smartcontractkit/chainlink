@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -34,7 +34,7 @@ func TestLogController_GetLogConfig(t *testing.T) {
 	t.Parallel()
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Log.Level = ptr(v2.LogLevel(zapcore.WarnLevel))
+		c.Log.Level = ptr(toml.LogLevel(zapcore.WarnLevel))
 		c.Database.LogQueries = ptr(true)
 	})
 

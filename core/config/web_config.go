@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net"
 	"net/url"
 	"time"
 
@@ -16,6 +17,7 @@ type TLS interface {
 	CertFile() string
 	KeyFile() string
 	HTTPSPort() uint16
+	ListenIP() net.IP
 }
 
 type RateLimit interface {
@@ -42,6 +44,7 @@ type WebServer interface {
 	SecureCookies() bool
 	SessionOptions() sessions.Options
 	SessionTimeout() models.Duration
+	ListenIP() net.IP
 
 	TLS() TLS
 	RateLimit() RateLimit

@@ -210,7 +210,7 @@ PriceMax = '%d gwei'
 		newEnvTTL,
 	)
 
-	err = testEnvironmentAfterRedeployment.Client.RolloutStatefulSets(testEnvironmentAfterRedeployment.Cfg.Namespace)
+	err = testEnvironmentAfterRedeployment.RolloutStatefulSets()
 	require.NoError(t, err, "Error performing rollout restart for test environment")
 
 	err = testEnvironmentAfterRedeployment.Run()

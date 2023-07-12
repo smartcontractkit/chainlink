@@ -123,8 +123,8 @@ generate: abigen codecgen mockery ## Execute all go:generate commands.
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
 	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
-	go run ./tools/txtar/cmd/lstxtardirs -recurse=true | xargs -I % \
-		sh -c 'PATH=$(CURDIR):$(PATH) testscript -e COMMIT_SHA=$(COMMIT_SHA) -e HOME="$(TMPDIR)/home" -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
+	go run ./tools/txtar/cmd/lstxtardirs -recurse=true | PATH="$(CURDIR):${PATH}" xargs -I % \
+		sh -c 'testscript -e COMMIT_SHA=$(COMMIT_SHA) -e HOME="$(TMPDIR)/home" -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
 
 .PHONY: testscripts-update
 testscripts-update: ## Update testdata/scripts/* files via testscript.
@@ -168,7 +168,7 @@ test_need_operator_assets: ## Add blank file in web assets if operator ui has no
 
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
-	go run ./core/config/v2/docs/cmd/generate -o ./docs/
+	go run ./core/config/docs/cmd/generate -o ./docs/
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.

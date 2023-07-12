@@ -32,7 +32,6 @@ func NewServices(
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 	chainHeadTracker mercury.ChainHeadTracker,
-	fetcher relaymercury.Fetcher,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
@@ -55,7 +54,8 @@ func NewServices(
 		runResults,
 		chEnhancedTelem,
 		chainHeadTracker,
-		fetcher,
+		ocr2Provider.ContractTransmitter(),
+		pluginConfig.InitialBlockNumber.Ptr(),
 	)
 	argsNoPlugin.MercuryPluginFactory = relaymercury.NewFactory(
 		ds,

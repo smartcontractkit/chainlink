@@ -13,7 +13,7 @@ import (
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -31,16 +31,15 @@ type ResumeCallback func(id uuid.UUID, result interface{}, err error) error
 //
 //go:generate mockery --quiet --recursive --name TxManager --output ./mocks/ --case=underscore --structname TxManager --filename tx_manager.go
 type TxManager[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD commontypes.Head[BLOCK_HASH],
-	ADDR commontypes.Hashable,
-	TX_HASH commontypes.Hashable,
-	BLOCK_HASH commontypes.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ txmgrtypes.Sequence,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
-	commontypes.HeadTrackable[HEAD, BLOCK_HASH]
+	types.HeadTrackable[HEAD, BLOCK_HASH]
 	services.ServiceCtx
 	Trigger(addr ADDR)
 	CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], qopts ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
@@ -60,19 +59,19 @@ type reset struct {
 }
 
 type Txm[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD commontypes.Head[BLOCK_HASH],
-	ADDR commontypes.Hashable,
-	TX_HASH commontypes.Hashable,
-	BLOCK_HASH commontypes.Hashable,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	utils.StartStopOnce
 	logger         logger.Logger
 	txStore        txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	config         txmgrtypes.TransactionManagerConfig
+	config         txmgrtypes.TransactionManagerChainConfig
 	txConfig       txmgrtypes.TransactionManagerTransactionsConfig
 	keyStore       txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
 	chainID        CHAIN_ID
@@ -88,8 +87,8 @@ type Txm[
 	wg       sync.WaitGroup
 
 	reaper           *Reaper[CHAIN_ID]
-	resender         *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R]
-	broadcaster      *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	resender         *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	broadcaster      *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	confirmer        *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	fwdMgr           txmgrtypes.ForwarderManager[ADDR]
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -104,17 +103,17 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterRe
 
 // NewTxm creates a new Txm with the given configuration.
 func NewTxm[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD commontypes.Head[BLOCK_HASH],
-	ADDR commontypes.Hashable,
-	TX_HASH commontypes.Hashable,
-	BLOCK_HASH commontypes.Hashable,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH types.Hashable,
+	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ txmgrtypes.Sequence,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](
 	chainId CHAIN_ID,
-	cfg txmgrtypes.TransactionManagerConfig,
+	cfg txmgrtypes.TransactionManagerChainConfig,
 	txCfg txmgrtypes.TransactionManagerTransactionsConfig,
 	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
 	lggr logger.Logger,
@@ -123,9 +122,9 @@ func NewTxm[
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
 	sequenceSyncer SequenceSyncer[ADDR, TX_HASH, BLOCK_HASH],
-	broadcaster *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	broadcaster *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	confirmer *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE, R],
+	resender *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	b := Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
 		logger:           lggr,
@@ -499,57 +498,56 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 }
 
 type NullTxManager[
-	CHAIN_ID txmgrtypes.ID,
-	HEAD commontypes.Head[BLOCK_HASH],
-	ADDR commontypes.Hashable,
-	TX_HASH, BLOCK_HASH commontypes.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ txmgrtypes.Sequence,
+	CHAIN_ID types.ID,
+	HEAD types.Head[BLOCK_HASH],
+	ADDR types.Hashable,
+	TX_HASH, BLOCK_HASH types.Hashable,
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	ErrMsg string
 }
 
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) OnNewLongestChain(context.Context, HEAD) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) OnNewLongestChain(context.Context, HEAD) {
 }
 
 // Start does noop for NullTxManager.
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(context.Context) error {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Start(context.Context) error {
 	return nil
 }
 
 // Close does noop for NullTxManager.
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() error {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Close() error {
 	return nil
 }
 
 // Trigger does noop for NullTxManager.
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Trigger(ADDR) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Trigger(ADDR) {
 	panic(n.ErrMsg)
 }
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(txmgrtypes.TxRequest[ADDR, TX_HASH], ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CreateTransaction(txmgrtypes.TxRequest[ADDR, TX_HASH], ...pg.QOpt) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	return etx, errors.New(n.ErrMsg)
 }
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForwarderForEOA(addr ADDR) (fwdr ADDR, err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetForwarderForEOA(addr ADDR) (fwdr ADDR, err error) {
 	return fwdr, err
 }
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(f func(), addr ADDR, abandon bool) error {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Reset(f func(), addr ADDR, abandon bool) error {
 	return nil
 }
 
 // SendNativeToken does nothing, null functionality
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	return etx, errors.New(n.ErrMsg)
 }
 
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ready() error {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Ready() error {
 	return nil
 }
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Name() string {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Name() string {
 	return "NullTxManager"
 }
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthReport() map[string]error {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) HealthReport() map[string]error {
 	return map[string]error{}
 }
-func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
+func (n *NullTxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
 }

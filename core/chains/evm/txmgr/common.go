@@ -19,8 +19,8 @@ import (
 // elements in that batch.
 func batchSendTransactions(
 	ctx context.Context,
-	txStore TxStore,
-	attempts []EvmTxAttempt,
+	updateBroadcastTime func(now time.Time, txIDs []int64) error,
+	attempts []TxAttempt,
 	batchSize int,
 	logger logger.Logger,
 	ethClient evmclient.Client) ([]rpc.BatchElem, error) {
@@ -60,7 +60,7 @@ func batchSendTransactions(
 			return reqs, errors.Wrap(err, "failed to batch send transactions")
 		}
 
-		if err := txStore.UpdateBroadcastAts(now, ethTxIDs[i:j]); err != nil {
+		if err := updateBroadcastTime(now, ethTxIDs[i:j]); err != nil {
 			return reqs, errors.Wrap(err, "failed to update last succeeded on attempts")
 		}
 	}

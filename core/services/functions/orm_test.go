@@ -1,6 +1,7 @@
 package functions_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -74,8 +75,7 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	t.Run("duplicated", func(t *testing.T) {
 		err := orm.CreateRequest(id1, ts1, &txHash1)
 		require.Error(t, err)
-		err = orm.CreateRequest(id1, ts1, &txHash1)
-		require.Error(t, err)
+		require.True(t, errors.Is(err, functions.ErrDuplicateRequestID))
 	})
 }
 
@@ -337,7 +337,7 @@ func TestORM_PruneOldestRequests_Large(t *testing.T) {
 	orm := setupORM(t)
 	now := time.Now()
 	// store 1000 requests
-	for offset := -1000; offset <= -1; offset += 1 {
+	for offset := -1000; offset <= -1; offset++ {
 		_, _ = createRequestWithTimestamp(t, orm, now.Add(time.Duration(offset)*time.Minute))
 	}
 

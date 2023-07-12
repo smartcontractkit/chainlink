@@ -12,11 +12,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+//go:generate mockery --quiet --name GatewayConnector --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name Signer --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name GatewayConnectorHandler --output ./mocks/ --case=underscore
 
 // GatewayConnector is a component run by Nodes to connect to a set of Gateways.
 type GatewayConnector interface {
@@ -28,20 +31,16 @@ type GatewayConnector interface {
 
 // Signer implementation needs to be provided by a GatewayConnector user (node)
 // in order to sign handshake messages with node's private key.
-
-//go:generate mockery --quiet --name Signer --output ./mocks/ --case=underscore
 type Signer interface {
 	// Sign keccak256 hash of data.
 	Sign(data ...[]byte) ([]byte, error)
 }
 
 // GatewayConnector user (node) implements application logic in the Handler interface.
-
-//go:generate mockery --quiet --name GatewayConnectorHandler --output ./mocks/ --case=underscore
 type GatewayConnectorHandler interface {
 	job.ServiceCtx
 
-	HandleGatewayMessage(gatewayId string, msg *api.Message)
+	HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message)
 }
 
 type gatewayConnector struct {
@@ -49,7 +48,7 @@ type gatewayConnector struct {
 
 	config      *ConnectorConfig
 	codec       api.Codec
-	clock       common.Clock
+	clock       utils.Clock
 	nodeAddress []byte
 	signer      Signer
 	handler     GatewayConnectorHandler
@@ -66,7 +65,7 @@ type gatewayState struct {
 	wsClient network.WebSocketClient
 }
 
-func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock common.Clock, lggr logger.Logger) (GatewayConnector, error) {
+func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock utils.Clock, lggr logger.Logger) (GatewayConnector, error) {
 	if signer == nil || handler == nil || clock == nil {
 		return nil, errors.New("nil dependency")
 	}
@@ -125,6 +124,9 @@ func (c *gatewayConnector) SendToGateway(ctx context.Context, gatewayId string, 
 }
 
 func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
+	ctx, cancel := utils.StopChan(c.shutdownCh).NewCtx()
+	defer cancel()
+
 	for {
 		select {
 		case <-c.shutdownCh:
@@ -136,14 +138,20 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				c.lggr.Errorw("parse error when reading from Gateway", "id", gatewayState.config.Id, "err", err)
 				break
 			}
-			c.handler.HandleGatewayMessage(gatewayState.config.Id, msg)
+			if err = msg.Validate(); err != nil {
+				c.lggr.Errorw("failed to validate message signature", "id", gatewayState.config.Id, "error", err)
+				break
+			}
+			c.handler.HandleGatewayMessage(ctx, gatewayState.config.Id, msg)
 		}
 	}
 }
 
 func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 	redialBackoff := utils.NewRedialBackoff()
-	ctx, _ := utils.StopChan(c.shutdownCh).NewCtx()
+	ctx, cancel := utils.StopChan(c.shutdownCh).NewCtx()
+	defer cancel()
+
 	for {
 		conn, err := gatewayState.wsClient.Connect(ctx, gatewayState.url)
 		if err != nil {

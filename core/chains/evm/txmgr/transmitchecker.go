@@ -25,18 +25,18 @@ import (
 )
 
 type (
-	EvmTransmitChecker     = txmgr.TransmitChecker[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	EvmTransmitCheckerSpec = txmgrtypes.TransmitCheckerSpec[common.Address]
+	TransmitChecker     = txmgr.TransmitChecker[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	TransmitCheckerSpec = txmgrtypes.TransmitCheckerSpec[common.Address]
 )
 
 var (
 	// NoChecker is a TransmitChecker that always determines a transaction should be submitted.
-	NoChecker EvmTransmitChecker = noChecker{}
+	NoChecker TransmitChecker = noChecker{}
 
-	_ EvmTransmitCheckerFactory = &CheckerFactory{}
-	_ EvmTransmitChecker        = &SimulateChecker{}
-	_ EvmTransmitChecker        = &VRFV1Checker{}
-	_ EvmTransmitChecker        = &VRFV2Checker{}
+	_ TransmitCheckerFactory = &CheckerFactory{}
+	_ TransmitChecker        = &SimulateChecker{}
+	_ TransmitChecker        = &VRFV1Checker{}
+	_ TransmitChecker        = &VRFV2Checker{}
 )
 
 // CheckerFactory is a real implementation of TransmitCheckerFactory.
@@ -45,7 +45,7 @@ type CheckerFactory struct {
 }
 
 // BuildChecker satisfies the TransmitCheckerFactory interface.
-func (c *CheckerFactory) BuildChecker(spec EvmTransmitCheckerSpec) (EvmTransmitChecker, error) {
+func (c *CheckerFactory) BuildChecker(spec TransmitCheckerSpec) (TransmitChecker, error) {
 	switch spec.CheckerType {
 	case TransmitCheckerTypeSimulate:
 		return &SimulateChecker{c.Client}, nil
@@ -92,8 +92,8 @@ type noChecker struct{}
 func (noChecker) Check(
 	_ context.Context,
 	_ logger.Logger,
-	_ EvmTx,
-	_ EvmTxAttempt,
+	_ Tx,
+	_ TxAttempt,
 ) error {
 	return nil
 }
@@ -107,8 +107,8 @@ type SimulateChecker struct {
 func (s *SimulateChecker) Check(
 	ctx context.Context,
 	l logger.Logger,
-	tx EvmTx,
-	a EvmTxAttempt,
+	tx Tx,
+	a TxAttempt,
 ) error {
 	// See: https://github.com/ethereum/go-ethereum/blob/acdf9238fb03d79c9b1c20c2fa476a7e6f4ac2ac/ethclient/gethclient/gethclient.go#L193
 	callArg := map[string]interface{}{
@@ -157,8 +157,8 @@ type VRFV1Checker struct {
 func (v *VRFV1Checker) Check(
 	ctx context.Context,
 	l logger.Logger,
-	tx EvmTx,
-	_ EvmTxAttempt,
+	tx Tx,
+	_ TxAttempt,
 ) error {
 	meta, err := tx.GetMeta()
 	if err != nil {
@@ -267,8 +267,8 @@ type VRFV2Checker struct {
 func (v *VRFV2Checker) Check(
 	ctx context.Context,
 	l logger.Logger,
-	tx EvmTx,
-	_ EvmTxAttempt,
+	tx Tx,
+	_ TxAttempt,
 ) error {
 	meta, err := tx.GetMeta()
 	if err != nil {

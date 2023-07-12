@@ -78,7 +78,6 @@ func TestIntegration_Mercury(t *testing.T) {
 	const n = 4         // number of nodes
 	const fromBlock = 1 // cannot use zero, start from block 1
 	const multiplier = 100000000
-	initialBlockNumber := int64(rand.Int31n(10))
 	testStartTimeStamp := uint32(time.Now().Unix())
 
 	// test vars
@@ -120,11 +119,7 @@ func TestIntegration_Mercury(t *testing.T) {
 	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := core.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	backend.Commit() // ensure starting block number at least 1
-	// Ensure initialBlockNumber is at or below current block number
-	for i := 1; i < int(initialBlockNumber); i++ {
-		backend.Commit()
-	}
+	backend.Commit()                                  // ensure starting block number at least 1
 	stopMining := cltest.Mine(backend, 1*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
 	t.Cleanup(stopMining)
 
@@ -227,7 +222,6 @@ func TestIntegration_Mercury(t *testing.T) {
 				feed.id,
 				chainID,
 				fromBlock,
-				initialBlockNumber,
 			)
 		}
 	}
@@ -290,7 +284,7 @@ func TestIntegration_Mercury(t *testing.T) {
 	// Bury it with finality depth
 	ch, err := bootstrapNode.App.GetChains().EVM.Get(testutils.SimulatedChainID)
 	require.NoError(t, err)
-	finalityDepth := ch.Config().EvmFinalityDepth()
+	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
 		backend.Commit()
 	}
@@ -342,7 +336,7 @@ func TestIntegration_Mercury(t *testing.T) {
 			assert.GreaterOrEqual(t, currentBlock.Time(), reportElems["currentBlockTimestamp"].(uint64))
 			assert.NotEqual(t, common.Hash{}, common.Hash(reportElems["currentBlockHash"].([32]uint8)))
 			assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
-			assert.LessOrEqual(t, initialBlockNumber, int64(reportElems["validFromBlockNum"].(uint64)))
+			assert.Less(t, int64(0), int64(reportElems["validFromBlockNum"].(uint64)))
 
 			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
 
@@ -606,7 +600,6 @@ func addMercuryJob(
 	feedID [32]byte,
 	chainID *big.Int,
 	fromBlock int,
-	initialBlockNumber int64,
 ) {
 	node.AddJob(t, fmt.Sprintf(`
 type = "offchainreporting2"
@@ -650,7 +643,6 @@ observationSource = """
 [pluginConfig]
 serverURL = "%[8]s"
 serverPubKey = "%[9]x"
-initialBlockNumber = %[15]d
 
 [relayConfig]
 chainID = %[12]d
@@ -670,6 +662,5 @@ fromBlock = %[13]d
 		chainID,
 		fromBlock,
 		feedName,
-		initialBlockNumber,
 	))
 }

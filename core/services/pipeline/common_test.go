@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -324,7 +324,7 @@ func TestSelectGasLimit(t *testing.T) {
 
 	gcfg := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].GasEstimator.LimitDefault = ptr(uint32(999))
-		c.EVM[0].GasEstimator.LimitJobType = v2.GasLimitJobType{
+		c.EVM[0].GasEstimator.LimitJobType = toml.GasLimitJobType{
 			DR:     ptr(uint32(100)),
 			VRF:    ptr(uint32(101)),
 			FM:     ptr(uint32(102)),

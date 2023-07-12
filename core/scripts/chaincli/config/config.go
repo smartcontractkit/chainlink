@@ -9,13 +9,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
-// Upkeep type
+// UpkeepType represents an upkeep type
 type UpkeepType int
 
 const (
 	Conditional UpkeepType = iota
 	Mercury
 	LogTrigger
+	LogTriggeredFeedLookup
 )
 
 // Config represents configuration fields
@@ -43,22 +44,25 @@ type Config struct {
 	OCR2Keepers       bool   `mapstructure:"KEEPER_OCR2"`
 
 	// Keeper config
-	LinkETHFeedAddr      string `mapstructure:"LINK_ETH_FEED"`
-	FastGasFeedAddr      string `mapstructure:"FAST_GAS_FEED"`
-	PaymentPremiumPBB    uint32 `mapstructure:"PAYMENT_PREMIUM_PBB"`
-	FlatFeeMicroLink     uint32 `mapstructure:"FLAT_FEE_MICRO_LINK"`
-	BlockCountPerTurn    int64  `mapstructure:"BLOCK_COUNT_PER_TURN"`
-	CheckGasLimit        uint32 `mapstructure:"CHECK_GAS_LIMIT"`
-	StalenessSeconds     int64  `mapstructure:"STALENESS_SECONDS"`
-	GasCeilingMultiplier uint16 `mapstructure:"GAS_CEILING_MULTIPLIER"`
-	MinUpkeepSpend       int64  `mapstructure:"MIN_UPKEEP_SPEND"`
-	MaxPerformGas        uint32 `mapstructure:"MAX_PERFORM_GAS"`
-	MaxCheckDataSize     uint32 `mapstructure:"MAX_CHECK_DATA_SIZE"`
-	MaxPerformDataSize   uint32 `mapstructure:"MAX_PERFORM_DATA_SIZE"`
-	FallbackGasPrice     int64  `mapstructure:"FALLBACK_GAS_PRICE"`
-	FallbackLinkPrice    int64  `mapstructure:"FALLBACK_LINK_PRICE"`
-	Transcoder           string `mapstructure:"TRANSCODER"`
-	Registrar            string `mapstructure:"REGISTRAR"`
+	Mode                   uint8  `mapstructure:"MODE"`
+	LinkETHFeedAddr        string `mapstructure:"LINK_ETH_FEED"`
+	FastGasFeedAddr        string `mapstructure:"FAST_GAS_FEED"`
+	PaymentPremiumPBB      uint32 `mapstructure:"PAYMENT_PREMIUM_PBB"`
+	FlatFeeMicroLink       uint32 `mapstructure:"FLAT_FEE_MICRO_LINK"`
+	BlockCountPerTurn      int64  `mapstructure:"BLOCK_COUNT_PER_TURN"`
+	CheckGasLimit          uint32 `mapstructure:"CHECK_GAS_LIMIT"`
+	StalenessSeconds       int64  `mapstructure:"STALENESS_SECONDS"`
+	GasCeilingMultiplier   uint16 `mapstructure:"GAS_CEILING_MULTIPLIER"`
+	MinUpkeepSpend         int64  `mapstructure:"MIN_UPKEEP_SPEND"`
+	MaxPerformGas          uint32 `mapstructure:"MAX_PERFORM_GAS"`
+	MaxCheckDataSize       uint32 `mapstructure:"MAX_CHECK_DATA_SIZE"`
+	MaxPerformDataSize     uint32 `mapstructure:"MAX_PERFORM_DATA_SIZE"`
+	MaxRevertDataSize      uint32 `mapstructure:"MAX_REVERT_DATA_SIZE"`
+	FallbackGasPrice       int64  `mapstructure:"FALLBACK_GAS_PRICE"`
+	FallbackLinkPrice      int64  `mapstructure:"FALLBACK_LINK_PRICE"`
+	Transcoder             string `mapstructure:"TRANSCODER"`
+	Registrar              string `mapstructure:"REGISTRAR"`
+	UpkeepPrivilegeManager string `mapstructure:"UPKEEP_PRIVILEGE_MANAGER"`
 
 	// Upkeep Config
 	RegistryVersion                 keeper.RegistryVersion `mapstructure:"KEEPER_REGISTRY_VERSION"`
@@ -72,6 +76,9 @@ type Config struct {
 	UpkeepGasLimit                  uint32                 `mapstructure:"UPKEEP_GAS_LIMIT"`
 	UpkeepCount                     int64                  `mapstructure:"UPKEEP_COUNT"`
 	AddFundsAmount                  string                 `mapstructure:"UPKEEP_ADD_FUNDS_AMOUNT"`
+	VerifiableLoadTest              bool                   `mapstructure:"VERIFIABLE_LOAD_TEST"`
+	UseArbBlockNumber               bool                   `mapstructure:"USE_ARB_BLOCK_NUMBER"`
+	VerifiableLoadContractAddress   string                 `mapstructure:"VERIFIABLE_LOAD_CONTRACT_ADDRESS"`
 	UpkeepType                      UpkeepType             `mapstructure:"UPKEEP_TYPE"`
 
 	// Node config scraping and verification

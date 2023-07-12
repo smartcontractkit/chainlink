@@ -71,7 +71,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 		return nil, err
 	}
 
-	gasLimit := cfgWatcher.chain.Config().OCR2AutomationGasLimit()
+	gasLimit := cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit()
 	contractTransmitter, err := newPipelineContractTransmitter(r.lggr, rargs, pargs.TransmitterID, &gasLimit, cfgWatcher, r.spec, r.pr)
 	if err != nil {
 		return nil, err
@@ -118,7 +118,7 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, rargs rela
 	}
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
-		ChainID:         chain.Config().ChainID().Uint64(),
+		ChainID:         chain.Config().EVM().ChainID().Uint64(),
 		ContractAddress: contractAddress,
 	}
 

@@ -17,30 +17,32 @@ import (
 
 // Type aliases for EVM
 type (
-	EvmConfirmer              = txmgr.Confirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	EvmBroadcaster            = txmgr.Broadcaster[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	EvmResender               = txmgr.Resender[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee, *evmtypes.Receipt]
-	EvmReaper                 = txmgr.Reaper[*big.Int]
-	TxStore                   = txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	EvmKeyStore               = txmgrtypes.KeyStore[common.Address, *big.Int, evmtypes.Nonce]
-	EvmTxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	EvmNonceSyncer            = txmgr.SequenceSyncer[common.Address, common.Hash, common.Hash]
-	EvmTransmitCheckerFactory = txmgr.TransmitCheckerFactory[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	EvmTxm                    = txmgr.Txm[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	EvmTxManager              = txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	NullEvmTxManager          = txmgr.NullTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	EvmFwdMgr                 = txmgrtypes.ForwarderManager[common.Address]
-	EvmTxRequest              = txmgrtypes.TxRequest[common.Address, common.Hash]
-	EvmTx                     = txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	EvmTxMeta                 = txmgrtypes.TxMeta[common.Address, common.Hash]
-	EvmTxAttempt              = txmgrtypes.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	EvmReceipt                = dbReceipt // EvmReceipt is the exported DB table model for receipts
-	EvmReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
-	EvmTxmClient              = txmgrtypes.TxmClient[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
-	EvmChainReceipt           = txmgrtypes.ChainReceipt[common.Hash, common.Hash]
+	Confirmer              = txmgr.Confirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	Broadcaster            = txmgr.Broadcaster[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	Resender               = txmgr.Resender[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	Reaper                 = txmgr.Reaper[*big.Int]
+	TxStore                = txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	TransactionStore       = txmgrtypes.TransactionStore[common.Address, *big.Int, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	KeyStore               = txmgrtypes.KeyStore[common.Address, *big.Int, evmtypes.Nonce]
+	TxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	NonceSyncer            = txmgr.SequenceSyncer[common.Address, common.Hash, common.Hash]
+	TransmitCheckerFactory = txmgr.TransmitCheckerFactory[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	Txm                    = txmgr.Txm[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	TxManager              = txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	NullTxManager          = txmgr.NullTxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	FwdMgr                 = txmgrtypes.ForwarderManager[common.Address]
+	TxRequest              = txmgrtypes.TxRequest[common.Address, common.Hash]
+	Tx                     = txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	TxMeta                 = txmgrtypes.TxMeta[common.Address, common.Hash]
+	TxAttempt              = txmgrtypes.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	Receipt                = dbReceipt // EvmReceipt is the exported DB table model for receipts
+	ReceiptPlus            = txmgrtypes.ReceiptPlus[*evmtypes.Receipt]
+	TxmClient              = txmgrtypes.TxmClient[*big.Int, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
+	TransactionClient      = txmgrtypes.TransactionClient[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	ChainReceipt           = txmgrtypes.ChainReceipt[common.Hash, common.Hash]
 )
 
-var _ EvmKeyStore = (keystore.Eth)(nil) // check interface in txmgr to avoid circular import
+var _ KeyStore = (keystore.Eth)(nil) // check interface in txmgr to avoid circular import
 
 const (
 	// TransmitCheckerTypeSimulate is a checker that simulates the transaction before executing on

@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	evmlogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
@@ -27,7 +26,7 @@ var forwardABI = evmtypes.MustGetABI(authorized_forwarder.AuthorizedForwarderABI
 var authChangedTopic = authorized_receiver.AuthorizedReceiverAuthorizedSendersChanged{}.Topic()
 
 type Config interface {
-	gas.Config
+	FinalityDepth() uint32
 }
 
 type FwdMgr struct {
@@ -254,7 +253,7 @@ func (f *FwdMgr) runLoop() {
 				f.latestBlock,
 				[]common.Hash{authChangedTopic},
 				addrs,
-				int(f.cfg.EvmFinalityDepth()),
+				int(f.cfg.FinalityDepth()),
 				pg.WithParentCtx(f.ctx),
 			)
 			if err != nil {
