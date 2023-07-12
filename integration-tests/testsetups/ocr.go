@@ -225,6 +225,7 @@ testLoop:
 		timeout *= 2
 		err = o.collectEvents(l, timeout)
 	}
+	o.TestReporter.RecordEvents(o.expectedEvents, o.actualEvents)
 }
 
 // Networks returns the networks that the test is running on

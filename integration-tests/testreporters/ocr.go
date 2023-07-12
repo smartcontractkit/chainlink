@@ -94,7 +94,6 @@ func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *s
 // writes a CSV report on the test runner
 func (o *OCRSoakTestReporter) writeCSV(folderLocation string) error {
 	reportLocation := filepath.Join(folderLocation, "./ocr_soak_report.csv")
-	log.Debug().Str("Location", reportLocation).Msg("Writing OCR report")
 	o.csvLocation = reportLocation
 	ocrReportFile, err := os.Create(reportLocation)
 	if err != nil {
