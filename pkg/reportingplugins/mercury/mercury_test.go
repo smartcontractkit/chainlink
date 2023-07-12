@@ -2,8 +2,10 @@ package mercury
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"math/rand"
+	reflect "reflect"
 	"testing"
 	"time"
 
@@ -668,5 +670,43 @@ func Test_Plugin_Report(t *testing.T) {
 			assert.False(t, should)
 			assert.EqualError(t, err, "test error current block fail")
 		})
+	})
+}
+
+func Test_MaxObservationLength(t *testing.T) {
+	t.Run("maximally sized pbuf does not exceed maxObservationLength", func(t *testing.T) {
+		maxInt192Bytes := make([]byte, 24)
+		for i := 0; i < 24; i++ {
+			maxInt192Bytes[i] = 255
+		}
+		maxHash := make([]byte, 32)
+		for i := 0; i < 32; i++ {
+			maxHash[i] = 255
+		}
+		obs := MercuryObservationProto{
+			Timestamp:                    math.MaxUint32,
+			BenchmarkPrice:               maxInt192Bytes,
+			Bid:                          maxInt192Bytes,
+			Ask:                          maxInt192Bytes,
+			PricesValid:                  true,
+			CurrentBlockNum:              math.MaxInt64,
+			CurrentBlockHash:             maxHash,
+			CurrentBlockTimestamp:        math.MaxUint64,
+			CurrentBlockValid:            true,
+			MaxFinalizedBlockNumber:      math.MaxInt64,
+			MaxFinalizedBlockNumberValid: true,
+		}
+		// This assertion is here to force this test to fail if a new field is
+		// added to the protobuf. In this case, you must add the max value of
+		// the field to the MercuryObservationProto in the test and only after
+		// that increment the count below
+		numFields := reflect.TypeOf(obs).NumField() //nolint:all
+		// 3 fields internal to pbuf struct
+		require.Equal(t, 11, numFields-3)
+
+		// the actual test
+		b, err := proto.Marshal(&obs)
+		require.NoError(t, err)
+		assert.LessOrEqual(t, len(b), maxObservationLength)
 	})
 }
