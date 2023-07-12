@@ -76,8 +76,8 @@ type Delegate struct {
 	dkgSignKs             keystore.DKGSign
 	dkgEncryptKs          keystore.DKGEncrypt
 	ethKs                 keystore.Eth
-	relayers              map[relay.Network]loop.Relayer
-	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
+	relayers              map[relay.Identifier]loop.Relayer //map[relay.Network]loop.Relayer
+	isNewlyCreatedJob     bool                              // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *utils.MailboxMonitor
 	eventBroadcaster      pg.EventBroadcaster
 
@@ -185,7 +185,7 @@ func NewDelegate(
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethKs keystore.Eth,
-	relayers map[relay.Network]loop.Relayer,
+	relayers map[relay.Identifier]loop.Relayer,
 	mailMon *utils.MailboxMonitor,
 	eventBroadcaster pg.EventBroadcaster,
 ) *Delegate {
@@ -237,12 +237,17 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 		return nil
 	}
 
-	chainID, err := spec.RelayConfig.EVMChainID()
+	chainID, err := spec.GetChainID()
 	if err != nil {
-		d.lggr.Errorf("OCR2 jobs spec missing chainID")
+		d.lggr.Errorw("OCR2 job spec missing chainID", "err", err)
 		return nil
 	}
-	chain, err := d.chainSet.Get(big.NewInt(chainID))
+	evmChainID, err := chainID.Int64()
+	if err != nil {
+		d.lggr.Errorw("OCR2 chainID not evm compatible", "err", err)
+		return nil
+	}
+	chain, err := d.chainSet.Get(big.NewInt(evmChainID))
 	if err != nil {
 		d.lggr.Error(err)
 		return nil
@@ -318,11 +323,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 
 	if spec.Relay == relay.EVM {
-		chainID, err2 := spec.RelayConfig.EVMChainID()
+		chainID, err2 := spec.GetChainID()
 		if err2 != nil {
-			return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainID")
+			return nil, fmt.Errorf("ServicesForSpec failed to get chainID: %w", err2)
 		}
-		lggr = logger.Sugared(lggr.With("evmChainID", chainID))
+
+		evmChainID, err2 := chainID.Int64()
+		if err2 != nil {
+			return nil, fmt.Errorf("ServicesForSpec chainID not evm compatible: %w", err2)
+		}
+		lggr = logger.Sugared(lggr.With("evmChainID", evmChainID))
 
 		if spec.PluginType != job.Mercury {
 			if !common.IsHexAddress(transmitterID) {
@@ -332,7 +342,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				spec.RelayConfig["sendingKeys"] = []string{transmitterID}
 			}
 
-			chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+			chain, err2 := d.chainSet.Get(big.NewInt(evmChainID))
 			if err2 != nil {
 				return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainset")
 			}
@@ -450,7 +460,11 @@ func (d *Delegate) newServicesMercury(
 		return nil, errors.Wrapf(err, "ServicesForSpec: mercury job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
 	}
 
-	relayer, exists := d.relayers[spec.Relay]
+	chainID, err := spec.GetChainID()
+	if err != nil {
+		return nil, fmt.Errorf("ServicesForSpec failed to get chainID: %w", err)
+	}
+	relayer, exists := d.relayers[relay.Identifier{Network: spec.Relay, ChainID: chainID}]
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
@@ -469,13 +483,13 @@ func (d *Delegate) newServicesMercury(
 		return nil, err2
 	}
 
-	chainID, err2 := spec.RelayConfig.EVMChainID()
+	evmChainID, err2 := chainID.Int64()
 	if err2 != nil {
-		return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainID")
+		return nil, fmt.Errorf("ServicesForSpec chainID not evm compatible: %w", err2)
 	}
-	chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+	chain, err2 := d.chainSet.Get(big.NewInt(evmChainID))
 	if err2 != nil {
-		return nil, errors.Wrap(err2, "ServicesForSpec failed to get chain")
+		return nil, fmt.Errorf("ServicesForSpec failed to get chain", err2)
 	}
 
 	oracleArgsNoPlugin := libocr2.MercuryOracleArgs{
@@ -529,7 +543,11 @@ func (d *Delegate) newServicesMedian(
 	enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
 	mConfig := median.NewMedianConfig(d.cfg.JobPipeline().MaxSuccessfulRuns(), d.cfg)
 
-	relayer, exists := d.relayers[spec.Relay]
+	chainID, err := spec.GetChainID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chainID from spec: %w", err)
+	}
+	relayer, exists := d.relayers[relay.Identifier{Network: spec.Relay, ChainID: chainID}]
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}
@@ -553,13 +571,17 @@ func (d *Delegate) newServicesDKG(
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	chainID, err2 := spec.RelayConfig.EVMChainID()
+	chainID, err2 := spec.GetChainID()
 	if err2 != nil {
 		return nil, err2
 	}
-	chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+	evmChainID, err2 := chainID.Int64()
 	if err2 != nil {
-		return nil, errors.Wrap(err2, "get chainset")
+		return nil, fmt.Errorf("ServicesForSpec chainID not evm compatible: %w", err2)
+	}
+	chain, err2 := d.chainSet.Get(big.NewInt(evmChainID))
+	if err2 != nil {
+		return nil, fmt.Errorf("get chainset: %w", err2)
 	}
 	ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"), d.ethKs)
 	dkgProvider, err2 := ocr2vrfRelayer.NewDKGProvider(
@@ -602,7 +624,7 @@ func (d *Delegate) newServicesDKG(
 		oracleArgsNoPlugin,
 		d.db,
 		d.cfg.Database(),
-		big.NewInt(chainID),
+		big.NewInt(evmChainID),
 		spec.Relay,
 	)
 }
@@ -617,14 +639,17 @@ func (d *Delegate) newServicesOCR2VRF(
 	lc ocrtypes.LocalConfig,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	chainID, err2 := spec.RelayConfig.EVMChainID()
+	chainID, err2 := spec.GetChainID()
 	if err2 != nil {
 		return nil, err2
 	}
-
-	chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+	evmChainID, err2 := chainID.Int64()
 	if err2 != nil {
-		return nil, errors.Wrap(err2, "get chainset")
+		return nil, fmt.Errorf("chainID not evm compatible: %w", err2)
+	}
+	chain, err2 := d.chainSet.Get(big.NewInt(evmChainID))
+	if err2 != nil {
+		return nil, fmt.Errorf("get chainset: %w", err2)
 	}
 	if jb.ForwardingAllowed != chain.Config().EVM().Transactions().ForwardersEnabled() {
 		return nil, errors.New("transaction forwarding settings must be consistent for ocr2vrf")
@@ -768,7 +793,7 @@ func (d *Delegate) newServicesOCR2VRF(
 		KeyID:                              keyID,
 		DKGReportingPluginFactoryDecorator: dkgReportingPluginFactoryDecorator,
 		VRFReportingPluginFactoryDecorator: vrfReportingPluginFactoryDecorator,
-		DKGSharePersistence:                persistence.NewShareDB(d.db, lggr.Named("DKGShareDB"), d.cfg.Database(), big.NewInt(chainID), spec.Relay),
+		DKGSharePersistence:                persistence.NewShareDB(d.db, lggr.Named("DKGShareDB"), d.cfg.Database(), big.NewInt(evmChainID), spec.Relay),
 	})
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "new ocr2vrf")

@@ -298,18 +298,19 @@ func (r *JSONConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, &r)
 }
 
-func (r JSONConfig) EVMChainID() (int64, error) {
-	i, ok := r["chainID"]
-	if !ok {
-		return -1, fmt.Errorf("%w: chainID must be provided in relay config", ErrNoChainFromSpec)
+/*
+	func (r JSONConfig) EVMChainID() (int64, error) {
+		i, ok := r["chainID"]
+		if !ok {
+			return -1, fmt.Errorf("%w: chainID must be provided in relay config", ErrNoChainFromSpec)
+		}
+		f, ok := i.(float64)
+		if !ok {
+			return -1, fmt.Errorf("expected float64 chain id but got: %T", i)
+		}
+		return int64(f), nil
 	}
-	f, ok := i.(float64)
-	if !ok {
-		return -1, fmt.Errorf("expected float64 chain id but got: %T", i)
-	}
-	return int64(f), nil
-}
-
+*/
 func (r JSONConfig) MercuryCredentialName() (string, error) {
 	url, ok := r["mercuryCredentialName"]
 	if !ok {
@@ -346,11 +347,13 @@ const (
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID                                int32           `toml:"-"`
-	ContractID                        string          `toml:"contractID"`
-	FeedID                            common.Hash     `toml:"feedID"`
-	Relay                             relay.Network   `toml:"relay"`
-	RelayConfig                       JSONConfig      `toml:"relayConfig"`
+	ID          int32         `toml:"-"`
+	ContractID  string        `toml:"contractID"`
+	FeedID      common.Hash   `toml:"feedID"`
+	Relay       relay.Network `toml:"relay"`
+	RelayConfig JSONConfig    `toml:"relayConfig"`
+	// do we actually need to promote chain id to top level in the spec? seems like we don't.
+	chainID                           relay.ChainID   `toml:"chainID"`
 	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
@@ -363,6 +366,35 @@ type OCR2OracleSpec struct {
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
 	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
+}
+
+func (s *OCR2OracleSpec) GetChainID() (relay.ChainID, error) {
+	if s.chainID != "" {
+		return s.chainID, nil
+	}
+	// backward compatible job spec
+	return s.getChainIdFromRelayConfig()
+}
+
+func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (relay.ChainID, error) {
+
+	v, exists := s.RelayConfig["chainID"]
+	if !exists {
+		return "", fmt.Errorf("chainID does not exist")
+	}
+	switch t := v.(type) {
+	case string:
+		return relay.ChainID(t), nil
+	case int, int64, int32:
+		return relay.ChainID(fmt.Sprintf("%d", v)), nil
+	case float64:
+		// backward compatibility with JSONConfig.EVMChainID
+		i := int64(t)
+		return relay.ChainID(strconv.FormatInt(i, 10)), nil
+
+	default:
+		return "", fmt.Errorf("unable to parse chainID: unexpected type %T", t)
+	}
 }
 
 // GetID is a getter function that returns the ID of the spec.

@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -381,9 +382,13 @@ type Configs interface {
 
 var _ chains.Configs[string, soldb.Node] = (Configs)(nil)
 
-func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []string) error {
+func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []relay.Identifier) error {
 	q := pg.NewQ(db, lggr.Named("Ensure"), cfg)
-	return chains.EnsureChains[string](q, "solana", ids)
+	sids := make([]string, len(ids))
+	for i, id := range ids {
+		sids[i] = id.ChainID.String()
+	}
+	return chains.EnsureChains[string](q, string(relay.Solana), sids)
 }
 
 func NewConfigs(cfgs chains.ConfigsV2[string, soldb.Node]) Configs {

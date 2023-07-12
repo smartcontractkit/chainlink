@@ -28,7 +28,7 @@ type Delegate struct {
 	ocr2Cfg           validate.OCR2Config
 	insecureCfg       validate.InsecureConfig
 	lggr              logger.SugaredLogger
-	relayers          map[relay.Network]loop.Relayer
+	relayers          map[relay.Identifier]loop.Relayer
 	isNewlyCreatedJob bool
 }
 
@@ -40,7 +40,7 @@ func NewDelegateBootstrap(
 	lggr logger.Logger,
 	ocr2Cfg validate.OCR2Config,
 	insecureCfg validate.InsecureConfig,
-	relayers map[relay.Network]loop.Relayer,
+	relayers map[relay.Identifier]loop.Relayer,
 ) *Delegate {
 	return &Delegate{
 		db:          db,
@@ -73,7 +73,13 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	} else if !d.peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
-	relayer, exists := d.relayers[spec.Relay]
+	s := spec.AsOCR2Spec()
+	chainID, err := (&s).GetChainID()
+	if err != nil {
+		return nil, err
+	}
+	relayerID := relay.Identifier{Network: spec.Relay, ChainID: chainID}
+	relayer, exists := d.relayers[relayerID]
 	if !exists {
 		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
 	}

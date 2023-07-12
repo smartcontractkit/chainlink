@@ -82,7 +82,7 @@ func newTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainSetOpts)
 		return nil, errChainDisabled{ChainID: chainID}
 	}
 	cfg := evmconfig.NewTOMLChainScopedConfig(opts.Config, chain, l)
-	// note: per-chain validation is not ncessary at this point since everything is checked earlier on boot.
+	// note: per-chain validation is not necessary at this point since everything is checked earlier on boot.
 	return newChain(ctx, cfg, chain.Nodes, opts)
 }
 

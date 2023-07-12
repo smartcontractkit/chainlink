@@ -5,6 +5,7 @@ import (
 	"context"
 	"math/big"
 	"net/http"
+	"sort"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -167,9 +168,9 @@ type ApplicationOpts struct {
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
 	EVM      evm.ChainSet
-	Cosmos   cosmos.ChainSet // nil if disabled
-	Solana   loop.Relayer    // nil if disabled
-	StarkNet loop.Relayer    // nil if disabled
+	Cosmos   cosmos.ChainSet                   // nil if disabled
+	Solana   map[relay.Identifier]loop.Relayer // nil if disabled
+	StarkNet loop.Relayer                      // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
@@ -180,7 +181,17 @@ func (c *Chains) services() (s []services.ServiceCtx) {
 		s = append(s, c.EVM)
 	}
 	if c.Solana != nil {
-		s = append(s, c.Solana)
+		// deterministic ordering
+		ids := make([]relay.Identifier, 0)
+		for id := range c.Solana {
+			ids = append(ids, id)
+		}
+		sort.Slice(ids, func(i, j int) bool {
+			return ids[i].ChainID.String() < ids[j].ChainID.String()
+		})
+		for i := 0; i < len(c.Solana); i += 1 {
+			s = append(s, c.Solana[ids[i]])
+		}
 	}
 	if c.StarkNet != nil {
 		s = append(s, c.StarkNet)
@@ -403,22 +414,27 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		relayers := make(map[relay.Network]loop.Relayer)
+		relayers := make(map[relay.Identifier]loop.Relayer)
 		if cfg.EVMEnabled() {
 			lggr := globalLogger.Named("EVM")
 			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore, eventBroadcaster)
-			relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, chains.EVM)
+			TODO := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(big.NewInt(1).String())}
+			relayers[TODO] = relay.NewRelayerAdapter(evmRelayer, chains.EVM)
 		}
 		if cfg.CosmosEnabled() {
 			lggr := globalLogger.Named("Cosmos.Relayer")
 			cosmosRelayer := pkgcosmos.NewRelayer(lggr, chains.Cosmos)
-			relayers[relay.Cosmos] = relay.NewRelayerAdapter(cosmosRelayer, chains.Cosmos)
+			TODO := relay.Identifier{Network: relay.Cosmos, ChainID: relay.ChainID("cosmos-0")}
+			relayers[TODO] = relay.NewRelayerAdapter(cosmosRelayer, chains.Cosmos)
 		}
 		if cfg.SolanaEnabled() {
-			relayers[relay.Solana] = chains.Solana
+			for k, v := range chains.Solana {
+				relayers[k] = v
+			}
 		}
 		if cfg.StarkNetEnabled() {
-			relayers[relay.StarkNet] = chains.StarkNet
+			TODO := relay.Identifier{Network: relay.StarkNet, ChainID: relay.ChainID("starknet-0")}
+			relayers[TODO] = chains.StarkNet
 		}
 		registrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register)
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"golang.org/x/exp/maps"
 
@@ -27,6 +28,24 @@ var (
 		StarkNet: {},
 	}
 )
+
+type Identifier struct {
+	Network Network
+	ChainID ChainID
+}
+
+type ChainID string
+
+func (c ChainID) String() string {
+	return string(c)
+}
+func (c ChainID) Int64() (int64, error) {
+	i, err := strconv.Atoi(c.String())
+	if err != nil {
+		return int64(0), err
+	}
+	return int64(i), nil
+}
 
 // RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
 type RelayerExt interface {

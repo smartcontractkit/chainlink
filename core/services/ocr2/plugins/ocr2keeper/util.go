@@ -67,11 +67,16 @@ func EVMDependencies20(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Ch
 	oSpec := spec.OCR2OracleSpec
 
 	// get the chain from the config
-	chainID, err2 := spec.OCR2OracleSpec.RelayConfig.EVMChainID()
+	chainID, err2 := spec.OCR2OracleSpec.GetChainID()
 	if err2 != nil {
 		return nil, nil, nil, nil, err2
 	}
-	chain, err2 = set.Get(big.NewInt(chainID))
+	evmChainID, err2 := chainID.Int64()
+	if err2 != nil {
+		return nil, nil, nil, nil, fmt.Errorf("chainID is not evm compatible: %w", err)
+	}
+
+	chain, err2 = set.Get(big.NewInt(evmChainID))
 	if err2 != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
 	}
