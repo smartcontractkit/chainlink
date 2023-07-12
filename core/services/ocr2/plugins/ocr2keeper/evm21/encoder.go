@@ -12,17 +12,19 @@ import (
 )
 
 var (
-	ErrEmptyResults = fmt.Errorf("empty results; cannot encode")
+	ErrEmptyResults     = fmt.Errorf("empty results; cannot encode")
+	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
 )
+
+type logTriggerExtension struct {
+	TxHash   string
+	LogIndex int64
+}
 
 type EVMAutomationEncoder21 struct {
 	encoding.BasicEncoder
 	packer *evmRegistryPackerV2_1
 }
-
-var (
-	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
-)
 
 type EVMAutomationUpkeepResult21 struct {
 	// Block is the block number used to build an UpkeepKey for this result
