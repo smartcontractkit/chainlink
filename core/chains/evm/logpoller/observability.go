@@ -73,6 +73,12 @@ func (o *ObservedLogPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, ev
 	})
 }
 
+func (o *ObservedLogPoller) LatestBlockByEventSigsAddrsWithConfs(eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+	return withObservedQuery(o.histogram, "LatestBlockByEventSigsAddrsWithConfs", common.Address{}, func() (int64, error) {
+		return o.LogPoller.LatestBlockByEventSigsAddrsWithConfs(eventSigs, addresses, confs, qopts...)
+	})
+}
+
 func (o *ObservedLogPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQuery(o.histogram, "IndexedLogs", address, func() ([]Log, error) {
 		return o.LogPoller.IndexedLogs(eventSig, address, topicIndex, topicValues, confs, qopts...)

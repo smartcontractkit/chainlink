@@ -33,10 +33,10 @@ func NewTxm(
 	keyStore keystore.Eth,
 	eventBroadcaster pg.EventBroadcaster,
 	estimator gas.EvmFeeEstimator,
-) (txm EvmTxManager,
+) (txm TxManager,
 	err error,
 ) {
-	var fwdMgr EvmFwdMgr
+	var fwdMgr FwdMgr
 
 	if txConfig.ForwardersEnabled() {
 		fwdMgr = forwarders.NewFwdMgr(db, client, logPoller, lggr, chainConfig, dbConfig)
@@ -45,7 +45,7 @@ func NewTxm(
 	}
 	checker := &CheckerFactory{Client: client}
 	// create tx attempt builder
-	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), chainConfig, fCfg, keyStore, estimator)
+	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
 	txStore := NewTxStore(db, lggr, dbConfig)
 	txNonceSyncer := NewNonceSyncer(txStore, lggr, client, keyStore)
 
@@ -54,7 +54,7 @@ func NewTxm(
 	txmClient := NewEvmTxmClient(client)   // wrap Evm specific client
 	ethBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, eventBroadcaster, txAttemptBuilder, txNonceSyncer, lggr, checker, chainConfig.NonceAutoSync())
 	ethConfirmer := NewEvmConfirmer(txStore, txmClient, txmCfg, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr)
-	var ethResender *EvmResender
+	var ethResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
 		ethResender = NewEvmResender(lggr, txStore, txmClient, keyStore, txmgr.DefaultResenderPollInterval, chainConfig, txConfig)
 	}
@@ -67,17 +67,17 @@ func NewEvmTxm(
 	chainId *big.Int,
 	cfg txmgrtypes.TransactionManagerChainConfig,
 	txCfg txmgrtypes.TransactionManagerTransactionsConfig,
-	keyStore EvmKeyStore,
+	keyStore KeyStore,
 	lggr logger.Logger,
-	checkerFactory EvmTransmitCheckerFactory,
-	fwdMgr EvmFwdMgr,
-	txAttemptBuilder EvmTxAttemptBuilder,
+	checkerFactory TransmitCheckerFactory,
+	fwdMgr FwdMgr,
+	txAttemptBuilder TxAttemptBuilder,
 	txStore TxStore,
-	nonceSyncer EvmNonceSyncer,
-	broadcaster *EvmBroadcaster,
-	confirmer *EvmConfirmer,
-	resender *EvmResender,
-) *EvmTxm {
+	nonceSyncer NonceSyncer,
+	broadcaster *Broadcaster,
+	confirmer *Confirmer,
+	resender *Resender,
+) *Txm {
 	return txmgr.NewTxm(chainId, cfg, txCfg, keyStore, lggr, checkerFactory, fwdMgr, txAttemptBuilder, txStore, nonceSyncer, broadcaster, confirmer, resender)
 }
 
@@ -86,31 +86,31 @@ func NewEvmResender(
 	lggr logger.Logger,
 	txStore TransactionStore,
 	client TransactionClient,
-	ks EvmKeyStore,
+	ks KeyStore,
 	pollInterval time.Duration,
 	config EvmResenderConfig,
 	txConfig txmgrtypes.ResenderTransactionsConfig,
-) *EvmResender {
+) *Resender {
 	return txmgr.NewResender(lggr, txStore, client, ks, pollInterval, config, txConfig)
 }
 
 // NewEvmReaper instantiates a new EVM-specific reaper object
-func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int], config EvmReaperConfig, txConfig txmgrtypes.ReaperTransactionsConfig, chainID *big.Int) *EvmReaper {
+func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper[*big.Int], config EvmReaperConfig, txConfig txmgrtypes.ReaperTransactionsConfig, chainID *big.Int) *Reaper {
 	return txmgr.NewReaper(lggr, store, config, txConfig, chainID)
 }
 
 // NewEvmConfirmer instantiates a new EVM confirmer
 func NewEvmConfirmer(
 	txStore TxStore,
-	client EvmTxmClient,
+	client TxmClient,
 	chainConfig txmgrtypes.ConfirmerChainConfig,
 	feeConfig txmgrtypes.ConfirmerFeeConfig,
 	txConfig txmgrtypes.ConfirmerTransactionsConfig,
 	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
-	keystore EvmKeyStore,
-	txAttemptBuilder EvmTxAttemptBuilder,
+	keystore KeyStore,
+	txAttemptBuilder TxAttemptBuilder,
 	lggr logger.Logger,
-) *EvmConfirmer {
+) *Confirmer {
 	return txmgr.NewConfirmer(txStore, client, chainConfig, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *evmtypes.Receipt) bool { return r == nil })
 }
 
@@ -122,13 +122,13 @@ func NewEvmBroadcaster(
 	feeConfig txmgrtypes.BroadcasterFeeConfig,
 	txConfig txmgrtypes.BroadcasterTransactionsConfig,
 	listenerConfig txmgrtypes.BroadcasterListenerConfig,
-	keystore EvmKeyStore,
+	keystore KeyStore,
 	eventBroadcaster pg.EventBroadcaster,
-	txAttemptBuilder EvmTxAttemptBuilder,
-	nonceSyncer EvmNonceSyncer,
+	txAttemptBuilder TxAttemptBuilder,
+	nonceSyncer NonceSyncer,
 	logger logger.Logger,
-	checkerFactory EvmTransmitCheckerFactory,
+	checkerFactory TransmitCheckerFactory,
 	autoSyncNonce bool,
-) *EvmBroadcaster {
+) *Broadcaster {
 	return txmgr.NewBroadcaster(txStore, client, chainConfig, feeConfig, txConfig, listenerConfig, keystore, eventBroadcaster, txAttemptBuilder, nonceSyncer, logger, checkerFactory, autoSyncNonce, stringToGethAddress)
 }

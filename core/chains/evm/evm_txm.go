@@ -23,13 +23,13 @@ func newEvmTxm(
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainSetOpts,
-) (txm txmgr.EvmTxManager,
+) (txm txmgr.TxManager,
 	estimator gas.EvmFeeEstimator,
 	err error,
 ) {
 	chainID := cfg.ChainID()
 	if !evmRPCEnabled {
-		txm = &txmgr.NullEvmTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+		txm = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 		return txm, nil, nil
 	}
 

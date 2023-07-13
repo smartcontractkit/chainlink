@@ -102,7 +102,7 @@ func newClient(lggr logger.Logger, clientPrivKey csakey.KeyV2, serverPubKey []by
 		csaKey:                     clientPrivKey,
 		serverPubKey:               serverPubKey,
 		serverURL:                  serverURL,
-		logger:                     lggr.Named("WSRPC"),
+		logger:                     lggr.Named("WSRPC").With("mercuryServerURL", serverURL),
 		chResetTransport:           make(chan struct{}, 1),
 		chStop:                     make(chan struct{}),
 		timeoutCountMetric:         timeoutCount.WithLabelValues(serverURL),
@@ -235,8 +235,7 @@ func (w *client) waitForReady(ctx context.Context) (err error) {
 }
 
 func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *pb.TransmitResponse, err error) {
-	lggr := w.logger.With("req.Payload", hexutil.Encode(req.Payload))
-	lggr.Trace("Transmit")
+	w.logger.Trace("Transmit")
 	start := time.Now()
 	if err = w.waitForReady(ctx); err != nil {
 		return nil, errors.Wrap(err, "Transmit failed")
@@ -246,7 +245,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 		w.timeoutCountMetric.Inc()
 		cnt := w.consecutiveTimeoutCnt.Add(1)
 		if cnt == MaxConsecutiveTransmitFailures {
-			lggr.Errorf("Timed out on %d consecutive transmits, resetting transport", cnt)
+			w.logger.Errorf("Timed out on %d consecutive transmits, resetting transport", cnt)
 			// NOTE: If we get 5+ request timeouts in a row, close and re-open
 			// the websocket connection.
 			//
@@ -266,17 +265,17 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 				// It should be safe to just ignore in this case.
 				//
 				// Debug log in case my reasoning is wrong.
-				lggr.Debugf("Transport is resetting, cnt=%d", cnt)
+				w.logger.Debugf("Transport is resetting, cnt=%d", cnt)
 			}
 		}
 	} else {
 		w.consecutiveTimeoutCnt.Store(0)
 	}
 	if err != nil {
-		lggr.Warnw("Transmit failed", "err", err, "req", req, "resp", resp)
+		w.logger.Warnw("Transmit failed", "err", err, "resp", resp)
 		incRequestStatusMetric(statusFailed)
 	} else {
-		lggr.Debugw("Transmit succeeded", "resp", resp)
+		w.logger.Debugw("Transmit succeeded", "resp", resp)
 		incRequestStatusMetric(statusSuccess)
 		setRequestLatencyMetric(float64(time.Since(start).Milliseconds()))
 	}
@@ -291,9 +290,9 @@ func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) 
 	}
 	resp, err = w.client.LatestReport(ctx, req)
 	if err != nil {
-		lggr.Errorw("LatestReport failed", "err", err, "req", req, "resp", resp)
+		lggr.Errorw("LatestReport failed", "err", err, "resp", resp)
 	} else if resp.Error != "" {
-		lggr.Errorw("LatestReport failed; mercury server returned error", "err", resp.Error, "req", req, "resp", resp)
+		lggr.Errorw("LatestReport failed; mercury server returned error", "err", resp.Error, "resp", resp)
 	} else {
 		lggr.Debugw("LatestReport succeeded", "resp", resp)
 	}

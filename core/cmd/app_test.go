@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/pelletier/go-toml/v2"
+	gotoml "github.com/pelletier/go-toml/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -22,10 +23,10 @@ var (
 	testEnvContents = fmt.Sprintf("P2P.V2.AnnounceAddresses = ['%s']", setInEnv)
 
 	testConfigFileContents = chainlink.Config{
-		Core: v2.Core{
+		Core: toml.Core{
 			RootDir: &setInFile,
-			P2P: v2.P2P{
-				V2: v2.P2PV2{
+			P2P: toml.P2P{
+				V2: toml.P2PV2{
 					AnnounceAddresses: &[]string{setInFile},
 					ListenAddresses:   &[]string{setInFile},
 				},
@@ -34,16 +35,16 @@ var (
 	}
 
 	testSecretsFileContents = chainlink.Secrets{
-		Secrets: v2.Secrets{
-			Prometheus: v2.PrometheusSecrets{
+		Secrets: toml.Secrets{
+			Prometheus: toml.PrometheusSecrets{
 				AuthToken: models.NewSecret("PROM_TOKEN"),
 			},
 		},
 	}
 
 	testSecretsRedactedContents = chainlink.Secrets{
-		Secrets: v2.Secrets{
-			Prometheus: v2.PrometheusSecrets{
+		Secrets: toml.Secrets{
+			Prometheus: toml.PrometheusSecrets{
 				AuthToken: models.NewSecret("xxxxx"),
 			},
 		},
@@ -54,7 +55,7 @@ func makeTestFile(t *testing.T, contents any, fileName string) string {
 	d := t.TempDir()
 	p := filepath.Join(d, fileName)
 
-	b, err := toml.Marshal(contents)
+	b, err := gotoml.Marshal(contents)
 	require.NoError(t, err)
 
 	require.NoError(t, os.WriteFile(p, b, 0777))
@@ -87,9 +88,9 @@ func Test_initServerConfig(t *testing.T) {
 				envVar: testEnvContents,
 			},
 			wantCfg: withDefaults(t, chainlink.Config{
-				Core: v2.Core{
-					P2P: v2.P2P{
-						V2: v2.P2PV2{
+				Core: toml.Core{
+					P2P: toml.P2P{
+						V2: toml.P2PV2{
 							AnnounceAddresses: &[]string{setInEnv},
 						},
 					},
@@ -120,10 +121,10 @@ func Test_initServerConfig(t *testing.T) {
 				envVar:    testEnvContents,
 			},
 			wantCfg: withDefaults(t, chainlink.Config{
-				Core: v2.Core{
+				Core: toml.Core{
 					RootDir: &setInFile,
-					P2P: v2.P2P{
-						V2: v2.P2PV2{
+					P2P: toml.P2P{
+						V2: toml.P2PV2{
 							// env should override this specific field
 							AnnounceAddresses: &[]string{setInEnv},
 							ListenAddresses:   &[]string{setInFile},
@@ -154,7 +155,7 @@ func Test_initServerConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.args.envVar != "" {
-				t.Setenv(string(v2.EnvConfig), tt.args.envVar)
+				t.Setenv(string(env.Config), tt.args.envVar)
 			}
 			cfg, err := initServerConfig(tt.args.opts, tt.args.fileNames, tt.args.secretsFile)
 			if (err != nil) != tt.wantErr {

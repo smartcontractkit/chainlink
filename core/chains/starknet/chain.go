@@ -90,7 +90,7 @@ func (c *chain) getClient() (*starknet.Client, error) {
 		client, err = starknet.NewClient(node.ChainID, node.URL, c.lggr, &timeout)
 		// if error, try another node
 		if err != nil {
-			c.lggr.Warnw("failed to create node", "name", node.Name, "starknet-url", node.URL, "error", err.Error())
+			c.lggr.Warnw("failed to create node", "name", node.Name, "starknet-url", node.URL, "err", err.Error())
 			continue
 		}
 		// if all checks passed, mark found and break loop

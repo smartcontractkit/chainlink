@@ -76,7 +76,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   mapping(uint256 => address) internal s_upkeepAdmin;
   mapping(uint256 => address) internal s_proposedAdmin;
   mapping(uint256 => bytes) internal s_checkData;
-  mapping(bytes32 => bool) internal s_observedLogTriggers;
+  mapping(bytes32 => bool) internal s_dedupKeys;
   // Registry config and state
   EnumerableSet.AddressSet internal s_registrars;
   mapping(address => Transmitter) internal s_transmitters;
@@ -172,7 +172,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     UPKEEP_NOT_NEEDED,
     PERFORM_DATA_EXCEEDS_LIMIT,
     INSUFFICIENT_BALANCE,
-    CALLBACK_REVERTED
+    CALLBACK_REVERTED,
+    REVERT_DATA_EXCEEDS_LIMIT,
+    REGISTRY_PAUSED
   }
 
   /**
@@ -190,6 +192,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * when calculating the payment ceiling for keepers
    * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
    * @member maxPerformGas max executeGas allowed for an upkeep on this registry
+   * @member maxCheckDataSize max length of checkData bytes
+   * @member maxPerformDataSize max length of performData bytes
+   * @member maxRevertDataSize max length of revertData bytes
    * @member fallbackGasPrice gas price used if the gas price feed is stale
    * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
    * @member transcoder address of the transcoder contract
@@ -206,6 +211,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint32 maxPerformGas;
     uint32 maxCheckDataSize;
     uint32 maxPerformDataSize;
+    uint32 maxRevertDataSize;
     uint256 fallbackGasPrice;
     uint256 fallbackLinkPrice;
     address transcoder;
@@ -287,7 +293,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 0 bytes left in 1st EVM word - not written to in transmit
     uint96 amountSpent;
     uint96 balance;
-    uint32 lastPerformedBlockNumber; // TODO time expires in 2100
+    uint32 lastPerformedBlockNumber;
     // 2 bytes left in 2nd EVM word - written in transmit path
     address target;
     // 12 bytes left in 3rd EVM word - neither written to nor read in transmit
@@ -322,8 +328,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 2 EVM word full
     uint32 maxCheckDataSize; // max length of checkData bytes
     uint32 maxPerformDataSize; // max length of performData bytes
-    // 4 bytes to 3rd EVM word
+    uint32 maxRevertDataSize; // max length of revertData bytes
     address upkeepPrivilegeManager; // address which can set privilege for upkeeps
+    // 3 EVM word full
   }
 
   // Report transmitted by OCR to transmit function
@@ -343,6 +350,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member paymentParams the paymentParams for this upkeep
    * @member performSuccess whether the perform was successful
    * @member gasUsed gasUsed by this upkeep in perform
+   * @member gasOverhead gasOverhead for this upkeep
+   * @member triggerID unique ID used to identify an upkeep/trigger combo
+   * @member dedupID unique ID used to dedup an upkeep/trigger combo
    */
   struct UpkeepTransmitInfo {
     Upkeep upkeep;
@@ -352,6 +362,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     Trigger triggerType;
     uint256 gasUsed;
     uint256 gasOverhead;
+    bytes32 triggerID;
+    bytes32 dedupID;
   }
 
   struct Transmitter {
@@ -367,7 +379,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint8 index;
   }
 
-  struct BlockTriggerConfig {
+  struct ConditionalTriggerConfig {
     uint32 checkCadance; // how often to check in blocks
   }
 
@@ -384,10 +396,10 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice the trigger structure for both conditional and ready trigger types
+   * @notice the trigger structure conditional trigger type
    */
-  struct BlockTrigger {
-    uint32 blockNum; // TODO - only 34 years worth of blocks on arbitrum...
+  struct ConditionalTrigger {
+    uint32 blockNum;
     bytes32 blockHash;
   }
 
@@ -426,15 +438,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 totalPayment,
     uint256 gasUsed,
     uint256 gasOverhead,
-    bytes trigger
+    bytes32 triggerID
   );
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
-  event StaleUpkeepReport(uint256 indexed id, bytes trigger);
-  event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
-  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
+  event StaleUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event ReorgedUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event CancelledUpkeepReport(uint256 indexed id, bytes32 triggerID);
   event Paused(address account);
   event Unpaused(address account);
 
@@ -445,7 +457,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param fastGasFeed address of the Fast Gas price feed
    */
   constructor(Mode mode, address link, address linkNativeFeed, address fastGasFeed) ConfirmedOwner(msg.sender) {
-    // TODO - logic contracts don't need an owner or ownable functions
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
@@ -455,8 +466,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   /////////////
   // GETTERS //
   /////////////
-
-  // TODO - these don't need to be on the Base contract
 
   function getMode() external view returns (Mode) {
     return i_mode;
@@ -663,7 +672,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   function getTriggerType(uint256 upkeepId) public pure returns (Trigger) {
-    // TODO - alternatively, we could just look this up from storage
     bytes32 rawID = bytes32(upkeepId);
     bytes1 empty = bytes1(0);
     for (uint256 idx = 4; idx < 15; idx++) {
@@ -709,6 +717,16 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     } else {
       return blockhash(n);
     }
+  }
+
+  /**
+   * @notice returns a unique identifier for an upkeep/trigger combo
+   * @param upkeepID the upkeep id
+   * @param trigger the raw trigger bytes
+   * @return triggerID the unique identifier for the upkeep/trigger combo
+   */
+  function _triggerID(uint256 upkeepID, bytes memory trigger) internal pure returns (bytes32 triggerID) {
+    return keccak256(abi.encodePacked(upkeepID, trigger));
   }
 
   /**
