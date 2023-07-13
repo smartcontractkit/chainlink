@@ -142,6 +142,9 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 	return mt.StartOnce("MercuryTransmitter", func() error {
 		mt.lggr.Debugw("Loading transmit requests from database")
+		if err := mt.persistenceManager.Start(ctx); err != nil {
+			return err
+		}
 		transmissions, err := mt.persistenceManager.Load(ctx)
 		if err != nil {
 			return err
