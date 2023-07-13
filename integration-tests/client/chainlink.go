@@ -1092,7 +1092,7 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 			URL:        nodeDetails.LocalIP,
 			Email:      "notreal@fakeemail.ch",
 			Password:   "fj293fbBnlQ!f9vNs",
-			InternalIP: parseHostname(nodeDetails.LocalIP),
+			InternalIP: parseHostname(nodeDetails.InternalIP),
 			ChartName:  nodeDetails.ChartName,
 			PodName:    nodeDetails.PodName,
 		})
@@ -1120,7 +1120,7 @@ func ReconnectChainlinkNodes(testEnvironment *environment.Environment, nodes []*
 					URL:        details.LocalIP,
 					Email:      "notreal@fakeemail.ch",
 					Password:   "fj293fbBnlQ!f9vNs",
-					InternalIP: parseHostname(details.LocalIP),
+					InternalIP: parseHostname(details.InternalIP),
 					ChartName:  details.ChartName,
 					PodName:    details.PodName,
 				})
