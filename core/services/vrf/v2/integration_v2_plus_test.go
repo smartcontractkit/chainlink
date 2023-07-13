@@ -814,6 +814,15 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 	})
 }
 
+func TestVRFV2MigrationToVRFV2Plus(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	v2Uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	v2PlusUni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
+	consumerOwner := v2Uni.vrfConsumers[0]
+
+}
+
 func AssertEthBalances(t *testing.T, backend *backends.SimulatedBackend, addresses []common.Address, balances []*big.Int) {
 	require.Equal(t, len(addresses), len(balances))
 	for i, a := range addresses {
