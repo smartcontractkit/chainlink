@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"gopkg.in/guregu/null.v4"
 	"log"
 	"math/big"
 	"time"
@@ -322,7 +323,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		lggr = logger.Sugared(lggr.With("evmChainID", chainID))
 
-		effectiveTransmitterID, err = getEVMEffectiveTransmitterID(&jb, d.chainSet, chainID, lggr)
+		effectiveTransmitterID, err = GetEVMEffectiveTransmitterID(&jb, d.chainSet, chainID, lggr)
 		if err != nil {
 			return nil, errors.Wrap(err, "ServicesForSpec failed to get evm transmitterID")
 		}
@@ -405,28 +406,24 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 }
 
-func getEVMEffectiveTransmitterID(jb *job.Job, chainSet evm.ChainSet, chainID int64, lggr logger.SugaredLogger) (string, error) {
+func GetEVMEffectiveTransmitterID(jb *job.Job, chainSet evm.ChainSet, chainID int64, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
-	transmitterID := spec.TransmitterID.String
-
 	if spec.PluginType == job.Mercury {
-		return transmitterID, nil
+		return spec.TransmitterID.String, nil
 	}
 
 	if spec.RelayConfig["sendingKeys"] == nil {
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []string{transmitterID}
+		spec.RelayConfig["sendingKeys"] = []string{spec.TransmitterID.String}
 	} else if !spec.TransmitterID.Valid {
-		sendingKeys, ok := spec.RelayConfig["sendingKeys"].([]string)
-		if !ok {
-			return "", errors.New("transmitterID is not defined and sending keys are of wrong type")
+		sendingKeys, err := job.SendingKeysForJob(jb)
+		if err != nil {
+			return "", err
 		}
-		if len(sendingKeys) == 0 {
-			return "", errors.New("transmitterID is not defined and sending keys are empty")
-		}
+
 		if len(sendingKeys) > 1 && spec.PluginType != job.OCR2VRF {
 			return "", errors.New("only ocr2 vrf should have more than 1 sending key")
 		}
-		transmitterID = sendingKeys[0]
+		spec.TransmitterID = null.StringFrom(sendingKeys[0])
 	}
 
 	// effectiveTransmitterID is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
@@ -438,17 +435,18 @@ func getEVMEffectiveTransmitterID(jb *job.Job, chainSet evm.ChainSet, chainID in
 			return "", errors.Wrap(err, "failed to get chainset")
 		}
 
-		effectiveTransmitterID, err := chain.TxManager().GetForwarderForEOA(common.HexToAddress(transmitterID))
+		effectiveTransmitterID, err := chain.TxManager().GetForwarderForEOA(common.HexToAddress(spec.TransmitterID.String))
 		if err == nil {
 			return effectiveTransmitterID.String(), nil
 		} else if spec.TransmitterID.Valid {
 			lggr.Warnw("Skipping forwarding for job, will fallback to default behavior", "job", jb.Name, "err", err)
+			// this shouldn't happen unless behaviour above was changed
 		} else {
 			return "", errors.New("failed to get forwarder address and transmitterID is not set")
 		}
 	}
 
-	return transmitterID, nil
+	return spec.TransmitterID.String, nil
 }
 
 func (d *Delegate) newServicesMercury(
