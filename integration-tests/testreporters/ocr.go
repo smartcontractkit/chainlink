@@ -19,8 +19,8 @@ import (
 
 // OCRSoakTestReporter collates all OCRAnswerUpdated events into a single report
 type OCRSoakTestReporter struct {
-	ExpectedRoundDuration time.Duration
-	AnomaliesDetected     bool
+	TestDuration      time.Duration
+	AnomaliesDetected bool
 
 	anomalies   [][]string
 	timeLine    [][]string
@@ -177,6 +177,8 @@ func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
 	err = ocrReportWriter.Write([]string{
 		"Namespace",
 		o.namespace,
+		"Test Duration",
+		o.TestDuration.String(),
 	})
 	if err != nil {
 		return err

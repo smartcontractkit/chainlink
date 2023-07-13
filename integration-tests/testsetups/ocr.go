@@ -69,7 +69,7 @@ func NewOCRSoakTest(inputs *OCRSoakTestInputs) *OCRSoakTest {
 	return &OCRSoakTest{
 		Inputs: inputs,
 		TestReporter: testreporters.OCRSoakTestReporter{
-			ExpectedRoundDuration: inputs.ExpectedRoundTime,
+			TestDuration: inputs.TestDuration,
 		},
 		ocrTestStates:  make([]*testreporters.OCRTestState, 0),
 		mockPath:       "ocr",
