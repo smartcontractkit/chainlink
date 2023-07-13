@@ -72,13 +72,13 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			report.LinkNative = ext.LinkNative
 		}
 
-		id, ok := new(big.Int).SetString(string(result.Payload.Upkeep.ID), 10)
+		id, ok := big.NewInt(0).SetString(string(result.Payload.Upkeep.ID), 10)
 		if !ok {
 			return nil, fmt.Errorf("failed to parse big int from upkeep id: %s", string(result.Payload.Upkeep.ID))
 		}
 
 		report.UpkeepIds[i] = id
-		report.GasLimits[i] = new(big.Int).SetUint64(result.GasAllocated)
+		report.GasLimits[i] = big.NewInt(0).SetUint64(result.GasAllocated)
 
 		triggerW := triggerWrapper{
 			BlockNum:  uint32(result.Payload.Trigger.BlockNumber),
@@ -109,7 +109,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 	return enc.packer.PackReport(report)
 }
 
-func (enc EVMAutomationEncoder21) DecodeReport(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
+func (enc EVMAutomationEncoder21) Decode(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
 	report, err := enc.packer.UnpackReport(raw)
 	if err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ func (enc EVMAutomationEncoder21) Detail(result ocr2keepers.UpkeepResult) (ocr2k
 }
 
 func (enc EVMAutomationEncoder21) KeysFromReport(b []byte) ([]ocr2keepers.UpkeepKey, error) {
-	results, err := enc.DecodeReport(b)
+	results, err := enc.Decode(b)
 	if err != nil {
 		return nil, err
 	}

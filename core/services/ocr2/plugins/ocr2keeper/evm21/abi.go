@@ -147,7 +147,7 @@ func (rp *evmRegistryPackerV2_1) UnpackTransmitTxInput(raw []byte) ([]ocr2keeper
 		return nil, fmt.Errorf("unexpected value type in transaction")
 	}
 
-	if decoded, err = enc.DecodeReport(b); err != nil {
+	if decoded, err = enc.Decode(b); err != nil {
 		return nil, fmt.Errorf("error during decoding report while unpacking TransmitTxInput: %w", err)
 	}
 

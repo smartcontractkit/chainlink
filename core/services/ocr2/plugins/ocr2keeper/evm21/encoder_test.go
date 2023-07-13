@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"errors"
 	"math/big"
 	"strings"
 	"testing"
@@ -14,7 +15,30 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
-func TestEVMAutomationEncoder21(t *testing.T) {
+func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckResult {
+	payload := ocr2keepers.UpkeepPayload{
+		Upkeep: ocr2keepers.ConfiguredUpkeep{
+			ID: id,
+		},
+		Trigger: ocr2keepers.Trigger{
+			BlockNumber: block,
+			BlockHash:   common.Bytes2Hex([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}),
+		},
+	}
+	payload.ID = payload.GenerateID()
+	return ocr2keepers.CheckResult{
+		Payload:      payload,
+		Eligible:     true,
+		GasAllocated: 100,
+		PerformData:  []byte("data0"),
+		Extension: EVMAutomationResultExtension21{
+			FastGasWei: big.NewInt(100),
+			LinkNative: big.NewInt(100),
+		},
+	}
+}
+
+func TestEVMAutomationEncoder21_EncodeDecode(t *testing.T) {
 	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	assert.Nil(t, err)
 	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
@@ -23,49 +47,123 @@ func TestEVMAutomationEncoder21(t *testing.T) {
 		packer: NewEvmRegistryPackerV2_1(keepersABI, utilsABI),
 	}
 
-	t.Run("encoding an empty list of upkeep results returns a nil byte array", func(t *testing.T) {
-		b, err := encoder.Encode()
-		assert.Equal(t, ErrEmptyResults, err)
-		assert.Equal(t, b, []byte(nil))
-	})
-
-	t.Run("successfully encodes and decodes a single upkeep result", func(t *testing.T) {
-		upkeepResult := ocr2keepers.CheckResult{
-			Payload: ocr2keepers.UpkeepPayload{
-				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier([]byte("10")),
-				},
-				Trigger: ocr2keepers.Trigger{
-					BlockNumber: 1,
-					BlockHash:   common.Bytes2Hex([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}),
-				},
+	tests := []struct {
+		name        string
+		results     []ocr2keepers.CheckResult
+		reportSize  int
+		expectedErr error
+	}{
+		{
+			"happy flow single",
+			[]ocr2keepers.CheckResult{
+				newResult(1, ocr2keepers.UpkeepIdentifier([]byte("10"))),
 			},
-			Eligible:     true,
-			GasAllocated: 100,
-			PerformData:  []byte("data0"),
-			Extension: EVMAutomationResultExtension21{
-				FastGasWei: big.NewInt(100),
-				LinkNative: big.NewInt(100),
+			640,
+			nil,
+		},
+		{
+			"happy flow multiple",
+			[]ocr2keepers.CheckResult{
+				newResult(1, ocr2keepers.UpkeepIdentifier([]byte("10"))),
+				newResult(2, ocr2keepers.UpkeepIdentifier([]byte("20"))),
+				newResult(3, ocr2keepers.UpkeepIdentifier([]byte("30"))),
 			},
-		}
-		b, err := encoder.Encode(upkeepResult)
-		assert.Nil(t, err)
-		assert.Len(t, b, 640)
+			1216,
+			nil,
+		},
+		{
+			"empty results",
+			[]ocr2keepers.CheckResult{},
+			0,
+			ErrEmptyResults,
+		},
+	}
 
-		upkeeps, err := encoder.DecodeReport(b)
-		assert.Nil(t, err)
-		assert.Len(t, upkeeps, 1)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			b, err := encoder.Encode(tc.results...)
+			if tc.expectedErr != nil {
+				assert.Equal(t, tc.expectedErr, err)
+				return
+			}
+			assert.Nil(t, err)
+			assert.Len(t, b, tc.reportSize)
 
-		// upkeep := upkeeps[0].(EVMAutomationUpkeepResult21)
-		// // some fields aren't populated by the decode so we compare field-by-field for those that are populated
-		// assert.Equal(t, upkeep.Block, upkeepResult.Block)
-		// assert.Equal(t, upkeep.ID, upkeepResult.ID)
-		// assert.Equal(t, upkeep.Eligible, upkeepResult.Eligible)
-		// assert.Equal(t, upkeep.PerformData, upkeepResult.PerformData)
-		// assert.Equal(t, upkeep.FastGasWei, upkeepResult.FastGasWei)
-		// assert.Equal(t, upkeep.LinkNative, upkeepResult.LinkNative)
-		// assert.Equal(t, upkeep.CheckBlockNumber, upkeepResult.CheckBlockNumber)
-		// assert.Equal(t, upkeep.CheckBlockHash, upkeepResult.CheckBlockHash)
-	})
+			upkeeps, err := encoder.Decode(b)
+			assert.Nil(t, err)
+			assert.Len(t, upkeeps, len(tc.results))
 
+			for i, u := range upkeeps {
+				upkeep, ok := u.(EVMAutomationUpkeepResult21)
+				assert.True(t, ok)
+				// 	// some fields aren't populated by the decode so we compare field-by-field for those that are populated
+				assert.Equal(t, upkeep.Block, uint32(tc.results[i].Payload.Trigger.BlockNumber))
+				assert.Equal(t, ocr2keepers.UpkeepIdentifier(upkeep.ID.String()), tc.results[i].Payload.Upkeep.ID)
+				assert.Equal(t, upkeep.Eligible, tc.results[i].Eligible)
+				assert.Equal(t, upkeep.PerformData, tc.results[i].PerformData)
+				assert.Equal(t, upkeep.CheckBlockNumber, uint32(tc.results[i].Payload.Trigger.BlockNumber))
+				assert.Equal(t, common.BytesToHash(upkeep.CheckBlockHash[:]), common.HexToHash(tc.results[i].Payload.Trigger.BlockHash))
+			}
+		})
+	}
+}
+
+func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
+	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
+	assert.Nil(t, err)
+	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
+	assert.Nil(t, err)
+	encoder := EVMAutomationEncoder21{
+		packer: NewEvmRegistryPackerV2_1(keepersABI, utilsABI),
+	}
+
+	tests := []struct {
+		name        string
+		results     []ocr2keepers.CheckResult
+		expectedErr error
+	}{
+		{
+			"happy flow single",
+			[]ocr2keepers.CheckResult{
+				newResult(1, ocr2keepers.UpkeepIdentifier([]byte("10"))),
+			},
+			nil,
+		},
+		{
+			"happy flow multiple",
+			[]ocr2keepers.CheckResult{
+				newResult(1, ocr2keepers.UpkeepIdentifier([]byte("10"))),
+				newResult(2, ocr2keepers.UpkeepIdentifier([]byte("20"))),
+				newResult(3, ocr2keepers.UpkeepIdentifier([]byte("30"))),
+			},
+			nil,
+		},
+		{
+			"empty results",
+			[]ocr2keepers.CheckResult{},
+			errors.New(""),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			b, _ := encoder.Encode(tc.results...)
+			reportedUpkeeps, err := encoder.Extract(b)
+			if tc.expectedErr != nil {
+				assert.Error(t, err)
+				return
+			}
+			assert.Nil(t, err)
+			assert.Len(t, reportedUpkeeps, len(tc.results))
+
+			for i, upkeep := range reportedUpkeeps {
+				assert.Equal(t, upkeep.UpkeepID, ocr2keepers.UpkeepIdentifier(nil))
+				assert.Equal(t, upkeep.Trigger.BlockHash, "")
+				assert.Equal(t, upkeep.Trigger.BlockNumber, int64(0))
+
+				assert.Equal(t, upkeep.PerformData, tc.results[i].PerformData)
+				// assert.Equal(t, upkeep.ID, tc.results[i].Payload.ID) // TODO: we are getting different IDs here
+			}
+		})
+	}
 }
