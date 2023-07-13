@@ -493,7 +493,7 @@ func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
 			}
 		}
 
-		return len(sendingKeys) != 0, nil
+		return true, nil
 	}
 	return false, nil
 }

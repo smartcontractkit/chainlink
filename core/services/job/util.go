@@ -2,6 +2,7 @@ package job
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"math/big"
 
 	"github.com/lib/pq"
@@ -50,7 +51,11 @@ func SendingKeysForJob(job *Job) (pq.StringArray, error) {
 	if !ok {
 		return nil, fmt.Errorf("%w: sendingKeys must be provided in relay config", ErrNoSendingKeysFromSpec)
 	}
+
 	sendingKeys := sendingKeysInterface.(pq.StringArray)
+	if len(sendingKeys) == 0 {
+		return nil, errors.New("sending keys are empty")
+	}
 
 	return sendingKeys, nil
 }
