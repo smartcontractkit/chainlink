@@ -17,6 +17,66 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+var hash = hexutil.MustDecode("0x552c2cea3ab43bae137d89ee6142a01db3ae2b5678bc3c9bd5f509f537bea57b")
+var paos = []relaymercury.ParsedAttributedObservation{
+	{
+		Timestamp: uint32(42),
+		Observer:  commontypes.OracleID(49),
+
+		BenchmarkPrice: big.NewInt(43),
+		Bid:            big.NewInt(44),
+		Ask:            big.NewInt(45),
+		PricesValid:    true,
+
+		CurrentBlockNum:       48,
+		CurrentBlockHash:      hash,
+		CurrentBlockTimestamp: uint64(123),
+		CurrentBlockValid:     true,
+	},
+	{
+		Timestamp: uint32(142),
+		Observer:  commontypes.OracleID(149),
+
+		BenchmarkPrice: big.NewInt(143),
+		Bid:            big.NewInt(144),
+		Ask:            big.NewInt(145),
+		PricesValid:    true,
+
+		CurrentBlockNum:       48,
+		CurrentBlockHash:      hash,
+		CurrentBlockTimestamp: uint64(123),
+		CurrentBlockValid:     true,
+	},
+	{
+		Timestamp: uint32(242),
+		Observer:  commontypes.OracleID(249),
+
+		BenchmarkPrice: big.NewInt(243),
+		Bid:            big.NewInt(244),
+		Ask:            big.NewInt(245),
+		PricesValid:    true,
+
+		CurrentBlockNum:       248,
+		CurrentBlockHash:      hash,
+		CurrentBlockTimestamp: uint64(789),
+		CurrentBlockValid:     true,
+	},
+	{
+		Timestamp: uint32(342),
+		Observer:  commontypes.OracleID(250),
+
+		BenchmarkPrice: big.NewInt(343),
+		Bid:            big.NewInt(344),
+		Ask:            big.NewInt(345),
+		PricesValid:    true,
+
+		CurrentBlockNum:       348,
+		CurrentBlockHash:      hash,
+		CurrentBlockTimestamp: uint64(123456),
+		CurrentBlockValid:     true,
+	},
+}
+
 func Test_ReportCodec_BuildReport(t *testing.T) {
 	r := EVMReportCodec{}
 
@@ -32,66 +92,6 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 	t.Run("BuildReport constructs a report from observations", func(t *testing.T) {
 		// only need to test happy path since validations are done in relaymercury
 
-		hash := hexutil.MustDecode("0x552c2cea3ab43bae137d89ee6142a01db3ae2b5678bc3c9bd5f509f537bea57b")
-
-		paos := []relaymercury.ParsedAttributedObservation{
-			{
-				Timestamp: uint32(42),
-				Observer:  commontypes.OracleID(49),
-
-				BenchmarkPrice: big.NewInt(43),
-				Bid:            big.NewInt(44),
-				Ask:            big.NewInt(45),
-				PricesValid:    true,
-
-				CurrentBlockNum:       48,
-				CurrentBlockHash:      hash,
-				CurrentBlockTimestamp: uint64(123),
-				CurrentBlockValid:     true,
-			},
-			{
-				Timestamp: uint32(142),
-				Observer:  commontypes.OracleID(149),
-
-				BenchmarkPrice: big.NewInt(143),
-				Bid:            big.NewInt(144),
-				Ask:            big.NewInt(145),
-				PricesValid:    true,
-
-				CurrentBlockNum:       48,
-				CurrentBlockHash:      hash,
-				CurrentBlockTimestamp: uint64(123),
-				CurrentBlockValid:     true,
-			},
-			{
-				Timestamp: uint32(242),
-				Observer:  commontypes.OracleID(249),
-
-				BenchmarkPrice: big.NewInt(243),
-				Bid:            big.NewInt(244),
-				Ask:            big.NewInt(245),
-				PricesValid:    true,
-
-				CurrentBlockNum:       248,
-				CurrentBlockHash:      hash,
-				CurrentBlockTimestamp: uint64(789),
-				CurrentBlockValid:     true,
-			},
-			{
-				Timestamp: uint32(342),
-				Observer:  commontypes.OracleID(250),
-
-				BenchmarkPrice: big.NewInt(343),
-				Bid:            big.NewInt(344),
-				Ask:            big.NewInt(345),
-				PricesValid:    true,
-
-				CurrentBlockNum:       348,
-				CurrentBlockHash:      hash,
-				CurrentBlockTimestamp: uint64(123456),
-				CurrentBlockValid:     true,
-			},
-		}
 		report, err := r.BuildReport(paos, f, 46)
 		require.NoError(t, err)
 
@@ -117,12 +117,14 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 
 func Test_ReportCodec_MaxReportLength(t *testing.T) {
 	r := EVMReportCodec{}
-	n := 4
+	n := len(paos)
+	report, err := r.BuildReport(paos, 1, 46)
+	require.NoError(t, err)
 
-	t.Run("MaxReportLength returns correct length", func(t *testing.T) {
+	t.Run("MaxReportLength returns length of report", func(t *testing.T) {
 		max, err := r.MaxReportLength(n)
 		require.NoError(t, err)
-		assert.Equal(t, 1312, max)
+		assert.Equal(t, len(report), max)
 	})
 }
 
