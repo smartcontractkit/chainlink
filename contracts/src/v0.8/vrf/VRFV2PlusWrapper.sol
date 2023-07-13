@@ -174,9 +174,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     s_configured = true;
 
     // Get other configuration from coordinator
-    (, , s_stalenessSeconds, ) = COORDINATOR.getConfig();
+    (, , s_stalenessSeconds, ) = COORDINATOR.s_config();
     s_fallbackWeiPerUnitLink = COORDINATOR.s_fallbackWeiPerUnitLink();
-    (s_fulfillmentFlatFeeLinkPPM, s_fulfillmentFlatFeeEthPPM) = COORDINATOR.getFeeConfig();
+    (s_fulfillmentFlatFeeLinkPPM, s_fulfillmentFlatFeeEthPPM) = COORDINATOR.s_feeConfig();
   }
 
   /**
@@ -505,7 +505,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 }
 
 interface ExtendedVRFCoordinatorV2PlusInterface is IVRFCoordinatorV2Plus {
-  function getConfig()
+  function s_config()
     external
     view
     returns (
@@ -517,7 +517,7 @@ interface ExtendedVRFCoordinatorV2PlusInterface is IVRFCoordinatorV2Plus {
 
   function s_fallbackWeiPerUnitLink() external view returns (int256);
 
-  function getFeeConfig()
+  function s_feeConfig()
     external
     view
     returns (

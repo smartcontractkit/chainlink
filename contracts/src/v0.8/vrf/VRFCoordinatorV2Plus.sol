@@ -209,22 +209,6 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     );
   }
 
-  function getConfig() external view returns (
-      uint16 minimumRequestConfirmations,
-      uint32 maxGasLimit,
-      uint32 stalenessSeconds,
-      uint32 gasAfterPaymentCalculation
-  ) {
-    return (s_config.minimumRequestConfirmations, s_config.maxGasLimit, s_config.stalenessSeconds, s_config.gasAfterPaymentCalculation);
-  }
-
-  function getFeeConfig() external view returns (
-      uint32 fulfillmentFlatFeeLinkPPM,
-      uint32 fulfillmentFlatFeeEthPPM
-  ) {
-    return (s_feeConfig.fulfillmentFlatFeeLinkPPM, s_feeConfig.fulfillmentFlatFeeEthPPM);
-  }
-
   /**
    * @notice Get configuration relevant for making requests
    * @return minimumRequestConfirmations global min for request confirmations
