@@ -194,3 +194,14 @@ func GenerateProofResponseV2(keystore keystore.VRF, id string, s PreSeedDataV2) 
 	}
 	return GenerateProofResponseFromProofV2(proof, s)
 }
+
+func GenerateProofResponseV2Plus(keystore keystore.VRF, id string, s PreSeedDataV2, nativePayment bool) (
+	vrf_coordinator_v2plus.VRFProof, vrf_coordinator_v2plus.VRFCoordinatorV2PlusRequestCommitment, error) {
+	seedHashMsg := append(s.PreSeed[:], s.BlockHash.Bytes()...)
+	seed := utils.MustHash(string(seedHashMsg)).Big()
+	proof, err := keystore.GenerateProof(id, seed)
+	if err != nil {
+		return vrf_coordinator_v2plus.VRFProof{}, vrf_coordinator_v2plus.VRFCoordinatorV2PlusRequestCommitment{}, err
+	}
+	return GenerateProofResponseFromProofV2Plus(proof, s, nativePayment)
+}
