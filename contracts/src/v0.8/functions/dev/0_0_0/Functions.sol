@@ -121,7 +121,7 @@ library Functions {
   }
 
   /**
-   * @notice Adds DON-hosted user slot id (referencing secrets) to a Request
+   * @notice Adds DON-hosted secrets reference to a Request
    * @param self The initialized request
    * @param slotID Slot ID of the user's secrets hosted on DON
    * @param version User data version (for the slotID)
