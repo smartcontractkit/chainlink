@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"go.uber.org/multierr"
 	"golang.org/x/time/rate"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
 const (
