@@ -68,7 +68,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker1 := &cltest.MockHeadTrackable{}
 	checker2 := &cltest.MockHeadTrackable{}
 
-	hb := headtracker.NewHeadBroadcaster(logger)
+	hb := headtracker.NewBroadcaster(logger)
 	orm := headtracker.NewORM(db, logger, cfg.Database(), *ethClient.ConfiguredChainID())
 	hs := headtracker.NewSaver(logger, orm, evmCfg.EVM(), evmCfg.EVM().HeadTracker())
 	mailMon := utils.NewMailboxMonitor(t.Name())
@@ -102,7 +102,7 @@ func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	lggr := logger.TestLogger(t)
-	broadcaster := headtracker.NewHeadBroadcaster(lggr)
+	broadcaster := headtracker.NewBroadcaster(lggr)
 
 	err := broadcaster.Start(testutils.Context(t))
 	require.NoError(t, err)
@@ -144,7 +144,7 @@ func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
-	broadcaster := headtracker.NewHeadBroadcaster(lggr)
+	broadcaster := headtracker.NewBroadcaster(lggr)
 
 	err := broadcaster.Start(testutils.Context(t))
 	require.NoError(t, err)

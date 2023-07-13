@@ -106,7 +106,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*tom
 	}
 
 	db := opts.DB
-	headBroadcaster := headtracker.NewHeadBroadcaster(l)
+	headBroadcaster := headtracker.NewBroadcaster(l)
 	headSaver := headtracker.NullSaver
 	var headTracker httypes.HeadTracker
 	if !cfg.EVMRPCEnabled() {

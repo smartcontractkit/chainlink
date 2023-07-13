@@ -80,7 +80,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	}
 	uni.db = ocrmocks.NewOCRContractTrackerDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
-	uni.hb = htmocks.NewHeadBroadcaster(t)
+	uni.hb = htmocks.NewBroadcaster(t)
 	uni.ec = evmtest.NewEthClientMock(t)
 
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
