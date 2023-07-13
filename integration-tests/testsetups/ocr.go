@@ -53,10 +53,9 @@ type OCRSoakTest struct {
 // OCRSoakTestInputs define required inputs to run an OCR soak test
 type OCRSoakTestInputs struct {
 	BlockchainClient     blockchain.EVMClient // Client for the test to connect to the blockchain with
-	TestDuration         time.Duration        // How long to run the test for (assuming things pass)
+	TestDuration         time.Duration        // How long to run the test for
 	NumberOfContracts    int                  // Number of OCR contracts to launch
 	ChainlinkNodeFunding *big.Float           // Amount of ETH to fund each chainlink node with
-	RoundTimeout         time.Duration        // How long to wait for a round to update before failing the test
 	ExpectedRoundTime    time.Duration        // How long each round is expected to take
 	TimeBetweenRounds    time.Duration        // How long to wait after a completed round to start a new one, set 0 for instant
 	StartingAdapterValue int
@@ -179,7 +178,6 @@ func (o *OCRSoakTest) Run(t *testing.T) {
 
 	l.Info().
 		Str("Test Duration", o.Inputs.TestDuration.Truncate(time.Second).String()).
-		Str("Round Timeout", o.Inputs.RoundTimeout.String()).
 		Int("Number of OCR Contracts", len(o.ocrInstances)).
 		Msg("Starting OCR Soak Test")
 
@@ -383,7 +381,6 @@ func (o *OCRSoakTest) ensureInputValues(t *testing.T) {
 	require.Greater(t, fund, 0.0, "Expecting non-zero chainlink node funding amount")
 	require.GreaterOrEqual(t, inputs.TestDuration, time.Minute*1, "Expected test duration to be more than a minute")
 	require.GreaterOrEqual(t, inputs.ExpectedRoundTime, time.Second, "Expected ExpectedRoundTime to be greater than 1 second")
-	require.GreaterOrEqual(t, inputs.RoundTimeout, inputs.ExpectedRoundTime, "Expected RoundTimeout to be greater than ExpectedRoundTime")
 	require.NotNil(t, inputs.TimeBetweenRounds, "Expected TimeBetweenRounds to be set")
 	require.Less(t, inputs.TimeBetweenRounds, time.Hour, "TimeBetweenRounds must be less than 1 hour")
 }

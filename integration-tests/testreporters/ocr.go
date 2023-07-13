@@ -45,7 +45,7 @@ func (r *RPCIssue) Time() time.Time {
 }
 
 func (r *RPCIssue) CSV() [][]string {
-	return [][]string{{r.StartTime.String(), r.Message}}
+	return [][]string{{r.StartTime.Format("2006-01-02 15:04:05.00 MST"), r.Message}}
 }
 
 // OCRTestState indicates that a round per contract should complete within this time with this answer
@@ -65,7 +65,7 @@ func (e *OCRTestState) Time() time.Time {
 
 // CSV returns a CSV representation of the test state and all events
 func (e *OCRTestState) CSV() [][]string {
-	rows := [][]string{{e.StartTime.String(), fmt.Sprintf("Expecting new Answer: %d", e.Answer)}}
+	rows := [][]string{{e.StartTime.Format("2006-01-02 15:04:05.00 MST"), fmt.Sprintf("Expecting new Answer: %d", e.Answer)}}
 	for _, anomaly := range e.anomalies {
 		rows = append(rows, anomaly)
 	}
@@ -81,17 +81,19 @@ func (e *OCRTestState) Validate() bool {
 	for address, eventList := range e.FoundEvents {
 		if len(eventList) == 0 {
 			e.anomalous = true
-			anomalies = append(anomalies, []string{e.StartTime.String(), fmt.Sprintf("No AnswerUpdated for address '%s'", address)})
+			anomalies = append(anomalies, []string{
+				e.StartTime.Format("2006-01-02 15:04:05.00 MST"), fmt.Sprintf("No AnswerUpdated for address '%s'", address),
+			})
 		} else if len(eventList) > 1 {
 			e.anomalous = true
-			anomalies = append(anomalies, []string{e.StartTime.String(),
+			anomalies = append(anomalies, []string{e.StartTime.Format("2006-01-02 15:04:05.00 MST"),
 				fmt.Sprintf("Multiple AnswerUpdated for address '%s', possible double-transmission", address)},
 			)
 		} else {
 			event := eventList[0]
 			if event.Answer != e.Answer {
 				e.anomalous = true
-				anomalies = append(e.anomalies, []string{e.StartTime.String(),
+				anomalies = append(e.anomalies, []string{e.StartTime.Format("2006-01-02 15:04:05.00 MST"),
 					fmt.Sprintf("FoundEvent for address '%s' has wrong answer '%d'", address, event.Answer)},
 				)
 			}
@@ -117,7 +119,7 @@ func (a *FoundEvent) Time() time.Time {
 // CSV returns a CSV representation of the event
 func (a *FoundEvent) CSV() [][]string {
 	return [][]string{{
-		a.StartTime.String(),
+		a.StartTime.Format("2006-01-02 15:04:05.00 MST"),
 		fmt.Sprintf("Address: %s", a.Address),
 		fmt.Sprintf("Round: %d", a.RoundID),
 		fmt.Sprintf("Answer: %d", a.Answer),
