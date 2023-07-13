@@ -182,7 +182,7 @@ func TestMercury_Observe(t *testing.T) {
 				h2.On("LatestChain").Return(nil)
 				ht.h = h2
 				c2 := evmtest.NewEthClientMock(t)
-				c2.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("head retrieval failed"))
+				c2.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&evmtypes.Head{}, errors.New("head retrieval failed"))
 				ht.c = c2
 
 				obs, err := ds.Observe(ctx, repts, true)
