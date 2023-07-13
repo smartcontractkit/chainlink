@@ -52,7 +52,11 @@ func SendingKeysForJob(job *Job) (pq.StringArray, error) {
 		return nil, fmt.Errorf("%w: sendingKeys must be provided in relay config", ErrNoSendingKeysFromSpec)
 	}
 
-	sendingKeys := sendingKeysInterface.(pq.StringArray)
+	sendingKeys, ok := sendingKeysInterface.(pq.StringArray)
+	if !ok {
+		return nil, errors.New("sending keys are of wrong type")
+	}
+
 	if len(sendingKeys) == 0 {
 		return nil, errors.New("sending keys are empty")
 	}
