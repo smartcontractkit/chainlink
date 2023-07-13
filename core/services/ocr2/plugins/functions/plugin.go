@@ -104,6 +104,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		conf.Job,
 		bridgeAccessor,
 		pluginORM,
+		s4ORM,
 		pluginConfig,
 		conf.Chain.LogBroadcaster(),
 		listenerLogger,

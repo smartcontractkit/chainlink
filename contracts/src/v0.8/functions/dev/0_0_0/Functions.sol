@@ -27,7 +27,7 @@ library Functions {
     Location secretsLocation;
     CodeLanguage language;
     string source; // Source code for Location.Inline, url for Location.Remote or slot decimal number for Location.DONHosted
-    bytes secrets; // Encrypted urls for Location.Remote or slot decimal number for Location.DONHosted
+    bytes secrets; // Encrypted urls for Location.Remote or CBOR encoded slotid+version for Location.DONHosted, use addDONHostedSecrets()
     string[] args;
   }
 
@@ -123,12 +123,20 @@ library Functions {
   /**
    * @notice Adds DON-hosted user slot id (referencing secrets) to a Request
    * @param self The initialized request
-   * @param donSlotID Slot ID of the user's secrets hosted on DON
+   * @param slotID Slot ID of the user's secrets hosted on DON
+   * @param version User data version (for the slotID)
    */
-  function addDONHostedSecrets(Request memory self, bytes1 donSlotID) internal pure {
+  function addDONHostedSecrets(Request memory self, uint8 slotID, uint64 version) internal pure {
+    CBOR.CBORBuffer memory buffer;
+    Buffer.init(buffer.buf, DEFAULT_BUFFER_SIZE);
+
+    CBOR.writeString(buffer, "slotID");
+    CBOR.writeUInt64(buffer, slotID);
+    CBOR.writeString(buffer, "version");
+    CBOR.writeUInt64(buffer, version);
+
     self.secretsLocation = Location.DONHosted;
-    self.secrets = new bytes(1);
-    self.secrets[0] = bytes1(donSlotID);
+    self.secrets = buffer.buf.buf;
   }
 
   /**

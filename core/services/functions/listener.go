@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -126,6 +127,7 @@ type FunctionsListener struct {
 	chStop            chan struct{}
 	pluginORM         ORM
 	pluginConfig      config.PluginConfig
+	s4Storage         s4.Storage
 	logger            logger.Logger
 	mailMon           *utils.MailboxMonitor
 	urlsMonEndpoint   commontypes.MonitoringEndpoint
@@ -141,6 +143,7 @@ func NewFunctionsListener(
 	job job.Job,
 	bridgeAccessor BridgeAccessor,
 	pluginORM ORM,
+	s4ORM s4.ORM,
 	pluginConfig config.PluginConfig,
 	logBroadcaster log.Broadcaster,
 	lggr logger.Logger,
@@ -158,6 +161,7 @@ func NewFunctionsListener(
 		chStop:          make(chan struct{}),
 		pluginORM:       pluginORM,
 		pluginConfig:    pluginConfig,
+		s4Storage:       s4.NewStorage(lggr, *pluginConfig.S4Constraints, s4ORM, utils.NewRealClock()),
 		logger:          lggr,
 		mailMon:         mailMon,
 		urlsMonEndpoint: urlsMonEndpoint,
@@ -319,8 +323,7 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 	defer cancel()
 	l.logger.Infow("oracle request received", "requestID", formatRequestId(request.RequestId))
 
-	err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, pg.WithParentCtx(ctx))
-	if err != nil {
+	if err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, pg.WithParentCtx(ctx)); err != nil {
 		if errors.Is(err, ErrDuplicateRequestID) {
 			l.logger.Warnw("received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
 			l.markLogConsumed(lb, pg.WithParentCtx(ctx))
@@ -340,9 +343,8 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 	}
 
 	var requestData RequestData
-	cborParseErr := cbor.ParseDietCBORToStruct(request.Data, &requestData)
-	if cborParseErr != nil {
-		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", cborParseErr)
+	if err := cbor.ParseDietCBORToStruct(request.Data, &requestData); err != nil {
+		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", err)
 		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte("CBOR parsing error"))
 		return
 	}
@@ -366,23 +368,11 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 		return
 	}
 
-	nodeProvidedSecrets := ""
-	if l.decryptor != nil && requestData.SecretsLocation == LocationRemote && len(requestData.Secrets) > 0 {
-		thresholdEncSecrets, userError, err2 := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
-		if err2 != nil {
-			l.logger.Errorw("failed to fetch encrypted secrets", "requestID", requestIDStr, "err", err2)
-		}
-		if len(userError) != 0 {
-			l.logger.Debugw("no valid threshold encrypted secrets detected - falling back to legacy secrets", "requestID", requestIDStr, "err", string(userError))
-		}
-		if len(thresholdEncSecrets) != 0 {
-			decryptedSecrets, err2 := l.decryptor.Decrypt(ctx, []byte(requestIDStr), thresholdEncSecrets)
-			if err2 != nil {
-				l.logger.Debugw("threshold decryption of user secrets failed", "requestID", requestIDStr, "err", err2)
-			} else {
-				nodeProvidedSecrets = string(decryptedSecrets)
-			}
-		}
+	nodeProvidedSecrets, err := l.getSecrets(ctx, eaClient, requestIDStr, subscriptionOwner, requestData)
+	if err != nil {
+		l.logger.Errorw("failed to get secrets", "requestID", requestIDStr, "err", err)
+		l.setError(ctx, requestID, 0, INTERNAL_ERROR, []byte(err.Error()))
+		return
 	}
 
 	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, nodeProvidedSecrets, requestData)
@@ -530,4 +520,51 @@ func (l *FunctionsListener) reportSourceCodeDomains(requestId RequestID, domains
 	} else {
 		l.urlsMonEndpoint.SendLog(bytes)
 	}
+}
+
+func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID string, subscriptionOwner common.Address, requestData *RequestData) (string, error) {
+	if l.decryptor == nil {
+		return "", nil
+	}
+
+	var secrets []byte
+
+	switch requestData.SecretsLocation {
+	case LocationInline:
+		l.logger.Warnw("request used Inline secrets location, processing with no secrets", "requestID", requestID)
+		return "", nil
+	case LocationRemote:
+		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestID, l.job.Name.ValueOrZero())
+		if err != nil {
+			return "", errors.Wrap(err, "failed to fetch encrypted secrets")
+		}
+		if len(userError) != 0 {
+			l.logger.Debugw("no valid threshold encrypted secrets detected, falling back to legacy secrets", "requestID", requestID, "err", string(userError))
+		}
+		secrets = thresholdEncSecrets
+	case LocationDONHosted:
+		var donSecrets DONHostedSecrets
+		if err := cbor.ParseDietCBORToStruct(requestData.Secrets, &donSecrets); err != nil {
+			return "", errors.Wrap(err, "failed to parse DONHosted secrets CBOR")
+		}
+		record, _, err := l.s4Storage.Get(ctx, &s4.Key{
+			Address: subscriptionOwner,
+			SlotId:  donSecrets.SlotID,
+			Version: donSecrets.Version,
+		})
+		if err != nil {
+			return "", errors.Wrap(err, "failed to fetch S4 record for a secret")
+		}
+		secrets = record.Payload
+	}
+
+	if len(secrets) == 0 {
+		return "", nil
+	}
+
+	decryptedSecrets, err := l.decryptor.Decrypt(ctx, []byte(requestID), secrets)
+	if err != nil {
+		return "", errors.Wrap(err, "threshold decryption of user secrets failed")
+	}
+	return string(decryptedSecrets), nil
 }
