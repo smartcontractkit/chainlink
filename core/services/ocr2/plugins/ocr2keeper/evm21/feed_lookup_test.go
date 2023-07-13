@@ -24,11 +24,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mocks"
 
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -47,7 +45,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
 	var headTracker httypes.HeadTracker
-	var headBroadcaster commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash]
+	var headBroadcaster httypes.HeadBroadcaster
 	var logPoller logpoller.LogPoller
 	mockRegistry := mocks.NewRegistry(t)
 	mockHttpClient := mocks.NewHttpClient(t)

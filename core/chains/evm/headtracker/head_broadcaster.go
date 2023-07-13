@@ -13,8 +13,8 @@ type headBroadcaster = headtracker.HeadBroadcaster[*evmtypes.Head, common.Hash]
 
 var _ commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash] = &headBroadcaster{}
 
-func NewBroadcaster(
+func NewHeadBroadcaster(
 	lggr logger.Logger,
 ) *headBroadcaster {
-	return headtracker.NewBroadcaster[*evmtypes.Head, common.Hash](lggr)
+	return headtracker.NewHeadBroadcaster[*evmtypes.Head, common.Hash](lggr)
 }

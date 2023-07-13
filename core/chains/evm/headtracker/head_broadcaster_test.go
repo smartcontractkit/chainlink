@@ -5,16 +5,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -28,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func waitHeadBroadcasterToStart(t *testing.T, hb commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash]) {
+func waitHeadBroadcasterToStart(t *testing.T, hb types.HeadBroadcaster) {
 	t.Helper()
 
 	subscriber := &cltest.MockHeadTrackable{}
@@ -68,7 +67,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker1 := &cltest.MockHeadTrackable{}
 	checker2 := &cltest.MockHeadTrackable{}
 
-	hb := headtracker.NewBroadcaster(logger)
+	hb := headtracker.NewHeadBroadcaster(logger)
 	orm := headtracker.NewORM(db, logger, cfg.Database(), *ethClient.ConfiguredChainID())
 	hs := headtracker.NewSaver(logger, orm, evmCfg.EVM(), evmCfg.EVM().HeadTracker())
 	mailMon := utils.NewMailboxMonitor(t.Name())
@@ -102,7 +101,7 @@ func TestHeadBroadcaster_BroadcastNewLongestChain(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	lggr := logger.TestLogger(t)
-	broadcaster := headtracker.NewBroadcaster(lggr)
+	broadcaster := headtracker.NewHeadBroadcaster(lggr)
 
 	err := broadcaster.Start(testutils.Context(t))
 	require.NoError(t, err)
@@ -144,7 +143,7 @@ func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
-	broadcaster := headtracker.NewBroadcaster(lggr)
+	broadcaster := headtracker.NewHeadBroadcaster(lggr)
 
 	err := broadcaster.Start(testutils.Context(t))
 	require.NoError(t, err)

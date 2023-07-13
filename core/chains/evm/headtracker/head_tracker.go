@@ -26,7 +26,7 @@ func NewHeadTracker(
 	ethClient evmclient.Client,
 	config Config,
 	htConfig HeadTrackerConfig,
-	headBroadcaster commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash],
+	headBroadcaster httypes.HeadBroadcaster,
 	headSaver httypes.HeadSaver,
 	mailMon *utils.MailboxMonitor,
 ) httypes.HeadTracker {

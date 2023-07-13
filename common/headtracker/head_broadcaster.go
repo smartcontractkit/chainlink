@@ -36,8 +36,8 @@ type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct
 	lastCallbackID int
 }
 
-// NewBroadcaster creates a new HeadBroadcaster
-func NewBroadcaster[
+// NewHeadBroadcaster creates a new HeadBroadcaster
+func NewHeadBroadcaster[
 	H types.Head[BLOCK_HASH],
 	BLOCK_HASH types.Hashable,
 ](

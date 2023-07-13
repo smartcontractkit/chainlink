@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
@@ -26,7 +25,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -972,7 +970,7 @@ func TestHeadTracker_Backfill(t *testing.T) {
 
 func createHeadTracker(t *testing.T, ethClient evmclient.Client, config headtracker.Config, htConfig headtracker.HeadTrackerConfig, orm headtracker.ORM) *headTrackerUniverse {
 	lggr := logger.TestLogger(t)
-	hb := headtracker.NewBroadcaster(lggr)
+	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewSaver(lggr, orm, config, htConfig)
 	mailMon := utils.NewMailboxMonitor(t.Name())
 	return &headTrackerUniverse{
@@ -987,7 +985,7 @@ func createHeadTracker(t *testing.T, ethClient evmclient.Client, config headtrac
 func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client, cfg chainlink.GeneralConfig, orm headtracker.ORM) *headTrackerUniverse {
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	lggr := logger.TestLogger(t)
-	hb := headtracker.NewBroadcaster(lggr)
+	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewSaver(lggr, orm, evmcfg.EVM(), evmcfg.EVM().HeadTracker())
 	mailMon := utils.NewMailboxMonitor(t.Name())
 	ht := headtracker.NewHeadTracker(lggr, ethClient, evmcfg.EVM(), evmcfg.EVM().HeadTracker(), hb, hs, mailMon)
@@ -1004,7 +1002,7 @@ func createHeadTrackerWithNeverSleeper(t *testing.T, ethClient evmclient.Client,
 
 func createHeadTrackerWithChecker(t *testing.T, ethClient evmclient.Client, config headtracker.Config, htConfig headtracker.HeadTrackerConfig, orm headtracker.ORM, checker httypes.HeadTrackable) *headTrackerUniverse {
 	lggr := logger.TestLogger(t)
-	hb := headtracker.NewBroadcaster(lggr)
+	hb := headtracker.NewHeadBroadcaster(lggr)
 	hs := headtracker.NewSaver(lggr, orm, config, htConfig)
 	hb.Subscribe(checker)
 	mailMon := utils.NewMailboxMonitor(t.Name())
@@ -1022,7 +1020,7 @@ type headTrackerUniverse struct {
 	mu              *sync.Mutex
 	stopped         bool
 	headTracker     httypes.HeadTracker
-	headBroadcaster commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash]
+	headBroadcaster httypes.HeadBroadcaster
 	headSaver       httypes.HeadSaver
 	mailMon         *utils.MailboxMonitor
 }

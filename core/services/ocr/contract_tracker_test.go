@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -15,9 +14,9 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
@@ -49,7 +48,7 @@ func mustNewFilterer(t *testing.T) *offchainaggregator.OffchainAggregatorFiltere
 type contractTrackerUni struct {
 	db      *ocrmocks.OCRContractTrackerDB
 	lb      *logmocks.Broadcaster
-	hb      *commonmocks.HeadBroadcaster[*evmtypes.Head, common.Hash]
+	hb      *htmocks.HeadBroadcaster
 	ec      *evmclimocks.Client
 	tracker *ocr.OCRContractTracker
 }
@@ -81,7 +80,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	}
 	uni.db = ocrmocks.NewOCRContractTrackerDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
-	uni.hb = commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	uni.hb = htmocks.NewHeadBroadcaster(t)
 	uni.ec = evmtest.NewEthClientMock(t)
 
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
