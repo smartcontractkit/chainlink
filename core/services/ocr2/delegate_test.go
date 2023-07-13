@@ -2,7 +2,6 @@ package ocr2_test
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -47,7 +46,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		name                  string
 		pluginType            job.OCR2PluginType
 		transmitterID         null.String
-		sendingKeys           pq.StringArray
+		sendingKeys           []any
 		expectedError         bool
 		expectedTransmitterID string
 		forwardingEnabled     bool
@@ -77,23 +76,23 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		},
 		{
 			name:          "when transmitterID is not defined, it should validate that sending keys are defined",
-			sendingKeys:   []string{},
+			sendingKeys:   []any{},
 			expectedError: true,
 		},
 		{
 			name:          "when transmitterID is not defined, it should validate that plugin type is ocr2 vrf if more than 1 sending key is defined",
-			sendingKeys:   []string{"0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002", "0x7e57000000000000000000000000000000000003"},
+			sendingKeys:   []any{"0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002", "0x7e57000000000000000000000000000000000003"},
 			expectedError: true,
 		},
 		{
 			name:                  "when transmitterID is not defined and plugin is ocr2vrf, it should allow>1 sendingKeys and set transmitterID to the first one",
 			pluginType:            job.OCR2VRF,
-			sendingKeys:           []string{"0x7e57000000000000000000000000000000000000", "0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
+			sendingKeys:           []any{"0x7e57000000000000000000000000000000000000", "0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
 			expectedTransmitterID: "0x7e57000000000000000000000000000000000000",
 		},
 		{
 			name:                  "when transmitterID is not defined, it should set transmitterID to first sendingKey",
-			sendingKeys:           []string{"0x7e57000000000000000000000000000000000004"},
+			sendingKeys:           []any{"0x7e57000000000000000000000000000000000004"},
 			expectedTransmitterID: "0x7e57000000000000000000000000000000000004",
 		},
 		{
@@ -107,7 +106,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			name:                  "when forwarders are enabled and when transmitterID is not defined, it should use first sendingKey to retrieve forwarder address",
 			pluginType:            job.OCR2VRF,
 			forwardingEnabled:     true,
-			sendingKeys:           []string{"0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
+			sendingKeys:           []any{"0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
 			getForwarderForEOAArg: common.HexToAddress("0x7e57000000000000000000000000000000000001"),
 			expectedTransmitterID: "0x7e58000000000000000000000000000000000000",
 		},
@@ -115,7 +114,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			name:                  "when forwarders are enabled but forwarder address fails to be retrieved and when transmitterID is not defined, it should default to using first sendingKey",
 			pluginType:            job.OCR2VRF,
 			forwardingEnabled:     true,
-			sendingKeys:           []string{"0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
+			sendingKeys:           []any{"0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
 			getForwarderForEOAArg: common.HexToAddress("0x7e57000000000000000000000000000000000001"),
 			getForwarderForEOAErr: true,
 			expectedTransmitterID: "0x7e57000000000000000000000000000000000001",
