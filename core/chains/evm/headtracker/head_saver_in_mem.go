@@ -103,7 +103,11 @@ func (hs *inMemoryHeadSaver[H, BLOCK_HASH, CHAIN_ID]) HeadByNumber(blockNumber i
 	hs.mu.RLock()
 	defer hs.mu.RUnlock()
 
-	return hs.HeadsNumber[blockNumber]
+	if heads, exists := hs.HeadsNumber[blockNumber]; exists {
+		return heads
+	}
+
+	return []H{}
 }
 
 // Assembles the heads together and populates the Heads Map
