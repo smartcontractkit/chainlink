@@ -2,8 +2,9 @@ package job
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 	"math/big"
+
+	"github.com/pkg/errors"
 
 	"github.com/lib/pq"
 

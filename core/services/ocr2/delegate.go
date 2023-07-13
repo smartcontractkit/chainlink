@@ -5,10 +5,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"gopkg.in/guregu/null.v4"
 	"log"
 	"math/big"
 	"time"
+
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
