@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -75,7 +76,7 @@ func NewUpkeepExecuter(
 	orm ORM,
 	pr pipeline.Runner,
 	ethClient evmclient.Client,
-	headBroadcaster httypes.HeadBroadcaster,
+	headBroadcaster commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash],
 	gasEstimator gas.EvmFeeEstimator,
 	logger logger.Logger,
 	config UpkeepExecuterConfig,

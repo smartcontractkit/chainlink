@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -67,7 +69,7 @@ type (
 		mailMon          *utils.MailboxMonitor
 
 		// HeadBroadcaster
-		headBroadcaster  httypes.HeadBroadcaster
+		headBroadcaster  commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash]
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
@@ -107,7 +109,7 @@ func NewOCRContractTracker(
 	ocrDB OCRContractTrackerDB,
 	cfg ocrcommon.Config,
 	q pg.QConfig,
-	headBroadcaster httypes.HeadBroadcaster,
+	headBroadcaster commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash],
 	mailMon *utils.MailboxMonitor,
 ) (o *OCRContractTracker) {
 	logger = logger.Named("OCRContractTracker")

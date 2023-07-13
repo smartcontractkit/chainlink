@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/mock"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -111,7 +113,7 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 		}
 	}
 	if testopts.HeadTracker != nil {
-		opts.GenHeadTracker = func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker {
+		opts.GenHeadTracker = func(*big.Int, commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash]) httypes.HeadTracker {
 			return testopts.HeadTracker
 		}
 	}

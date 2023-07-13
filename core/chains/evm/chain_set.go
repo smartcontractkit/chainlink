@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
@@ -14,6 +15,7 @@ import (
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -259,7 +261,7 @@ type ChainSetOpts struct {
 	GenEthClient      func(*big.Int) client.Client
 	GenLogBroadcaster func(*big.Int) log.Broadcaster
 	GenLogPoller      func(*big.Int) logpoller.LogPoller
-	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
+	GenHeadTracker    func(*big.Int, commontypes.HeadBroadcaster[*types.Head, common.Hash]) httypes.HeadTracker
 	GenTxManager      func(*big.Int) txmgr.TxManager
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }

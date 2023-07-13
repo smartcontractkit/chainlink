@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/onsi/gomega"
@@ -25,6 +26,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
@@ -1020,7 +1022,7 @@ type headTrackerUniverse struct {
 	mu              *sync.Mutex
 	stopped         bool
 	headTracker     httypes.HeadTracker
-	headBroadcaster httypes.HeadBroadcaster
+	headBroadcaster commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash]
 	headSaver       httypes.HeadSaver
 	mailMon         *utils.MailboxMonitor
 }

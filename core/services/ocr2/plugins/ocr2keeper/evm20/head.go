@@ -4,15 +4,17 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 type HeadProvider struct {
 	ht         httypes.HeadTracker
-	hb         httypes.HeadBroadcaster
+	hb         commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash]
 	chHead     chan ocr2keepers.BlockKey
 	subscribed bool
 }

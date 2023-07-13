@@ -5,15 +5,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -27,7 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func waitHeadBroadcasterToStart(t *testing.T, hb types.HeadBroadcaster) {
+func waitHeadBroadcasterToStart(t *testing.T, hb commontypes.HeadBroadcaster[*evmtypes.Head, common.Hash]) {
 	t.Helper()
 
 	subscriber := &cltest.MockHeadTrackable{}

@@ -36,13 +36,3 @@ type HeadTrackable = commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
 type HeadBroadcasterRegistry interface {
 	Subscribe(callback HeadTrackable) (currentLongestChain *evmtypes.Head, unsubscribe func())
 }
-
-// HeadBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
-// congestion than the head tracker, and missed heads should be expected by consuming jobs
-//
-//go:generate mockery --quiet --name HeadBroadcaster --output ../mocks/ --case=underscore
-type HeadBroadcaster interface {
-	services.ServiceCtx
-	BroadcastNewLongestChain(head *evmtypes.Head)
-	HeadBroadcasterRegistry
-}
