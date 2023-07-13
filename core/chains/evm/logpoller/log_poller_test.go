@@ -120,8 +120,6 @@ func TestLogPoller_Integration(t *testing.T) {
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Addresses, 1)
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Topics, 1)
 
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(testutils.Context(t)))
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Addresses, 1)
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Topics, 1)
 
@@ -133,15 +131,27 @@ func TestLogPoller_Integration(t *testing.T) {
 		require.NoError(t, err1)
 		th.Client.Commit()
 	}
-	// The poller starts on a new chain at latest-finality (5 in this case),
-	// replay to ensure we get all the logs.
-	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 1))
+	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
+	require.NoError(t, th.LogPoller.Start(testutils.Context(t)))
 
-	// We should immediately have all those Log1 logs.
-	logs, err := th.LogPoller.Logs(2, 7, EmitterABI.Events["Log1"].ID, th.EmitterAddress1,
+	// The poller starts on a new chain at latest-finality (5 in this case),
+	// Replaying from block 4 should guarantee we have block 4 immediately.  (We will also get
+	// block 3 once the backup poller runs, since it always starts 100 blocks behind.)
+	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
+
+	// We should immediately have at least logs 4-7
+	logs, err := th.LogPoller.Logs(4, 7, EmitterABI.Events["Log1"].ID, th.EmitterAddress1,
 		pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	assert.Equal(t, 5, len(logs))
+	require.Equal(t, 4, len(logs))
+
+	// Once the backup poller runs we should also have the log from block 3
+	testutils.AssertEventually(t, func() bool {
+		logs, err := th.LogPoller.Logs(3, 3, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+		require.NoError(t, err)
+		return len(logs) == 1
+	})
+
 	// Now let's update the Filter and replay to get Log2 logs.
 	err = th.LogPoller.RegisterFilter(logpoller.Filter{
 		"Emitter - log2", []common.Hash{EmitterABI.Events["Log2"].ID},
@@ -151,6 +161,12 @@ func TestLogPoller_Integration(t *testing.T) {
 	// Replay an invalid block should error
 	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 0))
 	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 20))
+
+	// Still shouldn't have any Log2 logs yet
+	logs, err = th.LogPoller.Logs(2, 7, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
+	require.NoError(t, err)
+	require.Len(t, logs, 0)
+
 	// Replay only from block 4, so we should see logs in block 4,5,6,7 (4 logs)
 	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
 
@@ -921,7 +937,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, 1*time.Hour, 2, 3, 2, 1000)
 
 	err = lp.Replay(ctx, 5) // block number too high
-	require.ErrorContains(t, err, "Invalid replay block number")
+	require.ErrorContains(t, err, "invalid replay block number")
 
 	// Force a db error while loading the filters (tx aborted, already rolled back)
 	require.Error(t, utils.JustError(db.Exec(`invalid query`)))
@@ -948,8 +964,8 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	}
 
 	assert.Contains(t, logMsgs, "SQL ERROR")
-	assert.Contains(t, logMsgs, "Failed loading filters in main logpoller loop, retrying later")
-	assert.Contains(t, logMsgs, "Error executing replay, could not get fromBlock")
+	assert.Contains(t, logMsgs, "failed loading filters in main logpoller loop, retrying later")
+	assert.Contains(t, logMsgs, "error executing replay, could not get fromBlock")
 	assert.Contains(t, logMsgs, "backup log poller ran before filters loaded, skipping")
 }
 
