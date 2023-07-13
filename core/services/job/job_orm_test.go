@@ -742,8 +742,8 @@ func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T)
 	t.Run("sending keys validation works properly", func(t *testing.T) {
 		jb.OCR2OracleSpec.TransmitterID = null.String{}
 		_, address2 := cltest.MustInsertRandomKey(t, keyStore.Eth())
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []string{address.String(), address2.String(), "sending key that doesn't have a match in key store"}
-		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"sending key that doesn't have a match in key store\": no such transmitter key exists", jobORM.CreateJob(&jb).Error())
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = pq.StringArray{address.String(), address2.String(), common.HexToAddress("0X0").String()}
+		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"0x0000000000000000000000000000000000000000\": no such transmitter key exists", jobORM.CreateJob(&jb).Error())
 
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []int{1, 2, 3}
 		assert.Equal(t, "CreateJobFailed: sending keys are of wrong type", jobORM.CreateJob(&jb).Error())
@@ -751,7 +751,7 @@ func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T)
 
 	t.Run("sending keys and transmitter ID can't both be defined", func(t *testing.T) {
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
-		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = []string{address.String()}
+		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = pq.StringArray{address.String()}
 		assert.Equal(t, "CreateJobFailed: sending keys and transmitter ID can't both be defined", jobORM.CreateJob(&jb).Error())
 	})
 
