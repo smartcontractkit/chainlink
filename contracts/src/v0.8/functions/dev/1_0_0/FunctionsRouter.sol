@@ -100,7 +100,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
 
-    address coordinatorAddress = this.getRoute(donId, useProposed);
+    address coordinatorAddress = this.getContractById(donId, useProposed);
     IFunctionsCoordinator coordinator = IFunctionsCoordinator(coordinatorAddress);
 
     (, , address owner, , ) = this.getSubscription(subscriptionId);
@@ -134,7 +134,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     return requestId;
   }
 
-  function _validateProposal(bytes32 donId, bytes calldata data) internal override returns (bytes32) {
+  function _validateProposedContracts(bytes32 donId, bytes calldata data) internal override returns (bytes32) {
     (uint64 subscriptionId, bytes memory reqData, uint16 reqDataVersion, uint32 callbackGasLimit) = abi.decode(
       data,
       (uint64, bytes, uint16, uint32)

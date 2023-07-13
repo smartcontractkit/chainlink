@@ -19,14 +19,14 @@ interface IRouterBase {
    * @param id A bytes32 identifier for the route
    * @return contract The current contract address
    */
-  function getRoute(bytes32 id) external view returns (address);
+  function getContractById(bytes32 id) external view returns (address);
 
   /**
    * @notice Get the proposed next contract given an ID
    * @param id A bytes32 identifier for the route
    * @return contract The current or proposed contract address
    */
-  function getRoute(bytes32 id, bool useProposed) external view returns (address);
+  function getContractById(bytes32 id, bool useProposed) external view returns (address);
 
   /**
    * @notice Return the latest proprosal set
@@ -35,12 +35,12 @@ interface IRouterBase {
    * @return from The addresses of the contracts that will be updated from
    * @return to The addresses of the contracts that will be updated to
    */
-  function getProposalSet() external view returns (uint, bytes32[] memory, address[] memory, address[] memory);
+  function getProposedContractSet() external view returns (uint, bytes32[] memory, address[] memory, address[] memory);
 
   /**
    * @notice Proposes one or more updates to the contract routes
    */
-  function propose(
+  function proposeContractsUpdate(
     bytes32[] memory proposalSetIds,
     address[] memory proposalSetFromAddresses,
     address[] memory proposalSetToAddresses
@@ -49,31 +49,35 @@ interface IRouterBase {
   /**
    * @notice Tests a proposal for the ability to make a successful upgrade
    */
-  function validateProposal(bytes32 id, bytes calldata data) external;
+  function validateProposedContracts(bytes32 id, bytes calldata data) external;
 
   /**
-   * @notice Updates the current contract routes to the proposed contracts once timelock has passed
+   * @notice Updates the current contract routes to the proposed contracts
+   * @dev Only callable once timelock has passed
    */
-  function upgrade() external;
+  function updateContracts() external;
 
   /**
-   * @notice Proposes new configuration data that will be given to the contract route
+   * @notice Proposes new configuration data for the current (not proposed) contract  
    */
-  function proposeConfig(bytes32 id, bytes calldata config) external;
+  function proposeConfigUpdate(bytes32 id, bytes calldata config) external;
 
   /**
-   * @notice Sends new configuration data to the contract route once timelock has passed
+   * @notice Sends new configuration data to the contract along a route route
+   * @dev Only callable once timelock has passed
    */
   function updateConfig(bytes32 id) external;
 
   /**
-   * @dev Propose a change to the amount of blocks required for a timelock
+   * @notice Propose a change to the amount of blocks of the timelock
+   * (the amount of blocks that are required to pass before a change can be applied) 
    */
   function proposeTimelockBlocks(uint16 blocks) external;
 
   /**
-   * @dev Change the amount of blocks required for the timelock
-   * (only after the proposal has gone through the timelock itself)
+   * @notice Apply a proposed change to the amount of blocks required for the timelock
+   * (the amount of blocks that are required to pass before a change can be applied) 
+   * @dev Only callable after the timelock blocks proposal has gone through the timelock itself
    */
   function updateTimelockBlocks() external;
 

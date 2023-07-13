@@ -64,7 +64,7 @@ abstract contract FunctionsClient is IFunctionsClient {
       callbackGasLimit,
       donId
     );
-    s_pendingRequests[requestId] = s_router.getRoute(donId);
+    s_pendingRequests[requestId] = s_router.getContractById(donId);
     emit RequestSent(requestId);
     return requestId;
   }
