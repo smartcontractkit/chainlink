@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -367,24 +367,17 @@ func SetAllAdapterResponsesToTheSameValue(
 	chainlinkNodes []*client.Chainlink,
 	mockserver *ctfClient.MockserverClient,
 ) error {
-	var adapterVals sync.WaitGroup
-	var err error
+	eg := &errgroup.Group{}
 	for _, o := range ocrInstances {
 		ocrInstance := o
 		for _, n := range chainlinkNodes {
 			node := n
-			adapterVals.Add(1)
-			go func() {
-				defer adapterVals.Done()
-				err = SetAdapterResponse(response, ocrInstance, node, mockserver)
-			}()
+			eg.Go(func() error {
+				return SetAdapterResponse(response, ocrInstance, node, mockserver)
+			})
 		}
 	}
-	if err != nil {
-		return err
-	}
-	adapterVals.Wait()
-	return nil
+	return eg.Wait()
 }
 
 // SetAllAdapterResponsesToDifferentValues sets the mock responses in mockserver that are read by chainlink nodes
