@@ -17,6 +17,7 @@ import "../../ConfirmedOwner.sol";
 contract TrustedBlockhashStore is ConfirmedOwner {
     error NotInWhitelist();
     error InvalidTrustedBlockhashes();
+    error InvalidRecentBlockhash();
 
     mapping(uint256 => bytes32) public s_blockhashes;
     mapping(uint256 => bool) public s_whitelistStatus;
@@ -60,7 +61,17 @@ contract TrustedBlockhashStore is ConfirmedOwner {
      * by a whitelisted address
      * @param blockhashes the list of blockhashes and their respective blocks
      */
-    function storeTrusted(uint256[] calldata blockNums, bytes32[] calldata blockhashes) external {
+    function storeTrusted(
+        uint256[] calldata blockNums,
+        bytes32[] calldata blockhashes,
+        uint256 recentBlockNumber,
+        bytes32 recentBlockhash
+    ) external {
+        bytes32 onChainHash = ChainSpecificUtil.getBlockhash(recentBlockNumber);
+        if (onChainHash != recentBlockhash) {
+            revert InvalidRecentBlockhash();
+        }
+
         if (!s_whitelistStatus[msg.sender]) {
             revert NotInWhitelist();
         }
