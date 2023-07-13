@@ -243,7 +243,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 
 			// checks if they are present and if they are valid
-			sendingKeysDefined, err := areSendingKeysDefined(jb.OCR2OracleSpec, o.keyStore)
+			sendingKeysDefined, err := areSendingKeysDefined(jb, o.keyStore)
 			if err != nil {
 				return err
 			}
@@ -480,15 +480,15 @@ func validateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key s
 	return nil
 }
 
-func areSendingKeysDefined(spec *OCR2OracleSpec, keystore keystore.Master) (bool, error) {
-	if spec.RelayConfig["sendingKeys"] != nil {
-		sendingKeys, ok := spec.RelayConfig["sendingKeys"].([]string)
-		if !ok {
-			return false, errors.New("sending keys are of wrong type")
+func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
+	if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil {
+		sendingKeys, err := SendingKeysForJob(jb)
+		if err != nil {
+			return false, err
 		}
 
 		for _, sendingKey := range sendingKeys {
-			if err := validateKeyStoreMatch(spec, keystore, sendingKey); err != nil {
+			if err = validateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
 				return false, err
 			}
 		}
