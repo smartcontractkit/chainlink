@@ -13,6 +13,8 @@ import {console} from "forge-std/console.sol";
 contract VRFV2PlusWrapperTest is BaseTest {
     address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
     bytes32 vrfKeyHash = hex"9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528";
+    uint32 wrapperGasOverhead = 10_000;
+    uint32 coordinatorGasOverhead = 20_000;
 
     ExposedVRFCoordinatorV2Plus s_testCoordinator;
     MockLinkToken s_linkToken;
@@ -62,8 +64,8 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
     function setConfigWrapper() internal {
         s_wrapper.setConfig(
-            10_000, // wrapper gas overhead
-            20_000, // coordinator gas overhead
+            wrapperGasOverhead, // wrapper gas overhead
+            coordinatorGasOverhead, // coordinator gas overhead
             0, // premium percentage
             vrfKeyHash, // keyHash
             10 // max number of words
@@ -87,32 +89,34 @@ contract VRFV2PlusWrapperTest is BaseTest {
         s_testCoordinator.fundSubscriptionWithEth{value: 10 ether}(1);
         vm.deal(address(s_consumer), 10 ether);
 
+        // Request randomness from wrapper.
+        uint32 callbackGasLimit = 1_000_000;
         vm.expectEmit(true, true, true, true);
         (uint256 requestId, uint256 preSeed) =
-            s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(s_wrapper), 1, 3);
-        uint32 expectedGasPreEIP150 = 1_010_000;
-        uint32 expectedGasPostEIP150 = expectedGasPreEIP150 / 63 + 1;
+            s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(s_wrapper), 1, 2);
+        uint32 EIP150Overhead = callbackGasLimit / 63 + 1;
         emit RandomWordsRequested(
             vrfKeyHash,
-            85089490143145047834139715950358737191952483263106615003471147718850982688419,
-            69981956314245924419196048805784884848428870835510191458138891205970445077794,
+            requestId,
+            preSeed,
             1, // subId
             0, // minConfirmations
-            1025874, // callbackGasLimit - accounts for EIP 150
+            callbackGasLimit + EIP150Overhead + wrapperGasOverhead, // callbackGasLimit - accounts for EIP 150
             1, // numWords
             true, // nativePayment
             address(s_wrapper) // requester
         );
-        requestId = s_consumer.makeRequestNative(1_000_000, 0, 1);
+        requestId = s_consumer.makeRequestNative(callbackGasLimit, 0, 1);
 
         (uint256 paid, bool fulfilled, bool native) = s_consumer.s_requests(requestId);
-        assertEq(paid, 1_030_000);
+        uint32 expectedPaid = callbackGasLimit + wrapperGasOverhead + coordinatorGasOverhead;
+        assertEq(paid, expectedPaid);
         assertEq(fulfilled, false);
         assertEq(native, true);
-        assertEq(address(s_consumer).balance, 10 ether - 1_030_000);
+        assertEq(address(s_consumer).balance, 10 ether - expectedPaid);
 
         (, uint256 gasLimit,) = s_wrapper.s_callbacks(requestId);
-        assertEq(gasLimit, 1_000_000);
+        assertEq(gasLimit, callbackGasLimit);
 
         changePrank(address(s_testCoordinator));
         uint256[] memory words = new uint256[](1);
@@ -128,33 +132,36 @@ contract VRFV2PlusWrapperTest is BaseTest {
         s_linkToken.transferAndCall(address(s_testCoordinator), 10 ether, abi.encode(1));
         s_linkToken.transfer(address(s_consumer), 10 ether);
 
+        // Request randomness from wrapper.
+        uint32 callbackGasLimit = 1_000_000;
         vm.expectEmit(true, true, true, true);
         (uint256 requestId, uint256 preSeed) =
-            s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(s_wrapper), 1, 3);
-        uint32 expectedGasPreEIP150 = 1_010_000;
-        uint32 expectedGasPostEIP150 = expectedGasPreEIP150 / 63 + 1;
+            s_testCoordinator.computeRequestIdExternal(vrfKeyHash, address(s_wrapper), 1, 2);
+        uint32 EIP150Overhead = callbackGasLimit / 63 + 1;
         emit RandomWordsRequested(
             vrfKeyHash,
-            85089490143145047834139715950358737191952483263106615003471147718850982688419,
-            69981956314245924419196048805784884848428870835510191458138891205970445077794,
+            requestId,
+            preSeed,
             1, // subId
             0, // minConfirmations
-            1025874, // callbackGasLimit - accounts for EIP 150
+            callbackGasLimit + EIP150Overhead + wrapperGasOverhead, // callbackGasLimit - accounts for EIP 150
             1, // numWords
             false, // nativePayment
             address(s_wrapper) // requester
         );
-        requestId = s_consumer.makeRequest(1_000_000, 0, 1);
+        s_consumer.makeRequest(callbackGasLimit, 0, 1);
 
+        // Assert that the request was made correctly.
         (uint256 paid, bool fulfilled, bool native) = s_consumer.s_requests(requestId);
-        assertEq(paid, 2_060_000); // 1_030_000 * 2 for link/eth ratio
+        uint32 expectedPaid = (callbackGasLimit + wrapperGasOverhead + coordinatorGasOverhead) * 2;
+        assertEq(paid, expectedPaid); // 1_030_000 * 2 for link/eth ratio
         assertEq(fulfilled, false);
         assertEq(native, false);
-        assertEq(s_linkToken.balanceOf(address(s_consumer)), 10 ether - 2_060_000);
-
+        assertEq(s_linkToken.balanceOf(address(s_consumer)), 10 ether - expectedPaid);
         (, uint256 gasLimit,) = s_wrapper.s_callbacks(requestId);
-        assertEq(gasLimit, 1_000_000);
+        assertEq(gasLimit, callbackGasLimit);
 
+        // Fulfill the request.
         changePrank(address(s_testCoordinator));
         uint256[] memory words = new uint256[](1);
         words[0] = 456;
