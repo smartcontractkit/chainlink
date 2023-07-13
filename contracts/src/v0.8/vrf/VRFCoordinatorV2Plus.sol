@@ -597,6 +597,6 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
    * @return Type and version string
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "VRFCoordinatorV2 2.0.0";
+    return "VRFCoordinatorV2Plus 1.0.0";
   }
 }
