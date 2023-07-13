@@ -20,8 +20,9 @@ type headSaver struct {
 }
 
 var _ commontypes.HeadSaver[*evmtypes.Head, common.Hash] = (*headSaver)(nil)
+var _ httypes.HeadSaver = (*headSaver)(nil)
 
-func NewHeadSaver(lggr logger.Logger, orm ORM, config Config, htConfig HeadTrackerConfig) httypes.HeadSaver {
+func NewSaver(lggr logger.Logger, orm ORM, config Config, htConfig HeadTrackerConfig) httypes.HeadSaver {
 	return &headSaver{
 		orm:      orm,
 		config:   config,

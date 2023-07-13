@@ -47,7 +47,7 @@ func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {
 	cfg := configtest.NewGeneralConfig(t, nil)
 	htCfg := &config{finalityDepth: uint32(1)}
 	orm := headtracker.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
-	saver := headtracker.NewHeadSaver(lggr, orm, htCfg, &headTrackerConfig{historyDepth: 6})
+	saver := headtracker.NewSaver(lggr, orm, htCfg, &headTrackerConfig{historyDepth: 6})
 	return saver, orm
 }
 
