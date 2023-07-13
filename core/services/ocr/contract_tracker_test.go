@@ -338,7 +338,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni.lb.On("IsConnected").Return(true).Maybe()
 
 		eventuallyCloseHeadBroadcaster := cltest.NewAwaiter()
-		uni.hb.On("Subscribe", uni.tracker).Return(nil, func() { eventuallyCloseHeadBroadcaster.ItHappened() })
+		uni.hb.On("Subscribe", uni.tracker).Return(&evmtypes.Head{}, func() { eventuallyCloseHeadBroadcaster.ItHappened() })
 
 		uni.db.On("LoadLatestRoundRequested").Return(rr, nil)
 
