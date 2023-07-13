@@ -29,6 +29,7 @@
 /core/services/pipeline @connorwstein @prashantkumar1982
 /core/services/synchronization
 /core/services/telemetry
+/core/services/relay/evm/mercury @samsondav @sdrug @martin-cll
 
 # VRF-related services
 /core/services/vrf @smartcontractkit/vrf-team
