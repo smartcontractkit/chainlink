@@ -491,6 +491,9 @@ func (c *Chainlink) UpdateEthKeyMaxGasPriceGWei(keyId string, gWei int) (*ETHKey
 		}).
 		SetResult(ethKey).
 		Put("/v2/keys/eth/{keyId}")
+	if err != nil {
+		return nil, nil, err
+	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	if err != nil {
 		return nil, nil, err
@@ -1089,7 +1092,7 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 			URL:        nodeDetails.LocalIP,
 			Email:      "notreal@fakeemail.ch",
 			Password:   "fj293fbBnlQ!f9vNs",
-			InternalIP: parseHostname(nodeDetails.InternalIP),
+			InternalIP: parseHostname(nodeDetails.LocalIP),
 			ChartName:  nodeDetails.ChartName,
 			PodName:    nodeDetails.PodName,
 		})
@@ -1117,7 +1120,7 @@ func ReconnectChainlinkNodes(testEnvironment *environment.Environment, nodes []*
 					URL:        details.LocalIP,
 					Email:      "notreal@fakeemail.ch",
 					Password:   "fj293fbBnlQ!f9vNs",
-					InternalIP: parseHostname(details.InternalIP),
+					InternalIP: parseHostname(details.LocalIP),
 					ChartName:  details.ChartName,
 					PodName:    details.PodName,
 				})

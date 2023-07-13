@@ -17,8 +17,8 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.29.1
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-env v0.33.1
-	github.com/smartcontractkit/chainlink-testing-framework v1.11.8
+	github.com/smartcontractkit/chainlink-env v0.33.2-0.20230713202037-db6292b9c433
+	github.com/smartcontractkit/chainlink-testing-framework v1.12.1-0.20230713202505-45cd411f5b1d
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230606215712-82b910bef5c1
 	github.com/smartcontractkit/ocr2keepers v0.7.0
@@ -30,8 +30,6 @@ require (
 	golang.org/x/sync v0.3.0
 	gopkg.in/guregu/null.v4 v4.0.0
 )
-
-replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.12.1-0.20230713183237-d880280258bb
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
