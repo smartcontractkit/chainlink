@@ -36,7 +36,7 @@ $SCRIPTPATH/native_solc7_compile OperatorFactory.sol
 $SCRIPTPATH/native_solc7_compile tests/Consumer.sol
 $SCRIPTPATH/native_solc7_compile tests/VRFCoordinatorMock.sol
 
-## Keeper
+# Keeper
 $SCRIPTPATH/native_solc7_compile KeeperRegistry1_1.sol
 $SCRIPTPATH/native_solc7_compile UpkeepRegistrationRequests.sol
 $SCRIPTPATH/native_solc7_compile tests/UpkeepPerformCounterRestrictive.sol
@@ -65,21 +65,21 @@ $SCRIPTPATH/native_solc8_15_compile tests/MercuryUpkeep.sol
 $SCRIPTPATH/native_solc8_15_compile dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol
 $SCRIPTPATH/native_solc8_16_compile tests/AutomationConsumerBenchmark.sol
 
-## Aggregators
+# Aggregators
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
 
 $SCRIPTPATH/native_solc8_6_compile mocks/MockAggregatorProxy.sol
 $SCRIPTPATH/native_solc8_6_compile Chainlink.sol
 $SCRIPTPATH/native_solc8_6_compile ChainlinkClient.sol
 
-## VRF
+# VRF
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFRequestIDBase.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFConsumerBase.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumer.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFRequestIDBaseTestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile mocks/VRFCoordinatorMock.sol
 
-## VRF V2
+# VRF V2
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFConsumerBaseV2.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumerV2.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFMaliciousConsumerV2.sol
@@ -109,7 +109,7 @@ $SCRIPTPATH/native_solc8_6_compile interfaces/VRFV2WrapperInterface.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFV2WrapperConsumerBase.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2WrapperConsumerExample.sol
 
-## VRF Consumers and Mocks
+# VRF Consumers and Mocks
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFExternalSubOwnerExample.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2PlusExternalSubOwnerExample.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFSingleConsumerExample.sol
@@ -119,24 +119,24 @@ $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFLoadTestOwnerlessConsumer.
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFLoadTestExternalSubOwner.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2LoadTestWithMetrics.sol
 
-## Keepers x VRF v2
+# Keepers x VRF v2
 $SCRIPTPATH/native_solc8_6_compile KeepersVRFConsumer.sol
 
-## Feeds
+# Feeds
 $SCRIPTPATH/native_solc8_6_compile dev/DerivedPriceFeed.sol
 
-## Log tester
+# Log tester
 $SCRIPTPATH/native_solc8_6_compile tests/LogEmitter.sol
 
-## Chainlink Functions
+# Chainlink Functions
 $SCRIPTPATH/native_solc_compile_all_functions
 
-### llo-feeds
+# llo-feeds
 $SCRIPTPATH/native_solc_compile_all_llo
 
-## Mocks
+# Mocks
 $SCRIPTPATH/native_solc8_6_compile mocks/FunctionsOracleEventsMock.sol
 $SCRIPTPATH/native_solc8_6_compile mocks/FunctionsBillingRegistryEventsMock.sol
 
-## Transmission
+# Transmission
 $SCRIPTPATH/transmission/native_solc_compile_all_transmission

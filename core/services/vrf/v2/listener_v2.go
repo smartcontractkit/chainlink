@@ -528,12 +528,12 @@ func MaybeSubtractReservedEth(q pg.Q, startBalance *big.Int, chainID, subID uint
 	}
 
 	if reservedEther != "" {
-		reservedLinkInt, success := big.NewInt(0).SetString(reservedEther, 10)
+		reservedEtherInt, success := big.NewInt(0).SetString(reservedEther, 10)
 		if !success {
 			return nil, fmt.Errorf("converting reserved ether %s", reservedEther)
 		}
 
-		return new(big.Int).Sub(startBalance, reservedLinkInt), nil
+		return new(big.Int).Sub(startBalance, reservedEtherInt), nil
 	}
 
 	if startBalance != nil {
@@ -591,7 +591,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 		"subID", subID,
 		"eligibleSubReqs", len(reqs),
 		"startBalance", startBalance.String(),
-		"startBalanceNoReservedLink", startBalanceNoReserved.String(),
+		"startBalanceNoReserved", startBalanceNoReserved.String(),
 		"batchMaxGas", batchMaxGas,
 		"subIsActive", subIsActive,
 	)
