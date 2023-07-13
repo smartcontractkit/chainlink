@@ -395,6 +395,9 @@ func (g *gasEstimatorConfig) PriceMax() *assets.Wei                { return asse
 func (g *gasEstimatorConfig) PriceMin() *assets.Wei                { return assets.NewWeiI(42) }
 func (g *gasEstimatorConfig) Mode() string                         { return "FixedPrice" }
 func (g *gasEstimatorConfig) LimitJobType() evmconfig.LimitJobType { return &limitJobTypeConfig{} }
+func (e *gasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
+	return assets.NewWeiI(42)
+}
 
 type limitJobTypeConfig struct {
 }
@@ -438,11 +441,10 @@ func (c *mockConfig) EVM() evmconfig.EVM {
 	return c.evmConfig
 }
 
-func (c *mockConfig) NonceAutoSync() bool                                  { return true }
-func (c *mockConfig) ChainType() config.ChainType                          { return "" }
-func (c *mockConfig) FinalityDepth() uint32                                { return c.finalityDepth }
-func (c *mockConfig) KeySpecificMaxGasPriceWei(common.Address) *assets.Wei { return assets.NewWeiI(0) }
-func (c *mockConfig) RPCDefaultBatchSize() uint32                          { return c.rpcDefaultBatchSize }
+func (c *mockConfig) NonceAutoSync() bool         { return true }
+func (c *mockConfig) ChainType() config.ChainType { return "" }
+func (c *mockConfig) FinalityDepth() uint32       { return c.finalityDepth }
+func (c *mockConfig) RPCDefaultBatchSize() uint32 { return c.rpcDefaultBatchSize }
 
 func makeConfigs(t *testing.T) (*mockConfig, *databaseConfig, *evmConfig) {
 	db := &databaseConfig{defaultQueryTimeout: pg.DefaultQueryTimeout}
