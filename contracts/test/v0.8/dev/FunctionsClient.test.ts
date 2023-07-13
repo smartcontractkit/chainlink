@@ -192,7 +192,7 @@ describe('FunctionsClientTestHelper', () => {
         [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
       )
 
-      await expect(oracle.callReport(report))
+      await expect(oracle.callReport(report, { gasLimit: 300_000 }))
         .to.emit(oracle, 'OracleResponse')
         .withArgs(requestId)
         .to.emit(oracle, 'ResponseTransmitted')
