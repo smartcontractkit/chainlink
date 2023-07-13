@@ -18,8 +18,9 @@ contract TrustedBlockhashStore is ConfirmedOwner {
     error NotInWhitelist();
     error InvalidTrustedBlockhashes();
 
-    mapping(uint256 => bytes32) internal s_blockhashes;
-    address[] internal s_whitelist;
+    mapping(uint256 => bytes32) public s_blockhashes;
+    mapping(uint256 => bool) public s_whitelistStatus;
+    address[] public s_whitelist;
 
     constructor(address[] memory whitelist) ConfirmedOwner(msg.sender) {
         s_whitelist = whitelist;
@@ -30,12 +31,24 @@ contract TrustedBlockhashStore is ConfirmedOwner {
      * @param whitelist the whitelist of addresses that can store blockhashes
      */
     function setWhitelist(address[] calldata whitelist) external onlyOwner {
+        address[] memory previousWhitelist = s_whitelist;
         s_whitelist = whitelist;
+
+        // Unset whitelist status for all addresses in the previous whitelist,
+        // and set whitelist status for all addresses in the new whitelist.
+        for (uint256 i = 0; i < previousWhitelist.length; i++) {
+            s_whitelistStatus[previousWhitelist[i]] = false;
+        }
+        for (uint256 i = 0; i < whitelist.length; i++) {
+            s_whitelistStatus[whitelist[i]] = true;
+        }
     }
+
     /**
      * @notice stores blockhash of a given block, assuming it is available through BLOCKHASH
      * @param n the number of the block whose blockhash should be stored
      */
+
     function store(uint256 n) public {
         bytes32 h = ChainSpecificUtil.getBlockhash(uint64(n));
         require(h != 0x0, "blockhash(n) failed");
@@ -48,15 +61,7 @@ contract TrustedBlockhashStore is ConfirmedOwner {
      * @param blockhashes the list of blockhashes and their respective blocks
      */
     function storeTrusted(uint256[] calldata blockNums, bytes32[] calldata blockhashes) external {
-        bool found = false;
-        address[] memory whitelist = s_whitelist;
-        for (uint256 i = 0; i < whitelist.length; i++) {
-            if (whitelist[i] == msg.sender) {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
+        if (!s_whitelistStatus[msg.sender]) {
             revert NotInWhitelist();
         }
 
@@ -65,7 +70,7 @@ contract TrustedBlockhashStore is ConfirmedOwner {
         }
 
         for (uint256 i = 0; i < blockNums.length; i++) {
-          s_blockhashes[blockNums[i]] = blockhashes[i];
+            s_blockhashes[blockNums[i]] = blockhashes[i];
         }
     }
 
