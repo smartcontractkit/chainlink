@@ -116,6 +116,6 @@ interface IVRFCoordinatorV2Plus {
    * @notice Check to see the payment made for the provided request id.
    * @param requestId - ID of the request
    * @return amountPaid - amount paid for the request
-  */
+   */
   function s_requestPayments(uint256 requestId) external view returns (uint96);
 }

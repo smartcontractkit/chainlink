@@ -39,7 +39,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     if (_link != address(0)) {
       LINK = LinkTokenInterface(_link);
     }
-  
+
     VRF_V2_WRAPPER = VRFV2PlusWrapperInterface(_vrfV2Wrapper);
   }
 
@@ -74,7 +74,12 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     uint32 _numWords
   ) internal returns (uint256 requestId) {
     uint256 requestPrice = VRF_V2_WRAPPER.calculateRequestPriceNative(_callbackGasLimit);
-    return VRF_V2_WRAPPER.requestRandomWordsInNative{value: requestPrice}(_callbackGasLimit, _requestConfirmations, _numWords);
+    return
+      VRF_V2_WRAPPER.requestRandomWordsInNative{value: requestPrice}(
+        _callbackGasLimit,
+        _requestConfirmations,
+        _numWords
+      );
   }
 
   /**

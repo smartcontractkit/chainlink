@@ -50,7 +50,10 @@ interface VRFV2PlusWrapperInterface {
    * @param _callbackGasLimit is the gas limit used to estimate the price.
    * @param _requestGasPriceWei is the gas price in wei used for the estimation.
    */
-  function estimateRequestPriceNative(uint32 _callbackGasLimit, uint256 _requestGasPriceWei) external view returns (uint256);
+  function estimateRequestPriceNative(
+    uint32 _callbackGasLimit,
+    uint256 _requestGasPriceWei
+  ) external view returns (uint256);
 
   /**
    * @notice Requests randomness from the VRF V2 wrapper, paying in native token.
@@ -59,5 +62,9 @@ interface VRFV2PlusWrapperInterface {
    * @param _requestConfirmations number of request confirmations to wait before serving a request.
    * @param _numWords is the number of words to request.
    */
-  function requestRandomWordsInNative(uint32 _callbackGasLimit, uint16 _requestConfirmations, uint32 _numWords) external payable returns (uint256 requestId);
+  function requestRandomWordsInNative(
+    uint32 _callbackGasLimit,
+    uint16 _requestConfirmations,
+    uint32 _numWords
+  ) external payable returns (uint256 requestId);
 }

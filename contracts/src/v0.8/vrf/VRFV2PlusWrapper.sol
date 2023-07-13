@@ -118,7 +118,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   /**
    * @notice set the link token to be used by this wrapper
    * @param link address of the link token
-   */ 
+   */
   function setLINK(address link) external onlyOwner {
     // Disallow re-setting link token because the logic wouldn't really make sense
     if (address(s_link) != address(0)) {
@@ -278,10 +278,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     return calculateRequestPriceNativeInternal(_callbackGasLimit, _requestGasPriceWei);
   }
 
-  function calculateRequestPriceNativeInternal(
-    uint256 _gas,
-    uint256 _requestGasPrice
-  ) internal view returns (uint256) {
+  function calculateRequestPriceNativeInternal(uint256 _gas, uint256 _requestGasPrice) internal view returns (uint256) {
     // costWei is the base fee denominated in wei (native)
     // costWei takes into account the L1 posting costs of the VRF fulfillment
     // transaction, if we are on an L2.
@@ -363,7 +360,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     lastRequestId = requestId;
   }
 
-  function requestRandomWordsInNative(uint32 _callbackGasLimit, uint16 _requestConfirmations, uint32 _numWords) override external payable returns (uint256 requestId) {
+  function requestRandomWordsInNative(
+    uint32 _callbackGasLimit,
+    uint16 _requestConfirmations,
+    uint32 _numWords
+  ) external payable override returns (uint256 requestId) {
     uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
     uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
     require(msg.value >= price, "fee too low");
@@ -397,7 +398,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     s_link.transfer(_recipient, _amount);
   }
 
-    /**
+  /**
    * @notice withdraw is used by the VRFV2Wrapper's owner to withdraw native revenue.
    *
    * @param _recipient is the address that should receive the native funds.
@@ -408,7 +409,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     (bool success, ) = payable(_recipient).call{value: _amount}("");
     require(success, "failed to withdraw native");
   }
-
 
   /**
    * @notice enable this contract so that new requests can be accepted.
@@ -517,11 +517,5 @@ interface ExtendedVRFCoordinatorV2PlusInterface is IVRFCoordinatorV2Plus {
 
   function s_fallbackWeiPerUnitLink() external view returns (int256);
 
-  function s_feeConfig()
-    external
-    view
-    returns (
-      uint32 fulfillmentFlatFeeLinkPPM,
-      uint32 fulfillmentFlatFeeEthPPM
-    );
+  function s_feeConfig() external view returns (uint32 fulfillmentFlatFeeLinkPPM, uint32 fulfillmentFlatFeeEthPPM);
 }
