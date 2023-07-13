@@ -151,6 +151,10 @@ func NewFunctionsListener(
 	urlsMonEndpoint commontypes.MonitoringEndpoint,
 	decryptor threshold.Decryptor,
 ) *FunctionsListener {
+	var s4Storage s4.Storage
+	if pluginConfig.S4Constraints != nil {
+		s4Storage = s4.NewStorage(lggr, *pluginConfig.S4Constraints, s4ORM, utils.NewRealClock())
+	}
 	return &FunctionsListener{
 		oracle:          oracle,
 		oracleHexAddr:   oracle.Address().Hex(),
@@ -161,7 +165,7 @@ func NewFunctionsListener(
 		chStop:          make(chan struct{}),
 		pluginORM:       pluginORM,
 		pluginConfig:    pluginConfig,
-		s4Storage:       s4.NewStorage(lggr, *pluginConfig.S4Constraints, s4ORM, utils.NewRealClock()),
+		s4Storage:       s4Storage,
 		logger:          lggr,
 		mailMon:         mailMon,
 		urlsMonEndpoint: urlsMonEndpoint,
@@ -543,6 +547,9 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 		}
 		secrets = thresholdEncSecrets
 	case LocationDONHosted:
+		if l.s4Storage == nil {
+			return "", errors.New("S4 storage not configured")
+		}
 		var donSecrets DONHostedSecrets
 		if err := cbor.ParseDietCBORToStruct(requestData.Secrets, &donSecrets); err != nil {
 			return "", errors.Wrap(err, "failed to parse DONHosted secrets CBOR")
