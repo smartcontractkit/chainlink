@@ -73,7 +73,7 @@ func NewHeadTracker[
 	headSaver types.HeadSaver[HTH, BLOCK_HASH],
 	mailMon *utils.MailboxMonitor,
 	getNilHead func() HTH,
-) types.HeadTracker[HTH, BLOCK_HASH] {
+) *HeadTracker[HTH, S, ID, BLOCK_HASH] {
 	chStop := make(chan struct{})
 	lggr = lggr.Named("HeadTracker")
 	return &HeadTracker[HTH, S, ID, BLOCK_HASH]{
