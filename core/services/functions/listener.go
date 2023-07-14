@@ -143,18 +143,14 @@ func NewFunctionsListener(
 	job job.Job,
 	bridgeAccessor BridgeAccessor,
 	pluginORM ORM,
-	s4ORM s4.ORM,
 	pluginConfig config.PluginConfig,
+	s4Storage s4.Storage,
 	logBroadcaster log.Broadcaster,
 	lggr logger.Logger,
 	mailMon *utils.MailboxMonitor,
 	urlsMonEndpoint commontypes.MonitoringEndpoint,
 	decryptor threshold.Decryptor,
 ) *FunctionsListener {
-	var s4Storage s4.Storage
-	if pluginConfig.S4Constraints != nil {
-		s4Storage = s4.NewStorage(lggr, *pluginConfig.S4Constraints, s4ORM, utils.NewRealClock())
-	}
 	return &FunctionsListener{
 		oracle:          oracle,
 		oracleHexAddr:   oracle.Address().Hex(),
