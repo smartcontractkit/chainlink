@@ -1,8 +1,8 @@
 import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { Contract, ContractFactory, providers } from 'ethers'
-import { Roles, getUsers } from '../../test-helpers/setup'
-import { decodeDietCBOR, stringToBytes } from '../../test-helpers/helpers'
+import { Roles, getUsers } from '../../../test-helpers/setup'
+import { decodeDietCBOR, stringToBytes } from '../../../test-helpers/helpers'
 
 let concreteFunctionsClientFactory: ContractFactory
 let functionsOracleFactory: ContractFactory

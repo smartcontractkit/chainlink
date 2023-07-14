@@ -1,9 +1,13 @@
 import { ethers } from 'hardhat'
-import { publicAbi, decodeDietCBOR, hexToBuf } from '../../test-helpers/helpers'
+import {
+  publicAbi,
+  decodeDietCBOR,
+  hexToBuf,
+} from '../../../test-helpers/helpers'
 import { assert, expect } from 'chai'
 import { Contract, ContractFactory, providers, Signer } from 'ethers'
-import { Roles, getUsers } from '../../test-helpers/setup'
-import { makeDebug } from '../../test-helpers/debug'
+import { Roles, getUsers } from '../../../test-helpers/setup'
+import { makeDebug } from '../../../test-helpers/debug'
 
 const debug = makeDebug('FunctionsTestHelper')
 let concreteFunctionsTestHelperFactory: ContractFactory

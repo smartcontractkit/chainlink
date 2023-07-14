@@ -1,7 +1,7 @@
 import { ethers, upgrades } from 'hardhat'
 import { expect } from 'chai'
 import { BigNumber, Contract, ContractFactory, Signer } from 'ethers'
-import { Roles, getUsers } from '../../test-helpers/setup'
+import { Roles, getUsers } from '../../../test-helpers/setup'
 
 let functionsOracleFactory: ContractFactory
 let clientTestHelperFactory: ContractFactory
