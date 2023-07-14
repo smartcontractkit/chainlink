@@ -9,8 +9,6 @@ contract MigratableVRFConsumerV2 is MigratableVRFConsumerBaseV2 {
   mapping(uint256 => uint256[]) public s_randomWords;
   uint256 public s_requestId;
 
-  bytes4 private constant REQUEST_RANDOM_WORDS_SELECTOR = bytes4(keccak256("requestRandomWords(bytes32,uint64,uint16,uint32,uint32,bool)"));
-
   constructor(address vrfCoordinator, uint64 subId) MigratableVRFConsumerBaseV2(vrfCoordinator, subId) {}
 
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
@@ -25,7 +23,7 @@ contract MigratableVRFConsumerV2 is MigratableVRFConsumerBaseV2 {
     uint32 numWords,
     bool nativePayment
   ) external returns (uint256) {
-    bytes memory callData = abi.encodeWithSelector(REQUEST_RANDOM_WORDS_SELECTOR, keyHash, s_subId, minReqConfs, callbackGasLimit, numWords, nativePayment);
+    bytes memory callData = abi.encodeWithSelector(s_requestSelector, keyHash, s_subId, minReqConfs, callbackGasLimit, numWords, nativePayment);
     // solhint-disable-next-line avoid-low-level-calls
     (bool success, bytes memory ret) = s_vrfCoordinator.call(callData);
     require(success, "request random words failed");

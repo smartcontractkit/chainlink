@@ -100,6 +100,10 @@ abstract contract MigratableVRFConsumerBaseV2 is ConfirmedOwner {
   error OnlyCoordinatorCanFulfill(address have, address want);
   address internal s_vrfCoordinator;
   uint64 internal s_subId;
+  bytes4 internal s_requestSelector;
+  bytes4 private constant V2_REQUEST_RANDOM_WORDS_SELECTOR = bytes4(keccak256("requestRandomWords(bytes32,uint64,uint16,uint32,uint32)"));
+  bytes4 private constant V2_PLUS_REQUEST_RANDOM_WORDS_SELECTOR = bytes4(keccak256("requestRandomWords(bytes32,uint64,uint16,uint32,uint32,bool)"));
+  bytes4 private constant TYPES_AND_VERSION_SELECTOR = bytes4(keccak256("typeAndVersion()"));
 
   /**
    * @param _vrfCoordinator address of VRFCoordinator contract
@@ -108,6 +112,7 @@ abstract contract MigratableVRFConsumerBaseV2 is ConfirmedOwner {
   constructor(address _vrfCoordinator, uint64 _subId) ConfirmedOwner(msg.sender) {
     s_vrfCoordinator = _vrfCoordinator;
     s_subId = _subId;
+    s_requestSelector = V2_REQUEST_RANDOM_WORDS_SELECTOR;
   }
 
   /**
@@ -137,6 +142,12 @@ abstract contract MigratableVRFConsumerBaseV2 is ConfirmedOwner {
   }
 
   function setCoordinator(address coordinator) public onlyOwner {
+    bytes memory callData = abi.encode(TYPES_AND_VERSION_SELECTOR);
+    (bool success, bytes memory ret) = s_vrfCoordinator.call(callData);
+    require(success, "typeAndVersion failed");
+    if (keccak256(ret) == keccak256(abi.encode("VRFCoordinatorV2Plus 1.0.0"))) {
+      s_requestSelector = V2_PLUS_REQUEST_RANDOM_WORDS_SELECTOR;
+    }
     s_vrfCoordinator = coordinator;
   }
 

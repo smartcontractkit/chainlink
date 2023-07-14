@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -12,10 +13,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
@@ -26,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_malicious_consumer_v2_plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_migratable_consumer_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_single_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_proxy_admin"
@@ -33,8 +37,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_reverting_example"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
@@ -815,11 +821,101 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 }
 
 func TestVRFV2MigrationToVRFV2Plus(t *testing.T) {
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	v2Uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
-	v2PlusUni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
-	consumerOwner := v2Uni.vrfConsumers[0]
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+
+	consumerOwner := uni.vrfConsumers[0]
+	_, err := uni.rootContract.CreateSubscription(consumerOwner)
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	// Assert the subscription event in the coordinator contract.
+	iter, err := uni.rootContract.FilterSubscriptionCreated(nil, nil)
+	require.NoError(t, err)
+	require.True(t, iter.Next())
+	subID := iter.Event().V2.SubId
+
+	consumerAddr, _, consumer, err := vrf_migratable_consumer_v2.DeployMigratableVRFConsumerV2(
+		consumerOwner,
+		uni.backend,
+		uni.rootContractAddress,
+		subID,
+	)
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	_, err = uni.rootContract.AddConsumer(consumerOwner, subID, consumerAddr)
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
+	require.NoError(t, err)
+	_, err = uni.linkContract.TransferAndCall(uni.sergey, uni.rootContractAddress, assets.Ether(5).ToInt(), b)
+	require.NoError(t, err)
+
+	sendingKey := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
+	config, _ := heavyweight.FullTestDBV2(t, "migrate_from_vrfv2_to_vrfv2plus", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), toml.KeySpecific{
+			// Gas lane.
+			Key:          ptr(sendingKey.EIP55Address),
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, sendingKey)
+
+	// Fund gas lanes.
+	sendEth(t, ownerKey, uni.backend, sendingKey.Address, 10)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job using key1 and key2 on the same gas lane.
+	jbs := createVRFJobs(
+		t,
+		[][]ethkey.KeyV2{{sendingKey}},
+		app,
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchBHSContractAddress,
+		uni.coordinatorV2UniverseCommon,
+		nil,
+		vrfcommon.V2,
+		false,
+		gasLanePriceWei)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	_, err = consumer.RequestRandomness(consumerOwner, keyHash, 2, 500_000, 2, false)
+	require.NoError(t, err)
+
+	//requestID, err := consumer.SRequestId(nil)
+	//require.NoError(t, err)
+
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		runs, err := app.PipelineORM().GetAllRuns()
+		require.NoError(t, err)
+		t.Log("runs", len(runs))
+		return len(runs) == 1
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	//mine(t, requestID, subID, uni.backend, db)
+
+	// Assert correct state of RandomWordsFulfilled event.
+	// In particular:
+	// * success should be true
+	// * payment should be exactly the amount specified as the premium in the coordinator fee config
+	//assertRandomWordsFulfilled(t, requestID, true, uni.rootContract)
+
+	//// Mine the fulfillment that was queued.
+	//mine(t, requestID1, subID, uni.backend, db)
+
+	// AFTER MIGRATION
+	//_, err = consumer.SetSubId(subOwner, subID)
+	//require.NoError(t, err)
+	//uni.backend.Commit()
+
+	// Make the first randomness request.
 
 }
 
