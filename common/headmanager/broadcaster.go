@@ -1,4 +1,4 @@
-package headtracker
+package headmanager
 
 import (
 	"context"
@@ -24,7 +24,7 @@ func (set callbackSet[H, BLOCK_HASH]) values() []types.HeadTrackable[H, BLOCK_HA
 	return values
 }
 
-type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
+type Broadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct {
 	logger    logger.Logger
 	callbacks callbackSet[H, BLOCK_HASH]
 	mailbox   *utils.Mailbox[H]
@@ -36,15 +36,15 @@ type HeadBroadcaster[H types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] struct
 	lastCallbackID int
 }
 
-// NewHeadBroadcaster creates a new HeadBroadcaster
-func NewHeadBroadcaster[
+// NewBroadcaster creates a new Broadcaster
+func NewBroadcaster[
 	H types.Head[BLOCK_HASH],
 	BLOCK_HASH types.Hashable,
 ](
 	lggr logger.Logger,
-) *HeadBroadcaster[H, BLOCK_HASH] {
-	return &HeadBroadcaster[H, BLOCK_HASH]{
-		logger:        lggr.Named("HeadBroadcaster"),
+) *Broadcaster[H, BLOCK_HASH] {
+	return &Broadcaster[H, BLOCK_HASH]{
+		logger:        lggr.Named("Broadcaster"),
 		callbacks:     make(callbackSet[H, BLOCK_HASH]),
 		mailbox:       utils.NewSingleMailbox[H](),
 		mutex:         &sync.Mutex{},
@@ -54,68 +54,68 @@ func NewHeadBroadcaster[
 	}
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) Start(context.Context) error {
-	return hb.StartOnce("HeadBroadcaster", func() error {
-		hb.wgDone.Add(1)
-		go hb.run()
+func (b *Broadcaster[H, BLOCK_HASH]) Start(context.Context) error {
+	return b.StartOnce("Broadcaster", func() error {
+		b.wgDone.Add(1)
+		go b.run()
 		return nil
 	})
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) Close() error {
-	return hb.StopOnce("HeadBroadcaster", func() error {
-		hb.mutex.Lock()
+func (b *Broadcaster[H, BLOCK_HASH]) Close() error {
+	return b.StopOnce("Broadcaster", func() error {
+		b.mutex.Lock()
 		// clear all callbacks
-		hb.callbacks = make(callbackSet[H, BLOCK_HASH])
-		hb.mutex.Unlock()
+		b.callbacks = make(callbackSet[H, BLOCK_HASH])
+		b.mutex.Unlock()
 
-		close(hb.chClose)
-		hb.wgDone.Wait()
+		close(b.chClose)
+		b.wgDone.Wait()
 		return nil
 	})
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) Name() string {
-	return hb.logger.Name()
+func (b *Broadcaster[H, BLOCK_HASH]) Name() string {
+	return b.logger.Name()
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) HealthReport() map[string]error {
-	return map[string]error{hb.Name(): hb.StartStopOnce.Healthy()}
+func (b *Broadcaster[H, BLOCK_HASH]) HealthReport() map[string]error {
+	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) BroadcastNewLongestChain(head H) {
-	hb.mailbox.Deliver(head)
+func (b *Broadcaster[H, BLOCK_HASH]) BroadcastNewLongestChain(head H) {
+	b.mailbox.Deliver(head)
 }
 
-// Subscribe subscribes to OnNewLongestChain and Connect until HeadBroadcaster is closed,
+// Subscribe subscribes to OnNewLongestChain and Connect until Broadcaster is closed,
 // or unsubscribe callback is called explicitly
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) Subscribe(callback types.HeadTrackable[H, BLOCK_HASH]) (currentLongestChain H, unsubscribe func()) {
-	hb.mutex.Lock()
-	defer hb.mutex.Unlock()
+func (b *Broadcaster[H, BLOCK_HASH]) Subscribe(callback types.HeadTrackable[H, BLOCK_HASH]) (currentLongestChain H, unsubscribe func()) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 
-	currentLongestChain = hb.latest
+	currentLongestChain = b.latest
 
-	hb.lastCallbackID++
-	callbackID := hb.lastCallbackID
-	hb.callbacks[callbackID] = callback
+	b.lastCallbackID++
+	callbackID := b.lastCallbackID
+	b.callbacks[callbackID] = callback
 	unsubscribe = func() {
-		hb.mutex.Lock()
-		defer hb.mutex.Unlock()
-		delete(hb.callbacks, callbackID)
+		b.mutex.Lock()
+		defer b.mutex.Unlock()
+		delete(b.callbacks, callbackID)
 	}
 
 	return
 }
 
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) run() {
-	defer hb.wgDone.Done()
+func (b *Broadcaster[H, BLOCK_HASH]) run() {
+	defer b.wgDone.Done()
 
 	for {
 		select {
-		case <-hb.chClose:
+		case <-b.chClose:
 			return
-		case <-hb.mailbox.Notify():
-			hb.executeCallbacks()
+		case <-b.mailbox.Notify():
+			b.executeCallbacks()
 		}
 	}
 }
@@ -123,19 +123,19 @@ func (hb *HeadBroadcaster[H, BLOCK_HASH]) run() {
 // DEV: the head relayer makes no promises about head delivery! Subscribing
 // Jobs should expect to the relayer to skip heads if there is a large number of listeners
 // and all callbacks cannot be completed in the allotted time.
-func (hb *HeadBroadcaster[H, BLOCK_HASH]) executeCallbacks() {
-	head, exists := hb.mailbox.Retrieve()
+func (b *Broadcaster[H, BLOCK_HASH]) executeCallbacks() {
+	head, exists := b.mailbox.Retrieve()
 	if !exists {
-		hb.logger.Info("No head to retrieve. It might have been skipped")
+		b.logger.Info("No head to retrieve. It might have been skipped")
 		return
 	}
 
-	hb.mutex.Lock()
-	callbacks := hb.callbacks.values()
-	hb.latest = head
-	hb.mutex.Unlock()
+	b.mutex.Lock()
+	callbacks := b.callbacks.values()
+	b.latest = head
+	b.mutex.Unlock()
 
-	hb.logger.Debugw("Initiating callbacks",
+	b.logger.Debugw("Initiating callbacks",
 		"headNum", head.BlockNumber(),
 		"numCallbacks", len(callbacks),
 	)
@@ -143,7 +143,7 @@ func (hb *HeadBroadcaster[H, BLOCK_HASH]) executeCallbacks() {
 	wg := sync.WaitGroup{}
 	wg.Add(len(callbacks))
 
-	ctx, cancel := hb.chClose.NewCtx()
+	ctx, cancel := b.chClose.NewCtx()
 	defer cancel()
 
 	for _, callback := range callbacks {
@@ -154,7 +154,7 @@ func (hb *HeadBroadcaster[H, BLOCK_HASH]) executeCallbacks() {
 			defer cancel()
 			trackable.OnNewLongestChain(cctx, head)
 			elapsed := time.Since(start)
-			hb.logger.Debugw(fmt.Sprintf("Finished callback in %s", elapsed),
+			b.logger.Debugw(fmt.Sprintf("Finished callback in %s", elapsed),
 				"callbackType", reflect.TypeOf(trackable), "blockNumber", head.BlockNumber(), "time", elapsed)
 		}(callback)
 	}
