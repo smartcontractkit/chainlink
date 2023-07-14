@@ -55,6 +55,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
       revert LINKAlreadySet();
     }
 
+    LINK = LinkTokenInterface(_link);
   }
 
   /**
