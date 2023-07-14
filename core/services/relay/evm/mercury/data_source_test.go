@@ -178,11 +178,12 @@ func TestMercury_Observe(t *testing.T) {
 				assert.Equal(t, head.Number-1, obs.MaxFinalizedBlockNumber.Val)
 			})
 			t.Run("if current block num errored", func(t *testing.T) {
+				var nilHead *evmtypes.Head
 				h2 := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-				h2.On("LatestChain").Return(nil)
+				h2.On("LatestChain").Return(nilHead)
 				ht.h = h2
 				c2 := evmtest.NewEthClientMock(t)
-				c2.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&evmtypes.Head{}, errors.New("head retrieval failed"))
+				c2.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("head retrieval failed"))
 				ht.c = c2
 
 				obs, err := ds.Observe(ctx, repts, true)
@@ -298,8 +299,10 @@ func TestMercury_Observe(t *testing.T) {
 		})
 		t.Run("if head tracker returns nil, falls back to RPC method", func(t *testing.T) {
 			t.Run("if call succeeds", func(t *testing.T) {
+				var nilHead *evmtypes.Head
+
 				h = commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-				h.On("LatestChain").Return(nil)
+				h.On("LatestChain").Return(nilHead)
 				ht.h = h
 				c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 
