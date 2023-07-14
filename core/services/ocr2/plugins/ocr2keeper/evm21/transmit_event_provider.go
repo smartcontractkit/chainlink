@@ -172,32 +172,7 @@ func (c *TransmitEventProvider) Events(ctx context.Context) ([]ocr2keepers.Trans
 		return nil, fmt.Errorf("%w: failed to unmarshal logs", err)
 	}
 
-	vals := []ocr2keepers.TransmitEvent{}
-
-	for _, p := range performed {
-		var checkBlockNumber ocr2keepers.BlockKey
-		upkeepId := ocr2keepers.UpkeepIdentifier(p.Id.Bytes())
-		switch getUpkeepType(upkeepId) {
-		case conditionTrigger:
-			checkBlockNumber, err = c.getCheckBlockNumberFromTxHash(p.TxHash, upkeepId)
-			if err != nil {
-				c.logger.Error("error while fetching checkBlockNumber from perform report log: %w", err)
-				continue
-			}
-		default:
-		}
-		vals = append(vals, ocr2keepers.TransmitEvent{
-			Type:            ocr2keepers.PerformEvent,
-			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
-			Confirmations:   end - p.BlockNumber,
-			TransactionHash: p.TxHash.Hex(),
-			ID:              string(p.TriggerID[:]), // TODO: check how to encode
-			UpkeepID:        upkeepId,
-			CheckBlock:      checkBlockNumber,
-		})
-	}
-
-	return vals, nil
+	return c.performedToTransmitEvents(performed, end)
 }
 
 func (c *TransmitEventProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog, error) {
@@ -385,6 +360,36 @@ func (c *TransmitEventProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]pe
 	}
 
 	return results, nil
+}
+
+func (c *TransmitEventProvider) performedToTransmitEvents(performed []performed, latestBlock int64) ([]ocr2keepers.TransmitEvent, error) {
+	var err error
+	vals := []ocr2keepers.TransmitEvent{}
+
+	for _, p := range performed {
+		var checkBlockNumber ocr2keepers.BlockKey
+		upkeepId := ocr2keepers.UpkeepIdentifier(p.Id.Bytes())
+		switch getUpkeepType(upkeepId) {
+		case conditionTrigger:
+			checkBlockNumber, err = c.getCheckBlockNumberFromTxHash(p.TxHash, upkeepId)
+			if err != nil {
+				c.logger.Error("error while fetching checkBlockNumber from perform report log: %w", err)
+				continue
+			}
+		default:
+		}
+		vals = append(vals, ocr2keepers.TransmitEvent{
+			Type:            ocr2keepers.PerformEvent,
+			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
+			Confirmations:   latestBlock - p.BlockNumber,
+			TransactionHash: p.TxHash.Hex(),
+			ID:              string(p.TriggerID[:]), // TODO: check how to encode
+			UpkeepID:        upkeepId,
+			CheckBlock:      checkBlockNumber,
+		})
+	}
+
+	return vals, nil
 }
 
 func (c *TransmitEventProvider) unmarshalReorgUpkeepLogs(logs []logpoller.Log) ([]reorged, error) {
