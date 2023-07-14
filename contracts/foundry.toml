@@ -24,7 +24,7 @@ test = 'src/v0.8/functions/tests'
 [profile.vrf]
 optimizer_runs = 1000
 src = 'src/v0.8/vrf'
-test = 'src/v0.8/vrf' # skips tests for no VRF foundry tests
+test = 'test/v0.8/foundry/vrf' # skips tests for no VRF foundry tests
 solc_version = '0.8.6'
 
 [profile.automation]
