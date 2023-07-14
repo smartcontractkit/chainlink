@@ -322,7 +322,6 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 	})
 
 	t.Run("restores latest round requested from database on start", func(t *testing.T) {
-		var nilHead *evmtypes.Head
 		uni := newContractTrackerUni(t, fixtureFilterer, fixtureContract)
 
 		rawLog := cltest.LogFromFixture(t, "../../testdata/jsonrpc/round_requested_log_1_1.json")
@@ -339,7 +338,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni.lb.On("IsConnected").Return(true).Maybe()
 
 		eventuallyCloseHeadBroadcaster := cltest.NewAwaiter()
-		uni.hb.On("Subscribe", uni.tracker).Return(nilHead, func() { eventuallyCloseHeadBroadcaster.ItHappened() })
+		uni.hb.On("Subscribe", uni.tracker).Return((*evmtypes.Head)(nil), func() { eventuallyCloseHeadBroadcaster.ItHappened() })
 
 		uni.db.On("LoadLatestRoundRequested").Return(rr, nil)
 
