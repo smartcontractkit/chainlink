@@ -66,7 +66,7 @@ type (
 		cfg              ocrcommon.Config
 		mailMon          *utils.MailboxMonitor
 
-		// Broadcaster
+		// HeadBroadcaster
 		headBroadcaster  hmtypes.Broadcaster
 		unsubscribeHeads func()
 

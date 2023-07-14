@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	hmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/mocks"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -76,11 +76,11 @@ var _ ChainHeadTracker = &mockHeadTracker{}
 
 type mockHeadTracker struct {
 	c evmclient.Client
-	h httypes.HeadTracker
+	h hmtypes.Tracker
 }
 
-func (m *mockHeadTracker) Client() evmclient.Client         { return m.c }
-func (m *mockHeadTracker) HeadTracker() httypes.HeadTracker { return m.h }
+func (m *mockHeadTracker) Client() evmclient.Client     { return m.c }
+func (m *mockHeadTracker) HeadTracker() hmtypes.Tracker { return m.h }
 
 func TestMercury_Observe(t *testing.T) {
 	ds := &datasource{lggr: logger.TestLogger(t)}
@@ -116,7 +116,7 @@ func TestMercury_Observe(t *testing.T) {
 	spec := pipeline.Spec{}
 	ds.spec = spec
 
-	h := htmocks.NewHeadTracker(t)
+	h := hmmocks.NewTracker(t)
 	c := evmtest.NewEthClientMock(t)
 	ht := &mockHeadTracker{
 		c: c,
@@ -177,7 +177,7 @@ func TestMercury_Observe(t *testing.T) {
 				assert.Equal(t, head.Number-1, obs.MaxFinalizedBlockNumber.Val)
 			})
 			t.Run("if current block num errored", func(t *testing.T) {
-				h2 := htmocks.NewHeadTracker(t)
+				h2 := hmmocks.NewTracker(t)
 				h2.On("LatestChain").Return(nil)
 				ht.h = h2
 				c2 := evmtest.NewEthClientMock(t)
@@ -297,7 +297,7 @@ func TestMercury_Observe(t *testing.T) {
 		})
 		t.Run("if head tracker returns nil, falls back to RPC method", func(t *testing.T) {
 			t.Run("if call succeeds", func(t *testing.T) {
-				h = htmocks.NewHeadTracker(t)
+				h = hmmocks.NewTracker(t)
 				h.On("LatestChain").Return(nil)
 				ht.h = h
 				c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
@@ -354,7 +354,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 	}
 
 	t.Run("returns head from headtracker if present", func(t *testing.T) {
-		headTracker := htmocks.NewHeadTracker(t)
+		headTracker := hmmocks.NewTracker(t)
 		chainHeadTracker := mercurymocks.NewChainHeadTracker(t)
 
 		chainHeadTracker.On("HeadTracker").Return(headTracker)
@@ -375,7 +375,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 
 	t.Run("if headtracker returns nil head and eth call succeeds", func(t *testing.T) {
 		ethClient := evmclimocks.NewClient(t)
-		headTracker := htmocks.NewHeadTracker(t)
+		headTracker := hmmocks.NewTracker(t)
 		chainHeadTracker := mercurymocks.NewChainHeadTracker(t)
 
 		chainHeadTracker.On("Client").Return(ethClient)
@@ -400,7 +400,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 
 	t.Run("if headtracker returns nil head and eth call fails", func(t *testing.T) {
 		ethClient := evmclimocks.NewClient(t)
-		headTracker := htmocks.NewHeadTracker(t)
+		headTracker := hmmocks.NewTracker(t)
 		chainHeadTracker := mercurymocks.NewChainHeadTracker(t)
 
 		chainHeadTracker.On("Client").Return(ethClient)
