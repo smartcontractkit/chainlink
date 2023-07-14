@@ -1,6 +1,7 @@
 package mercury
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,13 +11,13 @@ import (
 
 func Test_OffchainConfigDigester_ConfigDigest(t *testing.T) {
 	// ChainID and ContractAddress are taken into account for computation
-	cd1, err := OffchainConfigDigester{}.ConfigDigest(types.ContractConfig{})
+	cd1, err := OffchainConfigDigester{ChainID: big.NewInt(0)}.ConfigDigest(types.ContractConfig{})
 	require.NoError(t, err)
-	cd2, err := OffchainConfigDigester{}.ConfigDigest(types.ContractConfig{})
+	cd2, err := OffchainConfigDigester{ChainID: big.NewInt(0)}.ConfigDigest(types.ContractConfig{})
 	require.NoError(t, err)
-	cd3, err := OffchainConfigDigester{ChainID: 1}.ConfigDigest(types.ContractConfig{})
+	cd3, err := OffchainConfigDigester{ChainID: big.NewInt(1)}.ConfigDigest(types.ContractConfig{})
 	require.NoError(t, err)
-	cd4, err := OffchainConfigDigester{ChainID: 1, ContractAddress: common.Address{1}}.ConfigDigest(types.ContractConfig{})
+	cd4, err := OffchainConfigDigester{ChainID: big.NewInt(1), ContractAddress: common.Address{1}}.ConfigDigest(types.ContractConfig{})
 	require.NoError(t, err)
 
 	require.Equal(t, cd1, cd2)
@@ -47,7 +48,7 @@ func Test_OffchainConfigDigester_ConfigDigest(t *testing.T) {
 	require.Error(t, err)
 
 	// well-formed transmitters
-	_, err = OffchainConfigDigester{}.ConfigDigest(types.ContractConfig{
+	_, err = OffchainConfigDigester{ChainID: big.NewInt(0)}.ConfigDigest(types.ContractConfig{
 		Transmitters: []types.Account{"7343581f55146951b0f678dc6cfa8fd360e2f353aabbccddeeffaaccddeeffaa"},
 	})
 	require.NoError(t, err)

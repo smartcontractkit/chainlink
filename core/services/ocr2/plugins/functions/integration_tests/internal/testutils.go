@@ -374,6 +374,10 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 			maxCiphertextBytes = 10_000
 			maxCiphertextIdLength = 100
 			maxQueueLength = 100
+
+			[pluginConfig.s4Constraints]
+			maxPayloadSizeBytes = 10_1000
+			maxSlotsPerUser = 10
 	`, contractAddress, keyBundleID, transmitter))
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)

@@ -308,14 +308,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		JobName: jb.Name.ValueOrZero(),
 
 		ContractID:    spec.ContractID,
-		FeedID:        spec.FeedID,
 		TransmitterID: transmitterID,
 	}
-	lggr := logger.Sugared(d.lggr.Named("OCR2").With(lggrCtx.Args()...))
-
 	if spec.FeedID != (common.Hash{}) {
+		lggrCtx.FeedID = spec.FeedID
 		spec.RelayConfig["feedID"] = spec.FeedID
 	}
+	lggr := logger.Sugared(d.lggr.Named("OCR2").With(lggrCtx.Args()...))
 
 	if spec.Relay == relay.EVM {
 		chainID, err2 := spec.RelayConfig.EVMChainID()
