@@ -315,3 +315,52 @@ func TestPollLogs(t *testing.T) {
 		})
 	}
 }
+
+func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
+	r := &EvmRegistry{}
+	tests := []struct {
+		name       string
+		input      ocr2keepers.UpkeepPayload
+		wantBlock  *big.Int
+		wantUpkeep *big.Int
+	}{
+		{
+			"happy flow",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier([]byte("10")),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 1,
+					BlockHash:   common.Bytes2Hex([]byte{1, 2, 3, 4, 5, 6, 7, 8}),
+				},
+			},
+			big.NewInt(1),
+			big.NewInt(0).SetBytes([]byte("10")),
+		},
+		{
+			"empty block number",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier([]byte("10")),
+				},
+			},
+			big.NewInt(0),
+			big.NewInt(0).SetBytes([]byte("10")),
+		},
+		{
+			"empty payload",
+			ocr2keepers.UpkeepPayload{},
+			big.NewInt(0),
+			big.NewInt(0),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			block, upkeep := r.getBlockAndUpkeepId(tc.input)
+			assert.Equal(t, tc.wantBlock, block)
+			assert.Equal(t, tc.wantUpkeep, upkeep)
+		})
+	}
+}
