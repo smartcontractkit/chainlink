@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	mercuryv0 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v0"
 	mercuryv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
 )
@@ -78,6 +79,9 @@ func NewServices(
 			lggr,
 			runResults,
 			chEnhancedTelem,
+			ocr2Provider.ContractTransmitter(),
+			types.FeedID(*pluginConfig.LinkFeedID),
+			types.FeedID(*pluginConfig.NativeFeedID),
 		)
 		argsNoPlugin.MercuryPluginFactory = relaymercuryv1.NewFactory(
 			ds,

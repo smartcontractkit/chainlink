@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -25,12 +26,21 @@ type Runner interface {
 	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run pipeline.Run, trrs pipeline.TaskRunResults, err error)
 }
 
+type LatestReportFetcher interface {
+	LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error)
+}
+
 type datasource struct {
 	pipelineRunner Runner
 	jb             job.Job
 	spec           pipeline.Spec
+	feedID         types.FeedID
 	lggr           logger.Logger
 	runResults     chan<- pipeline.Run
+
+	fetcher      LatestReportFetcher
+	linkFeedID   types.FeedID
+	nativeFeedID types.FeedID
 
 	mu sync.RWMutex
 
@@ -39,40 +49,79 @@ type datasource struct {
 
 var _ relaymercuryv1.DataSource = &datasource{}
 
-func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, sync.RWMutex{}, enhancedTelemChan}
+func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID types.FeedID, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID types.FeedID) *datasource {
+	return &datasource{pr, jb, spec, feedID, lggr, rr, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
-func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp) (obs relaymercuryv1.Observation, err error) {
-	var trrs pipeline.TaskRunResults
-	var run pipeline.Run
-	run, trrs, err = ds.executeRun(ctx)
-	if err != nil {
-		err = fmt.Errorf("Observe failed while executing run: %w", err)
-		return
-	}
-	select {
-	case ds.runResults <- run:
-	default:
-		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
-	}
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp) (obs relaymercuryv1.Observation, merr error) {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
 
-	var finaltrrs []pipeline.TaskRunResult
-	for _, trr := range trrs {
-		if trr.IsTerminal() {
-			finaltrrs = append(finaltrrs, trr)
+		run, trrs, err := ds.executeRun(ctx)
+		if err != nil {
+			err = fmt.Errorf("Observe failed while executing run: %w", err)
+			obs.BenchmarkPrice.Err = err
+			obs.Bid.Err = err
+			obs.Ask.Err = err
+			return
 		}
+		select {
+		case ds.runResults <- run:
+		default:
+			ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
+		}
+
+		var finaltrrs []pipeline.TaskRunResult
+		for _, trr := range trrs {
+			if trr.IsTerminal() {
+				finaltrrs = append(finaltrrs, trr)
+			}
+		}
+
+		var parsed parseOutput
+		parsed, err = ds.parse(finaltrrs)
+		if err != nil {
+			// This is not expected under normal circumstances
+			ds.lggr.Errorw("Observe failed while parsing run results", "err", err)
+			err = fmt.Errorf("Observe failed while parsing run results: %w", err)
+			obs.BenchmarkPrice.Err = err
+			obs.Bid.Err = err
+			obs.Ask.Err = err
+			return
+		}
+		obs.BenchmarkPrice = parsed.benchmarkPrice
+		obs.Bid = parsed.bid
+		obs.Ask = parsed.ask
+	}()
+
+	if ds.feedID != ds.linkFeedID {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			obs.LinkPrice.Val, obs.LinkPrice.Err = ds.fetcher.LatestPrice(ctx, ds.linkFeedID)
+		}()
 	}
 
-	var parsed parseOutput
-	parsed, err = ds.parse(finaltrrs)
-	if err != nil {
-		err = fmt.Errorf("Observe failed while parsing run results: %w", err)
-		return
+	if ds.feedID != ds.nativeFeedID {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			obs.NativePrice.Val, obs.NativePrice.Err = ds.fetcher.LatestPrice(ctx, ds.nativeFeedID)
+		}()
 	}
-	obs.BenchmarkPrice = parsed.benchmarkPrice
-	obs.Bid = parsed.bid
-	obs.Ask = parsed.ask
+
+	wg.Wait()
+
+	switch ds.feedID {
+	case ds.linkFeedID:
+		// This IS the LINK feed, use our observed price
+		obs.LinkPrice.Val = obs.BenchmarkPrice.Val
+	case ds.nativeFeedID:
+		// This IS the native feed, use our observed price
+		obs.NativePrice.Val = obs.BenchmarkPrice.Val
+	}
 
 	// todo: implement telemetry
 	// if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
@@ -83,7 +132,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	// 	})
 	// }
 
-	return obs, err
+	return obs, nil
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {

@@ -234,18 +234,14 @@ func (w *client) waitForReady(ctx context.Context) (err error) {
 	return
 }
 
-func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *pb.TransmitResponse, err error) {
-	w.logger.Trace("Transmit")
-	start := time.Now()
-	if err = w.waitForReady(ctx); err != nil {
-		return nil, errors.Wrap(err, "Transmit failed")
-	}
-	resp, err = w.client.Transmit(ctx, req)
+// handleDeadlineExceeded manages resetting the connection if too many
+// consecutive timeouts occur. This function is thread-safe.
+func (w *client) handleDeadlineExceeded(err error) {
 	if errors.Is(err, context.DeadlineExceeded) {
 		w.timeoutCountMetric.Inc()
 		cnt := w.consecutiveTimeoutCnt.Add(1)
 		if cnt == MaxConsecutiveTransmitFailures {
-			w.logger.Errorf("Timed out on %d consecutive transmits, resetting transport", cnt)
+			w.logger.Errorw(fmt.Sprintf("Timed out on %d consecutive transmits, resetting transport", cnt), "err", err)
 			// NOTE: If we get 5+ request timeouts in a row, close and re-open
 			// the websocket connection.
 			//
@@ -271,6 +267,17 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	} else {
 		w.consecutiveTimeoutCnt.Store(0)
 	}
+}
+
+func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *pb.TransmitResponse, err error) {
+	lggr := w.logger.With("req.Payload", hexutil.Encode(req.Payload))
+	lggr.Trace("Transmit")
+	start := time.Now()
+	if err = w.waitForReady(ctx); err != nil {
+		return nil, errors.Wrap(err, "Transmit failed")
+	}
+	resp, err = w.client.Transmit(ctx, req)
+	w.handleDeadlineExceeded(err)
 	if err != nil {
 		w.logger.Warnw("Transmit failed", "err", err, "resp", resp)
 		incRequestStatusMetric(statusFailed)
@@ -289,6 +296,7 @@ func (w *client) LatestReport(ctx context.Context, req *pb.LatestReportRequest) 
 		return nil, errors.Wrap(err, "LatestReport failed")
 	}
 	resp, err = w.client.LatestReport(ctx, req)
+	w.handleDeadlineExceeded(err)
 	if err != nil {
 		lggr.Errorw("LatestReport failed", "err", err, "resp", resp)
 	} else if resp.Error != "" {

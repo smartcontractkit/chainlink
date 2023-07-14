@@ -41,6 +41,8 @@ ServerPubKey = "4242"
 		assert.Contains(t, err.Error(), `Mercury: invalid scheme specified for MercuryServer, got: "http://example.com" (scheme: "http") but expected a websocket url e.g. "192.0.2.2:4242" or "wss://192.0.2.2:4242"`)
 		assert.Contains(t, err.Error(), `Mercury: ServerPubKey is required and must be a 32-byte hex string`)
 	})
+
+	t.Fatal("TODO: linkFeedID, nativeFeedID, reportSchemaVersion, initialBlockNumber")
 }
 
 func Test_PluginConfig_ServerURL(t *testing.T) {

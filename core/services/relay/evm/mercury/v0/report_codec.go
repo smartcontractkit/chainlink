@@ -12,6 +12,7 @@ import (
 	reportcodec "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v0"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 )
 
 // NOTE:
@@ -47,7 +48,7 @@ var _ reportcodec.ReportCodec = &ReportCodec{}
 
 type ReportCodec struct {
 	logger logger.Logger
-	feedID [32]byte
+	feedID types.FeedID
 }
 
 func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {

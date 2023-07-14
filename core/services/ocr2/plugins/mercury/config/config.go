@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 
+	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/null"
@@ -24,6 +25,9 @@ type PluginConfig struct {
 	// effectively sets the "first" validFromBlockNumber.
 	InitialBlockNumber  null.Int64 `json:"initialBlockNumber" toml:"initialBlockNumber"`
 	ReportSchemaVersion uint32     `json:"reportSchemaVersion" toml:"reportSchemaVersion"`
+
+	LinkFeedID   *common.Hash `json:"linkFeedID" toml:"linkFeedID"`
+	NativeFeedID *common.Hash `json:"nativeFeedID" toml:"nativeFeedID"`
 }
 
 func ValidatePluginConfig(config PluginConfig) (merr error) {
@@ -42,6 +46,24 @@ func ValidatePluginConfig(config PluginConfig) (merr error) {
 		} else if !(uri.Scheme == "" || uri.Scheme == "wss") {
 			merr = pkgerrors.Errorf(`Mercury: invalid scheme specified for MercuryServer, got: %q (scheme: %q) but expected a websocket url e.g. "192.0.2.2:4242" or "wss://192.0.2.2:4242"`, config.RawServerURL, uri.Scheme)
 		}
+	}
+	switch config.ReportSchemaVersion {
+	case 0:
+		if config.LinkFeedID != nil {
+			merr = errors.Join(merr, errors.New("linkFeedID may not be specified for v0 jobs"))
+		}
+		if config.NativeFeedID != nil {
+			merr = errors.Join(merr, errors.New("nativeFeedID may not be specified for v0 jobs"))
+		}
+	case 1, 2:
+		if config.LinkFeedID == nil {
+			merr = errors.Join(merr, fmt.Errorf("linkFeedID must be specified for v%d jobs", config.ReportSchemaVersion))
+		}
+		if config.NativeFeedID == nil {
+			merr = errors.Join(merr, fmt.Errorf("nativeFeedID must be specified for v%d jobs", config.ReportSchemaVersion))
+		}
+	default:
+		merr = errors.Join(merr, fmt.Errorf("got unsupported schema version %d; supported versions are 0, 1 or 2", config.ReportSchemaVersion))
 	}
 	if len(config.ServerPubKey) != 32 {
 		merr = errors.Join(merr, errors.New("Mercury: ServerPubKey is required and must be a 32-byte hex string"))
