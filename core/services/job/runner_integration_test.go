@@ -232,6 +232,7 @@ pluginType         = "median"
 schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+transmitterAddress = "0x0000000000000000000000000000000007e57000"
 blockchainTimeout = "1s"
 contractConfigTrackerPollInterval = "2s"
 contractConfigConfirmations = 1
