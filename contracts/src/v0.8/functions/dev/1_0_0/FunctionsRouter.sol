@@ -14,6 +14,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     address subscriptionOwner,
     address requestingContract,
     address requestInitiator,
+    bytes data,
+    uint16 dataVersion,
     uint32 callbackGasLimit
   );
 
@@ -96,24 +98,26 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes memory data,
     uint16 dataVersion,
     uint32 callbackGasLimit
-  ) internal returns (bytes32) {
+  ) internal returns (bytes32 requestId) {
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
 
     address coordinatorAddress = this.getContractById(donId, useProposed);
-    IFunctionsCoordinator coordinator = IFunctionsCoordinator(coordinatorAddress);
 
     (, , address owner, , ) = this.getSubscription(subscriptionId);
 
     // Forward request to DON
+    uint96 estimatedCost;
+    uint256 gasAfterPaymentCalculation; // Used to ensure that the transmitter supplies enough gas
+    uint256 requestTimeoutSeconds;
     (
-      bytes32 requestId,
-      uint96 estimatedCost,
-      uint256 gasAfterPaymentCalculation, // Used to ensure that the transmitter supplies enough gas
-      uint256 requestTimeoutSeconds
-    ) = coordinator.sendRequest(
-        IFunctionsCoordinator.Request(subscriptionId, data, dataVersion, callbackGasLimit, msg.sender, owner)
-      );
+      requestId,
+      estimatedCost,
+      gasAfterPaymentCalculation, // Used to ensure that the transmitter supplies enough gas
+      requestTimeoutSeconds
+    ) = IFunctionsCoordinator(coordinatorAddress).sendRequest(
+      IFunctionsCoordinator.Request(subscriptionId, data, dataVersion, callbackGasLimit, msg.sender, owner)
+    );
 
     _markRequestInFlight(msg.sender, subscriptionId, estimatedCost);
 
@@ -129,7 +133,17 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       s_config.adminFee
     );
 
-    emit RequestStart(requestId, donId, subscriptionId, owner, msg.sender, tx.origin, callbackGasLimit);
+    emit RequestStart(
+      requestId,
+      donId,
+      subscriptionId,
+      owner,
+      msg.sender,
+      tx.origin,
+      data,
+      dataVersion,
+      callbackGasLimit
+    );
 
     return requestId;
   }
