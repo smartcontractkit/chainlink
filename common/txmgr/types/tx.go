@@ -101,6 +101,9 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	// Used for the VRFv2 - the subscription ID of the
 	// requester of the VRF.
 	SubID *uint64 `json:"SubId,omitempty"`
+	// Used for VRFv2Plus - max eth this tx will bill
+	// should it get bumped
+	MaxEth *string `json:"MaxEth,omitempty"`
 
 	// Used for keepers
 	UpkeepID *string `json:"UpkeepID,omitempty"`
