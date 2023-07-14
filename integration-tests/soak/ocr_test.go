@@ -83,6 +83,9 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
 		},
+		"chainlink": map[string]any{
+			"p2p_port": "6690",
+		},
 	})
 	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment := environment.New(baseEnvironmentConfig).

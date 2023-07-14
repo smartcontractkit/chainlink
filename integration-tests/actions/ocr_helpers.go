@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -228,7 +228,6 @@ func CreateOCRJobs(
 				Name: nodeContractPairID,
 				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(nodeContractPairID, "/")),
 			}
-			// only create the bridge on the first loop of the nodes
 			err = SetAdapterResponse(mockValue, ocrInstance, node, mockserver)
 			if err != nil {
 				return fmt.Errorf("setting adapter response for OCR node failed: %w", err)
@@ -362,24 +361,17 @@ func SetAllAdapterResponsesToTheSameValue(
 	chainlinkNodes []*client.Chainlink,
 	mockserver *ctfClient.MockserverClient,
 ) error {
-	var adapterVals sync.WaitGroup
-	var err error
+	eg := &errgroup.Group{}
 	for _, o := range ocrInstances {
 		ocrInstance := o
 		for _, n := range chainlinkNodes {
 			node := n
-			adapterVals.Add(1)
-			go func() {
-				defer adapterVals.Done()
-				err = SetAdapterResponse(response, ocrInstance, node, mockserver)
-			}()
+			eg.Go(func() error {
+				return SetAdapterResponse(response, ocrInstance, node, mockserver)
+			})
 		}
 	}
-	if err != nil {
-		return err
-	}
-	adapterVals.Wait()
-	return nil
+	return eg.Wait()
 }
 
 // SetAllAdapterResponsesToDifferentValues sets the mock responses in mockserver that are read by chainlink nodes

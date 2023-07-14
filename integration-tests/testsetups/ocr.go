@@ -199,8 +199,14 @@ testLoop:
 			break testLoop
 		case <-newRoundTrigger.C:
 			lastAdapterValue, currentAdapterValue = currentAdapterValue, lastAdapterValue
-			o.triggerNewRound(t, currentAdapterValue)
-			newRoundTrigger.Reset(o.Inputs.TimeBetweenRounds)
+			err := o.triggerNewRound(t, currentAdapterValue)
+
+			timerReset := o.Inputs.TimeBetweenRounds
+			if err != nil {
+				l.Error().Err(err).Int("Seconds Waiting", 5).Msg("Error triggering new round, waiting and trying again")
+				timerReset = time.Second * 5
+			}
+			newRoundTrigger.Reset(timerReset)
 		case t := <-o.chainClient.ConnectionIssue():
 			o.rpcIssues = append(o.rpcIssues, &testreporters.RPCIssue{
 				StartTime: t,
@@ -288,14 +294,33 @@ func (o *OCRSoakTest) observeOCREvents(logger zerolog.Logger) error {
 }
 
 // triggers a new OCR round by setting a new mock adapter value
-func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
+func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) error {
 	l := utils.GetTestLogger(t)
 
 	if len(o.ocrTestStates) > 0 {
 		o.ocrTestStates[len(o.ocrTestStates)-1].EndTime = time.Now()
 	}
-	err := actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.workerNodes, o.mockServer)
-	require.NoError(t, err, "Error setting adapter responses")
+
+	var (
+		err          error
+		attemptCount = 5
+	)
+
+	// It's possible the adapter is temporarily down, so we try a few times if we get errors
+	for attemptCount > 0 {
+		attemptCount--
+		err = actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.workerNodes, o.mockServer)
+		if err == nil {
+			break
+		}
+		log.Warn().Err(err).
+			Int("Attempts left", attemptCount).
+			Msg("Error setting adapter responses, adapter possibly temporarily down, trying again")
+	}
+	if err != nil {
+		return err
+	}
+
 	expectedState := &testreporters.OCRTestState{
 		StartTime:   time.Now(),
 		Answer:      int64(currentAdapterValue),
@@ -308,6 +333,7 @@ func (o *OCRSoakTest) triggerNewRound(t *testing.T, currentAdapterValue int) {
 	l.Info().
 		Int("Value", currentAdapterValue).
 		Msg("Starting a New OCR Round")
+	return nil
 }
 
 func (o *OCRSoakTest) collectEvents(logger zerolog.Logger, timeout time.Duration) error {
