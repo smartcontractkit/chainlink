@@ -238,7 +238,7 @@ func testMultipleConsumersNeedBHS(
 
 	_ = vrftesthelpers.CreateAndStartBHSJob(
 		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
-		v2CoordinatorAddress, v2PlusCoordinatorAddress)
+		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0)
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())

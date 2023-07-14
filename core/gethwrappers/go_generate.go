@@ -100,6 +100,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2PlusConsumerExample.abi ../../contracts/solc/v0.8.6/VRFV2PlusConsumerExample.bin VRFV2PlusConsumerExample vrfv2plus_consumer_example
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFCoordinatorV2Plus.abi ../../contracts/solc/v0.8.6/VRFCoordinatorV2Plus.bin VRFCoordinatorV2Plus vrf_coordinator_v2plus
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2PlusSubscriptionManager.abi ../../contracts/solc/v0.8.6/VRFV2PlusSubscriptionManager.bin VRFV2PlusSubscriptionManager vrfv2plus_subscription_manager
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/TrustedBlockhashStore.abi ../../contracts/solc/v0.8.6/TrustedBlockhashStore.bin TrustedBlockhashStore trusted_blockhash_store
 
 // Aggregators
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/AggregatorV2V3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface.bin AggregatorV2V3Interface aggregator_v2v3_interface

@@ -50,6 +50,7 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 		fromAddresses,
 		txm,
 		store,
+		nil,
 		&cltest.FixtureChainID,
 		ks.Eth(),
 	)

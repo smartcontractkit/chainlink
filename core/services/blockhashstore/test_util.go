@@ -61,6 +61,16 @@ func (t *TestBHS) Store(_ context.Context, blockNum uint64) error {
 	return nil
 }
 
+func (t *TestBHS) IsTrusted() bool {
+	return false
+}
+
+func (t *TestBHS) StoreTrusted(
+	ctx context.Context, blockNums []uint64, blockhashes []common.Hash, recentBlock uint64, recentBlockhash common.Hash,
+) error {
+	return errors.New("not implemented")
+}
+
 func (t *TestBHS) IsStored(_ context.Context, blockNum uint64) (bool, error) {
 	for _, e := range t.ErrorsIsStored {
 		if e == blockNum {

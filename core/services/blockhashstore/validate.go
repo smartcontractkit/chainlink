@@ -48,6 +48,9 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	if spec.EVMChainID == nil {
 		return jb, notSet("evmChainID")
 	}
+	if spec.TrustedBlockhashStoreAddress != nil && spec.TrustedBlockhashStoreBatchSize == 0 {
+		return jb, notSet("trustedBlockhashStoreBatchSize")
+	}
 
 	// Defaults
 	if spec.WaitBlocks == 0 {

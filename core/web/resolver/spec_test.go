@@ -755,6 +755,10 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 	blockhashStoreAddress, err := ethkey.NewEIP55Address("0xb26A6829D454336818477B946f03Fb21c9706f3A")
 	require.NoError(t, err)
 
+	trustedBlockhashStoreAddress, err := ethkey.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
+	require.NoError(t, err)
+	trustedBlockhashStoreBatchSize := int32(20)
+
 	testCases := []GQLTestCase{
 		{
 			name:          "blockhash store spec",
@@ -764,17 +768,19 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
 					Type: job.BlockhashStore,
 					BlockhashStoreSpec: &job.BlockhashStoreSpec{
-						CoordinatorV1Address:     &coordinatorV1Address,
-						CoordinatorV2Address:     &coordinatorV2Address,
-						CoordinatorV2PlusAddress: &coordinatorV2PlusAddress,
-						CreatedAt:                f.Timestamp(),
-						EVMChainID:               utils.NewBigI(42),
-						FromAddresses:            []ethkey.EIP55Address{fromAddress1, fromAddress2},
-						PollPeriod:               1 * time.Minute,
-						RunTimeout:               37 * time.Second,
-						WaitBlocks:               100,
-						LookbackBlocks:           200,
-						BlockhashStoreAddress:    blockhashStoreAddress,
+						CoordinatorV1Address:           &coordinatorV1Address,
+						CoordinatorV2Address:           &coordinatorV2Address,
+						CoordinatorV2PlusAddress:       &coordinatorV2PlusAddress,
+						CreatedAt:                      f.Timestamp(),
+						EVMChainID:                     utils.NewBigI(42),
+						FromAddresses:                  []ethkey.EIP55Address{fromAddress1, fromAddress2},
+						PollPeriod:                     1 * time.Minute,
+						RunTimeout:                     37 * time.Second,
+						WaitBlocks:                     100,
+						LookbackBlocks:                 200,
+						BlockhashStoreAddress:          blockhashStoreAddress,
+						TrustedBlockhashStoreAddress:   &trustedBlockhashStoreAddress,
+						TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,
 					},
 				}, nil)
 			},
@@ -796,6 +802,8 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 									waitBlocks
 									lookbackBlocks
 									blockhashStoreAddress
+									trustedBlockhashStoreAddress
+									trustedBlockhashStoreBatchSize
 								}
 							}
 						}
@@ -817,7 +825,9 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 							"runTimeout": "37s",
 							"waitBlocks": 100,
 							"lookbackBlocks": 200,
-							"blockhashStoreAddress": "0xb26A6829D454336818477B946f03Fb21c9706f3A"
+							"blockhashStoreAddress": "0xb26A6829D454336818477B946f03Fb21c9706f3A",
+							"trustedBlockhashStoreAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
+							"trustedBlockhashStoreBatchSize": 20
 						}
 					}
 				}
