@@ -22,7 +22,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	evmtoml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -39,18 +39,18 @@ import (
 )
 
 func NewChainScopedConfig(t testing.TB, cfg evm.GeneralConfig) evmconfig.ChainScopedConfig {
-	var evmCfg *v2.EVMConfig
+	var evmCfg *evmtoml.EVMConfig
 	if len(cfg.EVMConfigs()) > 0 {
 		evmCfg = cfg.EVMConfigs()[0]
 	} else {
 		chainID := utils.NewBigI(0)
-		evmCfg = &v2.EVMConfig{
+		evmCfg = &evmtoml.EVMConfig{
 			ChainID: chainID,
-			Chain:   v2.Defaults(chainID),
+			Chain:   evmtoml.Defaults(chainID),
 		}
 	}
 
-	return v2.NewTOMLChainScopedConfig(cfg, evmCfg, logger.TestLogger(t))
+	return evmconfig.NewTOMLChainScopedConfig(cfg, evmCfg, logger.TestLogger(t))
 
 }
 
@@ -140,16 +140,16 @@ func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
 
 type TestConfigs struct {
 	mu sync.RWMutex
-	v2.EVMConfigs
+	evmtoml.EVMConfigs
 }
 
 var _ evmtypes.Configs = &TestConfigs{}
 
-func NewTestConfigs(cs ...*v2.EVMConfig) *TestConfigs {
-	return &TestConfigs{EVMConfigs: v2.EVMConfigs(cs)}
+func NewTestConfigs(cs ...*evmtoml.EVMConfig) *TestConfigs {
+	return &TestConfigs{EVMConfigs: evmtoml.EVMConfigs(cs)}
 }
 
-func (mo *TestConfigs) PutChains(cs ...v2.EVMConfig) {
+func (mo *TestConfigs) PutChains(cs ...evmtoml.EVMConfig) {
 	mo.mu.Lock()
 	defer mo.mu.Unlock()
 chains:
@@ -258,7 +258,7 @@ func (mo *TestConfigs) NodeStatusesPaged(offset int, limit int, chainIDs ...stri
 	return
 }
 
-func legacyNode(n *v2.Node, chainID *utils.Big) (v2 evmtypes.Node) {
+func legacyNode(n *evmtoml.Node, chainID *utils.Big) (v2 evmtypes.Node) {
 	v2.Name = *n.Name
 	v2.EVMChainID = *chainID
 	if n.HTTPURL != nil {
@@ -273,7 +273,7 @@ func legacyNode(n *v2.Node, chainID *utils.Big) (v2 evmtypes.Node) {
 	return
 }
 
-func nodeStatus(n *v2.Node, chainID string) (types.NodeStatus, error) {
+func nodeStatus(n *evmtoml.Node, chainID string) (types.NodeStatus, error) {
 	var s types.NodeStatus
 	s.ChainID = chainID
 	s.Name = *n.Name

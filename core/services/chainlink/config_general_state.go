@@ -4,7 +4,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -27,7 +27,7 @@ func (g *generalConfig) logLevel() (ll zapcore.Level) {
 
 func (g *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	g.logMu.Lock()
-	g.c.Log.Level = (*v2.LogLevel)(&lvl)
+	g.c.Log.Level = (*toml.LogLevel)(&lvl)
 	g.logMu.Unlock()
 	return nil
 }

@@ -47,13 +47,13 @@ type GethKeyStore interface {
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type Config interface {
 	FinalityDepth() uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 	MinIncomingConfirmations() uint32
 }
 
 type FeeConfig interface {
 	LimitDefault() uint32
 	LimitJobType() config.LimitJobType
+	PriceMaxKey(common.Address) *assets.Wei
 }
 
 func NewDelegate(
@@ -146,11 +146,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return nil, err
 			}
 
-			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().KeySpecificMaxGasPriceWei) {
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
 				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
-			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().KeySpecificMaxGasPriceWei); err != nil {
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
 				return nil, err
 			}
 

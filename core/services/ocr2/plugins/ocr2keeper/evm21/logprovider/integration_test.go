@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_log_automation"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
@@ -319,7 +319,7 @@ func setupLogProvider(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBack
 	lp := logpoller.NewLogPoller(lorm, ethClient, pollerLggr, 100*time.Millisecond, 1, 2, 2, 1000)
 
 	lggr := logger.TestLogger(t)
-	logDataABI, err := abi.JSON(strings.NewReader(i_log_automation.ILogAutomationABI))
+	logDataABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 	require.NoError(t, err)
 	logProvider := logprovider.New(lggr, lp, logprovider.NewLogEventsPacker(logDataABI), opts)
 
