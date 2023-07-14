@@ -8,4 +8,6 @@ interface IVRFMigratableConsumerV2Plus {
   /// @notice Set the VRF Coordinator address for the consumer.
   /// @notice This method is should only be callable by the subscription admin.
   function setVRFCoordinator(address vrfCoordinator) external;
+
+  function setSubId(uint64 subId) external;
 }

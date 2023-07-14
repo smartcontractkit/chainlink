@@ -104,6 +104,7 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
 
   IVRFCoordinatorV2Plus private vrfCoordinator;
   address private subOwner;
+  uint64 private subId;
 
   /**
    * @param _vrfCoordinator address of VRFCoordinator contract
@@ -154,5 +155,9 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
       revert ZeroAddress();
     }
     subOwner = _subOwner;
+  }
+
+  function setSubId(uint64 _subId) override external {
+    subId = _subId;
   }
 }
