@@ -46,27 +46,26 @@ func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
 	return &ReportCodec{lggr, feedID}
 }
 
-func (r *ReportCodec) BuildReport(paos []relaymercury.ParsedObservation, f int, validFromTimestamp uint32) (ocrtypes.Report, error) {
+func (r *ReportCodec) BuildReport(paos []reportcodec.IParsedAttributedObservation, f int, validFromTimestamp uint32) (ocrtypes.Report, error) {
 	if len(paos) == 0 {
 		return nil, errors.Errorf("cannot build report from empty attributed observations")
 	}
 
-	// copy so we can safely sort in place
-	paos = append([]relaymercury.ParsedObservation{}, paos...)
+	mPaos := reportcodec.Convert(paos)
 
-	timestamp := relaymercury.GetConsensusTimestamp(paos)
+	timestamp := relaymercury.GetConsensusTimestamp(mPaos)
 
-	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(paos, f)
+	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(mPaos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBenchmarkPrice failed")
 	}
 
-	bid, err := relaymercury.GetConsensusBid(paos, f)
+	bid, err := relaymercury.GetConsensusBid(mPaos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBid failed")
 	}
 
-	ask, err := relaymercury.GetConsensusAsk(paos, f)
+	ask, err := relaymercury.GetConsensusAsk(mPaos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusAsk failed")
 	}
