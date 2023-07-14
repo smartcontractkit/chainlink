@@ -313,12 +313,12 @@ func (r relayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCon
 	return solanaRelayers, nil
 }
 
-func (r relayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (loop.Relayer, error) {
+func (r relayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (map[relay.Identifier]loop.Relayer, error) {
 	var (
-		starknetRelayer loop.Relayer
-		ids             []string
-		starkLggr       = r.Logger.Named("StarkNet")
-		loopKs          = &keystore.StarknetLooppSigner{StarkNet: ks}
+		starknetRelayers map[relay.Identifier]loop.Relayer
+		ids              []string
+		starkLggr        = r.Logger.Named("StarkNet")
+		loopKs           = &keystore.StarknetLooppSigner{StarkNet: ks}
 	)
 	for _, c := range chainCfgs {
 		c := c
@@ -330,39 +330,46 @@ func (r relayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.Sta
 		}
 	}
 
-	if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
-		// setup the starknet relayer to be a LOOP
-		tomls, err := toml.Marshal(struct {
-			Starknet starknet.StarknetConfigs
-		}{Starknet: chainCfgs})
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
-		}
+	// create one relayer per chain id
+	for _, chainCfg := range chainCfgs {
+		relayId := relay.Identifier{Network: relay.StarkNet, ChainID: relay.ChainID(*chainCfg.ChainID)}
+		// all the lower level APIs expect chainsets. create a single valued set per id
+		singleChainCfg := starknet.StarknetConfigs{chainCfg}
 
-		starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-			ID:  starkLggr.Name(),
-			Cmd: cmdName,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
+		if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
+			// setup the starknet relayer to be a LOOP
+			tomls, err := toml.Marshal(struct {
+				Starknet starknet.StarknetConfigs
+			}{Starknet: singleChainCfg})
+			if err != nil {
+				return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
+			}
+
+			starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
+				ID:  starkLggr.Name(),
+				Cmd: cmdName,
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
+			}
+			// the starknet relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
+			// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
+			starknetRelayers[relayId] = loop.NewRelayerService(starkLggr, r.GRPCOpts, starknetCmdFn, string(tomls), loopKs)
+		} else {
+			// fallback to embedded chainset
+			opts := starknet.ChainSetOpts{
+				Logger:   starkLggr,
+				KeyStore: loopKs,
+				Configs:  starknet.NewConfigs(singleChainCfg),
+			}
+			chainSet, err := starknet.NewChainSet(opts, singleChainCfg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load StarkNet chainset: %w", err)
+			}
+			starknetRelayers[relayId] = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
 		}
-		// the starknet relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
-		// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
-		starknetRelayer = loop.NewRelayerService(starkLggr, r.GRPCOpts, starknetCmdFn, string(tomls), loopKs)
-	} else {
-		// fallback to embedded chainset
-		opts := starknet.ChainSetOpts{
-			Logger:   starkLggr,
-			KeyStore: loopKs,
-			Configs:  starknet.NewConfigs(chainCfgs),
-		}
-		chainSet, err := starknet.NewChainSet(opts, chainCfgs)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load StarkNet chainset: %w", err)
-		}
-		starknetRelayer = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
 	}
-	return starknetRelayer, nil
+	return starknetRelayers, nil
 
 }
 

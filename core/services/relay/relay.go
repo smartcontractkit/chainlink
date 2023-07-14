@@ -34,6 +34,10 @@ type Identifier struct {
 	ChainID ChainID
 }
 
+func (i Identifier) Name() string {
+	return fmt.Sprintf("%s.%s", i.Network, i.ChainID.String())
+}
+
 type ChainID string
 
 func (c ChainID) String() string {

@@ -167,36 +167,47 @@ type ApplicationOpts struct {
 
 // Chains holds a ChainSet for each type of chain.
 type Chains struct {
-	EVM      evm.ChainSet
-	Cosmos   cosmos.ChainSet                   // nil if disabled
-	Solana   map[relay.Identifier]loop.Relayer // nil if disabled
-	StarkNet loop.Relayer                      // nil if disabled
+	EVM      evm.ChainSet                               // map[relay.Identifier]evm.ChainSet
+	Cosmos   map[relay.Identifier]cosmos.SingleChainSet // nil if disabled
+	Solana   map[relay.Identifier]loop.Relayer          // nil if disabled
+	StarkNet map[relay.Identifier]loop.Relayer          // nil if disabled
 }
 
 func (c *Chains) services() (s []services.ServiceCtx) {
 	if c.Cosmos != nil {
-		s = append(s, c.Cosmos)
+		s = append(s, sortByChainID(c.Cosmos)...)
 	}
 	if c.EVM != nil {
 		s = append(s, c.EVM)
+		/*
+			relayers := sortByChainID(c.EVM)
+			for _, r := range relayers {
+				s = append(s, r)
+			}
+		*/
 	}
 	if c.Solana != nil {
-		// deterministic ordering
-		ids := make([]relay.Identifier, 0)
-		for id := range c.Solana {
-			ids = append(ids, id)
-		}
-		sort.Slice(ids, func(i, j int) bool {
-			return ids[i].ChainID.String() < ids[j].ChainID.String()
-		})
-		for i := 0; i < len(c.Solana); i += 1 {
-			s = append(s, c.Solana[ids[i]])
-		}
+		s = append(s, sortByChainID(c.Solana)...)
 	}
 	if c.StarkNet != nil {
-		s = append(s, c.StarkNet)
+		s = append(s, sortByChainID(c.StarkNet)...)
 	}
 	return
+}
+
+func sortByChainID[V services.ServiceCtx](m map[relay.Identifier]V) []services.ServiceCtx {
+	sorted := make([]services.ServiceCtx, len(m))
+	ids := make([]relay.Identifier, 0)
+	for id := range m {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool {
+		return ids[i].ChainID.String() < ids[j].ChainID.String()
+	})
+	for i := 0; i < len(m); i += 1 {
+		sorted[i] = m[ids[i]]
+	}
+	return sorted
 }
 
 // NewApplication initializes a new store if one is not already
@@ -423,18 +434,20 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		if cfg.CosmosEnabled() {
 			lggr := globalLogger.Named("Cosmos.Relayer")
-			cosmosRelayer := pkgcosmos.NewRelayer(lggr, chains.Cosmos)
-			TODO := relay.Identifier{Network: relay.Cosmos, ChainID: relay.ChainID("cosmos-0")}
-			relayers[TODO] = relay.NewRelayerAdapter(cosmosRelayer, chains.Cosmos)
+			for id, chain := range chains.Cosmos {
+				relayer := pkgcosmos.NewRelayer(lggr.Named(id.Name()), chain)
+				relayers[id] = relay.NewRelayerAdapter(relayer, chain)
+			}
 		}
 		if cfg.SolanaEnabled() {
-			for k, v := range chains.Solana {
-				relayers[k] = v
+			for id, relayer := range chains.Solana {
+				relayers[id] = relayer
 			}
 		}
 		if cfg.StarkNetEnabled() {
-			TODO := relay.Identifier{Network: relay.StarkNet, ChainID: relay.ChainID("starknet-0")}
-			relayers[TODO] = chains.StarkNet
+			for id, relayer := range chains.StarkNet {
+				relayers[id] = relayer
+			}
 		}
 		registrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register)
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)

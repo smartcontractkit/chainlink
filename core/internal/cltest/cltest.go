@@ -41,6 +41,8 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
@@ -438,31 +440,43 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 	if cfg.SolanaEnabled() {
+		if chains.Solana == nil {
+			chains.Solana = make(map[relay.Identifier]loop.Relayer)
+		}
+
 		solLggr := lggr.Named("Solana")
 		cfgs := cfg.SolanaConfigs()
-		var ids []string
+		var ids []relay.Identifier
 		for _, c := range cfgs {
-			ids = append(ids, *c.ChainID)
+			ids = append(ids, relay.Identifier{Network: relay.Solana, ChainID: relay.ChainID(*c.ChainID)})
 		}
 		if len(ids) > 0 {
-			if err = solana.EnsureChains(db, solLggr, cfg.Database(), ids); err != nil {
+			if err := solana.EnsureChains(db, solLggr, cfg.Database(), ids); err != nil {
 				t.Fatal(err)
 			}
 		}
+		for _, cfg := range cfgs {
+			id := relay.Identifier{Network: relay.Solana, ChainID: relay.ChainID(*cfg.ChainID)}
+			// all the lower level APIs expect chainsets. create a single valued set per id
+			singleChainCfg := solana.SolanaConfigs{cfg}
+			opts := solana.ChainSetOpts{
+				Logger:   solLggr,
+				KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
+				Configs:  solana.NewConfigs(singleChainCfg),
+			}
+			chainSet, err := solana.NewChainSet(opts, cfgs)
+			if err != nil {
+				lggr.Fatal(err)
+			}
 
-		opts := solana.ChainSetOpts{
-			Logger:   solLggr,
-			KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
-			Configs:  solana.NewConfigs(cfgs),
+			chains.Solana[id] = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
 		}
-		chainSet, err := solana.NewChainSet(opts, cfgs)
-		if err != nil {
-			lggr.Fatal(err)
-		}
-
-		chains.Solana = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
 	}
 	if cfg.StarkNetEnabled() {
+		if chains.StarkNet == nil {
+			chains.StarkNet = make(map[relay.Identifier]loop.Relayer)
+		}
+
 		starkLggr := lggr.Named("StarkNet")
 		cfgs := cfg.StarknetConfigs()
 
@@ -471,26 +485,28 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = starknet.EnsureChains(db, starkLggr, cfg.Database(), ids); err != nil {
+			if err := starknet.EnsureChains(db, starkLggr, cfg.Database(), ids); err != nil {
 				t.Fatal(err)
 			}
 		}
-		if err != nil {
-			lggr.Fatal(err)
-		}
 
-		opts := starknet.ChainSetOpts{
-			Logger:   starkLggr,
-			KeyStore: &keystore.StarknetLooppSigner{StarkNet: keyStore.StarkNet()},
-			Configs:  starknet.NewConfigs(cfgs),
-		}
+		for _, cfg := range cfgs {
+			id := relay.Identifier{Network: relay.Solana, ChainID: relay.ChainID(*cfg.ChainID)}
+			// all the lower level APIs expect chainsets. create a single valued set per id
+			singleChainCfg := starknet.StarknetConfigs{cfg}
+			opts := starknet.ChainSetOpts{
+				Logger:   starkLggr,
+				KeyStore: &keystore.StarknetLooppSigner{StarkNet: keyStore.StarkNet()},
+				Configs:  starknet.NewConfigs(singleChainCfg),
+			}
 
-		chainSet, err := starknet.NewChainSet(opts, cfgs)
-		if err != nil {
-			lggr.Fatal(err)
-		}
+			chainSet, err := starknet.NewChainSet(opts, singleChainCfg)
+			if err != nil {
+				lggr.Fatal(err)
+			}
 
-		chains.StarkNet = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
+			chains.StarkNet[id] = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
+		}
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{

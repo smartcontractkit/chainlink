@@ -368,6 +368,17 @@ type OCR2OracleSpec struct {
 	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
 }
 
+func (s *OCR2OracleSpec) RelayIdentifier() (relay.Identifier, error) {
+	var id relay.Identifier
+	cid, err := s.GetChainID()
+	if err != nil {
+		return id, err
+	}
+	id.ChainID = cid
+	id.Network = s.Relay
+	return id, nil
+}
+
 func (s *OCR2OracleSpec) GetChainID() (relay.ChainID, error) {
 	if s.chainID != "" {
 		return s.chainID, nil

@@ -1,6 +1,8 @@
 package cosmos
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -16,6 +18,7 @@ import (
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 var (
@@ -75,9 +78,31 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	return c, nil
 }
 
-type ChainSet = adapters.ChainSet
+// SingleChainSet is a chainset with 1 chain. TODO remove when relayer interface is updated
+type SingleChainSet struct {
+	adapters.ChainSet
+	// TODO what type for ID?
+	ID string
+}
 
-func NewChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (ChainSet, error) {
+func (s SingleChainSet) GetChain(ctx context.Context) adapters.Chain {
+	c, err := s.Chain(ctx, s.ID)
+	if err != nil {
+		panic("inconsistent single chain set")
+	}
+	return c
+}
+
+type ChainSetX struct {
+	adapters.ChainSet
+	chains map[relay.Identifier]SingleChainSet
+}
+
+func (cs *ChainSetX) Chains() map[relay.Identifier]SingleChainSet {
+	return cs.chains
+}
+
+func NewChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (*ChainSetX, error) {
 	solChains := map[string]adapters.Chain{}
 	var err error
 	for _, chain := range cfgs {
@@ -94,5 +119,27 @@ func NewChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (ChainSet, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load some Cosmos chains")
 	}
-	return chains.NewChainSet[db.Node, adapters.Chain](solChains, &opts)
+	chainMap := make(map[relay.Identifier]SingleChainSet)
+	for id, chain := range solChains {
+		temp := map[string]adapters.Chain{id: chain}
+		cs, err := chains.NewChainSet[db.Node, adapters.Chain](temp, &opts)
+		if err != nil {
+			return nil, err
+		}
+
+		relayID := relay.Identifier{Network: relay.Cosmos, ChainID: relay.ChainID(id)}
+		chainMap[relayID] = SingleChainSet{
+			ChainSet: cs,
+			ID:       id,
+		}
+
+	}
+	cs, err := chains.NewChainSet[db.Node, adapters.Chain](solChains, &opts)
+	if err != nil {
+		return nil, err
+	}
+	return &ChainSetX{
+		ChainSet: cs,
+		chains:   chainMap,
+	}, nil
 }

@@ -336,16 +336,17 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewLoopRegistry(lggr)
 	ks := mocks.NewSolana(t)
+	tConfig := configtest.NewGeneralConfig(t, nil)
 	rf := cmd.RelayerFactory{
-		Logger:        lggr,
-		DB:            pgtest.NewSqlxDB(t),
-		GeneralConfig: configtest.NewGeneralConfig(t, nil),
-		LoopRegistry:  reg,
+		Logger:       lggr,
+		DB:           pgtest.NewSqlxDB(t),
+		QConfig:      tConfig.Database(),
+		LoopRegistry: reg,
 	}
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayer, err := rf.NewSolana(ks)
+		relayer, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
 		require.NoError(t, err)
 		require.NotNil(t, relayer)
 		// no using plugin, so registry should be empty
@@ -355,7 +356,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 
-		relayer, err := rf.NewSolana(ks)
+		relayer, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
 		require.NoError(t, err)
 		require.NotNil(t, relayer)
 		// make sure registry has the plugin
@@ -368,16 +369,17 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewLoopRegistry(lggr)
 	ks := mocks.NewStarkNet(t)
+	tConfig := configtest.NewGeneralConfig(t, nil)
 	rf := cmd.RelayerFactory{
-		Logger:        lggr,
-		DB:            pgtest.NewSqlxDB(t),
-		GeneralConfig: configtest.NewGeneralConfig(t, nil),
-		LoopRegistry:  reg,
+		Logger:       lggr,
+		DB:           pgtest.NewSqlxDB(t),
+		QConfig:      tConfig.Database(),
+		LoopRegistry: reg,
 	}
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayer, err := rf.NewStarkNet(ks)
+		relayer, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
 		require.NoError(t, err)
 		require.NotNil(t, relayer)
 		// no using plugin, so registry should be empty
@@ -387,7 +389,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
 
-		relayer, err := rf.NewStarkNet(ks)
+		relayer, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
 		require.NoError(t, err)
 		require.NotNil(t, relayer)
 		// make sure registry has the plugin

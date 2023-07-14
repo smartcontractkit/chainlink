@@ -250,6 +250,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if err != nil {
 		return nil, err
 	}
+	// TODO: does this need to change?
 	chain, err := chainSet.Get(relayConfig.ChainID.ToInt())
 	if err != nil {
 		return nil, err

@@ -20,6 +20,7 @@ import (
 	kevm20 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm20"
 	kevm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -119,11 +120,19 @@ func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Ch
 	oSpec := spec.OCR2OracleSpec
 
 	// get the chain from the config
-	chainID, err2 := spec.OCR2OracleSpec.RelayConfig.EVMChainID()
+	relayID, err2 := spec.OCR2OracleSpec.RelayIdentifier()
 	if err2 != nil {
 		return nil, nil, nil, nil, err2
 	}
-	chain, err2 = set.Get(big.NewInt(chainID))
+	if relayID.Network != relay.EVM {
+		return nil, nil, nil, nil, fmt.Errorf("expected EVM relayer got %s", relayID.Network)
+	}
+	evmChainID, err2 := relayID.ChainID.Int64()
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("chainID %q is not EVM compatible: %w", relayID.ChainID, err2)
+	}
+
+	chain, err2 = set.Get(big.NewInt(evmChainID))
 	if err2 != nil {
 		return nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
 	}
