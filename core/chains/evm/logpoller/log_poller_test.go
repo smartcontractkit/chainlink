@@ -41,7 +41,7 @@ func logRuntime(t *testing.T, start time.Time) {
 }
 
 func TestPopulateLoadedDB(t *testing.T) {
-	t.Skip("only for local load testing and query analysis")
+	t.Skip("Only for local load testing and query analysis")
 	lggr := logger.TestLogger(t)
 	_, db := heavyweight.FullTestDBV2(t, "logs_scale", nil)
 	chainID := big.NewInt(137)
@@ -937,7 +937,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, 1*time.Hour, 2, 3, 2, 1000)
 
 	err = lp.Replay(ctx, 5) // block number too high
-	require.ErrorContains(t, err, "invalid replay block number")
+	require.ErrorContains(t, err, "Invalid replay block number")
 
 	// Force a db error while loading the filters (tx aborted, already rolled back)
 	require.Error(t, utils.JustError(db.Exec(`invalid query`)))
@@ -964,9 +964,9 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	}
 
 	assert.Contains(t, logMsgs, "SQL ERROR")
-	assert.Contains(t, logMsgs, "failed loading filters in main logpoller loop, retrying later")
-	assert.Contains(t, logMsgs, "error executing replay, could not get fromBlock")
-	assert.Contains(t, logMsgs, "backup log poller ran before filters loaded, skipping")
+	assert.Contains(t, logMsgs, "Failed loading filters in main logpoller loop, retrying later")
+	assert.Contains(t, logMsgs, "Error executing replay, could not get fromBlock")
+	assert.Contains(t, logMsgs, "Backup log poller ran before filters loaded, skipping")
 }
 
 func TestNotifyAfterInsert(t *testing.T) {

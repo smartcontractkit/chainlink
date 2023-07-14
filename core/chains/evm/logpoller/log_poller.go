@@ -316,7 +316,7 @@ func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
 		return err
 	}
 	if fromBlock < 1 || fromBlock > latest.Number {
-		return errors.Errorf("invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.Number)
+		return errors.Errorf("Invalid replay block number %v, acceptable range [1, %v]", fromBlock, latest.Number)
 	}
 	// Block until replay notification accepted or cancelled.
 	select {
@@ -439,18 +439,18 @@ func (lp *logPoller) run() {
 			fromBlock, err := lp.GetReplayFromBlock(lp.ctx, fromBlockReq)
 			if err == nil {
 				if !filtersLoaded {
-					lp.lggr.Warnw("received replayReq before filters loaded", "fromBlock", fromBlock, "requested", fromBlockReq)
+					lp.lggr.Warnw("Received replayReq before filters loaded", "fromBlock", fromBlock, "requested", fromBlockReq)
 					if err = loadFilters(); err != nil {
-						lp.lggr.Errorw("failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
+						lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
 					}
 				}
 				if err == nil {
 					// Serially process replay requests.
-					lp.lggr.Infow("executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
+					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
 					lp.PollAndSaveLogs(lp.ctx, fromBlock)
 				}
 			} else {
-				lp.lggr.Errorw("error executing replay, could not get fromBlock", "err", err)
+				lp.lggr.Errorw("Error executing replay, could not get fromBlock", "err", err)
 			}
 			select {
 			case <-lp.ctx.Done():
@@ -466,7 +466,7 @@ func (lp *logPoller) run() {
 			logPollTick = time.After(utils.WithJitter(lp.pollPeriod))
 			if !filtersLoaded {
 				if err := loadFilters(); err != nil {
-					lp.lggr.Errorw("failed loading filters in main logpoller loop, retrying later", "err", err)
+					lp.lggr.Errorw("Failed loading filters in main logpoller loop, retrying later", "err", err)
 					continue
 				}
 			}
@@ -484,7 +484,7 @@ func (lp *logPoller) run() {
 				// Only safe thing to do is to start at the first finalized block.
 				latest, err := lp.ec.HeadByNumber(lp.ctx, nil)
 				if err != nil {
-					lp.lggr.Warnw("unable to get latest for first poll", "err", err)
+					lp.lggr.Warnw("Unable to get latest for first poll", "err", err)
 					continue
 				}
 				latestNum := latest.Number
@@ -492,7 +492,7 @@ func (lp *logPoller) run() {
 				// Could conceivably support this but not worth the effort.
 				// Need finality depth + 1, no block 0.
 				if latestNum <= lp.finalityDepth {
-					lp.lggr.Warnw("insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestNum, "finality", lp.finalityDepth)
+					lp.lggr.Warnw("Insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestNum, "finality", lp.finalityDepth)
 					continue
 				}
 				// Starting at the first finalized block. We do not backfill the first finalized block.
@@ -514,14 +514,14 @@ func (lp *logPoller) run() {
 
 			backupLogPollTick = time.After(utils.WithJitter(backupPollerBlockDelay * lp.pollPeriod))
 			if !filtersLoaded {
-				lp.lggr.Warnw("backup log poller ran before filters loaded, skipping")
+				lp.lggr.Warnw("Backup log poller ran before filters loaded, skipping")
 				continue
 			}
 			lp.BackupPollAndSaveLogs(lp.ctx, backupPollerBlockDelay)
 		case <-blockPruneTick:
 			blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 1000))
 			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
-				lp.lggr.Errorw("unable to prune old blocks", "err", err)
+				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
 			}
 		case <-logPruneTick:
 			logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 2401)) // = 7^5 avoids common factors with 1000
@@ -1060,7 +1060,7 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	}
 
 	if len(remainingBlocks) > 0 {
-		lp.lggr.Debugw("falling back to RPC for blocks not found in log poller blocks table",
+		lp.lggr.Debugw("Falling back to RPC for blocks not found in log poller blocks table",
 			"remainingBlocks", remainingBlocks)
 	}
 
