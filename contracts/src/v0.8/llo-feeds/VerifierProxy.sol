@@ -9,9 +9,9 @@ import {AccessControllerInterface} from "../interfaces/AccessControllerInterface
 import {IERC165} from "../shared/vendor/IERC165.sol";
 import {IRewardManager} from "./interfaces/IRewardManager.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
-import {SafeERC20} from "../shared/vendor/SafeERC20.sol";
 import {IERC20} from "../shared/vendor/IERC20.sol";
 import {Common} from "../libraries/internal/Common.sol";
+import {IWERC20} from "../shared/vendor/IWERC20.sol";
 
 /**
  * The verifier proxy contract is the gateway for all report verification requests
@@ -19,8 +19,6 @@ import {Common} from "../libraries/internal/Common.sol";
  * it to the correct verifier contract.
  */
 contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterface {
-  using SafeERC20 for IERC20;
-
   /// @notice This event is emitted whenever a new verifier contract is set
   /// @param oldConfigDigest The config digest that was previously the latest config
   /// digest of the verifier contract at the verifier address.
@@ -69,8 +67,8 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @param configDigest The digest for which a verifier is not found
   error VerifierNotFound(bytes32 configDigest);
 
-  /// @notice This error is thrown when the verifier does not include the correct amount of funds to verify a report
-  error InvalidDepositAmount();
+  /// @notice This error is thrown when the verifier does not include the correct amount or quote to retrieve the correct deposit
+  error InvalidDeposit();
 
   /// @notice Mapping of authorized verifiers
   mapping(address => bool) private s_initializedVerifiers;
@@ -87,14 +85,21 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @notice The contract to control reward distribution for report verification
   IRewardManager private immutable s_rewardsManager;
 
+  /// @notice The Wrapped Native contract
+  address private immutable s_wrappedNative;
+
   constructor(
     AccessControllerInterface accessController,
     IFeeManager feeManager,
-    IRewardManager rewardManager
+    IRewardManager rewardManager,
+    address wrappedNativeAddress
   ) ConfirmedOwner(msg.sender) {
     s_accessController = accessController;
     s_feeManager = feeManager;
     s_rewardsManager = rewardManager;
+
+    if (address(wrappedNativeAddress) == address(0)) revert ZeroAddress();
+    s_wrappedNative = wrappedNativeAddress;
   }
 
   /// @dev reverts if the caller does not have access by the accessController contract or is the contract itself.
@@ -158,22 +163,48 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @inheritdoc IVerifierProxy
   /// @dev Contract skips checking whether or not the current verifier
   /// is valid as it checks this before a new verifier is set.
-  function verify(bytes calldata signedReport) external override checkAccess returns (bytes memory verifierResponse) {
+  function verify(
+    bytes calldata payload
+  ) external payable override checkAccess returns (bytes memory verifierResponse) {
     // First 32 bytes of the signed report is the config digest.
-    bytes32 configDigest = bytes32(signedReport);
+    bytes32 configDigest = bytes32(payload);
     address verifierAddress = s_verifiersByConfig[configDigest];
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);
-    (bytes memory verifiedReport, bytes memory quoteData) = IVerifier(verifierAddress).verify(signedReport, msg.sender);
+    (bytes memory verifiedReport, bytes memory quoteData) = IVerifier(verifierAddress).verify(payload, msg.sender);
 
-    //if we have a registered fee and reward-manager manager, bill the verifier
+    //if we have a registered fee and reward-manager manager, bill the verifier.
     if (address(s_feeManager) != address(0) && address(s_rewardsManager) != address(0)) {
       //decode the fee
       Common.Asset memory asset = s_feeManager.getFee(msg.sender, verifiedReport, quoteData);
 
       //some users might not be billed
       if (asset.amount > 0) {
+        //get the sender of the funds, wrapping it will turn the proxy into the sender
+        address transferFeeFromAddress = msg.sender;
+
+        //if native has been sent in, calculate the amount to wrap and return the rest
+        if (msg.value > 0) {
+          if (asset.assetAddress != s_wrappedNative) revert InvalidDeposit();
+          if (msg.value < asset.amount) revert InvalidDeposit();
+
+          //wrap the amount required to pay the fee & approve
+          IWERC20(s_wrappedNative).deposit{value: asset.amount}();
+          IERC20(s_wrappedNative).approve(address(s_rewardsManager), asset.amount);
+          transferFeeFromAddress = address(this);
+
+          unchecked {
+            //msg.value is always >= to asset.amount
+            uint256 change = msg.value - asset.amount;
+
+            //return the change
+            if (change > 0) {
+              payable(msg.sender).transfer(change);
+            }
+          }
+        }
+
         //bill the payee
-        s_rewardsManager.onFeePaid(configDigest, msg.sender, asset.amount);
+        s_rewardsManager.onFeePaid(configDigest, transferFeeFromAddress, asset);
       }
     }
 

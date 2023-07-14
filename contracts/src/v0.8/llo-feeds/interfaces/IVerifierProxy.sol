@@ -10,7 +10,7 @@ interface IVerifierProxy {
    * @param signedReport The encoded data to be verified.
    * @return verifierResponse The encoded response from the verifier.
    */
-  function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
+  function verify(bytes memory signedReport) external payable returns (bytes memory verifierResponse);
 
   /**
    * @notice Sets a new verifier for a config digest

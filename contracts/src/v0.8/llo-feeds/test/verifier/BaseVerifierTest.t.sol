@@ -11,9 +11,9 @@ import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
 import {FeeManager} from "../../FeeManager.sol";
 import {RewardManager} from "../../RewardManager.sol";
-import {IERC20} from "../../../shared/vendor/SafeERC20.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 import {ERC20Mock} from "../../../shared/vendor/ERC20Mock.sol";
+import {WERC20Mock} from "../../../shared/vendor/WERC20Mock.sol";
 
 contract BaseTest is Test {
   uint256 internal constant MAX_ORACLES = 31;
@@ -48,10 +48,11 @@ contract BaseTest is Test {
   ErroredVerifier internal s_erroredVerifier;
   FeeManager internal s_feeManager;
   RewardManager internal s_rewardManager;
-  IERC20 internal s_link;
-  IERC20 internal s_native;
+  ERC20Mock internal s_link;
+  ERC20Mock internal s_native;
+  WERC20Mock internal s_wrappedNative;
 
-  //this should match the value in the rewards contract
+  //this should match the value in the rewards contracts_native
   uint16 PERCENTAGE_SCALAR = 10000;
 
   struct Signer {
@@ -95,12 +96,18 @@ contract BaseTest is Test {
     );
 
     //create the contracts
-    s_link = new ERC20Mock();
-    s_native = new ERC20Mock();
+    s_link = new ERC20Mock("link", "LINK");
+    s_native = new ERC20Mock("eth", "ETH");
+    s_wrappedNative = new WERC20Mock("weth", "WETH");
 
     s_feeManager = new FeeManager(address(s_link), address(s_native));
     s_rewardManager = new RewardManager(address(s_link));
-    s_verifierProxy = new VerifierProxy(AccessControllerInterface(address(0)), s_feeManager, s_rewardManager);
+    s_verifierProxy = new VerifierProxy(
+      AccessControllerInterface(address(0)),
+      s_feeManager,
+      s_rewardManager,
+      address(s_wrappedNative)
+    );
 
     s_rewardManager.setVerifierProxy(address(s_verifierProxy));
 

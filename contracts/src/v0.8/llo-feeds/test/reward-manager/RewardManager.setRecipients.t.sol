@@ -124,6 +124,6 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     vm.expectRevert(INSUFFICIENT_ALLOWANCE_ERROR);
 
     //try and add funds to the pool from an unconfigured address
-    rewardManager.onFeePaid(PRIMARY_POOL_ID, msg.sender, 1);
+    rewardManager.onFeePaid(PRIMARY_POOL_ID, msg.sender, getUnsupportedAsset(1));
   }
 }

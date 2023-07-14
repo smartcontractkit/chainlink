@@ -74,8 +74,8 @@ contract BaseRewardManagerTest is Test {
 
   function _initializeERC20Contracts() internal {
     //create the contracts
-    asset = new ERC20Mock();
-    unsupported = new ERC20Mock();
+    asset = new ERC20Mock("link", "LINK");
+    unsupported = new ERC20Mock("unsupported", "UNSP");
 
     //mint some tokens to the admin
     asset.mint(ADMIN, DEFAULT_MINT_QUANTITY);
@@ -162,7 +162,7 @@ contract BaseRewardManagerTest is Test {
     ERC20Mock(amount.assetAddress).approve(address(rewardManager), amount.amount);
 
     //this represents the verifier adding some funds to the pool
-    rewardManager.onFeePaid(poolId, sender, amount.amount);
+    rewardManager.onFeePaid(poolId, sender, amount);
 
     //change back to the original address
     changePrank(originalAddr);

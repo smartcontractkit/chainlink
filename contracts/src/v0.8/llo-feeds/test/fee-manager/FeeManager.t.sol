@@ -253,7 +253,6 @@ contract FeeManagerTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE * 2 - expectedDiscount);
   }
 
-
   function test_feeIsZeroWith100PercentDiscount() public {
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR, ADMIN);
