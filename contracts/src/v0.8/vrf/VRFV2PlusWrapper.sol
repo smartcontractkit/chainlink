@@ -100,7 +100,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     address _link,
     address _linkEthFeed,
     address _coordinator
-  ) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(_coordinator, msg.sender) {
+  ) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(_coordinator) {
     if (_link != address(0)) {
       s_link = LinkTokenInterface(_link);
     }
