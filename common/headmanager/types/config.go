@@ -7,7 +7,7 @@ type Config interface {
 	FinalityDepth() uint32
 }
 
-type TrackerConfig interface {
+type HeadTrackerConfig interface {
 	HistoryDepth() uint32
 	MaxBufferSize() uint32
 	SamplingInterval() time.Duration

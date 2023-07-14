@@ -47,7 +47,7 @@ type Tracker[
 	client          hmtypes.Client[HMH, S, ID, BLOCK_HASH]
 	chainID         ID
 	config          hmtypes.Config
-	htConfig        hmtypes.TrackerConfig
+	htConfig        hmtypes.HeadTrackerConfig
 
 	backfillMB   *utils.Mailbox[HMH]
 	broadcastMB  *utils.Mailbox[HMH]
@@ -68,7 +68,7 @@ func NewTracker[
 	lggr logger.Logger,
 	client hmtypes.Client[HMH, S, ID, BLOCK_HASH],
 	config hmtypes.Config,
-	htConfig hmtypes.TrackerConfig,
+	htConfig hmtypes.HeadTrackerConfig,
 	headBroadcaster types.Broadcaster[HMH, BLOCK_HASH],
 	headSaver types.Saver[HMH, BLOCK_HASH],
 	mailMon *utils.MailboxMonitor,
