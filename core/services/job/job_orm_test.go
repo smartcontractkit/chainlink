@@ -47,6 +47,7 @@ type = 'offchainreporting2'
 schemaVersion = 1
 externalJobID = '00000000-0000-0000-0000-000000000001'
 contractID = '0x0000000000000000000000000000000000000006'
+transmitterID = '%s'
 feedID = '%s'
 relay = 'evm'
 pluginType = 'mercury'
@@ -849,6 +850,7 @@ func Test_FindJob(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, config.Database())
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))
+	require.NoError(t, keyStore.CSA().Add(cltest.DefaultCSAKey))
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
@@ -903,14 +905,14 @@ func Test_FindJob(t *testing.T) {
 	jobOCR2WithFeedID1, err := ocr2validate.ValidatedOracleSpecToml(
 		config.OCR2(),
 		config.Insecure(),
-		fmt.Sprintf(mercuryOracleTOML, ocr2WithFeedID1),
+		fmt.Sprintf(mercuryOracleTOML, cltest.DefaultCSAKey.PublicKeyString(), ocr2WithFeedID1),
 	)
 	require.NoError(t, err)
 
 	jobOCR2WithFeedID2, err := ocr2validate.ValidatedOracleSpecToml(
 		config.OCR2(),
 		config.Insecure(),
-		fmt.Sprintf(mercuryOracleTOML, ocr2WithFeedID2),
+		fmt.Sprintf(mercuryOracleTOML, cltest.DefaultCSAKey.PublicKeyString(), ocr2WithFeedID2),
 	)
 	jobOCR2WithFeedID2.ExternalJobID = uuid.New()
 	jobOCR2WithFeedID2.Name = null.StringFrom("new name")
