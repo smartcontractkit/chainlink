@@ -8,10 +8,13 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 )
@@ -39,10 +42,20 @@ func TestAllowlist_UpdateAndCheck(t *testing.T) {
 	client := mocks.NewClient(t)
 	client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(sampleEncodedAllowlist(t), nil)
-	allowlist, err := functions.NewOnchainAllowlist(client, common.Address{}, 1, logger.TestLogger(t))
+	config := functions.OnchainAllowlistConfig{
+		ContractAddress:    common.Address{},
+		BlockConfirmations: 1,
+	}
+	allowlist, err := functions.NewOnchainAllowlist(client, config, logger.TestLogger(t))
 	require.NoError(t, err)
 
-	require.NoError(t, allowlist.UpdateFromContract(context.Background()))
+	err = allowlist.Start(testutils.Context(t))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		assert.NoError(t, allowlist.Close())
+	})
+
+	require.NoError(t, allowlist.UpdateFromContract(testutils.Context(t)))
 	require.False(t, allowlist.Allow(common.Address{}))
 	require.True(t, allowlist.Allow(common.HexToAddress(addr1)))
 	require.True(t, allowlist.Allow(common.HexToAddress(addr2)))
@@ -52,16 +65,28 @@ func TestAllowlist_UpdateAndCheck(t *testing.T) {
 func TestAllowlist_UpdatePeriodically(t *testing.T) {
 	t.Parallel()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(testutils.Context(t))
 	client := mocks.NewClient(t)
 	client.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(42), nil)
 	client.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		cancel()
 	}).Return(sampleEncodedAllowlist(t), nil)
-	allowlist, err := functions.NewOnchainAllowlist(client, common.Address{}, 1, logger.TestLogger(t))
+	config := functions.OnchainAllowlistConfig{
+		ContractAddress:    common.Address{},
+		BlockConfirmations: 1,
+		UpdateFrequencySec: 1,
+		UpdateTimeoutSec:   1,
+	}
+	allowlist, err := functions.NewOnchainAllowlist(client, config, logger.TestLogger(t))
 	require.NoError(t, err)
 
-	allowlist.UpdatePeriodically(ctx, time.Millisecond*10, time.Second*1)
-	require.True(t, allowlist.Allow(common.HexToAddress(addr1)))
-	require.False(t, allowlist.Allow(common.HexToAddress(addr3)))
+	err = allowlist.Start(ctx)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		assert.NoError(t, allowlist.Close())
+	})
+
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		return allowlist.Allow(common.HexToAddress(addr1)) && !allowlist.Allow(common.HexToAddress(addr3))
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }

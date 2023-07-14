@@ -105,8 +105,6 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     FeeConfig feeConfig
   );
 
-  mapping(uint256 /* requestId */ => uint96 /* payment */) public s_requestPayments;
-
   constructor(address blockhashStore) SubscriptionAPI() {
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
   }
@@ -312,7 +310,7 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     address sender,
     uint64 subId,
     uint64 nonce
-  ) internal pure returns (uint256, uint256) {
+  ) private pure returns (uint256, uint256) {
     uint256 preSeed = uint256(keccak256(abi.encode(keyHash, sender, subId, nonce)));
     return (uint256(keccak256(abi.encode(keyHash, preSeed))), preSeed);
   }
@@ -447,10 +445,6 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
       // Include payment in the event for tracking costs.
       // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bool nativePayment, bool success);
       emit RandomWordsFulfilled(output.requestId, output.randomness, payment, rc.nativePayment, success);
-
-      // Update the payment field in the request payments mapping so that
-      // consumers know how much they've paid and can charge end-users accordingly.
-      s_requestPayments[output.requestId] = payment;
 
       return payment;
     }
@@ -602,6 +596,6 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
    * @return Type and version string
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "VRFCoordinatorV2 2.0.0";
+    return "VRFCoordinatorV2Plus 1.0.0";
   }
 }

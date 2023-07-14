@@ -3,6 +3,7 @@ package mercury
 import (
 	"crypto/ed25519"
 	"encoding/hex"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -15,13 +16,13 @@ import (
 
 var _ ocrtypes.OffchainConfigDigester = OffchainConfigDigester{}
 
-func NewOffchainConfigDigester(feedID [32]byte, chainID uint64, contractAddress common.Address) OffchainConfigDigester {
+func NewOffchainConfigDigester(feedID [32]byte, chainID *big.Int, contractAddress common.Address) OffchainConfigDigester {
 	return OffchainConfigDigester{feedID, chainID, contractAddress}
 }
 
 type OffchainConfigDigester struct {
 	FeedID          [32]byte
-	ChainID         uint64
+	ChainID         *big.Int
 	ContractAddress common.Address
 }
 

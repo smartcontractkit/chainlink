@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -129,7 +129,7 @@ func (ekc *ETHKeysController) Create(c *gin.Context) {
 	}
 
 	if c.Query("maxGasPriceGWei") != "" {
-		jsonAPIError(c, http.StatusBadRequest, v2.ErrUnsupported)
+		jsonAPIError(c, http.StatusBadRequest, toml.ErrUnsupported)
 		return
 	}
 
@@ -360,13 +360,13 @@ func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.St
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
-			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "error", err)
+			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "err", err)
 		}
 	} else {
 		ethClient := chain.Client()
 		bal, err = ethClient.BalanceAt(ctx, state.Address.Address(), nil)
 		if err != nil {
-			ekc.lggr.Errorw("Failed to get ETH balance", "chainID", chainID, "address", state.Address, "error", err)
+			ekc.lggr.Errorw("Failed to get ETH balance", "chainID", chainID, "address", state.Address, "err", err)
 		}
 	}
 	return presenters.SetETHKeyEthBalance((*assets.Eth)(bal))
@@ -381,14 +381,14 @@ func (ekc *ETHKeysController) setLinkBalance(ctx context.Context, state ethkey.S
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
-			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "error", err)
+			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
 	} else {
 		ethClient := chain.Client()
 		addr := common.HexToAddress(chain.Config().EVM().LinkContractAddress())
 		bal, err = ethClient.LINKBalance(ctx, state.Address.Address(), addr)
 		if err != nil {
-			ekc.lggr.Errorw("Failed to get LINK balance", "chainID", chainID, "address", state.Address, "error", err)
+			ekc.lggr.Errorw("Failed to get LINK balance", "chainID", chainID, "address", state.Address, "err", err)
 		}
 	}
 	return presenters.SetETHKeyLinkBalance(bal)
@@ -403,10 +403,10 @@ func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddres
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
-			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "error", err)
+			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
 	} else {
-		price = chain.Config().EVM().KeySpecificMaxGasPriceWei(keyAddress)
+		price = chain.Config().EVM().GasEstimator().PriceMaxKey(keyAddress)
 	}
 	return presenters.SetETHKeyMaxGasPriceWei(utils.NewBig(price.ToInt()))
 }

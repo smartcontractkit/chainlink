@@ -58,7 +58,7 @@ func (h *HTTPRequest) SendRequest() (responseBody []byte, statusCode int, header
 
 	r, err := h.Client.Do(h.Request)
 	if err != nil {
-		h.Logger.Tracew("http adapter got error", "error", err)
+		h.Logger.Tracew("http adapter got error", "err", err)
 		return nil, 0, nil, err
 	}
 	defer logger.Sugared(h.Logger).ErrorIfFn(r.Body.Close, "Error closing SendRequest response body")
@@ -70,7 +70,7 @@ func (h *HTTPRequest) SendRequest() (responseBody []byte, statusCode int, header
 	source := http.MaxBytesReader(nil, r.Body, h.Config.SizeLimit)
 	bytes, err := io.ReadAll(source)
 	if err != nil {
-		h.Logger.Errorw("http adapter error reading body", "error", err)
+		h.Logger.Errorw("http adapter error reading body", "err", err)
 		return nil, statusCode, nil, err
 	}
 	elapsed = time.Since(start)

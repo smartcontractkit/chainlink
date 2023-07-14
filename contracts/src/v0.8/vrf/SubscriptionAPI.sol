@@ -298,7 +298,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     emit SubscriptionConsumerAdded(subId, consumer);
   }
 
-  function cancelSubscriptionHelper(uint64 subId, address to) internal nonReentrant {
+  function cancelSubscriptionHelper(uint64 subId, address to) internal {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     Subscription memory sub = s_subscriptions[subId];
     uint96 balance = sub.balance;

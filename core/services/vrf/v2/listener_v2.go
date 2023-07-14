@@ -23,6 +23,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -33,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -48,6 +50,7 @@ var (
 	_                         log.Listener   = &listenerV2{}
 	_                         job.ServiceCtx = &listenerV2{}
 	coordinatorV2ABI                         = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
+	coordinatorV2PlusABI                     = evmtypes.MustGetABI(vrf_coordinator_v2plus.VRFCoordinatorV2PlusABI)
 	batchCoordinatorV2ABI                    = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 	batchCoordinatorV2PlusABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusABI)
 	vrfOwnerABI                              = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
@@ -70,7 +73,7 @@ const (
 
 	// RandomWordsRequestedV2PlusABI is the ABI of the RandomWordsRequested event
 	// for V2Plus.
-	RandomWordsRequestedV2PlusABI = "event RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
+	RandomWordsRequestedV2PlusABI = "RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
 )
 
 type errPossiblyInsufficientFunds struct{}
@@ -160,7 +163,7 @@ type vrfPipelineResult struct {
 	payload       string
 	gasLimit      uint32
 	req           pendingRequest
-	proof         vrf_coordinator_v2.VRFProof
+	proof         VRFProof
 	reqCommitment RequestCommitment
 }
 
@@ -525,12 +528,12 @@ func MaybeSubtractReservedEth(q pg.Q, startBalance *big.Int, chainID, subID uint
 	}
 
 	if reservedEther != "" {
-		reservedLinkInt, success := big.NewInt(0).SetString(reservedEther, 10)
+		reservedEtherInt, success := big.NewInt(0).SetString(reservedEther, 10)
 		if !success {
 			return nil, fmt.Errorf("converting reserved ether %s", reservedEther)
 		}
 
-		return new(big.Int).Sub(startBalance, reservedLinkInt), nil
+		return new(big.Int).Sub(startBalance, reservedEtherInt), nil
 	}
 
 	if startBalance != nil {
@@ -588,7 +591,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 		"subID", subID,
 		"eligibleSubReqs", len(reqs),
 		"startBalance", startBalance.String(),
-		"startBalanceNoReservedLink", startBalanceNoReserved.String(),
+		"startBalanceNoReserved", startBalanceNoReserved.String(),
 		"batchMaxGas", batchMaxGas,
 		"subIsActive", subIsActive,
 	)
@@ -635,9 +638,9 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 			}
 		}
 
-		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecific-MaxPrice value.
 		fromAddresses := lsn.fromAddresses()
-		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
+		maxGasPriceWei := lsn.feeCfg.PriceMaxKey(fromAddresses[0])
 
 		// Cases:
 		// 1. Never simulated: in this case, we want to observe the time until simulated
@@ -659,7 +662,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 				"gasLimit", p.gasLimit,
 				"attempts", p.req.attempts,
 				"remainingBalance", startBalanceNoReserved.String(),
-				"consumerAddress", p.req.req.Sender,
+				"consumerAddress", p.req.req.Sender(),
 				"blockNumber", p.req.req.Raw().BlockNumber,
 				"blockHash", p.req.req.Raw().BlockHash,
 			)
@@ -707,7 +710,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 					if !lsn.isConsumerValidAfterFinalityDepthElapsed(ctx, p.req) {
 						lsn.l.Infow(
 							"Dropping request that was made by an invalid consumer.",
-							"consumerAddress", p.req.req.Sender,
+							"consumerAddress", p.req.req.Sender(),
 							"reqID", p.req.req.RequestID(),
 							"blockNumber", p.req.req.Raw().BlockNumber,
 							"blockHash", p.req.req.Raw().BlockHash,
@@ -847,7 +850,8 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		vrfOwnerAddressSpec := lsn.job.VRFSpec.VRFOwnerAddress.Address()
 		lsn.l.Infow("addresses diff", "wrapper_address", vrfOwnerAddress1, "spec_address", vrfOwnerAddressSpec)
 
-		txData, err := vrfOwnerABI.Pack("fulfillRandomWords", p.proof, p.reqCommitment.Get())
+		lsn.l.Infow("fulfillRandomWords payload", "proof", p.proof, "commitment", p.reqCommitment.Get(), "payload", p.payload)
+		txData := hexutil.MustDecode(p.payload)
 		if err != nil {
 			return errors.Wrap(err, "abi pack VRFOwner.fulfillRandomWords")
 		}
@@ -969,9 +973,9 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 			}
 		}
 
-		// All fromAddresses passed to the VRFv2 job have the same KeySpecificMaxGasPriceWei value.
+		// All fromAddresses passed to the VRFv2 job have the same KeySpecific-MaxPrice value.
 		fromAddresses := lsn.fromAddresses()
-		maxGasPriceWei := lsn.cfg.KeySpecificMaxGasPriceWei(fromAddresses[0])
+		maxGasPriceWei := lsn.feeCfg.PriceMaxKey(fromAddresses[0])
 		observeRequestSimDuration(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version(), unfulfilled)
 		pipelines := lsn.runPipelines(ctx, l, maxGasPriceWei, unfulfilled)
 		for _, p := range pipelines {
@@ -983,7 +987,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				"gasLimit", p.gasLimit,
 				"attempts", p.req.attempts,
 				"remainingBalance", startBalanceNoReserved.String(),
-				"consumerAddress", p.req.req.Sender,
+				"consumerAddress", p.req.req.Sender(),
 				"blockNumber", p.req.req.Raw().BlockNumber,
 				"blockHash", p.req.req.Raw().BlockHash,
 			)
@@ -1028,7 +1032,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 					if !lsn.isConsumerValidAfterFinalityDepthElapsed(ctx, p.req) {
 						lsn.l.Infow(
 							"Dropping request that was made by an invalid consumer.",
-							"consumerAddress", p.req.req.Sender,
+							"consumerAddress", p.req.req.Sender(),
 							"reqID", p.req.req.RequestID(),
 							"blockNumber", p.req.req.Raw().BlockNumber,
 							"blockHash", p.req.req.Raw().BlockHash,
@@ -1080,7 +1084,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 					},
 					Strategy: txmgrcommon.NewSendEveryStrategy(),
 					Checker: txmgr.TransmitCheckerSpec{
-						CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
+						CheckerType:           lsn.transmitCheckerType(),
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw().BlockNumber),
 					},
@@ -1102,6 +1106,13 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 	}
 
 	return
+}
+
+func (lsn *listenerV2) transmitCheckerType() txmgrtypes.TransmitCheckerType {
+	if lsn.coordinator.Version() == vrfcommon.V2 {
+		return txmgr.TransmitCheckerTypeVRFV2
+	}
+	return txmgr.TransmitCheckerTypeVRFV2Plus
 }
 
 func (lsn *listenerV2) processRequestsPerSub(
@@ -1181,6 +1192,15 @@ func (lsn *listenerV2) processRequestsPerSub(
 	return processed
 }
 
+func (lsn *listenerV2) requestCommitmentPayload(requestID *big.Int) (payload []byte, err error) {
+	if lsn.coordinator.Version() == vrfcommon.V2Plus {
+		return coordinatorV2PlusABI.Pack("s_requestCommitments", requestID)
+	} else if lsn.coordinator.Version() == vrfcommon.V2 {
+		return coordinatorV2ABI.Pack("getCommitment", requestID)
+	}
+	return nil, errors.Errorf("unsupported coordinator version: %s", lsn.coordinator.Version())
+}
+
 // checkReqsFulfilled returns a bool slice the same size of the given reqs slice
 // where each slice element indicates whether that request was already fulfilled
 // or not.
@@ -1192,7 +1212,7 @@ func (lsn *listenerV2) checkReqsFulfilled(ctx context.Context, l logger.Logger, 
 	)
 
 	for i, req := range reqs {
-		payload, err := coordinatorV2ABI.Pack("getCommitment", req.req.RequestID())
+		payload, err := lsn.requestCommitmentPayload(req.req.RequestID())
 		if err != nil {
 			// This shouldn't happen
 			return fulfilled, errors.Wrap(err, "creating getCommitment payload")
@@ -1385,7 +1405,7 @@ func (lsn *listenerV2) simulateFulfillment(
 					// that's all we need in the event of a force-fulfillment.
 					m := trr.Result.Value.(map[string]any)
 					res.payload = m["output"].(string)
-					res.proof = m["proof"].(vrf_coordinator_v2.VRFProof)
+					res.proof = FromV2Proof(m["proof"].(vrf_coordinator_v2.VRFProof))
 					res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
 				}
 			}
@@ -1411,7 +1431,14 @@ func (lsn *listenerV2) simulateFulfillment(
 		if trr.Task.Type() == pipeline.TaskTypeVRFV2 {
 			m := trr.Result.Value.(map[string]interface{})
 			res.payload = m["output"].(string)
-			res.proof = m["proof"].(vrf_coordinator_v2.VRFProof)
+			res.proof = FromV2Proof(m["proof"].(vrf_coordinator_v2.VRFProof))
+			res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
+		}
+
+		if trr.Task.Type() == pipeline.TaskTypeVRFV2Plus {
+			m := trr.Result.Value.(map[string]interface{})
+			res.payload = m["output"].(string)
+			res.proof = FromV2PlusProof(m["proof"].(vrf_coordinator_v2plus.VRFProof))
 			res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
 		}
 
@@ -1497,7 +1524,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.l.Debugw("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+			lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
 			return
 		} else if consumed {
 			return
@@ -1518,7 +1545,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			lsn.l.Errorw("Could not determine if log was already consumed", "error", err, "txHash", lb.RawLog().TxHash)
+			lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
 			return
 		} else if consumed {
 			return
@@ -1528,7 +1555,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 	}
 
 	confirmedAt := lsn.getConfirmedAt(req, minConfs)
-	lsn.l.Infow("VRFListenerV2: Received log request", "reqID", req.RequestID(), "confirmedAt", confirmedAt, "subID", req.SubID(), "sender", req.Sender)
+	lsn.l.Infow("VRFListenerV2: Received log request", "reqID", req.RequestID(), "confirmedAt", confirmedAt, "subID", req.SubID(), "sender", req.Sender())
 	lsn.reqsMu.Lock()
 	lsn.reqs = append(lsn.reqs, pendingRequest{
 		confirmedAtBlock: confirmedAt,

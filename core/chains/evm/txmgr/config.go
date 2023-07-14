@@ -3,7 +3,7 @@ package txmgr
 import (
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	gethcommon "github.com/ethereum/go-ethereum/common"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -19,7 +19,6 @@ type ChainConfig interface {
 	FinalityDepth() uint32
 	NonceAutoSync() bool
 	RPCDefaultBatchSize() uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
 }
 
 type FeeConfig interface {
@@ -32,6 +31,7 @@ type FeeConfig interface {
 	TipCapMin() *assets.Wei
 	PriceMax() *assets.Wei
 	PriceMin() *assets.Wei
+	PriceMaxKey(gethcommon.Address) *assets.Wei
 }
 
 type DatabaseConfig interface {

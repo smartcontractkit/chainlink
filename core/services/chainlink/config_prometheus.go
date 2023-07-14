@@ -1,11 +1,11 @@
 package chainlink
 
 import (
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
 type prometheusConfig struct {
-	s v2.PrometheusSecrets
+	s toml.PrometheusSecrets
 }
 
 func (p *prometheusConfig) AuthToken() string {
