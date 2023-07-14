@@ -26,6 +26,7 @@ func TestPluginMedianExec(t *testing.T) {
 	cc := median.ClientConfig()
 	cc.Cmd = helperProcess(loop.PluginMedianName)
 	c := plugin.NewClient(cc)
+	t.Cleanup(c.Kill)
 	client, err := c.Client()
 	require.NoError(t, err)
 	defer client.Close()

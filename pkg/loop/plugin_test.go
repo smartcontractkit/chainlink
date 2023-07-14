@@ -48,6 +48,7 @@ func testPlugin[I any](t *testing.T, name string, p plugin.Plugin, testFn func(*
 		Reattach: config,
 		Plugins:  map[string]plugin.Plugin{name: p},
 	})
+	t.Cleanup(c.Kill)
 	clientProtocol, err := c.Client()
 	require.NoError(t, err)
 	defer clientProtocol.Close()

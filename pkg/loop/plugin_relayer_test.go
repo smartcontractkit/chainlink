@@ -25,6 +25,7 @@ func TestPluginRelayerExec(t *testing.T) {
 	cc := relayer.ClientConfig()
 	cc.Cmd = helperProcess(loop.PluginRelayerName)
 	c := plugin.NewClient(cc)
+	t.Cleanup(c.Kill)
 	client, err := c.Client()
 	require.NoError(t, err)
 	defer client.Close()

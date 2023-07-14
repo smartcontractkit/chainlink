@@ -69,7 +69,7 @@ jobs:
         run: go build -v ./...
 
       - name: Unit Tests
-        run: go test -race ./... -coverpkg=./... -coverprofile=coverage.txt $1 | tee $OUTPUT_FILE
+        run: go test -race ./... -coverpkg=./... -coverprofile=coverage.txt
       
       - name: Upload Go test results
         if: always()
