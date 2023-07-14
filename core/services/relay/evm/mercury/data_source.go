@@ -14,7 +14,7 @@ import (
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -26,7 +26,7 @@ import (
 //go:generate mockery --quiet --name ChainHeadTracker --output ./mocks/ --case=underscore
 type ChainHeadTracker interface {
 	Client() evmclient.Client
-	HeadTracker() httypes.HeadTracker
+	HeadTracker() hmtypes.Tracker
 }
 
 type Runner interface {
@@ -272,7 +272,7 @@ func (ds *datasource) getCurrentBlock(ctx context.Context) (*evmtypes.Head, erro
 	// on responses from all available RPC nodes
 	latestHead := ds.chainHeadTracker.HeadTracker().LatestChain()
 	if latestHead == nil {
-		logger.Sugared(ds.lggr).AssumptionViolation("HeadTracker unexpectedly returned nil head, falling back to RPC call")
+		logger.Sugared(ds.lggr).AssumptionViolation("Tracker unexpectedly returned nil head, falling back to RPC call")
 		var err error
 		latestHead, err = ds.chainHeadTracker.Client().HeadByNumber(ctx, nil)
 		if err != nil {

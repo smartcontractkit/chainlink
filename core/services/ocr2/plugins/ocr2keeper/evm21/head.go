@@ -6,13 +6,13 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
 type HeadProvider struct {
-	ht         httypes.HeadTracker
-	hb         httypes.HeadBroadcaster
+	ht         hmtypes.Tracker
+	hb         hmtypes.Broadcaster
 	chHead     chan ocr2keepers.BlockKey
 	subscribed bool
 }

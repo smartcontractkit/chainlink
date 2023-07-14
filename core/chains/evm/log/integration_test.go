@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
@@ -227,7 +227,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 			StartBlock:     10,
 			EndBlock:       10,
-			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+			HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 			Blocks:         blocks,
 		})
 		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 2 }, testutils.WaitTimeout(t), time.Second,
@@ -239,7 +239,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 			StartBlock:     11,
 			EndBlock:       11,
-			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+			HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 			Blocks:         blocks,
 		})
 		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 2 }, testutils.WaitTimeout(t), time.Second,
@@ -250,7 +250,7 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 		<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 			StartBlock:     12,
 			EndBlock:       12,
-			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+			HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 			Blocks:         blocks,
 		})
 		require.Eventually(t, func() bool { return len(listener.getUniqueLogs()) == 4 }, testutils.WaitTimeout(t), time.Second,
@@ -307,7 +307,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			StartBlock:     0,
 			EndBlock:       1,
 			Blocks:         blocks,
-			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+			HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		})
 
 		chRawLogs := <-helper.chchRawLogs
@@ -352,7 +352,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			StartBlock:     2,
 			EndBlock:       4,
 			Blocks:         blocks,
-			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+			HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		})
 
 		require.Eventually(t, func() bool {
@@ -392,7 +392,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			StartBlock:     5,
 			EndBlock:       7,
 			Blocks:         blocks,
-			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+			HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		})
 
 		require.Eventually(t, func() bool {
@@ -433,7 +433,7 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 			StartBlock:     8,
 			EndBlock:       8,
 			Blocks:         blocks,
-			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+			HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		})
 
 		require.Eventually(t, func() bool {
@@ -653,7 +653,7 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 		headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 			StartBlock:     0,
 			EndBlock:       9,
-			HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+			HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 			Blocks:         blocks,
 		})
 
@@ -703,7 +703,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 	_ = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     0,
 		EndBlock:       9,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -789,7 +789,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     0,
 		EndBlock:       5,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -806,7 +806,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     6,
 		EndBlock:       8,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -818,7 +818,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     9,
 		EndBlock:       11,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -855,7 +855,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     0,
 		EndBlock:       5,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -872,7 +872,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     7,
 		EndBlock:       8,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -884,7 +884,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     10,
 		EndBlock:       11,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -958,7 +958,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 	headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     0,
 		EndBlock:       5,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -1009,7 +1009,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     0,
 		EndBlock:       3,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -1018,7 +1018,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     4,
 		EndBlock:       8,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -1053,7 +1053,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     0,
 		EndBlock:       9,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -1097,7 +1097,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     0,
 		EndBlock:       6,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -1108,7 +1108,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testi
 	<-cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     7,
 		EndBlock:       8,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -1380,7 +1380,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 				StartBlock: test.blockHeight1,
 				EndBlock:   test.blockHeight2 + 1,
 				Blocks:     blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
+				HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
 					lggr.Infof("------------ HEAD TRACKABLE (%v) --------------", head.Number)
 					if _, exists := logsA[uint(head.Number)]; !exists {
 						lggr.Warnf("  ** not exists")
@@ -1425,7 +1425,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 			headsDone = cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 				StartBlock: test.blockHeight2,
 				Blocks:     blocks,
-				HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
+				HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable), cltest.HeadTrackableFunc(func(_ context.Context, head *evmtypes.Head) {
 					if _, exists := logsA[uint(head.Number)]; exists && batchContains(test.batch2, uint(head.Number)) {
 						chRawLogs2.TrySend(logsA[uint(head.Number)])
 					}
@@ -1529,7 +1529,7 @@ func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	headsDone := cltest.SimulateIncomingHeads(t, cltest.SimulateIncomingHeadsArgs{
 		StartBlock:     3,
 		EndBlock:       20,
-		HeadTrackables: []httypes.HeadTrackable{(helper.lb).(httypes.HeadTrackable)},
+		HeadTrackables: []hmtypes.HeadTrackable{(helper.lb).(hmtypes.HeadTrackable)},
 		Blocks:         blocks,
 	})
 
@@ -1608,7 +1608,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	for _, event := range events {
 		switch x := event.(type) {
 		case *evmtypes.Head:
-			(helper.lb).(httypes.HeadTrackable).OnNewLongestChain(ctx, x)
+			(helper.lb).(hmtypes.HeadTrackable).OnNewLongestChain(ctx, x)
 		case types.Log:
 			chRawLogs.TrySend(x)
 		}

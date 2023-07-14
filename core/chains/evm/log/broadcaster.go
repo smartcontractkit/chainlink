@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -45,7 +45,7 @@ type (
 	Broadcaster interface {
 		utils.DependentAwaiter
 		services.ServiceCtx
-		httypes.HeadTrackable
+		hmtypes.HeadTrackable
 
 		// ReplayFromBlock enqueues a replay from the provided block number. If forceBroadcast is
 		// set to true, the broadcaster will broadcast logs that were already marked consumed
@@ -315,7 +315,7 @@ func (b *broadcaster) startResubscribeLoop() {
 		// The backfill needs to start at an earlier block than the one last saved in DB, to account for:
 		// - keeping logs in the in-memory buffers in registration.go
 		//   (which will be lost on node restart) for MAX(NumConfirmations of subscribers)
-		// - HeadTracker saving the heads to DB asynchronously versus LogBroadcaster, where a head
+		// - Tracker saving the heads to DB asynchronously versus LogBroadcaster, where a head
 		//   (or more heads on fast chains) may be saved but not yet processed by LB
 		//   using BlockBackfillDepth makes sure the backfill will be dependent on the per-chain configuration
 		from := b.highestSavedHead.Number -

@@ -24,7 +24,7 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -97,7 +97,7 @@ func newListenerV2(
 	reqLogs *utils.Mailbox[log.Broadcast],
 	reqAdded func(),
 	respCount map[string]uint64,
-	headBroadcaster httypes.HeadBroadcasterRegistry,
+	headBroadcaster hmtypes.BroadcasterRegistry,
 	deduper *logDeduper,
 ) *listenerV2 {
 	return &listenerV2{
@@ -190,7 +190,7 @@ type listenerV2 struct {
 	blockNumberToReqID *pairing.PairHeap
 
 	// head tracking data structures
-	headBroadcaster  httypes.HeadBroadcasterRegistry
+	headBroadcaster  hmtypes.BroadcasterRegistry
 	latestHeadMu     sync.RWMutex
 	latestHeadNumber uint64
 

@@ -13,7 +13,7 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -52,7 +52,7 @@ type listenerV1 struct {
 	pipelineRunner  pipeline.Runner
 	job             job.Job
 	q               pg.Q
-	headBroadcaster httypes.HeadBroadcasterRegistry
+	headBroadcaster hmtypes.BroadcasterRegistry
 	txm             txmgr.TxManager
 	gethks          GethKeyStore
 	mailMon         *utils.MailboxMonitor

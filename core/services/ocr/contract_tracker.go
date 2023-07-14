@@ -20,7 +20,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -40,7 +40,7 @@ const configMailboxSanityLimit = 100
 var (
 	_ ocrtypes.ContractConfigTracker = &OCRContractTracker{}
 	_ log.Listener                   = &OCRContractTracker{}
-	_ httypes.HeadTrackable          = &OCRContractTracker{}
+	_ hmtypes.HeadTrackable          = &OCRContractTracker{}
 
 	OCRContractConfigSet            = getEventTopic("ConfigSet")
 	OCRContractLatestRoundRequested = getEventTopic("RoundRequested")
@@ -66,8 +66,8 @@ type (
 		cfg              ocrcommon.Config
 		mailMon          *utils.MailboxMonitor
 
-		// HeadBroadcaster
-		headBroadcaster  httypes.HeadBroadcaster
+		// Broadcaster
+		headBroadcaster  hmtypes.Broadcaster
 		unsubscribeHeads func()
 
 		// Start/Stop lifecycle
@@ -107,7 +107,7 @@ func NewOCRContractTracker(
 	ocrDB OCRContractTrackerDB,
 	cfg ocrcommon.Config,
 	q pg.QConfig,
-	headBroadcaster httypes.HeadBroadcaster,
+	headBroadcaster hmtypes.Broadcaster,
 	mailMon *utils.MailboxMonitor,
 ) (o *OCRContractTracker) {
 	logger = logger.Named("OCRContractTracker")
