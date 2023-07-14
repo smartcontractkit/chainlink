@@ -8,9 +8,7 @@ import "../../ConfirmedOwner.sol";
 
 /// @notice This contract is used for testing only and should not be used for production.
 contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
-  IVRFCoordinatorV2Plus public s_vrfCoordinator;
   LinkTokenInterface public s_linkToken;
-  uint64 public s_subId;
   uint256 public s_recentRequestId;
 
   struct Response {
@@ -21,7 +19,7 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   }
   mapping(uint256 /* request id */ => Response /* response */) public s_requests;
 
-  constructor(address vrfCoordinator, address link) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(vrfCoordinator) {
+  constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {
     s_vrfCoordinator = IVRFCoordinatorV2Plus(vrfCoordinator);
     s_linkToken = LinkTokenInterface(link);
   }
@@ -36,14 +34,9 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
     if (s_subId == 0) {
       s_subId = s_vrfCoordinator.createSubscription();
       s_vrfCoordinator.addConsumer(s_subId, address(this));
-      _setSubOwner(address(this));
     }
     // Approve the link transfer.
     s_linkToken.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_subId));
-  }
-
-  function setSubOwner(address subOwner) external {
-    _setSubOwner(subOwner);
   }
 
   function topUpSubscription(uint96 amount) external {

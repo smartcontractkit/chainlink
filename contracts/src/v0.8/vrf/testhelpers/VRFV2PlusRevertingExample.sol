@@ -11,7 +11,6 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
   uint256 public s_requestId;
   IVRFCoordinatorV2Plus COORDINATOR;
   LinkTokenInterface LINKTOKEN;
-  uint64 public s_subId;
   uint256 public s_gasAvailable;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {

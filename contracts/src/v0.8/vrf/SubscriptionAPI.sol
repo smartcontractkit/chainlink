@@ -218,7 +218,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
    */
   function getSubscription(
     uint64 subId
-  ) external view override returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) {
+  ) public view override returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -298,11 +298,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     emit SubscriptionConsumerAdded(subId, consumer);
   }
 
-  function cancelSubscriptionHelper(uint64 subId, address to) internal {
+  function deleteSubscription(uint64 subId) internal returns (uint96 balance, uint96 ethBalance) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     Subscription memory sub = s_subscriptions[subId];
-    uint96 balance = sub.balance;
-    uint96 ethBalance = sub.ethBalance;
+    balance = sub.balance;
+    ethBalance = sub.ethBalance;
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
@@ -312,6 +312,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     delete s_subscriptions[subId];
     s_totalBalance -= balance;
     s_totalEthBalance -= ethBalance;
+    return (balance, ethBalance);
+  }
+
+  function cancelSubscriptionHelper(uint64 subId, address to) internal {
+    (uint96 balance, uint96 ethBalance) = deleteSubscription(subId);
     if (!LINK.transfer(to, uint256(balance))) {
       revert InsufficientBalance();
     }

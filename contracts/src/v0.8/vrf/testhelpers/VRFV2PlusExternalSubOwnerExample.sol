@@ -43,13 +43,4 @@ contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2Plus {
       nativePayment
     );
   }
-
-  function transferOwnership(address newOwner) external onlyOwner {
-    s_owner = newOwner;
-  }
-
-  modifier onlyOwner() {
-    require(msg.sender == s_owner);
-    _;
-  }
 }

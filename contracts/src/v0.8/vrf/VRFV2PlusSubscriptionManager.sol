@@ -116,7 +116,7 @@ contract VRFV2PlusSubscriptionManager is ConfirmedOwner {
     // note that this is bounded by MAX_CONSUMERS in the coordinator
     for (uint256 i = 0; i < consumers.length; i++) {
       newCoord.addConsumer(newSubId, consumers[i]);
-      IVRFMigratableConsumerV2Plus(consumers[i]).setVRFCoordinator(newCoordinator);
+      IVRFMigratableConsumerV2Plus(consumers[i]).setConfig(newCoordinator, newSubId);
     }
     // set the subscription id and the vrf coordinator in this owner contract
     s_subId = newSubId;
