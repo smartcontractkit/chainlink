@@ -32,6 +32,7 @@ import (
 	threshold_mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	sync_mocks "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
@@ -53,16 +54,16 @@ type FunctionsListenerUniverse struct {
 func ptr[T any](t T) *T { return &t }
 
 var (
-	RequestID         functions_service.RequestID = newRequestID()
-	RequestIDStr                                  = fmt.Sprintf("0x%x", [32]byte(RequestID))
-	SubscriptionOwner common.Address              = common.BigToAddress(big.NewInt(42069))
-	SubscriptionID                                = uint64(5)
-	ResultBytes                                   = []byte{0xab, 0xcd}
-	ErrorBytes                                    = []byte{0xff, 0x11}
-	Domains                                       = []string{"github.com", "google.com"}
-	EncryptedSecretsUrls []byte                   = []byte{0x11, 0x22}
-	EncryptedSecrets     []byte                   = []byte(`{"TDH2Ctxt":"eyJHcm","SymCtxt":"+yHR","Nonce":"kgjHyT3Jar0M155E"}`)
-	DecryptedSecrets     []byte                   = []byte(`{"0x0":"lhcK"}`)
+	RequestID            functions_service.RequestID = newRequestID()
+	RequestIDStr                                     = fmt.Sprintf("0x%x", [32]byte(RequestID))
+	SubscriptionOwner    common.Address              = common.BigToAddress(big.NewInt(42069))
+	SubscriptionID                                   = uint64(5)
+	ResultBytes                                      = []byte{0xab, 0xcd}
+	ErrorBytes                                       = []byte{0xff, 0x11}
+	Domains                                          = []string{"github.com", "google.com"}
+	EncryptedSecretsUrls []byte                      = []byte{0x11, 0x22}
+	EncryptedSecrets     []byte                      = []byte(`{"TDH2Ctxt":"eyJHcm","SymCtxt":"+yHR","Nonce":"kgjHyT3Jar0M155E"}`)
+	DecryptedSecrets     []byte                      = []byte(`{"0x0":"lhcK"}`)
 )
 
 func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySec int) *FunctionsListenerUniverse {
@@ -112,7 +113,8 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
 	monEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.FunctionsRequests)
 
-	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, bridgeAccessor, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint, decryptor)
+	s4Storage := s4_mocks.NewStorage(t)
+	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, bridgeAccessor, pluginORM, pluginConfig, s4Storage, broadcaster, lggr, mailMon, monEndpoint, decryptor)
 
 	return &FunctionsListenerUniverse{
 		service:        functionsListener,
