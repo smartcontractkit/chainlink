@@ -13,16 +13,18 @@ We are using [devspace](https://www.devspace.sh/docs/getting-started/installatio
 
 Configure the cluster, see `deployments.app.helm.values` and [values.yaml](./values.yaml) comments
 
-`Caveat`: currently it's working only with `dockerhub`
+Set your registry for the image, example for `ECR`:
+```
+aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin ${aws_account}.dkr.ecr.us-west-2.amazonaws.com
+export DEVSPACE_IMAGE="${aws_account}.dkr.ecr.us-west-2.amazonaws.com/chainlink-devspace"
+```
+Enter the shell and deploy
 ```
 nix develop
 cd charts/chainlink-cluster
 
 # set your unique namespace if it's a new cluster
 devspace use namespace cl-cluster
-
-export DEVSPACE_IMAGE="..." - any dockerhub registry name, ex. "registry/app", you should be logged in
-
 devspace deploy
 ```
 
