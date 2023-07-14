@@ -49,10 +49,7 @@ func TestGetUpkeepType(t *testing.T) {
 		{
 			"log trigger id",
 			func() ocr2keepers.UpkeepIdentifier {
-				id, ok := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
-				if !ok {
-					panic("failed to parse id")
-				}
+				id, _ := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
 				return id.Bytes()
 			}(),
 			logTrigger,
