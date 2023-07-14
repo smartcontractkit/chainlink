@@ -133,6 +133,7 @@ func (o *OCRSoakTestReporter) RecordEvents(testStates []*OCRTestState, rpcIssues
 	for _, expectedEvent := range testStates {
 		if expectedEvent.Validate() {
 			o.AnomaliesDetected = true
+			o.anomalies = append(o.anomalies, expectedEvent.anomalies...)
 		}
 		events = append(events, expectedEvent)
 		events = append(events, expectedEvent.TimeLineEvents...)
@@ -189,6 +190,21 @@ func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
 		return err
 	}
 
+	err = ocrReportWriter.Write([]string{"Anomalies Found"})
+	if err != nil {
+		return err
+	}
+
+	err = ocrReportWriter.WriteAll(o.anomalies)
+	if err != nil {
+		return err
+	}
+
+	err = ocrReportWriter.Write([]string{})
+	if err != nil {
+		return err
+	}
+
 	err = ocrReportWriter.Write([]string{"Timeline"})
 	if err != nil {
 		return err
@@ -202,11 +218,9 @@ func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
 		return err
 	}
 
-	for _, event := range o.timeLine {
-		err = ocrReportWriter.Write(event)
-		if err != nil {
-			return err
-		}
+	err = ocrReportWriter.WriteAll(o.timeLine)
+	if err != nil {
+		return err
 	}
 
 	ocrReportWriter.Flush()
