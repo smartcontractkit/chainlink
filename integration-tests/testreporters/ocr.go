@@ -190,19 +190,21 @@ func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
 		return err
 	}
 
-	err = ocrReportWriter.Write([]string{"Anomalies Found"})
-	if err != nil {
-		return err
-	}
+	if len(o.anomalies) > 0 {
+		err = ocrReportWriter.Write([]string{"Anomalies Found"})
+		if err != nil {
+			return err
+		}
 
-	err = ocrReportWriter.WriteAll(o.anomalies)
-	if err != nil {
-		return err
-	}
+		err = ocrReportWriter.WriteAll(o.anomalies)
+		if err != nil {
+			return err
+		}
 
-	err = ocrReportWriter.Write([]string{})
-	if err != nil {
-		return err
+		err = ocrReportWriter.Write([]string{})
+		if err != nil {
+			return err
+		}
 	}
 
 	err = ocrReportWriter.Write([]string{"Timeline"})
