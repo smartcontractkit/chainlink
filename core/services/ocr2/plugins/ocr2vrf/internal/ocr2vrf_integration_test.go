@@ -330,9 +330,9 @@ func TestIntegration_OCR2VRF_ForwarderFlow(t *testing.T) {
 }
 
 func TestIntegration_OCR2VRF(t *testing.T) {
-	//if os.Getenv("CI") == "" && os.Getenv("VRF_LOCAL_TESTING") == "" {
-	//	t.Skip("Skipping test locally.")
-	//}
+	if os.Getenv("CI") == "" && os.Getenv("VRF_LOCAL_TESTING") == "" {
+		t.Skip("Skipping test locally.")
+	}
 	runOCR2VRFTest(t, false)
 }
 
