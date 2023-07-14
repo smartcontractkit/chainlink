@@ -203,7 +203,7 @@ func (g *generateOCR2Config) Run(args []string) {
 			DefaultAggregationMethod:  config.AggregationMethod(cfg.DefaultAggregationMethod),
 			UniqueReports:             cfg.UniqueReports,
 			ThresholdPluginConfig: &config.ThresholdReportingPluginConfig{
-				MaxQueryLengthBytes:       cfg.ThresholdOffchainConfig.MaxObservationLengthBytes,
+				MaxQueryLengthBytes:       cfg.ThresholdOffchainConfig.MaxQueryLengthBytes,
 				MaxObservationLengthBytes: cfg.ThresholdOffchainConfig.MaxObservationLengthBytes,
 				MaxReportLengthBytes:      cfg.ThresholdOffchainConfig.MaxReportLengthBytes,
 				RequestCountLimit:         cfg.ThresholdOffchainConfig.RequestCountLimit,
