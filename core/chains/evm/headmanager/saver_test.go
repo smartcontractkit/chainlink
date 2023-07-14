@@ -1,4 +1,4 @@
-package headtracker_test
+package headmanager_test
 
 import (
 	"testing"
@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -41,13 +41,13 @@ func (c *config) BlockEmissionIdleWarningThreshold() time.Duration {
 	return c.blockEmissionIdleWarningThreshold
 }
 
-func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {
+func configureSaver(t *testing.T) (hmtypes.Saver, headmanager.ORM) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	htCfg := &config{finalityDepth: uint32(1)}
-	orm := headtracker.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
-	saver := headtracker.NewHeadSaver(lggr, orm, htCfg, &headTrackerConfig{historyDepth: 6})
+	orm := headmanager.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
+	saver := headmanager.NewSaver(lggr, orm, htCfg, &headTrackerConfig{historyDepth: 6})
 	return saver, orm
 }
 

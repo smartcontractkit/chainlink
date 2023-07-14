@@ -7,7 +7,7 @@ import (
 	"time"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
-	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/common/headmanager/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -90,7 +90,7 @@ type client struct {
 }
 
 var _ Client = (*client)(nil)
-var _ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash] = (*client)(nil)
+var _ hmtypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash] = (*client)(nil)
 var _ commontypes.Client[*big.Int, evmtypes.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery] = (*client)(nil)
 
 // NewClientWithNodes instantiates a client from a list of nodes

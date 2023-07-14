@@ -1,4 +1,4 @@
-package headtracker
+package headmanager
 
 import (
 	"context"
@@ -6,12 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type headSaver struct {
+type saver struct {
 	orm      ORM
 	config   Config
 	htConfig HeadTrackerConfig
@@ -19,10 +19,10 @@ type headSaver struct {
 	heads    Heads
 }
 
-var _ commontypes.HeadSaver[*evmtypes.Head, common.Hash] = (*headSaver)(nil)
+var _ commontypes.Saver[*evmtypes.Head, common.Hash] = (*saver)(nil)
 
-func NewHeadSaver(lggr logger.Logger, orm ORM, config Config, htConfig HeadTrackerConfig) httypes.HeadSaver {
-	return &headSaver{
+func NewSaver(lggr logger.Logger, orm ORM, config Config, htConfig HeadTrackerConfig) hmtypes.Saver {
+	return &saver{
 		orm:      orm,
 		config:   config,
 		htConfig: htConfig,
@@ -31,7 +31,7 @@ func NewHeadSaver(lggr logger.Logger, orm ORM, config Config, htConfig HeadTrack
 	}
 }
 
-func (hs *headSaver) Save(ctx context.Context, head *evmtypes.Head) error {
+func (hs *saver) Save(ctx context.Context, head *evmtypes.Head) error {
 	if err := hs.orm.IdempotentInsertHead(ctx, head); err != nil {
 		return err
 	}
@@ -42,7 +42,7 @@ func (hs *headSaver) Save(ctx context.Context, head *evmtypes.Head) error {
 	return hs.orm.TrimOldHeads(ctx, historyDepth)
 }
 
-func (hs *headSaver) Load(ctx context.Context) (chain *evmtypes.Head, err error) {
+func (hs *saver) Load(ctx context.Context) (chain *evmtypes.Head, err error) {
 	historyDepth := uint(hs.htConfig.HistoryDepth())
 	heads, err := hs.orm.LatestHeads(ctx, historyDepth)
 	if err != nil {
@@ -53,11 +53,11 @@ func (hs *headSaver) Load(ctx context.Context) (chain *evmtypes.Head, err error)
 	return hs.heads.LatestHead(), nil
 }
 
-func (hs *headSaver) LatestHeadFromDB(ctx context.Context) (head *evmtypes.Head, err error) {
+func (hs *saver) LatestHeadFromDB(ctx context.Context) (head *evmtypes.Head, err error) {
 	return hs.orm.LatestHead(ctx)
 }
 
-func (hs *headSaver) LatestChain() *evmtypes.Head {
+func (hs *saver) LatestChain() *evmtypes.Head {
 	head := hs.heads.LatestHead()
 	if head == nil {
 		return nil
@@ -68,11 +68,11 @@ func (hs *headSaver) LatestChain() *evmtypes.Head {
 	return head
 }
 
-func (hs *headSaver) Chain(hash common.Hash) *evmtypes.Head {
+func (hs *saver) Chain(hash common.Hash) *evmtypes.Head {
 	return hs.heads.HeadByHash(hash)
 }
 
-var NullSaver httypes.HeadSaver = &nullSaver{}
+var NullSaver hmtypes.Saver = &nullSaver{}
 
 type nullSaver struct{}
 

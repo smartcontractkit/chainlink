@@ -1,4 +1,4 @@
-package headtracker
+package headmanager
 
 import (
 	"context"
@@ -8,29 +8,29 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/v2/common/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/common/headmanager"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
+	hmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type headTracker = headtracker.HeadTracker[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash]
+type tracker = headmanager.Tracker[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash]
 
-var _ commontypes.HeadTracker[*evmtypes.Head, common.Hash] = (*headTracker)(nil)
+var _ commontypes.Tracker[*evmtypes.Head, common.Hash] = (*tracker)(nil)
 
-func NewHeadTracker(
+func NewTracker(
 	lggr logger.Logger,
 	ethClient evmclient.Client,
 	config Config,
 	htConfig HeadTrackerConfig,
-	headBroadcaster httypes.HeadBroadcaster,
-	headSaver httypes.HeadSaver,
+	headBroadcaster hmtypes.Broadcaster,
+	headSaver hmtypes.Saver,
 	mailMon *utils.MailboxMonitor,
-) *headTracker {
-	return headtracker.NewHeadTracker[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash](
+) *tracker {
+	return headmanager.NewTracker[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash](
 		lggr,
 		ethClient,
 		config,
@@ -42,7 +42,7 @@ func NewHeadTracker(
 	)
 }
 
-var NullTracker httypes.HeadTracker = &nullTracker{}
+var NullTracker hmtypes.Tracker = &nullTracker{}
 
 type nullTracker struct{}
 

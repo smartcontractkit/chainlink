@@ -1,4 +1,4 @@
-package headtracker
+package headmanager
 
 import (
 	"context"

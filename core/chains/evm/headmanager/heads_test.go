@@ -1,4 +1,4 @@
-package headtracker_test
+package headmanager_test
 
 import (
 	"math/big"
@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -17,7 +17,7 @@ import (
 func TestHeads_LatestHead(t *testing.T) {
 	t.Parallel()
 
-	heads := headtracker.NewHeads()
+	heads := headmanager.NewHeads()
 	heads.AddHeads(3, cltest.Head(100), cltest.Head(200), cltest.Head(300))
 
 	latest := heads.LatestHead()
@@ -43,7 +43,7 @@ func TestHeads_HeadByHash(t *testing.T) {
 		cltest.Head(200),
 		cltest.Head(300),
 	}
-	heads := headtracker.NewHeads()
+	heads := headmanager.NewHeads()
 	heads.AddHeads(3, testHeads...)
 
 	head := heads.HeadByHash(testHeads[1].Hash)
@@ -57,7 +57,7 @@ func TestHeads_HeadByHash(t *testing.T) {
 func TestHeads_Count(t *testing.T) {
 	t.Parallel()
 
-	heads := headtracker.NewHeads()
+	heads := headmanager.NewHeads()
 	require.Zero(t, heads.Count())
 
 	heads.AddHeads(3, cltest.Head(100), cltest.Head(200), cltest.Head(300))
@@ -71,7 +71,7 @@ func TestHeads_AddHeads(t *testing.T) {
 	t.Parallel()
 
 	uncleHash := utils.NewHash()
-	heads := headtracker.NewHeads()
+	heads := headmanager.NewHeads()
 
 	var testHeads []*evmtypes.Head
 	var parentHash common.Hash

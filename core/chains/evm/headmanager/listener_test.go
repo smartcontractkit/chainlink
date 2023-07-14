@@ -1,4 +1,4 @@
-package headtracker_test
+package headmanager_test
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headmanager"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -43,7 +43,7 @@ func Test_HeadListener_HappyPath(t *testing.T) {
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
-	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg.EVM(), chStop)
+	hl := headmanager.NewListener(lggr, ethClient, evmcfg.EVM(), chStop)
 
 	var headCount atomic.Int32
 	handler := func(context.Context, *evmtypes.Head) error {
@@ -104,7 +104,7 @@ func Test_HeadListener_NotReceivingHeads(t *testing.T) {
 	})
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	chStop := make(chan struct{})
-	hl := headtracker.NewHeadListener(lggr, ethClient, evmcfg.EVM(), chStop)
+	hl := headmanager.NewListener(lggr, ethClient, evmcfg.EVM(), chStop)
 
 	firstHeadAwaiter := cltest.NewAwaiter()
 	handler := func(context.Context, *evmtypes.Head) error {
@@ -167,7 +167,7 @@ func Test_HeadListener_SubscriptionErr(t *testing.T) {
 			cfg := configtest.NewGeneralConfig(t, nil)
 			evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 			chStop := make(chan struct{})
-			hl := headtracker.NewHeadListener(l, ethClient, evmcfg.EVM(), chStop)
+			hl := headmanager.NewListener(l, ethClient, evmcfg.EVM(), chStop)
 
 			hnhCalled := make(chan *evmtypes.Head)
 			hnh := func(_ context.Context, header *evmtypes.Head) error {
