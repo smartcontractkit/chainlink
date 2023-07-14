@@ -40,7 +40,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   function transferUpkeepAdmin(uint256 id, address proposed) external {
     _requireAdminAndNotCancelled(id);
     if (proposed == msg.sender) revert ValueNotChanged();
-    if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
 
     if (s_proposedAdmin[id] != proposed) {
       s_proposedAdmin[id] = proposed;
@@ -275,9 +274,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     return abi.decode(s_upkeepTriggerConfig[upkeepId], (LogTriggerConfig));
   }
 
-  function getBlockTriggerConfig(uint256 upkeepId) public view returns (BlockTriggerConfig memory) {
+  function getConditionalTriggerConfig(uint256 upkeepId) public view returns (ConditionalTriggerConfig memory) {
     require(getTriggerType(upkeepId) == Trigger.LOG);
-    return abi.decode(s_upkeepTriggerConfig[upkeepId], (BlockTriggerConfig));
+    return abi.decode(s_upkeepTriggerConfig[upkeepId], (ConditionalTriggerConfig));
   }
 
   /**
@@ -348,6 +347,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
       maxPerformGas: s_storage.maxPerformGas,
       maxCheckDataSize: s_storage.maxCheckDataSize,
       maxPerformDataSize: s_storage.maxPerformDataSize,
+      maxRevertDataSize: s_storage.maxRevertDataSize,
       fallbackGasPrice: s_fallbackGasPrice,
       fallbackLinkPrice: s_fallbackLinkPrice,
       transcoder: s_storage.transcoder,

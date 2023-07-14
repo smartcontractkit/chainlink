@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -39,7 +39,7 @@ type Chain interface {
 	Config() evmconfig.ChainScopedConfig
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
-	TxManager() txmgr.EvmTxManager
+	TxManager() txmgr.TxManager
 	HeadTracker() httypes.HeadTracker
 	Logger() logger.Logger
 	BalanceMonitor() monitor.BalanceMonitor
@@ -56,7 +56,7 @@ type chain struct {
 	id              *big.Int
 	cfg             evmconfig.ChainScopedConfig
 	client          evmclient.Client
-	txm             txmgr.EvmTxManager
+	txm             txmgr.TxManager
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
@@ -75,18 +75,18 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("cannot create new chain with ID %s, the chain is disabled", e.ChainID.String())
 }
 
-func newTOMLChain(ctx context.Context, chain *v2.EVMConfig, opts ChainSetOpts) (*chain, error) {
+func newTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainSetOpts) (*chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !chain.IsEnabled() {
 		return nil, errChainDisabled{ChainID: chainID}
 	}
-	cfg := v2.NewTOMLChainScopedConfig(opts.Config, chain, l)
+	cfg := evmconfig.NewTOMLChainScopedConfig(opts.Config, chain, l)
 	// note: per-chain validation is not ncessary at this point since everything is checked earlier on boot.
 	return newChain(ctx, cfg, chain.Nodes, opts)
 }
 
-func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.Node, opts ChainSetOpts) (*chain, error) {
+func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*toml.Node, opts ChainSetOpts) (*chain, error) {
 	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
 	l := opts.Logger.Named(chainID.String()).With("evmChainID", chainID.String())
 	var client evmclient.Client
@@ -273,13 +273,13 @@ func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
 func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
-func (c *chain) TxManager() txmgr.EvmTxManager            { return c.txm }
+func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
 func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
 func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
 
-func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*v2.Node) (evmclient.Client, error) {
+func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*toml.Node) (evmclient.Client, error) {
 	var primaries []evmclient.Node
 	var sendonlys []evmclient.SendOnlyNode
 	for i, node := range nodes {
@@ -297,7 +297,7 @@ func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Dura
 	return evmclient.NewClientWithNodes(lggr, cfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
 }
 
-func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, n *v2.Node, id int32, chainID *big.Int) (evmclient.Node, error) {
+func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, n *toml.Node, id int32, chainID *big.Int) (evmclient.Node, error) {
 	if n.SendOnly != nil && *n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
