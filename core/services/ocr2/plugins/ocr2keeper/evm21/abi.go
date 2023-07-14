@@ -46,7 +46,6 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV
 	return &evmRegistryPackerV2_1{abi: abi, utilsAbi: utilsAbi}
 }
 
-// TODO: remove for 2.1
 func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
 	var result ocr2keepers.CheckResult
 
@@ -63,7 +62,7 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload
 	result = ocr2keepers.CheckResult{
 		Eligible:     *abi.ConvertType(out[0], new(bool)).(*bool),
 		Retryable:    false,
-		GasAllocated: uint64(*abi.ConvertType(out[4], new(uint32)).(*uint32)), // use upkeep gas limit/execute gas
+		GasAllocated: uint64((*abi.ConvertType(out[5], new(*big.Int)).(**big.Int)).Int64()),
 		Payload:      key,
 	}
 	ext := EVMAutomationResultExtension21{
