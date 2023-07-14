@@ -378,6 +378,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 	})
 
 	t.Run("if headtracker returns nil head and eth call succeeds", func(t *testing.T) {
+		var nilHead *evmtypes.Head
 		ethClient := evmclimocks.NewClient(t)
 		headTracker := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 		chainHeadTracker := mercurymocks.NewChainHeadTracker(t)
@@ -385,7 +386,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 		chainHeadTracker.On("Client").Return(ethClient)
 		chainHeadTracker.On("HeadTracker").Return(headTracker)
 		// This can happen in some cases e.g. RPC node is offline
-		headTracker.On("LatestChain").Return(nil)
+		headTracker.On("LatestChain").Return(nilHead)
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&h, nil)
 
 		ds.chainHeadTracker = chainHeadTracker
@@ -403,6 +404,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 	})
 
 	t.Run("if headtracker returns nil head and eth call fails", func(t *testing.T) {
+		var nilHead *evmtypes.Head
 		ethClient := evmclimocks.NewClient(t)
 		headTracker := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 		chainHeadTracker := mercurymocks.NewChainHeadTracker(t)
@@ -410,7 +412,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 		chainHeadTracker.On("Client").Return(ethClient)
 		chainHeadTracker.On("HeadTracker").Return(headTracker)
 		// This can happen in some cases e.g. RPC node is offline
-		headTracker.On("LatestChain").Return(nil)
+		headTracker.On("LatestChain").Return(nilHead)
 		err := errors.New("foo")
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, err)
 
