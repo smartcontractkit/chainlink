@@ -17,10 +17,12 @@ contract AutomationForwarderSetUp is BaseTest {
   uint256 constant GAS = 1e18;
 
   function setUp() public override {
+    // BaseTest.setUp() not called since we want calls to iniatiate from default_registry, not from some predefined owner
     default_registry = IAutomationRegistryConsumer(new MockKeeperRegistry2_1());
     default_target = new UpkeepCounter(10000, 1);
     vm.startPrank(address(default_registry));
     forwarder = new AutomationForwarder(1, address(default_target), address(default_registry));
+    // OWNER not necessary?
     OWNER = address(default_registry);
   }
 
