@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 
 	"golang.org/x/exp/maps"
 
@@ -28,19 +27,16 @@ var (
 	}
 )
 
-// RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
+var _ loop.Relayer = (*relayerAdapter)(nil)
+
+// RelayerExt is a [services.ServiceCtx] wrapper for the [loop.Relayer] subset functionality responsible for
+// chain interactions.
+// It is typically used to create a [loop.Relayer] by composing [types.Relayer] and a [ChainSet], which encompasses
+// the chain interactions. See [relayerAdapter].
 type RelayerExt interface {
 	services.ServiceCtx
-
-	ChainStatus(ctx context.Context, id string) (types.ChainStatus, error)
-	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
-
-	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
-
-	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
+	types.ChainTransactor
 }
-
-var _ loop.Relayer = (*relayerAdapter)(nil)
 
 // relayerAdapter adapts a [types.Relayer] and [RelayerExt] to implement [loop.Relayer].
 type relayerAdapter struct {
