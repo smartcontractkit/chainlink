@@ -6,8 +6,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
-// HeadTracker holds and stores the latest block number experienced by this particular node in a thread safe manner.
-// Reconstitutes the last block number from the data store on reboot.
+// HeadTracker holds and stores the block experienced by a particular node in a thread safe manner.
+// Reconstitutes the last block number on reboot.
 //
 //go:generate mockery --quiet --name HeadTracker --output ../mocks/ --case=underscore
 type HeadTracker[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
@@ -60,8 +60,7 @@ type HeadListener[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 // NewHeadHandler is a callback that handles incoming heads
 type NewHeadHandler[H Head[BLOCK_HASH], BLOCK_HASH Hashable] func(ctx context.Context, header H) error
 
-// HeadBroadcaster relays heads from the head tracker to subscribed jobs, it is less robust against
-// congestion than the head tracker, and missed heads should be expected by consuming jobs
+// HeadBroadcaster relays new Heads to all subscribers.
 //
 //go:generate mockery --quiet --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcaster[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
