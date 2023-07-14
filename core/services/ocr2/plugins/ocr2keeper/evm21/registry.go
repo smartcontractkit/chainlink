@@ -226,9 +226,9 @@ func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...
 	return keys, nil
 }
 
-func (r *EvmRegistry) CheckUpkeeps(ctx context.Context /* mercuryEnabled bool, */, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
+func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, mercuryEnabled bool, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	chResult := make(chan checkResult, 1)
-	go r.doCheck(ctx /* mercuryEnabled, */, keys, chResult)
+	go r.doCheck(ctx, mercuryEnabled, keys, chResult)
 
 	select {
 	case rs := <-chResult:
@@ -622,7 +622,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 	return ids, nil
 }
 
-func (r *EvmRegistry) doCheck(ctx context.Context /* mercuryEnabled bool,*/, keys []ocr2keepers.UpkeepPayload, chResult chan checkResult) {
+func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []ocr2keepers.UpkeepPayload, chResult chan checkResult) {
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
@@ -631,21 +631,21 @@ func (r *EvmRegistry) doCheck(ctx context.Context /* mercuryEnabled bool,*/, key
 		return
 	}
 
-	//if mercuryEnabled {
-	if r.mercury.cred == nil || !r.mercury.cred.Validate() {
-		chResult <- checkResult{
-			err: errors.New("mercury credential is empty or not provided but FeedLookup feature is enabled on registry"),
+	if mercuryEnabled {
+		if r.mercury.cred == nil || !r.mercury.cred.Validate() {
+			chResult <- checkResult{
+				err: errors.New("mercury credential is empty or not provided but FeedLookup feature is enabled on registry"),
+			}
+			return
 		}
-		return
-	}
-	upkeepResults, err = r.feedLookup(ctx, upkeepResults)
-	if err != nil {
-		chResult <- checkResult{
-			err: err,
+		upkeepResults, err = r.feedLookup(ctx, upkeepResults)
+		if err != nil {
+			chResult <- checkResult{
+				err: err,
+			}
+			return
 		}
-		return
 	}
-	//}
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
@@ -729,7 +729,6 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			r.lggr.Debugf("error encountered for key %s with message '%s' in check", keys[i], req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
-			r.lggr.Debugf("UnpackCheckResult upkeepId %s block %s checkResult: %s", upkeepIds[i], blocks[i], *checkResults[i])
 			var err error
 			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
 			if err != nil {
