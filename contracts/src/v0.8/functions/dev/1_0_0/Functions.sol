@@ -28,7 +28,7 @@ library Functions {
     Location secretsLocation; // Only Remote secrets are supported
     CodeLanguage language;
     string source; // Source code for Location.Inline, url for Location.Remote or slot decimal number for Location.DONHosted
-    bytes encryptedSecretsReference; // Encrypted urls for Location.Remote or slot decimal number for Location.DONHosted
+    bytes encryptedSecretsReference; // Encrypted urls for Location.Remote or CBOR encoded slotid+version for Location.DONHosted, use addDONHostedSecrets()
     string[] args;
     bytes[] bytesArgs;
   }
@@ -122,14 +122,22 @@ library Functions {
   }
 
   /**
-   * @notice Adds DON-hosted user slot id (referencing secrets) to a Request
+   * @notice Adds DON-hosted secrets reference to a Request
    * @param self The initialized request
-   * @param donSlotID Slot ID of the user's secrets hosted on DON
+   * @param slotID Slot ID of the user's secrets hosted on DON
+   * @param version User data version (for the slotID)
    */
-  function addDONHostedSecrets(Request memory self, bytes1 donSlotID) internal pure {
+  function addDONHostedSecrets(Request memory self, uint8 slotID, uint64 version) internal pure {
+    CBOR.CBORBuffer memory buffer;
+    Buffer.init(buffer.buf, DEFAULT_BUFFER_SIZE);
+
+    CBOR.writeString(buffer, "slotID");
+    CBOR.writeUInt64(buffer, slotID);
+    CBOR.writeString(buffer, "version");
+    CBOR.writeUInt64(buffer, version);
+
     self.secretsLocation = Location.DONHosted;
-    self.encryptedSecretsReference = new bytes(1);
-    self.encryptedSecretsReference[0] = bytes1(donSlotID);
+    self.encryptedSecretsReference = buffer.buf.buf;
   }
 
   /**
@@ -152,20 +160,5 @@ library Functions {
     if (args.length == 0) revert EmptyArgs();
 
     self.bytesArgs = args;
-  }
-
-  /**
-   * @notice Add request data version to the request CBOR
-   */
-  function encodeRequest(bytes memory requestCBOR) internal pure returns (bytes memory) {
-    return abi.encode(REQUEST_DATA_VERSION, requestCBOR);
-  }
-
-  /**
-   * @notice Retrieve the request data version from an encoded request
-   */
-  function decodeRequest(bytes memory requestData) internal pure returns (uint16, bytes memory) {
-    (uint16 version, bytes memory requestCBOR) = abi.decode(requestData, (uint16, bytes));
-    return (version, requestCBOR);
   }
 }
