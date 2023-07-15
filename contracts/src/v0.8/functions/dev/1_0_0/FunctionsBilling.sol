@@ -456,5 +456,5 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     s_feePool -= feePoolShare * uint96(transmitters.length);
   }
 
-  function _getTransmitters() internal virtual view returns (address[] memory);
+  function _getTransmitters() internal view virtual returns (address[] memory);
 }

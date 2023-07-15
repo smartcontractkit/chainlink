@@ -246,7 +246,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes memory err,
     uint32 callbackGasLimit,
     address client
-  ) private returns (CallbackResult memory result) {    
+  ) private returns (CallbackResult memory result) {
     bytes memory encodedCallback = abi.encodeWithSelector(
       s_config.handleOracleFulfillmentSelector,
       requestId,

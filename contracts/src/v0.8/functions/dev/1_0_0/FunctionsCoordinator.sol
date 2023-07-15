@@ -17,7 +17,7 @@ import {FulfillResult} from "./FulfillResultCodes.sol";
 contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
   event OracleRequest(
     bytes32 indexed requestId,
-    address requestingContract,
+    address indexed requestingContract,
     address requestInitiator,
     uint64 subscriptionId,
     address subscriptionOwner,

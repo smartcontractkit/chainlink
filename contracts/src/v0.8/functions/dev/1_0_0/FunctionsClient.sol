@@ -69,7 +69,11 @@ abstract contract FunctionsClient is IFunctionsClient {
   /**
    * @inheritdoc IFunctionsClient
    */
-  function handleOracleFulfillment(bytes32 requestId, bytes memory response, bytes memory err) external override onlyRouter {
+  function handleOracleFulfillment(
+    bytes32 requestId,
+    bytes memory response,
+    bytes memory err
+  ) external override onlyRouter {
     fulfillRequest(requestId, response, err);
   }
 

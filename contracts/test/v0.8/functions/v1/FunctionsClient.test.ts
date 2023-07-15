@@ -67,8 +67,8 @@ describe('Functions Client', () => {
         ids.donId,
       )
       const args = await parseOracleRequestEventArgs(tx)
-      assert.equal(6, args.length)
-      const decoded = await decodeDietCBOR(args[4])
+      assert.equal(5, args.length)
+      const decoded = await decodeDietCBOR(args[3])
       assert.deepEqual(
         {
           ...decoded,

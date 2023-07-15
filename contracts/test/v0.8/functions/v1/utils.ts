@@ -249,7 +249,7 @@ export async function parseOracleRequestEventArgs(
   const data = receipt.logs?.[1].data
   // NOTE: indexed args are on topics, not data
   return ethers.utils.defaultAbiCoder.decode(
-    ['address', 'address', 'uint64', 'address', 'bytes', 'uint16'],
+    ['address', 'uint64', 'address', 'bytes', 'uint16'],
     data ?? '',
   )
 }
