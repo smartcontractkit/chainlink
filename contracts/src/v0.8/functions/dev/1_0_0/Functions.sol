@@ -75,6 +75,15 @@ library Functions {
       CBOR.writeBytes(buffer, self.encryptedSecretsReference);
     }
 
+    if (self.bytesArgs.length > 0) {
+      CBOR.writeString(buffer, "bytesArgs");
+      CBOR.startArray(buffer);
+      for (uint256 i = 0; i < self.bytesArgs.length; i++) {
+        CBOR.writeBytes(buffer, self.bytesArgs[i]);
+      }
+      CBOR.endSequence(buffer);
+    }
+
     return buffer.buf.buf;
   }
 

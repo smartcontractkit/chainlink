@@ -39,6 +39,7 @@ interface IRouterBase {
 
   /**
    * @notice Proposes one or more updates to the contract routes
+   * @dev Only callable by owner
    */
   function proposeContractsUpdate(
     bytes32[] memory proposalSetIds,
@@ -49,35 +50,40 @@ interface IRouterBase {
   /**
    * @notice Tests a proposal for the ability to make a successful upgrade
    */
-  function validateProposedContracts(bytes32 id, bytes calldata data) external;
+  function validateProposedContracts(bytes32 id, bytes calldata data) external returns (bytes memory);
 
   /**
    * @notice Updates the current contract routes to the proposed contracts
    * @dev Only callable once timelock has passed
+   * @dev Only callable by owner
    */
   function updateContracts() external;
 
   /**
-   * @notice Proposes new configuration data for the current (not proposed) contract  
+   * @notice Proposes new configuration data for the current (not proposed) contract
+   * @dev Only callable by owner
    */
   function proposeConfigUpdate(bytes32 id, bytes calldata config) external;
 
   /**
    * @notice Sends new configuration data to the contract along a route route
    * @dev Only callable once timelock has passed
+   * @dev Only callable by owner
    */
   function updateConfig(bytes32 id) external;
 
   /**
    * @notice Propose a change to the amount of blocks of the timelock
-   * (the amount of blocks that are required to pass before a change can be applied) 
+   * (the amount of blocks that are required to pass before a change can be applied)
+   * @dev Only callable by owner
    */
   function proposeTimelockBlocks(uint16 blocks) external;
 
   /**
    * @notice Apply a proposed change to the amount of blocks required for the timelock
-   * (the amount of blocks that are required to pass before a change can be applied) 
+   * (the amount of blocks that are required to pass before a change can be applied)
    * @dev Only callable after the timelock blocks proposal has gone through the timelock itself
+   * @dev Only callable by owner
    */
   function updateTimelockBlocks() external;
 
@@ -87,20 +93,8 @@ interface IRouterBase {
   function isPaused() external view returns (bool);
 
   /**
-   * @dev Triggers stopped state.
-   *
-   * Requirements:
-   *
-   * - The contract must not be paused.
+   * @dev Toggles the stopped state.
+   * @dev Only callable by owner
    */
-  function pause() external;
-
-  /**
-   * @dev Returns to normal state.
-   *
-   * Requirements:
-   *
-   * - The contract must be paused.
-   */
-  function unpause() external;
+  function togglePaused() external;
 }

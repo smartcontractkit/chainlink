@@ -170,11 +170,11 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     );
   }
 
-  function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {
+  function _beforeSetConfig(uint8 /* _f */, bytes memory /* _onchainConfig */) internal override {
     _disperseFeePool();
   }
 
-  function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal override {}
+  function _afterSetConfig(uint8 /* _f */, bytes memory /* _onchainConfig */) internal override {}
 
   function _validateReport(
     bytes32 /* configDigest */,
@@ -185,7 +185,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     return true;
   }
 
-  function _getTransmitters() internal override returns (address[] memory) {
+  function _getTransmitters() internal view override returns (address[] memory) {
     return s_transmitters;
   }
 

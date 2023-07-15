@@ -20,8 +20,28 @@ contract FunctionsClientTestHelper is FunctionsClient {
     bytes32 donId
   ) public returns (bytes32 requestId) {
     Functions.Request memory request;
+    uint32 callbackGasLimit = 20_000;
     request.initializeRequestForInlineJavaScript(sourceCode);
-    requestId = _sendRequest(request, subscriptionId, 20_000, donId);
+    requestId = _sendRequest(request, subscriptionId, callbackGasLimit, donId);
+    emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
+  }
+
+  function sendRequestProposed(
+    string memory sourceCode,
+    uint64 subscriptionId,
+    bytes32 donId
+  ) public returns (bytes32 requestId) {
+    Functions.Request memory request;
+    uint32 callbackGasLimit = 20_000;
+    request.initializeRequestForInlineJavaScript(sourceCode);
+    bytes memory requestData = Functions.encodeCBOR(request);
+    requestId = bytes32(
+      s_router.validateProposedContracts(
+        donId,
+        abi.encode(subscriptionId, requestData, Functions.REQUEST_DATA_VERSION, callbackGasLimit)
+      )
+    );
+    emit RequestSent(requestId);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 

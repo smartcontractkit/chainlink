@@ -1,165 +1,62 @@
 // import { ethers } from 'hardhat'
+// import { BigNumber } from 'ethers'
 // import { expect } from 'chai'
-// import { BigNumber, Contract, ContractFactory } from 'ethers'
-// import { Roles, getUsers } from '../../../test-helpers/setup'
+// import {
+//   getSetupFactory,
+//   FunctionsContracts,
+//   FunctionsRoles,
+//   stringToHex,
+//   encodeReport,
+//   anyValue,
+//   createSubscription,
+//   ids,
+// } from './utils'
+// import { randomAddressString } from 'hardhat/internal/hardhat-network/provider/utils/random'
+// import { stringToBytes } from '../../../test-helpers/helpers'
 
-// let functionsOracleFactory: ContractFactory
-// let clientTestHelperFactory: ContractFactory
-// let functionsBillingRegistryFactory: ContractFactory
-// let linkTokenFactory: ContractFactory
-// let mockAggregatorV3Factory: ContractFactory
-// let roles: Roles
+// const setup = getSetupFactory()
+// let contracts: FunctionsContracts
+// let roles: FunctionsRoles
 
-// const stringToHex = (s: string) => {
-//   return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(s))
-// }
+// const donLabel = ethers.utils.formatBytes32String('1')
 
-// const anyValue = () => true
-
-// const encodeReport = (requestId: string, result: string, err: string) => {
-//   const abi = ethers.utils.defaultAbiCoder
-//   return abi.encode(
-//     ['bytes32[]', 'bytes[]', 'bytes[]'],
-//     [[requestId], [result], [err]],
-//   )
-// }
-
-// before(async () => {
-//   roles = (await getUsers()).roles
-
-//   functionsOracleFactory = await ethers.getContractFactory(
-//     'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
-//     roles.defaultAccount,
-//   )
-
-//   clientTestHelperFactory = await ethers.getContractFactory(
-//     'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
-//     roles.consumer,
-//   )
-
-//   functionsBillingRegistryFactory = await ethers.getContractFactory(
-//     'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
-//     roles.defaultAccount,
-//   )
-
-//   linkTokenFactory = await ethers.getContractFactory(
-//     'src/v0.4/LinkToken.sol:LinkToken',
-//     roles.consumer,
-//   )
-
-//   mockAggregatorV3Factory = await ethers.getContractFactory(
-//     'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
-//     roles.consumer,
-//   )
+// beforeEach(async () => {
+//   ;({ contracts, roles } = setup())
 // })
 
-// describe('FunctionsOracle', () => {
+// describe('Functions Coordinator', () => {
 //   let subscriptionId: number
 //   const donPublicKey =
 //     '0x3804a19f2437f7bba4fcfbc194379e43e514aa98073db3528ccdbdb642e24011'
-//   let client: Contract
-//   let oracle: Contract
-//   let registry: Contract
-//   let linkToken: Contract
-//   let mockLinkEth: Contract
 //   let transmitters: string[]
-
-//   beforeEach(async () => {
-//     // Deploy contracts
-//     linkToken = await linkTokenFactory.connect(roles.defaultAccount).deploy()
-//     mockLinkEth = await mockAggregatorV3Factory.deploy(
-//       0,
-//       ethers.BigNumber.from(5021530000000000),
-//     )
-//     oracle = await functionsOracleFactory.connect(roles.defaultAccount).deploy()
-//     registry = await functionsBillingRegistryFactory
-//       .connect(roles.defaultAccount)
-//       .deploy(linkToken.address, mockLinkEth.address, oracle.address)
-
-//     // Setup contracts
-//     await oracle.setRegistry(registry.address)
-//     await oracle.deactivateAuthorizedReceiver()
-//     client = await clientTestHelperFactory
-//       .connect(roles.defaultAccount)
-//       .deploy(oracle.address)
-//     await registry.setAuthorizedSenders([oracle.address])
-
-//     await registry.setConfig(
-//       1_000_000, // maxGasLimit
-//       86_400, // stalenessSeconds
-//       39_173 /* gasAfterPaymentCalculation
-//       gathered by taking the difference from gasleft() directly after payment calculation, and then again after the BillingEnd event, using a hardhat console log
-//       */,
-//       ethers.BigNumber.from('5000000000000000'), // fallbackWeiPerUnitLink
-//       519_719 /* gasOverhead
-//       gathered by taking the difference from initialGas and gasleft() directly after payment calculation, adding back the user's callback gas usage, using a hardhat console log
-//       NOTE: this number can vary slightly by number of nodes on the DON
-//       */,
-//       300, // requestTimeoutSeconds
-//     )
-
-//     // Setup accounts
-//     const createSubTx = await registry
-//       .connect(roles.defaultAccount)
-//       .createSubscription()
-//     const receipt = await createSubTx.wait()
-//     subscriptionId = receipt.events[0].args['subscriptionId'].toNumber()
-
-//     await registry
-//       .connect(roles.defaultAccount)
-//       .addConsumer(subscriptionId, await roles.defaultAccount.getAddress())
-
-//     await registry
-//       .connect(roles.defaultAccount)
-//       .addConsumer(subscriptionId, client.address)
-
-//     await linkToken
-//       .connect(roles.defaultAccount)
-//       .transferAndCall(
-//         registry.address,
-//         ethers.BigNumber.from('300938394174049741'),
-//         ethers.utils.defaultAbiCoder.encode(['uint64'], [subscriptionId]),
-//       )
-
-//     const signers = Array.from(
-//       [0, 0, 0, 0],
-//       (_) => ethers.Wallet.createRandom().address,
-//     )
-//     transmitters = [
-//       await roles.oracleNode1.getAddress(),
-//       await roles.oracleNode2.getAddress(),
-//       await roles.oracleNode3.getAddress(),
-//       await roles.oracleNode4.getAddress(),
-//     ]
-//     await oracle.setConfig(signers, transmitters, 1, [], 1, [])
-//   })
 
 //   describe('General', () => {
 //     it('#typeAndVersion', async () => {
-//       expect(await oracle.callStatic.typeAndVersion()).to.be.equal(
-//         'FunctionsOracle 0.0.0',
+//       expect(await contracts.coordinator.typeAndVersion()).to.be.equal(
+//         'Functions Coordinator v1',
 //       )
 //     })
 
 //     it('returns DON public key set on this Oracle', async () => {
-//       await expect(oracle.setDONPublicKey(donPublicKey)).not.to.be.reverted
-//       expect(await oracle.callStatic.getDONPublicKey()).to.be.equal(
-//         donPublicKey,
-//       )
+//       await expect(contracts.coordinator.setDONPublicKey(donPublicKey)).not.to
+//         .be.reverted
+//       expect(
+//         await contracts.coordinator.callStatic.getDONPublicKey(),
+//       ).to.be.equal(donPublicKey)
 //     })
 
 //     it('reverts setDONPublicKey for empty data', async () => {
 //       const emptyPublicKey = stringToHex('')
-//       await expect(oracle.setDONPublicKey(emptyPublicKey)).to.be.revertedWith(
-//         'EmptyPublicKey',
-//       )
+//       await expect(
+//         contracts.coordinator.setDONPublicKey(emptyPublicKey),
+//       ).to.be.revertedWith('EmptyPublicKey')
 //     })
 
 //     async function validatePubKeys(
 //       expectedNodes: string[],
 //       expectedKeys: string[],
 //     ) {
-//       const allNodesAndKeys = await oracle.getAllNodePublicKeys()
+//       const allNodesAndKeys = await contracts.coordinator.getAllNodePublicKeys()
 //       for (let i = 0; i < expectedNodes.length; i++) {
 //         expect(allNodesAndKeys[0][i]).to.be.equal(expectedNodes[i])
 //         expect(allNodesAndKeys[1][i]).to.be.equal(expectedKeys[i])
@@ -171,8 +68,14 @@
 //       const publicKey2 = stringToHex('key420')
 //       const publicKey3 = stringToHex('key666')
 
-//       await oracle.setNodePublicKey(roles.oracleNode2.getAddress(), publicKey2)
-//       await oracle.setNodePublicKey(roles.oracleNode3.getAddress(), publicKey3)
+//       await contracts.coordinator.setNodePublicKey(
+//         roles.oracleNode2.getAddress(),
+//         publicKey2,
+//       )
+//       await contracts.coordinator.setNodePublicKey(
+//         roles.oracleNode3.getAddress(),
+//         publicKey3,
+//       )
 //       validatePubKeys(transmitters, [
 //         emptyKey,
 //         publicKey2,
@@ -180,8 +83,12 @@
 //         emptyKey,
 //       ])
 
-//       await oracle.deleteNodePublicKey(roles.oracleNode1.getAddress())
-//       await oracle.deleteNodePublicKey(roles.oracleNode2.getAddress())
+//       await contracts.coordinator.deleteNodePublicKey(
+//         roles.oracleNode1.getAddress(),
+//       )
+//       await contracts.coordinator.deleteNodePublicKey(
+//         roles.oracleNode2.getAddress(),
+//       )
 //       validatePubKeys(transmitters, [emptyKey, emptyKey, publicKey3, emptyKey])
 //     })
 
@@ -189,31 +96,31 @@
 //       const pubKey = stringToHex('abcd')
 
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.defaultAccount)
 //           .setNodePublicKey(roles.oracleNode2.getAddress(), pubKey),
 //       ).not.to.be.reverted
 
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.consumer)
 //           .setNodePublicKey(roles.oracleNode2.getAddress(), pubKey),
 //       ).to.be.revertedWith('UnauthorizedPublicKeyChange')
 
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.consumer)
 //           .setNodePublicKey(roles.consumer.getAddress(), pubKey),
 //       ).to.be.revertedWith('UnauthorizedPublicKeyChange')
 
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.oracleNode2)
 //           .setNodePublicKey(roles.oracleNode3.getAddress(), pubKey),
 //       ).to.be.revertedWith('UnauthorizedPublicKeyChange')
 
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.oracleNode2)
 //           .setNodePublicKey(roles.oracleNode2.getAddress(), pubKey),
 //       ).not.to.be.reverted
@@ -221,19 +128,19 @@
 
 //     it('reverts deleteNodePublicKey for unauthorized callers', async () => {
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.defaultAccount)
 //           .deleteNodePublicKey(roles.oracleNode2.getAddress()),
 //       ).not.to.be.reverted
 
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.consumer)
 //           .deleteNodePublicKey(roles.oracleNode2.getAddress()),
 //       ).to.be.revertedWith('UnauthorizedPublicKeyChange')
 
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.consumer)
 //           .deleteNodePublicKey(roles.consumer.getAddress()),
 //       ).not.to.be.reverted
@@ -242,57 +149,100 @@
 
 //   describe('Sending requests', () => {
 //     it('#sendRequest emits OracleRequest event', async () => {
-//       const data = stringToHex('some data')
-//       await expect(oracle.sendRequest(subscriptionId, data, 0))
-//         .to.emit(oracle, 'OracleRequest')
+//       subscriptionId = await createSubscription(
+//         roles.subOwner,
+//         [contracts.client.address],
+//         contracts.router,
+//         contracts.linkToken,
+//       )
+//       const defaultAccountAddress = await roles.defaultAccount.getAddress()
+//       const code = `function test(){return'hello world'}`
+//       const codeHex = stringToHex(code)
+//       await expect(
+//         contracts.client.sendSimpleRequestWithJavaScript(
+//           subscriptionId,
+//           code,
+//           ids.donId,
+//         ),
+//       )
+//         .to.emit(contracts.coordinator, 'OracleRequest')
 //         .withArgs(
 //           anyValue,
-//           await roles.defaultAccount.getAddress(),
-//           await roles.defaultAccount.getAddress(),
+//           contracts.client.address,
+//           defaultAccountAddress,
 //           subscriptionId,
-//           await roles.defaultAccount.getAddress(),
-//           data,
+//           roles.subOwnerAddress,
+//           codeHex,
+//           anyValue,
 //         )
 //     })
 
 //     it('#sendRequest reverts for empty data', async () => {
-//       const data = stringToHex('')
+//       subscriptionId = await createSubscription(
+//         roles.subOwner,
+//         [contracts.client.address],
+//         contracts.router,
+//         contracts.linkToken,
+//       )
 //       await expect(
-//         oracle.sendRequest(subscriptionId, data, 0),
+//         contracts.client.sendSimpleRequestWithJavaScript(
+//           subscriptionId,
+//           '',
+//           ids.donId,
+//         ),
 //       ).to.be.revertedWith('EmptyRequestData')
 //     })
 
 //     it('#sendRequest returns non-empty requestId', async () => {
-//       const data = stringToHex('test data')
-//       const requestId = await oracle.callStatic.sendRequest(
+//       subscriptionId = await createSubscription(
+//         roles.subOwner,
+//         [contracts.client.address],
+//         contracts.router,
+//         contracts.linkToken,
+//       )
+//       const requestId = await contracts.client.sendSimpleRequestWithJavaScript(
 //         subscriptionId,
-//         data,
-//         0,
+//         'test',
+//         ids.donId,
 //       )
 //       expect(requestId).not.to.be.empty
 //     })
 
 //     it('#sendRequest returns different requestIds', async () => {
-//       const data = stringToHex('test data')
-//       const requestId1 = await oracle.callStatic.sendRequest(
-//         subscriptionId,
-//         data,
-//         0,
+//       subscriptionId = await createSubscription(
+//         roles.subOwner,
+//         [contracts.client.address],
+//         contracts.router,
+//         contracts.linkToken,
 //       )
-//       await expect(oracle.sendRequest(subscriptionId, data, 0))
-//         .to.emit(oracle, 'OracleRequest')
+//       const defaultAccountAddress = await roles.defaultAccount.getAddress()
+//       const data = stringToHex('test data')
+//       const requestId1 = await contracts.client.sendSimpleRequestWithJavaScript(
+//         subscriptionId,
+//         'test data',
+//         ids.donId,
+//       )
+//       await expect(
+//         contracts.client.sendSimpleRequestWithJavaScript(
+//           subscriptionId,
+//           'test data',
+//           ids.donId,
+//         ),
+//       )
+//         .to.emit(contracts.coordinator, 'OracleRequest')
 //         .withArgs(
 //           anyValue,
-//           await roles.defaultAccount.getAddress(),
-//           await roles.defaultAccount.getAddress(),
+//           contracts.client.address,
+//           defaultAccountAddress,
 //           subscriptionId,
-//           await roles.defaultAccount.getAddress(),
+//           roles.subOwnerAddress,
 //           data,
+//           anyValue,
 //         )
-//       const requestId2 = await oracle.callStatic.sendRequest(
+//       const requestId2 = await contracts.client.sendSimpleRequestWithJavaScript(
 //         subscriptionId,
-//         data,
-//         0,
+//         'test data',
+//         ids.donId,
 //       )
 //       expect(requestId1).not.to.be.equal(requestId2)
 //     })
@@ -300,18 +250,18 @@
 
 //   describe('Fulfilling requests', () => {
 //     const placeTestRequest = async () => {
-//       const requestId = await client
+//       const requestId = await contracts.client
 //         .connect(roles.oracleNode)
 //         .callStatic.sendSimpleRequestWithJavaScript(
 //           'function(){}',
 //           subscriptionId,
 //         )
 //       await expect(
-//         client
+//         contracts.client
 //           .connect(roles.oracleNode)
 //           .sendSimpleRequestWithJavaScript('function(){}', subscriptionId),
 //       )
-//         .to.emit(client, 'RequestSent')
+//         .to.emit(contracts.client, 'RequestSent')
 //         .withArgs(requestId)
 //       return requestId
 //     }
@@ -326,8 +276,8 @@
 //         stringToHex(''),
 //       )
 
-//       await expect(oracle.callReport(report)).to.emit(
-//         oracle,
+//       await expect(contracts.coordinator.callReport(report)).to.emit(
+//         contracts.coordinator,
 //         'InvalidRequestID',
 //       )
 //     })
@@ -343,19 +293,20 @@
 
 //       const transmitter = await roles.oracleNode.getAddress()
 
-//       await expect(oracle.connect(roles.oracleNode).callReport(report))
-//         .to.emit(oracle, 'OracleResponse')
+//       await expect(
+//         contracts.coordinator.connect(roles.oracleNode).callReport(report),
+//       )
+//         .to.emit(contracts.coordinator, 'OracleResponse')
 //         .withArgs(requestId)
-//         .to.emit(oracle, 'ResponseTransmitted')
+//         .to.emit(contracts.coordinator, 'ResponseTransmitted')
 //         .withArgs(requestId, transmitter)
 //     })
 
 //     it('#estimateCost correctly estimates cost [ @skip-coverage ]', async () => {
-//       const [subscriptionBalanceBefore] = await registry.getSubscription(
-//         subscriptionId,
-//       )
+//       const [subscriptionBalanceBefore] =
+//         await contracts.router.getSubscription(subscriptionId)
 
-//       const request = await client
+//       const request = await contracts.client
 //         .connect(roles.oracleNode)
 //         .sendSimpleRequestWithJavaScript('function(){}', subscriptionId)
 //       const receipt = await request.wait()
@@ -369,19 +320,21 @@
 
 //       const transmitter = await roles.oracleNode.getAddress()
 
-//       await expect(oracle.connect(roles.oracleNode).callReport(report))
-//         .to.emit(oracle, 'OracleResponse')
+//       await expect(
+//         contracts.coordinator.connect(roles.oracleNode).callReport(report),
+//       )
+//         .to.emit(contracts.coordinator, 'OracleResponse')
 //         .withArgs(requestId)
-//         .to.emit(oracle, 'ResponseTransmitted')
+//         .to.emit(contracts.coordinator, 'ResponseTransmitted')
 //         .withArgs(requestId, transmitter)
-//         .to.emit(registry, 'BillingEnd')
+//         .to.emit(contracts.coordinator, 'BillingEnd')
 
-//       const [subscriptionBalanceAfter] = await registry.getSubscription(
+//       const [subscriptionBalanceAfter] = await contracts.router.getSubscription(
 //         subscriptionId,
 //       )
 
 //       const feeData = await ethers.provider.getFeeData()
-//       const estimatedCost = await client.estimateJuelCost(
+//       const estimatedCost = await contracts.client.estimateJuelCost(
 //         'function(){}',
 //         subscriptionId,
 //         feeData.gasPrice ?? BigNumber.from(0),
@@ -406,12 +359,14 @@
 
 //       const transmitter = await roles.oracleNode.getAddress()
 
-//       await client.setRevertFulfillRequest(true)
+//       await contracts.client.setRevertFulfillRequest(true)
 
-//       await expect(oracle.connect(roles.oracleNode).callReport(report))
-//         .to.emit(oracle, 'UserCallbackError')
+//       await expect(
+//         contracts.coordinator.connect(roles.oracleNode).callReport(report),
+//       )
+//         .to.emit(contracts.coordinator, 'UserCallbackError')
 //         .withArgs(requestId, anyValue)
-//         .to.emit(oracle, 'ResponseTransmitted')
+//         .to.emit(contracts.coordinator, 'ResponseTransmitted')
 //         .withArgs(requestId, transmitter)
 //     })
 
@@ -426,16 +381,18 @@
 
 //       const transmitter = await roles.oracleNode.getAddress()
 
-//       await client.setDoInvalidOperation(true)
+//       await contracts.client.setDoInvalidOperation(true)
 
-//       await expect(oracle.connect(roles.oracleNode).callReport(report))
-//         .to.emit(oracle, 'UserCallbackError')
+//       await expect(
+//         contracts.coordinator.connect(roles.oracleNode).callReport(report),
+//       )
+//         .to.emit(contracts.coordinator, 'UserCallbackError')
 //         .withArgs(requestId, anyValue)
-//         .to.emit(oracle, 'ResponseTransmitted')
+//         .to.emit(contracts.coordinator, 'ResponseTransmitted')
 //         .withArgs(requestId, transmitter)
 //     })
 
-//     it('#fulfillRequest invokes client fulfillRequest', async () => {
+//     it('#fulfillRequest invokes contracts.client fulfillRequest', async () => {
 //       const requestId = await placeTestRequest()
 
 //       const report = encodeReport(
@@ -444,8 +401,10 @@
 //         stringToHex('err'),
 //       )
 
-//       await expect(oracle.connect(roles.oracleNode).callReport(report))
-//         .to.emit(client, 'FulfillRequestInvoked')
+//       await expect(
+//         contracts.coordinator.connect(roles.oracleNode).callReport(report),
+//       )
+//         .to.emit(contracts.client, 'FulfillRequestInvoked')
 //         .withArgs(requestId, stringToHex('response'), stringToHex('err'))
 //     })
 
@@ -458,13 +417,17 @@
 //         stringToHex('err'),
 //       )
 
-//       await expect(oracle.connect(roles.oracleNode).callReport(report))
-//         .to.emit(client, 'FulfillRequestInvoked')
+//       await expect(
+//         contracts.coordinator.connect(roles.oracleNode).callReport(report),
+//       )
+//         .to.emit(contracts.client, 'FulfillRequestInvoked')
 //         .withArgs(requestId, stringToHex('response'), stringToHex('err'))
 
 //       // for second fulfill the requestId becomes invalid
-//       await expect(oracle.connect(roles.oracleNode).callReport(report))
-//         .to.emit(oracle, 'InvalidRequestID')
+//       await expect(
+//         contracts.coordinator.connect(roles.oracleNode).callReport(report),
+//       )
+//         .to.emit(contracts.coordinator, 'InvalidRequestID')
 //         .withArgs(requestId)
 //     })
 
@@ -478,7 +441,7 @@
 //       )
 
 //       await expect(
-//         oracle.connect(roles.oracleNode).callReport(report),
+//         contracts.coordinator.connect(roles.oracleNode).callReport(report),
 //       ).to.be.revertedWith('ReportInvalid()')
 //     })
 
@@ -500,13 +463,13 @@
 //       )
 
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.oracleNode)
 //           .callReport(report, { gasLimit: 300_000 }),
 //       )
-//         .to.emit(client, 'FulfillRequestInvoked')
+//         .to.emit(contracts.client, 'FulfillRequestInvoked')
 //         .withArgs(requestId1, result1, err)
-//         .to.emit(client, 'FulfillRequestInvoked')
+//         .to.emit(contracts.client, 'FulfillRequestInvoked')
 //         .withArgs(requestId2, result2, err)
 //     })
 
@@ -527,12 +490,14 @@
 //         ],
 //       )
 
-//       await client.setRevertFulfillRequest(true)
+//       await contracts.client.setRevertFulfillRequest(true)
 
-//       await expect(oracle.connect(roles.oracleNode).callReport(report))
-//         .to.emit(oracle, 'UserCallbackError')
+//       await expect(
+//         contracts.coordinator.connect(roles.oracleNode).callReport(report),
+//       )
+//         .to.emit(contracts.coordinator, 'UserCallbackError')
 //         .withArgs(requestId1, anyValue)
-//         .to.emit(oracle, 'UserCallbackError')
+//         .to.emit(contracts.coordinator, 'UserCallbackError')
 //         .withArgs(requestId2, anyValue)
 //     })
 //   })
@@ -541,42 +506,50 @@
 //     let subId: number
 
 //     beforeEach(async () => {
-//       subId = await createSubscription(subOwner, [consumerAddress])
+//       subId = await createSubscription(
+//         roles.subOwner,
+//         [roles.consumerAddress],
+//         contracts.router,
+//       )
 
-//       await linkToken
-//         .connect(subOwner)
+//       await contracts.linkToken
+//         .connect(roles.subOwner)
 //         .transferAndCall(
-//           router.address,
+//           contracts.router.address,
 //           BigNumber.from('54666805176129187'),
 //           ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
 //         )
-//       await router.connect(subOwner).addConsumer(subId, client.address)
+//       await contracts.router
+//         .connect(roles.subOwner)
+//         .addConsumer(subId, contracts.client.address)
 //     })
 
 //     it('only callable by registered DONs', async () => {
 //       await expect(
-//         router.connect(consumer).startBilling(stringToHex('some data'), {
-//           requester: consumerAddress,
-//           client: consumerAddress,
-//           subscriptionId: subId,
-//           gasPrice: 20_000,
-//           gasLimit: 20_000,
-//           confirmations: 50,
-//         }),
+//         contracts.router
+//           .connect(roles.consumer)
+//           .startBilling(stringToHex('some data'), {
+//             requester: roles.consumerAddress,
+//             client: roles.consumerAddress,
+//             subscriptionId: subId,
+//             gasPrice: 20_000,
+//             gasLimit: 20_000,
+//             confirmations: 50,
+//           }),
 //       ).to.be.revertedWith(`reverted with custom error 'UnauthorizedSender()'`)
 //     })
 
 //     it('a subscription can only be used by a subscription consumer', async () => {
 //       await expect(
-//         coordinator
-//           .connect(stranger)
+//         contracts.coordinator
+//           .connect(roles.stranger)
 //           .sendRequest(subId, stringToBytes('some data'), 0),
 //       ).to.be.revertedWith(
-//         `reverted with custom error 'InvalidConsumer(${subId}, "${strangerAddress}")`,
+//         `reverted with custom error 'InvalidConsumer(${subId}, "${roles.strangerAddress}")`,
 //       )
 //       await expect(
-//         client
-//           .connect(consumer)
+//         contracts.client
+//           .connect(roles.consumer)
 //           .sendSimpleRequestWithJavaScript(
 //             `return 'hello world'`,
 //             subId,
@@ -586,12 +559,18 @@
 //     })
 
 //     it('fails if the subscription does not have the funds for the estimated cost', async () => {
-//       const subId = await createSubscription(subOwner, [subOwnerAddress])
-//       await router.connect(subOwner).addConsumer(subId, client.address)
+//       const subId = await createSubscription(
+//         roles.subOwner,
+//         [roles.subOwnerAddress],
+//         contracts.router,
+//       )
+//       await contracts.router
+//         .connect(roles.subOwner)
+//         .addConsumer(subId, contracts.client.address)
 
 //       await expect(
-//         client
-//           .connect(subOwner)
+//         contracts.client
+//           .connect(roles.subOwner)
 //           .sendSimpleRequestWithJavaScript(
 //             `return 'hello world'`,
 //             subId,
@@ -602,19 +581,19 @@
 
 //     it('when successful, emits an event', async () => {
 //       await expect(
-//         client
-//           .connect(consumer)
+//         contracts.client
+//           .connect(roles.consumer)
 //           .sendSimpleRequestWithJavaScript(
 //             `return 'hello world'`,
 //             subId,
 //             donLabel,
 //           ),
-//       ).to.emit(router, 'BillingStart')
+//       ).to.emit(contracts.router, 'BillingStart')
 //     })
 
 //     it('fails multiple requests if the subscription does not have the funds for the estimated cost', async () => {
-//       client
-//         .connect(consumer)
+//       contracts.client
+//         .connect(roles.consumer)
 //         .sendSimpleRequestWithJavaScript(
 //           `return 'hello world'`,
 //           subId,
@@ -625,8 +604,8 @@
 //         )
 
 //       await expect(
-//         client
-//           .connect(subOwner)
+//         contracts.client
+//           .connect(roles.subOwner)
 //           .sendSimpleRequestWithJavaScript(
 //             `return 'hello world'`,
 //             subId,
@@ -644,30 +623,29 @@
 //     let requestId: string
 
 //     beforeEach(async () => {
-//       subId = await createSubscription(subOwner, [consumerAddress])
-
-//       await router.setConfig(
-//         config.maxGasLimit,
-//         config.stalenessSeconds,
-//         config.gasAfterPaymentCalculation,
-//         config.weiPerUnitLink,
-//         config.gasOverhead,
-//         config.requestTimeoutSeconds,
+//       subId = await createSubscription(
+//         roles.subOwner,
+//         [roles.consumerAddress],
+//         contracts.router,
 //       )
 
-//       await linkToken
-//         .connect(subOwner)
+//       await contracts.linkToken
+//         .connect(roles.subOwner)
 //         .transferAndCall(
-//           router.address,
+//           contracts.router.address,
 //           BigNumber.from('1000000000000000000'),
 //           ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
 //         )
-//       await router.connect(subOwner).addConsumer(subId, client.address)
-//       await router.connect(roles.defaultAccount).reg
-//       await router.setAuthorizedSenders([oracle.address])
+//       await contracts.router
+//         .connect(roles.subOwner)
+//         .addConsumer(subId, contracts.client.address)
+//       await contracts.router.connect(roles.defaultAccount).reg
+//       await contracts.router.setAuthorizedSenders([
+//         contracts.coordinator.address,
+//       ])
 
-//       const request = await client
-//         .connect(consumer)
+//       const request = await contracts.client
+//         .connect(roles.consumer)
 //         .sendSimpleRequestWithJavaScript(
 //           `return 'hello world'`,
 //           subId,
@@ -681,8 +659,8 @@
 //       const someSigners = Array(31).fill(ethers.constants.AddressZero)
 //       someSigners[0] = someAddress
 //       await expect(
-//         router
-//           .connect(consumer)
+//         contracts.router
+//           .connect(roles.consumer)
 //           .fulfillAndBill(
 //             ethers.utils.hexZeroPad(requestId, 32),
 //             stringToHex('some data'),
@@ -703,10 +681,10 @@
 //         stringToHex(''),
 //       )
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.oracleNode)
 //           .callReport(report, { gasLimit: 500_000 }),
-//       ).to.emit(router, 'BillingEnd')
+//       ).to.emit(contracts.router, 'BillingEnd')
 //     })
 
 //     it('validates request ID', async () => {
@@ -718,17 +696,18 @@
 //         stringToHex(''),
 //       )
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.oracleNode)
 //           .callReport(report, { gasLimit: 500_000 }),
-//       ).to.emit(oracle, 'InvalidRequestID')
+//       ).to.emit(contracts.coordinator, 'InvalidRequestID')
 //     })
 
 //     it('pays the transmitter the expected amount', async () => {
-//       const oracleBalanceBefore = await linkToken.balanceOf(
+//       const oracleBalanceBefore = await contracts.linkToken.balanceOf(
 //         await roles.oracleNode.getAddress(),
 //       )
-//       const [subscriptionBalanceBefore] = await router.getSubscription(subId)
+//       const [subscriptionBalanceBefore] =
+//         await contracts.router.getSubscription(subId)
 
 //       const report = encodeReport(
 //         ethers.utils.hexZeroPad(requestId, 32),
@@ -739,28 +718,30 @@
 //       const transmitter = await roles.oracleNode.getAddress()
 
 //       await expect(
-//         oracle
+//         contracts.coordinator
 //           .connect(roles.oracleNode)
 //           .callReport(report, { gasLimit: 500_000 }),
 //       )
-//         .to.emit(oracle, 'OracleResponse')
+//         .to.emit(contracts.coordinator, 'OracleResponse')
 //         .withArgs(requestId)
-//         .to.emit(oracle, 'ResponseTransmitted')
+//         .to.emit(contracts.coordinator, 'ResponseTransmitted')
 //         .withArgs(requestId, transmitter)
-//         .to.emit(router, 'BillingEnd')
-//         .to.emit(client, 'FulfillRequestInvoked')
+//         .to.emit(contracts.router, 'BillingEnd')
+//         .to.emit(contracts.client, 'FulfillRequestInvoked')
 
-//       await router
+//       await contracts.router
 //         .connect(roles.oracleNode)
 //         .oracleWithdraw(
 //           await roles.oracleNode.getAddress(),
 //           BigNumber.from('0'),
 //         )
 
-//       const oracleBalanceAfter = await linkToken.balanceOf(
+//       const oracleBalanceAfter = await contracts.linkToken.balanceOf(
 //         await roles.oracleNode.getAddress(),
 //       )
-//       const [subscriptionBalanceAfter] = await router.getSubscription(subId)
+//       const [subscriptionBalanceAfter] = await contracts.router.getSubscription(
+//         subId,
+//       )
 
 //       expect(subscriptionBalanceBefore.gt(subscriptionBalanceAfter)).to.be.true
 //       expect(oracleBalanceAfter.gt(oracleBalanceBefore)).to.be.true

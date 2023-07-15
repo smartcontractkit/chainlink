@@ -102,9 +102,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
 
-    address coordinatorAddress = this.getContractById(donId, useProposed);
-
-    (, , address owner, , ) = this.getSubscription(subscriptionId);
+    address coordinatorAddress = _getContractById(donId, useProposed);
 
     // Forward request to DON
     uint96 estimatedCost;
@@ -116,7 +114,14 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       gasAfterPaymentCalculation, // Used to ensure that the transmitter supplies enough gas
       requestTimeoutSeconds
     ) = IFunctionsCoordinator(coordinatorAddress).sendRequest(
-      IFunctionsCoordinator.Request(subscriptionId, data, dataVersion, callbackGasLimit, msg.sender, owner)
+      IFunctionsCoordinator.Request(
+        subscriptionId,
+        data,
+        dataVersion,
+        callbackGasLimit,
+        msg.sender,
+        s_subscriptions[subscriptionId].owner
+      )
     );
 
     _markRequestInFlight(msg.sender, subscriptionId, estimatedCost);
@@ -137,7 +142,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       requestId,
       donId,
       subscriptionId,
-      owner,
+      s_subscriptions[subscriptionId].owner,
       msg.sender,
       tx.origin,
       data,
@@ -148,12 +153,19 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     return requestId;
   }
 
-  function _validateProposedContracts(bytes32 donId, bytes calldata data) internal override returns (bytes32) {
+  function _validateProposedContracts(
+    bytes32 donId,
+    bytes calldata data
+  ) internal override returns (bytes memory output) {
     (uint64 subscriptionId, bytes memory reqData, uint16 reqDataVersion, uint32 callbackGasLimit) = abi.decode(
       data,
       (uint64, bytes, uint16, uint32)
     );
-    return _sendRequest(donId, true, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
+    bytes32 requestId = _sendRequest(donId, true, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
+    output = new bytes(32);
+    for (uint256 i; i < 32; i++) {
+      output[i] = requestId[i];
+    }
   }
 
   /**
@@ -165,7 +177,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint16 dataVersion,
     uint32 callbackGasLimit,
     bytes32 donId
-  ) external override nonReentrant returns (bytes32) {
+  ) external override nonReentrant whenNotPaused returns (bytes32) {
     return _sendRequest(donId, false, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
@@ -234,7 +246,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes memory err,
     uint32 callbackGasLimit,
     address client
-  ) private returns (CallbackResult memory result) {
+  ) private returns (CallbackResult memory result) {    
     bytes memory encodedCallback = abi.encodeWithSelector(
       s_config.handleOracleFulfillmentSelector,
       requestId,
@@ -248,21 +260,10 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     // Important to not let them exhaust the gas budget and avoid payment.
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
-    (bool success, uint256 gasUsed) = _callWithExactGas(callbackGasLimit, client, encodedCallback);
-    s_reentrancyLock = false;
 
-    result = CallbackResult(success, gasUsed);
-  }
+    bool success;
+    uint256 gasUsed;
 
-  /**
-   * @dev calls target address with exactly gasAmount gas and data as calldata
-   * or reverts if at least gasAmount gas is not available.
-   */
-  function _callWithExactGas(
-    uint256 gasAmount,
-    address target,
-    bytes memory data
-  ) private returns (bool success, uint256 gasUsed) {
     // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
@@ -279,19 +280,22 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       g := sub(g, 5000)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
-      if iszero(gt(sub(g, div(g, 64)), gasAmount)) {
+      if iszero(gt(sub(g, div(g, 64)), callbackGasLimit)) {
         revert(0, 0)
       }
       // solidity calls check that a contract actually exists at the destination, so we do the same
-      if iszero(extcodesize(target)) {
+      if iszero(extcodesize(client)) {
         revert(0, 0)
       }
       // call and return whether we succeeded. ignore return data
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-      success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
+      success := call(callbackGasLimit, client, 0, add(encodedCallback, 0x20), mload(encodedCallback), 0, 0)
       gasUsed := sub(g, gas())
     }
-    return (success, gasUsed);
+
+    s_reentrancyLock = false;
+
+    result = CallbackResult(success, gasUsed);
   }
 
   // ================================================================

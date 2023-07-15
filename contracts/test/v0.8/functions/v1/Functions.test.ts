@@ -132,7 +132,9 @@ describe('FunctionsTestHelper', () => {
     it('reverts with EmptySecrets() if secrets param is empty', async () => {
       const js = 'function run(args, responses) {}'
       await ctr.initializeRequestForInlineJavaScript(js)
-      await expect(ctr.addSecretsReference('0x')).to.be.revertedWith('EmptySecrets()')
+      await expect(ctr.addSecretsReference('0x')).to.be.revertedWith(
+        'EmptySecrets()',
+      )
     })
   })
 

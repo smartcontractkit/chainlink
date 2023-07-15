@@ -83,6 +83,8 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   bytes32 internal s_config_hash;
 
+  error InvalidConfigData();
+
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
@@ -118,23 +120,13 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // |                        Route methods                         |
   // ================================================================
 
-  /**
-   * @inheritdoc IRouterBase
-   */
-  function getContractById(bytes32 id) public view returns (address) {
-    address currentImplementation = s_route[id];
-    if (currentImplementation == address(0)) {
-      revert RouteNotFound(id);
-    }
-    return currentImplementation;
-  }
-
-  /**
-   * @inheritdoc IRouterBase
-   */
-  function getContractById(bytes32 id, bool useProposed) public view returns (address) {
-    if (useProposed == true) {
-      return getContractById(id);
+  function _getContractById(bytes32 id, bool useProposed) internal view returns (address) {
+    if (useProposed == false) {
+      address currentImplementation = s_route[id];
+      if (currentImplementation == address(0)) {
+        revert RouteNotFound(id);
+      }
+      return currentImplementation;
     }
 
     for (uint8 i = 0; i < s_proposedContractSet.ids.length; i++) {
@@ -144,6 +136,20 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       }
     }
     revert RouteNotFound(id);
+  }
+
+  /**
+   * @inheritdoc IRouterBase
+   */
+  function getContractById(bytes32 id) public view returns (address routeDestination) {
+    routeDestination = _getContractById(id, false);
+  }
+
+  /**
+   * @inheritdoc IRouterBase
+   */
+  function getContractById(bytes32 id, bool useProposed) public view returns (address routeDestination) {
+    routeDestination = _getContractById(id, useProposed);
   }
 
   // ================================================================
@@ -240,15 +246,15 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
-  function validateProposedContracts(bytes32 id, bytes calldata data) external override {
-    _validateProposedContracts(id, data);
+  function validateProposedContracts(bytes32 id, bytes calldata data) external override returns (bytes memory) {
+    return _validateProposedContracts(id, data);
   }
 
   /**
    * @dev Must be implemented by the inheriting contract
    * Use to test an end to end request through the system
    */
-  function _validateProposedContracts(bytes32 id, bytes calldata data) internal virtual returns (bytes32);
+  function _validateProposedContracts(bytes32 id, bytes calldata data) internal virtual returns (bytes memory);
 
   /**
    * @inheritdoc IRouterBase
@@ -323,7 +329,9 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       _setConfig(proposal.to);
       s_config_hash = keccak256(proposal.to);
     } else {
-      IConfigurable(implAddr).setConfig(proposal.to);
+      try IConfigurable(implAddr).setConfig(proposal.to) {} catch {
+        revert InvalidConfigData();
+      }
     }
     s_patchVersion = s_patchVersion + 1;
     emit ConfigUpdated(id, proposal.fromHash, proposal.to);
@@ -370,14 +378,11 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
-  function pause() external override onlyOwner {
-    _pause();
-  }
-
-  /**
-   * @inheritdoc IRouterBase
-   */
-  function unpause() external override onlyOwner {
-    _unpause();
+  function togglePaused() external override onlyOwner {
+    if (Pausable.paused()) {
+      _unpause();
+    } else {
+      _pause();
+    }
   }
 }

@@ -12,15 +12,12 @@ import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
  * @notice Contract writers can inherit this contract in order to create Chainlink Functions requests
  */
 abstract contract FunctionsClient is IFunctionsClient {
-  IFunctionsRouter private s_router;
-  mapping(bytes32 => address) internal s_pendingRequests; /* requestId => fulfillment sender */
+  IFunctionsRouter internal s_router;
 
   event RequestSent(bytes32 indexed id);
   event RequestFulfilled(bytes32 indexed id);
 
-  error SenderIsNotRegistry();
-  error RequestIsAlreadyPending();
-  error RequestIsNotPending();
+  error OnlyRouterCanFufill();
 
   constructor(address router) {
     setRouter(router);
@@ -38,10 +35,9 @@ abstract contract FunctionsClient is IFunctionsClient {
     uint64 subscriptionId,
     uint32 callbackGasLimit,
     bytes32 donId
-  ) internal returns (bytes32) {
+  ) internal returns (bytes32 requestId) {
     bytes memory requestData = Functions.encodeCBOR(req);
-    bytes32 requestId = _sendRequestBytes(requestData, subscriptionId, callbackGasLimit, donId);
-    return requestId;
+    requestId = _sendRequestBytes(requestData, subscriptionId, callbackGasLimit, donId);
   }
 
   /**
@@ -56,17 +52,9 @@ abstract contract FunctionsClient is IFunctionsClient {
     uint64 subscriptionId,
     uint32 callbackGasLimit,
     bytes32 donId
-  ) internal returns (bytes32) {
-    bytes32 requestId = s_router.sendRequest(
-      subscriptionId,
-      data,
-      Functions.REQUEST_DATA_VERSION,
-      callbackGasLimit,
-      donId
-    );
-    s_pendingRequests[requestId] = s_router.getContractById(donId);
+  ) internal returns (bytes32 requestId) {
+    requestId = s_router.sendRequest(subscriptionId, data, Functions.REQUEST_DATA_VERSION, callbackGasLimit, donId);
     emit RequestSent(requestId);
-    return requestId;
   }
 
   /**
@@ -81,11 +69,7 @@ abstract contract FunctionsClient is IFunctionsClient {
   /**
    * @inheritdoc IFunctionsClient
    */
-  function handleOracleFulfillment(
-    bytes32 requestId,
-    bytes memory response,
-    bytes memory err
-  ) external override recordChainlinkFulfillment(requestId) {
+  function handleOracleFulfillment(bytes32 requestId, bytes memory response, bytes memory err) external override onlyRouter {
     fulfillRequest(requestId, response, err);
   }
 
@@ -106,26 +90,11 @@ abstract contract FunctionsClient is IFunctionsClient {
   }
 
   /**
-   * @dev Reverts if the sender is not the oracle that serviced the request.
-   * Emits RequestFulfilled event.
-   * @param requestId The request ID for fulfillment
+   * @dev Reverts if the request is not from the Router
    */
-  modifier recordChainlinkFulfillment(bytes32 requestId) {
-    if (msg.sender != s_pendingRequests[requestId]) {
-      revert SenderIsNotRegistry();
-    }
-    delete s_pendingRequests[requestId];
-    emit RequestFulfilled(requestId);
-    _;
-  }
-
-  /**
-   * @dev Reverts if the request is already pending
-   * @param requestId The request ID for fulfillment
-   */
-  modifier notPendingRequest(bytes32 requestId) {
-    if (s_pendingRequests[requestId] != address(0)) {
-      revert RequestIsAlreadyPending();
+  modifier onlyRouter() {
+    if (msg.sender != address(s_router)) {
+      revert OnlyRouterCanFufill();
     }
     _;
   }
