@@ -98,6 +98,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 			return nil, err
 		}
 		gateway := &gatewayState{
+			conn:     network.NewWSConnectionWrapper(),
 			config:   &gw,
 			url:      parsedURL,
 			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),
@@ -157,7 +158,7 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 		if err != nil {
 			c.lggr.Error("connection error")
 		} else {
-			closeCh := gatewayState.conn.Restart(conn)
+			closeCh := gatewayState.conn.Reset(conn)
 			<-closeCh
 			c.lggr.Info("connection closed")
 			// reset backoff
@@ -182,7 +183,9 @@ func (c *gatewayConnector) Start(ctx context.Context) error {
 		c.closeWait.Add(2 * len(c.gateways))
 		for _, gatewayState := range c.gateways {
 			gatewayState := gatewayState
-			gatewayState.conn = network.NewWSConnectionWrapper()
+			if err := gatewayState.conn.Start(); err != nil {
+				return err
+			}
 			go c.readLoop(gatewayState)
 			go c.reconnectLoop(gatewayState)
 		}
