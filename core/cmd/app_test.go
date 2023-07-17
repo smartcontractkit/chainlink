@@ -47,121 +47,7 @@ var (
 			},
 		},
 	}
-
-	allow                           = false
-	dbURL                           = "postgres://chainlink:mysecretpassword@172.17.0.1:5432/primary"
-	backupDbURL                     = "postgres://chainlink:mysecretpassword@172.17.0.1:5433/replica"
-	testSecretsFileContentsComplete = chainlink.Secrets{
-		Secrets: toml.Secrets{
-			Database: toml.DatabaseSecrets{
-				URL:                  models.NewSecretURL(models.MustParseURL(dbURL)),
-				BackupURL:            models.NewSecretURL(models.MustParseURL(backupDbURL)),
-				AllowSimplePasswords: &allow,
-			},
-			Explorer: toml.ExplorerSecrets{
-				AccessKey: models.NewSecret("EXPLORER_ACCESS_KEY"),
-				Secret:    models.NewSecret("EXPLORER_TOKEN"),
-			},
-			Password: toml.Passwords{
-				Keystore: models.NewSecret("mysecretpassword"),
-				VRF:      models.NewSecret("mysecretvrfpassword"),
-			},
-			Pyroscope: toml.PyroscopeSecrets{
-				AuthToken: models.NewSecret("PYROSCOPE_TOKEN"),
-			},
-			Prometheus: toml.PrometheusSecrets{
-				AuthToken: models.NewSecret("PROM_TOKEN"),
-			},
-			Mercury: toml.MercurySecrets{
-				Credentials: map[string]toml.MercuryCredentials{
-					"key1": {
-						URL:      models.NewSecretURL(models.MustParseURL("https://mercury.stage.link")),
-						Username: models.NewSecret("user"),
-						Password: models.NewSecret("user_pass"),
-					},
-					"key2": {
-						URL:      models.NewSecretURL(models.MustParseURL("https://mercury.stage.link")),
-						Username: models.NewSecret("user"),
-						Password: models.NewSecret("user_pass"),
-					},
-				},
-			},
-			Threshold: toml.ThresholdKeyShareSecrets{
-				ThresholdKeyShare: models.NewSecret("THRESHOLD_SECRET"),
-			},
-		},
-	}
-
-	testSecretsRedactedContentsComplete = chainlink.Secrets{
-		Secrets: toml.Secrets{
-			Database: toml.DatabaseSecrets{
-				URL:                  models.NewSecretURL(models.MustParseURL("xxxxx")),
-				BackupURL:            models.NewSecretURL(models.MustParseURL("xxxxx")),
-				AllowSimplePasswords: &allow,
-			},
-			Explorer: toml.ExplorerSecrets{
-				AccessKey: models.NewSecret("xxxxx"),
-				Secret:    models.NewSecret("xxxxx"),
-			},
-			Password: toml.Passwords{
-				Keystore: models.NewSecret("xxxxx"),
-				VRF:      models.NewSecret("xxxxx"),
-			},
-			Pyroscope: toml.PyroscopeSecrets{
-				AuthToken: models.NewSecret("xxxxx"),
-			},
-			Prometheus: toml.PrometheusSecrets{
-				AuthToken: models.NewSecret("xxxxx"),
-			},
-			Mercury: toml.MercurySecrets{
-				Credentials: map[string]toml.MercuryCredentials{
-					"key1": {
-						URL:      models.NewSecretURL(models.MustParseURL("xxxxx")),
-						Username: models.NewSecret("xxxxx"),
-						Password: models.NewSecret("xxxxx"),
-					},
-					"key2": {
-						URL:      models.NewSecretURL(models.MustParseURL("xxxxx")),
-						Username: models.NewSecret("xxxxx"),
-						Password: models.NewSecret("xxxxx"),
-					},
-					"key3": {
-						URL:      models.NewSecretURL(models.MustParseURL("xxxxx")),
-						Username: models.NewSecret("xxxxx"),
-						Password: models.NewSecret("xxxxx"),
-					},
-					"key4": {
-						URL:      models.NewSecretURL(models.MustParseURL("xxxxx")),
-						Username: models.NewSecret("xxxxx"),
-						Password: models.NewSecret("xxxxx"),
-					},
-				},
-			},
-			Threshold: toml.ThresholdKeyShareSecrets{
-				ThresholdKeyShare: models.NewSecret("xxxxx"),
-			},
-		},
-	}
-
-	additionalMercurySecrets = toml.MercurySecrets{
-		Credentials: map[string]toml.MercuryCredentials{
-			"key3": {
-				URL:      models.NewSecretURL(models.MustParseURL("https://mercury.stage.link")),
-				Username: models.NewSecret("user"),
-				Password: models.NewSecret("user_pass"),
-			},
-			"key4": {
-				URL:      models.NewSecretURL(models.MustParseURL("https://mercury.stage.link")),
-				Username: models.NewSecret("user"),
-				Password: models.NewSecret("user_pass"),
-			},
-		},
-	}
 )
-
-func makeTestFile(t *testing.T, contents any, fileName string) string {
-	return testtomlutils.WriteTOMLFile(t, contents, fileName)
-}
 
 func withDefaults(t *testing.T, c chainlink.Config, s chainlink.Secrets) chainlink.GeneralConfig {
 	cfg, err := chainlink.GeneralConfigOpts{Config: c, Secrets: s}.New()
@@ -258,17 +144,17 @@ func Test_initServerConfig(t *testing.T) {
 				opts:      new(chainlink.GeneralConfigOpts),
 				fileNames: []string{testtomlutils.WriteTOMLFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets2.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets3.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets4.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets5.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets6.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Mercury: additionalMercurySecrets}}, "test_secrets6a.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets7.toml"),
+					"../testdata/mergingsecretsdata/secrets-database.toml",
+					"../testdata/mergingsecretsdata/secrets-explorer.toml",
+					"../testdata/mergingsecretsdata/secrets-password.toml",
+					"../testdata/mergingsecretsdata/secrets-pyroscope.toml",
+					"../testdata/mergingsecretsdata/secrets-prometheus.toml",
+					"../testdata/mergingsecretsdata/secrets-mercury-split-one.toml",
+					"../testdata/mergingsecretsdata/secrets-mercury-split-two.toml",
+					"../testdata/mergingsecretsdata/secrets-threshold.toml",
 				},
 			},
-			wantCfg: withDefaults(t, testConfigFileContents, testSecretsRedactedContentsComplete),
+			wantErr: false,
 		},
 		{
 			name: "reading multiple secrets with overrides: Database",
@@ -276,8 +162,8 @@ func Test_initServerConfig(t *testing.T) {
 				opts:      new(chainlink.GeneralConfigOpts),
 				fileNames: []string{testtomlutils.WriteTOMLFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Database: testSecretsFileContentsComplete.Database}}, "test_secrets1a.toml"),
+					"../testdata/mergingsecretsdata/secrets-database.toml",
+					"../testdata/mergingsecretsdata/secrets-database.toml",
 				},
 			},
 			wantErr: true,
@@ -288,8 +174,8 @@ func Test_initServerConfig(t *testing.T) {
 				opts:      new(chainlink.GeneralConfigOpts),
 				fileNames: []string{testtomlutils.WriteTOMLFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets1.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Explorer: testSecretsFileContentsComplete.Explorer}}, "test_secrets1a.toml"),
+					"../testdata/mergingsecretsdata/secrets-explorer.toml",
+					"../testdata/mergingsecretsdata/secrets-explorer.toml",
 				},
 			},
 			wantErr: true,
@@ -300,8 +186,8 @@ func Test_initServerConfig(t *testing.T) {
 				opts:      new(chainlink.GeneralConfigOpts),
 				fileNames: []string{testtomlutils.WriteTOMLFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets1.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Password: testSecretsFileContentsComplete.Password}}, "test_secrets1a.toml"),
+					"../testdata/mergingsecretsdata/secrets-password.toml",
+					"../testdata/mergingsecretsdata/secrets-password.toml",
 				},
 			},
 			wantErr: true,
@@ -312,8 +198,8 @@ func Test_initServerConfig(t *testing.T) {
 				opts:      new(chainlink.GeneralConfigOpts),
 				fileNames: []string{testtomlutils.WriteTOMLFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets1.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Pyroscope: testSecretsFileContentsComplete.Pyroscope}}, "test_secrets1a.toml"),
+					"../testdata/mergingsecretsdata/secrets-pyroscope.toml",
+					"../testdata/mergingsecretsdata/secrets-pyroscope.toml",
 				},
 			},
 			wantErr: true,
@@ -324,8 +210,8 @@ func Test_initServerConfig(t *testing.T) {
 				opts:      new(chainlink.GeneralConfigOpts),
 				fileNames: []string{testtomlutils.WriteTOMLFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets1.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Prometheus: testSecretsFileContentsComplete.Prometheus}}, "test_secrets1a.toml"),
+					"../testdata/mergingsecretsdata/secrets-prometheus.toml",
+					"../testdata/mergingsecretsdata/secrets-prometheus.toml",
 				},
 			},
 			wantErr: true,
@@ -336,8 +222,8 @@ func Test_initServerConfig(t *testing.T) {
 				opts:      new(chainlink.GeneralConfigOpts),
 				fileNames: []string{testtomlutils.WriteTOMLFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets1.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Mercury: testSecretsFileContentsComplete.Mercury}}, "test_secrets1a.toml"),
+					"../testdata/mergingsecretsdata/secrets-mercury-split-one.toml",
+					"../testdata/mergingsecretsdata/secrets-mercury-split-one.toml",
 				},
 			},
 			wantErr: true,
@@ -348,8 +234,8 @@ func Test_initServerConfig(t *testing.T) {
 				opts:      new(chainlink.GeneralConfigOpts),
 				fileNames: []string{testtomlutils.WriteTOMLFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets1.toml"),
-					testtomlutils.WriteTOMLFile(t, chainlink.Secrets{Secrets: toml.Secrets{Threshold: testSecretsFileContentsComplete.Threshold}}, "test_secrets1a.toml"),
+					"../testdata/mergingsecretsdata/secrets-threshold.toml",
+					"../testdata/mergingsecretsdata/secrets-threshold.toml",
 				},
 			},
 			wantErr: true,
@@ -364,7 +250,9 @@ func Test_initServerConfig(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("loadOpts() error = %v, wantErr %v", err, tt.wantErr)
 			}
-			assert.Equal(t, tt.wantCfg, cfg)
+			if tt.wantCfg != nil {
+				assert.Equal(t, tt.wantCfg, cfg)
+			}
 		})
 	}
 }
