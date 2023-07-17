@@ -10,7 +10,7 @@ message MercuryLookup {
     uint32 block_number = 2; // block number provided by ocr2keepers plugin
     uint32 timestamp = 3;  // current timestamp
     uint32 time_param = 4; // time param key is block number for v0.2 and timestamp for v0.3, time param is the corresponding value
-    repeated string feeds = 5; // array of feed names in form of 'ETH/USD'
+    repeated string feeds = 5; // array of feed names
 }
 
 // MercuryResponse contains the metadata about mercury response
@@ -18,7 +18,7 @@ message MercuryResponse {
     string upkeep_id = 1;
     uint32 block_number = 2; // block number provided by ocr2keepers plugin
     uint32 timestamp = 3;  // current timestamp
-    repeated string feeds = 4; // array of feed names in form of 'ETH/USD'
+    repeated string feeds = 4; // array of feed names
     repeated uint32 http_status_codes = 5; // Mercury server response code
     bool success = 6;   // True if all feeds gave successful response
     bool retryable = 7; // whether feedLookup should be retried if request fails
