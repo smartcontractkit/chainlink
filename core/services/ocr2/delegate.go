@@ -308,14 +308,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		JobName: jb.Name.ValueOrZero(),
 
 		ContractID:    spec.ContractID,
-		FeedID:        spec.FeedID,
 		TransmitterID: transmitterID,
 	}
-	lggr := logger.Sugared(d.lggr.Named("OCR2").With(lggrCtx.Args()...))
-
-	if spec.FeedID != (common.Hash{}) {
+	if spec.FeedID != nil {
+		lggrCtx.FeedID = *spec.FeedID
 		spec.RelayConfig["feedID"] = spec.FeedID
 	}
+	lggr := logger.Sugared(d.lggr.Named("OCR2").With(lggrCtx.Args()...))
 
 	if spec.Relay == relay.EVM {
 		chainID, err2 := spec.RelayConfig.EVMChainID()
@@ -438,7 +437,7 @@ func (d *Delegate) newServicesMercury(
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
-	if jb.OCR2OracleSpec.FeedID == (common.Hash{}) {
+	if jb.OCR2OracleSpec.FeedID == nil {
 		return nil, errors.Errorf("ServicesForSpec: mercury job type requires feedID")
 	}
 	spec := jb.OCR2OracleSpec

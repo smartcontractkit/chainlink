@@ -1001,3 +1001,70 @@ func TestSelectLogsWithSigsExcluding(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, logs, 0)
 }
+
+func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
+	th := SetupTH(t, 2, 3, 2)
+	event1 := EmitterABI.Events["Log1"].ID
+	event2 := EmitterABI.Events["Log2"].ID
+	address1 := common.HexToAddress("0xA")
+	address2 := common.HexToAddress("0xB")
+
+	require.NoError(t, th.ORM.InsertLogs([]logpoller.Log{
+		GenLog(th.ChainID, 1, 1, "0x1", event1[:], address1),
+		GenLog(th.ChainID, 2, 1, "0x2", event2[:], address2),
+		GenLog(th.ChainID, 2, 2, "0x4", event2[:], address2),
+		GenLog(th.ChainID, 2, 3, "0x6", event2[:], address2),
+	}))
+	require.NoError(t, th.ORM.InsertBlock(common.HexToHash("0x1"), 3, time.Now()))
+
+	tests := []struct {
+		name                string
+		events              []common.Hash
+		addrs               []common.Address
+		confs               int
+		expectedBlockNumber int64
+	}{
+		{
+			name:                "no matching logs returns 0 block number",
+			events:              []common.Hash{event2},
+			addrs:               []common.Address{address1},
+			confs:               0,
+			expectedBlockNumber: 0,
+		},
+		{
+			name:                "not enough confirmations block returns 0 block number",
+			events:              []common.Hash{event2},
+			addrs:               []common.Address{address2},
+			confs:               5,
+			expectedBlockNumber: 0,
+		},
+		{
+			name:                "single matching event and address returns last block",
+			events:              []common.Hash{event1},
+			addrs:               []common.Address{address1},
+			confs:               0,
+			expectedBlockNumber: 1,
+		},
+		{
+			name:                "picks max block from two events",
+			events:              []common.Hash{event1, event2},
+			addrs:               []common.Address{address1, address2},
+			confs:               0,
+			expectedBlockNumber: 3,
+		},
+		{
+			name:                "picks previous block number for confirmations set to 1",
+			events:              []common.Hash{event2},
+			addrs:               []common.Address{address2},
+			confs:               1,
+			expectedBlockNumber: 2,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			blockNumber, err := th.ORM.SelectLatestBlockNumberEventSigsAddrsWithConfs(tt.events, tt.addrs, tt.confs)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedBlockNumber, blockNumber)
+		})
+	}
+}
