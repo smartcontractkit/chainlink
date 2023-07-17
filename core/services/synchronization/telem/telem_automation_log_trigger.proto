@@ -1,0 +1,43 @@
+yntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem";
+
+package telem;
+
+message MercuryLookup {
+    string upkeep_id = 1;
+    uint32 block_number = 2; //
+    uint32 timestamp = 3;  // current timestamp
+    uint32 time_param = 4; // time param key is block number for v0.2 and timestamp for v0.3, time param is the corresponding value
+    repeated string feeds = 5;
+  }
+  message MercuryResponse {
+    string upkeep_id = 1;
+    uint32 block_number = 2; //
+    uint32 timestamp = 3;  // current timestamp
+    repeated string feeds = 4;
+    repeated uint16 http_status_codes = 5;
+    bool success = 6;
+    bool retryable = 7;
+    uint8 failure_reason = 8;
+  }
+  message MercuryCheckCallback {
+    string upkeep_id = 1;
+    uint32 block_number = 2; //
+    uint32 timestamp = 3;  // current timestamp
+    uint8 failure_reason = 4;
+    bool upkeep_needed = 5;
+  }
+  message LogTrigger {
+    string upkeep_id = 1;
+    uint32 block_number = 2; //
+    uint32 timestamp = 3;  // current timestamp
+    uint32 log_block_number = 4;
+    string log_block_hash = 5;
+  }
+  message LogTriggerSuccess {
+    string upkeep_id = 1;
+    uint32 block_number = 2; //
+    uint32 timestamp = 3;  // current timestamp
+    bool success = 4;
+  }
