@@ -25,23 +25,25 @@ func (ssl *serverSideLogic) wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// one wsConnWrapper per client
-	ssl.connWrapper.Restart(c)
+	ssl.connWrapper.Reset(c)
 }
 
 func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	// server
 	ssl := &serverSideLogic{connWrapper: network.NewWSConnectionWrapper()}
+	require.NoError(t, ssl.connWrapper.Start())
 	s := httptest.NewServer(http.HandlerFunc(ssl.wsHandler))
 	serverURL := "ws" + strings.TrimPrefix(s.URL, "http")
 	defer s.Close()
 
 	// client
 	clientConnWrapper := network.NewWSConnectionWrapper()
+	require.NoError(t, clientConnWrapper.Start())
 
 	// connect, write a message, disconnect
 	conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
 	require.NoError(t, err)
-	clientConnWrapper.Restart(conn)
+	clientConnWrapper.Reset(conn)
 	writeErr := clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("hello"))
 	require.NoError(t, writeErr)
 	<-ssl.connWrapper.ReadChannel() // consumed by server
@@ -54,7 +56,7 @@ func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
 	// re-connect, write another message, disconnect
 	conn, _, err = websocket.DefaultDialer.Dial(serverURL, nil)
 	require.NoError(t, err)
-	clientConnWrapper.Restart(conn)
+	clientConnWrapper.Reset(conn)
 	writeErr = clientConnWrapper.Write(testutils.Context(t), websocket.TextMessage, []byte("hello again"))
 	require.NoError(t, writeErr)
 	<-ssl.connWrapper.ReadChannel() // consumed by server
