@@ -1040,7 +1040,7 @@ func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 // findExistingJobForOCR2 looks for existing job for OCR2
 func (s *service) findExistingJobForOCR2(j *job.Job, qopts pg.QOpt) (int32, error) {
 	var contractID string
-	var feedID common.Hash
+	var feedID *common.Hash
 
 	switch j.Type {
 	case job.OffchainReporting2:
@@ -1049,7 +1049,7 @@ func (s *service) findExistingJobForOCR2(j *job.Job, qopts pg.QOpt) (int32, erro
 	case job.Bootstrap:
 		contractID = j.BootstrapSpec.ContractID
 		if j.BootstrapSpec.FeedID != nil {
-			feedID = *j.BootstrapSpec.FeedID
+			feedID = j.BootstrapSpec.FeedID
 		}
 	case job.FluxMonitor, job.OffchainReporting:
 		return 0, errors.Errorf("contradID and feedID not applicable for job type: %s", j.Type)
