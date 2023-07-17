@@ -18,19 +18,19 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   using SafeERC20 for IERC20;
 
   // @dev The mapping of total fees collected for a particular pot: totalRewardRecipientFees[poolId]
-  mapping(bytes32 => uint256) private totalRewardRecipientFees;
+  mapping(bytes32 => uint256) public totalRewardRecipientFees;
 
   // @dev The mapping of fee balances for each pot last time the recipient claimed: totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient]
   mapping(bytes32 => mapping(address => uint256)) private totalRewardRecipientFeesLastClaimedAmounts;
 
   // @dev The mapping of RewardRecipient weights for a particular poolId: rewardRecipientWeights[poolId][rewardRecipient]. Weights are stored in uint256 to optimize on calculations
-  mapping(bytes32 => mapping(address => uint256)) private rewardRecipientWeights;
+  mapping(bytes32 => mapping(address => uint256)) public rewardRecipientWeights;
 
   // @dev Keep track of the reward recipient weights that have been set to prevent duplicates
   mapping(bytes32 => bool) private rewardRecipientWeightsSet;
 
   // @dev Store a list of pool ids that have been registered, to make off chain lookups easier
-  bytes32[] private registeredPoolIds;
+  bytes32[] public registeredPoolIds;
 
   // @dev The address for the link contract
   address private immutable LINK_ADDRESS;
@@ -52,6 +52,11 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
   // @notice Thrown when the calling contract is not within the authorized contracts
   error Unauthorized();
+
+  // Events emitted upon state change
+  event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);
+  event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint256 quantity);
+  event VerifierProxyUpdated(address newProxyAddress);
 
   /**
    * @notice Constructor
@@ -137,6 +142,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
     //update the reward recipients, if the new collective weight isn't equal to the previous collective weight, the tx will be reverted
     _setRewardRecipientWeights(poolId, newRewardRecipients, existingTotalWeight);
+
+    //emit event
+    emit RewardRecipientsUpdated(poolId, newRewardRecipients);
   }
 
   // @inheritdoc IRewardManager
@@ -158,6 +166,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
     //set the reward recipient, this will only be called once and contain the full set of RewardRecipients with a total weight of 100%
     _setRewardRecipientWeights(poolId, rewardRecipientAndWeights, PERCENTAGE_SCALAR);
+
+    //emit event
+    emit RewardRecipientsUpdated(poolId, rewardRecipientAndWeights);
   }
 
   // @inheritdoc IRewardManager
@@ -168,7 +179,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
     //loop each recipient and claim the reward-manager for each of the pools and assets
     for (uint256 i; i < recipients.length; ) {
-      _claimRewards(recipients[i], poolIdsArray);
+      uint256 claimAmount = _claimRewards(recipients[i], poolIdsArray);
 
       unchecked {
         //there will never be enough recipients for i to overflow
@@ -215,7 +226,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   // wrapper impl for claimRewards
-  function _claimRewards(address recipient, bytes32[] memory poolIds) internal {
+  function _claimRewards(address recipient, bytes32[] memory poolIds) internal returns (uint256 claimAmount) {
     //get the total amount claimable for this recipient
     uint256 claimAmount;
 
@@ -242,6 +253,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
         //set the current total amount of fees in the pot as it's used to calculate future claims
         totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient] = totalFeesInPot;
+
+        //emit event if the recipient has rewards to claim
+        emit RewardsClaimed(poolIds[i], recipient, claimAmount);
       }
     }
 
@@ -250,6 +264,8 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       //transfer the reward to the recipient
       IERC20(LINK_ADDRESS).safeTransfer(recipient, claimAmount);
     }
+
+    return claimAmount;
   }
 
   // @inheritdoc IRewardManager
@@ -290,5 +306,8 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   // @inheritdoc IRewardManager
   function setVerifierProxy(address newVerifierProxyAddress) external onlyOwner {
     verifierProxyAddress = newVerifierProxyAddress;
+
+    //emit event
+    emit VerifierProxyUpdated(newVerifierProxyAddress);
   }
 }

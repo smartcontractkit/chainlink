@@ -190,6 +190,34 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
     //the reward manager balance should again be 0 as all of the funds have been claimed
     assertEq(getAssetBalance(address(rewardManager)), 0);
   }
+
+  function test_eventIsEmittedUponClaim() public {
+    //get the recipient we're claiming for
+    Common.AddressAndWeight memory recipient = getPrimaryRecipients()[0];
+
+    //expect an emit
+    vm.expectEmit();
+
+    //emit the event we expect to be emitted
+    emit RewardsClaimed(PRIMARY_POOL_ID, recipient.addr, POOL_DEPOSIT_AMOUNT / 4);
+
+    //claim the individual rewards for each recipient
+    claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
+  }
+
+  function test_eventIsNotEmittedUponUnsuccessfulClaim() public {
+    //record logs to check no events were emitted
+    vm.recordLogs();
+
+    //get the recipient we're claiming for
+    Common.AddressAndWeight memory recipient = getPrimaryRecipients()[0];
+
+    //claim the individual rewards for each recipient
+    claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
+
+    //no logs should have been emitted
+    assertEq(vm.getRecordedLogs().length, 0);
+  }
 }
 
 contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {

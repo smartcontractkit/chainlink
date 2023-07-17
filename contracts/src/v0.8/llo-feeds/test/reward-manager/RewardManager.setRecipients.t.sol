@@ -17,7 +17,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
   }
 
   function test_setRewardRecipients() public {
-    //set the recipients with an empty array
+    //set the recipients
     setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), ADMIN);
   }
 
@@ -28,7 +28,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     //should revert if the recipients array is empty
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
 
-    //set the recipients with an empty array
+    //set the recipients
     setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
   }
 
@@ -93,7 +93,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
   }
 
   function test_setRewardRecipientTwice() public {
-    //set the recipients with an empty array
+    //set the recipients
     setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), ADMIN);
 
     //should revert if recipients for this pool have already been set
@@ -107,7 +107,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     //should revert if the sender is not the owner or proxy
     vm.expectRevert(UNAUTHORIZED_ERROR_SELECTOR);
 
-    //set the recipients with an empty array
+    //set the recipients
     setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), USER);
   }
 
@@ -115,7 +115,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     //update the proxy address
     setVerifierProxy(USER, ADMIN);
 
-    //set the recipients with an empty array
+    //set the recipients
     setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), USER);
   }
 
@@ -125,5 +125,16 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
 
     //try and add funds to the pool from an unconfigured address
     rewardManager.onFeePaid(PRIMARY_POOL_ID, msg.sender, getUnsupportedAsset(1));
+  }
+
+  function test_eventIsEmittedUponSetRecipients() public {
+    //expect an emit
+    vm.expectEmit();
+
+    //emit the event we expect to be emitted
+    emit RewardRecipientsUpdated(PRIMARY_POOL_ID, getPrimaryRecipients());
+
+    //set the recipients
+    setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), ADMIN);
   }
 }

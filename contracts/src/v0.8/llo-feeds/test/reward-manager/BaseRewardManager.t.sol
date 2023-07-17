@@ -63,6 +63,11 @@ contract BaseRewardManagerTest is Test {
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
 
+  // Events emitted within the reward manager
+  event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);
+  event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint256 quantity);
+  event VerifierProxyUpdated(address newProxyAddress);
+
   function setUp() public virtual {
     //change to admin user
     vm.startPrank(ADMIN);

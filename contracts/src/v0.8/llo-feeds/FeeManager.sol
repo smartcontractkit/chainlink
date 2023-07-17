@@ -19,7 +19,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   using ByteUtil for bytes;
 
   //list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
-  mapping(address => mapping(bytes32 => mapping(address => uint256))) private subscriberDiscounts;
+  mapping(address => mapping(bytes32 => mapping(address => uint256))) public subscriberDiscounts;
 
   //the total discount that can be applied to a fee, 10000 = 100% discount
   uint16 private constant TOTAL_DISCOUNT = 10000;
@@ -40,7 +40,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   uint16 private constant QUOTE_METADATA_FEE_ADDRESS_INDEX = 0;
 
   //the premium fee to be paid if paying in native
-  uint16 private nativePremium;
+  uint16 public nativePremium;
 
   //the error thrown if the discount or premium is invalid
   error InvalidPremium();
@@ -53,6 +53,10 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   //the error thrown if the address is invalid
   error InvalidAddress();
+
+  // Events emitted upon state change
+  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint16 discount);
+  event NativePremiumSet(uint16 newPremium);
 
   /**
    * @notice Construct the FeeManager contract
@@ -76,7 +80,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   // @inheritdoc IFeeManager
-  function setSubscriberDiscount(
+  function updateSubscriberDiscount(
     address subscriber,
     bytes32 feedId,
     address token,
@@ -88,11 +92,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     if (token != LINK_ADDRESS && token != NATIVE_ADDRESS) revert InvalidAddress();
 
     subscriberDiscounts[subscriber][feedId][token] = discount;
-  }
 
-  // @inheritdoc IFeeManager
-  function removeSubscriberDiscount(address subscriber, bytes32 feedId, address token) external onlyOwner {
-    delete subscriberDiscounts[subscriber][feedId][token];
+    //emit the event
+    emit SubscriberDiscountUpdated(subscriber, feedId, token, discount);
   }
 
   // Error message when an offset is out of bounds
@@ -146,5 +148,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     if (premium > TOTAL_DISCOUNT) revert InvalidPremium();
 
     nativePremium = premium;
+
+    //emit the event
+    emit NativePremiumSet(premium);
   }
 }

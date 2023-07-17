@@ -12,15 +12,7 @@ interface IFeeManager is IERC165 {
    * @param feedId feed id to apply the discount to
    * @param token token to apply the discount to
    */
-  function setSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint16 discount) external;
-
-  /**
-   * @notice Removes a subscriber from the fee manager
-   * @param subscriber address of the subscriber
-   * @param feedId feed id to apply the discount to
-   * @param token token to apply the discount to
-   */
-  function removeSubscriberDiscount(address subscriber, bytes32 feedId, address token) external;
+  function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint16 discount) external;
 
   /**
    * @notice Gets the fee from a report. If the sender is a subscriber, they will receive a discount.

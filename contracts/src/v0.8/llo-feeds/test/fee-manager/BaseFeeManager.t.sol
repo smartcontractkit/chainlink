@@ -41,6 +41,10 @@ contract BaseFeeManagerTest is Test {
   bytes4 internal constant INVALID_PREMIUM_ERROR = bytes4(keccak256("InvalidPremium()"));
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
 
+  //events emitted
+  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint16 discount);
+  event NativePremiumSet(uint16 newPremium);
+
   function setUp() public virtual {
     //change to admin user
     vm.startPrank(ADMIN);
@@ -66,7 +70,7 @@ contract BaseFeeManagerTest is Test {
     changePrank(sender);
 
     //set the discount
-    feeManager.setSubscriberDiscount(subscriber, feedId, token, discount);
+    feeManager.updateSubscriberDiscount(subscriber, feedId, token, discount);
 
     //change back to the original address
     changePrank(originalAddr);

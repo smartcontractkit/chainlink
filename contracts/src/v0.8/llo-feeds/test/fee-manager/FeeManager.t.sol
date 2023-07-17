@@ -444,4 +444,32 @@ contract FeeManagerTest is BaseFeeManagerTest {
     //fee should be zero
     assertEq(fee.amount, 0);
   }
+
+  function test_nativePremiumEventIsEmittedOnUpdate() public {
+    //native premium
+    uint16 nativePremium = FEE_SCALAR / 3;
+
+    //an event should be emitted
+    vm.expectEmit();
+
+    //emit the event which we expect to be emitted
+    emit NativePremiumSet(nativePremium);
+
+    //set the premium
+    setNativePremium(nativePremium, ADMIN);
+  }
+
+  function test_subscriberDiscountEventIsEmittedOnUpdate() public {
+    //native premium
+    uint16 discount = FEE_SCALAR / 3;
+
+    //an event should be emitted
+    vm.expectEmit();
+
+    //emit the event which we expect to be emitted
+    emit SubscriberDiscountUpdated(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, discount);
+
+    //set the premium
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, discount, ADMIN);
+  }
 }

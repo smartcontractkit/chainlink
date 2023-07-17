@@ -23,4 +23,15 @@ contract RewardManagerSetupTest is BaseRewardManagerTest {
     //create a rewardManager with a zero link address
     new RewardManager(address(0));
   }
+
+  function test_eventEmittedUponProxyUpdate() public {
+    //expect the event to be emitted
+    vm.expectEmit();
+
+    //emit the event we expect to be emitted
+    emit VerifierProxyUpdated(USER);
+
+    //set the verifier proxy
+    setVerifierProxy(USER, ADMIN);
+  }
 }

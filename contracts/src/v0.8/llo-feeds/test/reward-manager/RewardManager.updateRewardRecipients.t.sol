@@ -370,6 +370,26 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     //the reward manager should have half the funds remaining
     assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
   }
+
+  function test_eventIsEmittedUponUpdateRecipients() public {
+    //expect an emit
+    vm.expectEmit();
+
+    //emit the event we expect to be emitted
+    emit RewardRecipientsUpdated(PRIMARY_POOL_ID, getPrimaryRecipients());
+
+    //expected recipient amount is 1/4 of the pool deposit
+    uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
+
+    //updating a recipient should force the funds to be paid out
+    updateRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), ADMIN);
+
+    //check each recipient received the correct amount
+    for (uint256 i; i < getPrimaryRecipients().length; i++) {
+      //check the balance matches the ratio the recipient should have received
+      assertEq(getAssetBalance(getPrimaryRecipients()[i].addr), expectedRecipientAmount);
+    }
+  }
 }
 
 contract RewardManagerUpdateRewardRecipientsMultiplePoolsTest is BaseRewardManagerTest {
