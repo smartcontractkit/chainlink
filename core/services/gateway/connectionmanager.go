@@ -84,7 +84,7 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock utils.Clock, lgg
 			if ok {
 				return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeConfig.Address, donConfig.DonId)
 			}
-			nodes[nodeConfig.Address] = &nodeState{}
+			nodes[nodeConfig.Address] = &nodeState{conn: network.NewWSConnectionWrapper()}
 		}
 		dons[donConfig.DonId] = &donConnectionManager{
 			donConfig:  &donConfig,
@@ -115,7 +115,9 @@ func (m *connectionManager) Start(ctx context.Context) error {
 		m.lggr.Info("starting connection manager")
 		for _, donConnMgr := range m.dons {
 			for nodeAddress, nodeState := range donConnMgr.nodes {
-				nodeState.conn = network.NewWSConnectionWrapper()
+				if err := nodeState.conn.Start(); err != nil {
+					return err
+				}
 				go donConnMgr.readLoop(nodeAddress, nodeState)
 			}
 			donConnMgr.closeWait.Add(len(donConnMgr.nodes))
@@ -223,7 +225,7 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 		return errors.New("timestamp too low")
 	}
 	m.lggr.Infof("Node %s connected!", attempt.nodeAddress)
-	attempt.nodeState.conn.Restart(conn)
+	attempt.nodeState.conn.Reset(conn)
 	return nil
 }
 
