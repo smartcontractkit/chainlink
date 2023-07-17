@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	core "github.com/smartcontractkit/chainlink/v2/core"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
@@ -131,23 +130,47 @@ func TestConfig_LogSQL(t *testing.T) {
 	assert.Equal(t, config.Database().LogSQL(), false)
 }
 
+//go:embed testdata/mergingsecretsdata/secrets-database.toml
+var databaseSecretsTOML string
+
+//go:embed testdata/mergingsecretsdata/secrets-explorer.toml
+var explorerSecretsTOML string
+
+//go:embed testdata/mergingsecretsdata/secrets-password.toml
+var passwordSecretsTOML string
+
+//go:embed testdata/mergingsecretsdata/secrets-pyroscope.toml
+var pyroscopeSecretsTOML string
+
+//go:embed testdata/mergingsecretsdata/secrets-prometheus.toml
+var prometheusSecretsTOML string
+
+//go:embed testdata/mergingsecretsdata/secrets-mercury-split-one.toml
+var mercurySecretsTOMLSplitOne string
+
+//go:embed testdata/mergingsecretsdata/secrets-mercury-split-two.toml
+var mercurySecretsTOMLSplitTwo string
+
+//go:embed testdata/mergingsecretsdata/secrets-threshold.toml
+var thresholdSecretsTOML string
+
 func TestConfig_SecretsMerging(t *testing.T) {
 	t.Run("verify secrets merging in GeneralConfigOpts.New()", func(t *testing.T) {
-		databaseSecrets, err := parseSecrets(core.DatabaseSecretsTOML)
+		databaseSecrets, err := parseSecrets(databaseSecretsTOML)
 		require.NoErrorf(t, err, "error: %s", err)
-		explorerSecrets, err1 := parseSecrets(core.ExplorerSecretsTOML)
+		explorerSecrets, err1 := parseSecrets(explorerSecretsTOML)
 		require.NoErrorf(t, err1, "error: %s", err1)
-		passwordSecrets, err2 := parseSecrets(core.PasswordSecretsTOML)
+		passwordSecrets, err2 := parseSecrets(passwordSecretsTOML)
 		require.NoErrorf(t, err2, "error: %s", err2)
-		pyroscopeSecrets, err3 := parseSecrets(core.PyroscopeSecretsTOML)
+		pyroscopeSecrets, err3 := parseSecrets(pyroscopeSecretsTOML)
 		require.NoErrorf(t, err3, "error: %s", err3)
-		prometheusSecrets, err4 := parseSecrets(core.PrometheusSecretsTOML)
+		prometheusSecrets, err4 := parseSecrets(prometheusSecretsTOML)
 		require.NoErrorf(t, err4, "error: %s", err4)
-		mercurySecrets_a, err5 := parseSecrets(core.MercurySecretsTOMLSplitOne)
+		mercurySecrets_a, err5 := parseSecrets(mercurySecretsTOMLSplitOne)
 		require.NoErrorf(t, err5, "error: %s", err5)
-		mercurySecrets_b, err6 := parseSecrets(core.MercurySecretsTOMLSplitTwo)
+		mercurySecrets_b, err6 := parseSecrets(mercurySecretsTOMLSplitTwo)
 		require.NoErrorf(t, err6, "error: %s", err6)
-		thresholdSecrets, err7 := parseSecrets(core.ThresholdSecretsTOML)
+		thresholdSecrets, err7 := parseSecrets(thresholdSecretsTOML)
 		require.NoErrorf(t, err7, "error: %s", err7)
 
 		opts := new(GeneralConfigOpts)
