@@ -368,10 +368,16 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 		return
 	}
 
-	nodeProvidedSecrets, err := l.getSecrets(ctx, eaClient, requestIDStr, subscriptionOwner, requestData)
-	if err != nil {
-		l.logger.Errorw("failed to get secrets", "requestID", requestIDStr, "err", err)
-		l.setError(ctx, requestID, 0, INTERNAL_ERROR, []byte(err.Error()))
+	nodeProvidedSecrets, userErr, internalErr := l.getSecrets(ctx, eaClient, requestIDStr, subscriptionOwner, requestData)
+	if internalErr != nil {
+		l.logger.Errorw("internal error during getSecrets", "requestID", requestIDStr, "err", internalErr)
+		l.setError(ctx, requestID, 0, INTERNAL_ERROR, []byte(internalErr.Error()))
+		return
+	}
+	if userErr != nil {
+		l.logger.Debugw("user error during getSecrets", "requestID", requestIDStr, "err", userErr)
+		fmt.Println("userError", userErr.Error())
+		l.setError(ctx, requestID, 0, USER_ERROR, []byte(userErr.Error()))
 		return
 	}
 
@@ -522,9 +528,10 @@ func (l *FunctionsListener) reportSourceCodeDomains(requestId RequestID, domains
 	}
 }
 
-func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID string, subscriptionOwner common.Address, requestData *RequestData) (string, error) {
+func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID string, subscriptionOwner common.Address, requestData *RequestData) (decryptedSecrets string, userError, internalError error) {
 	if l.decryptor == nil {
-		return "", nil
+		l.logger.Errorf("Decryptor not configured")
+		return "", nil, nil
 	}
 
 	var secrets []byte
@@ -532,11 +539,11 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 	switch requestData.SecretsLocation {
 	case LocationInline:
 		l.logger.Warnw("request used Inline secrets location, processing with no secrets", "requestID", requestID)
-		return "", nil
+		return "", nil, nil
 	case LocationRemote:
 		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestID, l.job.Name.ValueOrZero())
 		if err != nil {
-			return "", errors.Wrap(err, "failed to fetch encrypted secrets")
+			return "", nil, errors.Wrap(err, "failed to fetch encrypted secrets")
 		}
 		if len(userError) != 0 {
 			l.logger.Debugw("no valid threshold encrypted secrets detected, falling back to legacy secrets", "requestID", requestID, "err", string(userError))
@@ -544,11 +551,11 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 		secrets = thresholdEncSecrets
 	case LocationDONHosted:
 		if l.s4Storage == nil {
-			return "", errors.New("S4 storage not configured")
+			return "", nil, errors.New("S4 storage not configured")
 		}
 		var donSecrets DONHostedSecrets
 		if err := cbor.ParseDietCBORToStruct(requestData.Secrets, &donSecrets); err != nil {
-			return "", errors.Wrap(err, "failed to parse DONHosted secrets CBOR")
+			return "", errors.Wrap(err, "failed to parse DONHosted secrets CBOR"), nil
 		}
 		record, _, err := l.s4Storage.Get(ctx, &s4.Key{
 			Address: subscriptionOwner,
@@ -556,18 +563,18 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 			Version: donSecrets.Version,
 		})
 		if err != nil {
-			return "", errors.Wrap(err, "failed to fetch S4 record for a secret")
+			return "", errors.Wrap(err, "failed to fetch S4 record for a secret"), nil
 		}
 		secrets = record.Payload
 	}
 
 	if len(secrets) == 0 {
-		return "", nil
+		return "", nil, nil
 	}
 
-	decryptedSecrets, err := l.decryptor.Decrypt(ctx, []byte(requestID), secrets)
+	decryptedSecretsBytes, err := l.decryptor.Decrypt(ctx, []byte(requestID), secrets)
 	if err != nil {
-		return "", errors.Wrap(err, "threshold decryption of user secrets failed")
+		return "", errors.Wrap(err, "threshold decryption of secrets failed"), nil
 	}
-	return string(decryptedSecrets), nil
+	return string(decryptedSecretsBytes), nil, nil
 }
