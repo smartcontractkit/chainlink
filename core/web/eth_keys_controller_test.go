@@ -34,7 +34,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
-		c.EVM[0].BalanceMonitor.Enabled = ptr(true)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 	})
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
 

@@ -368,19 +368,15 @@ func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.St
 		return nil
 	}
 
-	if state.Disabled {
-		ethClient := chain.Client()
-		bal, err := ethClient.BalanceAt(ctx, state.Address.Address(), nil)
-		if err != nil {
-			ekc.lggr.Errorw("Failed to get ETH balance", "chainID", chainID, "address", state.Address, "err", err)
-			return nil
-		}
-
-		return bal
+	ethClient := chain.Client()
+	bal, err := ethClient.BalanceAt(ctx, state.Address.Address(), nil)
+	if err != nil {
+		ekc.lggr.Errorw("Failed to get ETH balance", "chainID", chainID, "address", state.Address, "err", err)
+		return nil
 	}
 
-	bal := chain.BalanceMonitor().GetEthBalance(state.Address.Address())
-	return bal.ToInt()
+	return bal
+
 }
 
 func (ekc *ETHKeysController) setLinkBalance(bal *assets.Link) presenters.NewETHKeyOption {
