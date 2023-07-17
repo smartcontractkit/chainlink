@@ -18,7 +18,6 @@ import { MercuryUpkeep__factory as MercuryUpkeepFactory } from '../../../typecha
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
-import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
@@ -142,7 +141,6 @@ let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
-let upkeepTranscoderFactory: UpkeepTranscoderFactory
 let mockArbGasInfoFactory: MockArbGasInfoFactory
 let mockOVMGasPriceOracleFactory: MockOVMGasPriceOracleFactory
 let mercuryUpkeepFactory: MercuryUpkeepFactory
@@ -442,9 +440,6 @@ describe('KeeperRegistry2_1', () => {
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
     upkeepAutoFunderFactory = await ethers.getContractFactory(
       'UpkeepAutoFunder',
-    )
-    upkeepTranscoderFactory = await ethers.getContractFactory(
-      'UpkeepTranscoder',
     )
     mockArbGasInfoFactory = await ethers.getContractFactory('MockArbGasInfo')
     mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
@@ -831,6 +826,9 @@ describe('KeeperRegistry2_1', () => {
     linkEthFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(9, linkEth)
+    const upkeepTranscoderFactory = await ethers.getContractFactory(
+      'UpkeepTranscoder4_0',
+    )
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     mockArbGasInfo = await mockArbGasInfoFactory.connect(owner).deploy()
     mockOVMGasPriceOracle = await mockOVMGasPriceOracleFactory
@@ -4734,6 +4732,11 @@ describe('KeeperRegistry2_1', () => {
         expect(reg1Upkeep.forwarder).to.not.equal(ethers.constants.AddressZero)
         expect(reg1Upkeep.offchainConfig).to.equal(offchainBytes)
         expect((await registry.getState()).state.numUpkeeps).to.equal(numUpkeps)
+        const forwarderFactory = await ethers.getContractFactory(
+          'AutomationForwarder',
+        )
+        const forwarder = await forwarderFactory.attach(reg1Upkeep.forwarder)
+        expect(await forwarder.getRegistry()).to.equal(registry.address)
         // Set an upkeep admin transfer in progress too
         await registry
           .connect(admin)
@@ -4764,6 +4767,8 @@ describe('KeeperRegistry2_1', () => {
         expect((await mgRegistry.getUpkeep(upkeepId)).forwarder).to.equal(
           reg1Upkeep.forwarder,
         )
+        // test that registry is updated on forwarder
+        expect(await forwarder.getRegistry()).to.equal(mgRegistry.address)
         // migration will delete the upkeep and nullify admin transfer
         await expect(
           registry.connect(payee1).acceptUpkeepAdmin(upkeepId),
