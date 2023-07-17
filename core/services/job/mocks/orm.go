@@ -355,7 +355,7 @@ func (_m *ORM) FindJobsByPipelineSpecIDs(ids []int32) ([]job.Job, error) {
 }
 
 // FindOCR2JobIDByAddress provides a mock function with given fields: contractID, feedID, qopts
-func (_m *ORM) FindOCR2JobIDByAddress(contractID string, feedID common.Hash, qopts ...pg.QOpt) (int32, error) {
+func (_m *ORM) FindOCR2JobIDByAddress(contractID string, feedID *common.Hash, qopts ...pg.QOpt) (int32, error) {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
@@ -367,16 +367,16 @@ func (_m *ORM) FindOCR2JobIDByAddress(contractID string, feedID common.Hash, qop
 
 	var r0 int32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string, common.Hash, ...pg.QOpt) (int32, error)); ok {
+	if rf, ok := ret.Get(0).(func(string, *common.Hash, ...pg.QOpt) (int32, error)); ok {
 		return rf(contractID, feedID, qopts...)
 	}
-	if rf, ok := ret.Get(0).(func(string, common.Hash, ...pg.QOpt) int32); ok {
+	if rf, ok := ret.Get(0).(func(string, *common.Hash, ...pg.QOpt) int32); ok {
 		r0 = rf(contractID, feedID, qopts...)
 	} else {
 		r0 = ret.Get(0).(int32)
 	}
 
-	if rf, ok := ret.Get(1).(func(string, common.Hash, ...pg.QOpt) error); ok {
+	if rf, ok := ret.Get(1).(func(string, *common.Hash, ...pg.QOpt) error); ok {
 		r1 = rf(contractID, feedID, qopts...)
 	} else {
 		r1 = ret.Error(1)
