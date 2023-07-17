@@ -86,7 +86,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, ILogAutomation, F
       }
     }
 
-//    bytes memory verifiedResponse = VERIFIER.verify(values[0]);
+    //    bytes memory verifiedResponse = VERIFIER.verify(values[0]);
     emit LogEmitted(upkeepId, currentBlockNum, address(this));
 
     uint256 performGasToBurn = performGasToBurns[upkeepId];

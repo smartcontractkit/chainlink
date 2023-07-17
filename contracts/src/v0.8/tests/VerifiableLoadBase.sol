@@ -37,7 +37,13 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   event UpkeepTopUp(uint256 upkeepId, uint96 amount, uint256 blockNum);
   event InsufficientFunds(uint256 balance, uint256 blockNum);
   event Received(address sender, uint256 value);
-  event PerformingUpkeep(uint256 upkeepId, uint256 firstPerformBlock, uint256 lastBlock, uint256 previousBlock, uint256 counter);
+  event PerformingUpkeep(
+    uint256 upkeepId,
+    uint256 firstPerformBlock,
+    uint256 lastBlock,
+    uint256 previousBlock,
+    uint256 counter
+  );
 
   using EnumerableSet for EnumerableSet.UintSet;
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
