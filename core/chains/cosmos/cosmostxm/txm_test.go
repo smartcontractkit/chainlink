@@ -37,8 +37,8 @@ func TestTxm_Integration(t *testing.T) {
 	chainID := cosmotest.RandomChainID()
 	fallbackGasPrice := sdk.NewDecCoinFromDec("uatom", sdk.MustNewDecFromStr("0.01"))
 	chain := cosmos.CosmosConfig{ChainID: &chainID, Enabled: ptr(true), Chain: coscfg.Chain{
-		FallbackGasPriceUAtom: ptr(decimal.RequireFromString("0.01")),
-		GasLimitMultiplier:    ptr(decimal.RequireFromString("1.5")),
+		FallbackGasPrice:   ptr(decimal.RequireFromString("0.01")),
+		GasLimitMultiplier: ptr(decimal.RequireFromString("1.5")),
 	}}
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, "cosmos_txm", func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Cosmos = cosmos.CosmosConfigs{&chain}

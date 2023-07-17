@@ -46,7 +46,7 @@ Enabled = true
 BlockRate = '6s'
 BlocksUntilTxTimeout = 30
 ConfirmPollPeriod = '1s'
-FallbackGasPriceUAtom = '9.999'
+FallbackGasPrice = '9.999'
 FCDURL = ''
 GasLimitMultiplier = '1.55555'
 MaxMsgsPerBatch = 100
@@ -79,8 +79,8 @@ Nodes = []
 				ChainID: ptr(validId),
 				Enabled: ptr(true),
 				Chain: coscfg.Chain{
-					FallbackGasPriceUAtom: ptr(decimal.RequireFromString("9.999")),
-					GasLimitMultiplier:    ptr(decimal.RequireFromString("1.55555")),
+					FallbackGasPrice:   ptr(decimal.RequireFromString("9.999")),
+					GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
 				}})
 
 			wantedResult := tc.want(t, controller.app)
@@ -109,7 +109,7 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 		ChainID: ptr(cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
-			FallbackGasPriceUAtom: ptr(decimal.RequireFromString("9.999")),
+			FallbackGasPrice: ptr(decimal.RequireFromString("9.999")),
 		},
 	}
 	chainB := &cosmos.CosmosConfig{
