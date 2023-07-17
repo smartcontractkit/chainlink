@@ -6,6 +6,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/google/uuid"
 	decryptionPluginConfig "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin/config"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -18,6 +19,8 @@ import (
 
 // This config is part of the job spec and is loaded only once on node boot/job creation.
 type PluginConfig struct {
+	DONId                           uuid.UUID                         `json:"donId"`
+	ContractVersion                 uint32                            `json:"contractVersion"`
 	MinIncomingConfirmations        uint32                            `json:"minIncomingConfirmations"`
 	RequestTimeoutSec               uint32                            `json:"requestTimeoutSec"`
 	RequestTimeoutCheckFrequencySec uint32                            `json:"requestTimeoutCheckFrequencySec"`
