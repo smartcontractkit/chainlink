@@ -4703,7 +4703,7 @@ Enabled = true # Default
 BlockRate = '6s' # Default
 BlocksUntilTxTimeout = 30 # Default
 ConfirmPollPeriod = '1s' # Default
-FallbackGasPriceUAtom = '0.015' # Default
+FallbackGasPrice = '0.015' # Default
 FCDURL = 'http://cosmos.com' # Example
 GasLimitMultiplier = '1.5' # Default
 MaxMsgsPerBatch = 100 # Default
@@ -4743,11 +4743,11 @@ ConfirmPollPeriod = '1s' # Default
 ```
 ConfirmPollPeriod sets how often check for tx confirmation.
 
-### FallbackGasPriceUAtom
+### FallbackGasPrice
 ```toml
-FallbackGasPriceUAtom = '0.015' # Default
+FallbackGasPrice = '0.015' # Default
 ```
-FallbackGasPriceUAtom sets a fallback gas price to use when the estimator is not available.
+FallbackGasPrice sets a fallback gas price to use when the estimator is not available.
 
 ### FCDURL
 ```toml

@@ -34,7 +34,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -1006,14 +1005,13 @@ func (o *RunlogRoundConfirmer) Wait() error {
 
 // OffchainAggregatorRoundConfirmer is a header subscription that awaits for a certain OCR round to be completed
 type OffchainAggregatorRoundConfirmer struct {
-	ocrInstance        OffchainAggregator
-	roundID            *big.Int
-	doneChan           chan struct{}
-	context            context.Context
-	cancel             context.CancelFunc
-	optionalTestReport *testreporters.OCRSoakTestReport
-	blocksSinceAnswer  uint
-	complete           bool
+	ocrInstance       OffchainAggregator
+	roundID           *big.Int
+	doneChan          chan struct{}
+	context           context.Context
+	cancel            context.CancelFunc
+	blocksSinceAnswer uint
+	complete          bool
 }
 
 // NewOffchainAggregatorRoundConfirmer provides a new instance of a OffchainAggregatorRoundConfirmer
@@ -1021,17 +1019,15 @@ func NewOffchainAggregatorRoundConfirmer(
 	contract OffchainAggregator,
 	roundID *big.Int,
 	timeout time.Duration,
-	optionalTestReport *testreporters.OCRSoakTestReport,
 ) *OffchainAggregatorRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &OffchainAggregatorRoundConfirmer{
-		ocrInstance:        contract,
-		roundID:            roundID,
-		doneChan:           make(chan struct{}),
-		context:            ctx,
-		cancel:             ctxCancel,
-		optionalTestReport: optionalTestReport,
-		complete:           false,
+		ocrInstance: contract,
+		roundID:     roundID,
+		doneChan:    make(chan struct{}),
+		context:     ctx,
+		cancel:      ctxCancel,
+		complete:    false,
 	}
 }
 
@@ -1083,14 +1079,13 @@ func (o *OffchainAggregatorRoundConfirmer) Complete() bool {
 
 // OffchainAggregatorRoundConfirmer is a header subscription that awaits for a certain OCR round to be completed
 type OffchainAggregatorV2RoundConfirmer struct {
-	ocrInstance        OffchainAggregatorV2
-	roundID            *big.Int
-	doneChan           chan struct{}
-	context            context.Context
-	cancel             context.CancelFunc
-	optionalTestReport *testreporters.OCRSoakTestReport
-	blocksSinceAnswer  uint
-	complete           bool
+	ocrInstance       OffchainAggregatorV2
+	roundID           *big.Int
+	doneChan          chan struct{}
+	context           context.Context
+	cancel            context.CancelFunc
+	blocksSinceAnswer uint
+	complete          bool
 }
 
 // NewOffchainAggregatorRoundConfirmer provides a new instance of a OffchainAggregatorRoundConfirmer
@@ -1098,17 +1093,15 @@ func NewOffchainAggregatorV2RoundConfirmer(
 	contract OffchainAggregatorV2,
 	roundID *big.Int,
 	timeout time.Duration,
-	optionalTestReport *testreporters.OCRSoakTestReport,
 ) *OffchainAggregatorV2RoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &OffchainAggregatorV2RoundConfirmer{
-		ocrInstance:        contract,
-		roundID:            roundID,
-		doneChan:           make(chan struct{}),
-		context:            ctx,
-		cancel:             ctxCancel,
-		optionalTestReport: optionalTestReport,
-		complete:           false,
+		ocrInstance: contract,
+		roundID:     roundID,
+		doneChan:    make(chan struct{}),
+		context:     ctx,
+		cancel:      ctxCancel,
+		complete:    false,
 	}
 }
 
