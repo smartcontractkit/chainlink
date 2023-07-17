@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -15,10 +16,10 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -116,7 +117,7 @@ func TestMercury_Observe(t *testing.T) {
 	spec := pipeline.Spec{}
 	ds.spec = spec
 
-	h := htmocks.NewHeadTracker(t)
+	h := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 	c := evmtest.NewEthClientMock(t)
 	ht := &mockHeadTracker{
 		c: c,
@@ -177,8 +178,8 @@ func TestMercury_Observe(t *testing.T) {
 				assert.Equal(t, head.Number-1, obs.MaxFinalizedBlockNumber.Val)
 			})
 			t.Run("if current block num errored", func(t *testing.T) {
-				h2 := htmocks.NewHeadTracker(t)
-				h2.On("LatestChain").Return(nil)
+				h2 := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+				h2.On("LatestChain").Return((*evmtypes.Head)(nil))
 				ht.h = h2
 				c2 := evmtest.NewEthClientMock(t)
 				c2.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("head retrieval failed"))
@@ -297,8 +298,8 @@ func TestMercury_Observe(t *testing.T) {
 		})
 		t.Run("if head tracker returns nil, falls back to RPC method", func(t *testing.T) {
 			t.Run("if call succeeds", func(t *testing.T) {
-				h = htmocks.NewHeadTracker(t)
-				h.On("LatestChain").Return(nil)
+				h = commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
+				h.On("LatestChain").Return((*evmtypes.Head)(nil))
 				ht.h = h
 				c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(head, nil).Once()
 
@@ -354,7 +355,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 	}
 
 	t.Run("returns head from headtracker if present", func(t *testing.T) {
-		headTracker := htmocks.NewHeadTracker(t)
+		headTracker := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 		chainHeadTracker := mercurymocks.NewChainHeadTracker(t)
 
 		chainHeadTracker.On("HeadTracker").Return(headTracker)
@@ -375,13 +376,13 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 
 	t.Run("if headtracker returns nil head and eth call succeeds", func(t *testing.T) {
 		ethClient := evmclimocks.NewClient(t)
-		headTracker := htmocks.NewHeadTracker(t)
+		headTracker := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 		chainHeadTracker := mercurymocks.NewChainHeadTracker(t)
 
 		chainHeadTracker.On("Client").Return(ethClient)
 		chainHeadTracker.On("HeadTracker").Return(headTracker)
 		// This can happen in some cases e.g. RPC node is offline
-		headTracker.On("LatestChain").Return(nil)
+		headTracker.On("LatestChain").Return((*evmtypes.Head)(nil))
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&h, nil)
 
 		ds.chainHeadTracker = chainHeadTracker
@@ -400,13 +401,13 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 
 	t.Run("if headtracker returns nil head and eth call fails", func(t *testing.T) {
 		ethClient := evmclimocks.NewClient(t)
-		headTracker := htmocks.NewHeadTracker(t)
+		headTracker := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 		chainHeadTracker := mercurymocks.NewChainHeadTracker(t)
 
 		chainHeadTracker.On("Client").Return(ethClient)
 		chainHeadTracker.On("HeadTracker").Return(headTracker)
 		// This can happen in some cases e.g. RPC node is offline
-		headTracker.On("LatestChain").Return(nil)
+		headTracker.On("LatestChain").Return((*evmtypes.Head)(nil))
 		err := errors.New("foo")
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, err)
 
