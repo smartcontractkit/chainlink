@@ -6,17 +6,6 @@ import "../dev/automation/2_1/interfaces/ILogAutomation.sol";
 import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
 contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, ILogAutomation, FeedLookupCompatibleInterface {
-  event PerformingLogTriggerUpkeep(
-    address indexed from,
-    uint256 upkeepId,
-    uint256 counter,
-    uint256 logBlockNum,
-    uint256 blockNum,
-    bytes blob,
-    bytes verified
-  );
-
-  // for mercury config
   string[] public feedsHex = [
     "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
     "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
@@ -31,25 +20,15 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, ILogAutomation, F
   }
 
   function checkLog(Log calldata log) external override returns (bool, bytes memory) {
-    uint256 startGas = gasleft();
     uint256 blockNum = getBlockNumber();
 
     // filter by event signature
     if (log.topics[0] == emittedSig) {
-      // filter by indexed parameters
       bytes memory t1 = abi.encodePacked(log.topics[1]); // bytes32 to bytes
       uint256 upkeepId = abi.decode(t1, (uint256));
-      bool needed = eligible(upkeepId);
-      if (needed) {
-        uint256 checkGasToBurn = checkGasToBurns[upkeepId];
-        while (startGas - gasleft() + 10000 < checkGasToBurn) {
-          // 10K margin over gas to burn
-          // Hard coded check gas to burn
-          dummyMap[blockhash(blockNum)] = false; // arbitrary storage writes
-        }
-
-        revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, log.blockNumber));
-      }
+      bytes memory t2 = abi.encodePacked(log.topics[2]); // bytes32 to bytes
+      uint256 blockNum = abi.decode(t2, (uint256));
+      revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum));
     }
     revert("could not find matching event sig");
   }
@@ -61,15 +40,15 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, ILogAutomation, F
 
     uint256 firstPerformBlock = firstPerformBlocks[upkeepId];
     uint256 previousPerformBlock = previousPerformBlocks[upkeepId];
-    uint256 blockNum = getBlockNumber();
+    uint256 currentBlockNum = getBlockNumber();
 
     if (firstPerformBlock == 0) {
-      firstPerformBlocks[upkeepId] = blockNum;
-      firstPerformBlock = blockNum;
+      firstPerformBlocks[upkeepId] = currentBlockNum;
+      firstPerformBlock = currentBlockNum;
       timestamps[upkeepId].push(block.timestamp);
     } else {
-      // Calculate and append delay
-      uint256 delay = blockNum - previousPerformBlock - intervals[upkeepId];
+      // calculate and append delay
+      uint256 delay = currentBlockNum - logBlockNumber;
 
       uint16 timestampBucket = timestampBuckets[upkeepId];
       if (block.timestamp - TIMESTAMP_INTERVAL > timestamps[upkeepId][timestampBucket]) {
@@ -91,38 +70,29 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, ILogAutomation, F
 
     uint256 counter = counters[upkeepId] + 1;
     counters[upkeepId] = counter;
-    emit PerformingUpkeep(firstPerformBlock, blockNum, previousPerformBlock, counter);
-    previousPerformBlocks[upkeepId] = blockNum;
+    emit PerformingUpkeep(upkeepId, firstPerformBlock, currentBlockNum, previousPerformBlock, counter);
+    previousPerformBlocks[upkeepId] = currentBlockNum;
 
     // for every upkeepTopUpCheckInterval (5), check if the upkeep balance is at least
     // minBalanceThresholdMultiplier (20) * min balance. If not, add addLinkAmount (0.2) to the upkeep
     // upkeepTopUpCheckInterval, minBalanceThresholdMultiplier, and addLinkAmount are configurable
-    if (blockNum - lastTopUpBlocks[upkeepId] > upkeepTopUpCheckInterval) {
+    if (currentBlockNum - lastTopUpBlocks[upkeepId] > upkeepTopUpCheckInterval) {
       KeeperRegistryBase2_1.UpkeepInfo memory info = registry.getUpkeep(upkeepId);
       uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
       if (info.balance < minBalanceThresholdMultiplier * minBalance) {
         this.addFunds(upkeepId, addLinkAmount);
-        lastTopUpBlocks[upkeepId] = blockNum;
-        emit UpkeepTopUp(upkeepId, addLinkAmount, blockNum);
+        lastTopUpBlocks[upkeepId] = currentBlockNum;
+        emit UpkeepTopUp(upkeepId, addLinkAmount, currentBlockNum);
       }
     }
 
-    bytes memory verifiedResponse = VERIFIER.verify(values[0]);
-    emit LogEmitted(upkeepId, logBlockNumber, blockNum);
-    emit PerformingLogTriggerUpkeep(
-      tx.origin,
-      upkeepId,
-      counter,
-      logBlockNumber,
-      blockNum,
-      values[0],
-      verifiedResponse
-    );
+//    bytes memory verifiedResponse = VERIFIER.verify(values[0]);
+    emit LogEmitted(upkeepId, currentBlockNum, address(this));
 
     uint256 performGasToBurn = performGasToBurns[upkeepId];
     while (startGas - gasleft() + 10000 < performGasToBurn) {
       // 10K margin over gas to burn
-      dummyMap[blockhash(blockNum)] = false; // arbitrary storage writes
+      dummyMap[blockhash(currentBlockNum)] = false; // arbitrary storage writes
     }
   }
 

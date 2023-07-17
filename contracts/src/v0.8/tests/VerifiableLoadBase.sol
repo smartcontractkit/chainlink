@@ -29,7 +29,7 @@ interface IVerifierProxy {
 abstract contract VerifiableLoadBase is ConfirmedOwner {
   error IndexOutOfRange();
 
-  event LogEmitted(uint256 indexed upkeepId, uint256 logBlockNum, uint256 blockNum);
+  event LogEmitted(uint256 indexed upkeepId, uint256 indexed blockNum, address addr);
   event UpkeepsRegistered(uint256[] upkeepIds);
   event UpkeepsCancelled(uint256[] upkeepIds);
   event RegistrarSet(address newRegistrar);
@@ -37,12 +37,12 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   event UpkeepTopUp(uint256 upkeepId, uint96 amount, uint256 blockNum);
   event InsufficientFunds(uint256 balance, uint256 blockNum);
   event Received(address sender, uint256 value);
-  event PerformingUpkeep(uint256 firstPerformBlock, uint256 lastBlock, uint256 previousBlock, uint256 counter);
+  event PerformingUpkeep(uint256 upkeepId, uint256 firstPerformBlock, uint256 lastBlock, uint256 previousBlock, uint256 counter);
 
   using EnumerableSet for EnumerableSet.UintSet;
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
   IVerifierProxy internal constant VERIFIER = IVerifierProxy(0x09DFf56A4fF44e0f4436260A04F5CFa65636A481);
-  bytes32 constant emittedSig = 0x8d98eacef480ad8f47c29266a1194f1874fdb68bcc98624964400d6ce72e69ec;
+  bytes32 public constant emittedSig = 0x97009585a4d2440f981ab6f6eec514343e1e6b2aa9b991a26998e6806f41bf08; //keccak256(LogEmitted(uint256,uint256,address))
 
   mapping(uint256 => uint256) public lastTopUpBlocks;
   mapping(uint256 => uint256) public intervals;
@@ -351,6 +351,19 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     for (uint256 i = 0; i < len; i++) {
       uint256 upkeepId = upkeepIds[i];
       this.updateUpkeepPipelineData(upkeepId, abi.encode(upkeepId));
+    }
+  }
+
+  /**
+   * @notice finds all log trigger upkeeps and emits logs to serve as the initial trigger for upkeeps
+   */
+  function batchSendLogs() external {
+    uint256[] memory upkeepIds = registry.getActiveUpkeepIDsByType(0, 1000, 1);
+    uint256 len = upkeepIds.length;
+    uint256 blockNum = getBlockNumber();
+    for (uint256 i = 0; i < len; i++) {
+      uint256 upkeepId = upkeepIds[i];
+      emit LogEmitted(upkeepId, blockNum, address(this));
     }
   }
 

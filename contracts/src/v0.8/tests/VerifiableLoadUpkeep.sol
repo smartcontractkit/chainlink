@@ -58,7 +58,7 @@ contract VerifiableLoadUpkeep is VerifiableLoadBase {
 
     uint256 counter = counters[upkeepId] + 1;
     counters[upkeepId] = counter;
-    emit PerformingUpkeep(firstPerformBlock, blockNum, previousPerformBlock, counter);
+    emit PerformingUpkeep(upkeepId, firstPerformBlock, blockNum, previousPerformBlock, counter);
     previousPerformBlocks[upkeepId] = blockNum;
 
     // for every upkeepTopUpCheckInterval (5), check if the upkeep balance is at least
