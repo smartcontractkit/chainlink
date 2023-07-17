@@ -398,9 +398,6 @@ contract KeeperRegistryLogicA2_1 is
     i_link.transfer(destination, totalBalanceRemaining);
   }
 
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
   function receiveUpkeeps(
     bytes calldata encodedUpkeeps
   ) external override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2) {
@@ -417,6 +414,9 @@ contract KeeperRegistryLogicA2_1 is
       bytes[] memory offchainConfigs
     ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], address[], bytes[], bytes[], bytes[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
+      if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
+        upkeeps[idx].forwarder = new AutomationForwarder(ids[idx], upkeeps[idx].target, address(this));
+      }
       _createUpkeep(
         ids[idx],
         upkeeps[idx],
