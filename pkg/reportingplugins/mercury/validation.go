@@ -10,6 +10,7 @@ import (
 // NOTE: hardcoded for now, this may need to change if we support block range on chains other than eth
 const evmHashLen = 32
 
+// ValidateBenchmarkPrice checks that value is between min and max
 func ValidateBenchmarkPrice(paos []ParsedAttributedObservation, f int, min, max *big.Int) error {
 	answer, err := GetConsensusBenchmarkPrice(paos, f)
 	if err != nil {
@@ -23,6 +24,7 @@ func ValidateBenchmarkPrice(paos []ParsedAttributedObservation, f int, min, max 
 	return nil
 }
 
+// ValidateBid checks that value is between min and max
 func ValidateBid(paos []ParsedAttributedObservation, f int, min, max *big.Int) error {
 	answer, err := GetConsensusBid(paos, f)
 	if err != nil {
@@ -36,6 +38,7 @@ func ValidateBid(paos []ParsedAttributedObservation, f int, min, max *big.Int) e
 	return nil
 }
 
+// ValidateAsk checks that value is between min and max
 func ValidateAsk(paos []ParsedAttributedObservation, f int, min, max *big.Int) error {
 	answer, err := GetConsensusAsk(paos, f)
 	if err != nil {
@@ -49,6 +52,7 @@ func ValidateAsk(paos []ParsedAttributedObservation, f int, min, max *big.Int) e
 	return nil
 }
 
+// ValidateCurrentBlock sanity checks number and hash
 func ValidateCurrentBlock(paos []ParsedAttributedObservation, f int, validFromBlockNum int64) error {
 	if validFromBlockNum < 0 {
 		return fmt.Errorf("validFromBlockNum must be >= 0 (got: %d)", validFromBlockNum)
