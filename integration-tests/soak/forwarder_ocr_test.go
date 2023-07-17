@@ -43,7 +43,6 @@ func TestForwarderOCRSoak(t *testing.T) {
 		NumberOfContracts:    2,
 		ChainlinkNodeFunding: big.NewFloat(.1),
 		ExpectedRoundTime:    time.Minute * 2,
-		RoundTimeout:         time.Minute * 15,
 		TimeBetweenRounds:    time.Minute * 1,
 		StartingAdapterValue: 5,
 	})
