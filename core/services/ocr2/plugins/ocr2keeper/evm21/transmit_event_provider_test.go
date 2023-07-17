@@ -19,20 +19,20 @@ func TestTransmitEventProvider_performedToTransmitEvents(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		performed   []performed
+		performed   []transmitEventLog
 		latestBlock int64
 		want        []ocr2keepers.TransmitEvent
 		errored     bool
 	}{
 		{
 			"happy flow",
-			[]performed{
+			[]transmitEventLog{
 				{
 					Log: logpoller.Log{
 						BlockNumber: 1,
 						BlockHash:   common.HexToHash("0x0102030405060708010203040506070801020304050607080102030405060708"),
 					},
-					IKeeperRegistryMasterUpkeepPerformed: iregistry21.IKeeperRegistryMasterUpkeepPerformed{
+					Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
 						Id: big.NewInt(0).SetBytes(logUpkeepId.Bytes()),
 					},
 				},
@@ -49,7 +49,7 @@ func TestTransmitEventProvider_performedToTransmitEvents(t *testing.T) {
 		},
 		{
 			"empty performed",
-			[]performed{},
+			[]transmitEventLog{},
 			1,
 			[]ocr2keepers.TransmitEvent{},
 			false,
@@ -58,7 +58,7 @@ func TestTransmitEventProvider_performedToTransmitEvents(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			results, err := provider.performedToTransmitEvents(tc.performed, tc.latestBlock)
+			results, err := provider.convertToTransmitEvents(tc.performed, tc.latestBlock)
 			require.Equal(t, tc.errored, err != nil)
 			require.Len(t, results, len(tc.want))
 			for i, res := range results {

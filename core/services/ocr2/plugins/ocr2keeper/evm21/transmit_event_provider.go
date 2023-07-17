@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -12,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/util"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -160,101 +160,10 @@ func (c *TransmitEventProvider) Events(ctx context.Context) ([]ocr2keepers.Trans
 		end,
 		[]common.Hash{
 			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
-		},
-		c.registryAddress,
-		pg.WithParentCtx(ctx),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
-	}
-
-	performed, err := c.unmarshalPerformLogs(logs)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to unmarshal logs", err)
-	}
-
-	return c.performedToTransmitEvents(performed, end)
-}
-
-func (c *TransmitEventProvider) PerformLogs(ctx context.Context) ([]ocr2keepers.PerformLog, error) {
-	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
-	}
-
-	// always check the last lookback number of blocks and rebroadcast
-	// this allows the plugin to make decisions based on event confirmations
-	logs, err := c.logPoller.LogsWithSigs(
-		end-c.lookbackBlocks,
-		end,
-		[]common.Hash{
-			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
-		},
-		c.registryAddress,
-		pg.WithParentCtx(ctx),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
-	}
-
-	performed, err := c.unmarshalPerformLogs(logs)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to unmarshal logs", err)
-	}
-
-	vals := []ocr2keepers.PerformLog{}
-	for _, p := range performed {
-		upkeepId := ocr2keepers.UpkeepIdentifier(p.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(p.TxHash, upkeepId)
-		if err != nil {
-			c.logger.Error("error while fetching checkBlockNumber from reorged report log: %w", err)
-			continue
-		}
-		l := ocr2keepers.PerformLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
-			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
-			TransactionHash: p.TxHash.Hex(),
-			Confirmations:   end - p.BlockNumber,
-		}
-		vals = append(vals, l)
-	}
-
-	return vals, nil
-}
-
-func (c *TransmitEventProvider) StaleReportLogs(ctx context.Context) ([]ocr2keepers.StaleReportLog, error) {
-	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
-	}
-
-	// always check the last lookback number of blocks and rebroadcast
-	// this allows the plugin to make decisions based on event confirmations
-
-	// ReorgedUpkeepReportLogs
-	logs, err := c.logPoller.LogsWithSigs(
-		end-c.lookbackBlocks,
-		end,
-		[]common.Hash{
-			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
-		},
-		c.registryAddress,
-		pg.WithParentCtx(ctx),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
-	}
-	reorged, err := c.unmarshalReorgUpkeepLogs(logs)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to unmarshal reorg logs", err)
-	}
-
-	// StaleUpkeepReportLogs
-	logs, err = c.logPoller.LogsWithSigs(
-		end-c.lookbackBlocks,
-		end,
-		[]common.Hash{
 			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
+			// TODO: enable once we have the corredponding types in ocr2keepers
+			// iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
+			// iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
 		pg.WithParentCtx(ctx),
@@ -262,81 +171,17 @@ func (c *TransmitEventProvider) StaleReportLogs(ctx context.Context) ([]ocr2keep
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
 	}
-	staleUpkeep, err := c.unmarshalStaleUpkeepLogs(logs)
+
+	performed, err := c.unmarshalTransmitLogs(logs)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to unmarshal stale upkeep logs", err)
+		return nil, fmt.Errorf("%w: failed to unmarshal logs", err)
 	}
 
-	// InsufficientFundsUpkeepReportLogs
-	logs, err = c.logPoller.LogsWithSigs(
-		end-c.lookbackBlocks,
-		end,
-		[]common.Hash{
-			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
-		},
-		c.registryAddress,
-		pg.WithParentCtx(ctx),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
-	}
-	insufficientFunds, err := c.unmarshalInsufficientFundsUpkeepLogs(logs)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to unmarshal insufficient fund upkeep logs", err)
-	}
-
-	vals := []ocr2keepers.StaleReportLog{}
-	for _, r := range reorged {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(r.TxHash, upkeepId)
-		if err != nil {
-			c.logger.Error("error while fetching checkBlockNumber from reorged report log: %w", err)
-			continue
-		}
-		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
-			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
-			TransactionHash: r.TxHash.Hex(),
-			Confirmations:   end - r.BlockNumber,
-		}
-		vals = append(vals, l)
-	}
-	for _, r := range staleUpkeep {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(r.TxHash, upkeepId)
-		if err != nil {
-			c.logger.Error("error while fetching checkBlockNumber from stale report log: %w", err)
-			continue
-		}
-		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
-			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
-			TransactionHash: r.TxHash.Hex(),
-			Confirmations:   end - r.BlockNumber,
-		}
-		vals = append(vals, l)
-	}
-	for _, r := range insufficientFunds {
-		upkeepId := ocr2keepers.UpkeepIdentifier(r.Id.String())
-		checkBlockNumber, err := c.getCheckBlockNumberFromTxHash(r.TxHash, upkeepId)
-		if err != nil {
-			c.logger.Error("error while fetching checkBlockNumber from insufficient funds report log: %w", err)
-			continue
-		}
-		l := ocr2keepers.StaleReportLog{
-			Key:             encoding.BasicEncoder{}.MakeUpkeepKey(checkBlockNumber, upkeepId),
-			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(r.BlockNumber),
-			TransactionHash: r.TxHash.Hex(),
-			Confirmations:   end - r.BlockNumber,
-		}
-		vals = append(vals, l)
-	}
-
-	return vals, nil
+	return c.convertToTransmitEvents(performed, end)
 }
 
-func (c *TransmitEventProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]performed, error) {
-	results := []performed{}
+func (c *TransmitEventProvider) unmarshalTransmitLogs(logs []logpoller.Log) ([]transmitEventLog, error) {
+	results := []transmitEventLog{}
 
 	for _, log := range logs {
 		rawLog := log.ToGethLog()
@@ -351,9 +196,42 @@ func (c *TransmitEventProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]pe
 				continue
 			}
 
-			r := performed{
-				Log:                                  log,
-				IKeeperRegistryMasterUpkeepPerformed: *l,
+			r := transmitEventLog{
+				Log:       log,
+				Performed: l,
+			}
+
+			results = append(results, r)
+		case *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport:
+			if l == nil {
+				continue
+			}
+
+			r := transmitEventLog{
+				Log:     log,
+				Reorged: l,
+			}
+
+			results = append(results, r)
+		case *iregistry21.IKeeperRegistryMasterStaleUpkeepReport:
+			if l == nil {
+				continue
+			}
+
+			r := transmitEventLog{
+				Log:   log,
+				Stale: l,
+			}
+
+			results = append(results, r)
+		case *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport:
+			if l == nil {
+				continue
+			}
+
+			r := transmitEventLog{
+				Log:               log,
+				InsufficientFunds: l,
 			}
 
 			results = append(results, r)
@@ -363,118 +241,35 @@ func (c *TransmitEventProvider) unmarshalPerformLogs(logs []logpoller.Log) ([]pe
 	return results, nil
 }
 
-func (c *TransmitEventProvider) performedToTransmitEvents(performed []performed, latestBlock int64) ([]ocr2keepers.TransmitEvent, error) {
+func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog, latestBlock int64) ([]ocr2keepers.TransmitEvent, error) {
 	var err error
 	vals := []ocr2keepers.TransmitEvent{}
 
-	for _, p := range performed {
+	for _, l := range logs {
 		var checkBlockNumber ocr2keepers.BlockKey
-		upkeepId := ocr2keepers.UpkeepIdentifier(p.Id.Bytes())
+		upkeepId := ocr2keepers.UpkeepIdentifier(l.Id().Bytes())
 		switch getUpkeepType(upkeepId) {
 		case conditionTrigger:
-			checkBlockNumber, err = c.getCheckBlockNumberFromTxHash(p.TxHash, upkeepId)
+			checkBlockNumber, err = c.getCheckBlockNumberFromTxHash(l.TxHash, upkeepId)
 			if err != nil {
 				c.logger.Error("error while fetching checkBlockNumber from perform report log: %w", err)
 				continue
 			}
 		default:
 		}
+		triggerID := l.TriggerID()
 		vals = append(vals, ocr2keepers.TransmitEvent{
-			Type:            ocr2keepers.PerformEvent,
-			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
-			Confirmations:   latestBlock - p.BlockNumber,
-			TransactionHash: p.TxHash.Hex(),
-			ID:              hex.EncodeToString(p.TriggerID[:]),
+			Type:            l.TransmitEventType(),
+			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(l.BlockNumber),
+			Confirmations:   latestBlock - l.BlockNumber,
+			TransactionHash: l.TxHash.Hex(),
+			ID:              hex.EncodeToString(triggerID[:]),
 			UpkeepID:        upkeepId,
 			CheckBlock:      checkBlockNumber,
 		})
 	}
 
 	return vals, nil
-}
-
-func (c *TransmitEventProvider) unmarshalReorgUpkeepLogs(logs []logpoller.Log) ([]reorged, error) {
-	results := []reorged{}
-
-	for _, log := range logs {
-		rawLog := log.ToGethLog()
-		abilog, err := c.registry.ParseLog(rawLog)
-		if err != nil {
-			return results, err
-		}
-
-		switch l := abilog.(type) {
-		case *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport:
-			if l == nil {
-				continue
-			}
-
-			r := reorged{
-				Log:                                      log,
-				IKeeperRegistryMasterReorgedUpkeepReport: *l,
-			}
-
-			results = append(results, r)
-		}
-	}
-
-	return results, nil
-}
-
-func (c *TransmitEventProvider) unmarshalStaleUpkeepLogs(logs []logpoller.Log) ([]staleUpkeep, error) {
-	results := []staleUpkeep{}
-
-	for _, log := range logs {
-		rawLog := log.ToGethLog()
-		abilog, err := c.registry.ParseLog(rawLog)
-		if err != nil {
-			return results, err
-		}
-
-		switch l := abilog.(type) {
-		case *iregistry21.IKeeperRegistryMasterStaleUpkeepReport:
-			if l == nil {
-				continue
-			}
-
-			r := staleUpkeep{
-				Log:                                    log,
-				IKeeperRegistryMasterStaleUpkeepReport: *l,
-			}
-
-			results = append(results, r)
-		}
-	}
-
-	return results, nil
-}
-
-func (c *TransmitEventProvider) unmarshalInsufficientFundsUpkeepLogs(logs []logpoller.Log) ([]insufficientFunds, error) {
-	results := []insufficientFunds{}
-
-	for _, log := range logs {
-		rawLog := log.ToGethLog()
-		abilog, err := c.registry.ParseLog(rawLog)
-		if err != nil {
-			return results, err
-		}
-
-		switch l := abilog.(type) {
-		case *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport:
-			if l == nil {
-				continue
-			}
-
-			r := insufficientFunds{
-				Log: log,
-				IKeeperRegistryMasterInsufficientFundsUpkeepReport: *l,
-			}
-
-			results = append(results, r)
-		}
-	}
-
-	return results, nil
 }
 
 // Fetches the checkBlockNumber for a particular transaction and an upkeep ID. Requires a RPC call to get txData
@@ -509,7 +304,6 @@ func (c *TransmitEventProvider) getCheckBlockNumberFromTxHash(txHash common.Hash
 	}
 
 	for _, upkeep := range decodedReport {
-		// TODO: the log provider should be in the evm package for isolation
 		res, ok := upkeep.(EVMAutomationUpkeepResult21)
 		if !ok {
 			return "", fmt.Errorf("unexpected type")
@@ -527,22 +321,57 @@ func (c *TransmitEventProvider) getCheckBlockNumberFromTxHash(txHash common.Hash
 	return "", fmt.Errorf("upkeep %s not found in tx hash %s", id, txHash)
 }
 
-type performed struct {
+type transmitEventLog struct {
 	logpoller.Log
-	iregistry21.IKeeperRegistryMasterUpkeepPerformed
+	Performed         *iregistry21.IKeeperRegistryMasterUpkeepPerformed
+	Stale             *iregistry21.IKeeperRegistryMasterStaleUpkeepReport
+	Reorged           *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport
+	InsufficientFunds *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport
 }
 
-type reorged struct {
-	logpoller.Log
-	iregistry21.IKeeperRegistryMasterReorgedUpkeepReport
+func (l transmitEventLog) Id() *big.Int {
+	switch {
+	case l.Performed != nil:
+		return l.Performed.Id
+	case l.Stale != nil:
+		return l.Stale.Id
+	case l.Reorged != nil:
+		return l.Reorged.Id
+	case l.InsufficientFunds != nil:
+		return l.InsufficientFunds.Id
+	default:
+		return nil
+	}
 }
 
-type staleUpkeep struct {
-	logpoller.Log
-	iregistry21.IKeeperRegistryMasterStaleUpkeepReport
+func (l transmitEventLog) TriggerID() [32]byte {
+	switch {
+	case l.Performed != nil:
+		return l.Performed.TriggerID
+	case l.Stale != nil:
+		return l.Stale.TriggerID
+	case l.Reorged != nil:
+		return l.Reorged.TriggerID
+	case l.InsufficientFunds != nil:
+		return l.InsufficientFunds.TriggerID
+	default:
+		return [32]byte{}
+	}
 }
 
-type insufficientFunds struct {
-	logpoller.Log
-	iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport
+func (l transmitEventLog) TransmitEventType() ocr2keepers.TransmitEventType {
+	switch {
+	case l.Performed != nil:
+		return ocr2keepers.PerformEvent
+	case l.Stale != nil:
+		return ocr2keepers.StaleReportEvent
+	case l.Reorged != nil:
+		// TODO: use reorged event type
+		return ocr2keepers.TransmitEventType(2)
+	case l.InsufficientFunds != nil:
+		// TODO: use insufficient funds event type
+		return ocr2keepers.TransmitEventType(3)
+	default:
+		return ocr2keepers.TransmitEventType(0)
+	}
 }
