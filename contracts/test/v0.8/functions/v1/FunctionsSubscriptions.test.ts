@@ -29,8 +29,8 @@ describe('Functions Router - Subscriptions', () => {
           .to.emit(contracts.router, 'SubscriptionCreated')
           .withArgs(1, roles.subOwnerAddress)
         const s = await contracts.router.getSubscription(1)
-        expect(s.balance.toString() == '0', 'invalid balance')
-        expect(s.owner == roles.subOwnerAddress, 'invalid address')
+        expect(s.balance.toString()).to.equal('0')
+        expect(s.owner).to.equal(roles.subOwnerAddress)
       })
       it('subscription id increments', async function () {
         await expect(
@@ -165,9 +165,11 @@ describe('Functions Router - Subscriptions', () => {
         await contracts.router
           .connect(roles.subOwner)
           .addConsumer(subId, roles.strangerAddress)
-        await contracts.router
-          .connect(roles.subOwner)
-          .addConsumer(subId, roles.strangerAddress)
+        await expect(
+          contracts.router
+            .connect(roles.subOwner)
+            .addConsumer(subId, roles.strangerAddress),
+        ).to.not.be.reverted
       })
       it('cannot add more than maximum', async function () {
         // There is one consumer, add another 99 to hit the max
@@ -375,9 +377,11 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router,
         )
         // The cancel should have removed this consumer, so we can add it again.
-        await contracts.router
-          .connect(roles.subOwner)
-          .addConsumer(subId, roles.strangerAddress)
+        await expect(
+          contracts.router
+            .connect(roles.subOwner)
+            .addConsumer(subId, roles.strangerAddress),
+        ).to.not.be.reverted
       })
       it('cannot cancel with pending request', async function () {
         await contracts.linkToken
@@ -458,9 +462,8 @@ describe('Functions Router - Subscriptions', () => {
           const startingBalance = await contracts.router.getTotalBalance()
           await fn()
           const endingBalance = await contracts.router.getTotalBalance()
-          expect(
-            endingBalance.sub(startingBalance).toString() ==
-              expectedBalanceChange.toString(),
+          expect(endingBalance.sub(startingBalance.toString())).to.equal(
+            expectedBalanceChange.toString(),
           )
         }
       })
@@ -475,13 +478,19 @@ describe('Functions Router - Subscriptions', () => {
       it('owner can recover link transferred', async function () {
         // Set the internal balance
         expect(
-          BigNumber.from('0'),
-          contracts.linkToken.balanceOf(roles.strangerAddress),
+          await contracts.linkToken.balanceOf(roles.strangerAddress),
+        ).to.equal(BigNumber.from('1000000000000000000'))
+        const subscription = ethers.utils.defaultAbiCoder.encode(
+          ['uint64'],
+          [subId],
         )
-        const s = ethers.utils.defaultAbiCoder.encode(['uint64'], [subId])
         await contracts.linkToken
           .connect(roles.subOwner)
-          .transferAndCall(contracts.router.address, BigNumber.from('1000'), s)
+          .transferAndCall(
+            contracts.router.address,
+            BigNumber.from('1000'),
+            subscription,
+          )
         // Circumvent internal balance
         await contracts.linkToken
           .connect(roles.subOwner)
@@ -495,9 +504,8 @@ describe('Functions Router - Subscriptions', () => {
           .to.emit(contracts.router, 'FundsRecovered')
           .withArgs(roles.strangerAddress, BigNumber.from('1000'))
         expect(
-          BigNumber.from('1000'),
-          contracts.linkToken.balanceOf(roles.strangerAddress),
-        )
+          await contracts.linkToken.balanceOf(roles.strangerAddress),
+        ).to.equal(BigNumber.from('1000000000000001000'))
       })
     })
   })

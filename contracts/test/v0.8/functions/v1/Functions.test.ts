@@ -34,13 +34,15 @@ describe('FunctionsTestHelper', () => {
   })
 
   it('has a limited public interface [ @skip-coverage ]', () => {
-    publicAbi(ctr, [
-      'closeEvent',
-      'initializeRequestForInlineJavaScript',
-      'addSecretsReference',
-      'addTwoArgs',
-      'addEmptyArgs',
-    ])
+    expect(
+      publicAbi(ctr, [
+        'closeEvent',
+        'initializeRequestForInlineJavaScript',
+        'addSecretsReference',
+        'addTwoArgs',
+        'addEmptyArgs',
+      ]),
+    ).to.equal(true)
   })
 
   async function parseRequestDataEvent(tx: providers.TransactionResponse) {

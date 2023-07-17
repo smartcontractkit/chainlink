@@ -41,8 +41,6 @@ export const stringToHex = (s: string) => {
   return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(s))
 }
 
-const linkEth = BigNumber.from(5021530000000000)
-
 export const encodeReport = (
   requestId: string,
   result: string,
@@ -73,16 +71,15 @@ export type CoordinatorConfig = {
   fallbackNativePerUnitLink: BigNumber
   maxSupportedRequestDataVersion: number
 }
+const fallbackNativePerUnitLink = 5000000000000000
 export const coordinatorConfig: CoordinatorConfig = {
   maxCallbackGasLimit: 1_000_000,
   feedStalenessSeconds: 86_400,
-  gasOverheadBeforeCallback:
-    21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315,
-  gasOverheadAfterCallback:
-    21_000 + 5_000 + 2_100 + 20_000 + 2 * 2_100 - 15_000 + 7_315,
+  gasOverheadBeforeCallback: 44_615,
+  gasOverheadAfterCallback: 44_615,
   requestTimeoutSeconds: 300,
   donFee: 0,
-  fallbackNativePerUnitLink: BigNumber.from(5000000000000000),
+  fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
   maxSupportedRequestDataVersion: 1,
 }
 
@@ -143,7 +140,7 @@ export async function createSubscription(
   for (let i = 0; i < consumers.length; i++) {
     await router.connect(owner).addConsumer(subId, consumers[i])
   }
-  if (linkToken)
+  if (linkToken) {
     await linkToken
       .connect(owner)
       .transferAndCall(
@@ -151,10 +148,15 @@ export async function createSubscription(
         BigNumber.from('54666805176129187'),
         ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
       )
+  }
   return subId
 }
 
-export function getSetupFactory() {
+export function getSetupFactory(): () => {
+  contracts: FunctionsContracts
+  factories: FunctionsFactories
+  roles: FunctionsRoles
+} {
   let contracts: FunctionsContracts
   let factories: FunctionsFactories
   let roles: FunctionsRoles
@@ -166,21 +168,30 @@ export function getSetupFactory() {
   })
 
   beforeEach(async () => {
+    const linkEthRate = BigNumber.from(5021530000000000)
+
     // Deploy
     const linkToken = await factories.linkTokenFactory
       .connect(roles.defaultAccount)
       .deploy()
     const mockLinkEth = await factories.mockAggregatorV3Factory.deploy(
       0,
-      linkEth,
+      linkEthRate,
     )
     const routerConfigBytes = ethers.utils.defaultAbiCoder.encode(
       ['uint96', 'bytes4'],
       [...Object.values(functionsRouterConfig)],
     )
+    const startingTimelockBlocks = 0
+    const maxTimelockBlocks = 20
     const router = await factories.functionsRouterFactory
       .connect(roles.defaultAccount)
-      .deploy(0, 20, linkToken.address, routerConfigBytes)
+      .deploy(
+        startingTimelockBlocks,
+        maxTimelockBlocks,
+        linkToken.address,
+        routerConfigBytes,
+      )
     const coordinatorConfigBytes = ethers.utils.defaultAbiCoder.encode(
       [
         'uint32',
@@ -234,7 +245,7 @@ export function getSetupFactory() {
 
 export function getEventArg(events: any, eventName: string, argIndex: number) {
   if (Array.isArray(events)) {
-    const event = events.find((e: any) => e.event == eventName)
+    const event = events.find((e: any) => e.event === eventName)
     if (event && Array.isArray(event.args) && event.args.length > 0) {
       return event.args[argIndex]
     }
