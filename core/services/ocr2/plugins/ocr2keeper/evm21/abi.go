@@ -210,12 +210,13 @@ func (rp *evmRegistryPackerV2_1) UnpackTrigger(id *big.Int, raw []byte) (trigger
 		}
 		converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)).(*automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)
 		if !ok {
-			return automation_utils_2_1.KeeperRegistryBase21LogTrigger{}, fmt.Errorf("failed to convert type")
+			return triggerWrapper{}, fmt.Errorf("failed to convert type")
 		}
-		return triggerWrapper{
-			BlockNum:  converted.BlockNum,
-			BlockHash: converted.BlockHash,
-		}, nil
+		triggerW := triggerWrapper{
+			BlockNum: converted.BlockNum,
+		}
+		copy(triggerW.BlockHash[:], converted.BlockHash[:])
+		return triggerW, nil
 	case logTrigger:
 		unpacked, err := rp.utilsAbi.Methods["_logTrigger"].Inputs.Unpack(raw)
 		if err != nil {
@@ -223,9 +224,15 @@ func (rp *evmRegistryPackerV2_1) UnpackTrigger(id *big.Int, raw []byte) (trigger
 		}
 		converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21LogTrigger)).(*automation_utils_2_1.KeeperRegistryBase21LogTrigger)
 		if !ok {
-			return automation_utils_2_1.KeeperRegistryBase21LogTrigger{}, fmt.Errorf("failed to convert type")
+			return triggerWrapper{}, fmt.Errorf("failed to convert type")
 		}
-		return triggerWrapper(*converted), nil
+		triggerW := triggerWrapper{
+			BlockNum: converted.BlockNum,
+			LogIndex: converted.LogIndex,
+		}
+		copy(triggerW.BlockHash[:], converted.BlockHash[:])
+		copy(triggerW.TxHash[:], converted.TxHash[:])
+		return triggerW, nil
 	default:
 		return triggerWrapper{}, fmt.Errorf("unknown trigger type: %d", upkeepType)
 	}

@@ -172,15 +172,15 @@ func (c *TransmitEventProvider) Events(ctx context.Context) ([]ocr2keepers.Trans
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
 	}
 
-	performed, err := c.unmarshalTransmitLogs(logs)
+	parsed, err := c.parseLogs(logs)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to unmarshal logs", err)
 	}
 
-	return c.convertToTransmitEvents(performed, end)
+	return c.convertToTransmitEvents(parsed, end)
 }
 
-func (c *TransmitEventProvider) unmarshalTransmitLogs(logs []logpoller.Log) ([]transmitEventLog, error) {
+func (c *TransmitEventProvider) parseLogs(logs []logpoller.Log) ([]transmitEventLog, error) {
 	results := []transmitEventLog{}
 
 	for _, log := range logs {
@@ -195,46 +195,34 @@ func (c *TransmitEventProvider) unmarshalTransmitLogs(logs []logpoller.Log) ([]t
 			if l == nil {
 				continue
 			}
-
-			r := transmitEventLog{
+			results = append(results, transmitEventLog{
 				Log:       log,
 				Performed: l,
-			}
-
-			results = append(results, r)
+			})
 		case *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport:
 			if l == nil {
 				continue
 			}
-
-			r := transmitEventLog{
+			results = append(results, transmitEventLog{
 				Log:     log,
 				Reorged: l,
-			}
-
-			results = append(results, r)
+			})
 		case *iregistry21.IKeeperRegistryMasterStaleUpkeepReport:
 			if l == nil {
 				continue
 			}
-
-			r := transmitEventLog{
+			results = append(results, transmitEventLog{
 				Log:   log,
 				Stale: l,
-			}
-
-			results = append(results, r)
+			})
 		case *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport:
 			if l == nil {
 				continue
 			}
-
-			r := transmitEventLog{
+			results = append(results, transmitEventLog{
 				Log:               log,
 				InsufficientFunds: l,
-			}
-
-			results = append(results, r)
+			})
 		}
 	}
 
@@ -321,6 +309,7 @@ func (c *TransmitEventProvider) getCheckBlockNumberFromTxHash(txHash common.Hash
 	return "", fmt.Errorf("upkeep %s not found in tx hash %s", id, txHash)
 }
 
+// transmitEventLog is a wrapper around logpoller.Log and the parsed log
 type transmitEventLog struct {
 	logpoller.Log
 	Performed         *iregistry21.IKeeperRegistryMasterUpkeepPerformed

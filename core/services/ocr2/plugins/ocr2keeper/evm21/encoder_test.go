@@ -8,21 +8,25 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 )
 
 func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckResult {
+	logExt := logprovider.LogTriggerExtension{}
 	payload := ocr2keepers.UpkeepPayload{
 		Upkeep: ocr2keepers.ConfiguredUpkeep{
 			ID: id,
 		},
 		Trigger: ocr2keepers.Trigger{
 			BlockNumber: block,
-			BlockHash:   common.Bytes2Hex([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}),
+			BlockHash:   hexutil.Encode([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}),
+			Extension:   logExt,
 		},
 	}
 	payload.ID = payload.GenerateID()
@@ -96,7 +100,7 @@ func TestEVMAutomationEncoder21_EncodeDecode(t *testing.T) {
 			for i, u := range upkeeps {
 				upkeep, ok := u.(EVMAutomationUpkeepResult21)
 				assert.True(t, ok)
-				// 	// some fields aren't populated by the decode so we compare field-by-field for those that are populated
+
 				assert.Equal(t, upkeep.Block, uint32(tc.results[i].Payload.Trigger.BlockNumber))
 				assert.Equal(t, ocr2keepers.UpkeepIdentifier(upkeep.ID.String()), tc.results[i].Payload.Upkeep.ID)
 				assert.Equal(t, upkeep.Eligible, tc.results[i].Eligible)
@@ -158,11 +162,10 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 
 			for i, upkeep := range reportedUpkeeps {
 				assert.Equal(t, upkeep.UpkeepID, ocr2keepers.UpkeepIdentifier(nil))
-				assert.Equal(t, upkeep.Trigger.BlockHash, "")
-				assert.Equal(t, upkeep.Trigger.BlockNumber, int64(0))
-
+				assert.Equal(t, upkeep.Trigger.BlockHash, tc.results[i].Payload.Trigger.BlockHash)
+				assert.Equal(t, upkeep.Trigger.BlockNumber, tc.results[i].Payload.Trigger.BlockNumber)
 				assert.Equal(t, upkeep.PerformData, tc.results[i].PerformData)
-				// assert.Equal(t, upkeep.ID, tc.results[i].Payload.ID) // TODO: we are getting different IDs here
+				// assert.Equal(t, upkeep.ID, tc.results[i].Payload.ID) // TODO: fix and uncomment
 			}
 		})
 	}

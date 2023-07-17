@@ -197,18 +197,19 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 		}
 		trigger := ocr2keepers.NewTrigger(
 			int64(triggerW.BlockNum),
-			string(triggerW.BlockHash[:]),
+			common.BytesToHash(triggerW.BlockHash[:]).Hex(),
 			logExt,
 		)
 		payload := ocr2keepers.NewUpkeepPayload(
 			upkeepId,
-			int(logTrigger),
+			0,
 			"",
 			trigger,
 			[]byte{},
 		)
 		reportedUpkeeps[i] = ocr2keepers.ReportedUpkeep{
 			ID:          payload.ID,
+			Trigger:     trigger,
 			PerformData: report.PerformDatas[i],
 		}
 	}
