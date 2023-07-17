@@ -13,13 +13,14 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, ILogAutomation, F
   string public feedParamKey = "feedIdHex";
   string public timeParamKey = "blockNumber";
 
-  constructor(address _registrar, bool _useL1BlockNumber) VerifiableLoadBase(_registrar, _useL1BlockNumber) {}
+  constructor(address _registrar, bool _useArb) VerifiableLoadBase(_registrar, _useArb) {}
 
   function setFeedsHex(string[] memory newFeeds) external {
     feedsHex = newFeeds;
   }
 
   function checkLog(Log calldata log) external override returns (bool, bytes memory) {
+    uint256 startGas = gasleft();
     uint256 blockNum = getBlockNumber();
 
     // filter by event signature
@@ -28,6 +29,15 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, ILogAutomation, F
       uint256 upkeepId = abi.decode(t1, (uint256));
       bytes memory t2 = abi.encodePacked(log.topics[2]); // bytes32 to bytes
       uint256 blockNum = abi.decode(t2, (uint256));
+
+      uint256 checkGasToBurn = checkGasToBurns[upkeepId];
+      while (startGas - gasleft() + 15000 < checkGasToBurn) {
+        // 10K margin over gas to burn
+        // Hard coded check gas to burn
+        dummyMap[blockhash(blockNum)] = false; // arbitrary storage writes
+        blockNum--;
+      }
+
       revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum));
     }
     revert("could not find matching event sig");
