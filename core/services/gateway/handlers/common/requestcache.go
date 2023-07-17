@@ -60,7 +60,7 @@ func (c *requestCache[T]) NewRequest(request *api.Message, callbackCh chan<- han
 		return errors.New("request already exists")
 	}
 	timer := time.AfterFunc(c.timeout, func() {
-		c.deleteAndSendOnce(key, handlers.UserCallbackPayload{Msg: request, ErrCode: api.RequestTimeoutError})
+		c.deleteAndSendOnce(key, handlers.UserCallbackPayload{Msg: request, ErrMsg: "timeout", ErrCode: api.RequestTimeoutError})
 	})
 	c.cache[key] = &pendingRequest[T]{callbackCh: callbackCh, responseData: responseData, timeoutTimer: timer}
 	return nil
