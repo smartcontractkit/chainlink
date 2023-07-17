@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"sync"
@@ -383,7 +384,7 @@ func (c *TransmitEventProvider) performedToTransmitEvents(performed []performed,
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(p.BlockNumber),
 			Confirmations:   latestBlock - p.BlockNumber,
 			TransactionHash: p.TxHash.Hex(),
-			ID:              string(p.TriggerID[:]), // TODO: check how to encode
+			ID:              hex.EncodeToString(p.TriggerID[:]),
 			UpkeepID:        upkeepId,
 			CheckBlock:      checkBlockNumber,
 		})
