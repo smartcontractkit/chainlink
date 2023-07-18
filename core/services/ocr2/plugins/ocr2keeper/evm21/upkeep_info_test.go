@@ -28,22 +28,27 @@ func TestGetUpkeepType(t *testing.T) {
 		},
 		{
 			"condition trigger",
-			common.LeftPadBytes([]byte{0}, 16),
+			genUpkeepID(conditionTrigger, "").Bytes(),
 			conditionTrigger,
 		},
 		{
+			"log trigger string",
+			[]byte(genUpkeepID(logTrigger, "111").String()),
+			logTrigger,
+		},
+		{
 			"log trigger",
-			common.LeftPadBytes([]byte{1}, 16),
+			genUpkeepID(logTrigger, "111").Bytes(),
 			logTrigger,
 		},
 		{
 			"cron trigger",
-			common.LeftPadBytes([]byte{2}, 16),
+			genUpkeepID(cronTrigger, "222").Bytes(),
 			cronTrigger,
 		},
 		{
 			"ready trigger",
-			common.LeftPadBytes([]byte{3}, 16),
+			genUpkeepID(readyTrigger, "333").Bytes(),
 			readyTrigger,
 		},
 		{
@@ -61,4 +66,10 @@ func TestGetUpkeepType(t *testing.T) {
 			assert.Equal(t, tc.upkeepType, getUpkeepType(tc.upkeepID))
 		})
 	}
+}
+
+func genUpkeepID(uType upkeepType, rand string) *big.Int {
+	b := append([]byte{1}, common.LeftPadBytes([]byte{uint8(uType)}, 15)...)
+	b = append(b, []byte(rand)...)
+	return big.NewInt(0).SetBytes(b)
 }
