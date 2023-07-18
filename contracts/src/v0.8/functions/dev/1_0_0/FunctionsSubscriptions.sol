@@ -53,7 +53,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   event SubscriptionOwnerTransferred(uint64 indexed subscriptionId, address from, address to);
 
   error TooManyConsumers();
-  error InsufficientSubscriptionBalance();
+  error InsufficientBalance();
   error InvalidConsumer(uint64 subscriptionId, address consumer);
   error ConsumerRequestsInFlight();
   error InvalidSubscription();
@@ -196,7 +196,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
 
     // Check that the cost has not exceeded the quoted cost
     if (adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(callbackGasLimit)) > estimatedCost) {
-      return 4; // IFunctionsRouter.FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE
+      return 4; // IFunctionsRouter.FulfillResult.COST_EXCEEDS_COMMITMENT
     }
 
     // If checks pass, continue as default, 0 = USER_SUCCESS;
@@ -287,7 +287,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       amount = s_withdrawableTokens[address(this)];
     }
     if (s_withdrawableTokens[address(this)] < amount) {
-      revert InsufficientSubscriptionBalance();
+      revert InsufficientBalance();
     }
     s_withdrawableTokens[address(this)] -= amount;
     s_totalBalance -= amount;
@@ -309,12 +309,12 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       revert InvalidCalldata();
     }
     if (s_withdrawableTokens[msg.sender] < amount) {
-      revert InsufficientSubscriptionBalance();
+      revert InsufficientBalance();
     }
     s_withdrawableTokens[msg.sender] -= amount;
     s_totalBalance -= amount;
     if (!LINK.transfer(recipient, amount)) {
-      revert InsufficientSubscriptionBalance();
+      revert InsufficientBalance();
     }
   }
 
@@ -469,7 +469,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     delete s_subscriptions[subscriptionId];
     s_totalBalance -= balance;
     if (!LINK.transfer(to, uint256(balance))) {
-      revert InsufficientSubscriptionBalance();
+      revert InsufficientBalance();
     }
     emit SubscriptionCanceled(subscriptionId, to, balance);
   }

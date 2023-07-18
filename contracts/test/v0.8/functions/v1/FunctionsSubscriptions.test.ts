@@ -516,7 +516,7 @@ describe('Functions Router - Subscriptions', () => {
         contracts.router
           .connect(roles.oracleNode)
           .oracleWithdraw(randomAddressString(), BigNumber.from('100')),
-      ).to.be.revertedWith(`InsufficientSubscriptionBalance`)
+      ).to.be.revertedWith(`InsufficientBalance`)
     })
   })
 })
