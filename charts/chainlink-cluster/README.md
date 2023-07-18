@@ -30,8 +30,7 @@ devspace deploy
 
 Connect to your environment
 ```
-devspace dev
-cd chainlink
+devspace dev -p node
 make chainlink
 make chainlink-local-start
 ```
@@ -42,6 +41,7 @@ make chainlink-local-start
 ```
 If you need to update the whole cluster run `deploy` again with a new set of images
 ```
+devspace reset pods
 devspace deploy
 ```
 Destroy the cluster
@@ -49,10 +49,15 @@ Destroy the cluster
 devspace purge
 ```
 
+If you need to run some system level tests inside k8s use `runner` profile:
+```
+devspace dev -p runner
+```
+
 ## Debug existing cluster
 If you need to debug CL node that is already deployed change `dev.app.container` and `dev.app.labelSelector` in [devspace.yaml](devspace.yaml) and run:
 ```
-devspace dev
+devspace dev -p node
 ```
 
 ## Automatic file sync
@@ -60,7 +65,10 @@ When you run `devspace dev` your files described in `dev.app.sync` of [devspace.
 
 After that all the changes will be synced automatically
 
+Check `.profiles` to understand what is uploaded in profiles `runner` and `node`
+
 # Helm
+If you would like to use `helm` directly, please uncomment data in `values.yaml`
 ## Install
 ```
 helm install cl-cluster .

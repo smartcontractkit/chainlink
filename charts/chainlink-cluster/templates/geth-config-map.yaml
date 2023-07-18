@@ -1,3 +1,4 @@
+{{ if (hasKey .Values "geth") }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -143,3 +144,4 @@ data:
         }
       }
     }
+  {{ end }}
