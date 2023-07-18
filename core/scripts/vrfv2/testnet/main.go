@@ -682,6 +682,8 @@ func main() {
 		fmt.Printf("Request config %+v Rw %+v Rid %+v\n", rc, rw, rid)
 	case "deploy-universe":
 		deployUniverse(e)
+	case "generate-proof-v2-plus":
+		generateProofForV2Plus(e)
 	case "eoa-consumer-deploy":
 		consumerDeployCmd := flag.NewFlagSet("eoa-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")

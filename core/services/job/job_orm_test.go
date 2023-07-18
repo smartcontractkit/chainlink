@@ -832,7 +832,6 @@ func Test_FindJob(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	zeroFeedID := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
 	jobOCR2, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 	require.NoError(t, err)
 	jobOCR2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
@@ -977,7 +976,7 @@ func Test_FindJob(t *testing.T) {
 		contractID := "0x613a38AC1659769640aaE063C651F48E0250454C"
 
 		// Find job ID for ocr2 job without feedID.
-		jbID, err := orm.FindOCR2JobIDByAddress(contractID, zeroFeedID)
+		jbID, err := orm.FindOCR2JobIDByAddress(contractID, nil)
 		require.NoError(t, err)
 
 		assert.Equal(t, jobOCR2.ID, jbID)
@@ -988,7 +987,7 @@ func Test_FindJob(t *testing.T) {
 		feedID := common.HexToHash(ocr2WithFeedID1)
 
 		// Find job ID for ocr2 job with feed ID
-		jbID, err := orm.FindOCR2JobIDByAddress(contractID, feedID)
+		jbID, err := orm.FindOCR2JobIDByAddress(contractID, &feedID)
 		require.NoError(t, err)
 
 		assert.Equal(t, jobOCR2WithFeedID1.ID, jbID)
@@ -999,7 +998,7 @@ func Test_FindJob(t *testing.T) {
 		feedID := common.HexToHash(ocr2WithFeedID2)
 
 		// Find job ID for ocr2 job with feed ID
-		jbID, err := orm.FindOCR2JobIDByAddress(contractID, feedID)
+		jbID, err := orm.FindOCR2JobIDByAddress(contractID, &feedID)
 		require.NoError(t, err)
 
 		assert.Equal(t, jobOCR2WithFeedID2.ID, jbID)

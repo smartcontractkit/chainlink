@@ -14,6 +14,7 @@ type GatewayConfig struct {
 }
 
 type ConnectionManagerConfig struct {
+	AuthGatewayId             string
 	AuthTimestampToleranceSec uint32
 	AuthChallengeLen          uint32
 }
