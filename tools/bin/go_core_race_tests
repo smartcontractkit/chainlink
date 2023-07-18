@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 set -ex
-
+OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
+USE_TEE="${USE_TEE:-true}"
 TIMEOUT="${TIMEOUT:-30s}"
 COUNT="${COUNT:-10}"
 GO_LDFLAGS=$(bash tools/bin/ldflags)
-GORACE="log_path=$PWD/race" go test -tags test -race -ldflags "$GO_LDFLAGS" -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | tee ./output.txt
+use_tee() {
+  if [ "$USE_TEE" = "true" ]; then
+    tee "$@"
+  else
+    cat > "$@"
+  fi
+}
+GORACE="log_path=$PWD/race" go test -json -tags test -race -ldflags "$GO_LDFLAGS" -shuffle on -timeout "$TIMEOUT" -count "$COUNT" $1 | use_tee "$OUTPUT_FILE"
 EXITCODE=${PIPESTATUS[0]}
 # Fail if any race logs are present.
 if ls race.* &>/dev/null

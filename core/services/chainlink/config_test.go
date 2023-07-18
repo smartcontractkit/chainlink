@@ -102,7 +102,7 @@ var (
 				Nodes: []*evmcfg.Node{
 					{
 						Name:  ptr("primary"),
-						WSURL: mustURL("wss://web.socket/mainnet"),
+						WSURL: mustURL("wss://web.socket/test/mainnet"),
 					},
 					{
 						Name:     ptr("secondary"),
