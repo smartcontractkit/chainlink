@@ -57,7 +57,7 @@ func NewTransmitEventProvider(
 ) (*TransmitEventProvider, error) {
 	var err error
 
-	contract, err := iregistry21.NewIKeeperRegistryMaster(common.HexToAddress("0x"), client)
+	contract, err := iregistry21.NewIKeeperRegistryMaster(registryAddress, client)
 	if err != nil {
 		return nil, err
 	}
