@@ -5,7 +5,6 @@ import (
 	"context"
 	"math/big"
 	"net/http"
-	"sort"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -23,8 +22,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -78,8 +75,8 @@ type Application interface {
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
-	GetChains() Chains
-
+	//GetChains() Chains
+	GetRelayers() Relayers
 	GetLoopRegistry() *plugins.LoopRegistry
 
 	// V2 Jobs (TOML specified)
@@ -114,7 +111,8 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	Chains                   Chains
+	//Chains                   Chains
+	relayers                 Relayers
 	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
@@ -147,13 +145,14 @@ type ChainlinkApplication struct {
 }
 
 type ApplicationOpts struct {
-	Config                   GeneralConfig
-	Logger                   logger.Logger
-	EventBroadcaster         pg.EventBroadcaster
-	MailMon                  *utils.MailboxMonitor
-	SqlxDB                   *sqlx.DB
-	KeyStore                 keystore.Master
-	Chains                   Chains
+	Config           GeneralConfig
+	Logger           logger.Logger
+	EventBroadcaster pg.EventBroadcaster
+	MailMon          *utils.MailboxMonitor
+	SqlxDB           *sqlx.DB
+	KeyStore         keystore.Master
+	// Chains                   Chains
+	Relayers                 Relayers
 	AuditLogger              audit.AuditLogger
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
@@ -163,51 +162,6 @@ type ApplicationOpts struct {
 	SecretGenerator          SecretGenerator
 	LoopRegistry             *plugins.LoopRegistry
 	GRPCOpts                 loop.GRPCOpts
-}
-
-// Chains holds a ChainSet for each type of chain.
-type Chains struct {
-	EVM      evm.ChainSet                               // map[relay.Identifier]evm.ChainSet
-	Cosmos   map[relay.Identifier]cosmos.SingleChainSet // nil if disabled
-	Solana   map[relay.Identifier]loop.Relayer          // nil if disabled
-	StarkNet map[relay.Identifier]loop.Relayer          // nil if disabled
-}
-
-func (c *Chains) services() (s []services.ServiceCtx) {
-	if c.Cosmos != nil {
-		s = append(s, sortByChainID(c.Cosmos)...)
-	}
-	if c.EVM != nil {
-		s = append(s, c.EVM)
-		/*
-			relayers := sortByChainID(c.EVM)
-			for _, r := range relayers {
-				s = append(s, r)
-			}
-		*/
-	}
-	if c.Solana != nil {
-		s = append(s, sortByChainID(c.Solana)...)
-	}
-	if c.StarkNet != nil {
-		s = append(s, sortByChainID(c.StarkNet)...)
-	}
-	return
-}
-
-func sortByChainID[V services.ServiceCtx](m map[relay.Identifier]V) []services.ServiceCtx {
-	sorted := make([]services.ServiceCtx, len(m))
-	ids := make([]relay.Identifier, 0)
-	for id := range m {
-		ids = append(ids, id)
-	}
-	sort.Slice(ids, func(i, j int) bool {
-		return ids[i].ChainID.String() < ids[j].ChainID.String()
-	})
-	for i := 0; i < len(m); i += 1 {
-		sorted[i] = m[ids[i]]
-	}
-	return sorted
 }
 
 // NewApplication initializes a new store if one is not already
@@ -220,7 +174,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	auditLogger := opts.AuditLogger
 	db := opts.SqlxDB
 	cfg := opts.Config
-	chains := opts.Chains
+	//chains := opts.Chains
+	relayers := opts.Relayers
 	eventBroadcaster := opts.EventBroadcaster
 	mailMon := opts.MailMon
 	externalInitiatorManager := opts.ExternalInitiatorManager
@@ -314,15 +269,22 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	srvcs = append(srvcs, eventBroadcaster, mailMon)
-	srvcs = append(srvcs, chains.services()...)
+	srvcs = append(srvcs, relayers.services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	srvcs = append(srvcs, promReporter)
 
+	// EVM relayers are used all over the place. TODO, make the signatures generic. for now, get the subset of EVM relayers
+	// to pass as needed
+
+	legacyEVMChains := relayers.LegacyEVMChains()
+	if legacyEVMChains == nil || legacyEVMChains.Len() == 0 {
+		globalLogger.Warn("no evm relayers")
+	}
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
 		sessionORM     = sessions.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
-		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
+		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
 	)
@@ -434,7 +396,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		if cfg.CosmosEnabled() {
 			lggr := globalLogger.Named("Cosmos.Relayer")
-			for id, chain := range chains.Cosmos {
+			for id, relayer := range chains.Cosmos {
 				relayer := pkgcosmos.NewRelayer(lggr.Named(id.Name()), chain)
 				relayers[id] = relay.NewRelayerAdapter(relayer, chain)
 			}

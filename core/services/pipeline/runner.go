@@ -20,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+
+	//evmloop "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/loopadapter"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -51,11 +53,12 @@ type Runner interface {
 }
 
 type runner struct {
-	orm                    ORM
-	btORM                  bridges.ORM
-	config                 Config
-	bridgeConfig           BridgeConfig
-	chainSet               evm.ChainSet
+	orm          ORM
+	btORM        bridges.ORM
+	config       Config
+	bridgeConfig BridgeConfig
+	//chainSet               evm.ChainSet
+	legacyEVMChains        *evm.Chains
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
 	runReaperWorker        utils.SleeperTask
@@ -101,13 +104,14 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains *evm.Chains, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
-		orm:                    orm,
-		btORM:                  btORM,
-		config:                 cfg,
-		bridgeConfig:           bridgeCfg,
-		chainSet:               chainSet,
+		orm:          orm,
+		btORM:        btORM,
+		config:       cfg,
+		bridgeConfig: bridgeCfg,
+		//chainSet:               chainSet,
+		legacyEVMChains:        legacyChains,
 		ethKeyStore:            ethks,
 		vrfKeyStore:            vrfks,
 		chStop:                 make(chan struct{}),
@@ -260,7 +264,8 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			// may run external adapters on their own hardware
 			task.(*BridgeTask).httpClient = r.unrestrictedHTTPClient
 		case TaskTypeETHCall:
-			task.(*ETHCallTask).chainSet = r.chainSet
+			//task.(*ETHCallTask).chainSet = r.chainSet
+			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
 			task.(*ETHCallTask).config = r.config
 			task.(*ETHCallTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHCallTask).jobType = run.PipelineSpec.JobType
@@ -269,12 +274,12 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 		case TaskTypeVRFV2:
 			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
-			task.(*EstimateGasLimitTask).chainSet = r.chainSet
+			task.(*EstimateGasLimitTask).legacyChains = r.legacyEVMChains
 			task.(*EstimateGasLimitTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*EstimateGasLimitTask).jobType = run.PipelineSpec.JobType
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
-			task.(*ETHTxTask).chainSet = r.chainSet
+			task.(*ETHTxTask).legacyChains = r.legacyEVMChains
 			task.(*ETHTxTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHTxTask).jobType = run.PipelineSpec.JobType
 			task.(*ETHTxTask).forwardingAllowed = run.PipelineSpec.ForwardingAllowed

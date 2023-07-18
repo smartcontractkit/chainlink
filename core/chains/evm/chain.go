@@ -2,15 +2,17 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -33,7 +35,9 @@ import (
 
 //go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
-	services.ServiceCtx
+	//services.ServiceCtx
+
+	types.ChainService
 	ID() *big.Int
 	Client() evmclient.Client
 	Config() evmconfig.ChainScopedConfig
@@ -46,10 +50,21 @@ type Chain interface {
 	LogPoller() logpoller.LogPoller
 	GasEstimator() gas.EvmFeeEstimator
 
-	SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
+	//SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 var _ Chain = &chain{}
+
+//var Chains = chains.NewChainsKV[Chain]()
+
+type Chains struct {
+	chains.ChainsKV[Chain]
+}
+
+func (c Chains) Default() Chain {
+	//TODO
+	return nil
+}
 
 type chain struct {
 	utils.StartStopOnce
@@ -96,7 +111,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*tom
 		var err2 error
 		client, err2 = newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
 		if err2 != nil {
-			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", cfg.EVM().ChainID().String())
+			return nil, fmt.Errorf("failed to instantiate eth client for chain with ID %s: %w", cfg.EVM().ChainID().String(), err2)
 		}
 	} else {
 		client = opts.GenEthClient(chainID)
@@ -128,7 +143,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*tom
 	// note: gas estimator is started as a part of the txm
 	txm, gasEstimator, err := newEvmTxm(db, cfg.EVM(), cfg.EVMRPCEnabled(), cfg.Database(), cfg.Database().Listener(), client, l, logPoller, opts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to instantiate EvmTxm for chain with ID %s", chainID.String())
+		return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err)
 	}
 
 	headBroadcaster.Subscribe(txm)
@@ -184,7 +199,7 @@ func (c *chain) Start(ctx context.Context) error {
 		// Must ensure that EthClient is dialed first because subsequent
 		// services may make eth calls on startup
 		if err := c.client.Dial(ctx); err != nil {
-			return errors.Wrap(err, "failed to dial ethclient")
+			return fmt.Errorf("failed to dial ethclient: %w", err)
 		}
 		// Services should be able to handle a non-functional eth client and
 		// not block start in this case, instead retrying in a background loop

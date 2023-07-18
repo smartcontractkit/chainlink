@@ -42,25 +42,25 @@ import (
 
 var _ relaytypes.Relayer = &Relayer{}
 
-type RelayerConfig interface {
-}
-
 type Relayer struct {
 	db               *sqlx.DB
 	chainSet         evm.ChainSet
 	lggr             logger.Logger
-	cfg              RelayerConfig
-	ks               keystore.Master
+	ks               RelayerKeystore
 	mercuryPool      wsrpc.Pool
 	eventBroadcaster pg.EventBroadcaster
 }
 
-func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ks keystore.Master, eventBroadcaster pg.EventBroadcaster) *Relayer {
+type RelayerKeystore interface {
+	CSA() keystore.CSA
+	Eth() keystore.Eth
+}
+
+func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, ks RelayerKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
 	return &Relayer{
 		db:               db,
 		chainSet:         chainSet,
 		lggr:             lggr.Named("Relayer"),
-		cfg:              cfg,
 		ks:               ks,
 		mercuryPool:      wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
 		eventBroadcaster: eventBroadcaster,

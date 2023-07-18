@@ -23,7 +23,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
-	"github.com/pelletier/go-toml/v2"
+	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -33,23 +33,16 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -159,38 +152,10 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	dbListener := cfg.Database().Listener()
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
-	ccOpts := evm.ChainSetOpts{
-		Config:           cfg,
-		Logger:           appLggr,
-		DB:               db,
-		KeyStore:         keyStore.Eth(),
-		EventBroadcaster: eventBroadcaster,
-		MailMon:          mailMon,
-	}
-
 	loopRegistry := plugins.NewLoopRegistry(appLggr.Named("LoopRegistry"))
 
-	var chains chainlink.Chains
-	chains.EVM, err = evm.NewTOMLChainSet(ctx, ccOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load EVM chainset")
-	}
-
-	if cfg.CosmosEnabled() {
-		cosmosLggr := appLggr.Named("Cosmos")
-		opts := cosmos.ChainSetOpts{
-			Config:           cfg,
-			Logger:           cosmosLggr,
-			DB:               db,
-			KeyStore:         keyStore.Cosmos(),
-			EventBroadcaster: eventBroadcaster,
-		}
-		cfgs := cfg.CosmosConfigs()
-		opts.Configs = cosmos.NewConfigs(cfgs)
-		chains.Cosmos, err = cosmos.NewChainSet(opts, cfgs)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to load Cosmos chainset")
-		}
 	}
 
 	rf := relayerFactory{
@@ -201,19 +166,60 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		GRPCOpts:     grpcOpts,
 	}
 
+	var relayers chainlink.Relayers
+	// evm always enabled, for some reason ...
+	{
+
+		adapters, err2 := rf.NewEVM(ctx, cfg, keyStore, eventBroadcaster, mailMon)
+		if err2 != nil {
+			fmt.Errorf("failed to setup EVM relayer: %w", err2)
+		}
+		for id, a := range adapters {
+			err2 := relayers.Put(id, a)
+			if err2 != nil {
+				multierror.Append(err, err2)
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	if cfg.CosmosEnabled() {
+		adapters, err2 := rf.NewCosmos(keyStore.Cosmos(), cfg.CosmosConfigs(), eventBroadcaster)
+		if err2 != nil {
+			fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
+		}
+		for id, a := range adapters {
+			err2 := relayers.Put(id, a)
+			if err2 != nil {
+				multierror.Append(err, err2)
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
 	if cfg.SolanaEnabled() {
-		var err2 error
-		chains.Solana, err2 = rf.NewSolana(keyStore.Solana(), cfg.SolanaConfigs())
+
+		solRelayers, err2 := rf.NewSolana(keyStore.Solana(), cfg.SolanaConfigs())
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to setup Solana relayer: %w", err2)
+		}
+		err2 = relayers.PutBatch(solRelayers)
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to store Solana relayers: %w", err2)
 		}
 	}
 
 	if cfg.StarkNetEnabled() {
-		var err2 error
-		chains.StarkNet, err2 = rf.NewStarkNet(keyStore.StarkNet(), cfg.StarknetConfigs())
+
+		starkRelayers, err2 := rf.NewStarkNet(keyStore.StarkNet(), cfg.StarknetConfigs())
 		if err2 != nil {
 			return nil, fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
+		}
+		err2 = relayers.PutBatch(starkRelayers)
+		if err2 != nil {
+			return nil, fmt.Errorf("failed to store StarkNet relayers: %w", err2)
 		}
 	}
 
@@ -227,10 +233,11 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, unrestrictedClient, appLggr, cfg.Database())
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
-		Config:                   cfg,
-		SqlxDB:                   db,
-		KeyStore:                 keyStore,
-		Chains:                   chains,
+		Config:   cfg,
+		SqlxDB:   db,
+		KeyStore: keyStore,
+		//Chains:                   chains,
+		Relayers:                 relayers,
 		EventBroadcaster:         eventBroadcaster,
 		MailMon:                  mailMon,
 		Logger:                   appLggr,
@@ -243,134 +250,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		LoopRegistry:             loopRegistry,
 		GRPCOpts:                 grpcOpts,
 	})
-}
-
-type relayerFactory struct {
-	logger.Logger
-	*sqlx.DB
-	pg.QConfig
-	*plugins.LoopRegistry
-	loop.GRPCOpts
-}
-
-func (r relayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaConfigs) (map[relay.Identifier]loop.Relayer, error) {
-	var (
-		solanaRelayers map[relay.Identifier]loop.Relayer
-		ids            []relay.Identifier
-		solLggr        = r.Logger.Named("Solana")
-
-		signer = &keystore.SolanaSigner{ks}
-	)
-	for _, c := range chainCfgs {
-		c := c
-		ids = append(ids, relay.Identifier{Network: relay.StarkNet, ChainID: relay.ChainID(*c.ChainID)})
-	}
-	if len(ids) > 0 {
-		if err := solana.EnsureChains(r.DB, solLggr, r.QConfig, ids); err != nil {
-			return nil, fmt.Errorf("failed to setup Solana chains: %w", err)
-		}
-	}
-
-	// create one relayer per chain id
-	for _, chainCfg := range chainCfgs {
-		relayId := relay.Identifier{Network: relay.Solana, ChainID: relay.ChainID(*chainCfg.ChainID)}
-		// all the lower level APIs expect chainsets. create a single valued set per id
-		singleChainCfg := solana.SolanaConfigs{chainCfg}
-
-		if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
-
-			// setup the solana relayer to be a LOOP
-			tomls, err := toml.Marshal(struct {
-				Solana solana.SolanaConfigs
-			}{Solana: singleChainCfg})
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
-			}
-
-			solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-				ID:  solLggr.Name(),
-				Cmd: cmdName,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
-			}
-			solanaRelayers[relayId] = loop.NewRelayerService(solLggr, r.GRPCOpts, solCmdFn, string(tomls), signer)
-
-		} else {
-			// fallback to embedded chainset
-			opts := solana.ChainSetOpts{
-				Logger:   solLggr,
-				KeyStore: signer,
-				Configs:  solana.NewConfigs(singleChainCfg),
-			}
-			chainSet, err := solana.NewChainSet(opts, singleChainCfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load Solana chainset: %w", err)
-			}
-			solanaRelayers[relayId] = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
-		}
-	}
-	return solanaRelayers, nil
-}
-
-func (r relayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (map[relay.Identifier]loop.Relayer, error) {
-	var (
-		starknetRelayers map[relay.Identifier]loop.Relayer
-		ids              []string
-		starkLggr        = r.Logger.Named("StarkNet")
-		loopKs           = &keystore.StarknetLooppSigner{StarkNet: ks}
-	)
-	for _, c := range chainCfgs {
-		c := c
-		ids = append(ids, *c.ChainID)
-	}
-	if len(ids) > 0 {
-		if err := starknet.EnsureChains(r.DB, starkLggr, r.QConfig, ids); err != nil {
-			return nil, fmt.Errorf("failed to setup StarkNet chains: %w", err)
-		}
-	}
-
-	// create one relayer per chain id
-	for _, chainCfg := range chainCfgs {
-		relayId := relay.Identifier{Network: relay.StarkNet, ChainID: relay.ChainID(*chainCfg.ChainID)}
-		// all the lower level APIs expect chainsets. create a single valued set per id
-		singleChainCfg := starknet.StarknetConfigs{chainCfg}
-
-		if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
-			// setup the starknet relayer to be a LOOP
-			tomls, err := toml.Marshal(struct {
-				Starknet starknet.StarknetConfigs
-			}{Starknet: singleChainCfg})
-			if err != nil {
-				return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
-			}
-
-			starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-				ID:  starkLggr.Name(),
-				Cmd: cmdName,
-			})
-			if err != nil {
-				return nil, fmt.Errorf("failed to create StarkNet LOOP command: %w", err)
-			}
-			// the starknet relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
-			// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
-			starknetRelayers[relayId] = loop.NewRelayerService(starkLggr, r.GRPCOpts, starknetCmdFn, string(tomls), loopKs)
-		} else {
-			// fallback to embedded chainset
-			opts := starknet.ChainSetOpts{
-				Logger:   starkLggr,
-				KeyStore: loopKs,
-				Configs:  starknet.NewConfigs(singleChainCfg),
-			}
-			chainSet, err := starknet.NewChainSet(opts, singleChainCfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load StarkNet chainset: %w", err)
-			}
-			starknetRelayers[relayId] = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
-		}
-	}
-	return starknetRelayers, nil
-
 }
 
 // handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration

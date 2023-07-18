@@ -12,10 +12,11 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
+	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
-	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -30,7 +31,7 @@ var (
 
 // ChainSetOpts holds options for configuring a ChainSet.
 type ChainSetOpts struct {
-	Config           coreconfig.AppConfig
+	Config           pg.QConfig //coreconfig.AppConfig
 	Logger           logger.Logger
 	DB               *sqlx.DB
 	KeyStore         keystore.Cosmos
@@ -71,12 +72,14 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
-	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config.Database(), o.EventBroadcaster, o.Configs, o.Logger)
+	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.Configs, o.Logger)
 	if err != nil {
 		return nil, err
 	}
 	return c, nil
 }
+
+type Chains = chains.ChainsKV[adapters.Chain]
 
 // SingleChainSet is a chainset with 1 chain. TODO remove when relayer interface is updated
 type SingleChainSet struct {
@@ -93,16 +96,30 @@ func (s SingleChainSet) GetChain(ctx context.Context) adapters.Chain {
 	return c
 }
 
-type ChainSetX struct {
-	adapters.ChainSet
-	chains map[relay.Identifier]SingleChainSet
+type LoopRelayAdapter interface {
+	loop.Relayer
+	Chain() adapters.Chain
 }
 
-func (cs *ChainSetX) Chains() map[relay.Identifier]SingleChainSet {
-	return cs.chains
+type LoopRelayer struct {
+	loop.Relayer
+	x *SingleChainSet
 }
 
-func NewChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (*ChainSetX, error) {
+func NewLoopRelayer(r *pkgcosmos.Relayer, s *SingleChainSet) *LoopRelayer {
+	ra := relay.NewRelayerAdapter(r, s)
+	return &LoopRelayer{
+		Relayer: ra,
+		x:       s,
+	}
+}
+func (l *LoopRelayer) Chain() adapters.Chain {
+	return l.x.GetChain(context.Background())
+}
+
+var _ LoopRelayAdapter = &LoopRelayer{}
+
+func newChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (adapters.ChainSet, error) {
 	solChains := map[string]adapters.Chain{}
 	var err error
 	for _, chain := range cfgs {
@@ -119,27 +136,22 @@ func NewChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (*ChainSetX, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load some Cosmos chains")
 	}
-	chainMap := make(map[relay.Identifier]SingleChainSet)
-	for id, chain := range solChains {
-		temp := map[string]adapters.Chain{id: chain}
-		cs, err := chains.NewChainSet[db.Node, adapters.Chain](temp, &opts)
-		if err != nil {
-			return nil, err
-		}
 
-		relayID := relay.Identifier{Network: relay.Cosmos, ChainID: relay.ChainID(id)}
-		chainMap[relayID] = SingleChainSet{
-			ChainSet: cs,
-			ID:       id,
-		}
-
-	}
 	cs, err := chains.NewChainSet[db.Node, adapters.Chain](solChains, &opts)
 	if err != nil {
 		return nil, err
 	}
-	return &ChainSetX{
+
+	return cs, nil
+}
+
+func NewSingleChainSet(opts ChainSetOpts, cfg *CosmosConfig) (*SingleChainSet, error) {
+	cs, err := newChainSet(opts, CosmosConfigs{cfg})
+	if err != nil {
+		return nil, err
+	}
+	return &SingleChainSet{
 		ChainSet: cs,
-		chains:   chainMap,
+		ID:       *cfg.ChainID,
 	}, nil
 }

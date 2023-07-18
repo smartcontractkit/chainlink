@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"net/url"
 	"reflect"
@@ -543,23 +544,24 @@ func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{},
 	return vals, nil
 }
 
+var ErrInvalidEVMChainID = errors.New("invalid EVM chain ID")
+
 func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
 	if str == "" {
 		return chainSet.Default()
 	}
 	id, ok := new(big.Int).SetString(str, 10)
 	if !ok {
-		return nil, pkgerrors.Errorf("invalid EVM chain ID: %s", str)
+		return nil, fmt.Errorf("%w: %s", ErrInvalidEVMChainID, str)
 	}
 	return chainSet.Get(id)
 }
 
-func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *uint32) uint32 {
+func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32) uint32 {
 	if specGasLimit != nil {
 		return *specGasLimit
 	}
 
-	ge := cfg.EVM().GasEstimator()
 	jt := ge.LimitJobType()
 	var jobTypeGasLimit *uint32
 	switch jobType {

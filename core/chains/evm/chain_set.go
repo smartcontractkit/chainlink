@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
@@ -51,6 +52,68 @@ type ChainSet interface {
 	Configs() types.Configs
 
 	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
+}
+
+type OneChain interface {
+	ChainSet
+	Chain() Chain
+}
+type SingleChainChainSet struct {
+	chain Chain
+	ChainSet
+	isDefault bool
+	//opts          ChainSetOpts
+}
+
+var _ OneChain = &SingleChainChainSet{}
+
+func NewSingleChainSet(cs ChainSet, c Chain) (*SingleChainChainSet, error) {
+	_, err := cs.Get(c.ID())
+	if err != nil {
+		return nil, fmt.Errorf("cannot create single chain chainset: %w", err)
+	}
+
+	return &SingleChainChainSet{
+		chain:    c,
+		ChainSet: cs,
+	}, nil
+}
+
+func (s *SingleChainChainSet) Chain() Chain {
+	return s.chain
+}
+func (s *SingleChainChainSet) Get(id *big.Int) (Chain, error) {
+	if id != s.chain.ID() {
+		return nil, fmt.Errorf("single chain chain set: %w, got %s have %s", chains.ErrNotFound, id.String(), s.chain.ID())
+	}
+	return s.chain, nil
+}
+
+func (s *SingleChainChainSet) Chains() []Chain {
+	return []Chain{s.chain}
+}
+
+func (s *SingleChainChainSet) ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error) {
+	stat, err := s.ChainStatus(ctx, s.chain.ID().String())
+	if err != nil {
+		return nil, -1, err
+	}
+	return []relaytypes.ChainStatus{stat}, 1, nil
+
+}
+
+func (s *SingleChainChainSet) Default() (Chain, error) {
+	return s.chain, nil
+}
+
+func (s *SingleChainChainSet) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error) {
+	if len(chainIDs) > 1 {
+		return nil, -1, fmt.Errorf("single chain chain set only support one chain id. got %v", chainIDs)
+	}
+	if chainIDs[0] != s.chain.ID().String() {
+		return nil, -1, fmt.Errorf("unknown chain id %s. expected %s", s.chain.ID())
+	}
+	return s.ChainSet.NodeStatuses(ctx, offset, limit, chainIDs...)
 }
 
 type chainSet struct {
@@ -265,7 +328,9 @@ type ChainSetOpts struct {
 }
 
 // NewTOMLChainSet returns a new ChainSet from TOML configuration.
-func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
+// func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
+
+func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) ([]*SingleChainChainSet, error) {
 	if err := opts.check(); err != nil {
 		return nil, err
 	}
@@ -276,7 +341,7 @@ func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 			enabled = append(enabled, chains[i])
 		}
 	}
-	opts.Logger = opts.Logger.Named("EVM")
+
 	defaultChainID := opts.Config.DefaultChainID()
 	if defaultChainID == nil && len(enabled) >= 1 {
 		defaultChainID = enabled[0].ChainID.ToInt()
@@ -284,11 +349,21 @@ func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 			opts.Logger.Debugf("Multiple chains present, default chain: %s", defaultChainID.String())
 		}
 	}
+
+	var result []*SingleChainChainSet
 	var err error
-	cll := newChainSet(opts)
-	cll.defaultID = defaultChainID
 	for i := range enabled {
+		optsCp, errCp := copystructure.Copy(opts)
+		if err != nil {
+			return nil, errCp
+		}
+		// TODO is there any chance this cast can fail?
+		cll := newChainSet(optsCp.(ChainSetOpts))
+		//cll.defaultID = defaultChainID
+
+		//	for i := range enabled {
 		cid := enabled[i].ChainID.String()
+		cll.logger = cll.logger.Named(cid)
 		cll.logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := newTOMLChain(ctx, enabled[i], opts)
 		if err2 != nil {
@@ -299,8 +374,15 @@ func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 			return nil, errors.Errorf("duplicate chain with ID %s", cid)
 		}
 		cll.chains[cid] = chain
+
+		s := &SingleChainChainSet{
+			chain:     chain,
+			ChainSet:  cll,
+			isDefault: (cid == defaultChainID.String()),
+		}
+		result = append(result, s)
 	}
-	return cll, err
+	return result, nil
 }
 
 func newChainSet(opts ChainSetOpts) *chainSet {
