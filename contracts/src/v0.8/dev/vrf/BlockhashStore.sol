@@ -14,7 +14,6 @@ import "../../ChainSpecificUtil.sol";
  *   would have to be deployed.
  */
 contract BlockhashStore {
-
   mapping(uint => bytes32) internal s_blockhashes;
 
   /**
@@ -26,7 +25,6 @@ contract BlockhashStore {
     require(h != 0x0, "blockhash(n) failed");
     s_blockhashes[n] = h;
   }
-
 
   /**
    * @notice stores blockhash of the earliest block still available through BLOCKHASH.
@@ -62,7 +60,7 @@ contract BlockhashStore {
     bytes32 parentHash;
     assembly {
       parentHash := mload(add(header, 36)) // 36 = 32 byte offset for length prefix of ABI-encoded array
-                                           //    +  4 byte offset of PARENTHASH (see above)
+      //    +  4 byte offset of PARENTHASH (see above)
     }
 
     s_blockhashes[n] = parentHash;
