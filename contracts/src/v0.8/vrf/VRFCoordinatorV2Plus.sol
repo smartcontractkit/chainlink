@@ -9,6 +9,7 @@ import "./VRF.sol";
 import "./VRFConsumerBaseV2Plus.sol";
 import "../ChainSpecificUtil.sol";
 import "./SubscriptionAPI.sol";
+import "./libraries/VRFV2PlusClient.sol";
 
 contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
   /// @dev may not be provided upon construction on some chains due to lack of availability
@@ -34,6 +35,7 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
+  error InvalidExtraArgsTag();
   struct RequestCommitment {
     uint64 blockNum;
     uint64 subId;
@@ -217,56 +219,63 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     return (s_config.minimumRequestConfirmations, s_config.maxGasLimit, s_provingKeyHashes);
   }
 
+  /// @dev Convert the extra args bytes into a struct
+  /// @param extraArgs The extra args bytes
+  /// @return The extra args struct
+  function _fromBytes(bytes calldata extraArgs) internal pure returns (VRFV2PlusClient.ExtraArgsV1 memory) {
+    if (extraArgs.length == 0) {
+      return VRFV2PlusClient.ExtraArgsV1({nativePayment: false});
+    }
+    if (bytes4(extraArgs) != VRFV2PlusClient.EXTRA_ARGS_V1_TAG) revert InvalidExtraArgsTag();
+    return abi.decode(extraArgs[4:], (VRFV2PlusClient.ExtraArgsV1));
+  }
+
   /**
    * @notice Request a set of random words.
-   * @param keyHash - Corresponds to a particular oracle job which uses
+   * @param req - a struct containing following fiels for randomness request:
+   * keyHash - Corresponds to a particular oracle job which uses
    * that key for generating the VRF proof. Different keyHash's have different gas price
    * ceilings, so you can select a specific one to bound your maximum per request cost.
-   * @param subId  - The ID of the VRF subscription. Must be funded
+   * subId  - The ID of the VRF subscription. Must be funded
    * with the minimum subscription balance required for the selected keyHash.
-   * @param requestConfirmations - How many blocks you'd like the
+   * requestConfirmations - How many blocks you'd like the
    * oracle to wait before responding to the request. See SECURITY CONSIDERATIONS
    * for why you may want to request more. The acceptable range is
    * [minimumRequestBlockConfirmations, 200].
-   * @param callbackGasLimit - How much gas you'd like to receive in your
+   * callbackGasLimit - How much gas you'd like to receive in your
    * fulfillRandomWords callback. Note that gasleft() inside fulfillRandomWords
    * may be slightly less than this amount because of gas used calling the function
    * (argument decoding etc.), so you may need to request slightly more than you expect
    * to have inside fulfillRandomWords. The acceptable range is
    * [0, maxGasLimit]
-   * @param numWords - The number of uint256 random values you'd like to receive
+   * numWords - The number of uint256 random values you'd like to receive
    * in your fulfillRandomWords callback. Note these numbers are expanded in a
    * secure way by the VRFCoordinator from a single random value supplied by the oracle.
-   * @param payInEth - Whether payment should be made in ETH or LINK. Payment in LINK
-   * is only available if the LINK token is available to this contract.
+   * extraArgs - Encoded extra arguments that has a boolean flag for whether payment 
+   * should be made in ETH or LINK. Payment in LINK is only available if the LINK token is available to this contract.
    * @return requestId - A unique identifier of the request. Can be used to match
    * a request to a response in fulfillRandomWords.
    */
   function requestRandomWords(
-    bytes32 keyHash,
-    uint64 subId,
-    uint16 requestConfirmations,
-    uint32 callbackGasLimit,
-    uint32 numWords,
-    bool payInEth
+    VRFV2PlusClient.RandomWordsRequest calldata req
   ) external nonReentrant returns (uint256) {
     // Input validation using the subscription storage.
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+    if (s_subscriptionConfigs[req.subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[msg.sender][subId];
+    uint64 currentNonce = s_consumers[msg.sender][req.subId];
     if (currentNonce == 0) {
-      revert InvalidConsumer(subId, msg.sender);
+      revert InvalidConsumer(req.subId, msg.sender);
     }
     // Input validation using the config storage word.
     if (
-      requestConfirmations < s_config.minimumRequestConfirmations || requestConfirmations > MAX_REQUEST_CONFIRMATIONS
+    req.requestConfirmations < s_config.minimumRequestConfirmations || req.requestConfirmations > MAX_REQUEST_CONFIRMATIONS
     ) {
       revert InvalidRequestConfirmations(
-        requestConfirmations,
+        req.requestConfirmations,
         s_config.minimumRequestConfirmations,
         MAX_REQUEST_CONFIRMATIONS
       );
@@ -274,33 +283,34 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     // No lower bound on the requested gas limit. A user could request 0
     // and they would simply be billed for the proof verification and wouldn't be
     // able to do anything with the random value.
-    if (callbackGasLimit > s_config.maxGasLimit) {
-      revert GasLimitTooBig(callbackGasLimit, s_config.maxGasLimit);
+    if (req.callbackGasLimit > s_config.maxGasLimit) {
+      revert GasLimitTooBig(req.callbackGasLimit, s_config.maxGasLimit);
     }
-    if (numWords > MAX_NUM_WORDS) {
-      revert NumWordsTooBig(numWords, MAX_NUM_WORDS);
+    if (req.numWords > MAX_NUM_WORDS) {
+      revert NumWordsTooBig(req.numWords, MAX_NUM_WORDS);
     }
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
     uint64 nonce = currentNonce + 1;
-    (uint256 requestId, uint256 preSeed) = computeRequestId(keyHash, msg.sender, subId, nonce);
+    (uint256 requestId, uint256 preSeed) = computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
 
+    bool nativePayment = _fromBytes(req.extraArgs).nativePayment;
     s_requestCommitments[requestId] = keccak256(
-      abi.encode(requestId, ChainSpecificUtil.getBlockNumber(), subId, callbackGasLimit, numWords, msg.sender)
+      abi.encode(requestId, ChainSpecificUtil.getBlockNumber(), req.subId, req.callbackGasLimit, req.numWords, msg.sender)
     );
     emit RandomWordsRequested(
-      keyHash,
+      req.keyHash,
       requestId,
       preSeed,
-      subId,
-      requestConfirmations,
-      callbackGasLimit,
-      numWords,
-      payInEth,
+      req.subId,
+      req.requestConfirmations,
+      req.callbackGasLimit,
+      req.numWords,
+      nativePayment,
       msg.sender
     );
-    s_consumers[msg.sender][subId] = nonce;
+    s_consumers[msg.sender][req.subId] = nonce;
 
     return requestId;
   }

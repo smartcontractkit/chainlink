@@ -63,14 +63,17 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
     bytes32 keyHash,
     bool nativePayment
   ) external {
-    uint256 requestId = s_vrfCoordinator.requestRandomWords(
-      keyHash,
-      s_subId,
-      requestConfirmations,
-      callbackGasLimit,
-      numWords,
-      nativePayment
-    );
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: keyHash,
+      subId: s_subId,
+      requestConfirmations: requestConfirmations,
+      callbackGasLimit: callbackGasLimit,
+      numWords: numWords,
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({
+        nativePayment: nativePayment
+      }))
+    });
+    uint256 requestId = s_vrfCoordinator.requestRandomWords(req);
     Response memory resp = Response({
       requestId: requestId,
       randomWords: new uint256[](0),

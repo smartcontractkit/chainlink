@@ -23,8 +23,16 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2 {
     s_gasAvailable = gasleft();
     s_randomWords = randomWords;
     s_requestId = requestId;
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: s_keyHash,
+      subId: s_subId,
+      requestConfirmations: 1,
+      callbackGasLimit: 200000,
+      numWords: 1,
+      extraArgs: "" // empty extraArgs defaults to link payment 
+    });
     // Should revert
-    COORDINATOR.requestRandomWords(s_keyHash, s_subId, 1, 200000, 1, false);
+    COORDINATOR.requestRandomWords(req);
   }
 
   function createSubscriptionAndFund(uint96 amount) external {
@@ -45,6 +53,14 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2 {
 
   function requestRandomness(bytes32 keyHash) external returns (uint256) {
     s_keyHash = keyHash;
-    return COORDINATOR.requestRandomWords(keyHash, s_subId, 1, 500000, 1, false);
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: keyHash,
+      subId: s_subId,
+      requestConfirmations: 1,
+      callbackGasLimit: 500000,
+      numWords: 1,
+      extraArgs: "" // empty extraArgs defaults to link payment
+    });
+    return COORDINATOR.requestRandomWords(req);
   }
 }
