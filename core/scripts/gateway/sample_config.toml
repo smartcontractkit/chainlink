@@ -17,6 +17,7 @@ MaxRequestBytes = 10_000
 HandshakeTimeoutMillis = 1000
 
 [ConnectionManagerConfig]
+AuthGatewayId = "example_gateway"
 AuthTimestampToleranceSec = 60
 AuthChallengeLen = 32
 
