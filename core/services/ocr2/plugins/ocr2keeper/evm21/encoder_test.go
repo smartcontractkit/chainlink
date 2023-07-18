@@ -17,37 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 )
 
-func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckResult {
-	logExt := logprovider.LogTriggerExtension{}
-	tp := getUpkeepType(id)
-	if tp == logTrigger {
-		logExt.LogIndex = 1
-		logExt.TxHash = "0x1234567890123456789012345678901234567890123456789012345678901234"
-	}
-	payload := ocr2keepers.UpkeepPayload{
-		Upkeep: ocr2keepers.ConfiguredUpkeep{
-			ID:   id,
-			Type: int(tp),
-		},
-		Trigger: ocr2keepers.Trigger{
-			BlockNumber: block,
-			BlockHash:   hexutil.Encode([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}),
-			Extension:   logExt,
-		},
-	}
-	payload.ID = payload.GenerateID()
-	return ocr2keepers.CheckResult{
-		Payload:      payload,
-		Eligible:     true,
-		GasAllocated: 100,
-		PerformData:  []byte("data0"),
-		Extension: EVMAutomationResultExtension21{
-			FastGasWei: big.NewInt(100),
-			LinkNative: big.NewInt(100),
-		},
-	}
-}
-
 func TestEVMAutomationEncoder21_EncodeDecode(t *testing.T) {
 	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	assert.Nil(t, err)
@@ -171,8 +140,95 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 				assert.Equal(t, tc.results[i].Payload.Trigger.BlockHash, upkeep.Trigger.BlockHash)
 				assert.Equal(t, tc.results[i].Payload.Trigger.BlockNumber, upkeep.Trigger.BlockNumber)
 				assert.Equal(t, tc.results[i].PerformData, upkeep.PerformData)
-				// assert.Equal(t, upkeep.ID, tc.results[i].Payload.ID) // TODO: fix and uncomment
 			}
 		})
+	}
+}
+
+func TestEVMAutomationEncoder21_ValidateRepoprt(t *testing.T) {
+	encoder := EVMAutomationEncoder21{}
+
+	tests := []struct {
+		name    string
+		report  automation_utils_2_1.KeeperRegistryBase21Report
+		errored bool
+	}{
+		{
+			"happy flow",
+			automation_utils_2_1.KeeperRegistryBase21Report{
+				FastGasWei:   big.NewInt(1),
+				LinkNative:   big.NewInt(1),
+				UpkeepIds:    []*big.Int{big.NewInt(1)},
+				GasLimits:    []*big.Int{big.NewInt(1)},
+				Triggers:     [][]byte{[]byte("1")},
+				PerformDatas: [][]byte{[]byte("1")},
+			},
+			false,
+		},
+		{
+			"empty report",
+			automation_utils_2_1.KeeperRegistryBase21Report{},
+			false,
+		},
+		{
+			"invalid report (extra upkeep id)",
+			automation_utils_2_1.KeeperRegistryBase21Report{
+				UpkeepIds: []*big.Int{big.NewInt(1), big.NewInt(2)},
+				GasLimits: []*big.Int{big.NewInt(1)},
+			},
+			true,
+		},
+		{
+			"invalid report (extra trigger)",
+			automation_utils_2_1.KeeperRegistryBase21Report{
+				Triggers: [][]byte{[]byte("1")},
+			},
+			true,
+		},
+		{
+			"invalid report (extra perform data)",
+			automation_utils_2_1.KeeperRegistryBase21Report{
+				PerformDatas: [][]byte{[]byte("1")},
+			},
+			true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := encoder.validateReport(tc.report)
+			assert.Equal(t, tc.errored, err != nil)
+		})
+	}
+}
+
+func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckResult {
+	logExt := logprovider.LogTriggerExtension{}
+	tp := getUpkeepType(id)
+	if tp == logTrigger {
+		logExt.LogIndex = 1
+		logExt.TxHash = "0x1234567890123456789012345678901234567890123456789012345678901234"
+	}
+	payload := ocr2keepers.UpkeepPayload{
+		Upkeep: ocr2keepers.ConfiguredUpkeep{
+			ID:   id,
+			Type: int(tp),
+		},
+		Trigger: ocr2keepers.Trigger{
+			BlockNumber: block,
+			BlockHash:   hexutil.Encode([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}),
+			Extension:   logExt,
+		},
+	}
+	payload.ID = payload.GenerateID()
+	return ocr2keepers.CheckResult{
+		Payload:      payload,
+		Eligible:     true,
+		GasAllocated: 100,
+		PerformData:  []byte("data0"),
+		Extension: EVMAutomationResultExtension21{
+			FastGasWei: big.NewInt(100),
+			LinkNative: big.NewInt(100),
+		},
 	}
 }

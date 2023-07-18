@@ -142,37 +142,6 @@ func (enc EVMAutomationEncoder21) Decode(raw []byte) ([]ocr2keepers.UpkeepResult
 	return res, nil
 }
 
-func (enc EVMAutomationEncoder21) Detail(result ocr2keepers.UpkeepResult) (ocr2keepers.UpkeepKey, uint32, error) {
-	res, ok := result.(EVMAutomationUpkeepResult21)
-	if !ok {
-		return nil, 0, ErrUnexpectedResult
-	}
-
-	str := fmt.Sprintf("%d%s%s", res.Block, separator, res.ID)
-
-	return ocr2keepers.UpkeepKey([]byte(str)), res.ExecuteGas, nil
-}
-
-func (enc EVMAutomationEncoder21) KeysFromReport(b []byte) ([]ocr2keepers.UpkeepKey, error) {
-	results, err := enc.Decode(b)
-	if err != nil {
-		return nil, err
-	}
-
-	keys := make([]ocr2keepers.UpkeepKey, 0, len(results))
-	for _, result := range results {
-		res, ok := result.(EVMAutomationUpkeepResult21)
-		if !ok {
-			return nil, fmt.Errorf("unexpected result struct")
-		}
-
-		str := fmt.Sprintf("%d%s%s", res.Block, separator, res.ID)
-		keys = append(keys, ocr2keepers.UpkeepKey([]byte(str)))
-	}
-
-	return keys, nil
-}
-
 // Extract the plugin will call this function to accept/transmit reports
 func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error) {
 	report, err := enc.packer.UnpackReport(raw)
@@ -199,15 +168,7 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 			common.BytesToHash(triggerW.BlockHash[:]).Hex(),
 			logExt,
 		)
-		payload := ocr2keepers.NewUpkeepPayload(
-			upkeepId,
-			0,
-			"",
-			trigger,
-			[]byte{},
-		)
 		reportedUpkeeps[i] = ocr2keepers.ReportedUpkeep{
-			ID:          payload.ID,
 			UpkeepID:    ocr2keepers.UpkeepIdentifier(upkeepId.String()),
 			Trigger:     trigger,
 			PerformData: report.PerformDatas[i],
