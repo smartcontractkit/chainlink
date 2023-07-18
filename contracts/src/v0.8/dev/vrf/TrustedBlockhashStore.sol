@@ -14,14 +14,14 @@ contract TrustedBlockhashStore is ConfirmedOwner, BlockhashStore {
   address[] public s_whitelist;
 
   constructor(address[] memory whitelist) ConfirmedOwner(msg.sender) {
-    s_whitelist = whitelist;
+    setWhitelist(whitelist);
   }
 
   /**
    * @notice sets the whitelist of addresses that can store blockhashes
    * @param whitelist the whitelist of addresses that can store blockhashes
    */
-  function setWhitelist(address[] calldata whitelist) external onlyOwner {
+  function setWhitelist(address[] memory whitelist) public onlyOwner {
     address[] memory previousWhitelist = s_whitelist;
     s_whitelist = whitelist;
 
