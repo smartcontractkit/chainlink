@@ -24,6 +24,7 @@ import (
 )
 
 const queryTimeout = 10 * time.Second
+const BALANCE_OF_ADDRESS_FUNCTION_SELECTOR = "0x70a08231"
 
 //go:generate mockery --quiet --name Client --output ./mocks/ --case=underscore
 
@@ -140,7 +141,7 @@ type CallArgs struct {
 func (client *client) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
 	numLinkBigInt := new(big.Int)
-	functionSelector := evmtypes.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+	functionSelector := evmtypes.HexToFunctionSelector(BALANCE_OF_ADDRESS_FUNCTION_SELECTOR) // balanceOf(address)
 	data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen))
 	args := CallArgs{
 		To:   contractAddress,
