@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -12,11 +11,9 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
-func TestTransmitEventProvider_performedToTransmitEvents(t *testing.T) {
+func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 	provider := &TransmitEventProvider{}
-
-	logUpkeepId, _ := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
-
+	id := genUpkeepID(logTrigger, "111")
 	tests := []struct {
 		name        string
 		performed   []transmitEventLog
@@ -33,7 +30,7 @@ func TestTransmitEventProvider_performedToTransmitEvents(t *testing.T) {
 						BlockHash:   common.HexToHash("0x0102030405060708010203040506070801020304050607080102030405060708"),
 					},
 					Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
-						Id: big.NewInt(0).SetBytes(logUpkeepId.Bytes()),
+						Id: id,
 					},
 				},
 			},
@@ -41,7 +38,7 @@ func TestTransmitEventProvider_performedToTransmitEvents(t *testing.T) {
 			[]ocr2keepers.TransmitEvent{
 				{
 					Type:       ocr2keepers.PerformEvent,
-					UpkeepID:   ocr2keepers.UpkeepIdentifier(logUpkeepId.Bytes()),
+					UpkeepID:   ocr2keepers.UpkeepIdentifier(id.Bytes()),
 					CheckBlock: ocr2keepers.BlockKey(""), // empty for log triggers
 				},
 			},

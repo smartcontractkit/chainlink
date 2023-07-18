@@ -258,5 +258,20 @@ func (rp *evmRegistryPackerV2_1) UnpackReport(raw []byte) (automation_utils_2_1.
 	if !ok {
 		return automation_utils_2_1.KeeperRegistryBase21Report{}, fmt.Errorf("failed to convert type")
 	}
-	return *converted, nil
+	report := automation_utils_2_1.KeeperRegistryBase21Report{
+		FastGasWei:   converted.FastGasWei,
+		LinkNative:   converted.LinkNative,
+		UpkeepIds:    make([]*big.Int, len(converted.UpkeepIds)),
+		GasLimits:    make([]*big.Int, len(converted.GasLimits)),
+		Triggers:     make([][]byte, len(converted.Triggers)),
+		PerformDatas: make([][]byte, len(converted.PerformDatas)),
+	}
+	if len(report.UpkeepIds) > 0 {
+		copy(report.UpkeepIds, converted.UpkeepIds)
+		copy(report.GasLimits, converted.GasLimits)
+		copy(report.Triggers, converted.Triggers)
+		copy(report.PerformDatas, converted.PerformDatas)
+	}
+
+	return report, nil
 }

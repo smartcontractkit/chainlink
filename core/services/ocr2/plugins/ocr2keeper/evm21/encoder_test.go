@@ -19,9 +19,15 @@ import (
 
 func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckResult {
 	logExt := logprovider.LogTriggerExtension{}
+	tp := getUpkeepType(id)
+	if tp == logTrigger {
+		logExt.LogIndex = 1
+		logExt.TxHash = "0x1234567890123456789012345678901234567890123456789012345678901234"
+	}
 	payload := ocr2keepers.UpkeepPayload{
 		Upkeep: ocr2keepers.ConfiguredUpkeep{
-			ID: id,
+			ID:   id,
+			Type: int(tp),
 		},
 		Trigger: ocr2keepers.Trigger{
 			BlockNumber: block,
@@ -60,7 +66,7 @@ func TestEVMAutomationEncoder21_EncodeDecode(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier([]byte("10"))),
+				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "10").String())),
 			},
 			640,
 			nil,
@@ -68,11 +74,11 @@ func TestEVMAutomationEncoder21_EncodeDecode(t *testing.T) {
 		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier([]byte("10"))),
-				newResult(2, ocr2keepers.UpkeepIdentifier([]byte("20"))),
-				newResult(3, ocr2keepers.UpkeepIdentifier([]byte("30"))),
+				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "10").String())),
+				newResult(2, ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "20").String())),
+				newResult(3, ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "30").String())),
 			},
-			1216,
+			1280,
 			nil,
 		},
 		{
@@ -129,16 +135,16 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier([]byte("10"))),
+				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "10").String())),
 			},
 			nil,
 		},
 		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier([]byte("10"))),
-				newResult(2, ocr2keepers.UpkeepIdentifier([]byte("20"))),
-				newResult(3, ocr2keepers.UpkeepIdentifier([]byte("30"))),
+				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "10").String())),
+				newResult(2, ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "20").String())),
+				newResult(3, ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "30").String())),
 			},
 			nil,
 		},
@@ -161,10 +167,10 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 			assert.Len(t, reportedUpkeeps, len(tc.results))
 
 			for i, upkeep := range reportedUpkeeps {
-				assert.Equal(t, upkeep.UpkeepID, ocr2keepers.UpkeepIdentifier(nil))
-				assert.Equal(t, upkeep.Trigger.BlockHash, tc.results[i].Payload.Trigger.BlockHash)
-				assert.Equal(t, upkeep.Trigger.BlockNumber, tc.results[i].Payload.Trigger.BlockNumber)
-				assert.Equal(t, upkeep.PerformData, tc.results[i].PerformData)
+				assert.Equal(t, tc.results[i].Payload.Upkeep.ID, upkeep.UpkeepID)
+				assert.Equal(t, tc.results[i].Payload.Trigger.BlockHash, upkeep.Trigger.BlockHash)
+				assert.Equal(t, tc.results[i].Payload.Trigger.BlockNumber, upkeep.Trigger.BlockNumber)
+				assert.Equal(t, tc.results[i].PerformData, upkeep.PerformData)
 				// assert.Equal(t, upkeep.ID, tc.results[i].Payload.ID) // TODO: fix and uncomment
 			}
 		})

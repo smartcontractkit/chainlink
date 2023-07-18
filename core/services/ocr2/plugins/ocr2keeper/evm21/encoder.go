@@ -76,7 +76,6 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		if !ok {
 			return nil, fmt.Errorf("failed to parse big int from upkeep id: %s", string(result.Payload.Upkeep.ID))
 		}
-
 		report.UpkeepIds[i] = id
 		report.GasLimits[i] = big.NewInt(0).SetUint64(result.GasAllocated)
 
@@ -178,7 +177,7 @@ func (enc EVMAutomationEncoder21) KeysFromReport(b []byte) ([]ocr2keepers.Upkeep
 func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error) {
 	report, err := enc.packer.UnpackReport(raw)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: failed to unpack report", err)
 	}
 	reportedUpkeeps := make([]ocr2keepers.ReportedUpkeep, len(report.UpkeepIds))
 	for i, upkeepId := range report.UpkeepIds {
@@ -209,6 +208,7 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 		)
 		reportedUpkeeps[i] = ocr2keepers.ReportedUpkeep{
 			ID:          payload.ID,
+			UpkeepID:    ocr2keepers.UpkeepIdentifier(upkeepId.String()),
 			Trigger:     trigger,
 			PerformData: report.PerformDatas[i],
 		}
