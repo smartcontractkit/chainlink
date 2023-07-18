@@ -115,7 +115,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	monEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.FunctionsRequests)
 
 	s4Storage := s4_mocks.NewStorage(t)
-	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, bridgeAccessor, pluginORM, pluginConfig, s4Storage, broadcaster, lggr, mailMon, monEndpoint, decryptor, time.Duration(10)*time.Second)
+	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, bridgeAccessor, pluginORM, pluginConfig, s4Storage, broadcaster, lggr, mailMon, monEndpoint, decryptor, time.Duration(100)*time.Second)
 
 	return &FunctionsListenerUniverse{
 		service:        functionsListener,
