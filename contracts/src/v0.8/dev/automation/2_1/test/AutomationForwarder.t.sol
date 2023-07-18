@@ -36,8 +36,9 @@ contract AutomationForwarder_forward is AutomationForwarderSetUp {
   function testBasicSuccess() public {
     uint256 prevCount = default_target.counter();
     bytes memory selector = getSelector("performUpkeep(bytes)", "performDataHere");
-    bool val = forwarder.forward(GAS, selector);
+    (bool val, uint256 gasUsed) = forwarder.forward(GAS, selector);
     assertEq(val, true);
+    assertGt(gasUsed, 0);
     uint256 newCount = default_target.counter();
     assertEq(newCount, prevCount + 1);
   }
@@ -45,8 +46,9 @@ contract AutomationForwarder_forward is AutomationForwarderSetUp {
   function testWrongFunctionSelectorSuccess() public {
     uint256 prevCount = default_target.counter();
     bytes memory selector = getSelector("performUpkeep(bytes calldata data)", "");
-    bool val = forwarder.forward(GAS, selector);
+    (bool val, uint256 gasUsed) = forwarder.forward(GAS, selector);
     assertFalse(val);
+    assertGt(gasUsed, 0);
     uint256 newCount = default_target.counter();
     assertEq(newCount, prevCount);
   }
@@ -56,8 +58,9 @@ contract AutomationForwarder_forward is AutomationForwarderSetUp {
     bytes memory selector = getSelector("performUpkeep(bytes)", "");
     changePrank(STRANGER);
     vm.expectRevert(AutomationForwarder.NotAuthorized.selector);
-    bool val = forwarder.forward(GAS, selector);
+    (bool val, uint256 gasUsed) = forwarder.forward(GAS, selector);
     assertFalse(val);
+    assertEq(gasUsed, 0);
     uint256 newCount = default_target.counter();
     assertEq(newCount, prevCount);
   }
