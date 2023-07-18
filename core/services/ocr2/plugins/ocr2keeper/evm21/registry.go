@@ -631,12 +631,6 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		return
 	}
 
-	if r.mercury.cred == nil || !r.mercury.cred.Validate() {
-		chResult <- checkResult{
-			err: errors.New("mercury credential is empty or not provided but FeedLookup feature is enabled on registry"),
-		}
-		return
-	}
 	upkeepResults, err = r.feedLookup(ctx, upkeepResults)
 	if err != nil {
 		chResult <- checkResult{
