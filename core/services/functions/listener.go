@@ -115,23 +115,24 @@ const (
 
 type FunctionsListener struct {
 	utils.StartStopOnce
-	oracle            *ocr2dr_oracle.OCR2DROracle
-	oracleHexAddr     string
-	job               job.Job
-	bridgeAccessor    BridgeAccessor
-	logBroadcaster    log.Broadcaster
-	shutdownWaitGroup sync.WaitGroup
-	mbOracleEvents    *utils.Mailbox[log.Broadcast]
-	serviceContext    context.Context
-	serviceCancel     context.CancelFunc
-	chStop            chan struct{}
-	pluginORM         ORM
-	pluginConfig      config.PluginConfig
-	s4Storage         s4.Storage
-	logger            logger.Logger
-	mailMon           *utils.MailboxMonitor
-	urlsMonEndpoint   commontypes.MonitoringEndpoint
-	decryptor         threshold.Decryptor
+	oracle                *ocr2dr_oracle.OCR2DROracle
+	oracleHexAddr         string
+	job                   job.Job
+	bridgeAccessor        BridgeAccessor
+	logBroadcaster        log.Broadcaster
+	shutdownWaitGroup     sync.WaitGroup
+	mbOracleEvents        *utils.Mailbox[log.Broadcast]
+	serviceContext        context.Context
+	serviceCancel         context.CancelFunc
+	chStop                chan struct{}
+	pluginORM             ORM
+	pluginConfig          config.PluginConfig
+	s4Storage             s4.Storage
+	logger                logger.Logger
+	mailMon               *utils.MailboxMonitor
+	urlsMonEndpoint       commontypes.MonitoringEndpoint
+	decryptor             threshold.Decryptor
+	decryptRequestTimeout time.Duration
 }
 
 func formatRequestId(requestId [32]byte) string {
@@ -150,22 +151,24 @@ func NewFunctionsListener(
 	mailMon *utils.MailboxMonitor,
 	urlsMonEndpoint commontypes.MonitoringEndpoint,
 	decryptor threshold.Decryptor,
+	decryptRequestTimeout time.Duration,
 ) *FunctionsListener {
 	return &FunctionsListener{
-		oracle:          oracle,
-		oracleHexAddr:   oracle.Address().Hex(),
-		job:             job,
-		bridgeAccessor:  bridgeAccessor,
-		logBroadcaster:  logBroadcaster,
-		mbOracleEvents:  utils.NewHighCapacityMailbox[log.Broadcast](),
-		chStop:          make(chan struct{}),
-		pluginORM:       pluginORM,
-		pluginConfig:    pluginConfig,
-		s4Storage:       s4Storage,
-		logger:          lggr,
-		mailMon:         mailMon,
-		urlsMonEndpoint: urlsMonEndpoint,
-		decryptor:       decryptor,
+		oracle:                oracle,
+		oracleHexAddr:         oracle.Address().Hex(),
+		job:                   job,
+		bridgeAccessor:        bridgeAccessor,
+		logBroadcaster:        logBroadcaster,
+		mbOracleEvents:        utils.NewHighCapacityMailbox[log.Broadcast](),
+		chStop:                make(chan struct{}),
+		pluginORM:             pluginORM,
+		pluginConfig:          pluginConfig,
+		s4Storage:             s4Storage,
+		logger:                lggr,
+		mailMon:               mailMon,
+		urlsMonEndpoint:       urlsMonEndpoint,
+		decryptor:             decryptor,
+		decryptRequestTimeout: decryptRequestTimeout,
 	}
 }
 
@@ -572,7 +575,10 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 		return "", nil, nil
 	}
 
-	decryptedSecretsBytes, err := l.decryptor.Decrypt(ctx, []byte(requestID), secrets)
+	decryptCtx, cancel := context.WithTimeout(ctx, l.decryptRequestTimeout)
+	defer cancel()
+
+	decryptedSecretsBytes, err := l.decryptor.Decrypt(decryptCtx, []byte(requestID), secrets)
 	if err != nil {
 		return "", errors.Wrap(err, "threshold decryption of secrets failed"), nil
 	}
