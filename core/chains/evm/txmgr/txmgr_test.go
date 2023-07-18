@@ -435,7 +435,7 @@ type mockConfig struct {
 	evmConfig           *evmConfig
 	rpcDefaultBatchSize uint32
 	finalityDepth       uint32
-	finalityTag         bool
+	finalityTagEnabled  bool
 }
 
 func (c *mockConfig) EVM() evmconfig.EVM {
@@ -445,7 +445,7 @@ func (c *mockConfig) EVM() evmconfig.EVM {
 func (c *mockConfig) NonceAutoSync() bool         { return true }
 func (c *mockConfig) ChainType() config.ChainType { return "" }
 func (c *mockConfig) FinalityDepth() uint32       { return c.finalityDepth }
-func (c *mockConfig) FinalityTag() bool           { return c.finalityTag }
+func (c *mockConfig) FinalityTagEnabled() bool    { return c.finalityTagEnabled }
 func (c *mockConfig) RPCDefaultBatchSize() uint32 { return c.rpcDefaultBatchSize }
 
 func makeConfigs(t *testing.T) (*mockConfig, *databaseConfig, *evmConfig) {

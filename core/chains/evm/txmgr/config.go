@@ -17,7 +17,7 @@ import (
 type ChainConfig interface {
 	ChainType() coreconfig.ChainType
 	FinalityDepth() uint32
-	FinalityTag() bool
+	FinalityTagEnabled() bool
 	NonceAutoSync() bool
 	RPCDefaultBatchSize() uint32
 }

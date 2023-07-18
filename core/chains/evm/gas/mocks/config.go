@@ -41,8 +41,8 @@ func (_m *Config) FinalityDepth() uint32 {
 	return r0
 }
 
-// FinalityTag provides a mock function with given fields:
-func (_m *Config) FinalityTag() bool {
+// FinalityTagEnabled provides a mock function with given fields:
+func (_m *Config) FinalityTagEnabled() bool {
 	ret := _m.Called()
 
 	var r0 bool
