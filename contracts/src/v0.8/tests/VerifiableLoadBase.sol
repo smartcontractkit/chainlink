@@ -6,7 +6,6 @@ import "../dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol";
 import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "../dev/automation/2_1/AutomationRegistrar2_1.sol";
 
-// this struct is the same as LogTriggerConfig defined in KeeperRegistryLogicA2_1 contract
 struct LogTriggerConfig {
   address contractAddress;
   uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
@@ -16,38 +15,16 @@ struct LogTriggerConfig {
   bytes32 topic3;
 }
 
-interface IVerifierProxy {
-  /**
-   * @notice Verifies that the data encoded has been signed
-   * correctly by routing to the correct verifier.
-   * @param signedReport The encoded data to be verified.
-   * @return verifierResponse The encoded response from the verifier.
-   */
-  function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
-}
-
 abstract contract VerifiableLoadBase is ConfirmedOwner {
   error IndexOutOfRange();
 
   event LogEmitted(uint256 indexed upkeepId, uint256 indexed blockNum, address addr);
   event UpkeepsRegistered(uint256[] upkeepIds);
-  event UpkeepsCancelled(uint256[] upkeepIds);
-  event RegistrarSet(address newRegistrar);
-  event FundsAdded(uint256 upkeepId, uint96 amount);
   event UpkeepTopUp(uint256 upkeepId, uint96 amount, uint256 blockNum);
-  event InsufficientFunds(uint256 balance, uint256 blockNum);
   event Received(address sender, uint256 value);
-  event PerformingUpkeep(
-    uint256 upkeepId,
-    uint256 firstPerformBlock,
-    uint256 lastBlock,
-    uint256 previousBlock,
-    uint256 counter
-  );
 
   using EnumerableSet for EnumerableSet.UintSet;
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
-  IVerifierProxy internal constant VERIFIER = IVerifierProxy(0x09DFf56A4fF44e0f4436260A04F5CFa65636A481);
   bytes32 public constant emittedSig = 0x97009585a4d2440f981ab6f6eec514343e1e6b2aa9b991a26998e6806f41bf08; //keccak256(LogEmitted(uint256,uint256,address))
 
   mapping(uint256 => uint256) public lastTopUpBlocks;
@@ -59,14 +36,10 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   mapping(uint256 => uint256) public checkGasToBurns;
   mapping(uint256 => uint256) public performDataSizes;
   mapping(uint256 => uint256) public gasLimits;
-  mapping(uint256 => bytes) public checkDatas;
   mapping(bytes32 => bool) public dummyMap; // used to force storage lookup
   mapping(uint256 => uint256[]) public delays; // how to query for delays for a certain past period: calendar day and/or past 24 hours
 
   mapping(uint256 => mapping(uint16 => uint256[])) public bucketedDelays;
-  mapping(uint256 => mapping(uint16 => uint256[])) public timestampDelays;
-  mapping(uint256 => uint256[]) public timestamps;
-  mapping(uint256 => uint16) public timestampBuckets;
   mapping(uint256 => uint16) public buckets;
   EnumerableSet.UintSet internal s_upkeepIDs;
   AutomationRegistrar2_1 public registrar;
@@ -84,7 +57,6 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   // the following fields are immutable bc if they are adjusted, the existing upkeeps' delays will be stored in
   // different sizes of buckets. it's better to redeploy this contract with new values.
   uint16 public immutable BUCKET_SIZE = 100;
-  uint16 public immutable TIMESTAMP_INTERVAL = 3600;
 
   /**
    * @param registrarAddress a registrar address
@@ -127,8 +99,6 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     (address registryAddress, ) = registrar.getConfig();
     registry = IKeeperRegistryMaster(payable(address(registryAddress)));
     linkToken = registrar.LINK();
-
-    emit RegistrarSet(address(registrar));
   }
 
   /**
@@ -159,7 +129,6 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     uint256 upkeepId = registrar.registerUpkeep(params);
     s_upkeepIDs.add(upkeepId);
     gasLimits[upkeepId] = params.gasLimit;
-    checkDatas[upkeepId] = params.checkData;
     return upkeepId;
   }
 
@@ -223,15 +192,33 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     emit UpkeepsRegistered(upkeepIds);
   }
 
+  function topUpFund(uint256 upkeepId, uint256 blockNum) public {
+    if (blockNum - lastTopUpBlocks[upkeepId] > upkeepTopUpCheckInterval) {
+      KeeperRegistryBase2_1.UpkeepInfo memory info = registry.getUpkeep(upkeepId);
+      uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
+      if (info.balance < minBalanceThresholdMultiplier * minBalance) {
+        addFunds(upkeepId, addLinkAmount);
+        lastTopUpBlocks[upkeepId] = blockNum;
+        emit UpkeepTopUp(upkeepId, addLinkAmount, blockNum);
+      }
+    }
+  }
+
+  function burnPerformGas(uint256 upkeepId, uint256 startGas, uint256 blockNum) public {
+    uint256 performGasToBurn = performGasToBurns[upkeepId];
+    while (startGas - gasleft() + 10000 < performGasToBurn) {
+      dummyMap[blockhash(blockNum)] = false;
+    }
+  }
+
   /**
    * @notice adds fund for an upkeep.
    * @param upkeepId the upkeep ID
    * @param amount the amount of LINK to be funded for the upkeep
    */
-  function addFunds(uint256 upkeepId, uint96 amount) external {
+  function addFunds(uint256 upkeepId, uint96 amount) public {
     linkToken.approve(address(registry), amount);
     registry.addFunds(upkeepId, amount);
-    emit FundsAdded(upkeepId, amount);
   }
 
   /**
@@ -241,7 +228,6 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
    */
   function updateUpkeepPipelineData(uint256 upkeepId, bytes calldata pipelineData) external {
     registry.setUpkeepCheckData(upkeepId, pipelineData);
-    checkDatas[upkeepId] = pipelineData;
   }
 
   function withdrawLinks(uint256 upkeepId) external {
@@ -273,7 +259,6 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     for (uint8 i = 0; i < len; i++) {
       this.cancelUpkeep(upkeepIds[i]);
     }
-    emit UpkeepsCancelled(upkeepIds);
   }
 
   function eligible(uint256 upkeepId) public view returns (bool) {
@@ -327,13 +312,6 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
       delete bucketedDelays[upkeepId][i];
     }
     delete buckets[upkeepId];
-
-    currentBucket = timestampBuckets[upkeepId];
-    for (uint16 i = 0; i <= currentBucket; i++) {
-      delete timestampDelays[upkeepId][i];
-    }
-    delete timestamps[upkeepId];
-    delete timestampBuckets[upkeepId];
   }
 
   /**
@@ -377,14 +355,6 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     return delays[upkeepId].length;
   }
 
-  function getDelaysLengthAtBucket(uint256 upkeepId, uint16 bucket) public view returns (uint256) {
-    return bucketedDelays[upkeepId][bucket].length;
-  }
-
-  function getDelaysLengthAtTimestampBucket(uint256 upkeepId, uint16 timestampBucket) public view returns (uint256) {
-    return timestampDelays[upkeepId][timestampBucket].length;
-  }
-
   function getBucketedDelaysLength(uint256 upkeepId) public view returns (uint256) {
     uint16 currentBucket = buckets[upkeepId];
     uint256 len = 0;
@@ -394,21 +364,8 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     return len;
   }
 
-  function getTimestampBucketedDelaysLength(uint256 upkeepId) public view returns (uint256) {
-    uint16 timestampBucket = timestampBuckets[upkeepId];
-    uint256 len = 0;
-    for (uint16 i = 0; i <= timestampBucket; i++) {
-      len += timestampDelays[upkeepId][i].length;
-    }
-    return len;
-  }
-
   function getDelays(uint256 upkeepId) public view returns (uint256[] memory) {
     return delays[upkeepId];
-  }
-
-  function getTimestampDelays(uint256 upkeepId, uint16 timestampBucket) public view returns (uint256[] memory) {
-    return timestampDelays[upkeepId][timestampBucket];
   }
 
   function getBucketedDelays(uint256 upkeepId, uint16 bucket) public view returns (uint256[] memory) {
@@ -420,59 +377,8 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     return getSumDelayLastNPerforms(delays, n);
   }
 
-  function getSumBucketedDelayLastNPerforms(uint256 upkeepId, uint256 n) public view returns (uint256, uint256) {
-    uint256 len = this.getBucketedDelaysLength(upkeepId);
-    if (n == 0 || n >= len) {
-      n = len;
-    }
-    uint256 nn = n;
-    uint256 sum = 0;
-    uint16 currentBucket = buckets[upkeepId];
-    for (uint16 i = currentBucket; i >= 0; i--) {
-      uint256[] memory delays = bucketedDelays[upkeepId][i];
-      (uint256 s, uint256 m) = getSumDelayLastNPerforms(delays, nn);
-      sum += s;
-      nn -= m;
-      if (nn <= 0) {
-        break;
-      }
-    }
-    return (sum, n);
-  }
-
-  function getSumTimestampBucketedDelayLastNPerforms(
-    uint256 upkeepId,
-    uint256 n
-  ) public view returns (uint256, uint256) {
-    uint256 len = this.getTimestampBucketedDelaysLength(upkeepId);
-    if (n == 0 || n >= len) {
-      n = len;
-    }
-    uint256 nn = n;
-    uint256 sum = 0;
-    uint16 timestampBucket = timestampBuckets[upkeepId];
-    for (uint16 i = timestampBucket; i >= 0; i--) {
-      uint256[] memory delays = timestampDelays[upkeepId][i];
-      (uint256 s, uint256 m) = getSumDelayLastNPerforms(delays, nn);
-      sum += s;
-      nn -= m;
-      if (nn <= 0) {
-        break;
-      }
-    }
-    return (sum, n);
-  }
-
   function getSumDelayInBucket(uint256 upkeepId, uint16 bucket) public view returns (uint256, uint256) {
     uint256[] memory delays = bucketedDelays[upkeepId][bucket];
-    return getSumDelayLastNPerforms(delays, delays.length);
-  }
-
-  function getSumDelayInTimestampBucket(
-    uint256 upkeepId,
-    uint16 timestampBucket
-  ) public view returns (uint256, uint256) {
-    uint256[] memory delays = timestampDelays[upkeepId][timestampBucket];
     return getSumDelayLastNPerforms(delays, delays.length);
   }
 
@@ -486,60 +392,6 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
 
     for (i = 0; i < n; i++) sum = sum + delays[len - i - 1];
     return (sum, n);
-  }
-
-  function getPxDelayForAllUpkeeps(uint256 p) public view returns (uint256[] memory, uint256[] memory) {
-    uint256 len = s_upkeepIDs.length();
-    uint256[] memory upkeepIds = new uint256[](len);
-    uint256[] memory pxDelays = new uint256[](len);
-
-    for (uint256 idx = 0; idx < len; idx++) {
-      uint256 upkeepId = s_upkeepIDs.at(idx);
-      uint256[] memory delays = delays[upkeepId];
-      upkeepIds[idx] = upkeepId;
-      pxDelays[idx] = getPxDelayLastNPerforms(delays, p, delays.length);
-    }
-
-    return (upkeepIds, pxDelays);
-  }
-
-  function getPxBucketedDelaysForAllUpkeeps(uint256 p) public view returns (uint256[] memory, uint256[] memory) {
-    uint256 len = s_upkeepIDs.length();
-    uint256[] memory upkeepIds = new uint256[](len);
-    uint256[] memory pxDelays = new uint256[](len);
-
-    for (uint256 idx = 0; idx < len; idx++) {
-      uint256 upkeepId = s_upkeepIDs.at(idx);
-      upkeepIds[idx] = upkeepId;
-      uint16 currentBucket = buckets[upkeepId];
-      uint256 delayLen = this.getBucketedDelaysLength(upkeepId);
-      uint256[] memory delays = new uint256[](delayLen);
-      uint256 i = 0;
-      mapping(uint16 => uint256[]) storage bucketedDelays = bucketedDelays[upkeepId];
-      for (uint16 j = 0; j <= currentBucket; j++) {
-        uint256[] memory d = bucketedDelays[j];
-        for (uint256 k = 0; k < d.length; k++) {
-          delays[i++] = d[k];
-        }
-      }
-      pxDelays[idx] = getPxDelayLastNPerforms(delays, p, delayLen);
-    }
-
-    return (upkeepIds, pxDelays);
-  }
-
-  function getPxDelayInTimestampBucket(
-    uint256 upkeepId,
-    uint256 p,
-    uint16 timestampBucket
-  ) public view returns (uint256) {
-    uint256[] memory delays = timestampDelays[upkeepId][timestampBucket];
-    return getPxDelayLastNPerforms(delays, p, delays.length);
-  }
-
-  function getPxDelayInBucket(uint256 upkeepId, uint256 p, uint16 bucket) public view returns (uint256) {
-    uint256[] memory delays = bucketedDelays[upkeepId][bucket];
-    return getPxDelayLastNPerforms(delays, p, delays.length);
   }
 
   function getPxDelayLastNPerforms(uint256 upkeepId, uint256 p, uint256 n) public view returns (uint256) {
