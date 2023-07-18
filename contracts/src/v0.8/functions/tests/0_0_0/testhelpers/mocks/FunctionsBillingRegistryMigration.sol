@@ -1,35 +1,36 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
-import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
-import {IFunctionsBillingRegistry} from "./interfaces/IFunctionsBillingRegistry.sol";
-import {IFunctionsOracle} from "./interfaces/IFunctionsOracle.sol";
-import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
-import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
-import {IAuthorizedOriginReceiver} from "./accessControl/interfaces/IAuthorizedOriginReceiver.sol";
-import {ConfirmedOwnerUpgradeable} from "./accessControl/ConfirmedOwnerUpgradeable.sol";
-import {AuthorizedReceiver} from "./accessControl/AuthorizedReceiver.sol";
-import {SafeCast} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
-import {PausableUpgradeable} from "../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/security/PausableUpgradeable.sol";
-import {Initializable} from "../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
+import {LinkTokenInterface} from "../../../../../interfaces/LinkTokenInterface.sol";
+import {AggregatorV3Interface} from "../../../../../interfaces/AggregatorV3Interface.sol";
+import {FunctionsBillingRegistryInterface} from "./FunctionsBillingRegistryInterface.sol";
+import {FunctionsOracleInterface} from "./FunctionsOracleInterface.sol";
+import {FunctionsClientInterface} from "./FunctionsClientInterface.sol";
+import {TypeAndVersionInterface} from "../../../../../interfaces/TypeAndVersionInterface.sol";
+import {ERC677ReceiverInterface} from "../../../../../interfaces/ERC677ReceiverInterface.sol";
+import {AuthorizedOriginReceiverInterface} from "./AuthorizedOriginReceiverInterface.sol";
+import {ConfirmedOwnerUpgradeable} from "./ConfirmedOwnerUpgradeable.sol";
+import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
+import {SafeCast} from "../../../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
+import {PausableUpgradeable} from "../../../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/security/PausableUpgradeable.sol";
+import {Initializable} from "../../../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Billing Registry contract
  * @notice Contract that coordinates payment from users to the nodes of the Decentralized Oracle Network (DON).
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract FunctionsBillingRegistry is
+contract FunctionsBillingRegistryMigration is
   Initializable,
   ConfirmedOwnerUpgradeable,
   PausableUpgradeable,
-  IFunctionsBillingRegistry,
+  FunctionsBillingRegistryInterface,
   ERC677ReceiverInterface,
   AuthorizedReceiver
 {
-  LinkTokenInterface private LINK;
-  AggregatorV3Interface private LINK_ETH_FEED;
-  IAuthorizedOriginReceiver private ORACLE_WITH_ALLOWLIST;
+  LinkTokenInterface public LINK;
+  AggregatorV3Interface public LINK_ETH_FEED;
+  AuthorizedOriginReceiverInterface private ORACLE_WITH_ALLOWLIST;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -87,6 +88,7 @@ contract FunctionsBillingRegistry is
 
   error GasLimitTooBig(uint32 have, uint32 want);
   error InvalidLinkWeiPrice(int256 linkWei);
+  error IncorrectRequestID();
   error PaymentTooLarge();
   error Reentrant();
 
@@ -153,7 +155,7 @@ contract FunctionsBillingRegistry is
     __ConfirmedOwner_initialize(msg.sender, address(0));
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
-    ORACLE_WITH_ALLOWLIST = IAuthorizedOriginReceiver(oracle);
+    ORACLE_WITH_ALLOWLIST = AuthorizedOriginReceiverInterface(oracle);
   }
 
   /**
@@ -195,8 +197,6 @@ contract FunctionsBillingRegistry is
    * @return gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
    * @return fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
    * @return gasOverhead average gas execution cost used in estimating total cost
-   * @return linkAddress address of contract for the LINK token
-   * @return linkPriceFeed address of contract for a conversion price between LINK token and native token
    */
   function getConfig()
     external
@@ -206,9 +206,7 @@ contract FunctionsBillingRegistry is
       uint32 stalenessSeconds,
       uint256 gasAfterPaymentCalculation,
       int256 fallbackWeiPerUnitLink,
-      uint32 gasOverhead,
-      address linkAddress,
-      address linkPriceFeed
+      uint32 gasOverhead
     )
   {
     return (
@@ -216,9 +214,7 @@ contract FunctionsBillingRegistry is
       s_config.stalenessSeconds,
       s_config.gasAfterPaymentCalculation,
       s_fallbackWeiPerUnitLink,
-      s_config.gasOverhead,
-      address(LINK),
-      address(LINK_ETH_FEED)
+      s_config.gasOverhead
     );
   }
 
@@ -266,25 +262,24 @@ contract FunctionsBillingRegistry is
   }
 
   /**
-   * @inheritdoc IFunctionsBillingRegistry
+   * @inheritdoc FunctionsBillingRegistryInterface
    */
   function getRequestConfig() external view override returns (uint32, address[] memory) {
     return (s_config.maxGasLimit, getAuthorizedSenders());
   }
 
   /**
-   * @inheritdoc IFunctionsBillingRegistry
+   * @inheritdoc FunctionsBillingRegistryInterface
    */
   function getRequiredFee(
     bytes calldata /* data */,
-    IFunctionsBillingRegistry.RequestBilling memory /* billing */
+    FunctionsBillingRegistryInterface.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
-    // NOTE: Optionally, compute additional fee here
-    return 0;
+    return 1;
   }
 
   /**
-   * @inheritdoc IFunctionsBillingRegistry
+   * @inheritdoc FunctionsBillingRegistryInterface
    */
   function estimateCost(
     uint32 gasLimit,
@@ -308,7 +303,7 @@ contract FunctionsBillingRegistry is
   }
 
   /**
-   * @inheritdoc IFunctionsBillingRegistry
+   * @inheritdoc FunctionsBillingRegistryInterface
    */
   function startBilling(
     bytes calldata data,
@@ -332,7 +327,7 @@ contract FunctionsBillingRegistry is
     }
 
     // Check that subscription can afford the estimated cost
-    uint96 oracleFee = IFunctionsOracle(msg.sender).getRequiredFee(data, billing);
+    uint96 oracleFee = FunctionsOracleInterface(msg.sender).getRequiredFee(data, billing);
     uint96 registryFee = getRequiredFee(data, billing);
     uint96 estimatedCost = estimateCost(billing.gasLimit, billing.gasPrice, oracleFee, registryFee);
     uint96 effectiveBalance = s_subscriptions[billing.subscriptionId].balance -
@@ -408,7 +403,7 @@ contract FunctionsBillingRegistry is
   }
 
   /**
-   * @inheritdoc IFunctionsBillingRegistry
+   * @inheritdoc FunctionsBillingRegistryInterface
    */
   function fulfillAndBill(
     bytes32 requestId,
@@ -419,15 +414,15 @@ contract FunctionsBillingRegistry is
     uint8 signerCount,
     uint256 reportValidationGas,
     uint256 initialGas
-  ) external override validateAuthorizedSender nonReentrant whenNotPaused returns (FulfillResult) {
+  ) external override validateAuthorizedSender nonReentrant whenNotPaused returns (bool success) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.don == address(0)) {
-      return FulfillResult.INVALID_REQUEST_ID;
+      revert IncorrectRequestID();
     }
     delete s_requestCommitments[requestId];
 
     bytes memory callback = abi.encodeWithSelector(
-      IFunctionsClient.handleOracleFulfillment.selector,
+      FunctionsClientInterface.handleOracleFulfillment.selector,
       requestId,
       response,
       err
@@ -439,7 +434,7 @@ contract FunctionsBillingRegistry is
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_config.reentrancyLock = true;
-    bool success = callWithExactGas(commitment.gasLimit, commitment.client, callback);
+    success = callWithExactGas(commitment.gasLimit, commitment.client, callback);
     s_config.reentrancyLock = false;
 
     // We want to charge users exactly for how much gas they use in their callback.
@@ -460,7 +455,9 @@ contract FunctionsBillingRegistry is
     s_subscriptions[commitment.subscriptionId].balance -= bill.totalCost;
     // Pay out signers their portion of the DON fee
     for (uint256 i = 0; i < signerCount; i++) {
-      s_withdrawableTokens[signers[i]] += bill.signerPayment;
+      if (signers[i] != transmitter) {
+        s_withdrawableTokens[signers[i]] += bill.signerPayment;
+      }
     }
     // Pay out the registry fee
     s_withdrawableTokens[owner()] += commitment.registryFee;
@@ -477,7 +474,6 @@ contract FunctionsBillingRegistry is
       bill.totalCost,
       success
     );
-    return success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
   }
 
   // Determine the cost breakdown for payment
@@ -504,7 +500,7 @@ contract FunctionsBillingRegistry is
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
     uint96 signerPayment = donFee / uint96(signerCount);
-    uint96 transmitterPayment = uint96(paymentNoFee);
+    uint96 transmitterPayment = uint96(paymentNoFee) + signerPayment;
     uint96 totalCost = SafeCast.toUint96(paymentNoFee + fee);
     return ItemizedBill(signerPayment, transmitterPayment, totalCost);
   }
@@ -523,7 +519,6 @@ contract FunctionsBillingRegistry is
   /*
    * @notice Oracle withdraw LINK earned through fulfilling requests
    * @notice If amount is 0 the full balance will be withdrawn
-   * @notice Both signing and transmitting wallets will have a balance to withdraw
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */

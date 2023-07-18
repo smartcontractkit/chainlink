@@ -1,17 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {IFunctionsOracle, IFunctionsBillingRegistry} from "./interfaces/IFunctionsOracle.sol";
-import {OCR2BaseUpgradeable} from "./ocr/OCR2BaseUpgradeable.sol";
-import {AuthorizedOriginReceiverUpgradeable} from "./accessControl/AuthorizedOriginReceiverUpgradeable.sol";
-import {Initializable} from "../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
+import {FunctionsOracleInterface} from "./FunctionsOracleInterface.sol";
+import {FunctionsBillingRegistryInterface} from "./FunctionsBillingRegistryInterface.sol";
+import {OCR2BaseUpgradeable} from "./OCR2BaseUpgradeable.sol";
+import {AuthorizedOriginReceiverUpgradeable} from "./AuthorizedOriginReceiverUpgradeable.sol";
+import {Initializable} from "../../../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Oracle contract
  * @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable, AuthorizedOriginReceiverUpgradeable {
+contract FunctionsOracleMigration is
+  Initializable,
+  FunctionsOracleInterface,
+  OCR2BaseUpgradeable,
+  AuthorizedOriginReceiverUpgradeable
+{
   event OracleRequest(
     bytes32 indexed requestId,
     address requestingContract,
@@ -23,20 +29,17 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   event OracleResponse(bytes32 indexed requestId);
   event UserCallbackError(bytes32 indexed requestId, string reason);
   event UserCallbackRawError(bytes32 indexed requestId, bytes lowLevelData);
-  event InvalidRequestID(bytes32 indexed requestId);
-  event ResponseTransmitted(bytes32 indexed requestId, address transmitter);
 
   error EmptyRequestData();
   error InconsistentReportData();
   error EmptyPublicKey();
   error EmptyBillingRegistry();
+  error InvalidRequestID();
   error UnauthorizedPublicKeyChange();
 
   bytes private s_donPublicKey;
-  IFunctionsBillingRegistry private s_registry;
+  FunctionsBillingRegistryInterface private s_registry;
   mapping(address => bytes) private s_nodePublicKeys;
-
-  bytes private s_thresholdPublicKey;
 
   /**
    * @dev Initializes the contract.
@@ -51,52 +54,35 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
    * @return Type and version string
    */
   function typeAndVersion() external pure override returns (string memory) {
-    return "FunctionsOracle 0.0.0";
+    return "FunctionsOracle ?.?.?";
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc FunctionsOracleInterface
    */
   function getRegistry() external view override returns (address) {
     return address(s_registry);
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc FunctionsOracleInterface
    */
   function setRegistry(address registryAddress) external override onlyOwner {
     if (registryAddress == address(0)) {
       revert EmptyBillingRegistry();
     }
-    s_registry = IFunctionsBillingRegistry(registryAddress);
+    s_registry = FunctionsBillingRegistryInterface(registryAddress);
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
-   */
-  function getThresholdPublicKey() external view override returns (bytes memory) {
-    return s_thresholdPublicKey;
-  }
-
-  /**
-   * @inheritdoc IFunctionsOracle
-   */
-  function setThresholdPublicKey(bytes calldata thresholdPublicKey) external override onlyOwner {
-    if (thresholdPublicKey.length == 0) {
-      revert EmptyPublicKey();
-    }
-    s_thresholdPublicKey = thresholdPublicKey;
-  }
-
-  /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc FunctionsOracleInterface
    */
   function getDONPublicKey() external view override returns (bytes memory) {
     return s_donPublicKey;
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc FunctionsOracleInterface
    */
   function setDONPublicKey(bytes calldata donPublicKey) external override onlyOwner {
     if (donPublicKey.length == 0) {
@@ -119,7 +105,7 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc FunctionsOracleInterface
    */
   function setNodePublicKey(address node, bytes calldata publicKey) external override {
     // Owner can set anything. Transmitters can set only their own key.
@@ -130,7 +116,7 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc FunctionsOracleInterface
    */
   function deleteNodePublicKey(address node) external override {
     // Owner can delete anything. Others can delete only their own key.
@@ -141,7 +127,7 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc FunctionsOracleInterface
    */
   function getAllNodePublicKeys() external view override returns (address[] memory, bytes[] memory) {
     address[] memory nodes = this.transmitters();
@@ -153,19 +139,19 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc FunctionsOracleInterface
    */
   function getRequiredFee(
     bytes calldata /* data */,
-    IFunctionsBillingRegistry.RequestBilling memory /* billing */
+    FunctionsBillingRegistryInterface.RequestBilling memory /* billing */
   ) public pure override returns (uint96) {
     // NOTE: Optionally, compute additional fee split between nodes of the DON here
     // e.g. 0.1 LINK * s_transmitters.length
-    return 0;
+    return 1;
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc FunctionsOracleInterface
    */
   function estimateCost(
     uint64 subscriptionId,
@@ -173,19 +159,19 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
     uint32 gasLimit,
     uint256 gasPrice
   ) external view override registryIsSet returns (uint96) {
-    IFunctionsBillingRegistry.RequestBilling memory billing = IFunctionsBillingRegistry.RequestBilling(
+    FunctionsBillingRegistryInterface.RequestBilling memory billing = FunctionsBillingRegistryInterface.RequestBilling(
       subscriptionId,
       msg.sender,
       gasLimit,
       gasPrice
     );
-    uint96 donFee = getRequiredFee(data, billing);
-    uint96 registryFee = s_registry.getRequiredFee(data, billing);
-    return s_registry.estimateCost(gasLimit, gasPrice, donFee, registryFee);
+    uint96 requiredFee = getRequiredFee(data, billing);
+    uint96 registryFee = getRequiredFee(data, billing);
+    return s_registry.estimateCost(gasLimit, gasPrice, requiredFee, registryFee);
   }
 
   /**
-   * @inheritdoc IFunctionsOracle
+   * @inheritdoc FunctionsOracleInterface
    */
   function sendRequest(
     uint64 subscriptionId,
@@ -197,7 +183,7 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
     }
     bytes32 requestId = s_registry.startBilling(
       data,
-      IFunctionsBillingRegistry.RequestBilling(subscriptionId, msg.sender, gasLimit, tx.gasprice)
+      FunctionsBillingRegistryInterface.RequestBilling(subscriptionId, msg.sender, gasLimit, tx.gasprice)
     );
     emit OracleRequest(
       requestId,
@@ -252,19 +238,14 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
           reportValidationGasShare,
           gasleft()
         )
-      returns (IFunctionsBillingRegistry.FulfillResult result) {
-        if (result == IFunctionsBillingRegistry.FulfillResult.USER_SUCCESS) {
+      returns (bool success) {
+        if (success) {
           emit OracleResponse(requestIds[i]);
-          emit ResponseTransmitted(requestIds[i], transmitter);
-        } else if (result == IFunctionsBillingRegistry.FulfillResult.USER_ERROR) {
+        } else {
           emit UserCallbackError(requestIds[i], "error in callback");
-          emit ResponseTransmitted(requestIds[i], transmitter);
-        } else if (result == IFunctionsBillingRegistry.FulfillResult.INVALID_REQUEST_ID) {
-          emit InvalidRequestID(requestIds[i]);
         }
       } catch (bytes memory reason) {
         emit UserCallbackRawError(requestIds[i], reason);
-        emit ResponseTransmitted(requestIds[i], transmitter);
       }
     }
   }
@@ -288,5 +269,5 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
    * variables without shifting down storage in the inheritance chain.
    * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
    */
-  uint256[48] private __gap;
+  uint256[49] private __gap;
 }
