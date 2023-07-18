@@ -22,8 +22,8 @@ var (
 	ErrNotFound     = errors.New("not found")
 )
 
-// Chains is a generic interface for chain configuration.
-type Chains interface {
+// ChainStatuser is a generic interface for chain configuration.
+type ChainStatuser interface {
 	ChainStatus(ctx context.Context, id string) (types.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
 }

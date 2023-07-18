@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type nodeBatcher struct {
@@ -24,14 +25,19 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 		keyOrder[key.String()] = ix
 	}
 
-	nodes, _, err := b.app.GetChains().EVM.NodeStatuses(ctx, 0, -1, ids...)
-	if err != nil {
-		return []*dataloader.Result{{Data: nil, Error: err}}
-	}
+	evmRelayers := b.app.GetRelayers().List(chainlink.FilterByType(relay.EVM))
+	var allNodes []types.NodeStatus
+	for _, r := range evmRelayers.Slice() {
 
+		nodes, _, err := r.NodeStatuses(ctx, 0, -1, ids...)
+		if err != nil {
+			return []*dataloader.Result{{Data: nil, Error: err}}
+		}
+		allNodes = append(allNodes, nodes...)
+	}
 	// Generate a map of nodes to chainIDs
 	nodesForChain := map[string][]types.NodeStatus{}
-	for _, n := range nodes {
+	for _, n := range allNodes {
 		nodesForChain[n.ChainID] = append(nodesForChain[n.ChainID], n)
 	}
 

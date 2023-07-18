@@ -61,9 +61,9 @@ type Chains struct {
 	chains.ChainsKV[Chain]
 }
 
-func (c Chains) Default() Chain {
+func (c Chains) Default() (Chain, error) {
 	//TODO
-	return nil
+	return nil, nil
 }
 
 type chain struct {

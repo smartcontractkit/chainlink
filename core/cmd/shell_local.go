@@ -347,12 +347,14 @@ func (s *Shell) runNode(c *cli.Context) error {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
 
-	evmChainSet := app.GetChains().EVM
+	//evmChainSet := app.GetChains().EVM
+	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
+
 	// By passing in a function we can be lazy trying to look up a default
 	// chain - if there are no existing keys, there is no need to check for
 	// a chain ID
 	DefaultEVMChainIDFunc := func() (*big.Int, error) {
-		def, err2 := evmChainSet.Default()
+		def, err2 := legacyEVMChains.Default()
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "cannot get default EVM chain ID; no default EVM chain available")
 		}
@@ -364,8 +366,11 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "error migrating keystore")
 		}
-
-		for _, ch := range evmChainSet.Chains() {
+		chainList, err := legacyEVMChains.List()
+		if err != nil {
+			return fmt.Errorf("error listing legacy evm chains: %w", err)
+		}
+		for _, ch := range chainList {
 			if ch.Config().EVM().AutoCreateKey() {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
 				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
@@ -581,7 +586,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
-	chain, err := app.GetChains().EVM.Get(chainID)
+	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		return s.errorOut(err)
 	}

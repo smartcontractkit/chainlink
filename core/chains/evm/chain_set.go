@@ -40,7 +40,7 @@ var _ ChainSet = &chainSet{}
 //go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
 type ChainSet interface {
 	services.ServiceCtx
-	chains.Chains
+	chains.ChainStatuser
 	chains.Nodes
 
 	Get(id *big.Int) (Chain, error)

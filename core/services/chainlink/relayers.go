@@ -199,6 +199,13 @@ func (rs *Relayers) List(filter FilterFn) *Relayers {
 	}
 }
 
+func (rs *Relayers) Slice() []loop.Relayer {
+	var result []loop.Relayer
+	for _, r := range rs.relayers {
+		result = append(result, r)
+	}
+	return result
+}
 func (rs *Relayers) services() (s []services.ServiceCtx) {
 	// TODO. ensure that the services are not duplicated between the chain and relayers...
 	s = append(s, sortByChainID(rs.relayers)...)

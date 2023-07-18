@@ -88,7 +88,7 @@ type SingleChainSet struct {
 	ID string
 }
 
-func (s SingleChainSet) GetChain(ctx context.Context) adapters.Chain {
+func (s SingleChainSet) getChain(ctx context.Context) adapters.Chain {
 	c, err := s.Chain(ctx, s.ID)
 	if err != nil {
 		panic("inconsistent single chain set")
@@ -96,6 +96,11 @@ func (s SingleChainSet) GetChain(ctx context.Context) adapters.Chain {
 	return c
 }
 
+/*
+	func (s SingleChainSet) Chain() adapters.Chain {
+		return s.getChain(context.Background())
+	}
+*/
 type LoopRelayAdapter interface {
 	loop.Relayer
 	Chain() adapters.Chain
@@ -114,7 +119,7 @@ func NewLoopRelayer(r *pkgcosmos.Relayer, s *SingleChainSet) *LoopRelayer {
 	}
 }
 func (l *LoopRelayer) Chain() adapters.Chain {
-	return l.x.GetChain(context.Background())
+	return l.x.getChain(context.Background())
 }
 
 var _ LoopRelayAdapter = &LoopRelayer{}
