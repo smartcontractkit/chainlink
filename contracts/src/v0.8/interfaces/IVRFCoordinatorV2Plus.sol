@@ -37,9 +37,7 @@ interface IVRFCoordinatorV2Plus {
    * @return requestId - A unique identifier of the request. Can be used to match
    * a request to a response in fulfillRandomWords.
    */
-  function requestRandomWords(
-    VRFV2PlusClient.RandomWordsRequest calldata req
-  ) external returns (uint256 requestId);
+  function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external returns (uint256 requestId);
 
   /**
    * @notice Create a VRF subscription.
