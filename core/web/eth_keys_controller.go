@@ -41,11 +41,16 @@ func NewETHKeysController(app chainlink.Application) *ETHKeysController {
 }
 
 func createETHKeyResource(c *gin.Context, ekc *ETHKeysController, key ethkey.KeyV2, state ethkey.State) *presenters.ETHKeyResource {
+	ethBalance := ekc.getEthBalance(c.Request.Context(), state)
+	linkBalance := ekc.getLinkBalance(c.Request.Context(), state)
+	maxGasPrice := ekc.getKeyMaxGasPriceWei(state, key.Address)
+
 	r := presenters.NewETHKeyResource(key, state,
-		ekc.setEthBalance(c.Request.Context(), state),
-		ekc.setLinkBalance(c.Request.Context(), state),
-		ekc.setKeyMaxGasPriceWei(state, key.Address),
+		ekc.setEthBalance(ethBalance),
+		ekc.setLinkBalance(linkBalance),
+		ekc.setKeyMaxGasPriceWei(maxGasPrice),
 	)
+
 	return r
 }
 
@@ -99,11 +104,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 			return
 		}
 
-		r := presenters.NewETHKeyResource(key, state,
-			ekc.setEthBalance(c.Request.Context(), state),
-			ekc.setLinkBalance(c.Request.Context(), state),
-			ekc.setKeyMaxGasPriceWei(state, key.Address),
-		)
+		r := createETHKeyResource(c, ekc, key, state)
 
 		resources = append(resources, *r)
 	}
@@ -113,6 +114,7 @@ func (ekc *ETHKeysController) Index(c *gin.Context) {
 	})
 
 	jsonAPIResponseWithStatus(c, resources, "keys", http.StatusOK)
+
 }
 
 // Create adds a new account
@@ -351,31 +353,38 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-// setEthBalance is a custom functional option for NewEthKeyResource which
-// queries the EthClient for the ETH balance at the address and sets it on the
-// resource.
-func (ekc *ETHKeysController) setEthBalance(ctx context.Context, state ethkey.State) presenters.NewETHKeyOption {
-	var bal *big.Int
+func (ekc *ETHKeysController) setEthBalance(bal *big.Int) presenters.NewETHKeyOption {
+	return presenters.SetETHKeyEthBalance((*assets.Eth)(bal))
+}
+
+// queries the EthClient for the ETH balance at the address associated with state
+func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.State) *big.Int {
 	chainID := state.EVMChainID.ToInt()
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
 	if err != nil {
 		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "err", err)
 		}
-	} else {
-		ethClient := chain.Client()
-		bal, err = ethClient.BalanceAt(ctx, state.Address.Address(), nil)
-		if err != nil {
-			ekc.lggr.Errorw("Failed to get ETH balance", "chainID", chainID, "address", state.Address, "err", err)
-		}
+		return nil
 	}
-	return presenters.SetETHKeyEthBalance((*assets.Eth)(bal))
+
+	ethClient := chain.Client()
+	bal, err := ethClient.BalanceAt(ctx, state.Address.Address(), nil)
+	if err != nil {
+		ekc.lggr.Errorw("Failed to get ETH balance", "chainID", chainID, "address", state.Address, "err", err)
+		return nil
+	}
+
+	return bal
+
 }
 
-// setLinkBalance is a custom functional option for NewEthKeyResource which
-// queries the EthClient for the LINK balance at the address and sets it on the
-// resource.
-func (ekc *ETHKeysController) setLinkBalance(ctx context.Context, state ethkey.State) presenters.NewETHKeyOption {
+func (ekc *ETHKeysController) setLinkBalance(bal *assets.Link) presenters.NewETHKeyOption {
+	return presenters.SetETHKeyLinkBalance(bal)
+}
+
+// queries the EthClient for the LINK balance at the address associated with state
+func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.State) *assets.Link {
 	var bal *assets.Link
 	chainID := state.EVMChainID.ToInt()
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
@@ -391,13 +400,17 @@ func (ekc *ETHKeysController) setLinkBalance(ctx context.Context, state ethkey.S
 			ekc.lggr.Errorw("Failed to get LINK balance", "chainID", chainID, "address", state.Address, "err", err)
 		}
 	}
-	return presenters.SetETHKeyLinkBalance(bal)
+	return bal
 }
 
 // setKeyMaxGasPriceWei is a custom functional option for NewEthKeyResource which
 // gets the key specific max gas price from the chain config and sets it on the
 // resource.
-func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddress common.Address) presenters.NewETHKeyOption {
+func (ekc *ETHKeysController) setKeyMaxGasPriceWei(price *assets.Wei) presenters.NewETHKeyOption {
+	return presenters.SetETHKeyMaxGasPriceWei(utils.NewBig(price.ToInt()))
+}
+
+func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddress common.Address) *assets.Wei {
 	var price *assets.Wei
 	chainID := state.EVMChainID.ToInt()
 	chain, err := ekc.app.GetChains().EVM.Get(chainID)
@@ -408,7 +421,7 @@ func (ekc *ETHKeysController) setKeyMaxGasPriceWei(state ethkey.State, keyAddres
 	} else {
 		price = chain.Config().EVM().GasEstimator().PriceMaxKey(keyAddress)
 	}
-	return presenters.SetETHKeyMaxGasPriceWei(utils.NewBig(price.ToInt()))
+	return price
 }
 
 // getChain is a convenience wrapper to retrieve a chain for a given request
