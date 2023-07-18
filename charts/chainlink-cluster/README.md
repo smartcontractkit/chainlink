@@ -27,6 +27,10 @@ cd charts/chainlink-cluster
 devspace use namespace cl-cluster
 devspace deploy
 ```
+If you don't need a build use
+```
+devspace deploy --skip-build
+```
 
 Connect to your environment
 ```
@@ -54,10 +58,14 @@ If you need to run some system level tests inside k8s use `runner` profile:
 devspace dev -p runner
 ```
 
+If you used `devspace dev ...` always use `devspace reset pods` to switch the pods back
+
 ## Debug existing cluster
-If you need to debug CL node that is already deployed change `dev.app.container` and `dev.app.labelSelector` in [devspace.yaml](devspace.yaml) and run:
+If you need to debug CL node that is already deployed change `dev.app.container` and `dev.app.labelSelector` in [devspace.yaml](devspace.yaml) if they are not default and run:
 ```
 devspace dev -p node
+or
+devspace dev -p runner
 ```
 
 ## Automatic file sync
@@ -71,7 +79,7 @@ Check `.profiles` to understand what is uploaded in profiles `runner` and `node`
 If you would like to use `helm` directly, please uncomment data in `values.yaml`
 ## Install
 ```
-helm install cl-cluster .
+helm install -f values-raw-helm.yaml cl-cluster .
 ```
 
 ## Helm Test

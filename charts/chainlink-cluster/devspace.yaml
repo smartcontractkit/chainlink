@@ -13,7 +13,7 @@ pipelines:
     run: |-
       run_dependencies --all       # 1. Deploy any projects this project needs (see "dependencies")
       ensure_pull_secrets --all    # 2. Ensure pull secrets
-      start_dev app                # 4. Start dev mode "app" (see "dev" section)
+      start_dev app                # 3. Start dev mode "app" (see "dev" section)
   # You can run this pipeline via `devspace deploy` (or `devspace run-pipeline deploy`)
   deploy:
     run: |-
@@ -127,6 +127,7 @@ dev:
           - integration-scripts/
           - testdata/
           - evm-test-helpers/
+          - tools/
     # Open a terminal and use the following command
     terminal:
       command: bash
