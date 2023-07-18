@@ -121,3 +121,100 @@ func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 		})
 	}
 }
+
+func TestTransmitEventLog(t *testing.T) {
+	uid := genUpkeepID(conditionTrigger, "111")
+
+	tests := []struct {
+		name  string
+		log   transmitEventLog
+		etype ocr2keepers.TransmitEventType
+	}{
+		{
+			"performed",
+			transmitEventLog{
+				Log: logpoller.Log{
+					BlockNumber: 1,
+					BlockHash:   common.HexToHash("0x010203040"),
+				},
+				Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
+					Id: uid,
+					TriggerID: [32]byte{
+						1, 2, 3, 4, 5, 6, 7, 8,
+					},
+				},
+			},
+			ocr2keepers.PerformEvent,
+		},
+		{
+			"stale",
+			transmitEventLog{
+				Log: logpoller.Log{
+					BlockNumber: 1,
+					BlockHash:   common.HexToHash("0x010203040"),
+				},
+				Stale: &iregistry21.IKeeperRegistryMasterStaleUpkeepReport{
+					Id: uid,
+					TriggerID: [32]byte{
+						1, 2, 3, 4, 5, 6, 7, 8,
+					},
+				},
+			},
+			ocr2keepers.StaleReportEvent,
+		},
+		{
+			"insufficient funds",
+			transmitEventLog{
+				Log: logpoller.Log{
+					BlockNumber: 1,
+					BlockHash:   common.HexToHash("0x010203040"),
+				},
+				InsufficientFunds: &iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{
+					Id: uid,
+					TriggerID: [32]byte{
+						1, 2, 3, 4, 5, 6, 7, 8,
+					},
+				},
+			},
+			ocr2keepers.TransmitEventType(3),
+		},
+		{
+			"reorged",
+			transmitEventLog{
+				Log: logpoller.Log{
+					BlockNumber: 1,
+					BlockHash:   common.HexToHash("0x010203040"),
+				},
+				Reorged: &iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{
+					Id: uid,
+					TriggerID: [32]byte{
+						1, 2, 3, 4, 5, 6, 7, 8,
+					},
+				},
+			},
+			ocr2keepers.TransmitEventType(2),
+		},
+		{
+			"empty",
+			transmitEventLog{
+				Log: logpoller.Log{
+					BlockNumber: 1,
+					BlockHash:   common.HexToHash("0x010203040"),
+				},
+			},
+			ocr2keepers.TransmitEventType(0),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if tc.log.Id() != nil {
+				require.Equal(t, uid.Int64(), tc.log.Id().Int64())
+				require.Equal(t, [32]byte{
+					1, 2, 3, 4, 5, 6, 7, 8,
+				}, tc.log.TriggerID())
+			}
+			require.Equal(t, tc.etype, tc.log.TransmitEventType())
+		})
+	}
+}
