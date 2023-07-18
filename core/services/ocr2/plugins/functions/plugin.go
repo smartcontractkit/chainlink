@@ -116,7 +116,6 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		conf.MailMon,
 		conf.URLsMonEndpoint,
 		decryptor,
-		time.Duration(pluginConfig.DecryptionQueueConfig.DecryptRequestTimeoutSec)*time.Second,
 	)
 	allServices = append(allServices, functionsListener)
 
