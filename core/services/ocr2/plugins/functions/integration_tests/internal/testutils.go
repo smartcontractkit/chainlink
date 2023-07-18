@@ -374,7 +374,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 			maxCiphertextBytes = 10_000
 			maxCiphertextIdLength = 100
 			maxQueueLength = 100
-			decryptRequestTimeoutSec = 10
+			decryptRequestTimeoutSec = 100
 
 			[pluginConfig.s4Constraints]
 			maxPayloadSizeBytes = 10_1000
