@@ -572,8 +572,6 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 		return "", nil, nil
 	}
 
-	fmt.Println("\n\n", ctx, time.Duration(l.pluginConfig.DecryptionQueueConfig.DecryptRequestTimeoutSec)*time.Second)
-
 	decryptCtx, cancel := context.WithTimeout(ctx, time.Duration(l.pluginConfig.DecryptionQueueConfig.DecryptRequestTimeoutSec)*time.Second)
 	defer cancel()
 
