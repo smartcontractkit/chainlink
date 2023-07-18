@@ -83,17 +83,15 @@ type ConditionalTrigger = Parameters<AutomationUtils['_conditionalTrigger']>[0]
 type Log = Parameters<AutomationUtils['_log']>[0]
 
 // -----------------------------------------------------------------------------------------------
-// These are the gas overheads that off chain systems should provide to check upkeep / transmit
-// These overheads are not actually charged for
-const transmitGasOverhead = BigNumber.from(1_000_000)
-const checkGasOverhead = BigNumber.from(400_000)
 
 // These values should match the constants declared in registry
-const registryConditionalOverhead = BigNumber.from(80_000)
-const registryLogOverhead = BigNumber.from(100_000)
-const registryPerSignerGasOverhead = BigNumber.from(7500)
-const registryPerPerformByteGasOverhead = BigNumber.from(20)
-const cancellationDelay = 50
+let transmitGasOverhead: BigNumber
+let checkGasOverhead: BigNumber
+let registryConditionalOverhead: BigNumber
+let registryLogOverhead: BigNumber
+let registryPerSignerGasOverhead: BigNumber
+let registryPerPerformByteGasOverhead: BigNumber
+let cancellationDelay: number
 
 // This is the margin for gas that we test for. Gas charged should always be greater
 // than total gas used in tx but should not increase beyond this margin
@@ -933,6 +931,15 @@ describe('KeeperRegistry2_1', () => {
       linkEthFeed.address,
       gasPriceFeed.address,
     )
+
+    transmitGasOverhead = await registry.getTransmitGasOverhead()
+    checkGasOverhead = await registry.getCheckGasOverhead()
+    registryConditionalOverhead = await registry.getConditionalGasOverhead()
+    registryLogOverhead = await registry.getLogGasOverhead()
+    registryPerSignerGasOverhead = await registry.getPerSignerGasOverhead()
+    registryPerPerformByteGasOverhead =
+      await registry.getPerPerformByteGasOverhead()
+    cancellationDelay = (await registry.getCancellationDelay()).toNumber()
 
     for (const reg of [registry, arbRegistry, opRegistry, mgRegistry]) {
       await reg.connect(owner).setConfig(...baseConfig)
