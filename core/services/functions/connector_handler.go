@@ -119,6 +119,7 @@ func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewa
 			Expiration: request.Expiration,
 			Payload:    request.Payload,
 		}
+		h.lggr.Debugw("handling a secrets_set request", "address", fromAddr, "slotId", request.SlotID, "payloadVersion", request.Version, "expiration", request.Expiration)
 		err = h.storage.Put(ctx, &key, &record, request.Signature)
 		if err == nil {
 			response.Success = true
