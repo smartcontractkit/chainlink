@@ -226,9 +226,9 @@ func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...
 	return keys, nil
 }
 
-func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, mercuryEnabled bool, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
+func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	chResult := make(chan checkResult, 1)
-	go r.doCheck(ctx, mercuryEnabled, keys, chResult)
+	go r.doCheck(ctx, keys, chResult)
 
 	select {
 	case rs := <-chResult:
@@ -622,7 +622,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 	return ids, nil
 }
 
-func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []ocr2keepers.UpkeepPayload, chResult chan checkResult) {
+func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayload, chResult chan checkResult) {
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
 		chResult <- checkResult{
@@ -631,20 +631,18 @@ func (r *EvmRegistry) doCheck(ctx context.Context, mercuryEnabled bool, keys []o
 		return
 	}
 
-	if mercuryEnabled {
-		if r.mercury.cred == nil || !r.mercury.cred.Validate() {
-			chResult <- checkResult{
-				err: errors.New("mercury credential is empty or not provided but FeedLookup feature is enabled on registry"),
-			}
-			return
+	if r.mercury.cred == nil || !r.mercury.cred.Validate() {
+		chResult <- checkResult{
+			err: errors.New("mercury credential is empty or not provided but FeedLookup feature is enabled on registry"),
 		}
-		upkeepResults, err = r.feedLookup(ctx, upkeepResults)
-		if err != nil {
-			chResult <- checkResult{
-				err: err,
-			}
-			return
+		return
+	}
+	upkeepResults, err = r.feedLookup(ctx, upkeepResults)
+	if err != nil {
+		chResult <- checkResult{
+			err: err,
 		}
+		return
 	}
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
