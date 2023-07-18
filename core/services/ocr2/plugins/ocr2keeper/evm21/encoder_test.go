@@ -2,6 +2,7 @@ package evm
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -17,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 )
 
-func TestEVMAutomationEncoder21_EncodeDecode(t *testing.T) {
+func TestEVMAutomationEncoder21_Encode(t *testing.T) {
 	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	assert.Nil(t, err)
 	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
@@ -68,7 +69,7 @@ func TestEVMAutomationEncoder21_EncodeDecode(t *testing.T) {
 			assert.Nil(t, err)
 			assert.Len(t, b, tc.reportSize)
 
-			upkeeps, err := encoder.Decode(b)
+			upkeeps, err := decode(encoder.packer, b)
 			assert.Nil(t, err)
 			assert.Len(t, upkeeps, len(tc.results))
 
@@ -145,63 +146,6 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 	}
 }
 
-func TestEVMAutomationEncoder21_ValidateRepoprt(t *testing.T) {
-	encoder := EVMAutomationEncoder21{}
-
-	tests := []struct {
-		name    string
-		report  automation_utils_2_1.KeeperRegistryBase21Report
-		errored bool
-	}{
-		{
-			"happy flow",
-			automation_utils_2_1.KeeperRegistryBase21Report{
-				FastGasWei:   big.NewInt(1),
-				LinkNative:   big.NewInt(1),
-				UpkeepIds:    []*big.Int{big.NewInt(1)},
-				GasLimits:    []*big.Int{big.NewInt(1)},
-				Triggers:     [][]byte{[]byte("1")},
-				PerformDatas: [][]byte{[]byte("1")},
-			},
-			false,
-		},
-		{
-			"empty report",
-			automation_utils_2_1.KeeperRegistryBase21Report{},
-			false,
-		},
-		{
-			"invalid report (extra upkeep id)",
-			automation_utils_2_1.KeeperRegistryBase21Report{
-				UpkeepIds: []*big.Int{big.NewInt(1), big.NewInt(2)},
-				GasLimits: []*big.Int{big.NewInt(1)},
-			},
-			true,
-		},
-		{
-			"invalid report (extra trigger)",
-			automation_utils_2_1.KeeperRegistryBase21Report{
-				Triggers: [][]byte{[]byte("1")},
-			},
-			true,
-		},
-		{
-			"invalid report (extra perform data)",
-			automation_utils_2_1.KeeperRegistryBase21Report{
-				PerformDatas: [][]byte{[]byte("1")},
-			},
-			true,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			err := encoder.validateReport(tc.report)
-			assert.Equal(t, tc.errored, err != nil)
-		})
-	}
-}
-
 func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckResult {
 	logExt := logprovider.LogTriggerExtension{}
 	tp := getUpkeepType(id)
@@ -231,4 +175,33 @@ func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckRe
 			LinkNative: big.NewInt(100),
 		},
 	}
+}
+
+func decode(packer *evmRegistryPackerV2_1, raw []byte) ([]ocr2keepers.UpkeepResult, error) {
+	report, err := packer.UnpackReport(raw)
+	if err != nil {
+		return nil, err
+	}
+
+	res := make([]ocr2keepers.UpkeepResult, len(report.UpkeepIds))
+
+	for i := 0; i < len(report.UpkeepIds); i++ {
+		trigger, err := packer.UnpackTrigger(report.UpkeepIds[i], report.Triggers[i])
+		if err != nil {
+			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
+		}
+		r := EVMAutomationUpkeepResult21{
+			Block:            trigger.BlockNum,
+			ID:               report.UpkeepIds[i],
+			Eligible:         true,
+			PerformData:      report.PerformDatas[i],
+			FastGasWei:       report.FastGasWei,
+			LinkNative:       report.LinkNative,
+			CheckBlockNumber: trigger.BlockNum,
+			CheckBlockHash:   trigger.BlockHash,
+		}
+		res[i] = ocr2keepers.UpkeepResult(r)
+	}
+
+	return res, nil
 }

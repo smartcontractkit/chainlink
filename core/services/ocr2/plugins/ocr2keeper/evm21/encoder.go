@@ -108,40 +108,6 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 	return enc.packer.PackReport(report)
 }
 
-func (enc EVMAutomationEncoder21) Decode(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
-	report, err := enc.packer.UnpackReport(raw)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := enc.validateReport(report); err != nil {
-		return nil, err
-	}
-
-	res := make([]ocr2keepers.UpkeepResult, len(report.UpkeepIds))
-
-	for i := 0; i < len(report.UpkeepIds); i++ {
-		trigger, err := enc.packer.UnpackTrigger(report.UpkeepIds[i], report.Triggers[i])
-		if err != nil {
-			// TODO: log error and continue instead?
-			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
-		}
-		r := EVMAutomationUpkeepResult21{
-			Block:            trigger.BlockNum,
-			ID:               report.UpkeepIds[i],
-			Eligible:         true,
-			PerformData:      report.PerformDatas[i],
-			FastGasWei:       report.FastGasWei,
-			LinkNative:       report.LinkNative,
-			CheckBlockNumber: trigger.BlockNum,
-			CheckBlockHash:   trigger.BlockHash,
-		}
-		res[i] = ocr2keepers.UpkeepResult(r)
-	}
-
-	return res, nil
-}
-
 // Extract the plugin will call this function to accept/transmit reports
 func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error) {
 	report, err := enc.packer.UnpackReport(raw)
@@ -175,21 +141,6 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 		}
 	}
 	return reportedUpkeeps, nil
-}
-
-// validateReport checks that the report is valid, currently checking that all
-// lists are the same length.
-func (enc EVMAutomationEncoder21) validateReport(report automation_utils_2_1.KeeperRegistryBase21Report) error {
-	if len(report.UpkeepIds) != len(report.GasLimits) {
-		return fmt.Errorf("invalid report: upkeepIds and gasLimits must be the same length")
-	}
-	if len(report.UpkeepIds) != len(report.Triggers) {
-		return fmt.Errorf("invalid report: upkeepIds and triggers must be the same length")
-	}
-	if len(report.UpkeepIds) != len(report.PerformDatas) {
-		return fmt.Errorf("invalid report: upkeepIds and performDatas must be the same length")
-	}
-	return nil
 }
 
 type BlockKeyHelper[T uint32 | int64] struct {

@@ -124,35 +124,6 @@ func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (Upke
 	return info, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
-	var (
-		enc     = EVMAutomationEncoder21{packer: rp}
-		decoded []ocr2keepers.UpkeepResult
-		out     []interface{}
-		err     error
-		b       []byte
-		ok      bool
-	)
-
-	if out, err = rp.abi.Methods["transmit"].Inputs.UnpackValues(raw); err != nil {
-		return nil, fmt.Errorf("%w: unpack TransmitTxInput return: %s", err, raw)
-	}
-
-	if len(out) < 2 {
-		return nil, fmt.Errorf("invalid unpacking of TransmitTxInput in %s", raw)
-	}
-
-	if b, ok = out[1].([]byte); !ok {
-		return nil, fmt.Errorf("unexpected value type in transaction")
-	}
-
-	if decoded, err = enc.Decode(b); err != nil {
-		return nil, fmt.Errorf("error during decoding report while unpacking TransmitTxInput: %w", err)
-	}
-
-	return decoded, nil
-}
-
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
 func (rp *evmRegistryPackerV2_1) UnpackLogTriggerConfig(raw []byte) (iregistry21.KeeperRegistryBase21LogTriggerConfig, error) {
 	var cfg iregistry21.KeeperRegistryBase21LogTriggerConfig

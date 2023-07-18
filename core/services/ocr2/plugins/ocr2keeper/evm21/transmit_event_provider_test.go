@@ -3,8 +3,8 @@ package evm
 import (
 	"context"
 	"math/big"
+	"runtime"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
@@ -31,6 +31,7 @@ func TestTransmitEventProvider(t *testing.T) {
 	require.NotNil(t, provider)
 
 	go func() {
+		require.Error(t, provider.Ready())
 		errs := provider.HealthReport()
 		require.Len(t, errs, 1)
 		require.Error(t, errs[provider.Name()])
@@ -41,8 +42,9 @@ func TestTransmitEventProvider(t *testing.T) {
 	}()
 
 	go func() {
-		<-time.After(2 * time.Second)
-		require.NoError(t, provider.Ready())
+		for provider.Ready() != nil {
+			runtime.Gosched()
+		}
 		errs := provider.HealthReport()
 		require.Len(t, errs, 1)
 		require.NoError(t, errs[provider.Name()])

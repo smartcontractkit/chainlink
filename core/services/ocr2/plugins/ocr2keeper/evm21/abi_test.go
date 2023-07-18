@@ -17,31 +17,6 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
-func TestPacker_UnpackTransmitTxInputErrors(t *testing.T) {
-
-	tests := []struct {
-		Name    string
-		RawData string
-	}{
-		{
-			Name:    "Empty Data",
-			RawData: "0x",
-		},
-		{
-			Name:    "Random Data",
-			RawData: "0x2f08cfae623a0d96b9beb326c20e322001cbbd344700",
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
-			packer, err := newPacker()
-			assert.NoError(t, err)
-			_, err = packer.UnpackTransmitTxInput(hexutil.MustDecode(test.RawData))
-			assert.NotNil(t, err)
-		})
-	}
-}
-
 func TestUnpackCheckResults(t *testing.T) {
 	upkeepId, _ := new(big.Int).SetString("1843548457736589226156809205796175506139185429616502850435279853710366065936", 10)
 
