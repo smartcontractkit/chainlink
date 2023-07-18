@@ -64,7 +64,7 @@ confirmed = EXCLUDED.confirmed,
 payload = EXCLUDED.payload,
 signature = EXCLUDED.signature,
 updated_at = NOW()
-WHERE (t.version < EXCLUDED.version AND t.confirmed IS FALSE) OR (t.version <= EXCLUDED.version AND EXCLUDED.confirmed IS TRUE)
+WHERE (t.version < EXCLUDED.version) OR (t.version <= EXCLUDED.version AND EXCLUDED.confirmed IS TRUE)
 RETURNING id;`, o.tableName)
 	var id uint64
 	err := q.Get(&id, stmt, o.namespace, row.Address, row.SlotId, row.Version, row.Expiration, row.Confirmed, row.Payload, row.Signature)

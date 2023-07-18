@@ -268,6 +268,8 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
 			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
+		case TaskTypeVRFV2Plus:
+			task.(*VRFTaskV2Plus).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
 			task.(*EstimateGasLimitTask).chainSet = r.chainSet
 			task.(*EstimateGasLimitTask).specGasLimit = run.PipelineSpec.GasLimit
