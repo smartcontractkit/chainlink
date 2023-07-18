@@ -58,7 +58,6 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     bool nativePayment,
     address indexed sender
   );
-
   event RandomWordsFulfilled(
     uint256 indexed requestId,
     uint256 outputSeed,
@@ -311,7 +310,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     address sender,
     uint64 subId,
     uint64 nonce
-  ) private pure returns (uint256, uint256) {
+  ) internal pure returns (uint256, uint256) {
     uint256 preSeed = uint256(keccak256(abi.encode(keyHash, sender, subId, nonce)));
     return (uint256(keccak256(abi.encode(keyHash, preSeed))), preSeed);
   }

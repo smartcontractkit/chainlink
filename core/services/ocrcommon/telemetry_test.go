@@ -561,6 +561,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 	lggr, logs := logger.TestLoggerObserved(t, zap.WarnLevel)
 	chTelem := make(chan EnhancedTelemetryMercuryData, 100)
 	chDone := make(chan struct{})
+	feedID := common.HexToHash("0x111")
 	e := EnhancedTelemetryService[EnhancedTelemetryMercuryData]{
 		chDone:  chDone,
 		chTelem: chTelem,
@@ -568,7 +569,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 			Type: job.Type(pipeline.OffchainReporting2JobType),
 			OCR2OracleSpec: &job.OCR2OracleSpec{
 				CaptureEATelemetry: true,
-				FeedID:             common.HexToHash("0x111"),
+				FeedID:             &feedID,
 			},
 		},
 		lggr:               lggr,

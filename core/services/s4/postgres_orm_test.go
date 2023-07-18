@@ -87,6 +87,33 @@ func TestPostgresORM_UpdateAndGet(t *testing.T) {
 	assert.ErrorIs(t, err, s4.ErrNotFound)
 }
 
+func TestPostgresORM_UpdateSimpleFlow(t *testing.T) {
+	t.Parallel()
+
+	orm := setupORM(t, "test")
+	row := generateTestRows(t, 1)[0]
+
+	// user sends a new version
+	assert.NoError(t, orm.Update(row))
+
+	// OCR round confirms it
+	row.Confirmed = true
+	assert.NoError(t, orm.Update(row))
+
+	// user sends a higher version (unconfirmed)
+	row.Version++
+	row.Confirmed = false
+	assert.NoError(t, orm.Update(row))
+
+	// and again, before OCR has a chance to confirm
+	row.Version++
+	assert.NoError(t, orm.Update(row))
+
+	// user tries to send a lower version
+	row.Version--
+	assert.Error(t, orm.Update(row))
+}
+
 func TestPostgresORM_DeleteExpired(t *testing.T) {
 	t.Parallel()
 
