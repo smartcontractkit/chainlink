@@ -69,9 +69,7 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
       requestConfirmations: requestConfirmations,
       callbackGasLimit: callbackGasLimit,
       numWords: numWords,
-      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({
-        nativePayment: nativePayment
-      }))
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment}))
     });
     uint256 requestId = s_vrfCoordinator.requestRandomWords(req);
     Response memory resp = Response({

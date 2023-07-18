@@ -39,9 +39,7 @@ contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2Plus {
       requestConfirmations: requestConfirmations,
       callbackGasLimit: callbackGasLimit,
       numWords: numWords,
-      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({
-        nativePayment: nativePayment
-      }))
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment}))
     });
     // Will revert if subscription is not funded.
     s_requestId = COORDINATOR.requestRandomWords(req);

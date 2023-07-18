@@ -61,11 +61,8 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
       requestConfirmations: rc.requestConfirmations,
       callbackGasLimit: rc.callbackGasLimit,
       numWords: rc.numWords,
-      extraArgs: VRFV2PlusClient._argsToBytes(
-        VRFV2PlusClient.ExtraArgsV1({
-          nativePayment: rc.nativePayment
-        })
-      )});
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: rc.nativePayment}))
+    });
     // Will revert if subscription is not set and funded.
     s_requestId = COORDINATOR.requestRandomWords(req);
   }
@@ -83,11 +80,8 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
       requestConfirmations: rc.requestConfirmations,
       callbackGasLimit: rc.callbackGasLimit,
       numWords: rc.numWords,
-      extraArgs: VRFV2PlusClient._argsToBytes(
-        VRFV2PlusClient.ExtraArgsV1({
-          nativePayment: rc.nativePayment
-        })
-      )});
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: rc.nativePayment}))
+    });
     // Will revert if subscription is not set and funded.
     s_requestId = COORDINATOR.requestRandomWords(req);
   }

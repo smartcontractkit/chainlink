@@ -29,7 +29,7 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2 {
       requestConfirmations: 1,
       callbackGasLimit: 200000,
       numWords: 1,
-      extraArgs: "" // empty extraArgs defaults to link payment 
+      extraArgs: "" // empty extraArgs defaults to link payment
     });
     // Should revert
     COORDINATOR.requestRandomWords(req);

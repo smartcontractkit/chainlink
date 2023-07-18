@@ -251,14 +251,12 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
    * numWords - The number of uint256 random values you'd like to receive
    * in your fulfillRandomWords callback. Note these numbers are expanded in a
    * secure way by the VRFCoordinator from a single random value supplied by the oracle.
-   * extraArgs - Encoded extra arguments that has a boolean flag for whether payment 
+   * extraArgs - Encoded extra arguments that has a boolean flag for whether payment
    * should be made in ETH or LINK. Payment in LINK is only available if the LINK token is available to this contract.
    * @return requestId - A unique identifier of the request. Can be used to match
    * a request to a response in fulfillRandomWords.
    */
-  function requestRandomWords(
-    VRFV2PlusClient.RandomWordsRequest calldata req
-  ) external nonReentrant returns (uint256) {
+  function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external nonReentrant returns (uint256) {
     // Input validation using the subscription storage.
     if (s_subscriptionConfigs[req.subId].owner == address(0)) {
       revert InvalidSubscription();
@@ -272,7 +270,8 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     }
     // Input validation using the config storage word.
     if (
-    req.requestConfirmations < s_config.minimumRequestConfirmations || req.requestConfirmations > MAX_REQUEST_CONFIRMATIONS
+      req.requestConfirmations < s_config.minimumRequestConfirmations ||
+      req.requestConfirmations > MAX_REQUEST_CONFIRMATIONS
     ) {
       revert InvalidRequestConfirmations(
         req.requestConfirmations,
@@ -297,7 +296,14 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
 
     bool nativePayment = _fromBytes(req.extraArgs).nativePayment;
     s_requestCommitments[requestId] = keccak256(
-      abi.encode(requestId, ChainSpecificUtil.getBlockNumber(), req.subId, req.callbackGasLimit, req.numWords, msg.sender)
+      abi.encode(
+        requestId,
+        ChainSpecificUtil.getBlockNumber(),
+        req.subId,
+        req.callbackGasLimit,
+        req.numWords,
+        msg.sender
+      )
     );
     emit RandomWordsRequested(
       req.keyHash,
