@@ -467,8 +467,8 @@ func TestETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
 	defer cleanup()
-	// TODO once cleared, update to http.StatusBadRequest https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
@@ -497,8 +497,8 @@ func TestETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
 	defer cleanup()
-	// TODO once cleared, update to http.StatusNotFound https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
@@ -527,8 +527,8 @@ func TestETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
 	defer cleanup()
-	// TODO once cleared, update to http.StatusBadRequest https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
@@ -560,8 +560,8 @@ func TestETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
 	defer cleanup()
-	// TODO once cleared, update to http.StatusNotFound https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestETHKeysController_ChainFailure_InvalidNonce(t *testing.T) {
@@ -592,8 +592,8 @@ func TestETHKeysController_ChainFailure_InvalidNonce(t *testing.T) {
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
 	defer cleanup()
-	// TODO once cleared, update to http.StatusBadRequest https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestETHKeysController_DeleteSuccess(t *testing.T) {
@@ -664,8 +664,8 @@ func TestETHKeysController_DeleteFailure_InvalidAddress(t *testing.T) {
 
 	resp, cleanup := client.Delete(chainURL.String())
 	defer cleanup()
-	// TODO once cleared, update to http.StatusBadRequest https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
@@ -686,6 +686,6 @@ func TestETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
 	resp, cleanup := client.Delete(chainURL.String())
 	defer cleanup()
 	t.Log(resp)
-	// TODO once cleared, update to http.StatusNotFound https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
