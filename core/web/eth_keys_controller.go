@@ -164,14 +164,14 @@ func (ekc *ETHKeysController) Delete(c *gin.Context) {
 
 	keyID := c.Param("address")
 	if !common.IsHexAddress(keyID) {
-		jsonAPIError(c, http.StatusInternalServerError, errors.Errorf("invalid keyID: %s, must be hex address", keyID))
+		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("invalid keyID: %s, must be hex address", keyID))
 		return
 	}
 
 	key, err := ethKeyStore.Get(keyID)
 	if err != nil {
 		if errors.Is(err, keystore.ErrKeyNotFound) {
-			jsonAPIError(c, http.StatusInternalServerError, err)
+			jsonAPIError(c, http.StatusNotFound, err)
 			return
 		}
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -266,7 +266,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	addressHex := c.Query("address")
 	addressBytes, err := hexutil.Decode(addressHex)
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, errors.Wrap(err, "invalid address"))
+		jsonAPIError(c, http.StatusBadRequest, errors.Wrap(err, "invalid address"))
 		return
 	}
 	address := common.BytesToAddress(addressBytes)
@@ -281,7 +281,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	if nonceStr := c.Query("nextNonce"); nonceStr != "" {
 		nonce, err = strconv.ParseInt(nonceStr, 10, 64)
 		if err != nil || nonce < 0 {
-			jsonAPIError(c, http.StatusInternalServerError, errors.Wrapf(err, "invalid value for nonce: expected 0 or positive int, got: %s", nonceStr))
+			jsonAPIError(c, http.StatusBadRequest, errors.Wrapf(err, "invalid value for nonce: expected 0 or positive int, got: %s", nonceStr))
 			return
 		}
 	}
@@ -289,7 +289,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	if abandonStr := c.Query("abandon"); abandonStr != "" {
 		abandon, err = strconv.ParseBool(abandonStr)
 		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, errors.Wrapf(err, "invalid value for abandon: expected boolean, got: %s", abandonStr))
+			jsonAPIError(c, http.StatusBadRequest, errors.Wrapf(err, "invalid value for abandon: expected boolean, got: %s", abandonStr))
 			return
 		}
 	}
@@ -305,7 +305,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 		err = multierr.Combine(err, resetErr)
 		if err != nil {
 			if strings.Contains(err.Error(), "key state not found with address") {
-				jsonAPIError(c, http.StatusInternalServerError, err)
+				jsonAPIError(c, http.StatusNotFound, err)
 			}
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
@@ -317,7 +317,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 		var enabled bool
 		enabled, err = strconv.ParseBool(enabledStr)
 		if err != nil {
-			jsonAPIError(c, http.StatusInternalServerError, errors.Wrap(err, "enabled must be bool"))
+			jsonAPIError(c, http.StatusBadRequest, errors.Wrap(err, "enabled must be bool"))
 			return
 		}
 
@@ -335,7 +335,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	key, err := kst.Get(address.Hex())
 	if err != nil {
 		if errors.Is(err, keystore.ErrKeyNotFound) {
-			jsonAPIError(c, http.StatusInternalServerError, err)
+			jsonAPIError(c, http.StatusNotFound, err)
 			return
 		}
 		jsonAPIError(c, http.StatusInternalServerError, err)
@@ -430,13 +430,13 @@ func (ekc *ETHKeysController) getChain(c *gin.Context, cs evm.ChainSet, chainIDs
 	chain, err := getChain(ekc.app.GetChains().EVM, chainIDstr)
 	if err != nil {
 		if errors.Is(err, ErrInvalidChainID) {
-			jsonAPIError(c, http.StatusInternalServerError, err)
+			jsonAPIError(c, http.StatusBadRequest, err)
 			return nil, false
 		} else if errors.Is(err, ErrMultipleChains) {
-			jsonAPIError(c, http.StatusInternalServerError, err)
+			jsonAPIError(c, http.StatusBadRequest, err)
 			return nil, false
 		} else if errors.Is(err, ErrMissingChainID) {
-			jsonAPIError(c, http.StatusInternalServerError, err)
+			jsonAPIError(c, http.StatusNotFound, err)
 			return nil, false
 		}
 		jsonAPIError(c, http.StatusInternalServerError, err)
