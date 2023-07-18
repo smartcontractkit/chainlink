@@ -28,6 +28,7 @@ type Runner interface {
 
 type LatestReportFetcher interface {
 	LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error)
+	LatestTimestamp(context.Context) (uint32, error)
 }
 
 type datasource struct {
@@ -53,7 +54,7 @@ func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID ty
 	return &datasource{pr, jb, spec, feedID, lggr, rr, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
-func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp) (obs relaymercuryv1.Observation, merr error) {
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs relaymercuryv1.Observation, merr error) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -95,6 +96,14 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		obs.Bid = parsed.bid
 		obs.Ask = parsed.ask
 	}()
+
+	if fetchMaxFinalizedTimestamp {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			obs.MaxFinalizedTimestamp.Val, _ = ds.fetcher.LatestTimestamp(ctx)
+		}()
+	}
 
 	if ds.feedID != ds.linkFeedID {
 		wg.Add(1)

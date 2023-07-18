@@ -72,10 +72,12 @@ func NewServices(
 			ocr2Provider.ReportCodecV0(),
 		)
 	case 1:
+		feedId := types.FeedID{} // todo: resolve feedId through Relay
 		ds := mercuryv1.NewDataSource(
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
+			feedId,
 			lggr,
 			runResults,
 			chEnhancedTelem,

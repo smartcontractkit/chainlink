@@ -311,7 +311,7 @@ func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Co
 func (mt *mercuryTransmitter) LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error) {
 	mt.lggr.Trace("LatestPrice")
 
-	report, err := mt.latestReport(ctx, mt.feedID)
+	report, err := mt.latestReport(ctx, feedID)
 	if err != nil {
 		return nil, err
 	}
@@ -323,6 +323,24 @@ func (mt *mercuryTransmitter) LatestPrice(ctx context.Context, feedID [32]byte) 
 		return nil, pkgerrors.Wrap(err, "failed to decode report.Price as *big.Int")
 	}
 	return price, nil
+}
+
+func (mt *mercuryTransmitter) LatestTimestamp(ctx context.Context) (uint32, error) {
+	mt.lggr.Trace("LatestTimestamp")
+
+	report, err := mt.latestReport(ctx, mt.feedID)
+	if err != nil {
+		return 0, err
+	}
+
+	if report == nil {
+		mt.lggr.Debugw("LatestTimestamp success; got nil report")
+		return 0, nil
+	}
+
+	mt.lggr.Debugw("LatestTimestamp success", "timestamp", report.ObservationsTimestamp)
+
+	return uint32(report.ObservationsTimestamp), nil
 }
 
 func (mt *mercuryTransmitter) latestReport(ctx context.Context, feedID [32]byte) (*pb.Report, error) {
