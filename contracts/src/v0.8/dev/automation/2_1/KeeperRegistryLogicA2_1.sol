@@ -255,16 +255,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
     bytes calldata checkData,
     bytes calldata offchainConfig
   ) external returns (uint256 id) {
-    return
-      registerUpkeep(
-        target,
-        gasLimit,
-        admin,
-        Trigger.CONDITION,
-        checkData,
-        abi.encode(ConditionalTriggerConfig({checkCadance: 1})),
-        offchainConfig
-      );
+    return registerUpkeep(target, gasLimit, admin, Trigger.CONDITION, checkData, bytes(""), offchainConfig);
   }
 
   function addFunds(uint256 id, uint96 amount) external {
