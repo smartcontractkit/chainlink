@@ -31,16 +31,42 @@ type TxStrategy interface {
 	PruneQueue(pruneService UnstartedTxQueuePruner, qopt pg.QOpt) (n int64, err error)
 }
 
-type TxAttemptState string
+type TxAttemptState int8
 
 type TxState string
 
 const (
-	TxAttemptInProgress = TxAttemptState("in_progress")
-	// TODO: Make name chain-agnostic (https://smartcontract-it.atlassian.net/browse/BCI-981)
-	TxAttemptInsufficientEth = TxAttemptState("insufficient_eth")
-	TxAttemptBroadcast       = TxAttemptState("broadcast")
+	TxAttemptInProgress TxAttemptState = iota + 1
+	TxAttemptInsufficientFunds
+	TxAttemptBroadcast
 )
+
+func NewTxAttemptState(state string) (s TxAttemptState) {
+	switch state {
+	case "in_progress":
+		s = TxAttemptInProgress
+	case "insufficient_funds":
+		s = TxAttemptInsufficientFunds
+	case "broadcast":
+		s = TxAttemptBroadcast
+	}
+	return s
+}
+
+// String returns string formatted states for logging
+func (s TxAttemptState) String() (str string) {
+	switch s {
+	case TxAttemptInProgress:
+		str = "in_progress"
+	case TxAttemptInsufficientFunds:
+		str = "insufficient_funds"
+	case TxAttemptBroadcast:
+		str = "broadcast"
+	default:
+		str = "unknown_attempt_state"
+	}
+	return str
+}
 
 type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	FromAddress      ADDR

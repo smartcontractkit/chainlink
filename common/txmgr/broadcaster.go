@@ -610,7 +610,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt)
 	case clienttypes.InsufficientFunds:
 		// NOTE: This bails out of the entire cycle and essentially "blocks" on
-		// any transaction that gets insufficient_eth. This is OK if a
+		// any transaction that gets insufficient_funds. This is OK if a
 		// transaction with a large VALUE blocks because this always comes last
 		// in the processing list.
 		// If it blocks because of a transaction that is expensive due to large

@@ -749,7 +749,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) att
 		etx.TxAttempts[0].Tx = etx
 		previousAttempt := etx.TxAttempts[0]
 		logFields := ec.logFieldsPreviousAttempt(previousAttempt)
-		if previousAttempt.State == txmgrtypes.TxAttemptInsufficientEth {
+		if previousAttempt.State == txmgrtypes.TxAttemptInsufficientFunds {
 			// Do not create a new attempt if we ran out of funds last time since bumping gas is pointless
 			// Instead try to resubmit the same attempt at the same price, in the hope that the wallet was funded since our last attempt
 			lggr.Debugw("Rebroadcast InsufficientFunds", logFields...)

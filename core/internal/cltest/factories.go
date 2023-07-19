@@ -244,7 +244,7 @@ func MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t *testing.T, txStore 
 	require.NoError(t, tx.EncodeRLP(rlp))
 	attempt.SignedRawTx = rlp.Bytes()
 
-	attempt.State = txmgrtypes.TxAttemptInsufficientEth
+	attempt.State = txmgrtypes.TxAttemptInsufficientFunds
 	require.NoError(t, txStore.InsertTxAttempt(&attempt))
 	etx, err := txStore.FindTxWithAttempts(etx.ID)
 	require.NoError(t, err)
