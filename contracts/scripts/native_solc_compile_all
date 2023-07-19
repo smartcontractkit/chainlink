@@ -116,9 +116,7 @@ $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2WrapperConsumerExample.s
 
 # VRF Consumers and Mocks
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFExternalSubOwnerExample.sol
-$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2PlusExternalSubOwnerExample.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFSingleConsumerExample.sol
-$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2PlusSingleConsumerExample.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFOwnerlessConsumerExample.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFLoadTestOwnerlessConsumer.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFLoadTestExternalSubOwner.sol
