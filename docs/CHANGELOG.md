@@ -23,6 +23,16 @@ AllowSimplePasswords=true
 
 - To migrate on production builds, update the database password set in Database.URL to be 16 - 50 characters without leading or trailing whitespace. URI parsing rules apply to the chosen password - refer to [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) for special character escape rules.
 
+### Added
+
+- OCR2 jobs now support querying contracts for configuration, if the contract
+  supports it and has this setting enabled. This can help on chains such as BSC
+  which "manage" state bloat by arbitrarily deleting logs older than a certain
+  date. In this case, if logs are missing we will query the contract directly
+  and retrive the latest config from chain state. Chainlink will perform no
+  extra RPC calls unless the contract has this feature explicitly enabled. On
+  chains that require this, nops may see an increase in RPC calls.
+
 <!-- unreleasedstop -->
 
 ## 2.4.0 - 2023-08-21

@@ -8,11 +8,11 @@ import {VerifierProxy} from "../../VerifierProxy.sol";
 contract VerifierConstructorTest is BaseTest {
   function test_revertsIfInitializedWithEmptyVerifierProxy() public {
     vm.expectRevert(abi.encodeWithSelector(Verifier.ZeroAddress.selector));
-    new Verifier(address(0));
+    new Verifier(address(0), persistConfig);
   }
 
   function test_setsTheCorrectProperties() public {
-    Verifier v = new Verifier(address(s_verifierProxy));
+    Verifier v = new Verifier(address(s_verifierProxy), persistConfig);
     assertEq(v.owner(), ADMIN);
 
     (bool scanLogs, bytes32 configDigest, uint32 epoch) = v.latestConfigDigestAndEpoch(FEED_ID);
@@ -27,6 +27,15 @@ contract VerifierConstructorTest is BaseTest {
 
     string memory typeAndVersion = s_verifier.typeAndVersion();
     assertEq(typeAndVersion, "Verifier 1.1.0");
+  }
+
+  function test_latestConfigIsCalledOnlyByEOA() public {
+    vm.expectRevert(abi.encodeWithSelector(Verifier.OnlyCallableByEOA.selector));
+    s_verifier.latestConfig(FEED_ID);
+  }
+
+  function test_persistConfigIsValidEndpoint() public {
+    s_verifier.persistConfig();
   }
 }
 
