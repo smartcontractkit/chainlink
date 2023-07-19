@@ -304,7 +304,7 @@ func NewApp(s *Shell) *cli.App {
 			Name:        "chaintablecleanup",
 			Aliases:     []string{},
 			Usage:       "Commands for cleaning up db tables based on chain type and chain id",
-			Subcommands: initAttemptsSubCmds(s),
+			Subcommands: initChainTablesCleanupCmd(s),
 		},
 	}...)
 	return app

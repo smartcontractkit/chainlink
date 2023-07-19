@@ -10,8 +10,8 @@ import (
 	"strings"
 )
 
-func initChainTablesCleanupCmd(s *Shell) cli.Command {
-	return cli.Command{
+func initChainTablesCleanupCmd(s *Shell) []cli.Command {
+	return []cli.Command{{
 		Name:   "chaintablecleanup",
 		Usage:  "Deletes rows from chain tables based on input",
 		Action: s.IndexTxAttempts,
@@ -32,8 +32,8 @@ func initChainTablesCleanupCmd(s *Shell) cli.Command {
 				Required: true,
 			},
 		},
+	},
 	}
-
 }
 
 // CleanupChainTables deletes database table rows based on sure chain type and chain id input.
@@ -62,7 +62,6 @@ func (s *Shell) CleanupChainTables(c *cli.Context) {
 			}
 		}
 	}
-
 }
 
 func getDBConnection(clDatabaseURL string) (*sqlx.DB, error) {
