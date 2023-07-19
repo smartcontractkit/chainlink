@@ -4,7 +4,7 @@ pragma solidity ^0.8.4;
 import "../interfaces/LinkTokenInterface.sol";
 import "../interfaces/BlockhashStoreInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/IVRFMigratableCoordinatorV2Plus.sol";
+import "../interfaces/IVRFCoordinatorV2PlusMigration.sol";
 import "./VRF.sol";
 import "./VRFConsumerBaseV2Plus.sol";
 import "../ChainSpecificUtil.sol";
@@ -621,12 +621,11 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
 
   /// @dev encapsulates data to be migrated from current coordinator
   struct V1MigrationData {
-      uint8 fromVersion;
-      uint256 subID;
-      address subOwner;
-      address[] consumers;
-      uint96 linkBalance;
-      uint96 ethBalance;
+    uint8 fromVersion;
+    address subOwner;
+    address[] consumers;
+    uint96 linkBalance;
+    uint96 ethBalance;
   }
 
   function isTargetRegistered(address target) internal view returns (bool) {
@@ -663,17 +662,16 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     revert CoordinatorNotRegistered(target);
   }
 
-  function migrate(uint64 subId, address newCoordinator) external {
+  function migrate(uint64 subId, address newCoordinator) external returns (uint64) {
     if (!isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
     (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) = getSubscription(subId);
-    require(owner == address(this), "Not owner");
+    require(owner == msg.sender, "Not subscription owner");
     require(!pendingRequestExists(subId), "Pending request exists");
 
     V1MigrationData memory migrationData = V1MigrationData({
       fromVersion: migrationVersion(),
-      subID: subId,
       subOwner: owner,
       consumers: consumers,
       linkBalance: balance,
@@ -681,13 +679,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     });
     bytes memory encodedData = abi.encode(migrationData);
     deleteSubscription(subId);
-    uint64 newSubId = IVRFMigratableCoordinatorV2Plus(newCoordinator).onMigration(encodedData);
-    
+    uint64 newSubId = IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);    
     require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
-    (bool success, ) = newCoordinator.call{value: uint256(ethBalance)}("");
-    if (!success) {
-      revert FailedToSendEther();
-    }
     for (uint256 i = 0; i < consumers.length; i++) {
       IVRFMigratableConsumerV2Plus(consumers[i]).setConfig(newCoordinator, newSubId);
     }
@@ -696,6 +689,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       subId,
       newSubId
     );
+    return newSubId;
   }
 
   function migrationVersion() public pure returns (uint8 version) {

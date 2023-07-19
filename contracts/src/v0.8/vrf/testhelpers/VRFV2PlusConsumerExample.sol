@@ -5,11 +5,13 @@ import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../VRFConsumerBaseV2Plus.sol";
 import "../../ConfirmedOwner.sol";
+import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 
 /// @notice This contract is used for testing only and should not be used for production.
 contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   LinkTokenInterface public s_linkToken;
   uint256 public s_recentRequestId;
+  IVRFCoordinatorV2Plus public s_vrfCoordinatorApiV1;
 
   struct Response {
     bool fulfilled;
@@ -20,7 +22,7 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   mapping(uint256 /* request id */ => Response /* response */) public s_requests;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {
-    s_vrfCoordinator = IVRFCoordinatorV2Plus(vrfCoordinator);
+    s_vrfCoordinatorApiV1 = IVRFCoordinatorV2Plus(vrfCoordinator);
     s_linkToken = LinkTokenInterface(link);
   }
 
@@ -32,8 +34,8 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
 
   function createSubscriptionAndFund(uint96 amount) external {
     if (s_subId == 0) {
-      s_subId = s_vrfCoordinator.createSubscription();
-      s_vrfCoordinator.addConsumer(s_subId, address(this));
+      s_subId = s_vrfCoordinatorApiV1.createSubscription();
+      s_vrfCoordinatorApiV1.addConsumer(s_subId, address(this));
     }
     // Approve the link transfer.
     s_linkToken.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_subId));
@@ -77,7 +79,7 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   function updateSubscription(address[] memory consumers) external {
     require(s_subId != 0, "subID not set");
     for (uint256 i = 0; i < consumers.length; i++) {
-      s_vrfCoordinator.addConsumer(s_subId, consumers[i]);
+      s_vrfCoordinatorApiV1.addConsumer(s_subId, consumers[i]);
     }
   }
 }

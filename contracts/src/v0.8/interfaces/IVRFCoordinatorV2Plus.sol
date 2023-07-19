@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// Interface for initial version of VRFCoordinatorV2Plus
+// Functions in this interface may not be supported when VRFCoordinatorV2Plus is upgraded to a new version
 interface IVRFCoordinatorV2Plus {
   /**
    * @notice Get configuration relevant for making requests
