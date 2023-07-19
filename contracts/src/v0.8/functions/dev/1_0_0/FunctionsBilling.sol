@@ -453,7 +453,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     if (transmitters.length == 0) {
       revert NoTransmittersSet();
     }
-    
+
     uint96 feePoolShare = s_feePool / uint96(transmitters.length);
     for (uint8 i = 0; i < transmitters.length; i++) {
       s_withdrawableTokens[transmitters[i]] += feePoolShare;
