@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
@@ -15,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+var extraArgsV1Tag = crypto.Keccak256([]byte("VRF ExtraArgsV1"))[:4]
 
 // CoordinatorV2_X is an interface that allows us to use the same code for
 // both the V2 and V2Plus coordinators.
@@ -562,8 +565,6 @@ func (c *coordinatorV2_X) RequestRandomWords(opts *bind.TransactOpts, keyHash [3
 }
 
 func GetExtraArgsV1(nativePayment bool) ([]byte, error) {
-	extraArgsV1Tag := []byte{0x92, 0xfd, 0x13, 0x38}
-
 	encodedArgs, err := utils.ABIEncode(`[{"type":"bool"}]`, nativePayment)
 	if err != nil {
 		return nil, err
