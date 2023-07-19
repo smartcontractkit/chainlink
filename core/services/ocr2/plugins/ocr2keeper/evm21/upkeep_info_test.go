@@ -28,31 +28,33 @@ func TestGetUpkeepType(t *testing.T) {
 		},
 		{
 			"condition trigger",
-			common.LeftPadBytes([]byte{0}, 16),
+			genUpkeepID(conditionTrigger, "").Bytes(),
 			conditionTrigger,
 		},
 		{
+			"log trigger string",
+			[]byte(genUpkeepID(logTrigger, "111").String()),
+			logTrigger,
+		},
+		{
 			"log trigger",
-			common.LeftPadBytes([]byte{1}, 16),
+			genUpkeepID(logTrigger, "111").Bytes(),
 			logTrigger,
 		},
 		{
 			"cron trigger",
-			common.LeftPadBytes([]byte{2}, 16),
+			genUpkeepID(cronTrigger, "222").Bytes(),
 			cronTrigger,
 		},
 		{
 			"ready trigger",
-			common.LeftPadBytes([]byte{3}, 16),
+			genUpkeepID(readyTrigger, "333").Bytes(),
 			readyTrigger,
 		},
 		{
 			"log trigger id",
 			func() ocr2keepers.UpkeepIdentifier {
-				id, ok := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
-				if !ok {
-					panic("failed to parse id")
-				}
+				id, _ := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
 				return id.Bytes()
 			}(),
 			logTrigger,
@@ -64,4 +66,10 @@ func TestGetUpkeepType(t *testing.T) {
 			assert.Equal(t, tc.upkeepType, getUpkeepType(tc.upkeepID))
 		})
 	}
+}
+
+func genUpkeepID(uType upkeepType, rand string) *big.Int {
+	b := append([]byte{1}, common.LeftPadBytes([]byte{uint8(uType)}, 15)...)
+	b = append(b, []byte(rand)...)
+	return big.NewInt(0).SetBytes(b)
 }
