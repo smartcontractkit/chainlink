@@ -59,6 +59,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     // The highest support request data version supported by the node
     // All lower versions should also be supported
     uint16 maxSupportedRequestDataVersion;
+    // Percentage of gas price overestimation to account for changes in gas price between request and response
+    // Held as basis points (one hundredth of 1 percentage point)
+    uint256 fulfillmentGasPriceOverEstimationBP;
   }
   Config private s_config;
   event ConfigSet(
@@ -68,7 +71,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint32 gasOverheadAfterCallback,
     int256 fallbackNativePerUnitLink,
     uint96 donFee,
-    uint16 maxSupportedRequestDataVersion
+    uint16 maxSupportedRequestDataVersion,
+    uint256 fulfillmentGasPriceOverEstimationBP
   );
 
   error UnsupportedRequestDataVersion();
@@ -78,6 +82,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   error MustBeSubOwner(address owner);
   error GasLimitTooBig(uint32 have, uint32 want);
   error InvalidLinkWeiPrice(int256 linkWei);
+  error InvalidBasisPoints();
   error PaymentTooLarge();
   error NoTransmittersSet();
   error InvalidCalldata();
@@ -126,11 +131,15 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       int256 fallbackNativePerUnitLink,
       uint32 requestTimeoutSeconds,
       uint96 donFee,
-      uint16 maxSupportedRequestDataVersion
-    ) = abi.decode(config, (uint32, uint32, uint32, uint32, int256, uint32, uint96, uint16));
+      uint16 maxSupportedRequestDataVersion,
+      uint256 fulfillmentGasPriceOverEstimationBP
+    ) = abi.decode(config, (uint32, uint32, uint32, uint32, int256, uint32, uint96, uint16, uint256));
 
     if (fallbackNativePerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackNativePerUnitLink);
+    }
+    if (fulfillmentGasPriceOverEstimationBP < 10_000) {
+      revert InvalidBasisPoints();
     }
     s_config = Config({
       maxCallbackGasLimit: maxCallbackGasLimit,
@@ -140,7 +149,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       requestTimeoutSeconds: requestTimeoutSeconds,
       donFee: donFee,
       fallbackNativePerUnitLink: fallbackNativePerUnitLink,
-      maxSupportedRequestDataVersion: maxSupportedRequestDataVersion
+      maxSupportedRequestDataVersion: maxSupportedRequestDataVersion,
+      fulfillmentGasPriceOverEstimationBP: fulfillmentGasPriceOverEstimationBP
     });
     emit ConfigSet(
       maxCallbackGasLimit,
@@ -149,7 +159,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       gasOverheadAfterCallback,
       fallbackNativePerUnitLink,
       donFee,
-      maxSupportedRequestDataVersion
+      maxSupportedRequestDataVersion,
+      fulfillmentGasPriceOverEstimationBP
     );
   }
 
@@ -167,7 +178,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       int256 fallbackNativePerUnitLink,
       uint32 gasOverheadBeforeCallback,
       address linkPriceFeed,
-      uint16 maxSupportedRequestDataVersion
+      uint16 maxSupportedRequestDataVersion,
+      uint256 fulfillmentGasPriceOverEstimationBP
     )
   {
     return (
@@ -177,7 +189,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       s_config.fallbackNativePerUnitLink,
       s_config.gasOverheadBeforeCallback,
       address(LINK_TO_NATIVE_FEED),
-      s_config.maxSupportedRequestDataVersion
+      s_config.maxSupportedRequestDataVersion,
+      s_config.fulfillmentGasPriceOverEstimationBP
     );
   }
 
@@ -257,8 +270,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
+    uint256 gasPriceWithOverestimation = gasPrice +
+      ((gasPrice * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 * gasPrice * executionGas) / uint256(weiPerUnitLink);
+    uint256 paymentNoFee = (1e18 * gasPriceWithOverestimation * executionGas) / uint256(weiPerUnitLink);
     uint256 fee = uint256(donFee) + uint256(adminFee);
     if (paymentNoFee > (1e27 - fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.

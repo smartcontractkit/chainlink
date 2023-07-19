@@ -72,6 +72,7 @@ export type CoordinatorConfig = {
   donFee: number
   fallbackNativePerUnitLink: BigNumber
   maxSupportedRequestDataVersion: number
+  fulfillmentGasPriceOverEstimationBP: number
 }
 const fallbackNativePerUnitLink = 5000000000000000
 export const coordinatorConfig: CoordinatorConfig = {
@@ -83,6 +84,7 @@ export const coordinatorConfig: CoordinatorConfig = {
   donFee: 0,
   fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
   maxSupportedRequestDataVersion: 1,
+  fulfillmentGasPriceOverEstimationBP: 10_000,
 }
 export const accessControlMockPublicKey =
   '0x32237412cC0321f56422d206e505dB4B3871AF5c'
@@ -241,6 +243,7 @@ export function getSetupFactory(): () => {
         'uint32',
         'uint96',
         'uint16',
+        'uint256',
       ],
       [...Object.values(coordinatorConfig)],
     )
