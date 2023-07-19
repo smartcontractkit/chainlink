@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 )
 
 type Encoder interface {
@@ -111,7 +112,8 @@ func FilterNamesFromSpec20(spec *job.OCR2OracleSpec) (names []string, err error)
 	return []string{kevm20.LogProviderFilterName(addr.Address()), kevm20.UpkeepFilterName(addr.Address())}, err
 }
 
-func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder21, *kevm21.TransmitEventProvider, logprovider.LogEventProvider, error) {
+// HERE add creation of custom telemetry service
+func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials, chAutomationTelemWrapper chan telem.AutomationTelemWrapper) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder21, *kevm21.TransmitEventProvider, logprovider.LogEventProvider, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
@@ -135,7 +137,8 @@ func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Ch
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	if registry, err = kevm21.NewEVMRegistryService(rAddr, chain, mc, lggr); err != nil {
+	// pass in channel into registry
+	if registry, err = kevm21.NewEVMRegistryService(rAddr, chain, mc, lggr, chAutomationTelemWrapper); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
 	encoder := kevm21.EVMAutomationEncoder21{}

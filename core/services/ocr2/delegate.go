@@ -43,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
+	kevm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/juelsfeecoin"
@@ -58,6 +59,7 @@ import (
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -801,12 +803,24 @@ func (d *Delegate) newServicesOCR2Keepers(
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
+	// if version 2.0, then this
 	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, d.chainSet, d.pipelineRunner)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
-
+	// if version 2.1, then pass in a channel to create a new custom-telemtry-service
 	spec := jb.OCR2OracleSpec
+
+	chAutomationTelemWrapper := make(chan telem.AutomationTelemWrapper, 50)
+	credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
+	mercuryCreds := d.cfg.Mercury().Credentials(credName)
+	keeperProvider21, rgstry21, encoder21, transmitEventProvider21, logProvider21, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mercuryCreds, chAutomationTelemWrapper)
+
+	endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationLogTrigger)
+	// create AutomationTelemtry Service in delegate.go or in in util.go (in the same folder where the rest of the EVMRegistry service creation is, and where newAutomationTelemetryService is)?
+	// call NewAutomationCustomTelemetryService
+	AutomationCustomTelemetryService := kevm21.NewAutomationCustomTelemetryService(chAutomationTelemWrapper, endpoint)
+
 	var cfg ocr2keeper.PluginConfig
 	err2 = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg)
 	if err2 != nil {
@@ -919,6 +933,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 		rgstry,
 		logProvider,
 		pluginService,
+		AutomationCustomTelemetryService,
 	}, nil
 }
 

@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -79,7 +80,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger, chAutomationTelemWrapper chan telem.AutomationTelemWrapper) (*EvmRegistry, error) {
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -122,9 +123,10 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 			abi:            feedLookupCompatibleABI,
 			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
 		},
-		hc:               http.DefaultClient,
-		enc:              EVMAutomationEncoder21{},
-		logEventProvider: logprovider.New(lggr, client.LogPoller(), logPacker, nil), // TODO: pass opts
+		hc:                http.DefaultClient,
+		enc:               EVMAutomationEncoder21{},
+		logEventProvider:  logprovider.New(lggr, client.LogPoller(), logPacker, nil), // TODO: pass opts
+		chCustomTelemetry: chAutomationTelemWrapper,
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -193,7 +195,8 @@ type EvmRegistry struct {
 	hc            HttpClient
 	enc           EVMAutomationEncoder21
 
-	logEventProvider logprovider.LogEventProvider
+	logEventProvider  logprovider.LogEventProvider
+	chCustomTelemetry chan telem.AutomationTelemWrapper
 }
 
 // GetActiveUpkeepIDs uses the latest head and map of all active upkeeps to build a
@@ -630,7 +633,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		}
 		return
 	}
-
+	// HERE SEND MercuryLookUp protobuf message to endpoint
 	upkeepResults, err = r.feedLookup(ctx, upkeepResults)
 	if err != nil {
 		chResult <- checkResult{
@@ -638,7 +641,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		}
 		return
 	}
-
+	// HERE SEND MercuryResult protobuf message to endpoint
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
 		chResult <- checkResult{
@@ -679,6 +682,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		var payload []byte
 		switch getUpkeepType(upkeepId.Bytes()) {
 		case logTrigger:
+			// HERE SEND LogTrigger protobuf message to endpoint
 			// check data will include the log trigger config
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, key.CheckData)
 			if err != nil {
