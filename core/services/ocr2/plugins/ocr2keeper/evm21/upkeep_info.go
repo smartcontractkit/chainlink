@@ -1,6 +1,8 @@
 package evm
 
 import (
+	"math/big"
+
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
@@ -25,14 +27,14 @@ const (
 // getUpkeepType returns the upkeep type from the given ID.
 // it follows the same logic as the contract, but performs it locally.
 //
-// NOTE: the id provided to this function should be initialized with big.Int.Bytes(), e.g.:
-// id, _ := big.NewInt(0).SetString("...", 10)
-// getUpkeepType(id.Bytes())
-//
 // TODO: check endianness
 func getUpkeepType(id ocr2keepers.UpkeepIdentifier) upkeepType {
 	if len(id) < upkeepTypeByteIndex+1 {
 		return conditionTrigger
+	}
+	idx, ok := big.NewInt(0).SetString(string(id), 10)
+	if ok {
+		id = ocr2keepers.UpkeepIdentifier(idx.Bytes())
 	}
 	for i := upkeepTypeStartIndex; i < upkeepTypeByteIndex; i++ {
 		if id[i] != 0 { // old id
