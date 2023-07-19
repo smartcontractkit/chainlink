@@ -49,6 +49,8 @@ type datasource struct {
 
 var _ relaymercuryv1.DataSource = &datasource{}
 
+var maxInt192 *big.Int = new(big.Int).Exp(big.NewInt(2), big.NewInt(191), nil)
+
 func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID types.FeedID, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID types.FeedID) *datasource {
 	return &datasource{pr, jb, spec, feedID, lggr, rr, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
@@ -114,13 +116,25 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 
 	wg.Wait()
 
-	switch ds.feedID {
-	case ds.linkFeedID:
+	// TODO: TEST THIS!!!
+	if ds.feedID == ds.linkFeedID {
 		// This IS the LINK feed, use our observed price
-		obs.LinkPrice.Val = obs.BenchmarkPrice.Val
-	case ds.nativeFeedID:
+		obs.LinkPrice.Val, obs.LinkPrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
+	} else if ds.feedID == ds.nativeFeedID {
 		// This IS the native feed, use our observed price
-		obs.NativePrice.Val = obs.BenchmarkPrice.Val
+		obs.NativePrice.Val, obs.NativePrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
+	}
+
+	// This logic is necessary to unblock mutually dependent feeds: e.g. if we
+	// deploy LINK/USD and then ETH/USD, one has to wait for the other to get
+	// its pricing. By pricing with max fee, we unblock report production and
+	// allow to bootstrap the feed
+	if ds.feedID != ds.linkFeedID && obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
+		ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing LINK feed, falling back to max int192"), "linkFeedID", ds.linkFeedID)
+		obs.LinkPrice.Val = maxInt192
+	} else if ds.feedID != ds.nativeFeedID && obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
+		ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing native feed, falling back to max int192"), "nativeFeedID", ds.nativeFeedID)
+		obs.NativePrice.Val = maxInt192
 	}
 
 	// todo: implement telemetry
