@@ -55,15 +55,16 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
   // Assumes the subscription is funded sufficiently.
   function requestRandomWords() external onlyOwner {
     RequestConfig memory rc = s_requestConfig;
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: rc.keyHash,
+      subId: rc.subId,
+      requestConfirmations: rc.requestConfirmations,
+      callbackGasLimit: rc.callbackGasLimit,
+      numWords: rc.numWords,
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: rc.nativePayment}))
+    });
     // Will revert if subscription is not set and funded.
-    s_requestId = COORDINATOR.requestRandomWords(
-      rc.keyHash,
-      rc.subId,
-      rc.requestConfirmations,
-      rc.callbackGasLimit,
-      rc.numWords,
-      rc.nativePayment
-    );
+    s_requestId = COORDINATOR.requestRandomWords(req);
   }
 
   // Assumes this contract owns link
@@ -73,15 +74,16 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
   function fundAndRequestRandomWords(uint256 amount) external onlyOwner {
     RequestConfig memory rc = s_requestConfig;
     LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_requestConfig.subId));
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: rc.keyHash,
+      subId: rc.subId,
+      requestConfirmations: rc.requestConfirmations,
+      callbackGasLimit: rc.callbackGasLimit,
+      numWords: rc.numWords,
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: rc.nativePayment}))
+    });
     // Will revert if subscription is not set and funded.
-    s_requestId = COORDINATOR.requestRandomWords(
-      rc.keyHash,
-      rc.subId,
-      rc.requestConfirmations,
-      rc.callbackGasLimit,
-      rc.numWords,
-      rc.nativePayment
-    );
+    s_requestId = COORDINATOR.requestRandomWords(req);
   }
 
   // Assumes this contract owns link
