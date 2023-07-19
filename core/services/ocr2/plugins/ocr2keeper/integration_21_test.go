@@ -30,7 +30,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Len(t, names, 2)
-	assert.Equal(t, logpoller.FilterName("KeepersRegistry LogProvider", address), names[0])
+	assert.Equal(t, logpoller.FilterName("KeepersRegistry TransmitEventProvider", address), names[0])
 	assert.Equal(t, logpoller.FilterName("KeeperRegistry Events", address), names[1])
 
 	spec = &job.OCR2OracleSpec{

@@ -83,17 +83,15 @@ type ConditionalTrigger = Parameters<AutomationUtils['_conditionalTrigger']>[0]
 type Log = Parameters<AutomationUtils['_log']>[0]
 
 // -----------------------------------------------------------------------------------------------
-// These are the gas overheads that off chain systems should provide to check upkeep / transmit
-// These overheads are not actually charged for
-const transmitGasOverhead = BigNumber.from(1_000_000)
-const checkGasOverhead = BigNumber.from(400_000)
 
 // These values should match the constants declared in registry
-const registryConditionalOverhead = BigNumber.from(80_000)
-const registryLogOverhead = BigNumber.from(100_000)
-const registryPerSignerGasOverhead = BigNumber.from(7500)
-const registryPerPerformByteGasOverhead = BigNumber.from(20)
-const cancellationDelay = 50
+let transmitGasOverhead: BigNumber
+let checkGasOverhead: BigNumber
+let registryConditionalOverhead: BigNumber
+let registryLogOverhead: BigNumber
+let registryPerSignerGasOverhead: BigNumber
+let registryPerPerformByteGasOverhead: BigNumber
+let cancellationDelay: number
 
 // This is the margin for gas that we test for. Gas charged should always be greater
 // than total gas used in tx but should not increase beyond this margin
@@ -417,7 +415,7 @@ describe('KeeperRegistry2_1', () => {
   let afUpkeepId: BigNumber // auto funding upkeep
   let logUpkeepId: BigNumber // log trigger upkeepID
   let mercuryUpkeepId: BigNumber // mercury upkeep
-  const numUpkeps = 4 // see above
+  const numUpkeeps = 4 // see above
   let keeperAddresses: string[]
   let payees: string[]
   let signers: Wallet[]
@@ -933,6 +931,15 @@ describe('KeeperRegistry2_1', () => {
       linkEthFeed.address,
       gasPriceFeed.address,
     )
+
+    transmitGasOverhead = await registry.getTransmitGasOverhead()
+    checkGasOverhead = await registry.getCheckGasOverhead()
+    registryConditionalOverhead = await registry.getConditionalGasOverhead()
+    registryLogOverhead = await registry.getLogGasOverhead()
+    registryPerSignerGasOverhead = await registry.getPerSignerGasOverhead()
+    registryPerPerformByteGasOverhead =
+      await registry.getPerPerformByteGasOverhead()
+    cancellationDelay = (await registry.getCancellationDelay()).toNumber()
 
     for (const reg of [registry, arbRegistry, opRegistry, mgRegistry]) {
       await reg.connect(owner).setConfig(...baseConfig)
@@ -3259,47 +3266,41 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
-  describe('#getActiveUpkeepIDs / #getActiveUpkeepIDsByType', () => {
-    // we have 2 upkeeps registered
-
-    it('reverts if startIndex is greater than end index ', async () => {
-      await evmRevert(registry.getActiveUpkeepIDs(1, 0), 'IndexOutOfRange()')
+  describe('#getActiveUpkeepIDs', () => {
+    it('reverts if startIndex is out of bounds ', async () => {
+      await evmRevert(
+        registry.getActiveUpkeepIDs(numUpkeeps, 0),
+        'IndexOutOfRange()',
+      )
+      await evmRevert(
+        registry.getActiveUpkeepIDs(numUpkeeps + 1, 0),
+        'IndexOutOfRange()',
+      )
     })
 
-    it('returns upkeep IDs within range', async () => {
+    it('returns upkeep IDs bounded by maxCount', async () => {
       let upkeepIds = await registry.getActiveUpkeepIDs(0, 1)
       assert(upkeepIds.length == 1)
       assert(upkeepIds[0].eq(upkeepId))
-      upkeepIds = await registry.getActiveUpkeepIDs(1, 2)
-      assert(upkeepIds.length == 1)
-      assert(upkeepIds[0].eq(afUpkeepId))
-      upkeepIds = await registry.getActiveUpkeepIDs(0, 2)
-      assert(upkeepIds.length == 2)
-      assert(upkeepIds[0].eq(upkeepId))
-      assert(upkeepIds[1].eq(afUpkeepId))
-      upkeepIds = await registry.getActiveUpkeepIDs(0, 100)
-      assert.equal(upkeepIds.length, numUpkeps)
-      assert(upkeepIds[0].eq(upkeepId))
-      assert(upkeepIds[1].eq(afUpkeepId))
+      upkeepIds = await registry.getActiveUpkeepIDs(1, 3)
+      assert(upkeepIds.length == 3)
+      expect(upkeepIds).to.deep.equal([
+        afUpkeepId,
+        logUpkeepId,
+        mercuryUpkeepId,
+      ])
     })
 
-    it('filters upkeeps by type', async () => {
-      let upkeepIds = await registry.getActiveUpkeepIDsByType(
-        0,
-        numUpkeps,
-        Trigger.CONDITION,
-      )
-      assert(upkeepIds.length == 3)
-      assert(upkeepIds[0].eq(upkeepId))
-      assert(upkeepIds[1].eq(afUpkeepId))
-      assert(upkeepIds[2].eq(mercuryUpkeepId))
-      upkeepIds = await registry.getActiveUpkeepIDsByType(
-        0,
-        numUpkeps,
-        Trigger.LOG,
-      )
-      assert(upkeepIds.length == 1)
-      assert(upkeepIds[0].eq(logUpkeepId))
+    it('returns as many ids as possible if maxCount > num available', async () => {
+      const upkeepIds = await registry.getActiveUpkeepIDs(1, numUpkeeps + 100)
+      assert(upkeepIds.length == numUpkeeps - 1)
+    })
+
+    it('returns all upkeep IDs if maxCount is 0', async () => {
+      let upkeepIds = await registry.getActiveUpkeepIDs(0, 0)
+      assert(upkeepIds.length == numUpkeeps)
+      upkeepIds = await registry.getActiveUpkeepIDs(2, 0)
+      assert(upkeepIds.length == numUpkeeps - 2)
     })
   })
 
@@ -4731,7 +4732,9 @@ describe('KeeperRegistry2_1', () => {
         expect(reg1Upkeep.checkData).to.equal(randomBytes)
         expect(reg1Upkeep.forwarder).to.not.equal(ethers.constants.AddressZero)
         expect(reg1Upkeep.offchainConfig).to.equal(offchainBytes)
-        expect((await registry.getState()).state.numUpkeeps).to.equal(numUpkeps)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(
+          numUpkeeps,
+        )
         const forwarderFactory = await ethers.getContractFactory(
           'AutomationForwarder',
         )
@@ -4747,7 +4750,7 @@ describe('KeeperRegistry2_1', () => {
           .connect(admin)
           .migrateUpkeeps([upkeepId], mgRegistry.address)
         expect((await registry.getState()).state.numUpkeeps).to.equal(
-          numUpkeps - 1,
+          numUpkeeps - 1,
         )
         expect((await mgRegistry.getState()).state.numUpkeeps).to.equal(1)
         expect((await registry.getUpkeep(upkeepId)).balance).to.equal(0)
@@ -4785,7 +4788,9 @@ describe('KeeperRegistry2_1', () => {
         expect((await registry.getUpkeep(upkeepId)).checkData).to.equal(
           randomBytes,
         )
-        expect((await registry.getState()).state.numUpkeeps).to.equal(numUpkeps)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(
+          numUpkeeps,
+        )
         await registry.connect(admin).pauseUpkeep(upkeepId)
         // verify the upkeep is paused
         expect((await registry.getUpkeep(upkeepId)).paused).to.equal(true)
@@ -4794,7 +4799,7 @@ describe('KeeperRegistry2_1', () => {
           .connect(admin)
           .migrateUpkeeps([upkeepId], mgRegistry.address)
         expect((await registry.getState()).state.numUpkeeps).to.equal(
-          numUpkeps - 1,
+          numUpkeeps - 1,
         )
         expect((await mgRegistry.getState()).state.numUpkeeps).to.equal(1)
         expect((await registry.getUpkeep(upkeepId)).balance).to.equal(0)
@@ -4819,7 +4824,9 @@ describe('KeeperRegistry2_1', () => {
         expect((await registry.getUpkeep(upkeepId)).checkData).to.equal(
           randomBytes,
         )
-        expect((await registry.getState()).state.numUpkeeps).to.equal(numUpkeps)
+        expect((await registry.getState()).state.numUpkeeps).to.equal(
+          numUpkeeps,
+        )
         const tx = registry
           .connect(admin)
           .migrateUpkeeps([upkeepId], mgRegistry.address)
