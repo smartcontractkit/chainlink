@@ -22,5 +22,5 @@ interface MigratableKeeperRegistryInterfaceV2 {
   /**
    * @notice Specifies the version of upkeep data that this registry requires in order to import
    */
-  function upkeepVersion() external returns (uint8 version);
+  function upkeepVersion() external view returns (uint8 version);
 }
