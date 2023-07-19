@@ -120,19 +120,15 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	if ds.feedID == ds.linkFeedID {
 		// This IS the LINK feed, use our observed price
 		obs.LinkPrice.Val, obs.LinkPrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
-	} else if ds.feedID == ds.nativeFeedID {
-		// This IS the native feed, use our observed price
-		obs.NativePrice.Val, obs.NativePrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
-	}
-
-	// This logic is necessary to unblock mutually dependent feeds: e.g. if we
-	// deploy LINK/USD and then ETH/USD, one has to wait for the other to get
-	// its pricing. By pricing with max fee, we unblock report production and
-	// allow to bootstrap the feed
-	if ds.feedID != ds.linkFeedID && obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
+	} else if obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
 		ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing LINK feed, falling back to max int192"), "linkFeedID", ds.linkFeedID)
 		obs.LinkPrice.Val = maxInt192
-	} else if ds.feedID != ds.nativeFeedID && obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
+	}
+
+	if ds.feedID == ds.nativeFeedID {
+		// This IS the native feed, use our observed price
+		obs.NativePrice.Val, obs.NativePrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
+	} else if obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
 		ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing native feed, falling back to max int192"), "nativeFeedID", ds.nativeFeedID)
 		obs.NativePrice.Val = maxInt192
 	}
