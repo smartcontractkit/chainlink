@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -33,10 +34,12 @@ func (p *functionsProvider) ContractTransmitter() types.ContractTransmitter {
 }
 
 func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (relaytypes.Plugin, error) {
-	configWatcher, err := newFunctionsConfigProvider(pluginType, chainSet, rargs, lggr)
+	configWatcher, err := newFunctionsConfigProvider(pluginType, chainSet, rargs, pargs, lggr)
 	if err != nil {
 		return nil, err
 	}
+
+	// TODO: use custom transmitter here
 	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher, ethKeystore)
 	if err != nil {
 		return nil, err
@@ -47,9 +50,14 @@ func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, par
 	}, nil
 }
 
-func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chainSet evm.ChainSet, args relaytypes.RelayArgs, lggr logger.Logger) (*configWatcher, error) {
+func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger) (*configWatcher, error) {
+	var pluginConfig functionsConfig.PluginConfig
+	err := json.Unmarshal(pargs.PluginConfig, &pluginConfig)
+	if err != nil {
+		return nil, err
+	}
 	var relayConfig evmRelayTypes.RelayConfig
-	err := json.Unmarshal(args.RelayConfig, &relayConfig)
+	err = json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -57,17 +65,17 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 	if err != nil {
 		return nil, err
 	}
-	if !common.IsHexAddress(args.ContractID) {
+	if !common.IsHexAddress(rargs.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
 
-	contractAddress := common.HexToAddress(args.ContractID)
+	contractAddress := common.HexToAddress(rargs.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
 
-	cp, err := functionsRelay.NewFunctionsConfigPoller(pluginType, chain.LogPoller(), contractAddress, lggr)
+	cp, err := functionsRelay.NewFunctionsConfigPoller(pluginType, chain.LogPoller(), contractAddress, pluginConfig.ContractVersion, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -80,5 +88,5 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 		},
 	}
 
-	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
+	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, rargs.New), nil
 }

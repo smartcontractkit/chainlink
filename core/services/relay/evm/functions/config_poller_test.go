@@ -80,7 +80,8 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 	defer lp.Close()
 	require.NoError(t, lp.Start(ctx))
-	logPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, ocrAddress, lggr)
+	var contractVersion = uint32(0)
+	logPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, ocrAddress, contractVersion, lggr)
 	require.NoError(t, err)
 	// Should have no config to begin with.
 	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))

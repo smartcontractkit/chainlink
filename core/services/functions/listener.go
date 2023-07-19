@@ -171,6 +171,12 @@ func NewFunctionsListener(
 
 // Start complies with job.Service
 func (l *FunctionsListener) Start(context.Context) error {
+	// TODO: Utilize Log Poller here instead to listen to:
+	// - Router.getContractById(PluginConfig.DONId, false) = current route
+	// - Router.getContractById(PluginConfig.DONId, false) = proposed route
+	// If current = proposed, only listen to current
+
+	// TODO: On contract update, stop and start filters
 	return l.StartOnce("FunctionsListener", func() error {
 		l.serviceContext, l.serviceCancel = context.WithCancel(context.Background())
 		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{

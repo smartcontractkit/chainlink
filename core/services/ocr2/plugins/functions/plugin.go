@@ -66,6 +66,130 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	}
 
 	allServices := []job.ServiceCtx{}
+	var err error
+	switch pluginConfig.ContractVersion {
+	case 0:
+		allServices, err = NewFunctionsServicesV0(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs, conf, pluginORM, s4ORM, pluginConfig)
+		if err != nil {
+			return nil, err
+		}
+		return allServices, nil
+
+	case 1:
+		allServices, err = NewFunctionsServicesV1(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs, conf, pluginORM, s4ORM, pluginConfig)
+		if err != nil {
+			return nil, err
+		}
+		return allServices, nil
+	default:
+		return nil, errors.New("Functions: unsupported PluginConfig.ContractVersion")
+	}
+}
+
+func NewFunctionsServicesV0(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig, pluginORM functions.ORM, s4ORM s4.ORM, pluginConfig config.PluginConfig) ([]job.ServiceCtx, error) {
+	allServices := []job.ServiceCtx{}
+	contractAddress := common.HexToAddress(conf.Job.OCR2OracleSpec.ContractID)
+	oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(contractAddress, conf.Chain.Client())
+	if err != nil {
+		return nil, errors.Wrapf(err, "Functions: failed to create a FunctionsOracle wrapper for address: %v", contractAddress)
+	}
+
+	var decryptor threshold.Decryptor
+	// thresholdOracleArgs nil check will be removed once the Threshold plugin is fully integrated w/ Functions
+	if len(conf.ThresholdKeyShare) > 0 && thresholdOracleArgs != nil && pluginConfig.DecryptionQueueConfig != nil {
+		decryptionQueue := threshold.NewDecryptionQueue(
+			int(pluginConfig.DecryptionQueueConfig.MaxQueueLength),
+			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextBytes),
+			int(pluginConfig.DecryptionQueueConfig.MaxCiphertextIdLength),
+			time.Duration(pluginConfig.DecryptionQueueConfig.CompletedCacheTimeoutSec)*time.Second,
+			conf.Logger.Named("DecryptionQueue"),
+		)
+		decryptor = decryptionQueue
+		thresholdServicesConfig := threshold.ThresholdServicesConfig{
+			DecryptionQueue:    decryptionQueue,
+			KeyshareWithPubKey: conf.ThresholdKeyShare,
+			ConfigParser:       config.ThresholdConfigParser{},
+		}
+		thresholdService, err2 := threshold.NewThresholdService(thresholdOracleArgs, &thresholdServicesConfig)
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "error calling NewThresholdServices")
+		}
+		allServices = append(allServices, thresholdService)
+	} else {
+		conf.Logger.Warn("Threshold configuration is incomplete. Threshold secrets decryption plugin is disabled.")
+	}
+
+	var s4Storage s4.Storage
+	if pluginConfig.S4Constraints != nil {
+		s4Storage = s4.NewStorage(conf.Logger, *pluginConfig.S4Constraints, s4ORM, utils.NewRealClock())
+	}
+
+	listenerLogger := conf.Logger.Named("FunctionsListener")
+	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
+	functionsListener := functions.NewFunctionsListener(
+		oracleContract,
+		conf.Job,
+		bridgeAccessor,
+		pluginORM,
+		pluginConfig,
+		s4Storage,
+		conf.Chain.LogBroadcaster(),
+		listenerLogger,
+		conf.MailMon,
+		conf.URLsMonEndpoint,
+		decryptor,
+	)
+	allServices = append(allServices, functionsListener)
+
+	functionsOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
+		Logger:    functionsOracleArgs.Logger,
+		PluginORM: pluginORM,
+		JobID:     conf.Job.ExternalJobID,
+	}
+	functionsReportingPluginOracle, err := libocr2.NewOracle(*functionsOracleArgs)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to call NewOracle to create a Functions Reporting Plugin")
+	}
+	allServices = append(allServices, job.NewServiceAdapter(functionsReportingPluginOracle))
+
+	if pluginConfig.GatewayConnectorConfig != nil && s4Storage != nil && pluginConfig.OnchainAllowlist != nil {
+		allowlist, err2 := gwFunctions.NewOnchainAllowlist(conf.Chain.Client(), *pluginConfig.OnchainAllowlist, conf.Logger)
+		if err2 != nil {
+			return nil, errors.Wrap(err, "failed to call NewOnchainAllowlist while creating a Functions Reporting Plugin")
+		}
+		connectorLogger := conf.Logger.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
+		connector, err3 := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, connectorLogger)
+		if err3 != nil {
+			return nil, errors.Wrap(err, "failed to create a GatewayConnector")
+		}
+		allServices = append(allServices, connector)
+	} else {
+		listenerLogger.Warn("No GatewayConnectorConfig, S4Constraints or OnchainAllowlist is found in the plugin config, GatewayConnector will not be enabled")
+	}
+
+	if s4OracleArgs != nil && pluginConfig.S4Constraints != nil {
+		s4OracleArgs.ReportingPluginFactory = s4_plugin.S4ReportingPluginFactory{
+			Logger:        s4OracleArgs.Logger,
+			ORM:           s4ORM,
+			ConfigDecoder: config.S4ConfigDecoder,
+		}
+		s4ReportingPluginOracle, err := libocr2.NewOracle(*s4OracleArgs)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to call NewOracle to create a S4 Reporting Plugin")
+		}
+		allServices = append(allServices, job.NewServiceAdapter(s4ReportingPluginOracle))
+	} else {
+		listenerLogger.Warn("s4OracleArgs is nil or S4Constraints are not configured. S4 plugin is disabled.")
+	}
+
+	return allServices, nil
+}
+
+func NewFunctionsServicesV1(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs *libocr2.OCR2OracleArgs, conf *FunctionsServicesConfig, pluginORM functions.ORM, s4ORM s4.ORM, pluginConfig config.PluginConfig) ([]job.ServiceCtx, error) {
+	// TODO: update this function to use the new contracts
+	// or create a common contract wrapper
+
+	allServices := []job.ServiceCtx{}
 	contractAddress := common.HexToAddress(conf.Job.OCR2OracleSpec.ContractID)
 	oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(contractAddress, conf.Chain.Client())
 	if err != nil {

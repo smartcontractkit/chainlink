@@ -106,10 +106,14 @@ func configPollerFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR2ConfigPoller", addr.String())
 }
 
-func NewFunctionsConfigPoller(pluginType FunctionsPluginType, destChainPoller logpoller.LogPoller, addr common.Address, lggr logger.Logger) (types.ConfigPoller, error) {
+func NewFunctionsConfigPoller(pluginType FunctionsPluginType, destChainPoller logpoller.LogPoller, addr common.Address, contractVersion uint32, lggr logger.Logger) (types.ConfigPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(addr), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
+	}
+
+	if contractVersion > 0 {
+		// TODO: Register filters for contract updates
 	}
 
 	cp := &configPoller{
@@ -175,3 +179,5 @@ func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 	}
 	return uint64(latest), nil
 }
+
+// TODO: Handle contract address updates
