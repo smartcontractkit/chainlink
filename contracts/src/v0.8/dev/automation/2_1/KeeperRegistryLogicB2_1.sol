@@ -186,6 +186,34 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   // GETTERS //
   /////////////
 
+  function getTransmitGasOverhead() external view returns (uint256) {
+    return TRANSMIT_GAS_OVERHEAD;
+  }
+
+  function getCheckGasOverhead() external view returns (uint256) {
+    return CHECK_GAS_OVERHEAD;
+  }
+
+  function getConditionalGasOverhead() external view returns (uint256) {
+    return REGISTRY_CONDITIONAL_OVERHEAD;
+  }
+
+  function getLogGasOverhead() external view returns (uint256) {
+    return REGISTRY_LOG_OVERHEAD;
+  }
+
+  function getPerPerformByteGasOverhead() external view returns (uint256) {
+    return REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD;
+  }
+
+  function getPerSignerGasOverhead() external view returns (uint256) {
+    return REGISTRY_PER_SIGNER_GAS_OVERHEAD;
+  }
+
+  function getCancellationDelay() external view returns (uint256) {
+    return CANCELLATION_DELAY;
+  }
+
   /**
    * @notice read all of the details about an upkeep
    * @dev this function may be deprecated in a future version of automation in favor of individual
