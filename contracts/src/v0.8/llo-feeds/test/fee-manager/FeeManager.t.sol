@@ -91,7 +91,7 @@ contract FeeManagerTest is BaseFeeManagerTest {
 
   function test_premiumIsApplied() public {
     //native premium
-    uint16 nativePremium = FEE_SCALAR / 5;
+    uint256 nativePremium = FEE_SCALAR / 5;
 
     //set the premium
     setNativePremium(nativePremium, ADMIN);
@@ -108,7 +108,7 @@ contract FeeManagerTest is BaseFeeManagerTest {
 
   function test_premiumIsNotAppliedForLinkFee() public {
     //native premium
-    uint16 nativePremium = FEE_SCALAR / 5;
+    uint256 nativePremium = FEE_SCALAR / 5;
 
     //set the premium
     setNativePremium(nativePremium, ADMIN);
@@ -122,7 +122,7 @@ contract FeeManagerTest is BaseFeeManagerTest {
 
   function test_premiumIsNoLongerAppliedAfterRemoving() public {
     //native premium
-    uint16 nativePremium = FEE_SCALAR / 5;
+    uint256 nativePremium = FEE_SCALAR / 5;
 
     //set the premium
     setNativePremium(nativePremium, ADMIN);
@@ -148,7 +148,7 @@ contract FeeManagerTest is BaseFeeManagerTest {
 
   function test_feeIsUpdatedAfterNewPremiumIsApplied() public {
     //native premium
-    uint16 nativePremium = FEE_SCALAR / 5;
+    uint256 nativePremium = FEE_SCALAR / 5;
 
     //set the premium
     setNativePremium(nativePremium, ADMIN);
@@ -177,7 +177,7 @@ contract FeeManagerTest is BaseFeeManagerTest {
 
   function test_premiumIsAppliedForNativeFeeWithDiscount() public {
     //native premium
-    uint16 nativePremium = FEE_SCALAR / 5;
+    uint256 nativePremium = FEE_SCALAR / 5;
 
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 2, ADMIN);
@@ -323,7 +323,7 @@ contract FeeManagerTest is BaseFeeManagerTest {
 
   function test_premiumIsNotAppliedWith100PercentDiscount() public {
     //native premium
-    uint16 nativePremium = FEE_SCALAR / 5;
+    uint256 nativePremium = FEE_SCALAR / 5;
 
     //set the subscriber discount to 100%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR, ADMIN);
@@ -351,7 +351,7 @@ contract FeeManagerTest is BaseFeeManagerTest {
 
   function test_premiumRoundsDownWhenUneven() public {
     //native premium
-    uint16 nativePremium = FEE_SCALAR / 3;
+    uint256 nativePremium = FEE_SCALAR / 3;
 
     //set the premium
     setNativePremium(nativePremium, ADMIN);
@@ -368,7 +368,7 @@ contract FeeManagerTest is BaseFeeManagerTest {
 
   function test_discountRoundsDownWhenUneven() public {
     //native premium
-    uint16 discount = FEE_SCALAR / 3;
+    uint256 discount = FEE_SCALAR / 3;
 
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, discount, ADMIN);
@@ -447,7 +447,7 @@ contract FeeManagerTest is BaseFeeManagerTest {
 
   function test_nativePremiumEventIsEmittedOnUpdate() public {
     //native premium
-    uint16 nativePremium = FEE_SCALAR / 3;
+    uint256 nativePremium = FEE_SCALAR / 3;
 
     //an event should be emitted
     vm.expectEmit();
@@ -461,7 +461,7 @@ contract FeeManagerTest is BaseFeeManagerTest {
 
   function test_subscriberDiscountEventIsEmittedOnUpdate() public {
     //native premium
-    uint16 discount = FEE_SCALAR / 3;
+    uint256 discount = FEE_SCALAR / 3;
 
     //an event should be emitted
     vm.expectEmit();

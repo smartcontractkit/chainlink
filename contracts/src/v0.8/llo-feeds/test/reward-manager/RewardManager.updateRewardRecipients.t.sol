@@ -52,8 +52,8 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
 
     //get a subset of the recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](2);
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 2500);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 2500);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, ONE_PERCENT * 25);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, ONE_PERCENT * 25);
 
     //updating a recipient should force the funds to be paid out
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
@@ -118,10 +118,10 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     }
 
     //add the new recipients individually
-    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 2500);
-    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, 2500);
-    recipients[6] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, 2500);
-    recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, 2500);
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, ONE_PERCENT * 25);
+    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, ONE_PERCENT * 25);
+    recipients[6] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, ONE_PERCENT * 25);
+    recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, ONE_PERCENT * 25);
 
     //should revert as you cannot add new recipients
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
@@ -142,8 +142,8 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     }
 
     //add the new recipients individually
-    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 5000);
-    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, 5000);
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, FIFTY_PERCENT);
+    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, FIFTY_PERCENT);
 
     //should revert as you cannot remove recipients
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
@@ -164,11 +164,11 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     }
 
     //add the new recipients individually
-    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 2000);
-    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, 2000);
-    recipients[6] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, 2000);
-    recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, 2000);
-    recipients[8] = Common.AddressAndWeight(DEFAULT_RECIPIENT_9, 2000);
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, TEN_PERCENT * 2);
+    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, TEN_PERCENT * 2);
+    recipients[6] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, TEN_PERCENT * 2);
+    recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, TEN_PERCENT * 2);
+    recipients[8] = Common.AddressAndWeight(DEFAULT_RECIPIENT_9, TEN_PERCENT * 2);
 
     //should revert as changing the recipient set is not allowed
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
@@ -187,15 +187,15 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     //update the existing recipients
     recipients[0] = Common.AddressAndWeight(getPrimaryRecipients()[0].addr, 0);
     recipients[1] = Common.AddressAndWeight(getPrimaryRecipients()[1].addr, 0);
-    recipients[2] = Common.AddressAndWeight(getPrimaryRecipients()[2].addr, 3000);
-    recipients[3] = Common.AddressAndWeight(getPrimaryRecipients()[3].addr, 2000);
+    recipients[2] = Common.AddressAndWeight(getPrimaryRecipients()[2].addr, TEN_PERCENT * 3);
+    recipients[3] = Common.AddressAndWeight(getPrimaryRecipients()[3].addr, TEN_PERCENT * 3);
 
     //add the new recipients individually
-    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 1000);
-    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, 1000);
-    recipients[6] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, 1000);
-    recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, 1000);
-    recipients[8] = Common.AddressAndWeight(DEFAULT_RECIPIENT_9, 1000);
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, TEN_PERCENT);
+    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, TEN_PERCENT);
+    recipients[6] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, TEN_PERCENT);
+    recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, TEN_PERCENT);
+    recipients[8] = Common.AddressAndWeight(DEFAULT_RECIPIENT_9, TEN_PERCENT);
 
     //should revert as you cannot remove recipients
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
@@ -214,11 +214,11 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     //update the existing recipients
     recipients[0] = Common.AddressAndWeight(getPrimaryRecipients()[0].addr, 0);
     recipients[1] = Common.AddressAndWeight(getPrimaryRecipients()[1].addr, 0);
-    recipients[2] = Common.AddressAndWeight(getPrimaryRecipients()[2].addr, 3000);
-    recipients[3] = Common.AddressAndWeight(getPrimaryRecipients()[3].addr, 2000);
+    recipients[2] = Common.AddressAndWeight(getPrimaryRecipients()[2].addr, TEN_PERCENT * 3);
+    recipients[3] = Common.AddressAndWeight(getPrimaryRecipients()[3].addr, TEN_PERCENT * 2);
 
     //add the new recipients individually
-    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 5000);
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, TEN_PERCENT * 5);
 
     //should revert as you cannot remove recipients
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
@@ -236,8 +236,8 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     }
 
     //add the new recipients individually
-    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 5000);
-    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, 1000);
+    recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, TEN_PERCENT * 5);
+    recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, TEN_PERCENT);
 
     //should revert as the addresses are not in the configured set
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
@@ -254,8 +254,8 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
     recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 0);
     recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 0);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 5000);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 5000);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, TEN_PERCENT * 5);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, TEN_PERCENT * 5);
 
     //should revert as changing the recipients is not allowed
     vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
@@ -267,10 +267,10 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
   function test_updatePartialRecipientsTowithUnderWeight() public {
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 1000);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 1000);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 1000);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 1000);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, TEN_PERCENT);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, TEN_PERCENT);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, TEN_PERCENT);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, TEN_PERCENT);
 
     //should revert as the new weights exceed the previous weights being replaced
     vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
@@ -282,10 +282,10 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
   function test_updatePartialRecipientsWithExcessiveWeight() public {
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 1000);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 1000);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 1000);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 10000);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, TEN_PERCENT);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, TEN_PERCENT);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, TEN_PERCENT);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, POOL_SCALAR);
 
     //should revert as the new weights exceed the previous weights being replaced
     vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
@@ -300,10 +300,10 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
 
     //create a list of containing recipients from the primary configured set with their new weights
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 1000);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 1000);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 3000);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 5000);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, TEN_PERCENT);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, TEN_PERCENT);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, TEN_PERCENT * 3);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, TEN_PERCENT * 5);
 
     //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
@@ -327,20 +327,20 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     }
 
     //manually check the balance of each recipient which should be their original amount of 1/4 plus their new weighted amount
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_1), (POOL_DEPOSIT_AMOUNT * 1000) / 10000 + expectedRecipientAmount);
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_2), (POOL_DEPOSIT_AMOUNT * 1000) / 10000 + expectedRecipientAmount);
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_3), (POOL_DEPOSIT_AMOUNT * 3000) / 10000 + expectedRecipientAmount);
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_4), (POOL_DEPOSIT_AMOUNT * 5000) / 10000 + expectedRecipientAmount);
+    assertEq(getAssetBalance(DEFAULT_RECIPIENT_1), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount);
+    assertEq(getAssetBalance(DEFAULT_RECIPIENT_2), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount);
+    assertEq(getAssetBalance(DEFAULT_RECIPIENT_3), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 3) / POOL_SCALAR + expectedRecipientAmount);
+    assertEq(getAssetBalance(DEFAULT_RECIPIENT_4), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 5) / POOL_SCALAR + expectedRecipientAmount);
   }
 
   function test_partialUpdateRecipientWeights() public {
     //expected recipient amount is 1/4 of the pool deposit for original recipients
     uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
 
-    //create a list of containing recipients from the primary configured set with their new weights, which should total 5000
+    //create a list of containing recipients from the primary configured set with their new weights, which should total TEN_PERCENT * 5
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](2);
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 1000);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 4000);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, TEN_PERCENT);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, TEN_PERCENT * 4);
 
     //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
@@ -364,8 +364,8 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     }
 
     //manually check the balance of each recipient which should be their original amount of 1/4 plus their new weighted amount
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_1), (POOL_DEPOSIT_AMOUNT * 1000) / 10000 + expectedRecipientAmount);
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_2), (POOL_DEPOSIT_AMOUNT * 4000) / 10000 + expectedRecipientAmount);
+    assertEq(getAssetBalance(DEFAULT_RECIPIENT_1), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount);
+    assertEq(getAssetBalance(DEFAULT_RECIPIENT_2), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 4) / POOL_SCALAR + expectedRecipientAmount);
 
     //the reward manager should have half the funds remaining
     assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
@@ -419,10 +419,10 @@ contract RewardManagerUpdateRewardRecipientsMultiplePoolsTest is BaseRewardManag
 
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 4000);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 4000);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 1000);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 1000);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, TEN_PERCENT * 4);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, TEN_PERCENT * 4);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, TEN_PERCENT);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, TEN_PERCENT);
 
     //updating a recipient should force the funds to be paid out for the primary recipients
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
@@ -446,9 +446,9 @@ contract RewardManagerUpdateRewardRecipientsMultiplePoolsTest is BaseRewardManag
     claimRewards(PRIMARY_POOL_ARRAY, recipients[3].addr);
 
     //check the balance matches the ratio the recipient who were updated should have received
-    assertEq(getAssetBalance(recipients[0].addr), (POOL_DEPOSIT_AMOUNT * 4000) / 10000 + expectedRecipientAmount);
-    assertEq(getAssetBalance(recipients[1].addr), (POOL_DEPOSIT_AMOUNT * 4000) / 10000 + expectedRecipientAmount);
-    assertEq(getAssetBalance(recipients[2].addr), (POOL_DEPOSIT_AMOUNT * 1000) / 10000 + expectedRecipientAmount);
-    assertEq(getAssetBalance(recipients[3].addr), (POOL_DEPOSIT_AMOUNT * 1000) / 10000 + expectedRecipientAmount);
+    assertEq(getAssetBalance(recipients[0].addr), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 4) / POOL_SCALAR + expectedRecipientAmount);
+    assertEq(getAssetBalance(recipients[1].addr), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 4) / POOL_SCALAR + expectedRecipientAmount);
+    assertEq(getAssetBalance(recipients[2].addr), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount);
+    assertEq(getAssetBalance(recipients[3].addr), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount);
   }
 }

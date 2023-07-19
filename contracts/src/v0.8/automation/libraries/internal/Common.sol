@@ -16,7 +16,7 @@ library Common {
   // @notice Struct to hold the address and it's associated weight
   struct AddressAndWeight {
     address addr;
-    uint16 weight;
+    uint256 weight;
   }
 
   /**

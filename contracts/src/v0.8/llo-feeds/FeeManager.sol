@@ -21,8 +21,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   //list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
   mapping(address => mapping(bytes32 => mapping(address => uint256))) public subscriberDiscounts;
 
-  //the total discount that can be applied to a fee, 10000 = 100% discount
-  uint16 private constant TOTAL_DISCOUNT = 10000;
+  //the total discount that can be applied to a fee, 1e18 = 100% discount
+  uint256 private constant PERCENTAGE_SCALAR = 1e18;
 
   //the link token address
   address private immutable LINK_ADDRESS;
@@ -40,7 +40,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   uint16 private constant QUOTE_METADATA_FEE_ADDRESS_INDEX = 0;
 
   //the premium fee to be paid if paying in native
-  uint16 public nativePremium;
+  uint256 public nativePremium;
 
   //the error thrown if the discount or premium is invalid
   error InvalidPremium();
@@ -55,8 +55,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   error InvalidAddress();
 
   // Events emitted upon state change
-  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint16 discount);
-  event NativePremiumSet(uint16 newPremium);
+  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
+  event NativePremiumSet(uint256 newPremium);
 
   /**
    * @notice Construct the FeeManager contract
@@ -84,10 +84,10 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     address subscriber,
     bytes32 feedId,
     address token,
-    uint16 discount
+    uint256 discount
   ) external onlyOwner {
     //make sure the discount is not greater than the total discount that can be applied
-    if (discount > TOTAL_DISCOUNT) revert InvalidDiscount();
+    if (discount > PERCENTAGE_SCALAR) revert InvalidDiscount();
     //make sure the token is either LINK or native
     if (token != LINK_ADDRESS && token != NATIVE_ADDRESS) revert InvalidAddress();
 
@@ -96,9 +96,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //emit the event
     emit SubscriberDiscountUpdated(subscriber, feedId, token, discount);
   }
-
-  // Error message when an offset is out of bounds
-  error InvalidOffset(uint256 expected, uint256 actual);
 
   // @inheritdoc IFeeManager
   function getFee(
@@ -128,7 +125,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       fee.amount = report.readUint256(LINK_FEE_INDEX);
     } else {
       fee.assetAddress = NATIVE_ADDRESS;
-      fee.amount = (report.readUint256(NATIVE_FEE_INDEX) * (TOTAL_DISCOUNT + nativePremium)) / TOTAL_DISCOUNT;
+      fee.amount = (report.readUint256(NATIVE_FEE_INDEX) * (PERCENTAGE_SCALAR + nativePremium)) / PERCENTAGE_SCALAR;
     }
 
     //decode the feedId from the report to calculate the discount being applied
@@ -137,15 +134,15 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //set the fee amount to the discounted fee, rounding down
     fee.amount =
       fee.amount -
-      ((fee.amount * subscriberDiscounts[subscriber][feedId][quoteFeeAddress]) / TOTAL_DISCOUNT);
+      ((fee.amount * subscriberDiscounts[subscriber][feedId][quoteFeeAddress]) / PERCENTAGE_SCALAR);
 
     //return the fee
     return fee;
   }
 
   // @inheritdoc IFeeManager
-  function setNativePremium(uint16 premium) external onlyOwner {
-    if (premium > TOTAL_DISCOUNT) revert InvalidPremium();
+  function setNativePremium(uint256 premium) external onlyOwner {
+    if (premium > PERCENTAGE_SCALAR) revert InvalidPremium();
 
     nativePremium = premium;
 

@@ -53,7 +53,11 @@ contract BaseRewardManagerTest is Test {
   uint256 internal constant DEFAULT_MINT_QUANTITY = 100 ether;
 
   //reward scalar (this should match the const in the contract)
-  uint256 internal constant POOL_SCALAR = 10000;
+  uint256 internal constant POOL_SCALAR = 1e18;
+  uint256 internal constant ONE_PERCENT = POOL_SCALAR / 100;
+  uint256 internal constant FIFTY_PERCENT = POOL_SCALAR / 2;
+  uint256 internal constant TEN_PERCENT = POOL_SCALAR / 10;
+
 
   //the selector for each error
   bytes4 internal constant UNAUTHORIZED_ERROR_SELECTOR = bytes4(keccak256("Unauthorized()"));
@@ -110,10 +114,10 @@ contract BaseRewardManagerTest is Test {
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
 
     //init each recipient with even weights. 2500 = 25% of pool
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 2500);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 2500);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 2500);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 2500);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, POOL_SCALAR / 4);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, POOL_SCALAR / 4);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, POOL_SCALAR / 4);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, POOL_SCALAR / 4);
 
     return recipients;
   }
@@ -137,10 +141,10 @@ contract BaseRewardManagerTest is Test {
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
 
     //init each recipient with even weights
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 2500);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 2500);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, 2500);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, 2500);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, POOL_SCALAR / 4);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, POOL_SCALAR / 4);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, POOL_SCALAR / 4);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, POOL_SCALAR / 4);
 
     return recipients;
   }

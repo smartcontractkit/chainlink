@@ -52,9 +52,6 @@ contract BaseTest is Test {
   ERC20Mock internal s_native;
   WERC20Mock internal s_wrappedNative;
 
-  //this should match the value in the rewards contracts_native
-  uint16 PERCENTAGE_SCALAR = 10000;
-
   struct Signer {
     uint256 mockPrivateKey;
     address signerAddress;

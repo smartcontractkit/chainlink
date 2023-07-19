@@ -12,7 +12,7 @@ interface IFeeManager is IERC165 {
    * @param feedId feed id to apply the discount to
    * @param token token to apply the discount to
    */
-  function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint16 discount) external;
+  function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint256 discount) external;
 
   /**
    * @notice Gets the fee from a report. If the sender is a subscriber, they will receive a discount.
@@ -31,5 +31,5 @@ interface IFeeManager is IERC165 {
    * @notice Sets the native premium
    * @param premium premium to be paid if paying in native
    */
-  function setNativePremium(uint16 premium) external;
+  function setNativePremium(uint256 premium) external;
 }

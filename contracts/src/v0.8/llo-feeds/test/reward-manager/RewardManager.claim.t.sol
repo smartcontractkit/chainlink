@@ -566,11 +566,11 @@ contract RewardManagerRecipientClaimDifferentWeightsTest is BaseRewardManagerTes
     //array of recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
 
-    //init each recipient with unevent weights. 1000 = 25% of pool
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 1000);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 8000);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 600);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 400);
+    //init each recipient with uneven weights
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, TEN_PERCENT);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, TEN_PERCENT * 8);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, ONE_PERCENT * 6);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, ONE_PERCENT * 4);
 
     return recipients;
   }
@@ -602,23 +602,52 @@ contract RewardManagerRecipientClaimUnevenWeightTest is BaseRewardManagerTest {
 
     //create a single pool for these tests
     createPrimaryPool();
-
-    //add funds to the pool to be split among the recipients
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
   }
 
   function getPrimaryRecipients() public virtual override returns (Common.AddressAndWeight[] memory) {
     //array of recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](2);
 
-    //init each recipient with even weights. 2500 = 25% of pool
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 3333);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 6667);
+    uint256 oneThird = POOL_SCALAR / 3;
+
+    //init each recipient with even weights.
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, oneThird);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 2 * oneThird + 1);
 
     return recipients;
   }
 
+
+  function test_allRecipientsClaimingReceiveExpectedAmountWithSmallDeposit() public {
+    //add a smaller amount of funds to the pool
+    uint256 smallDeposit = 1e8;
+
+    //add a smaller amount of funds to the pool
+    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(smallDeposit));
+
+    //loop all the recipients and claim their expected amount
+    for (uint256 i; i < getPrimaryRecipients().length; i++) {
+      //get the recipient we're claiming for
+      Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
+
+      //claim the individual rewards for each recipient
+      claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
+
+      //the recipient should have received a share proportional to their weight
+      uint256 expectedRecipientAmount = (smallDeposit * recipient.weight) / POOL_SCALAR;
+
+      //check the balance matches the ratio the recipient should have received
+      assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
+    }
+
+    //smaller deposits will consequently have less precision and will not be able to be split as evenly, the remaining 1 will be lost due to 333...|... being paid out instead of 333...4|
+    assertEq(getAssetBalance(address(rewardManager)), 1);
+  }
+
   function test_allRecipientsClaimingReceiveExpectedAmount() public {
+    //add funds to the pool to be split among the recipients
+    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+
     //loop all the recipients and claim their expected amount
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
       //get the recipient we're claiming for
@@ -634,7 +663,7 @@ contract RewardManagerRecipientClaimUnevenWeightTest is BaseRewardManagerTest {
       assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
     }
 
-    //their should be 2 wei left over from rounding errors
-    assertEq(getAssetBalance(address(rewardManager)), 2);
+    //their should be 0 wei left over indicating a successful split
+    assertEq(getAssetBalance(address(rewardManager)), 0);
   }
 }

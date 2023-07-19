@@ -37,10 +37,10 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](5);
 
     //init each recipient with even weights
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 2500);
-    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, 2500);
-    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, 2500);
-    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, 2500);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, ONE_PERCENT * 25);
+    recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, ONE_PERCENT * 25);
+    recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_3, ONE_PERCENT * 25);
+    recipients[3] = Common.AddressAndWeight(DEFAULT_RECIPIENT_4, ONE_PERCENT * 25);
     recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, 0);
 
     //Zero weight should fail
@@ -86,7 +86,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](1);
 
     //init each recipient with even weights
-    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 10000);
+    recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, POOL_SCALAR);
 
     //set the recipients with a recipient with a weight of 0
     setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);

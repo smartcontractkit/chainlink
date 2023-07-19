@@ -33,7 +33,7 @@ contract BaseFeeManagerTest is Test {
   uint256 internal constant DEFAULT_REPORT_NATIVE_FEE = 1e10;
 
   //rewards
-  uint16 internal constant FEE_SCALAR = 10000;
+  uint256 internal constant FEE_SCALAR = 1e18;
 
   //the selector for each error
   bytes4 internal constant INVALID_DISCOUNT_ERROR = bytes4(keccak256("InvalidDiscount()"));
@@ -42,8 +42,8 @@ contract BaseFeeManagerTest is Test {
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
 
   //events emitted
-  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint16 discount);
-  event NativePremiumSet(uint16 newPremium);
+  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
+  event NativePremiumSet(uint256 newPremium);
 
   function setUp() public virtual {
     //change to admin user
@@ -62,7 +62,7 @@ contract BaseFeeManagerTest is Test {
     address subscriber,
     bytes32 feedId,
     address token,
-    uint16 discount,
+    uint256 discount,
     address sender
   ) internal {
     //record the current address and switch to the recipient
@@ -76,7 +76,7 @@ contract BaseFeeManagerTest is Test {
     changePrank(originalAddr);
   }
 
-  function setNativePremium(uint16 premium, address sender) public {
+  function setNativePremium(uint256 premium, address sender) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
     changePrank(sender);

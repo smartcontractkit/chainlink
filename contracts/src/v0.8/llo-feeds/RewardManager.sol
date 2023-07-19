@@ -35,8 +35,8 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   // @dev The address for the link contract
   address private immutable LINK_ADDRESS;
 
-  // The total weight of all RewardRecipients. 1000 = 10% of the pool fees
-  uint16 private constant PERCENTAGE_SCALAR = 10000;
+  // The total weight of all RewardRecipients. 1e18 = 10% of the pool fees
+  uint256 private constant PERCENTAGE_SCALAR = 1e18;
 
   // The verifier proxy address
   address private verifierProxyAddress;
