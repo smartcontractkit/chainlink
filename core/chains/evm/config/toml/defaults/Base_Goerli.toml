@@ -1,26 +1,22 @@
+[[EVM]]
 ChainID = '84531'
+MinContractPayment = '0'
+NoNewHeadsThreshold = '30s'
 ChainType = 'optimismBedrock'
-FinalityDepth = 200
 LogPollInterval = '2s'
-NoNewHeadsThreshold = '40s'
-MinIncomingConfirmations = 1
-
-[GasEstimator]
+FinalityDepth = 200
+MinIncomingConfirmations = 3
+[EVM.GasEstimator]
 EIP1559DynamicFees = true
+Mode = 'BlockHistory'
+BumpThreshold = 3
 PriceMin = '1 wei'
-BumpMin = '100 wei'
-
-[GasEstimator.BlockHistory]
+[EVM.GasEstimator.BlockHistory]
 BlockHistorySize = 24
-
-[Transactions]
+[EVM.Transactions]
 ResendAfterThreshold = '30s'
-
-[HeadTracker]
+[EVM.HeadTracker]
+SamplingInterval = '1s'
 HistoryDepth = 300
-
-[NodePool]
+[EVM.NodePool]
 SyncThreshold = 10
-
-[OCR]
-ContractConfirmations = 1
