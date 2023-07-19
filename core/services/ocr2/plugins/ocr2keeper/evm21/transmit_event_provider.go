@@ -158,6 +158,7 @@ func (c *TransmitEventProvider) parseLogs(logs []logpoller.Log) ([]transmitEvent
 
 	for _, log := range logs {
 		rawLog := log.ToGethLog()
+		c.logger.Debugw("parsing log", "log", rawLog)
 		abilog, err := c.registry.ParseLog(rawLog)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to parse log", err)
@@ -271,10 +272,10 @@ func (l transmitEventLog) TransmitEventType() ocr2keepers.TransmitEventType {
 		return ocr2keepers.StaleReportEvent
 	case l.Reorged != nil:
 		// TODO: use reorged event type
-		return ocr2keepers.TransmitEventType(2)
+		return ocr2keepers.ReorgReportEvent
 	case l.InsufficientFunds != nil:
 		// TODO: use insufficient funds event type
-		return ocr2keepers.TransmitEventType(3)
+		return ocr2keepers.InsufficientFundsReportEvent
 	default:
 		return ocr2keepers.TransmitEventType(0)
 	}

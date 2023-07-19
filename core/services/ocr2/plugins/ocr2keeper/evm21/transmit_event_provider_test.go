@@ -207,7 +207,7 @@ func TestTransmitEventLog(t *testing.T) {
 					},
 				},
 			},
-			ocr2keepers.TransmitEventType(3),
+			ocr2keepers.InsufficientFundsReportEvent,
 		},
 		{
 			"reorged",
@@ -223,7 +223,7 @@ func TestTransmitEventLog(t *testing.T) {
 					},
 				},
 			},
-			ocr2keepers.TransmitEventType(2),
+			ocr2keepers.ReorgReportEvent,
 		},
 		{
 			"empty",
