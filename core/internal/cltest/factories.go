@@ -534,6 +534,22 @@ func MustInsertRandomKey(
 	return key, key.Address
 }
 
+func MustInsertRandomEnabledKey(
+	t testing.TB,
+	keystore keystore.Eth,
+	opts ...interface{},
+) (ethkey.KeyV2, common.Address) {
+	return MustInsertRandomKey(t, keystore, append(opts, true))
+}
+
+func MustInsertRandomDisabledKey(
+	t testing.TB,
+	keystore keystore.Eth,
+	opts ...interface{},
+) (key ethkey.KeyV2, address common.Address) {
+	return MustInsertRandomKey(t, keystore, append(opts, false))
+}
+
 func MustInsertRandomKeyReturningState(t testing.TB,
 	keystore keystore.Eth,
 	opts ...interface{},

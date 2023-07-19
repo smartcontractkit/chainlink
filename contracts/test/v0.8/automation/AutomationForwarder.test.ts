@@ -88,21 +88,24 @@ describe('AutomationForwarder', () => {
       await forwarder.connect(roles.defaultAccount).forward(gas, HANDLER_BYTES)
     })
 
-    it('returns the success value of the target call', async () => {
+    it('returns the success value & gas used by the target call', async () => {
       const result = await forwarder
         .connect(roles.defaultAccount)
         .callStatic.forward(gas, HANDLER)
-      expect(result).to.be.true
+      expect(result.success).to.be.true
+      expect(result.gasUsed.toNumber()).to.be.greaterThan(0)
 
       const result2 = await forwarder
         .connect(roles.defaultAccount)
         .callStatic.forward(gas, HANDLER_UINT)
-      expect(result2).to.be.true
+      expect(result2.success).to.be.true
+      expect(result2.gasUsed.toNumber()).to.be.greaterThan(0)
 
       const result3 = await forwarder
         .connect(roles.defaultAccount)
         .callStatic.forward(gas, HANDLER_REVERT)
-      expect(result3).to.be.false
+      expect(result3.success).to.be.false
+      expect(result3.gasUsed.toNumber()).to.be.greaterThan(0)
     })
 
     it('reverts if too little gas is supplied', async () => {
