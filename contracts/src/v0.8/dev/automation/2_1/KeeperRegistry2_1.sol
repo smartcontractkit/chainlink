@@ -533,11 +533,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     uint256 executeGas,
     bytes memory performData
   ) private nonReentrant returns (bool success, uint256 gasUsed) {
-    gasUsed = gasleft();
     performData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
-    success = forwarder.forward(executeGas, performData);
-    gasUsed = gasUsed - gasleft();
-    return (success, gasUsed);
+    return forwarder.forward(executeGas, performData);
   }
 
   /**
