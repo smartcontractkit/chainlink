@@ -5,7 +5,7 @@ import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/testhelpers/ExposedVRFCoordinatorV2Plus.sol";
-import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/vrf/VRFCoordinatorV2Plus.sol";
+import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2Plus.sol";
 import {BlockhashStore} from "../../../../src/v0.8/dev/BlockhashStore.sol";
 import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
 import {console} from "forge-std/console.sol";
