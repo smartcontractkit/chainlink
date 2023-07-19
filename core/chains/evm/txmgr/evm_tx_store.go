@@ -1358,7 +1358,7 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(etx *Tx, attempt *TxAttempt, 
 			if isPqErr := errors.As(err, &pqErr); isPqErr {
 				switch pqErr.ConstraintName {
 				case "eth_tx_attempts_eth_tx_id_fkey":
-					return txmgr.ErrEthTxRemoved
+					return txmgr.ErrTxRemoved
 				default:
 				}
 			}

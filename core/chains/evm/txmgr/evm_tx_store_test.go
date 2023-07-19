@@ -1237,7 +1237,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		require.NoError(t, err)
 
 		err = txStore.UpdateTxUnstartedToInProgress(&etx, &attempt)
-		require.ErrorContains(t, err, "eth_tx removed")
+		require.ErrorContains(t, err, "tx removed")
 	})
 
 	db = pgtest.NewSqlxDB(t)

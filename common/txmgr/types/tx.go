@@ -51,7 +51,7 @@ type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	Meta             *TxMeta[ADDR, TX_HASH]
 	ForwarderAddress ADDR
 
-	// Pipeline variables - if you aren't calling this from ethtx task within
+	// Pipeline variables - if you aren't calling this from chain tx task within
 	// the pipeline, you don't need these variables
 	MinConfirmations  clnull.Uint32
 	PipelineTaskRunID *uuid.UUID
@@ -101,7 +101,7 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	// Used for the VRFv2 - the subscription ID of the
 	// requester of the VRF.
 	SubID *uint64 `json:"SubId,omitempty"`
-	// Used for VRFv2Plus - max eth this tx will bill
+	// Used for VRFv2Plus - max native token this tx will bill
 	// should it get bumped
 	MaxEth *string `json:"MaxEth,omitempty"`
 
@@ -161,10 +161,10 @@ type Tx[
 	// necessarily the same as the on-chain encoded value (i.e. Optimism)
 	FeeLimit uint32
 	Error    null.String
-	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
+	// BroadcastAt is updated every time an attempt for this tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.
 	BroadcastAt *time.Time
-	// InitialBroadcastAt is recorded once, the first ever time this eth_tx is sent
+	// InitialBroadcastAt is recorded once, the first ever time this tx is sent
 	InitialBroadcastAt *time.Time
 	CreatedAt          time.Time
 	State              TxState
