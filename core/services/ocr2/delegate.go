@@ -804,7 +804,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 
 	mc := d.cfg.Mercury().Credentials(credName)
 
-	keeperProvider, rgstry, encoder, transmitter, logProvider, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
+	keeperProvider, rgstry, encoder, transmitEventProvider, logProvider, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
@@ -849,7 +849,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 	dConf := plugin.DelegateConfig{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
-		ContractTransmitter:          keeperProvider.ContractTransmitter(),
+		ContractTransmitter:          evmrelay.NewKeepersOCR3ContractTransmitter(keeperProvider.ContractTransmitter()),
 		ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
 		KeepersDatabase:              ocrDB,
 		LocalConfig:                  lc,
@@ -858,7 +858,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
-		EventProvider:                transmitter,
+		EventProvider:                transmitEventProvider,
 		Encoder:                      encoder,
 		Runnable:                     rgstry,
 		LogProvider:                  logProvider,
@@ -889,7 +889,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 		runResultSaver,
 		keeperProvider,
 		rgstry,
-		transmitter,
+		transmitEventProvider,
 		pluginService,
 	}, nil
 }
