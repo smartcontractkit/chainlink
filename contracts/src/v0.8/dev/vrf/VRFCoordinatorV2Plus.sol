@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/BlockhashStoreInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
-import "./VRF.sol";
+import "../../interfaces/LinkTokenInterface.sol";
+import "../../interfaces/BlockhashStoreInterface.sol";
+import "../../interfaces/AggregatorV3Interface.sol";
+import "../../interfaces/TypeAndVersionInterface.sol";
+import "../../vrf/VRF.sol";
 import "./VRFConsumerBaseV2Plus.sol";
-import "../ChainSpecificUtil.sol";
+import "../../ChainSpecificUtil.sol";
 import "./SubscriptionAPI.sol";
 
 contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
