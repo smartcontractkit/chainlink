@@ -4,17 +4,27 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math/big"
 	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // FeedScopedConfigSet ConfigSet with FeedID for use with mercury (and multi-config DON)
@@ -84,14 +94,29 @@ func configFromLog(logData []byte) (FullConfigFromLog, error) {
 	}, nil
 }
 
+type ContractCaller interface {
+	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+	ConfiguredChainID() *big.Int
+}
+
 // ConfigPoller defines the Mercury Config Poller
-type ConfigPoller struct {
+type configPoller struct {
+	utils.StartStopOnce
+
 	lggr               logger.Logger
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
 	feedId             common.Hash
 	notifyCh           chan struct{}
 	subscription       pg.Subscription
+
+	client        types.ContractCaller
+	contract      *mercury_verifier.MercuryVerifier
+	persistConfig atomic.Bool
+	wg            sync.WaitGroup
+	chDone        utils.StopChan
+
+	failedRPCContractCalls prometheus.Counter
 }
 
 func FilterName(addr common.Address, feedID common.Hash) string {
@@ -99,7 +124,7 @@ func FilterName(addr common.Address, feedID common.Hash) string {
 }
 
 // NewConfigPoller creates a new Mercury ConfigPoller
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash, eventBroadcaster pg.EventBroadcaster) (*ConfigPoller, error) {
+func NewConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash, eventBroadcaster pg.EventBroadcaster) (*configPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: FilterName(addr, feedId), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
@@ -110,47 +135,72 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 		return nil, err
 	}
 
-	cp := &ConfigPoller{
-		lggr:               lggr,
-		destChainLogPoller: destChainPoller,
-		addr:               addr,
-		feedId:             feedId,
-		notifyCh:           make(chan struct{}, 1),
-		subscription:       subscription,
+	contract, err := mercury_verifier.NewMercuryVerifier(addr, client)
+	if err != nil {
+		return nil, err
+	}
+
+	cp := &configPoller{
+		lggr:                   lggr.With("addr", addr.Hex(), "feedID", feedId.Hex()),
+		destChainLogPoller:     destChainPoller,
+		addr:                   addr,
+		feedId:                 feedId,
+		notifyCh:               make(chan struct{}, 1),
+		subscription:           subscription,
+		client:                 client,
+		contract:               contract,
+		chDone:                 make(chan struct{}),
+		failedRPCContractCalls: types.FailedRPCContractCalls.WithLabelValues(client.ConfiguredChainID().String(), addr.Hex(), feedId.Hex()),
 	}
 
 	return cp, nil
 }
 
 // Start the subscription to Postgres' notify events.
-func (cp *ConfigPoller) Start() {
-	go cp.startLogSubscription()
+func (cp *configPoller) Start() {
+	err := cp.StartOnce("MercuryConfigPoller", func() error {
+		cp.wg.Add(2)
+		go cp.startLogSubscription()
+		go cp.enablePersistConfig()
+		return nil
+	})
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Close the subscription to Postgres' notify events.
-func (cp *ConfigPoller) Close() error {
-	cp.subscription.Close()
-	return nil
+func (cp *configPoller) Close() error {
+	return cp.StopOnce("MercuryConfigPoller", func() error {
+		close(cp.chDone)
+		cp.subscription.Close()
+		cp.wg.Wait()
+		return nil
+	})
 }
 
 // Notify abstracts the logpoller.LogPoller Notify() implementation
-func (cp *ConfigPoller) Notify() <-chan struct{} {
+func (cp *configPoller) Notify() <-chan struct{} {
 	return cp.notifyCh
 }
 
 // Replay abstracts the logpoller.LogPoller Replay() implementation
-func (cp *ConfigPoller) Replay(ctx context.Context, fromBlock int64) error {
+func (cp *configPoller) Replay(ctx context.Context, fromBlock int64) error {
 	return cp.destChainLogPoller.Replay(ctx, fromBlock)
 }
 
 // LatestConfigDetails returns the latest config details from the logs
-func (cp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	cp.lggr.Debugw("LatestConfigDetails", "eventSig", FeedScopedConfigSet, "addr", cp.addr, "topicIndex", feedIdTopicIndex, "feedID", cp.feedId)
+func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+	cp.lggr.Tracew("LatestConfigDetails", "eventSig", FeedScopedConfigSet, "topicIndex", feedIdTopicIndex)
 	logs, err := cp.destChainLogPoller.IndexedLogs(FeedScopedConfigSet, cp.addr, feedIdTopicIndex, []common.Hash{cp.feedId}, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
 	if len(logs) == 0 {
+		if cp.persistConfig.Load() {
+			// Fallback to RPC call in case logs have been pruned
+			return cp.callLatestConfigDetails(ctx)
+		}
 		return 0, ocrtypes.ConfigDigest{}, nil
 	}
 	latest := logs[len(logs)-1]
@@ -162,13 +212,18 @@ func (cp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 }
 
 // LatestConfig returns the latest config from the logs on a certain block
-func (cp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
+func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
+	cp.lggr.Tracew("LatestConfig", "changedInBlock", changedInBlock, "eventSig", FeedScopedConfigSet, "topicIndex", feedIdTopicIndex)
 	lgs, err := cp.destChainLogPoller.IndexedLogsByBlockRange(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, cp.addr, feedIdTopicIndex, []common.Hash{cp.feedId}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
 	if len(lgs) == 0 {
-		return ocrtypes.ContractConfig{}, nil
+		if cp.persistConfig.Load() {
+			_, cfg, err := cp.callLatestConfig(ctx, big.NewInt(int64(changedInBlock)))
+			return cfg, err
+		}
+		return ocrtypes.ContractConfig{}, fmt.Errorf("missing config on contract %s (chain %s) at block %d", cp.addr.Hex(), cp.client.ConfiguredChainID().String(), changedInBlock)
 	}
 	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data)
 	if err != nil {
@@ -179,7 +234,7 @@ func (cp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 }
 
 // LatestBlockHeight returns the latest block height from the logs
-func (cp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
+func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
 	latest, err := cp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -190,12 +245,13 @@ func (cp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 	return uint64(latest), nil
 }
 
-func (cp *ConfigPoller) startLogSubscription() {
+func (cp *configPoller) startLogSubscription() {
+	defer cp.wg.Done()
+
 	feedIdPgHex := cp.feedId.Hex()[2:] // trim the leading 0x to make it comparable to pg's hex encoding.
 	for {
 		event, ok := <-cp.subscription.Events()
 		if !ok {
-			cp.lggr.Debug("eventBroadcaster subscription closed, exiting notify loop")
 			return
 		}
 
@@ -219,4 +275,92 @@ func (cp *ConfigPoller) startLogSubscription() {
 		default:
 		}
 	}
+}
+
+// enablePersistConfig runs in parallel so that we can attempt to use logs for config even if RPC calls are failing
+func (cp *configPoller) enablePersistConfig() {
+	defer cp.wg.Done()
+	ctx, cancel := cp.chDone.Ctx(context.Background())
+	defer cancel()
+	b := types.NewRPCCallBackoff()
+	for {
+		enabled, err := cp.callIsConfigPersisted(ctx)
+		if err == nil {
+			cp.persistConfig.Store(enabled)
+			return
+		} else {
+			cp.lggr.Warnw("Failed to determine whether config persistence is enabled, retrying", "err", err)
+		}
+		select {
+		case <-time.After(b.Duration()):
+			// keep trying for as long as it takes, with exponential backoff
+		case <-cp.chDone:
+			return
+		}
+	}
+}
+
+func (cp *configPoller) callIsConfigPersisted(ctx context.Context) (persistConfig bool, err error) {
+	persistConfig, err = cp.contract.PersistConfig(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		if methodNotImplemented(err) {
+			// method not implemented
+			return false, nil
+		}
+		cp.failedRPCContractCalls.Inc()
+		return
+	}
+	return persistConfig, nil
+}
+
+func methodNotImplemented(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "execution reverted")
+}
+
+func (cp *configPoller) callLatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+	details, err := cp.contract.LatestConfigDetails(&bind.CallOpts{
+		Context: ctx,
+	}, cp.feedId)
+	if err != nil {
+		cp.failedRPCContractCalls.Inc()
+	}
+	return uint64(details.BlockNumber), details.ConfigDigest, err
+}
+
+// Some chains "manage" state bloat by deleting older logs. This RPC call
+// allows us work around such restrictions.
+func (cp *configPoller) callLatestConfig(ctx context.Context, blockNum *big.Int) (changedInBlock uint64, cfg ocrtypes.ContractConfig, err error) {
+	ocr2AbstractConfig, err := cp.contract.LatestConfig(&bind.CallOpts{
+		Context:     ctx,
+		BlockNumber: blockNum,
+	})
+	if ocr2AbstractConfig.PreviousConfigBlockNumber != blockNum.Int64() {
+		err = fmt.Errorf("block number mismatch: expected to find config changed in block %d but the config was changed in block %d", changedInBlock, ocr2AbstractConfig.PreviousConfigBlockNumber)
+		return
+	}
+	if err != nil {
+		cp.failedRPCContractCalls.Inc()
+		return
+	}
+	signers := make([]ocrtypes.OnchainPublicKey, len(ocr2AbstractConfig.Signers))
+	for i := range signers {
+		signers[i] = ocr2AbstractConfig.Signers[i].Bytes()
+	}
+	transmitters := make([]ocrtypes.Account, len(ocr2AbstractConfig.Transmitters))
+	for i := range transmitters {
+		transmitters[i] = ocrtypes.Account(fmt.Sprintf("0x%x", ocr2AbstractConfig.Transmitters[i].Bytes()))
+	}
+	return uint64(ocr2AbstractConfig.PreviousConfigBlockNumber), ocrtypes.ContractConfig{
+		ConfigDigest:          ocr2AbstractConfig.ConfigDigest,
+		ConfigCount:           ocr2AbstractConfig.ConfigCount,
+		Signers:               signers,
+		Transmitters:          transmitters,
+		F:                     ocr2AbstractConfig.F,
+		OnchainConfig:         ocr2AbstractConfig.OnchainConfig,
+		OffchainConfigVersion: ocr2AbstractConfig.OffchainConfigVersion,
+		OffchainConfig:        ocr2AbstractConfig.OffchainConfig,
+	}, err
 }

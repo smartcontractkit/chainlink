@@ -110,6 +110,7 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, rargs rela
 
 	configPoller, err := NewConfigPoller(
 		lggr.With("contractID", rargs.ContractID),
+		chain.Client(),
 		chain.LogPoller(),
 		contractAddress,
 	)

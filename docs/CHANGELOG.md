@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Added
+
+- OCR2 jobs now support querying contracts for configuration, if the contract
+  supports it and has this setting enabled. This can help on chains such as BSC
+  which "manage" state bloat by arbitrarily deleting logs older than a certain
+  date. In this case, if logs are missing we will query the contract directly
+  and retrive the latest config from chain state. Chainlink will perform no
+  extra RPC calls unless the contract has this feature explicitly enabled. On
+  chains that require this, nops may see an increase in RPC calls.
+- New prometheus metric for all OCR2 jobs (including Mercury)
+  `ocr2_failed_rpc_contract_calls`. This should not fire under normal operation
+  and alerts should be set if it does. This would indicate a critical
+  connection problem to RPC and means that the feed may be functioning
+  sub-optimally.
+
 ### Fixed
 - Updated `v2/keys/evm` and `v2/keys/eth` routes to return 400 and 404 status codes where appropriate. Previously 500s were returned when requested resources were not found or client requests could not be parsed. 
 

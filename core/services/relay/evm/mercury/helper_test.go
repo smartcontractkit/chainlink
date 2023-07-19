@@ -24,7 +24,7 @@ import (
 )
 
 type TestHarness struct {
-	configPoller     *ConfigPoller
+	configPoller     *configPoller
 	user             *bind.TransactOpts
 	backend          *backends.SimulatedBackend
 	verifierContract *mercury_verifier.MercuryVerifier
@@ -64,7 +64,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 
 	eventBroadcaster.On("Subscribe", "insert_on_evm_logs", "").Return(subscription, nil)
 
-	configPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID, eventBroadcaster)
+	configPoller, err := NewConfigPoller(lggr, ethClient, lp, verifierAddress, feedID, eventBroadcaster)
 	require.NoError(t, err)
 
 	configPoller.Start()
