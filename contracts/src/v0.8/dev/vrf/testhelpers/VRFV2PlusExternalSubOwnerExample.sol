@@ -33,15 +33,16 @@ contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2Plus {
     bytes32 keyHash,
     bool nativePayment
   ) external onlyOwner {
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: keyHash,
+      subId: subId,
+      requestConfirmations: requestConfirmations,
+      callbackGasLimit: callbackGasLimit,
+      numWords: numWords,
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment}))
+    });
     // Will revert if subscription is not funded.
-    s_requestId = COORDINATOR.requestRandomWords(
-      keyHash,
-      subId,
-      requestConfirmations,
-      callbackGasLimit,
-      numWords,
-      nativePayment
-    );
+    s_requestId = COORDINATOR.requestRandomWords(req);
   }
 
   function transferOwnership(address newOwner) external onlyOwner {

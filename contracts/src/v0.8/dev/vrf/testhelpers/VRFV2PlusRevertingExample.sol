@@ -19,7 +19,7 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
     LINKTOKEN = LinkTokenInterface(link);
   }
 
-  function fulfillRandomWords(uint256, uint256[] memory) internal override {
+  function fulfillRandomWords(uint256, uint256[] memory) internal pure override {
     revert();
   }
 
@@ -52,7 +52,15 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
     uint32 callbackGasLimit,
     uint32 numWords
   ) external returns (uint256) {
-    s_requestId = COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords, false);
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: keyHash,
+      subId: subId,
+      requestConfirmations: minReqConfs,
+      callbackGasLimit: callbackGasLimit,
+      numWords: numWords,
+      extraArgs: "" // empty extraArgs defaults to link payment
+    });
+    s_requestId = COORDINATOR.requestRandomWords(req);
     return s_requestId;
   }
 }
