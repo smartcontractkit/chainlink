@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -31,18 +30,14 @@ type functionsHandler struct {
 
 var _ handlers.Handler = (*functionsHandler)(nil)
 
-func NewFunctionsHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, chains evm.ChainSet, lggr logger.Logger) (handlers.Handler, error) {
+func NewFunctionsHandler(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains *evm.Chains, lggr logger.Logger) (handlers.Handler, error) {
 	cfg, err := ParseConfig(handlerConfig)
 	if err != nil {
 		return nil, err
 	}
 	var allowlist OnchainAllowlist
 	if cfg.OnchainAllowlist != nil {
-		chainId, ok := big.NewInt(0).SetString(cfg.OnchainAllowlistChainID, 10)
-		if !ok {
-			return nil, errors.New("invalid chain ID")
-		}
-		chain, err := chains.Get(chainId)
+		chain, err := legacyChains.Get(cfg.OnchainAllowlistChainID)
 		if err != nil {
 			return nil, err
 		}

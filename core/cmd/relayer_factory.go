@@ -66,7 +66,9 @@ func (r relayerFactory) NewEVM(ctx context.Context, cfg evm.GeneralConfig, ks ev
 	}
 	for _, s := range singleChainChainSets {
 		relayId := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(s.Chain().ID().String())}
-		relayer := evmrelayer.NewLoopRelayAdapter(evmrelayer.NewRelayer(r.DB, s, r.Logger, ks, eb), s)
+		singleLegacyChain := evm.NewLegacyChains()
+		singleLegacyChain.Put(s.Chain().ID().String(), s.Chain())
+		relayer := evmrelayer.NewLoopRelayAdapter(evmrelayer.NewRelayer(r.DB, singleLegacyChain, r.Logger, ks, eb), s)
 		relayers[relayId] = relayer
 
 	}

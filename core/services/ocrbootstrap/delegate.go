@@ -20,15 +20,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
+type RelayGetter interface {
+	Get(relay.Identifier) (loop.Relayer, error)
+}
+
 // Delegate creates Bootstrap jobs
 type Delegate struct {
-	db                *sqlx.DB
-	jobORM            job.ORM
-	peerWrapper       *ocrcommon.SingletonPeerWrapper
-	ocr2Cfg           validate.OCR2Config
-	insecureCfg       validate.InsecureConfig
-	lggr              logger.SugaredLogger
-	relayers          map[relay.Identifier]loop.Relayer
+	db          *sqlx.DB
+	jobORM      job.ORM
+	peerWrapper *ocrcommon.SingletonPeerWrapper
+	ocr2Cfg     validate.OCR2Config
+	insecureCfg validate.InsecureConfig
+	lggr        logger.SugaredLogger
+	RelayGetter
 	isNewlyCreatedJob bool
 }
 
@@ -40,7 +44,7 @@ func NewDelegateBootstrap(
 	lggr logger.Logger,
 	ocr2Cfg validate.OCR2Config,
 	insecureCfg validate.InsecureConfig,
-	relayers map[relay.Identifier]loop.Relayer,
+	relayers RelayGetter,
 ) *Delegate {
 	return &Delegate{
 		db:          db,
@@ -49,7 +53,7 @@ func NewDelegateBootstrap(
 		lggr:        logger.Sugared(lggr),
 		ocr2Cfg:     ocr2Cfg,
 		insecureCfg: insecureCfg,
-		relayers:    relayers,
+		RelayGetter: relayers,
 	}
 }
 
@@ -78,10 +82,10 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	if err != nil {
 		return nil, err
 	}
-	relayerID := relay.Identifier{Network: spec.Relay, ChainID: chainID}
-	relayer, exists := d.relayers[relayerID]
-	if !exists {
-		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+	relayID := relay.Identifier{Network: spec.Relay, ChainID: chainID}
+	relayer, err := d.RelayGetter.Get(relayID)
+	if err != nil {
+		return nil, errors.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
 	}
 	if spec.FeedID != nil {
 		spec.RelayConfig["feedID"] = *spec.FeedID

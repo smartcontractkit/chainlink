@@ -44,7 +44,7 @@ var _ relaytypes.Relayer = &Relayer{}
 
 type Relayer struct {
 	db               *sqlx.DB
-	chainSet         evm.ChainSet
+	legacyChains     *evm.Chains
 	lggr             logger.Logger
 	ks               RelayerKeystore
 	mercuryPool      wsrpc.Pool
@@ -56,10 +56,10 @@ type RelayerKeystore interface {
 	Eth() keystore.Eth
 }
 
-func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, ks RelayerKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
+func NewRelayer(db *sqlx.DB, legacyChains *evm.Chains, lggr logger.Logger, ks RelayerKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
 	return &Relayer{
 		db:               db,
-		chainSet:         chainSet,
+		legacyChains:     legacyChains,
 		lggr:             lggr.Named("Relayer"),
 		ks:               ks,
 		mercuryPool:      wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
@@ -87,15 +87,17 @@ func (r *Relayer) Ready() error {
 
 func (r *Relayer) HealthReport() (report map[string]error) {
 	report = make(map[string]error)
-	maps.Copy(report, r.chainSet.HealthReport())
+	// TODO does legacy chains need to implement HealthReport?
+	//	maps.Copy(report, r.legacyChains.HealthReport())
 	maps.Copy(report, r.mercuryPool.HealthReport())
 	return
 }
 
 func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MercuryProvider, error) {
-	var relayConfig types.RelayConfig
-	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
-		return nil, errors.WithStack(err)
+	relayOpts := types.NewRelayOpts(rargs)
+	relayConfig, err := relayOpts.RelayConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
 
 	var mercuryConfig mercuryconfig.PluginConfig
@@ -107,7 +109,14 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 		return nil, errors.New("FeedID must be specified")
 	}
 
-	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs, r.eventBroadcaster)
+	// TODO in a single relayer:chain world the logic here should change
+	// instead of a legacyChains, the relayer should have one chain
+	// and this check should be an check of that chain's id vs the requested value
+	chain, err := r.legacyChains.Get(relayConfig.ChainID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain: %w", err)
+	}
+	configWatcher, err := newConfigProvider(r.lggr, chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -132,7 +141,16 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {
-	configProvider, err := newConfigProvider(r.lggr, r.chainSet, args, r.eventBroadcaster)
+	relayOpts := types.NewRelayOpts(args)
+	relayConfig, err := relayOpts.RelayConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay config: %w", err)
+	}
+	chain, err := r.legacyChains.Get(relayConfig.ChainID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain: %w", err)
+	}
+	configProvider, err := newConfigProvider(r.lggr, chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
 		// Never return (*configProvider)(nil)
 		return nil, err
@@ -244,28 +262,34 @@ func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return c.configPoller
 }
 
-func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
-	var relayConfig types.RelayConfig
-	err := json.Unmarshal(args.RelayConfig, &relayConfig)
-	if err != nil {
-		return nil, err
-	}
-	// TODO: does this need to change?
-	chain, err := chainSet.Get(relayConfig.ChainID.ToInt())
-	if err != nil {
-		return nil, err
-	}
-	if !common.IsHexAddress(args.ContractID) {
+func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpts, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
+	/*
+		var relayConfig types.RelayConfig
+		err := json.Unmarshal(args.RelayConfig, &relayConfig)
+		if err != nil {
+			return nil, err
+		}
+		// TODO: does this need to change?
+		chain, err := chainSet.Get(relayConfig.ChainID.ToInt())
+		if err != nil {
+			return nil, err
+		}
+	*/
+	if !common.IsHexAddress(opts.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
 
-	contractAddress := common.HexToAddress(args.ContractID)
+	contractAddress := common.HexToAddress(opts.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
 	var cp types.ConfigPoller
 
+	relayConfig, err := opts.RelayConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay config: %w", err)
+	}
 	if relayConfig.FeedID != nil {
 		cp, err = mercury.NewConfigPoller(
 			lggr,
@@ -295,7 +319,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 			ContractAddress: contractAddress,
 		}
 	}
-	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
+	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, opts.New), nil
 }
 
 func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth) (*contractTransmitter, error) {
@@ -417,15 +441,20 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 }
 
 func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
-	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs, r.eventBroadcaster)
+	relayOpts := types.NewRelayOpts(rargs)
+	relayConfig, err := relayOpts.RelayConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay config: %w", err)
+	}
+	chain, err := r.legacyChains.Get(relayConfig.ChainID.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chain: %w", err)
+	}
+	configWatcher, err := newConfigProvider(r.lggr, chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
 		return nil, err
 	}
 
-	var relayConfig types.RelayConfig
-	if err = json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
-		return nil, err
-	}
 	var contractTransmitter ContractTransmitter
 	var reportCodec median.ReportCodec
 

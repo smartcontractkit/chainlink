@@ -59,35 +59,36 @@ func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job,
 	return keeperProvider, nil
 }
 
-func EVMDependencies20(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm20.EvmRegistry, Encoder, *kevm20.LogProvider, error) {
+func EVMDependencies20(spec job.Job, db *sqlx.DB, lggr logger.Logger, chain evm.Chain, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm20.EvmRegistry, Encoder, *kevm20.LogProvider, error) {
 	var err error
-	var chain evm.Chain
+
 	var keeperProvider evmrelay.OCR2KeeperProvider
 	var registry *kevm20.EvmRegistry
+	/*
+		oSpec := spec.OCR2OracleSpec
 
-	oSpec := spec.OCR2OracleSpec
+			// get the chain from the config
+			chainID, err2 := spec.OCR2OracleSpec.GetChainID()
+			if err2 != nil {
+				return nil, nil, nil, nil, err2
+			}
+			evmChainID, err2 := chainID.Int64()
+			if err2 != nil {
+				return nil, nil, nil, nil, fmt.Errorf("chainID is not evm compatible: %w", err)
+			}
 
-	// get the chain from the config
-	chainID, err2 := spec.OCR2OracleSpec.GetChainID()
-	if err2 != nil {
-		return nil, nil, nil, nil, err2
-	}
-	evmChainID, err2 := chainID.Int64()
-	if err2 != nil {
-		return nil, nil, nil, nil, fmt.Errorf("chainID is not evm compatible: %w", err)
-	}
-
-	chain, err2 = set.Get(big.NewInt(evmChainID))
-	if err2 != nil {
-		return nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
-	}
+			chain, err2 = set.Get(big.NewInt(evmChainID))
+			if err2 != nil {
+				return nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
+			}
+	*/
 
 	// the provider will be returned as a dependency
 	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
+	rAddr := ethkey.MustEIP55Address(spec.OCR2OracleSpec.ContractID).Address()
 	if registry, err = kevm20.NewEVMRegistryService(rAddr, chain, lggr); err != nil {
 		return nil, nil, nil, nil, err
 	}

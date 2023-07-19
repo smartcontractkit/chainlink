@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -46,8 +45,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
@@ -76,7 +73,7 @@ type Application interface {
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	//GetChains() Chains
-	GetRelayers() Relayers
+	GetRelayers() *Relayers
 	GetLoopRegistry() *plugins.LoopRegistry
 
 	// V2 Jobs (TOML specified)
@@ -285,13 +282,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
 		sessionORM     = sessions.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
-		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
+		jobORM         = job.NewORM(db, legacyEVMChains, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
 	)
 
 	srvcs = append(srvcs, pipelineORM)
 
-	for _, chain := range chains.EVM.Chains() {
+	for _, chain := range legacyEVMChains.Slice() {
 		chain.HeadBroadcaster().Subscribe(promReporter)
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
@@ -302,21 +299,21 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				pipelineRunner,
 				pipelineORM,
-				chains.EVM,
+				legacyEVMChains,
 				mailMon),
 			job.Keeper: keeper.NewDelegate(
 				db,
 				jobORM,
 				pipelineRunner,
 				globalLogger,
-				chains.EVM,
+				legacyEVMChains,
 				mailMon),
 			job.VRF: vrf.NewDelegate(
 				db,
 				keyStore,
 				pipelineRunner,
 				pipelineORM,
-				chains.EVM,
+				legacyEVMChains,
 				globalLogger,
 				cfg.Database(),
 				mailMon),
@@ -329,14 +326,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger),
 			job.BlockhashStore: blockhashstore.NewDelegate(
 				globalLogger,
-				chains.EVM,
+				legacyEVMChains,
 				keyStore.Eth()),
 			job.BlockHeaderFeeder: blockheaderfeeder.NewDelegate(
 				globalLogger,
-				chains.EVM,
+				legacyEVMChains,
 				keyStore.Eth()),
 			job.Gateway: gateway.NewDelegate(
-				chains.EVM,
+				legacyEVMChains,
 				keyStore.Eth(),
 				globalLogger),
 		}
@@ -353,7 +350,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineORM,
 			pipelineRunner,
 			db,
-			chains.EVM,
+			legacyEVMChains,
 			globalLogger,
 		)
 	}
@@ -377,7 +374,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,
-			chains.EVM,
+			legacyEVMChains,
 			globalLogger,
 			cfg.Database(),
 			mailMon,
@@ -387,30 +384,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 	if cfg.OCR2().Enabled() {
 		globalLogger.Debug("Off-chain reporting v2 enabled")
-		relayers := make(map[relay.Identifier]loop.Relayer)
-		if cfg.EVMEnabled() {
-			lggr := globalLogger.Named("EVM")
-			evmRelayer := evmrelay.NewRelayer(db, chains.EVM, lggr, cfg, keyStore, eventBroadcaster)
-			TODO := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(big.NewInt(1).String())}
-			relayers[TODO] = relay.NewRelayerAdapter(evmRelayer, chains.EVM)
-		}
-		if cfg.CosmosEnabled() {
-			lggr := globalLogger.Named("Cosmos.Relayer")
-			for id, relayer := range chains.Cosmos {
-				relayer := pkgcosmos.NewRelayer(lggr.Named(id.Name()), chain)
-				relayers[id] = relay.NewRelayerAdapter(relayer, chain)
-			}
-		}
-		if cfg.SolanaEnabled() {
-			for id, relayer := range chains.Solana {
-				relayers[id] = relayer
-			}
-		}
-		if cfg.StarkNetEnabled() {
-			for id, relayer := range chains.StarkNet {
-				relayers[id] = relayer
-			}
-		}
+
 		registrarConfig := plugins.NewRegistrarConfig(opts.GRPCOpts, opts.LoopRegistry.Register)
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(cfg.OCR2(), cfg.Mercury(), cfg.Threshold(), cfg.Insecure(), cfg.JobPipeline(), cfg.Database(), registrarConfig)
 		delegates[job.OffchainReporting2] = ocr2.NewDelegate(
@@ -420,14 +394,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,
-			chains.EVM,
+			legacyEVMChains,
 			globalLogger,
 			ocr2DelegateConfig,
 			keyStore.OCR2(),
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
 			keyStore.Eth(),
-			relayers,
+			&opts.Relayers,
 			mailMon,
 			eventBroadcaster,
 		)
@@ -438,14 +412,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg.OCR2(),
 			cfg.Insecure(),
-			relayers,
+			&opts.Relayers,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
 	var lbs []utils.DependentAwaiter
-	for _, c := range chains.EVM.Chains() {
+	for _, c := range legacyEVMChains.Slice() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
 	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), delegates, db, globalLogger, lbs)
@@ -454,7 +428,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// We start the log poller after the job spawner
 	// so jobs have a chance to apply their initial log filters.
 	if cfg.Feature().LogPoller() {
-		for _, c := range chains.EVM.Chains() {
+		for _, c := range legacyEVMChains.Slice() {
 			srvcs = append(srvcs, c.LogPoller())
 		}
 	}
@@ -473,7 +447,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			cfg.OCR(),
 			cfg.OCR2(),
 			cfg.Database(),
-			chains.EVM,
+			legacyEVMChains,
 			globalLogger,
 			opts.Version,
 		)
@@ -482,7 +456,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	app := &ChainlinkApplication{
-		Chains:                   chains,
+		relayers:                 opts.Relayers,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,
@@ -523,7 +497,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
 	// If it's enabled, they are going to be registered with relayers by default.
 	if !cfg.OCR2().Enabled() {
-		for _, service := range app.Chains.services() {
+		for _, service := range app.relayers.services() {
 			checkable := service.(services.Checkable)
 			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
 				return nil, err
@@ -686,8 +660,15 @@ func (app *ChainlinkApplication) SessionORM() sessions.ORM {
 	return app.sessionORM
 }
 
+// TODO remove this all together
 func (app *ChainlinkApplication) EVMORM() evmtypes.Configs {
-	return app.Chains.EVM.Configs()
+
+	//TODO
+	// this is close, but the evm interface is slightly different than the
+	// chainset/loop relayer interface wrt chain status.
+	// either write an adapter or change/simplify the evm interface
+	// app.relayers.List(FilterByType(relay.EVM))
+	return nil
 }
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
@@ -811,7 +792,7 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 
 // ReplayFromBlock implements the Application interface.
 func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
-	chain, err := app.Chains.EVM.Get(chainID)
+	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		return err
 	}
@@ -822,9 +803,8 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 	return nil
 }
 
-// GetChains returns Chains.
-func (app *ChainlinkApplication) GetChains() Chains {
-	return app.Chains
+func (app *ChainlinkApplication) GetRelayers() *Relayers {
+	return &app.relayers
 }
 
 func (app *ChainlinkApplication) GetEventBroadcaster() pg.EventBroadcaster {

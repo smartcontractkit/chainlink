@@ -1,6 +1,7 @@
 package chainlink
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sort"
@@ -9,6 +10,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -153,6 +155,32 @@ func (rs *Relayers) LegacyCosmosChains() *cosmos.Chains {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.chains.CosmosChains
+}
+
+func (rs *Relayers) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
+	relayID := new(relay.Identifier)
+	err := relayID.UnmarshalString(id)
+	if err != nil {
+		return types.ChainStatus{}, fmt.Errorf("error getting chainstatus: %w", err)
+	}
+	relayer, err := rs.Get(*relayID)
+	if err != nil {
+		return types.ChainStatus{}, fmt.Errorf("error getting chainstatus: %w", err)
+	}
+	// this call is weird because the [loop.Relayer] interface still requires id
+	// but in this context the `relayer` should only have only id
+	return relayer.ChainStatus(ctx, id)
+}
+
+func (rs *Relayers) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
+	// chain statuses are not dynamic; the call would be better named as ChainConfig or such.
+	// lazily create a cache and use that case for the offset and limit to ensure deterministic results
+
+	return nil, 0, nil
+}
+
+func (rs *Relayers) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
+	return nil, 0, nil
 }
 
 // backwards compatibility with Default func for evm chainset

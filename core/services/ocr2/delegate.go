@@ -63,6 +63,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
+type RelayGetter interface {
+	Get(id relay.Identifier) (loop.Relayer, error)
+}
 type Delegate struct {
 	db                    *sqlx.DB
 	jobORM                job.ORM
@@ -76,12 +79,13 @@ type Delegate struct {
 	dkgSignKs             keystore.DKGSign
 	dkgEncryptKs          keystore.DKGEncrypt
 	ethKs                 keystore.Eth
-	relayers              map[relay.Identifier]loop.Relayer //map[relay.Network]loop.Relayer
-	isNewlyCreatedJob     bool                              // Set to true if this is a new job freshly added, false if job was present already on node boot.
-	mailMon               *utils.MailboxMonitor
-	eventBroadcaster      pg.EventBroadcaster
+	//relayers              //map[relay.Identifier]loop.Relayer //map[relay.Network]loop.Relayer
+	RelayGetter
+	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
+	mailMon           *utils.MailboxMonitor
+	eventBroadcaster  pg.EventBroadcaster
 
-	chainSet evm.ChainSet // legacy: use relayers instead
+	legacyChains *evm.Chains // legacy: use relayers instead
 }
 
 type DelegateConfig interface {
@@ -178,14 +182,14 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
-	chainSet evm.ChainSet,
+	legacyChains *evm.Chains,
 	lggr logger.Logger,
 	cfg DelegateConfig,
 	ks keystore.OCR2,
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethKs keystore.Eth,
-	relayers map[relay.Identifier]loop.Relayer,
+	relayers RelayGetter,
 	mailMon *utils.MailboxMonitor,
 	eventBroadcaster pg.EventBroadcaster,
 ) *Delegate {
@@ -196,14 +200,14 @@ func NewDelegate(
 		pipelineRunner:        pipelineRunner,
 		peerWrapper:           peerWrapper,
 		monitoringEndpointGen: monitoringEndpointGen,
-		chainSet:              chainSet,
+		legacyChains:          legacyChains,
 		cfg:                   cfg,
 		lggr:                  lggr,
 		ks:                    ks,
 		dkgSignKs:             dkgSignKs,
 		dkgEncryptKs:          dkgEncryptKs,
 		ethKs:                 ethKs,
-		relayers:              relayers,
+		RelayGetter:           relayers,
 		isNewlyCreatedJob:     false,
 		mailMon:               mailMon,
 		eventBroadcaster:      eventBroadcaster,
@@ -242,12 +246,12 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 		d.lggr.Errorw("OCR2 job spec missing chainID", "err", err)
 		return nil
 	}
-	evmChainID, err := chainID.Int64()
+	_, err = chainID.Int64()
 	if err != nil {
 		d.lggr.Errorw("OCR2 chainID not evm compatible", "err", err)
 		return nil
 	}
-	chain, err := d.chainSet.Get(big.NewInt(evmChainID))
+	chain, err := d.legacyChains.Get(chainID.String())
 	if err != nil {
 		d.lggr.Error(err)
 		return nil
@@ -328,11 +332,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, fmt.Errorf("ServicesForSpec failed to get chainID: %w", err2)
 		}
 
-		evmChainID, err2 := chainID.Int64()
+		_, err2 = chainID.Int64()
 		if err2 != nil {
 			return nil, fmt.Errorf("ServicesForSpec chainID not evm compatible: %w", err2)
 		}
-		lggr = logger.Sugared(lggr.With("evmChainID", evmChainID))
+		lggr = logger.Sugared(lggr.With("evmChainID", chainID))
 
 		if spec.PluginType != job.Mercury {
 			if !common.IsHexAddress(transmitterID) {
@@ -342,7 +346,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				spec.RelayConfig["sendingKeys"] = []string{transmitterID}
 			}
 
-			chain, err2 := d.chainSet.Get(big.NewInt(evmChainID))
+			chain, err2 := d.legacyChains.Get(chainID.String())
 			if err2 != nil {
 				return nil, errors.Wrap(err2, "ServicesForSpec failed to get chainset")
 			}
@@ -464,9 +468,10 @@ func (d *Delegate) newServicesMercury(
 	if err != nil {
 		return nil, fmt.Errorf("ServicesForSpec failed to get chainID: %w", err)
 	}
-	relayer, exists := d.relayers[relay.Identifier{Network: spec.Relay, ChainID: chainID}]
-	if !exists {
-		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+	relayID := relay.Identifier{Network: spec.Relay, ChainID: chainID}
+	relayer, err := d.RelayGetter.Get(relayID)
+	if err != nil {
+		return nil, errors.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
 	}
 	mercuryProvider, err2 := relayer.NewMercuryProvider(ctx,
 		types.RelayArgs{
@@ -483,11 +488,11 @@ func (d *Delegate) newServicesMercury(
 		return nil, err2
 	}
 
-	evmChainID, err2 := chainID.Int64()
+	_, err2 = chainID.Int64()
 	if err2 != nil {
 		return nil, fmt.Errorf("ServicesForSpec chainID not evm compatible: %w", err2)
 	}
-	chain, err2 := d.chainSet.Get(big.NewInt(evmChainID))
+	chain, err2 := d.legacyChains.Get(chainID.String())
 	if err2 != nil {
 		return nil, fmt.Errorf("ServicesForSpec failed to get chain", err2)
 	}
@@ -547,10 +552,12 @@ func (d *Delegate) newServicesMedian(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chainID from spec: %w", err)
 	}
-	relayer, exists := d.relayers[relay.Identifier{Network: spec.Relay, ChainID: chainID}]
-	if !exists {
-		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+	relayID := relay.Identifier{Network: spec.Relay, ChainID: chainID}
+	relayer, err := d.RelayGetter.Get(relayID)
+	if err != nil {
+		return nil, errors.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
 	}
+
 	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetry(&jb) {
@@ -579,7 +586,7 @@ func (d *Delegate) newServicesDKG(
 	if err2 != nil {
 		return nil, fmt.Errorf("ServicesForSpec chainID not evm compatible: %w", err2)
 	}
-	chain, err2 := d.chainSet.Get(big.NewInt(evmChainID))
+	chain, err2 := d.legacyChains.Get(chainID.String())
 	if err2 != nil {
 		return nil, fmt.Errorf("get chainset: %w", err2)
 	}
@@ -647,7 +654,7 @@ func (d *Delegate) newServicesOCR2VRF(
 	if err2 != nil {
 		return nil, fmt.Errorf("chainID not evm compatible: %w", err2)
 	}
-	chain, err2 := d.chainSet.Get(big.NewInt(evmChainID))
+	chain, err2 := d.legacyChains.Get(chainID.String())
 	if err2 != nil {
 		return nil, fmt.Errorf("get chainset: %w", err2)
 	}
@@ -834,7 +841,18 @@ func (d *Delegate) newServicesOCR2Keepers(
 
 	mc := d.cfg.Mercury().Credentials(credName)
 
-	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
+	// get the chain from the config
+	chainID, err2 := jb.OCR2OracleSpec.GetChainID()
+	if err2 != nil {
+		return nil, err2
+	}
+
+	chain, err2 := d.legacyChains.Get(chainID.String())
+	if err2 != nil {
+		return nil, err2
+	}
+
+	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.pipelineRunner, mc)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
@@ -974,7 +992,7 @@ func (d *Delegate) newServicesOCR2Functions(
 
 	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (types.PluginProvider, error) {
 		return evmrelay.NewFunctionsProvider(
-			d.chainSet,
+			d.legacyChains,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
 				JobID:         spec.ID,
@@ -1002,12 +1020,13 @@ func (d *Delegate) newServicesOCR2Functions(
 		return nil, err
 	}
 
+	// TODO need to promote the chain id out of relay config to top level field in job spec
 	var relayConfig evmrelaytypes.RelayConfig
 	err = json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
 	if err != nil {
 		return nil, err
 	}
-	chain, err := d.chainSet.Get(relayConfig.ChainID.ToInt())
+	chain, err := d.legacyChains.Get(relayConfig.ChainID.String())
 	if err != nil {
 		return nil, err
 	}

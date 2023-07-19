@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
 	"strconv"
 
 	"golang.org/x/exp/maps"
@@ -34,8 +35,39 @@ type Identifier struct {
 	ChainID ChainID
 }
 
-func (i Identifier) Name() string {
+func (i *Identifier) Name() string {
 	return fmt.Sprintf("%s.%s", i.Network, i.ChainID.String())
+}
+
+func (i *Identifier) String() string {
+	return i.Name()
+}
+
+var idRegex = regexp.MustCompile(
+	fmt.Sprintf("^((%s)|(%s)|(%s)|(%s))\\.", EVM, Cosmos, Solana, StarkNet),
+)
+
+// regexp.MustCompile(strings.Join([]string{string(EVM),string(Cosmos),string(Solana),string(StarkNet)}, "|")
+func (i *Identifier) UnmarshalString(s string) error {
+	idxs := idRegex.FindStringIndex(s)
+	if idxs == nil {
+		return fmt.Errorf("error unmarshaling Identifier. %q does not match expected pattern", s)
+	}
+	// ignore the `.` in the match by dropping last rune
+	network := s[idxs[0] : idxs[1]-1]
+	chainID := s[idxs[1]:]
+	newID := &Identifier{ChainID: ChainID(chainID)}
+	for n := range SupportedRelays {
+		if Network(network) == n {
+			newID.Network = n
+			break
+		}
+	}
+	if newID.Network == "" {
+		return fmt.Errorf("error unmarshaling identifier: did not find network in supported list %q", network)
+	}
+	i = newID
+	return nil
 }
 
 type ChainID string

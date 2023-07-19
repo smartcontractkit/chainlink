@@ -221,7 +221,7 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 	config := jc.App.GetConfig()
 	switch jobType {
 	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetChains().EVM, tomlString)
+		jb, err = ocr.ValidatedOracleSpecToml(jc.App.GetRelayers().LegacyEVMChains(), tomlString)
 		if !config.OCR().Enabled() {
 			return jb, http.StatusNotImplemented, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}

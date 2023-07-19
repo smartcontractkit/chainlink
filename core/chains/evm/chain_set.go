@@ -62,7 +62,6 @@ type SingleChainChainSet struct {
 	chain Chain
 	ChainSet
 	isDefault bool
-	//opts          ChainSetOpts
 }
 
 var _ OneChain = &SingleChainChainSet{}
@@ -114,6 +113,12 @@ func (s *SingleChainChainSet) NodeStatuses(ctx context.Context, offset, limit in
 		return nil, -1, fmt.Errorf("unknown chain id %s. expected %s", s.chain.ID())
 	}
 	return s.ChainSet.NodeStatuses(ctx, offset, limit, chainIDs...)
+}
+
+func (s *SingleChainChainSet) LegacyChains() (*Chains, error) {
+	legacyChains := NewLegacyChains()
+	legacyChains.Put(s.chain.ID().String(), s.chain)
+	return legacyChains, nil
 }
 
 type chainSet struct {

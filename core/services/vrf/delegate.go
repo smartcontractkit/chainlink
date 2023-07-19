@@ -31,13 +31,13 @@ import (
 )
 
 type Delegate struct {
-	q       pg.Q
-	pr      pipeline.Runner
-	porm    pipeline.ORM
-	ks      keystore.Master
-	cc      evm.ChainSet
-	lggr    logger.Logger
-	mailMon *utils.MailboxMonitor
+	q            pg.Q
+	pr           pipeline.Runner
+	porm         pipeline.ORM
+	ks           keystore.Master
+	legacyChains *evm.Chains
+	lggr         logger.Logger
+	mailMon      *utils.MailboxMonitor
 }
 
 type GethKeyStore interface {
@@ -61,18 +61,18 @@ func NewDelegate(
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
-	chainSet evm.ChainSet,
+	legacyChains *evm.Chains,
 	lggr logger.Logger,
 	cfg pg.QConfig,
 	mailMon *utils.MailboxMonitor) *Delegate {
 	return &Delegate{
-		q:       pg.NewQ(db, lggr, cfg),
-		ks:      ks,
-		pr:      pr,
-		porm:    porm,
-		cc:      chainSet,
-		lggr:    lggr,
-		mailMon: mailMon,
+		q:            pg.NewQ(db, lggr, cfg),
+		ks:           ks,
+		pr:           pr,
+		porm:         porm,
+		legacyChains: legacyChains,
+		lggr:         lggr,
+		mailMon:      mailMon,
 	}
 }
 
@@ -94,7 +94,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
-	chain, err := d.cc.Get(jb.VRFSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}

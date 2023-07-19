@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -32,8 +31,8 @@ func (p *functionsProvider) ContractTransmitter() types.ContractTransmitter {
 	return p.contractTransmitter
 }
 
-func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (relaytypes.Plugin, error) {
-	configWatcher, err := newFunctionsConfigProvider(pluginType, chainSet, rargs, lggr)
+func NewFunctionsProvider(legacyChains *evm.Chains, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (relaytypes.Plugin, error) {
+	configWatcher, err := newFunctionsConfigProvider(pluginType, legacyChains, rargs, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -47,13 +46,13 @@ func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, par
 	}, nil
 }
 
-func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chainSet evm.ChainSet, args relaytypes.RelayArgs, lggr logger.Logger) (*configWatcher, error) {
-	var relayConfig evmRelayTypes.RelayConfig
-	err := json.Unmarshal(args.RelayConfig, &relayConfig)
+func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, legacyChains *evm.Chains, args relaytypes.RelayArgs, lggr logger.Logger) (*configWatcher, error) {
+	relayOpts := evmRelayTypes.NewRelayOpts(args)
+	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
 		return nil, err
 	}
-	chain, err := chainSet.Get(relayConfig.ChainID.ToInt())
+	chain, err := legacyChains.Get(relayConfig.ChainID.String())
 	if err != nil {
 		return nil, err
 	}

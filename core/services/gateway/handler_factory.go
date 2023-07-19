@@ -17,20 +17,20 @@ const (
 )
 
 type handlerFactory struct {
-	chains evm.ChainSet
-	lggr   logger.Logger
+	legacyChains *evm.Chains
+	lggr         logger.Logger
 }
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(chains evm.ChainSet, lggr logger.Logger) HandlerFactory {
-	return &handlerFactory{chains, lggr}
+func NewHandlerFactory(legacyChains *evm.Chains, lggr logger.Logger) HandlerFactory {
+	return &handlerFactory{legacyChains, lggr}
 }
 
 func (hf *handlerFactory) NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error) {
 	switch handlerType {
 	case FunctionsHandlerType:
-		return functions.NewFunctionsHandler(handlerConfig, donConfig, don, hf.chains, hf.lggr)
+		return functions.NewFunctionsHandler(handlerConfig, donConfig, don, hf.legacyChains, hf.lggr)
 	case DummyHandlerType:
 		return handlers.NewDummyHandler(donConfig, don, hf.lggr)
 	default:

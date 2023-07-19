@@ -46,6 +46,10 @@ func (c *ChainsKV[T]) Put(id string, chn T) {
 }
 
 func (c *ChainsKV[T]) List(ids ...string) ([]T, error) {
+	if len(ids) == 0 {
+		return c.Slice(), nil
+	}
+
 	var (
 		result []T
 		err    error
@@ -53,22 +57,27 @@ func (c *ChainsKV[T]) List(ids ...string) ([]T, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.lazyInit()
-	if len(ids) == 0 {
-		for _, chn := range c.chains {
-			result = append(result, chn)
-		}
-	} else {
 
-		for _, id := range ids {
-			chn, exists := c.chains[id]
-			if !exists {
-				err2 := fmt.Errorf("%w: %s", ErrNoSuchChainID, id)
-				err = errors.Join(err, err2)
-				continue
-			}
-			result = append(result, chn)
+	for _, id := range ids {
+		chn, exists := c.chains[id]
+		if !exists {
+			err2 := fmt.Errorf("%w: %s", ErrNoSuchChainID, id)
+			err = errors.Join(err, err2)
+			continue
 		}
+		result = append(result, chn)
 	}
 
 	return result, err
+}
+
+func (c *ChainsKV[T]) Slice() []T {
+	var result []T
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lazyInit()
+	for _, chn := range c.chains {
+		result = append(result, chn)
+	}
+	return result
 }

@@ -58,9 +58,14 @@ var _ Chain = &chain{}
 //var Chains = chains.NewChainsKV[Chain]()
 
 type Chains struct {
-	chains.ChainsKV[Chain]
+	*chains.ChainsKV[Chain]
 }
 
+func NewLegacyChains() *Chains {
+	return &Chains{
+		ChainsKV: chains.NewChainsKV[Chain](),
+	}
+}
 func (c Chains) Default() (Chain, error) {
 	//TODO
 	return nil, nil
