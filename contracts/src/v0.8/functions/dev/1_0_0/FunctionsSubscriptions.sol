@@ -104,14 +104,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function getTotalBalance() external view returns (uint96) {
+  function getTotalBalance() external view override returns (uint96) {
     return s_totalBalance;
   }
 
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function getSubscriptionCount() external view returns (uint64) {
+  function getSubscriptionCount() external view override returns (uint64) {
     return s_currentsubscriptionId;
   }
 
@@ -135,6 +135,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   )
     external
     view
+    override
     returns (uint96 balance, uint96 blockedBalance, address owner, address requestedOwner, address[] memory consumers)
   {
     _isValidSubscription(subscriptionId);
@@ -152,7 +153,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function getConsumer(
     address client,
     uint64 subscriptionId
-  ) external view returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests) {
+  ) external view override returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests) {
     return (
       s_consumers[client][subscriptionId].allowed,
       s_consumers[client][subscriptionId].initiatedRequests,
@@ -251,7 +252,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function ownerCancelSubscription(uint64 subscriptionId) external onlyRouterOwner {
+  function ownerCancelSubscription(uint64 subscriptionId) external override onlyRouterOwner {
     address owner = s_subscriptions[subscriptionId].owner;
     if (owner == address(0)) {
       revert InvalidSubscription();
@@ -262,7 +263,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function recoverFunds(address to) external onlyRouterOwner {
+  function recoverFunds(address to) external override onlyRouterOwner {
     uint256 externalBalance = LINK.balanceOf(address(this));
     uint256 internalBalance = uint256(s_totalBalance);
     if (internalBalance > externalBalance) {
@@ -304,7 +305,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function oracleWithdraw(address recipient, uint96 amount) external nonReentrant {
+  function oracleWithdraw(address recipient, uint96 amount) external override nonReentrant {
     if (amount == 0) {
       revert InvalidCalldata();
     }
@@ -346,7 +347,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function createSubscription() external nonReentrant onlyAuthorizedUsers returns (uint64) {
+  function createSubscription() external override nonReentrant onlyAuthorizedUsers returns (uint64) {
     s_currentsubscriptionId++;
     uint64 currentsubscriptionId = s_currentsubscriptionId;
     address[] memory consumers = new address[](0);
@@ -368,7 +369,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function requestSubscriptionOwnerTransfer(
     uint64 subscriptionId,
     address newOwner
-  ) external onlySubscriptionOwner(subscriptionId) nonReentrant {
+  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant {
     // Proposing to address(0) would never be claimable so don't need to check.
     if (s_subscriptions[subscriptionId].requestedOwner != newOwner) {
       s_subscriptions[subscriptionId].requestedOwner = newOwner;
@@ -379,7 +380,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external nonReentrant onlyAuthorizedUsers {
+  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external override nonReentrant onlyAuthorizedUsers {
     if (s_subscriptions[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -398,7 +399,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function removeConsumer(
     uint64 subscriptionId,
     address consumer
-  ) external onlySubscriptionOwner(subscriptionId) nonReentrant {
+  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant {
     Consumer memory consumerData = s_consumers[consumer][subscriptionId];
     if (consumerData.allowed == false) {
       revert InvalidConsumer(subscriptionId, consumer);
@@ -429,7 +430,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function addConsumer(
     uint64 subscriptionId,
     address consumer
-  ) external onlySubscriptionOwner(subscriptionId) nonReentrant {
+  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant {
     // Already maxed, cannot add any more consumers.
     if (s_subscriptions[subscriptionId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
@@ -451,7 +452,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function cancelSubscription(
     uint64 subscriptionId,
     address to
-  ) external onlySubscriptionOwner(subscriptionId) nonReentrant {
+  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant {
     if (this.pendingRequestExists(subscriptionId)) {
       revert PendingRequestExists();
     }
@@ -477,7 +478,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function pendingRequestExists(uint64 subscriptionId) external view returns (bool) {
+  function pendingRequestExists(uint64 subscriptionId) external view override returns (bool) {
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
     for (uint256 i = 0; i < consumers.length; i++) {
       Consumer memory consumer = s_consumers[consumers[i]][subscriptionId];

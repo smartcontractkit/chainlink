@@ -162,6 +162,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function getConfig()
     external
     view
+    override
     returns (
       uint32 maxCallbackGasLimit,
       uint32 feedStalenessSeconds,
