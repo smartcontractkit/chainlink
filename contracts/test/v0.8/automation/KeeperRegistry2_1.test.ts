@@ -18,7 +18,6 @@ import { MercuryUpkeep__factory as MercuryUpkeepFactory } from '../../../typecha
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
-import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
@@ -84,21 +83,19 @@ type ConditionalTrigger = Parameters<AutomationUtils['_conditionalTrigger']>[0]
 type Log = Parameters<AutomationUtils['_log']>[0]
 
 // -----------------------------------------------------------------------------------------------
-// These are the gas overheads that off chain systems should provide to check upkeep / transmit
-// These overheads are not actually charged for
-const transmitGasOverhead = BigNumber.from(1_000_000)
-const checkGasOverhead = BigNumber.from(400_000)
 
 // These values should match the constants declared in registry
-const registryConditionalOverhead = BigNumber.from(80_000)
-const registryLogOverhead = BigNumber.from(100_000)
-const registryPerSignerGasOverhead = BigNumber.from(7500)
-const registryPerPerformByteGasOverhead = BigNumber.from(20)
-const cancellationDelay = 50
+let transmitGasOverhead: BigNumber
+let checkGasOverhead: BigNumber
+let registryConditionalOverhead: BigNumber
+let registryLogOverhead: BigNumber
+let registryPerSignerGasOverhead: BigNumber
+let registryPerPerformByteGasOverhead: BigNumber
+let cancellationDelay: number
 
 // This is the margin for gas that we test for. Gas charged should always be greater
 // than total gas used in tx but should not increase beyond this margin
-const gasCalculationMargin = BigNumber.from(5000)
+const gasCalculationMargin = BigNumber.from(8000)
 
 const linkEth = BigNumber.from(5000000000000000) // 1 Link = 0.005 Eth
 const gasWei = BigNumber.from(1000000000) // 1 gwei
@@ -142,7 +139,6 @@ let linkTokenFactory: LinkTokenFactory
 let mockV3AggregatorFactory: MockV3AggregatorFactory
 let upkeepMockFactory: UpkeepMockFactory
 let upkeepAutoFunderFactory: UpkeepAutoFunderFactory
-let upkeepTranscoderFactory: UpkeepTranscoderFactory
 let mockArbGasInfoFactory: MockArbGasInfoFactory
 let mockOVMGasPriceOracleFactory: MockOVMGasPriceOracleFactory
 let mercuryUpkeepFactory: MercuryUpkeepFactory
@@ -238,14 +234,6 @@ const encodeReport = (report: Report) => {
   )
 }
 
-const decodeBlockTrigger = (trigger: BytesLike) => {
-  const [blockNum, blockHash] = ethers.utils.defaultAbiCoder.decode(
-    ['tuple(uint32, bytes32)'],
-    trigger,
-  )[0] as [number, string]
-  return { blockNum, blockHash }
-}
-
 type UpkeepData = {
   Id: BigNumberish
   performGas: BigNumberish
@@ -317,7 +305,7 @@ const parseUpkeepPerformedLogs = (receipt: ContractReceipt) => {
       if (
         log.name ==
         registry.interface.events[
-          'UpkeepPerformed(uint256,bool,uint96,uint256,uint256,bytes)'
+          'UpkeepPerformed(uint256,bool,uint96,uint256,uint256,bytes32)'
         ].name
       ) {
         parsedLogs.push(log as unknown as UpkeepPerformedEvent)
@@ -336,7 +324,7 @@ const parseReorgedUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['ReorgedUpkeepReport(uint256,bytes)'].name
+        registry.interface.events['ReorgedUpkeepReport(uint256,bytes32)'].name
       ) {
         parsedLogs.push(log as unknown as ReorgedUpkeepReportEvent)
       }
@@ -354,7 +342,7 @@ const parseStaleUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['StaleUpkeepReport(uint256,bytes)'].name
+        registry.interface.events['StaleUpkeepReport(uint256,bytes32)'].name
       ) {
         parsedLogs.push(log as unknown as StaleUpkeepReportEvent)
       }
@@ -373,7 +361,7 @@ const parseInsufficientFundsUpkeepReportLogs = (receipt: ContractReceipt) => {
       if (
         log.name ==
         registry.interface.events[
-          'InsufficientFundsUpkeepReport(uint256,bytes)'
+          'InsufficientFundsUpkeepReport(uint256,bytes32)'
         ].name
       ) {
         parsedLogs.push(log as unknown as InsufficientFundsUpkeepReportEvent)
@@ -392,7 +380,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['CancelledUpkeepReport(uint256,bytes)'].name
+        registry.interface.events['CancelledUpkeepReport(uint256,bytes32)'].name
       ) {
         parsedLogs.push(log as unknown as CancelledUpkeepReportEvent)
       }
@@ -450,9 +438,6 @@ describe('KeeperRegistry2_1', () => {
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
     upkeepAutoFunderFactory = await ethers.getContractFactory(
       'UpkeepAutoFunder',
-    )
-    upkeepTranscoderFactory = await ethers.getContractFactory(
-      'UpkeepTranscoder',
     )
     mockArbGasInfoFactory = await ethers.getContractFactory('MockArbGasInfo')
     mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
@@ -839,6 +824,9 @@ describe('KeeperRegistry2_1', () => {
     linkEthFeed = await mockV3AggregatorFactory
       .connect(owner)
       .deploy(9, linkEth)
+    const upkeepTranscoderFactory = await ethers.getContractFactory(
+      'UpkeepTranscoder4_0',
+    )
     transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
     mockArbGasInfo = await mockArbGasInfoFactory.connect(owner).deploy()
     mockOVMGasPriceOracle = await mockOVMGasPriceOracleFactory
@@ -943,6 +931,15 @@ describe('KeeperRegistry2_1', () => {
       linkEthFeed.address,
       gasPriceFeed.address,
     )
+
+    transmitGasOverhead = await registry.getTransmitGasOverhead()
+    checkGasOverhead = await registry.getCheckGasOverhead()
+    registryConditionalOverhead = await registry.getConditionalGasOverhead()
+    registryLogOverhead = await registry.getLogGasOverhead()
+    registryPerSignerGasOverhead = await registry.getPerSignerGasOverhead()
+    registryPerPerformByteGasOverhead =
+      await registry.getPerPerformByteGasOverhead()
+    cancellationDelay = (await registry.getCancellationDelay()).toNumber()
 
     for (const reg of [registry, arbRegistry, opRegistry, mgRegistry]) {
       await reg.connect(owner).setConfig(...baseConfig)
@@ -1151,6 +1148,26 @@ describe('KeeperRegistry2_1', () => {
         parseInsufficientFundsUpkeepReportLogs(receipt)
       // exactly 1 InsufficientFundsUpkeepReportLogs log should be emitted
       assert.equal(insufficientFundsUpkeepReportLogs.length, 1)
+    })
+
+    it('permits retrying log triggers after funds are added', async () => {
+      const txHash = ethers.utils.randomBytes(32)
+      let tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
+        txHash,
+        logIndex: 0,
+      })
+      let receipt = await tx.wait()
+      const insufficientFundsLogs =
+        parseInsufficientFundsUpkeepReportLogs(receipt)
+      assert.equal(insufficientFundsLogs.length, 1)
+      registry.connect(admin).addFunds(logUpkeepId, toWei('100'))
+      tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
+        txHash,
+        logIndex: 0,
+      })
+      receipt = await tx.wait()
+      const performedLogs = parseUpkeepPerformedLogs(receipt)
+      assert.equal(performedLogs.length, 1)
     })
 
     context('When the upkeep is funded', async () => {
@@ -1768,8 +1785,8 @@ describe('KeeperRegistry2_1', () => {
 
             // Do the thing
             const tx = await getTransmitTx(registry, keeper1, [upkeepId], {
-              checkBlockNum: checkBlock.number - 1,
-              checkBlockHash: checkBlock.parentHash,
+              checkBlockNum: checkBlock.number,
+              checkBlockHash: checkBlock.hash,
               numSigners: newF + 1,
             })
 
@@ -1782,17 +1799,25 @@ describe('KeeperRegistry2_1', () => {
 
             const id = upkeepPerformedLog.args.id
             const success = upkeepPerformedLog.args.success
-            const { blockNum, blockHash } = decodeBlockTrigger(
-              upkeepPerformedLog.args.trigger,
-            )
+            const triggerID = upkeepPerformedLog.args.triggerID
             const gasUsed = upkeepPerformedLog.args.gasUsed
             const gasOverhead = upkeepPerformedLog.args.gasOverhead
             const totalPayment = upkeepPerformedLog.args.totalPayment
-
             assert.equal(id.toString(), upkeepId.toString())
             assert.equal(success, true)
-            assert.equal(blockNum, checkBlock.number - 1)
-            assert.equal(blockHash, checkBlock.parentHash)
+            assert.equal(
+              triggerID,
+              ethers.utils.keccak256(
+                ethers.utils.concat([
+                  ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId]),
+                  encodeBlockTrigger({
+                    blockNum: checkBlock.number,
+                    blockHash: checkBlock.hash,
+                  }),
+                ]),
+              ),
+              'incorrect calculation of triggerID',
+            )
             assert.isTrue(gasUsed.gt(BigNumber.from('0')))
             assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
             assert.isTrue(totalPayment.gt(BigNumber.from('0')))
@@ -1958,12 +1983,12 @@ describe('KeeperRegistry2_1', () => {
                       assert.isTrue(
                         chargedGasOverhead
                           .sub(actualGasOverhead)
-                          .lt(BigNumber.from(gasCalculationMargin)),
+                          .lt(gasCalculationMargin),
                       ),
                         'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by atleast ' +
                           chargedGasOverhead
                             .sub(chargedGasOverhead)
-                            .sub(BigNumber.from(gasCalculationMargin))
+                            .sub(gasCalculationMargin)
                             .toString()
                     }
                   }
@@ -2063,12 +2088,12 @@ describe('KeeperRegistry2_1', () => {
                 assert.isTrue(
                   chargedGasOverhead
                     .sub(actualGasOverhead)
-                    .lt(BigNumber.from(gasCalculationMargin)),
+                    .lt(gasCalculationMargin),
                 ),
                   'Gas overhead calculated is too high, decrease account gas variables (ACCOUNTING_FIXED_GAS_OVERHEAD/ACCOUNTING_PER_SIGNER_GAS_OVERHEAD)  by atleast ' +
                     chargedGasOverhead
                       .sub(chargedGasOverhead)
-                      .sub(BigNumber.from(gasCalculationMargin))
+                      .sub(gasCalculationMargin)
                       .toString()
               },
             )
@@ -4714,6 +4739,11 @@ describe('KeeperRegistry2_1', () => {
         expect(reg1Upkeep.forwarder).to.not.equal(ethers.constants.AddressZero)
         expect(reg1Upkeep.offchainConfig).to.equal(offchainBytes)
         expect((await registry.getState()).state.numUpkeeps).to.equal(numUpkeps)
+        const forwarderFactory = await ethers.getContractFactory(
+          'AutomationForwarder',
+        )
+        const forwarder = await forwarderFactory.attach(reg1Upkeep.forwarder)
+        expect(await forwarder.getRegistry()).to.equal(registry.address)
         // Set an upkeep admin transfer in progress too
         await registry
           .connect(admin)
@@ -4744,6 +4774,8 @@ describe('KeeperRegistry2_1', () => {
         expect((await mgRegistry.getUpkeep(upkeepId)).forwarder).to.equal(
           reg1Upkeep.forwarder,
         )
+        // test that registry is updated on forwarder
+        expect(await forwarder.getRegistry()).to.equal(mgRegistry.address)
         // migration will delete the upkeep and nullify admin transfer
         await expect(
           registry.connect(payee1).acceptUpkeepAdmin(upkeepId),

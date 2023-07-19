@@ -9,9 +9,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/denom"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/denom"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	cosmosmodels "github.com/smartcontractkit/chainlink/v2/core/store/models/cosmos"
@@ -57,7 +57,7 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	coin, err := denom.DecCoinToUAtom(sdk.NewDecCoinFromDec("atom", tr.Amount))
+	coin, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec("atom", tr.Amount), "uatom")
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("unable to convert to uatom: %v", err))
 		return

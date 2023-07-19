@@ -45,7 +45,7 @@ func NewTxm(
 	}
 	checker := &CheckerFactory{Client: client}
 	// create tx attempt builder
-	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), chainConfig, fCfg, keyStore, estimator)
+	txAttemptBuilder := NewEvmTxAttemptBuilder(*client.ConfiguredChainID(), fCfg, keyStore, estimator)
 	txStore := NewTxStore(db, lggr, dbConfig)
 	txNonceSyncer := NewNonceSyncer(txStore, lggr, client, keyStore)
 

@@ -91,7 +91,7 @@ type OCR2Spec {
     transmitterID: String
     pluginType: String!
     pluginConfig: Map!
-    feedID: String!
+    feedID: String
 }
 
 type VRFSpec {
@@ -122,6 +122,7 @@ type WebhookSpec {
 type BlockhashStoreSpec {
     coordinatorV1Address: String
     coordinatorV2Address: String
+    coordinatorV2PlusAddress: String
     waitBlocks: Int!
     lookbackBlocks: Int!
     blockhashStoreAddress: String!
@@ -135,6 +136,7 @@ type BlockhashStoreSpec {
 type BlockHeaderFeederSpec {
     coordinatorV1Address: String
     coordinatorV2Address: String
+    coordinatorV2PlusAddress: String
     waitBlocks: Int!
     lookbackBlocks: Int!
     blockhashStoreAddress: String!

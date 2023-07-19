@@ -45,13 +45,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * UPKEEP_VERSION_BASE and MigratableKeeperRegistryInterfaceV2
    */
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
-  uint8 internal constant UPKEEP_VERSION_BASE = uint8(UpkeepFormat.V3);
+  uint8 internal constant UPKEEP_VERSION_BASE = 3;
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 80_000; // Used in maxPayment estimation, and in capping overheads during actual payment
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 100_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
+  uint256 internal constant TRANSMIT_GAS_OVERHEAD = 1_000_000; // Used only by offchain caller
+  uint256 internal constant CHECK_GAS_OVERHEAD = 400_000; // Used only by offchain caller
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
 
@@ -76,7 +78,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   mapping(uint256 => address) internal s_upkeepAdmin;
   mapping(uint256 => address) internal s_proposedAdmin;
   mapping(uint256 => bytes) internal s_checkData;
-  mapping(bytes32 => bool) internal s_observedLogTriggers;
+  mapping(bytes32 => bool) internal s_dedupKeys;
   // Registry config and state
   EnumerableSet.AddressSet internal s_registrars;
   mapping(address => Transmitter) internal s_transmitters;
@@ -350,6 +352,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member paymentParams the paymentParams for this upkeep
    * @member performSuccess whether the perform was successful
    * @member gasUsed gasUsed by this upkeep in perform
+   * @member gasOverhead gasOverhead for this upkeep
+   * @member triggerID unique ID used to identify an upkeep/trigger combo
+   * @member dedupID unique ID used to dedup an upkeep/trigger combo
    */
   struct UpkeepTransmitInfo {
     Upkeep upkeep;
@@ -359,6 +364,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     Trigger triggerType;
     uint256 gasUsed;
     uint256 gasOverhead;
+    bytes32 triggerID;
+    bytes32 dedupID;
   }
 
   struct Transmitter {
@@ -433,15 +440,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 totalPayment,
     uint256 gasUsed,
     uint256 gasOverhead,
-    bytes trigger
+    bytes32 triggerID
   );
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
   event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
-  event StaleUpkeepReport(uint256 indexed id, bytes trigger);
-  event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
-  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
+  event StaleUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event ReorgedUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes32 triggerID);
+  event CancelledUpkeepReport(uint256 indexed id, bytes32 triggerID);
   event Paused(address account);
   event Unpaused(address account);
 
@@ -712,6 +719,16 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     } else {
       return blockhash(n);
     }
+  }
+
+  /**
+   * @notice returns a unique identifier for an upkeep/trigger combo
+   * @param upkeepID the upkeep id
+   * @param trigger the raw trigger bytes
+   * @return triggerID the unique identifier for the upkeep/trigger combo
+   */
+  function _triggerID(uint256 upkeepID, bytes memory trigger) internal pure returns (bytes32 triggerID) {
+    return keccak256(abi.encodePacked(upkeepID, trigger));
   }
 
   /**

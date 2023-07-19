@@ -11,7 +11,6 @@ import (
 	"github.com/urfave/cli"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -61,16 +60,16 @@ func NewApp(s *Shell) *cli.App {
 			// Note: we cannot use the EnvVar field since it will combine with the flags.
 			Hidden: true,
 		},
-		cli.StringFlag{
+		cli.StringSliceFlag{
 			Name:   "secrets, s",
-			Usage:  "TOML configuration file for secrets. Must be set if and only if config is set.",
+			Usage:  "TOML configuration file for secrets. Must be set if and only if config is set. Multiple files can be used (-s secretsA.toml -s secretsB.toml), and they are applied in order. No overrides are allowed.",
 			Hidden: true,
 		},
 	}
 	app.Before = func(c *cli.Context) error {
 		s.configFiles = c.StringSlice("config")
 		s.configFilesIsSet = c.IsSet("config")
-		s.secretsFile = c.String("secrets")
+		s.secretsFiles = c.StringSlice("secrets")
 		s.secretsFileIsSet = c.IsSet("secrets")
 
 		// Default to using a stdout logger only.
@@ -119,7 +118,7 @@ func NewApp(s *Shell) *cli.App {
 
 		// Allow for initServerConfig to be called if the flag is provided.
 		if c.Bool("applyInitServerConfig") {
-			cfg, err = initServerConfig(&opts, s.configFiles, s.secretsFile)
+			cfg, err = initServerConfig(&opts, s.configFiles, s.secretsFiles)
 			if err != nil {
 				return err
 			}
@@ -200,9 +199,9 @@ func NewApp(s *Shell) *cli.App {
 					Name:  "config, c",
 					Usage: "TOML configuration file(s) via flag, or raw TOML via env var. If used, legacy env vars must not be set. Multiple files can be used (-c configA.toml -c configB.toml), and they are applied in order with duplicated fields overriding any earlier values. If the 'CL_CONFIG' env var is specified, it is always processed last with the effect of being the final override. [$CL_CONFIG]",
 				},
-				cli.StringFlag{
+				cli.StringSliceFlag{
 					Name:  "secrets, s",
-					Usage: "TOML configuration file for secrets. Must be set if and only if config is set.",
+					Usage: "TOML configuration file for secrets. Must be set if and only if config is set. Multiple files can be used (-s secretsA.toml -s secretsB.toml), and fields from the files will be merged. No overrides are allowed.",
 				},
 			},
 			Before: func(c *cli.Context) error {
@@ -219,12 +218,12 @@ func NewApp(s *Shell) *cli.App {
 					if s.configFilesIsSet || s.secretsFileIsSet {
 						return errNoDuplicateFlags
 					} else {
-						s.secretsFile = c.String("secrets")
+						s.secretsFiles = c.StringSlice("secrets")
 					}
 				}
 
 				// flags here, or ENV VAR only
-				cfg, err := initServerConfig(&opts, s.configFiles, s.secretsFile)
+				cfg, err := initServerConfig(&opts, s.configFiles, s.secretsFiles)
 				if err != nil {
 					return err
 				}
@@ -312,33 +311,10 @@ func format(s string) string {
 	return string(whitespace.ReplaceAll([]byte(s), []byte(" ")))
 }
 
-func initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFile string) (chainlink.GeneralConfig, error) {
-	configs := []string{}
-	for _, fileName := range configFiles {
-		b, err := os.ReadFile(fileName)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to read config file: %s", fileName)
-		}
-		configs = append(configs, string(b))
+func initServerConfig(opts *chainlink.GeneralConfigOpts, configFiles []string, secretsFiles []string) (chainlink.GeneralConfig, error) {
+	err := opts.Setup(configFiles, secretsFiles)
+	if err != nil {
+		return nil, err
 	}
-
-	if configTOML := v2.EnvConfig.Get(); configTOML != "" {
-		configs = append(configs, configTOML)
-	}
-
-	opts.ConfigStrings = configs
-
-	secrets := ""
-	if secretsFile != "" {
-		b, err := os.ReadFile(secretsFile)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to read secrets file: %s", secretsFile)
-		}
-
-		secrets = string(b)
-	}
-
-	opts.SecretsString = secrets
-
 	return opts.New()
 }
