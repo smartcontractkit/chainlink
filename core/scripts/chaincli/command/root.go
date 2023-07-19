@@ -37,5 +37,4 @@ func init() {
 	RootCmd.AddCommand(feed.RootCmd)
 	RootCmd.AddCommand(BootstrapNodeCmd)
 	RootCmd.AddCommand(RevertReasonCmd)
-	RootCmd.AddCommand(ChainTablesCleanupCmd)
 }
