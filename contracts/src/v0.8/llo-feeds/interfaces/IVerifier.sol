@@ -18,7 +18,7 @@ interface IVerifier is IERC165 {
    * @return quote The quote included within the report
    */
   function verify(
-    bytes memory signedReport,
+    bytes calldata signedReport,
     address requester
   ) external returns (bytes memory response, bytes memory quote);
 

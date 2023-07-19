@@ -149,9 +149,11 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   /// @param ssLength The number of s signature components
   error MismatchedSignatures(uint256 rsLength, uint256 ssLength);
 
-  /// @notice This error is thrown whenever a report has a duplicate
-  /// signature
+  /// @notice This error is thrown whenever setting a config with duplicate signatures
   error NonUniqueSignatures();
+
+  /// @notice This error is thrown whenever a report fails to verify due to bad or duplicate signatures
+  error BadVerification();
 
   /// @notice This error is thrown whenever the admin tries to deactivate
   /// the latest config digest
@@ -293,13 +295,13 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     for (uint256 i; i < numSigners; ++i) {
       signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
       o = s_config.oracles[signerAddress];
-      if (o.role != Role.Signer) revert AccessForbidden();
+      if (o.role != Role.Signer) revert BadVerification();
       unchecked {
         signedCount += 1 << (8 * o.index);
       }
     }
 
-    if (signedCount & ORACLE_MASK != signedCount) revert NonUniqueSignatures();
+    if (signedCount & ORACLE_MASK != signedCount) revert BadVerification();
   }
 
   /// @notice Generates the config digest from config data

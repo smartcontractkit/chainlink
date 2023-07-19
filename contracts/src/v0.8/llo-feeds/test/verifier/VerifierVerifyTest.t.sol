@@ -137,7 +137,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
     signers[10].mockPrivateKey = 1234;
     bytes memory signedReport = _generateEncodedBlob(s_testReportOne, s_reportContext, signers);
     changePrank(address(s_verifierProxy));
-    vm.expectRevert(abi.encodeWithSelector(Verifier.AccessForbidden.selector));
+    vm.expectRevert(abi.encodeWithSelector(Verifier.BadVerification.selector));
     s_verifier.verify(signedReport, msg.sender);
   }
 
@@ -189,7 +189,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
     // Duplicate signer at index 1
     signers[0] = signers[1];
     bytes memory signedReport = _generateEncodedBlob(s_testReportOne, s_reportContext, signers);
-    vm.expectRevert(abi.encodeWithSelector(Verifier.NonUniqueSignatures.selector));
+    vm.expectRevert(abi.encodeWithSelector(Verifier.BadVerification.selector));
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
   }

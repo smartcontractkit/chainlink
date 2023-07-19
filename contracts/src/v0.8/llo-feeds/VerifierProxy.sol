@@ -67,8 +67,8 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @param configDigest The digest for which a verifier is not found
   error VerifierNotFound(bytes32 configDigest);
 
-  /// @notice This error is thrown when the verifier does not include the correct amount or quote to retrieve the correct deposit
-  error InvalidDeposit();
+  /// @notice This error is thrown whenever billing fails.
+  error BadVerification();
 
   /// @notice Mapping of authorized verifiers
   mapping(address => bool) private s_initializedVerifiers;
@@ -184,8 +184,8 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
 
         //if native has been sent in, calculate the amount to wrap and return the rest
         if (msg.value > 0) {
-          if (asset.assetAddress != s_wrappedNative) revert InvalidDeposit();
-          if (msg.value < asset.amount) revert InvalidDeposit();
+          if (asset.assetAddress != s_wrappedNative) revert BadVerification();
+          if (msg.value < asset.amount) revert BadVerification();
 
           //wrap the amount required to pay the fee & approve
           IWERC20(s_wrappedNative).deposit{value: asset.amount}();
