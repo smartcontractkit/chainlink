@@ -223,7 +223,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   function setVerifier(
     bytes32 currentConfigDigest,
     bytes32 newConfigDigest,
-    Common.AddressAndWeight[] memory addressAndWeights
+    Common.AddressAndWeight[] calldata addressAndWeights
   ) external override onlyUnsetConfigDigest(newConfigDigest) onlyInitializedVerifier {
     s_verifiersByConfig[newConfigDigest] = msg.sender;
 
