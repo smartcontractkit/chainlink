@@ -80,10 +80,10 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   AccessControllerInterface private s_accessController;
 
   /// @notice The contract to control fees for report verification
-  IFeeManager private immutable s_feeManager;
+  IFeeManager public s_feeManager;
 
   /// @notice The contract to control reward distribution for report verification
-  IRewardManager private immutable s_rewardsManager;
+  IRewardManager public s_rewardsManager;
 
   /// @notice The Wrapped Native contract
   address private immutable s_wrappedNative;
@@ -247,5 +247,17 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @inheritdoc IVerifierProxy
   function getVerifier(bytes32 configDigest) external view override returns (address) {
     return s_verifiersByConfig[configDigest];
+  }
+
+  /// @notice Updates the fee manager
+  /// @param feeManager The new fee manager
+  function setFeeManager(IFeeManager feeManager) external onlyOwner {
+    s_feeManager = IFeeManager(feeManager);
+  }
+
+  /// @notice Updates the rewards manager
+  /// @param rewardsManager The new rewards manager
+  function setRewardsManager(IRewardManager rewardsManager) external onlyOwner {
+    s_rewardsManager = IRewardManager(rewardsManager);
   }
 }
