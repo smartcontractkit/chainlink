@@ -26,6 +26,10 @@ type flakeyTest struct {
 	FQTestName string `json:"fq_test_name"`
 }
 
+type numFlakes struct {
+	NumFlakes int `json:"num_flakes"`
+}
+
 type LokiReporter struct {
 	host    string
 	auth    string
@@ -36,6 +40,7 @@ type LokiReporter struct {
 func (l *LokiReporter) createRequest(flakeyTests map[string][]string) (pushRequest, error) {
 	vs := [][]string{}
 	now := l.now()
+	nows := fmt.Sprintf("%d", now.UnixNano())
 	for pkg, tests := range flakeyTests {
 		for _, t := range tests {
 			d, err := json.Marshal(flakeyTest{
@@ -46,9 +51,19 @@ func (l *LokiReporter) createRequest(flakeyTests map[string][]string) (pushReque
 			if err != nil {
 				return pushRequest{}, err
 			}
-			vs = append(vs, []string{fmt.Sprintf("%d", now.UnixNano()), string(d)})
+			vs = append(vs, []string{nows, string(d)})
 		}
 	}
+
+	// Flakes are store in a map[string][]string, so to count them, we can't just do len(flakeyTests),
+	// as that will get us the number of flakey packages, not the number of flakes tests.
+	// However, we do emit one log line per flakey test above, so use that to count our flakes.
+	f, err := json.Marshal(numFlakes{NumFlakes: len(vs)})
+	if err != nil {
+		return pushRequest{}, nil
+	}
+
+	vs = append(vs, []string{nows, string(f)})
 
 	pr := pushRequest{
 		Streams: []stream{
