@@ -1,26 +1,2 @@
-ChainID = '84531'
-MinContractPayment = '0'
-NoNewHeadsThreshold = '30s'
+ChainID = '8453'
 ChainType = 'optimismBedrock'
-LogPollInterval = '2s'
-FinalityDepth = 200
-MinIncomingConfirmations = 3
-
-[GasEstimator]
-EIP1559DynamicFees = true
-Mode = 'BlockHistory'
-BumpThreshold = 3
-PriceMin = '1 wei'
-
-[GasEstimator.BlockHistory]
-BlockHistorySize = 24
-
-[Transactions]
-ResendAfterThreshold = '30s'
-
-[HeadTracker]
-SamplingInterval = '1s'
-HistoryDepth = 300
-
-[NodePool]
-SyncThreshold = 10
