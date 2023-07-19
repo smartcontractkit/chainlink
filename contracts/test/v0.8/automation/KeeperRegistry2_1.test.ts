@@ -130,7 +130,6 @@ const epochAndRound5_1 =
   '0x0000000000000000000000000000000000000000000000000000000000000501'
 
 let logTriggerConfig: string
-let blockTriggerConfig: string
 
 // -----------------------------------------------------------------------------------------------
 
@@ -517,12 +516,6 @@ describe('KeeperRegistry2_1', () => {
             topic3: ethers.utils.randomBytes(32),
           },
         ])
-        .slice(10)
-
-    blockTriggerConfig =
-      '0x' +
-      automationUtils.interface
-        .encodeFunctionData('_conditionalTriggerConfig', [{ checkCadance: 1 }])
         .slice(10)
   })
 
@@ -4035,7 +4028,7 @@ describe('KeeperRegistry2_1', () => {
             .withArgs(testUpkeepId, checkData)
           await expect(tx)
             .to.emit(registry, 'UpkeepTriggerConfigSet')
-            .withArgs(testUpkeepId, blockTriggerConfig)
+            .withArgs(testUpkeepId, '0x')
 
           const registration = await registry.getUpkeep(testUpkeepId)
 
