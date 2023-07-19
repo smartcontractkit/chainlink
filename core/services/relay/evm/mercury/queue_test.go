@@ -93,7 +93,7 @@ func Test_Queue(t *testing.T) {
 
 	t.Run("transmit queue is full and evicts the oldest transmission", func(t *testing.T) {
 		// There is a bug with queue eviction where the evicted transmission is NOT the oldest.
-		// TODO: Once this bug is fixed, replace the expectation with the one below.
+		// TODO: MERC-1049 Once this bug is fixed, replace the expectation with the one below.
 		//   deleter.On("AsyncDelete", testTransmissions[0].tr).Once()
 		deleter.On("AsyncDelete", mock.Anything).Once()
 
