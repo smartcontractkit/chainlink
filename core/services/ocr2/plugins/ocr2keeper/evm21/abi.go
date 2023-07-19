@@ -46,11 +46,8 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV
 	return &evmRegistryPackerV2_1{abi: abi, utilsAbi: utilsAbi}
 }
 
-// TODO: remove for 2.1
-func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, raw string) (EVMAutomationUpkeepResult21, error) {
-	var (
-		result EVMAutomationUpkeepResult21
-	)
+func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
+	var result ocr2keepers.CheckResult
 
 	b, err := hexutil.Decode(raw)
 	if err != nil {
@@ -62,32 +59,22 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepKey, ra
 		return result, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
 	}
 
-	block, id, err := splitKey(key)
-	if err != nil {
-		return result, err
+	result = ocr2keepers.CheckResult{
+		Eligible:     *abi.ConvertType(out[0], new(bool)).(*bool),
+		Retryable:    false,
+		GasAllocated: uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
+		Payload:      key,
 	}
-
-	result = EVMAutomationUpkeepResult21{
-		Block:            uint32(block.Uint64()),
-		ID:               id,
-		Eligible:         true,
-		CheckBlockNumber: uint32(block.Uint64()),
-		CheckBlockHash:   [32]byte{},
+	ext := EVMAutomationResultExtension21{
+		FastGasWei:    *abi.ConvertType(out[5], new(*big.Int)).(**big.Int),
+		LinkNative:    *abi.ConvertType(out[6], new(*big.Int)).(**big.Int),
+		FailureReason: *abi.ConvertType(out[2], new(uint8)).(*uint8),
 	}
-
-	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
+	result.Extension = ext
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
-	result.FailureReason = *abi.ConvertType(out[2], new(uint8)).(*uint8)
-	result.GasUsed = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	result.ExecuteGas = *abi.ConvertType(out[4], new(uint32)).(*uint32)
-	result.FastGasWei = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
-	result.LinkNative = *abi.ConvertType(out[6], new(*big.Int)).(**big.Int)
 
-	if !upkeepNeeded {
-		result.Eligible = false
-	}
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
-	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || (result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
+	if ext.FailureReason == UPKEEP_FAILURE_REASON_NONE || (ext.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
 		result.PerformData = rawPerformData
 	}
 
@@ -135,35 +122,6 @@ func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (Upke
 	info := *abi.ConvertType(out[0], new(UpkeepInfo)).(*UpkeepInfo)
 
 	return info, nil
-}
-
-func (rp *evmRegistryPackerV2_1) UnpackTransmitTxInput(raw []byte) ([]ocr2keepers.UpkeepResult, error) {
-	var (
-		enc     = EVMAutomationEncoder21{}
-		decoded []ocr2keepers.UpkeepResult
-		out     []interface{}
-		err     error
-		b       []byte
-		ok      bool
-	)
-
-	if out, err = rp.abi.Methods["transmit"].Inputs.UnpackValues(raw); err != nil {
-		return nil, fmt.Errorf("%w: unpack TransmitTxInput return: %s", err, raw)
-	}
-
-	if len(out) < 2 {
-		return nil, fmt.Errorf("invalid unpacking of TransmitTxInput in %s", raw)
-	}
-
-	if b, ok = out[1].([]byte); !ok {
-		return nil, fmt.Errorf("unexpected value type in transaction")
-	}
-
-	if decoded, err = enc.DecodeReport(b); err != nil {
-		return nil, fmt.Errorf("error during decoding report while unpacking TransmitTxInput: %w", err)
-	}
-
-	return decoded, nil
 }
 
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
@@ -223,12 +181,13 @@ func (rp *evmRegistryPackerV2_1) UnpackTrigger(id *big.Int, raw []byte) (trigger
 		}
 		converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)).(*automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)
 		if !ok {
-			return automation_utils_2_1.KeeperRegistryBase21LogTrigger{}, fmt.Errorf("failed to convert type")
+			return triggerWrapper{}, fmt.Errorf("failed to convert type")
 		}
-		return triggerWrapper{
-			BlockNum:  converted.BlockNum,
-			BlockHash: converted.BlockHash,
-		}, nil
+		triggerW := triggerWrapper{
+			BlockNum: converted.BlockNum,
+		}
+		copy(triggerW.BlockHash[:], converted.BlockHash[:])
+		return triggerW, nil
 	case logTrigger:
 		unpacked, err := rp.utilsAbi.Methods["_logTrigger"].Inputs.Unpack(raw)
 		if err != nil {
@@ -236,9 +195,15 @@ func (rp *evmRegistryPackerV2_1) UnpackTrigger(id *big.Int, raw []byte) (trigger
 		}
 		converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21LogTrigger)).(*automation_utils_2_1.KeeperRegistryBase21LogTrigger)
 		if !ok {
-			return automation_utils_2_1.KeeperRegistryBase21LogTrigger{}, fmt.Errorf("failed to convert type")
+			return triggerWrapper{}, fmt.Errorf("failed to convert type")
 		}
-		return triggerWrapper(*converted), nil
+		triggerW := triggerWrapper{
+			BlockNum: converted.BlockNum,
+			LogIndex: converted.LogIndex,
+		}
+		copy(triggerW.BlockHash[:], converted.BlockHash[:])
+		copy(triggerW.TxHash[:], converted.TxHash[:])
+		return triggerW, nil
 	default:
 		return triggerWrapper{}, fmt.Errorf("unknown trigger type: %d", upkeepType)
 	}
@@ -264,5 +229,20 @@ func (rp *evmRegistryPackerV2_1) UnpackReport(raw []byte) (automation_utils_2_1.
 	if !ok {
 		return automation_utils_2_1.KeeperRegistryBase21Report{}, fmt.Errorf("failed to convert type")
 	}
-	return *converted, nil
+	report := automation_utils_2_1.KeeperRegistryBase21Report{
+		FastGasWei:   converted.FastGasWei,
+		LinkNative:   converted.LinkNative,
+		UpkeepIds:    make([]*big.Int, len(converted.UpkeepIds)),
+		GasLimits:    make([]*big.Int, len(converted.GasLimits)),
+		Triggers:     make([][]byte, len(converted.Triggers)),
+		PerformDatas: make([][]byte, len(converted.PerformDatas)),
+	}
+	if len(report.UpkeepIds) > 0 {
+		copy(report.UpkeepIds, converted.UpkeepIds)
+		copy(report.GasLimits, converted.GasLimits)
+		copy(report.Triggers, converted.Triggers)
+		copy(report.PerformDatas, converted.PerformDatas)
+	}
+
+	return report, nil
 }
