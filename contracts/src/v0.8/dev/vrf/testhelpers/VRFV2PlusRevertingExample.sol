@@ -62,4 +62,8 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
     s_requestId = COORDINATOR.requestRandomWords(req);
     return s_requestId;
   }
+
+  function getSubId() external view returns (uint64) {
+    return s_subId;
+  }
 }

@@ -83,4 +83,8 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
       s_vrfCoordinatorApiV1.addConsumer(s_subId, consumers[i]);
     }
   }
+
+  function getSubId() external view returns (uint64) {
+    return s_subId;
+  }
 }
