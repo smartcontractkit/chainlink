@@ -41,29 +41,60 @@ func TestTransmitEventProvider(t *testing.T) {
 		}
 	}()
 
-	go func() {
-		for provider.Ready() != nil {
-			runtime.Gosched()
-		}
-		errs := provider.HealthReport()
-		require.Len(t, errs, 1)
-		require.NoError(t, errs[provider.Name()])
+	for provider.Ready() != nil {
+		runtime.Gosched()
+	}
+	errs := provider.HealthReport()
+	require.Len(t, errs, 1)
+	require.NoError(t, errs[provider.Name()])
 
-		mp.On("LatestBlock", mock.Anything).Return(int64(1), nil)
-		mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{
-			// TODO: return values
-		}, nil)
+	tests := []struct {
+		name        string
+		latestBlock int64
+		logs        []logpoller.Log
+		errored     bool
+		resultsLen  int
+	}{
+		// TODO: add more tests
+		{
+			"empty logs",
+			100,
+			[]logpoller.Log{},
+			false,
+			0,
+		},
+		{
+			"invalid log",
+			101,
+			[]logpoller.Log{
+				{
+					BlockNumber: 101,
+					BlockHash:   common.HexToHash("0x1"),
+					TxHash:      common.HexToHash("0x1"),
+					LogIndex:    1,
+					Address:     common.HexToAddress("0x1"),
+					Topics: [][]byte{
+						iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic().Bytes(),
+					},
+					EventSig: iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
+					Data:     []byte{},
+				},
+			},
+			false,
+			0,
+		},
+	}
 
-		res, err := provider.Events(ctx)
-		require.NoError(t, err)
-		require.Len(t, res, 0)
-		// TODO: check values returned from mock
-		// require.Len(t, res, 1)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, nil)
+			mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.logs, nil)
 
-		cancel()
-	}()
-
-	<-ctx.Done()
+			res, err := provider.Events(ctx)
+			require.Equal(t, tc.errored, err != nil)
+			require.Len(t, res, tc.resultsLen)
+		})
+	}
 }
 
 func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {

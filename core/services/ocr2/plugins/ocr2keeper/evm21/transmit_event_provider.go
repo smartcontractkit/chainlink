@@ -147,7 +147,7 @@ func (c *TransmitEventProvider) Events(ctx context.Context) ([]ocr2keepers.Trans
 
 	parsed, err := c.parseLogs(logs)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to unmarshal logs", err)
+		return nil, fmt.Errorf("%w: failed to parse logs", err)
 	}
 
 	return c.convertToTransmitEvents(parsed, end)
@@ -160,7 +160,7 @@ func (c *TransmitEventProvider) parseLogs(logs []logpoller.Log) ([]transmitEvent
 		rawLog := log.ToGethLog()
 		abilog, err := c.registry.ParseLog(rawLog)
 		if err != nil {
-			return results, err
+			return nil, fmt.Errorf("%w: failed to parse log", err)
 		}
 
 		switch l := abilog.(type) {
@@ -196,6 +196,9 @@ func (c *TransmitEventProvider) parseLogs(logs []logpoller.Log) ([]transmitEvent
 				Log:               log,
 				InsufficientFunds: l,
 			})
+		default:
+			c.logger.Debugw("skipping unknown log type", "l", l)
+			continue
 		}
 	}
 

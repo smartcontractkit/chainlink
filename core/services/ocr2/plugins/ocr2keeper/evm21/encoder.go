@@ -13,8 +13,7 @@ import (
 )
 
 var (
-	ErrEmptyResults     = fmt.Errorf("empty results; cannot encode")
-	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
+	ErrEmptyResults = fmt.Errorf("empty results; cannot encode")
 )
 
 type EVMAutomationEncoder21 struct {
