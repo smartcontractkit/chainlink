@@ -50,3 +50,13 @@ message LogTriggerSuccess {
     uint32 timestamp = 3;  // current timestamp
     bool success = 4; // result of checkLog/checkUpkeep eth call, whether upkeep needs to be performed
 }
+
+message AutomationTelemWrapper {
+    oneof msg {
+        MercuryLookup mercury_lookup = 1;
+        MercuryResponse mercury_response = 2;
+        MercuryCheckCallback mercury_checkcallback = 3;
+        LogTrigger log_trigger = 4;
+        LogTriggerSuccess log_trigger_success = 5;
+    }
+}
