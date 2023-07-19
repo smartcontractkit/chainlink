@@ -45,13 +45,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * UPKEEP_VERSION_BASE and MigratableKeeperRegistryInterfaceV2
    */
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
-  uint8 internal constant UPKEEP_VERSION_BASE = uint8(UpkeepFormat.V3);
+  uint8 internal constant UPKEEP_VERSION_BASE = 3;
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 80_000; // Used in maxPayment estimation, and in capping overheads during actual payment
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 100_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
+  uint256 internal constant TRANSMIT_GAS_OVERHEAD = 1_000_000; // Used only by offchain caller
+  uint256 internal constant CHECK_GAS_OVERHEAD = 400_000; // Used only by offchain caller
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
 
