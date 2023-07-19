@@ -4,10 +4,10 @@ import "../BaseTest.t.sol";
 import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
-import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/vrf/testhelpers/ExposedVRFCoordinatorV2Plus.sol";
+import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/testhelpers/ExposedVRFCoordinatorV2Plus.sol";
 import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/vrf/VRFCoordinatorV2Plus.sol";
 import {BlockhashStore} from "../../../../src/v0.8/dev/BlockhashStore.sol";
-import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
+import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
 import {console} from "forge-std/console.sol";
 
 /*
@@ -200,7 +200,7 @@ contract VRFV2Plus is BaseTest {
 
     // Fulfill the request.
     // Proof generated via the generate-proof-v2-plus script command. Example usage:
-    /* 
+    /*
         go run . generate-proof-v2-plus \
         -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
         -pre-seed 9102713253520531303199546283065661072962076495550082047101034889092927570458 \
@@ -308,7 +308,7 @@ contract VRFV2Plus is BaseTest {
 
     // Fulfill the request.
     // Proof generated via the generate-proof-v2-plus script command. Example usage:
-    /* 
+    /*
         go run . generate-proof-v2-plus \
         -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
         -pre-seed 9102713253520531303199546283065661072962076495550082047101034889092927570458 \

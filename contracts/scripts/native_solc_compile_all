@@ -83,14 +83,11 @@ $SCRIPTPATH/native_solc8_6_compile mocks/VRFCoordinatorMock.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFConsumerBaseV2.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumerV2.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFMaliciousConsumerV2.sol
-$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFMaliciousConsumerV2Plus.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFTestHelper.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2RevertingExample.sol
-$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2PlusRevertingExample.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2ProxyAdmin.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFV2TransparentUpgradeableProxy.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumerV2UpgradeableExample.sol
-$SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/BatchBlockhashStore.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/BatchVRFCoordinatorV2.sol
 $SCRIPTPATH/native_solc8_6_compile vrf/testhelpers/VRFCoordinatorV2TestHelper.sol
@@ -103,11 +100,13 @@ $SCRIPTPATH/native_solc8_6_compile dev/vrf/VRFCoordinatorV2Plus.sol 1000
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/BatchVRFCoordinatorV2Plus.sol
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/VRFV2PlusSubscriptionManager.sol
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/VRFV2PlusWrapper.sol
-$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol # done
-$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFMaliciousConsumerV2Plus.sol # done
-$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusExternalSubOwnerExample.sol # done
-$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusSingleConsumerExample.sol # done
-$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol # done
+$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
+$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFMaliciousConsumerV2Plus.sol
+$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusExternalSubOwnerExample.sol
+$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusSingleConsumerExample.sol
+$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol
+$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusRevertingExample.sol
+$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
 
 # VRF V2 Wrapper
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFV2Wrapper.sol
