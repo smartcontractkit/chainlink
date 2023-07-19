@@ -44,7 +44,8 @@ func NewRunner(readers []io.Reader, reporter reporter, numReruns int) *Runner {
 
 func runGoTest(pkg string, tests []string, numReruns int, w io.Writer) error {
 	testFilter := strings.Join(tests, "|")
-	cmd := exec.Command("go", "test", "-count", fmt.Sprintf("%d", numReruns), "-run", testFilter, "-tags", "test", fmt.Sprintf("./%s/...", pkg)) //#nosec
+	cmd := exec.Command("./tools/bin/go_core_tests", fmt.Sprintf("./%s", pkg)) //#nosec
+	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-count %d -run %s", numReruns, testFilter))
 	cmd.Stdout = io.MultiWriter(os.Stdout, w)
 	cmd.Stderr = io.MultiWriter(os.Stderr, w)
 	return cmd.Run()
@@ -81,7 +82,7 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 	return tests, nil
 }
 
-func (r *Runner) runTests(failedTests map[string]map[string]int) io.Reader {
+func (r *Runner) runTests(failedTests map[string]map[string]int) (io.Reader, error) {
 	var out bytes.Buffer
 	for pkg, tests := range failedTests {
 		ts := []string{}
@@ -93,10 +94,11 @@ func (r *Runner) runTests(failedTests map[string]map[string]int) io.Reader {
 		err := r.runTestFn(pkg, ts, r.numReruns, &out)
 		if err != nil {
 			log.Printf("Test command errored: %s\n", err)
+			return &out, err
 		}
 	}
 
-	return &out
+	return &out, nil
 }
 
 func (r *Runner) Run() error {
@@ -105,7 +107,10 @@ func (r *Runner) Run() error {
 		return err
 	}
 
-	output := r.runTests(failedTests)
+	output, err := r.runTests(failedTests)
+	if err != nil {
+		return err
+	}
 
 	failedReruns, err := r.parse(output)
 	if err != nil {
