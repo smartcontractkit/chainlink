@@ -292,7 +292,7 @@ func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpt
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
 
-	contractAddress := common.HexToAddress(opts.ContractID)
+	aggregatorAddress := common.HexToAddress(opts.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
@@ -307,14 +307,18 @@ func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpt
 		cp, err = mercury.NewConfigPoller(
 			lggr,
 			chain.LogPoller(),
-			contractAddress,
+			aggregatorAddress,
 			*relayConfig.FeedID,
 			eventBroadcaster,
+			// TODO: Does mercury need to support config contract? DF-19182
 		)
 	} else {
-		cp, err = NewConfigPoller(lggr,
+		cp, err = NewConfigPoller(
+			lggr,
+			chain.Client(),
 			chain.LogPoller(),
-			contractAddress,
+			aggregatorAddress,
+			relayConfig.ConfigContractAddress,
 		)
 	}
 	if err != nil {
@@ -324,15 +328,15 @@ func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpt
 	var offchainConfigDigester ocrtypes.OffchainConfigDigester
 	if relayConfig.FeedID != nil {
 		// Mercury
-		offchainConfigDigester = mercury.NewOffchainConfigDigester(*relayConfig.FeedID, chain.Config().EVM().ChainID(), contractAddress)
+		offchainConfigDigester = mercury.NewOffchainConfigDigester(*relayConfig.FeedID, chain.Config().EVM().ChainID(), aggregatorAddress)
 	} else {
 		// Non-mercury
 		offchainConfigDigester = evmutil.EVMOffchainConfigDigester{
 			ChainID:         chain.Config().EVM().ChainID().Uint64(),
-			ContractAddress: contractAddress,
+			ContractAddress: aggregatorAddress,
 		}
 	}
-	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, opts.New), nil
+	return newConfigWatcher(lggr, aggregatorAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, opts.New), nil
 }
 
 func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth) (*contractTransmitter, error) {

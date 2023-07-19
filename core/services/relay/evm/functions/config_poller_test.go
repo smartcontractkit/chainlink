@@ -2,6 +2,7 @@ package functions_test
 
 import (
 	"encoding/binary"
+	"github.com/smartcontractkit/libocr/bigbigendian"
 	"math/big"
 	"testing"
 	"time"
@@ -186,7 +187,7 @@ func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPlu
 		50*time.Millisecond,
 		50*time.Millisecond,
 		1, // faults
-		nil,
+		generateDefaultOCR2OnchainConfig(big.NewInt(0), big.NewInt(10)),
 	)
 
 	require.NoError(t, err)
@@ -204,4 +205,28 @@ func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPlu
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
 	}
+}
+
+func generateDefaultOCR2OnchainConfig(minValue *big.Int, maxValue *big.Int) []byte {
+	serializedConfig := make([]byte, 0)
+
+	s1, err := bigbigendian.SerializeSigned(1, big.NewInt(1)) //version
+	if err != nil {
+		panic(err)
+	}
+	serializedConfig = append(serializedConfig, s1...)
+
+	s2, err := bigbigendian.SerializeSigned(24, minValue) //min
+	if err != nil {
+		panic(err)
+	}
+	serializedConfig = append(serializedConfig, s2...)
+
+	s3, err := bigbigendian.SerializeSigned(24, maxValue) //max
+	if err != nil {
+		panic(err)
+	}
+	serializedConfig = append(serializedConfig, s3...)
+
+	return serializedConfig
 }

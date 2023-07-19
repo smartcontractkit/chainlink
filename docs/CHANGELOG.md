@@ -12,6 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Helper migrations function for injecting env vars into goose migrations. This was done to inject chainID into evm chain id not null in specs migrations.
+- OCR2 jobs now support querying the state contract for configurations if it has been deployed. 
+  This can help on chains such as BSC which "manage" state bloat by arbitrarily deleting logs 
+  older than a certain date. In this case, if logs are missing we will query the contract directly
+  and retrieve the latest config from chain state. Chainlink will perform no
+  extra RPC calls unless the job spec has this feature explicitly enabled. On
+  chains that require this, nops may see an increase in RPC calls. This can be
+  enabled for OCR2 jobs by specifying `configContractAddress` in the relay
+  config TOML.
 
 ### Removed
 
@@ -35,7 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed health checker to include more services in the prometheus `health` metric and HTTP `/health` endpoint 
 
 ## 2.5.0 - UNRELEASED
-=======
 
 - Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
   ```

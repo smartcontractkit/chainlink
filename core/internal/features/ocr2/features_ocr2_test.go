@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/smartcontractkit/libocr/bigbigendian"
 	"io"
 	"math/big"
 	"net/http"
@@ -238,12 +239,19 @@ func TestIntegration_OCR2(t *testing.T) {
 	require.NoError(t, err)
 	blockBeforeConfig, err := b.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
-	signers, transmitters, threshold, onchainConfig, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
+	signers, transmitters, threshold, _, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
 		oracles,
 		1,
 		1000000000/100, // threshold PPB
 	)
 	require.NoError(t, err)
+
+	minAnswer, maxAnswer := new(big.Int), new(big.Int)
+	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
+	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
+	maxAnswer.Sub(maxAnswer, big.NewInt(1))
+
+	onchainConfig := generateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
 	lggr.Debugw("Setting Config on Oracle Contract",
 		"signers", signers,
 		"transmitters", transmitters,
@@ -506,12 +514,19 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	require.NoError(t, err)
 	blockBeforeConfig, err := b.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
-	signers, effectiveTransmitters, threshold, onchainConfig, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
+	signers, effectiveTransmitters, threshold, _, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
 		oracles,
 		1,
 		1000000000/100, // threshold PPB
 	)
 	require.NoError(t, err)
+
+	minAnswer, maxAnswer := new(big.Int), new(big.Int)
+	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
+	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
+	maxAnswer.Sub(maxAnswer, big.NewInt(1))
+
+	onchainConfig := generateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
 
 	lggr.Debugw("Setting Config on Oracle Contract",
 		"signers", signers,
@@ -720,6 +735,30 @@ juelsPerFeeCoinSource = """
 	digestAndEpoch, err := ocrContract.LatestConfigDigestAndEpoch(nil)
 	require.NoError(t, err)
 	assert.Equal(t, digestAndEpoch.Epoch, epoch)
+}
+
+func generateDefaultOCR2OnchainConfig(minValue *big.Int, maxValue *big.Int) []byte {
+	serializedConfig := make([]byte, 0)
+
+	s1, err := bigbigendian.SerializeSigned(1, big.NewInt(1)) //version
+	if err != nil {
+		panic(err)
+	}
+	serializedConfig = append(serializedConfig, s1...)
+
+	s2, err := bigbigendian.SerializeSigned(24, minValue) //min
+	if err != nil {
+		panic(err)
+	}
+	serializedConfig = append(serializedConfig, s2...)
+
+	s3, err := bigbigendian.SerializeSigned(24, maxValue) //max
+	if err != nil {
+		panic(err)
+	}
+	serializedConfig = append(serializedConfig, s3...)
+
+	return serializedConfig
 }
 
 func ptr[T any](v T) *T { return &v }
