@@ -109,10 +109,6 @@ func (l *LokiReporter) makeRequest(pushReq pushRequest) error {
 }
 
 func (l *LokiReporter) Report(flakeyTests map[string][]string) error {
-	if len(flakeyTests) == 0 {
-		return nil
-	}
-
 	pushReq, err := l.createRequest(flakeyTests)
 	if err != nil {
 		return err

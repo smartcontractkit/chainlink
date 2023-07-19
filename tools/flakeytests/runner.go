@@ -14,7 +14,9 @@ import (
 
 var (
 	failedTestRe = regexp.MustCompile(`^--- FAIL: (Test\w+)`)
-	failedPkgRe  = regexp.MustCompile(`^FAIL\s+github\.com\/smartcontractkit\/chainlink\/v2\/(\S+)`)
+	logPanicRe   = regexp.MustCompile(`^panic: Log in goroutine after (Test\w+)`)
+
+	failedPkgRe = regexp.MustCompile(`^FAIL\s+github\.com\/smartcontractkit\/chainlink\/v2\/(\S+)`)
 )
 
 type Runner struct {
@@ -62,6 +64,9 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 			case failedTestRe.MatchString(t):
 				m := failedTestRe.FindStringSubmatch(t)
 				testsWithoutPackage = append(testsWithoutPackage, m[1])
+			case logPanicRe.MatchString(t):
+				m := logPanicRe.FindStringSubmatch(t)
+				testsWithoutPackage = append(testsWithoutPackage, m[1])
 			case failedPkgRe.MatchString(t):
 				p := failedPkgRe.FindStringSubmatch(t)
 				for _, t := range testsWithoutPackage {
@@ -78,7 +83,6 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 			return nil, err
 		}
 	}
-
 	return tests, nil
 }
 
