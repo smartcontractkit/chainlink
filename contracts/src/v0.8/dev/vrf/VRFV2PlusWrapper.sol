@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../ConfirmedOwner.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
+import "../../ConfirmedOwner.sol";
+import "../../interfaces/TypeAndVersionInterface.sol";
 import "./VRFConsumerBaseV2Plus.sol";
-import "../interfaces/LinkTokenInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
+import "../../interfaces/LinkTokenInterface.sol";
+import "../../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../interfaces/VRFV2PlusWrapperInterface.sol";
 import "./VRFV2PlusWrapperConsumerBase.sol";
-import "../ChainSpecificUtil.sol";
+import "../../ChainSpecificUtil.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
