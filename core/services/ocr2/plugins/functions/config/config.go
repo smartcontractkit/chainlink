@@ -38,6 +38,7 @@ type DecryptionQueueConfig struct {
 	MaxCiphertextBytes       uint32 `json:"maxCiphertextBytes"`
 	MaxCiphertextIdLength    uint32 `json:"maxCiphertextIdLength"`
 	CompletedCacheTimeoutSec uint32 `json:"completedCacheTimeoutSec"`
+	DecryptRequestTimeoutSec uint32 `json:"decryptRequestTimeoutSec"`
 }
 
 func ValidatePluginConfig(config PluginConfig) error {
@@ -53,6 +54,9 @@ func ValidatePluginConfig(config PluginConfig) error {
 		}
 		if config.DecryptionQueueConfig.CompletedCacheTimeoutSec <= 0 {
 			return errors.New("missing or invalid decryptionQueueConfig completedCacheTimeoutSec")
+		}
+		if config.DecryptionQueueConfig.DecryptRequestTimeoutSec <= 0 {
+			return errors.New("missing or invalid decryptionQueueConfig decryptRequestTimeoutSec")
 		}
 	}
 	return nil

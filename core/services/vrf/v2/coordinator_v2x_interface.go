@@ -7,13 +7,17 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+var extraArgsV1Tag = crypto.Keccak256([]byte("VRF ExtraArgsV1"))[:4]
 
 // CoordinatorV2_X is an interface that allows us to use the same code for
 // both the V2 and V2Plus coordinators.
@@ -545,7 +549,28 @@ func (c *coordinatorV2_X) RequestRandomWords(opts *bind.TransactOpts, keyHash [3
 	if c.v2 != nil {
 		return c.v2.RequestRandomWords(opts, keyHash, subId, requestConfirmations, callbackGasLimit, numWords)
 	}
-	return c.v2plus.RequestRandomWords(opts, keyHash, subId, requestConfirmations, callbackGasLimit, numWords, payInEth)
+	extraArgs, err := GetExtraArgsV1(payInEth)
+	if err != nil {
+		return nil, err
+	}
+	req := vrf_coordinator_v2plus.VRFV2PlusClientRandomWordsRequest{
+		KeyHash:              keyHash,
+		SubId:                subId,
+		RequestConfirmations: requestConfirmations,
+		CallbackGasLimit:     callbackGasLimit,
+		NumWords:             numWords,
+		ExtraArgs:            extraArgs,
+	}
+	return c.v2plus.RequestRandomWords(opts, req)
+}
+
+func GetExtraArgsV1(nativePayment bool) ([]byte, error) {
+	encodedArgs, err := utils.ABIEncode(`[{"type":"bool"}]`, nativePayment)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(extraArgsV1Tag, encodedArgs...), nil
 }
 
 func (c *coordinatorV2_X) CreateSubscription(opts *bind.TransactOpts) (*types.Transaction, error) {

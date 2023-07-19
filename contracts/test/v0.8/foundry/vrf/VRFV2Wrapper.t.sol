@@ -4,10 +4,10 @@ import "../BaseTest.t.sol";
 import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
-import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/vrf/testhelpers/ExposedVRFCoordinatorV2Plus.sol";
-import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
-import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/vrf/VRFCoordinatorV2Plus.sol";
-import {VRFV2PlusWrapper} from "../../../../src/v0.8/vrf/VRFV2PlusWrapper.sol";
+import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/testhelpers/ExposedVRFCoordinatorV2Plus.sol";
+import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
+import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2Plus.sol";
+import {VRFV2PlusWrapper} from "../../../../src/v0.8/dev/vrf/VRFV2PlusWrapper.sol";
 import {console} from "forge-std/console.sol";
 
 contract VRFV2PlusWrapperTest is BaseTest {

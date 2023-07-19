@@ -18,12 +18,13 @@ type EIServiceConfig struct {
 
 // ChainlinkConfig represents the variables needed to connect to a Chainlink node
 type ChainlinkConfig struct {
-	URL        string
-	Email      string
-	Password   string
-	InternalIP string // Can change if the node is restarted. Prefer RemoteURL if possible
-	ChartName  string
-	PodName    string
+	URL         string
+	Email       string
+	Password    string
+	InternalIP  string // Can change if the node is restarted. Prefer RemoteURL if possible
+	ChartName   string
+	PodName     string
+	HTTPTimeout *time.Duration
 }
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice
