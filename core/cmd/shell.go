@@ -100,7 +100,7 @@ type Shell struct {
 
 	configFiles      []string
 	configFilesIsSet bool
-	secretsFile      string
+	secretsFiles     []string
 	secretsFileIsSet bool
 }
 
@@ -465,16 +465,16 @@ func (n ChainlinkRunner) Run(ctx context.Context, app chainlink.Application) err
 	server := server{handler: handler, lggr: app.GetLogger()}
 
 	g, gCtx := errgroup.WithContext(ctx)
-	timeoutDuration := config.WebServer().StartTimeout()
+	serverStartTimeoutDuration := config.WebServer().StartTimeout()
 	if ws.HTTPPort() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), serverStartTimeoutDuration, func() error {
 			return server.run(ws.ListenIP(), ws.HTTPPort(), config.WebServer().HTTPWriteTimeout())
 		})
 	}
 
 	tls := config.WebServer().TLS()
 	if tls.HTTPSPort() != 0 {
-		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), timeoutDuration, func() error {
+		go tryRunServerUntilCancelled(gCtx, app.GetLogger(), serverStartTimeoutDuration, func() error {
 			return server.runTLS(
 				tls.ListenIP(),
 				tls.HTTPSPort(),
@@ -565,20 +565,20 @@ func (s *server) run(ip net.IP, port uint16, writeTimeout time.Duration) error {
 	return errors.Wrap(err, "failed to run plaintext HTTP server")
 }
 
-func (s *server) runTLS(ip net.IP, port uint16, certFile, keyFile string, writeTimeout time.Duration) error {
+func (s *server) runTLS(ip net.IP, port uint16, certFile, keyFile string, requestTimeout time.Duration) error {
 	addr := fmt.Sprintf("%s:%d", ip.String(), port)
 	s.lggr.Infow(fmt.Sprintf("Listening and serving HTTPS on %s", addr), "ip", ip, "port", port)
-	s.tlsServer = createServer(s.handler, addr, writeTimeout)
+	s.tlsServer = createServer(s.handler, addr, requestTimeout)
 	err := s.tlsServer.ListenAndServeTLS(certFile, keyFile)
 	return errors.Wrap(err, "failed to run TLS server (NOTE: you can disable TLS server completely and silence these errors by setting WebServer.TLS.HTTPSPort=0 in your config)")
 }
 
-func createServer(handler *gin.Engine, addr string, writeTimeout time.Duration) *http.Server {
+func createServer(handler *gin.Engine, addr string, requestTimeout time.Duration) *http.Server {
 	s := &http.Server{
 		Addr:           addr,
 		Handler:        handler,
-		ReadTimeout:    5 * time.Second,
-		WriteTimeout:   writeTimeout,
+		ReadTimeout:    requestTimeout,
+		WriteTimeout:   requestTimeout,
 		IdleTimeout:    60 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
