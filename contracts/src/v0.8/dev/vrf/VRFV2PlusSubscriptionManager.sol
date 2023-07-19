@@ -18,7 +18,7 @@ contract VRFV2PlusSubscriptionManager is ConfirmedOwner {
   /// @notice the subscription ID that is owned by this contract.
   /// @notice this needs to be combined with the VRF coordinator address
   /// @notice in order to be used for any subscription-related operations.
-  uint64 public s_subId;
+  uint256 public s_subId;
   /// @notice the VRF coordinator that this the subscription ID above is for.
   /// @notice in the event a migration occurs, both s_subId and s_vrfCoordinator
   /// @notice will have to change accordingly.
@@ -42,7 +42,7 @@ contract VRFV2PlusSubscriptionManager is ConfirmedOwner {
     s_linkToken = LinkTokenInterface(linkToken);
   }
 
-  function createSubscription() external onlyOwner returns (uint64 subId) {
+  function createSubscription() external onlyOwner returns (uint256 subId) {
     subId = s_vrfCoordinator.createSubscription();
     s_subId = subId;
   }
@@ -116,7 +116,7 @@ contract VRFV2PlusSubscriptionManager is ConfirmedOwner {
     // note that this is bounded by MAX_CONSUMERS in the coordinator
     for (uint256 i = 0; i < consumers.length; i++) {
       newCoord.addConsumer(newSubId, consumers[i]);
-      IVRFMigratableConsumerV2Plus(consumers[i]).setConfig(newCoordinator, newSubId);
+      IVRFMigratableConsumerV2Plus(consumers[i]).setCoordinator(newCoordinator, newSubId);
     }
     // set the subscription id and the vrf coordinator in this owner contract
     s_subId = newSubId;

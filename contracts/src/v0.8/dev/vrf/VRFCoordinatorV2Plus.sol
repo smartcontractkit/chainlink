@@ -39,7 +39,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   error InvalidExtraArgsTag();
   struct RequestCommitment {
     uint64 blockNum;
-    uint64 subId;
+    uint256 subId;
     uint32 callbackGasLimit;
     uint32 numWords;
     address sender;
@@ -54,7 +54,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     bytes32 indexed keyHash,
     uint256 requestId,
     uint256 preSeed,
-    uint64 indexed subId,
+    uint256 indexed subId,
     uint16 minimumRequestConfirmations,
     uint32 callbackGasLimit,
     uint32 numWords,
@@ -265,7 +265,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[msg.sender][req.subId];
+    uint64 currentNonce = s_consumers[getConsumerKey(msg.sender, req.subId)];
     if (currentNonce == 0) {
       revert InvalidConsumer(req.subId, msg.sender);
     }
@@ -317,7 +317,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       nativePayment,
       msg.sender
     );
-    s_consumers[msg.sender][req.subId] = nonce;
+    s_consumers[getConsumerKey(msg.sender, req.subId)] = nonce;
 
     return requestId;
   }
@@ -325,7 +325,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   function computeRequestId(
     bytes32 keyHash,
     address sender,
-    uint64 subId,
+    uint256 subId,
     uint64 nonce
   ) internal pure returns (uint256, uint256) {
     uint256 preSeed = uint256(keccak256(abi.encode(keyHash, sender, subId, nonce)));
@@ -553,7 +553,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
    * @dev Looping is bounded to MAX_CONSUMERS*(number of keyhashes).
    * @dev Used to disable subscription canceling while outstanding request are present.
    */
-  function pendingRequestExists(uint64 subId) public view returns (bool) {
+  function pendingRequestExists(uint256 subId) public view returns (bool) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
       for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
@@ -561,7 +561,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
           s_provingKeyHashes[j],
           subConfig.consumers[i],
           subId,
-          s_consumers[subConfig.consumers[i]][subId]
+          s_consumers[getConsumerKey(subConfig.consumers[i], subId)]
         );
         if (s_requestCommitments[reqId] != 0) {
           return true;
@@ -574,11 +574,11 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function removeConsumer(uint64 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
+  function removeConsumer(uint256 subId, address consumer) external override onlySubOwner(subId) nonReentrant {
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }
-    if (s_consumers[consumer][subId] == 0) {
+    if (s_consumers[getConsumerKey(consumer, subId)] == 0) {
       revert InvalidConsumer(subId, consumer);
     }
     // Note bounded by MAX_CONSUMERS
@@ -594,14 +594,14 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         break;
       }
     }
-    delete s_consumers[consumer][subId];
+    delete s_consumers[getConsumerKey(consumer, subId)];
     emit SubscriptionConsumerRemoved(subId, consumer);
   }
 
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function cancelSubscription(uint64 subId, address to) external override onlySubOwner(subId) nonReentrant {
+  function cancelSubscription(uint256 subId, address to) external override onlySubOwner(subId) nonReentrant {
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }
@@ -622,12 +622,10 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
 
   /// @notice emitted when migration to new coordinator completes successfully
   /// @param newCoordinator coordinator address after migration
-  /// @param prevSubId old subscription ID
-  /// @param newSubId new subscription ID
+  /// @param subId subscription ID
   event MigrationCompleted(
     address newCoordinator,
-    uint64 prevSubId,
-    uint64 newSubId
+    uint256 subId
   );
 
   /// @notice emitted when migrate() is called and given coordinator is not registered as migratable target
@@ -639,6 +637,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   /// @dev encapsulates data to be migrated from current coordinator
   struct V1MigrationData {
     uint8 fromVersion;
+    uint256 subId;
     address subOwner;
     address[] consumers;
     uint96 linkBalance;
@@ -679,7 +678,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     revert CoordinatorNotRegistered(target);
   }
 
-  function migrate(uint64 subId, address newCoordinator) external returns (uint64) {
+  function migrate(uint256 subId, address newCoordinator) external {
     if (!isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
@@ -689,6 +688,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
 
     V1MigrationData memory migrationData = V1MigrationData({
       fromVersion: migrationVersion(),
+      subId: subId,
       subOwner: owner,
       consumers: consumers,
       linkBalance: balance,
@@ -696,17 +696,15 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     });
     bytes memory encodedData = abi.encode(migrationData);
     deleteSubscription(subId);
-    uint64 newSubId = IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);    
+    IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);    
     require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
     for (uint256 i = 0; i < consumers.length; i++) {
-      IVRFMigratableConsumerV2Plus(consumers[i]).setConfig(newCoordinator, newSubId);
+      IVRFMigratableConsumerV2Plus(consumers[i]).setCoordinator(newCoordinator);
     }
     emit MigrationCompleted(
       newCoordinator,
-      subId,
-      newSubId
+      subId
     );
-    return newSubId;
   }
 
   function migrationVersion() public pure returns (uint8 version) {
