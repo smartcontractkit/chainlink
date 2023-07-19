@@ -265,13 +265,16 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if relayConfig.FeedID != nil {
 		cp, err = mercury.NewConfigPoller(
 			lggr,
+			chain.Client(),
 			chain.LogPoller(),
 			contractAddress,
 			*relayConfig.FeedID,
 			eventBroadcaster,
 		)
 	} else {
-		cp, err = NewConfigPoller(lggr,
+		cp, err = NewConfigPoller(
+			lggr,
+			chain.Client(),
 			chain.LogPoller(),
 			contractAddress,
 		)

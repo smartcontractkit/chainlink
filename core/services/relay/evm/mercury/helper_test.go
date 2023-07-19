@@ -24,7 +24,7 @@ import (
 )
 
 type TestHarness struct {
-	configPoller     *ConfigPoller
+	configPoller     *configPoller
 	user             *bind.TransactOpts
 	backend          *backends.SimulatedBackend
 	verifierContract *mercury_verifier.MercuryVerifier
@@ -44,7 +44,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 
 	proxyAddress, _, verifierProxy, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(user, b, common.Address{})
 	require.NoError(t, err, "failed to deploy test mercury verifier proxy contract")
-	verifierAddress, _, verifierContract, err := mercury_verifier.DeployMercuryVerifier(user, b, proxyAddress)
+	verifierAddress, _, verifierContract, err := mercury_verifier.DeployMercuryVerifier(user, b, proxyAddress, false)
 	require.NoError(t, err, "failed to deploy test mercury verifier contract")
 	_, err = verifierProxy.InitializeVerifier(user, verifierAddress)
 	require.NoError(t, err)
@@ -64,7 +64,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 
 	eventBroadcaster.On("Subscribe", "insert_on_evm_logs", "").Return(subscription, nil)
 
-	configPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID, eventBroadcaster)
+	configPoller, err := NewConfigPoller(lggr, ethClient, lp, verifierAddress, feedID, eventBroadcaster)
 	require.NoError(t, err)
 
 	configPoller.Start()

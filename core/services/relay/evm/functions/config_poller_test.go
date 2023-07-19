@@ -66,6 +66,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 		accessAddress,
 		9,
 		"TEST",
+		false,
 	)
 	require.NoError(t, err)
 	b.Commit()

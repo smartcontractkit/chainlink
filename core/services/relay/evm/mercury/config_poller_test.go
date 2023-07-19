@@ -111,6 +111,10 @@ func TestMercuryConfigPoller(t *testing.T) {
 	assert.Equal(t, encodedTransmitter, newConfig.Transmitters)
 	assert.Equal(t, offchainConfigVersion, newConfig.OffchainConfigVersion)
 	assert.Equal(t, offchainConfig, newConfig.OffchainConfig)
+
+	t.Run("TODO", func(t *testing.T) {
+		t.Fatal("TODO")
+	})
 }
 
 func TestNotify(t *testing.T) {

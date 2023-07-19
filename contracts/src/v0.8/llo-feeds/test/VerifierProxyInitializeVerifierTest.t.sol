@@ -11,7 +11,6 @@ contract VerifierProxyInitializeVerifierTest is BaseTest {
 
   function setUp() public override {
     BaseTest.setUp();
-    Signer[] memory signers = _getSigners(MAX_ORACLES);
   }
 
   function test_revertsIfNotOwner() public {

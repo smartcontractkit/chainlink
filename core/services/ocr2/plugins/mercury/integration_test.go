@@ -129,7 +129,7 @@ func TestIntegration_Mercury(t *testing.T) {
 	// Deploy config contract
 	verifierProxyAddr, _, verifierProxy, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
 	require.NoError(t, err)
-	verifierAddress, _, verifier, err := mercury_verifier.DeployMercuryVerifier(steve, backend, verifierProxyAddr)
+	verifierAddress, _, verifier, err := mercury_verifier.DeployMercuryVerifier(steve, backend, verifierProxyAddr, false)
 	require.NoError(t, err)
 	_, err = verifierProxy.InitializeVerifier(steve, verifierAddress)
 	require.NoError(t, err)
