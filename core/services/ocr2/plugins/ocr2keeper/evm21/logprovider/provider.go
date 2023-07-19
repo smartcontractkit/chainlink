@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"go.uber.org/multierr"
 	"golang.org/x/time/rate"
 
@@ -52,7 +53,7 @@ type LogEventProvider interface {
 	// UnregisterFilter removes the filter for the given upkeepID.
 	UnregisterFilter(upkeepID *big.Int) error
 	// GetLogs returns the logs in the given range.
-	GetLogs() ([]UpkeepPayload, error)
+	GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload, error)
 }
 
 type LogEventProviderTest interface {
@@ -129,7 +130,7 @@ func (p *logEventProvider) Close() error {
 	return nil
 }
 
-func (p *logEventProvider) GetLogs() ([]UpkeepPayload, error) {
+func (p *logEventProvider) GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latest := p.buffer.latestBlockSeen()
 	diff := latest - p.opts.LogBlocksLookback
 	if diff < 0 {
@@ -137,17 +138,23 @@ func (p *logEventProvider) GetLogs() ([]UpkeepPayload, error) {
 	}
 	logs := p.buffer.dequeue(int(diff))
 
-	var payloads []UpkeepPayload
+	var payloads []ocr2keepers.UpkeepPayload
 	for _, l := range logs {
 		log := l.log
-		logExtension := fmt.Sprintf("%s:%d", log.TxHash.Hex(), uint(log.LogIndex))
-		trig := NewTrigger(log.BlockNumber, log.BlockHash.Hex(), logExtension)
+		trig := ocr2keepers.NewTrigger(
+			log.BlockNumber,
+			log.BlockHash.Hex(),
+			LogTriggerExtension{
+				TxHash:   log.TxHash.Hex(),
+				LogIndex: log.LogIndex,
+			},
+		)
 		checkData, err := p.packer.PackLogData(log)
 		if err != nil {
 			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
 			continue
 		}
-		payload := NewUpkeepPayload(l.id, logTriggerType, trig, checkData)
+		payload := ocr2keepers.NewUpkeepPayload(l.id, logTriggerType, ocr2keepers.BlockKey(fmt.Sprintf("%d", log.BlockNumber)), trig, checkData)
 		payloads = append(payloads, payload)
 	}
 
