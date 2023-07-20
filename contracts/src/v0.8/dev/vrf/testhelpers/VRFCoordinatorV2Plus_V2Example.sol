@@ -18,7 +18,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
 
   mapping(uint256 => Subscription) public s_subscriptions; /* subId */ /* subscription */
   mapping(uint256 => address) public s_requestConsumerMapping; /* RequestId */ /* consumer address */
-  
+
   uint96 public s_totalLinkBalance;
   uint96 public s_totalNativeBalance;
   // request ID nonce
@@ -40,12 +40,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
   /// @dev Emitted when a subscription for a given ID cannot be found
   error InvalidSubscription();
 
-  function getSubscription(uint256 subId) public view returns (
-    address owner,
-    address[] memory consumers,
-    uint96 linkBalance,
-    uint96 nativeBalance
-  ) {
+  function getSubscription(uint256 subId) public view returns (address owner, address[] memory consumers, uint96 linkBalance, uint96 nativeBalance) {
     if (s_subscriptions[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -64,10 +59,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
   /// @notice emitted when caller is not a previous version of VRF coordinator
   /// @param sender caller
   /// @param previousCoordinator expected coordinator address
-  error MustBePreviousCoordinator(
-    address sender,
-    address previousCoordinator
-  );
+  error MustBePreviousCoordinator(address sender, address previousCoordinator);
 
   /// @notice emitted when version in the request doesn't match expected version
   error InvalidVersion(uint8 requestVersion, uint8 expectedVersion);
@@ -119,7 +111,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
 
   /**
    * @inheritdoc IVRFMigratableCoordinatorV2Plus
-   */  
+   */
   function requestRandomWords(
     VRFV2PlusClient.RandomWordsRequest calldata /* req */
   ) external override returns (uint256 requestId) {
@@ -133,11 +125,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
     return requestId;
   }
 
-  function generateFakeRandomness(uint256 requestID)
-    public
-    pure
-    returns (uint256[] memory)
-  {
+  function generateFakeRandomness(uint256 requestID) public pure returns (uint256[] memory) {
     uint256[] memory randomness = new uint256[](1);
     randomness[0] = uint256(keccak256(abi.encode(requestID, "not random")));
     return randomness;

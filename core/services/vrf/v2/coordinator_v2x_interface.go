@@ -24,22 +24,22 @@ var extraArgsV1Tag = crypto.Keccak256([]byte("VRF ExtraArgsV1"))[:4]
 type CoordinatorV2_X interface {
 	Address() common.Address
 	ParseRandomWordsRequested(log types.Log) (*RandomWordsRequested, error)
-	RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subId uint64, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error)
-	AddConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error)
+	RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subId *big.Int, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error)
+	AddConsumer(opts *bind.TransactOpts, subId *big.Int, consumer common.Address) (*types.Transaction, error)
 	CreateSubscription(opts *bind.TransactOpts) (*types.Transaction, error)
-	GetSubscription(opts *bind.CallOpts, subID uint64) (*GetSubscription, error)
+	GetSubscription(opts *bind.CallOpts, subID *big.Int) (*GetSubscription, error)
 	GetConfig(opts *bind.CallOpts) (*GetConfig, error)
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 	OracleWithdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error)
 	LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic
 	Version() vrfcommon.Version
 	RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error)
-	FilterSubscriptionCreated(opts *bind.FilterOpts, subId []uint64) (*SubscriptionCreatedIterator, error)
-	FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subId []uint64, sender []common.Address) (*RandomWordsRequestedIterator, error)
+	FilterSubscriptionCreated(opts *bind.FilterOpts, subId []*big.Int) (*SubscriptionCreatedIterator, error)
+	FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subId []*big.Int, sender []common.Address) (*RandomWordsRequestedIterator, error)
 	FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (*RandomWordsFulfilledIterator, error)
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
-	RemoveConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error)
-	CancelSubscription(opts *bind.TransactOpts, subId uint64, to common.Address) (*types.Transaction, error)
+	RemoveConsumer(opts *bind.TransactOpts, subId *big.Int, consumer common.Address) (*types.Transaction, error)
+	CancelSubscription(opts *bind.TransactOpts, subId *big.Int, to common.Address) (*types.Transaction, error)
 	GetCommitment(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error)
 }
 
@@ -237,9 +237,9 @@ func (r *RandomWordsRequested) NumWords() uint32 {
 	return r.V2Plus.NumWords
 }
 
-func (r *RandomWordsRequested) SubID() uint64 {
+func (r *RandomWordsRequested) SubID() *big.Int {
 	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.SubId
+		return new(big.Int).SetUint64(r.V2.SubId)
 	}
 	return r.V2Plus.SubId
 }
@@ -465,9 +465,9 @@ func (r *RequestCommitment) BlockNum() uint64 {
 	return r.V2Plus.BlockNum
 }
 
-func (r *RequestCommitment) SubID() uint64 {
+func (r *RequestCommitment) SubID() *big.Int {
 	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.SubId
+		return new(big.Int).SetUint64(r.V2.SubId)
 	}
 	return r.V2Plus.SubId
 }
@@ -544,9 +544,9 @@ func (c *coordinatorV2_X) ParseRandomWordsRequested(log types.Log) (*RandomWords
 	}, err
 }
 
-func (c *coordinatorV2_X) RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subId uint64, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error) {
+func (c *coordinatorV2_X) RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subId *big.Int, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error) {
 	if c.v2 != nil {
-		return c.v2.RequestRandomWords(opts, keyHash, subId, requestConfirmations, callbackGasLimit, numWords)
+		return c.v2.RequestRandomWords(opts, keyHash, subId.Uint64(), requestConfirmations, callbackGasLimit, numWords)
 	}
 	extraArgs, err := GetExtraArgsV1(payInEth)
 	if err != nil {
@@ -579,16 +579,16 @@ func (c *coordinatorV2_X) CreateSubscription(opts *bind.TransactOpts) (*types.Tr
 	return c.v2plus.CreateSubscription(opts)
 }
 
-func (c *coordinatorV2_X) AddConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error) {
+func (c *coordinatorV2_X) AddConsumer(opts *bind.TransactOpts, subId *big.Int, consumer common.Address) (*types.Transaction, error) {
 	if c.v2 != nil {
-		return c.v2.AddConsumer(opts, subId, consumer)
+		return c.v2.AddConsumer(opts, subId.Uint64(), consumer)
 	}
 	return c.v2plus.AddConsumer(opts, subId, consumer)
 }
 
-func (c *coordinatorV2_X) GetSubscription(opts *bind.CallOpts, subID uint64) (*GetSubscription, error) {
+func (c *coordinatorV2_X) GetSubscription(opts *bind.CallOpts, subID *big.Int) (*GetSubscription, error) {
 	if c.v2 != nil {
-		sub, err := c.v2.GetSubscription(opts, subID)
+		sub, err := c.v2.GetSubscription(opts, subID.Uint64())
 		return &GetSubscription{
 			VRFVersion: vrfcommon.V2,
 			V2:         sub,
@@ -630,9 +630,16 @@ func (c *coordinatorV2_X) RegisterProvingKey(opts *bind.TransactOpts, oracle com
 	return c.v2plus.RegisterProvingKey(opts, oracle, publicProvingKey)
 }
 
-func (c *coordinatorV2_X) FilterSubscriptionCreated(opts *bind.FilterOpts, subId []uint64) (*SubscriptionCreatedIterator, error) {
+func toV2SubIds(subId []*big.Int) (v2SubIDs []uint64) {
+	for _, sID := range subId {
+		v2SubIDs = append(v2SubIDs, sID.Uint64())
+	}
+	return
+}
+
+func (c *coordinatorV2_X) FilterSubscriptionCreated(opts *bind.FilterOpts, subId []*big.Int) (*SubscriptionCreatedIterator, error) {
 	if c.v2 != nil {
-		it, err := c.v2.FilterSubscriptionCreated(opts, subId)
+		it, err := c.v2.FilterSubscriptionCreated(opts, toV2SubIds(subId))
 		if err != nil {
 			return nil, err
 		}
@@ -651,9 +658,9 @@ func (c *coordinatorV2_X) FilterSubscriptionCreated(opts *bind.FilterOpts, subId
 	}, nil
 }
 
-func (c *coordinatorV2_X) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subId []uint64, sender []common.Address) (*RandomWordsRequestedIterator, error) {
+func (c *coordinatorV2_X) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subId []*big.Int, sender []common.Address) (*RandomWordsRequestedIterator, error) {
 	if c.v2 != nil {
-		it, err := c.v2.FilterRandomWordsRequested(opts, keyHash, subId, sender)
+		it, err := c.v2.FilterRandomWordsRequested(opts, keyHash, toV2SubIds(subId), sender)
 		if err != nil {
 			return nil, err
 		}
@@ -707,16 +714,16 @@ func (c *coordinatorV2_X) TransferOwnership(opts *bind.TransactOpts, to common.A
 	return c.v2plus.TransferOwnership(opts, to)
 }
 
-func (c *coordinatorV2_X) RemoveConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error) {
+func (c *coordinatorV2_X) RemoveConsumer(opts *bind.TransactOpts, subId *big.Int, consumer common.Address) (*types.Transaction, error) {
 	if c.v2 != nil {
-		return c.v2.RemoveConsumer(opts, subId, consumer)
+		return c.v2.RemoveConsumer(opts, subId.Uint64(), consumer)
 	}
 	return c.v2plus.RemoveConsumer(opts, subId, consumer)
 }
 
-func (c *coordinatorV2_X) CancelSubscription(opts *bind.TransactOpts, subId uint64, to common.Address) (*types.Transaction, error) {
+func (c *coordinatorV2_X) CancelSubscription(opts *bind.TransactOpts, subId *big.Int, to common.Address) (*types.Transaction, error) {
 	if c.v2 != nil {
-		return c.v2.CancelSubscription(opts, subId, to)
+		return c.v2.CancelSubscription(opts, subId.Uint64(), to)
 	}
 	return c.v2plus.CancelSubscription(opts, subId, to)
 }

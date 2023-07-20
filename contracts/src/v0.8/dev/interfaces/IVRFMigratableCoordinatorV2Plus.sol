@@ -3,7 +3,7 @@ pragma solidity ^0.8.4;
 
 import "../vrf/libraries/VRFV2PlusClient.sol";
 
-// Interface that enables consumers of VRFCoordinatorV2Plus to be future-proof for upgrades 
+// Interface that enables consumers of VRFCoordinatorV2Plus to be future-proof for upgrades
 // This interface is supported by subsequent versions of VRFCoordinatorV2Plus
 interface IVRFMigratableCoordinatorV2Plus {
   /**
@@ -31,7 +31,5 @@ interface IVRFMigratableCoordinatorV2Plus {
    * @return requestId - A unique identifier of the request. Can be used to match
    * a request to a response in fulfillRandomWords.
    */
-  function requestRandomWords(
-    VRFV2PlusClient.RandomWordsRequest calldata req
-  ) external returns (uint256 requestId);
+  function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external returns (uint256 requestId);
 }

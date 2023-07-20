@@ -96,11 +96,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
 
-  constructor(
-    address _link,
-    address _linkEthFeed,
-    address _coordinator
-  ) VRFConsumerBaseV2Plus(_coordinator) {
+  constructor(address _link, address _linkEthFeed, address _coordinator) VRFConsumerBaseV2Plus(_coordinator) {
     if (_link != address(0)) {
       s_link = LinkTokenInterface(_link);
     }

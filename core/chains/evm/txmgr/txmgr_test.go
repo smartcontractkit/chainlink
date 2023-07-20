@@ -247,6 +247,8 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
+		// max uint256 is 1.1579209e+77
+		testDefaultGlobalSubID := new(big.Int).Exp(big.NewInt(1), big.NewInt(77), nil).String()
 		jobID := int32(25)
 		requestID := gethcommon.HexToHash("abcd")
 		requestTxHash := gethcommon.HexToHash("dcba")
@@ -256,6 +258,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			RequestTxHash: &requestTxHash,
 			MaxLink:       &testDefaultMaxLink, // 1e18
 			SubID:         &testDefaultSubID,
+			GlobalSubID:   &testDefaultGlobalSubID,
 		}
 		evmConfig.maxQueued = uint64(1)
 		checker := txmgr.TransmitCheckerSpec{
@@ -435,6 +438,7 @@ type mockConfig struct {
 	evmConfig           *evmConfig
 	rpcDefaultBatchSize uint32
 	finalityDepth       uint32
+	finalityTagEnabled  bool
 }
 
 func (c *mockConfig) EVM() evmconfig.EVM {
@@ -444,6 +448,7 @@ func (c *mockConfig) EVM() evmconfig.EVM {
 func (c *mockConfig) NonceAutoSync() bool         { return true }
 func (c *mockConfig) ChainType() config.ChainType { return "" }
 func (c *mockConfig) FinalityDepth() uint32       { return c.finalityDepth }
+func (c *mockConfig) FinalityTagEnabled() bool    { return c.finalityTagEnabled }
 func (c *mockConfig) RPCDefaultBatchSize() uint32 { return c.rpcDefaultBatchSize }
 
 func makeConfigs(t *testing.T) (*mockConfig, *databaseConfig, *evmConfig) {
@@ -695,3 +700,50 @@ func TestTxm_Reset(t *testing.T) {
 		assert.Equal(t, 0, count)
 	})
 }
+
+//func TestTxm_MigrateSubIDFieldFromUint64ToBigInt(t *testing.T) {
+//	t.Parallel()
+
+//	subject := uuid.New()
+//	strategy := newMockTxStrategy(t)
+//	strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
+//	strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
+//	db := pgtest.NewSqlxDB(t)
+//	cfg := configtest.NewGeneralConfig(t, nil)
+//	kst := cltest.NewKeyStore(t, db, cfg.Database())
+
+//	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth(), 0)
+//	toAddress := testutils.NewAddress()
+//	gasLimit := uint32(1000)
+//	payload := []byte{1, 2, 3}
+
+//	config, dbConfig, evmConfig := makeConfigs(t)
+
+//	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+
+//	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
+//	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
+//	require.NoError(t, err)
+
+//	etx, err := txm.CreateTransaction(txmgr.TxRequest{
+//		ToAddress:      toAddress,
+//		EncodedPayload: payload,
+//		FeeLimit:       gasLimit,
+//		Meta:           ,
+//		Strategy:       strategy,
+//	})
+//	assert.NoError(t, err)
+//	assert.Greater(t, etx.ID, int64(0))
+//	assert.Equal(t, etx.State, txmgrcommon.TxUnstarted)
+//	assert.Equal(t, gasLimit, etx.FeeLimit)
+//	assert.Equal(t, fromAddress, etx.FromAddress)
+//	assert.Equal(t, toAddress, etx.ToAddress)
+//	assert.Equal(t, payload, etx.EncodedPayload)
+//	assert.Equal(t, big.Int(assets.NewEthValue(0)), etx.Value)
+//	assert.Equal(t, subject, etx.Subject.UUID)
+
+//	cltest.AssertCount(t, db, "eth_txes", 1)
+
+//	var dbEtx txmgr.DbEthTx
+//	require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+//}

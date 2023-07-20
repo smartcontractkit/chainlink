@@ -98,7 +98,6 @@ $SCRIPTPATH/native_solc8_6_compile vrf/VRFOwner.sol
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/VRFCoordinatorV2Plus.sol 1000
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/BatchVRFCoordinatorV2Plus.sol
-$SCRIPTPATH/native_solc8_6_compile dev/vrf/VRFV2PlusSubscriptionManager.sol
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/VRFV2PlusWrapper.sol
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFMaliciousConsumerV2Plus.sol

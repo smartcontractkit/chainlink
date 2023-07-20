@@ -4,7 +4,6 @@ pragma solidity ^0.8.4;
 // Future versions of VRFCoordinatorV2Plus must implement IVRFCoordinatorV2PlusMigration
 // to support migrations from previous versions
 interface IVRFCoordinatorV2PlusMigration {
-
   /**
    * @notice called by older versions of coordinator for migration.
    * @notice only callable by older versions of coordinator
