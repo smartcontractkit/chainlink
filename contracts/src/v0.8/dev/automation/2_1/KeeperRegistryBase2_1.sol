@@ -50,8 +50,10 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 80_000; // Used in maxPayment estimation, and in capping overheads during actual payment
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 100_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
+  uint256 internal constant TRANSMIT_GAS_OVERHEAD = 1_000_000; // Used only by offchain caller
+  uint256 internal constant CHECK_GAS_OVERHEAD = 400_000; // Used only by offchain caller
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
 
@@ -377,22 +379,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bool active;
     // Index of oracle in s_signersList/s_transmittersList
     uint8 index;
-  }
-
-  struct ConditionalTriggerConfig {
-    uint32 checkCadance; // how often to check in blocks
-  }
-
-  /**
-   * @notice structure of trigger for log triggers
-   */
-  struct LogTriggerConfig {
-    address contractAddress;
-    uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
-    bytes32 topic0;
-    bytes32 topic1;
-    bytes32 topic2;
-    bytes32 topic3;
   }
 
   /**
