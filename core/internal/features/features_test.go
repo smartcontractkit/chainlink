@@ -42,6 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -234,7 +235,8 @@ observationSource   = """
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
-		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChains().EVM, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
+		legacyChains := app.GetRelayers().LegacyEVMChains() //evm.NewLegacyChainsFromRelayerExtenders(cc)
+		jobORM := job.NewORM(app.GetSqlxDB(), legacyChains, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -922,7 +924,7 @@ func TestIntegration_OCR(t *testing.T) {
 			err = appBootstrap.Start(testutils.Context(t))
 			require.NoError(t, err)
 
-			jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetChains().EVM, fmt.Sprintf(`
+			jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -990,7 +992,7 @@ isBootstrapPeer    = true
 
 				// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 				// So 200ms + 200ms + 500ms < 1s
-				jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetChains().EVM, fmt.Sprintf(`
+				jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
@@ -1150,7 +1152,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 		require.NoError(t, err)
 
 		// set forwardingAllowed = true
-		jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetChains().EVM, fmt.Sprintf(`
+		jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -1220,7 +1222,7 @@ isBootstrapPeer    = true
 			// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 			// So 200ms + 200ms + 500ms < 1s
 			// forwardingAllowed = true
-			jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetChains().EVM, fmt.Sprintf(`
+			jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
@@ -1374,7 +1376,11 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
-	require.NoError(t, cc.Start(testutils.Context(t)))
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(cc)
+	// TODO what is the right API here? currently only the relay extender can be started.
+	for _, re := range cc {
+		require.NoError(t, re.Start(testutils.Context(t)))
+	}
 	var newHeads evmtest.RawSub[*evmtypes.Head]
 	select {
 	case newHeads = <-chchNewHeads:
@@ -1382,7 +1388,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		t.Fatal("timed out waiting for app to subscribe")
 	}
 
-	chain := evmtest.MustGetDefaultChain(t, cc)
+	chain := evmtest.MustGetDefaultChain(t, legacyChains)
 	estimator := chain.GasEstimator()
 	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice)
 	require.NoError(t, err)
@@ -1413,7 +1419,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
-	for _, chain := range app.GetChains().EVM.Chains() {
+	for _, chain := range app.GetRelayers().LegacyEVMChains().Slice() {
 		keys, err := app.KeyStore.Eth().EnabledKeysForChain(chain.ID())
 		require.NoError(t, err)
 		for _, k := range keys {

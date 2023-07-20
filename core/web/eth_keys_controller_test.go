@@ -393,7 +393,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	chain := app.GetChains().EVM.Chains()[0]
+	chain := app.GetRelayers().LegacyEVMChains().Slice()[0]
 	subject := uuid.New()
 	strategy := commontxmmocks.NewTxStrategy(t)
 	strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})

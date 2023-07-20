@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -1467,13 +1468,14 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	t.Helper()
 
 	var (
-		config      = configtest.NewGeneralConfig(t, nil)
-		keyStore    = cltest.NewKeyStore(t, db, config.Database())
-		lggr        = logger.TestLogger(t)
-		pipelineORM = pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM   = bridges.NewORM(db, lggr, config.Database())
-		cc          = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-		orm         = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
+		config         = configtest.NewGeneralConfig(t, nil)
+		keyStore       = cltest.NewKeyStore(t, db, config.Database())
+		lggr           = logger.TestLogger(t)
+		pipelineORM    = pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM      = bridges.NewORM(db, lggr, config.Database())
+		relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+		legacyChains   = evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		orm            = job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
 	)
 
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
@@ -1485,7 +1487,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := ocr.ValidatedOracleSpecToml(cc,
+	jb, err := ocr.ValidatedOracleSpecToml(legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),

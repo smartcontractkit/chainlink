@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
@@ -43,10 +44,11 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon, KeyStore: keyStore.Eth()})
+	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon, KeyStore: keyStore.Eth()})
 
 	lggr := logger.TestLogger(t)
-	delegate := directrequest.NewDelegate(lggr, runner, nil, cc, mailMon)
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
+	delegate := directrequest.NewDelegate(lggr, runner, nil, legacyChains, mailMon)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -82,13 +84,13 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon, KeyStore: keyStore.Eth()})
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon, KeyStore: keyStore.Eth()})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
-
-	jobORM := job.NewORM(db, cc, orm, btORM, keyStore, lggr, cfg.Database())
-	delegate := directrequest.NewDelegate(lggr, runner, orm, cc, mailMon)
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jobORM := job.NewORM(db, legacyChains, orm, btORM, keyStore, lggr, cfg.Database())
+	delegate := directrequest.NewDelegate(lggr, runner, orm, legacyChains, mailMon)
 
 	jb := cltest.MakeDirectRequestJobSpec(t)
 	jb.ExternalJobID = uuid.New()

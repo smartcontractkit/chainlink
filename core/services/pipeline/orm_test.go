@@ -521,7 +521,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config.Database())
+	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
@@ -622,7 +622,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config.Database())
+	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()

@@ -2120,7 +2120,7 @@ func TestMaliciousConsumer(t *testing.T) {
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
-	ch, err := app.GetChains().EVM.Default()
+	ch, err := app.GetRelayers().LegacyEVMChains().Default()
 	require.NoError(t, err)
 	r, err := ch.Client().TransactionReceipt(testutils.Context(t), attempts[0].Hash)
 	require.NoError(t, err)

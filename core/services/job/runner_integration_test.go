@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -83,10 +84,11 @@ func TestRunner(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), cc, nil, nil, logger.TestLogger(t), c, c)
-	jobORM := NewTestORM(t, db, cc, pipelineORM, btORM, keyStore, config.Database())
+	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c)
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, btORM, keyStore, config.Database())
 
 	require.NoError(t, runner.Start(testutils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, runner.Close()) })
@@ -441,7 +443,7 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -473,7 +475,7 @@ ds1 -> ds1_parse;
 		isBootstrapPeer    = true
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -516,7 +518,7 @@ ds1 -> ds1_parse;
 """
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address(), "http://blah.com", "")
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -553,7 +555,7 @@ ds1 -> ds1_parse;
 		require.NoError(t, err)
 
 		s := fmt.Sprintf(minimalNonBootstrapTemplate, cltest.NewEIP55Address(), transmitterAddress.Hex(), kb.ID(), "http://blah.com", "")
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)
@@ -584,7 +586,7 @@ ds1 -> ds1_parse;
 
 	t.Run("test min bootstrap", func(t *testing.T) {
 		s := fmt.Sprintf(minimalBootstrapTemplate, cltest.NewEIP55Address())
-		jb, err := ocr.ValidatedOracleSpecToml(cc, s)
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
 		require.NoError(t, err)
 		err = toml.Unmarshal([]byte(s), &jb)
 		require.NoError(t, err)

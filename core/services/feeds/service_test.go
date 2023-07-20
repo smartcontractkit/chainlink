@@ -147,7 +147,7 @@ type TestService struct {
 	p2pKeystore  *ksmocks.P2P
 	ocr1Keystore *ksmocks.OCR
 	ocr2Keystore *ksmocks.OCR2
-	cc           evm.ChainSet
+	legacyChains *evm.Chains
 }
 
 func setupTestService(t *testing.T) *TestService {
@@ -178,14 +178,15 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore := new(ksmocks.Master)
 	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, gcfg.Database()).Eth()
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
 		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	keyStore.On("Eth").Return(ethKeyStore)
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.OCR2(), scopedConfig.Database(), cc, lggr, "1.0.0")
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.OCR2(), scopedConfig.Database(), legacyChains, lggr, "1.0.0")
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -199,7 +200,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 		p2pKeystore:  p2pKeystore,
 		ocr1Keystore: ocr1Keystore,
 		ocr2Keystore: ocr2Keystore,
-		cc:           cc,
+		legacyChains: legacyChains,
 	}
 }
 

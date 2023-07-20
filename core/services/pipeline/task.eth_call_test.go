@@ -259,7 +259,7 @@ func TestETHCallTask(t *testing.T) {
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
 				cc = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
 			} else {
-				cc = cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
+				cc = cltest.NewLegacyChainsMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
 			}
 
 			task.HelperSetDependencies(cc, cfg.JobPipeline(), test.specGasLimit, pipeline.DirectRequestJobType)

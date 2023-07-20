@@ -11,6 +11,7 @@ import (
 
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -93,10 +94,11 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, cfg.Database())
 
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db, KeyStore: keyStore.Eth()})
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db, KeyStore: keyStore.Eth()})
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
+	jobORM := job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
 	orm := newORM(t, db, cfg.Database(), nil)
 
 	address := testutils.NewAddress()

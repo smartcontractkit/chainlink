@@ -347,7 +347,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
 
-	//evmChainSet := app.GetChains().EVM
+	//evmChainSet := app.GetRelayers().LegacyEVMChains()
 	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
 
 	// By passing in a function we can be lazy trying to look up a default

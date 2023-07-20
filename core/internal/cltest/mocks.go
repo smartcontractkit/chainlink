@@ -13,6 +13,10 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -417,17 +421,14 @@ func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
 }
 
-/*
-func NewChainSetMockWithOneChain(t testing.TB, ethClient evmclient.Client, cfg evmconfig.ChainScopedConfig) evm.ChainSet {
-	cc := new(evmmocks.ChainSet)
+func NewLegacyChainsMockWithOneChain(t testing.TB, ethClient evmclient.Client, cfg evmconfig.ChainScopedConfig) *evm.Chains {
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
 	ch.On("Config").Return(cfg)
 	ch.On("Logger").Return(logger.TestLogger(t))
 	ch.On("ID").Return(cfg.EVM().ChainID())
-	cc.On("Default").Return(ch, nil)
-	cc.On("Get", (*big.Int)(nil)).Return(ch, nil)
-	cc.On("Chains").Return([]evm.Chain{ch})
-	return cc
+
+	legacyChains := evm.NewLegacyChains()
+	legacyChains.Put(ch.ID().String(), ch)
+	return legacyChains
 }
-*/

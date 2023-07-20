@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -76,8 +77,10 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, KeyStore: kst.Eth(), LogBroadcaster: broadcaster, MailMon: mailMon})
-	chain := cc.Chains()[0]
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, KeyStore: kst.Eth(), LogBroadcaster: broadcaster, MailMon: mailMon})
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+
+	chain := legacyChains.Slice()[0]
 	lggr := logger.TestLogger(t)
 
 	pluginORM := functions_mocks.NewORM(t)

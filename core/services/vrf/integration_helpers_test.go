@@ -211,8 +211,8 @@ func testMultipleConsumersNeedBHS(
 		coordinatorAddress.String())
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -543,8 +543,8 @@ func testBlockHeaderFeeder(
 		coordinatorAddress.String())
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]

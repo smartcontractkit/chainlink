@@ -46,18 +46,18 @@ import (
 )
 
 type vrfUniverse struct {
-	jrm       job.ORM
-	pr        pipeline.Runner
-	prm       pipeline.ORM
-	lb        *log_mocks.Broadcaster
-	ec        *evmclimocks.Client
-	ks        keystore.Master
-	vrfkey    vrfkey.KeyV2
-	submitter common.Address
-	txm       *txmmocks.MockEvmTxManager
-	hb        httypes.HeadBroadcaster
-	cc        evm.ChainSet
-	cid       big.Int
+	jrm          job.ORM
+	pr           pipeline.Runner
+	prm          pipeline.ORM
+	lb           *log_mocks.Broadcaster
+	ec           *evmclimocks.Client
+	ks           keystore.Master
+	vrfkey       vrfkey.KeyV2
+	submitter    common.Address
+	txm          *txmmocks.MockEvmTxManager
+	hb           httypes.HeadBroadcaster
+	legacyChains *evm.Chains
+	cid          big.Int
 }
 
 func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniverse {
@@ -75,9 +75,10 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	txm := txmmocks.NewMockEvmTxManager(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg.Database())
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(cc)
+	jrm := job.NewORM(db, legacyChains, prm, btORM, ks, lggr, cfg.Database())
 	t.Cleanup(func() { jrm.Close() })
-	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
+	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(testutils.Password))
 	k, err := ks.Eth().Create(testutils.FixtureChainID)
 	require.NoError(t, err)
@@ -87,18 +88,18 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	require.NoError(t, err)
 
 	return vrfUniverse{
-		jrm:       jrm,
-		pr:        pr,
-		prm:       prm,
-		lb:        lb,
-		ec:        ec,
-		ks:        ks,
-		vrfkey:    vrfkey,
-		submitter: submitter,
-		txm:       txm,
-		hb:        hb,
-		cc:        cc,
-		cid:       *ec.ConfiguredChainID(),
+		jrm:          jrm,
+		pr:           pr,
+		prm:          prm,
+		lb:           lb,
+		ec:           ec,
+		ks:           ks,
+		vrfkey:       vrfkey,
+		submitter:    submitter,
+		txm:          txm,
+		hb:           hb,
+		legacyChains: legacyChains,
+		cid:          *ec.ConfiguredChainID(),
 	}
 }
 
@@ -146,7 +147,7 @@ func setup(t *testing.T) (vrfUniverse, *vrf.ListenerV1, job.Job) {
 		vuni.ks,
 		vuni.pr,
 		vuni.prm,
-		vuni.cc,
+		vuni.legacyChains,
 		logger.TestLogger(t),
 		cfg.Database(),
 		mailMon)

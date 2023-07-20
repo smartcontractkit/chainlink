@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -28,8 +29,9 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
-	chainSet := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
-	chain, err := chainSet.Get(&cltest.FixtureChainID)
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	chain, err := legacyChains.Get(cltest.FixtureChainID.String())
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
