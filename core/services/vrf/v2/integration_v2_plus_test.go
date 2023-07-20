@@ -537,6 +537,8 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	// Reassign ownership, check that only new owner can request
 	_, err = consumer.TransferOwnership(owner, random.From)
 	require.NoError(t, err)
+	_, err = consumer.AcceptOwnership(random)
+	require.NoError(t, err)
 	_, err = consumer.RequestRandomWords(owner, 1, 1, 1, 1, [32]byte{}, false)
 	require.Error(t, err)
 	_, err = consumer.RequestRandomWords(random, 1, 1, 1, 1, [32]byte{}, false)
