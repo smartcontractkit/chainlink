@@ -140,7 +140,7 @@ func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Ch
 	}
 	encoder := kevm21.EVMAutomationEncoder21{}
 
-	hp := kevm21.NewHeadProvider(chain, lggr)
+	hp := kevm21.NewHeadProvider(chain, 128, lggr)
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
