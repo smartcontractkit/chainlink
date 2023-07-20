@@ -300,12 +300,6 @@ func NewApp(s *Shell) *cli.App {
 			Usage:       "Commands for managing forwarder addresses.",
 			Subcommands: initFowardersSubCmds(s),
 		},
-		{
-			Name:        "chaintablecleanup",
-			Aliases:     []string{},
-			Usage:       "Commands for cleaning up db tables based on chain type and chain id",
-			Subcommands: initChainTablesCleanupCmd(s),
-		},
 	}...)
 	return app
 }

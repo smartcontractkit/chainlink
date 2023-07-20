@@ -2,55 +2,42 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/sqlx"
 	"github.com/urfave/cli"
+	"net/url"
 	"strings"
 )
 
-func initChainTablesCleanupCmd(s *Shell) []cli.Command {
-	return []cli.Command{{
-		Name:   "chaintablecleanup",
-		Usage:  "Deletes rows from chain tables based on input",
-		Action: s.IndexTxAttempts,
-		Flags: []cli.Flag{
-			cli.IntFlag{
-				Name:     "chainid",
-				Usage:    "chainID based on which table cleanup will be done",
-				Required: true,
-			},
-			cli.StringFlag{
-				Name:     "chaintype",
-				Usage:    "Chain type based on which table cleanup will be done, eg. EVM",
-				Required: true,
-			},
-			cli.StringFlag{
-				Name:     "dburl",
-				Usage:    "Database URL from which tables will be deleted",
-				Required: true,
-			},
-		},
-	},
+// CleanupChainTables deletes database table rows based on chain type and chain id input.
+func (s *Shell) CleanupChainTables(c *cli.Context) error {
+	cfg := s.Config.Database()
+	parsed := cfg.URL()
+	if parsed.String() == "" {
+		return s.errorOut(errDBURLMissing)
 	}
-}
 
-// CleanupChainTables deletes database table rows based on sure chain type and chain id input.
-func (s *Shell) CleanupChainTables(c *cli.Context) {
-	db, err := getDBConnection(c.String("dburl"))
-	if err != nil {
-		fmt.Println("Error connecting to the database:", err)
-		return
+	dbname := parsed.Path[1:]
+	if !c.Bool("dangerWillRobinson") && !strings.HasSuffix(dbname, "_test") {
+		return s.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
 	}
+
+	db, err := getDBConnection(cfg.URL())
+	if err != nil {
+
+		return s.errorOut(errors.Wrap(err, "Error connecting to the database"))
+	}
+
 	defer db.Close()
 
+	// Delete rows from each table based on the chain_id.
 	if strings.EqualFold("EVM", c.String("chaintype")) {
-		// Delete rows from each table based on the chain_id.
 		tables, err := getTablesContainingColumn(db, "evm_chain_id")
 		if err != nil {
-			fmt.Println("failed to get tables:", err)
-			return
+			return s.errorOut(errors.Wrap(err, "failed to get tables"))
 		}
 		for _, tableName := range tables {
 			query := fmt.Sprintf("DELETE FROM %s WHERE evm_chain_id = $1", tableName)
@@ -62,15 +49,16 @@ func (s *Shell) CleanupChainTables(c *cli.Context) {
 			}
 		}
 	}
+	return nil
 }
 
-func getDBConnection(clDatabaseURL string) (*sqlx.DB, error) {
+func getDBConnection(clDatabaseURL url.URL) (*sqlx.DB, error) {
 	cfg, err := chainlink.GeneralConfigOpts{}.New()
 	if err != nil {
 		return nil, err
 	}
 
-	dbConn, err := pg.NewConnection(clDatabaseURL, dialects.Postgres, cfg.Database())
+	dbConn, err := pg.NewConnection(clDatabaseURL.String(), dialects.Postgres, cfg.Database())
 	if err != nil {
 		return nil, err
 	}
