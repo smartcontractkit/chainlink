@@ -2,12 +2,10 @@
 pragma solidity ^0.8.6;
 
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {IFunctionsBilling, FunctionsBilling, Routable, ITypeAndVersion} from "./FunctionsBilling.sol";
+import {IFunctionsBilling, FunctionsBilling} from "./FunctionsBilling.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
-import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
-import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
-import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {FulfillResult} from "./FulfillResultCodes.sol";
+import {ITypeAndVersion} from "./Routable.sol";
 
 /**
  * @title Functions Coordinator contract
@@ -78,7 +76,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   /**
    * @inheritdoc IFunctionsCoordinator
    */
-  function setDONPublicKey(bytes calldata donPublicKey) external override onlyRouterOwner {
+  function setDONPublicKey(bytes calldata donPublicKey) external override onlyOwner {
     if (donPublicKey.length == 0) {
       revert EmptyPublicKey();
     }
@@ -103,7 +101,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function setNodePublicKey(address node, bytes calldata publicKey) external override {
     // Owner can set anything. Transmitters can set only their own key.
-    if (!(msg.sender == this.owner() || (_isTransmitter(msg.sender) && msg.sender == node))) {
+    if (!(msg.sender == owner() || (_isTransmitter(msg.sender) && msg.sender == node))) {
       revert UnauthorizedPublicKeyChange();
     }
     s_nodePublicKeys[node] = publicKey;
@@ -114,7 +112,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function deleteNodePublicKey(address node) external override {
     // Owner can delete anything. Others can delete only their own key.
-    if (!(msg.sender == this.owner() || msg.sender == node)) {
+    if (!(msg.sender == owner() || msg.sender == node)) {
       revert UnauthorizedPublicKeyChange();
     }
     delete s_nodePublicKeys[node];
@@ -230,12 +228,5 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
         emit CostExceedsCommitment(requestIds[i]);
       }
     }
-  }
-
-  modifier onlyRouterOwner() override {
-    if (msg.sender != IOwnable(address(s_router)).owner()) {
-      revert OnlyCallableByRouterOwner();
-    }
-    _;
   }
 }

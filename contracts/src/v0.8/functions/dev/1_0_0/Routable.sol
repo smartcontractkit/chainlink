@@ -62,7 +62,7 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
   /**
    * @notice Reverts if called by anyone other than the router owner.
    */
-  modifier onlyRouterOwner() virtual {
+  modifier onlyRouterOwner() {
     if (msg.sender != IOwnable(address(s_router)).owner()) {
       revert OnlyCallableByRouterOwner();
     }
