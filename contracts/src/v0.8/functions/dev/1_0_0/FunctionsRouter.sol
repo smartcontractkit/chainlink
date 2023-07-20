@@ -4,7 +4,8 @@ pragma solidity ^0.8.6;
 import {RouterBase, ITypeAndVersion} from "./RouterBase.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {IFunctionsSubscriptions, FunctionsSubscriptions, IFunctionsBilling} from "./FunctionsSubscriptions.sol";
+import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
+import {SafeCast} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
 
 contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions {
   event RequestStart(
@@ -98,7 +99,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes memory data,
     uint16 dataVersion,
     uint32 callbackGasLimit
-  ) internal returns (bytes32 requestId) {
+  ) private returns (bytes32 requestId) {
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
 
@@ -162,6 +163,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       (uint64, bytes, uint16, uint32)
     );
     bytes32 requestId = _sendRequest(donId, true, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
+    // Convert to bytes as a more generic return
     output = new bytes(32);
     for (uint256 i; i < 32; i++) {
       output[i] = requestId[i];
@@ -194,22 +196,32 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   ) external override nonReentrant returns (uint8 resultCode, uint96 callbackGasCostJuels) {
     Commitment memory commitment = s_requestCommitments[requestId];
 
-    if (commitment.client == address(0)) {
-      resultCode = 2; // FulfillResult.INVALID_REQUEST_ID
-      return (resultCode, callbackGasCostJuels);
-    }
     if (msg.sender != commitment.coordinator) {
       revert OnlyCallableFromCoordinator();
     }
 
-    resultCode = _checkBalance(
-      commitment.estimatedCost,
-      commitment.gasAfterPaymentCalculation,
-      commitment.adminFee,
-      commitment.callbackGasLimit,
-      juelsPerGas,
-      costWithoutFulfillment
-    );
+    if (commitment.client == address(0)) {
+      resultCode = 2; // FulfillResult.INVALID_REQUEST_ID
+      return (resultCode, callbackGasCostJuels);
+    }
+
+    // Check that the transmitter has supplied enough gas for the callback to succeed
+    if (gasleft() < commitment.callbackGasLimit + commitment.gasAfterPaymentCalculation) {
+      resultCode = 3; // IFunctionsRouter.FulfillResult.INSUFFICIENT_GAS;
+      return (resultCode, callbackGasCostJuels);
+    }
+
+    // Check that the cost has not exceeded the quoted cost
+    if (
+      commitment.adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit)) >
+      commitment.estimatedCost
+    ) {
+      resultCode = 4; // IFunctionsRouter.FulfillResult.COST_EXCEEDS_COMMITMENT
+      return (resultCode, callbackGasCostJuels);
+    }
+
+    // If checks pass, continue as default, 0 = USER_SUCCESS;
+    resultCode = 0;
 
     delete s_requestCommitments[requestId];
 

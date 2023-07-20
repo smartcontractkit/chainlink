@@ -30,22 +30,17 @@ interface IRouterBase {
 
   /**
    * @notice Return the latest proprosal set
-   * @return proposedAtBlock The block number that the proposal was created at
+   * @return timelockEndBlock The block number that the proposal is able to be merged at
    * @return ids The identifiers of the contracts to update
-   * @return from The addresses of the contracts that will be updated from
    * @return to The addresses of the contracts that will be updated to
    */
-  function getProposedContractSet() external view returns (uint, bytes32[] memory, address[] memory, address[] memory);
+  function getProposedContractSet() external view returns (uint, bytes32[] memory, address[] memory);
 
   /**
    * @notice Proposes one or more updates to the contract routes
    * @dev Only callable by owner
    */
-  function proposeContractsUpdate(
-    bytes32[] memory proposalSetIds,
-    address[] memory proposalSetFromAddresses,
-    address[] memory proposalSetToAddresses
-  ) external;
+  function proposeContractsUpdate(bytes32[] memory proposalSetIds, address[] memory proposalSetAddresses) external;
 
   /**
    * @notice Tests a proposal for the ability to make a successful upgrade
