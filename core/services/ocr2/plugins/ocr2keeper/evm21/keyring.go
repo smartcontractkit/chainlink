@@ -26,20 +26,22 @@ func (w *onchainKeyringV3Wrapper) MaxSignatureLength() int {
 	return w.core.MaxSignatureLength()
 }
 
-func (w *onchainKeyringV3Wrapper) Sign(digest types.ConfigDigest, _ uint64, r ocr3types.ReportWithInfo[plugin.AutomationReportInfo]) (signature []byte, err error) {
+func (w *onchainKeyringV3Wrapper) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[plugin.AutomationReportInfo]) (signature []byte, err error) {
 	rCtx := types.ReportContext{
 		ReportTimestamp: types.ReportTimestamp{
 			ConfigDigest: digest,
+			Epoch:        uint32(seqNr),
 		},
 	}
 
 	return w.core.Sign(rCtx, r.Report)
 }
 
-func (w *onchainKeyringV3Wrapper) Verify(key types.OnchainPublicKey, digest types.ConfigDigest, _ uint64, r ocr3types.ReportWithInfo[plugin.AutomationReportInfo], signature []byte) bool {
+func (w *onchainKeyringV3Wrapper) Verify(key types.OnchainPublicKey, digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[plugin.AutomationReportInfo], signature []byte) bool {
 	rCtx := types.ReportContext{
 		ReportTimestamp: types.ReportTimestamp{
 			ConfigDigest: digest,
+			Epoch:        uint32(seqNr),
 		},
 	}
 

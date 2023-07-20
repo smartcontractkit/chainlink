@@ -97,7 +97,7 @@ func NewKeepersOCR3ContractTransmitter(ocr2ContractTransmitter ocrtypes.Contract
 
 func (t *ocr3keeperProviderContractTransmitter) Transmit(
 	ctx context.Context,
-	configDigest ocrtypes.ConfigDigest,
+	digest ocrtypes.ConfigDigest,
 	seqNr uint64,
 	reportWithInfo ocr3types.ReportWithInfo[plugin.AutomationReportInfo],
 	aoss []ocrtypes.AttributedOnchainSignature,
@@ -105,12 +105,10 @@ func (t *ocr3keeperProviderContractTransmitter) Transmit(
 	return t.contractTransmitter.Transmit(
 		ctx,
 		ocrtypes.ReportContext{
-			ocrtypes.ReportTimestamp{
-				configDigest,
-				uint32(seqNr),
-				0,
+			ReportTimestamp: ocrtypes.ReportTimestamp{
+				ConfigDigest: digest,
+				Epoch:        uint32(seqNr),
 			},
-			[32]byte{},
 		},
 		reportWithInfo.Report,
 		aoss,

@@ -37,6 +37,8 @@ func (rv RegistryVersion) String() string {
 		return fmt.Sprintf("v1.%d", rv)
 	case RegistryVersion_2_0:
 		return "v2.0"
+	case RegistryVersion_2_1:
+		return "v2.1"
 	default:
 		return "unknown registry version"
 	}
