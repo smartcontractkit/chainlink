@@ -157,7 +157,7 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		panic(err)
 	}
 
-	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := ocr2config.ContractSetConfigArgsForTests(
+	signerOnchainPublicKeys, transmitterAccounts, f, _, _, offchainConfig, err := ocr2config.ContractSetConfigArgsForTests(
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
 		2500*time.Millisecond, // deltaRound time.Duration,
@@ -215,7 +215,7 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		return nil, err
 	}
 
-	return d.KeeperRegistryInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	return d.KeeperRegistryInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, 30, offchainConfig)
 }
 
 func (d *v20KeeperDeployer) RegisterUpkeepV2(opts *bind.TransactOpts, target common.Address, gasLimit uint32, admin common.Address, triggerType uint8, pipelineData []byte, triggerConfig []byte, offchainConfig []byte) (*types.Transaction, error) {
