@@ -56,7 +56,15 @@ contract VRFConsumerV2PlusUpgradeableExample is Initializable, VRFConsumerBaseV2
     uint32 callbackGasLimit,
     uint32 numWords
   ) external returns (uint256) {
-    s_requestId = COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords, false);
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: keyHash,
+      subId: subId,
+      requestConfirmations: minReqConfs,
+      callbackGasLimit: callbackGasLimit,
+      numWords: numWords,
+      extraArgs: "" // empty extraArgs defaults to link payment
+    });
+    s_requestId = COORDINATOR.requestRandomWords(req);
     return s_requestId;
   }
 }
