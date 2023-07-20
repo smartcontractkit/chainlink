@@ -47,6 +47,11 @@ type Chainlink struct {
 // NewChainlink creates a new Chainlink model using a provided config
 func NewChainlink(c *ChainlinkConfig) (*Chainlink, error) {
 	rc := resty.New().SetBaseURL(c.URL)
+
+	if c.HTTPTimeout != nil {
+		rc.SetTimeout(*c.HTTPTimeout)
+	}
+
 	session := &Session{Email: c.Email, Password: c.Password}
 
 	// Retry the connection on boot up, sometimes pods can still be starting up and not ready to accept connections
@@ -491,6 +496,9 @@ func (c *Chainlink) UpdateEthKeyMaxGasPriceGWei(keyId string, gWei int) (*ETHKey
 		}).
 		SetResult(ethKey).
 		Put("/v2/keys/eth/{keyId}")
+	if err != nil {
+		return nil, nil, err
+	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	if err != nil {
 		return nil, nil, err

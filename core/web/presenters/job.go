@@ -325,31 +325,33 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 
 // BlockhashStoreSpec defines the job parameters for a blockhash store feeder job.
 type BlockhashStoreSpec struct {
-	CoordinatorV1Address  *ethkey.EIP55Address  `json:"coordinatorV1Address"`
-	CoordinatorV2Address  *ethkey.EIP55Address  `json:"coordinatorV2Address"`
-	WaitBlocks            int32                 `json:"waitBlocks"`
-	LookbackBlocks        int32                 `json:"lookbackBlocks"`
-	BlockhashStoreAddress ethkey.EIP55Address   `json:"blockhashStoreAddress"`
-	PollPeriod            time.Duration         `json:"pollPeriod"`
-	RunTimeout            time.Duration         `json:"runTimeout"`
-	EVMChainID            *utils.Big            `json:"evmChainID"`
-	FromAddresses         []ethkey.EIP55Address `json:"fromAddresses"`
-	CreatedAt             time.Time             `json:"createdAt"`
-	UpdatedAt             time.Time             `json:"updatedAt"`
+	CoordinatorV1Address     *ethkey.EIP55Address  `json:"coordinatorV1Address"`
+	CoordinatorV2Address     *ethkey.EIP55Address  `json:"coordinatorV2Address"`
+	CoordinatorV2PlusAddress *ethkey.EIP55Address  `json:"coordinatorV2PlusAddress"`
+	WaitBlocks               int32                 `json:"waitBlocks"`
+	LookbackBlocks           int32                 `json:"lookbackBlocks"`
+	BlockhashStoreAddress    ethkey.EIP55Address   `json:"blockhashStoreAddress"`
+	PollPeriod               time.Duration         `json:"pollPeriod"`
+	RunTimeout               time.Duration         `json:"runTimeout"`
+	EVMChainID               *utils.Big            `json:"evmChainID"`
+	FromAddresses            []ethkey.EIP55Address `json:"fromAddresses"`
+	CreatedAt                time.Time             `json:"createdAt"`
+	UpdatedAt                time.Time             `json:"updatedAt"`
 }
 
 // NewBlockhashStoreSpec creates a new BlockhashStoreSpec for the given parameters.
 func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 	return &BlockhashStoreSpec{
-		CoordinatorV1Address:  spec.CoordinatorV1Address,
-		CoordinatorV2Address:  spec.CoordinatorV2Address,
-		WaitBlocks:            spec.WaitBlocks,
-		LookbackBlocks:        spec.LookbackBlocks,
-		BlockhashStoreAddress: spec.BlockhashStoreAddress,
-		PollPeriod:            spec.PollPeriod,
-		RunTimeout:            spec.RunTimeout,
-		EVMChainID:            spec.EVMChainID,
-		FromAddresses:         spec.FromAddresses,
+		CoordinatorV1Address:     spec.CoordinatorV1Address,
+		CoordinatorV2Address:     spec.CoordinatorV2Address,
+		CoordinatorV2PlusAddress: spec.CoordinatorV2PlusAddress,
+		WaitBlocks:               spec.WaitBlocks,
+		LookbackBlocks:           spec.LookbackBlocks,
+		BlockhashStoreAddress:    spec.BlockhashStoreAddress,
+		PollPeriod:               spec.PollPeriod,
+		RunTimeout:               spec.RunTimeout,
+		EVMChainID:               spec.EVMChainID,
+		FromAddresses:            spec.FromAddresses,
 	}
 }
 
@@ -357,6 +359,7 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 type BlockHeaderFeederSpec struct {
 	CoordinatorV1Address       *ethkey.EIP55Address  `json:"coordinatorV1Address"`
 	CoordinatorV2Address       *ethkey.EIP55Address  `json:"coordinatorV2Address"`
+	CoordinatorV2PlusAddress   *ethkey.EIP55Address  `json:"coordinatorV2PlusAddress"`
 	WaitBlocks                 int32                 `json:"waitBlocks"`
 	LookbackBlocks             int32                 `json:"lookbackBlocks"`
 	BlockhashStoreAddress      ethkey.EIP55Address   `json:"blockhashStoreAddress"`
@@ -377,6 +380,7 @@ func NewBlockHeaderFeederSpec(spec *job.BlockHeaderFeederSpec) *BlockHeaderFeede
 	return &BlockHeaderFeederSpec{
 		CoordinatorV1Address:       spec.CoordinatorV1Address,
 		CoordinatorV2Address:       spec.CoordinatorV2Address,
+		CoordinatorV2PlusAddress:   spec.CoordinatorV2PlusAddress,
 		WaitBlocks:                 spec.WaitBlocks,
 		LookbackBlocks:             spec.LookbackBlocks,
 		BlockhashStoreAddress:      spec.BlockhashStoreAddress,

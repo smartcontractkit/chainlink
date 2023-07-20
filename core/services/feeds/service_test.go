@@ -2141,8 +2141,8 @@ answer1 [type=median index=0];
 
 func Test_Service_ApproveSpec_OCR2(t *testing.T) {
 	address := "0x613a38AC1659769640aaE063C651F48E0250454C"
-	zeroFeedID := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
-	feedID := "0x0000000000000000000000000000000000000000000000000000000000000001"
+	feedIDHex := "0x0000000000000000000000000000000000000000000000000000000000000001"
+	feedID := common.HexToHash(feedIDHex)
 	externalJobID := uuid.New()
 
 	var (
@@ -2253,7 +2253,7 @@ answer1      [type=median index=0];
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -2292,7 +2292,7 @@ answer1      [type=median index=0];
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -2356,7 +2356,7 @@ answer1      [type=median index=0];
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(j.ID, nil)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(j.ID, nil)
 			},
 			id:      spec.ID,
 			force:   false,
@@ -2372,7 +2372,7 @@ answer1      [type=median index=0];
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(j.ID, nil)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(j.ID, nil)
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
 				svc.spawner.
@@ -2411,13 +2411,13 @@ answer1      [type=median index=0];
 					Status:        feeds.SpecStatusPending,
 					JobProposalID: jp.ID,
 					Version:       1,
-					Definition:    fmt.Sprintf(defn2, externalJobID.String(), feedID),
+					Definition:    fmt.Sprintf(defn2, externalJobID.String(), &feedID),
 				}, nil)
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, common.HexToHash(feedID), mock.Anything).Return(j.ID, nil)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, &feedID, mock.Anything).Return(j.ID, nil)
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
 				svc.spawner.
@@ -2457,7 +2457,7 @@ answer1      [type=median index=0];
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
 				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(j.ID, nil)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(j.ID, nil)
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
 				svc.spawner.
@@ -2567,7 +2567,7 @@ answer1      [type=median index=0];
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -2592,7 +2592,7 @@ answer1      [type=median index=0];
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -2623,7 +2623,7 @@ answer1      [type=median index=0];
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -2681,8 +2681,8 @@ answer1      [type=median index=0];
 
 func Test_Service_ApproveSpec_Bootstrap(t *testing.T) {
 	address := "0x613a38AC1659769640aaE063C651F48E0250454C"
-	zeroFeedID := common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
-	feedID := "0x0000000000000000000000000000000000000000000000000000000000000001"
+	feedIDHex := "0x0000000000000000000000000000000000000000000000000000000000000001"
+	feedID := common.HexToHash(feedIDHex)
 	externalJobID := uuid.New()
 
 	var (
@@ -2759,7 +2759,7 @@ chainID = 0
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -2798,7 +2798,7 @@ chainID = 0
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -2862,7 +2862,7 @@ chainID = 0
 				svc.orm.On("GetJobProposal", jp.ID, mock.Anything).Return(jp, nil)
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(j.ID, nil)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(j.ID, nil)
 			},
 			id:      spec.ID,
 			force:   false,
@@ -2878,7 +2878,7 @@ chainID = 0
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(j.ID, nil)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(j.ID, nil)
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
 				svc.spawner.
@@ -2923,7 +2923,7 @@ chainID = 0
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(nil, sql.ErrNoRows)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, common.HexToHash(feedID), mock.Anything).Return(j.ID, nil)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, &feedID, mock.Anything).Return(j.ID, nil)
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
 				svc.spawner.
@@ -2963,7 +2963,7 @@ chainID = 0
 				svc.orm.EXPECT().GetApprovedSpec(jp.ID, mock.Anything).Return(&feeds.JobProposalSpec{ID: 100}, nil)
 				svc.orm.EXPECT().CancelSpec(int64(100), mock.Anything).Return(nil)
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(j.ID, nil)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(j.ID, nil)
 				svc.spawner.On("DeleteJob", j.ID, mock.Anything).Return(nil)
 
 				svc.spawner.
@@ -3073,7 +3073,7 @@ chainID = 0
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -3098,7 +3098,7 @@ chainID = 0
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",
@@ -3129,7 +3129,7 @@ chainID = 0
 				svc.jobORM.On("AssertBridgesExist", mock.IsType(pipeline.Pipeline{})).Return(nil)
 
 				svc.jobORM.On("FindJobByExternalJobID", externalJobID, mock.Anything).Return(job.Job{}, sql.ErrNoRows)
-				svc.jobORM.On("FindOCR2JobIDByAddress", address, zeroFeedID, mock.Anything).Return(int32(0), sql.ErrNoRows)
+				svc.jobORM.On("FindOCR2JobIDByAddress", address, (*common.Hash)(nil), mock.Anything).Return(int32(0), sql.ErrNoRows)
 
 				svc.spawner.
 					On("CreateJob",

@@ -317,14 +317,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		JobName: jb.Name.ValueOrZero(),
 
 		ContractID:    spec.ContractID,
-		FeedID:        spec.FeedID,
 		TransmitterID: transmitterID,
 	}
-	lggr := logger.Sugared(d.lggr.Named("OCR2").With(lggrCtx.Args()...))
-
-	if spec.FeedID != (common.Hash{}) {
+	if spec.FeedID != nil {
+		lggrCtx.FeedID = *spec.FeedID
 		spec.RelayConfig["feedID"] = spec.FeedID
 	}
+	lggr := logger.Sugared(d.lggr.Named("OCR2").With(lggrCtx.Args()...))
 
 	if spec.Relay == relay.EVM {
 		chainID, err2 := spec.GetChainID()
@@ -452,7 +451,7 @@ func (d *Delegate) newServicesMercury(
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
-	if jb.OCR2OracleSpec.FeedID == (common.Hash{}) {
+	if jb.OCR2OracleSpec.FeedID == nil {
 		return nil, errors.Errorf("ServicesForSpec: mercury job type requires feedID")
 	}
 	spec := jb.OCR2OracleSpec
@@ -834,12 +833,6 @@ func (d *Delegate) newServicesOCR2Keepers(
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
-	credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "failed to get mercury credential name")
-	}
-
-	mc := d.cfg.Mercury().Credentials(credName)
 
 	// get the chain from the config
 	chainID, err2 := jb.OCR2OracleSpec.GetChainID()
@@ -852,7 +845,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 		return nil, err2
 	}
 
-	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.pipelineRunner, mc)
+	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.pipelineRunner)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
@@ -1015,6 +1008,11 @@ func (d *Delegate) newServicesOCR2Functions(
 		return nil, err
 	}
 
+	thresholdProvider, err := createPluginProvider(functionsRelay.ThresholdPlugin, "FunctionsThresholdRelayer")
+	if err != nil {
+		return nil, err
+	}
+
 	s4Provider, err := createPluginProvider(functionsRelay.S4Plugin, "FunctionsS4Relayer")
 	if err != nil {
 		return nil, err
@@ -1041,6 +1039,21 @@ func (d *Delegate) newServicesOCR2Functions(
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Functions),
 		OffchainConfigDigester:       functionsProvider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kb,
+		ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
+	}
+
+	thresholdOracleArgs := libocr2.OCR2OracleArgs{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractTransmitter:          thresholdProvider.ContractTransmitter(),
+		ContractConfigTracker:        thresholdProvider.ContractConfigTracker(),
+		Database:                     thresholdOcrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Threshold),
+		OffchainConfigDigester:       thresholdProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               kb,
 		ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
@@ -1089,7 +1102,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		ThresholdKeyShare: thresholdKeyShare,
 	}
 
-	functionsServices, err := functions.NewFunctionsServices(&functionsOracleArgs, nil, &s4OracleArgs, &functionsServicesConfig)
+	functionsServices, err := functions.NewFunctionsServices(&functionsOracleArgs, &thresholdOracleArgs, &s4OracleArgs, &functionsServicesConfig)
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling NewFunctionsServices")
 	}

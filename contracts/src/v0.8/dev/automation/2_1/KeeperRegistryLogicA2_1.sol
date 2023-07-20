@@ -6,19 +6,12 @@ import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
 import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
-
-import "../../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
 import "../../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
  */
-contract KeeperRegistryLogicA2_1 is
-  KeeperRegistryBase2_1,
-  Chainable,
-  MigratableKeeperRegistryInterface,
-  MigratableKeeperRegistryInterfaceV2
-{
+contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -38,9 +31,9 @@ contract KeeperRegistryLogicA2_1 is
     Chainable(address(logicB))
   {}
 
-  UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
+  UpkeepFormat public constant upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
 
-  uint8 public constant override upkeepVersion = UPKEEP_VERSION_BASE;
+  uint8 public constant upkeepVersion = UPKEEP_VERSION_BASE;
 
   /**
    * @dev this function will be deprecated in a future version of chainlink automation
@@ -262,16 +255,7 @@ contract KeeperRegistryLogicA2_1 is
     bytes calldata checkData,
     bytes calldata offchainConfig
   ) external returns (uint256 id) {
-    return
-      registerUpkeep(
-        target,
-        gasLimit,
-        admin,
-        Trigger.CONDITION,
-        checkData,
-        abi.encode(ConditionalTriggerConfig({checkCadance: 1})),
-        offchainConfig
-      );
+    return registerUpkeep(target, gasLimit, admin, Trigger.CONDITION, checkData, bytes(""), offchainConfig);
   }
 
   function addFunds(uint256 id, uint96 amount) external {
@@ -348,10 +332,7 @@ contract KeeperRegistryLogicA2_1 is
     emit UpkeepTriggerConfigSet(id, triggerConfig);
   }
 
-  function migrateUpkeeps(
-    uint256[] calldata ids,
-    address destination
-  ) external override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2) {
+  function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
@@ -398,12 +379,7 @@ contract KeeperRegistryLogicA2_1 is
     i_link.transfer(destination, totalBalanceRemaining);
   }
 
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function receiveUpkeeps(
-    bytes calldata encodedUpkeeps
-  ) external override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2) {
+  function receiveUpkeeps(bytes calldata encodedUpkeeps) external {
     if (
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL
@@ -417,6 +393,9 @@ contract KeeperRegistryLogicA2_1 is
       bytes[] memory offchainConfigs
     ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], address[], bytes[], bytes[], bytes[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
+      if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
+        upkeeps[idx].forwarder = new AutomationForwarder(ids[idx], upkeeps[idx].target, address(this));
+      }
       _createUpkeep(
         ids[idx],
         upkeeps[idx],

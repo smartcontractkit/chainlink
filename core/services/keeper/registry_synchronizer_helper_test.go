@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
@@ -42,9 +43,10 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	lbMock := logmocks.NewBroadcaster(t)
 	lbMock.On("AddDependents", 1).Maybe()
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
-	ch := evmtest.MustGetDefaultChain(t, cc)
-	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), cfg.Database(), cc, db, keyStore, nil, nil)
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, LogBroadcaster: lbMock, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	ch := evmtest.MustGetDefaultChain(t, legacyChains)
+	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), cfg.Database(), legacyChains, db, keyStore, nil, nil)
 	contractAddress := j.KeeperSpec.ContractAddress.Address()
 
 	switch version {

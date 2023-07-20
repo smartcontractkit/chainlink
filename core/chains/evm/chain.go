@@ -343,5 +343,5 @@ func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr 
 
 func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []utils.Big) error {
 	q := pg.NewQ(db, lggr.Named("Ensure"), cfg)
-	return chains.EnsureChains[utils.Big](q, "evm", ids)
+	return chains.EnsureChains(q, "evm", ids)
 }

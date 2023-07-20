@@ -44,6 +44,7 @@ type LogPoller interface {
 	LogsCreatedAfter(eventSig common.Hash, address common.Address, time time.Time, confs int, qopts ...pg.QOpt) ([]Log, error)
 	LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error)
 	LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error)
+	LatestBlockByEventSigsAddrsWithConfs(eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error)
 
 	// Content based querying
 	IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
@@ -442,7 +443,8 @@ func (lp *logPoller) run() {
 					if err = loadFilters(); err != nil {
 						lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
 					}
-				} else {
+				}
+				if err == nil {
 					// Serially process replay requests.
 					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
 					lp.PollAndSaveLogs(lp.ctx, fromBlock)
@@ -482,7 +484,7 @@ func (lp *logPoller) run() {
 				// Only safe thing to do is to start at the first finalized block.
 				latest, err := lp.ec.HeadByNumber(lp.ctx, nil)
 				if err != nil {
-					lp.lggr.Warnw("unable to get latest for first poll", "err", err)
+					lp.lggr.Warnw("Unable to get latest for first poll", "err", err)
 					continue
 				}
 				latestNum := latest.Number
@@ -490,7 +492,7 @@ func (lp *logPoller) run() {
 				// Could conceivably support this but not worth the effort.
 				// Need finality depth + 1, no block 0.
 				if latestNum <= lp.finalityDepth {
-					lp.lggr.Warnw("insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestNum, "finality", lp.finalityDepth)
+					lp.lggr.Warnw("Insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestNum, "finality", lp.finalityDepth)
 					continue
 				}
 				// Starting at the first finalized block. We do not backfill the first finalized block.
@@ -512,14 +514,14 @@ func (lp *logPoller) run() {
 
 			backupLogPollTick = time.After(utils.WithJitter(backupPollerBlockDelay * lp.pollPeriod))
 			if !filtersLoaded {
-				lp.lggr.Warnw("backup log poller ran before filters loaded, skipping")
+				lp.lggr.Warnw("Backup log poller ran before filters loaded, skipping")
 				continue
 			}
 			lp.BackupPollAndSaveLogs(lp.ctx, backupPollerBlockDelay)
 		case <-blockPruneTick:
 			blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 1000))
 			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
-				lp.lggr.Errorw("unable to prune old blocks", "err", err)
+				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
 			}
 		case <-logPruneTick:
 			logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 2401)) // = 7^5 avoids common factors with 1000
@@ -975,6 +977,10 @@ func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs
 	return lp.orm.SelectLatestLogEventSigsAddrsWithConfs(fromBlock, addresses, eventSigs, confs, qopts...)
 }
 
+func (lp *logPoller) LatestBlockByEventSigsAddrsWithConfs(eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+	return lp.orm.SelectLatestBlockNumberEventSigsAddrsWithConfs(eventSigs, addresses, confs, qopts...)
+}
+
 // GetBlocksRange tries to get the specified block numbers from the log pollers
 // blocks table. It falls back to the RPC for any unfulfilled requested blocks.
 func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
@@ -1054,7 +1060,7 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	}
 
 	if len(remainingBlocks) > 0 {
-		lp.lggr.Debugw("falling back to RPC for blocks not found in log poller blocks table",
+		lp.lggr.Debugw("Falling back to RPC for blocks not found in log poller blocks table",
 			"remainingBlocks", remainingBlocks)
 	}
 

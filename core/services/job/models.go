@@ -347,13 +347,12 @@ const (
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID          int32         `toml:"-"`
-	ContractID  string        `toml:"contractID"`
-	FeedID      common.Hash   `toml:"feedID"`
-	Relay       relay.Network `toml:"relay"`
-	RelayConfig JSONConfig    `toml:"relayConfig"`
-	// do we actually need to promote chain id to top level in the spec? seems like we don't.
-	chainID                           relay.ChainID   `toml:"chainID"`
+	ID                                int32           `toml:"-"`
+	ContractID                        string          `toml:"contractID"`
+	FeedID                            *common.Hash    `toml:"feedID"`
+	Relay                             relay.Network   `toml:"relay"`
+	RelayConfig                       JSONConfig      `toml:"relayConfig"`
+	chainID                           relay.ChainID   `toml:"chainID"` // TODO implement this. only a placeholder for now
 	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
@@ -579,6 +578,10 @@ type BlockhashStoreSpec struct {
 	// no V2 coordinator will be watched.
 	CoordinatorV2Address *ethkey.EIP55Address `toml:"coordinatorV2Address"`
 
+	// CoordinatorV2PlusAddress is the VRF V2Plus coordinator to watch for unfulfilled requests. If empty,
+	// no V2Plus coordinator will be watched.
+	CoordinatorV2PlusAddress *ethkey.EIP55Address `toml:"coordinatorV2PlusAddress"`
+
 	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
 	LookbackBlocks int32 `toml:"lookbackBlocks"`
 
@@ -619,6 +622,10 @@ type BlockHeaderFeederSpec struct {
 	// CoordinatorV2Address is the VRF V2 coordinator to watch for unfulfilled requests. If empty,
 	// no V2 coordinator will be watched.
 	CoordinatorV2Address *ethkey.EIP55Address `toml:"coordinatorV2Address"`
+
+	// CoordinatorV2PlusAddress is the VRF V2Plus coordinator to watch for unfulfilled requests. If empty,
+	// no V2Plus coordinator will be watched.
+	CoordinatorV2PlusAddress *ethkey.EIP55Address `toml:"coordinatorV2PlusAddress"`
 
 	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
 	LookbackBlocks int32 `toml:"lookbackBlocks"`
