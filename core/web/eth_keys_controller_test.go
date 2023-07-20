@@ -441,6 +441,74 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	assert.Equal(t, "abandoned", s)
 }
 
+func TestETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	// enabled key
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	nextNonce := 52
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("nextNonce", strconv.Itoa(nextNonce))
+	query.Set("abandon", "invalid")
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	// enabled key
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	nextNonce := 52
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("nextNonce", strconv.Itoa(nextNonce))
+	query.Set("enabled", "invalid")
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
 func TestETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
 	t.Parallel()
 
