@@ -305,14 +305,14 @@ func (l *FunctionsListener) getNewHandlerContext() (context.Context, context.Can
 	return context.WithTimeout(l.serviceContext, time.Duration(timeoutSec)*time.Second)
 }
 
-func (l *FunctionsListener) setError(ctx context.Context, requestId RequestID, runId int64, errType ErrType, errBytes []byte) {
+func (l *FunctionsListener) setError(ctx context.Context, requestId RequestID, errType ErrType, errBytes []byte) {
 	if errType == INTERNAL_ERROR {
 		promRequestInternalError.WithLabelValues(l.oracleHexAddr).Inc()
 	} else {
 		promRequestComputationError.WithLabelValues(l.oracleHexAddr).Inc()
 	}
 	readyForProcessing := errType != INTERNAL_ERROR
-	if err := l.pluginORM.SetError(requestId, runId, errType, errBytes, time.Now(), readyForProcessing, pg.WithParentCtx(ctx)); err != nil {
+	if err := l.pluginORM.SetError(requestId, errType, errBytes, time.Now(), readyForProcessing, pg.WithParentCtx(ctx)); err != nil {
 		l.logger.Errorw("call to SetError failed", "requestID", formatRequestId(requestId), "err", err)
 	}
 }
@@ -323,7 +323,9 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 	defer cancel()
 	l.logger.Infow("oracle request received", "requestID", formatRequestId(request.RequestId))
 
-	if err := l.pluginORM.CreateRequest(request.RequestId, time.Now(), &request.Raw.TxHash, pg.WithParentCtx(ctx)); err != nil {
+	// TODO(FUN-617) extract and set new fields (Flags, AggregationMethod, CallbackGasLimit, CoordinatorContractAddress, OnchainMetadata)
+	newReq := &Request{RequestID: request.RequestId, RequestTxHash: &request.Raw.TxHash, ReceivedAt: time.Now()}
+	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
 		if errors.Is(err, ErrDuplicateRequestID) {
 			l.logger.Warnw("received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
 			l.markLogConsumed(lb, pg.WithParentCtx(ctx))
@@ -338,14 +340,14 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 
 	if l.pluginConfig.MaxRequestSizeBytes > 0 && uint32(len(request.Data)) > l.pluginConfig.MaxRequestSizeBytes {
 		l.logger.Errorw("request too big", "requestID", formatRequestId(request.RequestId), "requestSize", len(request.Data), "maxRequestSize", l.pluginConfig.MaxRequestSizeBytes)
-		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte(fmt.Sprintf("request too big (max %d bytes)", l.pluginConfig.MaxRequestSizeBytes)))
+		l.setError(ctx, request.RequestId, USER_ERROR, []byte(fmt.Sprintf("request too big (max %d bytes)", l.pluginConfig.MaxRequestSizeBytes)))
 		return
 	}
 
 	var requestData RequestData
 	if err := cbor.ParseDietCBORToStruct(request.Data, &requestData); err != nil {
 		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", err)
-		l.setError(ctx, request.RequestId, 0, USER_ERROR, []byte("CBOR parsing error"))
+		l.setError(ctx, request.RequestId, USER_ERROR, []byte("CBOR parsing error"))
 		return
 	}
 
@@ -364,20 +366,20 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient()
 	if err != nil {
 		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", requestIDStr, "err", err)
-		l.setError(ctx, requestID, 0, INTERNAL_ERROR, []byte(err.Error()))
+		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(err.Error()))
 		return
 	}
 
 	nodeProvidedSecrets, userErr, internalErr := l.getSecrets(ctx, eaClient, requestIDStr, subscriptionOwner, requestData)
 	if internalErr != nil {
 		l.logger.Errorw("internal error during getSecrets", "requestID", requestIDStr, "err", internalErr)
-		l.setError(ctx, requestID, 0, INTERNAL_ERROR, []byte(internalErr.Error()))
+		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(internalErr.Error()))
 		return
 	}
 	if userErr != nil {
 		l.logger.Debugw("user error during getSecrets", "requestID", requestIDStr, "err", userErr)
 		fmt.Println("userError", userErr.Error())
-		l.setError(ctx, requestID, 0, USER_ERROR, []byte(userErr.Error()))
+		l.setError(ctx, requestID, USER_ERROR, []byte(userErr.Error()))
 		return
 	}
 
@@ -385,7 +387,7 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 
 	if err != nil {
 		l.logger.Errorw("internal adapter error", "requestID", requestIDStr, "err", err)
-		l.setError(ctx, requestID, 0, INTERNAL_ERROR, []byte(err.Error()))
+		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(err.Error()))
 		return
 	}
 
@@ -404,13 +406,13 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 			l.logger.Warnw("both result and error are non-empty - using error", "requestID", requestIDStr)
 		}
 		l.logger.Debugw("saving computation error", "requestID", requestIDStr)
-		l.setError(ctx, requestID, 0, USER_ERROR, computationError)
+		l.setError(ctx, requestID, USER_ERROR, computationError)
 		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationError)))
 	} else {
 		promRequestComputationSuccess.WithLabelValues(l.oracleHexAddr).Inc()
 		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationResult)))
 		l.logger.Debugw("saving computation result", "requestID", requestIDStr)
-		if err2 := l.pluginORM.SetResult(requestID, 0, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
+		if err2 := l.pluginORM.SetResult(requestID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", requestIDStr, "err", err2)
 		}
 	}

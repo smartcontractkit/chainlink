@@ -3,6 +3,9 @@ pragma solidity ^0.8.0;
 
 import "../vrf/libraries/VRFV2PlusClient.sol";
 
+// Interface for initial version of VRFCoordinatorV2Plus
+// Functions in this interface may not be supported when VRFCoordinatorV2Plus is upgraded to a new version
+// TODO: Revisit these functions and decide which functions need to be backwards compatible
 interface IVRFCoordinatorV2Plus {
   /**
    * @notice Get configuration relevant for making requests
@@ -107,11 +110,4 @@ interface IVRFCoordinatorV2Plus {
    * otherwise.
    */
   function pendingRequestExists(uint64 subId) external view returns (bool);
-
-  /*
-   * @notice Check to see the payment made for the provided request id.
-   * @param requestId - ID of the request
-   * @return amountPaid - amount paid for the request
-   */
-  function s_requestPayments(uint256 requestId) external view returns (uint96);
 }

@@ -172,7 +172,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   }
 
   function _beforeSetConfig(uint8 /* _f */, bytes memory /* _onchainConfig */) internal override {
-    _disperseFeePool();
+    if (_getTransmitters().length > 0) {
+      _disperseFeePool();
+    }
   }
 
   function _afterSetConfig(uint8 /* _f */, bytes memory /* _onchainConfig */) internal override {}

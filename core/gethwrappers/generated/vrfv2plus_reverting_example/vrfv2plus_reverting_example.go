@@ -5,6 +5,7 @@ package vrfv2plus_reverting_example
 
 import (
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/event"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 )
 
 var (
@@ -29,8 +31,8 @@ var (
 )
 
 var VRFV2PlusRevertingExampleMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"vrfCoordinator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"link\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"have\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"want\",\"type\":\"address\"}],\"name\":\"OnlyCoordinatorCanFulfill\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"have\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"want\",\"type\":\"address\"}],\"name\":\"OnlySubOwnerCanSetVRFCoordinator\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddress\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"createSubscriptionAndFund\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"requestId\",\"type\":\"uint256\"},{\"internalType\":\"uint256[]\",\"name\":\"randomWords\",\"type\":\"uint256[]\"}],\"name\":\"rawFulfillRandomWords\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"keyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"subId\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"minReqConfs\",\"type\":\"uint16\"},{\"internalType\":\"uint32\",\"name\":\"callbackGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"numWords\",\"type\":\"uint32\"}],\"name\":\"requestRandomness\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_gasAvailable\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"s_randomWords\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_requestId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_subId\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vrfCoordinator\",\"type\":\"address\"}],\"name\":\"setVRFCoordinator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"topUpSubscription\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"consumers\",\"type\":\"address[]\"}],\"name\":\"updateSubscription\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b50604051610f52380380610f5283398101604081905261002f916100d5565b816001600160a01b0381166100795760405162461bcd60e51b815260206004820152600c60248201526b7a65726f206164647265737360a01b604482015260640160405180910390fd5b600080546001600160a01b03199081166001600160a01b039384161790915560048054821694831694909417909355600580549093169116179055610108565b80516001600160a01b03811681146100d057600080fd5b919050565b600080604083850312156100e857600080fd5b6100f1836100b9565b91506100ff602084016100b9565b90509250929050565b610e3b806101176000396000f3fe608060405234801561001057600080fd5b50600436106100be5760003560e01c8063706da1ca11610076578063e89e106a1161005b578063e89e106a1461018f578063f08c5daa14610198578063f6eaffc8146101a157600080fd5b8063706da1ca14610137578063cf62c8ab1461017c57600080fd5b80632fa4e442116100a75780632fa4e442146100fe57806336bfffed1461011157806344ff81ce1461012457600080fd5b8063177b9692146100c35780631fe543e3146100e9575b600080fd5b6100d66100d1366004610a34565b6101b4565b6040519081526020015b60405180910390f35b6100fc6100f7366004610acf565b6102bc565b005b6100fc61010c366004610b90565b610342565b6100fc61011f36600461096e565b6104a2565b6100fc61013236600461094c565b61062a565b6005546101639074010000000000000000000000000000000000000000900467ffffffffffffffff1681565b60405167ffffffffffffffff90911681526020016100e0565b6100fc61018a366004610b90565b6106e4565b6100d660035481565b6100d660065481565b6100d66101af366004610a9d565b6108ee565b6040805160c08101825286815267ffffffffffffffff861660208083019190915261ffff86168284015263ffffffff80861660608401528416608083015282519081018352600080825260a08301919091526004805493517f596b8b88000000000000000000000000000000000000000000000000000000008152919373ffffffffffffffffffffffffffffffffffffffff169163596b8b889161025a91859101610c75565b602060405180830381600087803b15801561027457600080fd5b505af1158015610288573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906102ac9190610ab6565b6003819055979650505050505050565b60005473ffffffffffffffffffffffffffffffffffffffff163314610334576000546040517f1cf993f400000000000000000000000000000000000000000000000000000000815233600482015273ffffffffffffffffffffffffffffffffffffffff90911660248201526044015b60405180910390fd5b61033e8282600080fd5b5050565b60055474010000000000000000000000000000000000000000900467ffffffffffffffff166103cd576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152600b60248201527f737562206e6f7420736574000000000000000000000000000000000000000000604482015260640161032b565b6005546004546040805174010000000000000000000000000000000000000000840467ffffffffffffffff16602082015273ffffffffffffffffffffffffffffffffffffffff93841693634000aea09316918591015b6040516020818303038152906040526040518463ffffffff1660e01b815260040161045093929190610c29565b602060405180830381600087803b15801561046a57600080fd5b505af115801561047e573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061033e9190610a12565b60055474010000000000000000000000000000000000000000900467ffffffffffffffff1661052d576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152600d60248201527f7375624944206e6f742073657400000000000000000000000000000000000000604482015260640161032b565b60005b815181101561033e57600454600554835173ffffffffffffffffffffffffffffffffffffffff90921691637341c10c9174010000000000000000000000000000000000000000900467ffffffffffffffff169085908590811061059557610595610db7565b60200260200101516040518363ffffffff1660e01b81526004016105e592919067ffffffffffffffff92909216825273ffffffffffffffffffffffffffffffffffffffff16602082015260400190565b600060405180830381600087803b1580156105ff57600080fd5b505af1158015610613573d6000803e3d6000fd5b50505050808061062290610d57565b915050610530565b60015473ffffffffffffffffffffffffffffffffffffffff16331461069d576001546040517f4ae338ff00000000000000000000000000000000000000000000000000000000815233600482015273ffffffffffffffffffffffffffffffffffffffff909116602482015260440161032b565b600080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b60055474010000000000000000000000000000000000000000900467ffffffffffffffff166103cd5760048054604080517fa21a23e4000000000000000000000000000000000000000000000000000000008152905173ffffffffffffffffffffffffffffffffffffffff9092169263a21a23e49282820192602092908290030181600087803b15801561077757600080fd5b505af115801561078b573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906107af9190610b73565b600580547fffffffff0000000000000000ffffffffffffffffffffffffffffffffffffffff167401000000000000000000000000000000000000000067ffffffffffffffff93841681029190911791829055600480546040517f7341c10c000000000000000000000000000000000000000000000000000000008152929093049093169281019290925230602483015273ffffffffffffffffffffffffffffffffffffffff1690637341c10c90604401600060405180830381600087803b15801561087957600080fd5b505af115801561088d573d6000803e3d6000fd5b50506005546004546040805174010000000000000000000000000000000000000000840467ffffffffffffffff16602082015273ffffffffffffffffffffffffffffffffffffffff9384169550634000aea094509290911691859101610423565b600281815481106108fe57600080fd5b600091825260209091200154905081565b803573ffffffffffffffffffffffffffffffffffffffff8116811461093357600080fd5b919050565b803563ffffffff8116811461093357600080fd5b60006020828403121561095e57600080fd5b6109678261090f565b9392505050565b6000602080838503121561098157600080fd5b823567ffffffffffffffff81111561099857600080fd5b8301601f810185136109a957600080fd5b80356109bc6109b782610d33565b610ce4565b80828252848201915084840188868560051b87010111156109dc57600080fd5b600094505b83851015610a06576109f28161090f565b8352600194909401939185019185016109e1565b50979650505050505050565b600060208284031215610a2457600080fd5b8151801515811461096757600080fd5b600080600080600060a08688031215610a4c57600080fd5b853594506020860135610a5e81610e15565b9350604086013561ffff81168114610a7557600080fd5b9250610a8360608701610938565b9150610a9160808701610938565b90509295509295909350565b600060208284031215610aaf57600080fd5b5035919050565b600060208284031215610ac857600080fd5b5051919050565b60008060408385031215610ae257600080fd5b8235915060208084013567ffffffffffffffff811115610b0157600080fd5b8401601f81018613610b1257600080fd5b8035610b206109b782610d33565b80828252848201915084840189868560051b8701011115610b4057600080fd5b600094505b83851015610b63578035835260019490940193918501918501610b45565b5080955050505050509250929050565b600060208284031215610b8557600080fd5b815161096781610e15565b600060208284031215610ba257600080fd5b81356bffffffffffffffffffffffff8116811461096757600080fd5b6000815180845260005b81811015610be457602081850181015186830182015201610bc8565b81811115610bf6576000602083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b73ffffffffffffffffffffffffffffffffffffffff841681526bffffffffffffffffffffffff83166020820152606060408201526000610c6c6060830184610bbe565b95945050505050565b602081528151602082015267ffffffffffffffff602083015116604082015261ffff60408301511660608201526000606083015163ffffffff80821660808501528060808601511660a0850152505060a083015160c080840152610cdc60e0840182610bbe565b949350505050565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff81118282101715610d2b57610d2b610de6565b604052919050565b600067ffffffffffffffff821115610d4d57610d4d610de6565b5060051b60200190565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff821415610db0577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b5060010190565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b67ffffffffffffffff81168114610e2b57600080fd5b5056fea164736f6c6343000806000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"vrfCoordinator\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"link\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"have\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"want\",\"type\":\"address\"}],\"name\":\"OnlyCoordinatorCanFulfill\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"have\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"owner\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"coordinator\",\"type\":\"address\"}],\"name\":\"OnlyOwnerOrCoordinator\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddress\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"createSubscriptionAndFund\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getSubId\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"requestId\",\"type\":\"uint256\"},{\"internalType\":\"uint256[]\",\"name\":\"randomWords\",\"type\":\"uint256[]\"}],\"name\":\"rawFulfillRandomWords\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"keyHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint64\",\"name\":\"subId\",\"type\":\"uint64\"},{\"internalType\":\"uint16\",\"name\":\"minReqConfs\",\"type\":\"uint16\"},{\"internalType\":\"uint32\",\"name\":\"callbackGasLimit\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"numWords\",\"type\":\"uint32\"}],\"name\":\"requestRandomness\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_gasAvailable\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"s_randomWords\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_requestId\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_vrfCoordinator\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"_subId\",\"type\":\"uint64\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint96\",\"name\":\"amount\",\"type\":\"uint96\"}],\"name\":\"topUpSubscription\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"consumers\",\"type\":\"address[]\"}],\"name\":\"updateSubscription\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x60806040523480156200001157600080fd5b50604051620013e6380380620013e68339810160408190526200003491620001cc565b8133806000816200008c5760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b0384811691909117909155811615620000bf57620000bf8162000103565b5050600280546001600160a01b03199081166001600160a01b0394851617909155600580548216958416959095179094555060068054909316911617905562000204565b6001600160a01b0381163314156200015e5760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640162000083565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b80516001600160a01b0381168114620001c757600080fd5b919050565b60008060408385031215620001e057600080fd5b620001eb83620001af565b9150620001fb60208401620001af565b90509250929050565b6111d280620002146000396000f3fe608060405234801561001057600080fd5b50600436106100df5760003560e01c80638da5cb5b1161008c578063f08c5daa11610066578063f08c5daa146101a4578063f2fde38b146101ad578063f6eaffc8146101c0578063fbc6ba6f146101d357600080fd5b80638da5cb5b14610160578063cf62c8ab14610188578063e89e106a1461019b57600080fd5b80632fa4e442116100bd5780632fa4e4421461013257806336bfffed1461014557806379ba50971461015857600080fd5b8063177b9692146100e45780631fe543e31461010a5780632d6d99f31461011f575b600080fd5b6100f76100f2366004610dce565b610211565b6040519081526020015b60405180910390f35b61011d610118366004610e69565b61031a565b005b61011d61012d366004610cd1565b6103a0565b61011d610140366004610f2a565b6104d0565b61011d610153366004610d08565b610634565b61011d6107bc565b60005460405173ffffffffffffffffffffffffffffffffffffffff9091168152602001610101565b61011d610196366004610f2a565b6108b9565b6100f760045481565b6100f760075481565b61011d6101bb366004610caf565b610ac4565b6100f76101ce366004610e37565b610ad8565b60025474010000000000000000000000000000000000000000900467ffffffffffffffff1660405167ffffffffffffffff9091168152602001610101565b6040805160c08101825286815267ffffffffffffffff861660208083019190915261ffff86168284015263ffffffff80861660608401528416608083015282519081018352600080825260a083019190915260055492517f596b8b88000000000000000000000000000000000000000000000000000000008152909273ffffffffffffffffffffffffffffffffffffffff169063596b8b88906102b890849060040161100f565b602060405180830381600087803b1580156102d257600080fd5b505af11580156102e6573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061030a9190610e50565b6004819055979650505050505050565b60025473ffffffffffffffffffffffffffffffffffffffff163314610392576002546040517f1cf993f400000000000000000000000000000000000000000000000000000000815233600482015273ffffffffffffffffffffffffffffffffffffffff90911660248201526044015b60405180910390fd5b61039c8282600080fd5b5050565b60005473ffffffffffffffffffffffffffffffffffffffff1633148015906103e0575060025473ffffffffffffffffffffffffffffffffffffffff163314155b15610464573361040560005473ffffffffffffffffffffffffffffffffffffffff1690565b6002546040517f061db9c100000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff93841660048201529183166024830152919091166044820152606401610389565b6002805467ffffffffffffffff90921674010000000000000000000000000000000000000000027fffffffff0000000000000000000000000000000000000000000000000000000090921673ffffffffffffffffffffffffffffffffffffffff90931692909217179055565b60025474010000000000000000000000000000000000000000900467ffffffffffffffff1661055b576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152600b60248201527f737562206e6f74207365740000000000000000000000000000000000000000006044820152606401610389565b600654600554600254604080517401000000000000000000000000000000000000000090920467ffffffffffffffff16602083015273ffffffffffffffffffffffffffffffffffffffff93841693634000aea09316918591015b6040516020818303038152906040526040518463ffffffff1660e01b81526004016105e293929190610fc3565b602060405180830381600087803b1580156105fc57600080fd5b505af1158015610610573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061039c9190610dac565b60025474010000000000000000000000000000000000000000900467ffffffffffffffff166106bf576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152600d60248201527f7375624944206e6f7420736574000000000000000000000000000000000000006044820152606401610389565b60005b815181101561039c57600554600254835173ffffffffffffffffffffffffffffffffffffffff90921691637341c10c9174010000000000000000000000000000000000000000900467ffffffffffffffff169085908590811061072757610727611151565b60200260200101516040518363ffffffff1660e01b815260040161077792919067ffffffffffffffff92909216825273ffffffffffffffffffffffffffffffffffffffff16602082015260400190565b600060405180830381600087803b15801561079157600080fd5b505af11580156107a5573d6000803e3d6000fd5b5050505080806107b4906110f1565b9150506106c2565b60015473ffffffffffffffffffffffffffffffffffffffff16331461083d576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e6572000000000000000000006044820152606401610389565b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b60025474010000000000000000000000000000000000000000900467ffffffffffffffff1661055b57600560009054906101000a900473ffffffffffffffffffffffffffffffffffffffff1673ffffffffffffffffffffffffffffffffffffffff1663a21a23e46040518163ffffffff1660e01b8152600401602060405180830381600087803b15801561094c57600080fd5b505af1158015610960573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906109849190610f0d565b600280547fffffffff0000000000000000ffffffffffffffffffffffffffffffffffffffff167401000000000000000000000000000000000000000067ffffffffffffffff938416810291909117918290556005546040517f7341c10c00000000000000000000000000000000000000000000000000000000815291909204909216600483015230602483015273ffffffffffffffffffffffffffffffffffffffff1690637341c10c90604401600060405180830381600087803b158015610a4b57600080fd5b505af1158015610a5f573d6000803e3d6000fd5b5050600654600554600254604080517401000000000000000000000000000000000000000090920467ffffffffffffffff16602083015273ffffffffffffffffffffffffffffffffffffffff9384169550634000aea0945092909116918591016105b5565b610acc610af9565b610ad581610b7c565b50565b60038181548110610ae857600080fd5b600091825260209091200154905081565b60005473ffffffffffffffffffffffffffffffffffffffff163314610b7a576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e6572000000000000000000006044820152606401610389565b565b73ffffffffffffffffffffffffffffffffffffffff8116331415610bfc576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c660000000000000000006044820152606401610389565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b803573ffffffffffffffffffffffffffffffffffffffff81168114610c9657600080fd5b919050565b803563ffffffff81168114610c9657600080fd5b600060208284031215610cc157600080fd5b610cca82610c72565b9392505050565b60008060408385031215610ce457600080fd5b610ced83610c72565b91506020830135610cfd816111af565b809150509250929050565b60006020808385031215610d1b57600080fd5b823567ffffffffffffffff811115610d3257600080fd5b8301601f81018513610d4357600080fd5b8035610d56610d51826110cd565b61107e565b80828252848201915084840188868560051b8701011115610d7657600080fd5b600094505b83851015610da057610d8c81610c72565b835260019490940193918501918501610d7b565b50979650505050505050565b600060208284031215610dbe57600080fd5b81518015158114610cca57600080fd5b600080600080600060a08688031215610de657600080fd5b853594506020860135610df8816111af565b9350604086013561ffff81168114610e0f57600080fd5b9250610e1d60608701610c9b565b9150610e2b60808701610c9b565b90509295509295909350565b600060208284031215610e4957600080fd5b5035919050565b600060208284031215610e6257600080fd5b5051919050565b60008060408385031215610e7c57600080fd5b8235915060208084013567ffffffffffffffff811115610e9b57600080fd5b8401601f81018613610eac57600080fd5b8035610eba610d51826110cd565b80828252848201915084840189868560051b8701011115610eda57600080fd5b600094505b83851015610efd578035835260019490940193918501918501610edf565b5080955050505050509250929050565b600060208284031215610f1f57600080fd5b8151610cca816111af565b600060208284031215610f3c57600080fd5b81356bffffffffffffffffffffffff81168114610cca57600080fd5b6000815180845260005b81811015610f7e57602081850181015186830182015201610f62565b81811115610f90576000602083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b73ffffffffffffffffffffffffffffffffffffffff841681526bffffffffffffffffffffffff831660208201526060604082015260006110066060830184610f58565b95945050505050565b602081528151602082015267ffffffffffffffff602083015116604082015261ffff60408301511660608201526000606083015163ffffffff80821660808501528060808601511660a0850152505060a083015160c08084015261107660e0840182610f58565b949350505050565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff811182821017156110c5576110c5611180565b604052919050565b600067ffffffffffffffff8211156110e7576110e7611180565b5060051b60200190565b60007fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff82141561114a577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b5060010190565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b67ffffffffffffffff81168114610ad557600080fdfea164736f6c6343000806000a",
 }
 
 var VRFV2PlusRevertingExampleABI = VRFV2PlusRevertingExampleMetaData.ABI
@@ -169,6 +171,50 @@ func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactorRaw) Transa
 	return _VRFV2PlusRevertingExample.Contract.contract.Transact(opts, method, params...)
 }
 
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleCaller) GetSubId(opts *bind.CallOpts) (uint64, error) {
+	var out []interface{}
+	err := _VRFV2PlusRevertingExample.contract.Call(opts, &out, "getSubId")
+
+	if err != nil {
+		return *new(uint64), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
+
+	return out0, err
+
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleSession) GetSubId() (uint64, error) {
+	return _VRFV2PlusRevertingExample.Contract.GetSubId(&_VRFV2PlusRevertingExample.CallOpts)
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleCallerSession) GetSubId() (uint64, error) {
+	return _VRFV2PlusRevertingExample.Contract.GetSubId(&_VRFV2PlusRevertingExample.CallOpts)
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleCaller) Owner(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _VRFV2PlusRevertingExample.contract.Call(opts, &out, "owner")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleSession) Owner() (common.Address, error) {
+	return _VRFV2PlusRevertingExample.Contract.Owner(&_VRFV2PlusRevertingExample.CallOpts)
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleCallerSession) Owner() (common.Address, error) {
+	return _VRFV2PlusRevertingExample.Contract.Owner(&_VRFV2PlusRevertingExample.CallOpts)
+}
+
 func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleCaller) SGasAvailable(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _VRFV2PlusRevertingExample.contract.Call(opts, &out, "s_gasAvailable")
@@ -235,26 +281,16 @@ func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleCallerSession) SReque
 	return _VRFV2PlusRevertingExample.Contract.SRequestId(&_VRFV2PlusRevertingExample.CallOpts)
 }
 
-func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleCaller) SSubId(opts *bind.CallOpts) (uint64, error) {
-	var out []interface{}
-	err := _VRFV2PlusRevertingExample.contract.Call(opts, &out, "s_subId")
-
-	if err != nil {
-		return *new(uint64), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint64)).(*uint64)
-
-	return out0, err
-
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _VRFV2PlusRevertingExample.contract.Transact(opts, "acceptOwnership")
 }
 
-func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleSession) SSubId() (uint64, error) {
-	return _VRFV2PlusRevertingExample.Contract.SSubId(&_VRFV2PlusRevertingExample.CallOpts)
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleSession) AcceptOwnership() (*types.Transaction, error) {
+	return _VRFV2PlusRevertingExample.Contract.AcceptOwnership(&_VRFV2PlusRevertingExample.TransactOpts)
 }
 
-func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleCallerSession) SSubId() (uint64, error) {
-	return _VRFV2PlusRevertingExample.Contract.SSubId(&_VRFV2PlusRevertingExample.CallOpts)
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactorSession) AcceptOwnership() (*types.Transaction, error) {
+	return _VRFV2PlusRevertingExample.Contract.AcceptOwnership(&_VRFV2PlusRevertingExample.TransactOpts)
 }
 
 func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactor) CreateSubscriptionAndFund(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
@@ -293,16 +329,16 @@ func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactorSession) Re
 	return _VRFV2PlusRevertingExample.Contract.RequestRandomness(&_VRFV2PlusRevertingExample.TransactOpts, keyHash, subId, minReqConfs, callbackGasLimit, numWords)
 }
 
-func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactor) SetVRFCoordinator(opts *bind.TransactOpts, _vrfCoordinator common.Address) (*types.Transaction, error) {
-	return _VRFV2PlusRevertingExample.contract.Transact(opts, "setVRFCoordinator", _vrfCoordinator)
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactor) SetConfig(opts *bind.TransactOpts, _vrfCoordinator common.Address, _subId uint64) (*types.Transaction, error) {
+	return _VRFV2PlusRevertingExample.contract.Transact(opts, "setConfig", _vrfCoordinator, _subId)
 }
 
-func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleSession) SetVRFCoordinator(_vrfCoordinator common.Address) (*types.Transaction, error) {
-	return _VRFV2PlusRevertingExample.Contract.SetVRFCoordinator(&_VRFV2PlusRevertingExample.TransactOpts, _vrfCoordinator)
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleSession) SetConfig(_vrfCoordinator common.Address, _subId uint64) (*types.Transaction, error) {
+	return _VRFV2PlusRevertingExample.Contract.SetConfig(&_VRFV2PlusRevertingExample.TransactOpts, _vrfCoordinator, _subId)
 }
 
-func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactorSession) SetVRFCoordinator(_vrfCoordinator common.Address) (*types.Transaction, error) {
-	return _VRFV2PlusRevertingExample.Contract.SetVRFCoordinator(&_VRFV2PlusRevertingExample.TransactOpts, _vrfCoordinator)
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactorSession) SetConfig(_vrfCoordinator common.Address, _subId uint64) (*types.Transaction, error) {
+	return _VRFV2PlusRevertingExample.Contract.SetConfig(&_VRFV2PlusRevertingExample.TransactOpts, _vrfCoordinator, _subId)
 }
 
 func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactor) TopUpSubscription(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error) {
@@ -317,6 +353,18 @@ func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactorSession) To
 	return _VRFV2PlusRevertingExample.Contract.TopUpSubscription(&_VRFV2PlusRevertingExample.TransactOpts, amount)
 }
 
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
+	return _VRFV2PlusRevertingExample.contract.Transact(opts, "transferOwnership", to)
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
+	return _VRFV2PlusRevertingExample.Contract.TransferOwnership(&_VRFV2PlusRevertingExample.TransactOpts, to)
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactorSession) TransferOwnership(to common.Address) (*types.Transaction, error) {
+	return _VRFV2PlusRevertingExample.Contract.TransferOwnership(&_VRFV2PlusRevertingExample.TransactOpts, to)
+}
+
 func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactor) UpdateSubscription(opts *bind.TransactOpts, consumers []common.Address) (*types.Transaction, error) {
 	return _VRFV2PlusRevertingExample.contract.Transact(opts, "updateSubscription", consumers)
 }
@@ -329,18 +377,314 @@ func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleTransactorSession) Up
 	return _VRFV2PlusRevertingExample.Contract.UpdateSubscription(&_VRFV2PlusRevertingExample.TransactOpts, consumers)
 }
 
+type VRFV2PlusRevertingExampleOwnershipTransferRequestedIterator struct {
+	Event *VRFV2PlusRevertingExampleOwnershipTransferRequested
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *VRFV2PlusRevertingExampleOwnershipTransferRequestedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(VRFV2PlusRevertingExampleOwnershipTransferRequested)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(VRFV2PlusRevertingExampleOwnershipTransferRequested)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *VRFV2PlusRevertingExampleOwnershipTransferRequestedIterator) Error() error {
+	return it.fail
+}
+
+func (it *VRFV2PlusRevertingExampleOwnershipTransferRequestedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type VRFV2PlusRevertingExampleOwnershipTransferRequested struct {
+	From common.Address
+	To   common.Address
+	Raw  types.Log
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleFilterer) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*VRFV2PlusRevertingExampleOwnershipTransferRequestedIterator, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _VRFV2PlusRevertingExample.contract.FilterLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return &VRFV2PlusRevertingExampleOwnershipTransferRequestedIterator{contract: _VRFV2PlusRevertingExample.contract, event: "OwnershipTransferRequested", logs: logs, sub: sub}, nil
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleFilterer) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *VRFV2PlusRevertingExampleOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _VRFV2PlusRevertingExample.contract.WatchLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(VRFV2PlusRevertingExampleOwnershipTransferRequested)
+				if err := _VRFV2PlusRevertingExample.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleFilterer) ParseOwnershipTransferRequested(log types.Log) (*VRFV2PlusRevertingExampleOwnershipTransferRequested, error) {
+	event := new(VRFV2PlusRevertingExampleOwnershipTransferRequested)
+	if err := _VRFV2PlusRevertingExample.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type VRFV2PlusRevertingExampleOwnershipTransferredIterator struct {
+	Event *VRFV2PlusRevertingExampleOwnershipTransferred
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *VRFV2PlusRevertingExampleOwnershipTransferredIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(VRFV2PlusRevertingExampleOwnershipTransferred)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(VRFV2PlusRevertingExampleOwnershipTransferred)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *VRFV2PlusRevertingExampleOwnershipTransferredIterator) Error() error {
+	return it.fail
+}
+
+func (it *VRFV2PlusRevertingExampleOwnershipTransferredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type VRFV2PlusRevertingExampleOwnershipTransferred struct {
+	From common.Address
+	To   common.Address
+	Raw  types.Log
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleFilterer) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*VRFV2PlusRevertingExampleOwnershipTransferredIterator, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _VRFV2PlusRevertingExample.contract.FilterLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return &VRFV2PlusRevertingExampleOwnershipTransferredIterator{contract: _VRFV2PlusRevertingExample.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleFilterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *VRFV2PlusRevertingExampleOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
+
+	var fromRule []interface{}
+	for _, fromItem := range from {
+		fromRule = append(fromRule, fromItem)
+	}
+	var toRule []interface{}
+	for _, toItem := range to {
+		toRule = append(toRule, toItem)
+	}
+
+	logs, sub, err := _VRFV2PlusRevertingExample.contract.WatchLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(VRFV2PlusRevertingExampleOwnershipTransferred)
+				if err := _VRFV2PlusRevertingExample.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExampleFilterer) ParseOwnershipTransferred(log types.Log) (*VRFV2PlusRevertingExampleOwnershipTransferred, error) {
+	event := new(VRFV2PlusRevertingExampleOwnershipTransferred)
+	if err := _VRFV2PlusRevertingExample.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExample) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	switch log.Topics[0] {
+	case _VRFV2PlusRevertingExample.abi.Events["OwnershipTransferRequested"].ID:
+		return _VRFV2PlusRevertingExample.ParseOwnershipTransferRequested(log)
+	case _VRFV2PlusRevertingExample.abi.Events["OwnershipTransferred"].ID:
+		return _VRFV2PlusRevertingExample.ParseOwnershipTransferred(log)
+
+	default:
+		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
+	}
+}
+
+func (VRFV2PlusRevertingExampleOwnershipTransferRequested) Topic() common.Hash {
+	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
+}
+
+func (VRFV2PlusRevertingExampleOwnershipTransferred) Topic() common.Hash {
+	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
+}
+
 func (_VRFV2PlusRevertingExample *VRFV2PlusRevertingExample) Address() common.Address {
 	return _VRFV2PlusRevertingExample.address
 }
 
 type VRFV2PlusRevertingExampleInterface interface {
+	GetSubId(opts *bind.CallOpts) (uint64, error)
+
+	Owner(opts *bind.CallOpts) (common.Address, error)
+
 	SGasAvailable(opts *bind.CallOpts) (*big.Int, error)
 
 	SRandomWords(opts *bind.CallOpts, arg0 *big.Int) (*big.Int, error)
 
 	SRequestId(opts *bind.CallOpts) (*big.Int, error)
 
-	SSubId(opts *bind.CallOpts) (uint64, error)
+	AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error)
 
 	CreateSubscriptionAndFund(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error)
 
@@ -348,11 +692,27 @@ type VRFV2PlusRevertingExampleInterface interface {
 
 	RequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subId uint64, minReqConfs uint16, callbackGasLimit uint32, numWords uint32) (*types.Transaction, error)
 
-	SetVRFCoordinator(opts *bind.TransactOpts, _vrfCoordinator common.Address) (*types.Transaction, error)
+	SetConfig(opts *bind.TransactOpts, _vrfCoordinator common.Address, _subId uint64) (*types.Transaction, error)
 
 	TopUpSubscription(opts *bind.TransactOpts, amount *big.Int) (*types.Transaction, error)
 
+	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
+
 	UpdateSubscription(opts *bind.TransactOpts, consumers []common.Address) (*types.Transaction, error)
+
+	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*VRFV2PlusRevertingExampleOwnershipTransferRequestedIterator, error)
+
+	WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *VRFV2PlusRevertingExampleOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error)
+
+	ParseOwnershipTransferRequested(log types.Log) (*VRFV2PlusRevertingExampleOwnershipTransferRequested, error)
+
+	FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*VRFV2PlusRevertingExampleOwnershipTransferredIterator, error)
+
+	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *VRFV2PlusRevertingExampleOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
+
+	ParseOwnershipTransferred(log types.Log) (*VRFV2PlusRevertingExampleOwnershipTransferred, error)
+
+	ParseLog(log types.Log) (generated.AbigenLog, error)
 
 	Address() common.Address
 }
