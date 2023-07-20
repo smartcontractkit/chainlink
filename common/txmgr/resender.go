@@ -77,7 +77,7 @@ func NewResender[
 	if txConfig.ResendAfterThreshold() == 0 {
 		panic("Resender requires a non-zero threshold")
 	}
-	// todo: add context to txStore
+	// todo: add context to txStore https://smartcontract-it.atlassian.net/browse/BCI-1585
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
 		txStore,

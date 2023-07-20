@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -39,33 +40,29 @@ const (
 	TxAttemptInProgress TxAttemptState = iota + 1
 	TxAttemptInsufficientFunds
 	TxAttemptBroadcast
+	txAttemptStateCount // always at end to calculate number of states
 )
 
+var txAttemptStateStrings = []string{
+	"unknown_attempt_state",    // default 0 value
+	TxAttemptInProgress:        "in_progress",
+	TxAttemptInsufficientFunds: "insufficient_funds",
+	TxAttemptBroadcast:         "broadcast",
+}
+
 func NewTxAttemptState(state string) (s TxAttemptState) {
-	switch state {
-	case "in_progress":
-		s = TxAttemptInProgress
-	case "insufficient_funds":
-		s = TxAttemptInsufficientFunds
-	case "broadcast":
-		s = TxAttemptBroadcast
+	if index := slices.Index(txAttemptStateStrings, state); index != -1 {
+		s = TxAttemptState(index)
 	}
 	return s
 }
 
 // String returns string formatted states for logging
 func (s TxAttemptState) String() (str string) {
-	switch s {
-	case TxAttemptInProgress:
-		str = "in_progress"
-	case TxAttemptInsufficientFunds:
-		str = "insufficient_funds"
-	case TxAttemptBroadcast:
-		str = "broadcast"
-	default:
-		str = "unknown_attempt_state"
+	if s < txAttemptStateCount {
+		return txAttemptStateStrings[s]
 	}
-	return str
+	return txAttemptStateStrings[0]
 }
 
 type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
