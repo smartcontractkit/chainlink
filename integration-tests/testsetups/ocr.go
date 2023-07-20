@@ -114,13 +114,15 @@ func NewOCRSoakTest(t *testing.T, forwarderFlow bool) (*OCRSoakTest, error) {
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
 func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 	network := networks.SelectedNetwork // Environment currently being used to soak test on
+	nsPre := "soak-ocr-"
+	if o.OperatorForwarderFlow {
+		nsPre = fmt.Sprintf("%sforwarder-", nsPre)
+	}
+	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
 	baseEnvironmentConfig := &environment.Config{
-		TTL: time.Hour * 720, // 30 days,
-		NamespacePrefix: fmt.Sprintf(
-			"soak-ocr-%s",
-			strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"),
-		),
-		Test: o.t,
+		TTL:             time.Hour * 720, // 30 days,
+		NamespacePrefix: nsPre,
+		Test:            o.t,
 	}
 
 	cd, err := chainlink.NewDeployment(6, map[string]any{
@@ -149,9 +151,17 @@ func (o *OCRSoakTest) Environment() *environment.Environment {
 }
 
 func (o *OCRSoakTest) Setup() {
+	var (
+		err     error
+		network = networks.SelectedNetwork
+	)
+	// Environment currently being used to soak test on
 	// Make connections to soak test resources
+	o.chainClient, err = blockchain.NewEVMClient(network, o.testEnvironment)
+	require.NoError(o.t, err, "Error creating EVM client")
 	contractDeployer, err := contracts.NewContractDeployer(o.chainClient)
-	require.NoError(o.t, err, "Deploying contracts shouldn't fail")
+	require.NoError(o.t, err, "Unable to create contract deployer")
+	require.NotNil(o.t, contractDeployer, "Contract deployer shouldn't be nil")
 	nodes, err := client.ConnectChainlinkNodes(o.testEnvironment)
 	require.NoError(o.t, err, "Connecting to chainlink nodes shouldn't fail")
 	o.bootstrapNode, o.workerNodes = nodes[0], nodes[1:]
@@ -261,7 +271,8 @@ testLoop:
 	for {
 		select {
 		case <-interruption:
-
+			o.log.Info().Msg("Test interrupted, shutting down")
+			os.Exit(1)
 		case <-testDuration:
 			break testLoop
 		case <-newRoundTrigger.C:

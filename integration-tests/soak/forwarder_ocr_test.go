@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
-func TestOCRSoakForwarder(t *testing.T) {
+func TestForwarderOCRSoak(t *testing.T) {
 	l := utils.GetTestLogger(t)
 	// Use this variable to pass in any custom EVM specific TOML values to your Chainlink nodes
 	customNetworkTOML := `[EVM.Transactions]

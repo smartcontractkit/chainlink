@@ -310,6 +310,9 @@ func TeardownRemoteSuite(
 
 func DeleteAllJobs(chainlinkNodes []*client.Chainlink) error {
 	for _, node := range chainlinkNodes {
+		if node == nil {
+			return fmt.Errorf("found a nil chainlink node in the list of chainlink nodes while tearing down: %v", chainlinkNodes)
+		}
 		jobs, _, err := node.ReadJobs()
 		if err != nil {
 			return errors.Wrap(err, "error reading jobs from chainlink node")
@@ -331,7 +334,7 @@ func DeleteAllJobs(chainlinkNodes []*client.Chainlink) error {
 // Returns all the funds from the chainlink nodes to the networks default address
 func returnFunds(chainlinkNodes []*client.Chainlink, blockchainClient blockchain.EVMClient) error {
 	if blockchainClient == nil {
-		log.Warn().Msg("No blockchain client found, unable to return funds from chainlink nodes.")
+		return errors.New("blockchain client is nil, unable to return funds from chainlink nodes")
 	}
 	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 	if blockchainClient.NetworkSimulated() {
