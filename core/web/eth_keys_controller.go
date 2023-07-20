@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -260,16 +259,16 @@ func (ekc *ETHKeysController) Export(c *gin.Context) {
 
 // Chain updates settings for a given chain for the key
 func (ekc *ETHKeysController) Chain(c *gin.Context) {
+	var err error
 	kst := ekc.app.GetKeyStore().Eth()
 	defer ekc.app.GetLogger().ErrorIfFn(c.Request.Body.Close, "Error closing Import request body")
 
-	addressHex := c.Query("address")
-	addressBytes, err := hexutil.Decode(addressHex)
-	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, errors.Wrap(err, "invalid address"))
+	keyID := c.Query("address")
+	if !common.IsHexAddress(keyID) {
+		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("invalid address: %s, must be hex address", keyID))
 		return
 	}
-	address := common.BytesToAddress(addressBytes)
+	address := common.HexToAddress((keyID))
 
 	cid := c.Query("evmChainID")
 	chain, ok := ekc.getChain(c, ekc.app.GetChains().EVM, cid)
@@ -306,6 +305,7 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 		if err != nil {
 			if strings.Contains(err.Error(), "key state not found with address") {
 				jsonAPIError(c, http.StatusNotFound, err)
+				return
 			}
 			jsonAPIError(c, http.StatusInternalServerError, err)
 			return
@@ -332,12 +332,8 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 		}
 	}
 
-	key, err := kst.Get(address.Hex())
+	key, err := kst.Get(keyID)
 	if err != nil {
-		if errors.Is(err, keystore.ErrKeyNotFound) {
-			jsonAPIError(c, http.StatusNotFound, err)
-			return
-		}
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
