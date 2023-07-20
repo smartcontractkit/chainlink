@@ -79,6 +79,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   error GasLimitTooBig(uint32 have, uint32 want);
   error InvalidLinkWeiPrice(int256 linkWei);
   error PaymentTooLarge();
+  error NoTransmittersSet();
 
   // ================================================================
   // |                        Balance state                         |
@@ -449,6 +450,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     // Pay out the DON fee to all transmitters
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
     address[] memory transmitters = _getTransmitters();
+    if (transmitters.length == 0) {
+      revert NoTransmittersSet();
+    }
     uint96 feePoolShare = s_feePool / uint96(transmitters.length);
     for (uint8 i = 0; i < transmitters.length; i++) {
       s_withdrawableTokens[transmitters[i]] += feePoolShare;
