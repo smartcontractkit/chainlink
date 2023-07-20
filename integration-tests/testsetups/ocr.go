@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"os"
 	"os/signal"
 	"sort"
@@ -277,8 +278,8 @@ func (o *OCRSoakTest) Run() {
 	// *********************
 	interruption := make(chan os.Signal, 1)
 	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
-	lastAdapterValue, currentAdapterValue := 5, 125
-	newRoundTrigger := time.NewTimer(0)
+	lastValue := 0
+	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP
 	defer newRoundTrigger.Stop()
 	err = o.observeOCREvents()
 	require.NoError(o.t, err, "Error subscribing to OCR events")
@@ -292,13 +293,19 @@ testLoop:
 		case <-testDuration:
 			break testLoop
 		case <-newRoundTrigger.C:
-			lastAdapterValue, currentAdapterValue = currentAdapterValue, lastAdapterValue
-			err := o.triggerNewRound(currentAdapterValue)
+			newValue := rand.Intn(256) + 1 // #nosec G404 - not everything needs to be cryptographically secure
+			for newValue == lastValue {
+				newValue = rand.Intn(256) + 1 // #nosec G404 - kudos to you if you actually find a way to exploit this
+			}
+			lastValue = newValue
+			err := o.triggerNewRound(newValue)
 
 			timerReset := o.Inputs.TimeBetweenRounds
 			if err != nil {
-				o.log.Error().Err(err).Int("Seconds Waiting", 5).Msg("Error triggering new round, waiting and trying again")
 				timerReset = time.Second * 5
+				o.log.Error().Err(err).
+					Int("Seconds Waiting", 5).
+					Msg("Error triggering new round, waiting and trying again. Possible connection issues with mockserver")
 			}
 			newRoundTrigger.Reset(timerReset)
 		case t := <-o.chainClient.ConnectionIssue():
@@ -418,35 +425,19 @@ func (o *OCRSoakTest) observeOCREvents() error {
 }
 
 // triggers a new OCR round by setting a new mock adapter value
-func (o *OCRSoakTest) triggerNewRound(currentAdapterValue int) error {
+func (o *OCRSoakTest) triggerNewRound(newValue int) error {
 	if len(o.ocrRoundStates) > 0 {
 		o.ocrRoundStates[len(o.ocrRoundStates)-1].EndTime = time.Now()
 	}
 
-	var (
-		err          error
-		attemptCount = 5
-	)
-
-	// It's possible the adapter is temporarily down, so we try a few times if we get errors
-	for attemptCount > 0 {
-		attemptCount--
-		err = actions.SetAllAdapterResponsesToTheSameValue(currentAdapterValue, o.ocrInstances, o.workerNodes, o.mockServer)
-		if err == nil {
-			break
-		}
-		log.Warn().Err(err).
-			Str("URL", o.mockServer.APIClient.BaseURL).
-			Int("Attempts left", attemptCount).
-			Msg("Error setting adapter responses, adapter possibly temporarily down, trying again")
-	}
+	err := actions.SetAllAdapterResponsesToTheSameValue(newValue, o.ocrInstances, o.workerNodes, o.mockServer)
 	if err != nil {
 		return err
 	}
 
 	expectedState := &testreporters.OCRRoundState{
 		StartTime:   time.Now(),
-		Answer:      int64(currentAdapterValue),
+		Answer:      int64(newValue),
 		FoundEvents: make(map[string][]*testreporters.FoundEvent),
 	}
 	for _, ocrInstance := range o.ocrInstances {
@@ -454,7 +445,7 @@ func (o *OCRSoakTest) triggerNewRound(currentAdapterValue int) error {
 	}
 	o.ocrRoundStates = append(o.ocrRoundStates, expectedState)
 	o.log.Info().
-		Int("Value", currentAdapterValue).
+		Int("Value", newValue).
 		Msg("Starting a New OCR Round")
 	return nil
 }
