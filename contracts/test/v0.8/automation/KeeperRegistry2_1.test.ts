@@ -82,6 +82,11 @@ type LogTrigger = Parameters<AutomationUtils['_logTrigger']>[0]
 type ConditionalTrigger = Parameters<AutomationUtils['_conditionalTrigger']>[0]
 type Log = Parameters<AutomationUtils['_log']>[0]
 
+// function signatures for the two setConfig methods
+const setConfigRaw = 'setConfig(address[],address[],uint8,bytes,uint64,bytes)'
+const setConfigExplicit =
+  'setConfig(address[],address[],uint8,(uint32,uint32,uint32,uint24,uint16,uint96,uint32,uint32,uint32,uint32,uint256,uint256,address,address[],address),uint64,bytes)'
+
 // -----------------------------------------------------------------------------------------------
 
 // These values should match the constants declared in registry
@@ -420,7 +425,9 @@ describe('KeeperRegistry2_1', () => {
   let signers: Wallet[]
   let signerAddresses: string[]
   let config: any
-  let baseConfig: Parameters<IKeeperRegistry['setConfig']>
+  let baseConfig: Parameters<
+    IKeeperRegistry['setConfig(address[],address[],uint8,bytes,uint64,bytes)']
+  >
   let upkeepManager: string
 
   before(async () => {
@@ -607,7 +614,7 @@ describe('KeeperRegistry2_1', () => {
       .add(registryPerPerformByteGasOverhead.mul(maxPerformDataSize))
 
     for (const test of tests) {
-      await registry.connect(owner).setConfig(
+      await registry.connect(owner)[setConfigRaw](
         signerAddresses,
         keeperAddresses,
         f,
@@ -935,7 +942,7 @@ describe('KeeperRegistry2_1', () => {
     cancellationDelay = (await registry.getCancellationDelay()).toNumber()
 
     for (const reg of [registry, arbRegistry, opRegistry, mgRegistry]) {
-      await reg.connect(owner).setConfig(...baseConfig)
+      await reg.connect(owner)[setConfigRaw](...baseConfig)
       await reg.connect(owner).setPayees(payees)
       await linkToken.connect(admin).approve(reg.address, toWei('1000'))
       await linkToken.connect(owner).approve(reg.address, toWei('1000'))
@@ -1708,11 +1715,11 @@ describe('KeeperRegistry2_1', () => {
       itMaybe(
         'has a large enough gas overhead to cover upkeep that use all its gas [ @skip-coverage ]',
         async () => {
-          await registry.connect(owner).setConfig(
+          await registry.connect(owner)[setConfigExplicit](
             signerAddresses,
             keeperAddresses,
             10, // maximise f to maximise overhead
-            encodeConfig(config),
+            config,
             offchainVersion,
             offchainBytes,
           )
@@ -1753,11 +1760,11 @@ describe('KeeperRegistry2_1', () => {
             const newF = fArray[i]
             await registry
               .connect(owner)
-              .setConfig(
+              [setConfigExplicit](
                 signerAddresses,
                 keeperAddresses,
                 newF,
-                encodeConfig(config),
+                config,
                 offchainVersion,
                 offchainBytes,
               )
@@ -1900,11 +1907,11 @@ describe('KeeperRegistry2_1', () => {
                       await mock.setPerformGasToBurn(performGas)
                       await registry
                         .connect(owner)
-                        .setConfig(
+                        [setConfigExplicit](
                           signerAddresses,
                           keeperAddresses,
                           newF,
-                          encodeConfig(config),
+                          config,
                           offchainVersion,
                           offchainBytes,
                         )
@@ -2008,16 +2015,14 @@ describe('KeeperRegistry2_1', () => {
                 const performData = '0x'
                 await mock.setCanPerform(true)
                 await mock.setPerformGasToBurn(executeGas)
-                await registry
-                  .connect(owner)
-                  .setConfig(
-                    signerAddresses,
-                    keeperAddresses,
-                    newF,
-                    encodeConfig(config),
-                    offchainVersion,
-                    offchainBytes,
-                  )
+                await registry[setConfigExplicit](
+                  signerAddresses,
+                  keeperAddresses,
+                  newF,
+                  config,
+                  offchainVersion,
+                  offchainBytes,
+                )
                 tx = await getTransmitTx(registry, keeper1, [logUpkeepId], {
                   numSigners: newF + 1,
                   performData,
@@ -3532,11 +3537,11 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(payee1)
-          .setConfig(
+          [setConfigExplicit](
             signerAddresses,
             keeperAddresses,
             f,
-            encodeConfig(newConfig),
+            newConfig,
             offchainVersion,
             offchainBytes,
           ),
@@ -3555,11 +3560,11 @@ describe('KeeperRegistry2_1', () => {
 
       await registry
         .connect(owner)
-        .setConfig(
+        [setConfigExplicit](
           signerAddresses,
           keeperAddresses,
           f,
-          encodeConfig(newConfig),
+          newConfig,
           offchainVersion,
           offchainBytes,
         )
@@ -3618,11 +3623,11 @@ describe('KeeperRegistry2_1', () => {
 
       await registry
         .connect(owner)
-        .setConfig(
+        [setConfigExplicit](
           signerAddresses,
           keeperAddresses,
           f,
-          encodeConfig(newConfig),
+          newConfig,
           offchainVersion,
           offchainBytes,
         )
@@ -3634,11 +3639,11 @@ describe('KeeperRegistry2_1', () => {
     it('emits an event', async () => {
       const tx = await registry
         .connect(owner)
-        .setConfig(
+        [setConfigExplicit](
           signerAddresses,
           keeperAddresses,
           f,
-          encodeConfig(newConfig),
+          newConfig,
           offchainVersion,
           offchainBytes,
         )
@@ -3662,11 +3667,11 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(payee1)
-          .setConfig(
+          [setConfigExplicit](
             newKeepers,
             newKeepers,
             f,
-            encodeConfig(config),
+            config,
             offchainVersion,
             offchainBytes,
           ),
@@ -3681,11 +3686,11 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(
+          [setConfigExplicit](
             newKeepers,
             newKeepers,
             f,
-            encodeConfig(config),
+            config,
             offchainVersion,
             offchainBytes,
           ),
@@ -3697,11 +3702,11 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(
+          [setConfigExplicit](
             newKeepers,
             newKeepers,
             0,
-            encodeConfig(config),
+            config,
             offchainVersion,
             offchainBytes,
           ),
@@ -3714,11 +3719,11 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(
+          [setConfigExplicit](
             signers,
             newKeepers,
             f,
-            encodeConfig(config),
+            config,
             offchainVersion,
             offchainBytes,
           ),
@@ -3731,11 +3736,11 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(
+          [setConfigExplicit](
             newKeepers,
             newKeepers,
             f,
-            encodeConfig(config),
+            config,
             offchainVersion,
             offchainBytes,
           ),
@@ -3753,11 +3758,11 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(
+          [setConfigExplicit](
             newSigners,
             newKeepers,
             f,
-            encodeConfig(config),
+            config,
             offchainVersion,
             offchainBytes,
           ),
@@ -3775,11 +3780,11 @@ describe('KeeperRegistry2_1', () => {
       await evmRevert(
         registry
           .connect(owner)
-          .setConfig(
+          [setConfigExplicit](
             newKeepers,
             newTransmitters,
             f,
-            encodeConfig(config),
+            config,
             offchainVersion,
             offchainBytes,
           ),
@@ -3803,11 +3808,11 @@ describe('KeeperRegistry2_1', () => {
       const newSigners = newKeepers
       tx = await registry
         .connect(owner)
-        .setConfig(
+        [setConfigExplicit](
           newSigners,
           newKeepers,
           f,
-          encodeConfig(config),
+          config,
           newOffChainVersion,
           newOffChainConfig,
         )
@@ -4484,11 +4489,11 @@ describe('KeeperRegistry2_1', () => {
       await registry.connect(admin).addFunds(upkeepId, toWei('100'))
       // Very high min spend, whole balance as cancellation fees
       const minUpkeepSpend = toWei('1000')
-      await registry.connect(owner).setConfig(
+      await registry.connect(owner)[setConfigExplicit](
         signerAddresses,
         keeperAddresses,
         f,
-        encodeConfig({
+        {
           paymentPremiumPPB,
           flatFeeMicroLink,
           checkGasLimit,
@@ -4504,7 +4509,7 @@ describe('KeeperRegistry2_1', () => {
           transcoder: transcoder.address,
           registrars: [],
           upkeepPrivilegeManager: upkeepManager,
-        }),
+        },
         offchainVersion,
         offchainBytes,
       )
@@ -4887,7 +4892,7 @@ describe('KeeperRegistry2_1', () => {
     })
 
     it('reverts if the payee is the zero address', async () => {
-      await blankRegistry.connect(owner).setConfig(...baseConfig) // used to test initial config
+      await blankRegistry.connect(owner)[setConfigRaw](...baseConfig) // used to test initial config
 
       await evmRevert(
         blankRegistry // used to test initial config
@@ -4901,7 +4906,7 @@ describe('KeeperRegistry2_1', () => {
       'sets the payees when exisitng payees are zero address',
       async () => {
         //Initial payees should be zero address
-        await blankRegistry.connect(owner).setConfig(...baseConfig) // used to test initial config
+        await blankRegistry.connect(owner)[setConfigRaw](...baseConfig) // used to test initial config
 
         for (let i = 0; i < keeperAddresses.length; i++) {
           const payee = (
@@ -4933,11 +4938,11 @@ describe('KeeperRegistry2_1', () => {
       // configure registry with 5 keepers // optimism registry
       await blankRegistry // used to test initial configurations
         .connect(owner)
-        .setConfig(
+        [setConfigExplicit](
           signers,
           keepers,
           f,
-          encodeConfig(config),
+          config,
           offchainVersion,
           offchainBytes,
         )
@@ -4948,11 +4953,11 @@ describe('KeeperRegistry2_1', () => {
       // add another keeper // optimism registry
       await blankRegistry // used to test initial configurations
         .connect(owner)
-        .setConfig(
+        [setConfigExplicit](
           [...signers, randomAddress()],
           [...keepers, newTransmitter],
           f,
-          encodeConfig(config),
+          config,
           offchainVersion,
           offchainBytes,
         )
@@ -5127,11 +5132,11 @@ describe('KeeperRegistry2_1', () => {
         it('deducts a cancellation fee from the upkeep and gives to owner', async () => {
           const minUpkeepSpend = toWei('10')
 
-          await registry.connect(owner).setConfig(
+          await registry.connect(owner)[setConfigExplicit](
             signerAddresses,
             keeperAddresses,
             f,
-            encodeConfig({
+            {
               paymentPremiumPPB,
               flatFeeMicroLink,
               checkGasLimit,
@@ -5147,7 +5152,7 @@ describe('KeeperRegistry2_1', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
-            }),
+            },
             offchainVersion,
             offchainBytes,
           )
@@ -5180,11 +5185,11 @@ describe('KeeperRegistry2_1', () => {
         it('deducts up to balance as cancellation fee', async () => {
           // Very high min spend, should deduct whole balance as cancellation fees
           const minUpkeepSpend = toWei('1000')
-          await registry.connect(owner).setConfig(
+          await registry.connect(owner)[setConfigExplicit](
             signerAddresses,
             keeperAddresses,
             f,
-            encodeConfig({
+            {
               paymentPremiumPPB,
               flatFeeMicroLink,
               checkGasLimit,
@@ -5200,7 +5205,7 @@ describe('KeeperRegistry2_1', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
-            }),
+            },
             offchainVersion,
             offchainBytes,
           )
@@ -5228,11 +5233,11 @@ describe('KeeperRegistry2_1', () => {
         it('does not deduct cancellation fee if more than minUpkeepSpend is spent', async () => {
           // Very low min spend, already spent in one perform upkeep
           const minUpkeepSpend = BigNumber.from(420)
-          await registry.connect(owner).setConfig(
+          await registry.connect(owner)[setConfigExplicit](
             signerAddresses,
             keeperAddresses,
             f,
-            encodeConfig({
+            {
               paymentPremiumPPB,
               flatFeeMicroLink,
               checkGasLimit,
@@ -5248,7 +5253,7 @@ describe('KeeperRegistry2_1', () => {
               transcoder: transcoder.address,
               registrars: [],
               upkeepPrivilegeManager: upkeepManager,
-            }),
+            },
             offchainVersion,
             offchainBytes,
           )
@@ -5597,11 +5602,11 @@ describe('KeeperRegistry2_1', () => {
       maxAllowedSpareChange = maxAllowedSpareChange.add(BigNumber.from('31'))
       await verifyConsistentAccounting(maxAllowedSpareChange)
 
-      await registry.connect(owner).setConfig(
+      await registry.connect(owner)[setConfigExplicit](
         signerAddresses.slice(2, 15), // only use 2-14th index keepers
         keeperAddresses.slice(2, 15),
         f,
-        encodeConfig(config),
+        config,
         offchainVersion,
         offchainBytes,
       )
@@ -5629,11 +5634,11 @@ describe('KeeperRegistry2_1', () => {
         )
       await verifyConsistentAccounting(maxAllowedSpareChange)
 
-      await registry.connect(owner).setConfig(
+      await registry.connect(owner)[setConfigExplicit](
         signerAddresses.slice(0, 4), // only use 0-3rd index keepers
         keeperAddresses.slice(0, 4),
         f,
-        encodeConfig(config),
+        config,
         offchainVersion,
         offchainBytes,
       )
