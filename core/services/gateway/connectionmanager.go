@@ -145,7 +145,7 @@ func (m *connectionManager) StartHandshake(authHeader []byte) (attemptId string,
 	m.lggr.Debug("StartHandshake")
 	authHeaderElems, signer, err := network.UnpackSignedAuthHeader(authHeader)
 	if err != nil {
-		return "", nil, network.ErrAuthHeaderParse
+		return "", nil, multierr.Append(network.ErrAuthHeaderParse, err)
 	}
 	nodeAddress := "0x" + hex.EncodeToString(signer)
 	donConnMgr, ok := m.dons[authHeaderElems.DonId]
