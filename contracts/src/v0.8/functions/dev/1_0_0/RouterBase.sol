@@ -111,7 +111,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
-  function version() external view returns (uint16, uint16, uint16) {
+  function version() external view override returns (uint16, uint16, uint16) {
     return (s_majorVersion, s_minorVersion, s_patchVersion);
   }
 
@@ -139,14 +139,14 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
-  function getContractById(bytes32 id) external view returns (address routeDestination) {
+  function getContractById(bytes32 id) external view override returns (address routeDestination) {
     routeDestination = _getContractById(id, false);
   }
 
   /**
    * @inheritdoc IRouterBase
    */
-  function getContractById(bytes32 id, bool useProposed) external view returns (address routeDestination) {
+  function getContractById(bytes32 id, bool useProposed) external view override returns (address routeDestination) {
     routeDestination = _getContractById(id, useProposed);
   }
 
@@ -157,7 +157,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
-  function getProposedContractSet() external view returns (uint256, bytes32[] memory, address[] memory) {
+  function getProposedContractSet() external view override returns (uint256, bytes32[] memory, address[] memory) {
     return (s_proposedContractSet.timelockEndBlock, s_proposedContractSet.ids, s_proposedContractSet.to);
   }
 
