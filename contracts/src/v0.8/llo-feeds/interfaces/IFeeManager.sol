@@ -15,21 +15,39 @@ interface IFeeManager is IERC165 {
   function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint256 discount) external;
 
   /**
-   * @notice Gets the fee from a report. If the sender is a subscriber, they will receive a discount.
-   * @param sender sender address trying to verify
-   * @param signedReport signed report to verify
-   * @param feeMetadata any metadata required to fetch the fee
-   * @return feeData fee data containing token and amount
+   * @notice Processes the fee for a report, billing the subscriber and paying the reward manager
+   * @param configDigest digest of the configuration
+   * @param report report to process the fee for
+   * @param quote the quote containing the fee the subscriber wishes to be billed in
+   * @param subscriber address of the fee will be applied
    */
-  function getFee(
-    address sender,
-    bytes calldata signedReport,
-    bytes calldata feeMetadata
-  ) external returns (Common.Asset memory feeData);
+  function processFee(
+    bytes32 configDigest,
+    bytes calldata report,
+    bytes calldata quote,
+    address subscriber
+  ) external payable;
 
   /**
    * @notice Sets the native premium
    * @param premium premium to be paid if paying in native
    */
   function setNativePremium(uint256 premium) external;
+
+  /**
+   * @notice Sets the fee recipients within the reward manager
+   * @param configDigest digest of the configuration
+   * @param rewardRecipientAndWeights the address and weights of all the recipients to receive rewards
+   */
+  function setFeeRecipients(
+    bytes32 configDigest,
+    Common.AddressAndWeight[] calldata rewardRecipientAndWeights
+  ) external;
+
+  /**
+   * @notice Withdraws any native rewards to the owner address
+   * @param quantity quantity of native tokens to withdraw, address(0) is native
+   * @param quantity quantity to withdraw
+   */
+  function withdraw(address assetAddress, uint256 quantity) external;
 }

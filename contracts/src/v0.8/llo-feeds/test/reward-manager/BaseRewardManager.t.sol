@@ -58,19 +58,17 @@ contract BaseRewardManagerTest is Test {
   uint256 internal constant FIFTY_PERCENT = POOL_SCALAR / 2;
   uint256 internal constant TEN_PERCENT = POOL_SCALAR / 10;
 
-
   //the selector for each error
   bytes4 internal constant UNAUTHORIZED_ERROR_SELECTOR = bytes4(keccak256("Unauthorized()"));
   bytes4 internal constant INVALID_ADDRESS_ERROR_SELECTOR = bytes4(keccak256("InvalidAddress()"));
   bytes4 internal constant INVALID_WEIGHT_ERROR_SELECTOR = bytes4(keccak256("InvalidWeights()"));
   bytes4 internal constant INVALID_POOL_ID_ERROR_SELECTOR = bytes4(keccak256("InvalidPoolId()"));
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
-  bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
 
   // Events emitted within the reward manager
   event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);
   event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint256 quantity);
-  event VerifierProxyUpdated(address newProxyAddress);
+  event FeeManagerUpdated(address newProxyAddress);
 
   function setUp() public virtual {
     //change to admin user
@@ -122,7 +120,7 @@ contract BaseRewardManagerTest is Test {
     return recipients;
   }
 
-  function getPrimaryRecipientAddresses() public returns (address[] memory) {
+  function getPrimaryRecipientAddresses() public pure returns (address[] memory) {
     //array of recipients
     address[] memory recipients = new address[](4);
 
@@ -149,7 +147,7 @@ contract BaseRewardManagerTest is Test {
     return recipients;
   }
 
-  function getSecondaryRecipientAddresses() public returns (address[] memory) {
+  function getSecondaryRecipientAddresses() public pure returns (address[] memory) {
     //array of recipients
     address[] memory recipients = new address[](4);
 
@@ -177,19 +175,19 @@ contract BaseRewardManagerTest is Test {
     changePrank(originalAddr);
   }
 
-  function getAsset(uint256 quantity) public returns (Common.Asset memory) {
+  function getAsset(uint256 quantity) public view returns (Common.Asset memory) {
     return Common.Asset(address(asset), quantity);
   }
 
-  function getUnsupportedAsset(uint256 quantity) public returns (Common.Asset memory) {
+  function getUnsupportedAsset(uint256 quantity) public view returns (Common.Asset memory) {
     return Common.Asset(address(unsupported), quantity);
   }
 
-  function getAssetBalance(address addr) public returns (uint256) {
+  function getAssetBalance(address addr) public view returns (uint256) {
     return asset.balanceOf(addr);
   }
 
-  function getUnsupportedBalance(address addr) public returns (uint256) {
+  function getUnsupportedBalance(address addr) public view returns (uint256) {
     return unsupported.balanceOf(addr);
   }
 
@@ -229,13 +227,13 @@ contract BaseRewardManagerTest is Test {
     changePrank(originalAddr);
   }
 
-  function setVerifierProxy(address verifierProxy, address sender) public {
+  function setFeeManager(address feeManager, address sender) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
     changePrank(sender);
 
     //update the proxy
-    rewardManager.setVerifierProxy(verifierProxy);
+    rewardManager.setFeeManager(feeManager);
 
     //change back to the original address
     changePrank(originalAddr);

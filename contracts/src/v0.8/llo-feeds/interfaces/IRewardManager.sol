@@ -47,8 +47,8 @@ interface IRewardManager is IERC165 {
   function payRecipients(bytes32 poolId, address[] calldata recipients) external;
 
   /**
-   * @notice Sets the verifier proxy. This needs to be done post construction to prevent a circular dependency.
-   * @param newVerifierProxy address of the new verifier proxy
+   * @notice Sets the fee manager. This needs to be done post construction to prevent a circular dependency.
+   * @param newFeeManager address of the new verifier proxy
    */
-  function setVerifierProxy(address newVerifierProxy) external;
+  function setFeeManager(address newFeeManager) external;
 }

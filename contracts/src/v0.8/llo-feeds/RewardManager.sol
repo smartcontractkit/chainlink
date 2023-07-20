@@ -38,8 +38,8 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   // The total weight of all RewardRecipients. 1e18 = 10% of the pool fees
   uint256 private constant PERCENTAGE_SCALAR = 1e18;
 
-  // The verifier proxy address
-  address private verifierProxyAddress;
+  // The fee manager address
+  address private feeManagerAddress;
 
   // @notice Thrown whenever the RewardRecipient weights are invalid
   error InvalidWeights();
@@ -56,7 +56,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   // Events emitted upon state change
   event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);
   event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint256 quantity);
-  event VerifierProxyUpdated(address newProxyAddress);
+  event FeeManagerUpdated(address newFeeManagerAddress);
 
   /**
    * @notice Constructor
@@ -79,8 +79,8 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     return interfaceId == this.onFeePaid.selector;
   }
 
-  modifier onlyOwnerOrProxy() {
-    if (msg.sender != verifierProxyAddress && msg.sender != owner()) revert Unauthorized();
+  modifier onlyOwnerOrFeeManager() {
+    if (msg.sender != feeManagerAddress && msg.sender != owner()) revert Unauthorized();
     _;
   }
 
@@ -91,9 +91,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
   // @inheritdoc IRewardManager
   function onFeePaid(bytes32 poolId, address payee, Common.Asset calldata fee) external override {
-    //this pool only handles link fees, so we need convert the payment
+    //this pool only handles link fees
     if (fee.assetAddress != LINK_ADDRESS) {
-      revert("TODO");
+      revert InvalidAddress();
     }
 
     //update the total fees collected for this pot
@@ -151,7 +151,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   function setRewardRecipients(
     bytes32 poolId,
     Common.AddressAndWeight[] calldata rewardRecipientAndWeights
-  ) external override onlyOwnerOrProxy {
+  ) external override onlyOwnerOrFeeManager {
     //revert if there's no recipients to set
     if (rewardRecipientAndWeights.length == 0) revert InvalidAddress();
 
@@ -179,7 +179,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
     //loop each recipient and claim the reward-manager for each of the pools and assets
     for (uint256 i; i < recipients.length; ) {
-      uint256 claimAmount = _claimRewards(recipients[i], poolIdsArray);
+      _claimRewards(recipients[i], poolIdsArray);
 
       unchecked {
         //there will never be enough recipients for i to overflow
@@ -226,7 +226,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   // wrapper impl for claimRewards
-  function _claimRewards(address recipient, bytes32[] memory poolIds) internal returns (uint256 claimAmount) {
+  function _claimRewards(address recipient, bytes32[] memory poolIds) internal returns (uint256) {
     //get the total amount claimable for this recipient
     uint256 claimAmount;
 
@@ -304,10 +304,10 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   // @inheritdoc IRewardManager
-  function setVerifierProxy(address newVerifierProxyAddress) external onlyOwner {
-    verifierProxyAddress = newVerifierProxyAddress;
+  function setFeeManager(address newFeeManagerAddress) external onlyOwner {
+    feeManagerAddress = newFeeManagerAddress;
 
     //emit event
-    emit VerifierProxyUpdated(newVerifierProxyAddress);
+    emit FeeManagerUpdated(newFeeManagerAddress);
   }
 }

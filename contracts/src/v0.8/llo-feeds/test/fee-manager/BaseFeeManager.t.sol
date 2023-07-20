@@ -3,6 +3,7 @@ pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
 import {FeeManager} from "../../FeeManager.sol";
+import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 
 /**
@@ -14,6 +15,7 @@ import {Common} from "../../../libraries/internal/Common.sol";
 contract BaseFeeManagerTest is Test {
   //contracts
   FeeManager internal feeManager;
+  RewardManager internal rewardManager;
 
   //contract owner
   address internal constant INVALID_ADDRESS = address(0);
@@ -50,12 +52,13 @@ contract BaseFeeManagerTest is Test {
     vm.startPrank(ADMIN);
 
     //init required contracts
-    _initializeFeeManager();
+    _initializeContracts();
   }
 
-  function _initializeFeeManager() internal {
-    //create the contract
-    feeManager = new FeeManager(LINK_ADDRESS, NATIVE_ADDRESS);
+  function _initializeContracts() internal {
+    rewardManager = new RewardManager(LINK_ADDRESS);
+    feeManager = new FeeManager(LINK_ADDRESS, NATIVE_ADDRESS, USER, address(rewardManager));
+    rewardManager.setFeeManager(address(feeManager));
   }
 
   function setSubscriberDiscount(
@@ -88,16 +91,23 @@ contract BaseFeeManagerTest is Test {
     changePrank(originalAddr);
   }
 
-  function getFee(bytes memory report, bytes memory quote, address subscriber) public returns (Common.Asset memory) {
+  // solium-disable-next-line no-unused-vars
+  function getFee(
+    bytes memory report,
+    bytes memory quote,
+    address subscriber
+  ) public view returns (Common.Asset memory) {
     //set the discount
-    return feeManager.getFee(subscriber, report, quote);
+    (Common.Asset memory fee, ) = feeManager.getFeeAndReward(subscriber, report, quote);
+
+    return fee;
   }
 
   function getReport(bytes32 feedId) public pure returns (bytes memory) {
     return abi.encodePacked(feedId, new bytes(DEFAULT_REPORT_SIZE_EXCLUDING_FEED_ID));
   }
 
-  function getReportWithFee(bytes32 feedId) public view returns (bytes memory) {
+  function getReportWithFee(bytes32 feedId) public pure returns (bytes memory) {
     return abi.encodePacked(getReport(feedId), bytes32(DEFAULT_REPORT_LINK_FEE), bytes32(DEFAULT_REPORT_NATIVE_FEE));
   }
 
@@ -105,7 +115,7 @@ contract BaseFeeManagerTest is Test {
     bytes32 feedId,
     uint256 linkFee,
     uint256 nativeFee
-  ) public view returns (bytes memory) {
+  ) public pure returns (bytes memory) {
     return abi.encodePacked(getReport(feedId), bytes32(linkFee), bytes32(nativeFee));
   }
 

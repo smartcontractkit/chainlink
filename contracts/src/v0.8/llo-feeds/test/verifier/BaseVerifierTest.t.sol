@@ -10,7 +10,6 @@ import {Verifier} from "../../Verifier.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
 import {FeeManager} from "../../FeeManager.sol";
-import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 import {ERC20Mock} from "../../../shared/vendor/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/vendor/WERC20Mock.sol";
@@ -46,11 +45,6 @@ contract BaseTest is Test {
   Verifier internal s_verifier;
   Verifier internal s_verifier_2;
   ErroredVerifier internal s_erroredVerifier;
-  FeeManager internal s_feeManager;
-  RewardManager internal s_rewardManager;
-  ERC20Mock internal s_link;
-  ERC20Mock internal s_native;
-  WERC20Mock internal s_wrappedNative;
 
   struct Signer {
     uint256 mockPrivateKey;
@@ -91,22 +85,7 @@ contract BaseTest is Test {
       abi.encodeWithSelector(IERC165.supportsInterface.selector, IVerifier.verify.selector),
       abi.encode(true)
     );
-
-    //create the contracts
-    s_link = new ERC20Mock("link", "LINK");
-    s_native = new ERC20Mock("eth", "ETH");
-    s_wrappedNative = new WERC20Mock("weth", "WETH");
-
-    s_feeManager = new FeeManager(address(s_link), address(s_native));
-    s_rewardManager = new RewardManager(address(s_link));
-    s_verifierProxy = new VerifierProxy(
-      AccessControllerInterface(address(0)),
-      s_feeManager,
-      s_rewardManager,
-      address(s_wrappedNative)
-    );
-
-    s_rewardManager.setVerifierProxy(address(s_verifierProxy));
+    s_verifierProxy = new VerifierProxy(AccessControllerInterface(address(0)));
 
     s_verifier = new Verifier(address(s_verifierProxy));
     s_verifier_2 = new Verifier(address(s_verifierProxy));

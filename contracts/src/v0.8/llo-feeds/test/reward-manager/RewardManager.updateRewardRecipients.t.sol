@@ -107,9 +107,6 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
   }
 
   function test_updateRecipientsToDifferentSet() public {
-    //expected recipient amount is 1/4 of the pool deposit
-    uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](getPrimaryRecipients().length + 4);
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
@@ -131,9 +128,6 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
   }
 
   function test_updateRecipientsToDifferentPartialSet() public {
-    //expected recipient amount is 1/4 of the pool deposit for original recipients
-    uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](getPrimaryRecipients().length + 2);
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
@@ -153,9 +147,6 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
   }
 
   function test_updateRecipientsToDifferentLargerSet() public {
-    //expected recipient amount is 1/4 of the pool deposit for original recipients
-    uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](getPrimaryRecipients().length + 5);
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
@@ -178,9 +169,6 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
   }
 
   function test_updateRecipientsUpdateAndRemoveExistingForLargerSet() public {
-    //expected recipient amount is 1/4 of the pool deposit for original recipients
-    uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](9);
 
@@ -205,9 +193,6 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
   }
 
   function test_updateRecipientsUpdateAndRemoveExistingForSmallerSet() public {
-    //expected recipient amount is 1/4 of the pool deposit for original recipients
-    uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](5);
 
@@ -247,9 +232,6 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
   }
 
   function test_updatePartialRecipientsToSubset() public {
-    //expected recipient amount is 1/4 of the pool deposit for original recipients
-    uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
-
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
     recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, 0);
@@ -327,10 +309,22 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     }
 
     //manually check the balance of each recipient which should be their original amount of 1/4 plus their new weighted amount
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_1), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount);
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_2), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount);
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_3), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 3) / POOL_SCALAR + expectedRecipientAmount);
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_4), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 5) / POOL_SCALAR + expectedRecipientAmount);
+    assertEq(
+      getAssetBalance(DEFAULT_RECIPIENT_1),
+      (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount
+    );
+    assertEq(
+      getAssetBalance(DEFAULT_RECIPIENT_2),
+      (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount
+    );
+    assertEq(
+      getAssetBalance(DEFAULT_RECIPIENT_3),
+      (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 3) / POOL_SCALAR + expectedRecipientAmount
+    );
+    assertEq(
+      getAssetBalance(DEFAULT_RECIPIENT_4),
+      (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 5) / POOL_SCALAR + expectedRecipientAmount
+    );
   }
 
   function test_partialUpdateRecipientWeights() public {
@@ -364,8 +358,14 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     }
 
     //manually check the balance of each recipient which should be their original amount of 1/4 plus their new weighted amount
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_1), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount);
-    assertEq(getAssetBalance(DEFAULT_RECIPIENT_2), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 4) / POOL_SCALAR + expectedRecipientAmount);
+    assertEq(
+      getAssetBalance(DEFAULT_RECIPIENT_1),
+      (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount
+    );
+    assertEq(
+      getAssetBalance(DEFAULT_RECIPIENT_2),
+      (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 4) / POOL_SCALAR + expectedRecipientAmount
+    );
 
     //the reward manager should have half the funds remaining
     assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
@@ -446,9 +446,21 @@ contract RewardManagerUpdateRewardRecipientsMultiplePoolsTest is BaseRewardManag
     claimRewards(PRIMARY_POOL_ARRAY, recipients[3].addr);
 
     //check the balance matches the ratio the recipient who were updated should have received
-    assertEq(getAssetBalance(recipients[0].addr), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 4) / POOL_SCALAR + expectedRecipientAmount);
-    assertEq(getAssetBalance(recipients[1].addr), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 4) / POOL_SCALAR + expectedRecipientAmount);
-    assertEq(getAssetBalance(recipients[2].addr), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount);
-    assertEq(getAssetBalance(recipients[3].addr), (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount);
+    assertEq(
+      getAssetBalance(recipients[0].addr),
+      (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 4) / POOL_SCALAR + expectedRecipientAmount
+    );
+    assertEq(
+      getAssetBalance(recipients[1].addr),
+      (POOL_DEPOSIT_AMOUNT * TEN_PERCENT * 4) / POOL_SCALAR + expectedRecipientAmount
+    );
+    assertEq(
+      getAssetBalance(recipients[2].addr),
+      (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount
+    );
+    assertEq(
+      getAssetBalance(recipients[3].addr),
+      (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount
+    );
   }
 }

@@ -198,12 +198,12 @@ contract FeeManagerTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium - expectedDiscount);
   }
 
-  function test_emptyQuoteReturnsZeroFee() public {
+  function test_emptyQuoteReturnsLinkBaseFee() public {
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), new bytes(0), USER);
 
-    //fee should be zero
-    assertEq(fee.amount, 0);
+    //fee should be the base link fee
+    assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
   }
 
   function test_nativePremium100Percent() public {

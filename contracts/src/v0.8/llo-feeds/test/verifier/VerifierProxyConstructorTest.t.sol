@@ -8,23 +8,13 @@ import {AccessControllerInterface} from "../../../interfaces/AccessControllerInt
 
 contract VerifierProxyConstructorTest is BaseTest {
   function test_correctlySetsTheOwner() public {
-    VerifierProxy proxy = new VerifierProxy(
-      AccessControllerInterface(address(0)),
-      s_feeManager,
-      s_rewardManager,
-      address(s_wrappedNative)
-    );
+    VerifierProxy proxy = new VerifierProxy(AccessControllerInterface(address(0)));
     assertEq(proxy.owner(), ADMIN);
   }
 
   function test_correctlySetsTheCorrectAccessControllerInterface() public {
     address accessControllerAddr = address(1234);
-    VerifierProxy proxy = new VerifierProxy(
-      AccessControllerInterface(accessControllerAddr),
-      s_feeManager,
-      s_rewardManager,
-      address(s_wrappedNative)
-    );
+    VerifierProxy proxy = new VerifierProxy(AccessControllerInterface(accessControllerAddr));
     assertEq(address(proxy.getAccessController()), accessControllerAddr);
   }
 

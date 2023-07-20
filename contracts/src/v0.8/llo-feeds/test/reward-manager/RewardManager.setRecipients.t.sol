@@ -111,9 +111,9 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), USER);
   }
 
-  function test_setRewardRecipientFromProxyAddress() public {
+  function test_setRewardRecipientFromManagerAddress() public {
     //update the proxy address
-    setVerifierProxy(USER, ADMIN);
+    setFeeManager(USER, ADMIN);
 
     //set the recipients
     setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), USER);
@@ -121,7 +121,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
 
   function test_onlyConfiguredAddressCanPayIntoPool() public {
     //should revert if the unconfigured address tries to pay into the pool
-    vm.expectRevert(INSUFFICIENT_ALLOWANCE_ERROR);
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
 
     //try and add funds to the pool from an unconfigured address
     rewardManager.onFeePaid(PRIMARY_POOL_ID, msg.sender, getUnsupportedAsset(1));

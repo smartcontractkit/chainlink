@@ -9,7 +9,7 @@ contract WERC20Mock is ERC20 {
     event  Deposit(address indexed dst, uint wad);
     event  Withdrawal(address indexed src, uint wad);
 
-    fallback() external payable {
+    receive() external payable {
         deposit();
     }
 

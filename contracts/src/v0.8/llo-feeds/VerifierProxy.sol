@@ -7,11 +7,8 @@ import {IVerifier} from "./interfaces/IVerifier.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {AccessControllerInterface} from "../interfaces/AccessControllerInterface.sol";
 import {IERC165} from "../shared/vendor/IERC165.sol";
-import {IRewardManager} from "./interfaces/IRewardManager.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
-import {IERC20} from "../shared/vendor/IERC20.sol";
 import {Common} from "../libraries/internal/Common.sol";
-import {IWERC20} from "../shared/vendor/IWERC20.sol";
 
 /**
  * The verifier proxy contract is the gateway for all report verification requests
@@ -82,24 +79,8 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @notice The contract to control fees for report verification
   IFeeManager public s_feeManager;
 
-  /// @notice The contract to control reward distribution for report verification
-  IRewardManager public s_rewardsManager;
-
-  /// @notice The Wrapped Native contract
-  address private immutable s_wrappedNative;
-
-  constructor(
-    AccessControllerInterface accessController,
-    IFeeManager feeManager,
-    IRewardManager rewardManager,
-    address wrappedNativeAddress
-  ) ConfirmedOwner(msg.sender) {
+  constructor(AccessControllerInterface accessController) ConfirmedOwner(msg.sender) {
     s_accessController = accessController;
-    s_feeManager = feeManager;
-    s_rewardsManager = rewardManager;
-
-    if (address(wrappedNativeAddress) == address(0)) revert ZeroAddress();
-    s_wrappedNative = wrappedNativeAddress;
   }
 
   /// @dev reverts if the caller does not have access by the accessController contract or is the contract itself.
@@ -172,39 +153,10 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);
     (bytes memory verifiedReport, bytes memory quoteData) = IVerifier(verifierAddress).verify(payload, msg.sender);
 
-    //if we have a registered fee and reward-manager manager, bill the verifier.
-    if (address(s_feeManager) != address(0) && address(s_rewardsManager) != address(0)) {
-      //decode the fee
-      Common.Asset memory asset = s_feeManager.getFee(msg.sender, verifiedReport, quoteData);
-
-      //some users might not be billed
-      if (asset.amount > 0) {
-        //get the sender of the funds, wrapping it will turn the proxy into the sender
-        address transferFeeFromAddress = msg.sender;
-
-        //if native has been sent in, calculate the amount to wrap and return the rest
-        if (msg.value > 0) {
-          if (asset.assetAddress != s_wrappedNative) revert BadVerification();
-          if (msg.value < asset.amount) revert BadVerification();
-
-          //wrap the amount required to pay the fee & approve
-          IWERC20(s_wrappedNative).deposit{value: asset.amount}();
-          IERC20(s_wrappedNative).approve(address(s_rewardsManager), asset.amount);
-          transferFeeFromAddress = address(this);
-
-          unchecked {
-            //msg.value is always >= to asset.amount
-            uint256 change = msg.value - asset.amount;
-
-            //return the change
-            if (change > 0) {
-              payable(msg.sender).transfer(change);
-            }
-          }
-        }
-
-        //bill the payee
-        s_rewardsManager.onFeePaid(configDigest, transferFeeFromAddress, asset);
+    //bill the verifier
+    if (address(s_feeManager) != address(0)) {
+      try s_feeManager.processFee{value: msg.value}(configDigest, verifiedReport, quoteData, msg.sender) {} catch {
+        revert BadVerification();
       }
     }
 
@@ -229,8 +181,12 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
 
     //empty recipients array will be ignored and will need to be set off chain
     if (addressAndWeights.length > 0) {
-      //Set the reward recipients for this digest
-      s_rewardsManager.setRewardRecipients(newConfigDigest, addressAndWeights);
+      //we can't add a verifier without a feeManager as we need to configure the recipients and weights
+      if (address(s_feeManager) == address(0)) {
+        revert ZeroAddress();
+      }
+      //Set the fee recipients for this digest
+      s_feeManager.setFeeRecipients(newConfigDigest, addressAndWeights);
     }
 
     emit VerifierSet(currentConfigDigest, newConfigDigest, msg.sender);
@@ -253,11 +209,5 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @param feeManager The new fee manager
   function setFeeManager(IFeeManager feeManager) external onlyOwner {
     s_feeManager = IFeeManager(feeManager);
-  }
-
-  /// @notice Updates the rewards manager
-  /// @param rewardsManager The new rewards manager
-  function setRewardsManager(IRewardManager rewardsManager) external onlyOwner {
-    s_rewardsManager = IRewardManager(rewardsManager);
   }
 }
