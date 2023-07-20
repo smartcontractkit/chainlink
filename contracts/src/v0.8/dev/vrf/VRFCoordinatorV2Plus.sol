@@ -611,7 +611,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   /***************************************************************************
    * Section: Migration
    ***************************************************************************/
-  
+
   address[] internal s_migrationTargets;
 
   /// @dev Emitted when new coordinator is registered as migratable target
@@ -624,11 +624,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   /// @param newCoordinator coordinator address after migration
   /// @param prevSubId old subscription ID
   /// @param newSubId new subscription ID
-  event MigrationCompleted(
-    address newCoordinator,
-    uint64 prevSubId,
-    uint64 newSubId
-  );
+  event MigrationCompleted(address newCoordinator, uint64 prevSubId, uint64 newSubId);
 
   /// @notice emitted when migrate() is called and given coordinator is not registered as migratable target
   error CoordinatorNotRegistered(address coordinatorAddress);
@@ -648,7 +644,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   function isTargetRegistered(address target) internal view returns (bool) {
     for (uint256 i = 0; i < s_migrationTargets.length; i++) {
       if (s_migrationTargets[i] == target) {
-          return true;
+        return true;
       }
     }
     return false;
@@ -662,10 +658,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     emit CoordinatorRegistered(target);
   }
 
-  function deregisterMigratableCoordinator(address target)
-      external
-      onlyOwner
-  {
+  function deregisterMigratableCoordinator(address target) external onlyOwner {
     uint256 nTargets = s_migrationTargets.length;
     for (uint256 i = 0; i < nTargets; i++) {
       if (s_migrationTargets[i] == target) {
@@ -696,16 +689,12 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     });
     bytes memory encodedData = abi.encode(migrationData);
     deleteSubscription(subId);
-    uint64 newSubId = IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);    
+    uint64 newSubId = IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);
     require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
     for (uint256 i = 0; i < consumers.length; i++) {
       IVRFMigratableConsumerV2Plus(consumers[i]).setConfig(newCoordinator, newSubId);
     }
-    emit MigrationCompleted(
-      newCoordinator,
-      subId,
-      newSubId
-    );
+    emit MigrationCompleted(newCoordinator, subId, newSubId);
     return newSubId;
   }
 
