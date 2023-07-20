@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
@@ -113,6 +114,22 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 		lookup.block = uint64(block.Int64())
 		r.lggr.Infof("[FeedLookup] upkeep %s block %d decodeFeedLookup feedKey=%s timeKey=%s feeds=%v time=%s extraData=%s", upkeepId, block, lookup.feedParamKey, lookup.timeParamKey, lookup.feeds, lookup.time, hexutil.Encode(lookup.extraData))
 		lookups[i] = lookup
+
+		mercuryStartTelem := &telem.MercuryLookup{
+			UpkeepId: upkeepId.String(),
+			// FIX
+			BlockNumber: lookup.block,
+			Timestamp:   uint64(r.ht.LatestChain().Timestamp.Unix()),
+			TimeParam:   lookup.block,
+			Feeds:       lookup.feeds,
+		}
+
+		wrappedMessage := &telem.AutomationTelemWrapper{
+			Msg: &telem.AutomationTelemWrapper_MercuryLookup{
+				MercuryLookup: mercuryStartTelem,
+			},
+		}
+		r.chCustomTelemetry <- wrappedMessage
 	}
 
 	var wg sync.WaitGroup
@@ -137,6 +154,26 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 	}
 	for j, v := range values {
 		r.lggr.Infof("[FeedLookup] checkCallback values[%d]=%s", j, hexutil.Encode(v))
+		// SEND MercuryResponse Message here
+		// MercuryResponse contains the metadata about mercury response
+		// decode values
+		mercuryResponseMessage := &telem.MercuryResponse{
+			UpkeepId: lookup.upkeepId.String(),
+			//FIX
+			BlockNumber:     1,
+			Timestamp:       uint64(r.ht.LatestChain().Timestamp.Unix()),
+			Feeds:           lookup.feeds,
+			HttpStatusCodes: v,
+			Success:         true,
+			Retryable:       true,
+			FailureReason:   1,
+		}
+		wrappedMessage := &telem.AutomationTelemWrapper{
+			Msg: &telem.AutomationTelemWrapper_MercuryResponse{
+				MercuryResponse: mercuryResponseMessage,
+			},
+		}
+		r.chCustomTelemetry <- wrappedMessage
 	}
 
 	mercuryBytes, err := r.checkCallback(ctx, values, lookup)
@@ -151,6 +188,21 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 		r.lggr.Errorf("[FeedLookup] upkeep %s block %d UnpackCheckCallbackResult err: %v", lookup.upkeepId, lookup.block, err)
 		return
 	}
+
+	checkCallBackMessage := &telem.MercuryCheckCallback{
+		UpkeepId: lookup.upkeepId.String(),
+		// FIX
+		BlockNumber:   1,
+		Timestamp:     uint64(r.ht.LatestChain().Timestamp.Unix()),
+		FailureReason: uint32(failureReason),
+		UpkeepNeeded:  needed,
+	}
+	wrappedMessage := &telem.AutomationTelemWrapper{
+		Msg: &telem.AutomationTelemWrapper_MercuryCheckcallback{
+			MercuryCheckcallback: checkCallBackMessage,
+		},
+	}
+	r.chCustomTelemetry <- wrappedMessage
 
 	ext, ok := upkeepResults[i].Extension.(EVMAutomationResultExtension21)
 	if !ok {

@@ -811,7 +811,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 	// if version 2.1, then pass in a channel to create a new custom-telemtry-service
 	spec := jb.OCR2OracleSpec
 
-	chAutomationTelemWrapper := make(chan telem.AutomationTelemWrapper, 50)
+	chAutomationTelemWrapper := make(chan *telem.AutomationTelemWrapper, 50)
 	credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
 	mercuryCreds := d.cfg.Mercury().Credentials(credName)
 	keeperProvider21, rgstry21, encoder21, transmitEventProvider21, logProvider21, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mercuryCreds, chAutomationTelemWrapper)

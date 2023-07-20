@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -80,7 +81,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger, chAutomationTelemWrapper chan telem.AutomationTelemWrapper) (*EvmRegistry, error) {
+func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger, chAutomationTelemWrapper chan *telem.AutomationTelemWrapper) (*EvmRegistry, error) {
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -196,7 +197,7 @@ type EvmRegistry struct {
 	enc           EVMAutomationEncoder21
 
 	logEventProvider  logprovider.LogEventProvider
-	chCustomTelemetry chan telem.AutomationTelemWrapper
+	chCustomTelemetry chan *telem.AutomationTelemWrapper
 }
 
 // GetActiveUpkeepIDs uses the latest head and map of all active upkeeps to build a
@@ -730,6 +731,23 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to unpack check result")
 			}
+			// LogTrigger contains log trigger upkeep's information
+			blockNum, _ := strconv.ParseUint(string(results[i].Payload.CheckBlock), 10, 64)
+			logTriggerStartMsg := &telem.LogTrigger{
+				UpkeepId: results[i].Payload.ID,
+				// how to get current block? current as in the block to check?
+				// how to convert CheckBlock (a string type) into a uint64?
+				BlockNumber:    blockNum,
+				Timestamp:      uint64(r.ht.LatestChain().Timestamp.Unix()),
+				LogBlockNumber: uint64(results[i].Payload.Trigger.BlockNumber),
+				LogBlockHash:   results[i].Payload.Trigger.BlockHash,
+			}
+			wrappedMessage := &telem.AutomationTelemWrapper{
+				Msg: &telem.AutomationTelemWrapper_LogTrigger{
+					LogTrigger: logTriggerStartMsg,
+				},
+			}
+			r.chCustomTelemetry <- wrappedMessage
 		}
 	}
 

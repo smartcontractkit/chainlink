@@ -13,13 +13,13 @@ import (
 type AutomationCustomTelemetryService struct {
 	utils.StartStopOnce
 
-	chTelem <-chan telem.AutomationTelemWrapper
+	chTelem <-chan *telem.AutomationTelemWrapper
 	// chDone             chan struct{}
 	monitoringEndpoint commontypes.MonitoringEndpoint
 	// lggr               logger.Logger
 }
 
-func NewAutomationCustomTelemetryService(chTelem <-chan telem.AutomationTelemWrapper, me commontypes.MonitoringEndpoint) *AutomationCustomTelemetryService {
+func NewAutomationCustomTelemetryService(chTelem <-chan *telem.AutomationTelemWrapper, me commontypes.MonitoringEndpoint) *AutomationCustomTelemetryService {
 	return &AutomationCustomTelemetryService{
 		chTelem: chTelem,
 		// chDone:             done,
@@ -38,7 +38,7 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 				case wrappedMessage := <-e.chTelem:
 					// marshall protobuf message to bytes
 					// proto.Marshal takes in a pointer to proto message struct
-					bytes, err := proto.Marshal(&wrappedMessage)
+					bytes, err := proto.Marshal(wrappedMessage)
 					if err != nil {
 						fmt.Printf("Error occured: %v", err)
 					}
