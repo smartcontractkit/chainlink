@@ -19,20 +19,14 @@ import (
 )
 
 const (
-	// HistoryDepth is the number of block keys to send to subscribers
-	HistoryDepth = 128
 	// PollLogInterval is the interval to query log poller
 	PollLogInterval = time.Second
 	// CleanUpInterval is the interval for cleaning up block maps
 	CleanUpInterval = 15 * time.Minute
-	// PollLogLookBack represents how many blocks are requested from log poller in each query
-	PollLogLookBack = 128
 	// Separator is the separator for block key
 	Separator = "|"
 	// ChannelSize represents the channel size for head broadcaster
 	ChannelSize = 20
-	// MaintainLogSize represents how many blocks are kept in the map regularly
-	MaintainLogSize = 2048
 )
 
 type BlockKey struct {
@@ -59,10 +53,11 @@ type HeadProvider struct {
 	maxSubId              int
 	lastClearedBlock      int64
 	lastSentBlock         int64
+	blockHistorySize      int64
 	lggr                  logger.Logger
 }
 
-func NewHeadProvider(c evm.Chain, lggr logger.Logger) *HeadProvider {
+func NewHeadProvider(c evm.Chain, blockHistorySize int64, lggr logger.Logger) *HeadProvider {
 	return &HeadProvider{
 		hb:                    c.HeadBroadcaster(),
 		lp:                    c.LogPoller(),
@@ -70,6 +65,7 @@ func NewHeadProvider(c evm.Chain, lggr logger.Logger) *HeadProvider {
 		subscribers:           map[int]chan ocr2keepers.BlockHistory{},
 		blocksFromPoller:      map[int64]common.Hash{},
 		blocksFromBroadcaster: map[int64]common.Hash{},
+		blockHistorySize:      blockHistorySize,
 		lggr:                  lggr.Named("HeadProvider"),
 	}
 }
@@ -93,34 +89,30 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 						}
 						hw.blocksFromBroadcaster[bk.block] = bk.hash
 
-						var keys [HistoryDepth]BlockKey
-						var index = HistoryDepth - 1
-						for i := int64(0); i < MaintainLogSize; i-- {
+						var keys []BlockKey
+						// populate keys slice in block DES order
+						for i := int64(0); i < hw.blockHistorySize; i-- {
 							if h1, ok1 := hw.blocksFromPoller[bk.block-i]; ok1 {
-								keys[index] = BlockKey{
+								// if a block exists in log poller, use block data from log poller
+								keys = append(keys, BlockKey{
 									block: bk.block - i,
 									hash:  h1,
-								}
-								index--
+								})
 							} else if h2, ok2 := hw.blocksFromBroadcaster[bk.block-i]; ok2 {
-								keys[index] = BlockKey{
+								// if a block only exists in broadcaster, use data from broadcaster
+								keys = append(keys, BlockKey{
 									block: bk.block - i,
 									hash:  h2,
-								}
-								index--
+								})
 							}
-							if index < 0 {
-								break
-							}
+							// if a block does not exist in both log poller and broadcaster, skip
 						}
 
-						if index != HistoryDepth-1 {
-							hw.lastSentBlock = keys[HistoryDepth-1].block
-							history := getBlockHistory(keys)
-							// send history to all subscribers
-							for _, subC := range hw.subscribers {
-								subC <- history
-							}
+						hw.lastSentBlock = bk.block
+						history := getBlockHistory(keys)
+						// send history to all subscribers
+						for _, subC := range hw.subscribers {
+							subC <- history
 						}
 
 						hw.mu.Unlock()
@@ -144,8 +136,8 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 						}
 
 						var blocks []uint64
-						for i := 0; i < PollLogLookBack; i++ {
-							blocks = append(blocks, uint64(h-int64(i)))
+						for i := int64(0); i < hw.blockHistorySize; i++ {
+							blocks = append(blocks, uint64(h-i))
 						}
 
 						// request the past LOOK_BACK blocksFromPoller from log poller
@@ -175,11 +167,11 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 					select {
 					case <-ticker.C:
 						hw.mu.Lock()
-						for i := hw.lastClearedBlock; i < hw.lastSentBlock-MaintainLogSize; i++ {
+						for i := hw.lastClearedBlock + 1; i <= hw.lastSentBlock-hw.blockHistorySize; i++ {
 							delete(hw.blocksFromPoller, i)
 							delete(hw.blocksFromBroadcaster, i)
 						}
-						hw.lastClearedBlock = hw.lastSentBlock - MaintainLogSize - 1
+						hw.lastClearedBlock = hw.lastSentBlock - hw.blockHistorySize
 						hw.mu.Unlock()
 					case <-ctx.Done():
 						ticker.Stop()
@@ -244,7 +236,7 @@ func (w *headWrapper) OnNewLongestChain(_ context.Context, head *evmtypes.Head) 
 	}
 }
 
-func getBlockHistory(keys [HistoryDepth]BlockKey) ocr2keepers.BlockHistory {
+func getBlockHistory(keys []BlockKey) ocr2keepers.BlockHistory {
 	var blockKeys []ocr2keepers.BlockKey
 	for _, k := range keys {
 		blockKeys = append(blockKeys, k.getBlockKey())
