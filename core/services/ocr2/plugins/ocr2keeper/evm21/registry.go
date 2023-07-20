@@ -497,7 +497,7 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		// passing nil instead of l.TriggerConfig to protect against reorgs,
 		// as we'll fetch the latest config from the contract
-		if err := r.updateTriggerConfig(l.Id, nil); err != nil {
+		if err := r.updateTriggerConfig(l.Id, l.TriggerConfig); err != nil {
 			r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", l.Id.String(), err)
 		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepRegistered:
@@ -874,6 +874,17 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) error {
 	case logTrigger:
 		if len(cfg) == 0 {
 			fetched, err := r.fetchTriggerConfig(id)
+			ctx, cancel := context.WithTimeout(r.ctx, 10*time.Second)
+			for err != nil {
+				time.Sleep(1 * time.Second) // backoff
+				select {
+				case <-ctx.Done():
+					cancel()
+					return errors.Wrap(err, "failed to fetch log upkeep config")
+				default:
+				}
+				fetched, err = r.fetchTriggerConfig(id)
+			}
 			if err != nil {
 				return errors.Wrap(err, "failed to fetch log upkeep config")
 			}
