@@ -634,7 +634,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		}
 		return
 	}
-	// HERE SEND MercuryLookUp protobuf message to endpoint
+	// StreamsLookupStart sent in feedLookup()
 	upkeepResults, err = r.feedLookup(ctx, upkeepResults)
 	if err != nil {
 		chResult <- checkResult{
@@ -642,7 +642,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		}
 		return
 	}
-	// HERE SEND MercuryResult protobuf message to endpoint
+
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
 		chResult <- checkResult{
@@ -653,6 +653,21 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 
 	chResult <- checkResult{
 		cr: upkeepResults,
+	}
+
+	for _, res := range upkeepResults {
+		logTriggerSimResult := &telem.LogTriggerSimulateResult{
+			UpkeepId:    res.Payload.ID,
+			BlockNumber: getBlockFromBlockKey(res.Payload.CheckBlock),
+			Timestamp:   uint64(time.Now().UTC().UnixMilli()),
+			Success:     res.Eligible,
+		}
+		wrappedMessage := &telem.AutomationTelemWrapper{
+			Msg: &telem.AutomationTelemWrapper_LogTriggerSimulateResult{
+				LogTriggerSimulateResult: logTriggerSimResult,
+			},
+		}
+		r.chCustomTelemetry <- wrappedMessage
 	}
 }
 
@@ -731,23 +746,21 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to unpack check result")
 			}
-			// LogTrigger contains log trigger upkeep's information
-			blockNum, _ := strconv.ParseUint(string(results[i].Payload.CheckBlock), 10, 64)
-			logTriggerStartMsg := &telem.LogTrigger{
-				UpkeepId: results[i].Payload.ID,
-				// how to get current block? current as in the block to check?
-				// how to convert CheckBlock (a string type) into a uint64?
-				BlockNumber:    blockNum,
-				Timestamp:      uint64(r.ht.LatestChain().Timestamp.Unix()),
-				LogBlockNumber: uint64(results[i].Payload.Trigger.BlockNumber),
-				LogBlockHash:   results[i].Payload.Trigger.BlockHash,
+			if results[i].Payload.Upkeep.Type == 1 {
+				logTriggerStartMsg := &telem.LogTrigger{
+					UpkeepId:       string(keys[i].Upkeep.ID),
+					BlockNumber:    getBlockFromBlockKey(results[i].Payload.CheckBlock),
+					Timestamp:      uint64(time.Now().UTC().UnixMilli()),
+					LogBlockNumber: uint64(results[i].Payload.Trigger.BlockNumber),
+					LogBlockHash:   results[i].Payload.Trigger.BlockHash,
+				}
+				wrappedMessage := &telem.AutomationTelemWrapper{
+					Msg: &telem.AutomationTelemWrapper_LogTrigger{
+						LogTrigger: logTriggerStartMsg,
+					},
+				}
+				r.chCustomTelemetry <- wrappedMessage
 			}
-			wrappedMessage := &telem.AutomationTelemWrapper{
-				Msg: &telem.AutomationTelemWrapper_LogTrigger{
-					LogTrigger: logTriggerStartMsg,
-				},
-			}
-			r.chCustomTelemetry <- wrappedMessage
 		}
 	}
 
@@ -927,4 +940,12 @@ func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+func getBlockFromBlockKey(key ocr2keepers.BlockKey) uint64 {
+	blockNumber, err := strconv.ParseUint(string(key), 10, 64)
+	if err != nil {
+		return 0
+	}
+	return blockNumber
 }

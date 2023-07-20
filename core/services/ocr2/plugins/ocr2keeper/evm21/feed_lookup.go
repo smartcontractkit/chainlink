@@ -115,18 +115,18 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 		r.lggr.Infof("[FeedLookup] upkeep %s block %d decodeFeedLookup feedKey=%s timeKey=%s feeds=%v time=%s extraData=%s", upkeepId, block, lookup.feedParamKey, lookup.timeParamKey, lookup.feeds, lookup.time, hexutil.Encode(lookup.extraData))
 		lookups[i] = lookup
 
-		mercuryStartTelem := &telem.MercuryLookup{
+		streamsStartTelem := &telem.StreamsLookup{
 			UpkeepId: upkeepId.String(),
 			// FIX
 			BlockNumber: lookup.block,
-			Timestamp:   uint64(r.ht.LatestChain().Timestamp.Unix()),
+			Timestamp:   uint64(time.Now().UTC().UnixMilli()),
 			TimeParam:   lookup.block,
 			Feeds:       lookup.feeds,
 		}
 
 		wrappedMessage := &telem.AutomationTelemWrapper{
-			Msg: &telem.AutomationTelemWrapper_MercuryLookup{
-				MercuryLookup: mercuryStartTelem,
+			Msg: &telem.AutomationTelemWrapper_StreamsLookup{
+				StreamsLookup: streamsStartTelem,
 			},
 		}
 		r.chCustomTelemetry <- wrappedMessage
@@ -135,6 +135,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 	var wg sync.WaitGroup
 	for i, lookup := range lookups {
 		wg.Add(1)
+		// StreamsResponse sent in doLookup
 		go r.doLookup(ctx, &wg, lookup, i, upkeepResults)
 	}
 	wg.Wait()
@@ -157,20 +158,22 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 		// SEND MercuryResponse Message here
 		// MercuryResponse contains the metadata about mercury response
 		// decode values
-		mercuryResponseMessage := &telem.MercuryResponse{
+		streamsResponseMessage := &telem.StreamsResponse{
 			UpkeepId: lookup.upkeepId.String(),
 			//FIX
-			BlockNumber:     1,
-			Timestamp:       uint64(r.ht.LatestChain().Timestamp.Unix()),
-			Feeds:           lookup.feeds,
+			BlockNumber: lookup.block,
+			Timestamp:   uint64(time.Now().UTC().UnixMilli()),
+			Feeds:       lookup.feeds,
+			// HERE FIX HTTP Status Codes
 			HttpStatusCodes: v,
 			Success:         true,
-			Retryable:       true,
-			FailureReason:   1,
+			Retryable:       retryable,
+			// HERE FIX FailureReason
+			FailureReason: 1,
 		}
 		wrappedMessage := &telem.AutomationTelemWrapper{
-			Msg: &telem.AutomationTelemWrapper_MercuryResponse{
-				MercuryResponse: mercuryResponseMessage,
+			Msg: &telem.AutomationTelemWrapper_StreamsResponse{
+				StreamsResponse: streamsResponseMessage,
 			},
 		}
 		r.chCustomTelemetry <- wrappedMessage
@@ -189,17 +192,17 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 		return
 	}
 
-	checkCallBackMessage := &telem.MercuryCheckCallback{
+	checkCallBackMessage := &telem.StreamsCheckCallback{
 		UpkeepId: lookup.upkeepId.String(),
 		// FIX
-		BlockNumber:   1,
-		Timestamp:     uint64(r.ht.LatestChain().Timestamp.Unix()),
+		BlockNumber:   lookup.block,
+		Timestamp:     uint64(time.Now().UTC().UnixMilli()),
 		FailureReason: uint32(failureReason),
 		UpkeepNeeded:  needed,
 	}
 	wrappedMessage := &telem.AutomationTelemWrapper{
-		Msg: &telem.AutomationTelemWrapper_MercuryCheckcallback{
-			MercuryCheckcallback: checkCallBackMessage,
+		Msg: &telem.AutomationTelemWrapper_StreamsCheckcallback{
+			StreamsCheckcallback: checkCallBackMessage,
 		},
 	}
 	r.chCustomTelemetry <- wrappedMessage

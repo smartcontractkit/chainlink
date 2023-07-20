@@ -4,8 +4,8 @@ option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/sync
 
 package telem;
 
-// MercuryLookup contains the metadata about a mercury request
-message MercuryLookup {
+// StreamsLookup contains the metadata about a mercury request
+message StreamsLookup {
     string upkeep_id = 1;
     uint64 block_number = 2; // block number provided by ocr2keepers plugin
     uint64 timestamp = 3;  // current timestamp
@@ -13,8 +13,8 @@ message MercuryLookup {
     repeated string feeds = 5; // array of feed names
 }
 
-// MercuryResponse contains the metadata about mercury response
-message MercuryResponse {
+// StreamsResponse contains the metadata about mercury response
+message StreamsResponse {
     string upkeep_id = 1;
     uint64 block_number = 2; // block number provided by ocr2keepers plugin
     uint64 timestamp = 3;  // current timestamp
@@ -25,8 +25,8 @@ message MercuryResponse {
     uint32 failure_reason = 8; // failure enum defined in abi.go (UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED or some on chain reasons)
 }
 
-// MercuryCheckCallback contains whether customer's checkCallBack returns true with mercury data as input
-message MercuryCheckCallback {
+// StreamsCheckCallback contains whether customer's checkCallBack returns true with mercury data as input
+message StreamsCheckCallback {
     string upkeep_id = 1;
     uint64 block_number = 2; // block number provided by ocr2keepers plugin
     uint64 timestamp = 3;  // current timestamp
@@ -44,7 +44,7 @@ message LogTrigger {
 }
 
 // LogTriggerSuccess contains whether checkLog/checkUpkeep eth call returns true for a LogTriggered Upkeep
-message LogTriggerSuccess {
+message LogTriggerSimulateResult {
     string upkeep_id = 1;
     uint64 block_number = 2; // block number provided by ocr2keepers plugin
     uint64 timestamp = 3;  // current timestamp
@@ -53,10 +53,10 @@ message LogTriggerSuccess {
 
 message AutomationTelemWrapper {
     oneof msg {
-        MercuryLookup mercury_lookup = 1;
-        MercuryResponse mercury_response = 2;
-        MercuryCheckCallback mercury_checkcallback = 3;
+        StreamsLookup streams_lookup = 1;
+        StreamsResponse streams_response = 2;
+        StreamsCheckCallback streams_checkcallback = 3;
         LogTrigger log_trigger = 4;
-        LogTriggerSuccess log_trigger_success = 5;
+        LogTriggerSimulateResult log_trigger_simulate_result = 5;
     }
 }
