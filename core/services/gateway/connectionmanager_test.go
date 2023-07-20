@@ -132,37 +132,37 @@ func TestConnectionManager_StartHandshake(t *testing.T) {
 
 	// header too short
 	_, _, err = mgr.StartHandshake([]byte("ab"))
-	require.Equal(t, network.ErrAuthHeaderParse, err)
+	require.ErrorIs(t, err, network.ErrAuthHeaderParse)
 
 	// invalid DON ID
 	badAuthHeaderElems := authHeaderElems
 	badAuthHeaderElems.DonId = "my_don_2"
 	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &badAuthHeaderElems, nodes[0].PrivateKey))
-	require.Equal(t, network.ErrAuthInvalidDonId, err)
+	require.ErrorIs(t, err, network.ErrAuthInvalidDonId)
 
 	// invalid Gateway URL
 	badAuthHeaderElems = authHeaderElems
 	badAuthHeaderElems.GatewayId = "www.example.com"
 	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &badAuthHeaderElems, nodes[0].PrivateKey))
-	require.Equal(t, network.ErrAuthInvalidGateway, err)
+	require.ErrorIs(t, err, network.ErrAuthInvalidGateway)
 
 	// invalid Signer Address
 	badAuthHeaderElems = authHeaderElems
 	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &badAuthHeaderElems, unrelatedNode.PrivateKey))
-	require.Equal(t, network.ErrAuthInvalidNode, err)
+	require.ErrorIs(t, err, network.ErrAuthInvalidNode)
 
 	// invalid signature
 	badAuthHeaderElems = authHeaderElems
 	rawHeader := signAndPackAuthHeader(t, &badAuthHeaderElems, nodes[0].PrivateKey)
 	copy(rawHeader[len(rawHeader)-65:], make([]byte, 65))
 	_, _, err = mgr.StartHandshake(rawHeader)
-	require.Equal(t, network.ErrAuthHeaderParse, err)
+	require.ErrorIs(t, err, network.ErrAuthHeaderParse)
 
 	// invalid timestamp
 	badAuthHeaderElems = authHeaderElems
 	badAuthHeaderElems.Timestamp -= 10
 	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &badAuthHeaderElems, nodes[0].PrivateKey))
-	require.Equal(t, network.ErrAuthInvalidTimestamp, err)
+	require.ErrorIs(t, err, network.ErrAuthInvalidTimestamp)
 }
 
 func TestConnectionManager_FinalizeHandshake(t *testing.T) {
@@ -188,7 +188,7 @@ func TestConnectionManager_FinalizeHandshake(t *testing.T) {
 
 	// invalid attempt
 	err = mgr.FinalizeHandshake("fake_attempt", response, nil)
-	require.Equal(t, network.ErrChallengeAttemptNotFound, err)
+	require.ErrorIs(t, err, network.ErrChallengeAttemptNotFound)
 
 	// invalid signature
 	attemptId, challenge, err = mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, nodes[0].PrivateKey))
@@ -196,5 +196,5 @@ func TestConnectionManager_FinalizeHandshake(t *testing.T) {
 	response, err = gc.SignData(nodes[1].PrivateKey, challenge)
 	require.NoError(t, err)
 	err = mgr.FinalizeHandshake(attemptId, response, nil)
-	require.Equal(t, network.ErrChallengeInvalidSignature, err)
+	require.ErrorIs(t, err, network.ErrChallengeInvalidSignature)
 }
