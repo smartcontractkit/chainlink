@@ -83,7 +83,7 @@ func TestRunner(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
+	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), cc, nil, nil, logger.TestLogger(t), c, c)
 	jobORM := NewTestORM(t, db, cc, pipelineORM, btORM, keyStore, config.Database())
@@ -763,7 +763,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 	keyStore := cltest.NewKeyStore(t, app.GetSqlxDB(), pgtest.NewQConfig(true))
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
+	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (
@@ -944,7 +944,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 	keyStore := cltest.NewKeyStore(t, app.GetSqlxDB(), pgtest.NewQConfig(true))
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
+	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (

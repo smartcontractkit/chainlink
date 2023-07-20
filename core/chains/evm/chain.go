@@ -79,6 +79,14 @@ func (c *Chains) Default() (Chain, error) {
 	return c.dflt, nil
 }
 
+func NewLegacyChainsFromRelayerExtenders(exts []*ChainRelayerExt) *Chains {
+	l := NewLegacyChains()
+	for _, r := range exts {
+		l.Put(r.Chain().ID().String(), r.Chain())
+	}
+	return l
+}
+
 type chain struct {
 	utils.StartStopOnce
 	id              *big.Int
@@ -103,7 +111,7 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("cannot create new chain with ID %s, the chain is disabled", e.ChainID.String())
 }
 
-func newTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainSetOpts) (*chain, error) {
+func newTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtOpts) (*chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !chain.IsEnabled() {
@@ -114,7 +122,7 @@ func newTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainSetOpts)
 	return newChain(ctx, cfg, chain.Nodes, opts)
 }
 
-func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*toml.Node, opts ChainSetOpts) (*chain, error) {
+func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*toml.Node, opts ChainRelayExtOpts) (*chain, error) {
 	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
 	l := opts.Logger.Named(chainID.String()).With("evmChainID", chainID.String())
 	var client evmclient.Client

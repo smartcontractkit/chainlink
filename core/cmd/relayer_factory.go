@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-type relayerFactory struct {
+type RelayerFactory struct {
 	logger.Logger
 	*sqlx.DB
 	pg.QConfig
@@ -34,41 +34,47 @@ type relayerFactory struct {
 	loop.GRPCOpts
 }
 
-func (r relayerFactory) NewEVM(ctx context.Context, cfg evm.GeneralConfig, ks evmrelayer.RelayerKeystore, eb pg.EventBroadcaster, mmon *utils.MailboxMonitor) (map[relay.Identifier]evmrelayer.LoopRelayAdapter, error) {
+// func (r RelayerFactory) NewEVM(ctx context.Context, cfg evm.GeneralConfig, ks evmrelayer.RelayerKeystore, eb pg.EventBroadcaster, mmon *utils.MailboxMonitor) (map[relay.Identifier]evmrelayer.LoopRelayAdapter, error) {
+func (r RelayerFactory) NewEVM(ctx context.Context, opts evm.RelayerFactoryOpts, ks evmrelayer.RelayerKeystore) (map[relay.Identifier]evmrelayer.LoopRelayAdapter, error) {
 	// TODO impl EVM loop. For now always 'fallback' to an adapter and embedded chainset
 
 	var (
 		relayers map[relay.Identifier]evmrelayer.LoopRelayAdapter
 	)
-	ccOpts := evm.ChainSetOpts{
-		Config:           cfg,
-		Logger:           r.Logger,
-		DB:               r.DB,
-		KeyStore:         ks.Eth(),
-		EventBroadcaster: eb,
-		MailMon:          mmon,
+	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
+	ccOpts := evm.ChainRelayExtOpts{
+
+		Logger:             r.Logger,
+		DB:                 r.DB,
+		KeyStore:           ks.Eth(),
+		RelayerFactoryOpts: opts,
+		/*
+			KeyStore:         ks.Eth(),
+			EventBroadcaster: eb,
+			MailMon:          mmon,
+		*/
 	}
 
 	var ids []utils.Big
-	for _, c := range cfg.EVMConfigs() {
+	for _, c := range opts.Config.EVMConfigs() {
 		c := c
 		ids = append(ids, *c.ChainID)
 	}
 	if len(ids) > 0 {
-		if err := evm.EnsureChains(r.DB, r.Logger, cfg.Database(), ids); err != nil {
+		if err := evm.EnsureChains(r.DB, r.Logger, opts.Config.Database(), ids); err != nil {
 			return nil, errors.Wrap(err, "failed to setup EVM chains")
 		}
 	}
 
-	singleChainChainSets, err := evm.NewTOMLChainSet(ctx, ccOpts)
+	evmRelayExtenders, err := evm.NewChainRelayerExtenders(ctx, ccOpts)
 	if err != nil {
 		return nil, err
 	}
-	for _, s := range singleChainChainSets {
+	for _, s := range evmRelayExtenders {
 		relayId := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(s.Chain().ID().String())}
-		singleLegacyChain := evm.NewLegacyChains()
-		singleLegacyChain.Put(s.Chain().ID().String(), s.Chain())
-		relayer := evmrelayer.NewLoopRelayAdapter(evmrelayer.NewRelayer(r.DB, singleLegacyChain, r.Logger, ks, eb), s)
+		legacyChains := evm.NewLegacyChains()
+		legacyChains.Put(s.Chain().ID().String(), s.Chain())
+		relayer := evmrelayer.NewLoopRelayAdapter(evmrelayer.NewRelayer(ccOpts.DB, legacyChains, ccOpts.Logger, ks, ccOpts.EventBroadcaster), s)
 		relayers[relayId] = relayer
 
 	}
@@ -76,7 +82,7 @@ func (r relayerFactory) NewEVM(ctx context.Context, cfg evm.GeneralConfig, ks ev
 	return relayers, nil
 }
 
-func (r relayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaConfigs) (map[relay.Identifier]loop.Relayer, error) {
+func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaConfigs) (map[relay.Identifier]loop.Relayer, error) {
 	var (
 		solanaRelayers map[relay.Identifier]loop.Relayer
 		ids            []relay.Identifier
@@ -136,7 +142,7 @@ func (r relayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCon
 	return solanaRelayers, nil
 }
 
-func (r relayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (map[relay.Identifier]loop.Relayer, error) {
+func (r RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (map[relay.Identifier]loop.Relayer, error) {
 	var (
 		starknetRelayers map[relay.Identifier]loop.Relayer
 		ids              []string
@@ -196,7 +202,7 @@ func (r relayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.Sta
 
 }
 
-func (r relayerFactory) NewCosmos(ks keystore.Cosmos, chainCfgs cosmos.CosmosConfigs, eb pg.EventBroadcaster) (map[relay.Identifier]cosmos.LoopRelayAdapter, error) {
+func (r RelayerFactory) NewCosmos(ks keystore.Cosmos, chainCfgs cosmos.CosmosConfigs, eb pg.EventBroadcaster) (map[relay.Identifier]cosmos.LoopRelayAdapter, error) {
 	var (
 		relayers map[relay.Identifier]cosmos.LoopRelayAdapter
 		ids      []string

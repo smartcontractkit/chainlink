@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
@@ -38,7 +37,6 @@ var ErrNoChains = errors.New("no EVM chains loaded")
 
 var _ legacyChainSet = &chainSet{}
 
-//go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
 type legacyChainSet interface {
 	services.ServiceCtx
 	chains.ChainStatuser
@@ -83,7 +81,7 @@ var ErrCorruptEVMChain = errors.New("corrupt evm chain")
 func (s *ChainRelayerExt) Start(ctx context.Context) error {
 	if len(s.cs.chains) > 1 {
 		// perhaps better as a panic?
-		err := fmt.Errorf("%w: internal error more than one chain (%d)", len(s.cs.chains))
+		err := fmt.Errorf("%w: internal error more than one chain (%d)", ErrCorruptEVMChain, len(s.cs.chains))
 		panic(err)
 	}
 	return s.cs.Start(ctx)
@@ -123,8 +121,9 @@ func (s *ChainRelayerExt) NodeStatuses(ctx context.Context, offset, limit int, c
 	if len(chainIDs) > 1 {
 		return nil, -1, fmt.Errorf("single chain chain set only support one chain id. got %v", chainIDs)
 	}
-	if chainIDs[0] != s.chain.ID().String() {
-		return nil, -1, fmt.Errorf("unknown chain id %s. expected %s", s.chain.ID())
+	cid := chainIDs[0]
+	if cid != s.chain.ID().String() {
+		return nil, -1, fmt.Errorf("unknown chain id %s. expected %s", cid, s.chain.ID())
 	}
 	return s.cs.NodeStatuses(ctx, offset, limit, chainIDs...)
 }
@@ -139,7 +138,7 @@ type chainSet struct {
 	startedChains []Chain
 	chainsMu      sync.RWMutex
 	logger        logger.Logger
-	opts          ChainSetOpts
+	opts          ChainRelayExtOpts
 }
 
 func (cll *chainSet) Start(ctx context.Context) error {
@@ -325,11 +324,19 @@ type GeneralConfig interface {
 	toml.HasEVMConfigs
 }
 
-type ChainSetOpts struct {
-	Config           GeneralConfig
-	Logger           logger.Logger
-	DB               *sqlx.DB
-	KeyStore         keystore.Eth
+type ChainRelayExtOpts struct {
+	Logger   logger.Logger
+	DB       *sqlx.DB
+	KeyStore keystore.Eth
+	RelayerFactoryOpts
+}
+
+// options for the relayer factory. TODO the dependencies are odd;
+// the factory wants to own the logger and db
+// the factory creates extenders, which need the same and more opts
+type RelayerFactoryOpts struct {
+	Config GeneralConfig
+
 	EventBroadcaster pg.EventBroadcaster
 	Configs          types.Configs
 	MailMon          *utils.MailboxMonitor
@@ -347,7 +354,7 @@ type ChainSetOpts struct {
 // NewTOMLChainSet returns a new ChainSet from TOML configuration.
 // func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 
-func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) ([]*ChainRelayerExt, error) {
+func NewChainRelayerExtenders(ctx context.Context, opts ChainRelayExtOpts) ([]*ChainRelayerExt, error) {
 	if err := opts.check(); err != nil {
 		return nil, err
 	}
@@ -370,17 +377,19 @@ func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) ([]*ChainRelayerExt
 	var result []*ChainRelayerExt
 	var err error
 	for i := range enabled {
-		optsCp, errCp := copystructure.Copy(opts)
-		if err != nil {
-			return nil, errCp
-		}
-		// TODO is there any chance this cast can fail?
-		cll := newChainSet(optsCp.(ChainSetOpts))
-		//cll.defaultID = defaultChainID
 
 		//	for i := range enabled {
 		cid := enabled[i].ChainID.String()
-		cll.logger = cll.logger.Named(cid)
+		privOpts := ChainRelayExtOpts{
+			Logger:             opts.Logger.Named(cid),
+			RelayerFactoryOpts: opts.RelayerFactoryOpts,
+			DB:                 opts.DB,
+			KeyStore:           opts.KeyStore,
+		}
+		// TODO is there any chance this cast can fail?
+		cll := newChainSet(privOpts)
+		//cll.defaultID = defaultChainID
+
 		cll.logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := newTOMLChain(ctx, enabled[i], opts)
 		if err2 != nil {
@@ -402,7 +411,7 @@ func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) ([]*ChainRelayerExt
 	return result, nil
 }
 
-func newChainSet(opts ChainSetOpts) *chainSet {
+func newChainSet(opts ChainRelayExtOpts) *chainSet {
 	return &chainSet{
 		chains:        make(map[string]*chain),
 		startedChains: make([]Chain, 0),
@@ -411,7 +420,7 @@ func newChainSet(opts ChainSetOpts) *chainSet {
 	}
 }
 
-func (opts *ChainSetOpts) check() error {
+func (opts *ChainRelayExtOpts) check() error {
 	if opts.Logger == nil {
 		return errors.New("logger must be non-nil")
 	}

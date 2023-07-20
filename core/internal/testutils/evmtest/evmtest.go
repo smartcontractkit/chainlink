@@ -67,11 +67,11 @@ type TestChainOpts struct {
 	GasEstimator   gas.EvmFeeEstimator
 }
 
-// NewChainSet returns a simple chain collection with one chain and
+// NewChainRelayExtenders returns a simple chain collection with one chain and
 // allows to mock client/config on that chain
-func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
-	opts := NewChainSetOpts(t, testopts)
-	cc, err := evm.NewTOMLChainSet(testutils.Context(t), opts)
+func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) []*evm.ChainRelayerExt {
+	opts := NewChainRelayExtOpts(t, testopts)
+	cc, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
 	return cc
 }
@@ -83,16 +83,18 @@ func NewMockChainSetWithChain(t testing.TB, ch evm.Chain) *evmmocks.ChainSet {
 	return cc
 }
 
-func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
+func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayExtOpts {
 	require.NotNil(t, testopts.KeyStore)
-	opts := evm.ChainSetOpts{
-		Config:           testopts.GeneralConfig,
-		Logger:           logger.TestLogger(t),
-		DB:               testopts.DB,
-		KeyStore:         testopts.KeyStore,
-		EventBroadcaster: pg.NewNullEventBroadcaster(),
-		MailMon:          testopts.MailMon,
-		GasEstimator:     testopts.GasEstimator,
+	opts := evm.ChainRelayExtOpts{
+		Logger:   logger.TestLogger(t),
+		DB:       testopts.DB,
+		KeyStore: testopts.KeyStore,
+		RelayerFactoryOpts: evm.RelayerFactoryOpts{
+			Config:           testopts.GeneralConfig,
+			EventBroadcaster: pg.NewNullEventBroadcaster(),
+			MailMon:          testopts.MailMon,
+			GasEstimator:     testopts.GasEstimator,
+		},
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		if testopts.Client != nil {
@@ -132,7 +134,7 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 	return opts
 }
 
-func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
+func MustGetDefaultChain(t testing.TB, cc *evm.Chains) evm.Chain {
 	chain, err := cc.Default()
 	require.NoError(t, err)
 	return chain

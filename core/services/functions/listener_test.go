@@ -53,16 +53,16 @@ type FunctionsListenerUniverse struct {
 func ptr[T any](t T) *T { return &t }
 
 var (
-	RequestID         functions_service.RequestID = newRequestID()
-	RequestIDStr                                  = fmt.Sprintf("0x%x", [32]byte(RequestID))
-	SubscriptionOwner common.Address              = common.BigToAddress(big.NewInt(42069))
-	SubscriptionID                                = uint64(5)
-	ResultBytes                                   = []byte{0xab, 0xcd}
-	ErrorBytes                                    = []byte{0xff, 0x11}
-	Domains                                       = []string{"github.com", "google.com"}
-	EncryptedSecretsUrls []byte                   = []byte{0x11, 0x22}
-	EncryptedSecrets     []byte                   = []byte(`{"TDH2Ctxt":"eyJHcm","SymCtxt":"+yHR","Nonce":"kgjHyT3Jar0M155E"}`)
-	DecryptedSecrets     []byte                   = []byte(`{"0x0":"lhcK"}`)
+	RequestID            functions_service.RequestID = newRequestID()
+	RequestIDStr                                     = fmt.Sprintf("0x%x", [32]byte(RequestID))
+	SubscriptionOwner    common.Address              = common.BigToAddress(big.NewInt(42069))
+	SubscriptionID                                   = uint64(5)
+	ResultBytes                                      = []byte{0xab, 0xcd}
+	ErrorBytes                                       = []byte{0xff, 0x11}
+	Domains                                          = []string{"github.com", "google.com"}
+	EncryptedSecretsUrls []byte                      = []byte{0x11, 0x22}
+	EncryptedSecrets     []byte                      = []byte(`{"TDH2Ctxt":"eyJHcm","SymCtxt":"+yHR","Nonce":"kgjHyT3Jar0M155E"}`)
+	DecryptedSecrets     []byte                      = []byte(`{"0x0":"lhcK"}`)
 )
 
 func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySec int) *FunctionsListenerUniverse {
@@ -76,7 +76,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, KeyStore: kst.Eth(), LogBroadcaster: broadcaster, MailMon: mailMon})
+	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, KeyStore: kst.Eth(), LogBroadcaster: broadcaster, MailMon: mailMon})
 	chain := cc.Chains()[0]
 	lggr := logger.TestLogger(t)
 

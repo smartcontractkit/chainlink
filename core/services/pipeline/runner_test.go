@@ -41,7 +41,7 @@ import (
 func newRunner(t testing.TB, db *sqlx.DB, bridgeORM bridges.ORM, cfg chainlink.GeneralConfig) (pipeline.Runner, *mocks.ORM) {
 	lggr := logger.TestLogger(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
+	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	orm := mocks.NewORM(t)
 	q := pg.NewQ(db, lggr, cfg.Database())
 
@@ -477,7 +477,7 @@ func Test_PipelineRunner_HandleFaultsPersistRun(t *testing.T) {
 		Return(nil)
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
+	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, KeyStore: ethKeyStore})
 	lggr := logger.TestLogger(t)
 	r := pipeline.NewRunner(orm, btORM, cfg.JobPipeline(), cfg.WebServer(), cc, ethKeyStore, nil, lggr, nil, nil)
 

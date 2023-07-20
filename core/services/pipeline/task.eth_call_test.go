@@ -257,7 +257,7 @@ func TestETHCallTask(t *testing.T) {
 
 			var cc evm.ChainSet
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
-				cc = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
+				cc = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
 			} else {
 				cc = cltest.NewChainSetMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
 			}

@@ -571,7 +571,7 @@ func TestETHTxTask(t *testing.T) {
 			})
 			lggr := logger.TestLogger(t)
 
-			cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
+			cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
 				TxManager: txManager, KeyStore: keyStore})
 
 			test.setupClientMocks(keyStore, txManager)

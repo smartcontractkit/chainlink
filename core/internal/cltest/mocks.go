@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -14,10 +13,6 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -422,6 +417,7 @@ func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
 }
 
+/*
 func NewChainSetMockWithOneChain(t testing.TB, ethClient evmclient.Client, cfg evmconfig.ChainScopedConfig) evm.ChainSet {
 	cc := new(evmmocks.ChainSet)
 	ch := new(evmmocks.Chain)
@@ -434,3 +430,4 @@ func NewChainSetMockWithOneChain(t testing.TB, ethClient evmclient.Client, cfg e
 	cc.On("Chains").Return([]evm.Chain{ch})
 	return cc
 }
+*/

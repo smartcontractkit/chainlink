@@ -154,11 +154,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
 	loopRegistry := plugins.NewLoopRegistry(appLggr.Named("LoopRegistry"))
 
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load EVM chainset")
-	}
-
-	rf := relayerFactory{
+	rf := RelayerFactory{
 		Logger:       appLggr,
 		DB:           db,
 		QConfig:      cfg.Database(),
@@ -169,8 +165,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	var relayers chainlink.Relayers
 	// evm always enabled, for some reason ...
 	{
-
-		adapters, err2 := rf.NewEVM(ctx, cfg, keyStore, eventBroadcaster, mailMon)
+		opts := evm.RelayerFactoryOpts{
+			Config:           cfg,
+			EventBroadcaster: eventBroadcaster,
+			MailMon:          mailMon,
+		}
+		adapters, err2 := rf.NewEVM(ctx, opts, keyStore)
 		if err2 != nil {
 			fmt.Errorf("failed to setup EVM relayer: %w", err2)
 		}

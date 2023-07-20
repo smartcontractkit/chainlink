@@ -12,4 +12,4 @@ func (s *Shell) ConfigV2Str(userOnly bool) (string, error) {
 	return s.configV2Str(userOnly)
 }
 
-type RelayerFactory = relayerFactory
+//type RelayerFactory = relayerFactory

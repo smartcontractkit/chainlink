@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestChainSet(t *testing.T) {
+func TestChainRelayExtenders(t *testing.T) {
 	t.Parallel()
 
 	newId := testutils.NewRandomEVMChainID()
@@ -34,28 +34,28 @@ func TestChainSet(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	opts := evmtest.NewChainSetOpts(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg})
+	opts := evmtest.NewChainRelayExtOpts(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg})
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		return cltest.NewEthMocksWithStartupAssertions(t)
 	}
-	chainSet, err := evm.NewTOMLChainSet(testutils.Context(t), opts)
+	chainSet, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
 
-	require.NoError(t, chainSet.Start(testutils.Context(t)))
-	require.NoError(t, chainSet.Chains()[0].Ready())
+	require.Len(t, chainSet, 2)
+	for _, c := range chainSet {
+		require.NoError(t, c.Start(testutils.Context(t)))
+		require.NoError(t, c.Ready())
+	}
 
-	chains := chainSet.Chains()
-	require.Equal(t, 2, len(chains))
-	require.NotEqual(t, chains[0].ID().String(), chains[1].ID().String())
+	require.NotEqual(t, chainSet[0].Chain().ID().String(), chainSet[1].Chain().ID().String())
 
-	assert.NoError(t, chains[0].Ready())
-	assert.NoError(t, chains[1].Ready())
+	for _, c := range chainSet {
+		require.NoError(t, c.Close())
+	}
 
-	chainSet.Close()
+	chainSet[0].Chain().Client().(*evmclimocks.Client).AssertCalled(t, "Close")
+	chainSet[1].Chain().Client().(*evmclimocks.Client).AssertCalled(t, "Close")
 
-	chains[0].Client().(*evmclimocks.Client).AssertCalled(t, "Close")
-	chains[1].Client().(*evmclimocks.Client).AssertCalled(t, "Close")
-
-	assert.Error(t, chains[0].Ready())
-	assert.Error(t, chains[1].Ready())
+	assert.Error(t, chainSet[0].Chain().Ready())
+	assert.Error(t, chainSet[1].Chain().Ready())
 }

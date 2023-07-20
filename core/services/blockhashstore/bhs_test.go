@@ -28,7 +28,7 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
-	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
+	chainSet := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
 	chain, err := chainSet.Get(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
