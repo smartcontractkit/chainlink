@@ -244,7 +244,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				if jb.OCR2OracleSpec.FeedID == nil {
 					return errors.New("feed ID is required for mercury plugin type")
 				}
-			} else {
+			} else if jb.OCR2OracleSpec.PluginType != OCR2Keeper {
 				if jb.OCR2OracleSpec.FeedID != nil {
 					return errors.New("feed ID is not currently supported for non-mercury jobs")
 				}
