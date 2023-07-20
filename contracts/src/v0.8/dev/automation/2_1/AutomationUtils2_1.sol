@@ -24,6 +24,9 @@ struct LogTriggerConfig {
 }
 
 contract AutomationUtils2_1 {
+  /**
+   * @dev this can be removed as OnchainConfig is now exposed directly from the registry
+   */
   function _onChainConfig(KeeperRegistryBase2_1.OnchainConfig memory) external {}
 
   function _report(KeeperRegistryBase2_1.Report memory) external {}
