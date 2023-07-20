@@ -194,7 +194,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			require.NoError(t, err, "Error running Chaos Experiment")
 			l.Info().Msg("Chaos Applied")
 
-			err = testEnvironment.Chaos.WaitForAllRecovered(id)
+			err = testEnvironment.Chaos.WaitForAllRecovered(id, time.Minute)
 			require.NoError(t, err, "Error waiting for Chaos Experiment to end")
 			l.Info().Msg("Chaos Recovered")
 
