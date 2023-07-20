@@ -1115,6 +1115,26 @@ func ConnectChainlinkNodes(e *environment.Environment) ([]*Chainlink, error) {
 	return clients, nil
 }
 
+// ConnectChainlinkNodeURLs creates new Chainlink clients based on just URLs, should only be used inside K8s tests
+func ConnectChainlinkNodeURLs(urls []string) ([]*Chainlink, error) {
+	var clients []*Chainlink
+	for _, url := range urls {
+		c, err := NewChainlink(&ChainlinkConfig{
+			URL:        url,
+			Email:      "notreal@fakeemail.ch",
+			Password:   "fj293fbBnlQ!f9vNs",
+			InternalIP: parseHostname(url),
+			ChartName:  parseHostname(url),   // a decent guess
+			PodName:    "connectedNodeByURL", // an intentionally bad decision
+		})
+		if err != nil {
+			return nil, err
+		}
+		clients = append(clients, c)
+	}
+	return clients, nil
+}
+
 // ReconnectChainlinkNodes reconnects to Chainlink nodes after they have been modified, say through a Helm upgrade
 // Note: Experimental as of now, will likely not work predictably.
 func ReconnectChainlinkNodes(testEnvironment *environment.Environment, nodes []*Chainlink) (err error) {

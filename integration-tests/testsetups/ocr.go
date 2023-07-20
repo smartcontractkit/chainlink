@@ -146,6 +146,22 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 	o.testEnvironment = testEnvironment
 }
 
+// LoadEnvironment loads an existing test environment using the provided URLs
+func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, chainURL, mockServerURL string) {
+	var (
+		network = networks.SelectedNetwork
+		err     error
+	)
+	o.chainClient, err = blockchain.ConnectEVMClient(network)
+	require.NoError(o.t, err, "Error connecting to EVM client")
+	chainlinkNodes, err := client.ConnectChainlinkNodeURLs(chainlinkURLs)
+	require.NoError(o.t, err, "Error connecting to chainlink nodes")
+	o.bootstrapNode, o.workerNodes = chainlinkNodes[0], chainlinkNodes[1:]
+	o.mockServer, err = ctfClient.ConnectMockServerURL(mockServerURL)
+	require.NoError(o.t, err, "Error connecting to mockserver")
+}
+
+// Environment returns the full K8s test environment
 func (o *OCRSoakTest) Environment() *environment.Environment {
 	return o.testEnvironment
 }
@@ -420,6 +436,7 @@ func (o *OCRSoakTest) triggerNewRound(currentAdapterValue int) error {
 			break
 		}
 		log.Warn().Err(err).
+			Str("URL", o.mockServer.APIClient.BaseURL).
 			Int("Attempts left", attemptCount).
 			Msg("Error setting adapter responses, adapter possibly temporarily down, trying again")
 	}
