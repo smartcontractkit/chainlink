@@ -66,7 +66,7 @@ func (u *UpkeepStateStore) SelectByID(ID string) (*ocr2keepers.UpkeepPayload, *U
 	return nil, nil, nil
 }
 
-func (u *UpkeepStateStore) SelectByBlock(block int64) ([]*ocr2keepers.UpkeepPayload, []*UpkeepState, []error) {
+func (u *UpkeepStateStore) SelectByBlock(block int64) ([]*ocr2keepers.UpkeepPayload, []*UpkeepState, error) {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
 	var pl []*ocr2keepers.UpkeepPayload
@@ -83,7 +83,17 @@ func (u *UpkeepStateStore) SelectByBlock(block int64) ([]*ocr2keepers.UpkeepPayl
 func (u *UpkeepStateStore) SelectByBlockRange(start, end int64) ([]*ocr2keepers.UpkeepPayload, []*UpkeepState, error) {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
-
+	var pl []*ocr2keepers.UpkeepPayload
+	var us []*UpkeepState
+	for i := start; i < end; i++ {
+		pl1, us1, err := u.SelectByBlock(i)
+		if err != nil {
+			return nil, nil, err
+		}
+		pl = append(pl, pl1...)
+		us = append(us, us1...)
+	}
+	return pl, us, nil
 }
 
 func (u *UpkeepStateStore) SelectByUpkeepID(upkeepId *big.Int) ([]*ocr2keepers.UpkeepPayload, []*UpkeepState, error) {
@@ -100,8 +110,20 @@ func (u *UpkeepStateStore) SelectByUpkeepID(upkeepId *big.Int) ([]*ocr2keepers.U
 	return pl, us, nil
 }
 
-func (u *UpkeepStateStore) SelectByUpkeepIDs([]*big.Int) ([]*ocr2keepers.UpkeepPayload, []*UpkeepState, error) {
-
+func (u *UpkeepStateStore) SelectByUpkeepIDs(upkeepIds []*big.Int) ([]*ocr2keepers.UpkeepPayload, []*UpkeepState, error) {
+	u.mu.RLock()
+	defer u.mu.RUnlock()
+	var pl []*ocr2keepers.UpkeepPayload
+	var us []*UpkeepState
+	for _, id := range upkeepIds {
+		pl1, us1, err := u.SelectByUpkeepID(id)
+		if err != nil {
+			return nil, nil, err
+		}
+		pl = append(pl, pl1...)
+		us = append(us, us1...)
+	}
+	return pl, us, nil
 }
 
 func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us UpkeepState) error {
