@@ -27,7 +27,6 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -73,13 +72,6 @@ func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) []*evm.ChainRe
 	opts := NewChainRelayExtOpts(t, testopts)
 	cc, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
-	return cc
-}
-
-// NewMockChainSetWithChain returns a mock chainset with one chain
-func NewMockChainSetWithChain(t testing.TB, ch evm.Chain) *evmmocks.ChainSet {
-	cc := evmmocks.NewChainSet(t)
-	cc.On("Default").Return(ch, nil)
 	return cc
 }
 

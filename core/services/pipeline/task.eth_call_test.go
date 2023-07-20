@@ -255,14 +255,15 @@ func TestETHCallTask(t *testing.T) {
 			txManager := txmmocks.NewMockEvmTxManager(t)
 			db := pgtest.NewSqlxDB(t)
 
-			var cc evm.ChainSet
+			var legacyChains *evm.Chains
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
-				cc = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
+				exts := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
+				legacyChains = evm.NewLegacyChainsFromRelayerExtenders(exts)
 			} else {
-				cc = cltest.NewLegacyChainsMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
+				legacyChains = cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
 			}
 
-			task.HelperSetDependencies(cc, cfg.JobPipeline(), test.specGasLimit, pipeline.DirectRequestJobType)
+			task.HelperSetDependencies(legacyChains, cfg.JobPipeline(), test.specGasLimit, pipeline.DirectRequestJobType)
 
 			result, runInfo := task.Run(testutils.Context(t), lggr, test.vars, test.inputs)
 			assert.False(t, runInfo.IsPending)

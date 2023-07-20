@@ -152,7 +152,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app := mocks.NewApplication(t)
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.New())
@@ -248,7 +248,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("ID").Maybe().Return(uuid.New())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
+	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
 	lggr := logger.TestLogger(t)
@@ -324,7 +324,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 
 			lggr := logger.TestLogger(t)
 
@@ -396,7 +396,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsMockWithOneChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
+			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
 
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
 

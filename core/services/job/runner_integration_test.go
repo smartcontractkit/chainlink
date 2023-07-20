@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -193,12 +192,9 @@ func TestRunner(t *testing.T) {
 		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 		// Reference a different one
-		c := new(evmmocks.Chain)
-		c.On("Config").Return(chainScopedConfig)
-		cs := evmmocks.NewChainSet(t)
-		cs.On("Get", mock.Anything).Return(c, nil)
+		legacyChains := cltest.NewLegacyChainsWithMockChain(t, nil, chainScopedConfig)
 
-		jb, err2 := ocr.ValidatedOracleSpecToml(cs, `
+		jb, err2 := ocr.ValidatedOracleSpecToml(legacyChains, `
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			evmChainID         = 1
@@ -457,7 +453,7 @@ ds1 -> ds1_parse;
 			nil,
 			nil,
 			nil,
-			cc,
+			legacyChains,
 			logger.TestLogger(t),
 			config.Database(),
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
@@ -495,7 +491,7 @@ ds1 -> ds1_parse;
 			nil,
 			pw,
 			monitoringEndpoint,
-			cc,
+			legacyChains,
 			lggr,
 			config.Database(),
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
@@ -541,7 +537,7 @@ ds1 -> ds1_parse;
 			nil,
 			pw,
 			monitoringEndpoint,
-			cc,
+			legacyChains,
 			lggr,
 			config.Database(),
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
@@ -575,7 +571,7 @@ ds1 -> ds1_parse;
 			nil,
 			pw,
 			monitoringEndpoint,
-			cc,
+			legacyChains,
 			lggr,
 			config.Database(),
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
@@ -603,7 +599,7 @@ ds1 -> ds1_parse;
 			nil,
 			pw,
 			monitoringEndpoint,
-			cc,
+			legacyChains,
 			lggr,
 			config.Database(),
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
@@ -634,7 +630,7 @@ ds1 -> ds1_parse;
 			nil,
 			pw,
 			monitoringEndpoint,
-			cc,
+			legacyChains,
 			lggr,
 			config.Database(),
 			srvctest.Start(t, utils.NewMailboxMonitor(t.Name())),
@@ -765,7 +761,8 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 	keyStore := cltest.NewKeyStore(t, app.GetSqlxDB(), pgtest.NewQConfig(true))
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (
@@ -896,7 +893,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
-		jobORM := NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
+		jobORM := NewTestORM(t, app.GetSqlxDB(), legacyChains, pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
 		// Trigger v2/resume
 		select {
@@ -946,7 +943,9 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 	keyStore := cltest.NewKeyStore(t, app.GetSqlxDB(), pgtest.NewQConfig(true))
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (
@@ -1075,7 +1074,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgesORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
-		jobORM := NewTestORM(t, app.GetSqlxDB(), cc, pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
+		jobORM := NewTestORM(t, app.GetSqlxDB(), legacyChains, pipelineORM, bridgesORM, app.KeyStore, cfg.Database())
 
 		// Trigger v2/resume
 		select {

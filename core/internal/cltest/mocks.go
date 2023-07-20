@@ -421,13 +421,18 @@ func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
 }
 
-func NewLegacyChainsMockWithOneChain(t testing.TB, ethClient evmclient.Client, cfg evmconfig.ChainScopedConfig) *evm.Chains {
+func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg evmconfig.ChainScopedConfig) *evm.Chains {
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
 	ch.On("Config").Return(cfg)
 	ch.On("Logger").Return(logger.TestLogger(t))
 	ch.On("ID").Return(cfg.EVM().ChainID())
 
+	return NewLegacyChainsWithChain(t, ch)
+
+}
+
+func NewLegacyChainsWithChain(t testing.TB, ch evm.Chain) *evm.Chains {
 	legacyChains := evm.NewLegacyChains()
 	legacyChains.Put(ch.ID().String(), ch)
 	return legacyChains
