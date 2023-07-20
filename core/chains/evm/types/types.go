@@ -3,6 +3,7 @@ package types
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -54,6 +55,23 @@ type Receipt struct {
 	BlockHash         common.Hash     `json:"blockHash,omitempty"`
 	BlockNumber       *big.Int        `json:"blockNumber,omitempty"`
 	TransactionIndex  uint            `json:"transactionIndex"`
+}
+
+type EvmFee struct {
+	// legacy fees
+	Legacy *assets.Wei
+
+	// dynamic/EIP1559 fees
+	DynamicFeeCap *assets.Wei
+	DynamicTipCap *assets.Wei
+}
+
+func (fee EvmFee) String() string {
+	return fmt.Sprintf("{Legacy: %s, DynamicFeeCap: %s, DynamicTipCap: %s}", fee.Legacy, fee.DynamicFeeCap, fee.DynamicTipCap)
+}
+
+func (fee EvmFee) ValidDynamic() bool {
+	return fee.DynamicFeeCap != nil && fee.DynamicTipCap != nil
 }
 
 // FromGethReceipt converts a gethTypes.Receipt to a Receipt

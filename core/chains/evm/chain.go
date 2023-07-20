@@ -44,7 +44,19 @@ type Chain interface {
 	types.ChainService
 
 	ID() *big.Int
-	Client() evmclient.Client
+	Client() multinodeclient.MultiNodeClient[
+		*big.Int,
+		types.Nonce,
+		common.Address,
+		types.Block,
+		common.Hash,
+		types.Transaction,
+		common.Hash,
+		types.Log,
+		ethereum.FilterQuery,
+		*types.Receipt,
+		types.EvmFee,
+	]
 	Config() evmconfig.ChainScopedConfig
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
@@ -184,7 +196,7 @@ func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Nod
 	l := opts.Logger
 	var client evmclient.Client
 	if !cfg.EVMRPCEnabled() {
-		client = evmclient.NewNullClient(chainID, l)
+		client = multinodeclient.NewNullClient[*big.Int, types.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Log, ethereum.FilterQuery, *types.Receipt, types.EvmFee](chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
 		client, err2 = newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
@@ -433,12 +445,18 @@ func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
 
-func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*toml.Node) (evmclient.Client, error) {
-	var primaries []evmclient.Node
-	var sendonlys []evmclient.SendOnlyNode
+func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*toml.Node) (
+	multinodeclient.MultiNodeClient[*big.Int, types.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery, *types.Receipt, types.EvmFee], error) {
+	var primaries []multinodeclient.Node[*big.Int, types.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery, *types.Receipt, types.EvmFee]
+	var sendonlys []multinodeclient.Node[*big.Int, types.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery, *types.Receipt, types.EvmFee]
 	for i, node := range nodes {
+		rpcClient, err := newRPCClient(cfg, noNewHeadsThreshold, lggr, node, int32(i), chainID)
+		if err != nil {
+			return nil, err
+		}
 		if node.SendOnly != nil && *node.SendOnly {
-			sendonly := evmclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL), *node.Name, chainID)
+			sendonly := *multinodeclient.NewNode[*big.Int, types.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery, *types.Receipt, types.EvmFee](
+				cfg, noNewHeadsThreshold, lggr, (url.URL)(*node.WSURL), (*url.URL)(node.HTTPURL), *node.Name, int32(i), chainID, *node.Order, rpcClient)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
 			primary, err := newPrimary(cfg, noNewHeadsThreshold, lggr, node, int32(i), chainID)
@@ -448,10 +466,16 @@ func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Dura
 			primaries = append(primaries, primary)
 		}
 	}
-	return evmclient.NewClientWithNodes(lggr, cfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
+	return multinodeclient.NewMultiNodeClient[*big.Int, types.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery, *types.Receipt, types.EvmFee](lggr, cfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType), nil
 }
 
-func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, n *toml.Node, id int32, chainID *big.Int) (evmclient.Node, error) {
+func newRPCClient(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, n *v2.Node, id int32, chainID *big.Int) (
+	multinodeclient.ChainRPCClient[*big.Int, types.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery, *types.Receipt, types.EvmFee], error) {
+	return evmclient.NewRPCClient(cfg, noNewHeadsThreshold, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Order), nil
+}
+
+func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, n *toml.Node, id int32, chainID *big.Int) (
+	multinodeclient.Node[*big.Int, types.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery, *types.Receipt, types.EvmFee], error) {
 	if n.SendOnly != nil && *n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}

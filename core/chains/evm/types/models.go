@@ -64,7 +64,6 @@ func (h *Head) BlockNumber() int64 {
 func (h *Head) BlockHash() common.Hash {
 	return h.Hash
 }
-
 func (h *Head) GetParentHash() common.Hash {
 	return h.ParentHash
 }
@@ -74,6 +73,11 @@ func (h *Head) GetParent() commontypes.Head[common.Hash] {
 		return nil
 	}
 	return h.Parent
+}
+
+// Return 0 since block difficulty is not relevant for EVM Chains.
+func (h *Head) BlockDifficulty() *utils.Big {
+	return utils.NewBig(big.NewInt(0))
 }
 
 // EarliestInChain recurses through parents until it finds the earliest one
