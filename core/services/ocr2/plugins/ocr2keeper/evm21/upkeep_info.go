@@ -1,8 +1,10 @@
 package evm
 
 import (
+	"encoding/hex"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
@@ -43,4 +45,17 @@ func getUpkeepType(id ocr2keepers.UpkeepIdentifier) upkeepType {
 	}
 	typeByte := id[upkeepTypeByteIndex]
 	return upkeepType(typeByte)
+}
+
+// UpkeepTriggerID returns the identifier using the given upkeepID and trigger.
+// It follows the same logic as the contract, but performs it locally.
+func UpkeepTriggerID(id *big.Int, trigger []byte) (string, error) {
+	idBytes := id.Bytes()
+
+	combined := append(idBytes, trigger...)
+
+	triggerIDBytes := crypto.Keccak256(combined)
+	triggerID := hex.EncodeToString(triggerIDBytes)
+
+	return triggerID, nil
 }
