@@ -2,11 +2,8 @@ package job
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/lib/pq"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 )
 
 var (
@@ -14,6 +11,7 @@ var (
 	ErrNoSendingKeysFromSpec = fmt.Errorf("could not get sending keys from spec")
 )
 
+/*
 // EVMChainForJob parses the job spec and retrieves the evm chain found.
 func EVMChainForBootstrapJob(job *Job, set evm.ChainSet) (evm.Chain, error) {
 	chainIDInterface, ok := job.BootstrapSpec.RelayConfig["chainID"]
@@ -43,7 +41,7 @@ func EVMChainForJob(job *Job, set evm.ChainSet) (evm.Chain, error) {
 
 	return chain, nil
 }
-
+*/
 // SendingKeysForJob parses the job spec and retrieves the sending keys found.
 func SendingKeysForJob(job *Job) (pq.StringArray, error) {
 	sendingKeysInterface, ok := job.OCR2OracleSpec.RelayConfig["sendingKeys"]

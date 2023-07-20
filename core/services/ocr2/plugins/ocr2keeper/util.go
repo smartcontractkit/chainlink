@@ -2,7 +2,6 @@ package ocr2keeper
 
 import (
 	"fmt"
-	"math/big"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
@@ -20,7 +19,6 @@ import (
 	kevm20 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm20"
 	kevm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -112,6 +110,7 @@ func FilterNamesFromSpec20(spec *job.OCR2OracleSpec) (names []string, err error)
 	return []string{kevm20.LogProviderFilterName(addr.Address()), kevm20.UpkeepFilterName(addr.Address())}, err
 }
 
+/*
 func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder, *kevm21.LogProvider, error) {
 	var err error
 	var chain evm.Chain
@@ -157,6 +156,7 @@ func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Ch
 
 	return keeperProvider, registry, encoder, logProvider, err
 }
+*/
 
 func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {
 	addr, err := ethkey.NewEIP55Address(spec.ContractID)

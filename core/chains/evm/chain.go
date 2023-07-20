@@ -59,6 +59,7 @@ var _ Chain = &chain{}
 
 type Chains struct {
 	*chains.ChainsKV[Chain]
+	dflt Chain
 }
 
 func NewLegacyChains() *Chains {
@@ -66,9 +67,16 @@ func NewLegacyChains() *Chains {
 		ChainsKV: chains.NewChainsKV[Chain](),
 	}
 }
-func (c Chains) Default() (Chain, error) {
-	//TODO
-	return nil, nil
+
+func (c *Chains) SetDefault(dflt Chain) {
+	c.dflt = dflt
+}
+
+func (c *Chains) Default() (Chain, error) {
+	if c.dflt == nil {
+		return nil, fmt.Errorf("no default chain specified")
+	}
+	return c.dflt, nil
 }
 
 type chain struct {

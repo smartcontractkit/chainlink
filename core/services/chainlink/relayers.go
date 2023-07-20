@@ -112,6 +112,13 @@ func (rs *Relayers) putOne(id relay.Identifier, r loop.Relayer) error {
 			return fmt.Errorf("unsupported evm loop relayer implementation. got %t want (evmrelayer.LoopRelayAdapter)", r)
 		}
 		rs.chains.EVMChains.Put(id.ChainID.String(), adapter.Chain())
+		if adapter.Default() {
+			dflt, _ := rs.chains.EVMChains.Default()
+			if dflt != nil {
+				return fmt.Errorf("multiple default evm chains. %s, %s", dflt.ID(), adapter.Chain().ID())
+			}
+			rs.chains.EVMChains.SetDefault(adapter.Chain())
+		}
 	case relay.Cosmos:
 		adapter, ok := r.(cosmos.LoopRelayAdapter)
 		if !ok {

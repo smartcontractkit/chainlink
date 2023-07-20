@@ -29,16 +29,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // ErrNoChains indicates that no EVM chains have been started
 var ErrNoChains = errors.New("no EVM chains loaded")
 
-var _ ChainSet = &chainSet{}
+var _ legacyChainSet = &chainSet{}
 
 //go:generate mockery --quiet --name ChainSet --output ./mocks/ --case=underscore
-type ChainSet interface {
+type legacyChainSet interface {
 	services.ServiceCtx
 	chains.ChainStatuser
 	chains.Nodes
@@ -54,46 +55,63 @@ type ChainSet interface {
 	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
-type OneChain interface {
-	ChainSet
+type EvmChainRelayerExtender interface {
+	relay.RelayerExt
 	Chain() Chain
+	Default() bool
 }
-type SingleChainChainSet struct {
-	chain Chain
-	ChainSet
+
+// implements OneChain
+type ChainRelayerExt struct {
+	chain     Chain
+	cs        *chainSet
 	isDefault bool
 }
 
-var _ OneChain = &SingleChainChainSet{}
+var _ EvmChainRelayerExtender = &ChainRelayerExt{}
 
-func NewSingleChainSet(cs ChainSet, c Chain) (*SingleChainChainSet, error) {
-	_, err := cs.Get(c.ID())
-	if err != nil {
-		return nil, fmt.Errorf("cannot create single chain chainset: %w", err)
-	}
-
-	return &SingleChainChainSet{
-		chain:    c,
-		ChainSet: cs,
-	}, nil
-}
-
-func (s *SingleChainChainSet) Chain() Chain {
+func (s *ChainRelayerExt) Chain() Chain {
 	return s.chain
 }
-func (s *SingleChainChainSet) Get(id *big.Int) (Chain, error) {
-	if id != s.chain.ID() {
-		return nil, fmt.Errorf("single chain chain set: %w, got %s have %s", chains.ErrNotFound, id.String(), s.chain.ID())
+
+func (s *ChainRelayerExt) Default() bool {
+	return s.isDefault
+}
+
+var ErrCorruptEVMChain = errors.New("corrupt evm chain")
+
+func (s *ChainRelayerExt) Start(ctx context.Context) error {
+	if len(s.cs.chains) > 1 {
+		// perhaps better as a panic?
+		err := fmt.Errorf("%w: internal error more than one chain (%d)", len(s.cs.chains))
+		panic(err)
 	}
-	return s.chain, nil
+	return s.cs.Start(ctx)
 }
 
-func (s *SingleChainChainSet) Chains() []Chain {
-	return []Chain{s.chain}
+func (s *ChainRelayerExt) Close() (err error) {
+	return s.cs.Close()
 }
 
-func (s *SingleChainChainSet) ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error) {
-	stat, err := s.ChainStatus(ctx, s.chain.ID().String())
+func (s *ChainRelayerExt) Name() string {
+	// we set each private chainSet logger to contain the chain id
+	return s.cs.Name()
+}
+
+func (s *ChainRelayerExt) HealthReport() map[string]error {
+	return s.cs.HealthReport()
+}
+
+func (s *ChainRelayerExt) Ready() (err error) {
+	return s.cs.Ready()
+}
+
+func (s *ChainRelayerExt) ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error) {
+	return s.cs.ChainStatus(ctx, s.Chain().ID().String())
+}
+
+func (s *ChainRelayerExt) ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error) {
+	stat, err := s.cs.ChainStatus(ctx, s.chain.ID().String())
 	if err != nil {
 		return nil, -1, err
 	}
@@ -101,24 +119,18 @@ func (s *SingleChainChainSet) ChainStatuses(ctx context.Context, offset, limit i
 
 }
 
-func (s *SingleChainChainSet) Default() (Chain, error) {
-	return s.chain, nil
-}
-
-func (s *SingleChainChainSet) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error) {
+func (s *ChainRelayerExt) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error) {
 	if len(chainIDs) > 1 {
 		return nil, -1, fmt.Errorf("single chain chain set only support one chain id. got %v", chainIDs)
 	}
 	if chainIDs[0] != s.chain.ID().String() {
 		return nil, -1, fmt.Errorf("unknown chain id %s. expected %s", s.chain.ID())
 	}
-	return s.ChainSet.NodeStatuses(ctx, offset, limit, chainIDs...)
+	return s.cs.NodeStatuses(ctx, offset, limit, chainIDs...)
 }
 
-func (s *SingleChainChainSet) LegacyChains() (*Chains, error) {
-	legacyChains := NewLegacyChains()
-	legacyChains.Put(s.chain.ID().String(), s.chain)
-	return legacyChains, nil
+func (s *ChainRelayerExt) SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error {
+	return s.cs.SendTx(ctx, chainID, from, to, amount, balanceCheck)
 }
 
 type chainSet struct {
@@ -335,7 +347,7 @@ type ChainSetOpts struct {
 // NewTOMLChainSet returns a new ChainSet from TOML configuration.
 // func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 
-func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) ([]*SingleChainChainSet, error) {
+func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) ([]*ChainRelayerExt, error) {
 	if err := opts.check(); err != nil {
 		return nil, err
 	}
@@ -355,7 +367,7 @@ func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) ([]*SingleChainChai
 		}
 	}
 
-	var result []*SingleChainChainSet
+	var result []*ChainRelayerExt
 	var err error
 	for i := range enabled {
 		optsCp, errCp := copystructure.Copy(opts)
@@ -380,9 +392,9 @@ func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) ([]*SingleChainChai
 		}
 		cll.chains[cid] = chain
 
-		s := &SingleChainChainSet{
+		s := &ChainRelayerExt{
 			chain:     chain,
-			ChainSet:  cll,
+			cs:        cll,
 			isDefault: (cid == defaultChainID.String()),
 		}
 		result = append(result, s)

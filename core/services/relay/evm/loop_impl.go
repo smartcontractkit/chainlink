@@ -8,17 +8,18 @@ import (
 
 type LoopRelayer struct {
 	loop.Relayer
-	x evm.OneChain
+	x evm.EvmChainRelayerExtender
 }
 
 type LoopRelayAdapter interface {
 	loop.Relayer
 	Chain() evm.Chain
+	Default() bool
 }
 
 var _ loop.Relayer = &LoopRelayer{}
 
-func NewLoopRelayAdapter(r *Relayer, cs evm.OneChain) *LoopRelayer {
+func NewLoopRelayAdapter(r *Relayer, cs evm.EvmChainRelayerExtender) *LoopRelayer {
 	ra := relay.NewRelayerAdapter(r, cs)
 	return &LoopRelayer{
 		Relayer: ra,
@@ -28,4 +29,8 @@ func NewLoopRelayAdapter(r *Relayer, cs evm.OneChain) *LoopRelayer {
 
 func (la *LoopRelayer) Chain() evm.Chain {
 	return la.x.Chain()
+}
+
+func (la *LoopRelayer) Default() bool {
+	return la.x.Default()
 }
