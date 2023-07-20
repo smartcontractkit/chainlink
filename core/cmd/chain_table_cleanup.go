@@ -20,9 +20,10 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 		return s.errorOut(errDBURLMissing)
 	}
 
+	fmt.Println("val ", c.Bool("dangerWillRobinson"))
 	dbname := parsed.Path[1:]
 	if !c.Bool("dangerWillRobinson") && !strings.HasSuffix(dbname, "_test") {
-		return s.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
+		return s.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you really want to delete chain specific data from this database, pass in the -dangerWillRobinson option", dbname))
 	}
 
 	db, err := getDBConnection(cfg.URL())

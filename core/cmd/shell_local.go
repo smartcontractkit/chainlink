@@ -226,7 +226,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 				{
 					Name:    "delete-chain",
 					Aliases: []string{},
-					Usage:   "Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --chaintype and --chainid flags for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
+					Usage:   "Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --chaintype and --chainid options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
 					Action:  s.CleanupChainTables,
 					Before:  s.validateDB,
 					Flags: []cli.Flag{
