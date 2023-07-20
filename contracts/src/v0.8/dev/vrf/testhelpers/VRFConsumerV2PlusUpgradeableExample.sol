@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../interfaces/LinkTokenInterface.sol";
+import "../../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../../dev/VRFConsumerBaseV2Upgradeable.sol";
+import "../../VRFConsumerBaseV2Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";
 
 contract VRFConsumerV2PlusUpgradeableExample is Initializable, VRFConsumerBaseV2Upgradeable {
@@ -56,7 +56,15 @@ contract VRFConsumerV2PlusUpgradeableExample is Initializable, VRFConsumerBaseV2
     uint32 callbackGasLimit,
     uint32 numWords
   ) external returns (uint256) {
-    s_requestId = COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords, false);
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: keyHash,
+      subId: subId,
+      requestConfirmations: minReqConfs,
+      callbackGasLimit: callbackGasLimit,
+      numWords: numWords,
+      extraArgs: "" // empty extraArgs defaults to link payment
+    });
+    s_requestId = COORDINATOR.requestRandomWords(req);
     return s_requestId;
   }
 }

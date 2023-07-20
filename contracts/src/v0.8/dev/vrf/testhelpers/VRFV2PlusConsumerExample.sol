@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../interfaces/LinkTokenInterface.sol";
+import "../../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../VRFConsumerBaseV2Plus.sol";
-import "../../ConfirmedOwner.sol";
+import "../../../ConfirmedOwner.sol";
 
 /// @notice This contract is used for testing only and should not be used for production.
 contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
@@ -63,14 +63,15 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
     bytes32 keyHash,
     bool nativePayment
   ) external {
-    uint256 requestId = s_vrfCoordinator.requestRandomWords(
-      keyHash,
-      s_subId,
-      requestConfirmations,
-      callbackGasLimit,
-      numWords,
-      nativePayment
-    );
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: keyHash,
+      subId: s_subId,
+      requestConfirmations: requestConfirmations,
+      callbackGasLimit: callbackGasLimit,
+      numWords: numWords,
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment}))
+    });
+    uint256 requestId = s_vrfCoordinator.requestRandomWords(req);
     Response memory resp = Response({
       requestId: requestId,
       randomWords: new uint256[](0),
