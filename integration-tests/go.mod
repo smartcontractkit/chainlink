@@ -22,7 +22,7 @@ require (
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230711203850-025a0533d9ac
 	github.com/smartcontractkit/ocr2keepers v1.0.0-alpha.1
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230616201444-d8b4222aff3c
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20230719221814-e2f84fbcfa2d
 	github.com/stretchr/testify v1.8.4
 	github.com/umbracle/ethgo v0.1.3
 	go.dedis.ch/kyber/v3 v3.1.0
