@@ -9,17 +9,22 @@ import (
 	"time"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	cmdMocks "github.com/smartcontractkit/chainlink/v2/core/cmd/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -33,6 +38,24 @@ import (
 	"github.com/urfave/cli"
 )
 
+func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.RelayerKeystore) chainlink.Relayers {
+	var relayers chainlink.Relayers
+
+	legacyChains := cltest.NewLegacyChainsWithMockChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, opts.Config))
+	rly := evmrelayer.NewRelayer(opts.DB, legacyChains, opts.Logger, ks, pg.NewNullEventBroadcaster())
+
+	exts, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
+	require.NoError(t, err)
+	require.Len(t, exts, 1)
+	ext := exts[0]
+
+	adapter := relay.NewRelayerAdapter(rly, ext)
+	rid := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
+	err = relayers.Put(rid, adapter)
+	require.NoError(t, err)
+	return relayers
+
+}
 func TestShell_RunNodeWithPasswords(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -55,6 +78,20 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
+			lggr := logger.TestLogger(t)
+			opts := evm.ChainRelayExtOpts{
+				Logger:   lggr,
+				DB:       db,
+				KeyStore: keyStore.Eth(),
+				RelayerFactoryOpts: evm.RelayerFactoryOpts{
+					Config:           cfg,
+					EventBroadcaster: pg.NewNullEventBroadcaster(),
+
+					MailMon: &utils.MailboxMonitor{},
+				},
+			}
+			testRelayers := genTestEVMRelayers(t, opts, keyStore)
+
 			// Purge the fixture users to test assumption of single admin
 			// initialUser user created above
 			pgtest.MustExec(t, db, "DELETE FROM users;")
@@ -63,7 +100,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			app.On("SessionORM").Return(sessionORM).Maybe()
 			app.On("GetKeyStore").Return(keyStore).Maybe()
 			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-			app.On("GetRelayers").Return(chainlink.Relayers)
+			app.On("GetRelayers").Return(testRelayers)
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.New())
@@ -74,7 +111,6 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 
 			cltest.MustInsertRandomKey(t, keyStore.Eth())
 			apiPrompt := cltest.NewMockAPIInitializer(t)
-			lggr := logger.TestLogger(t)
 
 			client := cmd.Shell{
 				Config:                 cfg,
@@ -149,10 +185,25 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			ethClient.On("Dial", mock.Anything).Return(nil).Maybe()
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
+			lggr := logger.TestLogger(t)
+			opts := evm.ChainRelayExtOpts{
+				Logger:   lggr,
+				DB:       db,
+				KeyStore: keyStore.Eth(),
+				RelayerFactoryOpts: evm.RelayerFactoryOpts{
+					Config:           cfg,
+					EventBroadcaster: pg.NewNullEventBroadcaster(),
+
+					MailMon: &utils.MailboxMonitor{},
+				},
+			}
+			testRelayers := genTestEVMRelayers(t, opts, keyStore)
 			app := mocks.NewApplication(t)
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
-			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
+			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
+
+			app.On("GetRelayers").Return(testRelayers)
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.New())
@@ -160,7 +211,6 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			prompter := cmdMocks.NewPrompter(t)
 
 			apiPrompt := cltest.NewMockAPIInitializer(t)
-			lggr := logger.TestLogger(t)
 
 			client := cmd.Shell{
 				Config:                 cfg,
@@ -243,15 +293,29 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, sqlxDB, config.Database())
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 42, fromAddress)
 
+	lggr := logger.TestLogger(t)
+	opts := evm.ChainRelayExtOpts{
+		Logger:   lggr,
+		DB:       sqlxDB,
+		KeyStore: keyStore.Eth(),
+		RelayerFactoryOpts: evm.RelayerFactoryOpts{
+			Config:           config,
+			EventBroadcaster: pg.NewNullEventBroadcaster(),
+
+			MailMon: &utils.MailboxMonitor{},
+		},
+	}
+
 	app := mocks.NewApplication(t)
 	app.On("GetSqlxDB").Return(sqlxDB)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("ID").Maybe().Return(uuid.New())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
+	//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
+	app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore))
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
-	lggr := logger.TestLogger(t)
+	//lggr := logger.TestLogger(t)
 
 	client := cmd.Shell{
 		Config:                 config,
@@ -318,15 +382,27 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			txStore := cltest.NewTestTxStore(t, sqlxDB, config.Database())
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress)
 
+			lggr := logger.TestLogger(t)
+			opts := evm.ChainRelayExtOpts{
+				Logger:   lggr,
+				DB:       sqlxDB,
+				KeyStore: keyStore.Eth(),
+				RelayerFactoryOpts: evm.RelayerFactoryOpts{
+					Config:           config,
+					EventBroadcaster: pg.NewNullEventBroadcaster(),
+
+					MailMon: &utils.MailboxMonitor{},
+				},
+			}
+
 			app := mocks.NewApplication(t)
 			app.On("GetSqlxDB").Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
-
-			lggr := logger.TestLogger(t)
+			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
+			app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore))
 
 			client := cmd.Shell{
 				Config:                 config,
@@ -390,17 +466,28 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 				require.NoError(t, err)
 			}
 
+			lggr := logger.TestLogger(t)
+			opts := evm.ChainRelayExtOpts{
+				Logger:   lggr,
+				DB:       sqlxDB,
+				KeyStore: keyStore.Eth(),
+				RelayerFactoryOpts: evm.RelayerFactoryOpts{
+					Config:           config,
+					EventBroadcaster: pg.NewNullEventBroadcaster(),
+
+					MailMon: &utils.MailboxMonitor{},
+				},
+			}
+
 			app := mocks.NewApplication(t)
 			app.On("GetSqlxDB").Maybe().Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
-
+			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
+			app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore))
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
-
-			lggr := logger.TestLogger(t)
 
 			client := cmd.Shell{
 				Config:                 config,
