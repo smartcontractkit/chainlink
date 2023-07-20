@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../interfaces/IVRFCoordinatorV2Plus.sol";
+import "../interfaces/IVRFMigratableCoordinatorV2Plus.sol";
 import "../interfaces/IVRFMigratableConsumerV2Plus.sol";
+import "../../ConfirmedOwner.sol";
 
 /** ****************************************************************************
  * @notice Interface for contracts using VRF randomness
@@ -97,20 +98,19 @@ import "../interfaces/IVRFMigratableConsumerV2Plus.sol";
  * @dev responding to the request (however this is not enforced in the contract
  * @dev and so remains effective only in the case of unmodified oracle software).
  */
-abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
+abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, ConfirmedOwner {
   error OnlyCoordinatorCanFulfill(address have, address want);
-  error OnlySubOwnerCanSetVRFCoordinator(address have, address want);
+  error OnlyOwnerOrCoordinator(address have, address owner, address coordinator);
   error ZeroAddress();
 
-  IVRFCoordinatorV2Plus private vrfCoordinator;
-  address private subOwner;
+  IVRFMigratableCoordinatorV2Plus internal s_vrfCoordinator;
+  uint64 internal s_subId;
 
   /**
    * @param _vrfCoordinator address of VRFCoordinator contract
    */
-  constructor(address _vrfCoordinator) {
-    require(_vrfCoordinator != address(0), "zero address");
-    vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
+  constructor(address _vrfCoordinator) ConfirmedOwner(msg.sender) {
+    s_vrfCoordinator = IVRFMigratableCoordinatorV2Plus(_vrfCoordinator);
   }
 
   /**
@@ -133,8 +133,8 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
   // proof. rawFulfillRandomness then calls fulfillRandomness, after validating
   // the origin of the call
   function rawFulfillRandomWords(uint256 requestId, uint256[] memory randomWords) external {
-    if (msg.sender != address(vrfCoordinator)) {
-      revert OnlyCoordinatorCanFulfill(msg.sender, address(vrfCoordinator));
+    if (msg.sender != address(s_vrfCoordinator)) {
+      revert OnlyCoordinatorCanFulfill(msg.sender, address(s_vrfCoordinator));
     }
     fulfillRandomWords(requestId, randomWords);
   }
@@ -142,17 +142,15 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus {
   /**
    * @inheritdoc IVRFMigratableConsumerV2Plus
    */
-  function setVRFCoordinator(address _vrfCoordinator) external override {
-    if (msg.sender != subOwner) {
-      revert OnlySubOwnerCanSetVRFCoordinator(msg.sender, subOwner);
-    }
-    vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
+  function setConfig(address _vrfCoordinator, uint64 _subId) public override onlyOwnerOrCoordinator {
+    s_vrfCoordinator = IVRFMigratableCoordinatorV2Plus(_vrfCoordinator);
+    s_subId = _subId;
   }
 
-  function _setSubOwner(address _subOwner) internal {
-    if (_subOwner == address(0)) {
-      revert ZeroAddress();
+  modifier onlyOwnerOrCoordinator() {
+    if (msg.sender != owner() && msg.sender != address(s_vrfCoordinator)) {
+      revert OnlyOwnerOrCoordinator(msg.sender, owner(), address(s_vrfCoordinator));
     }
-    subOwner = _subOwner;
+    _;
   }
 }

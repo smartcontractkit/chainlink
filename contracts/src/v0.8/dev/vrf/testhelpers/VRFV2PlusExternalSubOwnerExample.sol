@@ -44,13 +44,4 @@ contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2Plus {
     // Will revert if subscription is not funded.
     s_requestId = COORDINATOR.requestRandomWords(req);
   }
-
-  function transferOwnership(address newOwner) external onlyOwner {
-    s_owner = newOwner;
-  }
-
-  modifier onlyOwner() {
-    require(msg.sender == s_owner);
-    _;
-  }
 }
