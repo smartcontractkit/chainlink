@@ -5,6 +5,7 @@ import {RouterBase, ITypeAndVersion} from "./RouterBase.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
+import {ITermsOfServiceAllowList} from "./accessControl/interfaces/ITermsOfServiceAllowList.sol";
 import {SafeCast} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
 
 contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions {
@@ -30,11 +31,15 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   );
 
   error OnlyCallableFromCoordinator();
+  error SenderMustAcceptTermsOfService(address sender);
 
   struct CallbackResult {
     bool success;
     uint256 gasUsed;
   }
+
+  // Identifier for the route to the Terms of Service Allow List
+  bytes32 private constant ALLOW_LIST_ID = keccak256("Functions Terms of Service Allow List");
 
   // ================================================================
   // |                    Configuration state                       |
@@ -60,11 +65,28 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes memory config
   ) RouterBase(msg.sender, timelockBlocks, maximumTimelockBlocks, config) FunctionsSubscriptions(linkToken) {}
 
+  // ================================================================
+  // |                          Getters                             |
+  // ================================================================
   /**
    * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() public pure override returns (string memory) {
     return "Functions Router v1";
+  }
+
+  /**
+   * @inheritdoc IFunctionsRouter
+   */
+  function getAllowListId() external pure override returns (bytes32) {
+    return ALLOW_LIST_ID;
+  }
+
+  /**
+   * @inheritdoc IFunctionsRouter
+   */
+  function getAdminFee() external view override returns (uint96) {
+    return s_config.adminFee;
   }
 
   // ================================================================
@@ -79,13 +101,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     (uint96 adminFee, bytes4 handleOracleFulfillmentSelector) = abi.decode(config, (uint96, bytes4));
     s_config = Config({adminFee: adminFee, handleOracleFulfillmentSelector: handleOracleFulfillmentSelector});
     emit ConfigSet(adminFee, handleOracleFulfillmentSelector);
-  }
-
-  /**
-   * @inheritdoc IFunctionsRouter
-   */
-  function getAdminFee() external view override returns (uint96) {
-    return s_config.adminFee;
   }
 
   // ================================================================
@@ -316,6 +331,13 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
   modifier onlyRouterOwner() override {
     _validateOwnership();
+    _;
+  }
+
+  modifier onlySenderThatAcceptedToS() override {
+    if (ITermsOfServiceAllowList(_getContractById(ALLOW_LIST_ID, false)).isAllowedSender(msg.sender) == false) {
+      revert SenderMustAcceptTermsOfService(msg.sender);
+    }
     _;
   }
 }

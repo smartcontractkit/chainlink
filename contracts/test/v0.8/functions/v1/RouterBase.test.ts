@@ -151,6 +151,7 @@ describe('FunctionsRouter - Base', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
       const coordinator2 = await factories.functionsCoordinatorFactory
@@ -363,6 +364,7 @@ describe('FunctionsRouter - Base', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
 
