@@ -110,9 +110,4 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
     s_requestConfig.subId = COORDINATOR.createSubscription();
     COORDINATOR.addConsumer(s_requestConfig.subId, consumers[0]);
   }
-
-  modifier onlyOwner() {
-    require(msg.sender == s_owner);
-    _;
-  }
 }

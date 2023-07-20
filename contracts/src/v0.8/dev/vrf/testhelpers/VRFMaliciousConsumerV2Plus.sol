@@ -10,7 +10,6 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
   uint256 public s_requestId;
   IVRFCoordinatorV2Plus COORDINATOR;
   LinkTokenInterface LINKTOKEN;
-  uint64 public s_subId;
   uint256 public s_gasAvailable;
   bytes32 s_keyHash;
 
@@ -62,5 +61,9 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
       extraArgs: "" // empty extraArgs defaults to link payment
     });
     return COORDINATOR.requestRandomWords(req);
+  }
+
+  function getSubId() external view returns (uint64) {
+    return s_subId;
   }
 }

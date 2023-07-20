@@ -91,7 +91,6 @@ type RandomWordsFulfilledIterator struct {
 
 func (it *RandomWordsFulfilledIterator) Next() bool {
 	if it.VRFVersion == vrfcommon.V2 {
-		fmt.Println("Next")
 		return it.V2.Next()
 	}
 	return it.V2Plus.Next()
@@ -679,7 +678,6 @@ func (c *coordinatorV2_X) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requ
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println("FilterRandomWordsFulfilled")
 		return &RandomWordsFulfilledIterator{
 			VRFVersion: vrfcommon.V2,
 			V2:         it,
