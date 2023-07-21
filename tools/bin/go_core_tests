@@ -9,6 +9,7 @@ USE_TEE="${USE_TEE:-true}"
 echo "Failed tests and panics: ---------------------"
 echo ""
 GO_LDFLAGS=$(bash tools/bin/ldflags)
+go test -ldflags "$GO_LDFLAGS" -tags test,integration $TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt  $1 | tee $OUTPUT_FILE
 use_tee() {
   if [ "$USE_TEE" = "true" ]; then
     tee "$@"
