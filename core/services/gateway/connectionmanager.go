@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -78,11 +79,12 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock utils.Clock, lgg
 		}
 		nodes := make(map[string]*nodeState)
 		for _, nodeConfig := range donConfig.Members {
-			_, ok := nodes[nodeConfig.Address]
+			nodeAddress := strings.ToLower(nodeConfig.Address)
+			_, ok := nodes[nodeAddress]
 			if ok {
-				return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeConfig.Address, donConfig.DonId)
+				return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeAddress, donConfig.DonId)
 			}
-			nodes[nodeConfig.Address] = &nodeState{conn: network.NewWSConnectionWrapper()}
+			nodes[nodeAddress] = &nodeState{conn: network.NewWSConnectionWrapper()}
 		}
 		dons[donConfig.DonId] = &donConnectionManager{
 			donConfig:  &donConfig,

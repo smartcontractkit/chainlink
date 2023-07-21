@@ -26,7 +26,7 @@ HandlerName = "dummy"
 
 [[dons.members]]
 Name = "example_node"
-Address = "0x68902d681c28119f9b2531473a417088bf008e59"
+Address = "0x68902D681C28119F9B2531473A417088BF008E59"
 
 [[dons]]
 DonId = "my_don_2"
@@ -65,6 +65,16 @@ Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 [[dons.members]]
 Name = "node_2"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
+`,
+		"duplicate node address with different casing": `
+[[dons]]
+DonId = "my_don"
+[[dons.members]]
+Name = "node_1"
+Address = "0x68902d681c28119f9b2531473a417088bf008e59"
+[[dons.members]]
+Name = "node_2"
+Address = "0x68902D681c28119f9b2531473a417088bf008E59"
 `,
 	}
 
