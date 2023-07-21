@@ -7,7 +7,7 @@ pragma solidity ^0.8.6;
 
 interface ITermsOfServiceAllowList {
   /**
-   * @notice Check is the address is authorized for usage
+   * @notice Return the message data for the proof given to accept the Terms of Service
    * @param acceptor - The wallet address that has accepted the Terms of Service on the UI
    * @param recipient - The recipient address that the acceptor is taking responsibility for
    * @return Hash of the message data
@@ -15,7 +15,7 @@ interface ITermsOfServiceAllowList {
   function getMessageHash(address acceptor, address recipient) external pure returns (bytes32);
 
   /**
-   * @notice Check is the address is authorized for usage
+   * @notice Wrap a bytes32 message as an ethereum signed message
    * @param messageHash - Message hash produced from "getMessageHash"
    * @return Hash of the message data packed as "\x19Ethereum Signed Message\n" + len(msg) + msg
    */
