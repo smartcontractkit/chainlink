@@ -12,6 +12,7 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"go.uber.org/multierr"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -84,9 +85,11 @@ func New(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, o
 		opts = new(LogEventProviderOptions)
 	}
 	opts.Defaults()
+	l := lggr.Named("EvmRegistry.LogEventProvider")
+	l.SetLogLevel(zapcore.DebugLevel)
 	return &logEventProvider{
 		packer: packer,
-		lggr:   lggr.Named("KeepersRegistry.LogEventProvider"),
+		lggr:   l,
 		buffer: newLogEventBuffer(lggr, opts.LogBufferSize, opts.BufferMaxBlockSize, opts.AllowedLogsPerBlock),
 		poller: poller,
 		lock:   sync.RWMutex{},
@@ -99,6 +102,7 @@ func (p *logEventProvider) Start(pctx context.Context) error {
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
 
+	p.lggr.Debug("starting log event provider")
 	p.lock.Lock()
 	p.cancel = cancel
 	p.lock.Unlock()
@@ -136,6 +140,7 @@ func (p *logEventProvider) GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload
 	if diff < 0 {
 		diff = latest
 	}
+	p.lggr.Debugf("getting logs for blocks, latest block: %d", latest)
 	logs := p.buffer.dequeue(int(diff))
 
 	var payloads []ocr2keepers.UpkeepPayload
@@ -206,6 +211,7 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 			}
 			partitionIdx++
 		case <-ctx.Done():
+			p.lggr.Debug("stopping read jobs: context done")
 			return nil
 		}
 	}
@@ -319,15 +325,17 @@ func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big
 // TODO: batch entries by contract address and call log poller once per contract address
 // NOTE: the entries are already grouped by contract address
 func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries ...*upkeepFilterEntry) (merr error) {
-	// mainLggr := p.lggr.With("latestBlock", latest)
+	mainLggr := p.lggr.With("latestBlock", latest)
 	logBlocksLookback := p.opts.LogBlocksLookback
 	maxBurst := int(logBlocksLookback*2 + 1)
 
+	readCount := 0
+	addCount := 0
 	for _, entry := range entries {
 		if len(entry.filter.Addresses) == 0 {
 			continue
 		}
-		// lggr := mainLggr.With("upkeep", entry.id.String(), "addrs", entry.filter.Addresses, "sigs", entry.filter.EventSigs)
+		lggr := mainLggr.With("upkeep", entry.id.String(), "addrs", entry.filter.Addresses, "sigs", entry.filter.EventSigs)
 		start := entry.lastPollBlock
 		if start == 0 || start < latest-logBlocksLookback {
 			// long range or first time polling,
@@ -344,7 +352,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries .
 		if start < 0 {
 			start = 0
 		}
-		// lggr = lggr.With("startBlock", start)
+		lggr = lggr.With("startBlock", start)
 		logs, err := p.poller.LogsWithSigs(start, latest, entry.filter.EventSigs, entry.filter.Addresses[0], pg.WithParentCtx(ctx))
 		if err != nil {
 			resv.Cancel() // cancels limit reservation as we failed to get logs
@@ -365,9 +373,16 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries .
 		if added > 0 || len(logs) == 0 {
 			entry.lastPollBlock = latest
 		}
-		// if n := len(logs); n > 0 {
-		// 	lggr.Debugw("got logs for upkeep", "logs", n, "added", added)
-		// }
+		if n := len(logs); n > 0 {
+			lggr.Debugw("got logs for upkeep", "logs", n, "added", added)
+		}
+		addCount += added
+		readCount += len(logs)
+	}
+
+	if readCount > 0 {
+		mainLggr.Debugw("read logs for entries", "entries", len(entries),
+			"readCount", readCount, "addCount", addCount, "err", merr)
 	}
 
 	return merr

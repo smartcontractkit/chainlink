@@ -281,7 +281,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	<-time.After(time.Second * 5)
 	go func(contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
 		ctx := testutils.Context(t)
-		emits := 10
+		emits := 20
 		for i := 0; i < emits || ctx.Err() != nil; i++ {
 			<-time.After(time.Second)
 			t.Logf("EvmRegistry: calling upkeep contracts to emit events. run: %d", i+1)
@@ -320,6 +320,8 @@ func deployUpkeeps(t *testing.T, backend *backends.SimulatedBackend, carrol, ste
 	addrs := make([]common.Address, n)
 	contracts := make([]*log_upkeep_counter_wrapper.LogUpkeepCounter, n)
 	for i := 0; i < n; i++ {
+		backend.Commit()
+		time.Sleep(1 * time.Second)
 		upkeepAddr, _, upkeepContract, err := log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 			carrol, backend,
 			big.NewInt(100000),
