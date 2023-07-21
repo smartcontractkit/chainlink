@@ -35,7 +35,8 @@ evmChainID = "%d"
 fromAddresses = ["%s"]
 pollPeriod = "5s"
 requestTimeout = "24h"
-observationSource = """decode_log              [type=ethabidecodelog
+observationSource = """
+decode_log              [type=ethabidecodelog
                          abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
                          data="$(jobRun.logData)"
                          topics="$(jobRun.logTopics)"]
@@ -46,8 +47,8 @@ generate_proof          [type=vrfv2plus
                          topics="$(jobRun.logTopics)"]
 estimate_gas            [type=estimategaslimit
 						 to="%s"
-                         multiplier="1.1"
-                         data="$(generate_proof.output)"]
+						 multiplier="1.1"
+						 data="$(generate_proof.output)"]
 simulate_fulfillment    [type=ethcall
                          to="%s"
 		                 gas="$(estimate_gas)"
@@ -106,6 +107,7 @@ func deployUniverse(e helpers.Environment) {
 	copy(newPK[:], pkBytes)
 
 	compressedPkHex := hexutil.Encode(pkBytes)
+	keyHash, err := newPK.Hash()
 	helpers.PanicErr(err)
 
 	if len(*linkAddress) == 0 {
@@ -218,7 +220,7 @@ func deployUniverse(e helpers.Environment) {
 		"\nVRF Subscription Id:", subID,
 		"\nVRF Subscription Balance:", *subscriptionBalanceString,
 		"\nPossible VRF Request command: ",
-		fmt.Sprintf("go run . eoa-request --consumer-address %s", consumerAddress),
+		fmt.Sprintf("go run . eoa-request --consumer-address %s --sub-id %d --key-hash %s", consumerAddress, subID, keyHash),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",
 		formattedJobSpec,
 	)
