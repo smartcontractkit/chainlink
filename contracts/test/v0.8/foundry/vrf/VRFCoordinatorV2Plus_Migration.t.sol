@@ -10,8 +10,8 @@ import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 
 contract VRFCoordinatorV2Plus_Migration is BaseTest {
-  uint256 internal constant DEFAULT_LINK_FUNDING = 10 * 1e18; // 10 LINK
-  uint256 internal constant DEFAULT_NATIVE_FUNDING = 50 * 1e18; // 50 ETH
+  uint256 internal constant DEFAULT_LINK_FUNDING = 10 ether; // 10 LINK
+  uint256 internal constant DEFAULT_NATIVE_FUNDING = 50 ether; // 50 ETH
   uint32 internal constant DEFAULT_CALLBACK_GAS_LIMIT = 50_000;
   uint16 internal constant DEFAULT_REQUEST_CONFIRMATIONS = 3;
   uint32 internal constant DEFAULT_NUM_WORDS = 1;
@@ -36,7 +36,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
   event CoordinatorRegistered(address coordinatorAddress);
   event CoordinatorDeregistered(address coordinatorAddress);
   event MigrationCompleted(address newCoordinator, uint256 subId);
-  
+
   function setUp() public override {
     BaseTest.setUp();
     vm.deal(OWNER, 100 ether);

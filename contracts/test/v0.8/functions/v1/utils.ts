@@ -222,11 +222,7 @@ export function getSetupFactory(): () => {
       BigNumber.from('1000000000000000000'), // 1 LINK
     )
 
-    await router.proposeContractsUpdate(
-      [ids.donId],
-      [ethers.constants.AddressZero],
-      [coordinator.address],
-    )
+    await router.proposeContractsUpdate([ids.donId], [coordinator.address])
     await router.updateContracts()
 
     contracts = {

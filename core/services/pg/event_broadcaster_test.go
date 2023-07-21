@@ -219,4 +219,22 @@ func TestEventBroadcaster(t *testing.T) {
 
 		wg.Wait()
 	})
+
+	t.Run("closes events channel on subscription close", func(t *testing.T) {
+		sub, err := eventBroadcaster.Subscribe("foo", "")
+		require.NoError(t, err)
+
+		chEvents := sub.Events()
+
+		sub.Close()
+
+		select {
+		case _, ok := <-chEvents:
+			if ok {
+				t.Fatal("expected chEvents to be closed")
+			}
+		default:
+			t.Fatal("expected chEvents to not block")
+		}
+	})
 }

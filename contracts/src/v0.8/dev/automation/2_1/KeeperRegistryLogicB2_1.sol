@@ -260,16 +260,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     return s_upkeepTriggerConfig[upkeepId];
   }
 
-  function getLogTriggerConfig(uint256 upkeepId) public view returns (LogTriggerConfig memory) {
-    require(getTriggerType(upkeepId) == Trigger.LOG);
-    return abi.decode(s_upkeepTriggerConfig[upkeepId], (LogTriggerConfig));
-  }
-
-  function getConditionalTriggerConfig(uint256 upkeepId) public view returns (ConditionalTriggerConfig memory) {
-    require(getTriggerType(upkeepId) == Trigger.LOG);
-    return abi.decode(s_upkeepTriggerConfig[upkeepId], (ConditionalTriggerConfig));
-  }
-
   /**
    * @notice read the current info about any transmitter address
    */

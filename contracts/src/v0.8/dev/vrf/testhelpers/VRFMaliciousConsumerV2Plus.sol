@@ -10,8 +10,8 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
   uint256 public s_requestId;
   IVRFCoordinatorV2Plus COORDINATOR;
   LinkTokenInterface LINKTOKEN;
-  uint256 public s_subId;
   uint256 public s_gasAvailable;
+  uint256 s_subId;
   bytes32 s_keyHash;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {
