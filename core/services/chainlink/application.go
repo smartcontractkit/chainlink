@@ -274,9 +274,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// to pass as needed
 
 	legacyEVMChains := relayers.LegacyEVMChains()
-	if legacyEVMChains == nil || legacyEVMChains.Len() == 0 {
-		globalLogger.Warn("no evm relayers")
+	if legacyEVMChains == nil {
+		panic("no legacy evm chains")
 	}
+
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
@@ -286,12 +287,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
 	)
 
-	srvcs = append(srvcs, pipelineORM)
-
 	for _, chain := range legacyEVMChains.Slice() {
 		chain.HeadBroadcaster().Subscribe(promReporter)
 		chain.TxManager().RegisterResumeCallback(pipelineRunner.ResumeRun)
 	}
+
+	srvcs = append(srvcs, pipelineORM)
 
 	var (
 		delegates = map[job.Type]job.Delegate{

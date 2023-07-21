@@ -155,6 +155,11 @@ func (rs *Relayers) PutBatch(b map[relay.Identifier]loop.Relayer) (err error) {
 func (rs *Relayers) LegacyEVMChains() *evm.Chains {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
+	// for backward compatibility we return an empty, non-nil value here
+	// all other chains/relayers can be nil...
+	if rs.chains.EVMChains == nil {
+		rs.chains.EVMChains = evm.NewLegacyChains()
+	}
 	return rs.chains.EVMChains
 }
 
