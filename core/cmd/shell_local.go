@@ -958,6 +958,8 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 				fmt.Printf("Rows with chain_id %d deleted from %s.\n", c.Int("chain-id"), tableName)
 			}
 		}
+	} else {
+		return s.errorOut(errors.New("Unknown chain type"))
 	}
 	return nil
 }
