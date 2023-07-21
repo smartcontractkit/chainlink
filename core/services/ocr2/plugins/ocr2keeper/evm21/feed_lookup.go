@@ -165,9 +165,10 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 			Timestamp:   uint64(time.Now().UTC().UnixMilli()),
 			Feeds:       lookup.feeds,
 			// HERE FIX HTTP Status Codes
-			HttpStatusCodes: v,
-			Success:         true,
-			Retryable:       retryable,
+			HttpStatusCodes: json.Marshal(v),
+			// HERE FIX Success message
+			Success:   true,
+			Retryable: retryable,
 			// HERE FIX FailureReason
 			FailureReason: 1,
 		}
@@ -378,7 +379,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 			if err1 != nil {
 				return err1
 			}
-
+			// HERE http status codes
 			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
 				r.lggr.Errorf("FeedLookup upkeep %s block %s received status code %d for feed %s", ml.upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
 				retryable = true
