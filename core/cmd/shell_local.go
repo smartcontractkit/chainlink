@@ -241,7 +241,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 							Required: true,
 						},
 						cli.BoolFlag{
-							Name:  "dangerWillRobinson",
+							Name:  "danger",
 							Usage: "set to true to enable dropping non-test databases",
 						},
 					},
@@ -932,8 +932,8 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 	}
 
 	dbname := parsed.Path[1:]
-	if !c.Bool("dangerWillRobinson") && !strings.HasSuffix(dbname, "_test") {
-		return s.errorOut(fmt.Errorf("Cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you really want to delete chain specific data from this database, pass in the -dangerWillRobinson option", dbname))
+	if !c.Bool("danger") && !strings.HasSuffix(dbname, "_test") {
+		return s.errorOut(fmt.Errorf("Cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you really want to delete chain specific data from this database, pass in the --danger option", dbname))
 	}
 
 	db, err := newConnection(cfg)
