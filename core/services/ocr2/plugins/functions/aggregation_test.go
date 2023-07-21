@@ -13,14 +13,24 @@ import (
 
 func req(id int, result []byte, err []byte) *encoding.ProcessedRequest {
 	return &encoding.ProcessedRequest{
-		RequestID: []byte(strconv.Itoa(id)),
-		Result:    result,
-		Error:     err,
+		RequestID:        []byte(strconv.Itoa(id)),
+		Result:           result,
+		Error:            err,
+		CallbackGasLimit: 0,
 	}
 }
 
 func reqS(id int, result string, err string) *encoding.ProcessedRequest {
 	return req(id, []byte(result), []byte(err))
+}
+
+func reqMeta(id int, result []byte, err []byte, callbackGas uint32) *encoding.ProcessedRequest {
+	return &encoding.ProcessedRequest{
+		RequestID:        []byte(strconv.Itoa(id)),
+		Result:           result,
+		Error:            err,
+		CallbackGasLimit: callbackGas,
+	}
 }
 
 func TestCanAggregate(t *testing.T) {
@@ -102,6 +112,28 @@ func TestAggregate_Successful(t *testing.T) {
 				req(21, []byte{0, 0, 12, 2}, []byte{}),
 			},
 			req(21, []byte{0, 0, 9, 11}, []byte{}),
+		},
+		{
+			"Metadata With Results",
+			config.AggregationMethod_AGGREGATION_MEDIAN,
+			[]*encoding.ProcessedRequest{
+				reqMeta(21, []byte{1}, []byte{}, 100),
+				reqMeta(21, []byte{1}, []byte{}, 90),
+				reqMeta(21, []byte{1}, []byte{}, 100),
+				reqMeta(21, []byte{1}, []byte{}, 100),
+			},
+			reqMeta(21, []byte{1}, []byte{}, 100),
+		},
+		{
+			"Metadata With Errors",
+			config.AggregationMethod_AGGREGATION_MEDIAN,
+			[]*encoding.ProcessedRequest{
+				reqMeta(21, []byte{}, []byte{2}, 90),
+				reqMeta(21, []byte{}, []byte{2}, 100),
+				reqMeta(21, []byte{}, []byte{2}, 100),
+				reqMeta(21, []byte{}, []byte{2}, 100),
+			},
+			reqMeta(21, []byte{}, []byte{2}, 100),
 		},
 	}
 
