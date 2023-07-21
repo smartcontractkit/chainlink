@@ -4,13 +4,13 @@ cmp stdout out.txt
 
 -- out.txt --
 NAME:
-   chainlink node db delete-chain - Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --chaintype and --chainid options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.
+   chainlink node db delete-chain - Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --chainType and --id options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.
 
 USAGE:
    chainlink node db delete-chain [command options] [arguments...]
 
 OPTIONS:
-   --chainid value       chainID based on which table cleanup will be done (default: 0)
-   --chaintype value     chain type based on which table cleanup will be done, eg. EVM
+   --id value            chain id based on which chain specific table cleanup will be done (default: 0)
+   --chainType value     chain type based on which table cleanup will be done, eg. EVM
    --dangerWillRobinson  set to true to enable dropping non-test databases
    

@@ -226,17 +226,17 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 				{
 					Name:    "delete-chain",
 					Aliases: []string{},
-					Usage:   "Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --chaintype and --chainid options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
+					Usage:   "Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --chainType and --id options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
 					Action:  s.CleanupChainTables,
 					Before:  s.validateDB,
 					Flags: []cli.Flag{
 						cli.IntFlag{
-							Name:     "chainid",
-							Usage:    "chainID based on which table cleanup will be done",
+							Name:     "id",
+							Usage:    "chain id based on which chain specific table cleanup will be done",
 							Required: true,
 						},
 						cli.StringFlag{
-							Name:     "chaintype",
+							Name:     "chainType",
 							Usage:    "chain type based on which table cleanup will be done, eg. EVM",
 							Required: true,
 						},
@@ -951,11 +951,11 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 		}
 		for _, tableName := range tables {
 			query := fmt.Sprintf("DELETE FROM %s WHERE evm_chain_id = $1", tableName)
-			_, err := db.Exec(query, c.Int("chainid"))
+			_, err := db.Exec(query, c.Int("chain-id"))
 			if err != nil {
 				fmt.Printf("Error deleting rows from %s: %v\n", tableName, err)
 			} else {
-				fmt.Printf("Rows with chain_id %d deleted from %s.\n", c.Int("chainid"), tableName)
+				fmt.Printf("Rows with chain_id %d deleted from %s.\n", c.Int("chain-id"), tableName)
 			}
 		}
 	}
