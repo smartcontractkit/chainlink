@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -9,6 +10,30 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
+
+func TestTriggerID(t *testing.T) {
+	upkeepIDStr := "82566255084862886500628610724995377215109748679571001950554849251333329872882"
+	// Convert the string to a big.Int
+	var upkeepID big.Int
+	_, success := upkeepID.SetString(upkeepIDStr, 10)
+	if !success {
+		t.Fatal("Invalid big integer value")
+	}
+
+	triggerStr := "deadbeef"
+	triggerBytes, err := hex.DecodeString(triggerStr)
+	if err != nil {
+		t.Fatalf("Error decoding hex string: %s", err)
+	}
+
+	res, err := UpkeepTriggerID(&upkeepID, triggerBytes)
+	if err != nil {
+		t.Fatalf("Error calculating UpkeepTriggerID: %s", err)
+	}
+
+	expectedResult := "fe466794c97e8b54ca25b696ff3ee448a7d03e4a82a2e45d9d84de62ef4cc260"
+	assert.Equal(t, res, expectedResult, "UpkeepTriggerID mismatch")
+}
 
 func TestGetUpkeepType(t *testing.T) {
 	tests := []struct {
