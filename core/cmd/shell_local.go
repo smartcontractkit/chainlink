@@ -230,7 +230,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 					Action:  s.CleanupChainTables,
 					Before:  s.validateDB,
 					Flags: []cli.Flag{
-						cli.IntFlag{
+						cli.StringFlag{
 							Name:     "id",
 							Usage:    "chain id based on which chain specific table cleanup will be done",
 							Required: true,
@@ -933,12 +933,12 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 
 	dbname := parsed.Path[1:]
 	if !c.Bool("danger") && !strings.HasSuffix(dbname, "_test") {
-		return s.errorOut(fmt.Errorf("Cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you really want to delete chain specific data from this database, pass in the --danger option", dbname))
+		return s.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you really want to delete chain specific data from this database, pass in the --danger option", dbname))
 	}
 
 	db, err := newConnection(cfg)
 	if err != nil {
-		return s.errorOut(errors.Wrap(err, "Error connecting to the database"))
+		return s.errorOut(errors.Wrap(err, "error connecting to the database"))
 	}
 
 	defer db.Close()
@@ -952,15 +952,15 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 		}
 		for _, tableName := range tables {
 			query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
-			_, err = db.Exec(query, c.Int("id"))
+			_, err = db.Exec(query, c.String("id"))
 			if err != nil {
 				fmt.Printf("Error deleting rows from %s: %v\n", tableName, err)
 			} else {
-				fmt.Printf("Rows with chain_id %d deleted from %s.\n", c.Int("id"), tableName)
+				fmt.Printf("Rows with chain_id %s deleted from %s.\n", c.String("id"), tableName)
 			}
 		}
 	} else {
-		return s.errorOut(errors.New("Unknown chain type"))
+		return s.errorOut(errors.New("unknown chain type"))
 	}
 	return nil
 }
