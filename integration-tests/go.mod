@@ -33,7 +33,7 @@ require (
 
 replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230720202255-38ae065c18d1
 
-replace github.com/smartcontractkit/chainlink-env => github.com/smartcontractkit/chainlink-env v0.34.3-0.20230717194051-0af82729e6bf
+replace github.com/smartcontractkit/chainlink-env => github.com/smartcontractkit/chainlink-env v0.34.3-0.20230721132322-a1100290f340
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
