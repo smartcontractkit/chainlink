@@ -139,7 +139,7 @@ func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us Upkee
 	u.statesByID[pl.ID] = state
 
 	upkeepId := big.NewInt(0).SetBytes(pl.Upkeep.ID)
-	res1, _ := u.statesByUpkeepID[upkeepId.String()]
+	res1 := u.statesByUpkeepID[upkeepId.String()]
 	res1 = append(res1, state)
 	u.statesByUpkeepID[upkeepId.String()] = res1
 
@@ -151,7 +151,7 @@ func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us Upkee
 	if err != nil {
 		return err
 	}
-	res2, _ := u.statesByBlock[block]
+	res2 := u.statesByBlock[block]
 	res2 = append(res2, state)
 	u.statesByBlock[block] = res2
 	return nil
