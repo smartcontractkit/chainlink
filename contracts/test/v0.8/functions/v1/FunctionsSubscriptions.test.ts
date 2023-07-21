@@ -102,11 +102,12 @@ describe('Functions Router - Subscriptions', () => {
         )
       })
       it('subscription must exist', async function () {
+        // 0x0 is requested owner
         await expect(
           contracts.router
             .connect(roles.subOwner)
             .acceptSubscriptionOwnerTransfer(1203123123),
-        ).to.be.revertedWith(`InvalidSubscription`)
+        ).to.be.revertedWith(`MustBeRequestedOwner`)
       })
       it('must be requested owner to accept', async function () {
         await expect(

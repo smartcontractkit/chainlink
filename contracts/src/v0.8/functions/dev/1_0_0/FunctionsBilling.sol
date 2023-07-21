@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {Routable, ITypeAndVersion} from "./Routable.sol";
+import {Routable} from "./Routable.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
@@ -163,6 +163,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function getConfig()
     external
     view
+    override
     returns (
       uint32 maxCallbackGasLimit,
       uint32 feedStalenessSeconds,
