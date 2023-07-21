@@ -943,7 +943,7 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 
 	defer db.Close()
 
-	tablesToDeleteFromQuery := "SELECT table_name FROM information_schema.columns WHERE \"column_name\"=$1;"
+	tablesToDeleteFromQuery := `SELECT table_name FROM information_schema.columns WHERE "column_name"=$1;`
 	// Delete rows from each table based on the chain_id.
 	if strings.EqualFold("EVM", c.String("type")) {
 		var tables []string
@@ -951,7 +951,7 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 			return err
 		}
 		for _, tableName := range tables {
-			query := fmt.Sprintf("DELETE FROM %s WHERE \"evm_chain_id\"=$1;", tableName)
+			query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
 			_, err = db.Exec(query, c.Int("id"))
 			if err != nil {
 				fmt.Printf("Error deleting rows from %s: %v\n", tableName, err)
