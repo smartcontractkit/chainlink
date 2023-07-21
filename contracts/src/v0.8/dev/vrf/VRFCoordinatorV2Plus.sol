@@ -10,8 +10,9 @@ import "./VRFConsumerBaseV2Plus.sol";
 import "../../ChainSpecificUtil.sol";
 import "./SubscriptionAPI.sol";
 import "./libraries/VRFV2PlusClient.sol";
+import "../interfaces/IVRFCoordinatorV2PlusMigration.sol";
 
-contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
+contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   /// @dev may not be provided upon construction on some chains due to lack of availability
   AggregatorV3Interface public LINK_ETH_FEED;
   /// @dev should always be available
@@ -607,11 +608,97 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     cancelSubscriptionHelper(subId, to);
   }
 
-  /**
-   * @notice The type and version of this contract
-   * @return Type and version string
-   */
-  function typeAndVersion() external pure virtual override returns (string memory) {
-    return "VRFCoordinatorV2Plus 1.0.0";
+  /***************************************************************************
+   * Section: Migration
+   ***************************************************************************/
+
+  address[] internal s_migrationTargets;
+
+  /// @dev Emitted when new coordinator is registered as migratable target
+  event CoordinatorRegistered(address coordinatorAddress);
+
+  /// @dev Emitted when new coordinator is deregistered
+  event CoordinatorDeregistered(address coordinatorAddress);
+
+  /// @notice emitted when migration to new coordinator completes successfully
+  /// @param newCoordinator coordinator address after migration
+  /// @param prevSubId old subscription ID
+  /// @param newSubId new subscription ID
+  event MigrationCompleted(address newCoordinator, uint64 prevSubId, uint64 newSubId);
+
+  /// @notice emitted when migrate() is called and given coordinator is not registered as migratable target
+  error CoordinatorNotRegistered(address coordinatorAddress);
+
+  /// @notice emitted when migrate() is called and given coordinator is registered as migratable target
+  error CoordinatorAlreadyRegistered(address coordinatorAddress);
+
+  /// @dev encapsulates data to be migrated from current coordinator
+  struct V1MigrationData {
+    uint8 fromVersion;
+    address subOwner;
+    address[] consumers;
+    uint96 linkBalance;
+    uint96 ethBalance;
+  }
+
+  function isTargetRegistered(address target) internal view returns (bool) {
+    for (uint256 i = 0; i < s_migrationTargets.length; i++) {
+      if (s_migrationTargets[i] == target) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function registerMigratableCoordinator(address target) external onlyOwner {
+    if (isTargetRegistered(target)) {
+      revert CoordinatorAlreadyRegistered(target);
+    }
+    s_migrationTargets.push(target);
+    emit CoordinatorRegistered(target);
+  }
+
+  function deregisterMigratableCoordinator(address target) external onlyOwner {
+    uint256 nTargets = s_migrationTargets.length;
+    for (uint256 i = 0; i < nTargets; i++) {
+      if (s_migrationTargets[i] == target) {
+        s_migrationTargets[i] = s_migrationTargets[nTargets - 1];
+        s_migrationTargets[nTargets - 1] = target;
+        s_migrationTargets.pop();
+        emit CoordinatorDeregistered(target);
+        return;
+      }
+    }
+    revert CoordinatorNotRegistered(target);
+  }
+
+  function migrate(uint64 subId, address newCoordinator) external returns (uint64) {
+    if (!isTargetRegistered(newCoordinator)) {
+      revert CoordinatorNotRegistered(newCoordinator);
+    }
+    (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) = getSubscription(subId);
+    require(owner == msg.sender, "Not subscription owner");
+    require(!pendingRequestExists(subId), "Pending request exists");
+
+    V1MigrationData memory migrationData = V1MigrationData({
+      fromVersion: migrationVersion(),
+      subOwner: owner,
+      consumers: consumers,
+      linkBalance: balance,
+      ethBalance: ethBalance
+    });
+    bytes memory encodedData = abi.encode(migrationData);
+    deleteSubscription(subId);
+    uint64 newSubId = IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);
+    require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
+    for (uint256 i = 0; i < consumers.length; i++) {
+      IVRFMigratableConsumerV2Plus(consumers[i]).setConfig(newCoordinator, newSubId);
+    }
+    emit MigrationCompleted(newCoordinator, subId, newSubId);
+    return newSubId;
+  }
+
+  function migrationVersion() public pure returns (uint8 version) {
+    return 1;
   }
 }
