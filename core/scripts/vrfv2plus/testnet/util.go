@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_single_consumer"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -81,23 +81,15 @@ func eoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2plus.VRFC
 
 func eoaDeployConsumer(e helpers.Environment,
 	coordinatorAddress string,
-	linkAddress string,
-	keyHash common.Hash,
-	nativePayment bool) (
-	consumerAddress common.Address,
-	consumer *vrf_v2plus_single_consumer.VRFV2PlusSingleConsumerExample) {
-	_, tx, consumer, err := vrf_v2plus_single_consumer.DeployVRFV2PlusSingleConsumerExample(
+	linkAddress string) (
+	consumerAddress common.Address) {
+	_, tx, _, err := vrf_v2plus_sub_owner.DeployVRFV2PlusExternalSubOwnerExample(
 		e.Owner,
 		e.Ec,
 		common.HexToAddress(coordinatorAddress),
-		common.HexToAddress(linkAddress),
-		uint32(1000000), // gas callback
-		uint16(5),       // confs
-		uint32(1),       // words
-		keyHash,
-		nativePayment)
+		common.HexToAddress(linkAddress))
 	helpers.PanicErr(err)
-	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID), consumer
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
 func eoaFundSubscription(e helpers.Environment,

@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_single_consumer"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -603,12 +604,9 @@ func main() {
 		consumerDeployCmd := flag.NewFlagSet("eoa-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")
 		consumerLinkAddress := consumerDeployCmd.String("link-address", "", "link-address")
-		keyHash := consumerDeployCmd.String("key-hash", "", "key hash")
-		nativePayment := consumerDeployCmd.Bool("native-payment", false, "whether to use native payment or not")
 		helpers.ParseArgs(consumerDeployCmd, os.Args[2:], "coordinator-address", "link-address", "key-hash")
 
-		keyHashBytes := common.HexToHash(*keyHash)
-		eoaDeployConsumer(e, *consumerCoordinator, *consumerLinkAddress, keyHashBytes, *nativePayment)
+		eoaDeployConsumer(e, *consumerCoordinator, *consumerLinkAddress)
 	case "eoa-load-test-consumer-deploy":
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
@@ -694,12 +692,19 @@ func main() {
 	case "eoa-request":
 		request := flag.NewFlagSet("eoa-request", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")
+		subID := request.Uint64("sub-id", 0, "subscription ID")
+		cbGasLimit := request.Uint("cb-gas-limit", 1_000_000, "callback gas limit")
+		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
+		numWords := request.Uint("num-words", 3, "number of words to request")
+		keyHash := request.String("key-hash", "", "key hash")
+		nativePayment := request.Bool("native-payment", false, "whether to use native payment or not")
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address")
-		consumer, err := vrf_v2plus_single_consumer.NewVRFV2PlusSingleConsumerExample(
+		keyHashBytes := common.HexToHash(*keyHash)
+		consumer, err := vrf_v2plus_sub_owner.NewVRFV2PlusExternalSubOwnerExample(
 			common.HexToAddress(*consumerAddress),
 			e.Ec)
 		helpers.PanicErr(err)
-		tx, err := consumer.RequestRandomWords(e.Owner)
+		tx, err := consumer.RequestRandomWords(e.Owner, *subID, uint32(*cbGasLimit), uint16(*requestConfirmations), uint32(*numWords), keyHashBytes, *nativePayment)
 		helpers.PanicErr(err)
 		fmt.Println("TX", helpers.ExplorerLink(e.ChainID, tx.Hash()))
 		r, err := bind.WaitMined(context.Background(), e.Ec, tx)

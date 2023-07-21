@@ -78,7 +78,6 @@ func deployUniverse(e helpers.Environment) {
 	gasAfterPayment := deployCmd.Int64("gas-after-payment", 33285, "gas after payment calculation")
 	flatFeeLinkPPM := deployCmd.Int64("flat-fee-link-ppm", 500, "fulfillment flat fee LINK ppm")
 	flatFeeEthPPM := deployCmd.Int64("flat-fee-eth-ppm", 500, "fulfillment flat fee ETH ppm")
-	nativePayment := deployCmd.Bool("native-payment", false, "whether to use native payment or not")
 
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
@@ -107,7 +106,6 @@ func deployUniverse(e helpers.Environment) {
 	copy(newPK[:], pkBytes)
 
 	compressedPkHex := hexutil.Encode(pkBytes)
-	keyHash, err := newPK.Hash()
 	helpers.PanicErr(err)
 
 	if len(*linkAddress) == 0 {
@@ -169,14 +167,14 @@ func deployUniverse(e helpers.Environment) {
 	}
 
 	fmt.Println("\nDeploying consumer...")
-	// This creates a new subscription and adds itself (the new consumer) to the subscription
-	consumerAddress, consumer := eoaDeployConsumer(e, coordinatorAddress.String(), *linkAddress, keyHash, *nativePayment)
+	consumerAddress := eoaDeployConsumer(e, coordinatorAddress.String(), *linkAddress)
 
-	consumerReqConfig, err := consumer.SRequestConfig(nil)
-	subID := consumerReqConfig.SubId
+	fmt.Println("\nAdding subscription...")
+	eoaCreateSub(e, *coordinator)
+	subID := uint64(1)
 
-	// fmt.Println("\nAdding consumer to subscription...")
-	// eoaAddConsumerToSub(e, *coordinator, subID, consumerAddress.String())
+	fmt.Println("\nAdding consumer to subscription...")
+	eoaAddConsumerToSub(e, *coordinator, subID, consumerAddress.String())
 
 	if subscriptionBalance.Cmp(big.NewInt(0)) > 0 {
 		fmt.Println("\nFunding subscription with", subscriptionBalance, "juels...")
