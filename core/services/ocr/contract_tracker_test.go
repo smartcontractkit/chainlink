@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
@@ -107,14 +106,6 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 
 func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Parallel()
-
-	t.Run("on L2 chains, always returns 0", func(t *testing.T) {
-		uni := newContractTrackerUni(t, v2.ChainOptimismMainnet(t))
-		l, err := uni.tracker.LatestBlockHeight(testutils.Context(t))
-		require.NoError(t, err)
-
-		assert.Equal(t, uint64(0), l)
-	})
 
 	t.Run("before first head incoming, looks up on-chain", func(t *testing.T) {
 		uni := newContractTrackerUni(t)

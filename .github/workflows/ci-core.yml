@@ -226,6 +226,54 @@ jobs:
           this-job-name: Core Tests (${{ matrix.cmd }})
         continue-on-error: true
 
+  detect-flakey-tests:
+    needs: [core]
+    name: Flakey Test Detection
+    runs-on: ubuntu-latest
+    if: always()
+    env:
+      CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Setup node
+        uses: actions/setup-node@v3
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Download Go vendor packages
+        run: go mod download
+      - name: Build binary
+        run: go build -tags test -o chainlink.test .
+      - name: Setup DB
+        run: ./chainlink.test local db preparetest
+      - name: Load test outputs
+        uses: actions/download-artifact@v3
+        with:
+          path: ./artifacts
+      - name: Build flakey test runner
+        run: go build ./tools/flakeytests/cmd/runner
+      - name: Re-run tests
+        env:
+          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
+        run: |
+          ./runner -grafana_auth=$GRAFANA_CLOUD_BASIC_AUTH -grafana_host=$GRAFANA_CLOUD_HOST -command go_core_tests `ls -R ./artifacts/go_core_tests*/output.txt`
+      - name: Store logs artifacts
+        if: always()
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
+        with:
+          name: flakey_test_runner_logs
+          path: |
+            ./output.txt
+
   scan:
     name: SonarQube Scan
     needs: [core]
