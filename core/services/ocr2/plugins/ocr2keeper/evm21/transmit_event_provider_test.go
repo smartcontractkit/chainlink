@@ -170,7 +170,7 @@ func TestTransmitEventLog(t *testing.T) {
 				},
 				Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
 					Id: uid,
-					TriggerID: [32]byte{
+					UpkeepTriggerID: [32]byte{
 						1, 2, 3, 4, 5, 6, 7, 8,
 					},
 				},
@@ -186,7 +186,7 @@ func TestTransmitEventLog(t *testing.T) {
 				},
 				Stale: &iregistry21.IKeeperRegistryMasterStaleUpkeepReport{
 					Id: uid,
-					TriggerID: [32]byte{
+					UpkeepTriggerID: [32]byte{
 						1, 2, 3, 4, 5, 6, 7, 8,
 					},
 				},
@@ -202,7 +202,7 @@ func TestTransmitEventLog(t *testing.T) {
 				},
 				InsufficientFunds: &iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{
 					Id: uid,
-					TriggerID: [32]byte{
+					UpkeepTriggerID: [32]byte{
 						1, 2, 3, 4, 5, 6, 7, 8,
 					},
 				},
@@ -218,7 +218,7 @@ func TestTransmitEventLog(t *testing.T) {
 				},
 				Reorged: &iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{
 					Id: uid,
-					TriggerID: [32]byte{
+					UpkeepTriggerID: [32]byte{
 						1, 2, 3, 4, 5, 6, 7, 8,
 					},
 				},
