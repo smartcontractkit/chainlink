@@ -12,10 +12,10 @@ func TestRateLimiter_Simple(t *testing.T) {
 	t.Parallel()
 
 	config := common.RateLimiterConfig{
-		GlobalRPS:    3.0,
-		GlobalBurst:  3,
-		PerUserRPS:   1.0,
-		PerUserBurst: 2,
+		GlobalRPS:      3.0,
+		GlobalBurst:    3,
+		PerSenderRPS:   1.0,
+		PerSenderBurst: 2,
 	}
 	rl, err := common.NewRateLimiter(config)
 	require.NoError(t, err)
