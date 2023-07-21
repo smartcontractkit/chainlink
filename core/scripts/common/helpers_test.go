@@ -1,4 +1,4 @@
-package main
+package common
 
 import (
 	"math/big"
@@ -58,7 +58,7 @@ func TestBinarySearch(t *testing.T) {
 				return val.Cmp(big.NewInt(test.result)) < 1
 			}
 
-			result := binarySearch(big.NewInt(test.top), big.NewInt(test.bottom), testFunc)
+			result := BinarySearch(big.NewInt(test.top), big.NewInt(test.bottom), testFunc)
 			assert.Equal(t, test.result, result.Int64())
 		})
 	}
