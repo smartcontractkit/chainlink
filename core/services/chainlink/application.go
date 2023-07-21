@@ -73,7 +73,7 @@ type Application interface {
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	//GetChains() Chains
-	GetRelayers() *Relayers
+	GetRelayers() *RelayChainInteroperators
 	GetLoopRegistry() *plugins.LoopRegistry
 
 	// V2 Jobs (TOML specified)
@@ -109,7 +109,7 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	//Chains                   Chains
-	relayers                 Relayers
+	relayers                 RelayChainInteroperators
 	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
@@ -149,7 +149,7 @@ type ApplicationOpts struct {
 	SqlxDB           *sqlx.DB
 	KeyStore         keystore.Master
 	// Chains                   Chains
-	Relayers                 Relayers
+	Relayers                 RelayChainInteroperators
 	AuditLogger              audit.AuditLogger
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
@@ -266,7 +266,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	srvcs = append(srvcs, eventBroadcaster, mailMon)
-	srvcs = append(srvcs, relayers.services()...)
+	srvcs = append(srvcs, relayers.Services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	srvcs = append(srvcs, promReporter)
 
@@ -498,7 +498,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
 	// If it's enabled, they are going to be registered with relayers by default.
 	if !cfg.OCR2().Enabled() {
-		for _, service := range app.relayers.services() {
+		for _, service := range app.relayers.Services() {
 			checkable := service.(services.Checkable)
 			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
 				return nil, err
@@ -804,7 +804,7 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 	return nil
 }
 
-func (app *ChainlinkApplication) GetRelayers() *Relayers {
+func (app *ChainlinkApplication) GetRelayers() *RelayChainInteroperators {
 	return &app.relayers
 }
 

@@ -362,7 +362,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
-	var chainCfgs evmtypes.Configs
+
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case evmclient.Client:
@@ -389,11 +389,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		ids = append(ids, *c.ChainID)
 	}
 	if len(ids) > 0 {
-		o := chainCfgs
-		if o == nil {
-			if err = evm.EnsureChains(db, lggr, cfg.Database(), ids); err != nil {
-				t.Fatal(err)
-			}
+		if err = evm.EnsureChains(db, lggr, cfg.Database(), ids); err != nil {
+			t.Fatal(err)
 		}
 	}
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
@@ -407,14 +404,13 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		//TODO
 		GRPCOpts: loop.GRPCOpts{},
 	}
-	var relayers chainlink.Relayers
+	var relayers chainlink.RelayChainInteroperators
 	// evm always enabled, for some reason ...
 	{
 		chainId := ethClient.ConfiguredChainID()
 		opts := evm.RelayerFactoryOpts{
-			EVMOperationalConfigs: chainCfgs,
-			Config:                cfg,
-			EventBroadcaster:      eventBroadcaster,
+			Config:           cfg,
+			EventBroadcaster: eventBroadcaster,
 			GenEthClient: func(_ *big.Int) evmclient.Client {
 				if chainId.Cmp(cfg.DefaultChainID()) != 0 {
 					t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())

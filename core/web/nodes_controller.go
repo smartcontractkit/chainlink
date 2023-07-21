@@ -18,14 +18,14 @@ type NodesController interface {
 }
 
 type nodesController[R jsonapi.EntityNamer] struct {
-	nodeSet       chains.Nodes
+	nodeSet       chains.NodesStatuser
 	errNotEnabled error
 	newResource   func(status types.NodeStatus) R
 	auditLogger   audit.AuditLogger
 }
 
 func newNodesController[R jsonapi.EntityNamer](
-	nodeSet chains.Nodes,
+	nodeSet chains.NodesStatuser,
 	errNotEnabled error,
 	newResource func(status types.NodeStatus) R,
 	auditLogger audit.AuditLogger,

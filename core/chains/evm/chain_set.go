@@ -40,7 +40,7 @@ var _ legacyChainSet = &chainSet{}
 type legacyChainSet interface {
 	services.ServiceCtx
 	chains.ChainStatuser
-	chains.Nodes
+	chains.NodesStatuser
 
 	Get(id *big.Int) (Chain, error)
 
@@ -219,7 +219,7 @@ func (cll *chainSet) get(id string) (Chain, error) {
 
 func (cll *chainSet) ChainStatus(ctx context.Context, id string) (cfg relaytypes.ChainStatus, err error) {
 	var cs []relaytypes.ChainStatus
-	cs, _, err = cll.opts.EVMOperationalConfigs.Chains(0, -1, id)
+	cs, _, err = cll.opts.operationalConfigs.Chains(0, -1, id)
 	if err != nil {
 		return
 	}
@@ -237,7 +237,7 @@ func (cll *chainSet) ChainStatus(ctx context.Context, id string) (cfg relaytypes
 }
 
 func (cll *chainSet) ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error) {
-	return cll.opts.EVMOperationalConfigs.Chains(offset, limit)
+	return cll.opts.operationalConfigs.Chains(offset, limit)
 }
 
 func (cll *chainSet) Default() (Chain, error) {
@@ -272,11 +272,11 @@ func (cll *chainSet) ChainCount() int {
 }
 
 func (cll *chainSet) Configs() evmtypes.Configs {
-	return cll.opts.EVMOperationalConfigs
+	return cll.opts.operationalConfigs
 }
 
 func (cll *chainSet) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error) {
-	nodes, count, err = cll.opts.EVMOperationalConfigs.NodeStatusesPaged(offset, limit, chainIDs...)
+	nodes, count, err = cll.opts.operationalConfigs.NodeStatusesPaged(offset, limit, chainIDs...)
 	if err != nil {
 		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
 		return
@@ -337,10 +337,10 @@ type ChainRelayExtOpts struct {
 type RelayerFactoryOpts struct {
 	Config GeneralConfig
 
-	EventBroadcaster      pg.EventBroadcaster
-	EVMOperationalConfigs evmtypes.Configs
-	MailMon               *utils.MailboxMonitor
-	GasEstimator          gas.EvmFeeEstimator
+	EventBroadcaster   pg.EventBroadcaster
+	operationalConfigs evmtypes.Configs
+	MailMon            *utils.MailboxMonitor
+	GasEstimator       gas.EvmFeeEstimator
 
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(*big.Int) client.Client
@@ -428,6 +428,6 @@ func (opts *ChainRelayExtOpts) check() error {
 		return errors.New("config must be non-nil")
 	}
 
-	opts.EVMOperationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.Config.EVMConfigs())
+	opts.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.Config.EVMConfigs())
 	return nil
 }

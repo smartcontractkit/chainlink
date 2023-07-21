@@ -91,13 +91,21 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 		ChainID: chainID,
 		Chain:   evmcfg.Defaults(chainID),
 		Enabled: &enabled,
-		Nodes:   evmcfg.EVMNodes{{}},
+		Nodes:   evmcfg.EVMNodes{&validSimulatedNode},
 	}
 	if len(c.EVM) == 1 && c.EVM[0].ChainID.Cmp(utils.NewBigI(client.NullClientChainID)) == 0 {
 		c.EVM[0] = &cfg // replace null, if only entry
 	} else {
 		c.EVM = append(c.EVM, &cfg)
 	}
+}
+
+var validSimulatedNode = evmcfg.Node{
+	Name:     ptr("simulated-node"),
+	WSURL:    models.MustParseURL("WSS://simulated-wss.com/ws"),
+	HTTPURL:  models.MustParseURL("http://simulated.com"),
+	SendOnly: nil,
+	Order:    ptr(int32(1)),
 }
 
 func ptr[T any](v T) *T { return &v }

@@ -11,36 +11,66 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 // Chains holds a ChainSet for each type of chain.
-type chains struct {
+type legacyChains struct {
 	EVMChains *evm.Chains //evmloop.LoopRelayAdapter //evm.ChainSet                      // map[relay.Identifier]evm.ChainSet
 
 	CosmosChains *cosmos.Chains
 }
 
-type Relayers struct {
-	mu       sync.Mutex
-	relayers map[relay.Identifier]loop.Relayer
-	chains   chains
+type RelayChainInterchangers interface {
+	Services() []services.ServiceCtx
+
+	List(filter FilterFn) RelayChainInterchangers
+
+	LoopRelayerStorer
+	LegacyChainGetter
+	OperationalStatuser
 }
 
-func NewRelayers() *Relayers {
-	return &Relayers{
+type LoopRelayerStorer interface {
+	ocr2.RelayGetter
+	Put(id relay.Identifier, r loop.Relayer) error
+	PutBatch(b map[relay.Identifier]loop.Relayer) error
+	Slice() []loop.Relayer
+}
+type LegacyChainGetter interface {
+	LegacyEVMChains() *evm.Chains
+	LegacyCosmosChains() *cosmos.Chains
+}
+
+type OperationalStatuser interface {
+	chains.ChainStatuser
+	chains.NodesStatuser
+}
+
+var _ RelayChainInterchangers = &RelayChainInteroperators{}
+
+type RelayChainInteroperators struct {
+	mu       sync.Mutex
+	relayers map[relay.Identifier]loop.Relayer
+	chains   legacyChains
+}
+
+func NewRelayers() *RelayChainInteroperators {
+	return &RelayChainInteroperators{
 		relayers: make(map[relay.Identifier]loop.Relayer),
-		chains:   chains{EVMChains: evm.NewLegacyChains(), CosmosChains: new(cosmos.Chains)},
+		chains:   legacyChains{EVMChains: evm.NewLegacyChains(), CosmosChains: new(cosmos.Chains)},
 	}
 }
 
 var ErrNoSuchRelayer = errors.New("relayer does not exist")
 
-func (rs *Relayers) Get(id relay.Identifier) (loop.Relayer, error) {
+func (rs *RelayChainInteroperators) Get(id relay.Identifier) (loop.Relayer, error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	r, exist := rs.relayers[id]
@@ -50,7 +80,7 @@ func (rs *Relayers) Get(id relay.Identifier) (loop.Relayer, error) {
 	return r, nil
 }
 
-func (rs *Relayers) putOne(id relay.Identifier, r loop.Relayer) error {
+func (rs *RelayChainInteroperators) putOne(id relay.Identifier, r loop.Relayer) error {
 
 	// backward compatibility. this is bit gross to type cast but it hides the details from products.
 	switch id.Network {
@@ -81,7 +111,7 @@ func (rs *Relayers) putOne(id relay.Identifier, r loop.Relayer) error {
 	return nil
 }
 
-func (rs *Relayers) Put(id relay.Identifier, r loop.Relayer) error {
+func (rs *RelayChainInteroperators) Put(id relay.Identifier, r loop.Relayer) error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.putOne(id, r)
@@ -90,7 +120,7 @@ func (rs *Relayers) Put(id relay.Identifier, r loop.Relayer) error {
 // TODO maybe make Relayer[U,V] where u,v are the chain specific types and then make this generic
 // Relayer[U evm.LoopAdapter, Vcosmos.LoopAdapter]
 // (rs Relayer[U,V] PutBatch(map[](loop.relayer|U|V))
-func (rs *Relayers) PutBatch(b map[relay.Identifier]loop.Relayer) (err error) {
+func (rs *RelayChainInteroperators) PutBatch(b map[relay.Identifier]loop.Relayer) (err error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	for id, r := range b {
@@ -102,20 +132,20 @@ func (rs *Relayers) PutBatch(b map[relay.Identifier]loop.Relayer) (err error) {
 	return err
 }
 
-func (rs *Relayers) LegacyEVMChains() *evm.Chains {
+func (rs *RelayChainInteroperators) LegacyEVMChains() *evm.Chains {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
 	return rs.chains.EVMChains
 }
 
-func (rs *Relayers) LegacyCosmosChains() *cosmos.Chains {
+func (rs *RelayChainInteroperators) LegacyCosmosChains() *cosmos.Chains {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.chains.CosmosChains
 }
 
-func (rs *Relayers) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
+func (rs *RelayChainInteroperators) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
 	relayID := new(relay.Identifier)
 	err := relayID.UnmarshalString(id)
 	if err != nil {
@@ -130,14 +160,14 @@ func (rs *Relayers) ChainStatus(ctx context.Context, id string) (types.ChainStat
 	return relayer.ChainStatus(ctx, id)
 }
 
-func (rs *Relayers) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
+func (rs *RelayChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
 	// chain statuses are not dynamic; the call would be better named as ChainConfig or such.
 	// lazily create a cache and use that case for the offset and limit to ensure deterministic results
 
 	return nil, 0, nil
 }
 
-func (rs *Relayers) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
+func (rs *RelayChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
 	return nil, 0, nil
 }
 
@@ -153,7 +183,7 @@ func FilterByType(network relay.Network) func(id relay.Identifier) bool {
 	}
 }
 
-func (rs *Relayers) List(filter FilterFn) *Relayers {
+func (rs *RelayChainInteroperators) List(filter FilterFn) RelayChainInterchangers {
 
 	var matches map[relay.Identifier]loop.Relayer
 	rs.mu.Lock()
@@ -163,21 +193,19 @@ func (rs *Relayers) List(filter FilterFn) *Relayers {
 		}
 	}
 	rs.mu.Unlock()
-	return &Relayers{
+	return &RelayChainInteroperators{
 		relayers: matches,
-		// note filtering may cause the default evm to no longer be in the returned set.
-		//defaultEvmID: rs.defaultEvmID,
 	}
 }
 
-func (rs *Relayers) Slice() []loop.Relayer {
+func (rs *RelayChainInteroperators) Slice() []loop.Relayer {
 	var result []loop.Relayer
 	for _, r := range rs.relayers {
 		result = append(result, r)
 	}
 	return result
 }
-func (rs *Relayers) services() (s []services.ServiceCtx) {
+func (rs *RelayChainInteroperators) Services() (s []services.ServiceCtx) {
 	// TODO. ensure that the services are not duplicated between the chain and relayers...
 	s = append(s, sortByChainID(rs.relayers)...)
 	return

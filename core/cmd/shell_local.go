@@ -565,7 +565,9 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 	address := gethCommon.BytesToAddress(addressBytes)
 
-	var chainID *big.Int
+	//hack. default to simulated id until figure out how to
+	// plumb ctx in tests
+	chainID := big.NewInt(1337)
 	if chainIDStr != "" {
 		var ok bool
 		chainID, ok = big.NewInt(0).SetString(chainIDStr, 10)

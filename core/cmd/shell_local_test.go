@@ -38,7 +38,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.RelayerKeystore) *chainlink.Relayers {
+func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.RelayerKeystore) *chainlink.RelayChainInteroperators {
 	relayers := chainlink.NewRelayers()
 
 	legacyChains := cltest.NewLegacyChainsWithMockChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, opts.Config))
@@ -76,6 +76,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				c.EVM[0].Nodes[0].Name = ptr("fake")
 				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
 				c.EVM[0].Nodes[0].WSURL = models.MustParseURL("WSS://fake.com/ws")
+				// seems to be needed for config validate
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 			db := pgtest.NewSqlxDB(t)
@@ -172,6 +173,8 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				c.EVM[0].Nodes[0].Name = ptr("fake")
 				c.EVM[0].Nodes[0].WSURL = models.MustParseURL("WSS://fake.com/ws")
 				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
+				// seems to be needed for config validate
+				c.Insecure.OCRDevelopmentMode = nil
 			})
 			db := pgtest.NewSqlxDB(t)
 			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
@@ -207,7 +210,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app.On("GetKeyStore").Return(keyStore)
 			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 
-			app.On("GetRelayers").Return(testRelayers)
+			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.New())
@@ -290,6 +293,8 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 		// evm config is used in this test. but if set, it must be pass config validation.
 		// simplest to make it nil
 		c.EVM = nil
+		// seems to be needed for config validate
+		c.Insecure.OCRDevelopmentMode = nil
 	})
 	keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
@@ -316,7 +321,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	app.On("ID").Maybe().Return(uuid.New())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
-	app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore))
+	app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore)).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
 	//lggr := logger.TestLogger(t)
@@ -377,6 +382,8 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 				// evm config is used in this test. but if set, it must be pass config validation.
 				// simplest to make it nil
 				c.EVM = nil
+				// seems to be needed for config validate
+				c.Insecure.OCRDevelopmentMode = nil
 			})
 
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
@@ -406,7 +413,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
-			app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore))
+			app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore)).Maybe()
 
 			client := cmd.Shell{
 				Config:                 config,
@@ -458,7 +465,9 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Dialect = dialects.Postgres
-				c.EVM = nil
+				//c.EVM = nil
+				// seems to be needed for config validate
+				c.Insecure.OCRDevelopmentMode = nil
 			})
 
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
@@ -483,6 +492,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 				},
 			}
 
+			testRelayers := genTestEVMRelayers(t, opts, keyStore)
 			app := mocks.NewApplication(t)
 			app.On("GetSqlxDB").Maybe().Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
@@ -490,7 +500,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
 			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
-			app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore))
+			app.On("GetRelayers").Return(testRelayers).Maybe()
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
 
 			client := cmd.Shell{
@@ -502,6 +512,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
+			set.Set("evmChainID", testutils.SimulatedChainID.String())
 			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("address", fromAddress.Hex()))

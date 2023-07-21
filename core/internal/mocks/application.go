@@ -256,15 +256,15 @@ func (_m *Application) GetLoopRegistry() *plugins.LoopRegistry {
 }
 
 // GetRelayers provides a mock function with given fields:
-func (_m *Application) GetRelayers() *chainlink.Relayers {
+func (_m *Application) GetRelayers() *chainlink.RelayChainInteroperators {
 	ret := _m.Called()
 
-	var r0 *chainlink.Relayers
-	if rf, ok := ret.Get(0).(func() *chainlink.Relayers); ok {
+	var r0 *chainlink.RelayChainInteroperators
+	if rf, ok := ret.Get(0).(func() *chainlink.RelayChainInteroperators); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*chainlink.Relayers)
+			r0 = ret.Get(0).(*chainlink.RelayChainInteroperators)
 		}
 	}
 
