@@ -54,7 +54,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     address[] consumers;
   }
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
-  mapping(uint256 => uint64) /* consumer+subId */ /* nonce */ internal s_consumers;
+  mapping(bytes32 => uint64) /* consumer+subId */ /* nonce */ internal s_consumers;
   mapping(uint256 => SubscriptionConfig) /* subId */ /* subscriptionConfig */ internal s_subscriptionConfigs;
   mapping(uint256 => Subscription) /* subId */ /* subscription */ internal s_subscriptions;
   // subscription nonce used to construct subID. Rises monotonically
@@ -347,7 +347,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     _;
   }
 
-  function getConsumerKey(address consumer, uint256 subId) internal pure returns (uint256) {
-    return uint256(keccak256(abi.encodePacked(subId, consumer)));
+  function getConsumerKey(address consumer, uint256 subId) internal pure returns (bytes32) {
+    return keccak256(abi.encodePacked(subId, consumer));
   }
 }

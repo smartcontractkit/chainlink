@@ -187,9 +187,9 @@ contract VRFV2Plus is BaseTest {
     assertEq(fulfilled, false);
 
     // Uncomment these console logs to see info about the request:
-     console.log("requestId: ", requestId);
-     console.log("preSeed: ", preSeed);
-     console.log("sender: ", address(s_testConsumer));
+    // console.log("requestId: ", requestId);
+    // console.log("preSeed: ", preSeed);
+    // console.log("sender: ", address(s_testConsumer));
 
     // Move on to the next block.
     // Store the previous block's blockhash, and assert that it is as expected.
@@ -294,9 +294,9 @@ contract VRFV2Plus is BaseTest {
     assertEq(fulfilled, false);
 
     // Uncomment these console logs to see info about the request:
-     console.log("requestId: ", requestId);
-     console.log("preSeed: ", preSeed);
-     console.log("sender: ", address(s_testConsumer));
+    // console.log("requestId: ", requestId);
+    // console.log("preSeed: ", preSeed);
+    // console.log("sender: ", address(s_testConsumer));
 
     // Move on to the next block.
     // Store the previous block's blockhash, and assert that it is as expected.

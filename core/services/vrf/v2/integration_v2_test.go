@@ -140,7 +140,6 @@ const (
 		SELECT * FROM eth_txes
 		WHERE eth_txes.state = 'confirmed'
 		AND CAST(eth_txes.meta->>'SubId' AS NUMERIC) = $1`
-
 	ConfirmedEthTxesV2PlusBatchQuery = `
 		SELECT * FROM eth_txes
 		WHERE eth_txes.state = 'confirmed'
@@ -965,10 +964,6 @@ func testEoa(
 		vrfVersion,
 		assets.Ether(1).ToInt(),
 	)
-	// Add the EOA as a consumer.
-	_, err := uni.rootContract.AddConsumer(consumer, subID, consumer.From)
-	require.NoError(t, err)
-	uni.backend.Commit()
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
@@ -992,7 +987,7 @@ func testEoa(
 	// Make a randomness request with the EOA. This request is impossible to fulfill.
 	numWords := uint32(1)
 	minRequestConfirmations := uint16(2)
-	_, err = uni.rootContract.RequestRandomWords(consumer, keyHash, subID, minRequestConfirmations, uint32(200_000), numWords, false)
+	_, err := uni.rootContract.RequestRandomWords(consumer, keyHash, subID, minRequestConfirmations, uint32(200_000), numWords, false)
 	require.NoError(t, err)
 	uni.backend.Commit()
 

@@ -119,8 +119,8 @@ func (lsn *listenerV2) processBatch(
 	var (
 		payload           []byte
 		err               error
-		txMetaSubID       uint64
-		txMetaGlobalSubID string
+		txMetaSubID       *uint64
+		txMetaGlobalSubID *string
 	)
 
 	if batch.version == vrfcommon.V2 {
@@ -131,7 +131,7 @@ func (lsn *listenerV2) processBatch(
 				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
 			return
 		}
-		txMetaSubID = subID.Uint64()
+		txMetaSubID = ptr(subID.Uint64())
 	} else if batch.version == vrfcommon.V2Plus {
 		payload, err = batchCoordinatorV2PlusABI.Pack("fulfillRandomWords", ToV2PlusProofs(batch.proofs), ToV2PlusCommitments(batch.commitments))
 		if err != nil {
@@ -140,7 +140,7 @@ func (lsn *listenerV2) processBatch(
 				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
 			return
 		}
-		txMetaGlobalSubID = subID.String()
+		txMetaGlobalSubID = ptr(subID.String())
 	} else {
 		panic("batch version should be v2 or v2plus")
 	}
@@ -189,8 +189,8 @@ func (lsn *listenerV2) processBatch(
 				RequestIDs:      reqIDHashes,
 				MaxLink:         &maxLink,
 				MaxEth:          &maxEth,
-				SubID:           &txMetaSubID,
-				GlobalSubID:     &txMetaGlobalSubID,
+				SubID:           txMetaSubID,
+				GlobalSubID:     txMetaGlobalSubID,
 				RequestTxHashes: txHashes,
 			},
 		}, pg.WithQueryer(tx))
