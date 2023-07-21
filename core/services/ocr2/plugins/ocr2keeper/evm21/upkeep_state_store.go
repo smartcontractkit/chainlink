@@ -8,8 +8,6 @@ import (
 	"sync"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const Separator = "|"
@@ -45,15 +43,13 @@ type UpkeepStateStore struct {
 	statesByID       map[string]*upkeepState
 	statesByBlock    map[int64][]*upkeepState
 	statesByUpkeepID map[string][]*upkeepState
-	lggr             logger.Logger
 }
 
-func NewUpkeepStateStore(lggr logger.Logger) *UpkeepStateStore {
+func NewUpkeepStateStore() *UpkeepStateStore {
 	return &UpkeepStateStore{
 		statesByID:       map[string]*upkeepState{},
 		statesByBlock:    map[int64][]*upkeepState{},
 		statesByUpkeepID: map[string][]*upkeepState{},
-		lggr:             lggr.Named("UpkeepStateStore"),
 	}
 }
 
@@ -134,15 +130,22 @@ func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us Upkee
 		payload: &pl,
 		state:   &us,
 	}
+	s, ok := u.statesByID[pl.ID]
+	if ok {
+		s.payload = &pl
+		s.state = &us
+		return nil
+	}
 	u.statesByID[pl.ID] = state
 
-	res1, _ := u.statesByUpkeepID[string(pl.Upkeep.ID)]
+	upkeepId := big.NewInt(0).SetBytes(pl.Upkeep.ID)
+	res1, _ := u.statesByUpkeepID[upkeepId.String()]
 	res1 = append(res1, state)
-	u.statesByUpkeepID[string(pl.Upkeep.ID)] = res1
+	u.statesByUpkeepID[upkeepId.String()] = res1
 
 	arrs := strings.Split(string(pl.CheckBlock), Separator)
 	if len(arrs) != 2 {
-		return fmt.Errorf("check block %s is invalid for upkeep %s", pl.CheckBlock, pl.Upkeep.ID)
+		return fmt.Errorf("check block %s is invalid for upkeep %s", pl.CheckBlock, upkeepId)
 	}
 	block, err := strconv.ParseInt(arrs[0], 10, 64)
 	if err != nil {
