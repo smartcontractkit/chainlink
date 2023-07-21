@@ -38,18 +38,20 @@ import (
 	"github.com/urfave/cli"
 )
 
-func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.RelayerKeystore) chainlink.Relayers {
-	var relayers chainlink.Relayers
+func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.RelayerKeystore) *chainlink.Relayers {
+	relayers := chainlink.NewRelayers()
 
 	legacyChains := cltest.NewLegacyChainsWithMockChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, opts.Config))
 	rly := evmrelayer.NewRelayer(opts.DB, legacyChains, opts.Logger, ks, pg.NewNullEventBroadcaster())
+
+	require.NoError(t, opts.Config.Validate(), "invalid config")
 
 	exts, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
 	require.Len(t, exts, 1)
 	ext := exts[0]
 
-	adapter := relay.NewRelayerAdapter(rly, ext)
+	adapter := evmrelayer.NewLoopRelayAdapter(rly, ext)
 	rid := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
 	err = relayers.Put(rid, adapter)
 	require.NoError(t, err)
@@ -73,12 +75,15 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				s.Password.Keystore = models.NewSecret("dummy")
 				c.EVM[0].Nodes[0].Name = ptr("fake")
 				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
+				c.EVM[0].Nodes[0].WSURL = models.MustParseURL("WSS://fake.com/ws")
+				c.Insecure.OCRDevelopmentMode = nil
 			})
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 			sessionORM := sessions.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 			lggr := logger.TestLogger(t)
+
 			opts := evm.ChainRelayExtOpts{
 				Logger:   lggr,
 				DB:       db,
@@ -86,8 +91,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				RelayerFactoryOpts: evm.RelayerFactoryOpts{
 					Config:           cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
-
-					MailMon: &utils.MailboxMonitor{},
+					MailMon:          &utils.MailboxMonitor{},
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -100,7 +104,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			app.On("SessionORM").Return(sessionORM).Maybe()
 			app.On("GetKeyStore").Return(keyStore).Maybe()
 			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-			app.On("GetRelayers").Return(testRelayers)
+			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
 			app.On("ID").Maybe().Return(uuid.New())

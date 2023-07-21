@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -48,7 +48,7 @@ type legacyChainSet interface {
 	Chains() []Chain
 	ChainCount() int
 
-	Configs() types.Configs
+	Configs() evmtypes.Configs
 
 	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
@@ -219,7 +219,7 @@ func (cll *chainSet) get(id string) (Chain, error) {
 
 func (cll *chainSet) ChainStatus(ctx context.Context, id string) (cfg relaytypes.ChainStatus, err error) {
 	var cs []relaytypes.ChainStatus
-	cs, _, err = cll.opts.Configs.Chains(0, -1, id)
+	cs, _, err = cll.opts.EVMOperationalConfigs.Chains(0, -1, id)
 	if err != nil {
 		return
 	}
@@ -237,7 +237,7 @@ func (cll *chainSet) ChainStatus(ctx context.Context, id string) (cfg relaytypes
 }
 
 func (cll *chainSet) ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error) {
-	return cll.opts.Configs.Chains(offset, limit)
+	return cll.opts.EVMOperationalConfigs.Chains(offset, limit)
 }
 
 func (cll *chainSet) Default() (Chain, error) {
@@ -271,12 +271,12 @@ func (cll *chainSet) ChainCount() int {
 	return len(cll.chains)
 }
 
-func (cll *chainSet) Configs() types.Configs {
-	return cll.opts.Configs
+func (cll *chainSet) Configs() evmtypes.Configs {
+	return cll.opts.EVMOperationalConfigs
 }
 
 func (cll *chainSet) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error) {
-	nodes, count, err = cll.opts.Configs.NodeStatusesPaged(offset, limit, chainIDs...)
+	nodes, count, err = cll.opts.EVMOperationalConfigs.NodeStatusesPaged(offset, limit, chainIDs...)
 	if err != nil {
 		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
 		return
@@ -337,10 +337,10 @@ type ChainRelayExtOpts struct {
 type RelayerFactoryOpts struct {
 	Config GeneralConfig
 
-	EventBroadcaster pg.EventBroadcaster
-	Configs          types.Configs
-	MailMon          *utils.MailboxMonitor
-	GasEstimator     gas.EvmFeeEstimator
+	EventBroadcaster      pg.EventBroadcaster
+	EVMOperationalConfigs evmtypes.Configs
+	MailMon               *utils.MailboxMonitor
+	GasEstimator          gas.EvmFeeEstimator
 
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(*big.Int) client.Client
@@ -391,7 +391,7 @@ func NewChainRelayerExtenders(ctx context.Context, opts ChainRelayExtOpts) ([]*C
 		//cll.defaultID = defaultChainID
 
 		cll.logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
-		chain, err2 := newTOMLChain(ctx, enabled[i], opts)
+		chain, err2 := newTOMLChain(ctx, enabled[i], privOpts)
 		if err2 != nil {
 			err = multierr.Combine(err, err2)
 			continue
@@ -428,6 +428,6 @@ func (opts *ChainRelayExtOpts) check() error {
 		return errors.New("config must be non-nil")
 	}
 
-	opts.Configs = chains.NewConfigs[utils.Big, types.Node](opts.Config.EVMConfigs())
+	opts.EVMOperationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.Config.EVMConfigs())
 	return nil
 }

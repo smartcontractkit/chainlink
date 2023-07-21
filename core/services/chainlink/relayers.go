@@ -29,68 +29,16 @@ type Relayers struct {
 	mu       sync.Mutex
 	relayers map[relay.Identifier]loop.Relayer
 	chains   chains
-	// have to treat evm as special because of the Default func. maybe there is a cleaner way...
-	//defaultEvmID relay.Identifier
+}
+
+func NewRelayers() *Relayers {
+	return &Relayers{
+		relayers: make(map[relay.Identifier]loop.Relayer),
+		chains:   chains{EVMChains: evm.NewLegacyChains(), CosmosChains: new(cosmos.Chains)},
+	}
 }
 
 var ErrNoSuchRelayer = errors.New("relayer does not exist")
-
-// TODO generics to simplify
-/*
-func (rs *Relayers) EVM(ids ...relay.Identifier) (map[relay.Identifier]evmloop.LoopRelayAdapter, error) {
-	var (
-		result map[relay.Identifier]evmloop.LoopRelayAdapter
-		err    error
-	)
-	rs.mu.Lock()
-	defer rs.mu.Unlock()
-	if len(ids) == 0 {
-		return rs.chains.EVM, nil
-	}
-	for _, id := range ids {
-		r, ok := rs.chains.EVM[id]
-		if !ok {
-			err = errors.Join(err, fmt.Errorf("no such id %s", id))
-			continue
-		}
-		result[id] = r
-	}
-	return result, err
-}
-
-func (rs *Relayers) Cosmos(ids ...relay.Identifier) (map[relay.Identifier]cosmos.LoopRelayAdapter, error) {
-	var (
-		result map[relay.Identifier]cosmos.LoopRelayAdapter
-		err    error
-	)
-	rs.mu.Lock()
-	defer rs.mu.Unlock()
-	if len(ids) == 0 {
-		return rs.chains.Cosmos, nil
-	}
-	for _, id := range ids {
-		r, ok := rs.chains.Cosmos[id]
-		if !ok {
-			err = errors.Join(err, fmt.Errorf("no such id %s", id))
-			continue
-		}
-		result[id] = r
-	}
-	return result, err
-}
-
-func (rs *Relayers) PutEVM(id relay.Identifier, l evmloop.LoopRelayAdapter) {
-	rs.mu.Lock()
-	defer rs.mu.Unlock()
-	rs.chains.EVM[id] = l
-}
-
-func (rs *Relayers) PutCosmos(id relay.Identifier, l cosmos.LoopRelayAdapter) {
-	rs.mu.Lock()
-	defer rs.mu.Unlock()
-	rs.chains.Cosmos[id] = l
-}
-*/
 
 func (rs *Relayers) Get(id relay.Identifier) (loop.Relayer, error) {
 	rs.mu.Lock()
@@ -111,6 +59,7 @@ func (rs *Relayers) putOne(id relay.Identifier, r loop.Relayer) error {
 		if !ok {
 			return fmt.Errorf("unsupported evm loop relayer implementation. got %t want (evmrelayer.LoopRelayAdapter)", r)
 		}
+
 		rs.chains.EVMChains.Put(id.ChainID.String(), adapter.Chain())
 		if adapter.Default() {
 			dflt, _ := rs.chains.EVMChains.Default()
@@ -124,6 +73,7 @@ func (rs *Relayers) putOne(id relay.Identifier, r loop.Relayer) error {
 		if !ok {
 			return fmt.Errorf("unsupported cosmos loop relayer implementation. got %t want (cosmos.LoopRelayAdapter)", r)
 		}
+
 		rs.chains.CosmosChains.Put(id.ChainID.String(), adapter.Chain())
 	}
 
@@ -155,11 +105,7 @@ func (rs *Relayers) PutBatch(b map[relay.Identifier]loop.Relayer) (err error) {
 func (rs *Relayers) LegacyEVMChains() *evm.Chains {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	// for backward compatibility we return an empty, non-nil value here
-	// all other chains/relayers can be nil...
-	if rs.chains.EVMChains == nil {
-		rs.chains.EVMChains = evm.NewLegacyChains()
-	}
+
 	return rs.chains.EVMChains
 }
 
@@ -195,21 +141,6 @@ func (rs *Relayers) NodeStatuses(ctx context.Context, offset, limit int, chainID
 	return nil, 0, nil
 }
 
-// backwards compatibility with Default func for evm chainset
-/*
-func (rs *Relayers) DefaultEVM() (loop.Relayer, error) {
-	return rs.Get(rs.defaultEvmID)
-}
-
-func (rs *Relayers) SetDefaultEVM(id relay.Identifier) error {
-	_, err := rs.Get(id)
-	if err != nil {
-		return fmt.Errorf("failed to set default evm relayer. has it been put?: %w", err)
-	}
-	rs.defaultEvmID = id
-	return nil
-}
-*/
 type FilterFn func(id relay.Identifier) bool
 
 var AllRelayers = func(id relay.Identifier) bool {

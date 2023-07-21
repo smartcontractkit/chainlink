@@ -412,9 +412,9 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	{
 		chainId := ethClient.ConfiguredChainID()
 		opts := evm.RelayerFactoryOpts{
-			Configs:          chainCfgs,
-			Config:           cfg,
-			EventBroadcaster: eventBroadcaster,
+			EVMOperationalConfigs: chainCfgs,
+			Config:                cfg,
+			EventBroadcaster:      eventBroadcaster,
 			GenEthClient: func(_ *big.Int) evmclient.Client {
 				if chainId.Cmp(cfg.DefaultChainID()) != 0 {
 					t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())
