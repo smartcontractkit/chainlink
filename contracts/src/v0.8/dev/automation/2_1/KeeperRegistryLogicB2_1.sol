@@ -240,71 +240,24 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   /**
    * @notice retrieve active upkeep IDs. Active upkeep is defined as an upkeep which is not paused and not canceled.
    * @param startIndex starting index in list
-   * @param endIndex end index. non-inclusive
+   * @param maxCount max count to retrieve (0 = unlimited)
    * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
    * should consider keeping the blockheight constant to ensure a holistic picture of the contract state
-   * @dev this function will not error if an endIndex is provided that is too large, instead, it will resolve gracefully
-   * by supplying as many results as it can within the bounds of the upkeep set
    */
-  function getActiveUpkeepIDs(uint256 startIndex, uint256 endIndex) external view returns (uint256[] memory) {
-    uint256 maxIndex = s_upkeepIDs.length();
-    endIndex = endIndex > maxIndex ? maxIndex : endIndex;
-    if (startIndex > endIndex) revert IndexOutOfRange();
-    uint256 count = endIndex - startIndex;
-    uint256[] memory ids = new uint256[](count);
-    for (uint256 idx = 0; idx < count; idx++) {
+  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory) {
+    uint256 numUpkeeps = s_upkeepIDs.length();
+    if (startIndex >= numUpkeeps) revert IndexOutOfRange();
+    uint256 endIndex = startIndex + maxCount;
+    endIndex = endIndex > numUpkeeps || maxCount == 0 ? numUpkeeps : endIndex;
+    uint256[] memory ids = new uint256[](endIndex - startIndex);
+    for (uint256 idx = 0; idx < ids.length; idx++) {
       ids[idx] = s_upkeepIDs.at(idx + startIndex);
-    }
-    return ids;
-  }
-
-  /**
-   * @notice retrieve active upkeep IDs within the range, filtered by the provided type
-   * @param startIndex starting index in list
-   * @param endIndex end index. non-inclusive
-   * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
-   * should consider keeping the blockheight constant to ensure a holistic picture of the contract state
-   * @dev this function will not error if an endIndex is provided that is too large, instead, it will resolve gracefully
-   * by supplying as many results as it can within the bounds of the upkeep set
-   */
-  function getActiveUpkeepIDsByType(
-    uint256 startIndex,
-    uint256 endIndex,
-    Trigger trigger
-  ) external view returns (uint256[] memory) {
-    uint256 maxIndex = s_upkeepIDs.length();
-    endIndex = endIndex > maxIndex ? maxIndex : endIndex;
-    if (startIndex > endIndex) revert IndexOutOfRange();
-    uint256 maxCount = endIndex - startIndex;
-    uint256 numFound;
-    uint256[] memory ids = new uint256[](maxCount);
-    for (uint256 idx = 0; idx < maxCount; idx++) {
-      uint256 id = s_upkeepIDs.at(idx + startIndex);
-      if (getTriggerType(id) == trigger) {
-        ids[numFound] = id;
-        numFound++;
-      }
-    }
-    if (numFound != maxCount) {
-      assembly {
-        mstore(ids, numFound)
-      }
     }
     return ids;
   }
 
   function getUpkeepTriggerConfig(uint256 upkeepId) public view returns (bytes memory) {
     return s_upkeepTriggerConfig[upkeepId];
-  }
-
-  function getLogTriggerConfig(uint256 upkeepId) public view returns (LogTriggerConfig memory) {
-    require(getTriggerType(upkeepId) == Trigger.LOG);
-    return abi.decode(s_upkeepTriggerConfig[upkeepId], (LogTriggerConfig));
-  }
-
-  function getConditionalTriggerConfig(uint256 upkeepId) public view returns (ConditionalTriggerConfig memory) {
-    require(getTriggerType(upkeepId) == Trigger.LOG);
-    return abi.decode(s_upkeepTriggerConfig[upkeepId], (ConditionalTriggerConfig));
   }
 
   /**
@@ -390,7 +343,24 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    * @notice calculates the minimum balance required for an upkeep to remain eligible
    * @param id the upkeep id to calculate minimum balance for
    */
-  function getMinBalanceForUpkeep(uint256 id) external view returns (uint96 minBalance) {
+  function getBalance(uint256 id) external view returns (uint96 balance) {
+    return s_upkeep[id].balance;
+  }
+
+  /**
+   * @notice calculates the minimum balance required for an upkeep to remain eligible
+   * @param id the upkeep id to calculate minimum balance for
+   */
+  function getMinBalance(uint256 id) external view returns (uint96) {
+    return getMinBalanceForUpkeep(id);
+  }
+
+  /**
+   * @notice calculates the minimum balance required for an upkeep to remain eligible
+   * @param id the upkeep id to calculate minimum balance for
+   * @dev this will be deprecated in a future version in favor of getMinBalance
+   */
+  function getMinBalanceForUpkeep(uint256 id) public view returns (uint96 minBalance) {
     return getMaxPaymentForGas(getTriggerType(id), s_upkeep[id].executeGas);
   }
 

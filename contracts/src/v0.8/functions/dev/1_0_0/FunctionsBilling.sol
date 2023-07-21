@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {Routable, ITypeAndVersion} from "./Routable.sol";
+import {Routable} from "./Routable.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
@@ -79,6 +79,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   error GasLimitTooBig(uint32 have, uint32 want);
   error InvalidLinkWeiPrice(int256 linkWei);
   error PaymentTooLarge();
+  error NoTransmittersSet();
 
   // ================================================================
   // |                        Balance state                         |
@@ -162,6 +163,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function getConfig()
     external
     view
+    override
     returns (
       uint32 maxCallbackGasLimit,
       uint32 feedStalenessSeconds,
@@ -449,6 +451,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     // Pay out the DON fee to all transmitters
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
     address[] memory transmitters = _getTransmitters();
+    if (transmitters.length == 0) {
+      revert NoTransmittersSet();
+    }
     uint96 feePoolShare = s_feePool / uint96(transmitters.length);
     for (uint8 i = 0; i < transmitters.length; i++) {
       s_withdrawableTokens[transmitters[i]] += feePoolShare;
