@@ -24,15 +24,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keepers_vrf_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_external_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_single_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_consumer_example"
@@ -45,7 +42,7 @@ import (
 )
 
 var (
-	batchCoordinatorV2ABI = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
+	batchCoordinatorV2PlusABI = evmtypes.MustGetABI(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusABI)
 )
 
 func main() {
@@ -58,7 +55,7 @@ func main() {
 		// chainlink node logs for the VRF v2 request ID in hex. You will find a log for
 		// the vrf task in the VRF pipeline, specifically the "output" log field.
 		// Sample Loki query:
-		// {app="app-name"} | json | taskType="vrfv2" |~ "39f2d812c04e07cb9c71e93ce6547e48b7dd23ed4cc02616dfef5ef063a58bde"
+		// {app="app-name"} | json | taskType="vrfv2plus" |~ "39f2d812c04e07cb9c71e93ce6547e48b7dd23ed4cc02616dfef5ef063a58bde"
 		txdatas := cmd.String("txdatas", "", "hex encoded tx data")
 		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator address")
 		gasMultiplier := cmd.Float64("gas-multiplier", 1.1, "gas multiplier")
@@ -93,24 +90,6 @@ func main() {
 		randomWordsFulfilled := vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{}.Topic()
 		fmt.Println("RandomWordsRequested:", randomWordsRequested.String(),
 			"RandomWordsFulfilled:", randomWordsFulfilled.String())
-	case "keepers-vrf-consumer-deploy":
-		cmd := flag.NewFlagSet("keepers-vrf-consumer-deploy", flag.ExitOnError)
-		coordinatorAddress := cmd.String("coordinator-address", "", "vrf coordinator v2 address")
-		subID := cmd.Uint64("sub-id", 0, "subscription id")
-		keyHash := cmd.String("key-hash", "", "vrf v2 key hash")
-		requestConfs := cmd.Uint("request-confs", 3, "request confirmations")
-		upkeepIntervalSeconds := cmd.Int64("upkeep-interval-seconds", 600, "upkeep interval in seconds")
-		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id", "key-hash")
-		_, tx, _, err := keepers_vrf_consumer.DeployKeepersVRFConsumer(
-			e.Owner, e.Ec,
-			common.HexToAddress(*coordinatorAddress), // vrf coordinator address
-			*subID,                                   // subscription id
-			common.HexToHash(*keyHash),               // key hash
-			uint16(*requestConfs),                    // request confirmations
-			big.NewInt(*upkeepIntervalSeconds),       // upkeep interval seconds
-		)
-		helpers.PanicErr(err)
-		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "batch-coordinatorv2plus-deploy":
 		cmd := flag.NewFlagSet("batch-coordinatorv2plus-deploy", flag.ExitOnError)
 		coordinatorAddr := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
@@ -211,7 +190,7 @@ func main() {
 
 		if *estimateGas {
 			fmt.Println("estimating gas")
-			payload, err := batchCoordinatorV2ABI.Pack("fulfillRandomWords", proofs, reqCommits)
+			payload, err := batchCoordinatorV2PlusABI.Pack("fulfillRandomWords", proofs, reqCommits)
 			helpers.PanicErr(err)
 
 			a := batchCoordinator.Address()
@@ -959,41 +938,6 @@ func main() {
 		helpers.PanicErr(err)
 
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer ownership to", *newOwner)
-	case "vrf-owner-deploy":
-		cmd := flag.NewFlagSet("vrf-owner-deploy", flag.ExitOnError)
-		coordinatorAddress := cmd.String("coordinator-address", "", "v2 coordinator address")
-		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address")
-
-		_, tx, _, err := vrf_owner.DeployVRFOwner(e.Owner, e.Ec, common.HexToAddress(*coordinatorAddress))
-		helpers.PanicErr(err)
-		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
-	case "vrf-owner-set-authorized-senders":
-		cmd := flag.NewFlagSet("vrf-owner-set-authorized-senders", flag.ExitOnError)
-		vrfOwnerAddress := cmd.String("vrf-owner-address", "", "vrf owner address")
-		authorizedSenders := cmd.String("authorized-senders", "", "comma separated list of authorized senders")
-		helpers.ParseArgs(cmd, os.Args[2:], "vrf-owner-address", "authorized-senders")
-
-		vrfOwner, err := vrf_owner.NewVRFOwner(common.HexToAddress(*vrfOwnerAddress), e.Ec)
-		helpers.PanicErr(err)
-
-		authorizedSendersSlice := helpers.ParseAddressSlice(*authorizedSenders)
-
-		tx, err := vrfOwner.SetAuthorizedSenders(e.Owner, authorizedSendersSlice)
-		helpers.PanicErr(err)
-
-		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "vrf owner set authorized senders")
-	case "vrf-owner-accept-vrf-ownership":
-		cmd := flag.NewFlagSet("vrf-owner-accept-vrf-ownership", flag.ExitOnError)
-		vrfOwnerAddress := cmd.String("vrf-owner-address", "", "vrf owner address")
-		helpers.ParseArgs(cmd, os.Args[2:], "vrf-owner-address")
-
-		vrfOwner, err := vrf_owner.NewVRFOwner(common.HexToAddress(*vrfOwnerAddress), e.Ec)
-		helpers.PanicErr(err)
-
-		tx, err := vrfOwner.AcceptVRFOwnership(e.Owner)
-		helpers.PanicErr(err)
-
-		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "vrf owner accepting vrf ownership")
 	case "coordinator-reregister-proving-key":
 		coordinatorReregisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)
 		coordinatorAddress := coordinatorReregisterKey.String("coordinator-address", "", "coordinator address")

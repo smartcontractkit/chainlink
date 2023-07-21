@@ -1,12 +1,12 @@
 # Using the External Subscription Owner Example
 
-The [external subscription owner example contract](../../../../contracts/src/v0.8/tests/VRFExternalSubOwnerExample.sol)
-allows its owner to request random words from VRF V2 if it is added as a
+The [external subscription owner example contract](../../../../contracts/src/v0.8/dev/vrf/testhelpers/VRFV2PlusExternalSubOwnerExample.sol)
+allows its owner to request random words from VRF V2+ if it is added as a
 consumer for a funded VRF subscription.
 
 This guide covers:
  1. Deploying the contract
- 2. Creating, funding, checking balance, and adding a consumer to a VRF V2 
+ 2. Creating, funding, checking balance, and adding a consumer to a VRF V2+ 
     subscription
  3. Requesting randomness from the contract
 
@@ -53,7 +53,9 @@ cd <YOUR LOCAL CHAINLINK REPO>/core/scripts/vrfv2/testnet
 
 ## Deploying a full VRF Universe (BHS, Registered + Funded Coordinator, Consumer)
 
-To deploy a full VRF environment on-chain, run:
+- To deploy a full VRF environment on-chain, run the command below
+- Not specifying `--link-address` would make the super script deploy a new LINK token contract and use it to fund VRF V2+ subscription
+- Not specifying `--link-eth-feed` would make the super script deploy a new LINK-ETH feed contract and use it for funding VRF V2+ subscription
 
 ```shell
 go run . deploy-universe --link-address=$LINK --link-eth-feed=$LINK_ETH_FEED --subscription-balance=<SUBSCRIPTION AMOUNT> --uncompressed-pub-key=$PUB_KEY --oracle-address=$ORACLE_ADDRESS

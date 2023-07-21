@@ -172,8 +172,6 @@ func deployUniverse(e helpers.Environment) {
 	// This creates a new subscription and adds itself (the new consumer) to the subscription
 	consumerAddress, consumer := eoaDeployConsumer(e, coordinatorAddress.String(), *linkAddress, keyHash, *nativePayment)
 
-	// fmt.Println("\nAdding subscription...")
-	// eoaCreateSub(e, *coordinator)
 	consumerReqConfig, err := consumer.SRequestConfig(nil)
 	subID := consumerReqConfig.SubId
 
