@@ -192,10 +192,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifier
-  function verify(
-    bytes calldata signedReport,
-    address sender
-  ) external override returns (bytes memory response, bytes memory quote) {
+  function verify(bytes calldata signedReport, address sender) external override returns (bytes memory response) {
     if (msg.sender != i_verifierProxyAddr) revert AccessForbidden();
     (
       bytes32[3] memory reportContext,
@@ -230,10 +227,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     _verifySignatures(hashedReport, reportContext, rs, ss, rawVs, s_config);
     emit ReportVerified(feedId, sender);
 
-    //read and validate the quote
-    bytes memory quoteData = new bytes(0);
-
-    return (reportData, quoteData);
+    return reportData;
   }
 
   /// @notice Validates parameters of the report

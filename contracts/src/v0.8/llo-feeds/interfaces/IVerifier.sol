@@ -9,18 +9,14 @@ interface IVerifier is IERC165 {
    * @notice Verifies that the data encoded has been signed
    * correctly by routing to the correct verifier.
    * @param signedReport The encoded data to be verified.
-   * @param requester The original address that requested to verify the contract.
+   * @param sender The address that requested to verify the contract.
    * This is only used for logging purposes.
    * @dev Verification is typically only done through the proxy contract so
    * we can't just use msg.sender to log the requester as the msg.sender
    * contract will always be the proxy.
    * @return response The encoded verified response.
-   * @return quote The quote included within the report
    */
-  function verify(
-    bytes calldata signedReport,
-    address requester
-  ) external returns (bytes memory response, bytes memory quote);
+  function verify(bytes calldata signedReport, address sender) external returns (bytes memory response);
 
   /**
    * @notice sets offchain reporting protocol configuration incl. participating oracles

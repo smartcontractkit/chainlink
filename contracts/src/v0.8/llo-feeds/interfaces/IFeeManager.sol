@@ -16,17 +16,10 @@ interface IFeeManager is IERC165 {
 
   /**
    * @notice Processes the fee for a report, billing the subscriber and paying the reward manager
-   * @param configDigest digest of the configuration
-   * @param report report to process the fee for
-   * @param quote the quote containing the fee the subscriber wishes to be billed in
+   * @param payload report and quote to process the fee for
    * @param subscriber address of the fee will be applied
    */
-  function processFee(
-    bytes32 configDigest,
-    bytes calldata report,
-    bytes calldata quote,
-    address subscriber
-  ) external payable;
+  function processFee(bytes calldata payload, address subscriber) external payable;
 
   /**
    * @notice Sets the native premium

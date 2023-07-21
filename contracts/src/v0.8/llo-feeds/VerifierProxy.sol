@@ -151,11 +151,11 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     bytes32 configDigest = bytes32(payload);
     address verifierAddress = s_verifiersByConfig[configDigest];
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);
-    (bytes memory verifiedReport, bytes memory quoteData) = IVerifier(verifierAddress).verify(payload, msg.sender);
+    bytes memory verifiedReport = IVerifier(verifierAddress).verify(payload, msg.sender);
 
     //bill the verifier
     if (address(s_feeManager) != address(0)) {
-      try s_feeManager.processFee{value: msg.value}(configDigest, verifiedReport, quoteData, msg.sender) {} catch {
+      try s_feeManager.processFee{value: msg.value}(payload, msg.sender) {} catch {
         revert BadVerification();
       }
     }

@@ -30,9 +30,9 @@ contract BaseFeeManagerTest is Test {
   bytes32 internal constant DEFAULT_FEED_2 = keccak256("feed_id_2");
 
   //report
-  uint256 internal constant DEFAULT_REPORT_SIZE_EXCLUDING_FEED_ID = 4 + 24 + 24 + 24 + 8 + 32 + 8;
   uint256 internal constant DEFAULT_REPORT_LINK_FEE = 1e10;
-  uint256 internal constant DEFAULT_REPORT_NATIVE_FEE = 1e10;
+  uint256 internal constant DEFAULT_REPORT_NATIVE_FEE = 1e12;
+  uint256 internal constant DEFAULT_REPORT_EXPIRY_OFFSET_SECONDS = 300;
 
   //rewards
   uint256 internal constant FEE_SCALAR = 1e18;
@@ -41,6 +41,7 @@ contract BaseFeeManagerTest is Test {
   bytes4 internal constant INVALID_DISCOUNT_ERROR = bytes4(keccak256("InvalidDiscount()"));
   bytes4 internal constant INVALID_ADDRESS_ERROR = bytes4(keccak256("InvalidAddress()"));
   bytes4 internal constant INVALID_PREMIUM_ERROR = bytes4(keccak256("InvalidPremium()"));
+  bytes4 internal constant EXPIRED_REPORT_ERROR = bytes4(keccak256("ExpiredReport()"));
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
 
   //events emitted
@@ -94,7 +95,7 @@ contract BaseFeeManagerTest is Test {
   // solium-disable-next-line no-unused-vars
   function getFee(
     bytes memory report,
-    bytes memory quote,
+    FeeManager.Quote memory quote,
     address subscriber
   ) public view returns (Common.Asset memory) {
     //set the discount
@@ -103,27 +104,65 @@ contract BaseFeeManagerTest is Test {
     return fee;
   }
 
+  function getReward(
+    bytes memory report,
+    FeeManager.Quote memory quote,
+    address subscriber
+  ) public view returns (Common.Asset memory) {
+    //set the discount
+    (, Common.Asset memory reward) = feeManager.getFeeAndReward(subscriber, report, quote);
+
+    return reward;
+  }
+
   function getReport(bytes32 feedId) public pure returns (bytes memory) {
-    return abi.encodePacked(feedId, new bytes(DEFAULT_REPORT_SIZE_EXCLUDING_FEED_ID));
+    return abi.encode(feedId, uint32(0), int192(0), int192(0), int192(0), uint64(0), bytes32(0), uint64(0));
   }
 
-  function getReportWithFee(bytes32 feedId) public pure returns (bytes memory) {
-    return abi.encodePacked(getReport(feedId), bytes32(DEFAULT_REPORT_LINK_FEE), bytes32(DEFAULT_REPORT_NATIVE_FEE));
+  function getReportWithFee(bytes32 feedId) public view returns (bytes memory) {
+    return
+      abi.encode(
+        feedId,
+        uint32(0),
+        int192(0),
+        int192(0),
+        int192(0),
+        uint64(0),
+        bytes32(0),
+        uint64(0),
+        DEFAULT_REPORT_LINK_FEE,
+        DEFAULT_REPORT_NATIVE_FEE,
+        uint32(block.timestamp)
+      );
   }
 
-  function getReportWithCustomFee(
+  function getReportWithCustomExpiryAndFee(
     bytes32 feedId,
+    uint256 expiry,
     uint256 linkFee,
     uint256 nativeFee
-  ) public pure returns (bytes memory) {
-    return abi.encodePacked(getReport(feedId), bytes32(linkFee), bytes32(nativeFee));
+  ) public view returns (bytes memory) {
+    return
+      abi.encode(
+        feedId,
+        uint32(0),
+        int192(0),
+        int192(0),
+        int192(0),
+        uint64(0),
+        bytes32(0),
+        uint64(0),
+        linkFee,
+        nativeFee,
+        uint32(expiry)
+      );
   }
 
-  function getLinkQuote() public pure returns (bytes memory) {
-    return abi.encodePacked(LINK_ADDRESS);
+  function getLinkQuote() public pure returns (FeeManager.Quote memory) {
+    return FeeManager.Quote(LINK_ADDRESS);
   }
 
-  function getNativeQuote() public pure returns (bytes memory) {
-    return abi.encodePacked(NATIVE_ADDRESS);
+  function getNativeQuote() public pure returns (FeeManager.Quote memory) {
+    return FeeManager.Quote(NATIVE_ADDRESS);
   }
 }

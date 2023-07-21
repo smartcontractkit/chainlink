@@ -201,7 +201,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
       _getSigners(FAULT_TOLERANCE + 1)
     );
     changePrank(address(s_verifierProxy));
-    (bytes memory response, ) = s_verifier.verify(signedReport, msg.sender);
+    bytes memory response = s_verifier.verify(signedReport, msg.sender);
 
     assertReportsEqual(response, s_testReportOne);
   }
@@ -275,7 +275,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
       _getSigners(FAULT_TOLERANCE + 1)
     );
     changePrank(address(s_verifierProxy));
-    (bytes memory response, ) = s_verifier.verify(signedReport, msg.sender);
+    bytes memory response = s_verifier.verify(signedReport, msg.sender);
     assertReportsEqual(response, s_testReportOne);
   }
 
@@ -287,7 +287,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
       _getSigners(FAULT_TOLERANCE_TWO + 1)
     );
     changePrank(address(s_verifierProxy));
-    (bytes memory response, ) = s_verifier.verify(signedReport, msg.sender);
+    bytes memory response = s_verifier.verify(signedReport, msg.sender);
     assertReportsEqual(response, s_testReportOne);
   }
 

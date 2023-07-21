@@ -23,7 +23,6 @@ contract ErroredVerifier is IVerifier {
       /**
        * sender*
        */
-      bytes memory,
       bytes memory
     )
   {

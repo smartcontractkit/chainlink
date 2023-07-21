@@ -5,11 +5,11 @@ import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {IERC165} from "../shared/vendor/IERC165.sol";
-import {ByteUtil} from "../libraries/internal/ByteUtil.sol";
 import {Common} from "../libraries/internal/Common.sol";
 import {IRewardManager} from "./interfaces/IRewardManager.sol";
 import {IWERC20} from "../shared/vendor/IWERC20.sol";
 import {IERC20} from "../shared/vendor/IERC20.sol";
+import {Math} from "../shared/vendor/Math.sol";
 
 /*
  * @title FeeManager
@@ -18,9 +18,6 @@ import {IERC20} from "../shared/vendor/IERC20.sol";
  * @notice This contract is used for the handling of fees required for users verifying reports.
  */
 contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
-  //using for bytes manipulation
-  using ByteUtil for bytes;
-
   //list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
   mapping(address => mapping(bytes32 => mapping(address => uint256))) public subscriberDiscounts;
 
@@ -39,11 +36,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   //the reward manager address
   IRewardManager private immutable rewardManager;
 
-  //the index of the link fee data in the report
-  uint16 private constant LINK_FEE_INDEX = 32 + 4 + 24 + 24 + 24 + 8 + 32 + 8;
-
-  //the index of the link fee data in the report
-  uint16 private constant NATIVE_FEE_INDEX = 32 + 4 + 24 + 24 + 24 + 8 + 32 + 8 + 32;
+  //the report packed length, each field is packed into 32 bytes
+  uint16 private constant DEFAULT_REPORT_LENGTH = 32 + 32 + 32 + 32 + 32 + 32 + 32 + 32;
 
   //the index of the fee data in the quote
   uint16 private constant QUOTE_METADATA_FEE_ADDRESS_INDEX = 0;
@@ -66,10 +60,17 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   //thrown if msg.value is supplied with a bad quote
   error InvalidDeposit();
 
+  //thrown if a report has expired
+  error ExpiredReport();
+
   // Events emitted upon state change
   event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
   event NativePremiumSet(uint256 newPremium);
   event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
+
+  struct Quote {
+    address quoteAddress;
+  }
 
   /**
    * @notice Construct the FeeManager contract
@@ -139,30 +140,41 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
    */
   function getFeeAndReward(
     address subscriber,
-    bytes calldata report,
-    bytes calldata quote
+    bytes memory report,
+    Quote memory quote
   ) public view returns (Common.Asset memory, Common.Asset memory) {
     //The fee and reward
     Common.Asset memory feeQuantity;
     Common.Asset memory rewardQuantity;
 
     //any report without a fee does not need to be processed
-    if (report.length <= LINK_FEE_INDEX) {
+    if (report.length <= DEFAULT_REPORT_LENGTH) {
       return (feeQuantity, rewardQuantity);
+    }
+
+    //decode the fee
+    (, , , , , , , , uint256 linkQuantity, uint256 nativeQuantity, uint256 expiresAt) = abi.decode(
+      report,
+      (bytes32, uint32, int192, int192, int192, uint64, bytes32, uint64, uint256, uint256, uint32)
+    );
+
+    // Read the timestamp bytes from the report data and verify it has not expired
+    if (expiresAt < block.timestamp) {
+      revert ExpiredReport();
     }
 
     //without a quote the fee will default to billing in link if a quote is not provided
     address quoteFeeAddress;
-    if (quote.length == 0) {
+    if (quote.quoteAddress == address(0)) {
       quoteFeeAddress = linkAddress;
     } else {
       //decode the quoteMetadata to get the desired asset to pay the quote in
-      quoteFeeAddress = quote.readAddress(QUOTE_METADATA_FEE_ADDRESS_INDEX);
+      quoteFeeAddress = quote.quoteAddress;
     }
 
     //the fee paid is always in LINK
     rewardQuantity.assetAddress = linkAddress;
-    rewardQuantity.amount = getLinkAmount(report);
+    rewardQuantity.amount = linkQuantity;
 
     //calculate either the LINK fee or native fee if it's within the report
     if (quoteFeeAddress == linkAddress) {
@@ -170,7 +182,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       feeQuantity.amount = rewardQuantity.amount;
     } else {
       feeQuantity.assetAddress = nativeAddress;
-      feeQuantity.amount = (getNativeAmount(report) * (PERCENTAGE_SCALAR + nativePremium)) / PERCENTAGE_SCALAR;
+      feeQuantity.amount = (nativeQuantity * (PERCENTAGE_SCALAR + nativePremium)) / PERCENTAGE_SCALAR;
     }
 
     //decode the feedId from the report to calculate the discount being applied
@@ -178,22 +190,29 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     uint256 discount = subscriberDiscounts[subscriber][feedId][quoteFeeAddress];
 
     //apply the discount to the fee, rounding up
-    feeQuantity.amount = feeQuantity.amount - ((feeQuantity.amount * discount + 1) / PERCENTAGE_SCALAR);
+    feeQuantity.amount = feeQuantity.amount - ((feeQuantity.amount * discount) / PERCENTAGE_SCALAR);
 
     //apply the discount to the reward, rounding down
-    rewardQuantity.amount = rewardQuantity.amount - ((rewardQuantity.amount * discount) / PERCENTAGE_SCALAR);
+    rewardQuantity.amount = rewardQuantity.amount - Math.ceilDiv(rewardQuantity.amount * discount, PERCENTAGE_SCALAR);
 
     //return the fee
     return (feeQuantity, rewardQuantity);
   }
 
   // @inheritdoc IFeeManager
-  function processFee(
-    bytes32 configDigest,
-    bytes calldata report,
-    bytes calldata quote,
-    address subscriber
-  ) external payable onlyOwnerOrProxy {
+  function processFee(bytes calldata payload, address subscriber) external payable onlyOwnerOrProxy {
+    //decode the payload
+    (, bytes memory report, , , , bytes memory quoteBytes) = abi.decode(
+      payload,
+      (bytes32[3], bytes, bytes32[], bytes32[], bytes32, bytes)
+    );
+
+    //reports without quotes are valid, decode the quote if there are quote bytes
+    Quote memory quote;
+    if (quoteBytes.length > 0) {
+      quote = abi.decode(quoteBytes, (Quote));
+    }
+
     //decode the fee, it will always be native or link
     (Common.Asset memory fee, Common.Asset memory reward) = getFeeAndReward(msg.sender, report, quote);
 
@@ -215,6 +234,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       }
     }
 
+    //get the config digest which is the first 32 bytes of the payload
+    bytes32 configDigest = bytes32(payload);
+
     //some users might not be billed
     if (fee.amount > 0) {
       //if the fee is in link, we're transferring directly from the subscriber, else the contract is covering the link
@@ -232,7 +254,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
           //approve the transfer of link required to verify the report to the reward manager
           IERC20(linkAddress).approve(address(rewardManager), reward.amount);
 
-          //bill the payee and distribute the fee
+          //bill the payee and distribute the fee using the config digest as the key
           rewardManager.onFeePaid(configDigest, address(this), reward);
         } else {
           //contract does not have enough link
@@ -263,22 +285,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
     //emit the event
     emit NativePremiumSet(premium);
-  }
-
-  /**
-   * @notice Extracts the link amount from the report
-   * @param report the report bytes
-   */
-  function getLinkAmount(bytes calldata report) internal pure returns (uint256) {
-    return report.readUint256(LINK_FEE_INDEX);
-  }
-
-  /**
-   * @notice Extracts the native amount from the report
-   * @param report the report bytes
-   */
-  function getNativeAmount(bytes calldata report) internal pure returns (uint256) {
-    return report.readUint256(NATIVE_FEE_INDEX);
   }
 
   // @inheritdoc IFeeManager
