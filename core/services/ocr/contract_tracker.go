@@ -388,7 +388,7 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 // LatestBlockHeight queries the eth node for the most recent header
 func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
 	switch t.cfg.ChainType() {
-	case config.ChainMetis, config.ChainOptimismBedrock:
+	case config.ChainMetis:
 		// We skip confirmation checking anyway on these L2s so there's no need to
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
