@@ -226,7 +226,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 				{
 					Name:    "delete-chain",
 					Aliases: []string{},
-					Usage:   "Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --chainType and --id options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
+					Usage:   "Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --type and --id options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
 					Action:  s.CleanupChainTables,
 					Before:  s.validateDB,
 					Flags: []cli.Flag{
@@ -236,7 +236,7 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 							Required: true,
 						},
 						cli.StringFlag{
-							Name:     "chainType",
+							Name:     "type",
 							Usage:    "chain type based on which table cleanup will be done, eg. EVM",
 							Required: true,
 						},
@@ -945,7 +945,7 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 
 	tablesToDeleteFromQuery := "SELECT table_name FROM information_schema.columns WHERE \"column_name\"=$1;"
 	// Delete rows from each table based on the chain_id.
-	if strings.EqualFold("EVM", c.String("chainType")) {
+	if strings.EqualFold("EVM", c.String("type")) {
 		var tables []string
 		if err = db.Select(&tables, tablesToDeleteFromQuery, "evm_chain_id"); err != nil {
 			return err
