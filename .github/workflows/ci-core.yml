@@ -148,6 +148,7 @@ jobs:
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
+      - run: pwd
       - name: Checkout the repo
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup node
@@ -182,7 +183,7 @@ jobs:
           USE_TEE: false
         run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.split.pkgs }}"
       - name: Print Filtered Test Results
-        if: steps.run-tests.outcome == 'failure'
+        if: failure()
         uses: smartcontractkit/chainlink-github-actions/go/parse-test-failures@2e6af605ac7214433457e632920a423c331e3797
         with:
           results-file: ./output.txt
@@ -207,7 +208,7 @@ jobs:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
-          test-results-file: '{"testType":"go","filePath":"/tmp/output.txt"}'
+          test-results-file: '{"testType":"go","filePath":"./output.txt"}'
         continue-on-error: true
 
   # Satisfy required check for core tests
