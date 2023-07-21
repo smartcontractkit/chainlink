@@ -40,10 +40,19 @@ type triggerWrapper = automation_utils_2_1.KeeperRegistryBase21LogTrigger
 type evmRegistryPackerV2_1 struct {
 	abi      abi.ABI
 	utilsAbi abi.ABI
+
+	upkeepTriggerIdArgs abi.Arguments
 }
 
-func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV2_1 {
-	return &evmRegistryPackerV2_1{abi: abi, utilsAbi: utilsAbi}
+func NewEvmRegistryPackerV2_1(regAbi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV2_1 {
+	Uint256, _ := abi.NewType("uint256", "", nil)
+	Bytes, _ := abi.NewType("bytes", "", nil)
+	upkeepTriggerIdArgs := abi.Arguments{
+		abi.Argument{Name: "id", Type: Uint256},
+		abi.Argument{Name: "triggerBytes", Type: Bytes},
+	}
+
+	return &evmRegistryPackerV2_1{abi: regAbi, utilsAbi: utilsAbi, upkeepTriggerIdArgs: upkeepTriggerIdArgs}
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
@@ -245,4 +254,8 @@ func (rp *evmRegistryPackerV2_1) UnpackReport(raw []byte) (automation_utils_2_1.
 	}
 
 	return report, nil
+}
+
+func (rp *evmRegistryPackerV2_1) PackUpkeepTriggerID(id *big.Int, triggerBytes []byte) ([]byte, error) {
+	return rp.upkeepTriggerIdArgs.Pack(id, triggerBytes)
 }
