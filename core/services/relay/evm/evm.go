@@ -502,3 +502,8 @@ func (p *medianProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigeste
 func (p *medianProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return p.configWatcher.ContractConfigTracker()
 }
+
+func (r *Relayer) NewFunctionsProvider(args relaytypes.RelayArgs, pargs relaytypes.PluginArgs, pluginType relaytypes.FunctionsPluginType) (relaytypes.FunctionsProvider, error) {
+	ethKeystore := r.ks.Eth()
+	return NewFunctionsProvider(r.chainSet, args, pargs, r.lggr, ethKeystore, pluginType)
+}

@@ -2,6 +2,8 @@ module github.com/smartcontractkit/chainlink/v2
 
 go 1.20
 
+replace github.com/smartcontractkit/chainlink-relay => /Users/bk/chainlink-relay
+
 require (
 	github.com/CosmWasm/wasmd v0.30.0
 	github.com/Depado/ginprom v1.7.11

@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"strings"
 
@@ -25,15 +26,15 @@ type functionsProvider struct {
 }
 
 var (
-	_ relaytypes.Plugin = (*functionsProvider)(nil)
+	_ relaytypes.FunctionsProvider = (*functionsProvider)(nil)
 )
 
 func (p *functionsProvider) ContractTransmitter() types.ContractTransmitter {
 	return p.contractTransmitter
 }
 
-func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (relaytypes.Plugin, error) {
-	configWatcher, err := newFunctionsConfigProvider(pluginType, chainSet, rargs, lggr)
+func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType relaytypes.FunctionsPluginType) (relaytypes.FunctionsProvider, error) {
+	configWatcher, err := newFunctionsConfigProvider(functionsRelay.FunctionsPluginType(pluginType), chainSet, rargs, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -81,4 +82,8 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 	}
 
 	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
+}
+
+func (p *functionsProvider) NodeSignerKey() *ecdsa.PrivateKey {
+	return nil // TODO
 }

@@ -16,24 +16,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
 var _ types.ConfigPoller = &configPoller{}
-
-type FunctionsPluginType int
-
-const (
-	FunctionsPlugin FunctionsPluginType = iota
-	ThresholdPlugin
-	S4Plugin
-)
 
 type configPoller struct {
 	lggr               logger.Logger
 	filterName         string
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
-	pluginType         FunctionsPluginType
+	pluginType         relaytypes.FunctionsPluginType
 }
 
 // ConfigSet Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
@@ -62,7 +56,7 @@ func unpackLogData(d []byte) (*ocr2aggregator.OCR2AggregatorConfigSet, error) {
 	return unpacked, nil
 }
 
-func configFromLog(logData []byte, pluginType FunctionsPluginType) (ocrtypes.ContractConfig, error) {
+func configFromLog(logData []byte, pluginType relaytypes.FunctionsPluginType) (ocrtypes.ContractConfig, error) {
 	unpacked, err := unpackLogData(logData)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
@@ -80,11 +74,11 @@ func configFromLog(logData []byte, pluginType FunctionsPluginType) (ocrtypes.Con
 
 	// Replace the first two bytes of the config digest with the plugin type to avoid duplicate config digests between Functions plugins
 	switch pluginType {
-	case FunctionsPlugin:
+	case relaytypes.FunctionsPlugin:
 		// FunctionsPluginType should already have the correct prefix, so this is a no-op
-	case ThresholdPlugin:
+	case relaytypes.ThresholdPlugin:
 		binary.BigEndian.PutUint16(unpacked.ConfigDigest[:2], uint16(ThresholdDigestPrefix))
-	case S4Plugin:
+	case relaytypes.S4Plugin:
 		binary.BigEndian.PutUint16(unpacked.ConfigDigest[:2], uint16(S4DigestPrefix))
 	default:
 		return ocrtypes.ContractConfig{}, errors.New("unknown plugin type")
@@ -106,7 +100,7 @@ func configPollerFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR2ConfigPoller", addr.String())
 }
 
-func NewFunctionsConfigPoller(pluginType FunctionsPluginType, destChainPoller logpoller.LogPoller, addr common.Address, lggr logger.Logger) (types.ConfigPoller, error) {
+func NewFunctionsConfigPoller(pluginType relaytypes.FunctionsPluginType, destChainPoller logpoller.LogPoller, addr common.Address, lggr logger.Logger) (types.ConfigPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(addr), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err

@@ -55,7 +55,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -419,7 +418,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		)
 		thresholdPluginDB := NewDB(d.db, spec.ID, thresholdPluginId, lggr, d.cfg.Database())
 		s4PluginDB := NewDB(d.db, spec.ID, s4PluginId, lggr, d.cfg.Database())
-		return d.newServicesOCR2Functions(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
+		return d.newServicesOCR2Functions(ctx, lggr, jb, runResults, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
 
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
@@ -923,6 +922,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 }
 
 func (d *Delegate) newServicesOCR2Functions(
+	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
 	runResults chan pipeline.Run,
@@ -938,10 +938,14 @@ func (d *Delegate) newServicesOCR2Functions(
 	if spec.Relay != relay.EVM {
 		return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 	}
+	relayer, exists := d.relayers[spec.Relay]
+	if !exists {
+		return nil, errors.Errorf("%s relay does not exist", spec.Relay)
+	}
 
-	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (types.PluginProvider, error) {
-		return evmrelay.NewFunctionsProvider(
-			d.chainSet,
+	createPluginProvider := func(pluginType types.FunctionsPluginType, relayerName string) (types.FunctionsProvider, error) {
+		return relayer.NewFunctionsProvider(
+			ctx,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
 				JobID:         spec.ID,
@@ -953,23 +957,20 @@ func (d *Delegate) newServicesOCR2Functions(
 				TransmitterID: spec.TransmitterID.String,
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			},
-			lggr.Named(relayerName),
-			d.ethKs,
-			pluginType,
-		)
+			pluginType)
 	}
 
-	functionsProvider, err := createPluginProvider(functionsRelay.FunctionsPlugin, "FunctionsRelayer")
+	functionsProvider, err := createPluginProvider(types.FunctionsPlugin, "FunctionsRelayer")
 	if err != nil {
 		return nil, err
 	}
 
-	thresholdProvider, err := createPluginProvider(functionsRelay.ThresholdPlugin, "FunctionsThresholdRelayer")
+	thresholdProvider, err := createPluginProvider(types.ThresholdPlugin, "FunctionsThresholdRelayer")
 	if err != nil {
 		return nil, err
 	}
 
-	s4Provider, err := createPluginProvider(functionsRelay.S4Plugin, "FunctionsS4Relayer")
+	s4Provider, err := createPluginProvider(types.S4Plugin, "FunctionsS4Relayer")
 	if err != nil {
 		return nil, err
 	}
@@ -1048,12 +1049,12 @@ func (d *Delegate) newServicesOCR2Functions(
 		BridgeORM:         d.bridgeORM,
 		QConfig:           d.cfg.Database(),
 		DB:                d.db,
-		Chain:             chain,
+		Chain:             chain, // TODO: get ready LogPoller instance from provider instead
 		ContractID:        spec.ContractID,
 		Logger:            lggr,
 		MailMon:           d.mailMon,
 		URLsMonEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
-		EthKeystore:       d.ethKs,
+		EthKeystore:       d.ethKs, // TODO: get node signer key from provider instead
 		ThresholdKeyShare: thresholdKeyShare,
 	}
 
