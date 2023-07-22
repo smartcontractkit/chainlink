@@ -12,6 +12,10 @@ import "./interfaces/VRFCoordinatorV2Interface.sol";
  * is called in a cadence provided by the upkeep interval.
  */
 contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
+
+  // error
+  error RequestIdNotFoundInMap();
+
   // Upkeep interval in seconds. This contract's performUpkeep method will
   // be called by the Keepers network roughly every UPKEEP_INTERVAL seconds.
   uint256 public immutable UPKEEP_INTERVAL;
@@ -84,8 +88,8 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
    */
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
     // Check that the request exists. If not, revert.
-    RequestRecord memory record = s_requests[requestId];
-    require(record.requestId == requestId, "request ID not found in map");
+    RequestRecord memory record = s_requests[requested];
+    if(record.requestId != requested) revert RequestIdNotFoundInMap();
 
     // Update the randomness in the record, and increment the response counter.
     s_requests[requestId].randomness = randomWords[0];
