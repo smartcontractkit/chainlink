@@ -12,7 +12,7 @@ import {Common} from "../libraries/internal/Common.sol";
 /*
  * @title FeeManager
  * @author Michael Fletcher
- * @notice This contract will be used to reward any configured recipients within a pool. Recipients will receive a share of their reward-manager relative to their configured weight.
+ * @notice This contract will be used to reward any configured recipients within a pool. Recipients will receive a share of their pool relative to their configured weight.
  */
 contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterface {
   using SafeERC20 for IERC20;
@@ -23,7 +23,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   // @dev The mapping of fee balances for each pot last time the recipient claimed: totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient]
   mapping(bytes32 => mapping(address => uint256)) private totalRewardRecipientFeesLastClaimedAmounts;
 
-  // @dev The mapping of RewardRecipient weights for a particular poolId: rewardRecipientWeights[poolId][rewardRecipient]. Weights are stored in uint256 to optimize on calculations
+  // @dev The mapping of RewardRecipient weights for a particular poolId: rewardRecipientWeights[poolId][rewardRecipient].
   mapping(bytes32 => mapping(address => uint256)) public rewardRecipientWeights;
 
   // @dev Keep track of the reward recipient weights that have been set to prevent duplicates
@@ -35,7 +35,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   // @dev The address for the link contract
   address private immutable LINK_ADDRESS;
 
-  // The total weight of all RewardRecipients. 1e18 = 10% of the pool fees
+  // The total weight of all RewardRecipients. 1e18 = 100% of the pool fees
   uint256 private constant PERCENTAGE_SCALAR = 1e18;
 
   // The fee manager address
@@ -63,7 +63,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
    * @param linkAddr address of the wrapped link token
    */
   constructor(address linkAddr) ConfirmedOwner(msg.sender) {
-    //ensure that the addresses are not zero
+    //ensure that the address ia not zero
     if (linkAddr == address(0)) revert InvalidAddress();
 
     LINK_ADDRESS = linkAddr;
@@ -80,7 +80,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   modifier onlyOwnerOrFeeManager() {
-    if (msg.sender != feeManagerAddress && msg.sender != owner()) revert Unauthorized();
+    if (msg.sender != owner() && msg.sender != feeManagerAddress) revert Unauthorized();
     _;
   }
 
@@ -129,7 +129,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       //if the existing weight is 0, the recipient isn't part of this configuration
       if (existingWeight == 0) revert InvalidAddress();
 
-      //if we're updating a recipient, we need to claim their rewards first they can't claim previous fees at the new weight
+      //if we're updating a recipient, we need to claim their rewards first as they can't claim previous fees at the new weight
       _claimRewards(newRewardRecipients[i].addr, poolIds);
 
       unchecked {
@@ -177,7 +177,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     bytes32[] memory poolIdsArray = new bytes32[](1);
     poolIdsArray[0] = poolId;
 
-    //loop each recipient and claim the reward-manager for each of the pools and assets
+    //loop each recipient and claim the rewards for each of the pools and assets
     for (uint256 i; i < recipients.length; ) {
       _claimRewards(recipients[i], poolIdsArray);
 
@@ -202,7 +202,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     //loop all the reward recipients and validate the weight and address
     uint256 totalWeight;
     for (uint256 i; i < rewardRecipientAndWeights.length; ++i) {
-      //get the weight a uint256 to save multiple autoboxing
+      //get the weight
       uint256 recipientWeight = rewardRecipientAndWeights[i].weight;
       //get the address
       address recipientAddress = rewardRecipientAndWeights[i].addr;
@@ -216,7 +216,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       rewardRecipientWeights[poolId][recipientAddress] = recipientWeight;
 
       unchecked {
-        //keep track of the cumulative weight, this cannot overflow as the passed in weight is 16 bits
+        //keep track of the cumulative weight, this cannot overflow as the total weight is restricted at 1e18
         totalWeight += recipientWeight;
       }
     }

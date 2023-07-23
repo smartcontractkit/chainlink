@@ -160,6 +160,8 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
       }
     }
 
+    //NOTE processFee introduces a reentrancy risk,
+
     return verifiedReport;
   }
 
