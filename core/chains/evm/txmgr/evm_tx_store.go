@@ -260,7 +260,7 @@ type DbEthTxAttempt struct {
 	SignedRawTx             []byte
 	Hash                    common.Hash
 	BroadcastBeforeBlockNum *int64
-	State                   txmgrtypes.TxAttemptState
+	State                   string
 	CreatedAt               time.Time
 	ChainSpecificGasLimit   uint32
 	TxType                  int
@@ -269,20 +269,35 @@ type DbEthTxAttempt struct {
 }
 
 func DbEthTxAttemptFromEthTxAttempt(ethTxAttempt *TxAttempt) DbEthTxAttempt {
-	return DbEthTxAttempt{
+	dbTx := DbEthTxAttempt{
 		ID:                      ethTxAttempt.ID,
 		EthTxID:                 ethTxAttempt.TxID,
 		GasPrice:                ethTxAttempt.TxFee.Legacy,
 		SignedRawTx:             ethTxAttempt.SignedRawTx,
 		Hash:                    ethTxAttempt.Hash,
 		BroadcastBeforeBlockNum: ethTxAttempt.BroadcastBeforeBlockNum,
-		State:                   ethTxAttempt.State,
 		CreatedAt:               ethTxAttempt.CreatedAt,
 		ChainSpecificGasLimit:   ethTxAttempt.ChainSpecificFeeLimit,
 		TxType:                  ethTxAttempt.TxType,
 		GasTipCap:               ethTxAttempt.TxFee.DynamicTipCap,
 		GasFeeCap:               ethTxAttempt.TxFee.DynamicFeeCap,
 	}
+
+	// handle state naming difference between generic + EVM
+	if ethTxAttempt.State == txmgrtypes.TxAttemptInsufficientFunds {
+		dbTx.State = "insufficient_eth"
+	} else {
+		dbTx.State = ethTxAttempt.State.String()
+	}
+
+	return dbTx
+}
+
+func DbEthTxAttemptStateToTxAttemptState(state string) txmgrtypes.TxAttemptState {
+	if state == "insufficient_eth" {
+		return txmgrtypes.TxAttemptInsufficientFunds
+	}
+	return txmgrtypes.NewTxAttemptState(state)
 }
 
 func DbEthTxAttemptToEthTxAttempt(dbEthTxAttempt DbEthTxAttempt, evmAttempt *TxAttempt) {
@@ -291,7 +306,7 @@ func DbEthTxAttemptToEthTxAttempt(dbEthTxAttempt DbEthTxAttempt, evmAttempt *TxA
 	evmAttempt.SignedRawTx = dbEthTxAttempt.SignedRawTx
 	evmAttempt.Hash = dbEthTxAttempt.Hash
 	evmAttempt.BroadcastBeforeBlockNum = dbEthTxAttempt.BroadcastBeforeBlockNum
-	evmAttempt.State = dbEthTxAttempt.State
+	evmAttempt.State = DbEthTxAttemptStateToTxAttemptState(dbEthTxAttempt.State)
 	evmAttempt.CreatedAt = dbEthTxAttempt.CreatedAt
 	evmAttempt.ChainSpecificFeeLimit = dbEthTxAttempt.ChainSpecificGasLimit
 	evmAttempt.TxType = dbEthTxAttempt.TxType
@@ -976,24 +991,25 @@ ORDER BY nonce ASC
 
 func saveAttemptWithNewState(q pg.Queryer, timeout time.Duration, logger logger.Logger, attempt TxAttempt, broadcastAt time.Time) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	dbAttempt := DbEthTxAttemptFromEthTxAttempt(&attempt)
 	defer cancel()
 	return pg.SqlxTransaction(ctx, q, logger, func(tx pg.Queryer) error {
 		// In case of null broadcast_at (shouldn't happen) we don't want to
 		// update anyway because it indicates a state where broadcast_at makes
 		// no sense e.g. fatal_error
-		if _, err := tx.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = $2 AND broadcast_at < $1`, broadcastAt, attempt.TxID); err != nil {
+		if _, err := tx.Exec(`UPDATE eth_txes SET broadcast_at = $1 WHERE id = $2 AND broadcast_at < $1`, broadcastAt, dbAttempt.EthTxID); err != nil {
 			return pkgerrors.Wrap(err, "saveAttemptWithNewState failed to update eth_txes")
 		}
-		_, err := tx.Exec(`UPDATE eth_tx_attempts SET state=$1 WHERE id=$2`, attempt.State, attempt.ID)
+		_, err := tx.Exec(`UPDATE eth_tx_attempts SET state=$1 WHERE id=$2`, dbAttempt.State, dbAttempt.ID)
 		return pkgerrors.Wrap(err, "saveAttemptWithNewState failed to update eth_tx_attempts")
 	})
 }
 
 func (o *evmTxStore) SaveInsufficientFundsAttempt(timeout time.Duration, attempt *TxAttempt, broadcastAt time.Time) error {
-	if !(attempt.State == txmgrtypes.TxAttemptInProgress || attempt.State == txmgrtypes.TxAttemptInsufficientEth) {
+	if !(attempt.State == txmgrtypes.TxAttemptInProgress || attempt.State == txmgrtypes.TxAttemptInsufficientFunds) {
 		return errors.New("expected state to be either in_progress or insufficient_eth")
 	}
-	attempt.State = txmgrtypes.TxAttemptInsufficientEth
+	attempt.State = txmgrtypes.TxAttemptInsufficientFunds
 	return pkgerrors.Wrap(saveAttemptWithNewState(o.q, timeout, o.logger, *attempt, broadcastAt), "saveInsufficientEthAttempt failed")
 }
 
@@ -1358,7 +1374,7 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(etx *Tx, attempt *TxAttempt, 
 			if isPqErr := errors.As(err, &pqErr); isPqErr {
 				switch pqErr.ConstraintName {
 				case "eth_tx_attempts_eth_tx_id_fkey":
-					return txmgr.ErrEthTxRemoved
+					return txmgr.ErrTxRemoved
 				default:
 				}
 			}

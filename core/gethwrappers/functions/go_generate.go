@@ -17,3 +17,4 @@ package gethwrappers
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.6/functions/1_0_0/FunctionsClientExample.abi ../../../contracts/solc/v0.8.6/functions/1_0_0/FunctionsClientExample.bin FunctionsClientExample functions_client_example
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.6/functions/1_0_0/FunctionsCoordinator.abi ../../../contracts/solc/v0.8.6/functions/1_0_0/FunctionsCoordinator.bin FunctionsCoordinator functions_coordinator
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.6/functions/1_0_0/FunctionsRouter.abi ../../../contracts/solc/v0.8.6/functions/1_0_0/FunctionsRouter.bin FunctionsRouter functions_router
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.6/functions/1_0_0/TermsOfServiceAllowList.abi ../../../contracts/solc/v0.8.6/functions/1_0_0/TermsOfServiceAllowList.bin TermsOfServiceAllowList functions_allow_list
