@@ -1,12 +1,10 @@
 package evm
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 
@@ -137,12 +135,7 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 			common.BytesToHash(triggerW.BlockHash[:]).Hex(),
 			logExt,
 		)
-		upkeepTriggerID, err := enc.encodeUpkeepTriggerID(upkeepId, report.Triggers[i])
-		if err != nil {
-			return nil, fmt.Errorf("%w: failed to encode upkeep trigger id", err)
-		}
 		reportedUpkeeps[i] = ocr2keepers.ReportedUpkeep{
-			ID:          upkeepTriggerID,
 			UpkeepID:    ocr2keepers.UpkeepIdentifier(upkeepId.String()),
 			Trigger:     trigger,
 			PerformData: report.PerformDatas[i],
@@ -150,43 +143,6 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 	}
 	fmt.Printf("[EVMAutomationEncoder21] extracted %d results\n", len(reportedUpkeeps))
 	return reportedUpkeeps, nil
-}
-
-func (enc EVMAutomationEncoder21) EncodeUpkeepTriggerID(id *big.Int, trigger ocr2keepers.Trigger) (string, error) {
-	if len(trigger.BlockHash) == 0 {
-		return "", fmt.Errorf("invalid trigger: block hash is empty")
-	}
-	triggerW := triggerWrapper{
-		BlockNum:  uint32(trigger.BlockNumber),
-		BlockHash: common.HexToHash(trigger.BlockHash),
-	}
-	switch getUpkeepType(id.Bytes()) {
-	case logTrigger:
-		trExt, ok := trigger.Extension.(logprovider.LogTriggerExtension)
-		if ok && len(trExt.TxHash) > 0 {
-			triggerW.LogIndex = uint32(trExt.LogIndex)
-			hex, err := common.ParseHexOrString(trExt.TxHash)
-			if err != nil {
-				return "", fmt.Errorf("failed to parse tx hash: %w", err)
-			}
-			triggerW.TxHash = common.BytesToHash(hex[:])
-		}
-	default:
-	}
-	triggerBytes, err := enc.packer.PackTrigger(id, triggerW)
-	if err != nil {
-		return "", fmt.Errorf("%w: failed to pack trigger", err)
-	}
-	return enc.encodeUpkeepTriggerID(id, triggerBytes)
-}
-
-func (enc EVMAutomationEncoder21) encodeUpkeepTriggerID(id *big.Int, triggerBytes []byte) (string, error) {
-	packed, err := enc.packer.PackUpkeepTriggerID(id, triggerBytes)
-	if err != nil {
-		return "", err
-	}
-	h := crypto.Keccak256(packed)
-	return hex.EncodeToString(h), nil
 }
 
 type BlockKeyHelper[T uint32 | int64] struct {

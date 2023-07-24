@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -147,71 +146,10 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 	}
 }
 
-func TestEVMAutomationEncoder21_EncodeUpkeepTriggerID(t *testing.T) {
-	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	assert.Nil(t, err)
-	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
-	assert.Nil(t, err)
-	encoder := EVMAutomationEncoder21{
-		packer: NewEvmRegistryPackerV2_1(keepersABI, utilsABI),
-	}
-
-	logUpkeepResult := newResult(1, genUpkeepID(logTrigger, "111000").Bytes())
-	condUpkeepResult := newResult(2, genUpkeepID(conditionTrigger, "111000").Bytes())
-
-	tests := []struct {
-		name          string
-		id            *big.Int
-		trigger       ocr2keepers.Trigger
-		utype         upkeepType
-		errored       bool
-		expectedValue string
-	}{
-		{
-			"happy flow log trigger",
-			big.NewInt(0).SetBytes(logUpkeepResult.Payload.Upkeep.ID),
-			logUpkeepResult.Payload.Trigger,
-			logTrigger,
-			false,
-			"6a0c3f81c61afe251f4a31a5e157b3e432c91ff80f1f4f6f2edfc698b9514d6d",
-		},
-		{
-			"happy flow condition trigger",
-			big.NewInt(0).SetBytes(condUpkeepResult.Payload.Upkeep.ID),
-			condUpkeepResult.Payload.Trigger,
-			conditionTrigger,
-			false,
-			"cac456f20538d19123fc51a360d6fcd410d5f550fa2e71879639808e0cc80a64",
-		},
-		{
-			"empty",
-			big.NewInt(0),
-			ocr2keepers.Trigger{},
-			conditionTrigger,
-			true,
-			"",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			require.Equal(t, tc.utype, getUpkeepType(ocr2keepers.UpkeepIdentifier(tc.id.String())))
-			utid, err := encoder.EncodeUpkeepTriggerID(tc.id, tc.trigger)
-			if tc.errored {
-				require.Error(t, err)
-				return
-			}
-			require.Nil(t, err)
-			require.Equal(t, tc.expectedValue, utid)
-		})
-	}
-}
-
 func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckResult {
 	logExt := logprovider.LogTriggerExtension{}
 	tp := getUpkeepType(id)
 	if tp == logTrigger {
-		fmt.Printf("log trigger, id: %s\n", id)
 		logExt.LogIndex = 1
 		logExt.TxHash = "0x1234567890123456789012345678901234567890123456789012345678901234"
 	}
