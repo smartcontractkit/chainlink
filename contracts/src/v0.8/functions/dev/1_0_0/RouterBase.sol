@@ -9,32 +9,6 @@ import {IConfigurable} from "./interfaces/IConfigurable.sol";
 
 abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, ConfirmedOwnerWithProposal {
   // ================================================================
-  // |                         Version state                        |
-  // ================================================================
-
-  uint16 internal constant s_majorVersion = 1;
-  uint16 internal s_minorVersion = 0;
-  uint16 internal s_patchVersion = 0;
-
-  // ================================================================
-  // |                          Timelock state                      |
-  // ================================================================
-
-  uint16 internal s_maximumTimelockBlocks;
-  uint16 internal s_timelockBlocks;
-
-  struct TimeLockProposal {
-    uint16 from;
-    uint16 to;
-    uint256 timelockEndBlock;
-  }
-  TimeLockProposal internal s_timelockProposal;
-  event TimeLockProposed(uint16 from, uint16 to);
-  event TimeLockUpdated(uint16 from, uint16 to);
-  error ProposedTimelockAboveMaximum();
-  error TimelockInEffect();
-
-  // ================================================================
   // |                          Route state                         |
   // ================================================================
   mapping(bytes32 id => address routableContract) internal s_route;
@@ -88,6 +62,33 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   bytes32 internal s_config_hash;
 
   error InvalidConfigData();
+
+  TimeLockProposal internal s_timelockProposal;
+  // ================================================================
+  // |                         Version state                        |
+  // ================================================================
+
+  uint16 internal constant s_majorVersion = 1;
+  uint16 internal s_minorVersion = 0;
+  uint16 internal s_patchVersion = 0;
+
+  // ================================================================
+  // |                          Timelock state                      |
+  // ================================================================
+
+  uint16 internal s_maximumTimelockBlocks;
+  uint16 internal s_timelockBlocks;
+
+  struct TimeLockProposal {
+    uint16 from;
+    uint16 to;
+    uint256 timelockEndBlock;
+  }
+
+  event TimeLockProposed(uint16 from, uint16 to);
+  event TimeLockUpdated(uint16 from, uint16 to);
+  error ProposedTimelockAboveMaximum();
+  error TimelockInEffect();
 
   // ================================================================
   // |                       Initialization                         |

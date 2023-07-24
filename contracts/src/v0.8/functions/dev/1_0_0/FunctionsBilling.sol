@@ -15,8 +15,6 @@ import {SafeCast} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/con
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 abstract contract FunctionsBilling is Routable, IFunctionsBilling {
-  AggregatorV3Interface private LINK_TO_NATIVE_FEED;
-
   // ================================================================
   // |                  Request Commitment state                    |
   // ================================================================
@@ -92,7 +90,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
   mapping(address transmitter => uint96 balanceJuelsLink) private s_withdrawableTokens;
   // Pool together DON fees and disperse them on withdrawal
-  uint96 s_feePool;
+  uint96 internal s_feePool;
+
+  AggregatorV3Interface private s_linkToNativeFeed;
 
   // ================================================================
   // |                         Cost Events                          |
@@ -111,7 +111,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // |                       Initialization                         |
   // ================================================================
   constructor(address router, bytes memory config, address linkToNativeFeed) Routable(router, config) {
-    LINK_TO_NATIVE_FEED = AggregatorV3Interface(linkToNativeFeed);
+    s_linkToNativeFeed = AggregatorV3Interface(linkToNativeFeed);
   }
 
   // ================================================================
@@ -185,7 +185,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       s_config.gasOverheadAfterCallback,
       s_config.fallbackNativePerUnitLink,
       s_config.gasOverheadBeforeCallback,
-      address(LINK_TO_NATIVE_FEED),
+      address(s_linkToNativeFeed),
       s_config.maxSupportedRequestDataVersion,
       s_config.fulfillmentGasPriceOverEstimationBP
     );
@@ -219,7 +219,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function getFeedData() public view returns (int256) {
     uint32 feedStalenessSeconds = s_config.feedStalenessSeconds;
     bool staleFallback = feedStalenessSeconds > 0;
-    (, int256 weiPerUnitLink, , uint256 timestamp, ) = LINK_TO_NATIVE_FEED.latestRoundData();
+    (, int256 weiPerUnitLink, , uint256 timestamp, ) = s_linkToNativeFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (staleFallback && feedStalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_config.fallbackNativePerUnitLink;
