@@ -5478,6 +5478,34 @@ describe('KeeperRegistry2_1', () => {
     })
   })
 
+  describe('#setAdminPrivilegeConfig() / #getAdminPrivilegeConfig()', () => {
+    const admin = randomAddress()
+
+    it('reverts when non manager tries to set privilege config', async () => {
+      await evmRevert(
+        registry.connect(payee3).setAdminPrivilegeConfig(admin, '0x1234'),
+        'OnlyCallableByUpkeepPrivilegeManager()',
+      )
+    })
+
+    it('returns empty bytes for upkeep privilege config before setting', async () => {
+      const cfg = await registry.getAdminPrivilegeConfig(admin)
+      assert.equal(cfg, '0x')
+    })
+
+    it('allows upkeep manager to set privilege config', async () => {
+      const tx = await registry
+        .connect(personas.Norbert)
+        .setAdminPrivilegeConfig(admin, '0x1234')
+      await expect(tx)
+        .to.emit(registry, 'AdminPrivilegeConfigSet')
+        .withArgs(admin, '0x1234')
+
+      const cfg = await registry.getAdminPrivilegeConfig(admin)
+      assert.equal(cfg, '0x1234')
+    })
+  })
+
   describe('transmitterPremiumSplit [ @skip-coverage ]', () => {
     beforeEach(async () => {
       await linkToken.connect(owner).approve(registry.address, toWei('100'))
