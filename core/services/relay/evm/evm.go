@@ -49,7 +49,7 @@ type Relayer struct {
 	ks               RelayerKeystore
 	mercuryPool      wsrpc.Pool
 	eventBroadcaster pg.EventBroadcaster
-	pqCfg            pg.QConfig
+	pgCfg            pg.QConfig
 }
 
 type RelayerKeystore interface {
@@ -65,7 +65,7 @@ func NewRelayer(db *sqlx.DB, legacyChains *evm.Chains, cfg pg.QConfig, lggr logg
 		ks:               ks,
 		mercuryPool:      wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
 		eventBroadcaster: eventBroadcaster,
-		pqCfg:            cfg,
+		pgCfg:            cfg,
 	}
 }
 
@@ -137,7 +137,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	if err != nil {
 		return nil, err
 	}
-	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, *relayConfig.FeedID, r.db, r.pqCfg)
+	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, *relayConfig.FeedID, r.db, r.pgCfg)
 
 	return NewMercuryProvider(configWatcher, transmitter, reportCodec, r.lggr), nil
 }

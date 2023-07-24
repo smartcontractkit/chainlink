@@ -42,7 +42,7 @@ func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.
 	relayers := chainlink.NewRelayers()
 
 	legacyChains := cltest.NewLegacyChainsWithMockChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, opts.Config))
-	rly := evmrelayer.NewRelayer(opts.DB, legacyChains, opts.Logger, ks, pg.NewNullEventBroadcaster())
+	rly := evmrelayer.NewRelayer(opts.DB, legacyChains, opts.Config.Database(), opts.Logger, ks, pg.NewNullEventBroadcaster())
 
 	require.NoError(t, opts.Config.Validate(), "invalid config")
 

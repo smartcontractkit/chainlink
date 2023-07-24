@@ -44,7 +44,7 @@ var ErrBadRelayConfig = errors.New("bad relay config")
 func NewRelayOpts(args types.RelayArgs) *RelayOpts {
 	return &RelayOpts{
 		RelayArgs: args,
-		c:         &RelayConfig{}, // lazy initialization
+		c:         nil, // lazy initialization
 	}
 }
 
