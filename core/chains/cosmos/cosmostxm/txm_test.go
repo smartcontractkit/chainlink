@@ -35,7 +35,7 @@ import (
 
 func TestTxm_Integration(t *testing.T) {
 	chainID := cosmostest.RandomChainID()
-	fallbackGasPrice := sdk.NewDecCoinFromDec("ucosm", sdk.MustNewDecFromStr("0.01"))
+	fallbackGasPrice := sdk.NewDecCoinFromDec("uatom", sdk.MustNewDecFromStr("0.01"))
 	cosmosChain := coscfg.Chain{}
 	cosmosChain.SetDefaults()
 	chainConfig := cosmos.CosmosConfig{ChainID: &chainID, Enabled: ptr(true), Chain: cosmosChain}
@@ -46,7 +46,6 @@ func TestTxm_Integration(t *testing.T) {
 	logCfg := pgtest.NewQConfig(true)
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewFixedGasPriceEstimator(map[string]sdk.DecCoin{
-			"ucosm": fallbackGasPrice,
 			"uatom": fallbackGasPrice,
 		}),
 	}, lggr)
@@ -57,7 +56,7 @@ func TestTxm_Integration(t *testing.T) {
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
 	zeConfig := sdk.GetConfig()
 	fmt.Println(zeConfig)
-	accounts, testdir, tendermintURL := cosmosclient.SetupLocalCosmosNode(t, chainID)
+	accounts, testdir, tendermintURL := cosmosclient.SetupLocalCosmosNode(t, chainID, "uatom")
 	tc, err := cosmosclient.NewClient(chainID, tendermintURL, cosmos.DefaultRequestTimeout, lggr)
 	require.NoError(t, err)
 
@@ -69,13 +68,13 @@ func TestTxm_Integration(t *testing.T) {
 	require.NoError(t, err)
 	an, sn, err := tc.Account(accounts[0].Address)
 	require.NoError(t, err)
-	_, err = tc.SignAndBroadcast([]sdk.Msg{banktypes.NewMsgSend(accounts[0].Address, transmitterID, sdk.NewCoins(sdk.NewInt64Coin("ucosm", 100000)))},
-		an, sn, gpe.GasPrices()["ucosm"], accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
+	_, err = tc.SignAndBroadcast([]sdk.Msg{banktypes.NewMsgSend(accounts[0].Address, transmitterID, sdk.NewCoins(sdk.NewInt64Coin("uatom", 100000)))},
+		an, sn, gpe.GasPrices()["uatom"], accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
 	require.NoError(t, err)
 
 	// TODO: find a way to pull this test artifact from
 	// the chainlink-cosmos repo instead of copying it to cores testdata
-	contractID := cosmosclient.DeployTestContract(t, tendermintURL, chainID, accounts[0], cosmosclient.Account{
+	contractID := cosmosclient.DeployTestContract(t, tendermintURL, chainID, "uatom", accounts[0], cosmosclient.Account{
 		Name:       "transmitter",
 		PrivateKey: cosmostxm.NewKeyWrapper(transmitterKey),
 		Address:    transmitterID,
