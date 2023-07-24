@@ -1,0 +1,57 @@
+{{- range $cfg := .Values.chainlink.nodes }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: {{ $.Release.Name }}-{{ $cfg.name }}-cm
+    release: {{ $.Release.Name }}
+  name: {{ $.Release.Name }}-{{ $cfg.name }}-cm
+data:
+  apicredentials: |
+    notreal@fakeemail.ch
+    fj293fbBnlQ!f9vNs
+  node-password: T.tLHkcmwePT/p,]sYuntjwHKAsrhm#4eRs4LuKHwvHejWYAC2JP4M8HimwgmbaZ
+  init.sql: |
+    CREATE
+    EXTENSION pg_stat_statements;
+  default.toml: |
+  {{ if (hasKey $cfg "toml") }}
+    {{ $cfg.toml | nindent 4 }}
+  {{ else }}
+    RootDir = './clroot'
+    [Log]
+    JSONConsole = true
+    Level = 'debug'
+    [WebServer]
+    AllowOrigins = '*'
+    SecureCookies = false
+    SessionTimeout = '999h0m0s'
+    [OCR]
+    Enabled = true
+    [P2P]
+    [P2P.V1]
+    Enabled = true
+    ListenIP = '0.0.0.0'
+    ListenPort = 6690
+    [[EVM]]
+    ChainID = '1337'
+    MinContractPayment = '0'
+    [[EVM.Nodes]]
+    Name = 'node-0'
+    WSURL = 'ws://geth:8546'
+    HTTPURL = 'http://geth:8544'
+    [WebServer.TLS]
+    HTTPSPort = 0
+    {{ end }}
+  overrides.toml: |
+  {{ if (hasKey $cfg "overridesToml") }}
+    {{ $cfg.overridesToml | nindent 4 }}
+  {{ else }}
+  {{ end }}
+  secrets.toml: |
+  {{ if (hasKey $cfg "secretsToml") }}
+    {{ $cfg.secretsToml | nindent 4 }}
+  {{ else }}
+  {{ end }}
+---
+{{- end }}

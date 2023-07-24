@@ -86,8 +86,14 @@ func TestRunner(t *testing.T) {
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
+<<<<<<< HEAD
 	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c)
 	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, btORM, keyStore, config.Database())
+=======
+	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), cc, nil, nil, logger.TestLogger(t), c, c)
+	jobORM := NewTestORM(t, db, cc, pipelineORM, btORM, keyStore, config.Database())
+	_, placeHolderAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
+>>>>>>> develop
 
 	require.NoError(t, runner.Start(testutils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, runner.Close()) })
@@ -194,10 +200,11 @@ func TestRunner(t *testing.T) {
 		// Reference a different one
 		legacyChains := cltest.NewLegacyChainsWithMockChain(t, nil, chainScopedConfig)
 
-		jb, err2 := ocr.ValidatedOracleSpecToml(legacyChains, `
+		jb, err2 := ocr.ValidatedOracleSpecToml(legacyChains,  fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			evmChainID         = 1
+			transmitterID 	   = "%s"	
 			contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 			isBootstrapPeer    = false
 			blockchainTimeout  = "1s"
@@ -215,7 +222,7 @@ func TestRunner(t *testing.T) {
 			ds1 -> ds1_parse -> ds1_multiply -> answer1;
 			answer1      [type=median index=0];
 			"""
-		`)
+		`, placeHolderAddress.String()))
 		require.NoError(t, err2)
 		// Should error creating it
 		err = jobORM.CreateJob(&jb)
@@ -229,6 +236,7 @@ pluginType         = "median"
 schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+transmitterID 	   = "%s"
 blockchainTimeout = "1s"
 contractConfigTrackerPollInterval = "2s"
 contractConfigConfirmations = 1
@@ -249,7 +257,7 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
-`, b.Name.String()))
+`, placeHolderAddress.String(), b.Name.String()))
 		require.NoError(t, err)
 		// Should error creating it because of the juels per fee coin non-existent bridge
 		err = jobORM.CreateJob(&jb2)
@@ -263,6 +271,7 @@ pluginType         = "median"
 schemaVersion      = 1
 relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
+transmitterID 	   = "%s"
 blockchainTimeout = "1s"
 contractConfigTrackerPollInterval = "2s"
 contractConfigConfirmations = 1
@@ -287,7 +296,7 @@ ds2_multiply [type=multiply times=1.23];
 ds2 -> ds2_parse -> ds2_multiply -> answer1;
 answer1      [type=median index=0];
 """
-`, b.Name.String(), b.Name.String(), b.Name.String()))
+`, placeHolderAddress, b.Name.String(), b.Name.String(), b.Name.String()))
 		require.NoError(t, err)
 		// Should not error with duplicate bridges
 		err = jobORM.CreateJob(&jb3)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
@@ -59,12 +58,13 @@ func (r RelayerFactory) NewEVM(ctx context.Context, opts evm.RelayerFactoryOpts,
 		c := c
 		ids = append(ids, *c.ChainID)
 	}
-	if len(ids) > 0 {
-		if err := evm.EnsureChains(r.DB, r.Logger, opts.Config.Database(), ids); err != nil {
-			return nil, errors.Wrap(err, "failed to setup EVM chains")
+	/*
+		if len(ids) > 0 {
+			if err := evm.EnsureChains(r.DB, r.Logger, opts.Config.Database(), ids); err != nil {
+				return nil, errors.Wrap(err, "failed to setup EVM chains")
+			}
 		}
-	}
-
+	*/
 	evmRelayExtenders, err := evm.NewChainRelayerExtenders(ctx, ccOpts)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func (r RelayerFactory) NewEVM(ctx context.Context, opts evm.RelayerFactoryOpts,
 		relayId := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(s.Chain().ID().String())}
 		legacyChains := evm.NewLegacyChains()
 		legacyChains.Put(s.Chain().ID().String(), s.Chain())
-		relayer := evmrelayer.NewLoopRelayAdapter(evmrelayer.NewRelayer(ccOpts.DB, legacyChains, ccOpts.Logger, ks, ccOpts.EventBroadcaster), s)
+		relayer := evmrelayer.NewLoopRelayAdapter(evmrelayer.NewRelayer(ccOpts.DB, legacyChains, r.QConfig, ccOpts.Logger, ks, ccOpts.EventBroadcaster), s)
 		relayers[relayId] = relayer
 
 	}
@@ -93,12 +93,13 @@ func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCon
 		c := c
 		ids = append(ids, relay.Identifier{Network: relay.StarkNet, ChainID: relay.ChainID(*c.ChainID)})
 	}
-	if len(ids) > 0 {
-		if err := solana.EnsureChains(r.DB, solLggr, r.QConfig, ids); err != nil {
-			return nil, fmt.Errorf("failed to setup Solana chains: %w", err)
+	/*
+		if len(ids) > 0 {
+			if err := solana.EnsureChains(r.DB, solLggr, r.QConfig, ids); err != nil {
+				return nil, fmt.Errorf("failed to setup Solana chains: %w", err)
+			}
 		}
-	}
-
+	*/
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
 		relayId := relay.Identifier{Network: relay.Solana, ChainID: relay.ChainID(*chainCfg.ChainID)}
@@ -152,12 +153,13 @@ func (r RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.Sta
 		c := c
 		ids = append(ids, *c.ChainID)
 	}
-	if len(ids) > 0 {
-		if err := starknet.EnsureChains(r.DB, starkLggr, r.QConfig, ids); err != nil {
-			return nil, fmt.Errorf("failed to setup StarkNet chains: %w", err)
+	/*
+		if len(ids) > 0 {
+			if err := starknet.EnsureChains(r.DB, starkLggr, r.QConfig, ids); err != nil {
+				return nil, fmt.Errorf("failed to setup StarkNet chains: %w", err)
+			}
 		}
-	}
-
+	*/
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
 		relayId := relay.Identifier{Network: relay.StarkNet, ChainID: relay.ChainID(*chainCfg.ChainID)}

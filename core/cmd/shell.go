@@ -136,20 +136,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg.Database())
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 
-	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
-	if cfg.EVMEnabled() {
-		var ids []utils.Big
-		for _, c := range cfg.EVMConfigs() {
-			c := c
-			ids = append(ids, *c.ChainID)
-		}
-		if len(ids) > 0 {
-			if err = evm.EnsureChains(db, appLggr, cfg.Database(), ids); err != nil {
-				return nil, errors.Wrap(err, "failed to setup EVM chains")
-			}
-		}
-	}
-
 	dbListener := cfg.Database().Listener()
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
 	loopRegistry := plugins.NewLoopRegistry(appLggr.Named("LoopRegistry"))

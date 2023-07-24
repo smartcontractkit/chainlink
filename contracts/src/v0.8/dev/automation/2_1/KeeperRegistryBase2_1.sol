@@ -565,14 +565,21 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       if (isExecution) {
         txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
       } else {
-        // @dev fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
+        // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
         // s_storage.maxPerformDataSize non zero-bytes. Instead of setting bytes to non-zero
         // we initialize 'new bytes' of length 4*maxPerformDataSize to cover for zero bytes.
         txCallData = new bytes(4 * s_storage.maxPerformDataSize);
       }
       l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
     } else if (i_mode == Mode.ARBITRUM) {
-      l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
+      if (isExecution) {
+        l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
+      } else {
+        // fee is 4 per 0 byte, 16 per non-zero byte - we assume all non-zero and
+        // max data size to calculate max payment
+        (, uint256 perL1CalldataUnit, , , , ) = ARB_NITRO_ORACLE.getPricesInWei();
+        l1CostWei = perL1CalldataUnit * s_storage.maxPerformDataSize * 16;
+      }
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {

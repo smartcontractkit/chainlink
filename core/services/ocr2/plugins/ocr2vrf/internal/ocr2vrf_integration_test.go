@@ -475,7 +475,6 @@ contractConfigTrackerPollInterval = "15s"
 [relayConfig]
 chainID              	= 1337
 fromBlock               = %d
-sendingKeys             = [%s]
 
 [pluginConfig]
 dkgEncryptionPublicKey 	= "%s"
@@ -490,7 +489,6 @@ linkEthFeedAddress     	= "%s"
 			transmitters[i],
 			useForwarders,
 			blockBeforeConfig.Number().Int64(),
-			sendingKeysString,
 			dkgEncrypters[i].PublicKeyString(),
 			dkgSigners[i].PublicKeyString(),
 			hex.EncodeToString(keyID[:]),

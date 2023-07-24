@@ -388,11 +388,13 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	for _, c := range cfg.EVMConfigs() {
 		ids = append(ids, *c.ChainID)
 	}
-	if len(ids) > 0 {
-		if err = evm.EnsureChains(db, lggr, cfg.Database(), ids); err != nil {
-			t.Fatal(err)
+	/*
+		if len(ids) > 0 {
+			if err = evm.EnsureChains(db, lggr, cfg.Database(), ids); err != nil {
+				t.Fatal(err)
+			}
 		}
-	}
+	*/
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"))
 
