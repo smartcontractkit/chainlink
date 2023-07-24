@@ -51,13 +51,18 @@ type Chain interface {
 	//SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
-var _ Chain = &chain{}
+var (
+	_         Chain = &chain{}
+	nilBigInt *big.Int
+)
 
 //var Chains = chains.NewChainsKV[Chain]()
 
 type Chains struct {
 	*chains.ChainsKV[Chain]
 	dflt Chain
+	// backward compatibility
+
 }
 
 func NewLegacyChains() *Chains {
@@ -79,7 +84,7 @@ func (c *Chains) Default() (Chain, error) {
 
 // backward compatibility
 func (c *Chains) Get(id string) (Chain, error) {
-	if id == "<nil>" {
+	if id == nilBigInt.String() {
 		return c.Default()
 	}
 	return c.ChainsKV.Get(id)

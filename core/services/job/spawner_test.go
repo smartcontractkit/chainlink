@@ -283,7 +283,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		relayExtenders := evmtest.NewChainRelayExtenders(t, testopts)
 		legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
-		evmRelayer := evmrelayer.NewRelayer(testopts.DB, legacyChains, lggr, keyStore, pg.NewNullEventBroadcaster())
+		evmRelayer := evmrelayer.NewRelayer(testopts.DB, legacyChains, testopts.GeneralConfig.Database(), lggr, keyStore, pg.NewNullEventBroadcaster())
 		testRelayGetter := &relayGetter{
 			e: relayExtenders[0],
 			r: evmRelayer,
@@ -295,9 +295,6 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		orm := NewTestORM(t, db, legacyChains, pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db, lggr, config.Database()), keyStore, config.Database())
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
-		relayers := make(map[relay.Network]loop.Relayer)
-		evmRelayer := evmrelay.NewRelayer(db, cc, lggr, config.Database(), keyStore, nil)
-		relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, cc)
 
 		processConfig := plugins.NewRegistrarConfig(loop.GRPCOpts{}, func(name string) (*plugins.RegisteredLoop, error) { return nil, nil })
 		ocr2DelegateConfig := ocr2.NewDelegateConfig(config.OCR2(), config.Mercury(), config.Threshold(), config.Insecure(), config.JobPipeline(), config.Database(), processConfig)

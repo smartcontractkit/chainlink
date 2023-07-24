@@ -86,14 +86,11 @@ func TestRunner(t *testing.T) {
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
 	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-<<<<<<< HEAD
+
 	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c)
 	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, btORM, keyStore, config.Database())
-=======
-	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), cc, nil, nil, logger.TestLogger(t), c, c)
-	jobORM := NewTestORM(t, db, cc, pipelineORM, btORM, keyStore, config.Database())
+
 	_, placeHolderAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
->>>>>>> develop
 
 	require.NoError(t, runner.Start(testutils.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, runner.Close()) })
@@ -200,7 +197,7 @@ func TestRunner(t *testing.T) {
 		// Reference a different one
 		legacyChains := cltest.NewLegacyChainsWithMockChain(t, nil, chainScopedConfig)
 
-		jb, err2 := ocr.ValidatedOracleSpecToml(legacyChains,  fmt.Sprintf(`
+		jb, err2 := ocr.ValidatedOracleSpecToml(legacyChains, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			evmChainID         = 1
