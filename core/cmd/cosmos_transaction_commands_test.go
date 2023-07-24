@@ -1,9 +1,9 @@
-//go:build integration && wasmd
-
 package cmd_test
 
 import (
 	"flag"
+	"fmt"
+	"os"
 	"strconv"
 	"testing"
 	"time"
@@ -16,6 +16,7 @@ import (
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/params"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/denom"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -27,6 +28,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
+func TestMain(m *testing.M) {
+	params.InitCosmosSdk(
+		/* bech32Prefix= */ "wasm",
+		/* token= */ "cosm",
+	)
+	code := m.Run()
+	os.Exit(code)
+}
+
 func TestShell_SendCosmosCoins(t *testing.T) {
 	// TODO(BCI-978): cleanup once SetupLocalCosmosNode is updated
 	chainID := cosmostest.RandomChainID()
@@ -37,7 +47,9 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	from := accounts[0]
 	to := accounts[1]
 	require.NoError(t, app.GetKeyStore().Cosmos().Add(cosmoskey.Raw(from.PrivateKey.Bytes()).Key()))
-
+	x := app.GetChains()
+	y := x.Cosmos
+	fmt.Println(y)
 	chain, err := app.GetChains().Cosmos.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
@@ -45,7 +57,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		coin, err := reader.Balance(from.Address, "uatom")
+		coin, err := reader.Balance(from.Address, "ucosm")
 		if !assert.NoError(t, err) {
 			return false
 		}
@@ -71,7 +83,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	} {
 		tt := tt
 		t.Run(tt.amount, func(t *testing.T) {
-			startBal, err := reader.Balance(from.Address, "uatom")
+			startBal, err := reader.Balance(from.Address, "ucosm")
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendcosmoscoins", 0)
@@ -130,11 +142,11 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 			}
 
 			// Check balance
-			endBal, err := reader.Balance(from.Address, "uatom")
+			endBal, err := reader.Balance(from.Address, "ucosm")
 			require.NoError(t, err)
 			if assert.NotNil(t, startBal) && assert.NotNil(t, endBal) {
 				diff := startBal.Sub(*endBal).Amount
-				sent, err := denom.DecCoinToUAtom(sdk.NewDecCoinFromDec("atom", sdk.MustNewDecFromStr(tt.amount)))
+				sent, err := denom.DecCoinToUAtom(sdk.NewDecCoinFromDec("cosm", sdk.MustNewDecFromStr(tt.amount)))
 				require.NoError(t, err)
 				if assert.True(t, diff.IsInt64()) && assert.True(t, sent.Amount.IsInt64()) {
 					require.Greater(t, diff.Int64(), sent.Amount.Int64())
