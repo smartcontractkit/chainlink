@@ -231,11 +231,6 @@ func deployWrapperUniverse(e helpers.Environment) {
 	linkAddress := cmd.String("link-address", "", "address of link token")
 	linkETHFeedAddress := cmd.String("link-eth-feed", "", "address of link-eth-feed")
 	coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
-	wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
-	coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
-	wrapperPremiumPercentage := cmd.Uint("wrapper-premium-percentage", 25, "gas premium charged by wrapper")
-	keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
-	maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
 	subFunding := cmd.String("sub-funding", "10000000000000000000", "amount to fund the subscription with")
 	consumerFunding := cmd.String("consumer-funding", "10000000000000000000", "amount to fund the consumer with")
 	helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address", "key-hash")
@@ -251,12 +246,9 @@ func deployWrapperUniverse(e helpers.Environment) {
 		common.HexToAddress(*coordinatorAddress))
 
 	wrapperConfigure(e,
-		wrapper,
-		*wrapperGasOverhead,
-		*coordinatorGasOverhead,
-		*wrapperPremiumPercentage,
-		*keyHash,
-		*maxNumWords)
+		common.HexToAddress(wrapper.String()),
+		common.HexToAddress(*coordinatorAddress),
+		uint64(subID))
 
 	consumer := wrapperConsumerDeploy(e,
 		common.HexToAddress(*linkAddress),

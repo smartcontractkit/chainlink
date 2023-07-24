@@ -186,20 +186,16 @@ func wrapperDeploy(
 func wrapperConfigure(
 	e helpers.Environment,
 	wrapperAddress common.Address,
-	wrapperGasOverhead, coordinatorGasOverhead, premiumPercentage uint,
-	keyHash string,
-	maxNumWords uint,
+	coordinatorAddr common.Address,
+	subID uint64,
 ) {
 	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(wrapperAddress, e.Ec)
 	helpers.PanicErr(err)
 
 	tx, err := wrapper.SetConfig(
 		e.Owner,
-		uint32(wrapperGasOverhead),
-		uint32(coordinatorGasOverhead),
-		uint8(premiumPercentage),
-		common.HexToHash(keyHash),
-		uint8(maxNumWords))
+		coordinatorAddr,
+		subID)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
