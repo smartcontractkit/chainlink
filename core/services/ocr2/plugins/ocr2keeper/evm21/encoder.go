@@ -60,6 +60,8 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		PerformDatas: make([][]byte, len(results)),
 	}
 
+	fmt.Printf("[EVMAutomationEncoder21] encoding %d results\n", len(results))
+
 	for i, result := range results {
 		ext, ok := result.Extension.(EVMAutomationResultExtension21)
 		if !ok {
@@ -146,6 +148,7 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 			PerformData: report.PerformDatas[i],
 		}
 	}
+	fmt.Printf("[EVMAutomationEncoder21] extracted %d results\n", len(reportedUpkeeps))
 	return reportedUpkeeps, nil
 }
 

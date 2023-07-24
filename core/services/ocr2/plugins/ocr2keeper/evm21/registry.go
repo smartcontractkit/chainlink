@@ -724,6 +724,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to unpack check result")
 			}
+			r.lggr.Debugf("check result for key %s: %+v", keys[i], results[i])
 		}
 	}
 
