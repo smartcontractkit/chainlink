@@ -13,7 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -21,11 +21,11 @@ import (
 
 type OnchainAllowlistConfig struct {
 	// ContractAddress is required
-	ContractAddress    common.Address `json:"allowlistContractAddress"`
-	BlockConfirmations uint           `json:"allowlistBlockConfirmations"`
+	ContractAddress    common.Address `json:"contractAddress"`
+	BlockConfirmations uint           `json:"blockConfirmations"`
 	// UpdateFrequencySec can be zero to disable periodic updates
-	UpdateFrequencySec uint `json:"allowlistUpdateFrequencySec"`
-	UpdateTimeoutSec   uint `json:"allowlistUpdateTimeoutSec"`
+	UpdateFrequencySec uint `json:"updateFrequencySec"`
+	UpdateTimeoutSec   uint `json:"updateTimeoutSec"`
 }
 
 // OnchainAllowlist maintains an allowlist of addresses fetched from the blockchain (EVM-only).
@@ -84,21 +84,28 @@ func (a *onchainAllowlist) Start(ctx context.Context) error {
 			a.lggr.Info("OnchainAllowlist periodic updates are disabled")
 			return nil
 		}
+
+		updateOnce := func() {
+			timeoutCtx, cancel := utils.ContextFromChanWithTimeout(a.stopCh, time.Duration(a.config.UpdateTimeoutSec)*time.Second)
+			if err := a.UpdateFromContract(timeoutCtx); err != nil {
+				a.lggr.Errorw("error calling UpdateFromContract", "err", err)
+			}
+			cancel()
+		}
+
 		a.closeWait.Add(1)
 		go func() {
 			defer a.closeWait.Done()
-			ticker := time.NewTicker(time.Duration(a.config.UpdateFrequencySec))
+			// update immediately after start to populate the allowlist without waiting UpdateFrequencySec seconds
+			updateOnce()
+			ticker := time.NewTicker(time.Duration(a.config.UpdateFrequencySec) * time.Second)
 			defer ticker.Stop()
 			for {
 				select {
 				case <-a.stopCh:
 					return
 				case <-ticker.C:
-					timeoutCtx, cancel := utils.ContextFromChanWithTimeout(a.stopCh, time.Duration(a.config.UpdateTimeoutSec))
-					if err := a.UpdateFromContract(timeoutCtx); err != nil {
-						a.lggr.Errorw("error calling UpdateFromContract", "err", err)
-					}
-					cancel()
+					updateOnce()
 				}
 			}
 		}()

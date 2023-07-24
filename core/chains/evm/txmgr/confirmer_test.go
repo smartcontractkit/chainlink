@@ -1571,14 +1571,14 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	})
 
 	attempt0_1 := newBroadcastLegacyEthTxAttempt(t, etxWithoutAttempts.ID)
-	attempt0_1.State = txmgrtypes.TxAttemptInsufficientEth
+	attempt0_1.State = txmgrtypes.TxAttemptInsufficientFunds
 	require.NoError(t, txStore.InsertTxAttempt(&attempt0_1))
 
 	// This attempt has insufficient_eth, but there is also another attempt4_1
 	// which is old enough, so this will be caught by both queries and should
 	// not be duplicated
 	attempt4_2 := cltest.NewLegacyEthTxAttempt(t, etx4.ID)
-	attempt4_2.State = txmgrtypes.TxAttemptInsufficientEth
+	attempt4_2.State = txmgrtypes.TxAttemptInsufficientFunds
 	attempt4_2.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(40000)}
 	require.NoError(t, txStore.InsertTxAttempt(&attempt4_2))
 
@@ -2541,7 +2541,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		// Got the new attempt
 		attempt1_2 = etx.TxAttempts[0]
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_2.TxFee.Legacy.ToInt().Int64())
-		assert.Equal(t, txmgrtypes.TxAttemptInsufficientEth, attempt1_2.State)
+		assert.Equal(t, txmgrtypes.TxAttemptInsufficientFunds, attempt1_2.State)
 		assert.Nil(t, attempt1_2.BroadcastBeforeBlockNum)
 	})
 
@@ -2568,7 +2568,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		// The attempt is still "out of eth"
 		attempt1_2 = etx.TxAttempts[0]
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_2.TxFee.Legacy.ToInt().Int64())
-		assert.Equal(t, txmgrtypes.TxAttemptInsufficientEth, attempt1_2.State)
+		assert.Equal(t, txmgrtypes.TxAttemptInsufficientFunds, attempt1_2.State)
 	})
 
 	t.Run("saves the attempt as broadcast after node wallet has been topped up with sufficient balance", func(t *testing.T) {

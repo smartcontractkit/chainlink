@@ -51,7 +51,7 @@ func NewReportingPlugin(logger commontypes.Logger, config *PluginConfig, orm s4.
 	}, nil
 }
 
-func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
+func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Query, error) {
 	promReportingPluginQuery.WithLabelValues(c.config.ProductName).Inc()
 
 	snapshot, err := c.orm.GetSnapshot(c.addressRange, pg.WithParentCtx(ctx))
@@ -78,10 +78,16 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 
 	c.addressRange.Advance()
 
+	c.logger.Debug("S4StorageReporting Query", commontypes.LogFields{
+		"epoch": ts.Epoch,
+		"round": ts.Round,
+		"nRows": len(rows),
+	})
+
 	return queryBytes, err
 }
 
-func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query types.Query) (types.Observation, error) {
+func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, query types.Query) (types.Observation, error) {
 	promReportingPluginObservation.WithLabelValues(c.config.ProductName).Inc()
 
 	now := time.Now().UTC()
@@ -160,10 +166,17 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 		}
 	}
 
+	c.logger.Debug("S4StorageReporting Observation", commontypes.LogFields{
+		"epoch":            ts.Epoch,
+		"round":            ts.Round,
+		"nUnconfirmedRows": len(unconfirmedRows),
+		"nRemainingRows":   len(remainingRows),
+	})
+
 	return returnObservation(append(unconfirmedRows, remainingRows...))
 }
 
-func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
+func (c *plugin) Report(_ context.Context, ts types.ReportTimestamp, _ types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
 	promReportingPluginReport.WithLabelValues(c.config.ProductName).Inc()
 
 	reportMap := make(map[key]*Row)
@@ -207,11 +220,16 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 	}
 
 	promReportingPluginsReportRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(reportRows)))
+	c.logger.Debug("S4StorageReporting Report", commontypes.LogFields{
+		"epoch":       ts.Epoch,
+		"round":       ts.Round,
+		"nReportRows": len(reportRows),
+	})
 
 	return true, report, nil
 }
 
-func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.ReportTimestamp, report types.Report) (bool, error) {
+func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, ts types.ReportTimestamp, report types.Report) (bool, error) {
 	promReportingPluginShouldAccept.WithLabelValues(c.config.ProductName).Inc()
 
 	reportRows, err := UnmarshalRows(report)
@@ -235,6 +253,12 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.Report
 			continue
 		}
 	}
+
+	c.logger.Debug("S4StorageReporting ShouldAcceptFinalizedReport", commontypes.LogFields{
+		"epoch":       ts.Epoch,
+		"round":       ts.Round,
+		"nReportRows": len(reportRows),
+	})
 
 	// If ShouldAcceptFinalizedReport returns false, ShouldTransmitAcceptedReport will not be called.
 	return false, nil

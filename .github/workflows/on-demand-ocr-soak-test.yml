@@ -12,6 +12,8 @@ on:
           - "ARBITRUM_GOERLI"
           - "CELO_ALFAJORES"
           - "CELO_MAINNET"
+          - "BASE_GOERLI"
+          - "BASE_MAINNET"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
