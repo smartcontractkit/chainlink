@@ -157,6 +157,8 @@ func EVMDependencies21(
 	}
 	encoder := kevm21.EVMAutomationEncoder21{}
 
+	hp := kevm21.NewHeadProvider(chain, 128, lggr)
+
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
 	var lookbackBlocks int64 = 250
