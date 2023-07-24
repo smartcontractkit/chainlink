@@ -3303,11 +3303,9 @@ describe('KeeperRegistry2_1', () => {
   })
 
   describe('#getMaxPaymentForGas', () => {
-    // Same as MockArbGasInfo.sol
-    const l1CostWeiArb = BigNumber.from(1000000)
-    // Same as MockOVMGasPriceOracle.sol
-    const l1CostWeiOpt = BigNumber.from(2000000)
-
+    const arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
+    const l1CostWeiArb = arbL1PriceinWei.mul(16).mul(maxPerformDataSize)
+    const l1CostWeiOpt = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
     itMaybe('calculates the max fee appropriately', async () => {
       await verifyMaxPayment(registry)
     })
