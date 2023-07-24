@@ -148,7 +148,7 @@ func (c *vrfConsumerContract) SSubId(opts *bind.CallOpts) (uint64, error) {
 		return c.vrfConsumerV2.SSubId(opts)
 	}
 	if c.consumerType == VRFV2PlusConsumer {
-		return c.vrfV2PlusConsumer.SSubId(opts)
+		return c.vrfV2PlusConsumer.GetSubId(opts)
 	}
 	if c.consumerType == UpgradeableConsumer {
 		return c.upgradeableConsumer.SSubId(opts)
@@ -160,7 +160,7 @@ func (c *vrfConsumerContract) SSubId(opts *bind.CallOpts) (uint64, error) {
 		return c.revertingConsumer.SSubId(opts)
 	}
 	if c.consumerType == RevertingConsumerPlus {
-		return c.revertingConsumerPlus.SSubId(opts)
+		return c.revertingConsumerPlus.GetSubId(opts)
 	}
 	return 0, errors.New("SSubId is not supported")
 }

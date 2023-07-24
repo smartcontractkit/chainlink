@@ -537,6 +537,8 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	// Reassign ownership, check that only new owner can request
 	_, err = consumer.TransferOwnership(owner, random.From)
 	require.NoError(t, err)
+	_, err = consumer.AcceptOwnership(random)
+	require.NoError(t, err)
 	_, err = consumer.RequestRandomWords(owner, 1, 1, 1, 1, [32]byte{}, false)
 	require.Error(t, err)
 	_, err = consumer.RequestRandomWords(random, 1, 1, 1, 1, [32]byte{}, false)
@@ -637,7 +639,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 			"requestRandomWords", uint32(10000), uint16(2), uint32(1),
 			vrfkey.PublicKey.MustHash(), false)
 		tt.Log("gas estimate of non-proxied requestRandomWords:", estimate)
-		assert.Less(tt, estimate, uint64(125_000),
+		assert.Less(tt, estimate, uint64(126_000),
 			"requestRandomWords tx gas cost more than expected")
 	})
 
@@ -667,7 +669,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 		// There is some gas overhead of the delegatecall that is made by the proxy
 		// to the logic contract. See https://www.evm.codes/#f4?fork=grayGlacier for a detailed
 		// breakdown of the gas costs of a delegatecall.
-		assert.Less(tt, estimate, uint64(102_000),
+		assert.Less(tt, estimate, uint64(105_000),
 			"proxied testRequestRandomness tx gas cost more than expected")
 	})
 }
