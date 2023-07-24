@@ -30,9 +30,9 @@ const (
 	ConditionalType = 0
 	LogTriggerType  = 1
 	Block1          = 111
-	Block2          = 222
+	Block2          = 112
 	BlockKey1       = "111|0x123123132132"
-	BlockKey2       = "222|0x565456465465"
+	BlockKey2       = "112|0x565456465465"
 	InvalidBlockKey = "2220x565456465465"
 )
 
@@ -40,16 +40,18 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 	s := Performed
 
 	tests := []struct {
-		name            string
-		payloads        []ocr2keepers.UpkeepPayload
-		states          []UpkeepState
-		expectedError   error
-		ids             []string
-		idResult        []upkeepState
-		upkeepIds       []*big.Int
-		upkeepIdsResult [][]upkeepState
-		blocks          []int64
-		blocksResult    [][]upkeepState
+		name               string
+		payloads           []ocr2keepers.UpkeepPayload
+		states             []UpkeepState
+		expectedError      error
+		ids                []string
+		idResult           []upkeepState
+		upkeepIds          []*big.Int
+		upkeepIdsResult    [][]upkeepState
+		upkeepIdsResultArr []upkeepState
+		blocks             []int64
+		blocksResult       [][]upkeepState
+		blockRangeResult   []upkeepState
 	}{
 		{
 			name: "set a single upkeep state",
@@ -71,6 +73,12 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 					},
 				},
 			},
+			upkeepIdsResultArr: []upkeepState{
+				{
+					payload: &payload1,
+					state:   &s,
+				},
+			},
 			blocks: []int64{Block1},
 			blocksResult: [][]upkeepState{
 				{
@@ -78,6 +86,12 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 						payload: &payload1,
 						state:   &s,
 					},
+				},
+			},
+			blockRangeResult: []upkeepState{
+				{
+					payload: &payload1,
+					state:   &s,
 				},
 			},
 		},
@@ -104,8 +118,47 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 					state:   &s,
 				},
 			},
-			blocks: []int64{Block2, Block1},
+			upkeepIds: []*big.Int{upkeepId1, upkeepId2},
+			upkeepIdsResult: [][]upkeepState{
+				{
+					{
+						payload: &payload2,
+						state:   &s,
+					},
+					{
+						payload: &payload4,
+						state:   &s,
+					},
+				},
+				{
+					{
+						payload: &payload3,
+						state:   &s,
+					},
+				},
+			},
+			upkeepIdsResultArr: []upkeepState{
+				{
+					payload: &payload2,
+					state:   &s,
+				},
+				{
+					payload: &payload4,
+					state:   &s,
+				},
+				{
+					payload: &payload3,
+					state:   &s,
+				},
+			},
+			blocks: []int64{Block1, Block2},
 			blocksResult: [][]upkeepState{
+				{
+					{
+						payload: &payload4,
+						state:   &s,
+					},
+				},
 				{
 					{
 						payload: &payload2,
@@ -116,11 +169,19 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 						state:   &s,
 					},
 				},
+			},
+			blockRangeResult: []upkeepState{
 				{
-					{
-						payload: &payload4,
-						state:   &s,
-					},
+					payload: &payload4,
+					state:   &s,
+				},
+				{
+					payload: &payload2,
+					state:   &s,
+				},
+				{
+					payload: &payload3,
+					state:   &s,
 				},
 			},
 		},
@@ -162,6 +223,15 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 						require.Equal(t, r.state, us[j])
 					}
 				}
+
+				pl, us, err := store.SelectByUpkeepIDs(tc.upkeepIds)
+				require.Nil(t, err)
+				require.Equal(t, len(tc.upkeepIdsResultArr), len(pl))
+				require.Equal(t, len(tc.upkeepIdsResultArr), len(us))
+				for j, r := range tc.upkeepIdsResultArr {
+					require.Equal(t, r.payload, pl[j])
+					require.Equal(t, r.state, us[j])
+				}
 			}
 
 			if len(tc.blocks) > 0 {
@@ -174,6 +244,15 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 						require.Equal(t, r.payload, pl[j])
 						require.Equal(t, r.state, us[j])
 					}
+				}
+
+				pl, us, err := store.SelectByBlockRange(tc.blocks[0], tc.blocks[len(tc.blocks)-1]+1)
+				require.Nil(t, err)
+				require.Equal(t, len(tc.blockRangeResult), len(pl))
+				require.Equal(t, len(tc.blockRangeResult), len(us))
+				for j, r := range tc.blockRangeResult {
+					require.Equal(t, r.payload, pl[j])
+					require.Equal(t, r.state, us[j])
 				}
 			}
 		})
