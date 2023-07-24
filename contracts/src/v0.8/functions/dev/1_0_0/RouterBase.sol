@@ -11,9 +11,28 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                         Version state                        |
   // ================================================================
+
   uint16 internal constant s_majorVersion = 1;
   uint16 internal s_minorVersion = 0;
   uint16 internal s_patchVersion = 0;
+
+  // ================================================================
+  // |                          Timelock state                      |
+  // ================================================================
+
+  uint16 internal s_maximumTimelockBlocks;
+  uint16 internal s_timelockBlocks;
+
+  struct TimeLockProposal {
+    uint16 from;
+    uint16 to;
+    uint256 timelockEndBlock;
+  }
+  TimeLockProposal internal s_timelockProposal;
+  event TimeLockProposed(uint16 from, uint16 to);
+  event TimeLockUpdated(uint16 from, uint16 to);
+  error ProposedTimelockAboveMaximum();
+  error TimelockInEffect();
 
   // ================================================================
   // |                          Route state                         |
@@ -26,6 +45,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                         Proposal state                       |
   // ================================================================
+
   uint8 internal constant MAX_PROPOSAL_SET_LENGTH = 8;
 
   struct ContractProposalSet {
@@ -62,24 +82,9 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   error IdentifierIsReserved(bytes32 id);
 
   // ================================================================
-  // |                          Timelock state                      |
-  // ================================================================
-  uint16 internal MAXIMUM_TIMELOCK_BLOCKS;
-  uint16 internal s_timelockBlocks;
-  struct TimeLockProposal {
-    uint16 from;
-    uint16 to;
-    uint256 timelockEndBlock;
-  }
-  TimeLockProposal s_timelockProposal;
-  event TimeLockProposed(uint16 from, uint16 to);
-  event TimeLockUpdated(uint16 from, uint16 to);
-  error ProposedTimelockAboveMaximum();
-  error TimelockInEffect();
-
-  // ================================================================
   // |                          Config state                        |
   // ================================================================
+
   bytes32 internal s_config_hash;
 
   error InvalidConfigData();
@@ -87,6 +92,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
+
   constructor(
     address newOwner,
     uint16 timelockBlocks,
@@ -97,7 +103,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     s_timelockBlocks = timelockBlocks;
     // Set maximum number of blocks that the timelock can be
     // NOTE: this cannot be later modified
-    MAXIMUM_TIMELOCK_BLOCKS = maximumTimelockBlocks;
+    s_maximumTimelockBlocks = maximumTimelockBlocks;
     // Set the initial configuration for the Router
     s_route[routerId] = address(this);
     _setConfig(selfConfig);
@@ -300,7 +306,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (s_timelockBlocks == blocks) {
       revert InvalidProposal();
     }
-    if (blocks > MAXIMUM_TIMELOCK_BLOCKS) {
+    if (blocks > s_maximumTimelockBlocks) {
       revert ProposedTimelockAboveMaximum();
     }
     s_timelockProposal = TimeLockProposal(s_timelockBlocks, blocks, block.number + s_timelockBlocks);
