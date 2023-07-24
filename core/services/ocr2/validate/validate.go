@@ -9,6 +9,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	pkgerrors "github.com/pkg/errors"
+
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -83,7 +84,10 @@ var (
 )
 
 func validateTimingParameters(ocr2Conf OCR2Config, insConf InsecureConfig, spec job.OCR2OracleSpec) error {
-	lc := ToLocalConfig(ocr2Conf, insConf, spec)
+	lc, err := ToLocalConfig(ocr2Conf, insConf, spec)
+	if err != nil {
+		return err
+	}
 	return libocr2.SanityCheckLocalConfig(lc)
 }
 
