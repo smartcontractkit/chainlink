@@ -31,6 +31,7 @@ func TestAssets_NewLinkAndString(t *testing.T) {
 
 	var nilLink *assets.Link
 	assert.Equal(t, "0", nilLink.String())
+	assert.Equal(t, false, true, "expected failure")
 }
 
 func TestAssets_NewLinkAndLink(t *testing.T) {
