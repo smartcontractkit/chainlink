@@ -25,11 +25,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     address client; //                 |
     uint32 callbackGasLimit; // -------┘
     address don; // -------------------┐
-    uint96 donFee; // -----------------┘
-    uint96 adminFee; // ---------------┐
-    uint96 estimatedTotalCostJuels; // |
-    uint40 timestamp; // --------------┘
-    uint256 gasOverhead;
+    uint96 adminFee; // ---------------┘
+    uint96 estimatedTotalCostJuels; // ┐
+    uint80 donFee; //                  |
+    uint32 timestamp; //               |
+    uint40 gasOverhead; // ------------┘
     uint256 expectedGasPrice;
   }
   mapping(bytes32 requestId => Commitment) private s_requestCommitments;
@@ -40,7 +40,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // |                     Configuration state                      |
   // ================================================================
   struct Config {
-    // Maxiumum amount of gas that can be given to a request's client callback
+    // Maximum amount of gas that can be given to a request's client callback
     uint32 maxCallbackGasLimit;
     // feedStalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackNativePerUnitLink.
@@ -53,7 +53,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     // how many seconds it takes before we consider a request to be timed out
     uint32 requestTimeoutSeconds;
     // additional flat fee (in Juels of LINK) that will be split between Node Operators
-    uint96 donFee;
+    // Max value is 2^80 - 1 == 1.2m LINK.
+    uint80 donFee;
     // The highest support request data version supported by the node
     // All lower versions should also be supported
     uint16 maxSupportedRequestDataVersion;
@@ -64,13 +65,14 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     int256 fallbackNativePerUnitLink;
   }
   Config private s_config;
+
   event ConfigSet(
     uint32 maxCallbackGasLimit,
     uint32 feedStalenessSeconds,
     uint32 gasOverheadBeforeCallback,
     uint32 gasOverheadAfterCallback,
     int256 fallbackNativePerUnitLink,
-    uint96 donFee,
+    uint80 donFee,
     uint16 maxSupportedRequestDataVersion,
     uint256 fulfillmentGasPriceOverEstimationBP
   );
@@ -128,7 +130,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       uint32 gasOverheadBeforeCallback,
       int256 fallbackNativePerUnitLink,
       uint32 requestTimeoutSeconds,
-      uint96 donFee,
+      uint80 donFee,
       uint16 maxSupportedRequestDataVersion,
       uint256 fulfillmentGasPriceOverEstimationBP
     ) = abi.decode(config, (uint32, uint32, uint32, uint32, int256, uint32, uint96, uint16, uint256));
@@ -198,7 +200,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function getDONFee(
     bytes memory /* requestData */,
     RequestBilling memory /* billing */
-  ) public view override returns (uint96) {
+  ) public view override returns (uint80) {
     // NOTE: Optionally, compute additional fee here
     return s_config.donFee;
   }
@@ -300,7 +302,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     }
 
     // Check that subscription can afford the estimated cost
-    uint96 donFee = getDONFee(data, billing);
+    uint80 donFee = getDONFee(data, billing);
     uint96 adminFee = getAdminFee(data, billing);
     uint96 estimatedCost = _calculateCostEstimate(billing.callbackGasLimit, billing.expectedGasPrice, donFee, adminFee);
     IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
@@ -318,10 +320,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       billing.client,
       billing.callbackGasLimit,
       address(this),
-      donFee,
       adminFee,
       estimatedCost,
-      uint40(block.timestamp),
+      donFee,
+      uint32(block.timestamp),
       s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback,
       billing.expectedGasPrice
     );

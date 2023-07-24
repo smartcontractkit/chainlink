@@ -48,7 +48,7 @@ interface IFunctionsBilling {
    * @param billing The request's billing configuration
    * @return fee Cost in Juels (1e18) of LINK
    */
-  function getDONFee(bytes memory requestData, RequestBilling memory billing) external view returns (uint96);
+  function getDONFee(bytes memory requestData, RequestBilling memory billing) external view returns (uint80);
 
   /**
    * @notice Determine the fee that will be paid to the Router owner for operating the network
