@@ -90,7 +90,7 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 							hw.lggr.Infof("lastClearedBlock is %d", hw.lastClearedBlock)
 						}
 						hw.blocksFromBroadcaster[bk.block] = bk.hash
-						hw.lggr.Infof("blocksFromBroadcaster block %d has has %s", bk.block, bk.hash.String())
+						hw.lggr.Infof("blocksFromBroadcaster block %d hash is %s", bk.block, bk.hash.String())
 
 						var keys []BlockKey
 						// populate keys slice in block DES order
@@ -108,6 +108,7 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 									hash:  h2,
 								})
 							}
+							hw.lggr.Infof("block %d is missing", bk.block-i)
 							// if a block does not exist in both log poller and broadcaster, skip
 						}
 
