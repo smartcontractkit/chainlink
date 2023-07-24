@@ -380,7 +380,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries .
 		readCount += len(logs)
 	}
 
-	if readCount > 0 {
+	if readCount >= 0 {
 		mainLggr.Debugw("read logs for entries", "entries", len(entries),
 			"readCount", readCount, "addCount", addCount, "err", merr)
 	}
