@@ -185,7 +185,7 @@ func FilterByType(network relay.Network) func(id relay.Identifier) bool {
 
 func (rs *RelayChainInteroperators) List(filter FilterFn) RelayChainInterchangers {
 
-	var matches map[relay.Identifier]loop.Relayer
+	matches := make(map[relay.Identifier]loop.Relayer)
 	rs.mu.Lock()
 	for id, relayer := range rs.relayers {
 		if filter(id) {

@@ -109,7 +109,7 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	//Chains                   Chains
-	relayers                 RelayChainInteroperators
+	relayers                 *RelayChainInteroperators
 	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
@@ -149,7 +149,7 @@ type ApplicationOpts struct {
 	SqlxDB           *sqlx.DB
 	KeyStore         keystore.Master
 	// Chains                   Chains
-	Relayers                 RelayChainInteroperators
+	Relayers                 *RelayChainInteroperators
 	AuditLogger              audit.AuditLogger
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
@@ -402,7 +402,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
 			keyStore.Eth(),
-			&opts.Relayers,
+			opts.Relayers,
 			mailMon,
 			eventBroadcaster,
 		)
@@ -413,7 +413,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg.OCR2(),
 			cfg.Insecure(),
-			&opts.Relayers,
+			opts.Relayers,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
@@ -805,7 +805,7 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 }
 
 func (app *ChainlinkApplication) GetRelayers() *RelayChainInteroperators {
-	return &app.relayers
+	return app.relayers
 }
 
 func (app *ChainlinkApplication) GetEventBroadcaster() pg.EventBroadcaster {

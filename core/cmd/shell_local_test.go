@@ -297,7 +297,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 		c.Insecure.OCRDevelopmentMode = nil
 	})
 	keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
-	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
 	txStore := cltest.NewTestTxStore(t, sqlxDB, config.Database())
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 42, fromAddress)
@@ -465,6 +465,9 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Dialect = dialects.Postgres
+				c.EVM[0].Nodes[0].Name = ptr("fake")
+				c.EVM[0].Nodes[0].WSURL = models.MustParseURL("WSS://fake.com/ws")
+				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
 				//c.EVM = nil
 				// seems to be needed for config validate
 				c.Insecure.OCRDevelopmentMode = nil
@@ -475,8 +478,9 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
 			if !test.enableAddress {
-				err := keyStore.Eth().Disable(fromAddress, big.NewInt(0))
-				require.NoError(t, err)
+				//err := keyStore.Eth().Disable(fromAddress, big.NewInt(0))
+				err := keyStore.Eth().Disable(fromAddress, testutils.FixtureChainID)
+				require.NoError(t, err, "failed to disable test key")
 			}
 
 			lggr := logger.TestLogger(t)

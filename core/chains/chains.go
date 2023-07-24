@@ -24,7 +24,9 @@ func (c *ChainsKV[T]) Len() int {
 	return len(c.chains)
 }
 func (c *ChainsKV[T]) lazyInit() {
-	c.chains = map[string]T{}
+	if c.chains == nil {
+		c.chains = make(map[string]T)
+	}
 }
 func (c *ChainsKV[T]) Get(id string) (T, error) {
 	var dflt T

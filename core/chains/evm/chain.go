@@ -79,6 +79,14 @@ func (c *Chains) Default() (Chain, error) {
 	return c.dflt, nil
 }
 
+// backward compatibility
+func (c *Chains) Get(id string) (Chain, error) {
+	if id == "<nil>" {
+		return c.Default()
+	}
+	return c.ChainsKV.Get(id)
+}
+
 func NewLegacyChainsFromRelayerExtenders(exts []*ChainRelayerExt) *Chains {
 	l := NewLegacyChains()
 	for _, r := range exts {

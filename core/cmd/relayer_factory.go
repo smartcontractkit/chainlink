@@ -38,9 +38,8 @@ type RelayerFactory struct {
 func (r RelayerFactory) NewEVM(ctx context.Context, opts evm.RelayerFactoryOpts, ks evmrelayer.RelayerKeystore) (map[relay.Identifier]evmrelayer.LoopRelayAdapter, error) {
 	// TODO impl EVM loop. For now always 'fallback' to an adapter and embedded chainset
 
-	var (
-		relayers map[relay.Identifier]evmrelayer.LoopRelayAdapter
-	)
+	relayers := make(map[relay.Identifier]evmrelayer.LoopRelayAdapter)
+
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
 	ccOpts := evm.ChainRelayExtOpts{
 
