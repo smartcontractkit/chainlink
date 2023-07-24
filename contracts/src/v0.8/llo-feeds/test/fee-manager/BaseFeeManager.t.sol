@@ -3,6 +3,7 @@ pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
 import {FeeManager} from "../../FeeManager.sol";
+import {IFeeManager} from "../../interfaces/IFeeManager.sol";
 import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 
@@ -95,7 +96,7 @@ contract BaseFeeManagerTest is Test {
   // solium-disable-next-line no-unused-vars
   function getFee(
     bytes memory report,
-    FeeManager.Quote memory quote,
+    IFeeManager.Quote memory quote,
     address subscriber
   ) public view returns (Common.Asset memory) {
     //set the discount
@@ -106,7 +107,7 @@ contract BaseFeeManagerTest is Test {
 
   function getReward(
     bytes memory report,
-    FeeManager.Quote memory quote,
+    IFeeManager.Quote memory quote,
     address subscriber
   ) public view returns (Common.Asset memory) {
     //set the discount
@@ -141,7 +142,7 @@ contract BaseFeeManagerTest is Test {
     uint256 expiry,
     uint256 linkFee,
     uint256 nativeFee
-  ) public view returns (bytes memory) {
+  ) public pure returns (bytes memory) {
     return
       abi.encode(
         feedId,
@@ -158,11 +159,11 @@ contract BaseFeeManagerTest is Test {
       );
   }
 
-  function getLinkQuote() public pure returns (FeeManager.Quote memory) {
-    return FeeManager.Quote(LINK_ADDRESS);
+  function getLinkQuote() public pure returns (IFeeManager.Quote memory) {
+    return IFeeManager.Quote(LINK_ADDRESS);
   }
 
-  function getNativeQuote() public pure returns (FeeManager.Quote memory) {
-    return FeeManager.Quote(NATIVE_ADDRESS);
+  function getNativeQuote() public pure returns (IFeeManager.Quote memory) {
+    return IFeeManager.Quote(NATIVE_ADDRESS);
   }
 }

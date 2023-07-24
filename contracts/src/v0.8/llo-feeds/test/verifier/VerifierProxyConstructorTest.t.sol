@@ -15,11 +15,11 @@ contract VerifierProxyConstructorTest is BaseTest {
   function test_correctlySetsTheCorrectAccessControllerInterface() public {
     address accessControllerAddr = address(1234);
     VerifierProxy proxy = new VerifierProxy(AccessControllerInterface(accessControllerAddr));
-    assertEq(address(proxy.getAccessController()), accessControllerAddr);
+    assertEq(address(proxy.s_accessController()), accessControllerAddr);
   }
 
   function test_correctlySetsVersion() public {
     string memory version = s_verifierProxy.typeAndVersion();
-    assertEq(version, "VerifierProxy 1.0.0");
+    assertEq(version, "VerifierProxy 1.1.0");
   }
 }

@@ -7,13 +7,13 @@ pragma solidity 0.8.16;
  * @notice Common functions and structs
  */
 library Common {
-  // @notice The asset struct to hold an address of an asset and amount
+  // @notice The asset struct to hold the address of an asset and amount
   struct Asset {
     address assetAddress;
     uint256 amount;
   }
 
-  // @notice Struct to hold the address and it's associated weight
+  // @notice Struct to hold the address and its associated weight
   struct AddressAndWeight {
     address addr;
     uint256 weight;

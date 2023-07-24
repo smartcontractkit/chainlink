@@ -9,9 +9,10 @@ import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol
 import {IERC165} from "../shared/vendor/IERC165.sol";
 import {Common} from "../libraries/internal/Common.sol";
 
-/*
+/**
  * @title FeeManager
  * @author Michael Fletcher
+ * @author Austin Born
  * @notice This contract will be used to reward any configured recipients within a pool. Recipients will receive a share of their pool relative to their configured weight.
  */
 contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterface {
@@ -32,14 +33,14 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   // @dev Store a list of pool ids that have been registered, to make off chain lookups easier
   bytes32[] public registeredPoolIds;
 
-  // @dev The address for the link contract
-  address private immutable LINK_ADDRESS;
+  // @dev The address for the LINK contract
+  address private immutable i_linkAddress;
 
   // The total weight of all RewardRecipients. 1e18 = 100% of the pool fees
   uint256 private constant PERCENTAGE_SCALAR = 1e18;
 
   // The fee manager address
-  address private feeManagerAddress;
+  address private s_feeManagerAddress;
 
   // @notice Thrown whenever the RewardRecipient weights are invalid
   error InvalidWeights();
@@ -60,13 +61,13 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
   /**
    * @notice Constructor
-   * @param linkAddr address of the wrapped link token
+   * @param linkAddress address of the wrapped LINK token
    */
-  constructor(address linkAddr) ConfirmedOwner(msg.sender) {
+  constructor(address linkAddress) ConfirmedOwner(msg.sender) {
     //ensure that the address ia not zero
-    if (linkAddr == address(0)) revert InvalidAddress();
+    if (linkAddress == address(0)) revert InvalidAddress();
 
-    LINK_ADDRESS = linkAddr;
+    i_linkAddress = linkAddress;
   }
 
   // @inheritdoc TypeAndVersionInterface
@@ -80,7 +81,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   modifier onlyOwnerOrFeeManager() {
-    if (msg.sender != owner() && msg.sender != feeManagerAddress) revert Unauthorized();
+    if (msg.sender != owner() && msg.sender != s_feeManagerAddress) revert Unauthorized();
     _;
   }
 
@@ -89,10 +90,10 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     _;
   }
 
-  // @inheritdoc IRewardManager
+  /// @inheritdoc IRewardManager
   function onFeePaid(bytes32 poolId, address payee, Common.Asset calldata fee) external override {
-    //this pool only handles link fees
-    if (fee.assetAddress != LINK_ADDRESS) {
+    //this pool only handles LINK fees
+    if (fee.assetAddress != i_linkAddress) {
       revert InvalidAddress();
     }
 
@@ -103,126 +104,12 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     //transfer the fee to this contract
-    IERC20(LINK_ADDRESS).safeTransferFrom(payee, address(this), fee.amount);
+    IERC20(i_linkAddress).safeTransferFrom(payee, address(this), fee.amount);
   }
 
-  // @inheritdoc IRewardManager
-  function updateRewardRecipients(
-    bytes32 poolId,
-    Common.AddressAndWeight[] calldata newRewardRecipients
-  ) external override onlyOwner {
-    //create an array of poolIds to pass to _claimRewards if required
-    bytes32[] memory poolIds = new bytes32[](1);
-    poolIds[0] = poolId;
-
-    //it's more efficient to check for duplicates separately as opposed to handling them in the loop below
-    if (Common.hasDuplicateAddresses(newRewardRecipients)) revert InvalidAddress();
-
-    //loop all the reward recipients and claim their rewards before updating their weights
-    uint256 existingTotalWeight;
-    for (uint256 i; i < newRewardRecipients.length; ) {
-      //get the address
-      address recipientAddress = newRewardRecipients[i].addr;
-      //get the existing weight
-      uint256 existingWeight = rewardRecipientWeights[poolId][recipientAddress];
-
-      //if the existing weight is 0, the recipient isn't part of this configuration
-      if (existingWeight == 0) revert InvalidAddress();
-
-      //if we're updating a recipient, we need to claim their rewards first as they can't claim previous fees at the new weight
-      _claimRewards(newRewardRecipients[i].addr, poolIds);
-
-      unchecked {
-        //keep tally of the weights so we know the expected collective weight
-        existingTotalWeight += existingWeight;
-        //there will never be enough reward recipients for i to overflow
-        ++i;
-      }
-    }
-
-    //update the reward recipients, if the new collective weight isn't equal to the previous collective weight, the tx will be reverted
-    _setRewardRecipientWeights(poolId, newRewardRecipients, existingTotalWeight);
-
-    //emit event
-    emit RewardRecipientsUpdated(poolId, newRewardRecipients);
-  }
-
-  // @inheritdoc IRewardManager
-  function setRewardRecipients(
-    bytes32 poolId,
-    Common.AddressAndWeight[] calldata rewardRecipientAndWeights
-  ) external override onlyOwnerOrFeeManager {
-    //revert if there's no recipients to set
-    if (rewardRecipientAndWeights.length == 0) revert InvalidAddress();
-
-    //check the weights have not been previously set
-    if (rewardRecipientWeightsSet[poolId]) revert InvalidPoolId();
-
-    //keep track of the registered poolIds to make off chain lookups easier
-    registeredPoolIds.push(poolId);
-
-    //keep track of which pools have had their reward recipients set
-    rewardRecipientWeightsSet[poolId] = true;
-
-    //set the reward recipient, this will only be called once and contain the full set of RewardRecipients with a total weight of 100%
-    _setRewardRecipientWeights(poolId, rewardRecipientAndWeights, PERCENTAGE_SCALAR);
-
-    //emit event
-    emit RewardRecipientsUpdated(poolId, rewardRecipientAndWeights);
-  }
-
-  // @inheritdoc IRewardManager
-  function payRecipients(bytes32 poolId, address[] calldata recipients) external onlyOwnerOrRecipientInPool(poolId) {
-    //convert poolIds to an array to match the interface of _claimRewards
-    bytes32[] memory poolIdsArray = new bytes32[](1);
-    poolIdsArray[0] = poolId;
-
-    //loop each recipient and claim the rewards for each of the pools and assets
-    for (uint256 i; i < recipients.length; ) {
-      _claimRewards(recipients[i], poolIdsArray);
-
-      unchecked {
-        //there will never be enough recipients for i to overflow
-        ++i;
-      }
-    }
-  }
-
-  // @inheritdoc IRewardManager
+  /// @inheritdoc IRewardManager
   function claimRewards(bytes32[] memory poolIds) external override {
     _claimRewards(msg.sender, poolIds);
-  }
-
-  // wrapper impl for setRewardRecipients
-  function _setRewardRecipientWeights(
-    bytes32 poolId,
-    Common.AddressAndWeight[] calldata rewardRecipientAndWeights,
-    uint256 expectedWeight
-  ) internal {
-    //loop all the reward recipients and validate the weight and address
-    uint256 totalWeight;
-    for (uint256 i; i < rewardRecipientAndWeights.length; ++i) {
-      //get the weight
-      uint256 recipientWeight = rewardRecipientAndWeights[i].weight;
-      //get the address
-      address recipientAddress = rewardRecipientAndWeights[i].addr;
-
-      //ensure the reward recipient address is not zero
-      if (recipientAddress == address(0)) revert InvalidAddress();
-      //ensure the weight is not zero
-      if (recipientWeight == 0) revert InvalidWeights();
-
-      //save/overwrite the weight for the reward recipient
-      rewardRecipientWeights[poolId][recipientAddress] = recipientWeight;
-
-      unchecked {
-        //keep track of the cumulative weight, this cannot overflow as the total weight is restricted at 1e18
-        totalWeight += recipientWeight;
-      }
-    }
-
-    //if total weight is not met, the fees will either be under or over distributed
-    if (totalWeight != expectedWeight) revert InvalidWeights();
   }
 
   // wrapper impl for claimRewards
@@ -262,13 +149,124 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     //check if there's any reward-manager to claim in the given poolId
     if (claimAmount > 0) {
       //transfer the reward to the recipient
-      IERC20(LINK_ADDRESS).safeTransfer(recipient, claimAmount);
+      IERC20(i_linkAddress).safeTransfer(recipient, claimAmount);
     }
 
     return claimAmount;
   }
 
-  // @inheritdoc IRewardManager
+  /// @inheritdoc IRewardManager
+  function setRewardRecipients(
+    bytes32 poolId,
+    Common.AddressAndWeight[] calldata rewardRecipientAndWeights
+  ) external override onlyOwnerOrFeeManager {
+    //revert if there are no recipients to set
+    if (rewardRecipientAndWeights.length == 0) revert InvalidAddress();
+
+    //check that the weights have not been previously set
+    if (rewardRecipientWeightsSet[poolId]) revert InvalidPoolId();
+
+    //keep track of the registered poolIds to make off chain lookups easier
+    registeredPoolIds.push(poolId);
+
+    //keep track of which pools have had their reward recipients set
+    rewardRecipientWeightsSet[poolId] = true;
+
+    //set the reward recipients, this will only be called once and contain the full set of RewardRecipients with a total weight of 100%
+    _setRewardRecipientWeights(poolId, rewardRecipientAndWeights, PERCENTAGE_SCALAR);
+
+    emit RewardRecipientsUpdated(poolId, rewardRecipientAndWeights);
+  }
+
+  function _setRewardRecipientWeights(
+    bytes32 poolId,
+    Common.AddressAndWeight[] calldata rewardRecipientAndWeights,
+    uint256 expectedWeight
+  ) internal {
+    //loop all the reward recipients and validate the weight and address
+    uint256 totalWeight;
+    for (uint256 i; i < rewardRecipientAndWeights.length; ++i) {
+      //get the weight
+      uint256 recipientWeight = rewardRecipientAndWeights[i].weight;
+      //get the address
+      address recipientAddress = rewardRecipientAndWeights[i].addr;
+
+      //ensure the reward recipient address is not zero
+      if (recipientAddress == address(0)) revert InvalidAddress();
+      //ensure the weight is not zero
+      if (recipientWeight == 0) revert InvalidWeights();
+
+      //save/overwrite the weight for the reward recipient
+      rewardRecipientWeights[poolId][recipientAddress] = recipientWeight;
+
+      unchecked {
+        //keep track of the cumulative weight, this cannot overflow as the total weight is restricted at 1e18
+        totalWeight += recipientWeight;
+      }
+    }
+
+    //if total weight is not met, the fees will either be under or over distributed
+    if (totalWeight != expectedWeight) revert InvalidWeights();
+  }
+
+  /// @inheritdoc IRewardManager
+  function updateRewardRecipients(
+    bytes32 poolId,
+    Common.AddressAndWeight[] calldata newRewardRecipients
+  ) external override onlyOwner {
+    //it's more efficient to check for duplicates separately as opposed to handling them in the loop below
+    if (Common.hasDuplicateAddresses(newRewardRecipients)) revert InvalidAddress();
+
+    //create an array of poolIds to pass to _claimRewards if required
+    bytes32[] memory poolIds = new bytes32[](1);
+    poolIds[0] = poolId;
+
+    //loop all the reward recipients and claim their rewards before updating their weights
+    for (uint256 i; i < newRewardRecipients.length; ) {
+      //get the address
+      address recipientAddress = newRewardRecipients[i].addr;
+      //get the existing weight
+      uint256 existingWeight = rewardRecipientWeights[poolId][recipientAddress];
+
+      //if the existing weight is 0, the recipient isn't part of this configuration
+      if (existingWeight == 0) revert InvalidAddress();
+
+      //if we're updating a recipient, we need to claim their rewards first as they can't claim previous fees at the new weight
+      _claimRewards(newRewardRecipients[i].addr, poolIds);
+    }
+
+    //update the reward recipients, if the new collective weight isn't equal to 100% (as with setRewardRecipients), the tx will be reverted
+    _setRewardRecipientWeights(poolId, newRewardRecipients, PERCENTAGE_SCALAR);
+
+    //emit event
+    emit RewardRecipientsUpdated(poolId, newRewardRecipients);
+  }
+
+  /// @inheritdoc IRewardManager
+  function payRecipients(bytes32 poolId, address[] calldata recipients) external onlyOwnerOrRecipientInPool(poolId) {
+    //convert poolIds to an array to match the interface of _claimRewards
+    bytes32[] memory poolIdsArray = new bytes32[](1);
+    poolIdsArray[0] = poolId;
+
+    //loop each recipient and claim the rewards for each of the pools and assets
+    for (uint256 i; i < recipients.length; ) {
+      _claimRewards(recipients[i], poolIdsArray);
+
+      unchecked {
+        //there will never be enough recipients for i to overflow
+        ++i;
+      }
+    }
+  }
+
+  /// @inheritdoc IRewardManager
+  function setFeeManager(address newFeeManagerAddress) external onlyOwner {
+    s_feeManagerAddress = newFeeManagerAddress;
+
+    emit FeeManagerUpdated(newFeeManagerAddress);
+  }
+
+  /// @inheritdoc IRewardManager
   function getAvailableRewardPoolIds(address recipient) external view returns (bytes32[] memory) {
     //get the length of the pool ids which we will loop through and potentially return
     uint256 registeredPoolIdsLength = registeredPoolIds.length;
@@ -284,7 +282,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       bytes32 poolId = registeredPoolIds[i];
       //if the recipient has a weight, they are a recipient of this poolId
       if (rewardRecipientWeights[poolId][recipient] > 0) {
-        //if the recipient has any link, then add the poolId to the array
+        //if the recipient has any LINK, then add the poolId to the array
         if (totalRewardRecipientFees[poolId] > 0) {
           claimablePoolIds[poolIdArrayIndex] = poolId;
           unchecked {
@@ -301,13 +299,5 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     return claimablePoolIds;
-  }
-
-  // @inheritdoc IRewardManager
-  function setFeeManager(address newFeeManagerAddress) external onlyOwner {
-    feeManagerAddress = newFeeManagerAddress;
-
-    //emit event
-    emit FeeManagerUpdated(newFeeManagerAddress);
   }
 }

@@ -42,6 +42,22 @@ contract ErroredVerifier is IVerifier {
     revert("Failed to set config");
   }
 
+  function activateConfig(bytes32, bytes32) external pure {
+    revert("Failed to activate config");
+  }
+
+  function deactivateConfig(bytes32, bytes32) external pure {
+    revert("Failed to deactivate config");
+  }
+
+  function activateFeed(bytes32) external pure {
+    revert("Failed to activate feed");
+  }
+
+  function deactivateFeed(bytes32) external pure {
+    revert("Failed to deactivate feed");
+  }
+
   function latestConfigDigestAndEpoch(bytes32) external pure override returns (bool, bytes32, uint32) {
     revert("Failed to get latest config digest and epoch");
   }

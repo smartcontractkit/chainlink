@@ -27,7 +27,7 @@ interface IVerifier is IERC165 {
    * @param onchainConfig serialized configuration used by the contract (and possibly oracles)
    * @param offchainConfigVersion version number for offchainEncoding schema
    * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
-   * @param recipientAddressAndWeights the address and weights of all the recipients to receive reward-manager
+   * @param recipientAddressesAndWeights the addresses and weights of all the recipients to receive rewards
    */
   function setConfig(
     bytes32 feedId,
@@ -37,8 +37,38 @@ interface IVerifier is IERC165 {
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig,
-    Common.AddressAndWeight[] memory recipientAddressAndWeights
+    Common.AddressAndWeight[] memory recipientAddressesAndWeights
   ) external;
+
+  /**
+   * @notice Activates the configuration for a config digest
+   * @param feedId Feed ID to activate config for
+   * @param configDigest The config digest to activate
+   * @dev This function can be called by the contract admin to activate a configuration.
+   */
+  function activateConfig(bytes32 feedId, bytes32 configDigest) external;
+
+  /**
+   * @notice Deactivates the configuration for a config digest
+   * @param feedId Feed ID to deactivate config for
+   * @param configDigest The config digest to deactivate
+   * @dev This function can be called by the contract admin to deactivate an incorrect configuration.
+   */
+  function deactivateConfig(bytes32 feedId, bytes32 configDigest) external;
+
+  /**
+   * @notice Activates the given feed
+   * @param feedId Feed ID to activated
+   * @dev This function can be called by the contract admin to activate a feed
+   */
+  function activateFeed(bytes32 feedId) external;
+
+  /**
+   * @notice Deactivates the given feed
+   * @param feedId Feed ID to deactivated
+   * @dev This function can be called by the contract admin to deactivate a feed
+   */
+  function deactivateFeed(bytes32 feedId) external;
 
   /**
    * @notice returns the latest config digest and epoch for a feed

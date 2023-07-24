@@ -3,6 +3,7 @@ pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
 import {FeeManager} from "../../FeeManager.sol";
+import {IFeeManager} from "../../interfaces/IFeeManager.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 import "./BaseFeeManager.t.sol";
 
@@ -200,7 +201,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_emptyQuoteReturnsLinkBaseFee() public {
     //get the fee required by the feeManager
-    Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), FeeManager.Quote(address(0)), USER);
+    Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), IFeeManager.Quote(address(0)), USER);
 
     //fee should be the base link fee
     assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
@@ -581,7 +582,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectRevert(EXPIRED_REPORT_ERROR);
 
     //get the fee required by the feeManager
-    Common.Asset memory fee = getFee(
+    getFee(
       getReportWithCustomExpiryAndFee(
         DEFAULT_FEED_1,
         block.timestamp - 1,
