@@ -44,10 +44,10 @@ type UpkeepStateStore struct {
 	mu         sync.RWMutex
 	statesByID map[string]*upkeepState
 	states     []*upkeepState
-	// sort by blocks (optimization)
-	// clean up for upkeep states older than x hours (for initial version)
 }
 
+// NewUpkeepStateStore creates a new state store. This is an initial version of this store. More improvements to come:
+// TODO: https://smartcontract-it.atlassian.net/browse/AUTO-4027
 func NewUpkeepStateStore() *UpkeepStateStore {
 	return &UpkeepStateStore{
 		statesByID: map[string]*upkeepState{},
