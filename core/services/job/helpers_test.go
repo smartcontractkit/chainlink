@@ -290,7 +290,7 @@ func makeOCR2VRFJobSpec(t testing.TB, ks keystore.Master, cfg chainlink.GeneralC
 	ocr2vrfJob := fmt.Sprintf(ocr2vrfJobSpecTemplate,
 		beacon.String(),
 		kb.ID(),
-		transmitter,
+		"",
 		useForwarders,
 		chainID,
 		fromBlock,
