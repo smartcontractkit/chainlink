@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"time"
 
+	"golang.org/x/exp/slices"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/jackc/pgconn"
@@ -240,6 +242,30 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
+			// checks if they are present and if they are valid
+			sendingKeysDefined, err := areSendingKeysDefined(jb, o.keyStore)
+			if err != nil {
+				return err
+			}
+
+			if !sendingKeysDefined && !jb.OCR2OracleSpec.TransmitterID.Valid {
+				return errors.New("neither sending keys nor transmitter ID is defined")
+			}
+
+			if sendingKeysDefined && jb.OCR2OracleSpec.TransmitterID.Valid {
+				return errors.New("sending keys and transmitter ID can't both be defined")
+			}
+
+			if !sendingKeysDefined {
+				if err = validateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
+					return err
+				}
+			}
+
+			if jb.ForwardingAllowed && !slices.Contains(ForwardersSupportedPlugins, jb.OCR2OracleSpec.PluginType) {
+				return errors.Errorf("forwarding is not currently supported for %s jobs", jb.OCR2OracleSpec.PluginType)
+			}
+
 			if jb.OCR2OracleSpec.PluginType == Mercury {
 				if jb.OCR2OracleSpec.FeedID == nil {
 					return errors.New("feed ID is required for mercury plugin type")
@@ -250,42 +276,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			if jb.OCR2OracleSpec.TransmitterID.Valid {
-				transmitterID := jb.OCR2OracleSpec.TransmitterID.String
-				if jb.OCR2OracleSpec.PluginType == Mercury {
-					_, err := o.keyStore.CSA().Get(transmitterID)
-					if err != nil {
-						return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", transmitterID)
-					}
-				} else {
-					switch jb.OCR2OracleSpec.Relay {
-					case relay.EVM:
-						_, err := o.keyStore.Eth().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", transmitterID)
-						}
-					case relay.Cosmos:
-						_, err := o.keyStore.Cosmos().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", transmitterID)
-						}
-					case relay.Solana:
-						_, err := o.keyStore.Solana().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", transmitterID)
-						}
-					case relay.StarkNet:
-						_, err := o.keyStore.StarkNet().Get(transmitterID)
-						if err != nil {
-							return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", transmitterID)
-						}
-					}
-				}
-			}
-
 			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
-				err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
+				err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				if err != nil {
 					return errors.Wrap(err, "failed to parse plugin config")
 				}
@@ -305,7 +298,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 					 :blockchain_timeout, :contract_config_tracker_poll_interval, :contract_config_confirmations,
 					NOW(), NOW())
 			RETURNING id;`
-			err := pg.PrepareQueryRowx(tx, sql, &specID, jb.OCR2OracleSpec)
+			err = pg.PrepareQueryRowx(tx, sql, &specID, jb.OCR2OracleSpec)
 			if err != nil {
 				return errors.Wrap(err, "failed to create Offchainreporting2OracleSpec")
 			}
@@ -457,6 +450,58 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	}
 
 	return o.findJob(jb, "id", jobID, qopts...)
+}
+
+// validateKeyStoreMatch confirms that the key has a valid match in the keystore
+func validateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
+	if spec.PluginType == Mercury {
+		_, err := keyStore.CSA().Get(key)
+		if err != nil {
+			return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", key)
+		}
+	} else {
+		switch spec.Relay {
+		case relay.EVM:
+			_, err := keyStore.Eth().Get(key)
+			if err != nil {
+				return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", key)
+			}
+		case relay.Cosmos:
+			_, err := keyStore.Cosmos().Get(key)
+			if err != nil {
+				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", key)
+			}
+		case relay.Solana:
+			_, err := keyStore.Solana().Get(key)
+			if err != nil {
+				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", key)
+			}
+		case relay.StarkNet:
+			_, err := keyStore.StarkNet().Get(key)
+			if err != nil {
+				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", key)
+			}
+		}
+	}
+	return nil
+}
+
+func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
+	if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil {
+		sendingKeys, err := SendingKeysForJob(jb)
+		if err != nil {
+			return false, err
+		}
+
+		for _, sendingKey := range sendingKeys {
+			if err = validateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
+				return false, err
+			}
+		}
+
+		return true, nil
+	}
+	return false, nil
 }
 
 func (o *orm) InsertWebhookSpec(webhookSpec *WebhookSpec, qopts ...pg.QOpt) error {

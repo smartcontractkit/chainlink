@@ -24,9 +24,10 @@ type RequestCache[T any] interface {
 type ResponseProcessor[T any] func(response *api.Message, state *T) (aggregated *handlers.UserCallbackPayload, newState *T, err error)
 
 type requestCache[T any] struct {
-	cache   map[globalId]*pendingRequest[T]
-	timeout time.Duration
-	mu      sync.Mutex
+	cache        map[globalId]*pendingRequest[T]
+	maxCacheSize uint32
+	timeout      time.Duration
+	mu           sync.Mutex
 }
 
 type globalId struct {
@@ -41,8 +42,8 @@ type pendingRequest[T any] struct {
 	mu           sync.Mutex
 }
 
-func NewRequestCache[T any](timeout time.Duration) RequestCache[T] {
-	return &requestCache[T]{cache: make(map[globalId]*pendingRequest[T]), timeout: timeout}
+func NewRequestCache[T any](timeout time.Duration, maxCacheSize uint32) RequestCache[T] {
+	return &requestCache[T]{cache: make(map[globalId]*pendingRequest[T]), timeout: timeout, maxCacheSize: maxCacheSize}
 }
 
 func (c *requestCache[T]) NewRequest(request *api.Message, callbackCh chan<- handlers.UserCallbackPayload, responseData *T) error {
@@ -58,6 +59,9 @@ func (c *requestCache[T]) NewRequest(request *api.Message, callbackCh chan<- han
 	_, ok := c.cache[key]
 	if ok {
 		return errors.New("request already exists")
+	}
+	if len(c.cache) >= int(c.maxCacheSize) {
+		return errors.New("request cache is full")
 	}
 	timer := time.AfterFunc(c.timeout, func() {
 		c.deleteAndSendOnce(key, handlers.UserCallbackPayload{Msg: request, ErrMsg: "timeout", ErrCode: api.RequestTimeoutError})

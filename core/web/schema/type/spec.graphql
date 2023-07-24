@@ -91,7 +91,7 @@ type OCR2Spec {
     transmitterID: String
     pluginType: String!
     pluginConfig: Map!
-    feedID: String!
+    feedID: String
 }
 
 type VRFSpec {

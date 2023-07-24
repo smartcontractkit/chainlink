@@ -224,6 +224,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
 
   /**
    * @inheritdoc OCR2Abstract
+   * @dev prefer the type-safe version of setConfig (below) whenever possible
    */
   function setConfig(
     address[] memory signers,
@@ -232,7 +233,25 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     bytes memory onchainConfigBytes,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
-  ) external override onlyOwner {
+  ) external override {
+    setConfig(
+      signers,
+      transmitters,
+      f,
+      abi.decode(onchainConfigBytes, (OnchainConfig)),
+      offchainConfigVersion,
+      offchainConfig
+    );
+  }
+
+  function setConfig(
+    address[] memory signers,
+    address[] memory transmitters,
+    uint8 f,
+    OnchainConfig memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig
+  ) public onlyOwner {
     if (signers.length > maxNumOracles) revert TooManyOracles();
     if (f == 0) revert IncorrectNumberOfFaultyOracles();
     if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
@@ -279,9 +298,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     s_signersList = signers;
     s_transmittersList = transmitters;
 
-    // Set the onchain config
-    OnchainConfig memory onchainConfig = abi.decode(onchainConfigBytes, (OnchainConfig));
-
     s_hotVars = HotVars({
       f: f,
       paymentPremiumPPB: onchainConfig.paymentPremiumPPB,
@@ -314,6 +330,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
     s_storage.latestConfigBlockNumber = uint32(_blockNum());
     s_storage.configCount += 1;
+
+    bytes memory onchainConfigBytes = abi.encode(onchainConfig);
 
     s_latestConfigDigest = _configDigestFromConfigData(
       block.chainid,
@@ -533,11 +551,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     uint256 executeGas,
     bytes memory performData
   ) private nonReentrant returns (bool success, uint256 gasUsed) {
-    gasUsed = gasleft();
     performData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
-    success = forwarder.forward(executeGas, performData);
-    gasUsed = gasUsed - gasleft();
-    return (success, gasUsed);
+    return forwarder.forward(executeGas, performData);
   }
 
   /**

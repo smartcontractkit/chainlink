@@ -10,14 +10,28 @@ import "./interfaces/ILogAutomation.sol";
  * and tests because generated wrappers are made available
  */
 
+/**
+ * @notice structure of trigger for log triggers
+ */
+struct LogTriggerConfig {
+  address contractAddress;
+  // TODO - bytes1?
+  uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
+  bytes32 topic0;
+  bytes32 topic1;
+  bytes32 topic2;
+  bytes32 topic3;
+}
+
 contract AutomationUtils2_1 {
+  /**
+   * @dev this can be removed as OnchainConfig is now exposed directly from the registry
+   */
   function _onChainConfig(KeeperRegistryBase2_1.OnchainConfig memory) external {}
 
   function _report(KeeperRegistryBase2_1.Report memory) external {}
 
-  function _logTriggerConfig(KeeperRegistryBase2_1.LogTriggerConfig memory) external {}
-
-  function _conditionalTriggerConfig(KeeperRegistryBase2_1.ConditionalTriggerConfig memory) external {}
+  function _logTriggerConfig(LogTriggerConfig memory) external {}
 
   function _logTrigger(KeeperRegistryBase2_1.LogTrigger memory) external {}
 
