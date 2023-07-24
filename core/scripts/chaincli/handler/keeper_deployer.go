@@ -157,23 +157,25 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		panic(err)
 	}
 
-	signerOnchainPublicKeys, transmitterAccounts, f, _, _, offchainConfig, err := ocr2config.ContractSetConfigArgsForTests(
+	signerOnchainPublicKeys, transmitterAccounts, f, _, _, offchainConfig, err := ocr2config.ContractSetConfigArgsForTestsMercuryV02(
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
+		100*time.Millisecond,  // deltaInitial time.Duration,
 		2500*time.Millisecond, // deltaRound time.Duration,
 		40*time.Millisecond,   // deltaGrace time.Duration,
+		200*time.Millisecond,  // deltaRequestCertifiedCommit time.Duration,
 		30*time.Second,        // deltaStage time.Duration,
 		50,                    // rMax uint8,
 		S,                     // s []int,
 		oracleIdentities,      // oracles []OracleIdentityExtra,
 		offC,                  // reportingPluginConfig []byte,
-		20*time.Millisecond,   // maxDurationQuery time.Duration,
+		// 20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,
-		800*time.Millisecond,  // maxDurationReport time.Duration, sum of MaxDurationQuery/Observation/Report must be less than DeltaProgress
-		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
-		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
-		1,                     // f int,
-		nil,                   // onchainConfig []byte,
+		// 800*time.Millisecond,  // maxDurationReport time.Duration, sum of MaxDurationQuery/Observation/Report must be less than DeltaProgress
+		// 20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
+		// 20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,   // f int,
+		nil, // onchainConfig []byte,
 	)
 	if err != nil {
 		return nil, err
