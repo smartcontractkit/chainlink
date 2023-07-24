@@ -54,7 +54,7 @@ func testSingleConsumerHappyPath(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe *v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled),
 ) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
@@ -171,7 +171,7 @@ func testMultipleConsumersNeedBHS(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe *v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled),
 ) {
 	nConsumers := len(consumers)
 	vrfKey := cltest.MustGenerateRandomKey(t)
@@ -345,7 +345,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe *v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled),
 ) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -415,7 +415,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		// Assert correct state of RandomWordsFulfilled event.
 		// The last request will be the successful one because of the way the example
 		// contract is written.
-		var rwfe *v22.RandomWordsFulfilled
+		var rwfe v22.RandomWordsFulfilled
 		if i == (len(reqIDs) - 1) {
 			rwfe = assertRandomWordsFulfilled(t, requestID, true, coordinator)
 		} else {
@@ -447,7 +447,7 @@ func testSingleConsumerNeedsTopUp(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe *v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled),
 ) {
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(1000)
@@ -541,7 +541,7 @@ func testBlockHeaderFeeder(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe *v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled),
 ) {
 	nConsumers := len(consumers)
 
@@ -651,7 +651,7 @@ func createSubscriptionAndGetSubscriptionCreatedEvent(
 	subOwner *bind.TransactOpts,
 	coordinator v22.CoordinatorV2_X,
 	backend *backends.SimulatedBackend,
-) *v22.SubscriptionCreated {
+) v22.SubscriptionCreated {
 	_, err := coordinator.CreateSubscription(subOwner)
 	require.NoError(t, err)
 	backend.Commit()
@@ -673,13 +673,7 @@ func setupAndFundSubscriptionAndConsumer(
 	fundingAmount *big.Int,
 ) (subID *big.Int) {
 	event := createSubscriptionAndGetSubscriptionCreatedEvent(t, subOwner, coordinator, uni.backend)
-	if vrfVersion == vrfcommon.V2Plus {
-		subID = event.V2Plus.SubId
-	} else if vrfVersion == vrfcommon.V2 {
-		subID = new(big.Int).SetUint64(event.V2.SubId)
-	} else {
-		t.Errorf("unsupported vrfVersion: %s", vrfVersion)
-	}
+	subID = event.SubID()
 
 	_, err := coordinator.AddConsumer(subOwner, subID, consumerAddress)
 	require.NoError(t, err, "failed to add consumer")
@@ -1503,7 +1497,7 @@ func testMaliciousConsumer(
 	// The user callback should have errored
 	it, err := uni.rootContract.FilterRandomWordsFulfilled(nil, nil)
 	require.NoError(t, err)
-	var fulfillments []*v22.RandomWordsFulfilled
+	var fulfillments []v22.RandomWordsFulfilled
 	for it.Next() {
 		fulfillments = append(fulfillments, it.Event())
 	}
@@ -1513,7 +1507,7 @@ func testMaliciousConsumer(
 	// It should not have succeeded in placing another request.
 	it2, err2 := uni.rootContract.FilterRandomWordsRequested(nil, nil, nil, nil)
 	require.NoError(t, err2)
-	var requests []*v22.RandomWordsRequested
+	var requests []v22.RandomWordsRequested
 	for it2.Next() {
 		requests = append(requests, it2.Event())
 	}

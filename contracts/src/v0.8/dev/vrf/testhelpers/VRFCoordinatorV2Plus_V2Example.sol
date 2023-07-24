@@ -40,7 +40,9 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
   /// @dev Emitted when a subscription for a given ID cannot be found
   error InvalidSubscription();
 
-  function getSubscription(uint256 subId) public view returns (address owner, address[] memory consumers, uint96 linkBalance, uint96 nativeBalance) {
+  function getSubscription(
+    uint256 subId
+  ) public view returns (address owner, address[] memory consumers, uint96 linkBalance, uint96 nativeBalance) {
     if (s_subscriptions[subId].owner == address(0)) {
       revert InvalidSubscription();
     }

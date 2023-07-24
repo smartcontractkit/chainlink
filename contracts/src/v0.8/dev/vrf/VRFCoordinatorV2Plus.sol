@@ -265,7 +265,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[getConsumerKey(msg.sender, req.subId)];
+    uint64 currentNonce = s_consumers[msg.sender][req.subId];
     if (currentNonce == 0) {
       revert InvalidConsumer(req.subId, msg.sender);
     }
@@ -317,7 +317,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       nativePayment,
       msg.sender
     );
-    s_consumers[getConsumerKey(msg.sender, req.subId)] = nonce;
+    s_consumers[msg.sender][req.subId] = nonce;
 
     return requestId;
   }
@@ -561,7 +561,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
           s_provingKeyHashes[j],
           subConfig.consumers[i],
           subId,
-          s_consumers[getConsumerKey(subConfig.consumers[i], subId)]
+          s_consumers[subConfig.consumers[i]][subId]
         );
         if (s_requestCommitments[reqId] != 0) {
           return true;
@@ -578,7 +578,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }
-    if (s_consumers[getConsumerKey(consumer, subId)] == 0) {
+    if (s_consumers[consumer][subId] == 0) {
       revert InvalidConsumer(subId, consumer);
     }
     // Note bounded by MAX_CONSUMERS
@@ -594,7 +594,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         break;
       }
     }
-    delete s_consumers[getConsumerKey(consumer, subId)];
+    delete s_consumers[consumer][subId];
     emit SubscriptionConsumerRemoved(subId, consumer);
   }
 
@@ -690,7 +690,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     });
     bytes memory encodedData = abi.encode(migrationData);
     deleteSubscription(subId);
-    IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);    
+    IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);
     require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
     for (uint256 i = 0; i < consumers.length; i++) {
       IVRFMigratableConsumerV2Plus(consumers[i]).setCoordinator(newCoordinator);

@@ -166,7 +166,7 @@ func New(
 
 type pendingRequest struct {
 	confirmedAtBlock uint64
-	req              *RandomWordsRequested
+	req              RandomWordsRequested
 	lb               log.Broadcast
 	utcTimestamp     time.Time
 
@@ -488,7 +488,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		} else {
 			// Happy path - sub is active.
 			startLinkBalance = sub.Balance()
-			if sub.VRFVersion == vrfcommon.V2Plus {
+			if sub.Version() == vrfcommon.V2Plus {
 				startEthBalance = sub.EthBalance()
 			}
 			subIsActive = true
@@ -1357,7 +1357,7 @@ func (lsn *listenerV2) runPipelines(
 
 func (lsn *listenerV2) estimateFee(
 	ctx context.Context,
-	req *RandomWordsRequested,
+	req RandomWordsRequested,
 	maxGasPriceWei *assets.Wei,
 ) (*big.Int, error) {
 	// NativePayment() returns true if and only if the version is V2+ and the
@@ -1536,7 +1536,7 @@ func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32, wg
 	}
 }
 
-func (lsn *listenerV2) getConfirmedAt(req *RandomWordsRequested, nodeMinConfs uint32) uint64 {
+func (lsn *listenerV2) getConfirmedAt(req RandomWordsRequested, nodeMinConfs uint32) uint64 {
 	lsn.respCountMu.Lock()
 	defer lsn.respCountMu.Unlock()
 	// Take the max(nodeMinConfs, requestedConfs + requestedConfsDelay).

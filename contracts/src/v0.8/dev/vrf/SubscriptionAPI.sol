@@ -54,7 +54,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     address[] consumers;
   }
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
-  mapping(bytes32 => uint64) /* consumer+subId */ /* nonce */ internal s_consumers;
+  mapping(address => mapping(uint256 => uint64)) /* consumer */ /* subId */ /* nonce */ internal s_consumers;
   mapping(uint256 => SubscriptionConfig) /* subId */ /* subscriptionConfig */ internal s_subscriptionConfigs;
   mapping(uint256 => Subscription) /* subId */ /* subscription */ internal s_subscriptions;
   // subscription nonce used to construct subID. Rises monotonically
@@ -234,14 +234,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
    */
   function createSubscription() external override nonReentrant returns (uint256) {
     uint256 subId = uint256(
-      keccak256(
-        abi.encodePacked(
-          msg.sender,
-          blockhash(block.number - 1),
-          address(this),
-          s_currentSubNonce
-        )
-      )
+      keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1), address(this), s_currentSubNonce))
     );
     s_currentSubNonce++;
     address[] memory consumers = new address[](0);
@@ -294,13 +287,13 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     if (s_subscriptionConfigs[subId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
     }
-    if (s_consumers[getConsumerKey(consumer, subId)] != 0) {
+    if (s_consumers[consumer][subId] != 0) {
       // Idempotence - do nothing if already added.
       // Ensures uniqueness in s_subscriptions[subId].consumers.
       return;
     }
     // Initialize the nonce to 1, indicating the consumer is allocated.
-    s_consumers[getConsumerKey(consumer, subId)] = 1;
+    s_consumers[consumer][subId] = 1;
     s_subscriptionConfigs[subId].consumers.push(consumer);
 
     emit SubscriptionConsumerAdded(subId, consumer);
@@ -314,7 +307,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
-      delete s_consumers[getConsumerKey(subConfig.consumers[i], subId)];
+      delete s_consumers[subConfig.consumers[i]][subId];
     }
     delete s_subscriptionConfigs[subId];
     delete s_subscriptions[subId];

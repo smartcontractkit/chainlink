@@ -478,7 +478,7 @@ func subscribeVRF(
 	coordinator v22.CoordinatorV2_X,
 	backend *backends.SimulatedBackend,
 	fundingJuels *big.Int,
-) (*v22.GetSubscription, *big.Int) {
+) (v22.Subscription, *big.Int) {
 	_, err := consumerContract.CreateSubscriptionAndFund(author, fundingJuels)
 	require.NoError(t, err)
 	backend.Commit()
@@ -596,7 +596,7 @@ func requestRandomnessForWrapper(
 	iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []*big.Int{subID}, nil)
 	require.NoError(t, err, "could not filter RandomWordsRequested events")
 
-	var events []*v22.RandomWordsRequested
+	var events []v22.RandomWordsRequested
 	for iter.Next() {
 		events = append(events, iter.Event())
 	}
@@ -652,7 +652,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []*big.Int{subID}, nil)
 	require.NoError(t, err, "could not filter RandomWordsRequested events")
 
-	var events []*v22.RandomWordsRequested
+	var events []v22.RandomWordsRequested
 	for iter.Next() {
 		events = append(events, iter.Event())
 	}
@@ -708,7 +708,7 @@ func assertRandomWordsFulfilled(
 	requestID *big.Int,
 	expectedSuccess bool,
 	coordinator v22.CoordinatorV2_X,
-) (rwfe *v22.RandomWordsFulfilled) {
+) (rwfe v22.RandomWordsFulfilled) {
 	// Check many times in case there are delays processing the event
 	// this could happen occasionally and cause flaky tests.
 	numChecks := 3
@@ -1601,7 +1601,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Wait for the request to be fulfilled on-chain.
-	var rf []*v22.RandomWordsFulfilled
+	var rf []v22.RandomWordsFulfilled
 	gomega.NewWithT(t).Eventually(func() bool {
 		rfIterator, err2 := uni.rootContract.FilterRandomWordsFulfilled(nil, nil)
 		require.NoError(t, err2, "failed to logs")
@@ -2109,8 +2109,8 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 
 func FindLatestRandomnessRequestedLog(t *testing.T,
 	coordContract v22.CoordinatorV2_X,
-	keyHash [32]byte) *v22.RandomWordsRequested {
-	var rf []*v22.RandomWordsRequested
+	keyHash [32]byte) v22.RandomWordsRequested {
+	var rf []v22.RandomWordsRequested
 	gomega.NewWithT(t).Eventually(func() bool {
 		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{keyHash}, nil, []common.Address{})
 		require.NoError(t, err2, "failed to logs")

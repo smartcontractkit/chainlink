@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -248,7 +249,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
 		// max uint256 is 1.1579209e+77
-		testDefaultGlobalSubID := new(big.Int).Exp(big.NewInt(1), big.NewInt(77), nil).String()
+		testDefaultGlobalSubID := crypto.Keccak256Hash([]byte("sub id")).String()
 		jobID := int32(25)
 		requestID := gethcommon.HexToHash("abcd")
 		requestTxHash := gethcommon.HexToHash("dcba")
