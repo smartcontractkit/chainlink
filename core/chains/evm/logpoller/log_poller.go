@@ -639,18 +639,19 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 		to := mathutil.Min(from+batchSize-1, end)
 		gethLogs, err := lp.ec.FilterLogs(ctx, lp.Filter(big.NewInt(from), big.NewInt(to), nil))
 		if err != nil {
-			if rpcErr, ok := err.(client.JsonError); ok {
+			var rpcErr client.JsonError
+			if errors.As(err, &rpcErr) {
 				if rpcErr.Code != jsonRpcLimitExceeded {
 					lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
 					return err
 				}
 			}
 			if batchSize == 1 {
-				lp.lggr.Criticalw("Too many log results in a single block, failed to retreive logs", "err", err, "from", from, "to", to)
+				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may run in a degraded state unless LogBackfillBatchSize is increased", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
 				return err
 			}
 			batchSize /= 2
-			lp.lggr.Warnw("Too many log results, halving block range batch size", "err", err, "from", from, "to", to, "newBatchSize", batchSize)
+			lp.lggr.Warnw("Too many log results, halving block range batch size.  Consider increasing LogBackfillBatchSize if this happens frequently", "err", err, "from", from, "to", to, "newBatchSize", batchSize, "LogBackfillBatchSize", lp.backfillBatchSize)
 			from -= batchSize // counteract +=batchSize on next loop iteration, so starting block does not change
 			continue
 		}
