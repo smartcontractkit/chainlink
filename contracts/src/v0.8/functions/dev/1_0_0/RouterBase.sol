@@ -126,7 +126,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
         return currentImplementation;
       }
     } else {
-      for (uint8 i = 0; i < s_proposedContractSet.ids.length; i++) {
+      for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
         if (id == s_proposedContractSet.ids[i]) {
           // NOTE: proposals can be used immediately
           return s_proposedContractSet.to[i];
@@ -173,7 +173,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       revert InvalidProposal();
     }
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
-    for (uint8 i = 0; i < idsArrayLength; i++) {
+    for (uint8 i = 0; i < idsArrayLength; ++i) {
       bytes32 id = proposedContractSetIds[i];
       address proposedContract = proposedContractSetAddresses[i];
       if (
@@ -193,7 +193,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     s_proposedContractSet = ContractProposalSet(proposedContractSetIds, proposedContractSetAddresses, timelockEndBlock);
 
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
-    for (uint8 i = 0; i < proposedContractSetIds.length; i++) {
+    for (uint8 i = 0; i < proposedContractSetIds.length; ++i) {
       emit ContractProposed(
         proposedContractSetIds[i],
         s_route[proposedContractSetIds[i]],
@@ -225,7 +225,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     }
     s_minorVersion = s_minorVersion + 1;
     if (s_patchVersion != 0) s_patchVersion = 0;
-    for (uint8 i = 0; i < s_proposedContractSet.ids.length; i++) {
+    for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
       bytes32 id = s_proposedContractSet.ids[i];
       address from = s_route[id];
       address to = s_proposedContractSet.to[i];

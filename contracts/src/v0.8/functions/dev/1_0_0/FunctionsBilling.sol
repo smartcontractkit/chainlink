@@ -54,14 +54,14 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint32 requestTimeoutSeconds;
     // additional flat fee (in Juels of LINK) that will be split between Node Operators
     uint96 donFee;
-    // fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
-    int256 fallbackNativePerUnitLink;
     // The highest support request data version supported by the node
     // All lower versions should also be supported
     uint16 maxSupportedRequestDataVersion;
     // Percentage of gas price overestimation to account for changes in gas price between request and response
     // Held as basis points (one hundredth of 1 percentage point)
     uint256 fulfillmentGasPriceOverEstimationBP;
+    // fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
+    int256 fallbackNativePerUnitLink;
   }
   Config private s_config;
   event ConfigSet(
@@ -461,7 +461,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert NoTransmittersSet();
     }
     uint96 feePoolShare = s_feePool / uint96(transmitters.length);
-    for (uint8 i = 0; i < transmitters.length; i++) {
+    for (uint8 i = 0; i < transmitters.length; ++i) {
       s_withdrawableTokens[transmitters[i]] += feePoolShare;
     }
     s_feePool -= feePoolShare * uint96(transmitters.length);

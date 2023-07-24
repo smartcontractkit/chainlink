@@ -401,7 +401,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     // Note bounded by MAX_CONSUMERS
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
     uint256 lastConsumerIndex = consumers.length - 1;
-    for (uint256 i = 0; i < consumers.length; i++) {
+    for (uint256 i = 0; i < consumers.length; ++i) {
       if (consumers[i] == consumer) {
         address last = consumers[lastConsumerIndex];
         // Storage write to preserve last element
@@ -456,7 +456,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint96 balance = sub.balance;
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
-    for (uint256 i = 0; i < sub.consumers.length; i++) {
+    for (uint256 i = 0; i < sub.consumers.length; ++i) {
       delete s_consumers[sub.consumers[i]][subscriptionId];
     }
     delete s_subscriptions[subscriptionId];
@@ -476,7 +476,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
 
   function _pendingRequestExists(uint64 subscriptionId) internal view returns (bool) {
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
-    for (uint256 i = 0; i < consumers.length; i++) {
+    for (uint256 i = 0; i < consumers.length; ++i) {
       Consumer memory consumer = s_consumers[consumers[i]][subscriptionId];
       if (consumer.initiatedRequests != consumer.completedRequests) {
         return true;
@@ -513,7 +513,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override {
     _nonReentrant();
-    for (uint256 i = 0; i < requestIdsToTimeout.length; i++) {
+    for (uint256 i = 0; i < requestIdsToTimeout.length; ++i) {
       bytes32 requestId = requestIdsToTimeout[i];
       Commitment memory request = s_requestCommitments[requestId];
       uint64 subscriptionId = request.subscriptionId;

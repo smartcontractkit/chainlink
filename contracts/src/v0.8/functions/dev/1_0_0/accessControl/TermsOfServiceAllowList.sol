@@ -6,12 +6,14 @@ import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.so
 import {Routable, ITypeAndVersion} from "../Routable.sol";
 import {IOwnable} from "../../../../shared/interfaces/IOwnable.sol";
 
+import {Address} from "../../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/Address.sol";
+
 /**
  * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
  */
-
 contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
   using EnumerableSet for EnumerableSet.AddressSet;
+  using Address for address;
 
   EnumerableSet.AddressSet private s_allowedSenders;
   EnumerableSet.AddressSet private s_blockedSenders;
@@ -81,24 +83,21 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
     }
 
     // Validate that the proof is correct and has been signed
-    bytes32 messageHash = getMessageHash(acceptor, recipient);
-    bytes32 ethSignedMessageHash = getEthSignedMessageHash(messageHash);
-    address proofSigner = _getSigner(ethSignedMessageHash, proof);
-    if (proofSigner != s_config.proofSignerPublicKey) {
+    if (
+      _getSigner(getEthSignedMessageHash(getMessageHash(acceptor, recipient)), proof) != s_config.proofSignerPublicKey
+    ) {
       revert InvalidProof();
     }
 
-    // Check if msg.sender is an EoA or contract
-    bool callerIsContractAccount = _isContract(msg.sender);
-    // If EoA, validate that msg.sender == acceptor == recipient
-    // This is to prevent EoAs from accepting for other EoAs
-    if (callerIsContractAccount == false && (msg.sender != acceptor || msg.sender != recipient)) {
-      revert InvalidProof();
-    }
-
-    // If contract, validate that msg.sender == recipient
-    // This is to prevent EoAs from claiming contracts that they are not in control of
-    if (callerIsContractAccount && msg.sender != recipient) {
+    if (msg.sender.isContract()) {
+      // If contract, validate that msg.sender == recipient
+      // This is to prevent EoAs from claiming contracts that they are not in control of
+      if (msg.sender != recipient) {
+        revert InvalidProof();
+      }
+    } else if (msg.sender != acceptor || msg.sender != recipient) {
+      // If EoA, validate that msg.sender == acceptor == recipient
+      // This is to prevent EoAs from accepting for other EoAs
       revert InvalidProof();
     }
 
@@ -149,17 +148,6 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
   // ================================================================
   // |                     Internal helpers                          |
   // ================================================================
-
-  // NOTE: a contract account can appear to be an EoA if called during its constructor
-  // This is not a risk, because they will fail in acceptTermsOfService during acceptor == recipient
-  function _isContract(address _addr) private view returns (bool isContract) {
-    uint32 size;
-    // solhint-disable-next-line no-inline-assembly
-    assembly {
-      size := extcodesize(_addr)
-    }
-    return (size > 0);
-  }
 
   function _getSigner(bytes32 _ethSignedMessageHash, bytes memory signature) private pure returns (address) {
     (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signature);

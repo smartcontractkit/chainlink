@@ -96,7 +96,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function _isTransmitter(address node) internal view returns (bool) {
     address[] memory nodes = this.transmitters();
-    for (uint256 i = 0; i < nodes.length; i++) {
+    for (uint256 i = 0; i < nodes.length; ++i) {
       if (nodes[i] == node) {
         return true;
       }
@@ -132,7 +132,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   function getAllNodePublicKeys() external view override returns (address[] memory, bytes[] memory) {
     address[] memory nodes = this.transmitters();
     bytes[] memory keys = new bytes[](nodes.length);
-    for (uint256 i = 0; i < nodes.length; i++) {
+    for (uint256 i = 0; i < nodes.length; ++i) {
       if (s_nodePublicKeys[nodes[i]].length == 0) {
         revert EmptyPublicKey();
       }
@@ -223,7 +223,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       revert ReportInvalid();
     }
 
-    for (uint256 i = 0; i < requestIds.length; i++) {
+    for (uint256 i = 0; i < requestIds.length; ++i) {
       FulfillResult result = FulfillResult(
         _fulfillAndBill(
           requestIds[i],
