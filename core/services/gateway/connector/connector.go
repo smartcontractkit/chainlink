@@ -187,12 +187,12 @@ func (c *gatewayConnector) Start(ctx context.Context) error {
 		if err := c.handler.Start(ctx); err != nil {
 			return err
 		}
-		c.closeWait.Add(2 * len(c.gateways))
 		for _, gatewayState := range c.gateways {
 			gatewayState := gatewayState
 			if err := gatewayState.conn.Start(); err != nil {
 				return err
 			}
+			c.closeWait.Add(2)
 			go c.readLoop(gatewayState)
 			go c.reconnectLoop(gatewayState)
 		}

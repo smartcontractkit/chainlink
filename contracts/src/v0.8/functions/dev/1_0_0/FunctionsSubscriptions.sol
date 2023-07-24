@@ -330,7 +330,13 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function createSubscription() external override nonReentrant returns (uint64 subscriptionId) {
+  function createSubscription()
+    external
+    override
+    nonReentrant
+    onlySenderThatAcceptedToS
+    returns (uint64 subscriptionId)
+  {
     s_currentsubscriptionId++;
     subscriptionId = s_currentsubscriptionId;
     s_subscriptions[subscriptionId] = Subscription({
@@ -350,7 +356,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function requestSubscriptionOwnerTransfer(
     uint64 subscriptionId,
     address newOwner
-  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant {
+  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant onlySenderThatAcceptedToS {
     // Proposing to address(0) would never be claimable, so don't need to check.
 
     if (s_subscriptions[subscriptionId].requestedOwner != newOwner) {
@@ -362,7 +368,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external override nonReentrant {
+  function acceptSubscriptionOwnerTransfer(
+    uint64 subscriptionId
+  ) external override nonReentrant onlySenderThatAcceptedToS {
     address previousOwner = s_subscriptions[subscriptionId].owner;
     address nextOwner = s_subscriptions[subscriptionId].requestedOwner;
     if (nextOwner != msg.sender) {
@@ -379,7 +387,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function removeConsumer(
     uint64 subscriptionId,
     address consumer
-  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant {
+  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant onlySenderThatAcceptedToS {
     Consumer memory consumerData = s_consumers[consumer][subscriptionId];
     if (!consumerData.allowed) {
       revert InvalidConsumer(subscriptionId, consumer);
@@ -410,7 +418,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function addConsumer(
     uint64 subscriptionId,
     address consumer
-  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant {
+  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant onlySenderThatAcceptedToS {
     // Already maxed, cannot add any more consumers.
     if (s_subscriptions[subscriptionId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
@@ -432,7 +440,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function cancelSubscription(
     uint64 subscriptionId,
     address to
-  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant {
+  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant onlySenderThatAcceptedToS {
     if (_pendingRequestExists(subscriptionId)) {
       revert PendingRequestExists();
     }
@@ -527,6 +535,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     if (s_reentrancyLock) {
       revert Reentrant();
     }
+    _;
+  }
+
+  modifier onlySenderThatAcceptedToS() virtual {
     _;
   }
 

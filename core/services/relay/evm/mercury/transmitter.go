@@ -18,20 +18,22 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/sqlx"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const (
-	MaxTransmitQueueSize = 10_000
-	TransmitTimeout      = 5 * time.Second
+var (
+	maxTransmitQueueSize = 10_000
+	transmitTimeout      = 5 * time.Second
 )
 
 const (
@@ -79,9 +81,10 @@ var _ Transmitter = &mercuryTransmitter{}
 
 type mercuryTransmitter struct {
 	utils.StartStopOnce
-	lggr       logger.Logger
-	rpcClient  wsrpc.Client
-	cfgTracker ConfigTracker
+	lggr               logger.Logger
+	rpcClient          wsrpc.Client
+	cfgTracker         ConfigTracker
+	persistenceManager *PersistenceManager
 
 	feedID      [32]byte
 	feedIDHex   string
@@ -115,18 +118,20 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
+	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg))
 	return &mercuryTransmitter{
 		utils.StartStopOnce{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		rpcClient,
 		cfgTracker,
+		persistenceManager,
 		feedID,
 		feedIDHex,
 		fmt.Sprintf("%x", fromAccount),
 		make(chan (struct{})),
-		NewTransmitQueue(lggr, feedIDHex, MaxTransmitQueueSize),
+		NewTransmitQueue(lggr, feedIDHex, maxTransmitQueueSize, nil, persistenceManager),
 		sync.WaitGroup{},
 		transmitSuccessCount.WithLabelValues(feedIDHex),
 		transmitDuplicateCount.WithLabelValues(feedIDHex),
@@ -136,6 +141,16 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 
 func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 	return mt.StartOnce("MercuryTransmitter", func() error {
+		mt.lggr.Debugw("Loading transmit requests from database")
+		if err := mt.persistenceManager.Start(ctx); err != nil {
+			return err
+		}
+		transmissions, err := mt.persistenceManager.Load(ctx)
+		if err != nil {
+			return err
+		}
+		mt.queue = NewTransmitQueue(mt.lggr, mt.feedIDHex, maxTransmitQueueSize, transmissions, mt.persistenceManager)
+
 		if err := mt.rpcClient.Start(ctx); err != nil {
 			return err
 		}
@@ -143,20 +158,27 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 			return err
 		}
 		mt.wg.Add(1)
-		go mt.runloop()
+		go mt.runQueueLoop()
 		return nil
 	})
 }
 
 func (mt *mercuryTransmitter) Close() error {
 	return mt.StopOnce("MercuryTransmitter", func() error {
-		mt.queue.Close()
+		if err := mt.queue.Close(); err != nil {
+			return err
+		}
+		if err := mt.persistenceManager.Close(); err != nil {
+			return err
+		}
 		close(mt.stopCh)
 		mt.wg.Wait()
 		return mt.rpcClient.Close()
 	})
 }
+
 func (mt *mercuryTransmitter) Ready() error { return mt.StartStopOnce.Ready() }
+
 func (mt *mercuryTransmitter) Name() string { return mt.lggr.Name() }
 
 func (mt *mercuryTransmitter) HealthReport() map[string]error {
@@ -166,7 +188,7 @@ func (mt *mercuryTransmitter) HealthReport() map[string]error {
 	return report
 }
 
-func (mt *mercuryTransmitter) runloop() {
+func (mt *mercuryTransmitter) runQueueLoop() {
 	defer mt.wg.Done()
 	// Exponential backoff with very short retry interval (since latency is a priority)
 	// 5ms, 10ms, 20ms, 40ms etc
@@ -184,7 +206,7 @@ func (mt *mercuryTransmitter) runloop() {
 			// queue was closed
 			return
 		}
-		ctx, cancel := context.WithTimeout(runloopCtx, utils.WithJitter(TransmitTimeout))
+		ctx, cancel := context.WithTimeout(runloopCtx, utils.WithJitter(transmitTimeout))
 		res, err := mt.rpcClient.Transmit(ctx, t.Req)
 		cancel()
 		if runloopCtx.Err() != nil {
@@ -243,6 +265,11 @@ func (mt *mercuryTransmitter) runloop() {
 				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
+
+		if err := mt.persistenceManager.Delete(runloopCtx, t.Req); err != nil {
+			mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "reportCtx", t.ReportCtx)
+			return
+		}
 	}
 }
 
@@ -273,6 +300,9 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 
 	mt.lggr.Tracew("Transmit enqueue", "req", req, "report", report, "reportCtx", reportCtx, "signatures", signatures)
 
+	if err := mt.persistenceManager.Insert(ctx, req, reportCtx); err != nil {
+		return err
+	}
 	if ok := mt.queue.Push(req, reportCtx); !ok {
 		return errors.New("transmit queue is closed")
 	}

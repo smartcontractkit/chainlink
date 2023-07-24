@@ -153,7 +153,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                 Contract Proposal methods                    |
   // ================================================================
-
   /**
    * @inheritdoc IRouterBase
    */
@@ -175,15 +174,17 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     }
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint8 i = 0; i < idsArrayLength; i++) {
+      bytes32 id = proposedContractSetIds[i];
+      address proposedContract = proposedContractSetAddresses[i];
       if (
-        proposedContractSetAddresses[i] == address(0) || // The Proposed address must be a valid address
-        s_route[proposedContractSetIds[i]] == proposedContractSetAddresses[i] // The Proposed address must point to a different address than what is currently set
+        proposedContract == address(0) || // The Proposed address must be a valid address
+        s_route[id] == proposedContract // The Proposed address must point to a different address than what is currently set
       ) {
         revert InvalidProposal();
       }
       // Reserved ids cannot be set
-      if (proposedContractSetIds[i] == routerId) {
-        revert IdentifierIsReserved(routerId);
+      if (id == routerId) {
+        revert IdentifierIsReserved(id);
       }
     }
 
