@@ -544,6 +544,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // ================================================================
   // |                         Modifiers                            |
   // ================================================================
+
   function _onlySubscriptionOwner(uint64 subscriptionId) internal view {
     address owner = s_subscriptions[subscriptionId].owner;
     if (owner == address(0)) {

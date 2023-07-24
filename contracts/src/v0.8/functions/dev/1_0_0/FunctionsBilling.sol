@@ -21,16 +21,16 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // |                  Request Commitment state                    |
   // ================================================================
   struct Commitment {
-    uint64 subscriptionId;
-    address client;
-    uint32 callbackGasLimit;
-    uint256 expectedGasPrice;
-    address don;
-    uint96 donFee;
-    uint96 adminFee;
-    uint96 estimatedTotalCostJuels;
+    uint64 subscriptionId; // ---------┐
+    address client; //                 |
+    uint32 callbackGasLimit; // -------┘
+    address don; // -------------------┐
+    uint96 donFee; // -----------------┘
+    uint96 adminFee; // ---------------┐
+    uint96 estimatedTotalCostJuels; // |
+    uint40 timestamp; // --------------┘
     uint256 gasOverhead;
-    uint256 timestamp;
+    uint256 expectedGasPrice;
   }
   mapping(bytes32 requestId => Commitment) private s_requestCommitments;
 
@@ -317,13 +317,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       billing.subscriptionId,
       billing.client,
       billing.callbackGasLimit,
-      billing.expectedGasPrice,
       address(this),
       donFee,
       adminFee,
       estimatedCost,
+      uint40(block.timestamp),
       s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback,
-      block.timestamp
+      billing.expectedGasPrice
     );
     s_requestCommitments[requestId] = commitment;
 
