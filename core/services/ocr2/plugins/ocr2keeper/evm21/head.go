@@ -29,6 +29,13 @@ const (
 	ChannelSize = 20
 )
 
+type BlockSubscriber interface {
+	Subscribe() (int, chan ocr2keepers.BlockHistory, error)
+	Unsubscribe(subId int) error
+}
+
+var _ BlockSubscriber = &HeadProvider{}
+
 type BlockKey struct {
 	block int64
 	hash  common.Hash
