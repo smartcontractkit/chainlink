@@ -264,10 +264,11 @@ func (o *OCRSoakTest) Run() {
 		FromBlock: big.NewInt(0).SetUint64(latestBlockNum),
 	}
 
+	startingValue := 5
 	if o.OperatorForwarderFlow {
-		actions.CreateOCRJobsWithForwarder(o.t, o.ocrInstances, o.bootstrapNode, o.workerNodes, 5, o.mockServer)
+		actions.CreateOCRJobsWithForwarder(o.t, o.ocrInstances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer)
 	} else {
-		err := actions.CreateOCRJobs(o.ocrInstances, o.bootstrapNode, o.workerNodes, 5, o.mockServer)
+		err := actions.CreateOCRJobs(o.ocrInstances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer)
 		require.NoError(o.t, err, "Error creating OCR jobs")
 	}
 
@@ -276,7 +277,7 @@ func (o *OCRSoakTest) Run() {
 		Int("Number of OCR Contracts", len(o.ocrInstances)).
 		Msg("Starting OCR Soak Test")
 
-	o.testLoop(o.Inputs.TestDuration)
+	o.testLoop(o.Inputs.TestDuration, startingValue)
 
 	o.log.Info().Msg("Test Complete, collecting on-chain events to be collected")
 	// Keep trying to collect events until we get them, no exceptions
@@ -290,7 +291,7 @@ func (o *OCRSoakTest) Run() {
 }
 
 // testLoop is the primary test loop that will trigger new rounds and watch events
-func (o *OCRSoakTest) testLoop(testDuration time.Duration) {
+func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	endTest := time.NewTimer(testDuration)
 	interruption := make(chan os.Signal, 1)
 	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
@@ -313,21 +314,22 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration) {
 		case <-endTest.C:
 			return
 		case <-newRoundTrigger.C:
-			newValue := rand.Intn(256) + 1 // #nosec G404 - not everything needs to be cryptographically secure
-			for newValue == lastValue {
-				newValue = rand.Intn(256) + 1 // #nosec G404 - kudos to you if you actually find a way to exploit this
-			}
-			lastValue = newValue
 			err := o.triggerNewRound(newValue)
-
 			timerReset := o.Inputs.TimeBetweenRounds
 			if err != nil {
 				timerReset = time.Second * 5
 				o.log.Error().Err(err).
-					Int("Seconds Waiting", 5).
+					Str("Waiting", timerReset.String()).
 					Msg("Error triggering new round, waiting and trying again. Possible connection issues with mockserver")
 			}
 			newRoundTrigger.Reset(timerReset)
+
+			// Change value for the next round
+			newValue = rand.Intn(256) + 1 // #nosec G404 - not everything needs to be cryptographically secure
+			for newValue == lastValue {
+				newValue = rand.Intn(256) + 1 // #nosec G404 - kudos to you if you actually find a way to exploit this
+			}
+			lastValue = newValue
 		case t := <-o.chainClient.ConnectionIssue():
 			o.rpcIssues = append(o.rpcIssues, &testreporters.RPCIssue{
 				StartTime: t,
@@ -393,17 +395,11 @@ func (o *OCRSoakTest) SaveState() error {
 		BootStrapNodeURL: o.bootstrapNode.URL(),
 		WorkerNodeURLs:   workerNodeURLs,
 	}
-	saveFile, err := os.Open(saveFileLocation)
+	data, err := toml.Marshal(testState)
 	if err != nil {
 		return err
 	}
-	defer saveFile.Close()
-	b, err := toml.Marshal(testState)
-	if err != nil {
-		return err
-	}
-	_, err = saveFile.Write(b)
-	return err
+	return os.WriteFile(saveFileLocation, data, 0644)
 }
 
 // LoadState loads the test state from a TOML file
@@ -469,7 +465,35 @@ func (o *OCRSoakTest) LoadState() error {
 }
 
 func (o *OCRSoakTest) Resume() {
-	o.testLoop(o.Inputs.TestDuration)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
+	cancel()
+	require.NoError(o.t, err, "Error getting current block number")
+
+	ocrAddresses := make([]common.Address, len(o.ocrInstances))
+	for i, ocrInstance := range o.ocrInstances {
+		ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
+	}
+	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
+	require.NoError(o.t, err, "Error retrieving OCR contract ABI")
+	o.filterQuery = geth.FilterQuery{
+		Addresses: ocrAddresses,
+		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
+		FromBlock: big.NewInt(0).SetUint64(latestBlockNum),
+	}
+
+	startingValue := 5
+	o.testLoop(o.Inputs.TestDuration, startingValue)
+
+	o.log.Info().Msg("Test Complete, collecting on-chain events to be collected")
+	// Keep trying to collect events until we get them, no exceptions
+	timeout := time.Second * 5
+	err = o.collectEvents(timeout)
+	for err != nil {
+		timeout *= 2
+		err = o.collectEvents(timeout)
+	}
+	o.TestReporter.RecordEvents(o.ocrRoundStates, o.rpcIssues)
 }
 
 // Interrupted indicates whether the test was interrupted by something like a K8s rebalance or not
