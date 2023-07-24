@@ -7,43 +7,43 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// Wrapper around Go's rate.Limiter that supports both global and a per-user rate limiting.
+// Wrapper around Go's rate.Limiter that supports both global and a per-sender rate limiting.
 type RateLimiter struct {
-	global  *rate.Limiter
-	perUser map[string]*rate.Limiter
-	config  RateLimiterConfig
-	mu      sync.Mutex
+	global    *rate.Limiter
+	perSender map[string]*rate.Limiter
+	config    RateLimiterConfig
+	mu        sync.Mutex
 }
 
 type RateLimiterConfig struct {
-	GlobalRPS    float64 `json:"globalRPS"`
-	GlobalBurst  int     `json:"globalBurst"`
-	PerUserRPS   float64 `json:"perUserRPS"`
-	PerUserBurst int     `json:"perUserBurst"`
+	GlobalRPS      float64 `json:"globalRPS"`
+	GlobalBurst    int     `json:"globalBurst"`
+	PerSenderRPS   float64 `json:"perSenderRPS"`
+	PerSenderBurst int     `json:"perSenderBurst"`
 }
 
 func NewRateLimiter(config RateLimiterConfig) (*RateLimiter, error) {
-	if config.GlobalRPS <= 0.0 || config.PerUserRPS <= 0.0 {
+	if config.GlobalRPS <= 0.0 || config.PerSenderRPS <= 0.0 {
 		return nil, errors.New("RPS values must be positive")
 	}
-	if config.GlobalBurst <= 0 || config.PerUserBurst <= 0 {
+	if config.GlobalBurst <= 0 || config.PerSenderBurst <= 0 {
 		return nil, errors.New("burst values must be positive")
 	}
 	return &RateLimiter{
-		global:  rate.NewLimiter(rate.Limit(config.GlobalRPS), config.GlobalBurst),
-		perUser: make(map[string]*rate.Limiter),
-		config:  config,
+		global:    rate.NewLimiter(rate.Limit(config.GlobalRPS), config.GlobalBurst),
+		perSender: make(map[string]*rate.Limiter),
+		config:    config,
 	}, nil
 }
 
-func (rl *RateLimiter) Allow(user string) bool {
+func (rl *RateLimiter) Allow(sender string) bool {
 	rl.mu.Lock()
-	userLimiter, ok := rl.perUser[user]
+	senderLimiter, ok := rl.perSender[sender]
 	if !ok {
-		userLimiter = rate.NewLimiter(rate.Limit(rl.config.PerUserRPS), rl.config.PerUserBurst)
-		rl.perUser[user] = userLimiter
+		senderLimiter = rate.NewLimiter(rate.Limit(rl.config.PerSenderRPS), rl.config.PerSenderBurst)
+		rl.perSender[sender] = senderLimiter
 	}
 	rl.mu.Unlock()
 
-	return userLimiter.Allow() && rl.global.Allow()
+	return senderLimiter.Allow() && rl.global.Allow()
 }

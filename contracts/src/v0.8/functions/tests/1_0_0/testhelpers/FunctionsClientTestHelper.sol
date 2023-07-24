@@ -2,6 +2,7 @@
 pragma solidity ^0.8.6;
 
 import {FunctionsClient, Functions} from "../../../dev/1_0_0/FunctionsClient.sol";
+import {ITermsOfServiceAllowList} from "../../../dev/1_0_0/accessControl/interfaces/ITermsOfServiceAllowList.sol";
 
 contract FunctionsClientTestHelper is FunctionsClient {
   using Functions for Functions.Request;
@@ -45,16 +46,11 @@ contract FunctionsClientTestHelper is FunctionsClient {
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 
-  // function estimateJuelCost(
-  //   string memory sourceCode,
-  //   uint64 subscriptionId,
-  //   uint256 gasCost,
-  //   bytes32 donId
-  // ) public view returns (uint96) {
-  //   Functions.Request memory request;
-  //   request.initializeRequestForInlineJavaScript(sourceCode);
-  //   return estimateCost(request, subscriptionId, 20_000, gasCost);
-  // }
+  function acceptTermsOfService(address acceptor, address recipient, bytes calldata proof) external {
+    bytes32 allowListId = s_router.getAllowListId();
+    ITermsOfServiceAllowList allowList = ITermsOfServiceAllowList(s_router.getContractById(allowListId));
+    allowList.acceptTermsOfService(acceptor, recipient, proof);
+  }
 
   function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
     if (s_revertFulfillRequest) {
