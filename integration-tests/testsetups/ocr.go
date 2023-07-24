@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
@@ -42,6 +43,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
+const saveFileLocation = "/persistence/ocr-soak-test-state.toml"
+
 // OCRSoakTest defines a typical OCR soak test
 type OCRSoakTest struct {
 	Inputs                *OCRSoakTestInputs
@@ -49,6 +52,7 @@ type OCRSoakTest struct {
 	OperatorForwarderFlow bool
 
 	t               *testing.T
+	startTime       time.Time
 	testEnvironment *environment.Environment
 	log             zerolog.Logger
 	bootstrapNode   *client.Chainlink
@@ -104,6 +108,7 @@ func NewOCRSoakTest(t *testing.T, forwarderFlow bool) (*OCRSoakTest, error) {
 			TestDuration: testInputs.TestDuration,
 		},
 		t:              t,
+		startTime:      time.Now(),
 		log:            utils.GetTestLogger(t),
 		ocrRoundStates: make([]*testreporters.OCRRoundState, 0),
 		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
@@ -201,7 +206,7 @@ func (o *OCRSoakTest) Setup() {
 			o.t, contractDeployer, linkTokenContract, o.chainClient, len(o.workerNodes),
 		)
 		forwarderNodesAddresses, err := actions.ChainlinkNodeAddresses(o.workerNodes)
-		require.NoError(o.t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
+		require.NoError(o.t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 		for i := range o.workerNodes {
 			actions.AcceptAuthorizedReceiversOperator(
 				o.t, operators[i], authorizedForwarders[i], []common.Address{forwarderNodesAddresses[i]}, o.chainClient, contractLoader,
@@ -271,27 +276,42 @@ func (o *OCRSoakTest) Run() {
 		Int("Number of OCR Contracts", len(o.ocrInstances)).
 		Msg("Starting OCR Soak Test")
 
-	testDuration := time.After(o.Inputs.TestDuration)
+	o.testLoop(o.Inputs.TestDuration)
 
-	// *********************
-	// ***** Test Loop *****
-	// *********************
+	o.log.Info().Msg("Test Complete, collecting on-chain events to be collected")
+	// Keep trying to collect events until we get them, no exceptions
+	timeout := time.Second * 5
+	err = o.collectEvents(timeout)
+	for err != nil {
+		timeout *= 2
+		err = o.collectEvents(timeout)
+	}
+	o.TestReporter.RecordEvents(o.ocrRoundStates, o.rpcIssues)
+}
+
+// testLoop is the primary test loop that will trigger new rounds and watch events
+func (o *OCRSoakTest) testLoop(testDuration time.Duration) {
+	endTest := time.NewTimer(testDuration)
 	interruption := make(chan os.Signal, 1)
 	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
 	lastValue := 0
 	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP
 	defer newRoundTrigger.Stop()
-	err = o.observeOCREvents()
+	err := o.observeOCREvents()
 	require.NoError(o.t, err, "Error subscribing to OCR events")
 
-testLoop:
 	for {
 		select {
 		case <-interruption:
-			o.log.Info().Msg("Test interrupted, shutting down")
-			os.Exit(1)
-		case <-testDuration:
-			break testLoop
+			o.log.Info().Msg("Test interrupted, saving state")
+			saveStart := time.Now()
+			if err := o.SaveState(); err != nil {
+				o.log.Error().Err(err).Msg("Error saving state")
+				continue
+			}
+			log.Info().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
+		case <-endTest.C:
+			return
 		case <-newRoundTrigger.C:
 			newValue := rand.Intn(256) + 1 // #nosec G404 - not everything needs to be cryptographically secure
 			for newValue == lastValue {
@@ -320,28 +340,6 @@ testLoop:
 			})
 		}
 	}
-
-	o.log.Info().Msg("Test Complete, collecting on-chain events to be collected")
-	// Keep trying to collect events until we get them, no exceptions
-	timeout := time.Second * 5
-	err = o.collectEvents(timeout)
-	for err != nil {
-		timeout *= 2
-		err = o.collectEvents(timeout)
-	}
-	o.TestReporter.RecordEvents(o.ocrRoundStates, o.rpcIssues)
-}
-
-func (o *OCRSoakTest) SaveState() {
-
-}
-
-func (o *OCRSoakTest) LoadState() {
-
-}
-
-func (o *OCRSoakTest) Resume() {
-
 }
 
 // Networks returns the networks that the test is running on
@@ -371,6 +369,113 @@ type OCRSoakTestState struct {
 	WorkerNodeURLs   []string `toml:"workerNodeURLs"`
 	ChainURL         string   `toml:"chainURL"`
 	MockServerURL    string   `toml:"mockServerURL"`
+}
+
+// SaveState saves the current state of the test to a TOML file
+func (o *OCRSoakTest) SaveState() error {
+	ocrAddresses := make([]string, len(o.ocrInstances))
+	for i, ocrInstance := range o.ocrInstances {
+		ocrAddresses[i] = ocrInstance.Address()
+	}
+	workerNodeURLs := make([]string, len(o.workerNodes))
+	for i, workerNode := range o.workerNodes {
+		workerNodeURLs[i] = workerNode.URL()
+	}
+
+	testState := &OCRSoakTestState{
+		OCRRoundStates:       o.ocrRoundStates,
+		RPCIssues:            o.rpcIssues,
+		TimeRunning:          time.Since(o.startTime),
+		TestDuration:         o.Inputs.TestDuration,
+		OCRContractAddresses: ocrAddresses,
+		MockServerURL:        "http://mockserver:1080", // TODO: Make this dynamic
+
+		BootStrapNodeURL: o.bootstrapNode.URL(),
+		WorkerNodeURLs:   workerNodeURLs,
+	}
+	saveFile, err := os.Open(saveFileLocation)
+	if err != nil {
+		return err
+	}
+	defer saveFile.Close()
+	b, err := toml.Marshal(testState)
+	if err != nil {
+		return err
+	}
+	_, err = saveFile.Write(b)
+	return err
+}
+
+// LoadState loads the test state from a TOML file
+func (o *OCRSoakTest) LoadState() error {
+	testState := &OCRSoakTestState{}
+	if _, err := os.Stat(saveFileLocation); err != nil {
+		return fmt.Errorf("no save file found at '%s'", saveFileLocation)
+	}
+	saveFile, err := os.Open(saveFileLocation)
+	if err != nil {
+		return err
+	}
+	defer saveFile.Close()
+	fileBytes := make([]byte, 0)
+	_, err = saveFile.Read(fileBytes)
+	if err != nil {
+		return err
+	}
+	err = toml.Unmarshal(fileBytes, testState)
+	if err != nil {
+		return err
+	}
+	log.Debug().Msg("Loaded OCR Soak Test State")
+	fmt.Println(testState)
+
+	o.ocrRoundStates = testState.OCRRoundStates
+	o.rpcIssues = testState.RPCIssues
+	o.Inputs.TestDuration = testState.TestDuration - testState.TimeRunning
+
+	network := networks.SelectedNetwork
+	o.chainClient, err = blockchain.ConnectEVMClient(network)
+	if err != nil {
+		return err
+	}
+	contractDeployer, err := contracts.NewContractDeployer(o.chainClient)
+	if err != nil {
+		return err
+	}
+	o.bootstrapNode, err = client.ConnectChainlinkNodeURL(testState.BootStrapNodeURL)
+	if err != nil {
+		return err
+	}
+	o.workerNodes, err = client.ConnectChainlinkNodeURLs(testState.WorkerNodeURLs)
+	if err != nil {
+		return err
+	}
+
+	o.ocrInstances = make([]contracts.OffchainAggregator, len(testState.OCRContractAddresses))
+	for i, addr := range testState.OCRContractAddresses {
+		address := common.HexToAddress(addr)
+		instance, err := contractDeployer.LoadOffChainAggregator(&address)
+		if err != nil {
+			return err
+		}
+		o.ocrInstances[i] = instance
+	}
+	o.mockServer, err = ctfClient.ConnectMockServerURL(testState.MockServerURL)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
+func (o *OCRSoakTest) Resume() {
+	o.testLoop(o.Inputs.TestDuration)
+}
+
+// Interrupted indicates whether the test was interrupted by something like a K8s rebalance or not
+func (o *OCRSoakTest) Interrupted() bool {
+	_, err := os.Stat(saveFileLocation)
+	return err == nil
 }
 
 // *********************

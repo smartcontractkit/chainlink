@@ -22,7 +22,9 @@ func TestOCRSoak(t *testing.T) {
 
 	ocrSoakTest, err := testsetups.NewOCRSoakTest(t, false)
 	require.NoError(t, err, "Error creating soak test")
-	ocrSoakTest.DeployEnvironment(customNetworkTOML)
+	if !ocrSoakTest.Interrupted() {
+		ocrSoakTest.DeployEnvironment(customNetworkTOML)
+	}
 	if ocrSoakTest.Environment().WillUseRemoteRunner() {
 		return
 	}
@@ -31,6 +33,12 @@ func TestOCRSoak(t *testing.T) {
 			l.Error().Err(err).Msg("Error tearing down environment")
 		}
 	})
-	ocrSoakTest.Setup()
-	ocrSoakTest.Run()
+	if ocrSoakTest.Interrupted() {
+		err = ocrSoakTest.LoadState()
+		require.NoError(t, err, "Error loading state")
+		ocrSoakTest.Resume()
+	} else {
+		ocrSoakTest.Setup()
+		ocrSoakTest.Run()
+	}
 }

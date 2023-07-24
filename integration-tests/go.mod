@@ -14,6 +14,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/manifoldco/promptui v0.9.0
 	github.com/onsi/gomega v1.27.8
+	github.com/pelletier/go-toml/v2 v2.0.9
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.29.1
 	github.com/slack-go/slack v0.12.2
@@ -31,7 +32,7 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230720202255-38ae065c18d1
+replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230724134842-1ccc4cf8b9ee
 
 replace github.com/smartcontractkit/chainlink-env => github.com/smartcontractkit/chainlink-env v0.34.3-0.20230721132322-a1100290f340
 
@@ -268,7 +269,6 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
