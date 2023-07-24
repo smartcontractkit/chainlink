@@ -13,6 +13,10 @@ import {SafeCast} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/con
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677ReceiverInterface {
+  // Reentrancy guard
+  bool internal s_reentrancyLock;
+  error Reentrant();
+
   // ================================================================
   // |                      Subscription state                      |
   // ================================================================
@@ -26,6 +30,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // A discrepancy with this contract's LINK balance indicates that someone
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 private s_totalBalance;
+
+  // link token address
+  LinkTokenInterface private s_linkToken;
 
   mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) internal s_subscriptions;
 
@@ -82,19 +89,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   }
 
   // ================================================================
-  // |                       Other state                          |
-  // ================================================================
-  // Reentrancy protection.
-  bool internal s_reentrancyLock;
-  error Reentrant();
-
-  LinkTokenInterface private LINK;
-
-  // ================================================================
   // |                       Initialization                         |
   // ================================================================
   constructor(address link) {
-    LINK = LinkTokenInterface(link);
+    s_linkToken = LinkTokenInterface(link);
   }
 
   // ================================================================
@@ -247,14 +245,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function recoverFunds(address to) external override {
     _onlyRouterOwner();
-    uint256 externalBalance = LINK.balanceOf(address(this));
+    uint256 externalBalance = s_linkToken.balanceOf(address(this));
     uint256 internalBalance = uint256(s_totalBalance);
     if (internalBalance > externalBalance) {
       revert BalanceInvariantViolated(internalBalance, externalBalance);
     }
     if (internalBalance < externalBalance) {
       uint256 amount = externalBalance - internalBalance;
-      LINK.transfer(to, amount);
+      s_linkToken.transfer(to, amount);
       emit FundsRecovered(to, amount);
     }
     // If the balances are equal, nothing to be done.
@@ -277,8 +275,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     }
     s_withdrawableTokens[address(this)] -= amount;
     s_totalBalance -= amount;
-    if (!LINK.transfer(recipient, amount)) {
-      uint256 externalBalance = LINK.balanceOf(address(this));
+    if (!s_linkToken.transfer(recipient, amount)) {
+      uint256 externalBalance = s_linkToken.balanceOf(address(this));
       uint256 internalBalance = uint256(s_totalBalance);
       revert BalanceInvariantViolated(internalBalance, externalBalance);
     }
@@ -300,7 +298,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     }
     s_withdrawableTokens[msg.sender] -= amount;
     s_totalBalance -= amount;
-    if (!LINK.transfer(recipient, amount)) {
+    if (!s_linkToken.transfer(recipient, amount)) {
       revert InsufficientBalance();
     }
   }
@@ -310,7 +308,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // ================================================================
   function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override {
     _nonReentrant();
-    if (msg.sender != address(LINK)) {
+    if (msg.sender != address(s_linkToken)) {
       revert OnlyCallableFromLink();
     }
     if (data.length != 32) {
@@ -460,7 +458,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     }
     delete s_subscriptions[subscriptionId];
     s_totalBalance -= balance;
-    if (!LINK.transfer(to, uint256(balance))) {
+    if (!s_linkToken.transfer(to, uint256(balance))) {
       revert InsufficientBalance();
     }
     emit SubscriptionCanceled(subscriptionId, to, balance);

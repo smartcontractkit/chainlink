@@ -14,7 +14,7 @@ const setup = getSetupFactory()
 let contracts: FunctionsContracts
 let roles: FunctionsRoles
 
-const baselineGasUsed = 876622 // TODO: Update baseline
+const baselineGasUsed = 874672 // TODO: Update baseline
 let currentGasUsed = 0
 
 beforeEach(async () => {
