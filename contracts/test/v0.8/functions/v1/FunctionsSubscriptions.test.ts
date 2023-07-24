@@ -7,6 +7,7 @@ import {
   FunctionsContracts,
   FunctionsRoles,
   createSubscription,
+  acceptTermsOfService,
 } from './utils'
 
 const setup = getSetupFactory()
@@ -23,6 +24,11 @@ describe('Functions Router - Subscriptions', () => {
   describe('Subscription management', () => {
     describe('#createSubscription', async function () {
       it('can create a subscription', async function () {
+        await acceptTermsOfService(
+          contracts.accessControl,
+          roles.subOwner,
+          roles.subOwnerAddress,
+        )
         await expect(
           contracts.router.connect(roles.subOwner).createSubscription(),
         )
@@ -33,6 +39,11 @@ describe('Functions Router - Subscriptions', () => {
         expect(s.owner).to.equal(roles.subOwnerAddress)
       })
       it('subscription id increments', async function () {
+        await acceptTermsOfService(
+          contracts.accessControl,
+          roles.subOwner,
+          roles.subOwnerAddress,
+        )
         await expect(
           contracts.router.connect(roles.subOwner).createSubscription(),
         )
@@ -45,7 +56,12 @@ describe('Functions Router - Subscriptions', () => {
           .withArgs(2, roles.subOwnerAddress)
       })
       it('cannot create more than the max', async function () {
-        const subId = createSubscription(roles.subOwner, [], contracts.router)
+        const subId = createSubscription(
+          roles.subOwner,
+          [],
+          contracts.router,
+          contracts.accessControl,
+        )
         for (let i = 0; i < 100; i++) {
           await contracts.router
             .connect(roles.subOwner)
@@ -66,6 +82,7 @@ describe('Functions Router - Subscriptions', () => {
           roles.subOwner,
           [roles.consumerAddress],
           contracts.router,
+          contracts.accessControl,
         )
       })
       it('rejects non-owner', async function () {
@@ -99,6 +116,7 @@ describe('Functions Router - Subscriptions', () => {
           roles.subOwner,
           [roles.consumerAddress],
           contracts.router,
+          contracts.accessControl,
         )
       })
       it('subscription must exist', async function () {
@@ -122,6 +140,11 @@ describe('Functions Router - Subscriptions', () => {
         ).to.be.revertedWith(`MustBeRequestedOwner("${roles.strangerAddress}")`)
       })
       it('requested owner can accept', async function () {
+        await acceptTermsOfService(
+          contracts.accessControl,
+          roles.stranger,
+          roles.strangerAddress,
+        )
         await expect(
           contracts.router
             .connect(roles.subOwner)
@@ -146,6 +169,7 @@ describe('Functions Router - Subscriptions', () => {
           roles.subOwner,
           [roles.consumerAddress],
           contracts.router,
+          contracts.accessControl,
         )
       })
       it('subscription must exist', async function () {
@@ -195,6 +219,7 @@ describe('Functions Router - Subscriptions', () => {
           roles.subOwner,
           consumers,
           contracts.router,
+          contracts.accessControl,
         )
         await expect(
           contracts.router
@@ -220,6 +245,7 @@ describe('Functions Router - Subscriptions', () => {
           roles.subOwner,
           [roles.consumerAddress],
           contracts.router,
+          contracts.accessControl,
         )
       })
       it('subscription must exist', async function () {
@@ -276,6 +302,7 @@ describe('Functions Router - Subscriptions', () => {
           roles.subOwner,
           [roles.consumerAddress],
           contracts.router,
+          contracts.accessControl,
         )
 
         await contracts.linkToken
@@ -319,6 +346,7 @@ describe('Functions Router - Subscriptions', () => {
           roles.subOwner,
           [roles.consumerAddress],
           contracts.router,
+          contracts.accessControl,
         )
       })
       it('subscription must exist', async function () {
@@ -376,6 +404,7 @@ describe('Functions Router - Subscriptions', () => {
           roles.subOwner,
           [roles.consumerAddress],
           contracts.router,
+          contracts.accessControl,
         )
         // The cancel should have removed this consumer, so we can add it again.
         await expect(
@@ -431,6 +460,7 @@ describe('Functions Router - Subscriptions', () => {
           roles.subOwner,
           [roles.consumerAddress],
           contracts.router,
+          contracts.accessControl,
         )
       })
 
