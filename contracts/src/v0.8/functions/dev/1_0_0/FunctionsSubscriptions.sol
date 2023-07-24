@@ -19,7 +19,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
 
   // We make the sub count public so that its possible to
   // get all the current subscriptions via getSubscription.
-  uint64 private s_currentsubscriptionId;
+  uint64 private s_currentSubscriptionId;
 
   // s_totalBalance tracks the total LINK sent to/from
   // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
@@ -118,7 +118,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @inheritdoc IFunctionsSubscriptions
    */
   function getSubscriptionCount() external view override returns (uint64) {
-    return s_currentsubscriptionId;
+    return s_currentSubscriptionId;
   }
 
   /**
@@ -338,8 +338,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     _nonReentrant();
     _onlySenderThatAcceptedToS();
 
-    s_currentsubscriptionId++;
-    subscriptionId = s_currentsubscriptionId;
+    subscriptionId = s_currentSubscriptionId++;
     s_subscriptions[subscriptionId] = Subscription({
       balance: 0,
       blockedBalance: 0,

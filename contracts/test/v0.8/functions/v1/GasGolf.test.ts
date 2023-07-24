@@ -1,12 +1,12 @@
 import { ethers } from 'hardhat'
 import { BigNumber } from 'ethers'
 import {
-  getSetupFactory,
+  accessControlMockPrivateKey,
   FunctionsContracts,
   FunctionsRoles,
-  ids,
   getEventArg,
-  accessControlMockPrivateKey,
+  getSetupFactory,
+  ids,
 } from './utils'
 import { stringToBytes } from '../../../test-helpers/helpers'
 
@@ -14,7 +14,7 @@ const setup = getSetupFactory()
 let contracts: FunctionsContracts
 let roles: FunctionsRoles
 
-const baselineGasUsed = 944_073
+const baselineGasUsed = 928877 // TODO: Update baseline
 let currentGasUsed = 0
 
 beforeEach(async () => {
