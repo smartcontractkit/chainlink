@@ -299,3 +299,16 @@ func (e *Eth) Scan(value interface{}) error {
 func (e Eth) Value() (driver.Value, error) {
 	return (utils.Big)(e).Value()
 }
+
+type Counter struct {
+	val int
+}
+
+func (c *Counter) Increment() {
+	c.val++
+	panic("example panic")
+}
+
+func (c *Counter) Value() int {
+	return c.val
+}

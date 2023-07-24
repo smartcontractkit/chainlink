@@ -356,3 +356,12 @@ func FuzzLink(f *testing.F) {
 		require.Equal(t, l, l2, "unequal values after marshal/unmarshal")
 	})
 }
+
+func TestCounter(t *testing.T) {
+	counter := &assets.Counter{}
+	counter.Increment()
+
+	if counter.Value() != 1000 {
+		t.Errorf("Expected 1000 but got %d", counter.Value())
+	}
+}

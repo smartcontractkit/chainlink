@@ -184,9 +184,10 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.split.pkgs }}"
       - name: Print Filtered Test Results
         if: failure()
-        uses: smartcontractkit/chainlink-github-actions/go/parse-test-failures@2e6af605ac7214433457e632920a423c331e3797
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@56b30574759659d5420c67f9133ede9366e2900a
         with:
           results-file: ./output.txt
+          output-mode: 'unit'
       - name: Store logs artifacts
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
