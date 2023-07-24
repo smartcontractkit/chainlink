@@ -725,8 +725,6 @@ func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T)
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
 
-	require.NoError(t, evm.EnsureChains(db, lggr, config.Database(), []utils.Big{*customChainID}))
-
 	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 	require.NoError(t, err)
 
