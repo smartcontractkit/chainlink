@@ -29,11 +29,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_client_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_oracle"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_client_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -374,6 +374,11 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 			maxCiphertextBytes = 10_000
 			maxCiphertextIdLength = 100
 			maxQueueLength = 100
+			decryptRequestTimeoutSec = 100
+
+			[pluginConfig.s4Constraints]
+			maxPayloadSizeBytes = 10_1000
+			maxSlotsPerUser = 10
 	`, contractAddress, keyBundleID, transmitter))
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)

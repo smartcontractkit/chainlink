@@ -17,10 +17,12 @@ contract AutomationForwarderSetUp is BaseTest {
   uint256 constant GAS = 1e18;
 
   function setUp() public override {
+    // BaseTest.setUp() not called since we want calls to iniatiate from default_registry, not from some predefined owner
     default_registry = IAutomationRegistryConsumer(new MockKeeperRegistry2_1());
     default_target = new UpkeepCounter(10000, 1);
     vm.startPrank(address(default_registry));
     forwarder = new AutomationForwarder(1, address(default_target), address(default_registry));
+    // OWNER not necessary?
     OWNER = address(default_registry);
   }
 
@@ -34,8 +36,9 @@ contract AutomationForwarder_forward is AutomationForwarderSetUp {
   function testBasicSuccess() public {
     uint256 prevCount = default_target.counter();
     bytes memory selector = getSelector("performUpkeep(bytes)", "performDataHere");
-    bool val = forwarder.forward(GAS, selector);
+    (bool val, uint256 gasUsed) = forwarder.forward(GAS, selector);
     assertEq(val, true);
+    assertGt(gasUsed, 0);
     uint256 newCount = default_target.counter();
     assertEq(newCount, prevCount + 1);
   }
@@ -43,8 +46,9 @@ contract AutomationForwarder_forward is AutomationForwarderSetUp {
   function testWrongFunctionSelectorSuccess() public {
     uint256 prevCount = default_target.counter();
     bytes memory selector = getSelector("performUpkeep(bytes calldata data)", "");
-    bool val = forwarder.forward(GAS, selector);
+    (bool val, uint256 gasUsed) = forwarder.forward(GAS, selector);
     assertFalse(val);
+    assertGt(gasUsed, 0);
     uint256 newCount = default_target.counter();
     assertEq(newCount, prevCount);
   }
@@ -54,8 +58,9 @@ contract AutomationForwarder_forward is AutomationForwarderSetUp {
     bytes memory selector = getSelector("performUpkeep(bytes)", "");
     changePrank(STRANGER);
     vm.expectRevert(AutomationForwarder.NotAuthorized.selector);
-    bool val = forwarder.forward(GAS, selector);
+    (bool val, uint256 gasUsed) = forwarder.forward(GAS, selector);
     assertFalse(val);
+    assertEq(gasUsed, 0);
     uint256 newCount = default_target.counter();
     assertEq(newCount, prevCount);
   }

@@ -2,6 +2,7 @@ package functions
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"sort"
 
@@ -35,28 +36,46 @@ func Aggregate(aggMethod config.AggregationMethod, observations []*encoding.Proc
 			successful = append(successful, obs)
 		}
 	}
+	resultIsError := len(errored) > len(successful)
+	var toAggregate []*encoding.ProcessedRequest
 	var rawData [][]byte
-	if len(errored) > len(successful) {
+	if resultIsError {
+		toAggregate = errored
 		for _, item := range errored {
 			rawData = append(rawData, item.Error)
 		}
+	} else {
+		toAggregate = successful
+		for _, item := range successful {
+			rawData = append(rawData, item.Result)
+		}
+	}
+	// Metadata (currently only callbackGas) is aggregated using MODE method
+	finalResult.CallbackGasLimit = aggregateMetadata(toAggregate)
+	if resultIsError {
 		// Errors are always aggregated using MODE method
 		finalResult.Error = aggregateMode(rawData)
-		return &finalResult, nil
+	} else {
+		switch aggMethod {
+		case config.AggregationMethod_AGGREGATION_MODE:
+			finalResult.Result = aggregateMode(rawData)
+		case config.AggregationMethod_AGGREGATION_MEDIAN:
+			finalResult.Result = aggregateMedian(rawData)
+		default:
+			return nil, fmt.Errorf("unsupported aggregation method: %s", aggMethod)
+		}
 	}
-	for _, item := range successful {
-		rawData = append(rawData, item.Result)
+	return &finalResult, nil
+}
+
+func aggregateMetadata(items []*encoding.ProcessedRequest) (callbackGasLimit uint32) {
+	gasLimitBytes := make([][]byte, len(items))
+	for i, item := range items {
+		gasLimitBytes[i] = make([]byte, 4)
+		binary.BigEndian.PutUint32(gasLimitBytes[i], item.CallbackGasLimit)
 	}
-	switch aggMethod {
-	case config.AggregationMethod_AGGREGATION_MODE:
-		finalResult.Result = aggregateMode(rawData)
-		return &finalResult, nil
-	case config.AggregationMethod_AGGREGATION_MEDIAN:
-		finalResult.Result = aggregateMedian(rawData)
-		return &finalResult, nil
-	default:
-		return nil, fmt.Errorf("unsupported aggregation method: %s", aggMethod)
-	}
+	aggregated := aggregateMode(gasLimitBytes)
+	return binary.BigEndian.Uint32(aggregated)
 }
 
 func aggregateMode(items [][]byte) []byte {
