@@ -24,6 +24,7 @@ var (
 	payload2 = ocr2keepers.NewUpkeepPayload(upkeepId1, ConditionalType, BlockKey2, trigger1, []byte{})
 	payload3 = ocr2keepers.NewUpkeepPayload(upkeepId2, LogTriggerType, BlockKey2, trigger1, []byte{})
 	payload4 = ocr2keepers.NewUpkeepPayload(upkeepId1, LogTriggerType, BlockKey1, trigger2, []byte{})
+	payload5 = ocr2keepers.NewUpkeepPayload(upkeepId1, LogTriggerType, BlockKey3, trigger1, []byte{})
 )
 
 const (
@@ -31,27 +32,27 @@ const (
 	LogTriggerType  = 1
 	Block1          = 111
 	Block2          = 112
+	Block3          = 113
 	BlockKey1       = "111|0x123123132132"
 	BlockKey2       = "112|0x565456465465"
+	BlockKey3       = "113|0x111423246546"
 	InvalidBlockKey = "2220x565456465465"
 )
 
-func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
+func TestUpkeepStateStore_SetSimpleUpkeepStates(t *testing.T) {
 	s := Performed
 
 	tests := []struct {
-		name               string
-		payloads           []ocr2keepers.UpkeepPayload
-		states             []UpkeepState
-		expectedError      error
-		ids                []string
-		idResult           []upkeepState
-		upkeepIds          []*big.Int
-		upkeepIdsResult    [][]upkeepState
-		upkeepIdsResultArr []upkeepState
-		blocks             []int64
-		blocksResult       [][]upkeepState
-		blockRangeResult   []upkeepState
+		name             string
+		payloads         []ocr2keepers.UpkeepPayload
+		states           []UpkeepState
+		expectedError    error
+		ids              []string
+		idResult         []upkeepState
+		upkeepIds        []*big.Int
+		upkeepIdsResult  []upkeepState
+		blocks           []int64
+		blockRangeResult []upkeepState
 	}{
 		{
 			name: "set a single upkeep state",
@@ -65,29 +66,13 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 				state:   &s,
 			}},
 			upkeepIds: []*big.Int{upkeepId1},
-			upkeepIdsResult: [][]upkeepState{
-				{
-					{
-						payload: &payload1,
-						state:   &s,
-					},
-				},
-			},
-			upkeepIdsResultArr: []upkeepState{
+			upkeepIdsResult: []upkeepState{
 				{
 					payload: &payload1,
 					state:   &s,
 				},
 			},
 			blocks: []int64{Block1},
-			blocksResult: [][]upkeepState{
-				{
-					{
-						payload: &payload1,
-						state:   &s,
-					},
-				},
-			},
 			blockRangeResult: []upkeepState{
 				{
 					payload: &payload1,
@@ -119,68 +104,32 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 				},
 			},
 			upkeepIds: []*big.Int{upkeepId1, upkeepId2},
-			upkeepIdsResult: [][]upkeepState{
-				{
-					{
-						payload: &payload2,
-						state:   &s,
-					},
-					{
-						payload: &payload4,
-						state:   &s,
-					},
-				},
-				{
-					{
-						payload: &payload3,
-						state:   &s,
-					},
-				},
-			},
-			upkeepIdsResultArr: []upkeepState{
+			upkeepIdsResult: []upkeepState{
 				{
 					payload: &payload2,
 					state:   &s,
 				},
 				{
-					payload: &payload4,
+					payload: &payload3,
 					state:   &s,
 				},
 				{
-					payload: &payload3,
+					payload: &payload4,
 					state:   &s,
 				},
 			},
 			blocks: []int64{Block1, Block2},
-			blocksResult: [][]upkeepState{
-				{
-					{
-						payload: &payload4,
-						state:   &s,
-					},
-				},
-				{
-					{
-						payload: &payload2,
-						state:   &s,
-					},
-					{
-						payload: &payload3,
-						state:   &s,
-					},
-				},
-			},
 			blockRangeResult: []upkeepState{
-				{
-					payload: &payload4,
-					state:   &s,
-				},
 				{
 					payload: &payload2,
 					state:   &s,
 				},
 				{
 					payload: &payload3,
+					state:   &s,
+				},
+				{
+					payload: &payload4,
 					state:   &s,
 				},
 			},
@@ -213,39 +162,17 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 			}
 
 			if len(tc.upkeepIds) > 0 {
-				for i, uid := range tc.upkeepIds {
-					pl, us, err := store.SelectByUpkeepID(uid)
-					require.Nil(t, err)
-					require.Equal(t, len(tc.upkeepIdsResult[i]), len(pl))
-					require.Equal(t, len(tc.upkeepIdsResult[i]), len(us))
-					for j, r := range tc.upkeepIdsResult[i] {
-						require.Equal(t, r.payload, pl[j])
-						require.Equal(t, r.state, us[j])
-					}
-				}
-
 				pl, us, err := store.SelectByUpkeepIDs(tc.upkeepIds)
 				require.Nil(t, err)
-				require.Equal(t, len(tc.upkeepIdsResultArr), len(pl))
-				require.Equal(t, len(tc.upkeepIdsResultArr), len(us))
-				for j, r := range tc.upkeepIdsResultArr {
+				require.Equal(t, len(tc.upkeepIdsResult), len(pl))
+				require.Equal(t, len(tc.upkeepIdsResult), len(us))
+				for j, r := range tc.upkeepIdsResult {
 					require.Equal(t, r.payload, pl[j])
 					require.Equal(t, r.state, us[j])
 				}
 			}
 
 			if len(tc.blocks) > 0 {
-				for i, b := range tc.blocks {
-					pl, us, err := store.SelectByBlock(b)
-					require.Nil(t, err)
-					require.Equal(t, len(tc.blocksResult[i]), len(pl))
-					require.Equal(t, len(tc.blocksResult[i]), len(us))
-					for j, r := range tc.blocksResult[i] {
-						require.Equal(t, r.payload, pl[j])
-						require.Equal(t, r.state, us[j])
-					}
-				}
-
 				pl, us, err := store.SelectByBlockRange(tc.blocks[0], tc.blocks[len(tc.blocks)-1]+1)
 				require.Nil(t, err)
 				require.Equal(t, len(tc.blockRangeResult), len(pl))
@@ -255,6 +182,96 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 					require.Equal(t, r.state, us[j])
 				}
 			}
+		})
+	}
+}
+
+func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
+	s := Performed
+
+	tests := []struct {
+		name          string
+		payloads      []ocr2keepers.UpkeepPayload
+		states        []UpkeepState
+		expectedError error
+		oldIds        []string
+		oldIdResult   []upkeepState
+		newIds        []string
+		newIdResult   []upkeepState
+		upkeepIds     []*big.Int
+		endBlock      int64
+		startBlock    int64
+		result        []upkeepState
+	}{
+		{
+			name: "overrides existing upkeep states",
+			payloads: []ocr2keepers.UpkeepPayload{
+				payload2,
+				payload3,
+				payload4,
+				payload5, // this overrides payload 2 bc they have the same payload ID
+			},
+			states: []UpkeepState{Performed, Performed, Performed, Performed},
+			oldIds: []string{payload2.ID, payload3.ID, payload4.ID},
+			oldIdResult: []upkeepState{
+				{
+					payload: &payload3,
+					state:   &s,
+				},
+				{
+					payload: &payload4,
+					state:   &s,
+				},
+			},
+			newIds: []string{payload3.ID, payload4.ID, payload5.ID},
+			newIdResult: []upkeepState{
+				{
+					payload: &payload3,
+					state:   &s,
+				},
+				{
+					payload: &payload4,
+					state:   &s,
+				},
+				{
+					payload: &payload5,
+					state:   &s,
+				},
+			},
+
+			upkeepIds:  []*big.Int{upkeepId1},
+			endBlock:   Block3 + 1,
+			startBlock: Block1,
+			result: []upkeepState{
+				{
+					payload: &payload5,
+					state:   &s,
+				},
+				{
+					payload: &payload4,
+					state:   &s,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			store := NewUpkeepStateStore()
+			for i, p := range tc.payloads {
+				err := store.SetUpkeepState(p, tc.states[i])
+				require.Equal(t, err, tc.expectedError)
+			}
+
+			pl, us, err := store.SelectByUpkeepIDsAndBlockRange(tc.upkeepIds, tc.startBlock, tc.endBlock)
+			require.Nil(t, err)
+			require.Equal(t, len(tc.result), len(pl))
+			require.Equal(t, len(tc.result), len(us))
+			for j, r := range tc.result {
+				require.Equal(t, r.payload, pl[j])
+				require.Equal(t, r.state, us[j])
+			}
+
 		})
 	}
 }
