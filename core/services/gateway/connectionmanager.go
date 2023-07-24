@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -27,6 +28,7 @@ type ConnectionManager interface {
 	network.ConnectionAcceptor
 
 	DONConnectionManager(donId string) *donConnectionManager
+	GetPort() int
 }
 
 type connectionManager struct {
@@ -78,11 +80,12 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock utils.Clock, lgg
 		}
 		nodes := make(map[string]*nodeState)
 		for _, nodeConfig := range donConfig.Members {
-			_, ok := nodes[nodeConfig.Address]
+			nodeAddress := strings.ToLower(nodeConfig.Address)
+			_, ok := nodes[nodeAddress]
 			if ok {
-				return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeConfig.Address, donConfig.DonId)
+				return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeAddress, donConfig.DonId)
 			}
-			nodes[nodeConfig.Address] = &nodeState{conn: network.NewWSConnectionWrapper()}
+			nodes[nodeAddress] = &nodeState{conn: network.NewWSConnectionWrapper()}
 		}
 		dons[donConfig.DonId] = &donConnectionManager{
 			donConfig:  &donConfig,
@@ -145,7 +148,7 @@ func (m *connectionManager) StartHandshake(authHeader []byte) (attemptId string,
 	m.lggr.Debug("StartHandshake")
 	authHeaderElems, signer, err := network.UnpackSignedAuthHeader(authHeader)
 	if err != nil {
-		return "", nil, network.ErrAuthHeaderParse
+		return "", nil, multierr.Append(network.ErrAuthHeaderParse, err)
 	}
 	nodeAddress := "0x" + hex.EncodeToString(signer)
 	donConnMgr, ok := m.dons[authHeaderElems.DonId]
@@ -209,6 +212,10 @@ func (m *connectionManager) AbortHandshake(attemptId string) {
 	m.connAttemptsMu.Lock()
 	defer m.connAttemptsMu.Unlock()
 	delete(m.connAttempts, attemptId)
+}
+
+func (m *connectionManager) GetPort() int {
+	return m.wsServer.GetPort()
 }
 
 func (m *donConnectionManager) SetHandler(handler handlers.Handler) {

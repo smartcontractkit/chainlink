@@ -44,7 +44,7 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
   /**
    * @inheritdoc IConfigurable
    */
-  function setConfig(bytes memory config) external onlyRouter {
+  function setConfig(bytes memory config) external override onlyRouter {
     _setConfig(config);
     s_config_hash = keccak256(config);
   }
@@ -62,7 +62,7 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
   /**
    * @notice Reverts if called by anyone other than the router owner.
    */
-  modifier onlyRouterOwner() virtual {
+  modifier onlyRouterOwner() {
     if (msg.sender != IOwnable(address(s_router)).owner()) {
       revert OnlyCallableByRouterOwner();
     }

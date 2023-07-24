@@ -28,15 +28,7 @@ describe('FunctionsRouter - Base', () => {
       await expect(
         contracts.router
           .connect(roles.stranger)
-          .proposeContractsUpdate(
-            [ids.donId],
-            [
-              ethers.constants.AddressZero,
-              ethers.constants.AddressZero,
-              ethers.constants.AddressZero,
-            ],
-            [contracts.coordinator.address],
-          ),
+          .proposeContractsUpdate([ids.donId], [contracts.coordinator.address]),
       ).to.be.revertedWith('Only callable by owner')
     })
 
@@ -159,6 +151,7 @@ describe('FunctionsRouter - Base', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
       const coordinator2 = await factories.functionsCoordinatorFactory
@@ -236,11 +229,6 @@ describe('FunctionsRouter - Base', () => {
       await expect(
         contracts.router.proposeContractsUpdate(
           [ids.donId2, ids.donId3, ids.donId4],
-          [
-            ethers.constants.AddressZero,
-            ethers.constants.AddressZero,
-            ethers.constants.AddressZero,
-          ],
           [coordinator2.address, coordinator3.address, coordinator4.address],
         ),
       ).to.emit(contracts.router, `ContractProposed`)
@@ -294,11 +282,7 @@ describe('FunctionsRouter - Base', () => {
       await expect(
         contracts.router
           .connect(roles.stranger)
-          .proposeContractsUpdate(
-            [ids.donId],
-            [ethers.constants.AddressZero],
-            [contracts.coordinator.address],
-          ),
+          .proposeContractsUpdate([ids.donId], [contracts.coordinator.address]),
       ).to.be.revertedWith('Only callable by owner')
     })
 
@@ -361,7 +345,6 @@ describe('FunctionsRouter - Base', () => {
 
       await contracts.router.proposeContractsUpdate(
         [ids.donId2],
-        [ethers.constants.AddressZero],
         [coordinator2.address],
       )
 
@@ -381,6 +364,7 @@ describe('FunctionsRouter - Base', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
 

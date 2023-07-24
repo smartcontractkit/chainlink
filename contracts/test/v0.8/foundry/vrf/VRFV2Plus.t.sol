@@ -156,8 +156,7 @@ contract VRFV2Plus is BaseTest {
     uint32 requestBlock = 10;
     vm.roll(requestBlock);
     s_testConsumer.createSubscriptionAndFund(0);
-    s_testConsumer.setSubOwner(LINK_WHALE);
-    uint64 subId = s_testConsumer.s_subId();
+    uint64 subId = 1;
     s_testCoordinator.fundSubscriptionWithEth{value: 10 ether}(subId);
 
     // Apply basic configs to contract.
@@ -265,8 +264,7 @@ contract VRFV2Plus is BaseTest {
     vm.roll(requestBlock);
     s_linkToken.transfer(address(s_testConsumer), 10 ether);
     s_testConsumer.createSubscriptionAndFund(10 ether);
-    s_testConsumer.setSubOwner(LINK_WHALE);
-    uint64 subId = s_testConsumer.s_subId();
+    uint64 subId = 1;
 
     // Apply basic configs to contract.
     setConfig(basicFeeConfig);
