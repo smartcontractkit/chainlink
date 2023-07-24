@@ -71,6 +71,7 @@ func NewHeadProvider(c evm.Chain, blockHistorySize int64, lggr logger.Logger) *H
 }
 
 func (hw *HeadProvider) Start(_ context.Context) error {
+	hw.lggr.Info("Head Provider started.")
 	return hw.sync.StartOnce("HeadProvider", func() error {
 		hw.mu.Lock()
 		defer hw.mu.Unlock()
@@ -86,8 +87,10 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 						hw.mu.Lock()
 						if hw.lastClearedBlock == 0 {
 							hw.lastClearedBlock = bk.block - 1
+							hw.lggr.Infof("lastClearedBlock is %d", hw.lastClearedBlock)
 						}
 						hw.blocksFromBroadcaster[bk.block] = bk.hash
+						hw.lggr.Infof("blocksFromBroadcaster block %d has has %s", bk.block, bk.hash.String())
 
 						var keys []BlockKey
 						// populate keys slice in block DES order
@@ -109,11 +112,13 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 						}
 
 						hw.lastSentBlock = bk.block
+						hw.lggr.Infof("lastSentBlock is %d", hw.lastSentBlock)
 						history := getBlockHistory(keys)
 						// send history to all subscribers
 						for _, subC := range hw.subscribers {
 							subC <- history
 						}
+						hw.lggr.Infof("published block history with length %d to %d subscriber(s)", len(history), len(hw.subscribers))
 
 						hw.mu.Unlock()
 					case <-ctx.Done():
@@ -131,6 +136,7 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 					select {
 					case <-ticker.C:
 						h, err := hw.lp.LatestBlock(pg.WithParentCtx(ctx))
+						hw.lggr.Infof("latest block from log poller is %d", h)
 						if err != nil {
 							hw.lggr.Errorf("failed to get latest block", err)
 						}
@@ -167,11 +173,13 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 					select {
 					case <-ticker.C:
 						hw.mu.Lock()
+						hw.lggr.Infof("start clearing blocks from %d to %d", hw.lastClearedBlock+1, hw.lastSentBlock-hw.blockHistorySize)
 						for i := hw.lastClearedBlock + 1; i <= hw.lastSentBlock-hw.blockHistorySize; i++ {
 							delete(hw.blocksFromPoller, i)
 							delete(hw.blocksFromBroadcaster, i)
 						}
 						hw.lastClearedBlock = hw.lastSentBlock - hw.blockHistorySize
+						hw.lggr.Infof("lastClearedBlock is set to %d", hw.lastClearedBlock)
 						hw.mu.Unlock()
 					case <-ctx.Done():
 						ticker.Stop()
