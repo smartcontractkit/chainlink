@@ -28,6 +28,7 @@ type ConnectionManager interface {
 	network.ConnectionAcceptor
 
 	DONConnectionManager(donId string) *donConnectionManager
+	GetPort() int
 }
 
 type connectionManager struct {
@@ -211,6 +212,10 @@ func (m *connectionManager) AbortHandshake(attemptId string) {
 	m.connAttemptsMu.Lock()
 	defer m.connAttemptsMu.Unlock()
 	delete(m.connAttempts, attemptId)
+}
+
+func (m *connectionManager) GetPort() int {
+	return m.wsServer.GetPort()
 }
 
 func (m *donConnectionManager) SetHandler(handler handlers.Handler) {
