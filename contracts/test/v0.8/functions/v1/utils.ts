@@ -17,6 +17,7 @@ export type FunctionsFactories = {
   clientTestHelperFactory: ContractFactory
   linkTokenFactory: ContractFactory
   mockAggregatorV3Factory: ContractFactory
+  accessControlFactory: ContractFactory
 }
 export type FunctionsContracts = {
   router: Contract
@@ -24,6 +25,7 @@ export type FunctionsContracts = {
   client: Contract
   linkToken: Contract
   mockLinkEth: Contract
+  accessControl: Contract
 }
 
 export const ids = {
@@ -82,6 +84,18 @@ export const coordinatorConfig: CoordinatorConfig = {
   fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
   maxSupportedRequestDataVersion: 1,
 }
+export const accessControlMockPublicKey =
+  '0x32237412cC0321f56422d206e505dB4B3871AF5c'
+export const accessControlMockPrivateKey =
+  '2e8c8eaff4159e59711b42424c1555af1b78409e12c6f9c69a6a986d75442b20'
+export type AccessControlConfig = {
+  enabled: boolean
+  proofSignerPublicKey: string // address
+}
+export const accessControlConfig: AccessControlConfig = {
+  enabled: true,
+  proofSignerPublicKey: accessControlMockPublicKey,
+}
 
 export async function setupRolesAndFactories(): Promise<{
   roles: FunctionsRoles
@@ -94,7 +108,11 @@ export async function setupRolesAndFactories(): Promise<{
   )
   const functionsCoordinatorFactory = await ethers.getContractFactory(
     'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsCoordinatorTestHelper.sol:FunctionsCoordinatorTestHelper',
-    roles.consumer,
+    roles.defaultAccount,
+  )
+  const accessControlFactory = await ethers.getContractFactory(
+    'src/v0.8/functions/dev/1_0_0/accessControl/TermsOfServiceAllowList.sol:TermsOfServiceAllowList',
+    roles.defaultAccount,
   )
   const clientTestHelperFactory = await ethers.getContractFactory(
     'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
@@ -102,11 +120,11 @@ export async function setupRolesAndFactories(): Promise<{
   )
   const linkTokenFactory = await ethers.getContractFactory(
     'src/v0.4/LinkToken.sol:LinkToken',
-    roles.consumer,
+    roles.defaultAccount,
   )
   const mockAggregatorV3Factory = await ethers.getContractFactory(
     'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
-    roles.consumer,
+    roles.defaultAccount,
   )
   return {
     roles: {
@@ -124,16 +142,37 @@ export async function setupRolesAndFactories(): Promise<{
       clientTestHelperFactory,
       linkTokenFactory,
       mockAggregatorV3Factory,
+      accessControlFactory,
     },
   }
+}
+
+export async function acceptTermsOfService(
+  accessControl: Contract,
+  acceptor: Signer,
+  recipientAddress: string,
+) {
+  const acceptorAddress = await acceptor.getAddress()
+  const messageHash = await accessControl.getMessageHash(
+    acceptorAddress,
+    recipientAddress,
+  )
+  const wallet = new ethers.Wallet(accessControlMockPrivateKey)
+  const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+  return accessControl
+    .connect(acceptor)
+    .acceptTermsOfService(acceptorAddress, recipientAddress, proof)
 }
 
 export async function createSubscription(
   owner: Signer,
   consumers: string[],
   router: Contract,
+  accessControl: Contract,
   linkToken?: Contract,
 ): Promise<number> {
+  const ownerAddress = await owner.getAddress()
+  await acceptTermsOfService(accessControl, owner, ownerAddress)
   const tx = await router.connect(owner).createSubscription()
   const receipt = await tx.wait()
   const subId = receipt.events[0].args['subscriptionId'].toNumber()
@@ -208,6 +247,13 @@ export function getSetupFactory(): () => {
     const coordinator = await factories.functionsCoordinatorFactory
       .connect(roles.defaultAccount)
       .deploy(router.address, coordinatorConfigBytes, mockLinkEth.address)
+    const accessControlConfigBytes = ethers.utils.defaultAbiCoder.encode(
+      ['bool', 'address'],
+      [...Object.values(accessControlConfig)],
+    )
+    const accessControl = await factories.accessControlFactory
+      .connect(roles.defaultAccount)
+      .deploy(router.address, accessControlConfigBytes)
     const client = await factories.clientTestHelperFactory
       .connect(roles.consumer)
       .deploy(router.address)
@@ -222,10 +268,10 @@ export function getSetupFactory(): () => {
       BigNumber.from('1000000000000000000'), // 1 LINK
     )
 
+    const allowListId = await router.getAllowListId()
     await router.proposeContractsUpdate(
-      [ids.donId],
-      [ethers.constants.AddressZero],
-      [coordinator.address],
+      [ids.donId, allowListId],
+      [coordinator.address, accessControl.address],
     )
     await router.updateContracts()
 
@@ -235,6 +281,7 @@ export function getSetupFactory(): () => {
       router,
       linkToken,
       mockLinkEth,
+      accessControl,
     }
   })
 

@@ -22,7 +22,7 @@ import {
   UpkeepMock,
 } from '../../../typechain'
 import {} from '../../../typechain'
-import { deployRegistry21, encodeConfig21 } from './helpers'
+import { deployRegistry21 } from './helpers'
 
 let transcoder: UpkeepTranscoder
 let linkTokenFactory: LinkTokenFactory
@@ -295,7 +295,7 @@ async function deployRegistry2_1() {
     gasPriceFeed.address,
   )
 
-  const onchainConfig = encodeConfig21({
+  const onchainConfig = {
     paymentPremiumPPB,
     flatFeeMicroLink,
     checkGasLimit,
@@ -311,11 +311,13 @@ async function deployRegistry2_1() {
     transcoder: ethers.constants.AddressZero,
     registrars: [],
     upkeepPrivilegeManager: await owner.getAddress(),
-  })
+  }
 
   await registry
     .connect(owner)
-    .setConfig(
+    [
+      'setConfig(address[],address[],uint8,(uint32,uint32,uint32,uint24,uint16,uint96,uint32,uint32,uint32,uint32,uint256,uint256,address,address[],address),uint64,bytes)'
+    ](
       signerAddresses,
       keeperAddresses,
       f,

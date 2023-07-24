@@ -31,6 +31,11 @@ mkShell {
     golangci-lint
     github-cli
 
+    # deployment
+    devspace
+    kubectl
+    kubernetes-helm
+
     # gofuzz
   ] ++ lib.optionals stdenv.isLinux [
     # some dependencies needed for node-gyp on pnpm install

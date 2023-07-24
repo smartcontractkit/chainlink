@@ -96,7 +96,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
-  mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role
+  mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role for an upkeep
+  mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -381,22 +382,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint8 index;
   }
 
-  struct ConditionalTriggerConfig {
-    uint32 checkCadance; // how often to check in blocks
-  }
-
-  /**
-   * @notice structure of trigger for log triggers
-   */
-  struct LogTriggerConfig {
-    address contractAddress;
-    uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
-    bytes32 topic0;
-    bytes32 topic1;
-    bytes32 topic2;
-    bytes32 topic3;
-  }
-
   /**
    * @notice the trigger structure conditional trigger type
    */
@@ -417,6 +402,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bytes32 blockHash;
   }
 
+  event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);
@@ -581,14 +567,21 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       if (isExecution) {
         txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
       } else {
-        // @dev fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
+        // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
         // s_storage.maxPerformDataSize non zero-bytes. Instead of setting bytes to non-zero
         // we initialize 'new bytes' of length 4*maxPerformDataSize to cover for zero bytes.
         txCallData = new bytes(4 * s_storage.maxPerformDataSize);
       }
       l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
     } else if (i_mode == Mode.ARBITRUM) {
-      l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
+      if (isExecution) {
+        l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
+      } else {
+        // fee is 4 per 0 byte, 16 per non-zero byte - we assume all non-zero and
+        // max data size to calculate max payment
+        (, uint256 perL1CalldataUnit, , , , ) = ARB_NITRO_ORACLE.getPricesInWei();
+        l1CostWei = perL1CalldataUnit * s_storage.maxPerformDataSize * 16;
+      }
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {

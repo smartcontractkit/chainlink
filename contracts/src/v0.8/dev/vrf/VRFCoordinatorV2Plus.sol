@@ -9,8 +9,10 @@ import "../../vrf/VRF.sol";
 import "./VRFConsumerBaseV2Plus.sol";
 import "../../ChainSpecificUtil.sol";
 import "./SubscriptionAPI.sol";
+import "./libraries/VRFV2PlusClient.sol";
+import "../interfaces/IVRFCoordinatorV2PlusMigration.sol";
 
-contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
+contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   /// @dev may not be provided upon construction on some chains due to lack of availability
   AggregatorV3Interface public LINK_ETH_FEED;
   /// @dev should always be available
@@ -34,6 +36,7 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
+  error InvalidExtraArgsTag();
   struct RequestCommitment {
     uint64 blockNum;
     uint64 subId;
@@ -217,56 +220,62 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     return (s_config.minimumRequestConfirmations, s_config.maxGasLimit, s_provingKeyHashes);
   }
 
+  /// @dev Convert the extra args bytes into a struct
+  /// @param extraArgs The extra args bytes
+  /// @return The extra args struct
+  function _fromBytes(bytes calldata extraArgs) internal pure returns (VRFV2PlusClient.ExtraArgsV1 memory) {
+    if (extraArgs.length == 0) {
+      return VRFV2PlusClient.ExtraArgsV1({nativePayment: false});
+    }
+    if (bytes4(extraArgs) != VRFV2PlusClient.EXTRA_ARGS_V1_TAG) revert InvalidExtraArgsTag();
+    return abi.decode(extraArgs[4:], (VRFV2PlusClient.ExtraArgsV1));
+  }
+
   /**
    * @notice Request a set of random words.
-   * @param keyHash - Corresponds to a particular oracle job which uses
+   * @param req - a struct containing following fiels for randomness request:
+   * keyHash - Corresponds to a particular oracle job which uses
    * that key for generating the VRF proof. Different keyHash's have different gas price
    * ceilings, so you can select a specific one to bound your maximum per request cost.
-   * @param subId  - The ID of the VRF subscription. Must be funded
+   * subId  - The ID of the VRF subscription. Must be funded
    * with the minimum subscription balance required for the selected keyHash.
-   * @param requestConfirmations - How many blocks you'd like the
+   * requestConfirmations - How many blocks you'd like the
    * oracle to wait before responding to the request. See SECURITY CONSIDERATIONS
    * for why you may want to request more. The acceptable range is
    * [minimumRequestBlockConfirmations, 200].
-   * @param callbackGasLimit - How much gas you'd like to receive in your
+   * callbackGasLimit - How much gas you'd like to receive in your
    * fulfillRandomWords callback. Note that gasleft() inside fulfillRandomWords
    * may be slightly less than this amount because of gas used calling the function
    * (argument decoding etc.), so you may need to request slightly more than you expect
    * to have inside fulfillRandomWords. The acceptable range is
    * [0, maxGasLimit]
-   * @param numWords - The number of uint256 random values you'd like to receive
+   * numWords - The number of uint256 random values you'd like to receive
    * in your fulfillRandomWords callback. Note these numbers are expanded in a
    * secure way by the VRFCoordinator from a single random value supplied by the oracle.
-   * @param payInEth - Whether payment should be made in ETH or LINK. Payment in LINK
-   * is only available if the LINK token is available to this contract.
+   * extraArgs - Encoded extra arguments that has a boolean flag for whether payment
+   * should be made in ETH or LINK. Payment in LINK is only available if the LINK token is available to this contract.
    * @return requestId - A unique identifier of the request. Can be used to match
    * a request to a response in fulfillRandomWords.
    */
-  function requestRandomWords(
-    bytes32 keyHash,
-    uint64 subId,
-    uint16 requestConfirmations,
-    uint32 callbackGasLimit,
-    uint32 numWords,
-    bool payInEth
-  ) external nonReentrant returns (uint256) {
+  function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external nonReentrant returns (uint256) {
     // Input validation using the subscription storage.
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
+    if (s_subscriptionConfigs[req.subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[msg.sender][subId];
+    uint64 currentNonce = s_consumers[msg.sender][req.subId];
     if (currentNonce == 0) {
-      revert InvalidConsumer(subId, msg.sender);
+      revert InvalidConsumer(req.subId, msg.sender);
     }
     // Input validation using the config storage word.
     if (
-      requestConfirmations < s_config.minimumRequestConfirmations || requestConfirmations > MAX_REQUEST_CONFIRMATIONS
+      req.requestConfirmations < s_config.minimumRequestConfirmations ||
+      req.requestConfirmations > MAX_REQUEST_CONFIRMATIONS
     ) {
       revert InvalidRequestConfirmations(
-        requestConfirmations,
+        req.requestConfirmations,
         s_config.minimumRequestConfirmations,
         MAX_REQUEST_CONFIRMATIONS
       );
@@ -274,33 +283,41 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     // No lower bound on the requested gas limit. A user could request 0
     // and they would simply be billed for the proof verification and wouldn't be
     // able to do anything with the random value.
-    if (callbackGasLimit > s_config.maxGasLimit) {
-      revert GasLimitTooBig(callbackGasLimit, s_config.maxGasLimit);
+    if (req.callbackGasLimit > s_config.maxGasLimit) {
+      revert GasLimitTooBig(req.callbackGasLimit, s_config.maxGasLimit);
     }
-    if (numWords > MAX_NUM_WORDS) {
-      revert NumWordsTooBig(numWords, MAX_NUM_WORDS);
+    if (req.numWords > MAX_NUM_WORDS) {
+      revert NumWordsTooBig(req.numWords, MAX_NUM_WORDS);
     }
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
     uint64 nonce = currentNonce + 1;
-    (uint256 requestId, uint256 preSeed) = computeRequestId(keyHash, msg.sender, subId, nonce);
+    (uint256 requestId, uint256 preSeed) = computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
 
+    bool nativePayment = _fromBytes(req.extraArgs).nativePayment;
     s_requestCommitments[requestId] = keccak256(
-      abi.encode(requestId, ChainSpecificUtil.getBlockNumber(), subId, callbackGasLimit, numWords, msg.sender)
+      abi.encode(
+        requestId,
+        ChainSpecificUtil.getBlockNumber(),
+        req.subId,
+        req.callbackGasLimit,
+        req.numWords,
+        msg.sender
+      )
     );
     emit RandomWordsRequested(
-      keyHash,
+      req.keyHash,
       requestId,
       preSeed,
-      subId,
-      requestConfirmations,
-      callbackGasLimit,
-      numWords,
-      payInEth,
+      req.subId,
+      req.requestConfirmations,
+      req.callbackGasLimit,
+      req.numWords,
+      nativePayment,
       msg.sender
     );
-    s_consumers[msg.sender][subId] = nonce;
+    s_consumers[msg.sender][req.subId] = nonce;
 
     return requestId;
   }
@@ -591,11 +608,97 @@ contract VRFCoordinatorV2Plus is VRF, TypeAndVersionInterface, SubscriptionAPI {
     cancelSubscriptionHelper(subId, to);
   }
 
-  /**
-   * @notice The type and version of this contract
-   * @return Type and version string
-   */
-  function typeAndVersion() external pure virtual override returns (string memory) {
-    return "VRFCoordinatorV2Plus 1.0.0";
+  /***************************************************************************
+   * Section: Migration
+   ***************************************************************************/
+
+  address[] internal s_migrationTargets;
+
+  /// @dev Emitted when new coordinator is registered as migratable target
+  event CoordinatorRegistered(address coordinatorAddress);
+
+  /// @dev Emitted when new coordinator is deregistered
+  event CoordinatorDeregistered(address coordinatorAddress);
+
+  /// @notice emitted when migration to new coordinator completes successfully
+  /// @param newCoordinator coordinator address after migration
+  /// @param prevSubId old subscription ID
+  /// @param newSubId new subscription ID
+  event MigrationCompleted(address newCoordinator, uint64 prevSubId, uint64 newSubId);
+
+  /// @notice emitted when migrate() is called and given coordinator is not registered as migratable target
+  error CoordinatorNotRegistered(address coordinatorAddress);
+
+  /// @notice emitted when migrate() is called and given coordinator is registered as migratable target
+  error CoordinatorAlreadyRegistered(address coordinatorAddress);
+
+  /// @dev encapsulates data to be migrated from current coordinator
+  struct V1MigrationData {
+    uint8 fromVersion;
+    address subOwner;
+    address[] consumers;
+    uint96 linkBalance;
+    uint96 ethBalance;
+  }
+
+  function isTargetRegistered(address target) internal view returns (bool) {
+    for (uint256 i = 0; i < s_migrationTargets.length; i++) {
+      if (s_migrationTargets[i] == target) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function registerMigratableCoordinator(address target) external onlyOwner {
+    if (isTargetRegistered(target)) {
+      revert CoordinatorAlreadyRegistered(target);
+    }
+    s_migrationTargets.push(target);
+    emit CoordinatorRegistered(target);
+  }
+
+  function deregisterMigratableCoordinator(address target) external onlyOwner {
+    uint256 nTargets = s_migrationTargets.length;
+    for (uint256 i = 0; i < nTargets; i++) {
+      if (s_migrationTargets[i] == target) {
+        s_migrationTargets[i] = s_migrationTargets[nTargets - 1];
+        s_migrationTargets[nTargets - 1] = target;
+        s_migrationTargets.pop();
+        emit CoordinatorDeregistered(target);
+        return;
+      }
+    }
+    revert CoordinatorNotRegistered(target);
+  }
+
+  function migrate(uint64 subId, address newCoordinator) external returns (uint64) {
+    if (!isTargetRegistered(newCoordinator)) {
+      revert CoordinatorNotRegistered(newCoordinator);
+    }
+    (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) = getSubscription(subId);
+    require(owner == msg.sender, "Not subscription owner");
+    require(!pendingRequestExists(subId), "Pending request exists");
+
+    V1MigrationData memory migrationData = V1MigrationData({
+      fromVersion: migrationVersion(),
+      subOwner: owner,
+      consumers: consumers,
+      linkBalance: balance,
+      ethBalance: ethBalance
+    });
+    bytes memory encodedData = abi.encode(migrationData);
+    deleteSubscription(subId);
+    uint64 newSubId = IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);
+    require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
+    for (uint256 i = 0; i < consumers.length; i++) {
+      IVRFMigratableConsumerV2Plus(consumers[i]).setConfig(newCoordinator, newSubId);
+    }
+    emit MigrationCompleted(newCoordinator, subId, newSubId);
+    return newSubId;
+  }
+
+  function migrationVersion() public pure returns (uint8 version) {
+    return 1;
   }
 }

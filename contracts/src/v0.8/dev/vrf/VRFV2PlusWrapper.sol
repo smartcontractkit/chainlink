@@ -96,11 +96,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
 
-  constructor(
-    address _link,
-    address _linkEthFeed,
-    address _coordinator
-  ) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(_coordinator) {
+  constructor(address _link, address _linkEthFeed, address _coordinator) VRFConsumerBaseV2Plus(_coordinator) {
     if (_link != address(0)) {
       s_link = LinkTokenInterface(_link);
     }
@@ -343,15 +339,15 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
     require(_amount >= price, "fee too low");
     require(numWords <= s_maxNumWords, "numWords too high");
-
-    uint256 requestId = COORDINATOR.requestRandomWords(
-      s_keyHash,
-      SUBSCRIPTION_ID,
-      requestConfirmations,
-      callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
-      numWords,
-      false
-    );
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: s_keyHash,
+      subId: SUBSCRIPTION_ID,
+      requestConfirmations: requestConfirmations,
+      callbackGasLimit: callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
+      numWords: numWords,
+      extraArgs: "" // empty extraArgs defaults to link payment
+    });
+    uint256 requestId = COORDINATOR.requestRandomWords(req);
     s_callbacks[requestId] = Callback({
       callbackAddress: _sender,
       callbackGasLimit: callbackGasLimit,
@@ -369,15 +365,15 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
     require(msg.value >= price, "fee too low");
     require(_numWords <= s_maxNumWords, "numWords too high");
-
-    requestId = COORDINATOR.requestRandomWords(
-      s_keyHash,
-      SUBSCRIPTION_ID,
-      _requestConfirmations,
-      _callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
-      _numWords,
-      true
-    );
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: s_keyHash,
+      subId: SUBSCRIPTION_ID,
+      requestConfirmations: _requestConfirmations,
+      callbackGasLimit: _callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
+      numWords: _numWords,
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+    });
+    requestId = COORDINATOR.requestRandomWords(req);
     s_callbacks[requestId] = Callback({
       callbackAddress: msg.sender,
       callbackGasLimit: _callbackGasLimit,

@@ -10,16 +10,12 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
-	"github.com/smartcontractkit/sqlx"
-
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -380,11 +376,6 @@ type Configs interface {
 }
 
 var _ chains.Configs[string, soldb.Node] = (Configs)(nil)
-
-func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []string) error {
-	q := pg.NewQ(db, lggr.Named("Ensure"), cfg)
-	return chains.EnsureChains[string](q, "solana", ids)
-}
 
 func NewConfigs(cfgs chains.ConfigsV2[string, soldb.Node]) Configs {
 	return chains.NewConfigs(cfgs)

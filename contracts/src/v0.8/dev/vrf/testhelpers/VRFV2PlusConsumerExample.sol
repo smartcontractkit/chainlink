@@ -4,14 +4,14 @@ pragma solidity ^0.8.0;
 import "../../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../VRFConsumerBaseV2Plus.sol";
+import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../../../ConfirmedOwner.sol";
 
 /// @notice This contract is used for testing only and should not be used for production.
 contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
-  IVRFCoordinatorV2Plus public s_vrfCoordinator;
   LinkTokenInterface public s_linkToken;
-  uint64 public s_subId;
   uint256 public s_recentRequestId;
+  IVRFCoordinatorV2Plus public s_vrfCoordinatorApiV1;
 
   struct Response {
     bool fulfilled;
@@ -21,8 +21,8 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   }
   mapping(uint256 /* request id */ => Response /* response */) public s_requests;
 
-  constructor(address vrfCoordinator, address link) ConfirmedOwner(msg.sender) VRFConsumerBaseV2Plus(vrfCoordinator) {
-    s_vrfCoordinator = IVRFCoordinatorV2Plus(vrfCoordinator);
+  constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {
+    s_vrfCoordinatorApiV1 = IVRFCoordinatorV2Plus(vrfCoordinator);
     s_linkToken = LinkTokenInterface(link);
   }
 
@@ -34,16 +34,11 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
 
   function createSubscriptionAndFund(uint96 amount) external {
     if (s_subId == 0) {
-      s_subId = s_vrfCoordinator.createSubscription();
-      s_vrfCoordinator.addConsumer(s_subId, address(this));
-      _setSubOwner(address(this));
+      s_subId = s_vrfCoordinatorApiV1.createSubscription();
+      s_vrfCoordinatorApiV1.addConsumer(s_subId, address(this));
     }
     // Approve the link transfer.
     s_linkToken.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_subId));
-  }
-
-  function setSubOwner(address subOwner) external {
-    _setSubOwner(subOwner);
   }
 
   function topUpSubscription(uint96 amount) external {
@@ -63,14 +58,15 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
     bytes32 keyHash,
     bool nativePayment
   ) external {
-    uint256 requestId = s_vrfCoordinator.requestRandomWords(
-      keyHash,
-      s_subId,
-      requestConfirmations,
-      callbackGasLimit,
-      numWords,
-      nativePayment
-    );
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: keyHash,
+      subId: s_subId,
+      requestConfirmations: requestConfirmations,
+      callbackGasLimit: callbackGasLimit,
+      numWords: numWords,
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment}))
+    });
+    uint256 requestId = s_vrfCoordinator.requestRandomWords(req);
     Response memory resp = Response({
       requestId: requestId,
       randomWords: new uint256[](0),
@@ -84,7 +80,11 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   function updateSubscription(address[] memory consumers) external {
     require(s_subId != 0, "subID not set");
     for (uint256 i = 0; i < consumers.length; i++) {
-      s_vrfCoordinator.addConsumer(s_subId, consumers[i]);
+      s_vrfCoordinatorApiV1.addConsumer(s_subId, consumers[i]);
     }
+  }
+
+  function getSubId() external view returns (uint64) {
+    return s_subId;
   }
 }

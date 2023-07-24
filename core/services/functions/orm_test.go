@@ -14,6 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 )
 
+var (
+	defaultFlags               = []byte{0x1, 0x2, 0x3}
+	defaultAggregationMethod   = functions.AggregationMethod(65)
+	defaultGasLimit            = uint32(100_000)
+	defaultCoordinatorContract = common.HexToAddress("0x0000000000000000000000000000000000000000")
+	defaultMetadata            = []byte{0xbb}
+)
+
 func setupORM(t *testing.T) functions.ORM {
 	t.Helper()
 
@@ -40,7 +48,17 @@ func createRequest(t *testing.T, orm functions.ORM) (functions.RequestID, common
 func createRequestWithTimestamp(t *testing.T, orm functions.ORM, ts time.Time) (functions.RequestID, common.Hash) {
 	id := newRequestID()
 	txHash := testutils.NewAddress().Hash()
-	err := orm.CreateRequest(id, ts, &txHash)
+	newReq := &functions.Request{
+		RequestID:                  id,
+		RequestTxHash:              &txHash,
+		ReceivedAt:                 ts,
+		Flags:                      defaultFlags,
+		AggregationMethod:          &defaultAggregationMethod,
+		CallbackGasLimit:           &defaultGasLimit,
+		CoordinatorContractAddress: &defaultCoordinatorContract,
+		OnchainMetadata:            defaultMetadata,
+	}
+	err := orm.CreateRequest(newReq)
 	require.NoError(t, err)
 	return id, txHash
 }
@@ -58,6 +76,11 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	require.Equal(t, &txHash1, req1.RequestTxHash)
 	require.Equal(t, ts1, req1.ReceivedAt)
 	require.Equal(t, functions.IN_PROGRESS, req1.State)
+	require.Equal(t, defaultFlags, req1.Flags)
+	require.Equal(t, defaultAggregationMethod, *req1.AggregationMethod)
+	require.Equal(t, defaultGasLimit, *req1.CallbackGasLimit)
+	require.Equal(t, defaultCoordinatorContract, *req1.CoordinatorContractAddress)
+	require.Equal(t, defaultMetadata, req1.OnchainMetadata)
 
 	req2, err := orm.FindById(id2)
 	require.NoError(t, err)
@@ -73,7 +96,8 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 	})
 
 	t.Run("duplicated", func(t *testing.T) {
-		err := orm.CreateRequest(id1, ts1, &txHash1)
+		newReq := &functions.Request{RequestID: id1, RequestTxHash: &txHash1, ReceivedAt: ts1}
+		err := orm.CreateRequest(newReq)
 		require.Error(t, err)
 		require.True(t, errors.Is(err, functions.ErrDuplicateRequestID))
 	})
@@ -86,7 +110,7 @@ func TestORM_SetResult(t *testing.T) {
 	id, _, ts := createRequest(t, orm)
 
 	rdts := time.Now().Round(time.Second)
-	err := orm.SetResult(id, 123, []byte("result"), rdts)
+	err := orm.SetResult(id, []byte("result"), rdts)
 	require.NoError(t, err)
 
 	req, err := orm.FindById(id)
@@ -97,8 +121,6 @@ func TestORM_SetResult(t *testing.T) {
 	require.Equal(t, rdts, *req.ResultReadyAt)
 	require.Equal(t, functions.RESULT_READY, req.State)
 	require.Equal(t, []byte("result"), req.Result)
-	require.NotNil(t, req.RunID)
-	require.Equal(t, int64(123), *req.RunID)
 }
 
 func TestORM_SetError(t *testing.T) {
@@ -108,7 +130,7 @@ func TestORM_SetError(t *testing.T) {
 	id, _, ts := createRequest(t, orm)
 
 	rdts := time.Now().Round(time.Second)
-	err := orm.SetError(id, 123, functions.USER_ERROR, []byte("error"), rdts, true)
+	err := orm.SetError(id, functions.USER_ERROR, []byte("error"), rdts, true)
 	require.NoError(t, err)
 
 	req, err := orm.FindById(id)
@@ -121,8 +143,6 @@ func TestORM_SetError(t *testing.T) {
 	require.Equal(t, functions.USER_ERROR, *req.ErrorType)
 	require.Equal(t, functions.RESULT_READY, req.State)
 	require.Equal(t, []byte("error"), req.Error)
-	require.NotNil(t, req.RunID)
-	require.Equal(t, int64(123), *req.RunID)
 }
 
 func TestORM_SetError_Internal(t *testing.T) {
@@ -132,7 +152,7 @@ func TestORM_SetError_Internal(t *testing.T) {
 	id, _, ts := createRequest(t, orm)
 
 	rdts := time.Now().Round(time.Second)
-	err := orm.SetError(id, 123, functions.INTERNAL_ERROR, []byte("error"), rdts, false)
+	err := orm.SetError(id, functions.INTERNAL_ERROR, []byte("error"), rdts, false)
 	require.NoError(t, err)
 
 	req, err := orm.FindById(id)
@@ -142,7 +162,6 @@ func TestORM_SetError_Internal(t *testing.T) {
 	require.Equal(t, functions.INTERNAL_ERROR, *req.ErrorType)
 	require.Equal(t, functions.IN_PROGRESS, req.State)
 	require.Equal(t, []byte("error"), req.Error)
-	require.Equal(t, int64(123), *req.RunID)
 }
 
 func TestORM_SetFinalized(t *testing.T) {
@@ -185,7 +204,7 @@ func TestORM_StateTransitions(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, functions.IN_PROGRESS, req.State)
 
-	err = orm.SetResult(id, 0, []byte{}, now)
+	err = orm.SetResult(id, []byte{}, now)
 	require.NoError(t, err)
 	req, err = orm.FindById(id)
 	require.NoError(t, err)
@@ -225,6 +244,13 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 		require.Equal(t, 2, len(result), "incorrect results length")
 		require.Equal(t, id1, result[0].RequestID, "incorrect results order")
 		require.Equal(t, id2, result[1].RequestID, "incorrect results order")
+
+		require.Equal(t, defaultFlags, result[0].Flags)
+		require.Equal(t, defaultAggregationMethod, *result[0].AggregationMethod)
+		require.Equal(t, defaultGasLimit, *result[0].CallbackGasLimit)
+		require.Equal(t, defaultCoordinatorContract, *result[0].CoordinatorContractAddress)
+		require.Equal(t, defaultMetadata, result[0].OnchainMetadata)
+
 	})
 
 	t.Run("with no limit", func(t *testing.T) {
@@ -251,7 +277,7 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 		ids = append(ids, id)
 	}
 	// can time out IN_PROGRESS, RESULT_READY or FINALIZED
-	err := orm.SetResult(ids[0], 123, []byte("result"), now)
+	err := orm.SetResult(ids[0], []byte("result"), now)
 	require.NoError(t, err)
 	err = orm.SetFinalized(ids[1], []byte("result"), []byte(""))
 	require.NoError(t, err)
