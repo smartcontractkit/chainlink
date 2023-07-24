@@ -291,6 +291,18 @@ createuser --superuser --password chainlink -h localhost
    Now you can run tests or compile code as usual.
 5. When you're done, stop it: `cd $PGDATA; pg_ctl -o "--unix_socket_directories='$PWD'" stop`
 
+### Foundry
+```
+$ forge install smartcontractkit/chainlink
+```
+Add `@chainlink/contracts/=lib/chainlink/contracts/`  in `remappings.txt`
+
+Once installed, you can use the contracts in the library by importing them:
+
+```solidity
+import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+```
+
 ### Tips
 
 For more tips on how to build and test Chainlink, see our [development tips page](https://github.com/smartcontractkit/chainlink/wiki/Development-Tips).
