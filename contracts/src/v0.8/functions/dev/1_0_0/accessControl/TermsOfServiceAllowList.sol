@@ -135,20 +135,14 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
    * @inheritdoc ITermsOfServiceAllowList
    */
   function isAllowedSender(address sender) public view override returns (bool) {
-    if (s_config.enabled == false) {
-      return true;
-    }
-    return s_allowedSenders[sender];
+    return !s_config.enabled || s_allowedSenders[sender];
   }
 
   /**
    * @inheritdoc ITermsOfServiceAllowList
    */
   function isBlockedSender(address sender) public view override returns (bool) {
-    if (s_config.enabled == false) {
-      return false;
-    }
-    return s_blockedSenders[sender];
+    return s_config.enabled && s_blockedSenders[sender];
   }
 
   // ================================================================
