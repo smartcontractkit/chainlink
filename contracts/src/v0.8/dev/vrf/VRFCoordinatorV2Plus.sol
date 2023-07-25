@@ -43,7 +43,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     uint32 callbackGasLimit;
     uint32 numWords;
     address sender;
-    bool nativePayment;
+    bytes extraArgs;
   }
   mapping(bytes32 => address) /* keyHash */ /* oracle */ public s_provingKeys;
   bytes32[] public s_provingKeyHashes;
@@ -296,6 +296,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     (uint256 requestId, uint256 preSeed) = computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
 
     VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
+    bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
     s_requestCommitments[requestId] = keccak256(
       abi.encode(
         requestId,
@@ -304,7 +305,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         req.callbackGasLimit,
         req.numWords,
         msg.sender,
-        extraArgs.nativePayment
+        extraArgsBytes
       )
     );
     emit RandomWordsRequested(
@@ -315,7 +316,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       req.requestConfirmations,
       req.callbackGasLimit,
       req.numWords,
-      VRFV2PlusClient._argsToBytes(extraArgs),
+      extraArgsBytes,
       msg.sender
     );
     s_consumers[msg.sender][req.subId] = nonce;
@@ -374,8 +375,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   }
 
   function getRandomnessFromProof(
-    Proof memory proof,
-    RequestCommitment memory rc
+    Proof calldata proof,
+    RequestCommitment calldata rc
   ) private view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     // Only registered proving keys are permitted.
@@ -391,7 +392,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     if (
       commitment !=
       keccak256(
-        abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender, rc.nativePayment)
+        abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender, rc.extraArgs)
       )
     ) {
       revert IncorrectCommitment();
@@ -418,7 +419,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
    * @return payment amount billed to the subscription
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
-  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
+  function fulfillRandomWords(Proof calldata proof, RequestCommitment calldata rc) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
     Output memory output = getRandomnessFromProof(proof, rc);
 
@@ -440,6 +441,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
 
     // stack too deep error
     {
+      bool nativePayment = _fromBytes(rc.extraArgs).nativePayment;
       // We want to charge users exactly for how much gas they use in their callback.
       // The gasAfterPaymentCalculation is meant to cover these additional operations where we
       // decrement the subscription balance and increment the oracles withdrawable balance.
@@ -447,9 +449,9 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         startGas,
         s_config.gasAfterPaymentCalculation,
         tx.gasprice,
-        rc.nativePayment
+        nativePayment
       );
-      if (rc.nativePayment) {
+      if (nativePayment) {
         if (s_subscriptions[rc.subId].ethBalance < payment) {
           revert InsufficientBalance();
         }
@@ -464,7 +466,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       }
 
       bytes memory extraArgs = VRFV2PlusClient._argsToBytes(
-        VRFV2PlusClient.ExtraArgsV1({nativePayment: rc.nativePayment})
+        VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment})
       );
       // Include payment in the event for tracking costs.
       // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);

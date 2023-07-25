@@ -979,7 +979,11 @@ func (r *RequestCommitment) NativePayment() bool {
 	if r.VRFVersion == vrfcommon.V2 {
 		return false
 	}
-	return r.V2Plus.NativePayment
+	nativePayment, err := extraargs.FromExtraArgsV1(r.V2Plus.ExtraArgs)
+	if err != nil {
+		panic(err)
+	}
+	return nativePayment
 }
 
 func (r *RequestCommitment) NumWords() uint32 {

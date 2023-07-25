@@ -238,7 +238,7 @@ contract VRFV2Plus is BaseTest {
       callbackGasLimit: 1_000_000,
       numWords: 1,
       sender: address(s_testConsumer),
-      nativePayment: true
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
     });
     (, uint96 ethBalanceBefore, , ) = s_testCoordinator.getSubscription(subId);
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
@@ -344,7 +344,7 @@ contract VRFV2Plus is BaseTest {
       callbackGasLimit: 1000000,
       numWords: 1,
       sender: address(s_testConsumer),
-      nativePayment: false
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
     });
     (uint96 linkBalanceBefore, , , ) = s_testCoordinator.getSubscription(subId);
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);

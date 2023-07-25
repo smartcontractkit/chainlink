@@ -93,7 +93,7 @@ func findSubscriptionID(e helpers.Environment, coordinator *vrf_coordinator_v2pl
 	helpers.PanicErr(err)
 
 	if !subscriptionIterator.Next() {
-		helpers.PanicErr(fmt.Errorf("expected at leats 1 subID for the given owner %s", e.Owner.From.Hex()))
+		helpers.PanicErr(fmt.Errorf("expected at least 1 subID for the given owner %s", e.Owner.From.Hex()))
 	}
 	return subscriptionIterator.Event.SubId
 }

@@ -169,7 +169,7 @@ func GenerateProofResponseFromProofV2Plus(
 			CallbackGasLimit: s.CallbackGasLimit,
 			NumWords:         s.NumWords,
 			Sender:           s.Sender,
-			NativePayment:    s.NativePayment,
+			ExtraArgs:        s.ExtraArgs,
 		}, nil
 }
 

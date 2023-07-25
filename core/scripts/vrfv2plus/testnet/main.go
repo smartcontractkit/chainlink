@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -153,6 +154,8 @@ func main() {
 		for i := range preSeedSlice {
 			ps, err := proof.BigToSeed(preSeedSlice[i])
 			helpers.PanicErr(err)
+			extraArgs, err := extraargs.ExtraArgsV1(*nativePayment)
+			helpers.PanicErr(err)
 			preSeedData := proof.PreSeedDataV2Plus{
 				PreSeed:          ps,
 				BlockHash:        bhSlice[i],
@@ -161,7 +164,7 @@ func main() {
 				CallbackGasLimit: uint32(cbLimitsSlice[i].Uint64()),
 				NumWords:         uint32(numWordsSlice[i].Uint64()),
 				Sender:           senderSlice[i],
-				NativePayment:    *nativePayment,
+				ExtraArgs:        extraArgs,
 			}
 			fmt.Printf("preseed data iteration %d: %+v\n", i, preSeedData)
 			finalSeed := proof.FinalSeedV2Plus(preSeedData)
@@ -246,6 +249,8 @@ func main() {
 		helpers.PanicErr(err)
 
 		parsedSubID := parseSubID(*subID)
+		extraArgs, err := extraargs.ExtraArgsV1(*nativePayment)
+		helpers.PanicErr(err)
 		preSeedData := proof.PreSeedDataV2Plus{
 			PreSeed:          ps,
 			BlockHash:        common.HexToHash(*blockHash),
@@ -254,7 +259,7 @@ func main() {
 			CallbackGasLimit: uint32(*cbGasLimit),
 			NumWords:         uint32(*numWords),
 			Sender:           common.HexToAddress(*sender),
-			NativePayment:    *nativePayment,
+			ExtraArgs:        extraArgs,
 		}
 		fmt.Printf("preseed data: %+v\n", preSeedData)
 		finalSeed := proof.FinalSeedV2Plus(preSeedData)

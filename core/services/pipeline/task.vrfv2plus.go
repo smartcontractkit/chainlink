@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
 
@@ -118,10 +117,6 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	if len(requestBlockHash) != common.HashLength {
 		return Result{Error: fmt.Errorf("invalid BlockHash length %d expected %d", len(requestBlockHash), common.HashLength)}, runInfo
 	}
-	parsedExtraArgs, err := extraargs.FromExtraArgs(extraArgs)
-	if err != nil {
-		return Result{Error: err}, retryableRunInfo()
-	}
 	preSeedData := proof.PreSeedDataV2Plus{
 		PreSeed:          preSeed,
 		BlockHash:        common.BytesToHash(requestBlockHash),
@@ -130,7 +125,7 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		CallbackGasLimit: callbackGasLimit,
 		NumWords:         numWords,
 		Sender:           sender,
-		NativePayment:    parsedExtraArgs,
+		ExtraArgs:        extraArgs,
 	}
 	finalSeed := proof.FinalSeedV2Plus(preSeedData)
 	id := hexutil.Encode(pk[:])

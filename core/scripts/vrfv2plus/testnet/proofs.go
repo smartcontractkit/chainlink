@@ -12,6 +12,7 @@ import (
 	"github.com/shopspring/decimal"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
 
@@ -103,6 +104,8 @@ func generateProofForV2Plus(e helpers.Environment) {
 	if !ok {
 		helpers.PanicErr(fmt.Errorf("unable to parse subID: %s %w", subId, err))
 	}
+	extraArgs, err := extraargs.ExtraArgsV1(*nativePayment)
+	helpers.PanicErr(err)
 	preSeedData := proof.PreSeedDataV2Plus{
 		PreSeed:          preSeed,
 		BlockHash:        blockHash,
@@ -111,7 +114,7 @@ func generateProofForV2Plus(e helpers.Environment) {
 		CallbackGasLimit: uint32(*callbackGasLimit),
 		NumWords:         uint32(*numWords),
 		Sender:           sender,
-		NativePayment:    *nativePayment,
+		ExtraArgs:        extraArgs,
 	}
 	finalSeed := proof.FinalSeedV2Plus(preSeedData)
 	p, err := key.GenerateProof(finalSeed)

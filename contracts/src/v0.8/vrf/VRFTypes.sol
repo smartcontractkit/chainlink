@@ -39,6 +39,6 @@ library VRFTypes {
     uint32 callbackGasLimit;
     uint32 numWords;
     address sender;
-    bool nativePayment;
+    bytes extraArgs;
   }
 }

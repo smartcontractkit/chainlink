@@ -37,6 +37,7 @@ import (
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
@@ -695,7 +696,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 		// There is some gas overhead of the delegatecall that is made by the proxy
 		// to the logic contract. See https://www.evm.codes/#f4?fork=grayGlacier for a detailed
 		// breakdown of the gas costs of a delegatecall.
-		assert.Less(tt, estimate, uint64(105_000),
+		assert.Less(tt, estimate, uint64(106_000),
 			"proxied testRequestRandomness tx gas cost more than expected")
 	})
 }
@@ -780,6 +781,8 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 		requestLog := FindLatestRandomnessRequestedLog(tt, uni.rootContract, vrfkey.PublicKey.MustHash())
 		s, err := proof.BigToSeed(requestLog.PreSeed())
 		require.NoError(t, err)
+		extraArgs, err := extraargs.ExtraArgsV1(false)
+		require.NoError(t, err)
 		proof, rc, err := proof.GenerateProofResponseV2Plus(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2Plus{
 			PreSeed:          s,
 			BlockHash:        requestLog.Raw().BlockHash,
@@ -788,7 +791,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 			CallbackGasLimit: uint32(gasRequested),
 			NumWords:         uint32(nw),
 			Sender:           carolContractAddress,
-			NativePayment:    false,
+			ExtraArgs:        extraArgs,
 		})
 		require.NoError(tt, err)
 		nonProxiedConsumerGasEstimate = estimateGas(tt, uni.backend, common.Address{},
@@ -823,6 +826,8 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 		require.Equal(tt, subId, requestLog.SubID())
 		s, err := proof.BigToSeed(requestLog.PreSeed())
 		require.NoError(t, err)
+		extraArgs, err := extraargs.ExtraArgsV1(false)
+		require.NoError(t, err)
 		proof, rc, err := proof.GenerateProofResponseV2Plus(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2Plus{
 			PreSeed:          s,
 			BlockHash:        requestLog.Raw().BlockHash,
@@ -831,7 +836,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 			CallbackGasLimit: uint32(gasRequested),
 			NumWords:         uint32(nw),
 			Sender:           consumerContractAddress,
-			NativePayment:    false,
+			ExtraArgs:        extraArgs,
 		})
 		require.NoError(t, err)
 		proxiedConsumerGasEstimate = estimateGas(t, uni.backend, common.Address{},
