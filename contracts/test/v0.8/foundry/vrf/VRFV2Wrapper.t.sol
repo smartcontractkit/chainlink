@@ -108,9 +108,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
       0, // minConfirmations
       callbackGasLimit + EIP150Overhead + wrapperGasOverhead, // callbackGasLimit - accounts for EIP 150
       1, // numWords
-      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({
-        nativePayment: true
-      })), // extraArgs
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true})), // extraArgs
       address(s_wrapper) // requester
     );
     requestId = s_consumer.makeRequestNative(callbackGasLimit, 0, 1);
@@ -157,9 +155,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
       0, // minConfirmations
       callbackGasLimit + EIP150Overhead + wrapperGasOverhead, // callbackGasLimit - accounts for EIP 150
       1, // numWords
-      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({
-        nativePayment: false
-      })), // extraArgs
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // extraArgs
       address(s_wrapper) // requester
     );
     s_consumer.makeRequest(callbackGasLimit, 0, 1);
