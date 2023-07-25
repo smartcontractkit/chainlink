@@ -26,6 +26,7 @@ require (
 	github.com/spf13/viper v1.15.0
 	github.com/stretchr/testify v1.8.4
 	github.com/umbracle/ethgo v0.1.3
+	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722
 	github.com/urfave/cli v1.22.13
 	go.dedis.ch/kyber/v3 v3.1.0
 )
@@ -325,7 +326,6 @@ require (
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	github.com/ulule/limiter/v3 v3.11.2 // indirect
-	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
 	github.com/unrolled/secure v1.13.0 // indirect
 	github.com/valyala/fastjson v1.4.1 // indirect
 	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
