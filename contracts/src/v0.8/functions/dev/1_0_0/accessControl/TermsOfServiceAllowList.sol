@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {EnumerableSet} from "../../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/structs/EnumerableSet.sol";
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
 import {Routable, ITypeAndVersion} from "../Routable.sol";
 import {IOwnable} from "../../../../shared/interfaces/IOwnable.sol";
@@ -12,11 +11,10 @@ import {Address} from "../../../../shared/vendor/openzeppelin-solidity/v.4.8.0/c
  * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
  */
 contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
-  using EnumerableSet for EnumerableSet.AddressSet;
   using Address for address;
 
-  EnumerableSet.AddressSet private s_allowedSenders;
-  EnumerableSet.AddressSet private s_blockedSenders;
+  mapping(address => bool) private s_allowedSenders;
+  mapping(address => bool) private s_blockedSenders;
 
   error InvalidProof();
   error RecipientIsBlocked();
@@ -85,7 +83,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
    * @inheritdoc ITermsOfServiceAllowList
    */
   function acceptTermsOfService(address acceptor, address recipient, bytes calldata proof) external override {
-    if (s_blockedSenders.contains(recipient)) {
+    if (s_blockedSenders[recipient]) {
       revert RecipientIsBlocked();
     }
 
@@ -105,27 +103,27 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
     }
 
     // Add recipient to the allow list
-    s_allowedSenders.add(recipient);
+    s_allowedSenders[recipient] = true;
   }
 
   /**
    * @inheritdoc ITermsOfServiceAllowList
    */
   function isAllowedSender(address sender) public view override returns (bool) {
-    if (s_config.enabled == false) {
+    if (!s_config.enabled) {
       return true;
     }
-    return s_allowedSenders.contains(sender);
+    return s_allowedSenders[sender];
   }
 
   /**
    * @inheritdoc ITermsOfServiceAllowList
    */
   function isBlockedSender(address sender) public view override returns (bool) {
-    if (s_config.enabled == false) {
+    if (!s_config.enabled) {
       return false;
     }
-    return s_blockedSenders.contains(sender);
+    return s_blockedSenders[sender];
   }
 
   // ================================================================
@@ -136,15 +134,15 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
    * @inheritdoc ITermsOfServiceAllowList
    */
   function blockSender(address sender) external override onlyRouterOwner {
-    s_allowedSenders.remove(sender);
-    s_blockedSenders.add(sender);
+    s_allowedSenders[sender] = false;
+    s_blockedSenders[sender] = true;
   }
 
   /**
    * @inheritdoc ITermsOfServiceAllowList
    */
   function unblockSender(address sender) external override onlyRouterOwner {
-    s_blockedSenders.remove(sender);
+    s_blockedSenders[sender] = false;
   }
 
   // ================================================================
@@ -152,30 +150,31 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
   // ================================================================
 
   function _getSigner(bytes32 _ethSignedMessageHash, bytes memory signature) private pure returns (address) {
-    (bytes32 r, bytes32 s, uint8 v) = _splitSignature(signature);
-    return ecrecover(_ethSignedMessageHash, v, r, s);
-  }
+    bytes32 r;
+    bytes32 s;
+    uint8 v;
 
-  function _splitSignature(bytes memory sig) private pure returns (bytes32 r, bytes32 s, uint8 v) {
-    if (sig.length != 65) {
+    if (signature.length != 65) {
       revert InvalidProof();
     }
     // solhint-disable-next-line no-inline-assembly
     assembly {
-      /*/ 
-        First 32 bytes stores the length of the signature
+      /*/
+      First 32 bytes stores the length of the signature
 
-        add(sig, 32) = pointer of sig + 32
-        effectively, skips first 32 bytes of signature
+      add(sig, 32) = pointer of sig + 32
+      effectively, skips first 32 bytes of signature
 
-        mload(p) loads next 32 bytes starting at the memory address p into memory
-      */
+      mload(p) loads next 32 bytes starting at the memory address p into memory
+    */
       // first 32 bytes, after the length prefix
-      r := mload(add(sig, 32))
+      r := mload(add(signature, 32))
       // second 32 bytes
-      s := mload(add(sig, 64))
+      s := mload(add(signature, 64))
       // final byte (first byte of the next 32 bytes)
-      v := byte(0, mload(add(sig, 96)))
+      v := byte(0, mload(add(signature, 96)))
     }
+
+    return ecrecover(_ethSignedMessageHash, v, r, s);
   }
 }

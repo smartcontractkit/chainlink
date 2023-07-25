@@ -18,6 +18,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
   // |                  Request Commitment state                    |
   // ================================================================
+
   struct Commitment {
     uint64 subscriptionId; // ---------┐
     address client; //                 |
@@ -37,6 +38,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
   // |                     Configuration state                      |
   // ================================================================
+
   struct Config {
     // Maximum amount of gas that can be given to a request's client callback
     uint32 maxCallbackGasLimit;
@@ -62,6 +64,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     // fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
     int256 fallbackNativePerUnitLink;
   }
+
   Config private s_config;
 
   event ConfigSet(
@@ -88,6 +91,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
   // |                        Balance state                         |
   // ================================================================
+
   mapping(address transmitter => uint96 balanceJuelsLink) private s_withdrawableTokens;
   // Pool together DON fees and disperse them on withdrawal
   uint96 internal s_feePool;
