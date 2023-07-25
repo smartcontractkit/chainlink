@@ -80,6 +80,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   error InvalidLinkWeiPrice(int256 linkWei);
   error PaymentTooLarge();
   error NoTransmittersSet();
+  error InvalidCalldata();
 
   // ================================================================
   // |                        Balance state                         |
@@ -233,6 +234,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint32 callbackGasLimit,
     uint256 gasPrice
   ) external view override returns (uint96) {
+    if (callbackGasLimit > s_config.maxCallbackGasLimit) {
+      revert GasLimitTooBig(billing.callbackGasLimit, s_config.maxCallbackGasLimit);
+    }
+    // Reasonable ceiling to prevent integer overflows
+    if (gasPrice > 1_000_000) {
+      revert InvalidCalldata();
+    }
     RequestBilling memory billing = RequestBilling(subscriptionId, msg.sender, callbackGasLimit, gasPrice);
     uint96 donFee = getDONFee(data, billing);
     uint96 adminFee = getAdminFee(data, billing);
