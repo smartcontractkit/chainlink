@@ -115,7 +115,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   /**
    * @notice Sets the configuration of the Chainlink Functions billing registry
    * @param config bytes of abi.encoded config data to set the following:
-   *  See line 42 - Config struct's contents
+   *  See the content of the Config struct above
    */
   function _setConfig(bytes memory config) internal override {
     (
@@ -229,10 +229,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint32 callbackGasLimit,
     uint256 gasPrice
   ) external view override returns (uint96) {
-    if (callbackGasLimit > s_config.maxCallbackGasLimit) {
+    // Reasonable ceilings to prevent integer overflows
+    if (callbackGasLimit > 30_000_000 /* London upgrade's 30M block max */) {
       revert GasLimitTooBig(callbackGasLimit, s_config.maxCallbackGasLimit);
     }
-    // Reasonable ceiling to prevent integer overflows
     if (gasPrice > 1_000_000) {
       revert InvalidCalldata();
     }
