@@ -480,7 +480,7 @@ func (r *v2PlusRandomWordsRequested) CallbackGasLimit() uint32 {
 }
 
 func (r *v2PlusRandomWordsRequested) NativePayment() bool {
-	nativePayment, err := extraargs.FromExtraArgs(r.event.ExtraArgs)
+	nativePayment, err := extraargs.FromExtraArgsV1(r.event.ExtraArgs)
 	if err != nil {
 		panic(err)
 	}
@@ -621,7 +621,7 @@ func (rwf *v2PlusRandomWordsFulfilled) Success() bool {
 }
 
 func (rwf *v2PlusRandomWordsFulfilled) NativePayment() bool {
-	nativePayment, err := extraargs.FromExtraArgs(rwf.event.ExtraArgs)
+	nativePayment, err := extraargs.FromExtraArgsV1(rwf.event.ExtraArgs)
 	if err != nil {
 		panic(err)
 	}
