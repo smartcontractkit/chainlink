@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/config"
 	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
@@ -862,12 +863,12 @@ func (d *Delegate) newServicesOCR2Keepers(
 		Encoder:                      encoder,
 		Runnable:                     rgstry,
 		LogProvider:                  logProvider,
-		// the following values are not needed in the delegate config anymore
-		CacheExpiration:       cfg.CacheExpiration.Value(),
-		CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),
-		MaxServiceWorkers:     cfg.MaxServiceWorkers,
-		ServiceQueueLength:    cfg.ServiceQueueLength,
-		BlockSubscriber:       blockSub,
+		CacheExpiration:              cfg.CacheExpiration.Value(),
+		CacheEvictionInterval:        cfg.CacheEvictionInterval.Value(),
+		MaxServiceWorkers:            cfg.MaxServiceWorkers,
+		ServiceQueueLength:           cfg.ServiceQueueLength,
+		BlockSubscriber:              blockSub,
+		RecoverableProvider:          new(mockRecoverableProvider),
 	}
 
 	pluginService, err := plugin.NewDelegate(dConf)
@@ -1067,4 +1068,11 @@ func (l *logWriter) Write(p []byte) (n int, err error) {
 	l.log.Debug(string(p), nil)
 	n = len(p)
 	return
+}
+
+type mockRecoverableProvider struct {
+}
+
+func (_m *mockRecoverableProvider) GetRecoverables() ([]ocr2keepers.UpkeepPayload, error) {
+	return nil, nil
 }

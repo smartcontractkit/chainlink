@@ -222,32 +222,33 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		t.Logf("error creating off-chain config: %s", err)
 		t.FailNow()
 	}
-	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTestsMercuryV02(
+
+	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTestsAutomation(
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
 		100*time.Millisecond,  // deltaInitial time.Duration,
 		2500*time.Millisecond, // deltaRound time.Duration,
 		40*time.Millisecond,   // deltaGrace time.Duration,
 		200*time.Millisecond,  // deltaRequestCertifiedCommit time.Duration,
-		15*time.Second,        // deltaStage time.Duration,
-		3,                     // rMax uint8,
+		30*time.Second,        // deltaStage time.Duration,
+		uint8(50),             // rMax uint8,
 		[]int{1, 1, 1, 1},     // s []int,
 		oracles,               // oracles []OracleIdentityExtra,
 		rawCfg,                // reportingPluginConfig []byte,
-		// 20*time.Millisecond,   // maxDurationQuery time.Duration,
+		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,
-		// 800*time.Millisecond,  // maxDurationReport time.Duration, sum of MaxDurationQuery/Observation/Report must be less than DeltaProgress
-		// 20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
-		// 20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
-		1,             // f int,
-		onchainConfig, // onchainConfig []byte,
+		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
+		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,                     // f int,
+		onchainConfig,         // onchainConfig []byte,
 	)
+
 	require.NoError(t, err)
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
 	transmitterAddresses, err := accountsToAddress(transmitters)
 	require.NoError(t, err)
-	offchainConfigVersion = 30
+
 	lggr.Infow("Setting Config on Oracle Contract",
 		"signerAddresses", signerAddresses,
 		"transmitterAddresses", transmitterAddresses,
