@@ -77,7 +77,21 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
       revert RecipientIsBlocked();
     }
 
-    if (proof.length != 65) {
+    if (proof.length != 65 || msg.sender != recipient) {
+      revert InvalidProof();
+    }
+
+    // Check if msg.sender is an EoA or contract
+    bool callerIsContractAccount;
+
+    // solhint-disable-next-line no-inline-assembly
+    assembly {
+      callerIsContractAccount := gt(extcodesize(caller()), 0)
+    }
+
+    // If EoA, validate that msg.sender == acceptor
+    // This is to prevent EoAs from accepting for other EoAs
+    if (!callerIsContractAccount && msg.sender != acceptor) {
       revert InvalidProof();
     }
 
@@ -110,20 +124,6 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
     
 
     if (proofSigner != s_config.proofSignerPublicKey) {
-      revert InvalidProof();
-    }
-
-    // Check if msg.sender is an EoA or contract
-    bool callerIsContractAccount = _isContract(msg.sender);
-    // If EoA, validate that msg.sender == acceptor == recipient
-    // This is to prevent EoAs from accepting for other EoAs
-    if (callerIsContractAccount == false && (msg.sender != acceptor || msg.sender != recipient)) {
-      revert InvalidProof();
-    }
-
-    // If contract, validate that msg.sender == recipient
-    // This is to prevent EoAs from claiming contracts that they are not in control of
-    if (callerIsContractAccount && msg.sender != recipient) {
       revert InvalidProof();
     }
 
@@ -169,18 +169,5 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
    */
   function unblockSender(address sender) external override onlyRouterOwner {
     delete s_blockedSenders[sender];
-  }
-
-  // ================================================================
-  // |                     Internal helpers                          |
-  // ================================================================
-
-  function _isContract(address _addr) private view returns (bool isContract) {
-    uint32 size;
-    // solhint-disable-next-line no-inline-assembly
-    assembly {
-      size := extcodesize(_addr)
-    }
-    return (size > 0);
   }
 }

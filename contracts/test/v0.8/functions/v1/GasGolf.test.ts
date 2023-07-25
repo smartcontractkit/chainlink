@@ -15,7 +15,7 @@ const setup = getSetupFactory()
 let contracts: FunctionsContracts
 let roles: FunctionsRoles
 
-const baselineGasUsed = 931_695 // TODO: Update baseline
+const baselineGasUsed = 886_795 // 931_695 // TODO: Update baseline
 let currentGasUsed = 0
 
 beforeEach(async () => {
@@ -29,7 +29,7 @@ after(() => {
   console.log(`\n               🚩 Score : ${score} gas`)
 })
 
-describe('Gas Golf', () => {
+describe.only('Gas Golf', () => {
   it('- taking a swing', async () => {
     // User signs Terms of Service
     const messageHash = await contracts.accessControl.getMessageHash(
