@@ -335,8 +335,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function createSubscription() external override returns (uint64 subscriptionId) {
     _nonReentrant();
     _onlySenderThatAcceptedToS();
-
-    subscriptionId = s_currentSubscriptionId++;
+    subscriptionId = ++s_currentSubscriptionId;
     s_subscriptions[subscriptionId] = Subscription({
       balance: 0,
       blockedBalance: 0,
