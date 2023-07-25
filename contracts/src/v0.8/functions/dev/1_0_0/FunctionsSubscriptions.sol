@@ -335,7 +335,13 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     onlySenderThatAcceptedToS
     returns (uint64 subscriptionId)
   {
-    subscriptionId = s_currentsubscriptionId++;
+    // subscriptionId = s_currentsubscriptionId++
+    // solhint-disable-next-line no-inline-assembly
+    assembly {
+      subscriptionId := add(1, sload(s_currentsubscriptionId.slot))
+      sstore(s_currentsubscriptionId.slot, subscriptionId)
+    }
+
     s_subscriptions[subscriptionId] = Subscription({
       balance: 0,
       blockedBalance: 0,
