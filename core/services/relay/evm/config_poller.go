@@ -249,7 +249,6 @@ func (cp *configPoller) callIsConfigPersisted(ctx context.Context) (persistConfi
 	persistConfig, err = cp.contract.PersistConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		if methodNotImplemented(err) {
-			// method not implemented
 			return false, nil
 		}
 		cp.failedRPCContractCalls.Inc()

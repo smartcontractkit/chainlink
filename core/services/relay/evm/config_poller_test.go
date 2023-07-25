@@ -74,8 +74,6 @@ func TestConfigPoller(t *testing.T) {
 	t.Cleanup(func() { lp.Close() })
 
 	t.Run("happy path", func(t *testing.T) {
-		t.Skip() // TODO: remove
-
 		cp, err := NewConfigPoller(lggr, ethClient, lp, ocrAddress)
 		require.NoError(t, err)
 		// Should have no config to begin with.
