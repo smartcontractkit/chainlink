@@ -101,7 +101,7 @@ func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us Upkee
 		s.block = state.block
 		s.upkeepId = state.upkeepId
 		u.statesByID[pl.ID] = s
-		u.lggr.Infof("upkeep %s is overriden, payload ID is %s, block is %d", s.upkeepId, s.payload.ID, s.block)
+		u.lggr.Infof("upkeep %s is overridden, payload ID is %s, block is %d", s.upkeepId, s.payload.ID, s.block)
 		return nil
 	}
 
