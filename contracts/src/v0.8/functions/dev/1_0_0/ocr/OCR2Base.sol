@@ -146,7 +146,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       s_transmitters.pop();
     }
 
-    for (uint256 i = 0; i < args.signers.length; ++i) {
+    for (uint256 i = 0; i < args.signers.length; ) {
       // add new signer/transmitter addresses
       require(s_oracles[args.signers[i]].role == Role.Unset, "repeated signer address");
       s_oracles[args.signers[i]] = Oracle(uint8(i), Role.Signer);
@@ -154,6 +154,9 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       s_oracles[args.transmitters[i]] = Oracle(uint8(i), Role.Transmitter);
       s_signers.push(args.signers[i]);
       s_transmitters.push(args.transmitters[i]);
+      unchecked {
+        ++i;
+      }
     }
     s_configInfo.f = args.f;
     uint32 previousConfigBlockNumber = s_latestConfigBlockNumber;
@@ -369,13 +372,16 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
 
       Oracle memory o;
-      for (uint256 i = 0; i < rs.length; ++i) {
+      for (uint256 i = 0; i < rs.length; ) {
         address signer = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
         o = s_oracles[signer];
         require(o.role == Role.Signer, "address not authorized to sign");
         require(signed[o.index] == address(0), "non-unique signature");
         signed[o.index] = signer;
-        signerCount += 1;
+        unchecked {
+          signerCount += 1;
+          ++i;
+        }
       }
     }
 
