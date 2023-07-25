@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
@@ -27,15 +27,13 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 private s_totalBalance;
 
-  mapping(uint64 => IFunctionsSubscriptions.Subscription) /* subscriptionId */ /* subscription */
-    internal s_subscriptions;
+  mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) internal s_subscriptions;
 
   // We need to maintain a list of addresses that can consume a subscription.
   // This bound ensures we are able to loop over them as needed.
   // Should a user require more consumers, they can use multiple subscriptions.
   uint16 private constant MAX_CONSUMERS = 100;
-  mapping(address => mapping(uint64 => IFunctionsSubscriptions.Consumer)) /* consumer */ /* subscriptionId */ /* Consumer data */
-    internal s_consumers;
+  mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) internal s_consumers;
 
   event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
   event SubscriptionFunded(uint64 indexed subscriptionId, uint256 oldBalance, uint256 newBalance);
@@ -59,7 +57,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   event FundsRecovered(address to, uint256 amount);
 
   // @dev NOP balances are held as a single amount. The breakdown is held by the Coordinator.
-  mapping(address => uint96) /* Coordinator => LINK balance (Juels) */ private s_withdrawableTokens;
+  mapping(address coordinator => uint96 balanceJuelsLink) private s_withdrawableTokens;
 
   // ================================================================
   // |                       Request state                          |
@@ -76,7 +74,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint96 adminFee;
   }
 
-  mapping(bytes32 => Commitment) /* request ID */ /* Request data */ internal s_requestCommitments;
+  mapping(bytes32 requestId => Commitment) internal s_requestCommitments;
 
   struct Receipt {
     uint96 callbackGasCostJuels;
