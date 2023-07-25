@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
 import {Routable, ITypeAndVersion} from "../Routable.sol";
-import {IOwnable} from "../../../../shared/interfaces/IOwnable.sol";
 
 import {Address} from "../../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/Address.sol";
 

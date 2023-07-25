@@ -7,7 +7,6 @@ import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol"
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {FulfillResult} from "./FulfillResultCodes.sol";
-import {SafeCast} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
 
 /**
  * @title Functions Billing contract
