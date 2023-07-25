@@ -14,9 +14,12 @@ import (
 	"github.com/urfave/cli"
 
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/params"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/denom"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -31,7 +34,7 @@ import (
 func TestMain(m *testing.M) {
 	params.InitCosmosSdk(
 		/* bech32Prefix= */ "wasm",
-		/* token= */ "cosm",
+		/* token= */ "atom",
 	)
 	code := m.Run()
 	os.Exit(code)
@@ -40,9 +43,18 @@ func TestMain(m *testing.M) {
 func TestShell_SendCosmosCoins(t *testing.T) {
 	// TODO(BCI-978): cleanup once SetupLocalCosmosNode is updated
 	chainID := cosmostest.RandomChainID()
-	accounts, _, _ := cosmosclient.SetupLocalCosmosNode(t, chainID)
+	accounts, _, url := cosmosclient.SetupLocalCosmosNode(t, chainID, "uatom")
 	require.Greater(t, len(accounts), 1)
-	app := cosmosStartNewApplication(t)
+	cosmosChain := coscfg.Chain{}
+	cosmosChain.SetDefaults()
+	nodes := cosmos.CosmosNodes{
+		&coscfg.Node{
+			Name:          ptr("random"),
+			TendermintURL: utils.MustParseURL(url),
+		},
+	}
+	chainConfig := cosmos.CosmosConfig{ChainID: &chainID, Enabled: ptr(true), Chain: cosmosChain, Nodes: nodes}
+	app := cosmosStartNewApplication(t, &chainConfig)
 
 	from := accounts[0]
 	to := accounts[1]
@@ -57,7 +69,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		coin, err := reader.Balance(from.Address, "ucosm")
+		coin, err := reader.Balance(from.Address, "uatom")
 		if !assert.NoError(t, err) {
 			return false
 		}
@@ -79,11 +91,11 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 		{amount: "30.000001"},
 		{amount: "1000", expErr: "is too low for this transaction to be executed:"},
 		{amount: "0", expErr: "amount must be greater than zero:"},
-		{amount: "asdf", expErr: "invalid coin: failed to set decimal string:"},
+		{amount: "asdf", expErr: "invalid coin: failed to set decimal string"},
 	} {
 		tt := tt
 		t.Run(tt.amount, func(t *testing.T) {
-			startBal, err := reader.Balance(from.Address, "ucosm")
+			startBal, err := reader.Balance(from.Address, "uatom")
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendcosmoscoins", 0)
@@ -142,11 +154,11 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 			}
 
 			// Check balance
-			endBal, err := reader.Balance(from.Address, "ucosm")
+			endBal, err := reader.Balance(from.Address, "uatom")
 			require.NoError(t, err)
 			if assert.NotNil(t, startBal) && assert.NotNil(t, endBal) {
 				diff := startBal.Sub(*endBal).Amount
-				sent, err := denom.DecCoinToUAtom(sdk.NewDecCoinFromDec("cosm", sdk.MustNewDecFromStr(tt.amount)))
+				sent, err := denom.DecCoinToUAtom(sdk.NewDecCoinFromDec("atom", sdk.MustNewDecFromStr(tt.amount)))
 				require.NoError(t, err)
 				if assert.True(t, diff.IsInt64()) && assert.True(t, sent.Amount.IsInt64()) {
 					require.Greater(t, diff.Int64(), sent.Amount.Int64())
