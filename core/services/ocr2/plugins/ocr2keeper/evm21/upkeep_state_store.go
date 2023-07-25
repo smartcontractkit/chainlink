@@ -26,7 +26,10 @@ type upkeepState struct {
 // TODO: use the same type defined in keeper plugin after a new release is cut
 type UpkeepState uint8
 
-const Performed UpkeepState = iota
+const (
+	Performed UpkeepState = iota
+	Eligible
+)
 
 type UpkeepStateReader interface {
 	// SelectByUpkeepIDsAndBlockRange retrieves upkeep states for provided upkeep ids and block range, the result is currently not in particular order

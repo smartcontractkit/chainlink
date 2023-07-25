@@ -68,7 +68,8 @@ func TestUpkeepStateStore_InvalidBlockKey(t *testing.T) {
 }
 
 func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
-	s := Performed
+	p := Performed
+	e := Eligible
 
 	tests := []struct {
 		name          string
@@ -92,31 +93,31 @@ func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 				payload4,
 				payload5, // this overrides payload 2 bc they have the same payload ID
 			},
-			states: []UpkeepState{Performed, Performed, Performed, Performed},
+			states: []UpkeepState{Performed, Performed, Performed, Eligible},
 			oldIds: []string{payload2.ID, payload3.ID, payload4.ID},
 			oldIdResult: []upkeepState{
 				{
 					payload: &payload3,
-					state:   &s,
+					state:   &p,
 				},
 				{
 					payload: &payload4,
-					state:   &s,
+					state:   &p,
 				},
 			},
 			newIds: []string{payload3.ID, payload4.ID, payload5.ID},
 			newIdResult: []upkeepState{
 				{
 					payload: &payload3,
-					state:   &s,
+					state:   &p,
 				},
 				{
 					payload: &payload4,
-					state:   &s,
+					state:   &p,
 				},
 				{
 					payload: &payload5,
-					state:   &s,
+					state:   &e,
 				},
 			},
 
@@ -126,11 +127,11 @@ func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 			result: []upkeepState{
 				{
 					payload: &payload5,
-					state:   &s,
+					state:   &e,
 				},
 				{
 					payload: &payload4,
-					state:   &s,
+					state:   &p,
 				},
 			},
 		},
