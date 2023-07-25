@@ -67,7 +67,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint32 gasOverheadBeforeCallback,
     uint32 gasOverheadAfterCallback,
     int256 fallbackNativePerUnitLink,
-    uint96 fee,
+    uint96 donFee,
     uint16 maxSupportedRequestDataVersion
   );
 
@@ -114,13 +114,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
   /**
    * @notice Sets the configuration of the Chainlink Functions billing registry
-   * @param config bytes of config data to set the following:
-   *  - maxCallbackGasLimit: global max for request gas limit
-   *  - feedStalenessSeconds: if the eth/link feed is more stale then this, use the fallback price
-   *  - gasOverheadAfterCallback: gas used in doing accounting after completing the gas measurement
-   *  - fallbackNativePerUnitLink: fallback eth/link price in the case of a stale feed
-   *  - gasOverheadBeforeCallback: average gas execution cost used in estimating total cost
-   *  - requestTimeoutSeconds: e2e timeout after which user won't be charged
+   * @param config bytes of abi.encoded config data to set the following:
+   *  See line 42 - Config struct's contents
    */
   function _setConfig(bytes memory config) internal override {
     (
