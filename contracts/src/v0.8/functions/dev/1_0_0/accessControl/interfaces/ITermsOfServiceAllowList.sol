@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 /**
  * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
