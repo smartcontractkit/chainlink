@@ -7,6 +7,8 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var (
@@ -56,7 +58,7 @@ func TestUpkeepStateStore_InvalidBlockKey(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			store := NewUpkeepStateStore()
+			store := NewUpkeepStateStore(logger.TestLogger(t))
 			for i, p := range tc.payloads {
 				err := store.SetUpkeepState(p, tc.states[i])
 				require.Equal(t, err, tc.expectedError)
@@ -136,7 +138,7 @@ func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			store := NewUpkeepStateStore()
+			store := NewUpkeepStateStore(logger.TestLogger(t))
 			for i, p := range tc.payloads {
 				err := store.SetUpkeepState(p, tc.states[i])
 				require.Equal(t, err, tc.expectedError)

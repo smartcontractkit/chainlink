@@ -10,6 +10,8 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 
 	mapset "github.com/deckarep/golang-set/v2"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const Separator = "|"
@@ -21,6 +23,7 @@ type upkeepState struct {
 	upkeepId string
 }
 
+// TODO: use the same type defined in keeper plugin after a new release is cut
 type UpkeepState uint8
 
 const Performed UpkeepState = iota
@@ -38,13 +41,15 @@ type UpkeepStateStore struct {
 	mu         sync.RWMutex
 	statesByID map[string]*upkeepState
 	states     []*upkeepState
+	lggr       logger.Logger
 }
 
 // NewUpkeepStateStore creates a new state store. This is an initial version of this store. More improvements to come:
 // TODO: AUTO-4027
-func NewUpkeepStateStore() *UpkeepStateStore {
+func NewUpkeepStateStore(lggr logger.Logger) *UpkeepStateStore {
 	return &UpkeepStateStore{
 		statesByID: map[string]*upkeepState{},
+		lggr:       lggr.Named("UpkeepStateStore"),
 	}
 }
 
@@ -96,10 +101,12 @@ func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us Upkee
 		s.block = state.block
 		s.upkeepId = state.upkeepId
 		u.statesByID[pl.ID] = s
+		u.lggr.Infof("upkeep %s is overriden, payload ID is %s, block is %d", s.upkeepId, s.payload.ID, s.block)
 		return nil
 	}
 
 	u.statesByID[pl.ID] = state
 	u.states = append(u.states, state)
+	u.lggr.Infof("added new state with upkeep %s payload ID %s block %d", state.upkeepId, state.payload.ID, state.block)
 	return nil
 }
