@@ -53,6 +53,7 @@ type PreSeedDataV2Plus struct {
 	CallbackGasLimit uint32
 	NumWords         uint32
 	Sender           common.Address
+	NativePayment    bool
 }
 
 // FinalSeed is the seed which is actually passed to the VRF proof generator,

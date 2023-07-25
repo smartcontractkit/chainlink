@@ -73,7 +73,7 @@ const (
 
 	// RandomWordsRequestedV2PlusABI is the ABI of the RandomWordsRequested event
 	// for V2Plus.
-	RandomWordsRequestedV2PlusABI = "RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
+	RandomWordsRequestedV2PlusABI = "RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint256 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bytes extraArgs,address indexed sender)"
 
 	V2ReservedLinkQuery = `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
 		FROM eth_txes

@@ -665,7 +665,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 			"requestRandomWords", uint32(10000), uint16(2), uint32(1),
 			vrfkey.PublicKey.MustHash(), false)
 		tt.Log("gas estimate of non-proxied requestRandomWords:", estimate)
-		assert.Less(tt, estimate, uint64(126_000),
+		assert.Less(tt, estimate, uint64(127_000),
 			"requestRandomWords tx gas cost more than expected")
 	})
 
@@ -788,7 +788,8 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 			CallbackGasLimit: uint32(gasRequested),
 			NumWords:         uint32(nw),
 			Sender:           carolContractAddress,
-		}, false)
+			NativePayment:    false,
+		})
 		require.NoError(tt, err)
 		nonProxiedConsumerGasEstimate = estimateGas(tt, uni.backend, common.Address{},
 			uni.rootContractAddress, uni.coordinatorABI,
@@ -830,7 +831,8 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 			CallbackGasLimit: uint32(gasRequested),
 			NumWords:         uint32(nw),
 			Sender:           consumerContractAddress,
-		}, false)
+			NativePayment:    false,
+		})
 		require.NoError(t, err)
 		proxiedConsumerGasEstimate = estimateGas(t, uni.backend, common.Address{},
 			uni.rootContractAddress, uni.coordinatorABI,

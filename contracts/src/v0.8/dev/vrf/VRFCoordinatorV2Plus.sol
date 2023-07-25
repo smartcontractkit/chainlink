@@ -58,14 +58,14 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     uint16 minimumRequestConfirmations,
     uint32 callbackGasLimit,
     uint32 numWords,
-    bool nativePayment,
+    bytes extraArgs,
     address indexed sender
   );
   event RandomWordsFulfilled(
     uint256 indexed requestId,
     uint256 outputSeed,
     uint96 payment,
-    bool nativePayment,
+    bytes extraArgs,
     bool success
   );
 
@@ -295,7 +295,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     uint64 nonce = currentNonce + 1;
     (uint256 requestId, uint256 preSeed) = computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
 
-    bool nativePayment = _fromBytes(req.extraArgs).nativePayment;
+    VRFV2PlusClient.ExtraArgsV1 memory extraArgs =  _fromBytes(req.extraArgs);
     s_requestCommitments[requestId] = keccak256(
       abi.encode(
         requestId,
@@ -303,7 +303,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         req.subId,
         req.callbackGasLimit,
         req.numWords,
-        msg.sender
+        msg.sender,
+        extraArgs.nativePayment
       )
     );
     emit RandomWordsRequested(
@@ -314,7 +315,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       req.requestConfirmations,
       req.callbackGasLimit,
       req.numWords,
-      nativePayment,
+      VRFV2PlusClient._argsToBytes(extraArgs),
       msg.sender
     );
     s_consumers[msg.sender][req.subId] = nonce;
@@ -388,7 +389,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       revert NoCorrespondingRequest();
     }
     if (
-      commitment != keccak256(abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender))
+      commitment != keccak256(abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender, rc.nativePayment))
     ) {
       revert IncorrectCommitment();
     }
@@ -459,9 +460,12 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         s_withdrawableTokens[s_provingKeys[output.keyHash]] += payment;
       }
 
+      bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({
+        nativePayment: rc.nativePayment
+      }));
       // Include payment in the event for tracking costs.
-      // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bool nativePayment, bool success);
-      emit RandomWordsFulfilled(output.requestId, output.randomness, payment, rc.nativePayment, success);
+      // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);
+      emit RandomWordsFulfilled(output.requestId, output.randomness, payment, extraArgs, success);
 
       return payment;
     }
