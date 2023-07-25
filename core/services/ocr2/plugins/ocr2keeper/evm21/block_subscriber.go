@@ -69,6 +69,72 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, bloc
 	}
 }
 
+func (hw *BlockSubscriber) getBlockRange(ctx context.Context) ([]uint64, error) {
+	h, err := hw.lp.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, err
+	}
+	hw.lggr.Infof("latest block from log poller is %d", h)
+
+	var blocks []uint64
+	for i := int64(0); i < hw.blockHistorySize; i++ {
+		blocks = append(blocks, uint64(h-i))
+	}
+	return blocks, nil
+}
+
+func (hw *BlockSubscriber) getLogPollerBlocks(ctx context.Context, blocks []uint64) error {
+	// request the past LOOK_BACK blocksFromPoller from log poller
+	// returned blocksFromPoller are in ASC order
+	logpollerBlocks, err := hw.lp.GetBlocksRange(ctx, blocks, pg.WithParentCtx(ctx))
+	if err != nil {
+		return err
+	}
+	hw.mu.Lock()
+	for _, b := range logpollerBlocks {
+		hw.blocksFromPoller[b.BlockNumber] = b.BlockHash
+	}
+	hw.mu.Unlock()
+	return nil
+}
+
+func (hw *BlockSubscriber) buildHistory(block int64) ocr2keepers.BlockHistory {
+	var keys []BlockKey
+	// populate keys slice in block DES order
+	for i := int64(0); i < hw.blockHistorySize; i++ {
+		if h1, ok1 := hw.blocksFromPoller[block-i]; ok1 {
+			// if a block exists in log poller, use block data from log poller
+			keys = append(keys, BlockKey{
+				block: block - i,
+				hash:  h1,
+			})
+		} else if h2, ok2 := hw.blocksFromBroadcaster[block-i]; ok2 {
+			// if a block only exists in broadcaster, use data from broadcaster
+			keys = append(keys, BlockKey{
+				block: block - i,
+				hash:  h2,
+			})
+		} else {
+			hw.lggr.Infof("block %d is missing", block-i)
+		}
+		// if a block does not exist in both log poller and broadcaster, skip
+	}
+	return getBlockHistory(keys)
+}
+
+func (hw *BlockSubscriber) cleanup() {
+	hw.mu.Lock()
+	defer hw.mu.Unlock()
+
+	hw.lggr.Infof("start clearing blocks from %d to %d", hw.lastClearedBlock+1, hw.lastSentBlock-hw.blockHistorySize)
+	for i := hw.lastClearedBlock + 1; i <= hw.lastSentBlock-hw.blockHistorySize; i++ {
+		delete(hw.blocksFromPoller, i)
+		delete(hw.blocksFromBroadcaster, i)
+	}
+	hw.lastClearedBlock = hw.lastSentBlock - hw.blockHistorySize
+	hw.lggr.Infof("lastClearedBlock is set to %d", hw.lastClearedBlock)
+}
+
 func (hw *BlockSubscriber) Start(_ context.Context) error {
 	hw.lggr.Info("block subscriber started.")
 	return hw.sync.StartOnce("BlockSubscriber", func() error {
@@ -91,29 +157,10 @@ func (hw *BlockSubscriber) Start(_ context.Context) error {
 						hw.blocksFromBroadcaster[bk.block] = bk.hash
 						hw.lggr.Infof("blocksFromBroadcaster block %d hash is %s", bk.block, bk.hash.String())
 
-						var keys []BlockKey
-						// populate keys slice in block DES order
-						for i := int64(0); i < hw.blockHistorySize; i-- {
-							if h1, ok1 := hw.blocksFromPoller[bk.block-i]; ok1 {
-								// if a block exists in log poller, use block data from log poller
-								keys = append(keys, BlockKey{
-									block: bk.block - i,
-									hash:  h1,
-								})
-							} else if h2, ok2 := hw.blocksFromBroadcaster[bk.block-i]; ok2 {
-								// if a block only exists in broadcaster, use data from broadcaster
-								keys = append(keys, BlockKey{
-									block: bk.block - i,
-									hash:  h2,
-								})
-							}
-							hw.lggr.Infof("block %d is missing", bk.block-i)
-							// if a block does not exist in both log poller and broadcaster, skip
-						}
+						history := hw.buildHistory(bk.block)
 
 						hw.lastSentBlock = bk.block
 						hw.lggr.Infof("lastSentBlock is %d", hw.lastSentBlock)
-						history := getBlockHistory(keys)
 						// send history to all subscribers
 						for _, subC := range hw.subscribers {
 							subC <- history
@@ -135,27 +182,14 @@ func (hw *BlockSubscriber) Start(_ context.Context) error {
 				for {
 					select {
 					case <-ticker.C:
-						h, err := hw.lp.LatestBlock(pg.WithParentCtx(ctx))
-						hw.lggr.Infof("latest block from log poller is %d", h)
+						blocks, err := hw.getBlockRange(ctx)
 						if err != nil {
-							hw.lggr.Errorf("failed to get latest block", err)
+							hw.lggr.Infof("failed to get block range", err)
+							return
 						}
-
-						var blocks []uint64
-						for i := int64(0); i < hw.blockHistorySize; i++ {
-							blocks = append(blocks, uint64(h-i))
-						}
-
-						// request the past LOOK_BACK blocksFromPoller from log poller
-						// returned blocksFromPoller are in ASC order
-						logpollerBlocks, err := hw.lp.GetBlocksRange(ctx, blocks, pg.WithParentCtx(ctx))
-						hw.mu.Lock()
-						for _, b := range logpollerBlocks {
-							hw.blocksFromPoller[b.BlockNumber] = b.BlockHash
-						}
-						hw.mu.Unlock()
+						err = hw.getLogPollerBlocks(ctx, blocks)
 						if err != nil {
-							hw.lggr.Errorf("failed to get blocksFromPoller range", err)
+							hw.lggr.Infof("failed to get log poller blocks", err)
 						}
 					case <-ctx.Done():
 						ticker.Stop()
@@ -172,15 +206,7 @@ func (hw *BlockSubscriber) Start(_ context.Context) error {
 				for {
 					select {
 					case <-ticker.C:
-						hw.mu.Lock()
-						hw.lggr.Infof("start clearing blocks from %d to %d", hw.lastClearedBlock+1, hw.lastSentBlock-hw.blockHistorySize)
-						for i := hw.lastClearedBlock + 1; i <= hw.lastSentBlock-hw.blockHistorySize; i++ {
-							delete(hw.blocksFromPoller, i)
-							delete(hw.blocksFromBroadcaster, i)
-						}
-						hw.lastClearedBlock = hw.lastSentBlock - hw.blockHistorySize
-						hw.lggr.Infof("lastClearedBlock is set to %d", hw.lastClearedBlock)
-						hw.mu.Unlock()
+						hw.cleanup()
 					case <-ctx.Done():
 						ticker.Stop()
 						return
