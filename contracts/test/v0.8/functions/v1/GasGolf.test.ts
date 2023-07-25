@@ -29,7 +29,7 @@ after(() => {
   console.log(`\n               🚩 Score : ${score} gas`)
 })
 
-describe.skip('Gas Golf', () => {
+describe.only('Gas Golf', () => {
   it('- taking a swing', async () => {
     // User signs Terms of Service
     const messageHash = await contracts.accessControl.getMessageHash(
