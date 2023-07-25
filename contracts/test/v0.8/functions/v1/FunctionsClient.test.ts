@@ -117,8 +117,8 @@ describe('Functions Client', () => {
       assert.deepEqual(
         {
           ...decoded,
-          language: decoded.language.toNumber(),
-          codeLocation: decoded.codeLocation.toNumber(),
+          language: decoded.language,
+          codeLocation: decoded.codeLocation,
         },
         {
           language: 0,

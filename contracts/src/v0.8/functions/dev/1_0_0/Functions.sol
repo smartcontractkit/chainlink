@@ -48,10 +48,10 @@ library Functions {
     Buffer.init(buffer.buf, DEFAULT_BUFFER_SIZE);
 
     CBOR.writeString(buffer, "codeLocation");
-    CBOR.writeUInt256(buffer, uint256(self.codeLocation));
+    CBOR.writeUInt64(buffer, uint64(self.codeLocation));
 
     CBOR.writeString(buffer, "language");
-    CBOR.writeUInt256(buffer, uint256(self.language));
+    CBOR.writeUInt64(buffer, uint64(self.language));
 
     CBOR.writeString(buffer, "source");
     CBOR.writeString(buffer, self.source);
@@ -59,7 +59,7 @@ library Functions {
     if (self.args.length > 0) {
       CBOR.writeString(buffer, "args");
       CBOR.startArray(buffer);
-      for (uint256 i = 0; i < self.args.length; i++) {
+      for (uint16 i = 0; i < self.args.length; i++) {
         CBOR.writeString(buffer, self.args[i]);
       }
       CBOR.endSequence(buffer);
@@ -70,7 +70,7 @@ library Functions {
         revert NoInlineSecrets();
       }
       CBOR.writeString(buffer, "secretsLocation");
-      CBOR.writeUInt256(buffer, uint256(self.secretsLocation));
+      CBOR.writeUInt64(buffer, uint64(self.secretsLocation));
       CBOR.writeString(buffer, "secrets");
       CBOR.writeBytes(buffer, self.encryptedSecretsReference);
     }
@@ -78,7 +78,7 @@ library Functions {
     if (self.bytesArgs.length > 0) {
       CBOR.writeString(buffer, "bytesArgs");
       CBOR.startArray(buffer);
-      for (uint256 i = 0; i < self.bytesArgs.length; i++) {
+      for (uint16 i = 0; i < self.bytesArgs.length; i++) {
         CBOR.writeBytes(buffer, self.bytesArgs[i]);
       }
       CBOR.endSequence(buffer);

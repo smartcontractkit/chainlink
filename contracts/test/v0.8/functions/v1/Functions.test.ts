@@ -61,8 +61,8 @@ describe('FunctionsTestHelper', () => {
       assert.deepEqual(
         {
           ...decoded,
-          language: decoded.language.toNumber(),
-          codeLocation: decoded.codeLocation.toNumber(),
+          language: decoded.language,
+          codeLocation: decoded.codeLocation,
         },
         {
           language: 0,
@@ -83,8 +83,8 @@ describe('FunctionsTestHelper', () => {
       assert.deepEqual(
         {
           ...decoded,
-          language: decoded.language.toNumber(),
-          codeLocation: decoded.codeLocation.toNumber(),
+          language: decoded.language,
+          codeLocation: decoded.codeLocation,
         },
         {
           language: 0,
@@ -115,9 +115,9 @@ describe('FunctionsTestHelper', () => {
       assert.deepEqual(
         {
           ...decoded,
-          language: decoded.language.toNumber(),
-          codeLocation: decoded.codeLocation.toNumber(),
-          secretsLocation: decoded.secretsLocation.toNumber(),
+          language: decoded.language,
+          codeLocation: decoded.codeLocation,
+          secretsLocation: decoded.secretsLocation,
         },
         {
           language: 0,
@@ -151,8 +151,8 @@ describe('FunctionsTestHelper', () => {
       assert.deepEqual(
         {
           ...decoded,
-          language: decoded.language.toNumber(),
-          codeLocation: decoded.codeLocation.toNumber(),
+          language: decoded.language,
+          codeLocation: decoded.codeLocation,
         },
         {
           language: 0,
