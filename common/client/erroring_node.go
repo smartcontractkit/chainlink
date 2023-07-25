@@ -1,4 +1,4 @@
-package multinodeclient
+package client
 
 import (
 	"context"
@@ -6,16 +6,12 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	// "github.com/ethereum/go-ethereum"
-	// "github.com/ethereum/go-ethereum/common"
-	// "github.com/ethereum/go-ethereum/core/types"
-	// "github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
@@ -65,7 +61,11 @@ func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, E
 	return errors.New(e.errMsg)
 }
 
-func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
+func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) BatchCallContext(ctx context.Context, b []any) error {
+	return errors.New(e.errMsg)
+}
+
+func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) BatchCallContextAll(ctx context.Context, b []any) error {
 	return errors.New(e.errMsg)
 }
 
@@ -82,7 +82,7 @@ func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, E
 	attempts []txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
 	bathSize int,
 	lggr logger.Logger,
-) ([]SendTxReturnCode, []error, error) {
+) ([]clienttypes.SendTxReturnCode, []error, error) {
 	return nil, nil, errors.New(e.errMsg)
 }
 
@@ -118,7 +118,7 @@ func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, E
 	tx txmgrtypes.Tx[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
 	attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
 	lggr logger.Logger,
-) (returnCode SendTxReturnCode, err error) {
+) (returnCode clienttypes.SendTxReturnCode, err error) {
 	return returnCode, errors.New(e.errMsg)
 }
 
@@ -166,16 +166,24 @@ func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, E
 	return nil, errors.New(e.errMsg)
 }
 
-// func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
-// 	return nil, errors.New(e.errMsg)
-// }
-
-// func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-// 	return nil, errors.New(e.errMsg)
-// }
-
-func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
+func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) EstimateGas(ctx context.Context, call any) (uint64, error) {
 	return 0, errors.New(e.errMsg)
+}
+
+func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) HeadByNumber(ctx context.Context, number *big.Int) (head *types.Head[BLOCKHASH], err error) {
+	return nil, errors.New(e.errMsg)
+}
+
+func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) HeadByHash(ctx context.Context, hash BLOCKHASH) (head *types.Head[BLOCKHASH], err error) {
+	return nil, errors.New(e.errMsg)
+}
+
+func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) IsL2() bool {
+	return false
+}
+
+func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) LINKBalance(ctx context.Context, accountAddress ADDR, linkAddress ADDR) (*assets.Link, error) {
+	return nil, errors.New(e.errMsg)
 }
 
 func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
@@ -194,19 +202,11 @@ func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, E
 	return nil, errors.New(e.errMsg)
 }
 
-// func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) HeaderByNumber(_ context.Context, _ *big.Int) (*types.Header, error) {
-// 	return nil, errors.New(e.errMsg)
-// }
-
-// func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) HeaderByHash(_ context.Context, _ common.Hash) (*types.Header, error) {
-// 	return nil, errors.New(e.errMsg)
-// }
-
 func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
 	return nil, errors.New(e.errMsg)
 }
 
-func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) 	Subscribe(ctx context.Context, channel chan<- types.Head[BLOCKHASH], args ...interface{}) (types.Subscription, error) {
+func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) Subscribe(ctx context.Context, channel chan<- types.Head[BLOCKHASH], args ...interface{}) (types.Subscription, error) {
 	return nil, errors.New(e.errMsg)
 }
 

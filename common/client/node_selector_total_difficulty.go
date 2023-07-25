@@ -1,4 +1,4 @@
-package multinodeclient
+package client
 
 import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
