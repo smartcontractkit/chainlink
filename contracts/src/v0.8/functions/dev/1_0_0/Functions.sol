@@ -115,7 +115,11 @@ library Functions {
    * @param javaScriptSource The user provided JS code (must not be empty)
    */
   function initializeRequestForInlineJavaScript(Request memory self, string memory javaScriptSource) internal pure {
-    initializeRequest(self, Location.Inline, CodeLanguage.JavaScript, javaScriptSource);
+    if (bytes(javaScriptSource).length == 0) revert EmptySource();
+
+    self.codeLocation = Location.Inline;
+    self.language = CodeLanguage.JavaScript;
+    self.source = javaScriptSource;
   }
 
   /**
