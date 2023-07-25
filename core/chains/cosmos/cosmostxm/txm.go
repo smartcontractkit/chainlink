@@ -13,10 +13,10 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	"github.com/cometbft/cometbft/crypto/tmhash"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/x/bank/types"
-	"github.com/tendermint/tendermint/crypto/tmhash"
 
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"

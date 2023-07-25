@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -21,7 +22,6 @@ import (
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/libs/rand"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
