@@ -269,6 +269,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	hb := commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
 	lp := new(mocks.LogPoller)
+	lp.On("LatestBlock", mock.Anything).Maybe().Return(0, fmt.Errorf("error"))
 
 	bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
 	err := bs.Start(context.Background())
