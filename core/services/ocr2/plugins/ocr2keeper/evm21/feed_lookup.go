@@ -182,12 +182,18 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 // allowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
 // this upkeep is allowed to use Mercury service.
 func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (bool, error) {
-	allowed, ok := r.mercury.allowListCache.Get(upkeepId.String())
+	var au activeUpkeep
+	var ok bool
+	if au, ok = r.active[upkeepId.String()]; !ok {
+		return false, fmt.Errorf("upkeep %s is not active", upkeepId)
+	}
+
+	allowed, ok := r.mercury.allowListCache.Get(au.Admin.Hex())
 	if ok {
 		return allowed.(bool), nil
 	}
 
-	cfg, err := r.registry.GetUpkeepPrivilegeConfig(opts, upkeepId)
+	cfg, err := r.registry.GetAdminPrivilegeConfig(opts, au.Admin)
 	if err != nil {
 		return false, fmt.Errorf("failed to get upkeep privilege config for upkeep ID %s: %v", upkeepId, err)
 	}
@@ -197,7 +203,7 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 	if err != nil {
 		return false, fmt.Errorf("failed to unmarshal privilege config for upkeep ID %s: %v", upkeepId, err)
 	}
-	r.mercury.allowListCache.Set(upkeepId.String(), a.MercuryEnabled, cache.DefaultExpiration)
+	r.mercury.allowListCache.Set(au.Admin.Hex(), a.MercuryEnabled, cache.DefaultExpiration)
 	return a.MercuryEnabled, nil
 }
 
