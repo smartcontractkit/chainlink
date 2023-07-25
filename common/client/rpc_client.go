@@ -1,17 +1,17 @@
-package multinodeclient
+package client
 
 import (
 	"context"
 	"fmt"
 	"math/big"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
-
-type SendTxReturnCode int
 
 type RPCClient[
 	CHAINID types.ID,
@@ -31,6 +31,8 @@ type RPCClient[
 	Events[EVENT, EVENTOPS]
 	Blocks[BLOCK, BLOCKHASH]
 
+	BatchCallContext(ctx context.Context, b []any) error
+	BatchCallContextAll(ctx context.Context, b []any) error
 	BatchGetReceipts(
 		ctx context.Context,
 		attempts []txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
@@ -42,7 +44,13 @@ type RPCClient[
 	) (rpcErr fmt.Stringer, extractErr error)
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	ChainID() (CHAINID, error)
+	CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) ([]byte, error)
 	ConfiguredChainID() CHAINID
+	EstimateGas(ctx context.Context, call any) (gas uint64, err error)
+	HeadByNumber(ctx context.Context, number *big.Int) (head *types.Head[BLOCKHASH], err error)
+	HeadByHash(ctx context.Context, hash BLOCKHASH) (head *types.Head[BLOCKHASH], err error)
+	IsL2() bool
+	LINKBalance(ctx context.Context, accountAddress ADDR, linkAddress ADDR) (*assets.Link, error)
 	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
 	SendEmptyTransaction(
 		ctx context.Context,
@@ -57,7 +65,7 @@ type RPCClient[
 		tx txmgrtypes.Tx[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
 		attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
 		lggr logger.Logger,
-	) (SendTxReturnCode, error)
+	) (clienttypes.SendTxReturnCode, error)
 	Subscribe(ctx context.Context, channel chan<- types.Head[BLOCKHASH], args ...interface{}) (types.Subscription, error)
 }
 
