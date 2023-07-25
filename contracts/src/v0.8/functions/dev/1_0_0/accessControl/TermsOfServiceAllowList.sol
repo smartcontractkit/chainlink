@@ -150,8 +150,8 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
   // |                     Internal helpers                          |
   // ================================================================
 
-// NOTE: a contract account can appear to be an EoA if called during its constructor
-// This is not a risk, because they will fail in acceptTermsOfService during acceptor == recipient
+  // NOTE: a contract account can appear to be an EoA if called during its constructor
+  // This is not a risk, because they will fail in acceptTermsOfService during acceptor == recipient
   function _isContract(address _addr) private view returns (bool isContract) {
     uint32 size;
     // solhint-disable-next-line no-inline-assembly

@@ -230,7 +230,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint256 gasPrice
   ) external view override returns (uint96) {
     if (callbackGasLimit > s_config.maxCallbackGasLimit) {
-      revert GasLimitTooBig(billing.callbackGasLimit, s_config.maxCallbackGasLimit);
+      revert GasLimitTooBig(callbackGasLimit, s_config.maxCallbackGasLimit);
     }
     // Reasonable ceiling to prevent integer overflows
     if (gasPrice > 1_000_000) {
