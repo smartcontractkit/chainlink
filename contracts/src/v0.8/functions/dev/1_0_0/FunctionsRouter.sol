@@ -146,9 +146,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     ) = IFunctionsCoordinator(coordinatorAddress).sendRequest(
       IFunctionsCoordinator.Request(
         msg.sender,
-        subscriptionId,
         s_subscriptions[subscriptionId].owner,
         data,
+        subscriptionId,
         dataVersion,
         _getFlags(subscriptionId),
         callbackGasLimit

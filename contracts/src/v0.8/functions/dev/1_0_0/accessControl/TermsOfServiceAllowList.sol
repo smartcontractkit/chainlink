@@ -20,24 +20,30 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
 
   error InvalidProof();
   error RecipientIsBlocked();
+
   // ================================================================
   // |                     Configuration state                      |
   // ================================================================
+
   struct Config {
     bool enabled;
     address proofSignerPublicKey;
   }
+
   Config private s_config;
+
   event ConfigSet(bool enabled);
 
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
+
   constructor(address router, bytes memory config) Routable(router, config) {}
 
   // ================================================================
   // |                    Configuration methods                     |
   // ================================================================
+
   /**
    * @notice Sets the configuration
    * @param config bytes of config data to set the following:
@@ -60,6 +66,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
   // ================================================================
   // |                  Terms of Service methods                    |
   // ================================================================
+
   /**
    * @inheritdoc ITermsOfServiceAllowList
    */
@@ -89,15 +96,11 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
       revert InvalidProof();
     }
 
-    if (msg.sender.isContract()) {
-      // If contract, validate that msg.sender == recipient
-      // This is to prevent EoAs from claiming contracts that they are not in control of
-      if (msg.sender != recipient) {
-        revert InvalidProof();
-      }
-    } else if (msg.sender != acceptor || msg.sender != recipient) {
-      // If EoA, validate that msg.sender == acceptor == recipient
-      // This is to prevent EoAs from accepting for other EoAs
+    // If contract, validate that msg.sender == recipient
+    // This is to prevent EoAs from claiming contracts that they are not in control of
+    // If EoA, validate that msg.sender == acceptor == recipient
+    // This is to prevent EoAs from accepting for other EoAs
+    if (msg.sender != recipient || (msg.sender != acceptor && !msg.sender.isContract())) {
       revert InvalidProof();
     }
 
@@ -128,7 +131,6 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
   // ================================================================
   // |                     Owner methods                          |
   // ================================================================
-  /**
 
   /**
    * @inheritdoc ITermsOfServiceAllowList
@@ -146,7 +148,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
   }
 
   // ================================================================
-  // |                     Internal helpers                          |
+  // |                     Signature checking                       |
   // ================================================================
 
   function _getSigner(bytes32 _ethSignedMessageHash, bytes memory signature) private pure returns (address) {
