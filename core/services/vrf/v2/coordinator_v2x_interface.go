@@ -21,6 +21,11 @@ var (
 	_ CoordinatorV2_X = (*coordinatorV2Plus)(nil)
 )
 
+var (
+	_ CoordinatorV2_X = (*coordinatorV2)(nil)
+	_ CoordinatorV2_X = (*coordinatorV2Plus)(nil)
+)
+
 // CoordinatorV2_X is an interface that allows us to use the same code for
 // both the V2 and V2Plus coordinators.
 type CoordinatorV2_X interface {
