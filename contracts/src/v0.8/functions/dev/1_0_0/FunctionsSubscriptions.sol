@@ -335,8 +335,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     onlySenderThatAcceptedToS
     returns (uint64 subscriptionId)
   {
-    s_currentsubscriptionId++;
-    subscriptionId = s_currentsubscriptionId;
+    subscriptionId = s_currentsubscriptionId++;
     s_subscriptions[subscriptionId] = Subscription({
       balance: 0,
       blockedBalance: 0,
