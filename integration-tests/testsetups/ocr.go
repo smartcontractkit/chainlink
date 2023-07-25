@@ -312,19 +312,18 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 		time.Sleep(time.Minute * 10)
 		interruption <- syscall.SIGTERM
 		time.Sleep(time.Second * 8) // Default time limit before K8s starts forceful shutdown
-		os.Exit(1)
 	}()
 
 	for {
 		select {
 		case <-interruption:
-			o.log.Info().Msg("Test interrupted, saving state")
+			o.log.Warn().Msg("Test interrupted, saving state")
 			saveStart := time.Now()
 			if err := o.SaveState(); err != nil {
 				o.log.Error().Err(err).Msg("Error saving state")
-				continue
 			}
-			log.Info().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
+			log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
+			os.Exit(1)
 		case <-endTest.C:
 			return
 		case <-newRoundTrigger.C:
@@ -413,7 +412,13 @@ func (o *OCRSoakTest) SaveState() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(saveFileLocation, data, 0644) // #nosec G306 - let everyone read
+	// #nosec G306 - let everyone read
+	if err = os.WriteFile(saveFileLocation, data, 0644); err != nil {
+		return err
+	}
+	fmt.Println("Saved state")
+	fmt.Println(fmt.Sprint(data))
+	return nil
 }
 
 // LoadState loads the test state from a TOML file
