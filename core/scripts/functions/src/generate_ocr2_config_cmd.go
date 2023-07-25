@@ -51,10 +51,9 @@ type OracleConfigSource struct {
 	MaxRequestBatchSize       uint32
 	DefaultAggregationMethod  int32
 	UniqueReports             bool
-
-	ThresholdOffchainConfig ThresholdOffchainConfig
-
-	S4ReportingPluginConfig S4ReportingPluginConfig
+	ThresholdOffchainConfig   ThresholdOffchainConfig
+	S4ReportingPluginConfig   S4ReportingPluginConfig
+	MaxReportTotalCallbackGas uint32
 
 	DeltaProgressMillis  uint32
 	DeltaResendMillis    uint32
@@ -231,6 +230,7 @@ func (g *generateOCR2Config) Run(args []string) {
 				MaxReportEntries:          cfg.S4ReportingPluginConfig.MaxReportEntries,
 				MaxDeleteExpiredEntries:   cfg.S4ReportingPluginConfig.MaxDeleteExpiredEntries,
 			},
+			MaxReportTotalCallbackGas: cfg.MaxReportTotalCallbackGas,
 		},
 	})
 	if err != nil {

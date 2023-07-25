@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {IRouterBase} from "./IRouterBase.sol";
 
@@ -7,6 +7,13 @@ import {IRouterBase} from "./IRouterBase.sol";
  * @title Chainlink Functions Router interface.
  */
 interface IFunctionsRouter is IRouterBase {
+  /**
+   * @notice The identifier of the route to retrieve the address of the access control contract
+   * The access control contract controls which accounts can manage subscriptions
+   * @return id - bytes32 id that can be passed to the "getContractById" of the Router
+   */
+  function getAllowListId() external pure returns (bytes32);
+
   /**
    * @notice The fee that will be paid to the Router owner for operating the network
    * @return fee Cost in Juels (1e18) of LINK

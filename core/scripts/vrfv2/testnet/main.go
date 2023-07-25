@@ -384,7 +384,7 @@ func main() {
 		helpers.PanicErr(err)
 		blockRange, err := blockhashstore.DecreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*startBlock-*numBlocks-1))
 		helpers.PanicErr(err)
-		rlpHeaders, err := getRlpHeaders(e, blockRange)
+		rlpHeaders, err := helpers.GetRlpHeaders(e, blockRange)
 		helpers.PanicErr(err)
 		tx, err := batchBHS.StoreVerifyHeader(e.Owner, blockRange, rlpHeaders)
 		helpers.PanicErr(err)
@@ -459,7 +459,7 @@ func main() {
 			fmt.Println("using gas price", e.Owner.GasPrice, "wei")
 
 			blockNumbers := blockRange[i:j]
-			blockHeaders, err := getRlpHeaders(e, blockNumbers)
+			blockHeaders, err := helpers.GetRlpHeaders(e, blockNumbers)
 			fmt.Println("storing blockNumbers:", blockNumbers)
 			helpers.PanicErr(err)
 
@@ -682,8 +682,6 @@ func main() {
 		fmt.Printf("Request config %+v Rw %+v Rid %+v\n", rc, rw, rid)
 	case "deploy-universe":
 		deployUniverse(e)
-	case "generate-proof-v2-plus":
-		generateProofForV2Plus(e)
 	case "eoa-consumer-deploy":
 		consumerDeployCmd := flag.NewFlagSet("eoa-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")
@@ -1010,7 +1008,7 @@ func main() {
 			}
 		}
 
-		result := binarySearch(assets.Ether(int64(*start*2)).ToInt(), big.NewInt(0), isWithdrawable)
+		result := helpers.BinarySearch(assets.Ether(int64(*start*2)).ToInt(), big.NewInt(0), isWithdrawable)
 
 		fmt.Printf("Withdrawable amount for oracle %s is %s\n", oracleAddress.String(), result.String())
 	case "coordinator-transfer-ownership":

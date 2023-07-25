@@ -27,6 +27,7 @@ describe('Functions Client', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
       const defaultAccountAddress = await roles.defaultAccount.getAddress()
@@ -58,6 +59,7 @@ describe('Functions Client', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
       const js = 'function run(){return response}'
@@ -90,6 +92,7 @@ describe('Functions Client', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
       const tx = await contracts.client.sendSimpleRequestWithJavaScript(

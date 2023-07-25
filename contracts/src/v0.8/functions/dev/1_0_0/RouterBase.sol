@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {IRouterBase} from "./interfaces/IRouterBase.sol";
 import {ConfirmedOwnerWithProposal} from "../../../ConfirmedOwnerWithProposal.sol";
@@ -18,7 +18,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                          Route state                         |
   // ================================================================
-  mapping(bytes32 => address) internal s_route; /* id => contract address */
+  mapping(bytes32 id => address routableContract) internal s_route;
   error RouteNotFound(bytes32 id);
   // Use empty bytes to self-identify, since it does not have an id
   bytes32 internal constant routerId = bytes32(0);
@@ -55,7 +55,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     bytes to;
     uint256 timelockEndBlock;
   }
-  mapping(bytes32 => ConfigProposal) internal s_proposedConfig; /* id => ConfigProposal */
+  mapping(bytes32 id => ConfigProposal) internal s_proposedConfig;
   event ConfigProposed(bytes32 id, bytes32 fromHash, bytes toBytes);
   event ConfigUpdated(bytes32 id, bytes32 fromHash, bytes toBytes);
   error InvalidProposal();
@@ -153,7 +153,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                 Contract Proposal methods                    |
   // ================================================================
-
   /**
    * @inheritdoc IRouterBase
    */
@@ -175,15 +174,17 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     }
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint8 i = 0; i < idsArrayLength; i++) {
+      bytes32 id = proposedContractSetIds[i];
+      address proposedContract = proposedContractSetAddresses[i];
       if (
-        proposedContractSetAddresses[i] == address(0) || // The Proposed address must be a valid address
-        s_route[proposedContractSetIds[i]] == proposedContractSetAddresses[i] // The Proposed address must point to a different address than what is currently set
+        proposedContract == address(0) || // The Proposed address must be a valid address
+        s_route[id] == proposedContract // The Proposed address must point to a different address than what is currently set
       ) {
         revert InvalidProposal();
       }
       // Reserved ids cannot be set
-      if (proposedContractSetIds[i] == routerId) {
-        revert IdentifierIsReserved(routerId);
+      if (id == routerId) {
+        revert IdentifierIsReserved(id);
       }
     }
 
