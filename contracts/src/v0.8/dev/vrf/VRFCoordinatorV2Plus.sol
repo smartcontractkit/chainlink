@@ -391,9 +391,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     }
     if (
       commitment !=
-      keccak256(
-        abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender, rc.extraArgs)
-      )
+      keccak256(abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender, rc.extraArgs))
     ) {
       revert IncorrectCommitment();
     }
@@ -419,7 +417,10 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
    * @return payment amount billed to the subscription
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
-  function fulfillRandomWords(Proof calldata proof, RequestCommitment calldata rc) external nonReentrant returns (uint96) {
+  function fulfillRandomWords(
+    Proof calldata proof,
+    RequestCommitment calldata rc
+  ) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
     Output memory output = getRandomnessFromProof(proof, rc);
 
