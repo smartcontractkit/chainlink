@@ -1363,7 +1363,11 @@ github.com/slack-go/slack v0.12.2/go.mod h1:hlGi5oXA+Gt+yWTPP0plCdRKmjsDxecdHxYQ
 github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 h1:T3lFWumvbfM1u/etVq42Afwq/jtNSBSOA8n5jntnNPo=
 github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
 <<<<<<< HEAD
+<<<<<<< HEAD
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230714113758-258965668789 h1:S+JQhiaZGYk3zuNXksH52j90n+dZA0HKOH5XpYMNfwc=
+=======
+github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230725012331-9007d9fb0d7b h1:vh4N/K+TMG8oV7L2i4U8q5aMjlVgf5M8TAZJCsXUh4U=
+>>>>>>> BCI-1007/update-cosmos-sdk
 github.com/smartcontractkit/chainlink-env v0.35.0 h1:bjF+OOqWJUEIGmoiOZ6k1D4q6J6S/MqD269m37u0Ub8=
 github.com/smartcontractkit/chainlink-env v0.35.0/go.mod h1:hMOkTDW5k0C5B5lup1+xpPiZQPkq84YGLuFDVdTKU7A=
 =======
