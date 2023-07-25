@@ -26,6 +26,12 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
 
   uint256 private constant maxUint32 = (1 << 32) - 1;
 
+  // incremented each time a new config is posted. This count is incorporated
+  // into the config digest, to prevent replay attacks.
+  uint32 internal s_configCount;
+  uint32 internal s_latestConfigBlockNumber; // makes it easier for offchain systems
+  // to extract config from logs.
+
   // Storing these fields used on the hot path in a ConfigInfo variable reduces the
   // retrieval of all of them to a single SLOAD. If any further fields are
   // added, make sure that storage of the struct still takes at most 32 bytes.
@@ -35,12 +41,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     uint8 n;
   }
   ConfigInfo internal s_configInfo;
-
-  // incremented each time a new config is posted. This count is incorporated
-  // into the config digest, to prevent replay attacks.
-  uint32 internal s_configCount;
-  uint32 internal s_latestConfigBlockNumber; // makes it easier for offchain systems
-  // to extract config from logs.
 
   // Used for s_oracles[a].role, where a is an address, to track the purpose
   // of the address, or to indicate that the address is unset.
