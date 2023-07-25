@@ -22,8 +22,6 @@ const (
 	PollLogInterval = time.Second
 	// CleanUpInterval is the interval for cleaning up block maps
 	CleanUpInterval = 15 * time.Minute
-	// Separator is the separator for block key
-	Separator = "|"
 	// ChannelSize represents the channel size for head broadcaster
 	ChannelSize = 20
 )
@@ -34,7 +32,7 @@ type BlockKey struct {
 }
 
 func (bk *BlockKey) getBlockKey() ocr2keepers.BlockKey {
-	return ocr2keepers.BlockKey(fmt.Sprintf("%d%s%s", bk.block, Separator, bk.hash.Hex()))
+	return ocr2keepers.BlockKey(fmt.Sprintf("%d%s%s", bk.block, BlockKeySeparator, bk.hash.Hex()))
 }
 
 type BlockSubscriber struct {
