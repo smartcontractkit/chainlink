@@ -279,13 +279,19 @@ func (o *OCRSoakTest) Run() {
 
 	o.testLoop(o.Inputs.TestDuration, startingValue)
 
-	o.log.Info().Msg("Test Complete, collecting on-chain events to be collected")
-	// Keep trying to collect events until we get them, no exceptions
-	timeout := time.Second * 5
+	o.log.Info().Msg("Test Complete, collecting on-chain events")
+	// Keep trying to collect events until we get them
+	timeout := time.Second * 15
 	err = o.collectEvents(timeout)
 	for err != nil {
-		timeout *= 2
-		err = o.collectEvents(timeout)
+		log.Error().Err(err).Msg("Error collecting events")
+		if strings.Contains(err.Error(), "context deadline exceeded") {
+			timeout *= 2
+			log.Info().Str("New Timeout", timeout.String()).Msg("Attempting to collect events again")
+			err = o.collectEvents(timeout)
+		} else { // Some other error, not a timeout we can just retry
+			break
+		}
 	}
 	o.TestReporter.RecordEvents(o.ocrRoundStates, o.rpcIssues)
 }
@@ -300,6 +306,12 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	defer newRoundTrigger.Stop()
 	err := o.observeOCREvents()
 	require.NoError(o.t, err, "Error subscribing to OCR events")
+
+	// DEBUG: Trigger interruption to see how we do
+	go func() {
+		time.Sleep(time.Minute * 10)
+		interruption <- syscall.SIGTERM
+	}()
 
 	for {
 		select {
@@ -399,7 +411,7 @@ func (o *OCRSoakTest) SaveState() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(saveFileLocation, data, 0644)
+	return os.WriteFile(saveFileLocation, data, 0644) // #nosec G306 - let everyone read
 }
 
 // LoadState loads the test state from a TOML file
@@ -485,13 +497,19 @@ func (o *OCRSoakTest) Resume() {
 	startingValue := 5
 	o.testLoop(o.Inputs.TestDuration, startingValue)
 
-	o.log.Info().Msg("Test Complete, collecting on-chain events to be collected")
-	// Keep trying to collect events until we get them, no exceptions
-	timeout := time.Second * 5
+	o.log.Info().Msg("Test Complete, collecting on-chain events")
+
+	timeout := time.Second * 15
 	err = o.collectEvents(timeout)
 	for err != nil {
-		timeout *= 2
-		err = o.collectEvents(timeout)
+		log.Error().Err(err).Msg("Error collecting events")
+		if strings.Contains(err.Error(), "context deadline exceeded") {
+			timeout *= 2
+			log.Info().Str("New Timeout", timeout.String()).Msg("Attempting to collect events again")
+			err = o.collectEvents(timeout)
+		} else { // Some other error, not a timeout we can just retry
+			break
+		}
 	}
 	o.TestReporter.RecordEvents(o.ocrRoundStates, o.rpcIssues)
 }
@@ -581,28 +599,23 @@ func (o *OCRSoakTest) triggerNewRound(newValue int) error {
 
 func (o *OCRSoakTest) collectEvents(timeout time.Duration) error {
 	start := time.Now()
+	if len(o.ocrRoundStates) == 0 {
+		return fmt.Errorf("error collecting on-chain events, no rounds have been started")
+	}
 	o.ocrRoundStates[len(o.ocrRoundStates)-1].EndTime = start // Set end time for last expected event
 	o.log.Info().Msg("Collecting on-chain events")
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	contractEvents, err := o.chainClient.FilterLogs(ctx, o.filterQuery)
 	if err != nil {
-		log.Error().
-			Err(err).
-			Str("Time", time.Since(start).String()).
-			Msg("Error collecting on-chain events")
-		return err
+		return fmt.Errorf("error collecting on-chain events after %s: %v", time.Since(start).String(), err)
 	}
 
 	sortedFoundEvents := make([]*testreporters.FoundEvent, 0)
 	for _, event := range contractEvents {
 		answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
 		if err != nil {
-			log.Error().
-				Err(err).
-				Str("Time", time.Since(start).String()).
-				Msg("Error collecting on-chain events")
-			return err
+			return fmt.Errorf("error collecting on-chain events after %s: %v", time.Since(start).String(), err)
 		}
 		sortedFoundEvents = append(sortedFoundEvents, &testreporters.FoundEvent{
 			StartTime:   time.Unix(answerUpdated.UpdatedAt.Int64(), 0),
@@ -654,6 +667,9 @@ func (o *OCRSoakTest) ensureInputValues() error {
 	}
 	if inputs.TimeBetweenRounds >= time.Hour {
 		return fmt.Errorf("Time between rounds must be less than 1 hour, found %s", inputs.TimeBetweenRounds.String())
+	}
+	if inputs.TimeBetweenRounds < time.Second*30 {
+		return fmt.Errorf("Time between rounds must be greater or equal to 30 seconds, found %s", inputs.TimeBetweenRounds.String())
 	}
 	o.Inputs.bigChainlinkNodeFunding = big.NewFloat(inputs.ChainlinkNodeFunding)
 	return nil
