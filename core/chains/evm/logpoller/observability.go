@@ -35,7 +35,7 @@ var (
 		float64(2 * time.Second),
 		float64(5 * time.Second),
 	}
-	lpQueryHistogram = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	lpQueryDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "log_poller_query_duration",
 		Help:    "Measures duration of Log Poller's queries fetching logs",
 		Buckets: sqlLatencyBuckets,
@@ -62,7 +62,7 @@ func NewObservedLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod ti
 
 	return &ObservedLogPoller{
 		LogPoller:     NewLogPoller(orm, ec, lggr, pollPeriod, finalityDepth, backfillBatchSize, rpcBatchSize, keepBlocksDepth),
-		queryDuration: lpQueryHistogram,
+		queryDuration: lpQueryDuration,
 		datasetSize:   lpQueryDataSets,
 		chainId:       orm.chainID.String(),
 	}
