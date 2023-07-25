@@ -149,7 +149,7 @@ func GetIbftExtraClean(extra []byte) (cleanedExtra []byte, err error) {
 	hexExtra := hex.EncodeToString(extra)
 	prefix := ""
 	for _, s := range hexExtra {
-		if string(s) == string("0") {
+		if s == '0' {
 			prefix = prefix + "0"
 		} else {
 			break
