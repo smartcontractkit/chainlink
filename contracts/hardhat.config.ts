@@ -86,6 +86,10 @@ let config = {
         version: '0.8.16',
         settings: COMPILER_SETTINGS,
       },
+      {
+        version: '0.8.19',
+        settings: COMPILER_SETTINGS,
+      },
     ],
     overrides: {
       'src/v0.8/vrf/VRFCoordinatorV2.sol': {
