@@ -311,6 +311,8 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	go func() {
 		time.Sleep(time.Minute * 10)
 		interruption <- syscall.SIGTERM
+		time.Sleep(time.Second * 8) // Default time limit before K8s starts forceful shutdown
+		os.Exit(1)
 	}()
 
 	for {
