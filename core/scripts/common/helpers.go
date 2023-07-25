@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -30,6 +31,8 @@ import (
 type Environment struct {
 	Owner *bind.TransactOpts
 	Ec    *ethclient.Client
+
+	Jc *rpc.Client
 
 	// AvaxEc is appropriately set if the environment is configured to interact with an avalanche
 	// chain. It should be used instead of the regular Ec field because avalanche calculates
@@ -73,6 +76,9 @@ func SetupEnv(overrideNonce bool) Environment {
 	}
 
 	ec, err := ethclient.Dial(ethURL)
+	PanicErr(err)
+
+	jsonRPCClient, err := rpc.Dial(ethURL)
 	PanicErr(err)
 
 	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
@@ -128,6 +134,7 @@ func SetupEnv(overrideNonce bool) Environment {
 	return Environment{
 		Owner:   owner,
 		Ec:      ec,
+		Jc:      jsonRPCClient,
 		AvaxEc:  avaxClient,
 		ChainID: chainID,
 	}
@@ -396,8 +403,12 @@ func BinarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.In
 // Get RLP encoded headers of a list of block numbers
 // Makes RPC network call eth_getBlockByNumber to blockchain RPC node
 // to fetch header info
-func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, err error) {
+func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, hashes []string, err error) {
+
+	hashes = make([]string, 0)
+
 	headers = [][]byte{}
+	var rlpHeader []byte
 	for _, blockNum := range blockNumbers {
 		// Avalanche block headers are special, handle them by using the avalanche rpc client
 		// rather than the regular go-ethereum ethclient.
@@ -408,14 +419,16 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, 
 				new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get header: %+v", err)
+				return nil, hashes, fmt.Errorf("failed to get header: %+v", err)
 			}
 			// We can still use vanilla go-ethereum rlp.EncodeToBytes, see e.g
 			// https://github.com/ava-labs/coreth/blob/e3ca41bf5295a9a7ca1aeaf29d541fcbb94f79b1/core/types/hashing.go#L49-L57.
-			rlpHeader, err := rlp.EncodeToBytes(h)
+			rlpHeader, err = rlp.EncodeToBytes(h)
 			if err != nil {
-				return nil, fmt.Errorf("failed to encode rlp: %+v", err)
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
 			}
+
+			hashes = append(hashes, h.Hash().String())
 
 			// Sanity check - can be un-commented if storeVerifyHeader is failing due to unexpected
 			// blockhash.
@@ -424,7 +437,18 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, 
 			//	"fetched BH:", h.Hash(),
 			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)).String())
 
-			headers = append(headers, rlpHeader)
+		} else if IsPolygonEdgeNetwork(env.ChainID) {
+
+			// Get child block since it's the one that has the parent hash in its header.
+			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1))
+			var hash string
+			rlpHeader, hash, err = GetPolygonEdgeRLPHeader(env.Jc, nextBlockNum)
+			if err != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
+			}
+
+			hashes = append(hashes, hash)
+
 		} else {
 			// Get child block since it's the one that has the parent hash in its header.
 			h, err := env.Ec.HeaderByNumber(
@@ -432,17 +456,54 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, 
 				new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
 			)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get header: %+v", err)
+				return nil, hashes, fmt.Errorf("failed to get header: %+v", err)
 			}
-			rlpHeader, err := rlp.EncodeToBytes(h)
+			rlpHeader, err = rlp.EncodeToBytes(h)
 			if err != nil {
-				return nil, fmt.Errorf("failed to encode rlp: %+v", err)
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
 			}
 
-			headers = append(headers, rlpHeader)
+			hashes = append(hashes, h.Hash().String())
 		}
+
+		headers = append(headers, rlpHeader)
 	}
 	return
+}
+
+// IsPolygonEdgeNetwork returns true if the given chain ID corresponds to an Pologyon Edge network.
+func IsPolygonEdgeNetwork(chainID int64) bool {
+	return chainID == 100 || // Nexon test supernet
+		chainID == 500 // Nexon test supernet
+}
+
+func CalculateLatestBlockHeader(env Environment, blockNumberInput int) (err error) {
+	blockNumber := uint64(blockNumberInput)
+	if blockNumberInput == -1 {
+		blockNumber, err = env.Ec.BlockNumber(context.Background())
+		if err != nil {
+			return fmt.Errorf("failed to fetch latest block: %+v", err)
+		}
+	}
+
+	blockNumber = blockNumber - 1
+
+	blockNumberBigInts := []*big.Int{big.NewInt(int64(blockNumber))}
+	headers, hashes, err := GetRlpHeaders(env, blockNumberBigInts)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	rlpHeader := headers[0]
+	bh := crypto.Keccak256Hash(rlpHeader)
+	fmt.Println("Calculated BH:", bh.String(),
+		"\nfetched BH:", hashes[0],
+		"\nRLP encoding of header: ", hex.EncodeToString(rlpHeader), ", len: ", len(rlpHeader),
+		"\nblock number:", new(big.Int).Set(blockNumberBigInts[0]).Add(blockNumberBigInts[0], big.NewInt(1)).String(),
+		fmt.Sprintf("\nblock number hex: 0x%x\n", blockNumber+1))
+
+	return err
 }
 
 // IsAvaxNetwork returns true if the given chain ID corresponds to an avalanche network or subnet.
