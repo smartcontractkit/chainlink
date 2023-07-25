@@ -67,7 +67,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint32 gasOverheadBeforeCallback,
     uint32 gasOverheadAfterCallback,
     int256 fallbackNativePerUnitLink,
-    uint96 fee,
+    uint96 donFee,
     uint16 maxSupportedRequestDataVersion
   );
 
@@ -80,6 +80,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   error InvalidLinkWeiPrice(int256 linkWei);
   error PaymentTooLarge();
   error NoTransmittersSet();
+  error InvalidCalldata();
 
   // ================================================================
   // |                        Balance state                         |
@@ -113,13 +114,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
   /**
    * @notice Sets the configuration of the Chainlink Functions billing registry
-   * @param config bytes of config data to set the following:
-   *  - maxCallbackGasLimit: global max for request gas limit
-   *  - feedStalenessSeconds: if the eth/link feed is more stale then this, use the fallback price
-   *  - gasOverheadAfterCallback: gas used in doing accounting after completing the gas measurement
-   *  - fallbackNativePerUnitLink: fallback eth/link price in the case of a stale feed
-   *  - gasOverheadBeforeCallback: average gas execution cost used in estimating total cost
-   *  - requestTimeoutSeconds: e2e timeout after which user won't be charged
+   * @param config bytes of abi.encoded config data to set the following:
+   *  See the content of the Config struct above
    */
   function _setConfig(bytes memory config) internal override {
     (
@@ -233,6 +229,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint32 callbackGasLimit,
     uint256 gasPrice
   ) external view override returns (uint96) {
+    // Reasonable ceilings to prevent integer overflows
+    if (callbackGasLimit > 30_000_000 /* London upgrade's 30M block max */) {
+      revert GasLimitTooBig(callbackGasLimit, s_config.maxCallbackGasLimit);
+    }
+    if (gasPrice > 1_000_000) {
+      revert InvalidCalldata();
+    }
     RequestBilling memory billing = RequestBilling(subscriptionId, msg.sender, callbackGasLimit, gasPrice);
     uint96 donFee = getDONFee(data, billing);
     uint96 adminFee = getAdminFee(data, billing);

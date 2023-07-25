@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -247,6 +248,8 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
+		// max uint256 is 1.1579209e+77
+		testDefaultGlobalSubID := crypto.Keccak256Hash([]byte("sub id")).String()
 		jobID := int32(25)
 		requestID := gethcommon.HexToHash("abcd")
 		requestTxHash := gethcommon.HexToHash("dcba")
@@ -256,6 +259,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			RequestTxHash: &requestTxHash,
 			MaxLink:       &testDefaultMaxLink, // 1e18
 			SubID:         &testDefaultSubID,
+			GlobalSubID:   &testDefaultGlobalSubID,
 		}
 		evmConfig.maxQueued = uint64(1)
 		checker := txmgr.TransmitCheckerSpec{

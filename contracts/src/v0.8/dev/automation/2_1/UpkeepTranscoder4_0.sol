@@ -97,7 +97,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
       for (uint256 idx = 0; idx < ids.length; idx++) {
         upkeepV12 = upkeepsV12[idx];
         newUpkeeps[idx] = R21.Upkeep({
-          executeGas: upkeepV12.executeGas,
+          performGas: upkeepV12.executeGas,
           maxValidBlocknumber: UINT32_MAX, // maxValidBlocknumber is uint64 in V1, hence a new default value is provided
           paused: false, // migrated upkeeps are not paused by default
           target: upkeepV12.target,
@@ -125,7 +125,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
       for (uint256 idx = 0; idx < ids.length; idx++) {
         upkeepV13 = upkeepsV13[idx];
         newUpkeeps[idx] = R21.Upkeep({
-          executeGas: upkeepV13.executeGas,
+          performGas: upkeepV13.executeGas,
           maxValidBlocknumber: upkeepV13.maxValidBlocknumber,
           paused: upkeepV13.paused,
           target: upkeepV13.target,
@@ -153,7 +153,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
       for (uint256 idx = 0; idx < ids.length; idx++) {
         upkeepV20 = upkeepsV20[idx];
         newUpkeeps[idx] = R21.Upkeep({
-          executeGas: upkeepV20.executeGas,
+          performGas: upkeepV20.executeGas,
           maxValidBlocknumber: upkeepV20.maxValidBlocknumber,
           paused: upkeepV20.paused,
           target: upkeepV20.target,
