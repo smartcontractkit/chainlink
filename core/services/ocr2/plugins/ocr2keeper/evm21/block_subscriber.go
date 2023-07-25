@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -38,7 +37,7 @@ func (bk *BlockKey) getBlockKey() ocr2keepers.BlockKey {
 	return ocr2keepers.BlockKey(fmt.Sprintf("%d%s%s", bk.block, Separator, bk.hash.Hex()))
 }
 
-type HeadProvider struct {
+type BlockSubscriber struct {
 	sync                  utils.StartStopOnce
 	mu                    sync.RWMutex
 	ctx                   context.Context
@@ -57,22 +56,22 @@ type HeadProvider struct {
 	lggr                  logger.Logger
 }
 
-func NewHeadProvider(c evm.Chain, blockHistorySize int64, lggr logger.Logger) *HeadProvider {
-	return &HeadProvider{
-		hb:                    c.HeadBroadcaster(),
-		lp:                    c.LogPoller(),
+func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, blockHistorySize int64, lggr logger.Logger) *BlockSubscriber {
+	return &BlockSubscriber{
+		hb:                    hb,
+		lp:                    lp,
 		headC:                 make(chan BlockKey, ChannelSize),
 		subscribers:           map[int]chan ocr2keepers.BlockHistory{},
 		blocksFromPoller:      map[int64]common.Hash{},
 		blocksFromBroadcaster: map[int64]common.Hash{},
 		blockHistorySize:      blockHistorySize,
-		lggr:                  lggr.Named("HeadProvider"),
+		lggr:                  lggr.Named("BlockSubscriber"),
 	}
 }
 
-func (hw *HeadProvider) Start(_ context.Context) error {
-	hw.lggr.Info("Head Provider started.")
-	return hw.sync.StartOnce("HeadProvider", func() error {
+func (hw *BlockSubscriber) Start(_ context.Context) error {
+	hw.lggr.Info("block subscriber started.")
+	return hw.sync.StartOnce("BlockSubscriber", func() error {
 		hw.mu.Lock()
 		defer hw.mu.Unlock()
 		_, hw.unsubscribe = hw.hb.Subscribe(&headWrapper{headC: hw.headC})
@@ -194,8 +193,9 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 	})
 }
 
-func (hw *HeadProvider) Close() error {
-	return hw.sync.StopOnce("HeadProvider", func() error {
+func (hw *BlockSubscriber) Close() error {
+	hw.lggr.Info("stop block subscriber")
+	return hw.sync.StopOnce("BlockSubscriber", func() error {
 		hw.mu.Lock()
 		defer hw.mu.Unlock()
 
@@ -206,7 +206,7 @@ func (hw *HeadProvider) Close() error {
 	})
 }
 
-func (hw *HeadProvider) Subscribe() (int, chan ocr2keepers.BlockHistory, error) {
+func (hw *BlockSubscriber) Subscribe() (int, chan ocr2keepers.BlockHistory, error) {
 	hw.mu.Lock()
 	defer hw.mu.Unlock()
 
@@ -214,11 +214,12 @@ func (hw *HeadProvider) Subscribe() (int, chan ocr2keepers.BlockHistory, error) 
 	subId := hw.maxSubId
 	newC := make(chan ocr2keepers.BlockHistory, ChannelSize)
 	hw.subscribers[subId] = newC
+	hw.lggr.Infof("new subscriber %d", subId)
 
 	return subId, newC, nil
 }
 
-func (hw *HeadProvider) Unsubscribe(subId int) error {
+func (hw *BlockSubscriber) Unsubscribe(subId int) error {
 	hw.mu.Lock()
 	defer hw.mu.Unlock()
 
@@ -229,6 +230,7 @@ func (hw *HeadProvider) Unsubscribe(subId int) error {
 
 	close(c)
 	delete(hw.subscribers, subId)
+	hw.lggr.Infof("subscriber %d unsubscribed", subId)
 	return nil
 }
 
