@@ -408,7 +408,7 @@ func (e *EthereumContractDeployer) LoadOffChainAggregator(address *common.Addres
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
-		return link_token_interface.NewLinkToken(address, backend)
+		return offchainaggregator.NewOffchainAggregator(address, backend)
 	})
 	if err != nil {
 		return nil, err
