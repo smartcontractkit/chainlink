@@ -4,6 +4,7 @@ package testsetups
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -309,7 +310,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 
 	// DEBUG: Trigger interruption to see how we do
 	go func() {
-		time.Sleep(time.Minute * 10)
+		time.Sleep(time.Minute * 2)
 		interruption <- syscall.SIGTERM
 		time.Sleep(time.Second * 8) // Default time limit before K8s starts forceful shutdown
 	}()
@@ -403,6 +404,7 @@ func (o *OCRSoakTest) SaveState() error {
 		TimeRunning:          time.Since(o.startTime),
 		TestDuration:         o.Inputs.TestDuration,
 		OCRContractAddresses: ocrAddresses,
+		ChainURL:             o.chainClient.GetNetworkConfig().URL,
 		MockServerURL:        "http://mockserver:1080", // TODO: Make this dynamic
 
 		BootStrapNodeURL: o.bootstrapNode.URL(),
@@ -424,26 +426,22 @@ func (o *OCRSoakTest) SaveState() error {
 
 // LoadState loads the test state from a TOML file
 func (o *OCRSoakTest) LoadState() error {
-	testState := &OCRSoakTestState{}
-	if _, err := os.Stat(saveFileLocation); err != nil {
+	if !o.Interrupted() {
 		return fmt.Errorf("no save file found at '%s'", saveFileLocation)
 	}
-	saveFile, err := os.Open(saveFileLocation)
+
+	testState := &OCRSoakTestState{}
+	saveData, err := ioutil.ReadFile(saveFileLocation)
 	if err != nil {
 		return err
 	}
-	defer saveFile.Close()
-	fileBytes := make([]byte, 0)
-	_, err = saveFile.Read(fileBytes)
-	if err != nil {
-		return err
-	}
-	err = toml.Unmarshal(fileBytes, testState)
+	err = toml.Unmarshal(saveData, testState)
 	if err != nil {
 		return err
 	}
 	fmt.Println("---Loaded State---")
-	fmt.Println(string(fileBytes))
+	fmt.Println(saveFileLocation)
+	fmt.Println(string(saveData))
 	fmt.Println("------------------")
 
 	o.ocrRoundStates = testState.OCRRoundStates
