@@ -416,8 +416,9 @@ func (o *OCRSoakTest) SaveState() error {
 	if err = os.WriteFile(saveFileLocation, data, 0644); err != nil {
 		return err
 	}
-	fmt.Println("Saved state")
-	fmt.Println(fmt.Sprint(data))
+	fmt.Println("---Saved State---")
+	fmt.Println(string(data))
+	fmt.Println("-----------------")
 	return nil
 }
 
@@ -441,8 +442,9 @@ func (o *OCRSoakTest) LoadState() error {
 	if err != nil {
 		return err
 	}
-	log.Debug().Msg("Loaded OCR Soak Test State")
-	fmt.Println(testState)
+	fmt.Println("---Loaded State---")
+	fmt.Println(string(fileBytes))
+	fmt.Println("------------------")
 
 	o.ocrRoundStates = testState.OCRRoundStates
 	o.rpcIssues = testState.RPCIssues
