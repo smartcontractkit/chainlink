@@ -1026,14 +1026,21 @@ func main() {
 		fmt.Println("subscription id of wrapper", *wrapperAddress, "is:", subID)
 	case "wrapper-configure":
 		cmd := flag.NewFlagSet("wrapper-configure", flag.ExitOnError)
-		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2PlusWrapper contract")
-		coordinatorAddress := cmd.String("coordinator-address", "", "address of the VRFV2Plus coordinator contract")
-		subID := cmd.Uint("sub-id", 1, "subscription ID")
+		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
+		wrapperGasOverhead := cmd.Uint("wrapper-gas-overhead", 50_000, "amount of gas overhead in wrapper fulfillment")
+		coordinatorGasOverhead := cmd.Uint("coordinator-gas-overhead", 52_000, "amount of gas overhead in coordinator fulfillment")
+		wrapperPremiumPercentage := cmd.Uint("wrapper-premium-percentage", 25, "gas premium charged by wrapper")
+		keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
+		maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "key-hash")
 
 		wrapperConfigure(e,
 			common.HexToAddress(*wrapperAddress),
-			common.HexToAddress(*coordinatorAddress),
-			uint64(*subID))
+			*wrapperGasOverhead,
+			*coordinatorGasOverhead,
+			*wrapperPremiumPercentage,
+			*keyHash,
+			*maxNumWords)
 	case "wrapper-get-fulfillment-tx-size":
 		cmd := flag.NewFlagSet("wrapper-get-fulfillment-tx-size", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
