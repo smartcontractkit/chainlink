@@ -53,6 +53,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    * @inheritdoc IFunctionsCoordinator
    */
   function getThresholdPublicKey() external view override returns (bytes memory) {
+    if (s_thresholdPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
     return s_thresholdPublicKey;
   }
 
@@ -70,6 +73,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    * @inheritdoc IFunctionsCoordinator
    */
   function getDONPublicKey() external view override returns (bytes memory) {
+    if (s_donPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
     return s_donPublicKey;
   }
 
@@ -125,6 +131,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     address[] memory nodes = this.transmitters();
     bytes[] memory keys = new bytes[](nodes.length);
     for (uint256 i = 0; i < nodes.length; i++) {
+      if (s_nodePublicKeys[nodes[i]].length == 0) {
+        revert EmptyPublicKey();
+      }
       keys[i] = s_nodePublicKeys[nodes[i]];
     }
     return (nodes, keys);
