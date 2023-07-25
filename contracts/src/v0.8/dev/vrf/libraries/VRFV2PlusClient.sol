@@ -11,7 +11,7 @@ library VRFV2PlusClient {
 
   struct RandomWordsRequest {
     bytes32 keyHash;
-    uint64 subId;
+    uint256 subId;
     uint16 requestConfirmations;
     uint32 callbackGasLimit;
     uint32 numWords;

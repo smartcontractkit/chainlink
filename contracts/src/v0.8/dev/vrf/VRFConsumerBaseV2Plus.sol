@@ -104,7 +104,6 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
   error ZeroAddress();
 
   IVRFMigratableCoordinatorV2Plus internal s_vrfCoordinator;
-  uint64 internal s_subId;
 
   /**
    * @param _vrfCoordinator address of VRFCoordinator contract
@@ -142,9 +141,8 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
   /**
    * @inheritdoc IVRFMigratableConsumerV2Plus
    */
-  function setConfig(address _vrfCoordinator, uint64 _subId) public override onlyOwnerOrCoordinator {
+  function setCoordinator(address _vrfCoordinator) public override onlyOwnerOrCoordinator {
     s_vrfCoordinator = IVRFMigratableCoordinatorV2Plus(_vrfCoordinator);
-    s_subId = _subId;
   }
 
   modifier onlyOwnerOrCoordinator() {
