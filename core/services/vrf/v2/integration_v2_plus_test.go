@@ -335,12 +335,32 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
 	t.Parallel()
-	testEoa(t, false)
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
+	testEoa(
+		t,
+		ownerKey,
+		uni.coordinatorV2UniverseCommon,
+		false,
+		uni.batchBHSContractAddress,
+		nil,
+		vrfcommon.V2Plus,
+	)
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing.T) {
 	t.Parallel()
-	testEoa(t, true)
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
+	testEoa(
+		t,
+		ownerKey,
+		uni.coordinatorV2UniverseCommon,
+		true,
+		uni.batchBHSContractAddress,
+		nil,
+		vrfcommon.V2Plus,
+	)
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
@@ -523,15 +543,21 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	_, err = coordinator.CreateSubscription(owner)
 	require.NoError(t, err)
 	backend.Commit()
-	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, uint64(1))
+
+	iter, err := coordinator.FilterSubscriptionCreated(nil, nil)
+	require.NoError(t, err)
+	require.True(t, iter.Next(), "could not find SubscriptionCreated event for subID")
+	subID := iter.Event.SubId
+
+	b, err := utils.ABIEncode(`[{"type":"uint256"}]`, subID)
 	require.NoError(t, err)
 	_, err = linkContract.TransferAndCall(owner, coordinatorAddress, big.NewInt(0), b)
 	require.NoError(t, err)
-	_, err = coordinator.AddConsumer(owner, 1, consumerAddress)
+	_, err = coordinator.AddConsumer(owner, subID, consumerAddress)
 	require.NoError(t, err)
-	_, err = consumer.RequestRandomWords(random, 1, 1, 1, 1, [32]byte{}, false)
+	_, err = consumer.RequestRandomWords(random, subID, 1, 1, 1, [32]byte{}, false)
 	require.Error(t, err)
-	_, err = consumer.RequestRandomWords(owner, 1, 1, 1, 1, [32]byte{}, false)
+	_, err = consumer.RequestRandomWords(owner, subID, 1, 1, 1, [32]byte{}, false)
 	require.NoError(t, err)
 
 	// Reassign ownership, check that only new owner can request
@@ -539,9 +565,9 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	require.NoError(t, err)
 	_, err = consumer.AcceptOwnership(random)
 	require.NoError(t, err)
-	_, err = consumer.RequestRandomWords(owner, 1, 1, 1, 1, [32]byte{}, false)
+	_, err = consumer.RequestRandomWords(owner, subID, 1, 1, 1, [32]byte{}, false)
 	require.Error(t, err)
-	_, err = consumer.RequestRandomWords(random, 1, 1, 1, 1, [32]byte{}, false)
+	_, err = consumer.RequestRandomWords(random, subID, 1, 1, 1, [32]byte{}, false)
 	require.NoError(t, err)
 }
 
@@ -754,7 +780,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 		requestLog := FindLatestRandomnessRequestedLog(tt, uni.rootContract, vrfkey.PublicKey.MustHash())
 		s, err := proof.BigToSeed(requestLog.PreSeed())
 		require.NoError(t, err)
-		proof, rc, err := proof.GenerateProofResponseV2Plus(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2{
+		proof, rc, err := proof.GenerateProofResponseV2Plus(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2Plus{
 			PreSeed:          s,
 			BlockHash:        requestLog.Raw().BlockHash,
 			BlockNum:         requestLog.Raw().BlockNumber,
@@ -796,7 +822,7 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 		require.Equal(tt, subId, requestLog.SubID())
 		s, err := proof.BigToSeed(requestLog.PreSeed())
 		require.NoError(t, err)
-		proof, rc, err := proof.GenerateProofResponseV2Plus(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2{
+		proof, rc, err := proof.GenerateProofResponseV2Plus(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2Plus{
 			PreSeed:          s,
 			BlockHash:        requestLog.Raw().BlockHash,
 			BlockNum:         requestLog.Raw().BlockNumber,

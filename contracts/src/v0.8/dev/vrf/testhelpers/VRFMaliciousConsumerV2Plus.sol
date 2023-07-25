@@ -11,6 +11,7 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
   IVRFCoordinatorV2Plus COORDINATOR;
   LinkTokenInterface LINKTOKEN;
   uint256 public s_gasAvailable;
+  uint256 s_subId;
   bytes32 s_keyHash;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {
@@ -61,9 +62,5 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
       extraArgs: "" // empty extraArgs defaults to link payment
     });
     return COORDINATOR.requestRandomWords(req);
-  }
-
-  function getSubId() external view returns (uint64) {
-    return s_subId;
   }
 }
