@@ -60,7 +60,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     Role role; // Role of the address which mapped to this struct
   }
 
-  mapping(address => Oracle) /* signer OR transmitter address */ internal s_oracles;
+  mapping(address signerOrTransmitter => Oracle) internal s_oracles;
 
   // s_signers contains the signing address of each oracle
   address[] internal s_signers;

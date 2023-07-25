@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {Routable} from "./Routable.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
@@ -32,7 +32,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint256 gasOverhead;
     uint256 timestamp;
   }
-  mapping(bytes32 => Commitment) /* requestID */ /* Commitment */ private s_requestCommitments;
+  mapping(bytes32 requestId => Commitment) private s_requestCommitments;
 
   event RequestTimedOut(bytes32 indexed requestId);
 
@@ -84,7 +84,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
   // |                        Balance state                         |
   // ================================================================
-  mapping(address => uint96) /* Transmitter => LINK balance (Juels) */ private s_withdrawableTokens;
+  mapping(address transmitter => uint96 balanceJuelsLink) private s_withdrawableTokens;
   // Pool together DON fees and disperse them on withdrawal
   uint96 s_feePool;
 
