@@ -8,6 +8,7 @@ import (
 	"time"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	"github.com/cometbft/cometbft/abci/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -68,8 +69,11 @@ func TestTxm_Integration(t *testing.T) {
 	require.NoError(t, err)
 	an, sn, err := tc.Account(accounts[0].Address)
 	require.NoError(t, err)
-	_, err = tc.SignAndBroadcast([]sdk.Msg{banktypes.NewMsgSend(accounts[0].Address, transmitterID, sdk.NewCoins(sdk.NewInt64Coin("uatom", 100000)))},
-		an, sn, gpe.GasPrices()["uatom"], accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_BLOCK)
+	resp, err := tc.SignAndBroadcast([]sdk.Msg{banktypes.NewMsgSend(accounts[0].Address, transmitterID, sdk.NewCoins(sdk.NewInt64Coin("uatom", 100000)))},
+		an, sn, gpe.GasPrices()["uatom"], accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
+	tx, success := cosmosclient.AwaitTxCommitted(t, tc, resp.TxResponse.TxHash)
+	require.True(t, success)
+	require.Equal(t, types.CodeTypeOK, tx.TxResponse.Code)
 	require.NoError(t, err)
 
 	// TODO: find a way to pull this test artifact from
