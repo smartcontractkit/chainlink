@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -626,17 +627,33 @@ func (lp *logPoller) blocksFromLogs(ctx context.Context, logs []types.Log) (bloc
 	return lp.GetBlocksRange(ctx, numbers)
 }
 
+const jsonRpcLimitExceeded = -32005 // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1474.md
+
 // backfill will query FilterLogs in batches for logs in the
 // block range [start, end] and save them to the db.
 // Retries until ctx cancelled. Will return an error if cancelled
 // or if there is an error backfilling.
 func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
-	for from := start; from <= end; from += lp.backfillBatchSize {
-		to := mathutil.Min(from+lp.backfillBatchSize-1, end)
+	batchSize := lp.backfillBatchSize
+	for from := start; from <= end; from += batchSize {
+		to := mathutil.Min(from+batchSize-1, end)
 		gethLogs, err := lp.ec.FilterLogs(ctx, lp.Filter(big.NewInt(from), big.NewInt(to), nil))
 		if err != nil {
-			lp.lggr.Warnw("Unable query for logs, retrying", "err", err, "from", from, "to", to)
-			return err
+			var rpcErr client.JsonError
+			if errors.As(err, &rpcErr) {
+				if rpcErr.Code != jsonRpcLimitExceeded {
+					lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
+					return err
+				}
+			}
+			if batchSize == 1 {
+				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may run in a degraded state unless LogBackfillBatchSize is increased", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
+				return err
+			}
+			batchSize /= 2
+			lp.lggr.Warnw("Too many log results, halving block range batch size.  Consider increasing LogBackfillBatchSize if this happens frequently", "err", err, "from", from, "to", to, "newBatchSize", batchSize, "LogBackfillBatchSize", lp.backfillBatchSize)
+			from -= batchSize // counteract +=batchSize on next loop iteration, so starting block does not change
+			continue
 		}
 		if len(gethLogs) == 0 {
 			continue

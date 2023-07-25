@@ -77,6 +77,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 func TestEvmRegistry_FeedLookup(t *testing.T) {
 	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
 	assert.True(t, ok, t.Name())
+	admin := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	tests := []struct {
 		name              string
 		input             []ocr2keepers.CheckResult
@@ -227,13 +228,17 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
+			r.active[upkeepId.String()] = activeUpkeep{
+				ID:    upkeepId,
+				Admin: admin,
+			}
 
 			if !tt.cachedAdminCfg && !tt.hasError {
 				mockRegistry := mocks.NewRegistry(t)
 				cfg := AdminOffchainConfig{MercuryEnabled: tt.hasPermission}
 				b, err := json.Marshal(cfg)
 				assert.Nil(t, err)
-				mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(b, nil)
+				mockRegistry.On("GetAdminPrivilegeConfig", mock.Anything, admin).Return(b, nil)
 				r.registry = mockRegistry
 			}
 
@@ -315,7 +320,9 @@ func TestEvmRegistry_DecodeFeedLookup(t *testing.T) {
 }
 
 func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
-	upkeepId := big.NewInt(123456789)
+	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
+	assert.True(t, ok, t.Name())
+	admin := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	tests := []struct {
 		name         string
 		cached       bool
@@ -345,27 +352,31 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 		{
 			name:         "failure - cannot unmarshal privilege config",
 			cached:       false,
-			errorMessage: "failed to unmarshal privilege config for upkeep ID 123456789: invalid character '\\x00' looking for beginning of value",
+			errorMessage: "failed to unmarshal privilege config for upkeep ID 71022726777042968814359024671382968091267501884371696415772139504780367423725: invalid character '\\x00' looking for beginning of value",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
+			r.active[upkeepId.String()] = activeUpkeep{
+				ID:    upkeepId,
+				Admin: admin,
+			}
 
 			if tt.errorMessage != "" {
 				mockRegistry := mocks.NewRegistry(t)
-				mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return([]byte{0, 1}, nil)
+				mockRegistry.On("GetAdminPrivilegeConfig", mock.Anything, admin).Return([]byte{0, 1}, nil)
 				r.registry = mockRegistry
 			} else {
 				if tt.cached {
-					r.mercury.allowListCache.Set(upkeepId.String(), tt.allowed, cache.DefaultExpiration)
+					r.mercury.allowListCache.Set(admin.Hex(), tt.allowed, cache.DefaultExpiration)
 				} else {
 					mockRegistry := mocks.NewRegistry(t)
 					cfg := AdminOffchainConfig{MercuryEnabled: tt.allowed}
 					b, err := json.Marshal(cfg)
 					assert.Nil(t, err)
-					mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(b, nil)
+					mockRegistry.On("GetAdminPrivilegeConfig", mock.Anything, admin).Return(b, nil)
 					r.registry = mockRegistry
 				}
 			}
