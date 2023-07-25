@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {IRouterBase} from "./interfaces/IRouterBase.sol";
 import {ConfirmedOwnerWithProposal} from "../../../ConfirmedOwnerWithProposal.sol";
@@ -18,7 +18,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                          Route state                         |
   // ================================================================
-  mapping(bytes32 => address) internal s_route; /* id => contract address */
+  mapping(bytes32 id => address routableContract) internal s_route;
   error RouteNotFound(bytes32 id);
   // Use empty bytes to self-identify, since it does not have an id
   bytes32 internal constant routerId = bytes32(0);
@@ -55,7 +55,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     bytes to;
     uint256 timelockEndBlock;
   }
-  mapping(bytes32 => ConfigProposal) internal s_proposedConfig; /* id => ConfigProposal */
+  mapping(bytes32 id => ConfigProposal) internal s_proposedConfig;
   event ConfigProposed(bytes32 id, bytes32 fromHash, bytes toBytes);
   event ConfigUpdated(bytes32 id, bytes32 fromHash, bytes toBytes);
   error InvalidProposal();
