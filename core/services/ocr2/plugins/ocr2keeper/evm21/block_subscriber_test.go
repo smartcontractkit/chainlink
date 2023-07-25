@@ -4,19 +4,22 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-const blockHistorySize = 4
+const blockHistorySize = int64(4)
 
 func TestBlockSubscriber_Subscribe(t *testing.T) {
 	lggr := logger.TestLogger(t)
@@ -259,4 +262,66 @@ func TestBlockSubscriber_Cleanup(t *testing.T) {
 			assert.Equal(t, tc.ExpectedLogPollerBlocks, bs.blocksFromPoller)
 		})
 	}
+}
+
+func TestBlockSubscriber_Start(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	hb := commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
+	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
+	lp := new(mocks.LogPoller)
+
+	bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+	err := bs.Start(context.Background())
+	assert.Nil(t, err)
+
+	// no subscribers yet
+	bs.headC <- BlockKey{
+		block: 100,
+		hash:  common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
+	}
+
+	// sleep 100 milli to wait for the go routine to finish
+	time.Sleep(100 * time.Millisecond)
+	assert.Equal(t, blockHistorySize, bs.blockHistorySize)
+	assert.Equal(t, int64(99), bs.lastClearedBlock)
+	assert.Equal(t, int64(100), bs.lastSentBlock)
+
+	// add 1 subscriber
+	subId1, c1, err := bs.Subscribe()
+	assert.Nil(t, err)
+	assert.Equal(t, 1, subId1)
+
+	bs.headC <- BlockKey{
+		block: 101,
+		hash:  common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+	}
+
+	time.Sleep(100 * time.Millisecond)
+	bk1 := <-c1
+	assert.Equal(t, ocr2keepers.BlockHistory{"101|0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0", "100|0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"}, bk1)
+
+	// add 2nd subscriber
+	subId2, c2, err := bs.Subscribe()
+	assert.Nil(t, err)
+	assert.Equal(t, 2, subId2)
+
+	bs.headC <- BlockKey{
+		block: 103,
+		hash:  common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+	}
+
+	time.Sleep(100 * time.Millisecond)
+	bk1 = <-c1
+	assert.Equal(t,
+		ocr2keepers.BlockHistory{"103|0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0", "101|0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0", "100|0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"},
+		bk1,
+	)
+	bk2 := <-c2
+	assert.Equal(t,
+		ocr2keepers.BlockHistory{"103|0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0", "101|0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0", "100|0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"},
+		bk2,
+	)
+
+	assert.Equal(t, int64(103), bs.lastSentBlock)
+	assert.Equal(t, int64(99), bs.lastClearedBlock)
 }
