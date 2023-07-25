@@ -32,7 +32,7 @@ type Environment struct {
 	Owner *bind.TransactOpts
 	Ec    *ethclient.Client
 
-	PolygonEdgeClient *rpc.Client
+	Jc *rpc.Client
 
 	// AvaxEc is appropriately set if the environment is configured to interact with an avalanche
 	// chain. It should be used instead of the regular Ec field because avalanche calculates
@@ -78,7 +78,7 @@ func SetupEnv(overrideNonce bool) Environment {
 	ec, err := ethclient.Dial(ethURL)
 	PanicErr(err)
 
-	polygonEdgeClient, err := rpc.Dial(ethURL)
+	jsonRPCClient, err := rpc.Dial(ethURL)
 	PanicErr(err)
 
 	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
@@ -132,11 +132,11 @@ func SetupEnv(overrideNonce bool) Environment {
 
 	// the execution environment for the scripts
 	return Environment{
-		Owner:             owner,
-		Ec:                ec,
-		PolygonEdgeClient: polygonEdgeClient,
-		AvaxEc:            avaxClient,
-		ChainID:           chainID,
+		Owner:   owner,
+		Ec:      ec,
+		Jc:      jsonRPCClient,
+		AvaxEc:  avaxClient,
+		ChainID: chainID,
 	}
 }
 
@@ -405,11 +405,11 @@ func BinarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.In
 // to fetch header info
 func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, hashes []string, err error) {
 
-	hashes = make([]string, len(blockNumbers))
+	hashes = make([]string, 0)
 
 	headers = [][]byte{}
 	var rlpHeader []byte
-	for i, blockNum := range blockNumbers {
+	for _, blockNum := range blockNumbers {
 		// Avalanche block headers are special, handle them by using the avalanche rpc client
 		// rather than the regular go-ethereum ethclient.
 		if IsAvaxNetwork(env.ChainID) {
@@ -428,9 +428,8 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, 
 				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
 			}
 
-			if hashes != nil && len(hashes) > i {
-				hashes[i] = h.Hash().String()
-			}
+			hashes = append(hashes, h.Hash().String())
+
 			// Sanity check - can be un-commented if storeVerifyHeader is failing due to unexpected
 			// blockhash.
 			//bh := crypto.Keccak256Hash(rlpHeader)
@@ -443,14 +442,12 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, 
 			// Get child block since it's the one that has the parent hash in its header.
 			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1))
 			var hash string
-			rlpHeader, hash, err = GetPolygonEdgeRLPHeader(env.PolygonEdgeClient, nextBlockNum)
+			rlpHeader, hash, err = GetPolygonEdgeRLPHeader(env.Jc, nextBlockNum)
 			if err != nil {
 				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
 			}
 
-			if hashes != nil && len(hashes) > i {
-				hashes[i] = hash
-			}
+			hashes = append(hashes, hash)
 
 		} else {
 			// Get child block since it's the one that has the parent hash in its header.
@@ -466,9 +463,7 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, 
 				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
 			}
 
-			if hashes != nil && len(hashes) > i {
-				hashes[i] = h.Hash().String()
-			}
+			hashes = append(hashes, h.Hash().String())
 		}
 
 		headers = append(headers, rlpHeader)

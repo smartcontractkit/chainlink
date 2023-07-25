@@ -22,7 +22,7 @@ var (
 )
 
 func (n Nonce) String() string {
-	return EncodeToHex(n[:])
+	return hexutil.Encode(n[:])
 }
 
 // MarshalText implements encoding.TextMarshaler
@@ -38,7 +38,7 @@ func (n *Nonce) UnmarshalJSON(input []byte) error {
 type ExtraData string
 
 func (e ExtraData) Decode() ([]byte, error) {
-	return DecodeHex(string(e))
+	return hexutil.Decode(string(e))
 }
 
 // Header represents a block header in the Ethereum blockchain.
@@ -60,14 +60,19 @@ type PolygonEdgeHeader struct {
 	Nonce        Nonce          `json:"nonce"`
 	Hash         common.Hash    `json:"hash"`
 
+	// baseFeePerGas is the response format from go-ethereum. Polygon-Edge
+	// seems to have fixed this in this commit:
+	// https://github.com/0xPolygon/polygon-edge/commit/e859acf7e7f0286ceeecce022b978c8fdb57d71b
+	// But node operators dont seem to have updated their polygon-edge client
+	// version and still send baseFee instead of baseFeePerGas.
 	// BaseFee was added by EIP-1559 and is ignored in legacy headers.
 	BaseFee    hexutil.Uint64 `json:"baseFeePerGas"`
 	BaseFeeAlt hexutil.Uint64 `json:"baseFee,omitempty"`
 }
 
-func GetPolygonEdgeRLPHeader(polygonEdgeClient *rpc.Client, blockNum *big.Int) (rlpHeader []byte, hash string, err error) {
+func GetPolygonEdgeRLPHeader(jsonRPCClient *rpc.Client, blockNum *big.Int) (rlpHeader []byte, hash string, err error) {
 	var h PolygonEdgeHeader
-	err = polygonEdgeClient.Call(&h, "eth_getBlockByNumber", "0x"+blockNum.Text(16), true)
+	err = jsonRPCClient.Call(&h, "eth_getBlockByNumber", "0x"+blockNum.Text(16), true)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to get poloygon-edge header: %+v", err)
 	}
@@ -77,7 +82,6 @@ func GetPolygonEdgeRLPHeader(polygonEdgeClient *rpc.Client, blockNum *big.Int) (
 	if err != nil {
 		return nil, "", err
 	}
-	// fastrlp.DefaultArenaPool.Put(ar)
 
 	dst := make([]byte, 0)
 	dst = val.MarshalTo(dst)
@@ -119,7 +123,7 @@ func MarshalRLPWith(arena *fastrlp.Arena, h *PolygonEdgeHeader) (*fastrlp.Value,
 	vv.Set(arena.NewCopyBytes(h.MixHash.Bytes()))
 
 	nonceHexString := h.Nonce.String()
-	nonceBytes, err := DecodeHex(nonceHexString)
+	nonceBytes, err := hexutil.Decode(nonceHexString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hex decode polygon-edge ExtraData: %+v", err)
 	}
