@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {IFunctionsBilling, FunctionsBilling} from "./FunctionsBilling.sol";
@@ -33,7 +33,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   error UnauthorizedPublicKeyChange();
 
   bytes private s_donPublicKey;
-  mapping(address => bytes) private s_nodePublicKeys;
+  mapping(address signerAddress => bytes publicKey) private s_nodePublicKeys;
   bytes private s_thresholdPublicKey;
 
   constructor(

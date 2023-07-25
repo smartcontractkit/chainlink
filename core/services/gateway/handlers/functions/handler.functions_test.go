@@ -1,7 +1,6 @@
 package functions_test
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
@@ -71,7 +70,7 @@ func sendNodeReponses(t *testing.T, handler handlers.Handler, userRequestMsg api
 			nodeResponseMsg.Body.Payload = []byte(`{"success":false}`)
 		}
 		require.NoError(t, nodeResponseMsg.Sign(nodes[id].PrivateKey))
-		_ = handler.HandleNodeMessage(context.Background(), &nodeResponseMsg, nodes[id].Address)
+		_ = handler.HandleNodeMessage(testutils.Context(t), &nodeResponseMsg, nodes[id].Address)
 	}
 }
 
@@ -85,6 +84,16 @@ func TestFunctionsHandler_Minimal(t *testing.T) {
 	msg := &api.Message{}
 	err = handler.HandleUserMessage(testutils.Context(t), msg, nil)
 	require.Error(t, err)
+}
+
+func TestFunctionsHandler_CleanStartAndClose(t *testing.T) {
+	t.Parallel()
+
+	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, logger.TestLogger(t))
+	require.NoError(t, err)
+
+	require.NoError(t, handler.Start(testutils.Context(t)))
+	require.NoError(t, handler.Close())
 }
 
 func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
@@ -123,7 +132,7 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 
 			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-			require.NoError(t, handler.HandleUserMessage(context.Background(), &userRequestMsg, callbachCh))
+			require.NoError(t, handler.HandleUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
 			sendNodeReponses(t, handler, userRequestMsg, nodes, test.nodeResults)
 			<-done
 		})
@@ -138,7 +147,7 @@ func TestFunctionsHandler_HandleUserMessage_InvalidMethod(t *testing.T) {
 	userRequestMsg := newSignedMessage(t, "1234", "secrets_reveal_all_please", "don_id", user.PrivateKey)
 
 	allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
-	err := handler.HandleUserMessage(context.Background(), &userRequestMsg, make(chan handlers.UserCallbackPayload))
+	err := handler.HandleUserMessage(testutils.Context(t), &userRequestMsg, make(chan handlers.UserCallbackPayload))
 	require.Error(t, err)
 }
 
@@ -161,6 +170,6 @@ func TestFunctionsHandler_HandleUserMessage_Timeout(t *testing.T) {
 
 	allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	require.NoError(t, handler.HandleUserMessage(context.Background(), &userRequestMsg, callbachCh))
+	require.NoError(t, handler.HandleUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
 	<-done
 }

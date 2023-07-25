@@ -182,6 +182,19 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit UpkeepPrivilegeConfigSet(upkeepId, newPrivilegeConfig);
   }
 
+  /**
+   * @notice sets a generic bytes field used to indicate the privledges that this admin address had
+   * @param admin the address to set privledges for
+   * @param newPrivilegeConfig the privileges that this admin has
+   */
+  function setAdminPrivilegeConfig(address admin, bytes calldata newPrivilegeConfig) external {
+    if (msg.sender != s_storage.upkeepPrivilegeManager) {
+      revert OnlyCallableByUpkeepPrivilegeManager();
+    }
+    s_adminPrivilegeConfig[admin] = newPrivilegeConfig;
+    emit AdminPrivilegeConfigSet(admin, newPrivilegeConfig);
+  }
+
   /////////////
   // GETTERS //
   /////////////
@@ -387,5 +400,12 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    */
   function getUpkeepPrivilegeConfig(uint256 upkeepId) external view returns (bytes memory) {
     return s_upkeepPrivilegeConfig[upkeepId];
+  }
+
+  /**
+   * @notice returns the upkeep privilege config
+   */
+  function getAdminPrivilegeConfig(address admin) external view returns (bytes memory) {
+    return s_adminPrivilegeConfig[admin];
   }
 }
