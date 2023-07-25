@@ -50,7 +50,7 @@ jobs:
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: |
           forge --version
-          forge build --sizes
+          forge build
         id: build
         working-directory: contracts
 

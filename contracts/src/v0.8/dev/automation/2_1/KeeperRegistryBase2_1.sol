@@ -45,13 +45,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * UPKEEP_VERSION_BASE and MigratableKeeperRegistryInterfaceV2
    */
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
-  uint8 internal constant UPKEEP_VERSION_BASE = uint8(UpkeepFormat.V3);
+  uint8 internal constant UPKEEP_VERSION_BASE = 3;
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 80_000; // Used in maxPayment estimation, and in capping overheads during actual payment
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 100_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
+  uint256 internal constant TRANSMIT_GAS_OVERHEAD = 1_000_000; // Used only by offchain caller
+  uint256 internal constant CHECK_GAS_OVERHEAD = 400_000; // Used only by offchain caller
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
 
@@ -94,7 +96,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
-  mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role
+  mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role for an upkeep
+  mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -379,22 +382,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint8 index;
   }
 
-  struct ConditionalTriggerConfig {
-    uint32 checkCadance; // how often to check in blocks
-  }
-
-  /**
-   * @notice structure of trigger for log triggers
-   */
-  struct LogTriggerConfig {
-    address contractAddress;
-    uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
-    bytes32 topic0;
-    bytes32 topic1;
-    bytes32 topic2;
-    bytes32 topic3;
-  }
-
   /**
    * @notice the trigger structure conditional trigger type
    */
@@ -415,6 +402,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bytes32 blockHash;
   }
 
+  event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);
@@ -579,14 +567,21 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       if (isExecution) {
         txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
       } else {
-        // @dev fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
+        // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
         // s_storage.maxPerformDataSize non zero-bytes. Instead of setting bytes to non-zero
         // we initialize 'new bytes' of length 4*maxPerformDataSize to cover for zero bytes.
         txCallData = new bytes(4 * s_storage.maxPerformDataSize);
       }
       l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
     } else if (i_mode == Mode.ARBITRUM) {
-      l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
+      if (isExecution) {
+        l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
+      } else {
+        // fee is 4 per 0 byte, 16 per non-zero byte - we assume all non-zero and
+        // max data size to calculate max payment
+        (, uint256 perL1CalldataUnit, , , , ) = ARB_NITRO_ORACLE.getPricesInWei();
+        l1CostWei = perL1CalldataUnit * s_storage.maxPerformDataSize * 16;
+      }
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {

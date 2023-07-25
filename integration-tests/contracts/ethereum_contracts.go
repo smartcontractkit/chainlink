@@ -14,11 +14,17 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
@@ -27,14 +33,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -1006,14 +1007,13 @@ func (o *RunlogRoundConfirmer) Wait() error {
 
 // OffchainAggregatorRoundConfirmer is a header subscription that awaits for a certain OCR round to be completed
 type OffchainAggregatorRoundConfirmer struct {
-	ocrInstance        OffchainAggregator
-	roundID            *big.Int
-	doneChan           chan struct{}
-	context            context.Context
-	cancel             context.CancelFunc
-	optionalTestReport *testreporters.OCRSoakTestReport
-	blocksSinceAnswer  uint
-	complete           bool
+	ocrInstance       OffchainAggregator
+	roundID           *big.Int
+	doneChan          chan struct{}
+	context           context.Context
+	cancel            context.CancelFunc
+	blocksSinceAnswer uint
+	complete          bool
 }
 
 // NewOffchainAggregatorRoundConfirmer provides a new instance of a OffchainAggregatorRoundConfirmer
@@ -1021,17 +1021,15 @@ func NewOffchainAggregatorRoundConfirmer(
 	contract OffchainAggregator,
 	roundID *big.Int,
 	timeout time.Duration,
-	optionalTestReport *testreporters.OCRSoakTestReport,
 ) *OffchainAggregatorRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &OffchainAggregatorRoundConfirmer{
-		ocrInstance:        contract,
-		roundID:            roundID,
-		doneChan:           make(chan struct{}),
-		context:            ctx,
-		cancel:             ctxCancel,
-		optionalTestReport: optionalTestReport,
-		complete:           false,
+		ocrInstance: contract,
+		roundID:     roundID,
+		doneChan:    make(chan struct{}),
+		context:     ctx,
+		cancel:      ctxCancel,
+		complete:    false,
 	}
 }
 
@@ -1083,14 +1081,13 @@ func (o *OffchainAggregatorRoundConfirmer) Complete() bool {
 
 // OffchainAggregatorRoundConfirmer is a header subscription that awaits for a certain OCR round to be completed
 type OffchainAggregatorV2RoundConfirmer struct {
-	ocrInstance        OffchainAggregatorV2
-	roundID            *big.Int
-	doneChan           chan struct{}
-	context            context.Context
-	cancel             context.CancelFunc
-	optionalTestReport *testreporters.OCRSoakTestReport
-	blocksSinceAnswer  uint
-	complete           bool
+	ocrInstance       OffchainAggregatorV2
+	roundID           *big.Int
+	doneChan          chan struct{}
+	context           context.Context
+	cancel            context.CancelFunc
+	blocksSinceAnswer uint
+	complete          bool
 }
 
 // NewOffchainAggregatorRoundConfirmer provides a new instance of a OffchainAggregatorRoundConfirmer
@@ -1098,17 +1095,15 @@ func NewOffchainAggregatorV2RoundConfirmer(
 	contract OffchainAggregatorV2,
 	roundID *big.Int,
 	timeout time.Duration,
-	optionalTestReport *testreporters.OCRSoakTestReport,
 ) *OffchainAggregatorV2RoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &OffchainAggregatorV2RoundConfirmer{
-		ocrInstance:        contract,
-		roundID:            roundID,
-		doneChan:           make(chan struct{}),
-		context:            ctx,
-		cancel:             ctxCancel,
-		optionalTestReport: optionalTestReport,
-		complete:           false,
+		ocrInstance: contract,
+		roundID:     roundID,
+		doneChan:    make(chan struct{}),
+		context:     ctx,
+		cancel:      ctxCancel,
+		complete:    false,
 	}
 }
 
@@ -1519,4 +1514,15 @@ func (e *EthereumOffchainAggregatorV2) GetConfig(ctx context.Context) ([32]byte,
 
 func (e *EthereumOffchainAggregatorV2) ParseEventAnswerUpdated(log types.Log) (*ocr2aggregator.OCR2AggregatorAnswerUpdated, error) {
 	return e.contract.ParseAnswerUpdated(log)
+}
+
+// EthereumKeeperRegistryCheckUpkeepGasUsageWrapper represents a gas wrapper for keeper registry
+type EthereumKeeperRegistryCheckUpkeepGasUsageWrapper struct {
+	address         *common.Address
+	client          blockchain.EVMClient
+	gasUsageWrapper *gas_wrapper.KeeperRegistryCheckUpkeepGasUsageWrapper
+}
+
+func (e *EthereumKeeperRegistryCheckUpkeepGasUsageWrapper) Address() string {
+	return e.address.Hex()
 }
