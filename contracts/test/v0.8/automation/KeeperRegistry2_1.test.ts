@@ -3303,11 +3303,9 @@ describe('KeeperRegistry2_1', () => {
   })
 
   describe('#getMaxPaymentForGas', () => {
-    // Same as MockArbGasInfo.sol
-    const l1CostWeiArb = BigNumber.from(1000000)
-    // Same as MockOVMGasPriceOracle.sol
-    const l1CostWeiOpt = BigNumber.from(2000000)
-
+    const arbL1PriceinWei = BigNumber.from(1000) // Same as MockArbGasInfo.sol
+    const l1CostWeiArb = arbL1PriceinWei.mul(16).mul(maxPerformDataSize)
+    const l1CostWeiOpt = BigNumber.from(2000000) // Same as MockOVMGasPriceOracle.sol
     itMaybe('calculates the max fee appropriately', async () => {
       await verifyMaxPayment(registry)
     })
@@ -5476,6 +5474,34 @@ describe('KeeperRegistry2_1', () => {
         .withArgs(upkeepId, '0x1234')
 
       const cfg = await registry.getUpkeepPrivilegeConfig(upkeepId)
+      assert.equal(cfg, '0x1234')
+    })
+  })
+
+  describe('#setAdminPrivilegeConfig() / #getAdminPrivilegeConfig()', () => {
+    const admin = randomAddress()
+
+    it('reverts when non manager tries to set privilege config', async () => {
+      await evmRevert(
+        registry.connect(payee3).setAdminPrivilegeConfig(admin, '0x1234'),
+        'OnlyCallableByUpkeepPrivilegeManager()',
+      )
+    })
+
+    it('returns empty bytes for upkeep privilege config before setting', async () => {
+      const cfg = await registry.getAdminPrivilegeConfig(admin)
+      assert.equal(cfg, '0x')
+    })
+
+    it('allows upkeep manager to set privilege config', async () => {
+      const tx = await registry
+        .connect(personas.Norbert)
+        .setAdminPrivilegeConfig(admin, '0x1234')
+      await expect(tx)
+        .to.emit(registry, 'AdminPrivilegeConfigSet')
+        .withArgs(admin, '0x1234')
+
+      const cfg = await registry.getAdminPrivilegeConfig(admin)
       assert.equal(cfg, '0x1234')
     })
   })
