@@ -54,7 +54,8 @@ func testSingleConsumerHappyPath(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled,
+		subID *big.Int),
 ) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
@@ -118,7 +119,7 @@ func testSingleConsumerHappyPath(
 	// * payment should be exactly the amount specified as the premium in the coordinator fee config
 	rwfe := assertRandomWordsFulfilled(t, requestID1, true, coordinator)
 	if len(assertions) > 0 {
-		assertions[0](t, coordinator, rwfe)
+		assertions[0](t, coordinator, rwfe, subID)
 	}
 
 	// Make the second randomness request and assert fulfillment is successful
@@ -138,7 +139,7 @@ func testSingleConsumerHappyPath(
 	// * payment should be exactly the amount specified as the premium in the coordinator fee config
 	rwfe = assertRandomWordsFulfilled(t, requestID2, true, coordinator)
 	if len(assertions) > 0 {
-		assertions[0](t, coordinator, rwfe)
+		assertions[0](t, coordinator, rwfe, subID)
 	}
 
 	// Assert correct number of random words sent by coordinator.
@@ -345,7 +346,8 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled,
+		subID *big.Int),
 ) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -422,7 +424,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 			rwfe = assertRandomWordsFulfilled(t, requestID, false, coordinator)
 		}
 		if len(assertions) > 0 {
-			assertions[0](t, coordinator, rwfe)
+			assertions[0](t, coordinator, rwfe, subID)
 		}
 	}
 

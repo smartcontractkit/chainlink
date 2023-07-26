@@ -569,6 +569,7 @@ type RandomWordsFulfilled interface {
 	RequestID() *big.Int
 	Success() bool
 	NativePayment() bool
+	SubID() *big.Int
 	Payment() *big.Int
 	Raw() types.Log
 }
@@ -595,6 +596,10 @@ func (rwf *v2RandomWordsFulfilled) Success() bool {
 
 func (rwf *v2RandomWordsFulfilled) NativePayment() bool {
 	return false
+}
+
+func (rwf *v2RandomWordsFulfilled) SubID() *big.Int {
+	panic("VRF V2 RandomWordsFulfilled does not implement SubID")
 }
 
 func (rwf *v2RandomWordsFulfilled) Payment() *big.Int {
@@ -631,6 +636,10 @@ func (rwf *v2PlusRandomWordsFulfilled) NativePayment() bool {
 		panic(err)
 	}
 	return nativePayment
+}
+
+func (rwf *v2PlusRandomWordsFulfilled) SubID() *big.Int {
+	return rwf.event.SubID
 }
 
 func (rwf *v2PlusRandomWordsFulfilled) Payment() *big.Int {

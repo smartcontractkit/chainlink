@@ -893,6 +893,11 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 		uni.batchCoordinatorContractAddress,
 		ptr(uni.vrfOwnerAddress),
 		vrfcommon.V2,
+		func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+			require.PanicsWithValue(t, "VRF V2 RandomWordsFulfilled does not implement SubID", func() {
+				rwfe.SubID()
+			})
+		},
 	)
 }
 
