@@ -81,14 +81,6 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
 
     bytes memory callData = _checkPayload(id, triggerType, triggerData);
 
-    // if (triggerType == Trigger.CONDITION) {
-    //   triggerData = s_checkData[id];
-    //   callData = abi.encodeWithSelector(CHECK_SELECTOR, triggerData);
-    // } else {
-    //   Log memory log = abi.decode(triggerData, (Log));
-    //   triggerData = s_checkData[id];
-    //   callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, log, triggerData);
-    // }
     gasUsed = gasleft();
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
