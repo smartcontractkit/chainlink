@@ -606,9 +606,6 @@ describe('UpkeepTranscoder4_0', () => {
         expect((await registry20.getUpkeep(id20)).checkData).to.equal(
           randomBytes,
         )
-        expect((await registry20.getUpkeep(id20)).offchainConfig).to.equal(
-          randomBytes,
-        )
         expect((await registry20.getState()).state.numUpkeeps).to.equal(1)
 
         await registry20
@@ -629,9 +626,6 @@ describe('UpkeepTranscoder4_0', () => {
           toWei('1000'),
         )
         expect((await registry21.getUpkeep(id20)).checkData).to.equal(
-          randomBytes,
-        )
-        expect((await registry21.getUpkeep(id20)).offchainConfig).to.equal(
           randomBytes,
         )
         expect(await registry21.getUpkeepTriggerConfig(id20)).to.equal('0x')

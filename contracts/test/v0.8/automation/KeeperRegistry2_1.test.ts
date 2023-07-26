@@ -86,8 +86,6 @@ type Log = Parameters<AutomationUtils['_log']>[0]
 // -----------------------------------------------------------------------------------------------
 
 // These values should match the constants declared in registry
-let transmitGasOverhead: BigNumber
-let checkGasOverhead: BigNumber
 let registryConditionalOverhead: BigNumber
 let registryLogOverhead: BigNumber
 let registryPerSignerGasOverhead: BigNumber
@@ -112,6 +110,9 @@ const randomBytes = '0x1234abcd'
 const emptyBytes = '0x'
 const emptyBytes32 =
   '0x0000000000000000000000000000000000000000000000000000000000000000'
+
+const transmitGasOverhead = 1_000_000
+const checkGasOverhead = 400_000
 
 const stalenessSeconds = BigNumber.from(43820)
 const gasCeilingMultiplier = BigNumber.from(2)
@@ -924,8 +925,6 @@ describe('KeeperRegistry2_1', () => {
       gasPriceFeed.address,
     )
 
-    transmitGasOverhead = await registry.getTransmitGasOverhead()
-    checkGasOverhead = await registry.getCheckGasOverhead()
     registryConditionalOverhead = await registry.getConditionalGasOverhead()
     registryLogOverhead = await registry.getLogGasOverhead()
     registryPerSignerGasOverhead = await registry.getPerSignerGasOverhead()
