@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+...
+
+## 2.4.0 - UNRELEASED
 ### Fixed
 - Updated `v2/keys/evm` and `v2/keys/eth` routes to return 400 and 404 status codes where appropriate. Previously 500s were returned when requested resources were not found or client requests could not be parsed. 
 
