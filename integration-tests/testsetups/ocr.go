@@ -52,15 +52,16 @@ type OCRSoakTest struct {
 	TestReporter          testreporters.OCRSoakTestReporter
 	OperatorForwarderFlow bool
 
-	t               *testing.T
-	startTime       time.Time
-	testEnvironment *environment.Environment
-	log             zerolog.Logger
-	bootstrapNode   *client.Chainlink
-	workerNodes     []*client.Chainlink
-	chainClient     blockchain.EVMClient
-	mockServer      *ctfClient.MockserverClient
-	filterQuery     geth.FilterQuery
+	t                *testing.T
+	startTime        time.Time
+	startingBlockNum uint64
+	testEnvironment  *environment.Environment
+	log              zerolog.Logger
+	bootstrapNode    *client.Chainlink
+	workerNodes      []*client.Chainlink
+	chainClient      blockchain.EVMClient
+	mockServer       *ctfClient.MockserverClient
+	filterQuery      geth.FilterQuery
 
 	ocrRoundStates []*testreporters.OCRRoundState
 	testIssues     []*testreporters.TestIssue
@@ -252,6 +253,7 @@ func (o *OCRSoakTest) Run() {
 	latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
 	cancel()
 	require.NoError(o.t, err, "Error getting current block number")
+	o.startingBlockNum = latestBlockNum
 
 	ocrAddresses := make([]common.Address, len(o.ocrInstances))
 	for i, ocrInstance := range o.ocrInstances {
@@ -262,7 +264,7 @@ func (o *OCRSoakTest) Run() {
 	o.filterQuery = geth.FilterQuery{
 		Addresses: ocrAddresses,
 		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
-		FromBlock: big.NewInt(0).SetUint64(latestBlockNum),
+		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 	}
 
 	startingValue := 5
@@ -380,6 +382,7 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 type OCRSoakTestState struct {
 	OCRRoundStates       []*testreporters.OCRRoundState `toml:"ocrRoundStates"`
 	RPCIssues            []*testreporters.TestIssue     `toml:"testIssues"`
+	StartingBlockNum     uint64                         `toml:"startingBlockNum"`
 	StartTime            time.Time                      `toml:"startTime"`
 	TimeRunning          time.Duration                  `toml:"timeRunning"`
 	TestDuration         time.Duration                  `toml:"testDuration"`
@@ -405,6 +408,7 @@ func (o *OCRSoakTest) SaveState() error {
 	testState := &OCRSoakTestState{
 		OCRRoundStates:       o.ocrRoundStates,
 		RPCIssues:            o.testIssues,
+		StartingBlockNum:     o.startingBlockNum,
 		StartTime:            o.startTime,
 		TimeRunning:          time.Since(o.startTime),
 		TestDuration:         o.Inputs.TestDuration,
@@ -459,6 +463,7 @@ func (o *OCRSoakTest) LoadState() error {
 	o.testIssues = testState.RPCIssues
 	o.Inputs.TestDuration = testState.TestDuration - testState.TimeRunning
 	o.startTime = testState.StartTime
+	o.startingBlockNum = testState.StartingBlockNum
 
 	network := networks.SelectedNetwork
 	o.chainClient, err = blockchain.ConnectEVMClient(network)
@@ -501,10 +506,6 @@ func (o *OCRSoakTest) Resume() {
 		Message:   "Test Resumed",
 	})
 	log.Info().Str("Time Left", o.Inputs.TestDuration.String()).Msg("Resuming OCR Soak Test")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
-	cancel()
-	require.NoError(o.t, err, "Error getting current block number")
 
 	ocrAddresses := make([]common.Address, len(o.ocrInstances))
 	for i, ocrInstance := range o.ocrInstances {
@@ -515,7 +516,7 @@ func (o *OCRSoakTest) Resume() {
 	o.filterQuery = geth.FilterQuery{
 		Addresses: ocrAddresses,
 		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
-		FromBlock: big.NewInt(0).SetUint64(latestBlockNum),
+		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 	}
 
 	startingValue := 5
