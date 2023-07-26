@@ -16,6 +16,8 @@ func main() {
 	grafanaHost := flag.String("grafana_host", "", "grafana host URL")
 	grafanaAuth := flag.String("grafana_auth", "", "grafana basic auth for Loki API")
 	command := flag.String("command", "", "test command being rerun; used to tag metrics")
+	ghSHA := flag.String("gh_sha", "", "commit sha for which we're rerunning tests")
+	ghEventPath := flag.String("gh_event_path", "", "path to associated gh event")
 	flag.Parse()
 
 	if *grafanaHost == "" {
@@ -43,7 +45,8 @@ func main() {
 		readers = append(readers, r)
 	}
 
-	rep := flakeytests.NewLokiReporter(*grafanaHost, *grafanaAuth, *command)
+	ctx := flakeytests.GetGithubMetadata(*ghSHA, *ghEventPath)
+	rep := flakeytests.NewLokiReporter(*grafanaHost, *grafanaAuth, *command, ctx)
 	r := flakeytests.NewRunner(readers, rep, numReruns)
 	err := r.Run()
 	if err != nil {
