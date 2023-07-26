@@ -860,7 +860,7 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 			}
 			results[i] = activeUpkeep{ // TODO
 				ID:              ids[i],
-				PerformGasLimit: info.ExecuteGas,
+				PerformGasLimit: info.PerformGas,
 				CheckData:       info.CheckData,
 				Admin:           info.Admin,
 			}
