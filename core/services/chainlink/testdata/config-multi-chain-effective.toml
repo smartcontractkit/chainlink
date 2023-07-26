@@ -70,6 +70,9 @@ HTTPPort = 6688
 SecureCookies = true
 SessionTimeout = '15m0s'
 SessionReaperExpiration = '240h0m0s'
+HTTPMaxSize = '32.77kb'
+StartTimeout = '15s'
+ListenIP = '0.0.0.0'
 
 [WebServer.MFA]
 RPID = ''
@@ -87,6 +90,7 @@ ForceRedirect = false
 Host = ''
 HTTPSPort = 6689
 KeyPath = ''
+ListenIP = '0.0.0.0'
 
 [JobPipeline]
 ExternalInitiatorsEnabled = false
@@ -114,6 +118,9 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '20s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
+TraceLogging = false
 
 [OCR]
 Enabled = true
@@ -126,6 +133,7 @@ KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 SimulateTransactions = false
 TransmitterAddress = ''
 CaptureEATelemetry = false
+TraceLogging = false
 
 [P2P]
 IncomingMessageBufferSize = 999
@@ -205,6 +213,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 26
+FinalityTagEnabled = false
 LinkContractAddress = '0x514910771AF9Ca656af840dff83E8264EcF986CA'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -288,6 +297,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 50
+FinalityTagEnabled = false
 LinkContractAddress = '0xa36085F69e2889c224210F603D836748e7dC0088'
 LogBackfillBatchSize = 1000
 LogPollInterval = '15s'
@@ -357,8 +367,8 @@ ObservationGracePeriod = '1s'
 GasLimit = 5300000
 
 [[EVM.Nodes]]
-Name = 'primary'
-WSURL = 'wss://web.socket/test'
+Name = 'foo'
+WSURL = 'wss://web.socket/test/foo'
 
 [[EVM]]
 ChainID = '137'
@@ -366,6 +376,7 @@ AutoCreateKey = true
 BlockBackfillDepth = 10
 BlockBackfillSkip = false
 FinalityDepth = 500
+FinalityTagEnabled = false
 LinkContractAddress = '0xb0897686c545045aFc77CF20eC7A532E3120E0F1'
 LogBackfillBatchSize = 1000
 LogPollInterval = '1s'
@@ -434,15 +445,15 @@ ObservationGracePeriod = '1s'
 GasLimit = 5300000
 
 [[EVM.Nodes]]
-Name = 'primary'
-WSURL = 'wss://web.socket/test'
+Name = 'bar'
+WSURL = 'wss://web.socket/test/bar'
 
 [[Cosmos]]
 ChainID = 'Ibiza-808'
 BlockRate = '6s'
 BlocksUntilTxTimeout = 30
 ConfirmPollPeriod = '1s'
-FallbackGasPriceUAtom = '0.015'
+FallbackGasPrice = '0.015'
 FCDURL = ''
 GasLimitMultiplier = '1.5'
 MaxMsgsPerBatch = 13
@@ -459,7 +470,7 @@ ChainID = 'Malaga-420'
 BlockRate = '6s'
 BlocksUntilTxTimeout = 20
 ConfirmPollPeriod = '1s'
-FallbackGasPriceUAtom = '0.015'
+FallbackGasPrice = '0.015'
 FCDURL = ''
 GasLimitMultiplier = '1.5'
 MaxMsgsPerBatch = 100
@@ -468,7 +479,7 @@ OCR2CacheTTL = '1m0s'
 TxMsgTimeout = '10m0s'
 
 [[Cosmos.Nodes]]
-Name = 'primary'
+Name = 'secondary'
 TendermintURL = 'http://bombay.cosmos.com'
 
 [[Solana]]
@@ -512,7 +523,7 @@ ComputeUnitPriceDefault = 0
 FeeBumpPeriod = '3s'
 
 [[Solana.Nodes]]
-Name = 'primary'
+Name = 'secondary'
 URL = 'http://testnet.solana.com'
 
 [[Starknet]]
@@ -520,9 +531,8 @@ ChainID = 'foobar'
 OCR2CachePollPeriod = '5s'
 OCR2CacheTTL = '1m0s'
 RequestTimeout = '10s'
-TxTimeout = '1m0s'
-TxSendFrequency = '1h0m0s'
-TxMaxBatchSize = 100
+TxTimeout = '10s'
+ConfirmationPoll = '1h0m0s'
 
 [[Starknet.Nodes]]
 Name = 'primary'

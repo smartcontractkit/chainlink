@@ -13,6 +13,7 @@
 /core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
 /core/chains/evm/client @samsondav @prashantkumar1982
 /core/chains/evm/log @jmank88 @prashantkumar1982 @connorwstein
+/core/chains/evm/logpoller @reductionista @connorwstein
 /core/chains/cosmos @archseer @cfal
 
 # Services
@@ -29,6 +30,7 @@
 /core/services/pipeline @connorwstein @prashantkumar1982
 /core/services/synchronization
 /core/services/telemetry
+/core/services/relay/evm/mercury @samsondav @sdrug @martin-cll
 
 # VRF-related services
 /core/services/vrf @smartcontractkit/vrf-team

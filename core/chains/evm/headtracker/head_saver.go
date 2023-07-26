@@ -5,24 +5,29 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type headSaver struct {
-	orm    ORM
-	config Config
-	logger logger.Logger
-	heads  Heads
+	orm      ORM
+	config   Config
+	htConfig HeadTrackerConfig
+	logger   logger.Logger
+	heads    Heads
 }
 
-func NewHeadSaver(lggr logger.Logger, orm ORM, config Config) httypes.HeadSaver {
+var _ commontypes.HeadSaver[*evmtypes.Head, common.Hash] = (*headSaver)(nil)
+
+func NewHeadSaver(lggr logger.Logger, orm ORM, config Config, htConfig HeadTrackerConfig) httypes.HeadSaver {
 	return &headSaver{
-		orm:    orm,
-		config: config,
-		logger: lggr.Named("HeadSaver"),
-		heads:  NewHeads(),
+		orm:      orm,
+		config:   config,
+		htConfig: htConfig,
+		logger:   lggr.Named("HeadSaver"),
+		heads:    NewHeads(),
 	}
 }
 
@@ -31,14 +36,14 @@ func (hs *headSaver) Save(ctx context.Context, head *evmtypes.Head) error {
 		return err
 	}
 
-	historyDepth := uint(hs.config.EvmHeadTrackerHistoryDepth())
+	historyDepth := uint(hs.htConfig.HistoryDepth())
 	hs.heads.AddHeads(historyDepth, head)
 
 	return hs.orm.TrimOldHeads(ctx, historyDepth)
 }
 
-func (hs *headSaver) LoadFromDB(ctx context.Context) (chain *evmtypes.Head, err error) {
-	historyDepth := uint(hs.config.EvmHeadTrackerHistoryDepth())
+func (hs *headSaver) Load(ctx context.Context) (chain *evmtypes.Head, err error) {
+	historyDepth := uint(hs.htConfig.HistoryDepth())
 	heads, err := hs.orm.LatestHeads(ctx, historyDepth)
 	if err != nil {
 		return nil, err
@@ -57,8 +62,8 @@ func (hs *headSaver) LatestChain() *evmtypes.Head {
 	if head == nil {
 		return nil
 	}
-	if head.ChainLength() < hs.config.EvmFinalityDepth() {
-		hs.logger.Debugw("chain shorter than EvmFinalityDepth", "chainLen", head.ChainLength(), "evmFinalityDepth", hs.config.EvmFinalityDepth())
+	if head.ChainLength() < hs.config.FinalityDepth() {
+		hs.logger.Debugw("chain shorter than FinalityDepth", "chainLen", head.ChainLength(), "evmFinalityDepth", hs.config.FinalityDepth())
 	}
 	return head
 }
@@ -72,7 +77,7 @@ var NullSaver httypes.HeadSaver = &nullSaver{}
 type nullSaver struct{}
 
 func (*nullSaver) Save(ctx context.Context, head *evmtypes.Head) error          { return nil }
-func (*nullSaver) LoadFromDB(ctx context.Context) (*evmtypes.Head, error)       { return nil, nil }
+func (*nullSaver) Load(ctx context.Context) (*evmtypes.Head, error)             { return nil, nil }
 func (*nullSaver) LatestHeadFromDB(ctx context.Context) (*evmtypes.Head, error) { return nil, nil }
 func (*nullSaver) LatestChain() *evmtypes.Head                                  { return nil }
 func (*nullSaver) Chain(hash common.Hash) *evmtypes.Head                        { return nil }

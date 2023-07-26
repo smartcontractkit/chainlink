@@ -40,6 +40,7 @@ func TestConfigCalculationMatches(t *testing.T) {
 	p := gopter.NewProperties(nil)
 	p.Property("onchain/offchain config digests match", prop.ForAll(
 		func(
+			feedID [32]byte,
 			chainID uint64,
 			contractAddress common.Address,
 			configCount uint64,
@@ -50,9 +51,10 @@ func TestConfigCalculationMatches(t *testing.T) {
 			offchainConfigVersion uint64,
 			offchainConfig []byte,
 		) bool {
+			chainIDBig := new(big.Int).SetUint64(chainID)
 			golangDigest := configDigest(
-				sampleFeedID,
-				chainID,
+				feedID,
+				chainIDBig,
 				contractAddress,
 				configCount,
 				oracles,
@@ -67,7 +69,7 @@ func TestConfigCalculationMatches(t *testing.T) {
 			bigChainID.SetUint64(chainID)
 
 			solidityDigest, err := eoa.ExposedConfigDigestFromConfigData(nil,
-				sampleFeedID,
+				feedID,
 				bigChainID,
 				contractAddress,
 				configCount,
@@ -81,6 +83,7 @@ func TestConfigCalculationMatches(t *testing.T) {
 			require.NoError(t, err, "could not compute solidity version of config digest")
 			return golangDigest == solidityDigest
 		},
+		GenHash(t),
 		gen.UInt64(),
 		GenAddress(t),
 		gen.UInt64(),

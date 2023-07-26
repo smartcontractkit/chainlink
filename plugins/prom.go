@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/net/context"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 type PromServer struct {
@@ -26,9 +26,9 @@ type PromServer struct {
 
 type PromServerOpt func(*PromServer)
 
-func WithRegistry(r *prometheus.Registry) PromServerOpt {
+func WithHandler(h http.Handler) PromServerOpt {
 	return func(s *PromServer) {
-		s.handler = promhttp.HandlerFor(r, promhttp.HandlerOpts{})
+		s.handler = h
 	}
 }
 
@@ -43,7 +43,12 @@ func NewPromServer(port int, lggr logger.Logger, opts ...PromServerOpt) *PromSer
 			ReadTimeout: 5 * time.Second,
 		},
 
-		handler: promhttp.Handler(),
+		handler: promhttp.HandlerFor(
+			prometheus.DefaultGatherer,
+			promhttp.HandlerOpts{
+				EnableOpenMetrics: true,
+			},
+		),
 	}
 
 	for _, opt := range opts {
@@ -55,6 +60,7 @@ func NewPromServer(port int, lggr logger.Logger, opts ...PromServerOpt) *PromSer
 
 // Start start HTTP server on specified port to handle metrics requests
 func (p *PromServer) Start() error {
+	p.lggr.Debugf("Starting prom server on port %d", p.port)
 	err := p.setupListener()
 	if err != nil {
 		return err

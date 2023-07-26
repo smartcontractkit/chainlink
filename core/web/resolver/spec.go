@@ -109,6 +109,14 @@ func (r *SpecResolver) ToBootstrapSpec() (*BootstrapSpecResolver, bool) {
 	return &BootstrapSpecResolver{spec: *r.j.BootstrapSpec}, true
 }
 
+func (r *SpecResolver) ToGatewaySpec() (*GatewaySpecResolver, bool) {
+	if r.j.Type != job.Gateway {
+		return nil, false
+	}
+
+	return &GatewaySpecResolver{spec: *r.j.GatewaySpec}, true
+}
+
 type CronSpecResolver struct {
 	spec job.CronSpec
 }
@@ -606,8 +614,12 @@ func (r *OCR2SpecResolver) TransmitterID() *string {
 }
 
 // FeedID resolves the spec's feed ID
-func (r *OCR2SpecResolver) FeedID() string {
-	return r.spec.FeedID.String()
+func (r *OCR2SpecResolver) FeedID() *string {
+	if r.spec.FeedID == nil {
+		return nil
+	}
+	feedID := r.spec.FeedID.String()
+	return &feedID
 }
 
 type VRFSpecResolver struct {
@@ -722,6 +734,15 @@ func (r *VRFSpecResolver) GasLanePrice() *string {
 	return &gasLanePriceGWei
 }
 
+// VRFOwnerAddress resolves the spec's vrf owner address.
+func (r *VRFSpecResolver) VRFOwnerAddress() *string {
+	if r.spec.VRFOwnerAddress == nil {
+		return nil
+	}
+	vrfOwnerAddress := r.spec.VRFOwnerAddress.String()
+	return &vrfOwnerAddress
+}
+
 type WebhookSpecResolver struct {
 	spec job.WebhookSpec
 }
@@ -751,6 +772,15 @@ func (b *BlockhashStoreSpecResolver) CoordinatorV2Address() *string {
 		return nil
 	}
 	addr := b.spec.CoordinatorV2Address.String()
+	return &addr
+}
+
+// CoordinatorV2PlusAddress returns the address of the V2Plus Coordinator, if any.
+func (b *BlockhashStoreSpecResolver) CoordinatorV2PlusAddress() *string {
+	if b.spec.CoordinatorV2PlusAddress == nil {
+		return nil
+	}
+	addr := b.spec.CoordinatorV2PlusAddress.String()
 	return &addr
 }
 
@@ -822,6 +852,15 @@ func (b *BlockHeaderFeederSpecResolver) CoordinatorV2Address() *string {
 		return nil
 	}
 	addr := b.spec.CoordinatorV2Address.String()
+	return &addr
+}
+
+// CoordinatorV2PlusAddress returns the address of the V2 Coordinator Plus, if any.
+func (b *BlockHeaderFeederSpecResolver) CoordinatorV2PlusAddress() *string {
+	if b.spec.CoordinatorV2PlusAddress == nil {
+		return nil
+	}
+	addr := b.spec.CoordinatorV2PlusAddress.String()
 	return &addr
 }
 
@@ -958,5 +997,21 @@ func (r *BootstrapSpecResolver) ContractConfigConfirmations() *int32 {
 
 // CreatedAt resolves the spec's created at timestamp.
 func (r *BootstrapSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+type GatewaySpecResolver struct {
+	spec job.GatewaySpec
+}
+
+func (r *GatewaySpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(r.spec.ID))
+}
+
+func (r *GatewaySpecResolver) GatewayConfig() gqlscalar.Map {
+	return gqlscalar.Map(r.spec.GatewayConfig)
+}
+
+func (r *GatewaySpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
 }

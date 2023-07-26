@@ -590,7 +590,7 @@ KeyID               = "6f3b82406688b8ddb944c6f2e6d808f014c8fa8d568d639c25019568c
 					tc.overrides(c, s)
 				}
 			})
-			s, err := validate.ValidatedOracleSpecToml(c, tc.toml)
+			s, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), tc.toml)
 			tc.assertion(t, s, err)
 		})
 	}

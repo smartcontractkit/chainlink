@@ -282,7 +282,7 @@ func Test_OCR2Config_Value(t *testing.T) {
 	t.Parallel()
 
 	var (
-		give = OCR2Config{
+		give = OCR2ConfigModel{
 			Enabled:     true,
 			IsBootstrap: false,
 			Multiaddr:   null.StringFrom("multiaddr"),
@@ -312,7 +312,7 @@ func Test_OCR2Config_Scan(t *testing.T) {
 
 	var (
 		give = `{"enabled":true,"is_bootstrap":false,"multiaddr":"multiaddr","p2p_peer_id":"peerid","key_bundle_id":"ocrkeyid","plugins":{"commit":true,"execute":true,"median":false,"mercury":true}}`
-		want = OCR2Config{
+		want = OCR2ConfigModel{
 			Enabled:     true,
 			IsBootstrap: false,
 			Multiaddr:   null.StringFrom("multiaddr"),
@@ -327,7 +327,7 @@ func Test_OCR2Config_Scan(t *testing.T) {
 		}
 	)
 
-	var actual OCR2Config
+	var actual OCR2ConfigModel
 	err := actual.Scan([]byte(give))
 	require.NoError(t, err)
 

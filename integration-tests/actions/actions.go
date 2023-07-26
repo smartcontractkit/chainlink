@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -40,7 +41,11 @@ func FundChainlinkNodes(
 		if err != nil {
 			return err
 		}
-		err = client.Fund(toAddress, amount)
+		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+		if err != nil {
+			return err
+		}
+		err = client.Fund(toAddress, amount, gasEstimates)
 		if err != nil {
 			return err
 		}
@@ -60,7 +65,11 @@ func FundChainlinkNodesAddress(
 		if err != nil {
 			return err
 		}
-		err = client.Fund(toAddress[keyIndex], amount)
+		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+		if err != nil {
+			return err
+		}
+		err = client.Fund(toAddress[keyIndex], amount, gasEstimates)
 		if err != nil {
 			return err
 		}
@@ -80,7 +89,11 @@ func FundChainlinkNodesAddresses(
 			return err
 		}
 		for _, addr := range toAddress {
-			err = client.Fund(addr, amount)
+			gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+			if err != nil {
+				return err
+			}
+			err = client.Fund(addr, amount, gasEstimates)
 			if err != nil {
 				return err
 			}
@@ -237,7 +250,10 @@ func TeardownSuite(
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
 	// Delete all jobs to stop depleting the funds
-	DeleteAllJobs(chainlinkNodes)
+	err := DeleteAllJobs(chainlinkNodes)
+	if err != nil {
+		l.Warn().Msgf("Error deleting jobs %+v", err)
+	}
 
 	for _, c := range clients {
 		if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
@@ -279,7 +295,10 @@ func TeardownRemoteSuite(
 		l.Warn().Err(err).Msg("Error writing test report")
 	}
 	// Delete all jobs to stop depleting the funds
-	DeleteAllJobs(chainlinkNodes)
+	err = DeleteAllJobs(chainlinkNodes)
+	if err != nil {
+		l.Warn().Msgf("Error deleting jobs %+v", err)
+	}
 
 	if err = returnFunds(chainlinkNodes, client); err != nil {
 		l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
@@ -349,7 +368,11 @@ func returnFunds(chainlinkNodes []*client.Chainlink, blockchainClient blockchain
 // FundAddresses will fund a list of addresses with an amount of native currency
 func FundAddresses(blockchain blockchain.EVMClient, amount *big.Float, addresses ...string) error {
 	for _, address := range addresses {
-		if err := blockchain.Fund(address, amount); err != nil {
+		gasEstimates, err := blockchain.EstimateGas(ethereum.CallMsg{})
+		if err != nil {
+			return err
+		}
+		if err := blockchain.Fund(address, amount, gasEstimates); err != nil {
 			return err
 		}
 	}

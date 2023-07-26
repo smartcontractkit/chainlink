@@ -7,55 +7,60 @@ import (
 
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 type SolanaConfigs []*SolanaConfig
 
 func (cs SolanaConfigs) ValidateConfig() (err error) {
+	return cs.validateKeys()
+}
+
+func (cs SolanaConfigs) validateKeys() (err error) {
 	// Unique chain IDs
-	chainIDs := v2.UniqueStrings{}
+	chainIDs := config.UniqueStrings{}
 	for i, c := range cs {
 		if chainIDs.IsDupe(c.ChainID) {
-			err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), *c.ChainID))
+			err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), *c.ChainID))
 		}
 	}
 
 	// Unique node names
-	names := v2.UniqueStrings{}
+	names := config.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
 			if names.IsDupe(n.Name) {
-				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
+				err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
 			}
 		}
 	}
 
 	// Unique URLs
-	urls := v2.UniqueStrings{}
+	urls := config.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
 			u := (*url.URL)(n.URL)
 			if urls.IsDupeFmt(u) {
-				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.URL", i, j), u.String()))
+				err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.URL", i, j), u.String()))
 			}
 		}
 	}
 	return
 }
 
-func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) {
+func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) (err error) {
+	if err1 := fs.validateKeys(); err1 != nil {
+		return err1
+	}
 	for _, f := range *fs {
 		if f.ChainID == nil {
 			*cs = append(*cs, f)
@@ -67,6 +72,7 @@ func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) {
 			(*cs)[i].SetFrom(f)
 		}
 	}
+	return
 }
 
 func (cs SolanaConfigs) Chains(ids ...string) (r []types.ChainStatus, err error) {
@@ -278,13 +284,13 @@ func setFromChain(c, f *solcfg.Chain) {
 
 func (c *SolanaConfig) ValidateConfig() (err error) {
 	if c.ChainID == nil {
-		err = multierr.Append(err, v2.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
+		err = multierr.Append(err, config.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
 	} else if *c.ChainID == "" {
-		err = multierr.Append(err, v2.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+		err = multierr.Append(err, config.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 	}
 
 	if len(c.Nodes) == 0 {
-		err = multierr.Append(err, v2.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
+		err = multierr.Append(err, config.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
 	}
 	return
 }
@@ -370,11 +376,6 @@ type Configs interface {
 }
 
 var _ chains.Configs[string, soldb.Node] = (Configs)(nil)
-
-func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []string) error {
-	q := pg.NewQ(db, lggr.Named("Ensure"), cfg)
-	return chains.EnsureChains[string](q, "solana", ids)
-}
 
 func NewConfigs(cfgs chains.ConfigsV2[string, soldb.Node]) Configs {
 	return chains.NewConfigs(cfgs)

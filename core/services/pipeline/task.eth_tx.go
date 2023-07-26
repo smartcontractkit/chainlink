@@ -12,6 +12,7 @@ import (
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -101,7 +102,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
 		minOutgoingConfirmations = min
 	} else {
-		minOutgoingConfirmations = uint64(cfg.EvmFinalityDepth())
+		minOutgoingConfirmations = uint64(cfg.EVM().FinalityDepth())
 	}
 
 	txMeta, err := decodeMeta(txMetaMap)
@@ -124,7 +125,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	}
 
 	// TODO(sc-55115): Allow job specs to pass in the strategy that they want
-	strategy := txmgr.NewSendEveryStrategy()
+	strategy := txmgrcommon.NewSendEveryStrategy()
 
 	var forwarderAddress common.Address
 	if t.forwardingAllowed {
@@ -135,7 +136,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		}
 	}
 
-	newTx := txmgr.EvmNewTx{
+	txRequest := txmgr.TxRequest{
 		FromAddress:      fromAddr,
 		ToAddress:        common.Address(toAddr),
 		EncodedPayload:   []byte(data),
@@ -148,11 +149,11 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 
 	if minOutgoingConfirmations > 0 {
 		// Store the task run ID, so we can resume the pipeline when tx is confirmed
-		newTx.PipelineTaskRunID = &t.uuid
-		newTx.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
+		txRequest.PipelineTaskRunID = &t.uuid
+		txRequest.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
 	}
 
-	_, err = txManager.CreateEthTransaction(newTx)
+	_, err = txManager.CreateTransaction(txRequest)
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()
 	}
@@ -164,8 +165,8 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	return Result{Value: nil}, runInfo
 }
 
-func decodeMeta(metaMap MapParam) (*txmgr.EthTxMeta, error) {
-	var txMeta txmgr.EthTxMeta
+func decodeMeta(metaMap MapParam) (*txmgr.TxMeta, error) {
+	var txMeta txmgr.TxMeta
 	metaDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &txMeta,
 		ErrorUnused: true,
@@ -198,8 +199,8 @@ func decodeMeta(metaMap MapParam) (*txmgr.EthTxMeta, error) {
 	return &txMeta, nil
 }
 
-func decodeTransmitChecker(checkerMap MapParam) (txmgr.EvmTransmitCheckerSpec, error) {
-	var transmitChecker txmgr.EvmTransmitCheckerSpec
+func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, error) {
+	var transmitChecker txmgr.TransmitCheckerSpec
 	checkerDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &transmitChecker,
 		ErrorUnused: true,
@@ -230,7 +231,7 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.EvmTransmitCheckerSpec, e
 }
 
 // txMeta is really only used for logging, so this is best-effort
-func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.EthTxMeta) {
+func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.TxMeta) {
 	jobID, err := vars.Get("jobSpec.databaseID")
 	if err != nil {
 		return

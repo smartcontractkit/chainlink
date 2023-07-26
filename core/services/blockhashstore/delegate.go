@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -59,14 +60,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			"getting chain ID %d: %w", jb.BlockhashStoreSpec.EVMChainID.ToInt(), err)
 	}
 
-	if !chain.Config().FeatureLogPoller() {
+	if !chain.Config().Feature().LogPoller() {
 		return nil, errors.New("log poller must be enabled to run blockhashstore")
 	}
 
-	if jb.BlockhashStoreSpec.WaitBlocks < int32(chain.Config().EvmFinalityDepth()) {
+	if jb.BlockhashStoreSpec.WaitBlocks < int32(chain.Config().EVM().FinalityDepth()) {
 		return nil, fmt.Errorf(
 			"waitBlocks must be greater than or equal to chain's finality depth (%d), currently %d",
-			chain.Config().EvmFinalityDepth(), jb.BlockhashStoreSpec.WaitBlocks)
+			chain.Config().EVM().FinalityDepth(), jb.BlockhashStoreSpec.WaitBlocks)
 	}
 
 	keys, err := d.ks.EnabledKeysForChain(chain.ID())
@@ -119,8 +120,23 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		coordinators = append(coordinators, coord)
 	}
+	if jb.BlockhashStoreSpec.CoordinatorV2PlusAddress != nil {
+		var c *v2plus.VRFCoordinatorV2Plus
+		if c, err = v2plus.NewVRFCoordinatorV2Plus(
+			jb.BlockhashStoreSpec.CoordinatorV2PlusAddress.Address(), chain.Client()); err != nil {
 
-	bpBHS, err := NewBulletproofBHS(chain.Config(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
+			return nil, errors.Wrap(err, "building V2Plus coordinator")
+		}
+
+		var coord *V2PlusCoordinator
+		coord, err = NewV2PlusCoordinator(c, lp)
+		if err != nil {
+			return nil, errors.Wrap(err, "building V2Plus coordinator")
+		}
+		coordinators = append(coordinators, coord)
+	}
+
+	bpBHS, err := NewBulletproofBHS(chain.Config().EVM().GasEstimator(), chain.Config().Database(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
@@ -214,6 +230,6 @@ func (s *service) runFeeder() {
 		s.logger.Debugw("BHS feeder run completed successfully")
 	} else {
 		s.logger.Errorw("BHS feeder run was at least partially unsuccessful",
-			"error", err)
+			"err", err)
 	}
 }

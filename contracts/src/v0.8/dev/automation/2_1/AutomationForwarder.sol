@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
-import {AutomationRegistryBaseInterface as IRegistry} from "./interfaces/AutomationRegistryInterface2_1.sol";
 import "../../../interfaces/TypeAndVersionInterface.sol";
+import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsumer.sol";
 
 uint256 constant PERFORM_GAS_CUSHION = 5_000;
 
@@ -13,15 +13,17 @@ uint256 constant PERFORM_GAS_CUSHION = 5_000;
  * want to programatically interact with the registry (ie top up funds) can do so.
  */
 contract AutomationForwarder is TypeAndVersionInterface {
-  address private s_registry;
+  IAutomationRegistryConsumer private s_registry;
   address private immutable i_target;
+  uint256 private immutable i_upkeepID;
   string public constant override typeAndVersion = "AutomationForwarder 1.0.0";
 
   error NotAuthorized();
 
-  constructor(address target) {
-    s_registry = msg.sender;
+  constructor(uint256 upkeepID, address target, address registry) {
+    s_registry = IAutomationRegistryConsumer(registry);
     i_target = target;
+    i_upkeepID = upkeepID;
   }
 
   /**
@@ -30,9 +32,10 @@ contract AutomationForwarder is TypeAndVersionInterface {
    * @param data is the 4 bytes function selector + arbitrary function data
    * @return success indicating whether the target call succeeded or failed
    */
-  function forward(uint256 gasAmount, bytes memory data) external returns (bool success) {
-    if (msg.sender != s_registry) revert NotAuthorized();
+  function forward(uint256 gasAmount, bytes memory data) external returns (bool success, uint256 gasUsed) {
+    if (msg.sender != address(s_registry)) revert NotAuthorized();
     address target = i_target;
+    gasUsed = gasleft();
     assembly {
       let g := gas()
       // Compute g -= PERFORM_GAS_CUSHION and check for underflow
@@ -52,6 +55,8 @@ contract AutomationForwarder is TypeAndVersionInterface {
       // call with exact gas
       success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
     }
+    gasUsed = gasUsed - gasleft();
+    return (success, gasUsed);
   }
 
   /**
@@ -59,16 +64,14 @@ contract AutomationForwarder is TypeAndVersionInterface {
    * @param newRegistry is the registry that this forwarder is being migrated to
    */
   function updateRegistry(address newRegistry) external {
-    if (msg.sender != s_registry) revert NotAuthorized();
-    s_registry = newRegistry;
+    if (msg.sender != address(s_registry)) revert NotAuthorized();
+    s_registry = IAutomationRegistryConsumer(newRegistry);
   }
 
-  // TODO - here we should return a "user interface" that only contains the functions on the registry that a
-  // user might want to interract with
   /**
    * @notice gets the registry address
    */
-  function getRegistry() external view returns (address) {
+  function getRegistry() external view returns (IAutomationRegistryConsumer) {
     return s_registry;
   }
 
@@ -77,5 +80,12 @@ contract AutomationForwarder is TypeAndVersionInterface {
    */
   function getTarget() external view returns (address) {
     return i_target;
+  }
+
+  /**
+   * @notice gets the upkeepID that this forwarder belongs to
+   */
+  function getUpkeepID() external view returns (uint256) {
+    return i_upkeepID;
   }
 }

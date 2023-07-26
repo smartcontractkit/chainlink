@@ -10,48 +10,56 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 type StarknetConfigs []*StarknetConfig
 
 func (cs StarknetConfigs) ValidateConfig() (err error) {
+	return cs.validateKeys()
+}
+
+func (cs StarknetConfigs) validateKeys() (err error) {
 	// Unique chain IDs
-	chainIDs := v2.UniqueStrings{}
+	chainIDs := config.UniqueStrings{}
 	for i, c := range cs {
 		if chainIDs.IsDupe(c.ChainID) {
-			err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), *c.ChainID))
+			err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), *c.ChainID))
 		}
 	}
 
 	// Unique node names
-	names := v2.UniqueStrings{}
+	names := config.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
 			if names.IsDupe(n.Name) {
-				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
+				err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
 			}
 		}
 	}
 
 	// Unique URLs
-	urls := v2.UniqueStrings{}
+	urls := config.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
 			u := (*url.URL)(n.URL)
 			if urls.IsDupeFmt(u) {
-				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.URL", i, j), u.String()))
+				err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.URL", i, j), u.String()))
 			}
 		}
 	}
 	return
 }
 
-func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) {
+func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) (err error) {
+	if err1 := fs.validateKeys(); err1 != nil {
+		return err1
+	}
 	for _, f := range *fs {
 		if f.ChainID == nil {
 			*cs = append(*cs, f)
@@ -63,6 +71,7 @@ func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) {
 			(*cs)[i].SetFrom(f)
 		}
 	}
+	return
 }
 
 func (cs StarknetConfigs) Chains(ids ...string) (r []types.ChainStatus, err error) {
@@ -221,23 +230,20 @@ func setFromChain(c, f *stkcfg.Chain) {
 	if f.TxTimeout != nil {
 		c.TxTimeout = f.TxTimeout
 	}
-	if f.TxSendFrequency != nil {
-		c.TxSendFrequency = f.TxSendFrequency
-	}
-	if f.TxMaxBatchSize != nil {
-		c.TxMaxBatchSize = f.TxMaxBatchSize
+	if f.ConfirmationPoll != nil {
+		c.ConfirmationPoll = f.ConfirmationPoll
 	}
 }
 
 func (c *StarknetConfig) ValidateConfig() (err error) {
 	if c.ChainID == nil {
-		err = multierr.Append(err, v2.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
+		err = multierr.Append(err, config.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
 	} else if *c.ChainID == "" {
-		err = multierr.Append(err, v2.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+		err = multierr.Append(err, config.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 	}
 
 	if len(c.Nodes) == 0 {
-		err = multierr.Append(err, v2.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
+		err = multierr.Append(err, config.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
 	}
 
 	return
@@ -290,12 +296,8 @@ func (c *StarknetConfig) TxTimeout() time.Duration {
 	return c.Chain.TxTimeout.Duration()
 }
 
-func (c *StarknetConfig) TxSendFrequency() time.Duration {
-	return c.Chain.TxSendFrequency.Duration()
-}
-
-func (c *StarknetConfig) TxMaxBatchSize() int {
-	return int(*c.Chain.TxMaxBatchSize)
+func (c *StarknetConfig) ConfirmationPoll() time.Duration {
+	return c.Chain.ConfirmationPoll.Duration()
 }
 
 func (c *StarknetConfig) OCR2CachePollPeriod() time.Duration {

@@ -18,7 +18,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/libocr/commontypes"
-	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocr2Types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
 	"golang.org/x/exp/maps"
@@ -400,6 +400,7 @@ func (c *coordinator) ReportBlocks(
 	}
 
 	blocksRequested := make(map[block]struct{})
+	redeemRandomnessBlocksRequested := make(map[block]struct{})
 	unfulfilled, err := c.filterEligibleRandomnessRequests(randomnessRequestedLogs, confirmationDelays, currentHeight, blockhashesMapping)
 	if err != nil {
 		err = errors.Wrap(err, "filter requests in ReportBlocks")
@@ -407,6 +408,7 @@ func (c *coordinator) ReportBlocks(
 	}
 	for _, uf := range unfulfilled {
 		blocksRequested[uf] = struct{}{}
+		redeemRandomnessBlocksRequested[uf] = struct{}{}
 	}
 
 	c.lggr.Tracew("filtered eligible randomness requests", "blocks", unfulfilled)
@@ -427,6 +429,7 @@ func (c *coordinator) ReportBlocks(
 	fulfilledBlocks := c.getFulfilledBlocks(outputsServedLogs)
 	for _, f := range fulfilledBlocks {
 		delete(blocksRequested, f)
+		delete(redeemRandomnessBlocksRequested, f)
 	}
 
 	c.lggr.Tracew("got fulfilled blocks", "fulfilled", fulfilledBlocks)
@@ -435,10 +438,12 @@ func (c *coordinator) ReportBlocks(
 	blocks = []ocr2vrftypes.Block{}
 	for block := range blocksRequested {
 		if c.coordinatorConfig.BatchGasLimit-currentBatchGasLimit >= c.coordinatorConfig.BlockGasOverhead {
+			_, redeemRandomnessRequested := redeemRandomnessBlocksRequested[block]
 			blocks = append(blocks, ocr2vrftypes.Block{
 				Hash:              blockhashesMapping[block.blockNumber],
 				Height:            block.blockNumber,
 				ConfirmationDelay: block.confDelay,
+				ShouldStore:       redeemRandomnessRequested,
 			})
 			currentBatchGasLimit += c.coordinatorConfig.BlockGasOverhead
 		} else {

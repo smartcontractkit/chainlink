@@ -6,7 +6,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -19,12 +18,13 @@ type EIServiceConfig struct {
 
 // ChainlinkConfig represents the variables needed to connect to a Chainlink node
 type ChainlinkConfig struct {
-	URL        string
-	Email      string
-	Password   string
-	InternalIP string // Can change if the node is restarted. Prefer RemoteURL if possible
-	ChartName  string
-	PodName    string
+	URL         string
+	Email       string
+	Password    string
+	InternalIP  string // Can change if the node is restarted. Prefer RemoteURL if possible
+	ChartName   string
+	PodName     string
+	HTTPTimeout *time.Duration
 }
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice
@@ -976,7 +976,7 @@ func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
 // String representation of the job
 func (o *OCR2TaskJobSpec) String() (string, error) {
 	var feedID string
-	if o.OCR2OracleSpec.FeedID != (common.Hash{}) {
+	if o.OCR2OracleSpec.FeedID != nil {
 		feedID = o.OCR2OracleSpec.FeedID.Hex()
 	}
 	specWrap := struct {
@@ -1002,6 +1002,7 @@ func (o *OCR2TaskJobSpec) String() (string, error) {
 	}{
 		Name:                  o.Name,
 		JobType:               o.JobType,
+		ForwardingAllowed:     o.ForwardingAllowed,
 		MaxTaskDuration:       o.MaxTaskDuration,
 		ContractID:            o.OCR2OracleSpec.ContractID,
 		FeedID:                feedID,
@@ -1294,27 +1295,27 @@ type CLNodesWithKeys struct {
 	KeysBundle NodeKeysBundle
 }
 
+// Forwarders is the model that represents the created Forwarders when read
+type Forwarders struct {
+	Data []ForwarderData `json:"data"`
+}
+
 // Forwarder the model that represents the created Forwarder when created
 type Forwarder struct {
 	Data ForwarderData `json:"data"`
 }
 
-// Forwarders is the model that represents the created Forwarders when read
-type Forwarders struct {
-	Data []Forwarder `json:"data"`
-}
-
 // ForwarderData is the model that represents the created Forwarder when read
 type ForwarderData struct {
-	ID        string    `json:"id"`
-	Address   string    `json:"address"`
-	ChainID   string    `json:"chainId"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	Type       string              `json:"type"`
+	ID         string              `json:"id"`
+	Attributes ForwarderAttributes `json:"attributes"`
 }
 
 // ForwarderAttributes is the model that represents attributes of a Forwarder
 type ForwarderAttributes struct {
-	Address string `json:"address"`
-	ChainID string `json:"chainID"`
+	Address   string    `json:"address"`
+	ChainID   string    `json:"evmChainId"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }

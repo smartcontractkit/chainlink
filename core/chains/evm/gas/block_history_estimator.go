@@ -16,10 +16,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
@@ -76,13 +77,31 @@ const BumpingHaltedLabel = "Tx gas bumping halted since price exceeds current bl
 
 var _ EvmEstimator = &BlockHistoryEstimator{}
 
+type chainConfig interface {
+	ChainType() config.ChainType
+}
+
+type estimatorGasEstimatorConfig interface {
+	EIP1559DynamicFees() bool
+	BumpThreshold() uint64
+	LimitMultiplier() float32
+	PriceDefault() *assets.Wei
+	TipCapDefault() *assets.Wei
+	TipCapMin() *assets.Wei
+	PriceMax() *assets.Wei
+	PriceMin() *assets.Wei
+	bumpConfig
+}
+
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
 type (
 	BlockHistoryEstimator struct {
 		utils.StartStopOnce
 		ethClient evmclient.Client
 		chainID   big.Int
-		config    Config
+		config    chainConfig
+		eConfig   estimatorGasEstimatorConfig
+		bhConfig  BlockHistoryConfig
 		// NOTE: it is assumed that blocks will be kept sorted by
 		// block number ascending
 		blocks    []evmtypes.Block
@@ -107,15 +126,17 @@ type (
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, chainID big.Int) EvmEstimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int) EvmEstimator {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &BlockHistoryEstimator{
 		ethClient: ethClient,
 		chainID:   chainID,
 		config:    cfg,
+		eConfig:   eCfg,
+		bhConfig:  bhCfg,
 		blocks:    make([]evmtypes.Block, 0),
 		// Must have enough blocks for both estimator and connectivity checker
-		size:      int64(mathutil.Max(cfg.BlockHistoryEstimatorBlockHistorySize(), cfg.BlockHistoryEstimatorCheckInclusionBlocks())),
+		size:      int64(mathutil.Max(bhCfg.BlockHistorySize(), bhCfg.CheckInclusionBlocks())),
 		mb:        utils.NewSingleMailbox[*evmtypes.Head](),
 		wg:        new(sync.WaitGroup),
 		ctx:       ctx,
@@ -177,11 +198,11 @@ func (b *BlockHistoryEstimator) Start(ctx context.Context) error {
 	return b.StartOnce("BlockHistoryEstimator", func() error {
 		b.logger.Trace("Starting")
 
-		if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
-			b.logger.Infof("Inclusion checking enabled, bumping will be prevented on transactions that have been priced above the %d percentile for %d blocks", b.config.BlockHistoryEstimatorCheckInclusionPercentile(), b.config.BlockHistoryEstimatorCheckInclusionBlocks())
+		if b.bhConfig.CheckInclusionBlocks() > 0 {
+			b.logger.Infof("Inclusion checking enabled, bumping will be prevented on transactions that have been priced above the %d percentile for %d blocks", b.bhConfig.CheckInclusionPercentile(), b.bhConfig.CheckInclusionBlocks())
 		}
-		if b.config.BlockHistoryEstimatorBlockHistorySize() == 0 {
-			return errors.New("BlockHistoryEstimatorBlockHistorySize must be set to a value greater than 0")
+		if b.bhConfig.BlockHistorySize() == 0 {
+			return errors.New("BlockHistorySize must be set to a value greater than 0")
 		}
 
 		fetchCtx, cancel := context.WithTimeout(ctx, MaxStartTime)
@@ -225,7 +246,7 @@ func (b *BlockHistoryEstimator) HealthReport() map[string]error {
 	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
 }
 
-func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	ok := b.IfStarted(func() {
 		gasPrice = b.getGasPrice()
 	})
@@ -237,10 +258,10 @@ func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLim
 			return nil, 0, errors.New("BlockHistoryEstimator has not finished the first gas estimation yet, likely because a failure on start")
 		}
 		b.logger.Warnw("Failed to estimate gas price. This is likely because there aren't any valid transactions to estimate from."+
-			"Using EvmGasPriceDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
-		gasPrice = b.config.EvmGasPriceDefault()
+			"Using Evm.GasEstimator.PriceDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
+		gasPrice = b.eConfig.PriceDefault()
 	}
-	gasPrice, chainSpecificGasLimit = capGasPrice(gasPrice, maxGasPriceWei, b.config.EvmMaxGasPriceWei(), gasLimit, b.config.EvmGasLimitMultiplier())
+	gasPrice, chainSpecificGasLimit = capGasPrice(gasPrice, maxGasPriceWei, b.eConfig.PriceMax(), gasLimit, b.eConfig.LimitMultiplier())
 	return
 }
 
@@ -264,7 +285,7 @@ func (b *BlockHistoryEstimator) getTipCap() *assets.Wei {
 }
 
 func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
+	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, ErrConnectivity) {
 				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
@@ -274,14 +295,14 @@ func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPric
 			return nil, 0, err
 		}
 	}
-	return BumpLegacyGasPriceOnly(b.config, b.logger, b.getGasPrice(), originalGasPrice, gasLimit, maxGasPriceWei)
+	return BumpLegacyGasPriceOnly(b.eConfig, b.logger, b.getGasPrice(), originalGasPrice, gasLimit, maxGasPriceWei)
 }
 
 // checkConnectivity detects if the transaction is not being included due to
 // some kind of mempool propagation or connectivity issue rather than
 // insufficiently high pricing and returns error if so
 func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) error {
-	percentile := int(b.config.BlockHistoryEstimatorCheckInclusionPercentile())
+	percentile := int(b.bhConfig.CheckInclusionPercentile())
 	// how many blocks since broadcast?
 	latestBlockNum := b.getCurrentBlockNum()
 	if latestBlockNum == nil {
@@ -289,27 +310,27 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 		// can't determine anything if we don't have/know latest block num yet
 		return nil
 	}
-	expectInclusionWithinBlocks := int(b.config.BlockHistoryEstimatorCheckInclusionBlocks())
+	expectInclusionWithinBlocks := int(b.bhConfig.CheckInclusionBlocks())
 	blockHistory := b.getBlocks()
 	if len(blockHistory) < expectInclusionWithinBlocks {
-		b.logger.Warnf("Block history in memory with length %d is insufficient to determine whether transaction should have been included within the past %d blocks", len(blockHistory), b.config.BlockHistoryEstimatorCheckInclusionBlocks())
+		b.logger.Warnf("Block history in memory with length %d is insufficient to determine whether transaction should have been included within the past %d blocks", len(blockHistory), b.bhConfig.CheckInclusionBlocks())
 		return nil
 	}
 	for _, attempt := range attempts {
-		if attempt.GetBroadcastBeforeBlockNum() == nil {
+		if attempt.BroadcastBeforeBlockNum == nil {
 			// this shouldn't happen; any broadcast attempt ought to have a
 			// BroadcastBeforeBlockNum otherwise its an assumption violation
-			return errors.Errorf("BroadcastBeforeBlockNum was unexpectedly nil for attempt %s", attempt.GetHash())
+			return errors.Errorf("BroadcastBeforeBlockNum was unexpectedly nil for attempt %s", attempt.TxHash)
 		}
-		broadcastBeforeBlockNum := *attempt.GetBroadcastBeforeBlockNum()
+		broadcastBeforeBlockNum := *attempt.BroadcastBeforeBlockNum
 		blocksSinceBroadcast := *latestBlockNum - broadcastBeforeBlockNum
 		if blocksSinceBroadcast < int64(expectInclusionWithinBlocks) {
 			// only check attempts that have been waiting around longer than
-			// BlockHistoryEstimatorCheckInclusionBlocks
+			// CheckInclusionBlocks
 			continue
 		}
 		// has not been included for at least the required number of blocks
-		b.logger.Debugw(fmt.Sprintf("transaction %s has been pending inclusion for %d blocks which equals or exceeds expected specified check inclusion blocks of %d", attempt.GetHash(), blocksSinceBroadcast, expectInclusionWithinBlocks), "broadcastBeforeBlockNum", broadcastBeforeBlockNum, "latestBlockNum", *latestBlockNum)
+		b.logger.Debugw(fmt.Sprintf("transaction %s has been pending inclusion for %d blocks which equals or exceeds expected specified check inclusion blocks of %d", attempt.TxHash, blocksSinceBroadcast, expectInclusionWithinBlocks), "broadcastBeforeBlockNum", broadcastBeforeBlockNum, "latestBlockNum", *latestBlockNum)
 		// is the price in the right percentile for all of these blocks?
 		var blocks []evmtypes.Block
 		l := expectInclusionWithinBlocks
@@ -323,21 +344,21 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 			}
 		}
 		var eip1559 bool
-		switch attempt.GetTxType() {
+		switch attempt.TxType {
 		case 0x0, 0x1:
 			eip1559 = false
 		case 0x2:
 			eip1559 = true
 		default:
-			return errors.Errorf("attempt %s has unknown transaction type 0x%d", attempt.GetHash(), attempt.GetTxType())
+			return errors.Errorf("attempt %s has unknown transaction type 0x%d", attempt.TxHash, attempt.TxType)
 		}
 		gasPrice, tipCap, err := b.calculatePercentilePrices(blocks, percentile, eip1559, nil, nil)
 		if err != nil {
 			if errors.Is(err, ErrNoSuitableTransactions) {
-				b.logger.Warnf("no suitable transactions found to verify if transaction %s has been included within expected inclusion blocks of %d", attempt.GetHash(), expectInclusionWithinBlocks)
+				b.logger.Warnf("no suitable transactions found to verify if transaction %s has been included within expected inclusion blocks of %d", attempt.TxHash, expectInclusionWithinBlocks)
 				return nil
 			}
-			b.logger.AssumptionViolationw("unexpected error while verifying transaction inclusion", "err", err, "txHash", attempt.GetHash().String())
+			b.logger.AssumptionViolationw("unexpected error while verifying transaction inclusion", "err", err, "txHash", attempt.TxHash.String())
 			return nil
 		}
 		if eip1559 {
@@ -346,19 +367,19 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 				// feecap must >= tipcap+basefee for the block, otherwise there
 				// is no way this could have been included, and we must bail
 				// out of the check
-				attemptFeeCap := attempt.DynamicFee().FeeCap
-				attemptTipCap := attempt.DynamicFee().TipCap
+				attemptFeeCap := attempt.DynamicFee.FeeCap
+				attemptTipCap := attempt.DynamicFee.TipCap
 				if attemptFeeCap.Cmp(attemptTipCap.Add(b.BaseFeePerGas)) < 0 {
 					sufficientFeeCap = false
 					break
 				}
 			}
-			if sufficientFeeCap && attempt.DynamicFee().TipCap.Cmp(tipCap) > 0 {
-				return errors.Wrapf(ErrConnectivity, "transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s) for blocks %d thru %d (checking %d blocks)", attempt.GetHash(), attempt.DynamicFee().TipCap, percentile, tipCap, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
+			if sufficientFeeCap && attempt.DynamicFee.TipCap.Cmp(tipCap) > 0 {
+				return errors.Wrapf(ErrConnectivity, "transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.DynamicFee.TipCap, percentile, tipCap, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
 			}
 		} else {
-			if attempt.GetGasPrice().Cmp(gasPrice) > 0 {
-				return errors.Wrapf(ErrConnectivity, "transaction %s has gas price of %s, which is above percentile=%d%% (percentile price: %s) for blocks %d thru %d (checking %d blocks)", attempt.GetHash(), attempt.GetGasPrice(), percentile, gasPrice, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
+			if attempt.GasPrice.Cmp(gasPrice) > 0 {
+				return errors.Wrapf(ErrConnectivity, "transaction %s has gas price of %s, which is above percentile=%d%% (percentile price: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.GasPrice, percentile, gasPrice, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
 
 			}
 		}
@@ -367,14 +388,14 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 }
 
 func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32, maxGasPriceWei *assets.Wei) (fee DynamicFee, chainSpecificGasLimit uint32, err error) {
-	if !b.config.EvmEIP1559DynamicFees() {
+	if !b.eConfig.EIP1559DynamicFees() {
 		return fee, 0, errors.New("Can't get dynamic fee, EIP1559 is disabled")
 	}
 
 	var feeCap *assets.Wei
 	var tipCap *assets.Wei
 	ok := b.IfStarted(func() {
-		chainSpecificGasLimit = commonfee.ApplyMultiplier(gasLimit, b.config.EvmGasLimitMultiplier())
+		chainSpecificGasLimit = commonfee.ApplyMultiplier(gasLimit, b.eConfig.LimitMultiplier())
 		b.priceMu.RLock()
 		defer b.priceMu.RUnlock()
 		tipCap = b.tipCap
@@ -384,11 +405,11 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 				return
 			}
 			b.logger.Warnw("Failed to estimate gas price. This is likely because there aren't any valid transactions to estimate from."+
-				"Using EvmGasTipCapDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
-			tipCap = b.config.EvmGasTipCapDefault()
+				"Using Evm.GasEstimator.TipCapDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
+			tipCap = b.eConfig.TipCapDefault()
 		}
-		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.config.EvmMaxGasPriceWei())
-		if b.config.EvmGasBumpThreshold() == 0 {
+		maxGasPrice := getMaxGasPrice(maxGasPriceWei, b.eConfig.PriceMax())
+		if b.eConfig.BumpThreshold() == 0 {
 			// just use the max gas price if gas bumping is disabled
 			feeCap = maxGasPrice
 		} else if b.getCurrentBaseFee() != nil {
@@ -396,7 +417,7 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 			// set a much lower FeeCap than the actual maximum we are willing
 			// to pay in order to give ourselves headroom for bumping
 			// See: https://github.com/ethereum/go-ethereum/issues/24284
-			feeCap = calcFeeCap(b.getCurrentBaseFee(), b.config, tipCap, maxGasPrice)
+			feeCap = calcFeeCap(b.getCurrentBaseFee(), int(b.bhConfig.EIP1559FeeCapBufferBlocks()), tipCap, maxGasPrice)
 		} else {
 			// This shouldn't happen on EIP-1559 blocks, since if the tip cap
 			// is set, Start must have succeeded and we would expect an initial
@@ -416,10 +437,8 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 	return
 }
 
-func calcFeeCap(latestAvailableBaseFeePerGas *assets.Wei, cfg Config, tipCap *assets.Wei, maxGasPriceWei *assets.Wei) (feeCap *assets.Wei) {
+func calcFeeCap(latestAvailableBaseFeePerGas *assets.Wei, bufferBlocks int, tipCap *assets.Wei, maxGasPriceWei *assets.Wei) (feeCap *assets.Wei) {
 	const maxBaseFeeIncreasePerBlock float64 = 1.125
-
-	bufferBlocks := int(cfg.BlockHistoryEstimatorEIP1559FeeCapBufferBlocks())
 
 	baseFee := new(big.Float)
 	baseFee.SetInt(latestAvailableBaseFeePerGas.ToInt())
@@ -439,7 +458,7 @@ func calcFeeCap(latestAvailableBaseFeePerGas *assets.Wei, cfg Config, tipCap *as
 }
 
 func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
-	if b.config.BlockHistoryEstimatorCheckInclusionBlocks() > 0 {
+	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
 			if errors.Is(err, ErrConnectivity) {
 				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
@@ -449,7 +468,7 @@ func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee Dy
 			return bumped, 0, err
 		}
 	}
-	return BumpDynamicFeeOnly(b.config, b.logger, b.getTipCap(), b.getCurrentBaseFee(), originalFee, originalGasLimit, maxGasPriceWei)
+	return BumpDynamicFeeOnly(b.eConfig, b.bhConfig.EIP1559FeeCapBufferBlocks(), b.logger, b.getTipCap(), b.getCurrentBaseFee(), originalFee, originalGasLimit, maxGasPriceWei)
 }
 
 func (b *BlockHistoryEstimator) runLoop() {
@@ -481,7 +500,7 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 
 // Recalculate adds the given heads to the history and recalculates gas price.
 func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
-	percentile := int(b.config.BlockHistoryEstimatorTransactionPercentile())
+	percentile := int(b.bhConfig.TransactionPercentile())
 
 	lggr := b.logger.With("head", head)
 
@@ -491,10 +510,10 @@ func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 		return
 	}
 
-	l := mathutil.Min(len(blockHistory), int(b.config.BlockHistoryEstimatorBlockHistorySize()))
+	l := mathutil.Min(len(blockHistory), int(b.bhConfig.BlockHistorySize()))
 	blocks := blockHistory[:l]
 
-	eip1559 := b.config.EvmEIP1559DynamicFees()
+	eip1559 := b.eConfig.EIP1559DynamicFees()
 	percentileGasPrice, percentileTipCap, err := b.calculatePercentilePrices(blocks, percentile, eip1559,
 		func(gasPrices []*assets.Wei) {
 			for i := 0; i <= 100; i += 5 {
@@ -528,7 +547,7 @@ func (b *BlockHistoryEstimator) Recalculate(head *evmtypes.Head) {
 	lggrFields := []interface{}{
 		"gasPriceWei", percentileGasPrice,
 		"gasPriceGWei", gasPriceGwei,
-		"maxGasPriceWei", b.config.EvmMaxGasPriceWei(),
+		"maxGasPriceWei", b.eConfig.PriceMax(),
 		"headNum", head.Number,
 		"blocks", numsInHistory,
 	}
@@ -559,7 +578,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 	// This is necessary because geth/parity send heads as soon as they get
 	// them and often the actual block is not available until later. Fetching
 	// it too early results in an empty block.
-	blockDelay := int64(b.config.BlockHistoryEstimatorBlockDelay())
+	blockDelay := int64(b.bhConfig.BlockDelay())
 	historySize := b.size
 
 	if historySize <= 0 {
@@ -676,7 +695,7 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 }
 
 func (b *BlockHistoryEstimator) batchFetch(ctx context.Context, reqs []rpc.BatchElem) error {
-	batchSize := int(b.config.BlockHistoryEstimatorBatchSize())
+	batchSize := int(b.bhConfig.BatchSize())
 
 	if batchSize == 0 {
 		batchSize = len(reqs)
@@ -747,7 +766,7 @@ func (b *BlockHistoryEstimator) getPricesFromBlocks(blocks []evmtypes.Block, eip
 			b.logger.Warnw(fmt.Sprintf("Block %v is not usable, %s", block.Number, err.Error()), "block", block, "err", err)
 		}
 		for _, tx := range block.Transactions {
-			if b.isUsable(tx, b.config, b.logger) {
+			if b.IsUsable(tx, block, b.config.ChainType(), b.eConfig.PriceMin(), b.logger) {
 				gp := b.EffectiveGasPrice(block, tx)
 				if gp != nil {
 					gasPrices = append(gasPrices, gp)
@@ -778,8 +797,8 @@ func verifyBlock(block evmtypes.Block, eip1559 bool) error {
 }
 
 func (b *BlockHistoryEstimator) setPercentileTipCap(tipCap *assets.Wei) {
-	max := b.config.EvmMaxGasPriceWei()
-	min := b.config.EvmGasTipCapMinimum()
+	max := b.eConfig.PriceMax()
+	min := b.eConfig.TipCapMin()
 
 	b.priceMu.Lock()
 	defer b.priceMu.Unlock()
@@ -795,8 +814,8 @@ func (b *BlockHistoryEstimator) setPercentileTipCap(tipCap *assets.Wei) {
 }
 
 func (b *BlockHistoryEstimator) setPercentileGasPrice(gasPrice *assets.Wei) {
-	max := b.config.EvmMaxGasPriceWei()
-	min := b.config.EvmMinGasPriceWei()
+	max := b.eConfig.PriceMax()
+	min := b.eConfig.PriceMin()
 
 	b.priceMu.Lock()
 	defer b.priceMu.Unlock()
@@ -813,7 +832,7 @@ func (b *BlockHistoryEstimator) setPercentileGasPrice(gasPrice *assets.Wei) {
 
 // isUsable returns true if the tx is usable both generally and specifically for
 // this Config.
-func (b *BlockHistoryEstimator) isUsable(tx evmtypes.Transaction, cfg Config, lggr logger.Logger) bool {
+func (b *BlockHistoryEstimator) IsUsable(tx evmtypes.Transaction, block evmtypes.Block, chainType config.ChainType, minGasPrice *assets.Wei, lggr logger.Logger) bool {
 	// GasLimit 0 is impossible on Ethereum official, but IS possible
 	// on forks/clones such as RSK. We should ignore these transactions
 	// if they come up on any chain since they are not normal.
@@ -826,7 +845,7 @@ func (b *BlockHistoryEstimator) isUsable(tx evmtypes.Transaction, cfg Config, lg
 		lggr.Debugw("Ignoring transaction that was unexpectedly missing gas price", "tx", tx)
 		return false
 	}
-	return chainSpecificIsUsable(tx, cfg)
+	return chainSpecificIsUsable(tx, block.BaseFeePerGas, chainType, minGasPrice)
 }
 
 func (b *BlockHistoryEstimator) EffectiveGasPrice(block evmtypes.Block, tx evmtypes.Transaction) *assets.Wei {
@@ -838,19 +857,17 @@ func (b *BlockHistoryEstimator) EffectiveGasPrice(block evmtypes.Block, tx evmty
 			b.logger.Warnw("Got transaction type 0x2 but one of the required EIP1559 fields was missing, falling back to gasPrice", "block", block, "tx", tx)
 			return tx.GasPrice
 		}
+		if tx.GasPrice != nil {
+			// Always use the gas price if provided
+			return tx.GasPrice
+		}
 		if tx.MaxFeePerGas.Cmp(block.BaseFeePerGas) < 0 {
-			// This should not pass config validation
 			b.logger.AssumptionViolationw("MaxFeePerGas >= BaseFeePerGas", "block", block, "tx", tx)
 			return nil
 		}
 		if tx.MaxFeePerGas.Cmp(tx.MaxPriorityFeePerGas) < 0 {
-			// This should not pass config validation
 			b.logger.AssumptionViolationw("MaxFeePerGas >= MaxPriorityFeePerGas", "block", block, "tx", tx)
 			return nil
-		}
-		if tx.GasPrice != nil {
-			// Always use the gas price if provided
-			return tx.GasPrice
 		}
 
 		// From: https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1559.md

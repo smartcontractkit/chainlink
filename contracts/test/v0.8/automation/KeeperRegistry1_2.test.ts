@@ -9,8 +9,8 @@ import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/fac
 import { UpkeepReverter__factory as UpkeepReverterFactory } from '../../../typechain/factories/UpkeepReverter__factory'
 import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../typechain/factories/UpkeepAutoFunder__factory'
 import { UpkeepTranscoder__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder__factory'
-import { KeeperRegistry12__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry12__factory'
-import { KeeperRegistry12 as KeeperRegistry } from '../../../typechain/KeeperRegistry12'
+import { KeeperRegistry1_2__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry1_2__factory'
+import { KeeperRegistry1_2 as KeeperRegistry } from '../../../typechain/KeeperRegistry1_2'
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'
 import { UpkeepMock } from '../../../typechain/UpkeepMock'
@@ -28,7 +28,7 @@ import { toWei } from '../../test-helpers/helpers'
 
 const BYTECODE = KeeperRegistryFactory.bytecode
 const BYTECODE_CHECKSUM =
-  '0x78f52b8dae3338032ce48fff22cf97ba6542bc9dd231267b0248ce261a2d4c56'
+  '0x35bd8b5535ae41d43d47b0a9a9e11e9942bdd51daa4ec6a9e563276f4f75ea32'
 
 describe('KeeperRegistry1_2 - Frozen [ @skip-coverage ]', () => {
   it('has not changed', () => {

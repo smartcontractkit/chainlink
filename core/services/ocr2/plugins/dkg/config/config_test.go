@@ -17,7 +17,7 @@ func TestValidatePluginConfig(t *testing.T) {
 
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
 	dkgEncryptKey, err := kst.DKGEncrypt().Create()
 	require.NoError(t, err)
