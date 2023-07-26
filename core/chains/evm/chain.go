@@ -82,9 +82,17 @@ func (c *Chains) Default() (Chain, error) {
 	return c.dflt, nil
 }
 
-// backward compatibility
+// backward compatibility.
+// eth keys are represented as multiple types in the code base;
+// *big.Int, string, and int64. this lead to special 'default' handling
+// of nil big.Int and empty string.
+// TODO: nil handling was baked into Get, but empty string was in pipeline code.
+//
+//	double check that empty string handling is ok here
+//
+// TODO unify the type system
 func (c *Chains) Get(id string) (Chain, error) {
-	if id == nilBigInt.String() {
+	if id == nilBigInt.String() || id == "" {
 		return c.Default()
 	}
 	return c.ChainsKV.Get(id)
