@@ -63,7 +63,7 @@ type OCRSoakTest struct {
 	filterQuery     geth.FilterQuery
 
 	ocrRoundStates []*testreporters.OCRRoundState
-	rpcIssues      []*testreporters.RPCIssue
+	testIssues     []*testreporters.TestIssue
 
 	ocrInstances   []contracts.OffchainAggregator
 	ocrInstanceMap map[string]contracts.OffchainAggregator // address : instance
@@ -294,7 +294,7 @@ func (o *OCRSoakTest) Run() {
 			break
 		}
 	}
-	o.TestReporter.RecordEvents(o.ocrRoundStates, o.rpcIssues)
+	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
 }
 
 // testLoop is the primary test loop that will trigger new rounds and watch events
@@ -322,6 +322,10 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 			if err := o.SaveState(); err != nil {
 				o.log.Error().Err(err).Msg("Error saving state")
 			}
+			o.testIssues = append(o.testIssues, &testreporters.TestIssue{
+				StartTime: time.Now(),
+				Message:   "Test Interrupted",
+			})
 			log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
 			os.Exit(1)
 		case <-endTest.C:
@@ -344,12 +348,12 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 			}
 			lastValue = newValue
 		case t := <-o.chainClient.ConnectionIssue():
-			o.rpcIssues = append(o.rpcIssues, &testreporters.RPCIssue{
+			o.testIssues = append(o.testIssues, &testreporters.TestIssue{
 				StartTime: t,
 				Message:   "RPC Connection Lost",
 			})
 		case t := <-o.chainClient.ConnectionRestored():
-			o.rpcIssues = append(o.rpcIssues, &testreporters.RPCIssue{
+			o.testIssues = append(o.testIssues, &testreporters.TestIssue{
 				StartTime: t,
 				Message:   "RPC Connection Restored",
 			})
@@ -375,7 +379,7 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 // OCRSoakTestState contains all the info needed by the test to recover from a K8s rebalance, assuming the test was in a running state
 type OCRSoakTestState struct {
 	OCRRoundStates       []*testreporters.OCRRoundState `toml:"ocrRoundStates"`
-	RPCIssues            []*testreporters.RPCIssue      `toml:"rpcIssues"`
+	RPCIssues            []*testreporters.TestIssue     `toml:"testIssues"`
 	TimeRunning          time.Duration                  `toml:"timeRunning"`
 	TestDuration         time.Duration                  `toml:"testDuration"`
 	OCRContractAddresses []string                       `toml:"ocrContractAddresses"`
@@ -399,7 +403,7 @@ func (o *OCRSoakTest) SaveState() error {
 
 	testState := &OCRSoakTestState{
 		OCRRoundStates:       o.ocrRoundStates,
-		RPCIssues:            o.rpcIssues,
+		RPCIssues:            o.testIssues,
 		TimeRunning:          time.Since(o.startTime),
 		TestDuration:         o.Inputs.TestDuration,
 		OCRContractAddresses: ocrAddresses,
@@ -447,7 +451,7 @@ func (o *OCRSoakTest) LoadState() error {
 	fmt.Println("------------------")
 
 	o.ocrRoundStates = testState.OCRRoundStates
-	o.rpcIssues = testState.RPCIssues
+	o.testIssues = testState.RPCIssues
 	o.Inputs.TestDuration = testState.TestDuration - testState.TimeRunning
 
 	network := networks.SelectedNetwork
@@ -486,6 +490,10 @@ func (o *OCRSoakTest) LoadState() error {
 }
 
 func (o *OCRSoakTest) Resume() {
+	o.testIssues = append(o.testIssues, &testreporters.TestIssue{
+		StartTime: time.Now(),
+		Message:   "Test Resumed",
+	})
 	log.Info().Str("Time Left", o.Inputs.TestDuration.String()).Msg("Resuming OCR Soak Test")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
@@ -521,7 +529,7 @@ func (o *OCRSoakTest) Resume() {
 			break
 		}
 	}
-	o.TestReporter.RecordEvents(o.ocrRoundStates, o.rpcIssues)
+	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
 }
 
 // Interrupted indicates whether the test was interrupted by something like a K8s rebalance or not

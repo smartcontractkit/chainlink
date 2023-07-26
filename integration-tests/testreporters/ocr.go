@@ -34,17 +34,17 @@ type TimeLineEvent interface {
 	CSV() [][]string
 }
 
-// RPCIssue is a single RPC issue, either a disconnect or reconnect
-type RPCIssue struct {
+// TestIssue is a single RPC issue, either a disconnect or reconnect
+type TestIssue struct {
 	StartTime time.Time `toml:"startTime"`
 	Message   string    `toml:"message"`
 }
 
-func (r *RPCIssue) Time() time.Time {
+func (r *TestIssue) Time() time.Time {
 	return r.StartTime
 }
 
-func (r *RPCIssue) CSV() [][]string {
+func (r *TestIssue) CSV() [][]string {
 	return [][]string{{r.StartTime.Format("2006-01-02 15:04:05.00 MST"), r.Message}}
 }
 
@@ -129,7 +129,7 @@ func (a *FoundEvent) CSV() [][]string {
 }
 
 // RecordEvents takes in a list of test states and RPC issues, orders them, and records them in the timeline
-func (o *OCRSoakTestReporter) RecordEvents(testStates []*OCRRoundState, rpcIssues []*RPCIssue) {
+func (o *OCRSoakTestReporter) RecordEvents(testStates []*OCRRoundState, rpcIssues []*TestIssue) {
 	events := []TimeLineEvent{}
 	for _, expectedEvent := range testStates {
 		if expectedEvent.Validate() {
