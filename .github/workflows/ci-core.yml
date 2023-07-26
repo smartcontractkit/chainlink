@@ -148,7 +148,6 @@ jobs:
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
-      - run: pwd
       - name: Checkout the repo
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup node
@@ -184,10 +183,9 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.split.pkgs }}"
       - name: Print Filtered Test Results
         if: failure()
-        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@56b30574759659d5420c67f9133ede9366e2900a
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@9589b92e2d1a35e3429f030a0b351ac9430778ff
         with:
           results-file: ./output.txt
-          output-mode: 'unit'
       - name: Store logs artifacts
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0

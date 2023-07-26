@@ -42,7 +42,7 @@ FinalityTagEnabled = false
 
 [[EVM.Nodes]]
 Name = 'primary'
-WSURL = 'wss://web.socket/test/mainnet'
+WSURL = 'wss://web.socket/mainnet'
 
 [[EVM.Nodes]]
 Name = 'secondary'

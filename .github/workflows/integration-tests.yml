@@ -225,6 +225,17 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Filter tests
+        if: failure()
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@9589b92e2d1a35e3429f030a0b351ac9430778ff
+        with:
+          results-file: '/tmp/gotest.log'
+          output-mode: 'json'
+          output-file: '/tmp/gotestfailures.log'
+      - name: Prettify failure logs
+        if: failure()
+        run: |
+          gotestfmt < /tmp/gotestfailures.log
 
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
