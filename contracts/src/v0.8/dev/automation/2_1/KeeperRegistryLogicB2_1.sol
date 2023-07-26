@@ -256,14 +256,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   // GETTERS //
   /////////////
 
-  function getTransmitGasOverhead() external pure returns (uint256) {
-    return TRANSMIT_GAS_OVERHEAD;
-  }
-
-  function getCheckGasOverhead() external pure returns (uint256) {
-    return CHECK_GAS_OVERHEAD;
-  }
-
   function getConditionalGasOverhead() external pure returns (uint256) {
     return REGISTRY_CONDITIONAL_OVERHEAD;
   }
