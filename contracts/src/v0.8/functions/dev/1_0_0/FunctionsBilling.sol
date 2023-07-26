@@ -80,7 +80,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   error InvalidSubscription();
   error UnauthorizedSender();
   error MustBeSubOwner(address owner);
-  error GasLimitTooBig(uint32 have, uint32 want);
   error InvalidLinkWeiPrice(int256 linkWei);
   error PaymentTooLarge();
   error NoTransmittersSet();
@@ -239,9 +238,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint256 gasPrice
   ) external view override returns (uint96) {
     // Reasonable ceilings to prevent integer overflows
-    if (callbackGasLimit > 30_000_000 /* London upgrade's 30M block max */) {
-      revert GasLimitTooBig(callbackGasLimit, s_config.maxCallbackGasLimit);
-    }
+    IFunctionsRouter router = IFunctionsRouter(address(s_router));
+    router.isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
     if (gasPrice > 1_000_000) {
       revert InvalidCalldata();
     }
@@ -299,12 +297,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     // Nodes should support all past versions of the structure
     if (requestDataVersion > s_config.maxSupportedRequestDataVersion) {
       revert UnsupportedRequestDataVersion();
-    }
-
-    // No lower bound on the requested gas limit. A user could request 0
-    // and they would simply be billed for the gas and computation.
-    if (billing.callbackGasLimit > s_config.maxCallbackGasLimit) {
-      revert GasLimitTooBig(billing.callbackGasLimit, s_config.maxCallbackGasLimit);
     }
 
     // Check that subscription can afford the estimated cost
