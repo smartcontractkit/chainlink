@@ -7,7 +7,6 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -16,25 +15,25 @@ import (
 
 type AutomationCustomTelemetryService struct {
 	utils.StartStopOnce
-	monitoringEndpoint commontypes.MonitoringEndpoint
-	headBroadcaster    httypes.HeadBroadcaster
-	headCh             chan blockKey
-	unsubscribe        func()
-	chDone             chan struct{}
-	lggr               logger.Logger
-	job                *job.Job
-	version            string
+	monitoringEndpoint  commontypes.MonitoringEndpoint
+	headBroadcaster     httypes.HeadBroadcaster
+	headCh              chan blockKey
+	customTelemChanSize uint8
+	unsubscribe         func()
+	chDone              chan struct{}
+	lggr                logger.Logger
+	version             string
 }
 
-func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster, done chan struct{}, lggr logger.Logger, jb *job.Job, vers string) *AutomationCustomTelemetryService {
+func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster, lggr logger.Logger, vers string) *AutomationCustomTelemetryService {
 	return &AutomationCustomTelemetryService{
-		monitoringEndpoint: me,
-		headBroadcaster:    hb,
-		headCh:             make(chan blockKey, 50),
-		chDone:             done,
-		lggr:               lggr,
-		job:                jb,
-		version:            vers,
+		monitoringEndpoint:  me,
+		headBroadcaster:     hb,
+		headCh:              make(chan blockKey, 50),
+		customTelemChanSize: 50,
+		chDone:              make(chan struct{}),
+		lggr:                lggr,
+		version:             vers,
 	}
 }
 
@@ -58,7 +57,7 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 		e.lggr.Infof("BlockNumber Message Sent to Endpoint: %s", wrappedMessage.String())
 		_, e.unsubscribe = e.headBroadcaster.Subscribe(&headWrapper{e.headCh})
 		go func() {
-			e.lggr.Infof("Started enhanced telemetry service for job %d", e.job.ID)
+			e.lggr.Infof("Started enhanced telemetry service")
 			for {
 				select {
 				case blockKey := <-e.headCh:
@@ -95,7 +94,7 @@ func (e *AutomationCustomTelemetryService) Close() error {
 		close(e.headCh)
 		close(e.chDone)
 		e.unsubscribe()
-		e.lggr.Infof("Stopping custom telemetry service for job %d", e.job.ID)
+		e.lggr.Infof("Stopping custom telemetry service for job")
 		return nil
 	})
 }
