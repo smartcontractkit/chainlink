@@ -49,7 +49,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       logicA.getMode(),
       logicA.getLinkAddress(),
       logicA.getLinkNativeFeedAddress(),
-      logicA.getFastGasFeedAddress()
+      logicA.getFastGasFeedAddress(),
+      logicA.getAutomationForwarderLogic()
     )
     Chainable(address(logicA))
   {}
