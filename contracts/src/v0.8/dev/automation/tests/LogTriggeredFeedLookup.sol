@@ -56,7 +56,10 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
     feedsHex = newFeeds;
   }
 
-  function checkLog(Log calldata log) external override returns (bool upkeepNeeded, bytes memory performData) {
+  function checkLog(
+    Log calldata log,
+    bytes memory
+  ) external override returns (bool upkeepNeeded, bytes memory performData) {
     uint256 blockNum = getBlockNumber();
 
     // filter by event signature
