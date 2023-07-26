@@ -12,7 +12,7 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
   LinkTokenInterface LINKTOKEN;
 
   struct RequestConfig {
-    uint64 subId;
+    uint256 subId;
     uint32 callbackGasLimit;
     uint16 requestConfirmations;
     uint32 numWords;
@@ -109,10 +109,5 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
     consumers[0] = address(this);
     s_requestConfig.subId = COORDINATOR.createSubscription();
     COORDINATOR.addConsumer(s_requestConfig.subId, consumers[0]);
-  }
-
-  modifier onlyOwner() {
-    require(msg.sender == s_owner);
-    _;
   }
 }

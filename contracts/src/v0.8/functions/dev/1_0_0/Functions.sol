@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {CBOR, Buffer} from "../../../shared/vendor/solidity-cborutils/v2.0.0/CBOR.sol";
 

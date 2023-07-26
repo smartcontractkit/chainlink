@@ -27,8 +27,13 @@ describe('Functions Client', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
+      const flags =
+        '0x0101010101010101010101010101010101010101010101010101010101010101'
+      const callbackGas = 100_000
+      await contracts.router.setFlags(subscriptionId, flags)
       const defaultAccountAddress = await roles.defaultAccount.getAddress()
       await expect(
         contracts.client
@@ -37,6 +42,7 @@ describe('Functions Client', () => {
             'return `hello world`',
             subscriptionId,
             ids.donId,
+            callbackGas,
           ),
       )
         .to.emit(contracts.client, 'RequestSent')
@@ -50,7 +56,44 @@ describe('Functions Client', () => {
           roles.subOwnerAddress,
           anyValue,
           anyValue,
+          flags,
+          callbackGas,
         )
+    })
+
+    it('respects gas flag setting', async () => {
+      const subscriptionId = await createSubscription(
+        roles.subOwner,
+        [contracts.client.address],
+        contracts.router,
+        contracts.accessControl,
+        contracts.linkToken,
+      )
+      const flags =
+        '0x0101010101010101010101010101010101010101010101010101010101010101'
+      await contracts.router.setFlags(subscriptionId, flags)
+      await expect(
+        contracts.client
+          .connect(roles.defaultAccount)
+          .sendSimpleRequestWithJavaScript(
+            'return `hello world`',
+            subscriptionId,
+            ids.donId,
+            400_000,
+          ),
+      )
+        .to.emit(contracts.client, 'RequestSent')
+        .to.emit(contracts.coordinator, 'OracleRequest')
+      await expect(
+        contracts.client
+          .connect(roles.defaultAccount)
+          .sendSimpleRequestWithJavaScript(
+            'return `hello world`',
+            subscriptionId,
+            ids.donId,
+            600_000, // limit set by gas flag == 1 is 500_000
+          ),
+      ).to.be.revertedWith('GasLimitTooBig(500000)')
     })
 
     it('encodes user request to CBOR', async () => {
@@ -58,6 +101,7 @@ describe('Functions Client', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
       const js = 'function run(){return response}'
@@ -65,6 +109,7 @@ describe('Functions Client', () => {
         js,
         subscriptionId,
         ids.donId,
+        20_000,
       )
       const args = await parseOracleRequestEventArgs(tx)
       assert.equal(args.length, 5)
@@ -90,12 +135,14 @@ describe('Functions Client', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
       const tx = await contracts.client.sendSimpleRequestWithJavaScript(
         'function run(){return response}',
         subscriptionId,
         ids.donId,
+        20_000,
       )
       const { events } = await tx.wait()
       const requestId = getEventArg(events, 'RequestSent', 0)

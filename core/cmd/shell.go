@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -45,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
@@ -135,27 +135,13 @@ type ChainlinkAppFactory struct{}
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
 	initGlobals(cfg.Prometheus())
 
-	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database())
+	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
 	if err != nil {
 		return nil, err
 	}
 
 	keyStore := keystore.New(db, utils.GetScryptParams(cfg), appLggr, cfg.Database())
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
-
-	// Upsert EVM chains/nodes from ENV, necessary for backwards compatibility
-	if cfg.EVMEnabled() {
-		var ids []utils.Big
-		for _, c := range cfg.EVMConfigs() {
-			c := c
-			ids = append(ids, *c.ChainID)
-		}
-		if len(ids) > 0 {
-			if err = evm.EnsureChains(db, appLggr, cfg.Database(), ids); err != nil {
-				return nil, errors.Wrap(err, "failed to setup EVM chains")
-			}
-		}
-	}
 
 	dbListener := cfg.Database().Listener()
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
@@ -265,11 +251,6 @@ func (r relayerFactory) NewSolana(ks keystore.Solana) (loop.Relayer, error) {
 		c := c
 		ids = append(ids, *c.ChainID)
 	}
-	if len(ids) > 0 {
-		if err := solana.EnsureChains(r.DB, solLggr, r.Database(), ids); err != nil {
-			return nil, fmt.Errorf("failed to setup Solana chains: %w", err)
-		}
-	}
 
 	if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
 		// setup the solana relayer to be a LOOP
@@ -316,11 +297,6 @@ func (r relayerFactory) NewStarkNet(ks keystore.StarkNet) (loop.Relayer, error) 
 		c := c
 		ids = append(ids, *c.ChainID)
 	}
-	if len(ids) > 0 {
-		if err := starknet.EnsureChains(r.DB, starkLggr, r.Database(), ids); err != nil {
-			return nil, fmt.Errorf("failed to setup StarkNet chains: %w", err)
-		}
-	}
 
 	if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
 		// setup the starknet relayer to be a LOOP
@@ -359,7 +335,7 @@ func (r relayerFactory) NewStarkNet(ks keystore.StarkNet) (loop.Relayer, error) 
 }
 
 // handleNodeVersioning is a setup-time helper to encapsulate version changes and db migration
-func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database) error {
+func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cfg config.Database, healthReportPort uint16) error {
 	var err error
 	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr, cfg.DefaultQueryTimeout())
@@ -376,7 +352,7 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cf
 		// Need to do this BEFORE migration
 		backupCfg := cfg.Backup()
 		if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.OnVersionUpgrade() {
-			if err = takeBackupIfVersionUpgrade(cfg.URL(), rootDir, cfg.Backup(), appLggr, appv, dbv); err != nil {
+			if err = takeBackupIfVersionUpgrade(cfg.URL(), rootDir, cfg.Backup(), appLggr, appv, dbv, healthReportPort); err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					appLggr.Debugf("Failed to find any node version in the DB: %w", err)
 				} else if strings.Contains(err.Error(), "relation \"node_versions\" does not exist") {
@@ -405,7 +381,7 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cf
 	return nil
 }
 
-func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbackup.BackupConfig, lggr logger.Logger, appv, dbv *semver.Version) (err error) {
+func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbackup.BackupConfig, lggr logger.Logger, appv, dbv *semver.Version, healthReportPort uint16) (err error) {
 	if appv == nil {
 		lggr.Debug("Application version is missing, skipping automatic DB backup.")
 		return nil
@@ -424,7 +400,14 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 	if err != nil {
 		return errors.Wrap(err, "takeBackupIfVersionUpgrade failed")
 	}
-	return databaseBackup.RunBackup(appv.String())
+
+	//Because backups can take a long time we must start a "fake" health report to prevent
+	//node shutdown because of healthcheck fail/timeout
+	ibhr := services.NewInBackupHealthReport(healthReportPort, lggr)
+	ibhr.Start()
+	defer ibhr.Stop()
+	err = databaseBackup.RunBackup(appv.String())
+	return err
 }
 
 // Runner implements the Run method.

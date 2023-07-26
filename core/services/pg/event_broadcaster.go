@@ -297,6 +297,7 @@ func (sub *subscription) Close() {
 	if err != nil {
 		sub.lggr.Errorw("THIS NEVER RETURNS AN ERROR", "err", err)
 	}
+	close(sub.chEvents)
 }
 
 // NullEventBroadcaster implements null pattern for event broadcaster

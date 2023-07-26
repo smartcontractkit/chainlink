@@ -9,9 +9,13 @@ contract ExposedVRFCoordinatorV2Plus is VRFCoordinatorV2Plus {
   function computeRequestIdExternal(
     bytes32 keyHash,
     address sender,
-    uint64 subId,
+    uint256 subId,
     uint64 nonce
   ) external pure returns (uint256, uint256) {
     return computeRequestId(keyHash, sender, subId, nonce);
+  }
+
+  function isTargetRegisteredExternal(address target) external view returns (bool) {
+    return isTargetRegistered(target);
   }
 }

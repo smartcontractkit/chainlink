@@ -37,4 +37,7 @@ message ReportingPluginConfig {
     bool uniqueReports = 6;
     ThresholdReportingPluginConfig thresholdPluginConfig = 7;
     S4ReportingPluginConfig s4PluginConfig = 8;
+    // Needs to be set in tandem with gas estimator (e.g. [EVM.GasEstimator.LimitJobType] OCR = <limit>)
+    // otherwise the report won't go through TX Manager or fail later.
+    uint32 maxReportTotalCallbackGas = 9;
 }

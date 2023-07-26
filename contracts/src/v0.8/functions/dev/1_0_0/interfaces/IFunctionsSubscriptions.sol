@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 /**
  * @title Chainlink Functions Subscription interface.
@@ -18,6 +18,7 @@ interface IFunctionsSubscriptions {
     // Note that we need the s_consumers map to be able to directly check if a
     // consumer is valid without reading all the consumers from storage.
     address[] consumers;
+    bytes32 flags; // Per-subscription flags.
   }
 
   struct Consumer {
@@ -55,6 +56,12 @@ interface IFunctionsSubscriptions {
     address client,
     uint64 subscriptionId
   ) external view returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests);
+
+  /**
+   * @notice Get the maximum number of consumers that can be added to one subscription
+   * @return maxConsumers - maximum number of consumers that can be added to one subscription
+   */
+  function getMaxConsumers() external view returns (uint16);
 
   /**
    * @notice Get details about the total amount of LINK within the system
@@ -160,4 +167,18 @@ interface IFunctionsSubscriptions {
    * @dev Used to disable subscription canceling while outstanding request are present.
    */
   function pendingRequestExists(uint64 subscriptionId) external view returns (bool);
+
+  /**
+   * @notice Set flags for a given subscription.
+   * @param subscriptionId - ID of the subscription
+   * @param flags - desired flag values
+   */
+  function setFlags(uint64 subscriptionId, bytes32 flags) external;
+
+  /**
+   * @notice Get flags for a given subscription.
+   * @param subscriptionId - ID of the subscription
+   * @return flags - current flag values
+   */
+  function getFlags(uint64 subscriptionId) external view returns (bytes32);
 }

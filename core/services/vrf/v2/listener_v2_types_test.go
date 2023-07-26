@@ -23,15 +23,12 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 		bfs.addRun(vrfPipelineResult{
 			gasLimit: 500,
 			req: pendingRequest{
-				req: &RandomWordsRequested{
-					VRFVersion: vrfcommon.V2,
-					V2: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
-						RequestId: big.NewInt(1),
-						Raw: types.Log{
-							TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
-						},
+				req: NewV2RandomWordsRequested(&vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+					RequestId: big.NewInt(1),
+					Raw: types.Log{
+						TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
 					},
-				},
+				}),
 				lb: mocks.NewBroadcast(t),
 			},
 			run: pipeline.NewRun(pipeline.Spec{}, pipeline.Vars{}),
@@ -45,15 +42,12 @@ func Test_BatchFulfillments_AddRun(t *testing.T) {
 	bfs.addRun(vrfPipelineResult{
 		gasLimit: 500,
 		req: pendingRequest{
-			req: &RandomWordsRequested{
-				VRFVersion: vrfcommon.V2,
-				V2: &vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
-					RequestId: big.NewInt(1),
-					Raw: types.Log{
-						TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
-					},
+			req: NewV2RandomWordsRequested(&vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{
+				RequestId: big.NewInt(1),
+				Raw: types.Log{
+					TxHash: common.HexToHash("0xd8d7ecc4800d25fa53ce0372f13a416d98907a7ef3d8d3bdd79cf4fe75529c65"),
 				},
-			},
+			}),
 			lb: mocks.NewBroadcast(t),
 		},
 		run: pipeline.NewRun(pipeline.Spec{}, pipeline.Vars{}),

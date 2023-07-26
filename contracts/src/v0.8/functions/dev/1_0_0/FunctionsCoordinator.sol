@@ -1,13 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {IFunctionsBilling, FunctionsBilling, Routable, ITypeAndVersion} from "./FunctionsBilling.sol";
+import {IFunctionsBilling, FunctionsBilling} from "./FunctionsBilling.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
-import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
-import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
-import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {FulfillResult} from "./FulfillResultCodes.sol";
+import {ITypeAndVersion} from "./Routable.sol";
 
 /**
  * @title Functions Coordinator contract
@@ -22,7 +20,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     uint64 subscriptionId,
     address subscriptionOwner,
     bytes data,
-    uint16 dataVersion
+    uint16 dataVersion,
+    bytes32 flags,
+    uint64 callbackGasLimit
   );
   event OracleResponse(bytes32 indexed requestId, address transmitter);
   event InvalidRequestID(bytes32 indexed requestId);
@@ -35,7 +35,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   error UnauthorizedPublicKeyChange();
 
   bytes private s_donPublicKey;
-  mapping(address => bytes) private s_nodePublicKeys;
+  mapping(address signerAddress => bytes publicKey) private s_nodePublicKeys;
   bytes private s_thresholdPublicKey;
 
   constructor(
@@ -55,6 +55,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    * @inheritdoc IFunctionsCoordinator
    */
   function getThresholdPublicKey() external view override returns (bytes memory) {
+    if (s_thresholdPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
     return s_thresholdPublicKey;
   }
 
@@ -72,13 +75,16 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    * @inheritdoc IFunctionsCoordinator
    */
   function getDONPublicKey() external view override returns (bytes memory) {
+    if (s_donPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
     return s_donPublicKey;
   }
 
   /**
    * @inheritdoc IFunctionsCoordinator
    */
-  function setDONPublicKey(bytes calldata donPublicKey) external override onlyRouterOwner {
+  function setDONPublicKey(bytes calldata donPublicKey) external override onlyOwner {
     if (donPublicKey.length == 0) {
       revert EmptyPublicKey();
     }
@@ -103,7 +109,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function setNodePublicKey(address node, bytes calldata publicKey) external override {
     // Owner can set anything. Transmitters can set only their own key.
-    if (!(msg.sender == this.owner() || (_isTransmitter(msg.sender) && msg.sender == node))) {
+    if (!(msg.sender == owner() || (_isTransmitter(msg.sender) && msg.sender == node))) {
       revert UnauthorizedPublicKeyChange();
     }
     s_nodePublicKeys[node] = publicKey;
@@ -114,7 +120,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function deleteNodePublicKey(address node) external override {
     // Owner can delete anything. Others can delete only their own key.
-    if (!(msg.sender == this.owner() || msg.sender == node)) {
+    if (!(msg.sender == owner() || msg.sender == node)) {
       revert UnauthorizedPublicKeyChange();
     }
     delete s_nodePublicKeys[node];
@@ -127,6 +133,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     address[] memory nodes = this.transmitters();
     bytes[] memory keys = new bytes[](nodes.length);
     for (uint256 i = 0; i < nodes.length; i++) {
+      if (s_nodePublicKeys[nodes[i]].length == 0) {
+        revert EmptyPublicKey();
+      }
       keys[i] = s_nodePublicKeys[nodes[i]];
     }
     return (nodes, keys);
@@ -149,7 +158,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     RequestBilling memory billing = IFunctionsBilling.RequestBilling(
       request.subscriptionId,
-      request.caller,
+      request.requestingContract,
       request.callbackGasLimit,
       tx.gasprice
     );
@@ -162,17 +171,21 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     emit OracleRequest(
       requestId,
-      request.caller,
+      request.requestingContract,
       tx.origin,
       request.subscriptionId,
       request.subscriptionOwner,
       request.data,
-      request.dataVersion
+      request.dataVersion,
+      request.flags,
+      request.callbackGasLimit
     );
   }
 
   function _beforeSetConfig(uint8 /* _f */, bytes memory /* _onchainConfig */) internal override {
-    _disperseFeePool();
+    if (_getTransmitters().length > 0) {
+      _disperseFeePool();
+    }
   }
 
   function _afterSetConfig(uint8 /* _f */, bytes memory /* _onchainConfig */) internal override {}
@@ -230,12 +243,5 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
         emit CostExceedsCommitment(requestIds[i]);
       }
     }
-  }
-
-  modifier onlyRouterOwner() override {
-    if (msg.sender != IOwnable(address(s_router)).owner()) {
-      revert OnlyCallableByRouterOwner();
-    }
-    _;
   }
 }

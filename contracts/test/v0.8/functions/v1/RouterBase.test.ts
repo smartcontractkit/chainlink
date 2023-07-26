@@ -28,15 +28,7 @@ describe('FunctionsRouter - Base', () => {
       await expect(
         contracts.router
           .connect(roles.stranger)
-          .proposeContractsUpdate(
-            [ids.donId],
-            [
-              ethers.constants.AddressZero,
-              ethers.constants.AddressZero,
-              ethers.constants.AddressZero,
-            ],
-            [contracts.coordinator.address],
-          ),
+          .proposeContractsUpdate([ids.donId], [contracts.coordinator.address]),
       ).to.be.revertedWith('Only callable by owner')
     })
 
@@ -78,8 +70,8 @@ describe('FunctionsRouter - Base', () => {
         contracts.router.proposeConfigUpdate(
           ids.routerId,
           ethers.utils.defaultAbiCoder.encode(
-            ['uint96', 'bytes4'],
-            [1, 0x0ca76175],
+            ['uint96', 'bytes4', 'uint32[]'],
+            [1, 0x0ca76175, [300_000, 500_000]],
           ),
         ),
       ).to.emit(contracts.router, 'ConfigProposed')
@@ -120,6 +112,7 @@ describe('FunctionsRouter - Base', () => {
               'uint32',
               'uint96',
               'uint16',
+              'uint256',
             ],
             [
               ...Object.values({
@@ -159,6 +152,7 @@ describe('FunctionsRouter - Base', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
       const coordinator2 = await factories.functionsCoordinatorFactory
@@ -175,6 +169,7 @@ describe('FunctionsRouter - Base', () => {
               'uint32',
               'uint96',
               'uint16',
+              'uint256',
             ],
             [...Object.values(coordinatorConfig)],
           ),
@@ -194,6 +189,7 @@ describe('FunctionsRouter - Base', () => {
               'uint32',
               'uint96',
               'uint16',
+              'uint256',
             ],
             [...Object.values(coordinatorConfig)],
           ),
@@ -213,6 +209,7 @@ describe('FunctionsRouter - Base', () => {
               'uint32',
               'uint96',
               'uint16',
+              'uint256',
             ],
             [...Object.values(coordinatorConfig)],
           ),
@@ -236,11 +233,6 @@ describe('FunctionsRouter - Base', () => {
       await expect(
         contracts.router.proposeContractsUpdate(
           [ids.donId2, ids.donId3, ids.donId4],
-          [
-            ethers.constants.AddressZero,
-            ethers.constants.AddressZero,
-            ethers.constants.AddressZero,
-          ],
           [coordinator2.address, coordinator3.address, coordinator4.address],
         ),
       ).to.emit(contracts.router, `ContractProposed`)
@@ -294,11 +286,7 @@ describe('FunctionsRouter - Base', () => {
       await expect(
         contracts.router
           .connect(roles.stranger)
-          .proposeContractsUpdate(
-            [ids.donId],
-            [ethers.constants.AddressZero],
-            [contracts.coordinator.address],
-          ),
+          .proposeContractsUpdate([ids.donId], [contracts.coordinator.address]),
       ).to.be.revertedWith('Only callable by owner')
     })
 
@@ -353,6 +341,7 @@ describe('FunctionsRouter - Base', () => {
               'uint32',
               'uint96',
               'uint16',
+              'uint256',
             ],
             [...Object.values(coordinatorConfig)],
           ),
@@ -361,7 +350,6 @@ describe('FunctionsRouter - Base', () => {
 
       await contracts.router.proposeContractsUpdate(
         [ids.donId2],
-        [ethers.constants.AddressZero],
         [coordinator2.address],
       )
 
@@ -381,6 +369,7 @@ describe('FunctionsRouter - Base', () => {
         roles.subOwner,
         [contracts.client.address],
         contracts.router,
+        contracts.accessControl,
         contracts.linkToken,
       )
 
@@ -391,6 +380,7 @@ describe('FunctionsRouter - Base', () => {
           `return 'hello world'`,
           subscriptionId,
           ids.donId,
+          20_000,
         ),
       ).to.be.revertedWith('Pausable: paused')
     })
