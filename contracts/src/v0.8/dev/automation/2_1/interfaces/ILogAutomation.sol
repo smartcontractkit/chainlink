@@ -22,13 +22,17 @@ interface ILogAutomation {
    * method.
    * @param log the raw log data matching the filter that this contract has
    * registered as a trigger
+   * @param checkData user-specified extra data to provide context to this upkeep
    * @return upkeepNeeded boolean to indicate whether the keeper should call
    * performUpkeep or not.
    * @return performData bytes that the keeper should call performUpkeep with, if
    * upkeep is needed. If you would like to encode data to decode later, try
    * `abi.encode`.
    */
-  function checkLog(Log calldata log) external returns (bool upkeepNeeded, bytes memory performData);
+  function checkLog(
+    Log calldata log,
+    bytes memory checkData
+  ) external returns (bool upkeepNeeded, bytes memory performData);
 
   /**
    * @notice method that is actually executed by the keepers, via the registry.

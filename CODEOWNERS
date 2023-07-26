@@ -24,7 +24,8 @@
 /core/services/health @samsondav
 /core/services/job @connorwstein
 /core/services/keystore @RyanRHall
-/core/services/offchainreporting @connorwstein @samsondav
+/core/services/ocr* @connorwstein @samsondav
+/core/services/ocr2 @jmank88 @krehermann
 /core/services/periodicbackup @PiotrTrzpil @samsondav
 /core/services/pg @samsondav
 /core/services/pipeline @connorwstein @prashantkumar1982

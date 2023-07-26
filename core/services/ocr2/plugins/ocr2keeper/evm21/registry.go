@@ -23,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -100,11 +101,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 	}
 
 	r := &EvmRegistry{
-		HeadProvider: HeadProvider{
-			ht:     client.HeadTracker(),
-			hb:     client.HeadBroadcaster(),
-			chHead: make(chan ocr2keepers.BlockKey, 1),
-		},
+		ht:       client.HeadTracker(),
 		lggr:     lggr.Named("EvmRegistry"),
 		poller:   client.LogPoller(),
 		addr:     addr,
@@ -170,7 +167,7 @@ type MercuryConfig struct {
 }
 
 type EvmRegistry struct {
-	HeadProvider
+	ht            types.HeadTracker
 	sync          utils.StartStopOnce
 	lggr          logger.Logger
 	poller        logpoller.LogPoller
@@ -573,8 +570,9 @@ func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.
 	}
 
 	if block == nil || block.Int64() == 0 {
-		if r.LatestBlock() != 0 {
-			opts.BlockNumber = big.NewInt(r.LatestBlock())
+		l := r.ht.LatestChain()
+		if l != nil && l.BlockNumber() != 0 {
+			opts.BlockNumber = big.NewInt(l.BlockNumber())
 		}
 	} else {
 		opts.BlockNumber = block
