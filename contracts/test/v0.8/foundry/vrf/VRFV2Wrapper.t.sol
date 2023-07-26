@@ -8,6 +8,7 @@ import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/testhelp
 import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
 import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2Plus.sol";
 import {VRFV2PlusWrapper} from "../../../../src/v0.8/dev/vrf/VRFV2PlusWrapper.sol";
+import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
 
 contract VRFV2PlusWrapperTest is BaseTest {
@@ -80,7 +81,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     uint16 minimumRequestConfirmations,
     uint32 callbackGasLimit,
     uint32 numWords,
-    bool nativePayment,
+    bytes extraArgs,
     address indexed sender
   );
 
@@ -107,7 +108,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
       0, // minConfirmations
       callbackGasLimit + EIP150Overhead + wrapperGasOverhead, // callbackGasLimit - accounts for EIP 150
       1, // numWords
-      true, // nativePayment
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true})), // extraArgs
       address(s_wrapper) // requester
     );
     requestId = s_consumer.makeRequestNative(callbackGasLimit, 0, 1);
@@ -154,7 +155,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
       0, // minConfirmations
       callbackGasLimit + EIP150Overhead + wrapperGasOverhead, // callbackGasLimit - accounts for EIP 150
       1, // numWords
-      false, // nativePayment
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // extraArgs
       address(s_wrapper) // requester
     );
     s_consumer.makeRequest(callbackGasLimit, 0, 1);

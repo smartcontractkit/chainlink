@@ -7,17 +7,19 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var extraArgsV1Tag = crypto.Keccak256([]byte("VRF ExtraArgsV1"))[:4]
+var (
+	_ CoordinatorV2_X = (*coordinatorV2)(nil)
+	_ CoordinatorV2_X = (*coordinatorV2Plus)(nil)
+)
 
 var (
 	_ CoordinatorV2_X = (*coordinatorV2)(nil)
@@ -190,16 +192,8 @@ func (c *coordinatorV2Plus) ParseRandomWordsRequested(log types.Log) (RandomWord
 	return NewV2PlusRandomWordsRequested(parsed), nil
 }
 
-func GetExtraArgsV1(nativePayment bool) ([]byte, error) {
-	encodedArgs, err := utils.ABIEncode(`[{"type":"bool"}]`, nativePayment)
-	if err != nil {
-		return nil, err
-	}
-	return append(extraArgsV1Tag, encodedArgs...), nil
-}
-
 func (c *coordinatorV2Plus) RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error) {
-	extraArgs, err := GetExtraArgsV1(payInEth)
+	extraArgs, err := extraargs.ExtraArgsV1(payInEth)
 	if err != nil {
 		return nil, err
 	}
@@ -491,7 +485,11 @@ func (r *v2PlusRandomWordsRequested) CallbackGasLimit() uint32 {
 }
 
 func (r *v2PlusRandomWordsRequested) NativePayment() bool {
-	return r.event.NativePayment
+	nativePayment, err := extraargs.FromExtraArgsV1(r.event.ExtraArgs)
+	if err != nil {
+		panic(err)
+	}
+	return nativePayment
 }
 
 var (
@@ -628,7 +626,11 @@ func (rwf *v2PlusRandomWordsFulfilled) Success() bool {
 }
 
 func (rwf *v2PlusRandomWordsFulfilled) NativePayment() bool {
-	return rwf.event.NativePayment
+	nativePayment, err := extraargs.FromExtraArgsV1(rwf.event.ExtraArgs)
+	if err != nil {
+		panic(err)
+	}
+	return nativePayment
 }
 
 func (rwf *v2PlusRandomWordsFulfilled) Payment() *big.Int {
@@ -982,7 +984,11 @@ func (r *RequestCommitment) NativePayment() bool {
 	if r.VRFVersion == vrfcommon.V2 {
 		return false
 	}
-	return r.V2Plus.NativePayment
+	nativePayment, err := extraargs.FromExtraArgsV1(r.V2Plus.ExtraArgs)
+	if err != nil {
+		panic(err)
+	}
+	return nativePayment
 }
 
 func (r *RequestCommitment) NumWords() uint32 {
