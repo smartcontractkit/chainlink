@@ -96,7 +96,7 @@ async function getUpkeepID(tx: any): Promise<BigNumber> {
   return receipt.events[0].args.id
 }
 
-const encodeConfig = (config: any) => {
+const encodeConfig20 = (config: any) => {
   return ethers.utils.defaultAbiCoder.encode(
     [
       'tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds\
@@ -116,38 +116,6 @@ const encodeUpkeepV12 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
       'bytes[]',
     ],
     [ids, upkeeps, checkDatas],
-  )
-}
-
-const encodeUpkeepV13 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
-  return ethers.utils.defaultAbiCoder.encode(
-    [
-      'uint256[]',
-      'tuple(uint96,address,uint96,address,uint32,uint32,address,bool)[]',
-      'bytes[]',
-    ],
-    [ids, upkeeps, checkDatas],
-  )
-}
-
-const encodeUpkeepV21 = (
-  ids: number[],
-  upkeeps: any[],
-  admins: string[],
-  checkDatas: string[],
-  triggerConfigs: string[],
-  offchainConfigs: string[],
-) => {
-  return ethers.utils.defaultAbiCoder.encode(
-    [
-      'uint256[]',
-      'tuple(bool,uint32,uint32,address,uint96,uint96,uint32,address)[]',
-      'address[]',
-      'bytes[]',
-      'bytes[]',
-      'bytes[]',
-    ],
-    [ids, upkeeps, admins, checkDatas, triggerConfigs, offchainConfigs],
   )
 }
 
@@ -266,7 +234,7 @@ async function deployRegistry2_0(): Promise<[BigNumber, KeeperRegistry2_0]> {
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(config),
+      encodeConfig20(config),
       offchainVersion,
       offchainBytes,
     )
@@ -500,46 +468,28 @@ describe('UpkeepTranscoder4_0', () => {
       )
     })
 
-    context('when from and to versions are correct', () => {
-      it('transcodes v1.2 upkeeps to v2.1 properly, regardless of toVersion value', async () => {
-        const data = await transcoder.transcodeUpkeeps(
+    context('when from version is correct', () => {
+      // note this is a bugfix - the "to" version should be accounted for in
+      // future versions of the transcoder
+      it('transcodes to v2.1, regardless of toVersion value', async () => {
+        const data1 = await transcoder.transcodeUpkeeps(
           UpkeepFormat.V12,
           UpkeepFormat.V12,
           encodeUpkeepV12(idx, upkeepsV12, ['0xabcd', '0xffff']),
         )
-        assert.equal(
-          encodeUpkeepV21(
-            idx,
-            upkeepsV21,
-            admins,
-            ['0xabcd', '0xffff'],
-            ['0x', '0x'],
-            ['0x', '0x'],
-          ),
-          data,
-        )
-      })
-
-      it('transcodes v1.3 upkeeps to v2.1 properly, regardless of toVersion value', async () => {
-        const data = await transcoder.transcodeUpkeeps(
+        const data2 = await transcoder.transcodeUpkeeps(
+          UpkeepFormat.V12,
           UpkeepFormat.V13,
-          UpkeepFormat.V13,
-          encodeUpkeepV13(idx, upkeepsV13, ['0xabcd', '0xffff']),
+          encodeUpkeepV12(idx, upkeepsV12, ['0xabcd', '0xffff']),
         )
-        assert.equal(
-          encodeUpkeepV21(
-            idx,
-            upkeepsV21,
-            admins,
-            ['0xabcd', '0xffff'],
-            ['0x', '0x'],
-            ['0x', '0x'],
-          ),
-          data,
+        const data3 = await transcoder.transcodeUpkeeps(
+          UpkeepFormat.V12,
+          100,
+          encodeUpkeepV12(idx, upkeepsV12, ['0xabcd', '0xffff']),
         )
+        assert.equal(data1, data2)
+        assert.equal(data1, data3)
       })
-
-      // DEV cannot test raw transcoding 2.0 => 2.1 because transcodeUpkeeps is not pure
 
       it('migrates upkeeps from 1.2 registry to 2.1', async () => {
         await linkToken
