@@ -5,7 +5,7 @@ import "./VerifiableLoadBase.sol";
 import "../dev/automation/2_1/interfaces/ILogAutomation.sol";
 import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
-contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface {
+contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface, ILogAutomation {
   string[] public feedsHex = [
     "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
     "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
@@ -19,7 +19,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
     feedsHex = newFeeds;
   }
 
-  function checkLog(Log calldata log) external returns (bool, bytes memory) {
+  function checkLog(Log calldata log, bytes memory checkData) external returns (bool, bytes memory) {
     uint256 startGas = gasleft();
     uint256 blockNum = getBlockNumber();
 
@@ -76,7 +76,10 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
     burnPerformGas(upkeepId, startGas, currentBlockNum);
   }
 
-  function checkCallback(bytes[] memory values, bytes memory extraData) external pure override returns (bool, bytes memory) {
+  function checkCallback(
+    bytes[] memory values,
+    bytes memory extraData
+  ) external pure override returns (bool, bytes memory) {
     bytes memory performData = abi.encode(values, extraData);
     return (true, performData);
   }

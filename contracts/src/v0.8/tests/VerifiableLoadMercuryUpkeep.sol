@@ -19,7 +19,10 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatible
     feedsHex = newFeeds;
   }
 
-  function checkCallback(bytes[] memory values, bytes memory extraData) external pure override returns (bool, bytes memory) {
+  function checkCallback(
+    bytes[] memory values,
+    bytes memory extraData
+  ) external pure override returns (bool, bytes memory) {
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
     return (true, performData);
