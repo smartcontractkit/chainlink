@@ -274,8 +274,8 @@ func (c *coordinatorV2Plus) FilterRandomWordsRequested(opts *bind.FilterOpts, ke
 	return NewV2PlusRandomWordsRequestedIterator(it), nil
 }
 
-func (c *coordinatorV2Plus) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (RandomWordsFulfilledIterator, error) {
-	it, err := c.coordinator.FilterRandomWordsFulfilled(opts, requestID)
+func (c *coordinatorV2Plus) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error) {
+	it, err := c.coordinator.FilterRandomWordsFulfilled(opts, requestID, subID)
 	if err != nil {
 		return nil, err
 	}
