@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {EnumerableSet} from "../../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/structs/EnumerableSet.sol";
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
@@ -150,6 +150,8 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
   // |                     Internal helpers                          |
   // ================================================================
 
+  // NOTE: a contract account can appear to be an EoA if called during its constructor
+  // This is not a risk, because they will fail in acceptTermsOfService during acceptor == recipient
   function _isContract(address _addr) private view returns (bool isContract) {
     uint32 size;
     // solhint-disable-next-line no-inline-assembly

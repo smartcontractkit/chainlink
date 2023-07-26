@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
@@ -53,7 +54,7 @@ func testSingleConsumerHappyPath(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe *v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled),
 ) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	key2 := cltest.MustGenerateRandomKey(t)
@@ -109,7 +110,7 @@ func testSingleConsumerHappyPath(
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID1, subID, uni.backend, db)
+	mine(t, requestID1, subID, uni.backend, db, vrfVersion)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In particular:
@@ -129,7 +130,7 @@ func testSingleConsumerHappyPath(
 		t.Log("runs", len(runs))
 		return len(runs) == 2
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
-	mine(t, requestID2, subID, uni.backend, db)
+	mine(t, requestID2, subID, uni.backend, db, vrfVersion)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In particular:
@@ -170,7 +171,7 @@ func testMultipleConsumersNeedBHS(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe *v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled),
 ) {
 	nConsumers := len(consumers)
 	vrfKey := cltest.MustGenerateRandomKey(t)
@@ -250,7 +251,9 @@ func testMultipleConsumersNeedBHS(
 
 		// Create a subscription and fund with 0 LINK.
 		_, subID := subscribeVRF(t, consumer, consumerContract, coordinator, uni.backend, new(big.Int))
-		require.Equal(t, uint64(i+1), subID)
+		if vrfVersion == vrfcommon.V2 {
+			require.Equal(t, uint64(i+1), subID.Uint64())
+		}
 
 		// Make the randomness request. It will not yet succeed since it is underfunded.
 		numWords := uint32(20)
@@ -281,7 +284,7 @@ func testMultipleConsumersNeedBHS(
 			return len(runs) == 1
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-		mine(t, requestID, subID, uni.backend, db)
+		mine(t, requestID, subID, uni.backend, db, vrfVersion)
 
 		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
 		if len(assertions) > 0 {
@@ -342,7 +345,7 @@ func testSingleConsumerHappyPathBatchFulfillment(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe *v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled),
 ) {
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
@@ -406,13 +409,13 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		return len(runs) == numRequests
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-	mineBatch(t, reqIDs, subID, uni.backend, db)
+	mineBatch(t, reqIDs, subID, uni.backend, db, vrfVersion)
 
 	for i, requestID := range reqIDs {
 		// Assert correct state of RandomWordsFulfilled event.
 		// The last request will be the successful one because of the way the example
 		// contract is written.
-		var rwfe *v22.RandomWordsFulfilled
+		var rwfe v22.RandomWordsFulfilled
 		if i == (len(reqIDs) - 1) {
 			rwfe = assertRandomWordsFulfilled(t, requestID, true, coordinator)
 		} else {
@@ -444,7 +447,7 @@ func testSingleConsumerNeedsTopUp(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe *v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled),
 ) {
 	key := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(1000)
@@ -507,7 +510,7 @@ func testSingleConsumerNeedsTopUp(
 
 	// Mine the fulfillment. Need to wait for Txm to mark the tx as confirmed
 	// so that we can actually see the event on the simulated chain.
-	mine(t, requestID, subID, uni.backend, db)
+	mine(t, requestID, subID, uni.backend, db, vrfVersion)
 
 	// Assert the state of the RandomWordsFulfilled event.
 	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
@@ -538,7 +541,7 @@ func testBlockHeaderFeeder(
 	assertions ...func(
 		t *testing.T,
 		coordinator v22.CoordinatorV2_X,
-		rwfe *v22.RandomWordsFulfilled),
+		rwfe v22.RandomWordsFulfilled),
 ) {
 	nConsumers := len(consumers)
 
@@ -603,7 +606,9 @@ func testBlockHeaderFeeder(
 
 		// Create a subscription and fund with 0 LINK.
 		_, subID := subscribeVRF(t, consumer, consumerContract, coordinator, uni.backend, new(big.Int))
-		require.Equal(t, uint64(i+1), subID)
+		if vrfVersion == vrfcommon.V2 {
+			require.Equal(t, uint64(i+1), subID.Uint64())
+		}
 
 		// Make the randomness request. It will not yet succeed since it is underfunded.
 		numWords := uint32(20)
@@ -629,7 +634,7 @@ func testBlockHeaderFeeder(
 			return len(runs) == 1
 		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-		mine(t, requestID, subID, uni.backend, db)
+		mine(t, requestID, subID, uni.backend, db, vrfVersion)
 
 		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
 		if len(assertions) > 0 {
@@ -639,6 +644,57 @@ func testBlockHeaderFeeder(
 		// Assert correct number of random words sent by coordinator.
 		assertNumRandomWords(t, consumerContract, numWords)
 	}
+}
+
+func createSubscriptionAndGetSubscriptionCreatedEvent(
+	t *testing.T,
+	subOwner *bind.TransactOpts,
+	coordinator v22.CoordinatorV2_X,
+	backend *backends.SimulatedBackend,
+) v22.SubscriptionCreated {
+	_, err := coordinator.CreateSubscription(subOwner)
+	require.NoError(t, err)
+	backend.Commit()
+
+	iter, err := coordinator.FilterSubscriptionCreated(nil, nil)
+	require.NoError(t, err)
+	require.True(t, iter.Next(), "could not find SubscriptionCreated event for subID")
+	return iter.Event()
+}
+
+func setupAndFundSubscriptionAndConsumer(
+	t *testing.T,
+	uni coordinatorV2UniverseCommon,
+	coordinator v22.CoordinatorV2_X,
+	coordinatorAddress common.Address,
+	subOwner *bind.TransactOpts,
+	consumerAddress common.Address,
+	vrfVersion vrfcommon.Version,
+	fundingAmount *big.Int,
+) (subID *big.Int) {
+	event := createSubscriptionAndGetSubscriptionCreatedEvent(t, subOwner, coordinator, uni.backend)
+	subID = event.SubID()
+
+	_, err := coordinator.AddConsumer(subOwner, subID, consumerAddress)
+	require.NoError(t, err, "failed to add consumer")
+	uni.backend.Commit()
+
+	if vrfVersion == vrfcommon.V2Plus {
+		b, err := utils.ABIEncode(`[{"type":"uint256"}]`, subID)
+		require.NoError(t, err)
+		_, err = uni.linkContract.TransferAndCall(
+			uni.sergey, coordinatorAddress, fundingAmount, b)
+		require.NoError(t, err, "failed to fund sub")
+		uni.backend.Commit()
+		return
+	}
+	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID.Uint64())
+	require.NoError(t, err)
+	_, err = uni.linkContract.TransferAndCall(
+		uni.sergey, coordinatorAddress, fundingAmount, b)
+	require.NoError(t, err, "failed to fund sub")
+	uni.backend.Commit()
+	return
 }
 
 func testSingleConsumerForcedFulfillment(
@@ -678,23 +734,16 @@ func testSingleConsumerForcedFulfillment(
 	uni.backend.Commit()
 
 	// Create a subscription and fund with 5 LINK.
-	_, err = uni.oldRootContract.CreateSubscription(uni.neil)
-	require.NoError(t, err, "failed to create eoa sub")
-	uni.backend.Commit()
-
-	// Fund the sub
-	subID := uint64(1)
-	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
-	require.NoError(t, err)
-	_, err = uni.linkContract.TransferAndCall(
-		uni.sergey, uni.oldRootContractAddress, assets.Ether(5).ToInt(), b)
-	require.NoError(t, err, "failed to fund sub")
-	uni.backend.Commit()
-
-	// Add the consumer to the sub
-	_, err = uni.oldRootContract.AddConsumer(uni.neil, subID, eoaConsumerAddr)
-	require.NoError(t, err, "failed to add consumer")
-	uni.backend.Commit()
+	subID := setupAndFundSubscriptionAndConsumer(
+		t,
+		uni.coordinatorV2UniverseCommon,
+		uni.oldRootContract,
+		uni.oldRootContractAddress,
+		uni.neil,
+		eoaConsumerAddr,
+		vrfVersion,
+		assets.Ether(5).ToInt(),
+	)
 
 	// Check the subscription state
 	sub, err := uni.oldRootContract.GetSubscription(nil, subID)
@@ -754,7 +803,7 @@ func testSingleConsumerForcedFulfillment(
 	// and cause a 0 balance to the sub.
 	numWords := 3
 	confs := 10
-	_, err = eoaConsumer.RequestRandomWords(uni.neil, subID, 500_000, uint16(confs), uint32(numWords), keyHash)
+	_, err = eoaConsumer.RequestRandomWords(uni.neil, subID.Uint64(), 500_000, uint16(confs), uint32(numWords), keyHash)
 	require.NoError(t, err, "failed to request randomness from consumer")
 	uni.backend.Commit()
 
@@ -774,13 +823,13 @@ func testSingleConsumerForcedFulfillment(
 		commitment, err := uni.oldRootContract.GetCommitment(nil, requestID)
 		require.NoError(t, err)
 		t.Log("commitment is:", hexutil.Encode(commitment[:]))
-		it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{requestID}, []uint64{subID}, []common.Address{eoaConsumerAddr})
+		it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{requestID}, []uint64{subID.Uint64()}, []common.Address{eoaConsumerAddr})
 		require.NoError(t, err)
 		i := 0
 		for it.Next() {
 			i++
 			require.Equal(t, requestID.String(), it.Event.RequestId.String())
-			require.Equal(t, subID, it.Event.SubId)
+			require.Equal(t, subID.Uint64(), it.Event.SubId)
 			require.Equal(t, eoaConsumerAddr.String(), it.Event.Sender.String())
 		}
 		t.Log("num RandomWordsForced logs:", i)
@@ -788,7 +837,7 @@ func testSingleConsumerForcedFulfillment(
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, subID, uni.backend, db)
+	mine(t, requestID, subID, uni.backend, db, vrfVersion)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In this particular case:
@@ -798,13 +847,13 @@ func testSingleConsumerForcedFulfillment(
 	require.Equal(t, "0", rwfe.Payment().String())
 
 	// Check that the RandomWordsForced event is emitted correctly.
-	it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{requestID}, []uint64{subID}, []common.Address{eoaConsumerAddr})
+	it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{requestID}, []uint64{subID.Uint64()}, []common.Address{eoaConsumerAddr})
 	require.NoError(t, err)
 	i := 0
 	for it.Next() {
 		i++
 		require.Equal(t, requestID.String(), it.Event.RequestId.String())
-		require.Equal(t, subID, it.Event.SubId)
+		require.Equal(t, subID.Uint64(), it.Event.SubId)
 		require.Equal(t, eoaConsumerAddr.String(), it.Event.Sender.String())
 	}
 	require.Greater(t, i, 0)
@@ -1026,7 +1075,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	}, 3*time.Second, 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, reqIDs[1], subID, uni.backend, db)
+	mine(t, reqIDs[1], subID, uni.backend, db, vrfVersion)
 
 	// Assert the random word was fulfilled
 	assertRandomWordsFulfilled(t, reqIDs[1], false, uni.rootContract)
@@ -1124,7 +1173,7 @@ func testSingleConsumerMultipleGasLanes(
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, cheapRequestID, subID, uni.backend, db)
+	mine(t, cheapRequestID, subID, uni.backend, db, vrfVersion)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, cheapRequestID, true, uni.rootContract)
@@ -1157,7 +1206,7 @@ func testSingleConsumerMultipleGasLanes(
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, expensiveRequestID, subID, uni.backend, db)
+	mine(t, expensiveRequestID, subID, uni.backend, db, vrfVersion)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, expensiveRequestID, true, uni.rootContract)
@@ -1225,7 +1274,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, subID, uni.backend, db)
+	mine(t, requestID, subID, uni.backend, db, vrfVersion)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, false, uni.rootContract)
@@ -1299,7 +1348,7 @@ func testConsumerProxyHappyPath(
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID1, subID, uni.backend, db)
+	mine(t, requestID1, subID, uni.backend, db, vrfVersion)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID1, true, uni.rootContract)
@@ -1321,7 +1370,7 @@ func testConsumerProxyHappyPath(
 		t.Log("runs", len(runs))
 		return len(runs) == 2
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
-	mine(t, requestID2, subID, uni.backend, db)
+	mine(t, requestID2, subID, uni.backend, db, vrfVersion)
 	assertRandomWordsFulfilled(t, requestID2, true, uni.rootContract)
 
 	// Assert correct number of random words sent by coordinator.
@@ -1420,7 +1469,7 @@ func testMaliciousConsumer(
 
 	// Send a re-entrant request
 	// subID, nConfs, callbackGas, numWords are hard-coded within the contract, so setting them to 0 here
-	_, err = uni.maliciousConsumerContract.RequestRandomness(carol, vrfkey.PublicKey.MustHash(), 0, 0, 0, 0, false)
+	_, err = uni.maliciousConsumerContract.RequestRandomness(carol, vrfkey.PublicKey.MustHash(), big.NewInt(0), 0, 0, 0, false)
 	require.NoError(t, err)
 
 	// We expect the request to be serviced
@@ -1448,7 +1497,7 @@ func testMaliciousConsumer(
 	// The user callback should have errored
 	it, err := uni.rootContract.FilterRandomWordsFulfilled(nil, nil)
 	require.NoError(t, err)
-	var fulfillments []*v22.RandomWordsFulfilled
+	var fulfillments []v22.RandomWordsFulfilled
 	for it.Next() {
 		fulfillments = append(fulfillments, it.Event())
 	}
@@ -1458,7 +1507,7 @@ func testMaliciousConsumer(
 	// It should not have succeeded in placing another request.
 	it2, err2 := uni.rootContract.FilterRandomWordsRequested(nil, nil, nil, nil)
 	require.NoError(t, err2)
-	var requests []*v22.RandomWordsRequested
+	var requests []v22.RandomWordsRequested
 	for it2.Next() {
 		requests = append(requests, it2.Event())
 	}

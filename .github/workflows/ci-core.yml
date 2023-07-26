@@ -264,8 +264,15 @@ jobs:
         env:
           GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: |
-          ./runner -grafana_auth=$GRAFANA_CLOUD_BASIC_AUTH -grafana_host=$GRAFANA_CLOUD_HOST -command go_core_tests `ls -R ./artifacts/go_core_tests*/output.txt`
+          ./runner \
+            -grafana_auth=$GRAFANA_CLOUD_BASIC_AUTH \
+            -grafana_host=$GRAFANA_CLOUD_HOST \
+            -gh_sha=$GITHUB_SHA \
+            -gh_event_path=$GITHUB_EVENT_PATH \
+            -command=./tools/bin/go_core_tests \
+            `ls -R ./artifacts/go_core_tests*/output.txt`
       - name: Store logs artifacts
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0

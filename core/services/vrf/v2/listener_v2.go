@@ -54,6 +54,9 @@ var (
 	batchCoordinatorV2ABI                    = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 	batchCoordinatorV2PlusABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusABI)
 	vrfOwnerABI                              = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
+	// RandomWordsRequestedV2PlusABI is the ABI of the RandomWordsRequested event
+	// for V2Plus.
+	RandomWordsRequestedV2PlusABI = coordinatorV2PlusABI.Events["RandomWordsRequested"].Sig
 )
 
 const (
@@ -71,9 +74,29 @@ const (
 	// backoffFactor is the factor by which to increase the delay each time a request fails.
 	backoffFactor = 1.3
 
-	// RandomWordsRequestedV2PlusABI is the ABI of the RandomWordsRequested event
-	// for V2Plus.
-	RandomWordsRequestedV2PlusABI = "RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
+	V2ReservedLinkQuery = `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
+		FROM eth_txes
+		WHERE meta->>'MaxLink' IS NOT NULL
+		AND evm_chain_id = $1
+		AND CAST(meta->>'SubId' AS NUMERIC) = $2
+		AND state IN ('unconfirmed', 'unstarted', 'in_progress')
+		GROUP BY meta->>'SubId'`
+
+	V2PlusReservedLinkQuery = `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
+		FROM eth_txes
+		WHERE meta->>'MaxLink' IS NOT NULL
+		AND evm_chain_id = $1
+		AND CAST(meta->>'GlobalSubId' AS NUMERIC) = $2
+		AND state IN ('unconfirmed', 'unstarted', 'in_progress')
+		GROUP BY meta->>'GlobalSubId'`
+
+	V2PlusReservedEthQuery = `SELECT SUM(CAST(meta->>'MaxEth' AS NUMERIC(78, 0)))
+		FROM eth_txes
+		WHERE meta->>'MaxEth' IS NOT NULL
+		AND evm_chain_id = $1
+		AND CAST(meta->>'GlobalSubId' AS NUMERIC) = $2
+		AND state IN ('unconfirmed', 'unstarted', 'in_progress')
+		GROUP BY meta->>'GlobalSubId'`
 )
 
 type errPossiblyInsufficientFunds struct{}
@@ -142,7 +165,7 @@ func New(
 
 type pendingRequest struct {
 	confirmedAtBlock uint64
-	req              *RandomWordsRequested
+	req              RandomWordsRequested
 	lb               log.Broadcast
 	utcTimestamp     time.Time
 
@@ -298,15 +321,15 @@ func (lsn *listenerV2) getLatestHead() uint64 {
 
 // Returns all the confirmed logs from
 // the pending queue by subscription
-func (lsn *listenerV2) getAndRemoveConfirmedLogsBySub(latestHead uint64) map[uint64][]pendingRequest {
+func (lsn *listenerV2) getAndRemoveConfirmedLogsBySub(latestHead uint64) map[string][]pendingRequest {
 	lsn.reqsMu.Lock()
 	defer lsn.reqsMu.Unlock()
 	vrfcommon.UpdateQueueSize(lsn.job.Name.ValueOrZero(), lsn.job.ExternalJobID, lsn.coordinator.Version(), uniqueReqs(lsn.reqs))
-	var toProcess = make(map[uint64][]pendingRequest)
+	var toProcess = make(map[string][]pendingRequest)
 	var toKeep []pendingRequest
 	for i := 0; i < len(lsn.reqs); i++ {
 		if r := lsn.reqs[i]; lsn.ready(r, latestHead) {
-			toProcess[r.req.SubID()] = append(toProcess[r.req.SubID()], r)
+			toProcess[r.req.SubID().String()] = append(toProcess[r.req.SubID().String()], r)
 		} else {
 			toKeep = append(toKeep, lsn.reqs[i])
 		}
@@ -436,9 +459,13 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 			startEthBalance  *big.Int
 			subIsActive      bool
 		)
+		sID, ok := new(big.Int).SetString(subID, 10)
+		if !ok {
+			l.Criticalw("Unable to convert %s to Int", subID)
+			continue
+		}
 		sub, err := lsn.coordinator.GetSubscription(&bind.CallOpts{
-			Context: ctx,
-		}, subID)
+			Context: ctx}, sID)
 
 		if err != nil {
 			if strings.Contains(err.Error(), "execution reverted") {
@@ -460,7 +487,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		} else {
 			// Happy path - sub is active.
 			startLinkBalance = sub.Balance()
-			if sub.VRFVersion == vrfcommon.V2Plus {
+			if sub.Version() == vrfcommon.V2Plus {
 				startEthBalance = sub.EthBalance()
 			}
 			subIsActive = true
@@ -475,7 +502,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 			return a.req.CallbackGasLimit() < b.req.CallbackGasLimit()
 		})
 
-		p := lsn.processRequestsPerSub(ctx, subID, startLinkBalance, startEthBalance, reqs, subIsActive)
+		p := lsn.processRequestsPerSub(ctx, sID, startLinkBalance, startEthBalance, reqs, subIsActive)
 		for reqID := range p {
 			processed[reqID] = struct{}{}
 		}
@@ -486,15 +513,20 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 // MaybeSubtractReservedLink figures out how much LINK is reserved for other VRF requests that
 // have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
 // and returns that value if there are no errors.
-func MaybeSubtractReservedLink(q pg.Q, startBalance *big.Int, chainID, subID uint64) (*big.Int, error) {
-	var reservedLink string
-	err := q.Get(&reservedLink, `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
-				   FROM eth_txes
-				   WHERE meta->>'MaxLink' IS NOT NULL
-				   AND evm_chain_id = $1
-				   AND CAST(meta->>'SubId' AS NUMERIC) = $2
-				   AND state IN ('unconfirmed', 'unstarted', 'in_progress')
-				   GROUP BY meta->>'SubId'`, chainID, subID)
+func MaybeSubtractReservedLink(q pg.Q, startBalance *big.Int, chainID uint64, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
+	var (
+		reservedLink string
+		query        string
+	)
+	if vrfVersion == vrfcommon.V2Plus {
+		query = V2PlusReservedLinkQuery
+	} else if vrfVersion == vrfcommon.V2 {
+		query = V2ReservedLinkQuery
+	} else {
+		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
+	}
+
+	err := q.Get(&reservedLink, query, chainID, subID.String())
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.Wrap(err, "getting reserved LINK")
 	}
@@ -514,15 +546,20 @@ func MaybeSubtractReservedLink(q pg.Q, startBalance *big.Int, chainID, subID uin
 // MaybeSubtractReservedEth figures out how much ether is reserved for other VRF requests that
 // have not been fully confirmed yet on-chain, and subtracts that from the given startBalance,
 // and returns that value if there are no errors.
-func MaybeSubtractReservedEth(q pg.Q, startBalance *big.Int, chainID, subID uint64) (*big.Int, error) {
-	var reservedEther string
-	err := q.Get(&reservedEther, `SELECT SUM(CAST(meta->>'MaxEth' AS NUMERIC(78, 0)))
-				   FROM eth_txes
-				   WHERE meta->>'MaxEth' IS NOT NULL
-				   AND evm_chain_id = $1
-				   AND CAST(meta->>'SubId' AS NUMERIC) = $2
-				   AND state IN ('unconfirmed', 'unstarted', 'in_progress')
-				   GROUP BY meta->>'SubId'`, chainID, subID)
+func MaybeSubtractReservedEth(q pg.Q, startBalance *big.Int, chainID uint64, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
+	var (
+		reservedEther string
+		query         string
+	)
+	if vrfVersion == vrfcommon.V2Plus {
+		query = V2PlusReservedEthQuery
+	} else if vrfVersion == vrfcommon.V2 {
+		// native payment is not supported for v2, so returning 0 reserved ETH
+		return big.NewInt(0), nil
+	} else {
+		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
+	}
+	err := q.Get(&reservedEther, query, chainID, subID.String())
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.Wrap(err, "getting reserved ether")
 	}
@@ -562,7 +599,7 @@ func (a fulfilledReqV2) Compare(b heaps.Item) int {
 
 func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 	ctx context.Context,
-	subID uint64,
+	subID *big.Int,
 	startBalance *big.Int,
 	startBalanceNoReserved *big.Int,
 	reqs []pendingRequest,
@@ -759,7 +796,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 
 func (lsn *listenerV2) processRequestsPerSubBatch(
 	ctx context.Context,
-	subID uint64,
+	subID *big.Int,
 	startLinkBalance *big.Int,
 	startEthBalance *big.Int,
 	reqs []pendingRequest,
@@ -767,13 +804,13 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 ) map[string]struct{} {
 	var processed = make(map[string]struct{})
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.q, startLinkBalance, lsn.chainID.Uint64(), subID)
+		lsn.q, startLinkBalance, lsn.chainID.Uint64(), subID, lsn.coordinator.Version())
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
 	}
 	startBalanceNoReserveEth, err := MaybeSubtractReservedEth(
-		lsn.q, startEthBalance, lsn.chainID.Uint64(), subID)
+		lsn.q, startEthBalance, lsn.chainID.Uint64(), subID, lsn.coordinator.Version())
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved ether for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
@@ -881,7 +918,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 			Strategy:       txmgrcommon.NewSendEveryStrategy(),
 			Meta: &txmgr.TxMeta{
 				RequestID:     &requestID,
-				SubID:         &subID,
+				SubID:         ptr(subID.Uint64()),
 				RequestTxHash: &requestTxHash,
 				// No max link since simulation failed
 			},
@@ -916,7 +953,7 @@ func (lsn *listenerV2) isConsumerValidAfterFinalityDepthElapsed(ctx context.Cont
 // minus any pending requests that have already been processed and not yet fulfilled onchain.
 func (lsn *listenerV2) processRequestsPerSubHelper(
 	ctx context.Context,
-	subID uint64,
+	subID *big.Int,
 	startBalance *big.Int,
 	startBalanceNoReserved *big.Int,
 	reqs []pendingRequest,
@@ -1066,9 +1103,17 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				} else {
 					maxLink = &tmp
 				}
+				var (
+					txMetaSubID       *uint64
+					txMetaGlobalSubID *string
+				)
+				if lsn.coordinator.Version() == vrfcommon.V2Plus {
+					txMetaGlobalSubID = ptr(p.req.req.SubID().String())
+				} else if lsn.coordinator.Version() == vrfcommon.V2 {
+					txMetaSubID = ptr(p.req.req.SubID().Uint64())
+				}
 				requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
-				subID := p.req.req.SubID()
 				requestTxHash := p.req.req.Raw().TxHash
 				transaction, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
 					FromAddress:    fromAddress,
@@ -1079,7 +1124,8 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 						RequestID:     &requestID,
 						MaxLink:       maxLink,
 						MaxEth:        maxEth,
-						SubID:         &subID,
+						SubID:         txMetaSubID,
+						GlobalSubID:   txMetaGlobalSubID,
 						RequestTxHash: &requestTxHash,
 					},
 					Strategy: txmgrcommon.NewSendEveryStrategy(),
@@ -1117,7 +1163,7 @@ func (lsn *listenerV2) transmitCheckerType() txmgrtypes.TransmitCheckerType {
 
 func (lsn *listenerV2) processRequestsPerSub(
 	ctx context.Context,
-	subID uint64,
+	subID *big.Int,
 	startLinkBalance *big.Int,
 	startEthBalance *big.Int,
 	reqs []pendingRequest,
@@ -1130,13 +1176,13 @@ func (lsn *listenerV2) processRequestsPerSub(
 	var processed = make(map[string]struct{})
 	chainId := lsn.ethClient.ConfiguredChainID()
 	startBalanceNoReserveLink, err := MaybeSubtractReservedLink(
-		lsn.q, startLinkBalance, chainId.Uint64(), subID)
+		lsn.q, startLinkBalance, chainId.Uint64(), subID, lsn.coordinator.Version())
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved LINK for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
 	}
 	startBalanceNoReserveEth, err := MaybeSubtractReservedEth(
-		lsn.q, startEthBalance, lsn.chainID.Uint64(), subID)
+		lsn.q, startEthBalance, lsn.chainID.Uint64(), subID, lsn.coordinator.Version())
 	if err != nil {
 		lsn.l.Errorw("Couldn't get reserved ETH for subscription", "sub", reqs[0].req.SubID(), "err", err)
 		return processed
@@ -1310,7 +1356,7 @@ func (lsn *listenerV2) runPipelines(
 
 func (lsn *listenerV2) estimateFee(
 	ctx context.Context,
-	req *RandomWordsRequested,
+	req RandomWordsRequested,
 	maxGasPriceWei *assets.Wei,
 ) (*big.Int, error) {
 	// NativePayment() returns true if and only if the version is V2+ and the
@@ -1489,7 +1535,7 @@ func (lsn *listenerV2) runLogListener(unsubscribes []func(), minConfs uint32, wg
 	}
 }
 
-func (lsn *listenerV2) getConfirmedAt(req *RandomWordsRequested, nodeMinConfs uint32) uint64 {
+func (lsn *listenerV2) getConfirmedAt(req RandomWordsRequested, nodeMinConfs uint32) uint64 {
 	lsn.respCountMu.Lock()
 	defer lsn.respCountMu.Unlock()
 	// Take the max(nodeMinConfs, requestedConfs + requestedConfsDelay).
@@ -1675,3 +1721,5 @@ func observeRequestSimDuration(jobName string, extJobID uuid.UUID, vrfVersion vr
 		}
 	}
 }
+
+func ptr[T any](t T) *T { return &t }
