@@ -496,7 +496,7 @@ func (d *Delegate) newServicesMercury(
 	relayID := relay.Identifier{Network: spec.Relay, ChainID: chainID}
 	relayer, err := d.RelayGetter.Get(relayID)
 	if err != nil {
-		return nil, errors.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
+		return nil, fmt.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
 	}
 	mercuryProvider, err2 := relayer.NewMercuryProvider(ctx,
 		types.RelayArgs{
@@ -519,7 +519,7 @@ func (d *Delegate) newServicesMercury(
 	}
 	chain, err2 := d.legacyChains.Get(chainID.String())
 	if err2 != nil {
-		return nil, fmt.Errorf("ServicesForSpec failed to get chain", err2)
+		return nil, fmt.Errorf("ServicesForSpec failed to get chain: %w", err2)
 	}
 
 	oracleArgsNoPlugin := libocr2.MercuryOracleArgs{
@@ -580,7 +580,7 @@ func (d *Delegate) newServicesMedian(
 	relayID := relay.Identifier{Network: spec.Relay, ChainID: chainID}
 	relayer, err := d.RelayGetter.Get(relayID)
 	if err != nil {
-		return nil, errors.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
+		return nil, fmt.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
 	}
 
 	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)

@@ -204,10 +204,11 @@ func (r RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.Sta
 }
 
 func (r RelayerFactory) NewCosmos(ks keystore.Cosmos, chainCfgs cosmos.CosmosConfigs, eb pg.EventBroadcaster) (map[relay.Identifier]cosmos.LoopRelayAdapter, error) {
+	relayers := make(map[relay.Identifier]cosmos.LoopRelayAdapter)
+
 	var (
-		relayers map[relay.Identifier]cosmos.LoopRelayAdapter
-		ids      []string
-		lggr     = r.Logger.Named("Cosmos")
+		ids  []string
+		lggr = r.Logger.Named("Cosmos")
 	)
 	for _, c := range chainCfgs {
 		c := c

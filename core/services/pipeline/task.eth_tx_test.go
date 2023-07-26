@@ -11,6 +11,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -542,7 +543,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 			},
-			nil, nil, "not found", pipeline.RunInfo{IsRetryable: true},
+			nil, nil, chains.ErrNoSuchChainID.Error(), pipeline.RunInfo{IsRetryable: true},
 		},
 	}
 
