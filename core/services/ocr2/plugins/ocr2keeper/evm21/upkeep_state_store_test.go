@@ -22,21 +22,21 @@ var (
 		BlockNumber: 125,
 		BlockHash:   "0x1231eqwe12eqwd",
 	}
-	payload2 = ocr2keepers.NewUpkeepPayload(upkeepId1, ConditionalType, BlockKey2, trigger1, []byte{})
-	payload3 = ocr2keepers.NewUpkeepPayload(upkeepId2, LogTriggerType, BlockKey2, trigger1, []byte{})
-	payload4 = ocr2keepers.NewUpkeepPayload(upkeepId1, LogTriggerType, BlockKey1, trigger2, []byte{})
-	payload5 = ocr2keepers.NewUpkeepPayload(upkeepId1, LogTriggerType, BlockKey3, trigger1, []byte{})
+	payload2 = ocr2keepers.NewUpkeepPayload(upkeepId1, conditionalType, blockKey2, trigger1, []byte{})
+	payload3 = ocr2keepers.NewUpkeepPayload(upkeepId2, logTriggerType, blockKey2, trigger1, []byte{})
+	payload4 = ocr2keepers.NewUpkeepPayload(upkeepId1, logTriggerType, blockKey1, trigger2, []byte{})
+	payload5 = ocr2keepers.NewUpkeepPayload(upkeepId1, logTriggerType, blockKey3, trigger1, []byte{})
 )
 
 const (
-	ConditionalType = 0
-	LogTriggerType  = 1
-	Block1          = 111
-	Block3          = 113
-	BlockKey1       = "111|0x123123132132"
-	BlockKey2       = "112|0x565456465465"
-	BlockKey3       = "113|0x111423246546"
-	InvalidBlockKey = "2220x565456465465"
+	conditionalType = 0
+	logTriggerType  = 1
+	block1          = 111
+	block3          = 113
+	blockKey1       = "111|0x123123132132"
+	blockKey2       = "112|0x565456465465"
+	blockKey3       = "113|0x111423246546"
+	invalidBlockKey = "2220x565456465465"
 )
 
 func TestUpkeepStateStore_InvalidBlockKey(t *testing.T) {
@@ -49,10 +49,10 @@ func TestUpkeepStateStore_InvalidBlockKey(t *testing.T) {
 		{
 			name: "failed to split invalid block key",
 			payloads: []ocr2keepers.UpkeepPayload{
-				ocr2keepers.NewUpkeepPayload(upkeepId2, LogTriggerType, InvalidBlockKey, trigger1, []byte{}),
+				ocr2keepers.NewUpkeepPayload(upkeepId2, logTriggerType, invalidBlockKey, trigger1, []byte{}),
 			},
 			states:        []UpkeepState{Performed},
-			expectedError: fmt.Errorf("check block %s is invalid for upkeep %s", InvalidBlockKey, upkeepId2),
+			expectedError: fmt.Errorf("check block %s is invalid for upkeep %s", invalidBlockKey, upkeepId2),
 		},
 	}
 
@@ -122,8 +122,8 @@ func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 			},
 
 			upkeepIds:  []*big.Int{upkeepId1},
-			endBlock:   Block3 + 1,
-			startBlock: Block1,
+			endBlock:   block3 + 1,
+			startBlock: block1,
 			result: []upkeepState{
 				{
 					payload: &payload5,
