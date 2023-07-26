@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mocks"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
@@ -44,19 +43,12 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	require.Nil(t, err, "need utils abi")
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
-	var headTracker httypes.HeadTracker
-	var headBroadcaster httypes.HeadBroadcaster
 	var logPoller logpoller.LogPoller
 	mockRegistry := mocks.NewRegistry(t)
 	mockHttpClient := mocks.NewHttpClient(t)
 	client := evmClientMocks.NewClient(t)
 
 	r := &EvmRegistry{
-		HeadProvider: HeadProvider{
-			ht:     headTracker,
-			hb:     headBroadcaster,
-			chHead: make(chan ocr2keepers.BlockKey, 1),
-		},
 		lggr:     lggr,
 		poller:   logPoller,
 		addr:     addr,

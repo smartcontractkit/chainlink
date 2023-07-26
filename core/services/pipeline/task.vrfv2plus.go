@@ -97,9 +97,9 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid sender")}, runInfo
 	}
-	nativePayment, ok := logValues["nativePayment"].(bool)
+	extraArgs, ok := logValues["extraArgs"].([]byte)
 	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "invalid nativePayment")}, runInfo
+		return Result{Error: errors.Wrapf(ErrBadInput, "invalid extraArgs")}, runInfo
 	}
 	pk, err := secp256k1.NewPublicKeyFromBytes(pubKey)
 	if err != nil {
@@ -125,6 +125,7 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		CallbackGasLimit: callbackGasLimit,
 		NumWords:         numWords,
 		Sender:           sender,
+		ExtraArgs:        extraArgs,
 	}
 	finalSeed := proof.FinalSeedV2Plus(preSeedData)
 	id := hexutil.Encode(pk[:])
@@ -132,7 +133,7 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
-	onChainProof, rc, err := proof.GenerateProofResponseFromProofV2Plus(p, preSeedData, nativePayment)
+	onChainProof, rc, err := proof.GenerateProofResponseFromProofV2Plus(p, preSeedData)
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}

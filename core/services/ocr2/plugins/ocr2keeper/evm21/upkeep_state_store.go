@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-const Separator = "|"
+const BlockKeySeparator = "|"
 
 type upkeepState struct {
 	payload  *ocr2keepers.UpkeepPayload
@@ -82,7 +82,7 @@ func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us Upkee
 	defer u.mu.Unlock()
 
 	upkeepId := big.NewInt(0).SetBytes(pl.Upkeep.ID)
-	arrs := strings.Split(string(pl.CheckBlock), Separator)
+	arrs := strings.Split(string(pl.CheckBlock), BlockKeySeparator)
 	if len(arrs) != 2 {
 		return fmt.Errorf("check block %s is invalid for upkeep %s", pl.CheckBlock, upkeepId)
 	}
