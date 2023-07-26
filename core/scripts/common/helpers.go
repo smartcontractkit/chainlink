@@ -486,6 +486,8 @@ func CalculateLatestBlockHeader(env Environment, blockNumberInput int) (err erro
 		}
 	}
 
+	// GetRLPHeaders method increments the blockNum sent by 1 and then fetches
+	// block headers for the child block.
 	blockNumber = blockNumber - 1
 
 	blockNumberBigInts := []*big.Int{big.NewInt(int64(blockNumber))}
