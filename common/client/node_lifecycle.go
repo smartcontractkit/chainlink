@@ -15,24 +15,24 @@ import (
 )
 
 var (
-	promEVMPoolRPCNodeHighestSeenBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "evm_pool_rpc_node_highest_seen_block",
+	promPoolRPCNodeHighestSeenBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pool_rpc_node_highest_seen_block",
 		Help: "The highest seen block for the given RPC node",
 	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeNumSeenBlocks = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_num_seen_blocks",
+	promPoolRPCNodeNumSeenBlocks = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_seen_blocks",
 		Help: "The total number of new blocks seen by the given RPC node",
 	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodePolls = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_polls_total",
+	promPoolRPCNodePolls = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_polls_total",
 		Help: "The total number of poll checks for the given RPC node",
 	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodePollsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_polls_failed",
+	promPoolRPCNodePollsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_polls_failed",
 		Help: "The total number of failed poll checks for the given RPC node",
 	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodePollsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_polls_success",
+	promPoolRPCNodePollsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_polls_success",
 		Help: "The total number of successful poll checks for the given RPC node",
 	}, []string{"evmChainID", "nodeName"})
 )
@@ -135,7 +135,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 			return
 		case <-pollCh:
 			var version string
-			promEVMPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
+			promPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Polling for version", "nodeState", n.State(), "pollFailures", pollFailures)
 			ctx, cancel := context.WithTimeout(n.nodeCtx, pollInterval)
 			ctx, cancel2 := n.makeQueryCtx(ctx)
@@ -145,13 +145,13 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 			if err != nil {
 				// prevent overflow
 				if pollFailures < math.MaxUint32 {
-					promEVMPoolRPCNodePollsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
+					promPoolRPCNodePollsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
 					pollFailures++
 				}
 				lggr.Warnw(fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", n.String()), "err", err, "pollFailures", pollFailures, "nodeState", n.State())
 			} else {
 				lggr.Debugw("Version poll successful", "nodeState", n.State(), "clientVersion", version)
-				promEVMPoolRPCNodePollsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
+				promPoolRPCNodePollsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
 				pollFailures = 0
 			}
 			if pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold {
@@ -182,10 +182,10 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 				n.declareUnreachable()
 				return
 			}
-			promEVMPoolRPCNodeNumSeenBlocks.WithLabelValues(n.chainID.String(), n.name).Inc()
+			promPoolRPCNodeNumSeenBlocks.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Got head", "head", bh)
 			if bh.BlockNumber() > highestReceivedBlockNumber {
-				promEVMPoolRPCNodeHighestSeenBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(bh.BlockNumber()))
+				promPoolRPCNodeHighestSeenBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(bh.BlockNumber()))
 				lggr.Tracew("Got higher block number, resetting timer", "latestReceivedBlockNumber", highestReceivedBlockNumber, "blockNumber", bh.BlockNumber(), "nodeState", n.State())
 				highestReceivedBlockNumber = bh.BlockNumber()
 			} else {

@@ -11,28 +11,28 @@ import (
 
 // TODO: get rid of "evm" in the following logs
 var (
-	promEVMPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_num_transitions_to_alive",
+	promPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_alive",
 		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateAlive),
 	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeTransitionsToInSync = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_num_transitions_to_in_sync",
+	promPoolRPCNodeTransitionsToInSync = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_in_sync",
 		Help: fmt.Sprintf("Total number of times node has transitioned from %s to %s", NodeStateOutOfSync, NodeStateAlive),
 	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeTransitionsToOutOfSync = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_num_transitions_to_out_of_sync",
+	promPoolRPCNodeTransitionsToOutOfSync = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_out_of_sync",
 		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateOutOfSync),
 	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeTransitionsToUnreachable = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_num_transitions_to_unreachable",
+	promPoolRPCNodeTransitionsToUnreachable = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_unreachable",
 		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateUnreachable),
 	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeTransitionsToInvalidChainID = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_num_transitions_to_invalid_chain_id",
+	promPoolRPCNodeTransitionsToInvalidChainID = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
 		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateInvalidChainID),
 	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_num_transitions_to_unusable",
+	promPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_unusable",
 		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateUnusable),
 	}, []string{"evmChainID", "nodeName"})
 )
@@ -139,7 +139,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 }
 
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) transitionToAlive(fn func()) {
-	promEVMPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
+	promPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == NodeStateClosed {
@@ -165,8 +165,8 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 }
 
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) transitionToInSync(fn func()) {
-	promEVMPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
-	promEVMPoolRPCNodeTransitionsToInSync.WithLabelValues(n.chainID.String(), n.name).Inc()
+	promPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
+	promPoolRPCNodeTransitionsToInSync.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == NodeStateClosed {
@@ -192,7 +192,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 }
 
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) transitionToOutOfSync(fn func()) {
-	promEVMPoolRPCNodeTransitionsToOutOfSync.WithLabelValues(n.chainID.String(), n.name).Inc()
+	promPoolRPCNodeTransitionsToOutOfSync.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == NodeStateClosed {
@@ -217,7 +217,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 }
 
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) transitionToUnreachable(fn func()) {
-	promEVMPoolRPCNodeTransitionsToUnreachable.WithLabelValues(n.chainID.String(), n.name).Inc()
+	promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == NodeStateClosed {
@@ -242,7 +242,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 }
 
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) transitionToInvalidChainID(fn func()) {
-	promEVMPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(n.chainID.String(), n.name).Inc()
+	promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == NodeStateClosed {
