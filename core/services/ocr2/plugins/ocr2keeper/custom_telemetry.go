@@ -25,6 +25,7 @@ type AutomationCustomTelemetryService struct {
 	version             string
 }
 
+// NewAutomationCustomTelemetryService creates a telemetry service for new blocks and node version
 func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster, lggr logger.Logger, vers string) *AutomationCustomTelemetryService {
 	return &AutomationCustomTelemetryService{
 		monitoringEndpoint:  me,
@@ -61,8 +62,6 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 			for {
 				select {
 				case blockKey := <-e.headCh:
-					// marshall protobuf message to bytes
-					// proto.Marshal takes in a pointer to proto message struct
 					blockNumMsg := &telem.BlockNumber{
 						Timestamp:   uint64(time.Now().UTC().UnixMilli()),
 						BlockNumber: uint64(blockKey.block),
@@ -88,6 +87,7 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 	})
 }
 
+// Close stops go routines and closes channels
 func (e *AutomationCustomTelemetryService) Close() error {
 	return e.StopOnce("AutomationCustomTelemetryService", func() error {
 		e.chDone <- struct{}{}
@@ -99,17 +99,18 @@ func (e *AutomationCustomTelemetryService) Close() error {
 	})
 }
 
-// Subscribe and unsubscribe functions
-
+// blockKey contains block and hash info for BlockNumber telemetry message
 type blockKey struct {
 	block int64
 	hash  string
 }
 
+// headWrapper is passed into HeadBroadcaster's subscribe() function, must implement OnNewLongestChain(_ context.Context, head *evmtypes.Head)
 type headWrapper struct {
 	headCh chan blockKey
 }
 
+// OnNewLongestChain sends block number and hash to head channel where message will be sent to monitoring endpoint
 func (hw *headWrapper) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
 	if head != nil {
 		hw.headCh <- blockKey{
