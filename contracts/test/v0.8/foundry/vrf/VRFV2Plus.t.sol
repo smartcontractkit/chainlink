@@ -250,12 +250,13 @@ contract VRFV2Plus is BaseTest {
     });
     (, uint96 ethBalanceBefore, , ) = s_testCoordinator.getSubscription(subId);
     vm.expectEmit(true, true, false, true);
+    uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
     emit RandomWordsFulfilled(
       requestId,
-      60034167071501806643072794052071072761405686871992035105939762990515855633675,
+      outputSeed,
       subId,
-      122504,
-      hex"92fd13380000000000000000000000000000000000000000000000000000000000000001",
+      122500,
+      rc.extraArgs,
       true
     );
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
@@ -364,13 +365,14 @@ contract VRFV2Plus is BaseTest {
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
     });
     (uint96 linkBalanceBefore, , , ) = s_testCoordinator.getSubscription(subId);
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, false, true);
+    uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
     emit RandomWordsFulfilled(
       requestId,
-      52264241869511974638411763745023183583134171221435073997048284446220293399223,
+      outputSeed,
       subId,
-      290980,
-      hex"92fd13380000000000000000000000000000000000000000000000000000000000000000",
+      290972,
+      rc.extraArgs,
       true
     );
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);

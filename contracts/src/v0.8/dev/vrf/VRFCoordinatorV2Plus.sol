@@ -378,7 +378,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   function getRandomnessFromProof(
     Proof calldata proof,
     RequestCommitment calldata rc
-  ) private view returns (Output memory) {
+  ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     // Only registered proving keys are permitted.
     address oracle = s_provingKeys[keyHash];
