@@ -58,7 +58,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		PerformDatas: make([][]byte, len(results)),
 	}
 
-	fmt.Printf("[EVMAutomationEncoder21] encoding %d results\n", len(results))
+	encoded := 0
 
 	for i, result := range results {
 		ext, ok := result.Extension.(EVMAutomationResultExtension21)
@@ -104,7 +104,10 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		}
 		report.Triggers[i] = trigger
 		report.PerformDatas[i] = result.PerformData
+		encoded++
 	}
+
+	fmt.Printf("[automation-ocr3|EvmRegistry|Encoder] encoded %d out of %d results\n", encoded, len(results))
 
 	return enc.packer.PackReport(report)
 }
@@ -143,7 +146,9 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 			PerformData: report.PerformDatas[i],
 		}
 	}
-	fmt.Printf("[EVMAutomationEncoder21] extracted %d results\n", len(reportedUpkeeps))
+
+	fmt.Printf("[automation-ocr3|EvmRegistry|Encoder] extracted %d results\n", len(reportedUpkeeps))
+
 	return reportedUpkeeps, nil
 }
 
