@@ -312,13 +312,12 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	go func() {
 		time.Sleep(time.Minute * 2)
 		interruption <- syscall.SIGTERM
-		time.Sleep(time.Second * 8) // Default time limit before K8s starts forceful shutdown
 	}()
 
 	for {
 		select {
 		case <-interruption:
-			o.log.Warn().Msg("Test interrupted, saving state")
+			o.log.Warn().Msg("Test interrupted, saving state before shut down")
 			saveStart := time.Now()
 			if err := o.SaveState(); err != nil {
 				o.log.Error().Err(err).Msg("Error saving state")
@@ -419,6 +418,8 @@ func (o *OCRSoakTest) SaveState() error {
 		return err
 	}
 	fmt.Println("---Saved State---")
+	fmt.Println(saveFileLocation)
+	fmt.Println("-----------------")
 	fmt.Println(string(data))
 	fmt.Println("-----------------")
 	return nil
@@ -441,6 +442,7 @@ func (o *OCRSoakTest) LoadState() error {
 	}
 	fmt.Println("---Loaded State---")
 	fmt.Println(saveFileLocation)
+	fmt.Println("------------------")
 	fmt.Println(string(saveData))
 	fmt.Println("------------------")
 
@@ -484,6 +486,7 @@ func (o *OCRSoakTest) LoadState() error {
 }
 
 func (o *OCRSoakTest) Resume() {
+	log.Info().Str("Time Left", o.Inputs.TestDuration.String()).Msg("Resuming OCR Soak Test")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
 	cancel()
