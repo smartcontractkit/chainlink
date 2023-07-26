@@ -3193,7 +3193,7 @@ describe('KeeperRegistry2_1', () => {
           data: ethers.utils.randomBytes(1000),
         }
 
-        await ltUpkeep.mock.checkLog.withArgs(log).returns(true, '0x1234')
+        await ltUpkeep.mock.checkLog.withArgs(log, '0x').returns(true, '0x1234')
 
         const checkData = encodeLog(log)
 
