@@ -487,7 +487,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
     if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
-    if (s_upkeep[id].performGas != 0) revert UpkeepAlreadyExists();
+    if (address(s_upkeep[id].forwarder) != address(0)) revert UpkeepAlreadyExists();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
