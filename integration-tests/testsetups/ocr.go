@@ -310,7 +310,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 
 	// DEBUG: Trigger interruption to see how we do
 	go func() {
-		time.Sleep(time.Minute * time.Duration(rand.Intn(3)))
+		time.Sleep(time.Second * time.Duration(rand.Intn(3*60)))
 		interruption <- syscall.SIGTERM
 	}()
 
