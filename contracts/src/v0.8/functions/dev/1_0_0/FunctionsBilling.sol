@@ -82,7 +82,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   error MustBeSubOwner(address owner);
   error GasLimitTooBig(uint32 have, uint32 want);
   error InvalidLinkWeiPrice(int256 linkWei);
-  error InvalidBasisPoints();
   error PaymentTooLarge();
   error NoTransmittersSet();
   error InvalidCalldata();
@@ -137,9 +136,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
     if (fallbackNativePerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackNativePerUnitLink);
-    }
-    if (fulfillmentGasPriceOverEstimationBP < 10_000) {
-      revert InvalidBasisPoints();
     }
     s_config = Config({
       maxCallbackGasLimit: maxCallbackGasLimit,

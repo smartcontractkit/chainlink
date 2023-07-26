@@ -84,7 +84,7 @@ export const coordinatorConfig: CoordinatorConfig = {
   donFee: 0,
   fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
   maxSupportedRequestDataVersion: 1,
-  fulfillmentGasPriceOverEstimationBP: 10_000,
+  fulfillmentGasPriceOverEstimationBP: 0,
 }
 export const accessControlMockPublicKey =
   '0x32237412cC0321f56422d206e505dB4B3871AF5c'

@@ -1,23 +1,15 @@
-import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   getSetupFactory,
   FunctionsContracts,
-  FunctionsRoles,
   functionsRouterConfig,
-  stringToHex,
-  anyValue,
-  createSubscription,
 } from './utils'
 
 const setup = getSetupFactory()
 let contracts: FunctionsContracts
-let roles: FunctionsRoles
-
-const donLabel = ethers.utils.formatBytes32String('1')
 
 beforeEach(async () => {
-  ;({ contracts, roles } = setup())
+  ;({ contracts } = setup())
 })
 
 describe('Functions Router - Request lifecycle', () => {
