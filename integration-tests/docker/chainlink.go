@@ -63,16 +63,18 @@ LogPoller = true
 FeedsManager = true
 UICSAKeys = true
 
-[JobPipeline]
-MaxSuccessfulRuns = 0
+[OCR]
+Enabled = true
 
 [OCR2]
 Enabled = true
 
 [P2P]
-[P2P.V2]
+
+[P2P.V1]
 Enabled = true
-ListenAddresses = ['0.0.0.0:6690']
+ListenIP = '0.0.0.0'
+ListenPort = 6690
 `
 
 	NodeSecretsTemplate = `
@@ -179,7 +181,7 @@ func nodeContainerRequest(name string, nodeConfOpts NodeConfigOpts, secrets stri
 	return &tc.ContainerRequest{
 		Name:         fmt.Sprintf("%s-%s", name, id.String()[0:5]),
 		Image:        fmt.Sprintf("%s:%s", image, tag),
-		ExposedPorts: []string{"6688/tcp"},
+		ExposedPorts: []string{"6688/tcp", "6690/tcp"},
 		Entrypoint: []string{"chainlink",
 			"-c", configPath,
 			"-s", secretsPath,
@@ -187,11 +189,10 @@ func nodeContainerRequest(name string, nodeConfOpts NodeConfigOpts, secrets stri
 			"-p", adminCredsPath,
 			"-a", apiCredsPath,
 		},
-		Networks:           networks,
-		HostConfigModifier: ContainerResources(50000, 500),
+		Networks: networks,
 		WaitingFor: tcwait.ForHTTP("/health").
 			WithPort("6688/tcp").
-			WithStartupTimeout(90 * time.Second).
+			WithStartupTimeout(120 * time.Second).
 			WithPollInterval(1 * time.Second),
 		Files: []tc.ContainerFile{
 			{
@@ -305,20 +306,6 @@ func (m *Chainlink) Start(network, name string, cfg any) (Component, error) {
 	log.Info().Str("containerName", ctName).
 		Str("clEndpoint", clEndpoint).
 		Msg("Started Chainlink Node container")
-
-	//clClient, err := client.NewChainlink(&client.ChainlinkConfig{
-	//	URL:      clEndpoint,
-	//	Email:    "local@local.com",
-	//	Password: "localdevpassword",
-	//})
-	//if err != nil {
-	//	return errors.Wrapf(err, "could not connect Node HTTP Client")
-	//}
-	//
-	//b.NodeC = clC
-	//b.DbC = &dbContainer
-	//b.API = clClient
-
 	return m, nil
 }
 
@@ -332,8 +319,7 @@ func pgContainerRequest(o PgOpts) tc.ContainerRequest {
 			"POSTGRES_DB":       o.DbName,
 			"POSTGRES_PASSWORD": o.Password,
 		},
-		Networks:           o.Networks,
-		HostConfigModifier: ContainerResources(50000, 500),
+		Networks: o.Networks,
 		WaitingFor: tcwait.ForExec([]string{"psql", "-h", "localhost",
 			"-U", o.User, "-c", "select", "1", "-d", o.DbName}).
 			WithStartupTimeout(90 * time.Second),

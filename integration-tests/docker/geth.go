@@ -205,8 +205,6 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 		WaitingFor: tcwait.ForLog("Commit new sealing work").
 			WithStartupTimeout(999 * time.Second).
 			WithPollInterval(1 * time.Second),
-		HostConfigModifier: ContainerResources(100000, 1024),
-		// Entrypoint:   []string{"tail", "-f", "/dev/null"},
 		Entrypoint: []string{"sh", "./root/init.sh",
 			"--dev",
 			"--password", "/root/config/password.txt",

@@ -6,6 +6,7 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
@@ -22,9 +23,10 @@ type Endpoints struct {
 }
 
 type Clients struct {
-	Networks   []blockchain.EVMClient
-	Mockserver *ctfClient.MockserverClient
-	Chainlink  []*client.Chainlink
+	Networks         []blockchain.EVMClient
+	NetworkDeployers []contracts.ContractDeployer
+	Mockserver       *ctfClient.MockserverClient
+	Chainlink        []*client.Chainlink
 }
 
 func ConnectClients(env *Environment) (*Clients, error) {
@@ -51,8 +53,13 @@ func ConnectClients(env *Environment) (*Clients, error) {
 		if err != nil {
 			return nil, err
 		}
+		cd, err := contracts.NewContractDeployer(c)
+		if err != nil {
+			return nil, err
+		}
 		endpoints.Networks = append(endpoints.Networks, url)
 		clients.Networks = append(clients.Networks, c)
+		clients.NetworkDeployers = append(clients.NetworkDeployers, cd)
 	}
 
 	// cl nodes
@@ -97,7 +104,7 @@ func NewChainlinkCluster(t *testing.T, nodes int) (*Environment, error) {
 				WSURL:   gethComponent.InternalWsUrl,
 			}}))
 	}
-	env, err = env.Start(true)
+	env, err = env.Start(false)
 	require.NoError(t, err)
 	return env, nil
 }

@@ -83,8 +83,7 @@ func msContainerRequest(network, name string) *tc.ContainerRequest {
 		Env: map[string]string{
 			"SERVER_PORT": "1080",
 		},
-		Networks:           []string{network},
-		HostConfigModifier: ContainerResources(50000, 500),
+		Networks: []string{network},
 		WaitingFor: tcwait.ForLog("INFO 1080 started on port: 1080").
 			WithStartupTimeout(90 * time.Second).
 			WithPollInterval(1 * time.Second),

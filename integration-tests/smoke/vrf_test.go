@@ -4,69 +4,50 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 )
 
 func TestVRFBasic(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	testEnvironment, testNetwork := setupVRFTest(t)
-	if testEnvironment.WillUseRemoteRunner() {
-		return
-	}
+	env, err := docker.NewChainlinkCluster(t, 1)
+	require.NoError(t, err)
+	clients, err := docker.ConnectClients(env)
+	require.NoError(t, err)
+	clients.Networks[0].ParallelTransactions(true)
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
-	require.NoError(t, err, "Connecting client shouldn't fail")
-	cd, err := contracts.NewContractDeployer(chainClient)
-	require.NoError(t, err, "Deploying contracts shouldn't fail")
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
-	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
-		require.NoError(t, err, "Error tearing down environment")
-	})
-	chainClient.ParallelTransactions(true)
-
-	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
+	err = actions.FundChainlinkNodes(clients.Chainlink, clients.Networks[0], big.NewFloat(.01))
 	require.NoError(t, err, "Funding chainlink nodes with ETH shouldn't fail")
 
-	lt, err := cd.DeployLinkTokenContract()
+	lt, err := clients.NetworkDeployers[0].DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	bhs, err := cd.DeployBlockhashStore()
+	bhs, err := clients.NetworkDeployers[0].DeployBlockhashStore()
 	require.NoError(t, err, "Deploying Blockhash store shouldn't fail")
-	coordinator, err := cd.DeployVRFCoordinator(lt.Address(), bhs.Address())
+	coordinator, err := clients.NetworkDeployers[0].DeployVRFCoordinator(lt.Address(), bhs.Address())
 	require.NoError(t, err, "Deploying VRF coordinator shouldn't fail")
-	consumer, err := cd.DeployVRFConsumer(lt.Address(), coordinator.Address())
+	consumer, err := clients.NetworkDeployers[0].DeployVRFConsumer(lt.Address(), coordinator.Address())
 	require.NoError(t, err, "Deploying VRF consumer contract shouldn't fail")
-	err = chainClient.WaitForEvents()
+	err = clients.Networks[0].WaitForEvents()
 	require.NoError(t, err, "Failed to wait for VRF setup contracts to deploy")
 
 	err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Funding consumer contract shouldn't fail")
-	_, err = cd.DeployVRFContract()
+	_, err = clients.NetworkDeployers[0].DeployVRFContract()
 	require.NoError(t, err, "Deploying VRF contract shouldn't fail")
-	err = chainClient.WaitForEvents()
+	err = clients.Networks[0].WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 
-	for _, n := range chainlinkNodes {
+	for _, n := range clients.Chainlink {
 		nodeKey, err := n.MustCreateVRFKey()
 		require.NoError(t, err, "Creating VRF key shouldn't fail")
 		l.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")
@@ -109,7 +90,7 @@ func TestVRFBasic(t *testing.T) {
 		gom := gomega.NewGomegaWithT(t)
 		timeout := time.Minute * 2
 		gom.Eventually(func(g gomega.Gomega) {
-			jobRuns, err := chainlinkNodes[0].MustReadRunsByJob(job.Data.ID)
+			jobRuns, err := clients.Chainlink[0].MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Job execution shouldn't fail")
 
 			out, err := consumer.RandomnessOutput(context.Background())
@@ -126,29 +107,4 @@ func TestVRFBasic(t *testing.T) {
 			l.Debug().Uint64("Output", out.Uint64()).Msg("Randomness fulfilled")
 		}, timeout, "1s").Should(gomega.Succeed())
 	}
-}
-
-func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
-	evmConfig := ethereum.New(nil)
-	if !testNetwork.Simulated {
-		evmConfig = ethereum.New(&ethereum.Props{
-			NetworkName: testNetwork.Name,
-			Simulated:   testNetwork.Simulated,
-			WsURLs:      testNetwork.URLs,
-		})
-	}
-	cd, err := chainlink.NewDeployment(1, map[string]interface{}{
-		"toml": client.AddNetworksConfig("", testNetwork),
-	})
-	require.NoError(t, err, "Error creating chainlink deployment")
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
-	}).
-		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
-	require.NoError(t, err, "Error running test environment")
-	return testEnvironment, testNetwork
 }

@@ -3,78 +3,55 @@ package smoke
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker"
+	"github.com/stretchr/testify/require"
 	"math/big"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 func TestFluxBasic(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	testEnvironment, testNetwork := setupFluxTest(t)
-	if testEnvironment.WillUseRemoteRunner() {
-		return
-	}
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
-	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
-	require.NoError(t, err, "Deploying contracts shouldn't fail")
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
-	nodeAddresses, err := actions.ChainlinkNodeAddresses(chainlinkNodes)
+	env, err := docker.NewChainlinkCluster(t, 3)
+	require.NoError(t, err)
+	clients, err := docker.ConnectClients(env)
+	require.NoError(t, err)
+	err = clients.Mockserver.SetValuePath("/variable", 5)
+	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
+	nodeAddresses, err := actions.ChainlinkNodeAddresses(clients.Chainlink)
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
-	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
-	require.NoError(t, err, "Creating mock server client shouldn't fail")
-	// Register cleanup
-	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
-		require.NoError(t, err, "Error tearing down environment")
-	})
+	clients.Networks[0].ParallelTransactions(true)
 
-	chainClient.ParallelTransactions(true)
-
-	adapterUUID := uuid.New().String()
+	adapterUUID := uuid.NewString()
 	adapterPath := fmt.Sprintf("/variable-%s", adapterUUID)
-	err = mockServer.SetValuePath(adapterPath, 1e5)
+	err = clients.Mockserver.SetValuePath(adapterPath, 1e5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
-	linkToken, err := contractDeployer.DeployLinkTokenContract()
+	linkToken, err := clients.NetworkDeployers[0].DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	fluxInstance, err := contractDeployer.DeployFluxAggregatorContract(linkToken.Address(), contracts.DefaultFluxAggregatorOptions())
+	fluxInstance, err := clients.NetworkDeployers[0].DeployFluxAggregatorContract(linkToken.Address(), contracts.DefaultFluxAggregatorOptions())
 	require.NoError(t, err, "Deploying Flux Aggregator Contract shouldn't fail")
-	err = chainClient.WaitForEvents()
+	err = clients.Networks[0].WaitForEvents()
 	require.NoError(t, err, "Failed waiting for deployment of flux aggregator contract")
 
 	err = linkToken.Transfer(fluxInstance.Address(), big.NewInt(1e18))
 	require.NoError(t, err, "Funding Flux Aggregator Contract shouldn't fail")
-	err = chainClient.WaitForEvents()
+	err = clients.Networks[0].WaitForEvents()
 	require.NoError(t, err, "Failed waiting for funding of flux aggregator contract")
 
 	err = fluxInstance.UpdateAvailableFunds()
 	require.NoError(t, err, "Updating the available funds on the Flux Aggregator Contract shouldn't fail")
 
-	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.02))
+	err = actions.FundChainlinkNodes(clients.Chainlink, clients.Networks[0], big.NewFloat(.02))
 	require.NoError(t, err, "Funding chainlink nodes with ETH shouldn't fail")
 
 	err = fluxInstance.SetOracles(
@@ -87,18 +64,18 @@ func TestFluxBasic(t *testing.T) {
 			RestartDelayRounds: 0,
 		})
 	require.NoError(t, err, "Setting oracle options in the Flux Aggregator contract shouldn't fail")
-	err = chainClient.WaitForEvents()
+	err = clients.Networks[0].WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	oracles, err := fluxInstance.GetOracles(context.Background())
 	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
 	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
-	adapterFullURL := fmt.Sprintf("%s%s", mockServer.Config.ClusterURL, adapterPath)
+	adapterFullURL := fmt.Sprintf("%s%s", clients.Mockserver.Config.ClusterURL, adapterPath)
 	bta := &client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("variable-%s", adapterUUID),
 		URL:  adapterFullURL,
 	}
-	for i, n := range chainlinkNodes {
+	for i, n := range clients.Chainlink {
 		err = n.MustCreateBridge(bta)
 		require.NoError(t, err, "Creating bridge shouldn't fail for node %d", i+1)
 
@@ -118,8 +95,8 @@ func TestFluxBasic(t *testing.T) {
 	// initial value set is performed before jobs creation
 	fluxRoundTimeout := 2 * time.Minute
 	fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
-	chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
-	err = chainClient.WaitForEvents()
+	clients.Networks[0].AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
+	err = clients.Networks[0].WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	data, err := fluxInstance.GetContractData(context.Background())
 	require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
@@ -136,10 +113,10 @@ func TestFluxBasic(t *testing.T) {
 		"Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
 
 	fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
-	chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
-	err = mockServer.SetValuePath(adapterPath, 1e10)
+	clients.Networks[0].AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
+	err = clients.Mockserver.SetValuePath(adapterPath, 1e10)
 	require.NoError(t, err, "Setting value path in mock server shouldn't fail")
-	err = chainClient.WaitForEvents()
+	err = clients.Networks[0].WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	data, err = fluxInstance.GetContractData(context.Background())
 	require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
@@ -158,33 +135,4 @@ func TestFluxBasic(t *testing.T) {
 		require.Equal(t, int64(2), payment.Int64(),
 			"Expected flux aggregator contract's withdrawable payment to be %d, but found %d", int64(2), payment.Int64())
 	}
-}
-
-func setupFluxTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
-	evmConf := ethereum.New(nil)
-	if !testNetwork.Simulated {
-		evmConf = ethereum.New(&ethereum.Props{
-			NetworkName: testNetwork.Name,
-			Simulated:   testNetwork.Simulated,
-			WsURLs:      testNetwork.URLs,
-		})
-	}
-	baseTOML := `[OCR]
-Enabled = true`
-	cd, err := chainlink.NewDeployment(3, map[string]interface{}{
-		"toml": client.AddNetworksConfig(baseTOML, testNetwork),
-	})
-	require.NoError(t, err, "Error creating chainlink deployment")
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
-	}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConf).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
-	require.NoError(t, err, "Error running test environment")
-	return testEnvironment, testNetwork
 }
