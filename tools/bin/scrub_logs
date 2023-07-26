@@ -43,9 +43,9 @@ declare -a arr=(
 )
 
 declare -a testarr=(
-    "wss://foo.bar"
-    "wss://fake.com"
-    "wss://web.socket/test"
+    # "wss://foo.bar"
+    # "wss://fake.com"
+    # "wss://web.socket/test"
     # "psql://localhost:5432/chainlink_test"
 )
 

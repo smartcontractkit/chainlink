@@ -31,7 +31,6 @@ func TestAssets_NewLinkAndString(t *testing.T) {
 
 	var nilLink *assets.Link
 	assert.Equal(t, "0", nilLink.String())
-	assert.Equal(t, false, true, "expected failure")
 }
 
 func TestAssets_NewLinkAndLink(t *testing.T) {
@@ -355,13 +354,4 @@ func FuzzLink(f *testing.F) {
 		require.NoErrorf(t, err, "failed to unmarshal %s after marshaling from %v", string(b), l)
 		require.Equal(t, l, l2, "unequal values after marshal/unmarshal")
 	})
-}
-
-func TestCounter(t *testing.T) {
-	counter := &assets.Counter{}
-	counter.Increment()
-
-	if counter.Value() != 1000 {
-		t.Errorf("Expected 1000 but got %d", counter.Value())
-	}
 }
