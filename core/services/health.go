@@ -1,6 +1,9 @@
 package services
 
 import (
+	"context"
+	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -8,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -229,4 +233,43 @@ func (c *checker) IsHealthy() (healthy bool, errors map[string]error) {
 	}
 
 	return
+}
+
+type InBackupHealthReport struct {
+	server http.Server
+	lggr   logger.Logger
+}
+
+func (i *InBackupHealthReport) Stop() {
+	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), time.Second)
+	defer shutdownRelease()
+	if err := i.server.Shutdown(shutdownCtx); err != nil {
+		i.lggr.Errorf("InBackupHealthReport shutdown error: %v", err)
+	}
+	i.lggr.Info("InBackupHealthReport shutdown complete")
+}
+
+func (i *InBackupHealthReport) Start() {
+	go func() {
+		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, err := w.Write([]byte("Database backup in progress..."))
+			if err != nil {
+				i.lggr.Errorf("Cannot write response to /health")
+			}
+		})
+		i.lggr.Info("Starting InBackupHealthReport")
+		if err := i.server.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
+			i.lggr.Errorf("InBackupHealthReport server error: %v", err)
+		}
+	}()
+}
+
+// NewInBackupHealthReport creates a new InBackupHealthReport that will serve the /health endpoint, useful for
+// preventing shutdowns due to health-checks when running long backup tasks
+func NewInBackupHealthReport(port uint16, lggr logger.Logger) *InBackupHealthReport {
+	return &InBackupHealthReport{
+		server: http.Server{Addr: fmt.Sprintf(":%d", port), ReadHeaderTimeout: time.Second * 5},
+		lggr:   lggr,
+	}
 }

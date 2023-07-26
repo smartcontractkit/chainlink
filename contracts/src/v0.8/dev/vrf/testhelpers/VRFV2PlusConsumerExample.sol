@@ -12,6 +12,7 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   LinkTokenInterface public s_linkToken;
   uint256 public s_recentRequestId;
   IVRFCoordinatorV2Plus public s_vrfCoordinatorApiV1;
+  uint256 public s_subId;
 
   struct Response {
     bool fulfilled;
@@ -84,7 +85,7 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
     }
   }
 
-  function getSubId() external view returns (uint64) {
-    return s_subId;
+  function setSubId(uint256 subId) external {
+    s_subId = subId;
   }
 }

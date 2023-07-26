@@ -11,6 +11,7 @@ import { IKeeperRegistryMaster__factory as IKeeperRegistryMasterFactory } from '
 import { IAutomationRegistryConsumer__factory as IAutomationRegistryConsumerFactory } from '../../../typechain/factories/IAutomationRegistryConsumer__factory'
 import { MigratableKeeperRegistryInterface__factory as MigratableKeeperRegistryInterfaceFactory } from '../../../typechain/factories/MigratableKeeperRegistryInterface__factory'
 import { MigratableKeeperRegistryInterfaceV2__factory as MigratableKeeperRegistryInterfaceV2Factory } from '../../../typechain/factories/MigratableKeeperRegistryInterfaceV2__factory'
+import { OCR2Abstract__factory as OCR2AbstractFactory } from '../../../typechain/factories/OCR2Abstract__factory'
 
 type Entry = {
   inputs?: any[]
@@ -141,6 +142,13 @@ describe('IKeeperRegistryMaster', () => {
     assertSatisfiesInterface(
       IKeeperRegistryMasterFactory.abi,
       MigratableKeeperRegistryInterfaceV2Factory.abi,
+    )
+  })
+
+  it('satisfies the OCR2Abstract interface', async () => {
+    assertSatisfiesInterface(
+      IKeeperRegistryMasterFactory.abi,
+      OCR2AbstractFactory.abi,
     )
   })
 })

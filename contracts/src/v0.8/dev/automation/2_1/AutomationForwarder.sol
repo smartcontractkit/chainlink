@@ -12,18 +12,15 @@ uint256 constant PERFORM_GAS_CUSHION = 5_000;
  * which stays consistent between migrations. The Forwarder also exposes the registry address, so that users who
  * want to programatically interact with the registry (ie top up funds) can do so.
  */
-contract AutomationForwarder is TypeAndVersionInterface {
-  IAutomationRegistryConsumer private s_registry;
+contract AutomationForwarder {
   address private immutable i_target;
-  uint256 private immutable i_upkeepID;
-  string public constant override typeAndVersion = "AutomationForwarder 1.0.0";
+  address private immutable i_logic;
+  IAutomationRegistryConsumer private s_registry;
 
-  error NotAuthorized();
-
-  constructor(uint256 upkeepID, address target, address registry) {
+  constructor(address target, address registry, address logic) {
     s_registry = IAutomationRegistryConsumer(registry);
     i_target = target;
-    i_upkeepID = upkeepID;
+    i_logic = logic;
   }
 
   /**
@@ -33,7 +30,7 @@ contract AutomationForwarder is TypeAndVersionInterface {
    * @return success indicating whether the target call succeeded or failed
    */
   function forward(uint256 gasAmount, bytes memory data) external returns (bool success, uint256 gasUsed) {
-    if (msg.sender != address(s_registry)) revert NotAuthorized();
+    if (msg.sender != address(s_registry)) revert();
     address target = i_target;
     gasUsed = gasleft();
     assembly {
@@ -59,33 +56,34 @@ contract AutomationForwarder is TypeAndVersionInterface {
     return (success, gasUsed);
   }
 
-  /**
-   * @notice updateRegistry is called by the registry during migrations
-   * @param newRegistry is the registry that this forwarder is being migrated to
-   */
-  function updateRegistry(address newRegistry) external {
-    if (msg.sender != address(s_registry)) revert NotAuthorized();
-    s_registry = IAutomationRegistryConsumer(newRegistry);
-  }
-
-  /**
-   * @notice gets the registry address
-   */
-  function getRegistry() external view returns (IAutomationRegistryConsumer) {
-    return s_registry;
-  }
-
-  /**
-   * @notice gets the target contract address
-   */
   function getTarget() external view returns (address) {
     return i_target;
   }
 
-  /**
-   * @notice gets the upkeepID that this forwarder belongs to
-   */
-  function getUpkeepID() external view returns (uint256) {
-    return i_upkeepID;
+  fallback() external {
+    // copy to memory for assembly access
+    address logic = i_logic;
+    // copied directly from OZ's Proxy contract
+    assembly {
+      // Copy msg.data. We take full control of memory in this inline assembly
+      // block because it will not return to Solidity code. We overwrite the
+      // Solidity scratch pad at memory position 0.
+      calldatacopy(0, 0, calldatasize())
+
+      // out and outsize are 0 because we don't know the size yet.
+      let result := delegatecall(gas(), logic, 0, calldatasize(), 0, 0)
+
+      // Copy the returned data.
+      returndatacopy(0, 0, returndatasize())
+
+      switch result
+      // delegatecall returns 0 on error.
+      case 0 {
+        revert(0, returndatasize())
+      }
+      default {
+        return(0, returndatasize())
+      }
+    }
   }
 }

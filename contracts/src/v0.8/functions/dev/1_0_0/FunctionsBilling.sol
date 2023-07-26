@@ -59,6 +59,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     // The highest support request data version supported by the node
     // All lower versions should also be supported
     uint16 maxSupportedRequestDataVersion;
+    // Percentage of gas price overestimation to account for changes in gas price between request and response
+    // Held as basis points (one hundredth of 1 percentage point)
+    uint256 fulfillmentGasPriceOverEstimationBP;
   }
   Config private s_config;
   event ConfigSet(
@@ -67,8 +70,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint32 gasOverheadBeforeCallback,
     uint32 gasOverheadAfterCallback,
     int256 fallbackNativePerUnitLink,
-    uint96 fee,
-    uint16 maxSupportedRequestDataVersion
+    uint96 donFee,
+    uint16 maxSupportedRequestDataVersion,
+    uint256 fulfillmentGasPriceOverEstimationBP
   );
 
   error UnsupportedRequestDataVersion();
@@ -76,10 +80,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   error InvalidSubscription();
   error UnauthorizedSender();
   error MustBeSubOwner(address owner);
-  error GasLimitTooBig(uint32 have, uint32 want);
   error InvalidLinkWeiPrice(int256 linkWei);
   error PaymentTooLarge();
   error NoTransmittersSet();
+  error InvalidCalldata();
 
   // ================================================================
   // |                        Balance state                         |
@@ -113,13 +117,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
   /**
    * @notice Sets the configuration of the Chainlink Functions billing registry
-   * @param config bytes of config data to set the following:
-   *  - maxCallbackGasLimit: global max for request gas limit
-   *  - feedStalenessSeconds: if the eth/link feed is more stale then this, use the fallback price
-   *  - gasOverheadAfterCallback: gas used in doing accounting after completing the gas measurement
-   *  - fallbackNativePerUnitLink: fallback eth/link price in the case of a stale feed
-   *  - gasOverheadBeforeCallback: average gas execution cost used in estimating total cost
-   *  - requestTimeoutSeconds: e2e timeout after which user won't be charged
+   * @param config bytes of abi.encoded config data to set the following:
+   *  See the content of the Config struct above
    */
   function _setConfig(bytes memory config) internal override {
     (
@@ -130,8 +129,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       int256 fallbackNativePerUnitLink,
       uint32 requestTimeoutSeconds,
       uint96 donFee,
-      uint16 maxSupportedRequestDataVersion
-    ) = abi.decode(config, (uint32, uint32, uint32, uint32, int256, uint32, uint96, uint16));
+      uint16 maxSupportedRequestDataVersion,
+      uint256 fulfillmentGasPriceOverEstimationBP
+    ) = abi.decode(config, (uint32, uint32, uint32, uint32, int256, uint32, uint96, uint16, uint256));
 
     if (fallbackNativePerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackNativePerUnitLink);
@@ -144,7 +144,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       requestTimeoutSeconds: requestTimeoutSeconds,
       donFee: donFee,
       fallbackNativePerUnitLink: fallbackNativePerUnitLink,
-      maxSupportedRequestDataVersion: maxSupportedRequestDataVersion
+      maxSupportedRequestDataVersion: maxSupportedRequestDataVersion,
+      fulfillmentGasPriceOverEstimationBP: fulfillmentGasPriceOverEstimationBP
     });
     emit ConfigSet(
       maxCallbackGasLimit,
@@ -153,7 +154,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       gasOverheadAfterCallback,
       fallbackNativePerUnitLink,
       donFee,
-      maxSupportedRequestDataVersion
+      maxSupportedRequestDataVersion,
+      fulfillmentGasPriceOverEstimationBP
     );
   }
 
@@ -171,7 +173,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       int256 fallbackNativePerUnitLink,
       uint32 gasOverheadBeforeCallback,
       address linkPriceFeed,
-      uint16 maxSupportedRequestDataVersion
+      uint16 maxSupportedRequestDataVersion,
+      uint256 fulfillmentGasPriceOverEstimationBP
     )
   {
     return (
@@ -181,7 +184,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       s_config.fallbackNativePerUnitLink,
       s_config.gasOverheadBeforeCallback,
       address(LINK_TO_NATIVE_FEED),
-      s_config.maxSupportedRequestDataVersion
+      s_config.maxSupportedRequestDataVersion,
+      s_config.fulfillmentGasPriceOverEstimationBP
     );
   }
 
@@ -233,6 +237,12 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint32 callbackGasLimit,
     uint256 gasPrice
   ) external view override returns (uint96) {
+    // Reasonable ceilings to prevent integer overflows
+    IFunctionsRouter router = IFunctionsRouter(address(s_router));
+    router.isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
+    if (gasPrice > 1_000_000) {
+      revert InvalidCalldata();
+    }
     RequestBilling memory billing = RequestBilling(subscriptionId, msg.sender, callbackGasLimit, gasPrice);
     uint96 donFee = getDONFee(data, billing);
     uint96 adminFee = getAdminFee(data, billing);
@@ -254,8 +264,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
+    uint256 gasPriceWithOverestimation = gasPrice +
+      ((gasPrice * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 * gasPrice * executionGas) / uint256(weiPerUnitLink);
+    uint256 paymentNoFee = (1e18 * gasPriceWithOverestimation * executionGas) / uint256(weiPerUnitLink);
     uint256 fee = uint256(donFee) + uint256(adminFee);
     if (paymentNoFee > (1e27 - fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
@@ -285,12 +297,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     // Nodes should support all past versions of the structure
     if (requestDataVersion > s_config.maxSupportedRequestDataVersion) {
       revert UnsupportedRequestDataVersion();
-    }
-
-    // No lower bound on the requested gas limit. A user could request 0
-    // and they would simply be billed for the gas and computation.
-    if (billing.callbackGasLimit > s_config.maxCallbackGasLimit) {
-      revert GasLimitTooBig(billing.callbackGasLimit, s_config.maxCallbackGasLimit);
     }
 
     // Check that subscription can afford the estimated cost

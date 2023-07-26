@@ -20,7 +20,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     uint64 subscriptionId,
     address subscriptionOwner,
     bytes data,
-    uint16 dataVersion
+    uint16 dataVersion,
+    bytes32 flags,
+    uint64 callbackGasLimit
   );
   event OracleResponse(bytes32 indexed requestId, address transmitter);
   event InvalidRequestID(bytes32 indexed requestId);
@@ -53,6 +55,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    * @inheritdoc IFunctionsCoordinator
    */
   function getThresholdPublicKey() external view override returns (bytes memory) {
+    if (s_thresholdPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
     return s_thresholdPublicKey;
   }
 
@@ -70,6 +75,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    * @inheritdoc IFunctionsCoordinator
    */
   function getDONPublicKey() external view override returns (bytes memory) {
+    if (s_donPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
     return s_donPublicKey;
   }
 
@@ -125,6 +133,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     address[] memory nodes = this.transmitters();
     bytes[] memory keys = new bytes[](nodes.length);
     for (uint256 i = 0; i < nodes.length; i++) {
+      if (s_nodePublicKeys[nodes[i]].length == 0) {
+        revert EmptyPublicKey();
+      }
       keys[i] = s_nodePublicKeys[nodes[i]];
     }
     return (nodes, keys);
@@ -147,7 +158,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     RequestBilling memory billing = IFunctionsBilling.RequestBilling(
       request.subscriptionId,
-      request.caller,
+      request.requestingContract,
       request.callbackGasLimit,
       tx.gasprice
     );
@@ -160,12 +171,14 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     emit OracleRequest(
       requestId,
-      request.caller,
+      request.requestingContract,
       tx.origin,
       request.subscriptionId,
       request.subscriptionOwner,
       request.data,
-      request.dataVersion
+      request.dataVersion,
+      request.flags,
+      request.callbackGasLimit
     );
   }
 

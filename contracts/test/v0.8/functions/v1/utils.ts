@@ -58,10 +58,12 @@ export const encodeReport = (
 export type FunctionsRouterConfig = {
   adminFee: number
   handleOracleFulfillmentSelector: string
+  maxCallbackGasLimits: number[]
 }
 export const functionsRouterConfig: FunctionsRouterConfig = {
   adminFee: 0,
   handleOracleFulfillmentSelector: '0x0ca76175',
+  maxCallbackGasLimits: [300_000, 500_000, 1_000_000],
 }
 export type CoordinatorConfig = {
   maxCallbackGasLimit: number
@@ -72,6 +74,7 @@ export type CoordinatorConfig = {
   donFee: number
   fallbackNativePerUnitLink: BigNumber
   maxSupportedRequestDataVersion: number
+  fulfillmentGasPriceOverEstimationBP: number
 }
 const fallbackNativePerUnitLink = 5000000000000000
 export const coordinatorConfig: CoordinatorConfig = {
@@ -83,6 +86,7 @@ export const coordinatorConfig: CoordinatorConfig = {
   donFee: 0,
   fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
   maxSupportedRequestDataVersion: 1,
+  fulfillmentGasPriceOverEstimationBP: 0,
 }
 export const accessControlMockPublicKey =
   '0x32237412cC0321f56422d206e505dB4B3871AF5c'
@@ -184,7 +188,7 @@ export async function createSubscription(
       .connect(owner)
       .transferAndCall(
         router.address,
-        BigNumber.from('54666805176129187'),
+        BigNumber.from('1000000000000000000'),
         ethers.utils.defaultAbiCoder.encode(['uint64'], [subId]),
       )
   }
@@ -218,7 +222,7 @@ export function getSetupFactory(): () => {
       linkEthRate,
     )
     const routerConfigBytes = ethers.utils.defaultAbiCoder.encode(
-      ['uint96', 'bytes4'],
+      ['uint96', 'bytes4', 'uint32[]'],
       [...Object.values(functionsRouterConfig)],
     )
     const startingTimelockBlocks = 0
@@ -241,6 +245,7 @@ export function getSetupFactory(): () => {
         'uint32',
         'uint96',
         'uint16',
+        'uint256',
       ],
       [...Object.values(coordinatorConfig)],
     )

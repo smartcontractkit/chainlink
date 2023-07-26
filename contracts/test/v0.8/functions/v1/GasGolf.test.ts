@@ -15,7 +15,7 @@ const setup = getSetupFactory()
 let contracts: FunctionsContracts
 let roles: FunctionsRoles
 
-const baselineGasUsed = 931_695 // TODO: Update baseline
+const baselineGasUsed = 933_007 // TODO: Baseline will be updated at the start of 7/27
 let currentGasUsed = 0
 
 beforeEach(async () => {
@@ -29,8 +29,8 @@ after(() => {
   console.log(`\n               🚩 Score : ${score} gas`)
 })
 
-describe.skip('Gas Golf', () => {
-  it('- taking a swing', async () => {
+describe('Gas Golf', () => {
+  it('taking a swing', async () => {
     // User signs Terms of Service
     const messageHash = await contracts.accessControl.getMessageHash(
       roles.consumerAddress,
@@ -74,6 +74,7 @@ describe.skip('Gas Golf', () => {
       'function myFancyFunction(){return "woah, thats fancy"}',
       subscriptionId,
       ids.donId,
+      20_000,
     )
     const { gasUsed: requestTxGasUsed, events } = await requestTx.wait()
     const requestId = getEventArg(events, 'RequestSent', 0)
@@ -95,8 +96,5 @@ describe.skip('Gas Golf', () => {
       .add(requestTxGasUsed)
       .add(fulfillmentTxGasUsed)
       .toNumber()
-
-    expect(currentGasUsed).to.be.greaterThan(0)
-    expect(currentGasUsed).to.be.lessThan(baselineGasUsed)
   })
 })

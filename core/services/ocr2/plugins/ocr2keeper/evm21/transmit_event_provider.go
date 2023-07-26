@@ -251,13 +251,13 @@ func (l transmitEventLog) Id() *big.Int {
 func (l transmitEventLog) TriggerID() [32]byte {
 	switch {
 	case l.Performed != nil:
-		return l.Performed.TriggerID
+		return l.Performed.UpkeepTriggerID
 	case l.Stale != nil:
-		return l.Stale.TriggerID
+		return l.Stale.UpkeepTriggerID
 	case l.Reorged != nil:
-		return l.Reorged.TriggerID
+		return l.Reorged.UpkeepTriggerID
 	case l.InsufficientFunds != nil:
-		return l.InsufficientFunds.TriggerID
+		return l.InsufficientFunds.UpkeepTriggerID
 	default:
 		return [32]byte{}
 	}
