@@ -212,7 +212,7 @@ func wrapperConfigure(
 	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(wrapperAddress, e.Ec)
 	helpers.PanicErr(err)
 
-	tx, err := wrapper.SetConfig0(
+	tx, err := wrapper.SetConfig(
 		e.Owner,
 		uint32(wrapperGasOverhead),
 		uint32(coordinatorGasOverhead),
