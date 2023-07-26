@@ -1497,7 +1497,7 @@ func testMaliciousConsumer(
 	require.Equal(t, uint64(1), r.Status)
 
 	// The user callback should have errored
-	it, err := uni.rootContract.FilterRandomWordsFulfilled(nil, nil)
+	it, err := uni.rootContract.FilterRandomWordsFulfilled(nil, nil, nil)
 	require.NoError(t, err)
 	var fulfillments []v22.RandomWordsFulfilled
 	for it.Next() {
