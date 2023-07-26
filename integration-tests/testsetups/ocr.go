@@ -56,6 +56,7 @@ type OCRSoakTest struct {
 	startTime        time.Time
 	startingBlockNum uint64
 	testEnvironment  *environment.Environment
+	namespace        string
 	log              zerolog.Logger
 	bootstrapNode    *client.Chainlink
 	workerNodes      []*client.Chainlink
@@ -152,6 +153,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 	err = testEnvironment.Run()
 	require.NoError(o.t, err, "Error launching test environment")
 	o.testEnvironment = testEnvironment
+	o.namespace = testEnvironment.Cfg.Namespace
 }
 
 // LoadEnvironment loads an existing test environment using the provided URLs
@@ -366,12 +368,12 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 // Networks returns the networks that the test is running on
 func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 	*testing.T,
-	*environment.Environment,
+	string,
 	[]*client.Chainlink,
 	reportModel.TestReporter,
 	blockchain.EVMClient,
 ) {
-	return t, o.testEnvironment, append(o.workerNodes, o.bootstrapNode), &o.TestReporter, o.chainClient
+	return t, o.namespace, append(o.workerNodes, o.bootstrapNode), &o.TestReporter, o.chainClient
 }
 
 // *********************
@@ -380,6 +382,7 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 
 // OCRSoakTestState contains all the info needed by the test to recover from a K8s rebalance, assuming the test was in a running state
 type OCRSoakTestState struct {
+	Namespace            string                         `toml:"namespace"`
 	OCRRoundStates       []*testreporters.OCRRoundState `toml:"ocrRoundStates"`
 	RPCIssues            []*testreporters.TestIssue     `toml:"testIssues"`
 	StartingBlockNum     uint64                         `toml:"startingBlockNum"`
@@ -406,6 +409,7 @@ func (o *OCRSoakTest) SaveState() error {
 	}
 
 	testState := &OCRSoakTestState{
+		Namespace:            o.namespace,
 		OCRRoundStates:       o.ocrRoundStates,
 		RPCIssues:            o.testIssues,
 		StartingBlockNum:     o.startingBlockNum,
@@ -413,9 +417,9 @@ func (o *OCRSoakTest) SaveState() error {
 		TimeRunning:          time.Since(o.startTime),
 		TestDuration:         o.Inputs.TestDuration,
 		OCRContractAddresses: ocrAddresses,
-		ChainURL:             o.chainClient.GetNetworkConfig().URL,
-		MockServerURL:        "http://mockserver:1080", // TODO: Make this dynamic
 
+		ChainURL:         o.chainClient.GetNetworkConfig().URL,
+		MockServerURL:    "http://mockserver:1080", // TODO: Make this dynamic
 		BootStrapNodeURL: o.bootstrapNode.URL(),
 		WorkerNodeURLs:   workerNodeURLs,
 	}
@@ -456,6 +460,7 @@ func (o *OCRSoakTest) LoadState() error {
 	fmt.Println(string(saveData))
 	fmt.Println("------------------")
 
+	o.namespace = testState.Namespace
 	o.TestReporter = testreporters.OCRSoakTestReporter{
 		StartTime: testState.StartTime,
 	}

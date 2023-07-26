@@ -32,7 +32,7 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230726145909-73415ce1f30e
+replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230726165335-932cf4d2f6d7
 
 replace github.com/smartcontractkit/chainlink-env => github.com/smartcontractkit/chainlink-env v0.35.1-0.20230726015008-f2d19ea0df94
 

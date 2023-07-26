@@ -284,14 +284,14 @@ func TeardownSuite(
 // soak tests
 func TeardownRemoteSuite(
 	t *testing.T,
-	env *environment.Environment,
+	namespace string,
 	chainlinkNodes []*client.Chainlink,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
 	l := utils.GetTestLogger(t)
 	var err error
-	if err = testreporters.SendReport(t, env, "./", optionalTestReporter); err != nil {
+	if err = testreporters.SendReport(t, namespace, "./", optionalTestReporter); err != nil {
 		l.Warn().Err(err).Msg("Error writing test report")
 	}
 	// Delete all jobs to stop depleting the funds
@@ -301,7 +301,7 @@ func TeardownRemoteSuite(
 	}
 
 	if err = returnFunds(chainlinkNodes, client); err != nil {
-		l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+		l.Error().Err(err).Str("Namespace", namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
 	}
