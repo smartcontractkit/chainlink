@@ -94,6 +94,9 @@ func NewLegacyChainsFromRelayerExtenders(exts []*ChainRelayerExt) *Chains {
 	l := NewLegacyChains()
 	for _, r := range exts {
 		l.Put(r.Chain().ID().String(), r.Chain())
+		if r.Default() {
+			l.SetDefault(r.Chain())
+		}
 	}
 	return l
 }
