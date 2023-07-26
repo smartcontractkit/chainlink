@@ -106,7 +106,7 @@ func NewOCRSoakTest(t *testing.T, forwarderFlow bool) (*OCRSoakTest, error) {
 		Inputs:                &testInputs,
 		OperatorForwarderFlow: forwarderFlow,
 		TestReporter: testreporters.OCRSoakTestReporter{
-			TestDuration: testInputs.TestDuration,
+			StartTime: time.Now(),
 		},
 		t:              t,
 		startTime:      time.Now(),
@@ -310,7 +310,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 
 	// DEBUG: Trigger interruption to see how we do
 	go func() {
-		time.Sleep(time.Minute * time.Duration(rand.Intn(3)+1))
+		time.Sleep(time.Minute * time.Duration(rand.Intn(10)+5))
 		interruption <- syscall.SIGTERM
 	}()
 
@@ -380,6 +380,7 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 type OCRSoakTestState struct {
 	OCRRoundStates       []*testreporters.OCRRoundState `toml:"ocrRoundStates"`
 	RPCIssues            []*testreporters.TestIssue     `toml:"testIssues"`
+	StartTime            time.Time                      `toml:"startTime"`
 	TimeRunning          time.Duration                  `toml:"timeRunning"`
 	TestDuration         time.Duration                  `toml:"testDuration"`
 	OCRContractAddresses []string                       `toml:"ocrContractAddresses"`
@@ -404,6 +405,7 @@ func (o *OCRSoakTest) SaveState() error {
 	testState := &OCRSoakTestState{
 		OCRRoundStates:       o.ocrRoundStates,
 		RPCIssues:            o.testIssues,
+		StartTime:            o.startTime,
 		TimeRunning:          time.Since(o.startTime),
 		TestDuration:         o.Inputs.TestDuration,
 		OCRContractAddresses: ocrAddresses,
@@ -450,9 +452,13 @@ func (o *OCRSoakTest) LoadState() error {
 	fmt.Println(string(saveData))
 	fmt.Println("------------------")
 
+	o.TestReporter = testreporters.OCRSoakTestReporter{
+		StartTime: testState.StartTime,
+	}
 	o.ocrRoundStates = testState.OCRRoundStates
 	o.testIssues = testState.RPCIssues
 	o.Inputs.TestDuration = testState.TestDuration - testState.TimeRunning
+	o.startTime = testState.StartTime
 
 	network := networks.SelectedNetwork
 	o.chainClient, err = blockchain.ConnectEVMClient(network)

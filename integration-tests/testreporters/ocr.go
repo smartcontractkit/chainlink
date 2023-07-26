@@ -19,7 +19,7 @@ import (
 
 // OCRSoakTestReporter collates all OCRAnswerUpdated events into a single report
 type OCRSoakTestReporter struct {
-	TestDuration      time.Duration
+	StartTime         time.Time
 	AnomaliesDetected bool
 
 	anomalies   [][]string
@@ -180,7 +180,7 @@ func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
 		"Namespace",
 		o.namespace,
 		"Test Duration",
-		o.TestDuration.String(),
+		time.Since(o.StartTime).String(),
 	})
 	if err != nil {
 		return err
@@ -246,7 +246,7 @@ func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *s
 		headerText = ":warning: OCR Soak Test Found Anomalies :warning:"
 	}
 	messageBlocks := testreporters.CommonSlackNotificationBlocks(
-		headerText, fmt.Sprintf("%s | Test took: %s", o.namespace, o.TestDuration.String()), o.csvLocation,
+		headerText, fmt.Sprintf("%s | Test took: %s", o.namespace, time.Since(o.StartTime).String()), o.csvLocation,
 	)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
 	if err != nil {
