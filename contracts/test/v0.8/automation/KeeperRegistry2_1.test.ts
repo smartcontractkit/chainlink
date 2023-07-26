@@ -12,7 +12,7 @@ import {
 } from 'ethers'
 import { evmRevert } from '../../test-helpers/matchers'
 import { getUsers, Personas } from '../../test-helpers/setup'
-import { toWei } from '../../test-helpers/helpers'
+import { toWei, randomAddress } from '../../test-helpers/helpers'
 import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
 import { MercuryUpkeep__factory as MercuryUpkeepFactory } from '../../../typechain/factories/MercuryUpkeep__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
@@ -21,6 +21,7 @@ import { UpkeepAutoFunder__factory as UpkeepAutoFunderFactory } from '../../../t
 import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typechain/factories/MockArbGasInfo__factory'
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
+import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { AutomationUtils2_1 as AutomationUtils } from '../../../typechain/AutomationUtils2_1'
 import { MercuryUpkeep } from '../../../typechain/MercuryUpkeep'
@@ -43,7 +44,7 @@ import {
   deployMockContract,
   MockContract,
 } from '@ethereum-waffle/mock-contract'
-import { deployRegistry21 } from './helpers'
+import { deployRegistry21, setConfigRaw, setConfigExplicit } from './helpers'
 
 const describeMaybe = process.env.SKIP_SLOW ? describe.skip : describe
 const itMaybe = process.env.SKIP_SLOW ? it.skip : it
@@ -81,11 +82,6 @@ type OnChainConfig = Parameters<AutomationUtils['_onChainConfig']>[0]
 type LogTrigger = Parameters<AutomationUtils['_logTrigger']>[0]
 type ConditionalTrigger = Parameters<AutomationUtils['_conditionalTrigger']>[0]
 type Log = Parameters<AutomationUtils['_log']>[0]
-
-// function signatures for the two setConfig methods
-const setConfigRaw = 'setConfig(address[],address[],uint8,bytes,uint64,bytes)'
-const setConfigExplicit =
-  'setConfig(address[],address[],uint8,(uint32,uint32,uint32,uint24,uint16,uint96,uint32,uint32,uint32,uint32,uint256,uint256,address,address[],address),uint64,bytes)'
 
 // -----------------------------------------------------------------------------------------------
 
@@ -165,10 +161,6 @@ let mockArbGasInfo: MockArbGasInfo
 let mockOVMGasPriceOracle: MockOVMGasPriceOracle
 let mercuryUpkeep: MercuryUpkeep
 let automationUtils: AutomationUtils
-
-function randomAddress() {
-  return ethers.Wallet.createRandom().address
-}
 
 function now() {
   return Math.floor(Date.now() / 1000)
@@ -4735,10 +4727,10 @@ describe('KeeperRegistry2_1', () => {
         expect((await registry.getState()).state.numUpkeeps).to.equal(
           numUpkeeps,
         )
-        const forwarderFactory = await ethers.getContractFactory(
-          'AutomationForwarder',
+        const forwarder = await IAutomationForwarderFactory.connect(
+          forwarderAddress,
+          owner,
         )
-        const forwarder = await forwarderFactory.attach(forwarderAddress)
         expect(await forwarder.getRegistry()).to.equal(registry.address)
         // Set an upkeep admin transfer in progress too
         await registry
