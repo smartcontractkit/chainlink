@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,15 +21,17 @@ import (
 	"github.com/leanovate/gopter/prop"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/libs/rand"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -1020,4 +1023,96 @@ func TestNotifyAfterInsert(t *testing.T) {
 			return false
 		}
 	})
+}
+
+type getLogErrData struct {
+	From  string
+	To    string
+	Limit int
+}
+
+func TestTooManyLogResults(t *testing.T) {
+	ctx := testutils.Context(t)
+	ec := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	lp := logpoller.NewLogPoller(o, ec, lggr, 1*time.Hour, 2, 20, 10, 1000)
+	expected := []int64{10, 5, 2, 1}
+
+	clientErr := client.JsonError{
+		Code:    -32005,
+		Data:    getLogErrData{"0x100E698", "0x100E6D4", 10000},
+		Message: "query returned more than 10000 results. Try with this block range [0x100E698, 0x100E6D4].",
+	}
+
+	call1 := ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
+		if blockNumber == nil {
+			return &evmtypes.Head{Number: 300}, nil // Simulate currentBlock = 300
+		}
+		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
+	})
+
+	call2 := ec.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
+		if fq.BlockHash != nil {
+			return []types.Log{}, nil // succeed when single block requested
+		}
+		from := fq.FromBlock.Uint64()
+		to := fq.ToBlock.Uint64()
+		if to-from >= 4 {
+			return []types.Log{}, &clientErr // return "too many results" error if block range spans 4 or more blocks
+		}
+		return logs, err
+	})
+
+	addr := testutils.NewAddress()
+	err := lp.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{addr}, 0})
+	require.NoError(t, err)
+	lp.PollAndSaveLogs(ctx, 5)
+	block, err2 := o.SelectLatestBlock()
+	require.NoError(t, err2)
+	assert.Equal(t, int64(298), block.BlockNumber)
+
+	logs := obs.FilterLevelExact(zapcore.WarnLevel).FilterMessageSnippet("halving block range batch size").FilterFieldKey("newBatchSize").All()
+	// Should have tried again 3 times--first reducing batch size to 10, then 5, then 2
+	require.Len(t, logs, 3)
+	for i, s := range expected[:3] {
+		assert.Equal(t, s, logs[i].ContextMap()["newBatchSize"])
+	}
+
+	obs.TakeAll()
+	call1.Unset()
+	call2.Unset()
+
+	// Now jump to block 500, but return error no matter how small the block range gets.
+	//  Should exit the loop with a critical error instead of hanging.
+	call1.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
+		if blockNumber == nil {
+			return &evmtypes.Head{Number: 500}, nil // Simulate currentBlock = 300
+		}
+		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
+	})
+	call2.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
+		if fq.BlockHash != nil {
+			return []types.Log{}, nil // succeed when single block requested
+		}
+		return []types.Log{}, &clientErr // return "too many results" error if block range spans 4 or more blocks
+
+		return logs, err
+	})
+
+	lp.PollAndSaveLogs(ctx, 298)
+	block, err2 = o.SelectLatestBlock()
+	require.NoError(t, err2)
+	assert.Equal(t, int64(298), block.BlockNumber)
+	warns := obs.FilterMessageSnippet("halving block range").FilterLevelExact(zapcore.WarnLevel).All()
+	crit := obs.FilterMessageSnippet("failed to retrieve logs").FilterLevelExact(zapcore.DPanicLevel).All()
+	require.Len(t, warns, 4)
+	for i, s := range expected {
+		assert.Equal(t, s, warns[i].ContextMap()["newBatchSize"])
+	}
+
+	require.Len(t, crit, 1)
+	assert.Contains(t, crit[0].Message, "Too many log results in a single block")
 }

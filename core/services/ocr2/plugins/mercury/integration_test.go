@@ -567,7 +567,7 @@ func setupNode(
 		// [P2P.V2]
 		// Enabled = true
 		// AnnounceAddresses = ['$EXT_IP:17775']
-		// ListenAddresses = ['0.0.0.0:17775']
+		// ListenAddresses = ['127.0.0.1:17775']
 		// DeltaDial = 500ms
 		// DeltaReconcile = 5s
 		c.P2P.V2.Enabled = ptr(true)
