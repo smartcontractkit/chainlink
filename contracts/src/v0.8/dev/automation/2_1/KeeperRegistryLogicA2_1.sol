@@ -34,7 +34,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   /**
    * @notice called by the automation DON to check if work is needed
    * @param id the upkeep ID to check for work needed
-   * @param checkData the data passed to the upkeep contract's checkUpkeep function
+   * @param triggerData extra contextual data about the trigger (not used in all code paths)
    * @dev this one of the core functions called in the hot path
    * @dev there is a 2nd checkUpkeep function (below) that is being maintained for backwards compatibility
    * @dev there is an incongruency on what gets returned during failure modes
@@ -42,7 +42,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
    */
   function checkUpkeep(
     uint256 id,
-    bytes memory checkData
+    bytes memory triggerData
   )
     public
     cannotExecute
@@ -79,12 +79,16 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas, 0, 0);
     }
 
-    bytes memory callData;
-    if (triggerType == Trigger.CONDITION) {
-      callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
-    } else {
-      callData = bytes.concat(CHECK_LOG_SELECTOR, checkData);
-    }
+    bytes memory callData = _checkPayload(id, triggerType, triggerData);
+
+    // if (triggerType == Trigger.CONDITION) {
+    //   triggerData = s_checkData[id];
+    //   callData = abi.encodeWithSelector(CHECK_SELECTOR, triggerData);
+    // } else {
+    //   Log memory log = abi.decode(triggerData, (Log));
+    //   triggerData = s_checkData[id];
+    //   callData = abi.encodeWithSelector(CHECK_LOG_SELECTOR, log, triggerData);
+    // }
     gasUsed = gasleft();
     (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
@@ -157,7 +161,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       uint256 linkNative
     )
   {
-    return checkUpkeep(id, s_checkData[id]);
+    return checkUpkeep(id, bytes(""));
   }
 
   /**
