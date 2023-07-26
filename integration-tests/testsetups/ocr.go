@@ -321,15 +321,15 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	for {
 		select {
 		case <-interruption:
-			o.log.Warn().Msg("Test interrupted, saving state before shut down")
 			saveStart := time.Now()
-			if err := o.SaveState(); err != nil {
-				o.log.Error().Err(err).Msg("Error saving state")
-			}
+			o.log.Warn().Msg("Test interrupted, saving state before shut down")
 			o.testIssues = append(o.testIssues, &testreporters.TestIssue{
 				StartTime: time.Now(),
 				Message:   "Test Interrupted",
 			})
+			if err := o.SaveState(); err != nil {
+				o.log.Error().Err(err).Msg("Error saving state")
+			}
 			log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
 			os.Exit(1)
 		case <-endTest.C:
@@ -384,7 +384,7 @@ func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 type OCRSoakTestState struct {
 	Namespace            string                         `toml:"namespace"`
 	OCRRoundStates       []*testreporters.OCRRoundState `toml:"ocrRoundStates"`
-	RPCIssues            []*testreporters.TestIssue     `toml:"testIssues"`
+	TestIssues           []*testreporters.TestIssue     `toml:"testIssues"`
 	StartingBlockNum     uint64                         `toml:"startingBlockNum"`
 	StartTime            time.Time                      `toml:"startTime"`
 	TimeRunning          time.Duration                  `toml:"timeRunning"`
@@ -411,7 +411,7 @@ func (o *OCRSoakTest) SaveState() error {
 	testState := &OCRSoakTestState{
 		Namespace:            o.namespace,
 		OCRRoundStates:       o.ocrRoundStates,
-		RPCIssues:            o.testIssues,
+		TestIssues:           o.testIssues,
 		StartingBlockNum:     o.startingBlockNum,
 		StartTime:            o.startTime,
 		TimeRunning:          time.Since(o.startTime),
@@ -465,7 +465,7 @@ func (o *OCRSoakTest) LoadState() error {
 		StartTime: testState.StartTime,
 	}
 	o.ocrRoundStates = testState.OCRRoundStates
-	o.testIssues = testState.RPCIssues
+	o.testIssues = testState.TestIssues
 	o.Inputs.TestDuration = testState.TestDuration - testState.TimeRunning
 	o.startTime = testState.StartTime
 	o.startingBlockNum = testState.StartingBlockNum
