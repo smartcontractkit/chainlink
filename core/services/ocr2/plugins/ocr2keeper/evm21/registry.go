@@ -63,7 +63,7 @@ type Registry interface {
 	GetUpkeep(opts *bind.CallOpts, id *big.Int) (UpkeepInfo, error)
 	GetState(opts *bind.CallOpts) (iregistry21.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
-	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
+	GetAdminPrivilegeConfig(opts *bind.CallOpts, admin common.Address) ([]byte, error)
 	GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	CheckCallback(opts *bind.TransactOpts, id *big.Int, values [][]byte, extraData []byte) (*coreTypes.Transaction, error)
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
@@ -159,11 +159,13 @@ type activeUpkeep struct {
 	ID              *big.Int
 	PerformGasLimit uint32
 	CheckData       []byte
+	Admin           common.Address
 }
 
 type MercuryConfig struct {
-	cred           *models.MercuryCredentials
-	abi            abi.ABI
+	cred *models.MercuryCredentials
+	abi  abi.ABI
+	// allowListCache stores the admin address' privilege. in 2.1, this only includes a JSON bytes for allowed to use mercury
 	allowListCache *cache.Cache
 }
 
@@ -500,7 +502,7 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 			r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", l.Id.String(), err)
 		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepRegistered:
-		trigger := getUpkeepType(ocr2keepers.UpkeepIdentifier(l.Id.Bytes()))
+		trigger := getUpkeepType(l.Id.Bytes())
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s (trigger=%d) in transaction %s", l.Id.String(), trigger, hash)
 		r.addToActive(l.Id, false)
 		if err := r.updateTriggerConfig(l.Id, nil); err != nil {
@@ -530,7 +532,7 @@ func (r *EvmRegistry) removeFromActive(id *big.Int) {
 	delete(r.active, id.String())
 	r.mu.Unlock()
 
-	trigger := getUpkeepType(ocr2keepers.UpkeepIdentifier(id.Bytes()))
+	trigger := getUpkeepType(id.Bytes())
 	switch trigger {
 	case logTrigger:
 		if err := r.logEventProvider.UnregisterFilter(id); err != nil {
@@ -858,8 +860,9 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 			}
 			results[i] = activeUpkeep{ // TODO
 				ID:              ids[i],
-				PerformGasLimit: info.ExecuteGas,
+				PerformGasLimit: info.PerformGas,
 				CheckData:       info.CheckData,
+				Admin:           info.Admin,
 			}
 		}
 	}
@@ -869,7 +872,7 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 
 func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) error {
 	uid := id.String()
-	switch getUpkeepType(ocr2keepers.UpkeepIdentifier(id.Bytes())) {
+	switch getUpkeepType(id.Bytes()) {
 	case logTrigger:
 		if len(cfg) == 0 {
 			fetched, err := r.fetchTriggerConfig(id)

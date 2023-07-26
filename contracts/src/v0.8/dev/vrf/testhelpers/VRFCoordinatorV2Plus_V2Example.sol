@@ -16,15 +16,13 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
     uint96 nativeBalance;
   }
 
-  mapping(uint96 => Subscription) public s_subscriptions; /* subId */ /* subscription */
+  mapping(uint256 => Subscription) public s_subscriptions; /* subId */ /* subscription */
   mapping(uint256 => address) public s_requestConsumerMapping; /* RequestId */ /* consumer address */
 
   uint96 public s_totalLinkBalance;
   uint96 public s_totalNativeBalance;
   // request ID nonce
   uint256 public s_requestId = 0;
-  // subscription ID nonce
-  uint64 public s_subId = 0;
 
   // older version of coordinator, from which migration is supported
   address public s_prevCoordinator;
@@ -43,7 +41,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
   error InvalidSubscription();
 
   function getSubscription(
-    uint64 subId
+    uint256 subId
   ) public view returns (address owner, address[] memory consumers, uint96 linkBalance, uint96 nativeBalance) {
     if (s_subscriptions[subId].owner == address(0)) {
       revert InvalidSubscription();
@@ -74,6 +72,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
   /// @dev encapsulates data migrated over from previous coordinator
   struct V1MigrationData {
     uint8 fromVersion;
+    uint256 subId;
     address subOwner;
     address[] consumers;
     uint96 linkBalance;
@@ -83,7 +82,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
   /**
    * @inheritdoc IVRFCoordinatorV2PlusMigration
    */
-  function onMigration(bytes calldata encodedData) external payable override returns (uint64 subId) {
+  function onMigration(bytes calldata encodedData) external payable override {
     if (msg.sender != s_prevCoordinator) {
       revert MustBePreviousCoordinator(msg.sender, s_prevCoordinator);
     }
@@ -98,8 +97,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
       revert InvalidNativeBalance(msg.value, migrationData.ethBalance);
     }
 
-    subId = ++s_subId;
-    s_subscriptions[subId] = Subscription({
+    s_subscriptions[migrationData.subId] = Subscription({
       owner: migrationData.subOwner,
       consumers: migrationData.consumers,
       nativeBalance: migrationData.ethBalance,
@@ -107,8 +105,6 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
     });
     s_totalNativeBalance += migrationData.ethBalance;
     s_totalLinkBalance += migrationData.linkBalance;
-
-    return subId;
   }
 
   /***************************************************************************

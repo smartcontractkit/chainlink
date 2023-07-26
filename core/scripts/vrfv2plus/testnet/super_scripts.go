@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 )
 
 const formattedVRFJob = `
@@ -37,7 +38,7 @@ pollPeriod = "5s"
 requestTimeout = "24h"
 observationSource = """
 decode_log              [type=ethabidecodelog
-                         abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
+                         abi="%s"
                          data="$(jobRun.logData)"
                          topics="$(jobRun.logTopics)"]
 generate_proof          [type=vrfv2plus
@@ -173,7 +174,9 @@ func deployUniverse(e helpers.Environment) {
 
 	fmt.Println("\nAdding subscription...")
 	eoaCreateSub(e, *coordinator)
-	subID := uint64(1)
+
+	subID := findSubscriptionID(e, coordinator)
+	helpers.PanicErr(err)
 
 	fmt.Println("\nAdding consumer to subscription...")
 	eoaAddConsumerToSub(e, *coordinator, subID, consumerAddress.String())
@@ -190,7 +193,7 @@ func deployUniverse(e helpers.Environment) {
 	helpers.PanicErr(err)
 	fmt.Printf("Subscription %+v\n", s)
 
-	if len(*registerKeyOracleAddress) > 0 {
+	if len(*registerKeyOracleAddress) > 0 && *oracleFundingAmount > 0 {
 		fmt.Println("\nFunding oracle...")
 		helpers.FundNodes(e, []string{*registerKeyOracleAddress}, big.NewInt(*oracleFundingAmount))
 	}
@@ -203,6 +206,7 @@ func deployUniverse(e helpers.Environment) {
 		compressedPkHex,
 		e.ChainID,
 		*registerKeyOracleAddress,
+		v2.RandomWordsRequestedV2PlusABI,
 		coordinatorAddress,
 		coordinatorAddress,
 		coordinatorAddress,
