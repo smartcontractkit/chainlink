@@ -246,7 +246,7 @@ func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *s
 		headerText = ":warning: OCR Soak Test Found Anomalies :warning:"
 	}
 	messageBlocks := testreporters.CommonSlackNotificationBlocks(
-		headerText, fmt.Sprintf("%s | Test took: %s", o.namespace, time.Since(o.StartTime).String()), o.csvLocation,
+		headerText, fmt.Sprintf("%s | Test took: %s", o.namespace, time.Since(o.StartTime).Truncate(time.Second).String()), o.csvLocation,
 	)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
 	if err != nil {
