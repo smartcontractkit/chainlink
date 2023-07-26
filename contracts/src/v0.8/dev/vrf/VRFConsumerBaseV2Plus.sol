@@ -46,7 +46,7 @@ import "../../ConfirmedOwner.sol";
  * @dev and your consumer contract as a consumer of it (see VRFCoordinatorInterface
  * @dev subscription management functions).
  * @dev Call requestRandomWords(keyHash, subId, minimumRequestConfirmations,
- * @dev callbackGasLimit, numWords, nativePayment),
+ * @dev callbackGasLimit, numWords, extraArgs),
  * @dev see (IVRFCoordinatorV2Plus for a description of the arguments).
  *
  * @dev Once the VRFCoordinatorV2Plus has received and validated the oracle's response
