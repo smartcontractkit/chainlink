@@ -342,12 +342,15 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
    * @notice finds all log trigger upkeeps and emits logs to serve as the initial trigger for upkeeps
    */
   function batchSendLogs() external {
-    uint256[] memory upkeepIds = registry.getActiveUpkeepIDsByType(0, 1000, 1);
+    uint256[] memory upkeepIds = registry.getActiveUpkeepIDs(0, 0);
     uint256 len = upkeepIds.length;
     uint256 blockNum = getBlockNumber();
     for (uint256 i = 0; i < len; i++) {
       uint256 upkeepId = upkeepIds[i];
-      emit LogEmitted(upkeepId, blockNum, address(this));
+      uint8 triggerType = registry.getTriggerType(upkeepId);
+      if (triggerType == 1) {
+        emit LogEmitted(upkeepId, blockNum, address(this));
+      }
     }
   }
 

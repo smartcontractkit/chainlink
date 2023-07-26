@@ -340,7 +340,7 @@ type JsonError struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-func (err *JsonError) Error() string {
+func (err JsonError) Error() string {
 	if err.Message == "" {
 		return fmt.Sprintf("json-rpc error { Code = %d, Data = '%v' }", err.Code, err.Data)
 	}

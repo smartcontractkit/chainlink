@@ -23,11 +23,10 @@ type FunctionsHandlerConfig struct {
 	// Not specifying OnchainAllowlist config disables allowlist checks
 	OnchainAllowlist *OnchainAllowlistConfig `json:"onchainAllowlist"`
 	// Not specifying RateLimiter config disables rate limiting
-	UserRateLimiter           *hc.RateLimiterConfig `json:"userRateLimiter"`
-	NodeRateLimiter           *hc.RateLimiterConfig `json:"nodeRateLimiter"`
-	MaxPendingRequestsPerUser int                   `json:"maxPendingRequestsPerUser"`
-	MaxPendingRequestsGlobal  int                   `json:"maxPendingRequestsGlobal"`
-	RequestTimeoutMillis      int64                 `json:"requestTimeoutMillis"`
+	UserRateLimiter      *hc.RateLimiterConfig `json:"userRateLimiter"`
+	NodeRateLimiter      *hc.RateLimiterConfig `json:"nodeRateLimiter"`
+	MaxPendingRequests   uint32                `json:"maxPendingRequests"`
+	RequestTimeoutMillis int64                 `json:"requestTimeoutMillis"`
 }
 
 type functionsHandler struct {
@@ -87,7 +86,7 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err
 		}
 	}
-	pendingRequestsCache := hc.NewRequestCache[PendingSecretsRequest](time.Millisecond * time.Duration(cfg.RequestTimeoutMillis))
+	pendingRequestsCache := hc.NewRequestCache[PendingSecretsRequest](time.Millisecond*time.Duration(cfg.RequestTimeoutMillis), cfg.MaxPendingRequests)
 	return NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, userRateLimiter, nodeRateLimiter, lggr), nil
 }
 
@@ -133,7 +132,7 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 }
 
 func (h *functionsHandler) handleSecretsRequest(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
-	h.lggr.Debugw("handleSecretsRequest: processing message", "sender", msg.Body.Sender)
+	h.lggr.Debugw("handleSecretsRequest: processing message", "sender", msg.Body.Sender, "messageId", msg.Body.MessageId)
 	err := h.pendingRequests.NewRequest(msg, callbackCh, &PendingSecretsRequest{request: msg, responses: make(map[string]*api.Message)})
 	if err != nil {
 		h.lggr.Warnw("handleSecretsRequest: error adding new request", "sender", msg.Body.Sender, "err", err)
@@ -143,13 +142,14 @@ func (h *functionsHandler) handleSecretsRequest(ctx context.Context, msg *api.Me
 	for _, member := range h.donConfig.Members {
 		err := h.don.SendToNode(ctx, member.Address, msg)
 		if err != nil {
-			h.lggr.Debugw("handleSecretsRequest: failed to send to a node", "node", member.Address)
+			h.lggr.Debugw("handleSecretsRequest: failed to send to a node", "node", member.Address, "err", err)
 		}
 	}
 	return nil
 }
 
 func (h *functionsHandler) HandleNodeMessage(ctx context.Context, msg *api.Message, nodeAddr string) error {
+	h.lggr.Debugw("HandleNodeMessage: processing message", "nodeAddr", nodeAddr, "receiver", msg.Body.Receiver, "id", msg.Body.MessageId)
 	if h.nodeRateLimiter != nil && !h.nodeRateLimiter.Allow(nodeAddr) {
 		h.lggr.Debug("rate-limited", "sender", nodeAddr)
 		return errors.New("rate-limited")

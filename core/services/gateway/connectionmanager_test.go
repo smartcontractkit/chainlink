@@ -1,6 +1,8 @@
 package gateway_test
 
 import (
+	"crypto/ecdsa"
+	"fmt"
 	"testing"
 	"time"
 
@@ -8,6 +10,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -21,7 +26,7 @@ HandlerName = "dummy"
 
 [[dons.members]]
 Name = "example_node"
-Address = "0x68902d681c28119f9b2531473a417088bf008e59"
+Address = "0x68902D681C28119F9B2531473A417088BF008E59"
 
 [[dons]]
 DonId = "my_don_2"
@@ -61,6 +66,16 @@ Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 Name = "node_2"
 Address = "0x68902d681c28119f9b2531473a417088bf008e59"
 `,
+		"duplicate node address with different casing": `
+[[dons]]
+DonId = "my_don"
+[[dons.members]]
+Name = "node_1"
+Address = "0x68902d681c28119f9b2531473a417088bf008e59"
+[[dons.members]]
+Name = "node_2"
+Address = "0x68902D681c28119f9b2531473a417088bf008E59"
+`,
 	}
 
 	for name, config := range invalidCases {
@@ -75,12 +90,121 @@ Path = "/node"` + config
 	}
 }
 
-func TestConnectionManager_StartHandshake_TooShort(t *testing.T) {
+func newTestConfig(t *testing.T, nNodes int) (*config.GatewayConfig, []gc.TestNode) {
+	nodes := gc.NewTestNodes(t, nNodes)
+
+	config := `
+[nodeServerConfig]
+Path = "/node"
+[connectionManagerConfig]
+AuthGatewayId = "my_gateway_no_3"
+AuthTimestampToleranceSec = 5
+AuthChallengeLen = 100
+[[dons]]
+DonId = "my_don_1"
+HandlerName = "dummy"
+`
+
+	for i := 0; i < nNodes; i++ {
+		config += `[[dons.members]]` + "\n"
+		config += fmt.Sprintf(`Name = "node_%d"`, i) + "\n"
+		config += fmt.Sprintf(`Address = "%s"`, nodes[i].Address) + "\n"
+	}
+
+	return parseTOMLConfig(t, config), nodes
+}
+
+func signAndPackAuthHeader(t *testing.T, authHeaderElems *network.AuthHeaderElems, signerKey *ecdsa.PrivateKey) []byte {
+	packedElems := network.PackAuthHeader(authHeaderElems)
+	signature, err := gc.SignData(signerKey, packedElems)
+	require.NoError(t, err)
+	return append(packedElems, signature...)
+}
+
+func TestConnectionManager_StartHandshake(t *testing.T) {
 	t.Parallel()
 
-	mgr, err := gateway.NewConnectionManager(parseTOMLConfig(t, defaultConfig), utils.NewFixedClock(time.Now()), logger.TestLogger(t))
+	config, nodes := newTestConfig(t, 4)
+	unrelatedNode := gc.NewTestNodes(t, 1)[0]
+	clock := utils.NewFixedClock(time.Now())
+	mgr, err := gateway.NewConnectionManager(config, clock, logger.TestLogger(t))
 	require.NoError(t, err)
 
+	authHeaderElems := network.AuthHeaderElems{
+		Timestamp: uint32(clock.Now().Unix()),
+		DonId:     "my_don_1",
+		GatewayId: "my_gateway_no_3",
+	}
+
+	// valid
+	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, nodes[0].PrivateKey))
+	require.NoError(t, err)
+
+	// header too short
 	_, _, err = mgr.StartHandshake([]byte("ab"))
-	require.Error(t, err)
+	require.ErrorIs(t, err, network.ErrAuthHeaderParse)
+
+	// invalid DON ID
+	badAuthHeaderElems := authHeaderElems
+	badAuthHeaderElems.DonId = "my_don_2"
+	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &badAuthHeaderElems, nodes[0].PrivateKey))
+	require.ErrorIs(t, err, network.ErrAuthInvalidDonId)
+
+	// invalid Gateway URL
+	badAuthHeaderElems = authHeaderElems
+	badAuthHeaderElems.GatewayId = "www.example.com"
+	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &badAuthHeaderElems, nodes[0].PrivateKey))
+	require.ErrorIs(t, err, network.ErrAuthInvalidGateway)
+
+	// invalid Signer Address
+	badAuthHeaderElems = authHeaderElems
+	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &badAuthHeaderElems, unrelatedNode.PrivateKey))
+	require.ErrorIs(t, err, network.ErrAuthInvalidNode)
+
+	// invalid signature
+	badAuthHeaderElems = authHeaderElems
+	rawHeader := signAndPackAuthHeader(t, &badAuthHeaderElems, nodes[0].PrivateKey)
+	copy(rawHeader[len(rawHeader)-65:], make([]byte, 65))
+	_, _, err = mgr.StartHandshake(rawHeader)
+	require.ErrorIs(t, err, network.ErrAuthHeaderParse)
+
+	// invalid timestamp
+	badAuthHeaderElems = authHeaderElems
+	badAuthHeaderElems.Timestamp -= 10
+	_, _, err = mgr.StartHandshake(signAndPackAuthHeader(t, &badAuthHeaderElems, nodes[0].PrivateKey))
+	require.ErrorIs(t, err, network.ErrAuthInvalidTimestamp)
+}
+
+func TestConnectionManager_FinalizeHandshake(t *testing.T) {
+	t.Parallel()
+
+	config, nodes := newTestConfig(t, 4)
+	clock := utils.NewFixedClock(time.Now())
+	mgr, err := gateway.NewConnectionManager(config, clock, logger.TestLogger(t))
+	require.NoError(t, err)
+
+	authHeaderElems := network.AuthHeaderElems{
+		Timestamp: uint32(clock.Now().Unix()),
+		DonId:     "my_don_1",
+		GatewayId: "my_gateway_no_3",
+	}
+
+	// correct
+	attemptId, challenge, err := mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, nodes[0].PrivateKey))
+	require.NoError(t, err)
+	response, err := gc.SignData(nodes[0].PrivateKey, challenge)
+	require.NoError(t, err)
+	require.NoError(t, mgr.FinalizeHandshake(attemptId, response, nil))
+
+	// invalid attempt
+	err = mgr.FinalizeHandshake("fake_attempt", response, nil)
+	require.ErrorIs(t, err, network.ErrChallengeAttemptNotFound)
+
+	// invalid signature
+	attemptId, challenge, err = mgr.StartHandshake(signAndPackAuthHeader(t, &authHeaderElems, nodes[0].PrivateKey))
+	require.NoError(t, err)
+	response, err = gc.SignData(nodes[1].PrivateKey, challenge)
+	require.NoError(t, err)
+	err = mgr.FinalizeHandshake(attemptId, response, nil)
+	require.ErrorIs(t, err, network.ErrChallengeInvalidSignature)
 }
