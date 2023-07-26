@@ -125,7 +125,7 @@ func NewMedianServices(ctx context.Context,
 		}
 	}
 
-	var oracle *libocr.Oracle
+	var oracle libocr.Oracle
 	oracle, err = libocr.NewOracle(argsNoPlugin)
 	if err != nil {
 		abort()
