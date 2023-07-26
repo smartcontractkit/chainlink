@@ -9,7 +9,7 @@ import "../../../automation/ExecutionPrevention.sol";
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "./interfaces/FeedLookupCompatibleInterface.sol";
 import "./interfaces/ILogAutomation.sol";
-import {AutomationForwarder} from "./AutomationForwarder.sol";
+import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";
 import "../../../ConfirmedOwner.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
 import "../../../interfaces/LinkTokenInterface.sol";
@@ -70,6 +70,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   AggregatorV3Interface internal immutable i_linkNativeFeed;
   AggregatorV3Interface internal immutable i_fastGasFeed;
   Mode internal immutable i_mode;
+  address internal immutable i_automationForwarderLogic;
 
   /**
    * @dev - The storage is gas optimised for one and only one function - transmit. All the storage accessed in transmit
@@ -263,20 +264,17 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member amountSpent the amount this upkeep has spent
    * @member balance the balance of this upkeep
    * @member lastPerformedBlockNumber the last block number when this upkeep was performed
-   * @member target the contract which needs to be serviced
    */
   struct Upkeep {
     bool paused;
     uint32 performGas;
     uint32 maxValidBlocknumber;
-    AutomationForwarder forwarder;
+    IAutomationForwarder forwarder;
     // 0 bytes left in 1st EVM word - not written to in transmit
     uint96 amountSpent;
     uint96 balance;
     uint32 lastPerformedBlockNumber;
     // 2 bytes left in 2nd EVM word - written in transmit path
-    address target;
-    // 12 bytes left in 3rd EVM word - neither written to nor read in transmit
   }
 
   /**
@@ -450,11 +448,18 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @param linkNativeFeed address of the LINK/Native price feed
    * @param fastGasFeed address of the Fast Gas price feed
    */
-  constructor(Mode mode, address link, address linkNativeFeed, address fastGasFeed) ConfirmedOwner(msg.sender) {
+  constructor(
+    Mode mode,
+    address link,
+    address linkNativeFeed,
+    address fastGasFeed,
+    address automationForwarderLogic
+  ) ConfirmedOwner(msg.sender) {
     i_mode = mode;
     i_link = LinkTokenInterface(link);
     i_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
+    i_automationForwarderLogic = automationForwarderLogic;
   }
 
   ///////////////////////////////////////////////////////////////////////////////////////
@@ -479,11 +484,10 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bytes memory offchainConfig
   ) internal {
     if (s_hotVars.paused) revert RegistryPaused();
-    if (!upkeep.target.isContract()) revert NotAContract();
     if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
     if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
-    if (s_upkeep[id].target != ZERO_ADDRESS) revert UpkeepAlreadyExists();
+    if (address(s_upkeep[id].forwarder) != address(0)) revert UpkeepAlreadyExists();
     s_upkeep[id] = upkeep;
     s_upkeepAdmin[id] = admin;
     s_checkData[id] = checkData;
@@ -854,7 +858,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * transmitter and the exact gas required by the Upkeep
    */
   function _performUpkeep(
-    AutomationForwarder forwarder,
+    IAutomationForwarder forwarder,
     uint256 performGas,
     bytes memory performData
   ) internal nonReentrant returns (bool success, uint256 gasUsed) {
