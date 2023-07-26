@@ -32,7 +32,7 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230726214727-d92f21430295
+replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230726213437-7128560bfbca
 
 replace github.com/smartcontractkit/chainlink-env => github.com/smartcontractkit/chainlink-env v0.35.3-0.20230726213524-7bda3a4a40f6
 
@@ -395,5 +395,6 @@ replace (
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
 	github.com/hashicorp/go-plugin => github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75
 
+	k8s.io/api => k8s.io/api v0.25.11
 	k8s.io/client-go => k8s.io/client-go v0.25.11
 )
