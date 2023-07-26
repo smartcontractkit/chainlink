@@ -62,6 +62,18 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     mapping(bytes32 => Config) s_verificationDataConfigs;
   }
 
+  struct ActiveConfig {
+    uint32 previousConfigBlockNumber;
+    bytes32 configDigest;
+    uint64 configCount;
+    address[] signers;
+    bytes32[] transmitters;
+    uint8 f;
+    bytes onchainConfig;
+    uint64 offchainConfigVersion;
+    bytes offchainConfig;
+  }
+
   /// @notice This event is emitted when a new report is verified.
   /// It is used to keep a historical record of verified reports.
   event ReportVerified(bytes32 indexed feedId, address requester);
@@ -166,16 +178,26 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   /// @param feedId The feed ID
   error InvalidFeed(bytes32 feedId);
 
+  /// @notice This error is thrown whenever the caller is not an EOA
+  error OnlyCallableByEOA();
+
   /// @notice The address of the verifier proxy
   address private immutable i_verifierProxyAddr;
 
   /// @notice Verifier states keyed on Feed ID
   mapping(bytes32 => VerifierState) s_feedVerifierStates;
 
+  /// @notice Whether we want to persist the latest config for each feed
+  bool public immutable s_persistConfig;
+
+  /// @notice Latest config for each feed if enabled
+  mapping(bytes32 => ActiveConfig) private s_activeConfigs;
+
   /// @param verifierProxyAddr The address of the VerifierProxy contract
-  constructor(address verifierProxyAddr) ConfirmedOwner(msg.sender) {
+  constructor(address verifierProxyAddr, bool persistConfig) ConfirmedOwner(msg.sender) {
     if (verifierProxyAddr == address(0)) revert ZeroAddress();
     i_verifierProxyAddr = verifierProxyAddr;
+    s_persistConfig = persistConfig;
   }
 
   /// @inheritdoc IERC165
@@ -442,6 +464,21 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest);
 
+    if (s_persistConfig) {
+      //create the config
+      s_activeConfigs[feedId] = ActiveConfig(
+        feedVerifierState.latestConfigBlockNumber,
+        configDigest,
+        feedVerifierState.configCount,
+        signers,
+        offchainTransmitters,
+        f,
+        onchainConfig,
+        offchainConfigVersion,
+        offchainConfig
+      );
+    }
+
     emit ConfigSet(
       feedId,
       feedVerifierState.latestConfigBlockNumber,
@@ -476,5 +513,13 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       feedVerifierState.latestConfigBlockNumber,
       feedVerifierState.latestConfigDigest
     );
+  }
+
+  /// @notice Returns the latest active config for a particular feed
+  /// @param feedId Feed ID to fetch data for
+  /// @return config The latest active config for the feed if enabled, an empty struct if disabled
+  function latestConfig(bytes32 feedId) external view returns (ActiveConfig memory config) {
+    if (msg.sender != tx.origin) revert OnlyCallableByEOA();
+    return s_activeConfigs[feedId];
   }
 }
