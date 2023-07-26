@@ -155,7 +155,7 @@ contract VRFV2Plus is BaseTest {
   event RandomWordsFulfilled(
     uint256 indexed requestId,
     uint256 outputSeed,
-    uint256 subID,
+    uint256 indexed subID,
     uint96 payment,
     bytes extraArgs,
     bool success
@@ -249,7 +249,7 @@ contract VRFV2Plus is BaseTest {
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
     });
     (, uint96 ethBalanceBefore, , ) = s_testCoordinator.getSubscription(subId);
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, false, true);
     emit RandomWordsFulfilled(
       requestId,
       60034167071501806643072794052071072761405686871992035105939762990515855633675,
@@ -289,7 +289,7 @@ contract VRFV2Plus is BaseTest {
     registerProvingKey();
 
     // Request random words.
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, false, true);
     (uint256 requestId, uint256 preSeed) = s_testCoordinator.computeRequestIdExternal(
       vrfKeyHash,
       address(s_testConsumer),

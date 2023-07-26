@@ -64,7 +64,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   event RandomWordsFulfilled(
     uint256 indexed requestId,
     uint256 outputSeed,
-    uint256 subID,
+    uint256 indexed subID,
     uint96 payment,
     bytes extraArgs,
     bool success
