@@ -984,7 +984,7 @@ func (coordinator *EthereumVRFCoordinatorV3) FindSubscriptionID() (*big.Int, err
 	}
 
 	if !subscriptionIterator.Next() {
-		return nil, fmt.Errorf("expected at leats 1 subID for the given owner %s", owner)
+		return nil, fmt.Errorf("expected at least 1 subID for the given owner %s", owner)
 	}
 
 	return subscriptionIterator.Event.SubId, nil

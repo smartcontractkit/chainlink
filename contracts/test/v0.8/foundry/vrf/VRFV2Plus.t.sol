@@ -8,6 +8,7 @@ import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/testhelp
 import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2Plus.sol";
 import {BlockhashStore} from "../../../../src/v0.8/dev/BlockhashStore.sol";
 import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
+import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
 
 /*
@@ -148,7 +149,7 @@ contract VRFV2Plus is BaseTest {
     uint16 minimumRequestConfirmations,
     uint32 callbackGasLimit,
     uint32 numWords,
-    bool nativePayment,
+    bytes extraArgs,
     address indexed sender
   );
 
@@ -179,7 +180,7 @@ contract VRFV2Plus is BaseTest {
       0, // minConfirmations
       1_000_000, // callbackGasLimit
       1, // numWords
-      true, // nativePayment
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true})), // nativePayment
       address(s_testConsumer) // requester
     );
     s_testConsumer.requestRandomWords(1_000_000, 0, 1, vrfKeyHash, true);
@@ -237,7 +238,7 @@ contract VRFV2Plus is BaseTest {
       callbackGasLimit: 1_000_000,
       numWords: 1,
       sender: address(s_testConsumer),
-      nativePayment: true
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
     });
     (, uint96 ethBalanceBefore, , ) = s_testCoordinator.getSubscription(subId);
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
@@ -286,7 +287,7 @@ contract VRFV2Plus is BaseTest {
       0, // minConfirmations
       1_000_000, // callbackGasLimit
       1, // numWords
-      false, // nativePayment
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // nativePayment, // nativePayment
       address(s_testConsumer) // requester
     );
     s_testConsumer.requestRandomWords(1_000_000, 0, 1, vrfKeyHash, false);
@@ -343,7 +344,7 @@ contract VRFV2Plus is BaseTest {
       callbackGasLimit: 1000000,
       numWords: 1,
       sender: address(s_testConsumer),
-      nativePayment: false
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
     });
     (uint96 linkBalanceBefore, , , ) = s_testCoordinator.getSubscription(subId);
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
