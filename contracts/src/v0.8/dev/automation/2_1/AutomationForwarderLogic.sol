@@ -3,11 +3,8 @@ pragma solidity 0.8.16;
 
 import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsumer.sol";
 import "../../../interfaces/ITypeAndVersion.sol";
-import "../../../vendor/BytesLib.sol";
 
 contract AutomationForwarderLogic is ITypeAndVersion {
-  using BytesLib for bytes;
-
   IAutomationRegistryConsumer private s_registry;
 
   string public constant typeAndVersion = "AutomationForwarder 1.0.0";
@@ -23,9 +20,5 @@ contract AutomationForwarderLogic is ITypeAndVersion {
 
   function getRegistry() external view returns (IAutomationRegistryConsumer) {
     return s_registry;
-  }
-
-  function getTarget() external view returns (address) {
-    return address(bytes20(address(this).code.slice(211, 20))); // extract from bytecode
   }
 }

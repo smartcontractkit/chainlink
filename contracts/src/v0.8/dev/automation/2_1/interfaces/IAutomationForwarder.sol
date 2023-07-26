@@ -12,8 +12,4 @@ interface IAutomationForwarder is ITypeAndVersion {
   function getRegistry() external view returns (IAutomationRegistryConsumer);
 
   function getTarget() external view returns (address);
-
-  function getUpkeepID() external view returns (uint256);
-
-  function test() external view returns (bytes memory);
 }

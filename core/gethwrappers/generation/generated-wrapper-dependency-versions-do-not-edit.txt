@@ -25,7 +25,7 @@ keeper_registrar_wrapper1_2: ../../contracts/solc/v0.8.6/KeeperRegistrar.abi ../
 keeper_registrar_wrapper2_0: ../../contracts/solc/v0.8.6/KeeperRegistrar2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistrar2_0.bin 647f125c2f0dafabcdc545cb77b15dc2ec3ea9429357806813179b1fd555c2d2
 keeper_registry_logic1_3: ../../contracts/solc/v0.8.6/KeeperRegistryLogic1_3.abi ../../contracts/solc/v0.8.6/KeeperRegistryLogic1_3.bin 0176d7abdb01b370c5bf4f670d9abf85ca10aff53b1f7bdad41f85fabe666020
 keeper_registry_logic2_0: ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.bin d69d2bc8e4844293dbc2d45abcddc50b84c88554ecccfa4fa77c0ca45ec80871
-keeper_registry_logic_a_wrapper_2_1: ../../contracts/solc/v0.8.16/KeeperRegistryLogicA2_1.abi ../../contracts/solc/v0.8.16/KeeperRegistryLogicA2_1.bin c525d94ea262352d68d76658e1d175afa4a000ba6c7cd6c1df7a92d00407c2ae
+keeper_registry_logic_a_wrapper_2_1: ../../contracts/solc/v0.8.16/KeeperRegistryLogicA2_1.abi ../../contracts/solc/v0.8.16/KeeperRegistryLogicA2_1.bin e40694de536a8255f1ece93935dd441fcc3582ef6a3a33adff0187f5a8bdc7c2
 keeper_registry_logic_b_wrapper_2_1: ../../contracts/solc/v0.8.16/KeeperRegistryLogicB2_1.abi ../../contracts/solc/v0.8.16/KeeperRegistryLogicB2_1.bin 4c83988955df4e91a5ee154d741982edf4796fd0836a05172ce289d20b6d4b97
 keeper_registry_wrapper1_1: ../../contracts/solc/v0.7/KeeperRegistry1_1.abi ../../contracts/solc/v0.7/KeeperRegistry1_1.bin 6ce079f2738f015f7374673a2816e8e9787143d00b780ea7652c8aa9ad9e1e20
 keeper_registry_wrapper1_2: ../../contracts/solc/v0.8.6/KeeperRegistry1_2.abi ../../contracts/solc/v0.8.6/KeeperRegistry1_2.bin c08f903e7ecbdf89bbfea32c6dd334d3bf908ac809ebf63545890798a5f7a4a7

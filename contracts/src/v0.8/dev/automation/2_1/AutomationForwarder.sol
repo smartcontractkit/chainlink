@@ -56,6 +56,10 @@ contract AutomationForwarder {
     return (success, gasUsed);
   }
 
+  function getTarget() external view returns (address) {
+    return i_target;
+  }
+
   fallback() external {
     // copy to memory for assembly access
     address logic = i_logic;
