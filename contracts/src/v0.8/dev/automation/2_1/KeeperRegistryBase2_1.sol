@@ -691,6 +691,20 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     return Trigger(uint8(rawID[15]));
   }
 
+  function _checkPayload(
+    uint256 upkeepId,
+    Trigger triggerType,
+    bytes memory triggerData
+  ) internal view returns (bytes memory) {
+    if (triggerType == Trigger.CONDITION) {
+      return abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[upkeepId]);
+    } else if (triggerType == Trigger.LOG) {
+      Log memory log = abi.decode(triggerData, (Log));
+      return abi.encodeWithSelector(CHECK_LOG_SELECTOR, log, s_checkData[upkeepId]);
+    }
+    revert InvalidTriggerType();
+  }
+
   /**
    * @dev _decodeReport decodes a serialized report into a Report struct
    */
