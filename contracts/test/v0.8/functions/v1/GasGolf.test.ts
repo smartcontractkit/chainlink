@@ -74,6 +74,7 @@ describe('Gas Golf', () => {
       'function myFancyFunction(){return "woah, thats fancy"}',
       subscriptionId,
       ids.donId,
+      20_000,
     )
     const { gasUsed: requestTxGasUsed, events } = await requestTx.wait()
     const requestId = getEventArg(events, 'RequestSent', 0)
