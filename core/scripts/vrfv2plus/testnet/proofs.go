@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
@@ -102,7 +103,7 @@ func generateProofForV2Plus(e helpers.Environment) {
 
 	parsedSubId, ok := new(big.Int).SetString(*subId, 10)
 	if !ok {
-		helpers.PanicErr(fmt.Errorf("unable to parse subID: %s %w", subId, err))
+		helpers.PanicErr(fmt.Errorf("unable to parse subID: %s %w", *subId, err))
 	}
 	extraArgs, err := extraargs.ExtraArgsV1(*nativePayment)
 	helpers.PanicErr(err)
@@ -154,6 +155,6 @@ func generateProofForV2Plus(e helpers.Environment) {
 		rc.CallbackGasLimit,
 		rc.NumWords,
 		rc.Sender,
-		rc.NativePayment,
+		hexutil.Encode(rc.ExtraArgs),
 	)
 }
