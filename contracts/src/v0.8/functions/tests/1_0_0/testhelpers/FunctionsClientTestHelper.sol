@@ -18,10 +18,10 @@ contract FunctionsClientTestHelper is FunctionsClient {
   function sendSimpleRequestWithJavaScript(
     string memory sourceCode,
     uint64 subscriptionId,
-    bytes32 donId
+    bytes32 donId,
+    uint32 callbackGasLimit
   ) public returns (bytes32 requestId) {
     Functions.Request memory request;
-    uint32 callbackGasLimit = 20_000;
     request.initializeRequestForInlineJavaScript(sourceCode);
     requestId = _sendRequest(request, subscriptionId, callbackGasLimit, donId);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);

@@ -60,4 +60,11 @@ interface IFunctionsRouter is IRouterBase {
     uint96 costWithoutFulfillment,
     address transmitter
   ) external returns (uint8, uint96);
+
+  /**
+   * @notice Validate requested gas limit is below the subscription max.
+   * @param subscriptionId subscription ID
+   * @param callbackGasLimit desired callback gas limit
+   */
+  function isValidCallbackGasLimit(uint64 subscriptionId, uint32 callbackGasLimit) external view;
 }
