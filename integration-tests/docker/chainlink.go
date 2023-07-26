@@ -37,6 +37,7 @@ JSONConsole = true
 AllowOrigins = '*'
 HTTPPort = 6688
 SecureCookies = false
+SessionTimeout = '999h0m0s'
 
 [WebServer.TLS]
 HTTPSPort = 0
@@ -47,6 +48,7 @@ Unauthenticated = 100
 
 [[EVM]]
 ChainID = "1337"
+MinContractPayment = '0'
 AutoCreateKey = true
 finalityDepth = 1
 
@@ -186,7 +188,7 @@ func nodeContainerRequest(name string, nodeConfOpts NodeConfigOpts, secrets stri
 			"-a", apiCredsPath,
 		},
 		Networks:           networks,
-		HostConfigModifier: ContainerResources(40000, 500),
+		HostConfigModifier: ContainerResources(50000, 500),
 		WaitingFor: tcwait.ForHTTP("/health").
 			WithPort("6688/tcp").
 			WithStartupTimeout(90 * time.Second).
@@ -216,36 +218,38 @@ func nodeContainerRequest(name string, nodeConfOpts NodeConfigOpts, secrets stri
 	}, nil
 }
 
-type ChainlinkNode struct {
+type Chainlink struct {
 	prefix      string
 	container   tc.Container
 	dbContainer tc.Container
+	// export
+	Endpoint string
 }
 
 func NewChainlink(cfg any) ContainerSetupFunc {
-	c := &ChainlinkNode{prefix: "chainlink"}
+	c := &Chainlink{prefix: "chainlink"}
 	return func(network string) (Component, error) {
 		return c.Start(network, c.prefix, cfg)
 	}
 }
 
-func (m *ChainlinkNode) Prefix() string {
+func (m *Chainlink) Prefix() string {
 	return m.prefix
 }
 
-func (m *ChainlinkNode) Containers() []tc.Container {
+func (m *Chainlink) Containers() []tc.Container {
 	containers := make([]tc.Container, 0)
 	return append(containers, m.dbContainer, m.container)
 }
 
-func (m *ChainlinkNode) Stop() error {
+func (m *Chainlink) Stop() error {
 	if err := m.container.Terminate(context.Background()); err != nil {
 		return err
 	}
 	return m.dbContainer.Terminate(context.Background())
 }
 
-func (m *ChainlinkNode) Start(network, name string, cfg any) (Component, error) {
+func (m *Chainlink) Start(network, name string, cfg any) (Component, error) {
 	nco, ok := cfg.(NodeConfigOpts)
 	if !ok {
 		return m, fmt.Errorf("cfg must be of type NodeConfigOpts")
@@ -296,6 +300,7 @@ func (m *ChainlinkNode) Start(network, name string, cfg any) (Component, error) 
 	if err != nil {
 		return m, err
 	}
+	m.Endpoint = clEndpoint
 
 	log.Info().Str("containerName", ctName).
 		Str("clEndpoint", clEndpoint).
@@ -328,7 +333,7 @@ func pgContainerRequest(o PgOpts) tc.ContainerRequest {
 			"POSTGRES_PASSWORD": o.Password,
 		},
 		Networks:           o.Networks,
-		HostConfigModifier: ContainerResources(40000, 500),
+		HostConfigModifier: ContainerResources(50000, 500),
 		WaitingFor: tcwait.ForExec([]string{"psql", "-h", "localhost",
 			"-U", o.User, "-c", "select", "1", "-d", o.DbName}).
 			WithStartupTimeout(90 * time.Second),

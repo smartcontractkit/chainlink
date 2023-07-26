@@ -53,7 +53,7 @@ geth "$@"
 	"gasLimit": "8000000000",
 	"alloc": {
 	  "{{ .AccountAddr }}": {
-		"balance": "20000000000000000000000"
+		"balance": "2000000000000000000000"
 	  }
 	}
   }`
@@ -127,13 +127,9 @@ func (m *Geth) Start(network, name string, cfg any) (Component, error) {
 	m.container = ct
 	m.ExternalHttpUrl = fmt.Sprintf("http://%s:%s", host, httpPort.Port())
 	m.InternalHttpUrl = fmt.Sprintf("http://%s:8544", ctName)
-	m.ExternalWsUrl = fmt.Sprintf("http://%s:%s", host, wsPort.Port())
+	m.ExternalWsUrl = fmt.Sprintf("ws://%s:%s", host, wsPort.Port())
 	m.InternalWsUrl = fmt.Sprintf("ws://%s:8545", ctName)
 
-	//ctName	client, err := ethclient.Dial(m.ExternalHttpUrl)
-	//	if err != nil {
-	//		return err
-	//	}
 	log.Info().Str("containerName", ctName).
 		Str("internalHttpUrl", m.InternalHttpUrl).
 		Str("externalHttpUrl", m.ExternalHttpUrl).
@@ -184,6 +180,14 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 	if err != nil {
 		return nil, ks, &account, err
 	}
+	key1File, err := ioutil.TempFile(keystoreDir, "key1")
+	if err != nil {
+		return nil, ks, &account, err
+	}
+	_, err = key1File.WriteString(`{"address":"f39fd6e51aad88f6f4ce6ab8827279cfffb92266","crypto":{"cipher":"aes-128-ctr","ciphertext":"c36afd6e60b82d6844530bd6ab44dbc3b85a53e826c3a7f6fc6a75ce38c1e4c6","cipherparams":{"iv":"f69d2bb8cd0cb6274535656553b61806"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"80d5f5e38ba175b6b89acfc8ea62a6f163970504af301292377ff7baafedab53"},"mac":"f2ecec2c4d05aacc10eba5235354c2fcc3776824f81ec6de98022f704efbf065"},"id":"e5c124e9-e280-4b10-a27b-d7f3e516b408","version":3}`)
+	if err != nil {
+		return nil, ks, &account, err
+	}
 	configDir, err := ioutil.TempDir("", "config")
 	if err != nil {
 		return nil, ks, &account, err
@@ -199,7 +203,7 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
 		Networks:     []string{network},
 		WaitingFor: tcwait.ForLog("Commit new sealing work").
-			WithStartupTimeout(90 * time.Second).
+			WithStartupTimeout(999 * time.Second).
 			WithPollInterval(1 * time.Second),
 		HostConfigModifier: ContainerResources(100000, 1024),
 		// Entrypoint:   []string{"tail", "-f", "/dev/null"},
@@ -209,12 +213,16 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 			"--datadir",
 			"/root/.ethereum/devchain",
 			"--unlock",
-			account.Address.Hex(),
+			"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+			//"--unlock",
+			//account.Address.Hex(),
 			// "--password",
 			// password,
 			"--mine",
 			"--miner.etherbase",
-			account.Address.Hex(),
+			"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+			//"--miner.etherbase",
+			//account.Address.Hex(),
 			"--ipcdisable",
 			"--http",
 			"--http.vhosts",
@@ -255,6 +263,11 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 				ContainerFilePath: "/root/genesis.json",
 				FileMode:          0644,
 			},
+			//{
+			//	HostFilePath:      key1File.Name(),
+			//	ContainerFilePath: "/root/.ethereum/devchain/keystore/key1",
+			//	FileMode:          0644,
+			//},
 		},
 		Mounts: tc.ContainerMounts{
 			tc.ContainerMount{

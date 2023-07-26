@@ -7,12 +7,16 @@ import (
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
+	"strings"
 	"time"
 )
 
 type MockServer struct {
 	prefix    string
 	container tc.Container
+	// export
+	Endpoint         string
+	InternalEndpoint string
 }
 
 func NewMockServer(cfg any) ContainerSetupFunc {
@@ -32,7 +36,7 @@ func (m *MockServer) Containers() []tc.Container {
 
 func (m *MockServer) Start(network, name string, cfg any) (Component, error) {
 	req := tc.GenericContainerRequest{
-		ContainerRequest: *msContainerRequest(network),
+		ContainerRequest: *msContainerRequest(network, name),
 		Started:          true,
 	}
 	c, err := tc.GenericContainer(context.Background(), req)
@@ -43,10 +47,17 @@ func (m *MockServer) Start(network, name string, cfg any) (Component, error) {
 	if err != nil {
 		return m, err
 	}
+	cName = strings.Replace(cName, "/", "", -1)
+	_, err = c.MappedPort(context.Background(), "1080/tcp")
+	if err != nil {
+		return nil, err
+	}
 	endpoint, err := c.Endpoint(context.Background(), "http")
 	if err != nil {
 		return m, err
 	}
+	m.Endpoint = endpoint
+	m.InternalEndpoint = fmt.Sprintf("http://%s:1080", cName)
 	log.Info().Any("endpoint", endpoint).Str("containerName", cName).
 		Msgf("Started mockserver container")
 
@@ -64,9 +75,9 @@ func (m *MockServer) Stop() error {
 	return m.container.Terminate(context.Background())
 }
 
-func msContainerRequest(network string) *tc.ContainerRequest {
+func msContainerRequest(network, name string) *tc.ContainerRequest {
 	return &tc.ContainerRequest{
-		Name:         fmt.Sprintf("mockserver-%s", uuid.NewString()),
+		Name:         fmt.Sprintf("%s-%s", name, uuid.NewString()),
 		Image:        "mockserver/mockserver:5.11.2",
 		ExposedPorts: []string{"1080/tcp"},
 		Env: map[string]string{
