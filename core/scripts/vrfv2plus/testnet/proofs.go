@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
@@ -154,5 +155,6 @@ func generateProofForV2Plus(e helpers.Environment) {
 		rc.CallbackGasLimit,
 		rc.NumWords,
 		rc.Sender,
+		hexutil.Encode(rc.ExtraArgs),
 	)
 }
