@@ -17,15 +17,6 @@ var (
 	ErrNotFound = errors.New("not found")
 )
 
-// CoordinatedProposal contains all required values to construct a complete
-// UpkeepPayload for use in a runner
-// TODO:remove this struct and use the one from ocr2keeper
-type CoordinatedProposal struct {
-	UpkeepID ocr2keepers.UpkeepIdentifier
-	Trigger  ocr2keepers.Trigger
-	Block    ocr2keepers.BlockKey
-}
-
 type LogRecoverer interface {
 	GetRecoverables() ([]ocr2keepers.UpkeepPayload, error)
 }
