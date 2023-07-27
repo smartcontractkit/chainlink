@@ -17,10 +17,6 @@ var (
 	ErrNotFound = errors.New("not found")
 )
 
-type LogRecoverer interface {
-	GetRecoverables() ([]ocr2keepers.UpkeepPayload, error)
-}
-
 type logRecoverer struct {
 	lggr logger.Logger
 
@@ -37,14 +33,16 @@ type logRecoverer struct {
 
 var _ keepersflows.RecoverableProvider = &logRecoverer{}
 
-func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, interval time.Duration) LogRecoverer {
+func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, interval time.Duration) *logRecoverer {
 	if interval == 0 {
 		interval = 30 * time.Second
 	}
 	return &logRecoverer{
 		lggr:     lggr.Named("LogRecoverer"),
-		lock:     &sync.RWMutex{},
 		interval: interval,
+		lock:     &sync.RWMutex{},
+		pending:  make([]ocr2keepers.UpkeepPayload, 0),
+		visited:  make(map[string]bool),
 		poller:   poller,
 	}
 }
