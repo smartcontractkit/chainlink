@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsRouter} from "../../dev/1_0_0/FunctionsRouter.sol";
 import {FunctionsCoordinator} from "../../dev/1_0_0/FunctionsCoordinator.sol";
+import {FunctionsBilling} from "../../dev/1_0_0/FunctionsBilling.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {TermsOfServiceAllowList} from "../../dev/1_0_0/accessControl/TermsOfServiceAllowList.sol";
 
@@ -24,12 +25,69 @@ contract FunctionsRouterSetup is BaseTest {
 
   function setUp() public virtual override {
     BaseTest.setUp();
-    bytes memory config = abi.encode(s_adminFee, s_handleOracleFulfillmentSelector);
-    s_functionsRouter = new FunctionsRouter(s_timelockBlocks, s_maximumTimelockBlocks, s_linkToken, config);
+    s_functionsRouter = new FunctionsRouter(s_timelockBlocks, s_maximumTimelockBlocks, s_linkToken, getRouterConfig());
     s_linkEthFeed = new MockV3Aggregator(0, LINK_ETH_RATE);
 
     s_termsOfServiceAllowList = new TermsOfServiceAllowList(address(s_functionsRouter), getTermsOfServiceConfig());
+  }
 
+  function getRouterConfig() public view returns (bytes memory) {
+    uint32[] memory maxCallbackGasLimits = new uint32[](1);
+    maxCallbackGasLimits[0] = type(uint32).max;
+
+    // First create the struct to get some type safety
+    FunctionsRouter.Config memory routerConfig = FunctionsRouter.Config({
+      adminFee: s_adminFee,
+      handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
+      maxCallbackGasLimits: maxCallbackGasLimits
+    });
+
+    return
+      abi.encode(
+        routerConfig.adminFee,
+        routerConfig.handleOracleFulfillmentSelector,
+        routerConfig.maxCallbackGasLimits
+      );
+  }
+
+  function getCoordinatorConfig() public pure returns (bytes memory) {
+    FunctionsBilling.Config memory billingConfig = FunctionsBilling.Config({
+      maxCallbackGasLimit: 5,
+      feedStalenessSeconds: 5,
+      gasOverheadAfterCallback: 5,
+      gasOverheadBeforeCallback: 5,
+      requestTimeoutSeconds: 1,
+      donFee: 5,
+      maxSupportedRequestDataVersion: 5,
+      fulfillmentGasPriceOverEstimationBP: 5,
+      fallbackNativePerUnitLink: 2874
+    });
+
+    return
+      abi.encode(
+        billingConfig.maxCallbackGasLimit,
+        billingConfig.feedStalenessSeconds,
+        billingConfig.gasOverheadBeforeCallback,
+        billingConfig.gasOverheadAfterCallback,
+        billingConfig.requestTimeoutSeconds,
+        billingConfig.donFee,
+        billingConfig.maxSupportedRequestDataVersion,
+        billingConfig.fulfillmentGasPriceOverEstimationBP,
+        billingConfig.fallbackNativePerUnitLink
+      );
+  }
+
+  function getTermsOfServiceConfig() public pure returns (bytes memory) {
+    bool enabled = false;
+    address proofSignerPublicKey = address(132);
+    return abi.encode(enabled, proofSignerPublicKey);
+  }
+}
+
+contract FunctionsRouter_createSubscription is FunctionsRouterSetup {
+  event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
+
+  function testCreateSubscriptionSuccess() public {
     s_functionsCoordinator = new FunctionsCoordinator(
       address(s_functionsRouter),
       getCoordinatorConfig(),
@@ -46,41 +104,7 @@ contract FunctionsRouterSetup is BaseTest {
 
     s_functionsRouter.proposeContractsUpdate(proposedContractSetIds, proposedContractSetAddresses);
     s_functionsRouter.updateContracts();
-  }
 
-  function getCoordinatorConfig() public pure returns (bytes memory) {
-    uint32 maxCallbackGasLimit = 5;
-    uint32 feedStalenessSeconds = 5;
-    uint32 gasOverheadBeforeCallback = 5;
-    uint32 gasOverheadAfterCallback = 5;
-    uint32 requestTimeoutSeconds = 1;
-    uint80 donFee = 5;
-    uint16 maxSupportedRequestDataVersion = 5;
-    int256 fallbackNativePerUnitLink = 2874;
-    return
-      abi.encode(
-        maxCallbackGasLimit,
-        feedStalenessSeconds,
-        gasOverheadBeforeCallback,
-        gasOverheadAfterCallback,
-        requestTimeoutSeconds,
-        donFee,
-        maxSupportedRequestDataVersion,
-        fallbackNativePerUnitLink
-      );
-  }
-
-  function getTermsOfServiceConfig() public pure returns (bytes memory) {
-    bool enabled = false;
-    address proofSignerPublicKey = address(132);
-    return abi.encode(enabled, proofSignerPublicKey);
-  }
-}
-
-contract FunctionsRouter_createSubscription is FunctionsRouterSetup {
-  event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
-
-  function testCreateSubscriptionSuccess() public {
     vm.expectEmit();
     emit SubscriptionCreated(1, OWNER);
 
