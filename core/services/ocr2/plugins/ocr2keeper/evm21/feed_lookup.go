@@ -74,13 +74,26 @@ type AdminOffchainConfig struct {
 // feedLookup looks through check upkeep results looking for any that need off chain lookup
 func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
 	lookups := map[int]*FeedLookup{}
+
+	latestBlock, err := r.poller.LatestBlock()
+	if err != nil {
+		return nil, err
+	}
+
 	for i, res := range upkeepResults {
 		ext := res.Extension.(EVMAutomationResultExtension21)
 		if ext.FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
 		}
 
-		block, upkeepId := r.getBlockAndUpkeepId(res.Payload)
+		block, upkeepId, err := r.getBlockAndUpkeepId(res.Payload, latestBlock)
+		if err != nil {
+			// block and id had a parse or validation error so the payload
+			// should not be included in further checks
+			r.lggr.Errorf("validation error for upkeep payload")
+
+			continue
+		}
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {

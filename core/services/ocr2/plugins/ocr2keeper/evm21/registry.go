@@ -651,23 +651,76 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 	}
 }
 
-func (r *EvmRegistry) getBlockAndUpkeepId(key ocr2keepers.UpkeepPayload) (*big.Int, *big.Int) {
-	block := new(big.Int).SetInt64(key.Trigger.BlockNumber)
-	upkeepId := new(big.Int).SetBytes(key.Upkeep.ID)
-	return block, upkeepId
+func parseAndValidateUpkeepIdentifier(identifier ocr2keepers.UpkeepIdentifier) (*big.Int, bool, error) {
+	maxUpkeepIdentifer := new(big.Int)
+	maxUpkeepIdentifer, _ = maxUpkeepIdentifer.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10) // 2 ** 256 -1
+
+	identifierInt, ok := new(big.Int).SetString(string(identifier), 10)
+	if !ok {
+		return nil, false, fmt.Errorf("upkeep identifier is not a big int")
+	}
+
+	if identifierInt.String() != string(identifier) {
+		return nil, false, fmt.Errorf("upkeep identifier stringify mismatch")
+	}
+
+	if identifierInt.Cmp(big.NewInt(0)) <= 0 || identifierInt.Cmp(maxUpkeepIdentifer) > 0 {
+		return nil, false, fmt.Errorf("upkeep identifier exceeds lower or upper bounds")
+	}
+
+	return identifierInt, true, nil
+}
+
+func (r *EvmRegistry) getBlockAndUpkeepId(payload ocr2keepers.UpkeepPayload, latestBlock int64) (*big.Int, *big.Int, error) {
+	lowerBound := latestBlock - 256
+	if lowerBound <= 0 {
+		lowerBound = 1
+	}
+
+	// block number should not be old
+	if payload.Trigger.BlockNumber < lowerBound {
+		return nil, nil, fmt.Errorf("block number %d out of range: lower bound %d", payload.Trigger.BlockNumber, lowerBound)
+	}
+
+	// block number should not be higher than latest
+	if payload.Trigger.BlockNumber > latestBlock {
+		return nil, nil, fmt.Errorf("block number %d out of range: upper bound %d", payload.Trigger.BlockNumber, latestBlock)
+	}
+
+	upkeepId, ok, err := parseAndValidateUpkeepIdentifier(payload.Upkeep.ID)
+	if !ok {
+		return nil, nil, err
+	}
+
+	block := new(big.Int).SetInt64(payload.Trigger.BlockNumber)
+
+	return block, upkeepId, nil
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
+func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	var (
-		checkReqs    = make([]rpc.BatchElem, len(keys))
-		checkResults = make([]*string, len(keys))
-		blocks       = make([]*big.Int, len(keys))
-		upkeepIds    = make([]*big.Int, len(keys))
+		checkReqs    = make([]rpc.BatchElem, len(payloads))
+		checkResults = make([]*string, len(payloads))
+		blocks       = make([]*big.Int, len(payloads))
+		upkeepIds    = make([]*big.Int, len(payloads))
 	)
 
-	for i, key := range keys {
-		block, upkeepId := r.getBlockAndUpkeepId(key)
+	latestBlock, err := r.poller.LatestBlock()
+	if err != nil {
+		return nil, err
+	}
+
+	for i, key := range payloads {
+		block, upkeepId, err := r.getBlockAndUpkeepId(key, latestBlock)
+		if err != nil {
+			// block and id had a parse or validation error so the payload
+			// should not be included in further checks
+			r.lggr.Errorf("validation error for upkeep payload")
+
+			continue
+		}
+
 		blocks[i] = block
 		upkeepIds[i] = upkeepId
 
@@ -712,16 +765,16 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 
 	var (
 		multiErr error
-		results  = make([]ocr2keepers.CheckResult, len(keys))
+		results  = make([]ocr2keepers.CheckResult, len(payloads))
 	)
 
 	for i, req := range checkReqs {
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %s with message '%s' in check", keys[i], req.Error)
+			r.lggr.Debugf("error encountered for key %s with message '%s' in check", payloads[i], req.Error)
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
 			var err error
-			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
+			results[i], err = r.packer.UnpackCheckResult(payloads[i], *checkResults[i])
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to unpack check result")
 			}
@@ -739,12 +792,24 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		performToKeyIdx = make([]int, 0, len(checkResults))
 	)
 
+	latestBlock, err := r.poller.LatestBlock()
+	if err != nil {
+		return nil, err
+	}
+
 	for i, cr := range checkResults {
 		if !cr.Eligible {
 			continue
 		}
 
-		block, upkeepId := r.getBlockAndUpkeepId(cr.Payload)
+		block, upkeepId, err := r.getBlockAndUpkeepId(cr.Payload, latestBlock)
+		if err != nil {
+			// block and id had a parse or validation error so the payload
+			// should not be included in further checks
+			r.lggr.Errorf("validation error for upkeep payload")
+
+			continue
+		}
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {

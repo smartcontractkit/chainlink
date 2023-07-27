@@ -310,22 +310,55 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 	tests := []struct {
 		name       string
 		input      ocr2keepers.UpkeepPayload
+		latest     int64
 		wantBlock  *big.Int
 		wantUpkeep *big.Int
+		wantErr    bool
 	}{
 		{
 			"happy flow",
 			ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier([]byte("10")),
+					ID: ocr2keepers.UpkeepIdentifier("10"),
 				},
 				Trigger: ocr2keepers.Trigger{
 					BlockNumber: 1,
-					BlockHash:   common.Bytes2Hex([]byte{1, 2, 3, 4, 5, 6, 7, 8}),
 				},
 			},
+			10,
 			big.NewInt(1),
-			big.NewInt(0).SetBytes([]byte("10")),
+			big.NewInt(10),
+			true,
+		},
+		{
+			"block number too high",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier("10"),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 1000,
+				},
+			},
+			999,
+			nil,
+			nil,
+			false,
+		},
+		{
+			"block number too low",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier("10"),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 100,
+				},
+			},
+			357,
+			nil,
+			nil,
+			false,
 		},
 		{
 			"empty block number",
@@ -334,22 +367,143 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 					ID: ocr2keepers.UpkeepIdentifier([]byte("10")),
 				},
 			},
-			big.NewInt(0),
-			big.NewInt(0).SetBytes([]byte("10")),
+			5000,
+			nil,
+			nil,
+			false,
 		},
 		{
 			"empty payload",
 			ocr2keepers.UpkeepPayload{},
-			big.NewInt(0),
-			big.NewInt(0),
+			10,
+			nil,
+			nil,
+			false,
+		},
+		{
+			"upkeep id not a number",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier("test"),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 1,
+				},
+			},
+			100,
+			nil,
+			nil,
+			false,
+		},
+		{
+			"upkeep id formatted as binary should parse as base 10",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier("1010101"),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 1,
+				},
+			},
+			100,
+			big.NewInt(1),
+			big.NewInt(1010101),
+			true,
+		},
+		{
+			"upkeep id formatted as hex should fail",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier("0x24"),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 1,
+				},
+			},
+			100,
+			nil,
+			nil,
+			false,
+		},
+		{
+			"upkeep id with leading zeros should fail",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier("0000082"),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 1,
+				},
+			},
+			100,
+			nil,
+			nil,
+			false,
+		},
+		{
+			"upkeep id larger than largest value should fail",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier("115792089237316195423570985008687907853269984665640564039457584007913129639936"),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 1,
+				},
+			},
+			100,
+			nil,
+			nil,
+			false,
+		},
+		{
+			"upkeep id should not be negative",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier("-12"),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 1,
+				},
+			},
+			100,
+			nil,
+			nil,
+			false,
+		},
+		{
+			"upkeep id should not be zero",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier("0"),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 1,
+				},
+			},
+			100,
+			nil,
+			nil,
+			false,
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			block, upkeep := r.getBlockAndUpkeepId(tc.input)
-			assert.Equal(t, tc.wantBlock, block)
-			assert.Equal(t, tc.wantUpkeep, upkeep)
+			block, upkeep, err := r.getBlockAndUpkeepId(tc.input, tc.latest)
+
+			if tc.wantBlock != nil {
+				assert.Equal(t, tc.wantBlock.String(), block.String(), "block number should match expected")
+			} else {
+				assert.Nil(t, block, "block number should be nil")
+			}
+
+			if tc.wantUpkeep != nil {
+				assert.Equal(t, tc.wantUpkeep.String(), upkeep.String(), "upkeep id should match expected")
+			} else {
+				assert.Nil(t, upkeep, "upkeep id should be nil")
+			}
+
+			assert.Equal(t, err == nil, tc.wantErr, "err nil should match expected")
 		})
 	}
 }
