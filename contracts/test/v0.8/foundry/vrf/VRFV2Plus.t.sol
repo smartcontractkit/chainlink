@@ -152,6 +152,14 @@ contract VRFV2Plus is BaseTest {
     bytes extraArgs,
     address indexed sender
   );
+  event RandomWordsFulfilled(
+    uint256 indexed requestId,
+    uint256 outputSeed,
+    uint256 indexed subID,
+    uint96 payment,
+    bytes extraArgs,
+    bool success
+  );
 
   function testRequestAndFulfillRandomWordsNative() public {
     uint32 requestBlock = 10;
@@ -241,6 +249,9 @@ contract VRFV2Plus is BaseTest {
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
     });
     (, uint96 ethBalanceBefore, , ) = s_testCoordinator.getSubscription(subId);
+    vm.expectEmit(true, true, false, true);
+    uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
+    emit RandomWordsFulfilled(requestId, outputSeed, subId, 122500, rc.extraArgs, true);
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
@@ -272,7 +283,7 @@ contract VRFV2Plus is BaseTest {
     registerProvingKey();
 
     // Request random words.
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, false, true);
     (uint256 requestId, uint256 preSeed) = s_testCoordinator.computeRequestIdExternal(
       vrfKeyHash,
       address(s_testConsumer),
@@ -347,6 +358,9 @@ contract VRFV2Plus is BaseTest {
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
     });
     (uint96 linkBalanceBefore, , , ) = s_testCoordinator.getSubscription(subId);
+    vm.expectEmit(true, true, false, true);
+    uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
+    emit RandomWordsFulfilled(requestId, outputSeed, subId, 290972, rc.extraArgs, true);
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
