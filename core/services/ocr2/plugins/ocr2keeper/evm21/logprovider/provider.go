@@ -374,14 +374,14 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries .
 			entry.lastPollBlock = latest
 		}
 		if n := len(logs); n > 0 {
-			lggr.Debugw("got logs for upkeep", "logs", n, "added", added)
+			lggr.Debugw("got logs for upkeep", "logs", n, "added", added, "start", start, "latest", latest)
 		}
 		addCount += added
 		readCount += len(logs)
 	}
 
-	if readCount >= 0 {
-		mainLggr.Debugw("read logs for entries", "entries", len(entries),
+	if addCount > 0 {
+		mainLggr.Debugw("found new logs for entries", "entries", len(entries),
 			"readCount", readCount, "addCount", addCount, "err", merr)
 	}
 
