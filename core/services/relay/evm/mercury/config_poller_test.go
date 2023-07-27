@@ -85,7 +85,7 @@ func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 			assert.False(t, persistConfig)
 		})
 		t.Run("when contract method returns false, does not enable persistConfig", func(t *testing.T) {
-			th.configPoller.addr = th.verifierContract.Address()
+			th.configPoller.addr = th.verifierContractAddr
 
 			persistConfig, err := th.configPoller.callIsConfigPersisted(testutils.Context(t))
 			require.NoError(t, err)

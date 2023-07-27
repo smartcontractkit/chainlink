@@ -29,18 +29,19 @@ import (
 )
 
 type TestHarness struct {
-	configPoller     *configPoller
-	user             *bind.TransactOpts
-	backend          *backends.SimulatedBackend
-	verifierContract *mercury_verifier.MercuryVerifier
-	logPoller        logpoller.LogPoller
-	eventBroadcaster *pgmocks.EventBroadcaster
-	subscription     *pgmocks.Subscription
-	logger           logger.Logger
+	configPoller         *configPoller
+	user                 *bind.TransactOpts
+	backend              *backends.SimulatedBackend
+	verifierContract     *mercury_verifier.MercuryVerifier
+	verifierContractAddr common.Address
+	logPoller            logpoller.LogPoller
+	eventBroadcaster     *pgmocks.EventBroadcaster
+	subscription         *pgmocks.Subscription
+	logger               logger.Logger
 }
 
 func (th TestHarness) replaceVerifier(t *testing.T, persistConfig bool) *mercury_verifier.MercuryVerifier {
-	th.verifierContract = deployVerifier(t, th.user, th.backend, persistConfig)
+	th.verifierContract, th.verifierContractAddr = deployVerifier(t, th.user, th.backend, persistConfig)
 	th.configPoller.addr = th.verifierContract.Address()
 	return th.verifierContract
 }
@@ -117,7 +118,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
 		5*ethconfig.Defaults.Miner.GasCeil)
 
-	verifierContract := deployVerifier(t, user, b, false)
+	verifierContract, addr := deployVerifier(t, user, b, false)
 	b.Commit()
 
 	db := pgtest.NewSqlxDB(t)
@@ -134,27 +135,28 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 
 	eventBroadcaster.On("Subscribe", "insert_on_evm_logs", "").Return(subscription, nil)
 
-	configPoller, err := NewConfigPoller(lggr, ethClient, lp, verifierContract.Address(), feedID, eventBroadcaster)
+	configPoller, err := NewConfigPoller(lggr, ethClient, lp, addr, feedID, eventBroadcaster)
 	require.NoError(t, err)
 
 	return TestHarness{
-		configPoller:     configPoller,
-		user:             user,
-		backend:          b,
-		verifierContract: verifierContract,
-		logPoller:        lp,
-		eventBroadcaster: eventBroadcaster,
-		subscription:     subscription,
-		logger:           lggr,
+		configPoller:         configPoller,
+		user:                 user,
+		backend:              b,
+		verifierContract:     verifierContract,
+		verifierContractAddr: addr,
+		logPoller:            lp,
+		eventBroadcaster:     eventBroadcaster,
+		subscription:         subscription,
+		logger:               lggr,
 	}
 }
 
-func deployVerifier(t *testing.T, user *bind.TransactOpts, b *backends.SimulatedBackend, persistConfig bool) (verifierContract *mercury_verifier.MercuryVerifier) {
+func deployVerifier(t *testing.T, user *bind.TransactOpts, b *backends.SimulatedBackend, persistConfig bool) (verifierContract *mercury_verifier.MercuryVerifier, verifierAddress common.Address) {
 	proxyAddress, _, verifierProxy, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(user, b, common.Address{})
 	require.NoError(t, err, "failed to deploy test mercury verifier proxy contract")
-	verifierAddress, _, verifierContract, err := mercury_verifier.DeployMercuryVerifier(user, b, proxyAddress, persistConfig)
+	verifierAddress, _, verifierContract, err = mercury_verifier.DeployMercuryVerifier(user, b, proxyAddress, persistConfig)
 	require.NoError(t, err, "failed to deploy test mercury verifier contract")
 	_, err = verifierProxy.InitializeVerifier(user, verifierAddress)
 	require.NoError(t, err)
-	return verifierContract
+	return verifierContract, verifierAddress
 }
