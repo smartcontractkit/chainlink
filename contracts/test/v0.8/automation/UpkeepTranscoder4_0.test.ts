@@ -283,9 +283,7 @@ async function deployRegistry2_1() {
 
   await registry
     .connect(owner)
-    [
-      'setConfig(address[],address[],uint8,(uint32,uint32,uint32,uint24,uint16,uint96,uint32,uint32,uint32,uint32,uint256,uint256,address,address[],address),uint64,bytes)'
-    ](
+    .setConfigTypeSafe(
       signerAddresses,
       keeperAddresses,
       f,

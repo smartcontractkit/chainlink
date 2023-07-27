@@ -12,7 +12,7 @@ import { UpkeepMock } from '../../../typechain/UpkeepMock'
 import { toWei } from '../../test-helpers/helpers'
 import { IKeeperRegistryMaster as IKeeperRegistry } from '../../../typechain/IKeeperRegistryMaster'
 import { AutomationRegistrar2_1 as Registrar } from '../../../typechain/AutomationRegistrar2_1'
-import { deployRegistry21, setConfigExplicit } from './helpers'
+import { deployRegistry21 } from './helpers'
 
 // copied from KeeperRegistryBase2_1.sol
 enum Trigger {
@@ -163,7 +163,7 @@ describe('AutomationRegistrar2_1', () => {
     }
     await registry
       .connect(owner)
-      [setConfigExplicit](keepers, keepers, 1, onchainConfig, 1, '0x')
+      .setConfigTypeSafe(keepers, keepers, 1, onchainConfig, 1, '0x')
   })
 
   describe('#typeAndVersion', () => {
