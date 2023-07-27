@@ -5,7 +5,7 @@ pragma solidity 0.8.16;
 import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
 import "../../../interfaces/TypeAndVersionInterface.sol";
 import {KeeperRegistryBase2_1 as R21} from "./KeeperRegistryBase2_1.sol";
-import {AutomationForwarder} from "./AutomationForwarder.sol";
+import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";
 import {AutomationRegistryBaseInterface, UpkeepInfo} from "../../../interfaces/automation/2_0/AutomationRegistryInterface2_0.sol";
 
 enum RegistryVersion {
@@ -63,7 +63,7 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
    */
   string public constant override typeAndVersion = "UpkeepTranscoder 4.0.0";
   uint32 internal constant UINT32_MAX = type(uint32).max;
-  AutomationForwarder internal constant ZERO_FORWARDER = AutomationForwarder(address(0));
+  IAutomationForwarder internal constant ZERO_FORWARDER = IAutomationForwarder(address(0));
 
   /**
    * @notice transcodeUpkeeps transforms upkeep data from the format expected by
@@ -91,24 +91,25 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
       if (ids.length != upkeepsV12.length || ids.length != checkDatas.length) {
         revert InvalidTranscoding();
       }
+      address[] memory targets = new address[](ids.length);
       address[] memory admins = new address[](ids.length);
       R21.Upkeep[] memory newUpkeeps = new R21.Upkeep[](ids.length);
       UpkeepV12 memory upkeepV12;
       for (uint256 idx = 0; idx < ids.length; idx++) {
         upkeepV12 = upkeepsV12[idx];
         newUpkeeps[idx] = R21.Upkeep({
-          executeGas: upkeepV12.executeGas,
+          performGas: upkeepV12.executeGas,
           maxValidBlocknumber: UINT32_MAX, // maxValidBlocknumber is uint64 in V1, hence a new default value is provided
           paused: false, // migrated upkeeps are not paused by default
-          target: upkeepV12.target,
           forwarder: ZERO_FORWARDER,
           amountSpent: upkeepV12.amountSpent,
           balance: upkeepV12.balance,
           lastPerformedBlockNumber: 0
         });
+        targets[idx] = upkeepV12.target;
         admins[idx] = upkeepV12.admin;
       }
-      return abi.encode(ids, newUpkeeps, admins, checkDatas, new bytes[](ids.length), new bytes[](ids.length));
+      return abi.encode(ids, newUpkeeps, targets, admins, checkDatas, new bytes[](ids.length), new bytes[](ids.length));
     }
     // v1.3 => v2.1
     if (fromVersion == uint8(RegistryVersion.V13)) {
@@ -119,24 +120,25 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
       if (ids.length != upkeepsV13.length || ids.length != checkDatas.length) {
         revert InvalidTranscoding();
       }
+      address[] memory targets = new address[](ids.length);
       address[] memory admins = new address[](ids.length);
       R21.Upkeep[] memory newUpkeeps = new R21.Upkeep[](ids.length);
       UpkeepV13 memory upkeepV13;
       for (uint256 idx = 0; idx < ids.length; idx++) {
         upkeepV13 = upkeepsV13[idx];
         newUpkeeps[idx] = R21.Upkeep({
-          executeGas: upkeepV13.executeGas,
+          performGas: upkeepV13.executeGas,
           maxValidBlocknumber: upkeepV13.maxValidBlocknumber,
           paused: upkeepV13.paused,
-          target: upkeepV13.target,
           forwarder: ZERO_FORWARDER,
           amountSpent: upkeepV13.amountSpent,
           balance: upkeepV13.balance,
           lastPerformedBlockNumber: 0
         });
+        targets[idx] = upkeepV13.target;
         admins[idx] = upkeepV13.admin;
       }
-      return abi.encode(ids, newUpkeeps, admins, checkDatas, new bytes[](ids.length), new bytes[](ids.length));
+      return abi.encode(ids, newUpkeeps, targets, admins, checkDatas, new bytes[](ids.length), new bytes[](ids.length));
     }
     // v2.0 => v2.1
     if (fromVersion == uint8(RegistryVersion.V20)) {
@@ -146,25 +148,24 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
         revert InvalidTranscoding();
       }
       // bit of a hack - transcodeUpkeeps should be a pure function
-      AutomationRegistryBaseInterface registry20 = AutomationRegistryBaseInterface(msg.sender);
       R21.Upkeep[] memory newUpkeeps = new R21.Upkeep[](ids.length);
-      bytes[] memory offchainConfigs = new bytes[](ids.length);
+      bytes[] memory emptyBytes = new bytes[](ids.length);
+      address[] memory targets = new address[](ids.length);
       UpkeepV20 memory upkeepV20;
       for (uint256 idx = 0; idx < ids.length; idx++) {
         upkeepV20 = upkeepsV20[idx];
         newUpkeeps[idx] = R21.Upkeep({
-          executeGas: upkeepV20.executeGas,
+          performGas: upkeepV20.executeGas,
           maxValidBlocknumber: upkeepV20.maxValidBlocknumber,
           paused: upkeepV20.paused,
-          target: upkeepV20.target,
           forwarder: ZERO_FORWARDER,
           amountSpent: upkeepV20.amountSpent,
           balance: upkeepV20.balance,
           lastPerformedBlockNumber: 0
         });
-        offchainConfigs[idx] = registry20.getUpkeep(ids[idx]).offchainConfig;
+        targets[idx] = upkeepV20.target;
       }
-      return abi.encode(ids, newUpkeeps, admins, checkDatas, new bytes[](ids.length), offchainConfigs);
+      return abi.encode(ids, newUpkeeps, targets, admins, checkDatas, emptyBytes, emptyBytes);
     }
     // v2.1 => v2.1
     if (fromVersion == uint8(RegistryVersion.V21)) {

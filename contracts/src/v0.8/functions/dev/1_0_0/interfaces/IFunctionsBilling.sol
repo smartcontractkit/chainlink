@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 /**
  * @title Chainlink Functions billing subscription registry interface.
@@ -26,6 +26,7 @@ interface IFunctionsBilling {
    * @return gasOverhead average gas execution cost used in estimating total cost
    * @return linkPriceFeed address of contract for a conversion price between LINK token and native token
    * @return maxSupportedRequestDataVersion The highest support request data version supported by the node
+   * @return fulfillmentGasPriceOverEstimationBP Percentage of gas price overestimation to account for changes in gas price between request and response. Held as basis points (one hundredth of 1 percentage point)
    */
   function getConfig()
     external
@@ -37,7 +38,8 @@ interface IFunctionsBilling {
       int256 fallbackWeiPerUnitLink,
       uint32 gasOverhead,
       address linkPriceFeed,
-      uint16 maxSupportedRequestDataVersion
+      uint16 maxSupportedRequestDataVersion,
+      uint256 fulfillmentGasPriceOverEstimationBP
     );
 
   /**

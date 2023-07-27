@@ -7,358 +7,910 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var extraArgsV1Tag = crypto.Keccak256([]byte("VRF ExtraArgsV1"))[:4]
+var (
+	_ CoordinatorV2_X = (*coordinatorV2)(nil)
+	_ CoordinatorV2_X = (*coordinatorV2Plus)(nil)
+)
+
+var (
+	_ CoordinatorV2_X = (*coordinatorV2)(nil)
+	_ CoordinatorV2_X = (*coordinatorV2Plus)(nil)
+)
 
 // CoordinatorV2_X is an interface that allows us to use the same code for
 // both the V2 and V2Plus coordinators.
 type CoordinatorV2_X interface {
 	Address() common.Address
-	ParseRandomWordsRequested(log types.Log) (*RandomWordsRequested, error)
-	RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subId uint64, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error)
-	AddConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error)
+	ParseRandomWordsRequested(log types.Log) (RandomWordsRequested, error)
+	RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error)
+	AddConsumer(opts *bind.TransactOpts, subID *big.Int, consumer common.Address) (*types.Transaction, error)
 	CreateSubscription(opts *bind.TransactOpts) (*types.Transaction, error)
-	GetSubscription(opts *bind.CallOpts, subID uint64) (*GetSubscription, error)
-	GetConfig(opts *bind.CallOpts) (*GetConfig, error)
+	GetSubscription(opts *bind.CallOpts, subID *big.Int) (Subscription, error)
+	GetConfig(opts *bind.CallOpts) (Config, error)
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 	OracleWithdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error)
 	LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic
 	Version() vrfcommon.Version
 	RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error)
-	FilterSubscriptionCreated(opts *bind.FilterOpts, subId []uint64) (*SubscriptionCreatedIterator, error)
-	FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subId []uint64, sender []common.Address) (*RandomWordsRequestedIterator, error)
-	FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (*RandomWordsFulfilledIterator, error)
+	FilterSubscriptionCreated(opts *bind.FilterOpts, subID []*big.Int) (SubscriptionCreatedIterator, error)
+	FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subID []*big.Int, sender []common.Address) (RandomWordsRequestedIterator, error)
+	FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error)
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
-	RemoveConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error)
-	CancelSubscription(opts *bind.TransactOpts, subId uint64, to common.Address) (*types.Transaction, error)
+	RemoveConsumer(opts *bind.TransactOpts, subID *big.Int, consumer common.Address) (*types.Transaction, error)
+	CancelSubscription(opts *bind.TransactOpts, subID *big.Int, to common.Address) (*types.Transaction, error)
 	GetCommitment(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error)
 }
 
-type RandomWordsRequestedIterator struct {
-	VRFVersion vrfcommon.Version
-	V2         *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequestedIterator
-	V2Plus     *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequestedIterator
+type coordinatorV2 struct {
+	vrfVersion  vrfcommon.Version
+	coordinator *vrf_coordinator_v2.VRFCoordinatorV2
 }
 
-func (it *RandomWordsRequestedIterator) Next() bool {
-	if it.VRFVersion == vrfcommon.V2 {
-		return it.V2.Next()
-	}
-	return it.V2Plus.Next()
-}
-
-func (it *RandomWordsRequestedIterator) Error() error {
-	if it.VRFVersion == vrfcommon.V2 {
-		return it.V2.Error()
-	}
-	return it.V2Plus.Error()
-}
-
-func (it *RandomWordsRequestedIterator) Close() error {
-	if it.VRFVersion == vrfcommon.V2 {
-		return it.V2.Close()
-	}
-	return it.V2Plus.Close()
-}
-
-func (it *RandomWordsRequestedIterator) Event() *RandomWordsRequested {
-	if it.VRFVersion == vrfcommon.V2 {
-		return &RandomWordsRequested{
-			VRFVersion: it.VRFVersion,
-			V2:         it.V2.Event,
-		}
-	}
-	return &RandomWordsRequested{
-		VRFVersion: it.VRFVersion,
-		V2Plus:     it.V2Plus.Event,
+func NewCoordinatorV2(c *vrf_coordinator_v2.VRFCoordinatorV2) CoordinatorV2_X {
+	return &coordinatorV2{
+		vrfVersion:  vrfcommon.V2,
+		coordinator: c,
 	}
 }
 
-type RandomWordsFulfilledIterator struct {
-	VRFVersion vrfcommon.Version
-	V2         *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilledIterator
-	V2Plus     *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilledIterator
+func (c *coordinatorV2) Address() common.Address {
+	return c.coordinator.Address()
 }
 
-func (it *RandomWordsFulfilledIterator) Next() bool {
-	if it.VRFVersion == vrfcommon.V2 {
-		return it.V2.Next()
+func (c *coordinatorV2) ParseRandomWordsRequested(log types.Log) (RandomWordsRequested, error) {
+	parsed, err := c.coordinator.ParseRandomWordsRequested(log)
+	if err != nil {
+		return nil, err
 	}
-	return it.V2Plus.Next()
+	return NewV2RandomWordsRequested(parsed), nil
 }
 
-func (it *RandomWordsFulfilledIterator) Error() error {
-	if it.VRFVersion == vrfcommon.V2 {
-		return it.V2.Error()
+func (c *coordinatorV2) RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error) {
+	return c.coordinator.RequestRandomWords(opts, keyHash, subID.Uint64(), requestConfirmations, callbackGasLimit, numWords)
+}
+
+func (c *coordinatorV2) AddConsumer(opts *bind.TransactOpts, subID *big.Int, consumer common.Address) (*types.Transaction, error) {
+	return c.coordinator.AddConsumer(opts, subID.Uint64(), consumer)
+}
+
+func (c *coordinatorV2) CreateSubscription(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return c.coordinator.CreateSubscription(opts)
+}
+
+func (c *coordinatorV2) GetSubscription(opts *bind.CallOpts, subID *big.Int) (Subscription, error) {
+	sub, err := c.coordinator.GetSubscription(opts, subID.Uint64())
+	if err != nil {
+		return nil, err
 	}
-	return it.V2Plus.Error()
+	return NewV2Subscription(sub), nil
 }
 
-func (it *RandomWordsFulfilledIterator) Close() error {
-	if it.VRFVersion == vrfcommon.V2 {
-		return it.V2.Close()
+func (c *coordinatorV2) GetConfig(opts *bind.CallOpts) (Config, error) {
+	config, err := c.coordinator.GetConfig(opts)
+	if err != nil {
+		return nil, err
 	}
-	return it.V2Plus.Close()
+	return NewV2Config(config), nil
 }
 
-func (it *RandomWordsFulfilledIterator) Event() *RandomWordsFulfilled {
-	if it.VRFVersion == vrfcommon.V2 {
-		return &RandomWordsFulfilled{
-			VRFVersion: it.VRFVersion,
-			V2:         it.V2.Event,
-		}
-	}
-	return &RandomWordsFulfilled{
-		VRFVersion: it.VRFVersion,
-		V2Plus:     it.V2Plus.Event,
-	}
+func (c *coordinatorV2) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	return c.coordinator.ParseLog(log)
 }
 
-type RandomWordsFulfilled struct {
-	VRFVersion vrfcommon.Version
-	V2         *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
-	V2Plus     *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled
+func (c *coordinatorV2) OracleWithdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
+	return c.coordinator.OracleWithdraw(opts, recipient, amount)
 }
 
-func (rwf *RandomWordsFulfilled) RequestID() *big.Int {
-	if rwf.VRFVersion == vrfcommon.V2 {
-		return rwf.V2.RequestId
-	}
-	return rwf.V2Plus.RequestId
-}
-
-func (rwf *RandomWordsFulfilled) Success() bool {
-	if rwf.VRFVersion == vrfcommon.V2 {
-		return rwf.V2.Success
-	}
-	return rwf.V2Plus.Success
-}
-
-func (rwf *RandomWordsFulfilled) NativePayment() bool {
-	if rwf.VRFVersion == vrfcommon.V2 {
-		return false
-	}
-	return rwf.V2Plus.NativePayment
-}
-
-func (rwf *RandomWordsFulfilled) Payment() *big.Int {
-	if rwf.VRFVersion == vrfcommon.V2 {
-		return rwf.V2.Payment
-	}
-	return rwf.V2Plus.Payment
-}
-
-func (rwf *RandomWordsFulfilled) Raw() types.Log {
-	if rwf.VRFVersion == vrfcommon.V2 {
-		return rwf.V2.Raw
-	}
-	return rwf.V2Plus.Raw
-}
-
-type SubscriptionCreatedIterator struct {
-	VRFVersion vrfcommon.Version
-	V2         *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreatedIterator
-	V2Plus     *vrf_coordinator_v2plus.VRFCoordinatorV2PlusSubscriptionCreatedIterator
-}
-
-func (it *SubscriptionCreatedIterator) Next() bool {
-	if it.VRFVersion == vrfcommon.V2 {
-		return it.V2.Next()
-	}
-	return it.V2Plus.Next()
-}
-
-func (it *SubscriptionCreatedIterator) Error() error {
-	if it.VRFVersion == vrfcommon.V2 {
-		return it.V2.Error()
-	}
-	return it.V2Plus.Error()
-}
-
-func (it *SubscriptionCreatedIterator) Close() error {
-	if it.VRFVersion == vrfcommon.V2 {
-		return it.V2.Close()
-	}
-	return it.V2Plus.Close()
-}
-
-func (it *SubscriptionCreatedIterator) Event() *SubscriptionCreated {
-	if it.VRFVersion == vrfcommon.V2 {
-		return &SubscriptionCreated{
-			VRFVersion: it.VRFVersion,
-			V2:         it.V2.Event,
-		}
-	}
-	return &SubscriptionCreated{
-		VRFVersion: it.VRFVersion,
-		V2Plus:     it.V2Plus.Event,
+func (c *coordinatorV2) LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic {
+	return map[common.Hash][][]log.Topic{
+		vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(): {
+			{
+				log.Topic(keyHash),
+			},
+		},
 	}
 }
 
-type SubscriptionCreated struct {
-	VRFVersion vrfcommon.Version
-	V2         *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated
-	V2Plus     *vrf_coordinator_v2plus.VRFCoordinatorV2PlusSubscriptionCreated
+func (c *coordinatorV2) Version() vrfcommon.Version {
+	return c.vrfVersion
 }
 
-func (sc *SubscriptionCreated) Owner() common.Address {
-	if sc.VRFVersion == vrfcommon.V2 {
-		return sc.V2.Owner
+func (c *coordinatorV2) RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error) {
+	return c.coordinator.RegisterProvingKey(opts, oracle, publicProvingKey)
+}
+
+func (c *coordinatorV2) FilterSubscriptionCreated(opts *bind.FilterOpts, subID []*big.Int) (SubscriptionCreatedIterator, error) {
+	it, err := c.coordinator.FilterSubscriptionCreated(opts, toV2SubIDs(subID))
+	if err != nil {
+		return nil, err
 	}
-	return sc.V2Plus.Owner
+	return NewV2SubscriptionCreatedIterator(it), nil
 }
 
-type RandomWordsRequested struct {
-	VRFVersion vrfcommon.Version
-	V2         *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
-	V2Plus     *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested
-}
-
-func (r *RandomWordsRequested) Raw() types.Log {
-	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.Raw
+func (c *coordinatorV2) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subID []*big.Int, sender []common.Address) (RandomWordsRequestedIterator, error) {
+	it, err := c.coordinator.FilterRandomWordsRequested(opts, keyHash, toV2SubIDs(subID), sender)
+	if err != nil {
+		return nil, err
 	}
-	return r.V2Plus.Raw
+	return NewV2RandomWordsRequestedIterator(it), nil
 }
 
-func (r *RandomWordsRequested) NumWords() uint32 {
-	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.NumWords
+func (c *coordinatorV2) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error) {
+	it, err := c.coordinator.FilterRandomWordsFulfilled(opts, requestID)
+	if err != nil {
+		return nil, err
 	}
-	return r.V2Plus.NumWords
+	return NewV2RandomWordsFulfilledIterator(it), nil
 }
 
-func (r *RandomWordsRequested) SubID() uint64 {
-	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.SubId
+func (c *coordinatorV2) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
+	return c.coordinator.TransferOwnership(opts, to)
+}
+
+func (c *coordinatorV2) RemoveConsumer(opts *bind.TransactOpts, subID *big.Int, consumer common.Address) (*types.Transaction, error) {
+	return c.coordinator.RemoveConsumer(opts, subID.Uint64(), consumer)
+}
+
+func (c *coordinatorV2) CancelSubscription(opts *bind.TransactOpts, subID *big.Int, to common.Address) (*types.Transaction, error) {
+	return c.coordinator.CancelSubscription(opts, subID.Uint64(), to)
+}
+
+func (c *coordinatorV2) GetCommitment(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error) {
+	return c.coordinator.GetCommitment(opts, requestID)
+}
+
+type coordinatorV2Plus struct {
+	vrfVersion  vrfcommon.Version
+	coordinator *vrf_coordinator_v2plus.VRFCoordinatorV2Plus
+}
+
+func NewCoordinatorV2Plus(c *vrf_coordinator_v2plus.VRFCoordinatorV2Plus) CoordinatorV2_X {
+	return &coordinatorV2Plus{
+		vrfVersion:  vrfcommon.V2Plus,
+		coordinator: c,
 	}
-	return r.V2Plus.SubId
 }
 
-func (r *RandomWordsRequested) MinimumRequestConfirmations() uint16 {
-	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.MinimumRequestConfirmations
+func (c *coordinatorV2Plus) Address() common.Address {
+	return c.coordinator.Address()
+}
+
+func (c *coordinatorV2Plus) ParseRandomWordsRequested(log types.Log) (RandomWordsRequested, error) {
+	parsed, err := c.coordinator.ParseRandomWordsRequested(log)
+	if err != nil {
+		return nil, err
 	}
-	return r.V2Plus.MinimumRequestConfirmations
+	return NewV2PlusRandomWordsRequested(parsed), nil
 }
 
-func (r *RandomWordsRequested) KeyHash() [32]byte {
-	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.KeyHash
+func (c *coordinatorV2Plus) RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error) {
+	extraArgs, err := extraargs.ExtraArgsV1(payInEth)
+	if err != nil {
+		return nil, err
 	}
-	return r.V2Plus.KeyHash
-}
-
-func (r *RandomWordsRequested) RequestID() *big.Int {
-	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.RequestId
+	req := vrf_coordinator_v2plus.VRFV2PlusClientRandomWordsRequest{
+		KeyHash:              keyHash,
+		SubId:                subID,
+		RequestConfirmations: requestConfirmations,
+		CallbackGasLimit:     callbackGasLimit,
+		NumWords:             numWords,
+		ExtraArgs:            extraArgs,
 	}
-	return r.V2Plus.RequestId
+	return c.coordinator.RequestRandomWords(opts, req)
 }
 
-func (r *RandomWordsRequested) PreSeed() *big.Int {
-	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.PreSeed
+func (c *coordinatorV2Plus) AddConsumer(opts *bind.TransactOpts, subID *big.Int, consumer common.Address) (*types.Transaction, error) {
+	return c.coordinator.AddConsumer(opts, subID, consumer)
+}
+
+func (c *coordinatorV2Plus) CreateSubscription(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return c.coordinator.CreateSubscription(opts)
+}
+
+func (c *coordinatorV2Plus) GetSubscription(opts *bind.CallOpts, subID *big.Int) (Subscription, error) {
+	sub, err := c.coordinator.GetSubscription(opts, subID)
+	if err != nil {
+		return nil, err
 	}
-	return r.V2Plus.PreSeed
+	return NewV2PlusSubscription(sub), nil
 }
 
-func (r *RandomWordsRequested) Sender() common.Address {
-	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.Sender
+func (c *coordinatorV2Plus) GetConfig(opts *bind.CallOpts) (Config, error) {
+	config, err := c.coordinator.SConfig(opts)
+	if err != nil {
+		return nil, err
 	}
-	return r.V2Plus.Sender
+	return NewV2PlusConfig(config), nil
 }
 
-func (r *RandomWordsRequested) CallbackGasLimit() uint32 {
-	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.CallbackGasLimit
+func (c *coordinatorV2Plus) ParseLog(log types.Log) (generated.AbigenLog, error) {
+	return c.coordinator.ParseLog(log)
+}
+
+func (c *coordinatorV2Plus) OracleWithdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
+	return c.coordinator.OracleWithdraw(opts, recipient, amount)
+}
+
+func (c *coordinatorV2Plus) LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic {
+	return map[common.Hash][][]log.Topic{
+		vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested{}.Topic(): {
+			{
+				log.Topic(keyHash),
+			},
+		},
 	}
-	return r.V2Plus.CallbackGasLimit
 }
 
-func (r *RandomWordsRequested) NativePayment() bool {
-	if r.VRFVersion == vrfcommon.V2 {
-		return false
+func (c *coordinatorV2Plus) Version() vrfcommon.Version {
+	return c.vrfVersion
+}
+
+func (c *coordinatorV2Plus) RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error) {
+	return c.coordinator.RegisterProvingKey(opts, oracle, publicProvingKey)
+}
+
+func (c *coordinatorV2Plus) FilterSubscriptionCreated(opts *bind.FilterOpts, subID []*big.Int) (SubscriptionCreatedIterator, error) {
+	it, err := c.coordinator.FilterSubscriptionCreated(opts, subID)
+	if err != nil {
+		return nil, err
 	}
-	return r.V2Plus.NativePayment
+	return NewV2PlusSubscriptionCreatedIterator(it), nil
 }
 
-type GetSubscription struct {
-	VRFVersion vrfcommon.Version
-	V2         vrf_coordinator_v2.GetSubscription
-	V2Plus     vrf_coordinator_v2plus.GetSubscription
-}
-
-func (s *GetSubscription) Balance() *big.Int {
-	if s.VRFVersion == vrfcommon.V2 {
-		return s.V2.Balance
+func (c *coordinatorV2Plus) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subID []*big.Int, sender []common.Address) (RandomWordsRequestedIterator, error) {
+	it, err := c.coordinator.FilterRandomWordsRequested(opts, keyHash, subID, sender)
+	if err != nil {
+		return nil, err
 	}
-	return s.V2Plus.Balance
+	return NewV2PlusRandomWordsRequestedIterator(it), nil
 }
 
-func (s *GetSubscription) EthBalance() *big.Int {
-	if s.VRFVersion == vrfcommon.V2 {
-		panic("EthBalance not supported on V2")
+func (c *coordinatorV2Plus) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error) {
+	it, err := c.coordinator.FilterRandomWordsFulfilled(opts, requestID, subID)
+	if err != nil {
+		return nil, err
 	}
-	return s.V2Plus.EthBalance
+	return NewV2PlusRandomWordsFulfilledIterator(it), nil
 }
 
-func (s *GetSubscription) Owner() common.Address {
-	if s.VRFVersion == vrfcommon.V2 {
-		return s.V2.Owner
+func (c *coordinatorV2Plus) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
+	return c.coordinator.TransferOwnership(opts, to)
+}
+
+func (c *coordinatorV2Plus) RemoveConsumer(opts *bind.TransactOpts, subID *big.Int, consumer common.Address) (*types.Transaction, error) {
+	return c.coordinator.RemoveConsumer(opts, subID, consumer)
+}
+
+func (c *coordinatorV2Plus) CancelSubscription(opts *bind.TransactOpts, subID *big.Int, to common.Address) (*types.Transaction, error) {
+	return c.coordinator.CancelSubscription(opts, subID, to)
+}
+
+func (c *coordinatorV2Plus) GetCommitment(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error) {
+	return c.coordinator.SRequestCommitments(opts, requestID)
+}
+
+var (
+	_ RandomWordsRequestedIterator = (*v2RandomWordsRequestedIterator)(nil)
+	_ RandomWordsRequestedIterator = (*v2PlusRandomWordsRequestedIterator)(nil)
+)
+
+type RandomWordsRequestedIterator interface {
+	Next() bool
+	Error() error
+	Close() error
+	Event() RandomWordsRequested
+}
+
+type v2RandomWordsRequestedIterator struct {
+	vrfVersion vrfcommon.Version
+	iterator   *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequestedIterator
+}
+
+func NewV2RandomWordsRequestedIterator(it *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequestedIterator) RandomWordsRequestedIterator {
+	return &v2RandomWordsRequestedIterator{
+		vrfVersion: vrfcommon.V2,
+		iterator:   it,
 	}
-	return s.V2Plus.Owner
 }
 
-func (s *GetSubscription) Consumers() []common.Address {
-	if s.VRFVersion == vrfcommon.V2 {
-		return s.V2.Consumers
+func (it *v2RandomWordsRequestedIterator) Next() bool {
+	return it.iterator.Next()
+}
+
+func (it *v2RandomWordsRequestedIterator) Error() error {
+	return it.iterator.Error()
+}
+
+func (it *v2RandomWordsRequestedIterator) Close() error {
+	return it.iterator.Close()
+}
+
+func (it *v2RandomWordsRequestedIterator) Event() RandomWordsRequested {
+	return NewV2RandomWordsRequested(it.iterator.Event)
+}
+
+type v2PlusRandomWordsRequestedIterator struct {
+	vrfVersion vrfcommon.Version
+	iterator   *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequestedIterator
+}
+
+func NewV2PlusRandomWordsRequestedIterator(it *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequestedIterator) RandomWordsRequestedIterator {
+	return &v2PlusRandomWordsRequestedIterator{
+		vrfVersion: vrfcommon.V2Plus,
+		iterator:   it,
 	}
-	return s.V2Plus.Consumers
 }
 
-type GetConfig struct {
-	VRFVersion vrfcommon.Version
-	V2         vrf_coordinator_v2.GetConfig
-	V2Plus     vrf_coordinator_v2plus.SConfig
+func (it *v2PlusRandomWordsRequestedIterator) Next() bool {
+	return it.iterator.Next()
 }
 
-func (c *GetConfig) MinimumRequestConfirmations() uint16 {
-	if c.VRFVersion == vrfcommon.V2 {
-		return c.V2.MinimumRequestConfirmations
+func (it *v2PlusRandomWordsRequestedIterator) Error() error {
+	return it.iterator.Error()
+}
+
+func (it *v2PlusRandomWordsRequestedIterator) Close() error {
+	return it.iterator.Close()
+}
+
+func (it *v2PlusRandomWordsRequestedIterator) Event() RandomWordsRequested {
+	return NewV2PlusRandomWordsRequested(it.iterator.Event)
+}
+
+var (
+	_ RandomWordsRequested = (*v2RandomWordsRequested)(nil)
+	_ RandomWordsRequested = (*v2PlusRandomWordsRequested)(nil)
+)
+
+type RandomWordsRequested interface {
+	Raw() types.Log
+	NumWords() uint32
+	SubID() *big.Int
+	MinimumRequestConfirmations() uint16
+	KeyHash() [32]byte
+	RequestID() *big.Int
+	PreSeed() *big.Int
+	Sender() common.Address
+	CallbackGasLimit() uint32
+	NativePayment() bool
+}
+
+type v2RandomWordsRequested struct {
+	vrfVersion vrfcommon.Version
+	event      *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested
+}
+
+func NewV2RandomWordsRequested(event *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested) RandomWordsRequested {
+	return &v2RandomWordsRequested{
+		vrfVersion: vrfcommon.V2,
+		event:      event,
 	}
-	return c.V2Plus.MinimumRequestConfirmations
 }
 
-func (c *GetConfig) MaxGasLimit() uint32 {
-	if c.VRFVersion == vrfcommon.V2 {
-		return c.V2.MaxGasLimit
-	}
-	return c.V2Plus.MaxGasLimit
+func (r *v2RandomWordsRequested) Raw() types.Log {
+	return r.event.Raw
 }
 
-func (c *GetConfig) GasAfterPaymentCalculation() uint32 {
-	if c.VRFVersion == vrfcommon.V2 {
-		return c.V2.GasAfterPaymentCalculation
-	}
-	return c.V2Plus.GasAfterPaymentCalculation
+func (r *v2RandomWordsRequested) NumWords() uint32 {
+	return r.event.NumWords
 }
 
-func (c *GetConfig) StalenessSeconds() uint32 {
-	if c.VRFVersion == vrfcommon.V2 {
-		return c.V2.StalenessSeconds
+func (r *v2RandomWordsRequested) SubID() *big.Int {
+	return new(big.Int).SetUint64(r.event.SubId)
+}
+
+func (r *v2RandomWordsRequested) MinimumRequestConfirmations() uint16 {
+	return r.event.MinimumRequestConfirmations
+}
+
+func (r *v2RandomWordsRequested) KeyHash() [32]byte {
+	return r.event.KeyHash
+}
+
+func (r *v2RandomWordsRequested) RequestID() *big.Int {
+	return r.event.RequestId
+}
+
+func (r *v2RandomWordsRequested) PreSeed() *big.Int {
+	return r.event.PreSeed
+}
+
+func (r *v2RandomWordsRequested) Sender() common.Address {
+	return r.event.Sender
+}
+
+func (r *v2RandomWordsRequested) CallbackGasLimit() uint32 {
+	return r.event.CallbackGasLimit
+}
+
+func (r *v2RandomWordsRequested) NativePayment() bool {
+	return false
+}
+
+type v2PlusRandomWordsRequested struct {
+	vrfVersion vrfcommon.Version
+	event      *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested
+}
+
+func NewV2PlusRandomWordsRequested(event *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested) RandomWordsRequested {
+	return &v2PlusRandomWordsRequested{
+		vrfVersion: vrfcommon.V2Plus,
+		event:      event,
 	}
-	return c.V2Plus.StalenessSeconds
+}
+
+func (r *v2PlusRandomWordsRequested) Raw() types.Log {
+	return r.event.Raw
+}
+
+func (r *v2PlusRandomWordsRequested) NumWords() uint32 {
+	return r.event.NumWords
+}
+
+func (r *v2PlusRandomWordsRequested) SubID() *big.Int {
+	return r.event.SubId
+}
+
+func (r *v2PlusRandomWordsRequested) MinimumRequestConfirmations() uint16 {
+	return r.event.MinimumRequestConfirmations
+}
+
+func (r *v2PlusRandomWordsRequested) KeyHash() [32]byte {
+	return r.event.KeyHash
+}
+
+func (r *v2PlusRandomWordsRequested) RequestID() *big.Int {
+	return r.event.RequestId
+}
+
+func (r *v2PlusRandomWordsRequested) PreSeed() *big.Int {
+	return r.event.PreSeed
+}
+
+func (r *v2PlusRandomWordsRequested) Sender() common.Address {
+	return r.event.Sender
+}
+
+func (r *v2PlusRandomWordsRequested) CallbackGasLimit() uint32 {
+	return r.event.CallbackGasLimit
+}
+
+func (r *v2PlusRandomWordsRequested) NativePayment() bool {
+	nativePayment, err := extraargs.FromExtraArgsV1(r.event.ExtraArgs)
+	if err != nil {
+		panic(err)
+	}
+	return nativePayment
+}
+
+var (
+	_ RandomWordsFulfilledIterator = (*v2RandomWordsFulfilledIterator)(nil)
+	_ RandomWordsFulfilledIterator = (*v2PlusRandomWordsFulfilledIterator)(nil)
+)
+
+type RandomWordsFulfilledIterator interface {
+	Next() bool
+	Error() error
+	Close() error
+	Event() RandomWordsFulfilled
+}
+
+type v2RandomWordsFulfilledIterator struct {
+	vrfVersion vrfcommon.Version
+	iterator   *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilledIterator
+}
+
+func NewV2RandomWordsFulfilledIterator(it *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilledIterator) RandomWordsFulfilledIterator {
+	return &v2RandomWordsFulfilledIterator{
+		vrfVersion: vrfcommon.V2,
+		iterator:   it,
+	}
+}
+
+func (it *v2RandomWordsFulfilledIterator) Next() bool {
+	return it.iterator.Next()
+}
+
+func (it *v2RandomWordsFulfilledIterator) Error() error {
+	return it.iterator.Error()
+}
+
+func (it *v2RandomWordsFulfilledIterator) Close() error {
+	return it.iterator.Close()
+}
+
+func (it *v2RandomWordsFulfilledIterator) Event() RandomWordsFulfilled {
+	return NewV2RandomWordsFulfilled(it.iterator.Event)
+}
+
+type v2PlusRandomWordsFulfilledIterator struct {
+	vrfVersion vrfcommon.Version
+	iterator   *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilledIterator
+}
+
+func NewV2PlusRandomWordsFulfilledIterator(it *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilledIterator) RandomWordsFulfilledIterator {
+	return &v2PlusRandomWordsFulfilledIterator{
+		vrfVersion: vrfcommon.V2Plus,
+		iterator:   it,
+	}
+}
+
+func (it *v2PlusRandomWordsFulfilledIterator) Next() bool {
+	return it.iterator.Next()
+}
+
+func (it *v2PlusRandomWordsFulfilledIterator) Error() error {
+	return it.iterator.Error()
+}
+
+func (it *v2PlusRandomWordsFulfilledIterator) Close() error {
+	return it.iterator.Close()
+}
+
+func (it *v2PlusRandomWordsFulfilledIterator) Event() RandomWordsFulfilled {
+	return NewV2PlusRandomWordsFulfilled(it.iterator.Event)
+}
+
+var (
+	_ RandomWordsFulfilled = (*v2RandomWordsFulfilled)(nil)
+	_ RandomWordsFulfilled = (*v2PlusRandomWordsFulfilled)(nil)
+)
+
+type RandomWordsFulfilled interface {
+	RequestID() *big.Int
+	Success() bool
+	NativePayment() bool
+	SubID() *big.Int
+	Payment() *big.Int
+	Raw() types.Log
+}
+
+func NewV2RandomWordsFulfilled(event *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled) RandomWordsFulfilled {
+	return &v2RandomWordsFulfilled{
+		vrfVersion: vrfcommon.V2,
+		event:      event,
+	}
+}
+
+type v2RandomWordsFulfilled struct {
+	vrfVersion vrfcommon.Version
+	event      *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled
+}
+
+func (rwf *v2RandomWordsFulfilled) RequestID() *big.Int {
+	return rwf.event.RequestId
+}
+
+func (rwf *v2RandomWordsFulfilled) Success() bool {
+	return rwf.event.Success
+}
+
+func (rwf *v2RandomWordsFulfilled) NativePayment() bool {
+	return false
+}
+
+func (rwf *v2RandomWordsFulfilled) SubID() *big.Int {
+	panic("VRF V2 RandomWordsFulfilled does not implement SubID")
+}
+
+func (rwf *v2RandomWordsFulfilled) Payment() *big.Int {
+	return rwf.event.Payment
+}
+
+func (rwf *v2RandomWordsFulfilled) Raw() types.Log {
+	return rwf.event.Raw
+}
+
+type v2PlusRandomWordsFulfilled struct {
+	vrfVersion vrfcommon.Version
+	event      *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled
+}
+
+func NewV2PlusRandomWordsFulfilled(event *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled) RandomWordsFulfilled {
+	return &v2PlusRandomWordsFulfilled{
+		vrfVersion: vrfcommon.V2Plus,
+		event:      event,
+	}
+}
+
+func (rwf *v2PlusRandomWordsFulfilled) RequestID() *big.Int {
+	return rwf.event.RequestId
+}
+
+func (rwf *v2PlusRandomWordsFulfilled) Success() bool {
+	return rwf.event.Success
+}
+
+func (rwf *v2PlusRandomWordsFulfilled) NativePayment() bool {
+	nativePayment, err := extraargs.FromExtraArgsV1(rwf.event.ExtraArgs)
+	if err != nil {
+		panic(err)
+	}
+	return nativePayment
+}
+
+func (rwf *v2PlusRandomWordsFulfilled) SubID() *big.Int {
+	return rwf.event.SubID
+}
+
+func (rwf *v2PlusRandomWordsFulfilled) Payment() *big.Int {
+	return rwf.event.Payment
+}
+
+func (rwf *v2PlusRandomWordsFulfilled) Raw() types.Log {
+	return rwf.event.Raw
+}
+
+var (
+	_ SubscriptionCreatedIterator = (*v2SubscriptionCreatedIterator)(nil)
+	_ SubscriptionCreatedIterator = (*v2PlusSubscriptionCreatedIterator)(nil)
+)
+
+type SubscriptionCreatedIterator interface {
+	Next() bool
+	Error() error
+	Close() error
+	Event() SubscriptionCreated
+}
+
+type v2SubscriptionCreatedIterator struct {
+	vrfVersion vrfcommon.Version
+	iterator   *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreatedIterator
+}
+
+func NewV2SubscriptionCreatedIterator(it *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreatedIterator) SubscriptionCreatedIterator {
+	return &v2SubscriptionCreatedIterator{
+		vrfVersion: vrfcommon.V2,
+		iterator:   it,
+	}
+}
+
+func (it *v2SubscriptionCreatedIterator) Next() bool {
+	return it.iterator.Next()
+}
+
+func (it *v2SubscriptionCreatedIterator) Error() error {
+	return it.iterator.Error()
+}
+
+func (it *v2SubscriptionCreatedIterator) Close() error {
+	return it.iterator.Close()
+}
+
+func (it *v2SubscriptionCreatedIterator) Event() SubscriptionCreated {
+	return NewV2SubscriptionCreated(it.iterator.Event)
+}
+
+type v2PlusSubscriptionCreatedIterator struct {
+	vrfVersion vrfcommon.Version
+	iterator   *vrf_coordinator_v2plus.VRFCoordinatorV2PlusSubscriptionCreatedIterator
+}
+
+func NewV2PlusSubscriptionCreatedIterator(it *vrf_coordinator_v2plus.VRFCoordinatorV2PlusSubscriptionCreatedIterator) SubscriptionCreatedIterator {
+	return &v2PlusSubscriptionCreatedIterator{
+		vrfVersion: vrfcommon.V2Plus,
+		iterator:   it,
+	}
+}
+
+func (it *v2PlusSubscriptionCreatedIterator) Next() bool {
+	return it.iterator.Next()
+}
+
+func (it *v2PlusSubscriptionCreatedIterator) Error() error {
+	return it.iterator.Error()
+}
+
+func (it *v2PlusSubscriptionCreatedIterator) Close() error {
+	return it.iterator.Close()
+}
+
+func (it *v2PlusSubscriptionCreatedIterator) Event() SubscriptionCreated {
+	return NewV2PlusSubscriptionCreated(it.iterator.Event)
+}
+
+var (
+	_ SubscriptionCreated = (*v2SubscriptionCreated)(nil)
+	_ SubscriptionCreated = (*v2PlusSubscriptionCreated)(nil)
+)
+
+type SubscriptionCreated interface {
+	Owner() common.Address
+	SubID() *big.Int
+}
+
+type v2SubscriptionCreated struct {
+	vrfVersion vrfcommon.Version
+	event      *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated
+}
+
+func NewV2SubscriptionCreated(event *vrf_coordinator_v2.VRFCoordinatorV2SubscriptionCreated) SubscriptionCreated {
+	return &v2SubscriptionCreated{
+		vrfVersion: vrfcommon.V2,
+		event:      event,
+	}
+}
+
+func (sc *v2SubscriptionCreated) Owner() common.Address {
+	return sc.event.Owner
+}
+
+func (sc *v2SubscriptionCreated) SubID() *big.Int {
+	return new(big.Int).SetUint64(sc.event.SubId)
+}
+
+type v2PlusSubscriptionCreated struct {
+	vrfVersion vrfcommon.Version
+	event      *vrf_coordinator_v2plus.VRFCoordinatorV2PlusSubscriptionCreated
+}
+
+func NewV2PlusSubscriptionCreated(event *vrf_coordinator_v2plus.VRFCoordinatorV2PlusSubscriptionCreated) SubscriptionCreated {
+	return &v2PlusSubscriptionCreated{
+		vrfVersion: vrfcommon.V2Plus,
+		event:      event,
+	}
+}
+
+func (sc *v2PlusSubscriptionCreated) Owner() common.Address {
+	return sc.event.Owner
+}
+
+func (sc *v2PlusSubscriptionCreated) SubID() *big.Int {
+	return sc.event.SubId
+}
+
+var (
+	_ Subscription = (*v2Subscription)(nil)
+	_ Subscription = (*v2PlusSubscription)(nil)
+)
+
+type Subscription interface {
+	Balance() *big.Int
+	EthBalance() *big.Int
+	Owner() common.Address
+	Consumers() []common.Address
+	Version() vrfcommon.Version
+}
+
+type v2Subscription struct {
+	vrfVersion vrfcommon.Version
+	event      vrf_coordinator_v2.GetSubscription
+}
+
+func NewV2Subscription(event vrf_coordinator_v2.GetSubscription) Subscription {
+	return v2Subscription{
+		vrfVersion: vrfcommon.V2,
+		event:      event,
+	}
+}
+
+func (s v2Subscription) Balance() *big.Int {
+	return s.event.Balance
+}
+
+func (s v2Subscription) EthBalance() *big.Int {
+	panic("EthBalance not supported on V2")
+}
+
+func (s v2Subscription) Owner() common.Address {
+	return s.event.Owner
+}
+
+func (s v2Subscription) Consumers() []common.Address {
+	return s.event.Consumers
+}
+
+func (s v2Subscription) Version() vrfcommon.Version {
+	return s.vrfVersion
+}
+
+type v2PlusSubscription struct {
+	vrfVersion vrfcommon.Version
+	event      vrf_coordinator_v2plus.GetSubscription
+}
+
+func NewV2PlusSubscription(event vrf_coordinator_v2plus.GetSubscription) Subscription {
+	return &v2PlusSubscription{
+		vrfVersion: vrfcommon.V2Plus,
+		event:      event,
+	}
+}
+
+func (s *v2PlusSubscription) Balance() *big.Int {
+	return s.event.Balance
+}
+
+func (s *v2PlusSubscription) EthBalance() *big.Int {
+	return s.event.EthBalance
+}
+
+func (s *v2PlusSubscription) Owner() common.Address {
+	return s.event.Owner
+}
+
+func (s *v2PlusSubscription) Consumers() []common.Address {
+	return s.event.Consumers
+}
+
+func (s *v2PlusSubscription) Version() vrfcommon.Version {
+	return s.vrfVersion
+}
+
+var (
+	_ Config = (*v2Config)(nil)
+	_ Config = (*v2PlusConfig)(nil)
+)
+
+type Config interface {
+	MinimumRequestConfirmations() uint16
+	MaxGasLimit() uint32
+	GasAfterPaymentCalculation() uint32
+	StalenessSeconds() uint32
+}
+
+type v2Config struct {
+	vrfVersion vrfcommon.Version
+	config     vrf_coordinator_v2.GetConfig
+}
+
+func NewV2Config(config vrf_coordinator_v2.GetConfig) Config {
+	return &v2Config{
+		vrfVersion: vrfcommon.V2,
+		config:     config,
+	}
+}
+
+func (c *v2Config) MinimumRequestConfirmations() uint16 {
+	return c.config.MinimumRequestConfirmations
+}
+
+func (c *v2Config) MaxGasLimit() uint32 {
+	return c.config.MaxGasLimit
+}
+
+func (c *v2Config) GasAfterPaymentCalculation() uint32 {
+	return c.config.GasAfterPaymentCalculation
+}
+
+func (c *v2Config) StalenessSeconds() uint32 {
+	return c.config.StalenessSeconds
+}
+
+type v2PlusConfig struct {
+	vrfVersion vrfcommon.Version
+	config     vrf_coordinator_v2plus.SConfig
+}
+
+func NewV2PlusConfig(config vrf_coordinator_v2plus.SConfig) Config {
+	return &v2PlusConfig{
+		vrfVersion: vrfcommon.V2Plus,
+		config:     config,
+	}
+}
+
+func (c *v2PlusConfig) MinimumRequestConfirmations() uint16 {
+	return c.config.MinimumRequestConfirmations
+}
+
+func (c *v2PlusConfig) MaxGasLimit() uint32 {
+	return c.config.MaxGasLimit
+}
+
+func (c *v2PlusConfig) GasAfterPaymentCalculation() uint32 {
+	return c.config.GasAfterPaymentCalculation
+}
+
+func (c *v2PlusConfig) StalenessSeconds() uint32 {
+	return c.config.StalenessSeconds
 }
 
 type VRFProof struct {
@@ -441,7 +993,11 @@ func (r *RequestCommitment) NativePayment() bool {
 	if r.VRFVersion == vrfcommon.V2 {
 		return false
 	}
-	return r.V2Plus.NativePayment
+	nativePayment, err := extraargs.FromExtraArgsV1(r.V2Plus.ExtraArgs)
+	if err != nil {
+		panic(err)
+	}
+	return nativePayment
 }
 
 func (r *RequestCommitment) NumWords() uint32 {
@@ -465,9 +1021,9 @@ func (r *RequestCommitment) BlockNum() uint64 {
 	return r.V2Plus.BlockNum
 }
 
-func (r *RequestCommitment) SubID() uint64 {
+func (r *RequestCommitment) SubID() *big.Int {
 	if r.VRFVersion == vrfcommon.V2 {
-		return r.V2.SubId
+		return new(big.Int).SetUint64(r.V2.SubId)
 	}
 	return r.V2Plus.SubId
 }
@@ -479,255 +1035,9 @@ func (r *RequestCommitment) CallbackGasLimit() uint32 {
 	return r.V2Plus.CallbackGasLimit
 }
 
-type coordinatorV2_X struct {
-	v2     *vrf_coordinator_v2.VRFCoordinatorV2
-	v2plus *vrf_coordinator_v2plus.VRFCoordinatorV2Plus
+func toV2SubIDs(subID []*big.Int) (v2SubIDs []uint64) {
+	for _, sID := range subID {
+		v2SubIDs = append(v2SubIDs, sID.Uint64())
+	}
+	return
 }
-
-// NewCoordinatorV2 returns a CoordinatorV2_X that wraps the given V2 coordinator
-// contract.
-func NewCoordinatorV2(coordV2 *vrf_coordinator_v2.VRFCoordinatorV2) CoordinatorV2_X {
-	return &coordinatorV2_X{v2: coordV2}
-}
-
-// NewCoordinatorV2Plus returns a CoordinatorV2_X that wraps the given V2.5 coordinator
-// contract.
-func NewCoordinatorV2Plus(coordV2Plus *vrf_coordinator_v2plus.VRFCoordinatorV2Plus) CoordinatorV2_X {
-	return &coordinatorV2_X{v2plus: coordV2Plus}
-}
-
-func (c *coordinatorV2_X) Version() vrfcommon.Version {
-	if c.v2 != nil {
-		return vrfcommon.V2
-	}
-	return vrfcommon.V2Plus
-}
-
-func (c *coordinatorV2_X) LogsWithTopics(keyHash common.Hash) map[common.Hash][][]log.Topic {
-	if c.v2 != nil {
-		return map[common.Hash][][]log.Topic{
-			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(): {
-				{
-					log.Topic(keyHash),
-				},
-			},
-		}
-	}
-	return map[common.Hash][][]log.Topic{
-		vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested{}.Topic(): {
-			{
-				log.Topic(keyHash),
-			},
-		},
-	}
-}
-
-func (c *coordinatorV2_X) Address() common.Address {
-	if c.v2 != nil {
-		return c.v2.Address()
-	}
-	return c.v2plus.Address()
-}
-
-func (c *coordinatorV2_X) ParseRandomWordsRequested(log types.Log) (*RandomWordsRequested, error) {
-	if c.v2 != nil {
-		parsed, err := c.v2.ParseRandomWordsRequested(log)
-		return &RandomWordsRequested{
-			VRFVersion: vrfcommon.V2,
-			V2:         parsed,
-		}, err
-	}
-	parsed, err := c.v2plus.ParseRandomWordsRequested(log)
-	return &RandomWordsRequested{
-		VRFVersion: vrfcommon.V2Plus,
-		V2Plus:     parsed,
-	}, err
-}
-
-func (c *coordinatorV2_X) RequestRandomWords(opts *bind.TransactOpts, keyHash [32]byte, subId uint64, requestConfirmations uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*types.Transaction, error) {
-	if c.v2 != nil {
-		return c.v2.RequestRandomWords(opts, keyHash, subId, requestConfirmations, callbackGasLimit, numWords)
-	}
-	extraArgs, err := GetExtraArgsV1(payInEth)
-	if err != nil {
-		return nil, err
-	}
-	req := vrf_coordinator_v2plus.VRFV2PlusClientRandomWordsRequest{
-		KeyHash:              keyHash,
-		SubId:                subId,
-		RequestConfirmations: requestConfirmations,
-		CallbackGasLimit:     callbackGasLimit,
-		NumWords:             numWords,
-		ExtraArgs:            extraArgs,
-	}
-	return c.v2plus.RequestRandomWords(opts, req)
-}
-
-func GetExtraArgsV1(nativePayment bool) ([]byte, error) {
-	encodedArgs, err := utils.ABIEncode(`[{"type":"bool"}]`, nativePayment)
-	if err != nil {
-		return nil, err
-	}
-
-	return append(extraArgsV1Tag, encodedArgs...), nil
-}
-
-func (c *coordinatorV2_X) CreateSubscription(opts *bind.TransactOpts) (*types.Transaction, error) {
-	if c.v2 != nil {
-		return c.v2.CreateSubscription(opts)
-	}
-	return c.v2plus.CreateSubscription(opts)
-}
-
-func (c *coordinatorV2_X) AddConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error) {
-	if c.v2 != nil {
-		return c.v2.AddConsumer(opts, subId, consumer)
-	}
-	return c.v2plus.AddConsumer(opts, subId, consumer)
-}
-
-func (c *coordinatorV2_X) GetSubscription(opts *bind.CallOpts, subID uint64) (*GetSubscription, error) {
-	if c.v2 != nil {
-		sub, err := c.v2.GetSubscription(opts, subID)
-		return &GetSubscription{
-			VRFVersion: vrfcommon.V2,
-			V2:         sub,
-		}, err
-	}
-	sub, err := c.v2plus.GetSubscription(opts, subID)
-	return &GetSubscription{
-		VRFVersion: vrfcommon.V2Plus,
-		V2Plus:     sub,
-	}, err
-}
-
-func (c *coordinatorV2_X) GetConfig(opts *bind.CallOpts) (*GetConfig, error) {
-	if c.v2 != nil {
-		cfg, err := c.v2.GetConfig(opts)
-		return &GetConfig{
-			VRFVersion: vrfcommon.V2,
-			V2:         cfg,
-		}, err
-	}
-	cfg, err := c.v2plus.SConfig(opts)
-	return &GetConfig{
-		VRFVersion: vrfcommon.V2Plus,
-		V2Plus:     cfg,
-	}, err
-}
-
-func (c *coordinatorV2_X) ParseLog(log types.Log) (generated.AbigenLog, error) {
-	if c.v2 != nil {
-		return c.v2.ParseLog(log)
-	}
-	return c.v2plus.ParseLog(log)
-}
-
-func (c *coordinatorV2_X) RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error) {
-	if c.v2 != nil {
-		return c.v2.RegisterProvingKey(opts, oracle, publicProvingKey)
-	}
-	return c.v2plus.RegisterProvingKey(opts, oracle, publicProvingKey)
-}
-
-func (c *coordinatorV2_X) FilterSubscriptionCreated(opts *bind.FilterOpts, subId []uint64) (*SubscriptionCreatedIterator, error) {
-	if c.v2 != nil {
-		it, err := c.v2.FilterSubscriptionCreated(opts, subId)
-		if err != nil {
-			return nil, err
-		}
-		return &SubscriptionCreatedIterator{
-			VRFVersion: vrfcommon.V2,
-			V2:         it,
-		}, nil
-	}
-	it, err := c.v2plus.FilterSubscriptionCreated(opts, subId)
-	if err != nil {
-		return nil, err
-	}
-	return &SubscriptionCreatedIterator{
-		VRFVersion: vrfcommon.V2Plus,
-		V2Plus:     it,
-	}, nil
-}
-
-func (c *coordinatorV2_X) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subId []uint64, sender []common.Address) (*RandomWordsRequestedIterator, error) {
-	if c.v2 != nil {
-		it, err := c.v2.FilterRandomWordsRequested(opts, keyHash, subId, sender)
-		if err != nil {
-			return nil, err
-		}
-		return &RandomWordsRequestedIterator{
-			VRFVersion: vrfcommon.V2,
-			V2:         it,
-		}, nil
-	}
-	it, err := c.v2plus.FilterRandomWordsRequested(opts, keyHash, subId, sender)
-	if err != nil {
-		return nil, err
-	}
-	return &RandomWordsRequestedIterator{
-		VRFVersion: vrfcommon.V2Plus,
-		V2Plus:     it,
-	}, nil
-}
-
-func (c *coordinatorV2_X) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (*RandomWordsFulfilledIterator, error) {
-	if c.v2 != nil {
-		it, err := c.v2.FilterRandomWordsFulfilled(opts, requestID)
-		if err != nil {
-			return nil, err
-		}
-		return &RandomWordsFulfilledIterator{
-			VRFVersion: vrfcommon.V2,
-			V2:         it,
-		}, nil
-	}
-	it, err := c.v2plus.FilterRandomWordsFulfilled(opts, requestID)
-	if err != nil {
-		return nil, err
-	}
-	return &RandomWordsFulfilledIterator{
-		VRFVersion: vrfcommon.V2Plus,
-		V2Plus:     it,
-	}, nil
-}
-
-func (c *coordinatorV2_X) OracleWithdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
-	if c.v2 != nil {
-		return c.v2.OracleWithdraw(opts, recipient, amount)
-	}
-	return c.v2plus.OracleWithdraw(opts, recipient, amount)
-}
-
-func (c *coordinatorV2_X) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
-	if c.v2 != nil {
-		return c.v2.TransferOwnership(opts, to)
-	}
-	return c.v2plus.TransferOwnership(opts, to)
-}
-
-func (c *coordinatorV2_X) RemoveConsumer(opts *bind.TransactOpts, subId uint64, consumer common.Address) (*types.Transaction, error) {
-	if c.v2 != nil {
-		return c.v2.RemoveConsumer(opts, subId, consumer)
-	}
-	return c.v2plus.RemoveConsumer(opts, subId, consumer)
-}
-
-func (c *coordinatorV2_X) CancelSubscription(opts *bind.TransactOpts, subId uint64, to common.Address) (*types.Transaction, error) {
-	if c.v2 != nil {
-		return c.v2.CancelSubscription(opts, subId, to)
-	}
-	return c.v2plus.CancelSubscription(opts, subId, to)
-}
-
-func (c *coordinatorV2_X) GetCommitment(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error) {
-	if c.v2 != nil {
-		return c.v2.GetCommitment(opts, requestID)
-	}
-	return c.v2plus.SRequestCommitments(opts, requestID)
-}
-
-var (
-	_ CoordinatorV2_X = (*coordinatorV2_X)(nil)
-)
