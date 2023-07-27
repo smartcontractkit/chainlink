@@ -188,7 +188,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   mapping(bytes32 => VerifierState) s_feedVerifierStates;
 
   /// @notice Whether we want to persist the latest config for each feed
-  bool public immutable s_persistConfig;
+  bool private immutable s_persistConfig;
 
   /// @notice Latest config for each feed if enabled
   mapping(bytes32 => ActiveConfig) private s_activeConfigs;
@@ -513,6 +513,12 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       feedVerifierState.latestConfigBlockNumber,
       feedVerifierState.latestConfigDigest
     );
+  }
+
+  /// @notice Returns persist config value
+  /// @return persistConfig Whether the contract is persisting the latest active config
+  function persistConfig() external view returns (bool) {
+    return s_persistConfig;
   }
 
   /// @notice Returns the latest active config for a particular feed

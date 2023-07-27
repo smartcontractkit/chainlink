@@ -33,6 +33,10 @@ contract VerifierConstructorTest is BaseTest {
     vm.expectRevert(abi.encodeWithSelector(Verifier.OnlyCallableByEOA.selector));
     s_verifier.latestConfig(FEED_ID);
   }
+
+  function test_persistConfigIsValidEndpoint() public {
+    s_verifier.persistConfig();
+  }
 }
 
 contract VerifierSupportsInterfaceTest is BaseTest {
