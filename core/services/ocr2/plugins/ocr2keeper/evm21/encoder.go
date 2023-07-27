@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -77,6 +78,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		if !ok {
 			return nil, fmt.Errorf("failed to parse big int from upkeep id: %s", string(result.Payload.Upkeep.ID))
 		}
+
 		report.UpkeepIds[i] = id
 		report.GasLimits[i] = big.NewInt(0).SetUint64(result.GasAllocated)
 
@@ -84,26 +86,42 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			BlockNum:  uint32(result.Payload.Trigger.BlockNumber),
 			BlockHash: common.HexToHash(result.Payload.Trigger.BlockHash),
 		}
+
 		switch getUpkeepType(id.Bytes()) {
 		case logTrigger:
-			trExt, ok := result.Payload.Trigger.Extension.(logprovider.LogTriggerExtension)
-			if !ok {
+			var trExt logprovider.LogTriggerExtension
+
+			switch typedExt := result.Payload.Trigger.Extension.(type) {
+			case logprovider.LogTriggerExtension:
+				trExt = typedExt
+			case string:
+				// in the case of a string, the value is probably still json
+				// encoded and coming from a plugin outcome
+				if err := json.Unmarshal([]byte(typedExt), &trExt); err != nil {
+					return nil, fmt.Errorf("%w: json encoded values do not match LogTriggerExtension struct", err)
+				}
+			default:
 				return nil, fmt.Errorf("unrecognized trigger extension data")
 			}
+
 			hex, err := common.ParseHexOrString(trExt.TxHash)
 			if err != nil {
 				return nil, fmt.Errorf("tx hash parse error: %w", err)
 			}
+
 			triggerW.TxHash = common.BytesToHash(hex[:])
 			triggerW.LogIndex = uint32(trExt.LogIndex)
 		default:
 		}
+
 		trigger, err := enc.packer.PackTrigger(id, triggerW)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to pack trigger", err)
 		}
+
 		report.Triggers[i] = trigger
 		report.PerformDatas[i] = result.PerformData
+
 		encoded++
 	}
 
