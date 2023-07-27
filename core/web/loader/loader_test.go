@@ -2,6 +2,7 @@ package loader
 
 import (
 	"database/sql"
+	"math/big"
 	"testing"
 
 	"github.com/google/uuid"
@@ -26,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	jobORMMocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmrelaymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -64,32 +67,55 @@ func TestLoader_Chains(t *testing.T) {
 func TestLoader_Nodes(t *testing.T) {
 	t.Parallel()
 
-	evmChainSet := evmmocks.NewChainSet(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
-	node1 := relaytypes.NodeStatus{
-		Name:    "test-node-1",
-		ChainID: "1",
-	}
-	node2 := relaytypes.NodeStatus{
-		Name:    "test-node-1",
-		ChainID: "2",
-	}
+	var mockedLoopAdapters []*evmrelaymocks.LoopRelayAdapter
+	chainID1, chainID2 := big.NewInt(1), big.NewInt(2)
+	notAnId := big.NewInt(3)
 
-	evmChainSet.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything, "2", "1", "3").Return([]relaytypes.NodeStatus{
-		node1, node2,
-	}, 2, nil)
-	app.On("GetChains").Return(chainlink.Chains{EVM: evmChainSet})
+	genNodeStat := func(id string) relaytypes.NodeStatus {
+		return relaytypes.NodeStatus{
+			Name:    "test-node-" + id,
+			ChainID: id,
+		}
+	}
+	x := chainlink.NewCoreRelayerChainInteroperators()
+	for _, id := range []*big.Int{chainID1, chainID2} {
+		relayExtender := evmrelaymocks.NewLoopRelayAdapter(t) //evmmocks.NewChainSet(t)
+
+		nodeStat := genNodeStat(id.String())
+		/*
+			node2 := relaytypes.NodeStatus{
+				Name:    "test-node-1",
+				ChainID: "2",
+			}
+		*/
+		chainMock := evmmocks.NewChain(t)
+		relayExtender.On("Chain").Return(chainMock)
+		relayExtender.On("Default").Return(false)
+		relayExtender.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return([]relaytypes.NodeStatus{
+			nodeStat,
+		}, 1, nil)
+		mockedLoopAdapters = append(mockedLoopAdapters, relayExtender)
+		assert.NoError(t, x.Put(relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(id.String())}, relayExtender))
+
+	}
+	//	cfg := cltest.NewTestChainScopedConfig(t)
+
+	//mockChain := evmtest.NewEthClientMockWithDefaultChain()
+
+	app.On("GetRelayers").Return(x)
+	//	app.On("GetChains").Return(chainlink.Chains{EVM: relayExtender})
 
 	batcher := nodeBatcher{app}
 
-	keys := dataloader.NewKeysFromStrings([]string{"2", "1", "3"})
+	keys := dataloader.NewKeysFromStrings([]string{chainID2.String(), chainID1.String(), notAnId.String()})
 	found := batcher.loadByChainIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []relaytypes.NodeStatus{node2}, found[0].Data)
-	assert.Equal(t, []relaytypes.NodeStatus{node1}, found[1].Data)
+	assert.Equal(t, []relaytypes.NodeStatus{genNodeStat(chainID2.String())}, found[0].Data)
+	assert.Equal(t, []relaytypes.NodeStatus{genNodeStat(chainID1.String())}, found[1].Data)
 	assert.Equal(t, []relaytypes.NodeStatus{}, found[2].Data)
 }
 

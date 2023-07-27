@@ -6,20 +6,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
-type LoopRelayer struct {
-	loop.Relayer
-	x evm.EvmChainRelayerExtender
-}
-
+//go:generate mockery --quiet --name LoopRelayAdapter --output ./mocks/ --case=underscore
 type LoopRelayAdapter interface {
 	loop.Relayer
 	Chain() evm.Chain
 	Default() bool
 }
+type LoopRelayer struct {
+	loop.Relayer
+	x evm.EVMChainRelayerExtender
+}
 
 var _ loop.Relayer = &LoopRelayer{}
 
-func NewLoopRelayAdapter(r *Relayer, cs evm.EvmChainRelayerExtender) *LoopRelayer {
+func NewLoopRelayAdapter(r *Relayer, cs evm.EVMChainRelayerExtender) *LoopRelayer {
 	ra := relay.NewRelayerAdapter(r, cs)
 	return &LoopRelayer{
 		Relayer: ra,

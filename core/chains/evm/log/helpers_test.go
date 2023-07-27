@@ -121,6 +121,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 		LogBroadcaster: &log.NullBroadcaster{},
 		MailMon:        mailMon,
 	})
+	//legacyChains := evm.NewLegacyChainsFromRelayerExtenders(cc)
 	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(cc)
 	pipelineHelper := cltest.NewJobPipelineV2(t, config.WebServer(), config.JobPipeline(), config.Database(), legacyChains, c.db, kst, nil, nil)
 

@@ -38,8 +38,8 @@ import (
 	"github.com/urfave/cli"
 )
 
-func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.RelayerKeystore) *chainlink.RelayChainInteroperators {
-	relayers := chainlink.NewRelayers()
+func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.RelayerKeystore) *chainlink.CoreRelayerChainInteroperators {
+	relayers := chainlink.NewCoreRelayerChainInteroperators()
 
 	legacyChains := cltest.NewLegacyChainsWithMockChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, opts.Config))
 	rly := evmrelayer.NewRelayer(opts.DB, legacyChains, opts.Config.Database(), opts.Logger, ks, pg.NewNullEventBroadcaster())
@@ -49,7 +49,7 @@ func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.
 	exts, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
 	require.Len(t, exts, 1)
-	ext := exts[0]
+	ext := exts.Slice()[0]
 
 	adapter := evmrelayer.NewLoopRelayAdapter(rly, ext)
 	rid := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}

@@ -20,57 +20,65 @@ import (
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-// Chains holds a ChainSet for each type of chain.
-type legacyChains struct {
-	EVMChains *evm.Chains //evmloop.LoopRelayAdapter //evm.ChainSet                      // map[relay.Identifier]evm.ChainSet
-
-	CosmosChains *cosmos.Chains
-}
-
-type RelayChainInterchangers interface {
+// RelayerChainInteroperators
+// encapulates relayers and chains and is the primary entry point for
+// the node to store relayers, get legacy chains associated to a relayer
+// and get status about the chains and nodes
+//
+//go:generate mockery --quiet --name RelayerChainInteroperators --output ./mocks/ --case=underscore
+type RelayerChainInteroperators interface {
 	Services() []services.ServiceCtx
 
-	List(filter FilterFn) RelayChainInterchangers
+	List(filter FilterFn) RelayerChainInteroperators
 
 	LoopRelayerStorer
-	LegacyChainGetter
-	OperationalStatuser
+	LegacyChainer
+	ChainsNodesStatuser
 }
 
+// LoopRelayerStorer is key-value like interface for storing and
+// retrieving [loop.Relayer] by [relay.Identifier]
 type LoopRelayerStorer interface {
 	ocr2.RelayGetter
 	Put(id relay.Identifier, r loop.Relayer) error
 	PutBatch(b map[relay.Identifier]loop.Relayer) error
 	Slice() []loop.Relayer
 }
-type LegacyChainGetter interface {
+
+// LegacyChainer is an interface for getting legacy chains
+// This will be deprecated/removed when products depend only
+// on the relayer interface.
+type LegacyChainer interface {
 	LegacyEVMChains() *evm.Chains
 	LegacyCosmosChains() *cosmos.Chains
 }
 
-type OperationalStatuser interface {
+// ChainsNodesStatuser report statuses about chains and nodes
+type ChainsNodesStatuser interface {
 	chains.ChainStatuser
 	chains.NodesStatuser
 }
 
-var _ RelayChainInterchangers = &RelayChainInteroperators{}
+var _ RelayerChainInteroperators = &CoreRelayerChainInteroperators{}
 
-type RelayChainInteroperators struct {
-	mu       sync.Mutex
-	relayers map[relay.Identifier]loop.Relayer
-	chains   legacyChains
+// CoreRelayerChainInteroperators implements [RelayerChainInteroperators]
+// as needed for the core [chainlink.Application]
+type CoreRelayerChainInteroperators struct {
+	mu           sync.Mutex
+	relayers     map[relay.Identifier]loop.Relayer
+	legacyChains legacyChains
 }
 
-func NewRelayers() *RelayChainInteroperators {
-	return &RelayChainInteroperators{
-		relayers: make(map[relay.Identifier]loop.Relayer),
-		chains:   legacyChains{EVMChains: evm.NewLegacyChains(), CosmosChains: new(cosmos.Chains)},
+func NewCoreRelayerChainInteroperators() *CoreRelayerChainInteroperators {
+	return &CoreRelayerChainInteroperators{
+		relayers:     make(map[relay.Identifier]loop.Relayer),
+		legacyChains: legacyChains{EVMChains: evm.NewLegacyChains(), CosmosChains: new(cosmos.Chains)},
 	}
 }
 
 var ErrNoSuchRelayer = errors.New("relayer does not exist")
 
-func (rs *RelayChainInteroperators) Get(id relay.Identifier) (loop.Relayer, error) {
+func (rs *CoreRelayerChainInteroperators) Get(id relay.Identifier) (loop.Relayer, error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	r, exist := rs.relayers[id]
@@ -80,7 +88,7 @@ func (rs *RelayChainInteroperators) Get(id relay.Identifier) (loop.Relayer, erro
 	return r, nil
 }
 
-func (rs *RelayChainInteroperators) putOne(id relay.Identifier, r loop.Relayer) error {
+func (rs *CoreRelayerChainInteroperators) putOne(id relay.Identifier, r loop.Relayer) error {
 
 	// backward compatibility. this is bit gross to type cast but it hides the details from products.
 	switch id.Network {
@@ -90,13 +98,13 @@ func (rs *RelayChainInteroperators) putOne(id relay.Identifier, r loop.Relayer) 
 			return fmt.Errorf("unsupported evm loop relayer implementation. got %t want (evmrelayer.LoopRelayAdapter)", r)
 		}
 
-		rs.chains.EVMChains.Put(id.ChainID.String(), adapter.Chain())
+		rs.legacyChains.EVMChains.Put(id.ChainID.String(), adapter.Chain())
 		if adapter.Default() {
-			dflt, _ := rs.chains.EVMChains.Default()
+			dflt, _ := rs.legacyChains.EVMChains.Default()
 			if dflt != nil {
 				return fmt.Errorf("multiple default evm chains. %s, %s", dflt.ID(), adapter.Chain().ID())
 			}
-			rs.chains.EVMChains.SetDefault(adapter.Chain())
+			rs.legacyChains.EVMChains.SetDefault(adapter.Chain())
 		}
 	case relay.Cosmos:
 		adapter, ok := r.(cosmos.LoopRelayAdapter)
@@ -104,14 +112,14 @@ func (rs *RelayChainInteroperators) putOne(id relay.Identifier, r loop.Relayer) 
 			return fmt.Errorf("unsupported cosmos loop relayer implementation. got %t want (cosmos.LoopRelayAdapter)", r)
 		}
 
-		rs.chains.CosmosChains.Put(id.ChainID.String(), adapter.Chain())
+		rs.legacyChains.CosmosChains.Put(id.ChainID.String(), adapter.Chain())
 	}
 
 	rs.relayers[id] = r
 	return nil
 }
 
-func (rs *RelayChainInteroperators) Put(id relay.Identifier, r loop.Relayer) error {
+func (rs *CoreRelayerChainInteroperators) Put(id relay.Identifier, r loop.Relayer) error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.putOne(id, r)
@@ -120,7 +128,7 @@ func (rs *RelayChainInteroperators) Put(id relay.Identifier, r loop.Relayer) err
 // TODO maybe make Relayer[U,V] where u,v are the chain specific types and then make this generic
 // Relayer[U evm.LoopAdapter, Vcosmos.LoopAdapter]
 // (rs Relayer[U,V] PutBatch(map[](loop.relayer|U|V))
-func (rs *RelayChainInteroperators) PutBatch(b map[relay.Identifier]loop.Relayer) (err error) {
+func (rs *CoreRelayerChainInteroperators) PutBatch(b map[relay.Identifier]loop.Relayer) (err error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	for id, r := range b {
@@ -132,20 +140,20 @@ func (rs *RelayChainInteroperators) PutBatch(b map[relay.Identifier]loop.Relayer
 	return err
 }
 
-func (rs *RelayChainInteroperators) LegacyEVMChains() *evm.Chains {
+func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() *evm.Chains {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
-	return rs.chains.EVMChains
+	return rs.legacyChains.EVMChains
 }
 
-func (rs *RelayChainInteroperators) LegacyCosmosChains() *cosmos.Chains {
+func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() *cosmos.Chains {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	return rs.chains.CosmosChains
+	return rs.legacyChains.CosmosChains
 }
 
-func (rs *RelayChainInteroperators) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
+func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
 	relayID := new(relay.Identifier)
 	err := relayID.UnmarshalString(id)
 	if err != nil {
@@ -160,14 +168,14 @@ func (rs *RelayChainInteroperators) ChainStatus(ctx context.Context, id string) 
 	return relayer.ChainStatus(ctx, id)
 }
 
-func (rs *RelayChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
+func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
 	// chain statuses are not dynamic; the call would be better named as ChainConfig or such.
 	// lazily create a cache and use that case for the offset and limit to ensure deterministic results
 
 	return nil, 0, nil
 }
 
-func (rs *RelayChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
+func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
 	return nil, 0, nil
 }
 
@@ -183,7 +191,7 @@ func FilterByType(network relay.Network) func(id relay.Identifier) bool {
 	}
 }
 
-func (rs *RelayChainInteroperators) List(filter FilterFn) RelayChainInterchangers {
+func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInteroperators {
 
 	matches := make(map[relay.Identifier]loop.Relayer)
 	rs.mu.Lock()
@@ -193,19 +201,19 @@ func (rs *RelayChainInteroperators) List(filter FilterFn) RelayChainInterchanger
 		}
 	}
 	rs.mu.Unlock()
-	return &RelayChainInteroperators{
+	return &CoreRelayerChainInteroperators{
 		relayers: matches,
 	}
 }
 
-func (rs *RelayChainInteroperators) Slice() []loop.Relayer {
+func (rs *CoreRelayerChainInteroperators) Slice() []loop.Relayer {
 	var result []loop.Relayer
 	for _, r := range rs.relayers {
 		result = append(result, r)
 	}
 	return result
 }
-func (rs *RelayChainInteroperators) Services() (s []services.ServiceCtx) {
+func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
 	// TODO. ensure that the services are not duplicated between the chain and relayers...
 	s = append(s, sortByChainID(rs.relayers)...)
 	return
@@ -224,4 +232,11 @@ func sortByChainID[V services.ServiceCtx](m map[relay.Identifier]V) []services.S
 		sorted[i] = m[ids[i]]
 	}
 	return sorted
+}
+
+// legacyChains encapsulates the chain-specific dependencies. Will be
+// deprecated when chain-specific logic is removed from products.
+type legacyChains struct {
+	EVMChains    *evm.Chains
+	CosmosChains *cosmos.Chains
 }

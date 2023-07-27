@@ -62,7 +62,7 @@ func clearDB(t *testing.T, db *sqlx.DB) {
 }
 
 type relayGetter struct {
-	e evm.EvmChainRelayerExtender
+	e evm.EVMChainRelayerExtender
 	r *evmrelayer.Relayer
 }
 
@@ -285,7 +285,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		evmRelayer := evmrelayer.NewRelayer(testopts.DB, legacyChains, testopts.GeneralConfig.Database(), lggr, keyStore, pg.NewNullEventBroadcaster())
 		testRelayGetter := &relayGetter{
-			e: relayExtenders[0],
+			e: relayExtenders.Slice()[0],
 			r: evmRelayer,
 		}
 

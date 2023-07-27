@@ -66,9 +66,20 @@ type TestChainOpts struct {
 	GasEstimator   gas.EvmFeeEstimator
 }
 
+/*
+// NewChainSet returns a simple chain collection with one chain and
+// allows to mock client/config on that chain
+func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
+	opts := NewChainSetOpts(t, testopts)
+	cc, err := evm.NewTOMLChainSet(testutils.Context(t), opts)
+	require.NoError(t, err)
+	return cc
+}
+*/
+
 // NewChainRelayExtenders returns a simple chain collection with one chain and
 // allows to mock client/config on that chain
-func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) []*evm.ChainRelayerExt {
+func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) *evm.ChainRelayerExtenders {
 	opts := NewChainRelayExtOpts(t, testopts)
 	cc, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)

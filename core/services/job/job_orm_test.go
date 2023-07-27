@@ -731,7 +731,7 @@ func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T)
 
 	//cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	require.True(t, len(relayerExtenders) > 0)
+	require.True(t, relayerExtenders.Len() > 0)
 	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
 	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 

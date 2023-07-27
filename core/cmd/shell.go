@@ -148,7 +148,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		GRPCOpts:     grpcOpts,
 	}
 
-	relayers := chainlink.NewRelayers()
+	relayers := chainlink.NewCoreRelayerChainInteroperators()
 	// evm always enabled, for some reason ...
 	{
 		opts := evm.RelayerFactoryOpts{

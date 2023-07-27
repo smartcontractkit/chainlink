@@ -38,24 +38,25 @@ func TestChainRelayExtenders(t *testing.T) {
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		return cltest.NewEthMocksWithStartupAssertions(t)
 	}
-	chainSet, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
+	relayExtenders, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
 
-	require.Len(t, chainSet, 2)
-	for _, c := range chainSet {
+	require.Len(t, relayExtenders, 2)
+	relayExtendersInstances := relayExtenders.Slice()
+	for _, c := range relayExtendersInstances {
 		require.NoError(t, c.Start(testutils.Context(t)))
 		require.NoError(t, c.Ready())
 	}
 
-	require.NotEqual(t, chainSet[0].Chain().ID().String(), chainSet[1].Chain().ID().String())
+	require.NotEqual(t, relayExtendersInstances[0].Chain().ID().String(), relayExtendersInstances[1].Chain().ID().String())
 
-	for _, c := range chainSet {
+	for _, c := range relayExtendersInstances {
 		require.NoError(t, c.Close())
 	}
 
-	chainSet[0].Chain().Client().(*evmclimocks.Client).AssertCalled(t, "Close")
-	chainSet[1].Chain().Client().(*evmclimocks.Client).AssertCalled(t, "Close")
+	relayExtendersInstances[0].Chain().Client().(*evmclimocks.Client).AssertCalled(t, "Close")
+	relayExtendersInstances[1].Chain().Client().(*evmclimocks.Client).AssertCalled(t, "Close")
 
-	assert.Error(t, chainSet[0].Chain().Ready())
-	assert.Error(t, chainSet[1].Chain().Ready())
+	assert.Error(t, relayExtendersInstances[0].Chain().Ready())
+	assert.Error(t, relayExtendersInstances[1].Chain().Ready())
 }

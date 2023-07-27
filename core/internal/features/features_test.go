@@ -1378,7 +1378,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 
 	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(cc)
 	// TODO what is the right API here? currently only the relay extender can be started.
-	for _, re := range cc {
+	for _, re := range cc.Slice() {
 		require.NoError(t, re.Start(testutils.Context(t)))
 	}
 	var newHeads evmtest.RawSub[*evmtypes.Head]

@@ -47,7 +47,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	//cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
 
 	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	require.True(t, len(relayerExtenders) > 0)
+	require.True(t, relayerExtenders.Len() > 0)
 	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
 
 	type testCase struct {

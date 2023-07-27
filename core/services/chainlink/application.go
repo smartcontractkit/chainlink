@@ -73,7 +73,7 @@ type Application interface {
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	//GetChains() Chains
-	GetRelayers() *RelayChainInteroperators
+	GetRelayers() RelayerChainInteroperators
 	GetLoopRegistry() *plugins.LoopRegistry
 
 	// V2 Jobs (TOML specified)
@@ -109,7 +109,7 @@ type Application interface {
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
 	//Chains                   Chains
-	relayers                 *RelayChainInteroperators
+	relayers                 *CoreRelayerChainInteroperators
 	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
 	jobSpawner               job.Spawner
@@ -149,7 +149,7 @@ type ApplicationOpts struct {
 	SqlxDB           *sqlx.DB
 	KeyStore         keystore.Master
 	// Chains                   Chains
-	Relayers                 *RelayChainInteroperators
+	Relayers                 *CoreRelayerChainInteroperators
 	AuditLogger              audit.AuditLogger
 	CloseLogger              func() error
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
@@ -803,7 +803,7 @@ func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64
 	return nil
 }
 
-func (app *ChainlinkApplication) GetRelayers() *RelayChainInteroperators {
+func (app *ChainlinkApplication) GetRelayers() RelayerChainInteroperators {
 	return app.relayers
 }
 

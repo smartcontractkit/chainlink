@@ -98,9 +98,10 @@ func (c *Chains) Get(id string) (Chain, error) {
 	return c.ChainsKV.Get(id)
 }
 
-func NewLegacyChainsFromRelayerExtenders(exts []*ChainRelayerExt) *Chains {
+// func NewLegacyChainsFromRelayerExtenders(exts []EVMChainRelayerExtender) *Chains {
+func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *Chains {
 	l := NewLegacyChains()
-	for _, r := range exts {
+	for _, r := range exts.Slice() {
 		l.Put(r.Chain().ID().String(), r.Chain())
 		if r.Default() {
 			l.SetDefault(r.Chain())

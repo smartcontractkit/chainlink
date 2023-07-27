@@ -53,10 +53,41 @@ type legacyChainSet interface {
 	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
-type EvmChainRelayerExtender interface {
+//go:generate mockery --quiet --name EVMChainRelayerExtender --output ./mocks/ --case=underscore
+type EVMChainRelayerExtender interface {
 	relay.RelayerExt
 	Chain() Chain
 	Default() bool
+}
+
+//go:generate mockery --quiet --name EVMChainRelayerExtenderSlicer --output ./mocks/ --case=underscore
+type EVMChainRelayerExtenderSlicer interface {
+	Slice() []EVMChainRelayerExtender
+	Len() int
+}
+
+type ChainRelayerExtenders struct {
+	exts []EVMChainRelayerExtender
+}
+
+var _ EVMChainRelayerExtenderSlicer = &ChainRelayerExtenders{}
+
+func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt) *ChainRelayerExtenders {
+	temp := make([]EVMChainRelayerExtender, len(exts))
+	for i := range exts {
+		temp[i] = exts[i]
+	}
+	return &ChainRelayerExtenders{
+		exts: temp,
+	}
+
+}
+func (c *ChainRelayerExtenders) Slice() []EVMChainRelayerExtender {
+	return c.exts
+}
+
+func (c *ChainRelayerExtenders) Len() int {
+	return len(c.exts)
 }
 
 // implements OneChain
@@ -66,7 +97,7 @@ type ChainRelayerExt struct {
 	isDefault bool
 }
 
-var _ EvmChainRelayerExtender = &ChainRelayerExt{}
+var _ EVMChainRelayerExtender = &ChainRelayerExt{}
 
 func (s *ChainRelayerExt) Chain() Chain {
 	return s.chain
@@ -354,7 +385,7 @@ type RelayerFactoryOpts struct {
 // NewTOMLChainSet returns a new ChainSet from TOML configuration.
 // func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 
-func NewChainRelayerExtenders(ctx context.Context, opts ChainRelayExtOpts) ([]*ChainRelayerExt, error) {
+func NewChainRelayerExtenders(ctx context.Context, opts ChainRelayExtOpts) (*ChainRelayerExtenders, error) {
 	if err := opts.check(); err != nil {
 		return nil, err
 	}
@@ -408,7 +439,7 @@ func NewChainRelayerExtenders(ctx context.Context, opts ChainRelayExtOpts) ([]*C
 		}
 		result = append(result, s)
 	}
-	return result, nil
+	return newChainRelayerExtsFromSlice(result), nil
 }
 
 func newChainSet(opts ChainRelayExtOpts) *chainSet {

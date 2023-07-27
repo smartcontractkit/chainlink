@@ -406,7 +406,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		//TODO
 		GRPCOpts: loop.GRPCOpts{},
 	}
-	relayers := chainlink.NewRelayers()
+	relayers := chainlink.NewCoreRelayerChainInteroperators()
 	// evm always enabled, for some reason ...
 	{
 		chainId := ethClient.ConfiguredChainID()
