@@ -136,7 +136,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       uint80 donFee,
       uint16 maxSupportedRequestDataVersion,
       uint256 fulfillmentGasPriceOverEstimationBP
-    ) = abi.decode(config, (uint32, uint32, uint32, uint32, int256, uint32, uint96, uint16, uint256));
+    ) = abi.decode(config, (uint32, uint32, uint32, uint32, int256, uint32, uint80, uint16, uint256));
 
     if (fallbackNativePerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackNativePerUnitLink);
