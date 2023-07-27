@@ -536,7 +536,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 weiPerUnitLink;
-    (, weiPerUnitLink, , timestamp, ) = SubscriptionAPI.LINK_ETH_FEED.latestRoundData();
+    (, weiPerUnitLink, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;

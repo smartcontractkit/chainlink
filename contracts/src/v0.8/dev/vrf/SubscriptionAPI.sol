@@ -89,7 +89,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
   /**
    * @notice set the LINK token contract and link eth feed to be
    * used by this coordinator
-   * @param linkEthFeed address of the link eth feed
+   * @param link - address of link token
    * @param linkEthFeed address of the link eth feed
    */
   function setLINKAndLINKETHFeed(address link, address linkEthFeed) external onlyOwner {
