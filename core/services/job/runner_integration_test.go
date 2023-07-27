@@ -200,18 +200,18 @@ func TestRunner(t *testing.T) {
 		jb, err2 := ocr.ValidatedOracleSpecToml(legacyChains, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
-			evmChainID         = 1
+			evmChainID         = 0
 			transmitterID 	   = "%s"	
 			contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 			isBootstrapPeer    = false
 			blockchainTimeout  = "1s"
 			observationTimeout = "10s"
 			databaseTimeout    = "2s"
-			contractConfigTrackerPollInterval="1s"
+			contractConfigTrackerPollInterval="15s"
 			contractConfigConfirmations=1
 			observationGracePeriod = "2s"
-			contractTransmitterTransmitTimeout = "500ms"
-			contractConfigTrackerSubscribeInterval="1s"
+			contractTransmitterTransmitTimeout = "5s"
+			contractConfigTrackerSubscribeInterval="1m"
 			observationSource = """
 			ds1          [type=bridge name=blah];
 			ds1_parse    [type=jsonparse path="one,two"];
@@ -235,7 +235,7 @@ relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 transmitterID 	   = "%s"
 blockchainTimeout = "1s"
-contractConfigTrackerPollInterval = "2s"
+contractConfigTrackerPollInterval = "15s"
 contractConfigConfirmations = 1
 observationSource  = """
 ds1          [type=bridge name="%s"];
@@ -270,7 +270,7 @@ relay              = "evm"
 contractID         = "0x613a38AC1659769640aaE063C651F48E0250454C"
 transmitterID 	   = "%s"
 blockchainTimeout = "1s"
-contractConfigTrackerPollInterval = "2s"
+contractConfigTrackerPollInterval = "15s"
 contractConfigConfirmations = 1
 observationSource  = """
 ds1          [type=bridge name="%s"];
