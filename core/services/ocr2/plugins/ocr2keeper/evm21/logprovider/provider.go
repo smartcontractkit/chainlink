@@ -11,6 +11,7 @@ import (
 	"time"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
 	"go.uber.org/multierr"
 	"golang.org/x/time/rate"
 
@@ -60,6 +61,9 @@ type LogEventProviderTest interface {
 	LogEventProvider
 	ReadLogs(ctx context.Context, force bool, ids ...*big.Int) error
 }
+
+var _ keepersflows.PayloadBuilder = &logEventProvider{}
+var _ keepersflows.LogEventProvider = &logEventProvider{}
 
 // logEventProvider manages log filters for upkeeps and enables to read the log events.
 type logEventProvider struct {
@@ -128,6 +132,11 @@ func (p *logEventProvider) Close() error {
 		p.cancel()
 	}
 	return nil
+}
+
+func (p *logEventProvider) BuildPayload(ctx context.Context, proposal ocr2keepers.CoordinatedProposal) (ocr2keepers.UpkeepPayload, error) {
+	// TODO: implement
+	return ocr2keepers.UpkeepPayload{}, nil
 }
 
 func (p *logEventProvider) GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
