@@ -210,7 +210,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint32 callbackGasLimit,
     bytes32 donId
   ) external override whenNotPaused returns (bytes32) {
-    _nonReentrant();
     return _sendRequest(donId, false, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
@@ -225,8 +224,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint96 costWithoutFulfillment,
     address transmitter
   ) external override returns (uint8 resultCode, uint96 callbackGasCostJuels) {
-    _nonReentrant();
-
     Commitment memory commitment = s_requestCommitments[requestId];
 
     if (msg.sender != commitment.coordinator) {
