@@ -283,9 +283,7 @@ async function deployRegistry2_1() {
 
   await registry
     .connect(owner)
-    [
-      'setConfig(address[],address[],uint8,(uint32,uint32,uint32,uint24,uint16,uint96,uint32,uint32,uint32,uint32,uint256,uint256,address,address[],address),uint64,bytes)'
-    ](
+    .setConfigTypeSafe(
       signerAddresses,
       keeperAddresses,
       f,
@@ -606,9 +604,6 @@ describe('UpkeepTranscoder4_0', () => {
         expect((await registry20.getUpkeep(id20)).checkData).to.equal(
           randomBytes,
         )
-        expect((await registry20.getUpkeep(id20)).offchainConfig).to.equal(
-          randomBytes,
-        )
         expect((await registry20.getState()).state.numUpkeeps).to.equal(1)
 
         await registry20
@@ -629,9 +624,6 @@ describe('UpkeepTranscoder4_0', () => {
           toWei('1000'),
         )
         expect((await registry21.getUpkeep(id20)).checkData).to.equal(
-          randomBytes,
-        )
-        expect((await registry21.getUpkeep(id20)).offchainConfig).to.equal(
           randomBytes,
         )
         expect(await registry21.getUpkeepTriggerConfig(id20)).to.equal('0x')
