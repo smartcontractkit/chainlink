@@ -67,7 +67,7 @@ func (th TestHarness) setConfig(t *testing.T, offchainConfig []byte) ocrtypes2.C
 		3,
 		[]int{1, 1, 1, 1},
 		oracles,
-		pluginConfig.Encode(),
+		offchainConfig,
 		50*time.Millisecond,
 		50*time.Millisecond,
 		50*time.Millisecond,
