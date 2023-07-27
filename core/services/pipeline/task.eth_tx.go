@@ -66,7 +66,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	chain, err := t.legacyChains.Get(string(chainID))
 	if err != nil {
 		err = fmt.Errorf("%w: %s: %w", ErrInvalidEVMChainID, chainID, err)
-		return Result{Error: err}, runInfo
+		return Result{Error: err}, retryableRunInfo()
 	}
 
 	cfg := chain.Config().EVM()

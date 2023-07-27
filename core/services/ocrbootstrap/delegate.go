@@ -2,6 +2,7 @@ package ocrbootstrap
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -85,7 +86,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	relayID := relay.Identifier{Network: spec.Relay, ChainID: chainID}
 	relayer, err := d.RelayGetter.Get(relayID)
 	if err != nil {
-		return nil, errors.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
+		return nil, fmt.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
 	}
 	if spec.FeedID != nil {
 		spec.RelayConfig["feedID"] = *spec.FeedID
