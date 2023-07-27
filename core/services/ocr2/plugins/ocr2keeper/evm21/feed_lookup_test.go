@@ -26,6 +26,7 @@ import (
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	mockLogpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -233,6 +234,10 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 				Admin: admin,
 			}
 
+			mockLP := new(mockLogpoller.LogPoller)
+			r.poller = mockLP
+			mockLP.On("LatestBlock").Return(int64(26046145), nil)
+
 			if !tt.cachedAdminCfg && !tt.hasError {
 				mockRegistry := mocks.NewRegistry(t)
 				cfg := AdminOffchainConfig{MercuryEnabled: tt.hasPermission}
@@ -278,6 +283,8 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 			} else {
 				assert.Equal(t, tt.expectedResults, got, tt.name)
 			}
+
+			mockLP.AssertExpectations(t)
 		})
 	}
 }

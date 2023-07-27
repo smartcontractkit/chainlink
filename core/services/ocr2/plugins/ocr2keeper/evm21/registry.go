@@ -655,14 +655,7 @@ func parseAndValidateUpkeepIdentifier(identifier ocr2keepers.UpkeepIdentifier) (
 	maxUpkeepIdentifer := new(big.Int)
 	maxUpkeepIdentifer, _ = maxUpkeepIdentifer.SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10) // 2 ** 256 -1
 
-	identifierInt, ok := new(big.Int).SetString(string(identifier), 10)
-	if !ok {
-		return nil, false, fmt.Errorf("upkeep identifier is not a big int")
-	}
-
-	if identifierInt.String() != string(identifier) {
-		return nil, false, fmt.Errorf("upkeep identifier stringify mismatch")
-	}
+	identifierInt := new(big.Int).SetBytes(identifier)
 
 	if identifierInt.Cmp(big.NewInt(0)) <= 0 || identifierInt.Cmp(maxUpkeepIdentifer) > 0 {
 		return nil, false, fmt.Errorf("upkeep identifier exceeds lower or upper bounds")

@@ -307,6 +307,10 @@ func TestPollLogs(t *testing.T) {
 
 func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 	r := &EvmRegistry{}
+
+	maxBigInt, _ := new(big.Int).SetString("115792089237316195423570985008687907853269984665640564039457584007913129639935", 10)
+	overMaxBigInt, _ := new(big.Int).SetString("115792089237316195423570985008687907853269984665640564039457584007913129639936", 10)
+
 	tests := []struct {
 		name       string
 		input      ocr2keepers.UpkeepPayload
@@ -319,7 +323,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 			"happy flow",
 			ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier("10"),
+					ID: ocr2keepers.UpkeepIdentifier(big.NewInt(10).Bytes()),
 				},
 				Trigger: ocr2keepers.Trigger{
 					BlockNumber: 1,
@@ -331,10 +335,25 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 			true,
 		},
 		{
+			"maximum size integer ok",
+			ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier(maxBigInt.Bytes()),
+				},
+				Trigger: ocr2keepers.Trigger{
+					BlockNumber: 1,
+				},
+			},
+			10,
+			big.NewInt(1),
+			maxBigInt,
+			true,
+		},
+		{
 			"block number too high",
 			ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier("10"),
+					ID: ocr2keepers.UpkeepIdentifier(big.NewInt(10).Bytes()),
 				},
 				Trigger: ocr2keepers.Trigger{
 					BlockNumber: 1000,
@@ -349,7 +368,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 			"block number too low",
 			ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier("10"),
+					ID: ocr2keepers.UpkeepIdentifier(big.NewInt(10).Bytes()),
 				},
 				Trigger: ocr2keepers.Trigger{
 					BlockNumber: 100,
@@ -364,7 +383,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 			"empty block number",
 			ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier([]byte("10")),
+					ID: ocr2keepers.UpkeepIdentifier(big.NewInt(10).Bytes()),
 				},
 			},
 			5000,
@@ -396,55 +415,10 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 			false,
 		},
 		{
-			"upkeep id formatted as binary should parse as base 10",
-			ocr2keepers.UpkeepPayload{
-				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier("1010101"),
-				},
-				Trigger: ocr2keepers.Trigger{
-					BlockNumber: 1,
-				},
-			},
-			100,
-			big.NewInt(1),
-			big.NewInt(1010101),
-			true,
-		},
-		{
-			"upkeep id formatted as hex should fail",
-			ocr2keepers.UpkeepPayload{
-				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier("0x24"),
-				},
-				Trigger: ocr2keepers.Trigger{
-					BlockNumber: 1,
-				},
-			},
-			100,
-			nil,
-			nil,
-			false,
-		},
-		{
-			"upkeep id with leading zeros should fail",
-			ocr2keepers.UpkeepPayload{
-				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier("0000082"),
-				},
-				Trigger: ocr2keepers.Trigger{
-					BlockNumber: 1,
-				},
-			},
-			100,
-			nil,
-			nil,
-			false,
-		},
-		{
 			"upkeep id larger than largest value should fail",
 			ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier("115792089237316195423570985008687907853269984665640564039457584007913129639936"),
+					ID: ocr2keepers.UpkeepIdentifier(overMaxBigInt.Bytes()),
 				},
 				Trigger: ocr2keepers.Trigger{
 					BlockNumber: 1,
@@ -459,7 +433,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 			"upkeep id should not be negative",
 			ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier("-12"),
+					ID: ocr2keepers.UpkeepIdentifier(big.NewInt(-12).Bytes()),
 				},
 				Trigger: ocr2keepers.Trigger{
 					BlockNumber: 1,
@@ -474,7 +448,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 			"upkeep id should not be zero",
 			ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier("0"),
+					ID: ocr2keepers.UpkeepIdentifier(big.NewInt(0).Bytes()),
 				},
 				Trigger: ocr2keepers.Trigger{
 					BlockNumber: 1,
