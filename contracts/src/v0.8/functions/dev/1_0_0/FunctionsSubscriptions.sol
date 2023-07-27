@@ -291,7 +291,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @inheritdoc IFunctionsSubscriptions
    */
   function oracleWithdraw(address recipient, uint96 amount) external override {
-    _nonReentrant();
     if (amount == 0) {
       revert InvalidCalldata();
     }
