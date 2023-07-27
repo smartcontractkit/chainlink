@@ -71,14 +71,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // ================================================================
 
   struct Commitment {
+    uint96 adminFee;
     address coordinator;
     address client;
     uint64 subscriptionId;
     uint32 callbackGasLimit;
     uint96 estimatedCost;
-    uint256 timeoutTimestamp;
+    uint40 timeoutTimestamp;
     uint256 gasAfterPaymentCalculation;
-    uint96 adminFee;
   }
 
   mapping(bytes32 requestId => Commitment) internal s_requestCommitments;

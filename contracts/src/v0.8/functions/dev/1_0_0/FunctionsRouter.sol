@@ -159,14 +159,14 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
     // Store a commitment about the request
     s_requestCommitments[requestId] = Commitment(
+      s_config.adminFee,
       coordinatorAddress,
       msg.sender,
       subscriptionId,
       callbackGasLimit,
       estimatedCost,
-      block.timestamp + requestTimeoutSeconds,
-      gasAfterPaymentCalculation,
-      s_config.adminFee
+      uint40(block.timestamp + requestTimeoutSeconds),
+      gasAfterPaymentCalculation
     );
 
     emit RequestStart(
