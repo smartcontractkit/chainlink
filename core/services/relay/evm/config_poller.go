@@ -32,9 +32,6 @@ var (
 	ConfigSet common.Hash
 
 	defaultABI abi.ABI
-
-	persistConfigFunctionSelector abi.Method
-	latestConfigFunctionSelector  abi.Method
 )
 
 const configSetEventName = "ConfigSet"
@@ -47,9 +44,6 @@ func init() {
 	}
 	defaultABI = *abiPointer
 	ConfigSet = defaultABI.Events[configSetEventName].ID
-
-	persistConfigFunctionSelector = defaultABI.Methods["persistConfig"]
-	latestConfigFunctionSelector = defaultABI.Methods["latestConfig"]
 }
 
 func unpackLogData(d []byte) (*ocr2aggregator.OCR2AggregatorConfigSet, error) {
@@ -69,7 +63,7 @@ func configFromLog(logData []byte) (ocrtypes.ContractConfig, error) {
 
 	var transmitAccounts []ocrtypes.Account
 	for _, addr := range unpacked.Transmitters {
-		transmitAccounts = append(transmitAccounts, ocrtypes.Account(addr.String()))
+		transmitAccounts = append(transmitAccounts, ocrtypes.Account(addr.Hex()))
 	}
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range unpacked.Signers {
@@ -295,7 +289,7 @@ func (cp *configPoller) callLatestConfig(ctx context.Context, blockNum *big.Int)
 	}
 	transmitters := make([]ocrtypes.Account, len(ocr2AbstractConfig.Transmitters))
 	for i := range transmitters {
-		transmitters[i] = ocrtypes.Account(fmt.Sprintf("0x%x", ocr2AbstractConfig.Transmitters[i].Bytes()))
+		transmitters[i] = ocrtypes.Account(ocr2AbstractConfig.Transmitters[i].Hex())
 	}
 	return uint64(ocr2AbstractConfig.PreviousConfigBlockNumber), ocrtypes.ContractConfig{
 		ConfigDigest:          ocr2AbstractConfig.ConfigDigest,
