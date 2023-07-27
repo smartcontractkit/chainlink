@@ -89,6 +89,10 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			assert.NotNil(t, 0, runs[0].Outputs.Val)
 			assert.NotNil(t, 0, runs[1].Outputs.Val)
 
+			// stop jobs as to not cause a race condition in geth simulated backend
+			// between job creating new tx and fulfillment logs polling below
+			require.NoError(t, app.JobSpawner().DeleteJob(jb.ID))
+
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
 				orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
@@ -204,6 +208,8 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// between job creating new tx and fulfillment logs polling below
 	require.NoError(t, app.JobSpawner().DeleteJob(jb.ID))
 	require.NoError(t, app.JobSpawner().DeleteJob(bhsJob.ID))
+
+	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewWithT(t).Eventually(func() bool {
 		orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
 		uc, err2 := orm.CountUnconfirmedTransactions(key.Address, testutils.SimulatedChainID)
