@@ -90,7 +90,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       upkeepTransmitInfo[i].maxLinkPayment = _getMaxLinkPayment(
         hotVars,
         upkeepTransmitInfo[i].triggerType,
-        upkeepTransmitInfo[i].upkeep.performGas,
+        uint32(report.gasLimits[i]),
         uint32(report.performDatas[i].length),
         report.fastGasWei,
         report.linkNative,
