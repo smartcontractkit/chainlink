@@ -906,3 +906,11 @@ func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
 	}
 	return cfg, nil
 }
+
+func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
+	block, err := r.client.BlockByNumber(r.ctx, blockNumber)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("%w: failed to get latest block", ErrHeadNotAvailable)
+	}
+	return block.Hash(), nil
+}
