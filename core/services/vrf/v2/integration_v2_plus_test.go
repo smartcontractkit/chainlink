@@ -292,6 +292,11 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 		5,     // number of requests to send
 		false, // don't send big callback
 		vrfcommon.V2Plus,
+		func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+			_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+			require.NoError(t, err)
+			require.Equal(t, expectedSubID, rwfe.SubID())
+		},
 	)
 }
 
@@ -313,6 +318,11 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 		5,    // number of requests to send
 		true, // send big callback
 		vrfcommon.V2Plus,
+		func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+			_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+			require.NoError(t, err)
+			require.Equal(t, expectedSubID, rwfe.SubID())
+		},
 	)
 }
 
@@ -331,7 +341,12 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
 		nil,
-		vrfcommon.V2Plus)
+		vrfcommon.V2Plus,
+		func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+			_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+			require.NoError(t, err)
+			require.Equal(t, expectedSubID, rwfe.SubID())
+		})
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
