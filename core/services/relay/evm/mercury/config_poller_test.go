@@ -1,7 +1,9 @@
 package mercury
 
 import (
+	"database/sql"
 	"fmt"
+	"math/big"
 	"testing"
 	"time"
 
@@ -11,11 +13,15 @@ import (
 	"github.com/pkg/errors"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
+	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -26,6 +32,10 @@ func TestMercuryConfigPoller(t *testing.T) {
 	feedIDBytes := [32]byte(feedID)
 
 	th := SetupTH(t, feedID)
+	th.configPoller.Start()
+	t.Cleanup(func() {
+		require.NoError(t, th.configPoller.Close())
+	})
 	th.subscription.On("Events").Return(nil)
 
 	notify := th.configPoller.Notify()
@@ -111,9 +121,154 @@ func TestMercuryConfigPoller(t *testing.T) {
 	assert.Equal(t, encodedTransmitter, newConfig.Transmitters)
 	assert.Equal(t, offchainConfigVersion, newConfig.OffchainConfigVersion)
 	assert.Equal(t, offchainConfig, newConfig.OffchainConfig)
+}
 
-	t.Run("TODO", func(t *testing.T) {
-		t.Fatal("TODO")
+func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
+	feedID := utils.NewHash()
+	feedIDBytes := [32]byte(feedID)
+	th := SetupTH(t, feedID)
+
+	offchainConfig := []byte{}
+
+	t.Run("callIsConfigPersisted returns false", func(t *testing.T) {
+		t.Run("when contract method missing, does not enable persistConfig", func(t *testing.T) {
+			th.configPoller.addr = utils.ZeroAddress
+
+			persistConfig, err := th.configPoller.callIsConfigPersisted(testutils.Context(t))
+			require.NoError(t, err)
+			assert.False(t, persistConfig)
+		})
+		t.Run("when contract method returns false, does not enable persistConfig", func(t *testing.T) {
+			th.configPoller.addr = th.verifierContract.Address()
+
+			persistConfig, err := th.configPoller.callIsConfigPersisted(testutils.Context(t))
+			require.NoError(t, err)
+			assert.False(t, persistConfig)
+		})
+	})
+
+	t.Run("callIsConfigPersisted returns true", func(t *testing.T) {
+		th.replaceVerifier(t, true)
+
+		persistConfig, err := th.configPoller.callIsConfigPersisted(testutils.Context(t))
+		require.NoError(t, err)
+		assert.True(t, persistConfig)
+	})
+
+	t.Run("LatestConfigDetails, when logs have been pruned and persistConfig is true", func(t *testing.T) {
+		// Give it a log poller that will never return logs
+		mp := new(mocks.LogPoller)
+		mp.On("RegisterFilter", mock.Anything).Return(nil)
+		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
+
+		cp := th.configPoller
+		cp.destChainLogPoller = mp
+
+		t.Run("if callLatestConfigDetails succeeds", func(t *testing.T) {
+			cp.persistConfig.Store(true)
+
+			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
+				changedInBlock, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
+				require.NoError(t, err)
+
+				assert.Equal(t, 0, int(changedInBlock))
+				assert.Equal(t, ocrtypes.ConfigDigest{}, configDigest)
+			})
+			t.Run("when config has been set, returns config details", func(t *testing.T) {
+				th.setConfig(t, offchainConfig)
+				th.backend.Commit()
+
+				changedInBlock, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
+				require.NoError(t, err)
+
+				latest, err := th.backend.BlockByNumber(testutils.Context(t), nil)
+				require.NoError(t, err)
+
+				onchainDetails, err := th.verifierContract.LatestConfigDetails(nil, feedID)
+				require.NoError(t, err)
+
+				assert.Equal(t, latest.Number().Int64(), int64(changedInBlock))
+				assert.Equal(t, onchainDetails.ConfigDigest, [32]byte(configDigest))
+			})
+		})
+		t.Run("returns error if callLatestConfigDetails fails", func(t *testing.T) {
+			failingClient := new(evmClientMocks.Client)
+			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
+			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded!"))
+
+			th.configPoller.client = failingClient
+
+			_, _, err := th.configPoller.LatestConfigDetails(testutils.Context(t))
+			assert.EqualError(t, err, "something exploded!")
+
+			failingClient.AssertExpectations(t)
+		})
+	})
+
+	th.replaceVerifier(t, true)
+	// ocrAddressPersistConfigEnabled, _, ocrContractPersistConfigEnabled, err = ocr2aggregator.DeployOCR2Aggregator(
+	//     user,
+	//     b,
+	//     linkTokenAddress,
+	//     big.NewInt(0),
+	//     big.NewInt(10),
+	//     accessAddress,
+	//     accessAddress,
+	//     9,
+	//     "TEST",
+	//     true,
+	// )
+	// require.NoError(t, err)
+	th.backend.Commit()
+
+	t.Run("LatestConfig, when logs have been pruned and persistConfig is true", func(t *testing.T) {
+		// Give it a log poller that will never return logs
+		mp := new(mocks.LogPoller)
+		mp.On("RegisterFilter", mock.Anything).Return(nil)
+		mp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
+
+		latest, err := th.backend.BlockByNumber(testutils.Context(t), nil)
+		require.NoError(t, err)
+		blockNum := uint64(latest.Number().Int64())
+
+		t.Run("if callLatestConfig succeeds", func(t *testing.T) {
+			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
+				contractConfig, err := th.configPoller.LatestConfig(testutils.Context(t), blockNum)
+				require.NoError(t, err)
+
+				assert.Equal(t, ocrtypes.ConfigDigest{}, contractConfig.ConfigDigest)
+			})
+			t.Run("when config has been set, returns config details", func(t *testing.T) {
+				contractConfig := th.setConfig(t, offchainConfig)
+				th.backend.Commit()
+				blockNum++
+
+				newConfig, err := th.configPoller.LatestConfig(testutils.Context(t), blockNum)
+				require.NoError(t, err)
+
+				onchainDetails, err := th.verifierContract.LatestConfigDetails(nil, feedID)
+				require.NoError(t, err)
+
+				assert.Equal(t, onchainDetails.ConfigDigest, [32]byte(newConfig.ConfigDigest))
+				assert.Equal(t, contractConfig.Signers, newConfig.Signers)
+				assert.Equal(t, contractConfig.Transmitters, newConfig.Transmitters)
+				assert.Equal(t, contractConfig.F, newConfig.F)
+				assert.Equal(t, contractConfig.OffchainConfigVersion, newConfig.OffchainConfigVersion)
+				assert.Equal(t, contractConfig.OffchainConfig, newConfig.OffchainConfig)
+			})
+		})
+		t.Run("returns error if callLatestConfig fails", func(t *testing.T) {
+			failingClient := new(evmClientMocks.Client)
+			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
+			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded!"))
+
+			th.configPoller.client = failingClient
+
+			_, err = th.configPoller.LatestConfig(testutils.Context(t), blockNum)
+			assert.EqualError(t, err, "something exploded!")
+
+			failingClient.AssertExpectations(t)
+		})
 	})
 }
 

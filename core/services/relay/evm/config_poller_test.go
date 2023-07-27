@@ -2,7 +2,6 @@ package evm
 
 import (
 	"database/sql"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -214,6 +213,8 @@ func TestConfigPoller(t *testing.T) {
 
 			_, _, err = cp.LatestConfigDetails(testutils.Context(t))
 			assert.EqualError(t, err, "something exploded!")
+
+			failingClient.AssertExpectations(t)
 		})
 	})
 
@@ -300,7 +301,7 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  utils.RandomAddress().Bytes(),
-				TransmitAccount:   ocrtypes2.Account(fmt.Sprintf("0x%x", utils.RandomAddress().Bytes())),
+				TransmitAccount:   ocrtypes2.Account(utils.RandomAddress().Hex()),
 				OffchainPublicKey: utils.RandomBytes32(),
 				PeerID:            utils.MustNewPeerID(),
 			},
