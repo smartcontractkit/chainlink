@@ -400,7 +400,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 			false,
 		},
 		{
-			"upkeep id not a number",
+			"upkeep id as text can be parsed as a number because big int reads the raw bytes and interprets them as a number",
 			ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
 					ID: ocr2keepers.UpkeepIdentifier("test"),
@@ -410,9 +410,9 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 				},
 			},
 			100,
-			nil,
-			nil,
-			false,
+			big.NewInt(1),
+			big.NewInt(1952805748),
+			true,
 		},
 		{
 			"upkeep id larger than largest value should fail",
@@ -430,7 +430,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 			false,
 		},
 		{
-			"upkeep id should not be negative",
+			"upkeep id parsing with bytes is interpreted as absolute value",
 			ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
 					ID: ocr2keepers.UpkeepIdentifier(big.NewInt(-12).Bytes()),
@@ -440,9 +440,9 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 				},
 			},
 			100,
-			nil,
-			nil,
-			false,
+			big.NewInt(1),
+			big.NewInt(12),
+			true,
 		},
 		{
 			"upkeep id should not be zero",
