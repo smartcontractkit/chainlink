@@ -4,14 +4,15 @@ import (
 	"context"
 	"time"
 
+	"github.com/smartcontractkit/libocr/commontypes"
+	"google.golang.org/protobuf/proto"
+
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"google.golang.org/protobuf/proto"
 )
 
 type AutomationCustomTelemetryService struct {
@@ -52,7 +53,7 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 		}
 		bytes, err := proto.Marshal(wrappedMessage)
 		if err != nil {
-			e.lggr.Errorf("Error occured while marshalling the message: %v", err)
+			e.lggr.Errorf("Error occurred while marshalling the message: %v", err)
 		}
 		e.monitoringEndpoint.SendLog(bytes)
 		e.lggr.Infof("NodeVersion Message Sent to Endpoint: %d", versionMsg.Timestamp)
@@ -61,11 +62,11 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 			e.lggr.Infof("Started: Custom Telemetry Service")
 			for {
 				select {
-				case blockKey := <-e.headCh:
+				case blockInfo := <-e.headCh:
 					blockNumMsg := &telem.BlockNumber{
 						Timestamp:   uint64(time.Now().UTC().UnixMilli()),
-						BlockNumber: uint64(blockKey.block),
-						BlockHash:   blockKey.hash,
+						BlockNumber: uint64(blockInfo.block),
+						BlockHash:   blockInfo.hash,
 					}
 					wrappedMessage := &telem.AutomationTelemWrapper{
 						Msg: &telem.AutomationTelemWrapper_BlockNumber{
@@ -74,7 +75,7 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 					}
 					bytes, err := proto.Marshal(wrappedMessage)
 					if err != nil {
-						e.lggr.Errorf("Error occured while marshalling the message: %v", err)
+						e.lggr.Errorf("Error occurred while marshalling the message: %v", err)
 					}
 					e.monitoringEndpoint.SendLog(bytes)
 					e.lggr.Infof("BlockNumber Message Sent to Endpoint: %d", blockNumMsg.Timestamp)
