@@ -1082,7 +1082,6 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		endpoint,
 		hb,
 		customTelemLogger,
-		50,
 	)
 
 	return []job.ServiceCtx{

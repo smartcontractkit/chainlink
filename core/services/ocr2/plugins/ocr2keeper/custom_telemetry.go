@@ -15,26 +15,28 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+const (
+	customTelemChanSize = 100
+)
+
 type AutomationCustomTelemetryService struct {
 	utils.StartStopOnce
-	monitoringEndpoint  commontypes.MonitoringEndpoint
-	headBroadcaster     httypes.HeadBroadcaster
-	headCh              chan blockKey
-	customTelemChanSize uint8
-	unsubscribe         func()
-	chDone              chan struct{}
-	lggr                logger.Logger
+	monitoringEndpoint commontypes.MonitoringEndpoint
+	headBroadcaster    httypes.HeadBroadcaster
+	headCh             chan blockKey
+	unsubscribe        func()
+	chDone             chan struct{}
+	lggr               logger.Logger
 }
 
 // NewAutomationCustomTelemetryService creates a telemetry service for new blocks and node version
-func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster, lggr logger.Logger, customTelemChanSize uint8) *AutomationCustomTelemetryService {
+func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster, lggr logger.Logger) *AutomationCustomTelemetryService {
 	return &AutomationCustomTelemetryService{
-		monitoringEndpoint:  me,
-		headBroadcaster:     hb,
-		headCh:              make(chan blockKey, customTelemChanSize),
-		customTelemChanSize: customTelemChanSize,
-		chDone:              make(chan struct{}),
-		lggr:                lggr.Named("Automation Custom Telem"),
+		monitoringEndpoint: me,
+		headBroadcaster:    hb,
+		headCh:             make(chan blockKey, customTelemChanSize),
+		chDone:             make(chan struct{}),
+		lggr:               lggr.Named("Automation Custom Telem"),
 	}
 }
 
