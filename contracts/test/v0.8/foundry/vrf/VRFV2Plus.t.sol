@@ -80,8 +80,7 @@ contract VRFV2Plus is BaseTest {
     s_testConsumer = VRFV2PlusConsumerExample(consumerCreate2Address);
 
     // Configure the coordinator.
-    s_testCoordinator.setLINK(address(s_linkToken));
-    s_testCoordinator.setLinkEthFeed(address(s_linkEthFeed));
+    s_testCoordinator.setLINKAndLINKETHFeed(address(s_linkToken), address(s_linkEthFeed));
   }
 
   function setConfig(VRFCoordinatorV2Plus.FeeConfig memory feeConfig) internal {
@@ -360,7 +359,7 @@ contract VRFV2Plus is BaseTest {
     (uint96 linkBalanceBefore, , , ) = s_testCoordinator.getSubscription(subId);
     vm.expectEmit(true, true, false, true);
     uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
-    emit RandomWordsFulfilled(requestId, outputSeed, subId, 290972, rc.extraArgs, true);
+    emit RandomWordsFulfilled(requestId, outputSeed, subId, 290978, rc.extraArgs, true);
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
