@@ -64,7 +64,7 @@ type Registry interface {
 	GetUpkeep(opts *bind.CallOpts, id *big.Int) (UpkeepInfo, error)
 	GetState(opts *bind.CallOpts) (iregistry21.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
-	GetAdminPrivilegeConfig(opts *bind.CallOpts, admin common.Address) ([]byte, error)
+	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	CheckCallback(opts *bind.TransactOpts, id *big.Int, values [][]byte, extraData []byte) (*coreTypes.Transaction, error)
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
@@ -156,7 +156,6 @@ type activeUpkeep struct {
 	ID              *big.Int
 	PerformGasLimit uint32
 	CheckData       []byte
-	Admin           common.Address
 }
 
 type MercuryConfig struct {
@@ -860,7 +859,6 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 				ID:              ids[i],
 				PerformGasLimit: info.PerformGas,
 				CheckData:       info.CheckData,
-				Admin:           info.Admin,
 			}
 		}
 	}
