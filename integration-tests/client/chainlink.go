@@ -57,7 +57,7 @@ func NewChainlink(c *ChainlinkConfig) (*Chainlink, error) {
 	// Retry the connection on boot up, sometimes pods can still be starting up and not ready to accept connections
 	var resp *resty.Response
 	var err error
-	retryCount := 5
+	retryCount := 20
 	for i := 0; i < retryCount; i++ {
 		resp, err = rc.R().SetBody(session).Post("/sessions")
 		if err != nil {

@@ -104,7 +104,7 @@ func NewChainlinkCluster(t *testing.T, nodes int) (*Environment, error) {
 				WSURL:   gethComponent.InternalWsUrl,
 			}}))
 	}
-	env, err = env.Start(false)
+	env, err = env.Start(true)
 	require.NoError(t, err)
 	return env, nil
 }
