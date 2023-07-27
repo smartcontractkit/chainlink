@@ -166,7 +166,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       callbackGasLimit,
       estimatedCost,
       uint40(block.timestamp + requestTimeoutSeconds),
-      gasAfterPaymentCalculation
+      uint120(gasAfterPaymentCalculation)
     );
 
     emit RequestStart(
