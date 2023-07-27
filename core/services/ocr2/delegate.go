@@ -65,7 +65,6 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
@@ -1079,12 +1078,11 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	hb := chain.HeadBroadcaster()
 	endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
 	customTelemLogger, _ := logger.NewLogger()
-	version := static.Version
 	customTelemService := ocr2keeper.NewAutomationCustomTelemetryService(
 		endpoint,
 		hb,
-		customTelemLogger.Named("Automation Custom Telem"),
-		version,
+		customTelemLogger,
+		50,
 	)
 
 	return []job.ServiceCtx{

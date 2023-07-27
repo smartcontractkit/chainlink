@@ -8,6 +8,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
+	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"google.golang.org/protobuf/proto"
@@ -22,28 +23,27 @@ type AutomationCustomTelemetryService struct {
 	unsubscribe         func()
 	chDone              chan struct{}
 	lggr                logger.Logger
-	version             string
 }
 
 // NewAutomationCustomTelemetryService creates a telemetry service for new blocks and node version
-func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster, lggr logger.Logger, vers string) *AutomationCustomTelemetryService {
+func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster, lggr logger.Logger, customTelemChanSize uint8) *AutomationCustomTelemetryService {
 	return &AutomationCustomTelemetryService{
 		monitoringEndpoint:  me,
 		headBroadcaster:     hb,
-		headCh:              make(chan blockKey, 50),
-		customTelemChanSize: 50,
+		headCh:              make(chan blockKey, customTelemChanSize),
+		customTelemChanSize: customTelemChanSize,
 		chDone:              make(chan struct{}),
-		lggr:                lggr,
-		version:             vers,
+		lggr:                lggr.Named("Automation Custom Telem"),
 	}
 }
 
-// Start starts
+// Start starts Custom Telemetry Service, sends 1 NodeVersion message to endpoint at start and sends new BlockNumber messages
 func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 	return e.StartOnce("AutomationCustomTelemetryService", func() error {
+		e.lggr.Infof("Starting: Custom Telemetry Service")
 		versionMsg := &telem.NodeVersion{
 			Timestamp:   uint64(time.Now().UTC().UnixMilli()),
-			NodeVersion: e.version,
+			NodeVersion: static.Version,
 		}
 		wrappedMessage := &telem.AutomationTelemWrapper{
 			Msg: &telem.AutomationTelemWrapper_NodeVersion{
@@ -55,10 +55,10 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 			e.lggr.Errorf("Error occured while marshalling the message: %v", err)
 		}
 		e.monitoringEndpoint.SendLog(bytes)
-		e.lggr.Infof("BlockNumber Message Sent to Endpoint: %s", wrappedMessage.String())
+		e.lggr.Infof("NodeVersion Message Sent to Endpoint: %d", versionMsg.Timestamp)
 		_, e.unsubscribe = e.headBroadcaster.Subscribe(&headWrapper{e.headCh})
 		go func() {
-			e.lggr.Infof("Started enhanced telemetry service")
+			e.lggr.Infof("Started: Custom Telemetry Service")
 			for {
 				select {
 				case blockKey := <-e.headCh:
@@ -77,7 +77,7 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 						e.lggr.Errorf("Error occured while marshalling the message: %v", err)
 					}
 					e.monitoringEndpoint.SendLog(bytes)
-					e.lggr.Infof("BlockNumber Message Sent to Endpoint: %s", wrappedMessage.String())
+					e.lggr.Infof("BlockNumber Message Sent to Endpoint: %d", blockNumMsg.Timestamp)
 				case <-e.chDone:
 					return
 				}
@@ -90,11 +90,12 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 // Close stops go routines and closes channels
 func (e *AutomationCustomTelemetryService) Close() error {
 	return e.StopOnce("AutomationCustomTelemetryService", func() error {
+		e.lggr.Infof("Stopping: custom telemetry service")
+		e.unsubscribe()
 		e.chDone <- struct{}{}
 		close(e.headCh)
 		close(e.chDone)
-		e.unsubscribe()
-		e.lggr.Infof("Stopping custom telemetry service for job")
+		e.lggr.Infof("Stopped: Custom telemetry service")
 		return nil
 	})
 }
