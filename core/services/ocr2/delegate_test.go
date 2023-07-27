@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -175,6 +176,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		jb.ForwardingAllowed = true
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("0x7e57000000000000000000000000000000000001")
 		_, err = ocr2.GetEVMEffectiveTransmitterID(&jb, legacyChains, "-1", lggr)
-		require.Equal(t, "failed to get chainset: failed to get chain with id -1: not found", err.Error())
+		require.Error(t, err)
+		require.ErrorIs(t, err, chains.ErrNoSuchChainID)
 	})
 }
