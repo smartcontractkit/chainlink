@@ -1,6 +1,7 @@
 package mercury
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/require"
+	"github.com/umbracle/ethgo/abi"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -38,55 +40,68 @@ type TestHarness struct {
 }
 
 func (th TestHarness) replaceVerifier(t *testing.T, persistConfig bool) *mercury_verifier.MercuryVerifier {
-	th.verifierContract = deployVerifier(t, persistConfig)
+	th.verifierContract = deployVerifier(t, th.user, th.backend, persistConfig)
 	th.configPoller.addr = th.verifierContract.Address()
 	return th.verifierContract
 }
 
-func (th TestHarness) setConfig(t *testing.T, offchainConfig []byte) ocrtypes2.ContractConfig {
+func (th TestHarness) setConfig(t *testing.T, feedID [32]byte) ocrtypes2.ContractConfig {
+	offchainConfig := []byte{}
+
 	// Create minimum number of nodes.
+	n := 4
 	var oracles []confighelper2.OracleIdentityExtra
-	for i := 0; i < 4; i++ {
+	for i := 0; i < n; i++ {
 		oracles = append(oracles, confighelper2.OracleIdentityExtra{
 			OracleIdentity: confighelper2.OracleIdentity{
 				OnchainPublicKey:  utils.RandomAddress().Bytes(),
-				TransmitAccount:   ocrtypes2.Account(utils.RandomAddress().Hex()),
+				TransmitAccount:   ocrtypes2.Account(utils.RandomAddress().String()),
 				OffchainPublicKey: utils.RandomBytes32(),
 				PeerID:            utils.MustNewPeerID(),
 			},
 			ConfigEncryptionPublicKey: utils.RandomBytes32(),
 		})
 	}
-	// Change the offramp config
-	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
-		2*time.Second,        // deltaProgress
-		1*time.Second,        // deltaResend
-		1*time.Second,        // deltaRound
-		500*time.Millisecond, // deltaGrace
-		2*time.Second,        // deltaStage
-		3,
-		[]int{1, 1, 1, 1},
+	f := uint8(1)
+	// Setup config on contract
+	configType := abi.MustNewType("tuple()")
+	onchainConfigVal, err := abi.Encode(map[string]interface{}{}, configType)
+	require.NoError(t, err)
+
+	signers, _, f, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
+		2*time.Second,        // DeltaProgress
+		20*time.Second,       // DeltaResend
+		100*time.Millisecond, // DeltaRound
+		0,                    // DeltaGrace
+		1*time.Minute,        // DeltaStage
+		100,                  // rMax
+		[]int{len(oracles)},  // S
 		oracles,
-		offchainConfig,
-		50*time.Millisecond,
-		50*time.Millisecond,
-		50*time.Millisecond,
-		50*time.Millisecond,
-		50*time.Millisecond,
-		1, // faults
-		nil,
+		[]byte{},             // reportingPluginConfig []byte,
+		0,                    // Max duration query
+		250*time.Millisecond, // Max duration observation
+		250*time.Millisecond, // MaxDurationReport
+		250*time.Millisecond, // MaxDurationShouldAcceptFinalizedReport
+		250*time.Millisecond, // MaxDurationShouldTransmitAcceptedReport
+		int(f),               // f
+		onchainConfigVal,
 	)
 	require.NoError(t, err)
-	signerAddresses, err := OnchainPublicKeyToAddress(signers)
+	signerAddresses, err := onchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
-	transmitterAddresses, err := AccountToAddress(transmitters)
-	require.NoError(t, err)
-	_, err = ocrContract.SetConfig(user, signerAddresses, transmitterAddresses, threshold, onchainConfig, offchainConfigVersion, offchainConfig)
-	require.NoError(t, err)
+	offchainTransmitters := make([][32]byte, n)
+	encodedTransmitters := make([]ocrtypes2.Account, n)
+	for i := 0; i < n; i++ {
+		offchainTransmitters[i] = oracles[i].OffchainPublicKey
+		encodedTransmitters[i] = ocrtypes2.Account(fmt.Sprintf("%x", oracles[i].OffchainPublicKey[:]))
+	}
+
+	_, err = th.verifierContract.SetConfig(th.user, feedID, signerAddresses, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	require.NoError(t, err, "failed to setConfig with feed ID")
 	return ocrtypes2.ContractConfig{
 		Signers:               signers,
-		Transmitters:          transmitters,
-		F:                     threshold,
+		Transmitters:          encodedTransmitters,
+		F:                     f,
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        offchainConfig,
@@ -99,10 +114,10 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
 	require.NoError(t, err)
 	b := backends.NewSimulatedBackend(core.GenesisAlloc{
-		th.configPoller.From: {Balance: big.NewInt(1000000000000000000)}},
+		user.From: {Balance: big.NewInt(1000000000000000000)}},
 		5*ethconfig.Defaults.Miner.GasCeil)
 
-	verifierContract := deployVerifier(t, false)
+	verifierContract := deployVerifier(t, user, b, false)
 	b.Commit()
 
 	db := pgtest.NewSqlxDB(t)
@@ -119,7 +134,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 
 	eventBroadcaster.On("Subscribe", "insert_on_evm_logs", "").Return(subscription, nil)
 
-	configPoller, err := NewConfigPoller(lggr, ethClient, lp, verifierAddress, feedID, eventBroadcaster)
+	configPoller, err := NewConfigPoller(lggr, ethClient, lp, verifierContract.Address(), feedID, eventBroadcaster)
 	require.NoError(t, err)
 
 	return TestHarness{
@@ -134,7 +149,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	}
 }
 
-func deployVerifier(t *testing.T, persistConfig bool) (verifierContract *mercury_verifier.MercuryVerifier) {
+func deployVerifier(t *testing.T, user *bind.TransactOpts, b *backends.SimulatedBackend, persistConfig bool) (verifierContract *mercury_verifier.MercuryVerifier) {
 	proxyAddress, _, verifierProxy, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(user, b, common.Address{})
 	require.NoError(t, err, "failed to deploy test mercury verifier proxy contract")
 	verifierAddress, _, verifierContract, err := mercury_verifier.DeployMercuryVerifier(user, b, proxyAddress, persistConfig)

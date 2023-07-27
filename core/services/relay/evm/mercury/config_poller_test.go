@@ -2,7 +2,6 @@ package mercury
 
 import (
 	"database/sql"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -11,14 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/umbracle/ethgo/abi"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -29,7 +26,6 @@ import (
 
 func TestMercuryConfigPoller(t *testing.T) {
 	feedID := utils.NewHash()
-	feedIDBytes := [32]byte(feedID)
 
 	th := SetupTH(t, feedID)
 	th.configPoller.Start()
@@ -46,54 +42,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, ocrtypes2.ConfigDigest{}, config)
 
-	// Create minimum number of nodes.
-	n := 4
-	var oracles []confighelper2.OracleIdentityExtra
-	for i := 0; i < n; i++ {
-		oracles = append(oracles, confighelper2.OracleIdentityExtra{
-			OracleIdentity: confighelper2.OracleIdentity{
-				OnchainPublicKey:  utils.RandomAddress().Bytes(),
-				TransmitAccount:   ocrtypes2.Account(utils.RandomAddress().String()),
-				OffchainPublicKey: utils.RandomBytes32(),
-				PeerID:            utils.MustNewPeerID(),
-			},
-			ConfigEncryptionPublicKey: utils.RandomBytes32(),
-		})
-	}
-	f := uint8(1)
-	// Setup config on contract
-	configType := abi.MustNewType("tuple()")
-	onchainConfigVal, err := abi.Encode(map[string]interface{}{}, configType)
-	require.NoError(t, err)
-	signers, _, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
-		2*time.Second,        // DeltaProgress
-		20*time.Second,       // DeltaResend
-		100*time.Millisecond, // DeltaRound
-		0,                    // DeltaGrace
-		1*time.Minute,        // DeltaStage
-		100,                  // rMax
-		[]int{len(oracles)},  // S
-		oracles,
-		[]byte{},             // reportingPluginConfig []byte,
-		0,                    // Max duration query
-		250*time.Millisecond, // Max duration observation
-		250*time.Millisecond, // MaxDurationReport
-		250*time.Millisecond, // MaxDurationShouldAcceptFinalizedReport
-		250*time.Millisecond, // MaxDurationShouldTransmitAcceptedReport
-		int(f),               // f
-		onchainConfigVal,
-	)
-	require.NoError(t, err)
-	signerAddresses, err := onchainPublicKeyToAddress(signers)
-	require.NoError(t, err)
-	offchainTransmitters := make([][32]byte, n)
-	encodedTransmitter := make([]ocrtypes2.Account, n)
-	for i := 0; i < n; i++ {
-		offchainTransmitters[i] = oracles[i].OffchainPublicKey
-		encodedTransmitter[i] = ocrtypes2.Account(fmt.Sprintf("%x", oracles[i].OffchainPublicKey[:]))
-	}
-	_, err = th.verifierContract.SetConfig(th.user, feedIDBytes, signerAddresses, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
-	require.NoError(t, err, "failed to setConfig with feed ID")
+	contractConfig := th.setConfig(t, feedID)
 	th.backend.Commit()
 
 	latest, err := th.backend.BlockByNumber(testutils.Context(t), nil)
@@ -116,19 +65,16 @@ func TestMercuryConfigPoller(t *testing.T) {
 	require.NoError(t, err)
 	// Note we don't check onchainConfig, as that is populated in the contract itself.
 	assert.Equal(t, digest, [32]byte(newConfig.ConfigDigest))
-	assert.Equal(t, signers, newConfig.Signers)
-	assert.Equal(t, threshold, newConfig.F)
-	assert.Equal(t, encodedTransmitter, newConfig.Transmitters)
-	assert.Equal(t, offchainConfigVersion, newConfig.OffchainConfigVersion)
-	assert.Equal(t, offchainConfig, newConfig.OffchainConfig)
+	assert.Equal(t, contractConfig.Signers, newConfig.Signers)
+	assert.Equal(t, contractConfig.F, newConfig.F)
+	assert.Equal(t, contractConfig.Transmitters, newConfig.Transmitters)
+	assert.Equal(t, contractConfig.OffchainConfigVersion, newConfig.OffchainConfigVersion)
+	assert.Equal(t, contractConfig.OffchainConfig, newConfig.OffchainConfig)
 }
 
 func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 	feedID := utils.NewHash()
-	feedIDBytes := [32]byte(feedID)
 	th := SetupTH(t, feedID)
-
-	offchainConfig := []byte{}
 
 	t.Run("callIsConfigPersisted returns false", func(t *testing.T) {
 		t.Run("when contract method missing, does not enable persistConfig", func(t *testing.T) {
@@ -175,7 +121,7 @@ func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 				assert.Equal(t, ocrtypes.ConfigDigest{}, configDigest)
 			})
 			t.Run("when config has been set, returns config details", func(t *testing.T) {
-				th.setConfig(t, offchainConfig)
+				th.setConfig(t, feedID)
 				th.backend.Commit()
 
 				changedInBlock, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
@@ -239,7 +185,7 @@ func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 				assert.Equal(t, ocrtypes.ConfigDigest{}, contractConfig.ConfigDigest)
 			})
 			t.Run("when config has been set, returns config details", func(t *testing.T) {
-				contractConfig := th.setConfig(t, offchainConfig)
+				contractConfig := th.setConfig(t, feedID)
 				th.backend.Commit()
 				blockNum++
 
