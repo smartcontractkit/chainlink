@@ -142,7 +142,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	sendingKeys := []string{key.Address.String()}
 
 	// Create BHS Job and start it
-	_ = vrftesthelpers.CreateAndStartBHSJob(t, sendingKeys, app, cu.BHSContractAddress.String(),
+	bhsJob := vrftesthelpers.CreateAndStartBHSJob(t, sendingKeys, app, cu.BHSContractAddress.String(),
 		cu.RootContractAddress.String(), "", "")
 
 	// Ensure log poller is ready and has all logs.
@@ -200,7 +200,10 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	assert.Equal(t, 4, len(runs[0].PipelineTaskRuns))
 	assert.NotNil(t, 0, runs[0].Outputs.Val)
 
-	// Ensure the eth transaction gets confirmed on chain.
+	// stop jobs as to not cause a race condition in geth simulated backend
+	// between job creating new tx and fulfillment logs polling below
+	require.NoError(t, app.JobSpawner().DeleteJob(jb.ID))
+	require.NoError(t, app.JobSpawner().DeleteJob(bhsJob.ID))
 	gomega.NewWithT(t).Eventually(func() bool {
 		orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
 		uc, err2 := orm.CountUnconfirmedTransactions(key.Address, testutils.SimulatedChainID)
