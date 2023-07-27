@@ -266,8 +266,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
-  function ownerWithdraw(address recipient, uint96 amount) internal {
-    _nonReentrant();
+  function ownerWithdraw(address recipient, uint96 amount) external {
     _onlyRouterOwner();
     if (amount == 0) {
       amount = s_withdrawableTokens[address(this)];
