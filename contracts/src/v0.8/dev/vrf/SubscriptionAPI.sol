@@ -97,7 +97,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     if (address(LINK) != address(0)) {
       revert LinkAlreadySet();
     }
-    LINK = LinkTokenInterface(link); 
+    LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
   }
 
