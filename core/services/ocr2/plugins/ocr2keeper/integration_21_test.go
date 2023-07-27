@@ -280,13 +280,14 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	ids, _, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, n)
 	require.Equal(t, n, len(ids))
 	require.Equal(t, len(contracts), len(ids))
+	backend.Commit()
 	t.Logf("EvmRegistry: deployed and registered %d upkeeps", len(ids))
-	<-time.After(time.Second * 5)
+	<-time.After(time.Second)
 	go func(contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
 		ctx := testutils.Context(t)
-		emits := 20
+		emits := 50
 		for i := 0; i < emits || ctx.Err() != nil; i++ {
-			<-time.After(time.Second)
+			<-time.After(time.Millisecond * 20)
 			t.Logf("EvmRegistry: calling upkeep contracts to emit events. run: %d", i+1)
 			for _, contract := range contracts {
 				_, err = contract.Start(carrol)
