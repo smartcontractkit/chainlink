@@ -82,7 +82,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   struct TimeLockProposal {
     uint16 from;
     uint16 to;
-    uint256 timelockEndBlock;
+    uint224 timelockEndBlock;
   }
 
   event TimeLockProposed(uint16 from, uint16 to);
@@ -322,7 +322,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (blocks > s_maximumTimelockBlocks) {
       revert ProposedTimelockAboveMaximum();
     }
-    s_timelockProposal = TimeLockProposal(s_timelockBlocks, blocks, block.number + s_timelockBlocks);
+    s_timelockProposal = TimeLockProposal(s_timelockBlocks, blocks, uint224(block.number + s_timelockBlocks));
   }
 
   /**
