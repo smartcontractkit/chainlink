@@ -232,7 +232,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external override {
-    setConfig(
+    setConfigTypeSafe(
       signers,
       transmitters,
       f,
@@ -242,7 +242,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     );
   }
 
-  function setConfig(
+  function setConfigTypeSafe(
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,

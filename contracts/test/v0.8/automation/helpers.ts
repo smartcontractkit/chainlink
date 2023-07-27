@@ -4,12 +4,6 @@ import { KeeperRegistryLogicB2_1__factory as KeeperRegistryLogicBFactory } from 
 import { IKeeperRegistryMaster as IKeeperRegistry } from '../../../typechain/IKeeperRegistryMaster'
 import { IKeeperRegistryMaster__factory as IKeeperRegistryMasterFactory } from '../../../typechain/factories/IKeeperRegistryMaster__factory'
 
-export const setConfigRaw =
-  'setConfig(address[],address[],uint8,bytes,uint64,bytes)'
-
-export const setConfigExplicit =
-  'setConfig(address[],address[],uint8,(uint32,uint32,uint32,uint24,uint16,uint96,uint32,uint32,uint32,uint32,uint256,uint256,address,address[],address),uint64,bytes)'
-
 export const deployRegistry21 = async (
   from: Signer,
   mode: Parameters<KeeperRegistryLogicBFactory['deploy']>[0],
