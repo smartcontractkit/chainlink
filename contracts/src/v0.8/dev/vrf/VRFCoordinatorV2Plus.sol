@@ -3,7 +3,6 @@ pragma solidity ^0.8.4;
 
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/BlockhashStoreInterface.sol";
-import "../../interfaces/AggregatorV3Interface.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../vrf/VRF.sol";
 import "./VRFConsumerBaseV2Plus.sol";
@@ -13,8 +12,6 @@ import "./libraries/VRFV2PlusClient.sol";
 import "../interfaces/IVRFCoordinatorV2PlusMigration.sol";
 
 contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
-  /// @dev may not be provided upon construction on some chains due to lack of availability
-  AggregatorV3Interface public LINK_ETH_FEED;
   /// @dev should always be available
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
@@ -111,14 +108,6 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
 
   constructor(address blockhashStore) SubscriptionAPI() {
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
-  }
-
-  /**
-   * @notice set the link eth feed to be used by this coordinator
-   * @param linkEthFeed address of the link eth feed
-   */
-  function setLinkEthFeed(address linkEthFeed) external onlyOwner {
-    LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
   }
 
   /**
