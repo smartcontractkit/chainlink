@@ -33,29 +33,29 @@ import (
 )
 
 type mocks struct {
-	bridgeORM   *bridgeORMMocks.ORM
-	evmORM      *evmtest.TestConfigs
-	jobORM      *jobORMMocks.ORM
-	sessionsORM *sessionsMocks.ORM
-	pipelineORM *pipelineMocks.ORM
-	feedsSvc    *feedsMocks.Service
-	cfg         *chainlinkMocks.GeneralConfig
-	scfg        *evmConfigMocks.ChainScopedConfig
-	ocr         *keystoreMocks.OCR
-	ocr2        *keystoreMocks.OCR2
-	csa         *keystoreMocks.CSA
-	keystore    *keystoreMocks.Master
-	ethKs       *keystoreMocks.Eth
-	p2p         *keystoreMocks.P2P
-	vrf         *keystoreMocks.VRF
-	solana      *keystoreMocks.Solana
-	chain       *evmORMMocks.Chain
-	chainSet    *evmORMMocks.ChainSet
-	ethClient   *evmClientMocks.Client
-	eIMgr       *webhookmocks.ExternalInitiatorManager
-	balM        *evmORMMocks.BalanceMonitor
-	txmStore    *evmtxmgrmocks.EvmTxStore
-	auditLogger *audit.AuditLoggerService
+	bridgeORM            *bridgeORMMocks.ORM
+	evmORM               *evmtest.TestConfigs
+	jobORM               *jobORMMocks.ORM
+	sessionsORM          *sessionsMocks.ORM
+	pipelineORM          *pipelineMocks.ORM
+	feedsSvc             *feedsMocks.Service
+	cfg                  *chainlinkMocks.GeneralConfig
+	scfg                 *evmConfigMocks.ChainScopedConfig
+	ocr                  *keystoreMocks.OCR
+	ocr2                 *keystoreMocks.OCR2
+	csa                  *keystoreMocks.CSA
+	keystore             *keystoreMocks.Master
+	ethKs                *keystoreMocks.Eth
+	p2p                  *keystoreMocks.P2P
+	vrf                  *keystoreMocks.VRF
+	solana               *keystoreMocks.Solana
+	chain                *evmORMMocks.Chain
+	relayerChainInterops *chainlinkMocks.RelayerChainInteroperators
+	ethClient            *evmClientMocks.Client
+	eIMgr                *webhookmocks.ExternalInitiatorManager
+	balM                 *evmORMMocks.BalanceMonitor
+	txmStore             *evmtxmgrmocks.EvmTxStore
+	auditLogger          *audit.AuditLoggerService
 }
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
@@ -63,7 +63,7 @@ type mocks struct {
 type gqlTestFramework struct {
 	t *testing.T
 
-	// The mocked chainlf.Mocks.chainSetink.Application
+	// The mocked chainlink.Application
 	App *coremocks.Application
 
 	// The root GQL schema
@@ -108,12 +108,13 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		vrf:         keystoreMocks.NewVRF(t),
 		solana:      keystoreMocks.NewSolana(t),
 		chain:       evmORMMocks.NewChain(t),
-		chainSet:    evmORMMocks.NewChainSet(t),
-		ethClient:   evmClientMocks.NewClient(t),
-		eIMgr:       webhookmocks.NewExternalInitiatorManager(t),
-		balM:        evmORMMocks.NewBalanceMonitor(t),
-		txmStore:    evmtxmgrmocks.NewEvmTxStore(t),
-		auditLogger: &audit.AuditLoggerService{},
+		//	chainSet:    evmORMMocks.NewChainSet(t),
+		relayerChainInterops: chainlinkMocks.NewRelayerChainInteroperators(t),
+		ethClient:            evmClientMocks.NewClient(t),
+		eIMgr:                webhookmocks.NewExternalInitiatorManager(t),
+		balM:                 evmORMMocks.NewBalanceMonitor(t),
+		txmStore:             evmtxmgrmocks.NewEvmTxStore(t),
+		auditLogger:          &audit.AuditLoggerService{},
 	}
 
 	app.Mock.On("GetAuditLogger", mock.Anything, mock.Anything).Return(audit.NoopLogger).Maybe()

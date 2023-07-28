@@ -175,8 +175,30 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 	return nil, 0, nil
 }
 
+// ids must be a string representation of relay.Identifier
 func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
-	return nil, 0, nil
+	var (
+		totalErr error
+		result   []types.NodeStatus
+	)
+	for _, idStr := range chainIDs {
+		rid := new(relay.Identifier)
+		err := rid.UnmarshalString(idStr)
+		if err != nil {
+			totalErr = errors.Join(totalErr, err)
+			continue
+		}
+		relayer := rs.relayers[*rid]
+		nodeStats, _, err := relayer.NodeStatuses(ctx, offset, limit, rid.ChainID.String())
+
+		if err != nil {
+			totalErr = errors.Join(totalErr, err)
+			continue
+		}
+		result = append(result, nodeStats...)
+
+	}
+	return result, len(result), totalErr
 }
 
 type FilterFn func(id relay.Identifier) bool

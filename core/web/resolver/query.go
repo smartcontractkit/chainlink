@@ -15,10 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
@@ -328,22 +326,26 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
-
-	evmRelayers := r.App.GetRelayers().List(chainlink.FilterByType(relay.EVM)).Slice()
-	var (
-		allNodes []types.NodeStatus
-		total    int
-	)
-	// TODO limit is not repected any longer because it's passed to multiple calls...
-	for _, r := range evmRelayers {
-		nodes, count, err := r.NodeStatuses(ctx, offset, limit)
-		if err != nil {
-			return nil, err
+	/*
+		evmRelayers := r.App.GetRelayers().List(chainlink.FilterByType(relay.EVM)).Slice()
+		var (
+			allNodes []types.NodeStatus
+			total    int
+		)
+		// TODO limit is not repected any longer because it's passed to multiple calls...
+		for _, r := range evmRelayers {
+			nodes, count, err := r.NodeStatuses(ctx, offset, limit)
+			if err != nil {
+				return nil, err
+			}
+			allNodes = append(allNodes, nodes...)
+			total += count
 		}
-		allNodes = append(allNodes, nodes...)
-		total += count
+	*/
+	allNodes, total, err := r.App.GetRelayers().NodeStatuses(ctx, offset, limit)
+	if err != nil {
+		return nil, err
 	}
-
 	npr, warn := NewNodesPayload(allNodes, int32(total))
 	if warn != nil {
 		r.App.GetLogger().Warnw("Error creating NodesPayloadResolver", "err", warn)

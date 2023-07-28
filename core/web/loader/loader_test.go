@@ -80,34 +80,24 @@ func TestLoader_Nodes(t *testing.T) {
 			ChainID: id,
 		}
 	}
-	x := chainlink.NewCoreRelayerChainInteroperators()
+	rcInterops := chainlink.NewCoreRelayerChainInteroperators()
 	for _, id := range []*big.Int{chainID1, chainID2} {
-		relayExtender := evmrelaymocks.NewLoopRelayAdapter(t) //evmmocks.NewChainSet(t)
+		adpater := evmrelaymocks.NewLoopRelayAdapter(t) //evmmocks.NewChainSet(t)
 
 		nodeStat := genNodeStat(id.String())
-		/*
-			node2 := relaytypes.NodeStatus{
-				Name:    "test-node-1",
-				ChainID: "2",
-			}
-		*/
+
 		chainMock := evmmocks.NewChain(t)
-		relayExtender.On("Chain").Return(chainMock)
-		relayExtender.On("Default").Return(false)
-		relayExtender.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return([]relaytypes.NodeStatus{
+		adpater.On("Chain").Return(chainMock)
+		adpater.On("Default").Return(false)
+		adpater.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return([]relaytypes.NodeStatus{
 			nodeStat,
 		}, 1, nil)
-		mockedLoopAdapters = append(mockedLoopAdapters, relayExtender)
-		assert.NoError(t, x.Put(relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(id.String())}, relayExtender))
+		mockedLoopAdapters = append(mockedLoopAdapters, adpater)
+		assert.NoError(t, rcInterops.Put(relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(id.String())}, adpater))
 
 	}
-	//	cfg := cltest.NewTestChainScopedConfig(t)
 
-	//mockChain := evmtest.NewEthClientMockWithDefaultChain()
-
-	app.On("GetRelayers").Return(x)
-	//	app.On("GetChains").Return(chainlink.Chains{EVM: relayExtender})
-
+	app.On("GetRelayers").Return(rcInterops)
 	batcher := nodeBatcher{app}
 
 	keys := dataloader.NewKeysFromStrings([]string{chainID2.String(), chainID1.String(), notAnId.String()})

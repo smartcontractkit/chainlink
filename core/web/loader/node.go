@@ -20,20 +20,35 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
 	var ids []string
+	var evmrelayerIds []relay.Identifier
+	var evmrelayIdStrs []string
+
 	for ix, key := range keys {
 		ids = append(ids, key.String())
+		rid := relay.Identifier{relay.EVM, relay.ChainID(key.String())}
+		evmrelayerIds = append(evmrelayerIds, rid)
+		evmrelayIdStrs = append(evmrelayIdStrs, rid.String())
 		keyOrder[key.String()] = ix
 	}
 
-	evmRelayers := b.app.GetRelayers().List(chainlink.FilterByType(relay.EVM))
-	var allNodes []types.NodeStatus
-	for _, r := range evmRelayers.Slice() {
+	// note backward compatibility -- this only ever supported evm chains
+	/*
+		evmRelayers := b.app.GetRelayers().List(chainlink.FilterByType(relay.EVM))
+		var allNodes []types.NodeStatus
+		for _, r := range evmRelayers.Slice() {
 
-		nodes, _, err := r.NodeStatuses(ctx, 0, -1, ids...)
-		if err != nil {
-			return []*dataloader.Result{{Data: nil, Error: err}}
+			nodes, _, err := r.NodeStatuses(ctx, 0, -1, ids...)
+			if err != nil {
+				return []*dataloader.Result{{Data: nil, Error: err}}
+			}
+			allNodes = append(allNodes, nodes...)
 		}
-		allNodes = append(allNodes, nodes...)
+	*/
+	//var allNodes []types.NodeStatus
+
+	allNodes, _, err := b.app.GetRelayers().NodeStatuses(ctx, 0, 1, evmrelayIdStrs...)
+	if err != nil {
+		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
 	// Generate a map of nodes to chainIDs
 	nodesForChain := map[string][]types.NodeStatus{}
