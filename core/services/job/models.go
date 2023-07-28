@@ -322,6 +322,18 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 	return name, nil
 }
 
+func (r JSONConfig) EnableCustomTelemetry() (bool, error) {
+	value, exists := r["enableCustomTelemetry"]
+	if !exists {
+		return false, nil
+	}
+	enabled, ok := value.(bool)
+	if !ok {
+		return false, fmt.Errorf("expected bool but got: %T", value)
+	}
+	return enabled, nil
+}
+
 var ForwardersSupportedPlugins = []OCR2PluginType{Median, DKG, OCR2VRF, OCR2Keeper, OCR2Functions}
 
 // OCR2PluginType defines supported OCR2 plugin types.
