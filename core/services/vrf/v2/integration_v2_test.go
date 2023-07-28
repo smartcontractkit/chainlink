@@ -731,7 +731,7 @@ func assertRandomWordsFulfilled(
 	numChecks := 3
 	found := false
 	for i := 0; i < numChecks; i++ {
-		filter, err := coordinator.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
+		filter, err := coordinator.FilterRandomWordsFulfilled(nil, []*big.Int{requestID}, nil)
 		require.NoError(t, err)
 		for filter.Next() {
 			require.Equal(t, expectedSuccess, filter.Event().Success(), "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, filter.Event().Success())
@@ -913,6 +913,11 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 		ptr(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 		false,
+		func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+			require.PanicsWithValue(t, "VRF V2 RandomWordsFulfilled does not implement SubID", func() {
+				rwfe.SubID()
+			})
+		},
 	)
 }
 
@@ -1632,7 +1637,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	// Wait for the request to be fulfilled on-chain.
 	var rf []v22.RandomWordsFulfilled
 	gomega.NewWithT(t).Eventually(func() bool {
-		rfIterator, err2 := uni.rootContract.FilterRandomWordsFulfilled(nil, nil)
+		rfIterator, err2 := uni.rootContract.FilterRandomWordsFulfilled(nil, nil, nil)
 		require.NoError(t, err2, "failed to logs")
 		uni.backend.Commit()
 		for rfIterator.Next() {

@@ -51,13 +51,10 @@ func deployCoordinator(
 	coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
-	linkTx, err := coordinator.SetLINK(e.Owner, common.HexToAddress(linkAddress))
+	linkTx, err := coordinator.SetLINKAndLINKETHFeed(e.Owner,
+		common.HexToAddress(linkAddress), common.HexToAddress(linkEthAddress))
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, linkTx, e.ChainID)
-
-	linkETHTx, err := coordinator.SetLinkEthFeed(e.Owner, common.HexToAddress(linkEthAddress))
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, linkETHTx, e.ChainID)
 	return coordinatorAddress
 }
 
@@ -212,7 +209,7 @@ func wrapperConfigure(
 	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(wrapperAddress, e.Ec)
 	helpers.PanicErr(err)
 
-	tx, err := wrapper.SetConfig0(
+	tx, err := wrapper.SetConfig(
 		e.Owner,
 		uint32(wrapperGasOverhead),
 		uint32(coordinatorGasOverhead),

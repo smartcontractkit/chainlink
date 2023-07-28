@@ -1,6 +1,5 @@
 import { ethers } from 'hardhat'
 import { BigNumber } from 'ethers'
-import { expect } from 'chai'
 import {
   getSetupFactory,
   FunctionsContracts,
@@ -15,7 +14,7 @@ const setup = getSetupFactory()
 let contracts: FunctionsContracts
 let roles: FunctionsRoles
 
-const baselineGasUsed = 933_007 // TODO: Baseline will be updated at the start of 7/27
+const baselineGasUsed = 944_073
 let currentGasUsed = 0
 
 beforeEach(async () => {
@@ -74,6 +73,7 @@ describe('Gas Golf', () => {
       'function myFancyFunction(){return "woah, thats fancy"}',
       subscriptionId,
       ids.donId,
+      20_000,
     )
     const { gasUsed: requestTxGasUsed, events } = await requestTx.wait()
     const requestId = getEventArg(events, 'RequestSent', 0)

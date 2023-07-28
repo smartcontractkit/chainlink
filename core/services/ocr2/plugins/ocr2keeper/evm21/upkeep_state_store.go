@@ -14,30 +14,22 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-const Separator = "|"
+const BlockKeySeparator = "|"
 
 type upkeepState struct {
 	payload  *ocr2keepers.UpkeepPayload
-	state    *UpkeepState
+	state    *ocr2keepers.UpkeepState
 	block    int64
 	upkeepId string
 }
 
-// TODO: use the same type defined in keeper plugin after a new release is cut
-type UpkeepState uint8
-
-const (
-	Performed UpkeepState = iota
-	Eligible
-)
-
 type UpkeepStateReader interface {
 	// SelectByUpkeepIDsAndBlockRange retrieves upkeep states for provided upkeep ids and block range, the result is currently not in particular order
-	SelectByUpkeepIDsAndBlockRange(upkeepIds []*big.Int, start, end int64) ([]*ocr2keepers.UpkeepPayload, []*UpkeepState, error)
+	SelectByUpkeepIDsAndBlockRange(upkeepIds []*big.Int, start, end int64) ([]*ocr2keepers.UpkeepPayload, []*ocr2keepers.UpkeepState, error)
 }
 
 type UpkeepStateUpdater interface {
-	SetUpkeepState(ocr2keepers.UpkeepPayload, UpkeepState) error
+	SetUpkeepState(ocr2keepers.UpkeepPayload, ocr2keepers.UpkeepState) error
 }
 
 type UpkeepStateStore struct {
@@ -56,11 +48,11 @@ func NewUpkeepStateStore(lggr logger.Logger) *UpkeepStateStore {
 	}
 }
 
-func (u *UpkeepStateStore) SelectByUpkeepIDsAndBlockRange(upkeepIds []*big.Int, start, end int64) ([]*ocr2keepers.UpkeepPayload, []*UpkeepState, error) {
+func (u *UpkeepStateStore) SelectByUpkeepIDsAndBlockRange(upkeepIds []*big.Int, start, end int64) ([]*ocr2keepers.UpkeepPayload, []*ocr2keepers.UpkeepState, error) {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
 	var pl []*ocr2keepers.UpkeepPayload
-	var us []*UpkeepState
+	var us []*ocr2keepers.UpkeepState
 
 	uids := mapset.NewSet[string]()
 	for _, uid := range upkeepIds {
@@ -77,12 +69,12 @@ func (u *UpkeepStateStore) SelectByUpkeepIDsAndBlockRange(upkeepIds []*big.Int, 
 	return pl, us, nil
 }
 
-func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us UpkeepState) error {
+func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us ocr2keepers.UpkeepState) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
 	upkeepId := big.NewInt(0).SetBytes(pl.Upkeep.ID)
-	arrs := strings.Split(string(pl.CheckBlock), Separator)
+	arrs := strings.Split(string(pl.CheckBlock), BlockKeySeparator)
 	if len(arrs) != 2 {
 		return fmt.Errorf("check block %s is invalid for upkeep %s", pl.CheckBlock, upkeepId)
 	}

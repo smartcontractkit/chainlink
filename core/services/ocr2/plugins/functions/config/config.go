@@ -19,6 +19,8 @@ import (
 
 // This config is part of the job spec and is loaded only once on node boot/job creation.
 type PluginConfig struct {
+	DONId                           string                            `json:"donId"`
+	ContractVersion                 uint32                            `json:"contractVersion"`
 	MinIncomingConfirmations        uint32                            `json:"minIncomingConfirmations"`
 	RequestTimeoutSec               uint32                            `json:"requestTimeoutSec"`
 	RequestTimeoutCheckFrequencySec uint32                            `json:"requestTimeoutCheckFrequencySec"`
@@ -28,6 +30,8 @@ type PluginConfig struct {
 	PruneBatchSize                  uint32                            `json:"pruneBatchSize"`
 	ListenerEventHandlerTimeoutSec  uint32                            `json:"listenerEventHandlerTimeoutSec"`
 	MaxRequestSizeBytes             uint32                            `json:"maxRequestSizeBytes"`
+	MaxRequestSizesList             []uint32                          `json:"maxRequestSizesList"`
+	MaxSecretsSizesList             []uint32                          `json:"maxSecretsSizesList"`
 	GatewayConnectorConfig          *connector.ConnectorConfig        `json:"gatewayConnectorConfig"`
 	OnchainAllowlist                *functions.OnchainAllowlistConfig `json:"onchainAllowlist"`
 	RateLimiter                     *common.RateLimiterConfig         `json:"rateLimiter"`

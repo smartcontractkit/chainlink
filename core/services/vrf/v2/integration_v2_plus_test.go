@@ -130,11 +130,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	require.NoError(t, err, "failed to deploy VRFCoordinatorV2 contract to simulated ethereum blockchain")
 	backend.Commit()
 
-	_, err = coordinatorContract.SetLINK(neil, linkAddress)
-	require.NoError(t, err)
-	backend.Commit()
-
-	_, err = coordinatorContract.SetLinkEthFeed(neil, linkEthFeed)
+	_, err = coordinatorContract.SetLINKAndLINKETHFeed(neil, linkAddress, linkEthFeed)
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -314,6 +310,11 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 			false, // don't send big callback
 			vrfcommon.V2Plus,
 			false,
+			func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+				_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+				require.NoError(t, err)
+				require.Equal(t, expectedSubID, rwfe.SubID())
+			},
 		)
 	})
 
@@ -333,6 +334,11 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 			false, // don't send big callback
 			vrfcommon.V2Plus,
 			true,
+			func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+				_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+				require.NoError(t, err)
+				require.Equal(t, expectedSubID, rwfe.SubID())
+			},
 		)
 	})
 }
@@ -357,6 +363,11 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 			true, // send big callback
 			vrfcommon.V2Plus,
 			false,
+			func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+				_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+				require.NoError(t, err)
+				require.Equal(t, expectedSubID, rwfe.SubID())
+			},
 		)
 	})
 
@@ -376,6 +387,11 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 			true, // send big callback
 			vrfcommon.V2Plus,
 			true,
+			func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+				_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+				require.NoError(t, err)
+				require.Equal(t, expectedSubID, rwfe.SubID())
+			},
 		)
 	})
 }
@@ -398,7 +414,11 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 			nil,
 			vrfcommon.V2Plus,
 			false,
-		)
+			func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+				_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+				require.NoError(t, err)
+				require.Equal(t, expectedSubID, rwfe.SubID())
+			})
 	})
 	t.Run("native payment", func(tt *testing.T) {
 		testSingleConsumerHappyPath(
@@ -414,9 +434,12 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 			nil,
 			vrfcommon.V2Plus,
 			true,
-		)
+			func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+				_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+				require.NoError(t, err)
+				require.Equal(t, expectedSubID, rwfe.SubID())
+			})
 	})
-
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
@@ -671,6 +694,12 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 		owner, backend)
 	require.NoError(t, err)
 	backend.Commit()
+	// Deploy feed
+	linkEthFeed, _, _, err :=
+		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			owner, backend, 18, vrftesthelpers.WeiPerUnitLink.BigInt()) // 0.01 eth per link
+	require.NoError(t, err)
+	backend.Commit()
 	coordinatorAddress, _, coordinator, err :=
 		vrf_coordinator_v2plus.DeployVRFCoordinatorV2Plus(
 			owner, backend, common.Address{}) //bhs not needed for this test
@@ -681,7 +710,7 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	})
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = coordinator.SetLINK(owner, linkAddress)
+	_, err = coordinator.SetLINKAndLINKETHFeed(owner, linkAddress, linkEthFeed)
 	require.NoError(t, err)
 	backend.Commit()
 	consumerAddress, _, consumer, err := vrf_v2plus_sub_owner.DeployVRFV2PlusExternalSubOwnerExample(owner, backend, coordinatorAddress, linkAddress)
@@ -735,12 +764,18 @@ func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
 		owner, backend)
 	require.NoError(t, err)
 	backend.Commit()
+	// Deploy feed
+	linkEthFeed, _, _, err :=
+		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			owner, backend, 18, vrftesthelpers.WeiPerUnitLink.BigInt()) // 0.01 eth per link
+	require.NoError(t, err)
+	backend.Commit()
 	coordinatorAddress, _, coordinator, err :=
 		vrf_coordinator_v2plus.DeployVRFCoordinatorV2Plus(
 			owner, backend, common.Address{}) // bhs not needed for this test
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = coordinator.SetLINK(owner, linkAddress)
+	_, err = coordinator.SetLINKAndLINKETHFeed(owner, linkAddress, linkEthFeed)
 	require.NoError(t, err)
 	backend.Commit()
 	consumerAddress, _, consumer, err := vrf_v2plus_single_consumer.DeployVRFV2PlusSingleConsumerExample(owner, backend, coordinatorAddress, linkAddress, 1, 1, 1, [32]byte{}, false)

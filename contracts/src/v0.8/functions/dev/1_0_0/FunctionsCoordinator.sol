@@ -20,7 +20,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     uint64 subscriptionId,
     address subscriptionOwner,
     bytes data,
-    uint16 dataVersion
+    uint16 dataVersion,
+    bytes32 flags,
+    uint64 callbackGasLimit
   );
   event OracleResponse(bytes32 indexed requestId, address transmitter);
   event InvalidRequestID(bytes32 indexed requestId);
@@ -156,7 +158,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     RequestBilling memory billing = IFunctionsBilling.RequestBilling(
       request.subscriptionId,
-      request.caller,
+      request.requestingContract,
       request.callbackGasLimit,
       tx.gasprice
     );
@@ -169,12 +171,14 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     emit OracleRequest(
       requestId,
-      request.caller,
+      request.requestingContract,
       tx.origin,
       request.subscriptionId,
       request.subscriptionOwner,
       request.data,
-      request.dataVersion
+      request.dataVersion,
+      request.flags,
+      request.callbackGasLimit
     );
   }
 
