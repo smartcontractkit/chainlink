@@ -3,6 +3,7 @@ package functions
 import (
 	"context"
 	"fmt"
+	"math"
 	"reflect"
 	"sync"
 	"time"
@@ -15,12 +16,14 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmrelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -111,6 +114,9 @@ const (
 	DefaultPruneMaxStoredRequests uint32 = 20_000
 	DefaultPruneCheckFrequencySec uint32 = 60 * 10
 	DefaultPruneBatchSize         uint32 = 500
+
+	FlagCBORMaxSize    uint32 = 1
+	FlagSecretsMaxSize uint32 = 2
 )
 
 type FunctionsListener struct {
@@ -132,6 +138,7 @@ type FunctionsListener struct {
 	mailMon           *utils.MailboxMonitor
 	urlsMonEndpoint   commontypes.MonitoringEndpoint
 	decryptor         threshold.Decryptor
+	logPollerWrapper  evmrelayTypes.LogPollerWrapper
 }
 
 func formatRequestId(requestId [32]byte) string {
@@ -150,22 +157,24 @@ func NewFunctionsListener(
 	mailMon *utils.MailboxMonitor,
 	urlsMonEndpoint commontypes.MonitoringEndpoint,
 	decryptor threshold.Decryptor,
+	logPollerWrapper evmrelayTypes.LogPollerWrapper,
 ) *FunctionsListener {
 	return &FunctionsListener{
-		oracle:          oracle,
-		oracleHexAddr:   oracle.Address().Hex(),
-		job:             job,
-		bridgeAccessor:  bridgeAccessor,
-		logBroadcaster:  logBroadcaster,
-		mbOracleEvents:  utils.NewHighCapacityMailbox[log.Broadcast](),
-		chStop:          make(chan struct{}),
-		pluginORM:       pluginORM,
-		pluginConfig:    pluginConfig,
-		s4Storage:       s4Storage,
-		logger:          lggr,
-		mailMon:         mailMon,
-		urlsMonEndpoint: urlsMonEndpoint,
-		decryptor:       decryptor,
+		oracle:           oracle,
+		oracleHexAddr:    oracle.Address().Hex(),
+		job:              job,
+		bridgeAccessor:   bridgeAccessor,
+		logBroadcaster:   logBroadcaster,
+		mbOracleEvents:   utils.NewHighCapacityMailbox[log.Broadcast](),
+		chStop:           make(chan struct{}),
+		pluginORM:        pluginORM,
+		pluginConfig:     pluginConfig,
+		s4Storage:        s4Storage,
+		logger:           lggr,
+		mailMon:          mailMon,
+		urlsMonEndpoint:  urlsMonEndpoint,
+		decryptor:        decryptor,
+		logPollerWrapper: logPollerWrapper,
 	}
 }
 
@@ -274,7 +283,7 @@ func (l *FunctionsListener) processOracleEvents() {
 				case *ocr2dr_oracle.OCR2DROracleOracleRequest:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleRequest").Inc()
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleRequest(log, lb)
+					go l.handleOracleRequestV0(log, lb)
 				case *ocr2dr_oracle.OCR2DROracleOracleResponse:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleResponse").Inc()
 					l.shutdownWaitGroup.Add(1)
@@ -317,13 +326,64 @@ func (l *FunctionsListener) setError(ctx context.Context, requestId RequestID, e
 	}
 }
 
-func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
+func (l *FunctionsListener) getMaxCBORsize(flags RequestFlags) uint32 {
+	idx := flags[FlagCBORMaxSize]
+	if int(idx) >= len(l.pluginConfig.MaxRequestSizesList) {
+		return l.pluginConfig.MaxRequestSizeBytes // deprecated
+	}
+	return l.pluginConfig.MaxRequestSizesList[idx]
+}
+
+func (l *FunctionsListener) getMaxSecretsSize(flags RequestFlags) uint32 {
+	idx := flags[FlagSecretsMaxSize]
+	if int(idx) >= len(l.pluginConfig.MaxSecretsSizesList) {
+		return math.MaxUint32 // not enforced if not configured
+	}
+	return l.pluginConfig.MaxSecretsSizesList[idx]
+}
+
+// TODO (FUN-662): call from LogPoller in a separate goroutine
+func (l *FunctionsListener) HandleOracleRequestV1(request *functions_coordinator.FunctionsCoordinatorOracleRequest, coordinatorContractAddress *common.Address, lb log.Broadcast) {
+	l.logger.Infow("oracle request v1 received", "requestID", formatRequestId(request.RequestId))
+	ctx, cancel := l.getNewHandlerContext()
+	defer cancel()
+
+	callbackGasLimit := uint32(request.CallbackGasLimit)
+	newReq := &Request{
+		RequestID:                  request.RequestId,
+		RequestTxHash:              &request.Raw.TxHash,
+		ReceivedAt:                 time.Now(),
+		Flags:                      request.Flags[:],
+		CallbackGasLimit:           &callbackGasLimit,
+		CoordinatorContractAddress: coordinatorContractAddress,
+	}
+	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
+		if errors.Is(err, ErrDuplicateRequestID) {
+			l.logger.Warnw("received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
+			l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+		} else {
+			l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
+		}
+		return
+	}
+	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+
+	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
+	requestData, err := l.parseCBOR(request.RequestId, request.Data, l.getMaxCBORsize(request.Flags))
+	if err != nil {
+		l.setError(ctx, request.RequestId, USER_ERROR, []byte(err.Error()))
+		return
+	}
+	l.handleRequest(ctx, request.RequestId, request.SubscriptionId, request.SubscriptionOwner, request.Flags, requestData)
+}
+
+// deprecated
+func (l *FunctionsListener) handleOracleRequestV0(request *ocr2dr_oracle.OCR2DROracleOracleRequest, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
 	l.logger.Infow("oracle request received", "requestID", formatRequestId(request.RequestId))
 
-	// TODO(FUN-617) extract and set new fields (Flags, AggregationMethod, CallbackGasLimit, CoordinatorContractAddress, OnchainMetadata)
 	newReq := &Request{RequestID: request.RequestId, RequestTxHash: &request.Raw.TxHash, ReceivedAt: time.Now()}
 	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
 		if errors.Is(err, ErrDuplicateRequestID) {
@@ -337,24 +397,30 @@ func (l *FunctionsListener) handleOracleRequest(request *ocr2dr_oracle.OCR2DROra
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 
 	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
-
-	if l.pluginConfig.MaxRequestSizeBytes > 0 && uint32(len(request.Data)) > l.pluginConfig.MaxRequestSizeBytes {
-		l.logger.Errorw("request too big", "requestID", formatRequestId(request.RequestId), "requestSize", len(request.Data), "maxRequestSize", l.pluginConfig.MaxRequestSizeBytes)
-		l.setError(ctx, request.RequestId, USER_ERROR, []byte(fmt.Sprintf("request too big (max %d bytes)", l.pluginConfig.MaxRequestSizeBytes)))
+	requestData, err := l.parseCBOR(request.RequestId, request.Data, l.pluginConfig.MaxRequestSizeBytes)
+	if err != nil {
+		l.setError(ctx, request.RequestId, USER_ERROR, []byte(err.Error()))
 		return
+	}
+	l.handleRequest(ctx, request.RequestId, request.SubscriptionId, request.SubscriptionOwner, [32]byte{}, requestData)
+}
+
+func (l *FunctionsListener) parseCBOR(requestId RequestID, cborData []byte, maxSizeBytes uint32) (*RequestData, error) {
+	if maxSizeBytes > 0 && uint32(len(cborData)) > maxSizeBytes {
+		l.logger.Errorw("request too big", "requestID", formatRequestId(requestId), "requestSize", len(cborData), "maxRequestSize", maxSizeBytes)
+		return nil, fmt.Errorf("request too big (max %d bytes)", maxSizeBytes)
 	}
 
 	var requestData RequestData
-	if err := cbor.ParseDietCBORToStruct(request.Data, &requestData); err != nil {
-		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(request.RequestId), "err", err)
-		l.setError(ctx, request.RequestId, USER_ERROR, []byte("CBOR parsing error"))
-		return
+	if err := cbor.ParseDietCBORToStruct(cborData, &requestData); err != nil {
+		l.logger.Errorw("failed to parse CBOR", "requestID", formatRequestId(requestId), "err", err)
+		return nil, errors.New("CBOR parsing error")
 	}
 
-	l.handleRequest(ctx, request.RequestId, request.SubscriptionId, request.SubscriptionOwner, &requestData)
+	return &requestData, nil
 }
 
-func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byte, subscriptionId uint64, subscriptionOwner common.Address, requestData *RequestData) {
+func (l *FunctionsListener) handleRequest(ctx context.Context, requestID RequestID, subscriptionId uint64, subscriptionOwner common.Address, flags RequestFlags, requestData *RequestData) {
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime)
@@ -383,7 +449,14 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID [32]byt
 		return
 	}
 
-	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, nodeProvidedSecrets, requestData)
+	maxSecretsSize := l.getMaxSecretsSize(flags)
+	if uint32(len(nodeProvidedSecrets)) > maxSecretsSize {
+		l.logger.Errorw("secrets size too big", "requestID", requestIDStr, "secretsSize", len(nodeProvidedSecrets), "maxSecretsSize", maxSecretsSize)
+		l.setError(ctx, requestID, USER_ERROR, []byte("secrets size too big"))
+		return
+	}
+
+	computationResult, computationError, domains, err := eaClient.RunComputation(ctx, requestIDStr, l.job.Name.ValueOrZero(), subscriptionOwner.Hex(), subscriptionId, flags, nodeProvidedSecrets, requestData)
 
 	if err != nil {
 		l.logger.Errorw("internal adapter error", "requestID", requestIDStr, "err", err)

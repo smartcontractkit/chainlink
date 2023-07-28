@@ -28,6 +28,7 @@ import (
 	s4_plugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmrelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -45,6 +46,7 @@ type FunctionsServicesConfig struct {
 	URLsMonEndpoint   commontypes.MonitoringEndpoint
 	EthKeystore       keystore.Eth
 	ThresholdKeyShare []byte
+	LogPollerWrapper  evmrelayTypes.LogPollerWrapper
 }
 
 const (
@@ -117,13 +119,15 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		conf.MailMon,
 		conf.URLsMonEndpoint,
 		decryptor,
+		conf.LogPollerWrapper,
 	)
 	allServices = append(allServices, functionsListener)
 
 	functionsOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
-		Logger:    functionsOracleArgs.Logger,
-		PluginORM: pluginORM,
-		JobID:     conf.Job.ExternalJobID,
+		Logger:          functionsOracleArgs.Logger,
+		PluginORM:       pluginORM,
+		JobID:           conf.Job.ExternalJobID,
+		ContractVersion: pluginConfig.ContractVersion,
 	}
 	functionsReportingPluginOracle, err := libocr2.NewOracle(*functionsOracleArgs)
 	if err != nil {

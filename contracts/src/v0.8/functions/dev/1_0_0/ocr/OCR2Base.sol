@@ -173,7 +173,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     }
     s_configInfo.n = uint8(args.signers.length);
 
-    emit OCRConfigSet(
+    emit ConfigSet(
       previousConfigBlockNumber,
       s_configInfo.latestConfigDigest,
       s_configCount,

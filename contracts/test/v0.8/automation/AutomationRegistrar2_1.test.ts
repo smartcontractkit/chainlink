@@ -163,9 +163,7 @@ describe('AutomationRegistrar2_1', () => {
     }
     await registry
       .connect(owner)
-      [
-        'setConfig(address[],address[],uint8,(uint32,uint32,uint32,uint24,uint16,uint96,uint32,uint32,uint32,uint32,uint256,uint256,address,address[],address),uint64,bytes)'
-      ](keepers, keepers, 1, onchainConfig, 1, '0x')
+      .setConfigTypeSafe(keepers, keepers, 1, onchainConfig, 1, '0x')
   })
 
   describe('#typeAndVersion', () => {
