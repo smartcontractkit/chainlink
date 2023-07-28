@@ -4,7 +4,6 @@ package cmd_test
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"strconv"
 	"testing"
