@@ -4,7 +4,7 @@ pragma solidity 0.8.16;
 import "./VerifiableLoadBase.sol";
 
 contract VerifiableLoadUpkeep is VerifiableLoadBase {
-  constructor(AutomationRegistrar2_1 _registrar, bool useArb) VerifiableLoadBase(_registrar, useArb) {}
+  constructor(AutomationRegistrar2_1 _registrar, bool _useArb) VerifiableLoadBase(_registrar, _useArb) {}
 
   function checkUpkeep(bytes calldata checkData) external returns (bool, bytes memory) {
     uint256 startGas = gasleft();
