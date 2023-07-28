@@ -26,7 +26,7 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 	utils.SetupRouterRoutes(t, owner, routerContract, coordinatorContractAddress, allowListContractAddress)
 	b.Commit()
 
-	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, coordinatorContractAddress, 39999, nOracleNodes, maxGas, nil, nil)
+	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, coordinatorContractAddress, 39989, nOracleNodes, maxGas, nil, nil)
 
 	pluginConfig := functionsConfig.ReportingPluginConfig{
 		MaxQueryLengthBytes:       10_000,
