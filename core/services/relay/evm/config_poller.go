@@ -279,6 +279,7 @@ func (cp *configPoller) callLatestConfig(ctx context.Context) (changedInBlock ui
 	ocr2AbstractConfig, err := cp.contract.LatestConfig(&bind.CallOpts{
 		Context: ctx,
 	})
+	fmt.Printf("TRASH cfg %#v\n", ocr2AbstractConfig)
 	if err != nil {
 		cp.failedRPCContractCalls.Inc()
 		return

@@ -182,6 +182,8 @@ func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 			t.Run("when config has been set, returns config", func(t *testing.T) {
 				contractConfig := th.setConfig(t, feedID)
 				th.backend.Commit()
+				th.setConfig(t, utils.NewHash()) // this config is set on a different feed ID, so it should be ignored
+				th.backend.Commit()
 
 				newConfig, err := th.configPoller.LatestConfig(testutils.Context(t), 0)
 				require.NoError(t, err)

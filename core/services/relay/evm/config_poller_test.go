@@ -240,22 +240,18 @@ func TestConfigPoller(t *testing.T) {
 		mp.On("RegisterFilter", mock.Anything).Return(nil)
 		mp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
 
-		latest, err := b.BlockByNumber(testutils.Context(t), nil)
-		require.NoError(t, err)
-		blockNum := uint64(latest.Number().Int64())
-
 		t.Run("if callLatestConfig succeeds", func(t *testing.T) {
 			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddressPersistConfigEnabled)
 			require.NoError(t, err)
 			cp.persistConfig.Store(true)
 
 			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
-				contractConfig, err := cp.LatestConfig(testutils.Context(t), blockNum)
+				contractConfig, err := cp.LatestConfig(testutils.Context(t), 0)
 				require.NoError(t, err)
 
 				assert.Equal(t, ocrtypes.ConfigDigest{}, contractConfig.ConfigDigest)
 			})
-			t.Run("when config has been set, returns config details", func(t *testing.T) {
+			t.Run("when config has been set, returns config", func(t *testing.T) {
 				contractConfig := setConfig(t, median.OffchainConfig{
 					AlphaReportInfinite: false,
 					AlphaReportPPB:      0,
@@ -264,7 +260,9 @@ func TestConfigPoller(t *testing.T) {
 					DeltaC:              10,
 				}, ocrContractPersistConfigEnabled, user)
 				b.Commit()
-				blockNum++
+				latest, err := b.BlockByNumber(testutils.Context(t), nil)
+				require.NoError(t, err)
+				blockNum := uint64(latest.Number().Int64())
 
 				newConfig, err := cp.LatestConfig(testutils.Context(t), blockNum)
 				require.NoError(t, err)
@@ -288,7 +286,7 @@ func TestConfigPoller(t *testing.T) {
 			require.NoError(t, err)
 			cp.persistConfig.Store(true)
 
-			_, err = cp.LatestConfig(testutils.Context(t), blockNum)
+			_, err = cp.LatestConfig(testutils.Context(t), 0)
 			assert.EqualError(t, err, "something exploded!")
 		})
 	})
