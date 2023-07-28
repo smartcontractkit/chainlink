@@ -61,9 +61,6 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	from := accounts[0]
 	to := accounts[1]
 	require.NoError(t, app.GetKeyStore().Cosmos().Add(cosmoskey.Raw(from.PrivateKey.Bytes()).Key()))
-	x := app.GetChains()
-	y := x.Cosmos
-	fmt.Println(y)
 	chain, err := app.GetChains().Cosmos.Chain(testutils.Context(t), chainID)
 	require.NoError(t, err)
 
