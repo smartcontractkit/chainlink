@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../ConfirmedOwner.sol";
+import "../../interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
 import "../interfaces/IVRFSubscriptionV2Plus.sol";
@@ -10,6 +11,8 @@ import "../interfaces/IVRFSubscriptionV2Plus.sol";
 abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInterface, IVRFSubscriptionV2Plus {
   /// @dev may not be provided upon construction on some chains due to lack of availability
   LinkTokenInterface public LINK;
+  /// @dev may not be provided upon construction on some chains due to lack of availability
+  AggregatorV3Interface public LINK_ETH_FEED;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -83,12 +86,19 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
 
   constructor() ConfirmedOwner(msg.sender) {}
 
-  function setLINK(address link) external onlyOwner {
+  /**
+   * @notice set the LINK token contract and link eth feed to be
+   * used by this coordinator
+   * @param link - address of link token
+   * @param linkEthFeed address of the link eth feed
+   */
+  function setLINKAndLINKETHFeed(address link, address linkEthFeed) external onlyOwner {
     // Disallow re-setting link token because the logic wouldn't really make sense
     if (address(LINK) != address(0)) {
       revert LinkAlreadySet();
     }
     LINK = LinkTokenInterface(link);
+    LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
   }
 
   /**

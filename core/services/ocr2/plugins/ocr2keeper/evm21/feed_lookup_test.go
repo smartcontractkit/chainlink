@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mocks"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
@@ -44,19 +43,12 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	require.Nil(t, err, "need utils abi")
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
-	var headTracker httypes.HeadTracker
-	var headBroadcaster httypes.HeadBroadcaster
 	var logPoller logpoller.LogPoller
 	mockRegistry := mocks.NewRegistry(t)
 	mockHttpClient := mocks.NewHttpClient(t)
 	client := evmClientMocks.NewClient(t)
 
 	r := &EvmRegistry{
-		HeadProvider: HeadProvider{
-			ht:     headTracker,
-			hb:     headBroadcaster,
-			chHead: make(chan ocr2keepers.BlockKey, 1),
-		},
 		lggr:     lggr,
 		poller:   logPoller,
 		addr:     addr,
@@ -85,7 +77,6 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 func TestEvmRegistry_FeedLookup(t *testing.T) {
 	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
 	assert.True(t, ok, t.Name())
-	admin := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	tests := []struct {
 		name              string
 		input             []ocr2keepers.CheckResult
@@ -236,17 +227,13 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
-			r.active[upkeepId.String()] = activeUpkeep{
-				ID:    upkeepId,
-				Admin: admin,
-			}
 
 			if !tt.cachedAdminCfg && !tt.hasError {
 				mockRegistry := mocks.NewRegistry(t)
 				cfg := AdminOffchainConfig{MercuryEnabled: tt.hasPermission}
 				b, err := json.Marshal(cfg)
 				assert.Nil(t, err)
-				mockRegistry.On("GetAdminPrivilegeConfig", mock.Anything, admin).Return(b, nil)
+				mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(b, nil)
 				r.registry = mockRegistry
 			}
 
@@ -330,7 +317,6 @@ func TestEvmRegistry_DecodeFeedLookup(t *testing.T) {
 func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
 	assert.True(t, ok, t.Name())
-	admin := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	tests := []struct {
 		name         string
 		cached       bool
@@ -367,24 +353,20 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
-			r.active[upkeepId.String()] = activeUpkeep{
-				ID:    upkeepId,
-				Admin: admin,
-			}
 
 			if tt.errorMessage != "" {
 				mockRegistry := mocks.NewRegistry(t)
-				mockRegistry.On("GetAdminPrivilegeConfig", mock.Anything, admin).Return([]byte{0, 1}, nil)
+				mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return([]byte{0, 1}, nil)
 				r.registry = mockRegistry
 			} else {
 				if tt.cached {
-					r.mercury.allowListCache.Set(admin.Hex(), tt.allowed, cache.DefaultExpiration)
+					r.mercury.allowListCache.Set(upkeepId.String(), tt.allowed, cache.DefaultExpiration)
 				} else {
 					mockRegistry := mocks.NewRegistry(t)
 					cfg := AdminOffchainConfig{MercuryEnabled: tt.allowed}
 					b, err := json.Marshal(cfg)
 					assert.Nil(t, err)
-					mockRegistry.On("GetAdminPrivilegeConfig", mock.Anything, admin).Return(b, nil)
+					mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(b, nil)
 					r.registry = mockRegistry
 				}
 			}

@@ -42,7 +42,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
    *  - enabled: boolean representing if the allow list is active, when disabled all usage will be allowed
    *  - proofSignerPublicKey: public key of the signer of the proof
    */
-  function _setConfig(bytes memory config) internal override {
+  function _updateConfig(bytes memory config) internal override {
     (bool enabled, address proofSignerPublicKey) = abi.decode(config, (bool, address));
     s_config = Config({enabled: enabled, proofSignerPublicKey: proofSignerPublicKey});
     emit ConfigSet(enabled);
@@ -150,6 +150,8 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
   // |                     Internal helpers                          |
   // ================================================================
 
+  // NOTE: a contract account can appear to be an EoA if called during its constructor
+  // This is not a risk, because they will fail in acceptTermsOfService during acceptor == recipient
   function _isContract(address _addr) private view returns (bool isContract) {
     uint32 size;
     // solhint-disable-next-line no-inline-assembly

@@ -15,7 +15,6 @@ import "./interfaces/ILogAutomation.sol";
  */
 struct LogTriggerConfig {
   address contractAddress;
-  // TODO - bytes1?
   uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
   bytes32 topic0;
   bytes32 topic1;

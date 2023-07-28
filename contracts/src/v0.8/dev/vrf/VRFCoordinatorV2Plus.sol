@@ -3,7 +3,6 @@ pragma solidity ^0.8.4;
 
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/BlockhashStoreInterface.sol";
-import "../../interfaces/AggregatorV3Interface.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../vrf/VRF.sol";
 import "./VRFConsumerBaseV2Plus.sol";
@@ -13,8 +12,6 @@ import "./libraries/VRFV2PlusClient.sol";
 import "../interfaces/IVRFCoordinatorV2PlusMigration.sol";
 
 contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
-  /// @dev may not be provided upon construction on some chains due to lack of availability
-  AggregatorV3Interface public LINK_ETH_FEED;
   /// @dev should always be available
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
@@ -43,7 +40,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     uint32 callbackGasLimit;
     uint32 numWords;
     address sender;
-    bool nativePayment;
+    bytes extraArgs;
   }
   mapping(bytes32 => address) /* keyHash */ /* oracle */ public s_provingKeys;
   bytes32[] public s_provingKeyHashes;
@@ -58,14 +55,15 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     uint16 minimumRequestConfirmations,
     uint32 callbackGasLimit,
     uint32 numWords,
-    bool nativePayment,
+    bytes extraArgs,
     address indexed sender
   );
   event RandomWordsFulfilled(
     uint256 indexed requestId,
     uint256 outputSeed,
+    uint256 indexed subID,
     uint96 payment,
-    bool nativePayment,
+    bytes extraArgs,
     bool success
   );
 
@@ -110,14 +108,6 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
 
   constructor(address blockhashStore) SubscriptionAPI() {
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
-  }
-
-  /**
-   * @notice set the link eth feed to be used by this coordinator
-   * @param linkEthFeed address of the link eth feed
-   */
-  function setLinkEthFeed(address linkEthFeed) external onlyOwner {
-    LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
   }
 
   /**
@@ -295,7 +285,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     uint64 nonce = currentNonce + 1;
     (uint256 requestId, uint256 preSeed) = computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
 
-    bool nativePayment = _fromBytes(req.extraArgs).nativePayment;
+    VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
+    bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
     s_requestCommitments[requestId] = keccak256(
       abi.encode(
         requestId,
@@ -303,7 +294,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         req.subId,
         req.callbackGasLimit,
         req.numWords,
-        msg.sender
+        msg.sender,
+        extraArgsBytes
       )
     );
     emit RandomWordsRequested(
@@ -314,7 +306,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       req.requestConfirmations,
       req.callbackGasLimit,
       req.numWords,
-      nativePayment,
+      extraArgsBytes,
       msg.sender
     );
     s_consumers[msg.sender][req.subId] = nonce;
@@ -373,9 +365,9 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   }
 
   function getRandomnessFromProof(
-    Proof memory proof,
-    RequestCommitment memory rc
-  ) private view returns (Output memory) {
+    Proof calldata proof,
+    RequestCommitment calldata rc
+  ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     // Only registered proving keys are permitted.
     address oracle = s_provingKeys[keyHash];
@@ -388,7 +380,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       revert NoCorrespondingRequest();
     }
     if (
-      commitment != keccak256(abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender))
+      commitment !=
+      keccak256(abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender, rc.extraArgs))
     ) {
       revert IncorrectCommitment();
     }
@@ -414,7 +407,10 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
    * @return payment amount billed to the subscription
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
-  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
+  function fulfillRandomWords(
+    Proof calldata proof,
+    RequestCommitment calldata rc
+  ) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
     Output memory output = getRandomnessFromProof(proof, rc);
 
@@ -436,6 +432,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
 
     // stack too deep error
     {
+      bool nativePayment = _fromBytes(rc.extraArgs).nativePayment;
       // We want to charge users exactly for how much gas they use in their callback.
       // The gasAfterPaymentCalculation is meant to cover these additional operations where we
       // decrement the subscription balance and increment the oracles withdrawable balance.
@@ -443,9 +440,9 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         startGas,
         s_config.gasAfterPaymentCalculation,
         tx.gasprice,
-        rc.nativePayment
+        nativePayment
       );
-      if (rc.nativePayment) {
+      if (nativePayment) {
         if (s_subscriptions[rc.subId].ethBalance < payment) {
           revert InsufficientBalance();
         }
@@ -459,9 +456,12 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         s_withdrawableTokens[s_provingKeys[output.keyHash]] += payment;
       }
 
+      bytes memory extraArgs = VRFV2PlusClient._argsToBytes(
+        VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment})
+      );
       // Include payment in the event for tracking costs.
-      // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bool nativePayment, bool success);
-      emit RandomWordsFulfilled(output.requestId, output.randomness, payment, rc.nativePayment, success);
+      // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);
+      emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, extraArgs, success);
 
       return payment;
     }

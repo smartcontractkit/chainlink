@@ -8,6 +8,7 @@ import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/testhelp
 import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2Plus.sol";
 import {BlockhashStore} from "../../../../src/v0.8/dev/BlockhashStore.sol";
 import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
+import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
 
 /*
@@ -79,8 +80,7 @@ contract VRFV2Plus is BaseTest {
     s_testConsumer = VRFV2PlusConsumerExample(consumerCreate2Address);
 
     // Configure the coordinator.
-    s_testCoordinator.setLINK(address(s_linkToken));
-    s_testCoordinator.setLinkEthFeed(address(s_linkEthFeed));
+    s_testCoordinator.setLINKAndLINKETHFeed(address(s_linkToken), address(s_linkEthFeed));
   }
 
   function setConfig(VRFCoordinatorV2Plus.FeeConfig memory feeConfig) internal {
@@ -148,8 +148,16 @@ contract VRFV2Plus is BaseTest {
     uint16 minimumRequestConfirmations,
     uint32 callbackGasLimit,
     uint32 numWords,
-    bool nativePayment,
+    bytes extraArgs,
     address indexed sender
+  );
+  event RandomWordsFulfilled(
+    uint256 indexed requestId,
+    uint256 outputSeed,
+    uint256 indexed subID,
+    uint96 payment,
+    bytes extraArgs,
+    bool success
   );
 
   function testRequestAndFulfillRandomWordsNative() public {
@@ -179,7 +187,7 @@ contract VRFV2Plus is BaseTest {
       0, // minConfirmations
       1_000_000, // callbackGasLimit
       1, // numWords
-      true, // nativePayment
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true})), // nativePayment
       address(s_testConsumer) // requester
     );
     s_testConsumer.requestRandomWords(1_000_000, 0, 1, vrfKeyHash, true);
@@ -237,9 +245,12 @@ contract VRFV2Plus is BaseTest {
       callbackGasLimit: 1_000_000,
       numWords: 1,
       sender: address(s_testConsumer),
-      nativePayment: true
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
     });
     (, uint96 ethBalanceBefore, , ) = s_testCoordinator.getSubscription(subId);
+    vm.expectEmit(true, true, false, true);
+    uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
+    emit RandomWordsFulfilled(requestId, outputSeed, subId, 122500, rc.extraArgs, true);
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
@@ -271,7 +282,7 @@ contract VRFV2Plus is BaseTest {
     registerProvingKey();
 
     // Request random words.
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, false, true);
     (uint256 requestId, uint256 preSeed) = s_testCoordinator.computeRequestIdExternal(
       vrfKeyHash,
       address(s_testConsumer),
@@ -286,7 +297,7 @@ contract VRFV2Plus is BaseTest {
       0, // minConfirmations
       1_000_000, // callbackGasLimit
       1, // numWords
-      false, // nativePayment
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // nativePayment, // nativePayment
       address(s_testConsumer) // requester
     );
     s_testConsumer.requestRandomWords(1_000_000, 0, 1, vrfKeyHash, false);
@@ -343,9 +354,12 @@ contract VRFV2Plus is BaseTest {
       callbackGasLimit: 1000000,
       numWords: 1,
       sender: address(s_testConsumer),
-      nativePayment: false
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
     });
     (uint96 linkBalanceBefore, , , ) = s_testCoordinator.getSubscription(subId);
+    vm.expectEmit(true, true, false, true);
+    uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
+    emit RandomWordsFulfilled(requestId, outputSeed, subId, 290978, rc.extraArgs, true);
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);

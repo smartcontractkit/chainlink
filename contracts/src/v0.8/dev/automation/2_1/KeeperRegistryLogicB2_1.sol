@@ -15,28 +15,17 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     Mode mode,
     address link,
     address linkNativeFeed,
-    address fastGasFeed
-  ) KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed) {}
+    address fastGasFeed,
+    address automationForwarderLogic
+  ) KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic) {}
 
-  function transferPayeeship(address transmitter, address proposed) external {
-    if (s_transmitterPayees[transmitter] != msg.sender) revert OnlyCallableByPayee();
-    if (proposed == msg.sender) revert ValueNotChanged();
+  ///////////////////////
+  // UPKEEP MANAGEMENT //
+  ///////////////////////
 
-    if (s_proposedPayee[transmitter] != proposed) {
-      s_proposedPayee[transmitter] = proposed;
-      emit PayeeshipTransferRequested(transmitter, msg.sender, proposed);
-    }
-  }
-
-  function acceptPayeeship(address transmitter) external {
-    if (s_proposedPayee[transmitter] != msg.sender) revert OnlyCallableByProposedPayee();
-    address past = s_transmitterPayees[transmitter];
-    s_transmitterPayees[transmitter] = msg.sender;
-    s_proposedPayee[transmitter] = ZERO_ADDRESS;
-
-    emit PayeeshipTransferred(transmitter, past, msg.sender);
-  }
-
+  /**
+   * @notice transfers the address of an admin for an upkeep
+   */
   function transferUpkeepAdmin(uint256 id, address proposed) external {
     _requireAdminAndNotCancelled(id);
     if (proposed == msg.sender) revert ValueNotChanged();
@@ -47,6 +36,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     }
   }
 
+  /**
+   * @notice accepts the transfer of an upkeep admin
+   */
   function acceptUpkeepAdmin(uint256 id) external {
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
@@ -58,6 +50,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit UpkeepAdminTransferred(id, past, msg.sender);
   }
 
+  /**
+   * @notice pauses an upkeep - an upkeep will be neither checked nor performed while paused
+   */
   function pauseUpkeep(uint256 id) external {
     _requireAdminAndNotCancelled(id);
     Upkeep memory upkeep = s_upkeep[id];
@@ -67,6 +62,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit UpkeepPaused(id);
   }
 
+  /**
+   * @notice unpauses an upkeep
+   */
   function unpauseUpkeep(uint256 id) external {
     _requireAdminAndNotCancelled(id);
     Upkeep memory upkeep = s_upkeep[id];
@@ -76,6 +74,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit UpkeepUnpaused(id);
   }
 
+  /**
+   * @notice updates the checkData for an upkeep
+   */
   function setUpkeepCheckData(uint256 id, bytes calldata newCheckData) external {
     _requireAdminAndNotCancelled(id);
     if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
@@ -83,26 +84,35 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit UpkeepCheckDataSet(id, newCheckData);
   }
 
+  /**
+   * @notice updates the gas limit for an upkeep
+   */
   function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
     if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
     _requireAdminAndNotCancelled(id);
-    s_upkeep[id].executeGas = gasLimit;
+    s_upkeep[id].performGas = gasLimit;
 
     emit UpkeepGasLimitSet(id, gasLimit);
   }
 
+  /**
+   * @notice updates the offchain config for an upkeep
+   */
   function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external {
     _requireAdminAndNotCancelled(id);
     s_upkeepOffchainConfig[id] = config;
     emit UpkeepOffchainConfigSet(id, config);
   }
 
+  /**
+   * @notice withdraws LINK funds from an upkeep
+   * @dev note that an upkeep must be cancelled first!!
+   */
   function withdrawFunds(uint256 id, address to) external nonReentrant {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     Upkeep memory upkeep = s_upkeep[id];
     if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
     if (upkeep.maxValidBlocknumber > _blockNum()) revert UpkeepNotCanceled();
-
     uint96 amountToWithdraw = s_upkeep[id].balance;
     s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
     s_upkeep[id].balance = 0;
@@ -110,38 +120,85 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
+  /////////////////////
+  // NODE MANAGEMENT //
+  /////////////////////
+
+  /**
+   * @notice transfers the address of payee for a transmitter
+   */
+  function transferPayeeship(address transmitter, address proposed) external {
+    if (s_transmitterPayees[transmitter] != msg.sender) revert OnlyCallableByPayee();
+    if (proposed == msg.sender) revert ValueNotChanged();
+
+    if (s_proposedPayee[transmitter] != proposed) {
+      s_proposedPayee[transmitter] = proposed;
+      emit PayeeshipTransferRequested(transmitter, msg.sender, proposed);
+    }
+  }
+
+  /**
+   * @notice accepts the transfer of the payee
+   */
+  function acceptPayeeship(address transmitter) external {
+    if (s_proposedPayee[transmitter] != msg.sender) revert OnlyCallableByProposedPayee();
+    address past = s_transmitterPayees[transmitter];
+    s_transmitterPayees[transmitter] = msg.sender;
+    s_proposedPayee[transmitter] = ZERO_ADDRESS;
+
+    emit PayeeshipTransferred(transmitter, past, msg.sender);
+  }
+
+  /**
+   * @notice withdraws LINK received as payment for work performed
+   */
   function withdrawPayment(address from, address to) external {
     if (to == ZERO_ADDRESS) revert InvalidRecipient();
     if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
-
     uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
     s_transmitters[from].balance = 0;
     s_expectedLinkBalance = s_expectedLinkBalance - balance;
-
     i_link.transfer(to, balance);
-
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
 
-  ///////////////////
-  // OWNER ACTIONS //
-  ///////////////////
+  /////////////////////////////
+  // OWNER / MANAGER ACTIONS //
+  /////////////////////////////
 
+  /**
+   * @notice sets the privledge config for an upkeep
+   */
+  function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes calldata newPrivilegeConfig) external {
+    if (msg.sender != s_storage.upkeepPrivilegeManager) {
+      revert OnlyCallableByUpkeepPrivilegeManager();
+    }
+    s_upkeepPrivilegeConfig[upkeepId] = newPrivilegeConfig;
+    emit UpkeepPrivilegeConfigSet(upkeepId, newPrivilegeConfig);
+  }
+
+  /**
+   * @notice withdraws the owner's LINK balance
+   */
   function withdrawOwnerFunds() external onlyOwner {
     uint96 amount = s_storage.ownerLinkBalance;
-
     s_expectedLinkBalance = s_expectedLinkBalance - amount;
     s_storage.ownerLinkBalance = 0;
-
     emit OwnerFundsWithdrawn(amount);
     i_link.transfer(msg.sender, amount);
   }
 
+  /**
+   * @notice allows the owner to withdraw any LINK accidentially sent to the contract
+   */
   function recoverFunds() external onlyOwner {
     uint256 total = i_link.balanceOf(address(this));
     i_link.transfer(msg.sender, total - s_expectedLinkBalance);
   }
 
+  /**
+   * @notice sets the payees for the transmitters
+   */
   function setPayees(address[] calldata payees) external onlyOwner {
     if (s_transmittersList.length != payees.length) revert ParameterLengthError();
     for (uint256 i = 0; i < s_transmittersList.length; i++) {
@@ -158,28 +215,28 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit PayeesUpdated(s_transmittersList, payees);
   }
 
-  function pause() external onlyOwner {
-    s_hotVars.paused = true;
-
-    emit Paused(msg.sender);
-  }
-
-  function unpause() external onlyOwner {
-    s_hotVars.paused = false;
-
-    emit Unpaused(msg.sender);
-  }
-
+  /**
+   * @notice sets the migration permission for a peer registry
+   * @dev this must be done before upkeeps can be migrated to/from another registry
+   */
   function setPeerRegistryMigrationPermission(address peer, MigrationPermission permission) external onlyOwner {
     s_peerRegistryMigrationPermission[peer] = permission;
   }
 
-  function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes calldata newPrivilegeConfig) external {
-    if (msg.sender != s_storage.upkeepPrivilegeManager) {
-      revert OnlyCallableByUpkeepPrivilegeManager();
-    }
-    s_upkeepPrivilegeConfig[upkeepId] = newPrivilegeConfig;
-    emit UpkeepPrivilegeConfigSet(upkeepId, newPrivilegeConfig);
+  /**
+   * @notice pauses the entire registry
+   */
+  function pause() external onlyOwner {
+    s_hotVars.paused = true;
+    emit Paused(msg.sender);
+  }
+
+  /**
+   * @notice unpauses the entire registry
+   */
+  function unpause() external onlyOwner {
+    s_hotVars.paused = false;
+    emit Unpaused(msg.sender);
   }
 
   /**
@@ -199,32 +256,52 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   // GETTERS //
   /////////////
 
-  function getTransmitGasOverhead() external view returns (uint256) {
-    return TRANSMIT_GAS_OVERHEAD;
-  }
-
-  function getCheckGasOverhead() external view returns (uint256) {
-    return CHECK_GAS_OVERHEAD;
-  }
-
-  function getConditionalGasOverhead() external view returns (uint256) {
+  function getConditionalGasOverhead() external pure returns (uint256) {
     return REGISTRY_CONDITIONAL_OVERHEAD;
   }
 
-  function getLogGasOverhead() external view returns (uint256) {
+  function getLogGasOverhead() external pure returns (uint256) {
     return REGISTRY_LOG_OVERHEAD;
   }
 
-  function getPerPerformByteGasOverhead() external view returns (uint256) {
+  function getPerPerformByteGasOverhead() external pure returns (uint256) {
     return REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD;
   }
 
-  function getPerSignerGasOverhead() external view returns (uint256) {
+  function getPerSignerGasOverhead() external pure returns (uint256) {
     return REGISTRY_PER_SIGNER_GAS_OVERHEAD;
   }
 
-  function getCancellationDelay() external view returns (uint256) {
+  function getCancellationDelay() external pure returns (uint256) {
     return CANCELLATION_DELAY;
+  }
+
+  function getMode() external view returns (Mode) {
+    return i_mode;
+  }
+
+  function getLinkAddress() external view returns (address) {
+    return address(i_link);
+  }
+
+  function getLinkNativeFeedAddress() external view returns (address) {
+    return address(i_linkNativeFeed);
+  }
+
+  function getFastGasFeedAddress() external view returns (address) {
+    return address(i_fastGasFeed);
+  }
+
+  function getAutomationForwarderLogic() external view returns (address) {
+    return i_automationForwarderLogic;
+  }
+
+  function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
+    return UPKEEP_TRANSCODER_VERSION_BASE;
+  }
+
+  function upkeepVersion() public pure returns (uint8) {
+    return UPKEEP_VERSION_BASE;
   }
 
   /**
@@ -234,10 +311,10 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    */
   function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo) {
     Upkeep memory reg = s_upkeep[id];
+    address target = address(reg.forwarder) == address(0) ? address(0) : reg.forwarder.getTarget();
     upkeepInfo = UpkeepInfo({
-      target: reg.target,
-      forwarder: address(reg.forwarder),
-      executeGas: reg.executeGas,
+      target: target,
+      performGas: reg.performGas,
       checkData: s_checkData[id],
       balance: reg.balance,
       admin: s_upkeepAdmin[id],
@@ -269,6 +346,16 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     return ids;
   }
 
+  /**
+   * @notice returns the upkeep's trigger type
+   */
+  function getTriggerType(uint256 upkeepId) external pure returns (Trigger) {
+    return _getTriggerType(upkeepId);
+  }
+
+  /**
+   * @notice returns the trigger config for an upkeeep
+   */
   function getUpkeepTriggerConfig(uint256 upkeepId) public view returns (bytes memory) {
     return s_upkeepTriggerConfig[upkeepId];
   }
@@ -374,7 +461,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    * @dev this will be deprecated in a future version in favor of getMinBalance
    */
   function getMinBalanceForUpkeep(uint256 id) public view returns (uint96 minBalance) {
-    return getMaxPaymentForGas(getTriggerType(id), s_upkeep[id].executeGas);
+    return getMaxPaymentForGas(_getTriggerType(id), s_upkeep[id].performGas);
   }
 
   /**
@@ -407,5 +494,12 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    */
   function getAdminPrivilegeConfig(address admin) external view returns (bytes memory) {
     return s_adminPrivilegeConfig[admin];
+  }
+
+  /**
+   * @notice returns the upkeep's forwarder contract
+   */
+  function getForwarder(uint256 upkeepID) external view returns (IAutomationForwarder) {
+    return s_upkeep[upkeepID].forwarder;
   }
 }

@@ -37,6 +37,7 @@ import (
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	v22 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
@@ -120,11 +121,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	require.NoError(t, err, "failed to deploy VRFCoordinatorV2 contract to simulated ethereum blockchain")
 	backend.Commit()
 
-	_, err = coordinatorContract.SetLINK(neil, linkAddress)
-	require.NoError(t, err)
-	backend.Commit()
-
-	_, err = coordinatorContract.SetLinkEthFeed(neil, linkEthFeed)
+	_, err = coordinatorContract.SetLINKAndLINKETHFeed(neil, linkAddress, linkEthFeed)
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -291,6 +288,11 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 		5,     // number of requests to send
 		false, // don't send big callback
 		vrfcommon.V2Plus,
+		func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+			_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+			require.NoError(t, err)
+			require.Equal(t, expectedSubID, rwfe.SubID())
+		},
 	)
 }
 
@@ -312,6 +314,11 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 		5,    // number of requests to send
 		true, // send big callback
 		vrfcommon.V2Plus,
+		func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+			_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+			require.NoError(t, err)
+			require.Equal(t, expectedSubID, rwfe.SubID())
+		},
 	)
 }
 
@@ -330,7 +337,12 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 		uni.rootContractAddress,
 		uni.batchCoordinatorContractAddress,
 		nil,
-		vrfcommon.V2Plus)
+		vrfcommon.V2Plus,
+		func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+			_, err := coordinator.GetSubscription(nil, rwfe.SubID())
+			require.NoError(t, err)
+			require.Equal(t, expectedSubID, rwfe.SubID())
+		})
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
@@ -518,6 +530,12 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 		owner, backend)
 	require.NoError(t, err)
 	backend.Commit()
+	// Deploy feed
+	linkEthFeed, _, _, err :=
+		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			owner, backend, 18, vrftesthelpers.WeiPerUnitLink.BigInt()) // 0.01 eth per link
+	require.NoError(t, err)
+	backend.Commit()
 	coordinatorAddress, _, coordinator, err :=
 		vrf_coordinator_v2plus.DeployVRFCoordinatorV2Plus(
 			owner, backend, common.Address{}) //bhs not needed for this test
@@ -528,7 +546,7 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	})
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = coordinator.SetLINK(owner, linkAddress)
+	_, err = coordinator.SetLINKAndLINKETHFeed(owner, linkAddress, linkEthFeed)
 	require.NoError(t, err)
 	backend.Commit()
 	consumerAddress, _, consumer, err := vrf_v2plus_sub_owner.DeployVRFV2PlusExternalSubOwnerExample(owner, backend, coordinatorAddress, linkAddress)
@@ -582,12 +600,18 @@ func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
 		owner, backend)
 	require.NoError(t, err)
 	backend.Commit()
+	// Deploy feed
+	linkEthFeed, _, _, err :=
+		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			owner, backend, 18, vrftesthelpers.WeiPerUnitLink.BigInt()) // 0.01 eth per link
+	require.NoError(t, err)
+	backend.Commit()
 	coordinatorAddress, _, coordinator, err :=
 		vrf_coordinator_v2plus.DeployVRFCoordinatorV2Plus(
 			owner, backend, common.Address{}) // bhs not needed for this test
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = coordinator.SetLINK(owner, linkAddress)
+	_, err = coordinator.SetLINKAndLINKETHFeed(owner, linkAddress, linkEthFeed)
 	require.NoError(t, err)
 	backend.Commit()
 	consumerAddress, _, consumer, err := vrf_v2plus_single_consumer.DeployVRFV2PlusSingleConsumerExample(owner, backend, coordinatorAddress, linkAddress, 1, 1, 1, [32]byte{}, false)
@@ -665,7 +689,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 			"requestRandomWords", uint32(10000), uint16(2), uint32(1),
 			vrfkey.PublicKey.MustHash(), false)
 		tt.Log("gas estimate of non-proxied requestRandomWords:", estimate)
-		assert.Less(tt, estimate, uint64(126_000),
+		assert.Less(tt, estimate, uint64(127_000),
 			"requestRandomWords tx gas cost more than expected")
 	})
 
@@ -695,7 +719,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 		// There is some gas overhead of the delegatecall that is made by the proxy
 		// to the logic contract. See https://www.evm.codes/#f4?fork=grayGlacier for a detailed
 		// breakdown of the gas costs of a delegatecall.
-		assert.Less(tt, estimate, uint64(105_000),
+		assert.Less(tt, estimate, uint64(106_000),
 			"proxied testRequestRandomness tx gas cost more than expected")
 	})
 }
@@ -780,6 +804,8 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 		requestLog := FindLatestRandomnessRequestedLog(tt, uni.rootContract, vrfkey.PublicKey.MustHash())
 		s, err := proof.BigToSeed(requestLog.PreSeed())
 		require.NoError(t, err)
+		extraArgs, err := extraargs.ExtraArgsV1(false)
+		require.NoError(t, err)
 		proof, rc, err := proof.GenerateProofResponseV2Plus(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2Plus{
 			PreSeed:          s,
 			BlockHash:        requestLog.Raw().BlockHash,
@@ -788,7 +814,8 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 			CallbackGasLimit: uint32(gasRequested),
 			NumWords:         uint32(nw),
 			Sender:           carolContractAddress,
-		}, false)
+			ExtraArgs:        extraArgs,
+		})
 		require.NoError(tt, err)
 		nonProxiedConsumerGasEstimate = estimateGas(tt, uni.backend, common.Address{},
 			uni.rootContractAddress, uni.coordinatorABI,
@@ -822,6 +849,8 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 		require.Equal(tt, subId, requestLog.SubID())
 		s, err := proof.BigToSeed(requestLog.PreSeed())
 		require.NoError(t, err)
+		extraArgs, err := extraargs.ExtraArgsV1(false)
+		require.NoError(t, err)
 		proof, rc, err := proof.GenerateProofResponseV2Plus(app.GetKeyStore().VRF(), vrfkey.ID(), proof.PreSeedDataV2Plus{
 			PreSeed:          s,
 			BlockHash:        requestLog.Raw().BlockHash,
@@ -830,7 +859,8 @@ func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 			CallbackGasLimit: uint32(gasRequested),
 			NumWords:         uint32(nw),
 			Sender:           consumerContractAddress,
-		}, false)
+			ExtraArgs:        extraArgs,
+		})
 		require.NoError(t, err)
 		proxiedConsumerGasEstimate = estimateGas(t, uni.backend, common.Address{},
 			uni.rootContractAddress, uni.coordinatorABI,

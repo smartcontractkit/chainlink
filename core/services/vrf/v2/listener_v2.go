@@ -54,6 +54,9 @@ var (
 	batchCoordinatorV2ABI                    = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 	batchCoordinatorV2PlusABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusABI)
 	vrfOwnerABI                              = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
+	// RandomWordsRequestedV2PlusABI is the ABI of the RandomWordsRequested event
+	// for V2Plus.
+	RandomWordsRequestedV2PlusABI = coordinatorV2PlusABI.Events["RandomWordsRequested"].Sig
 )
 
 const (
@@ -70,10 +73,6 @@ const (
 
 	// backoffFactor is the factor by which to increase the delay each time a request fails.
 	backoffFactor = 1.3
-
-	// RandomWordsRequestedV2PlusABI is the ABI of the RandomWordsRequested event
-	// for V2Plus.
-	RandomWordsRequestedV2PlusABI = "RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bool nativePayment,address indexed sender)"
 
 	V2ReservedLinkQuery = `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
 		FROM eth_txes

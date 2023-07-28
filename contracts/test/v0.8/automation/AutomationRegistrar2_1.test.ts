@@ -48,7 +48,7 @@ describe('AutomationRegistrar2_1', () => {
 
   const linkEth = BigNumber.from(300000000)
   const gasWei = BigNumber.from(100)
-  const executeGas = BigNumber.from(100000)
+  const performGas = BigNumber.from(100000)
   const paymentPremiumPPB = BigNumber.from(250000000)
   const flatFeeMicroLink = BigNumber.from(0)
   const maxAllowedAutoApprove = 5
@@ -163,9 +163,7 @@ describe('AutomationRegistrar2_1', () => {
     }
     await registry
       .connect(owner)
-      [
-        'setConfig(address[],address[],uint8,(uint32,uint32,uint32,uint24,uint16,uint96,uint32,uint32,uint32,uint32,uint256,uint256,address,address[],address),uint64,bytes)'
-      ](keepers, keepers, 1, onchainConfig, 1, '0x')
+      .setConfigTypeSafe(keepers, keepers, 1, onchainConfig, 1, '0x')
   })
 
   describe('#typeAndVersion', () => {
@@ -184,7 +182,7 @@ describe('AutomationRegistrar2_1', () => {
             upkeepName,
             emptyBytes,
             mock.address,
-            executeGas,
+            performGas,
             await admin.getAddress(),
             0,
             emptyBytes,
@@ -212,7 +210,7 @@ describe('AutomationRegistrar2_1', () => {
           upkeepName,
           emptyBytes,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -238,7 +236,7 @@ describe('AutomationRegistrar2_1', () => {
           upkeepName,
           emptyBytes,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -263,7 +261,7 @@ describe('AutomationRegistrar2_1', () => {
           upkeepName,
           emptyBytes,
           mock.address,
-          executeGas,
+          performGas,
           '0x0000000000000000000000000000000000000000',
           0,
           emptyBytes,
@@ -299,7 +297,7 @@ describe('AutomationRegistrar2_1', () => {
           upkeepName,
           emptyBytes,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -321,7 +319,7 @@ describe('AutomationRegistrar2_1', () => {
       assert.equal(newupkeep.admin, await admin.getAddress())
       assert.equal(newupkeep.checkData, emptyBytes)
       assert.equal(newupkeep.balance.toString(), amount.toString())
-      assert.equal(newupkeep.executeGas, executeGas.toNumber())
+      assert.equal(newupkeep.performGas, performGas.toNumber())
       assert.equal(newupkeep.offchainConfig, offchainConfig)
 
       await expect(tx).to.emit(registrar, 'RegistrationRequested')
@@ -348,7 +346,7 @@ describe('AutomationRegistrar2_1', () => {
           upkeepName,
           emptyBytes,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -396,7 +394,7 @@ describe('AutomationRegistrar2_1', () => {
         upkeepName,
         emptyBytes,
         mock.address,
-        executeGas,
+        performGas,
         await admin.getAddress(),
         0,
         emptyBytes,
@@ -415,7 +413,7 @@ describe('AutomationRegistrar2_1', () => {
         upkeepName,
         emptyBytes,
         mock.address,
-        executeGas.toNumber() + 1, // make unique hash
+        performGas.toNumber() + 1, // make unique hash
         await admin.getAddress(),
         0,
         emptyBytes,
@@ -434,7 +432,7 @@ describe('AutomationRegistrar2_1', () => {
         upkeepName,
         emptyBytes,
         mock.address,
-        executeGas,
+        performGas,
         await admin.getAddress(),
         Trigger.LOG,
         emptyBytes,
@@ -457,7 +455,7 @@ describe('AutomationRegistrar2_1', () => {
         upkeepName,
         emptyBytes,
         mock.address,
-        executeGas.toNumber() + 2, // make unique hash
+        performGas.toNumber() + 2, // make unique hash
         await admin.getAddress(),
         0,
         emptyBytes,
@@ -476,7 +474,7 @@ describe('AutomationRegistrar2_1', () => {
         upkeepName,
         emptyBytes,
         mock.address,
-        executeGas.toNumber() + 3, // make unique hash
+        performGas.toNumber() + 3, // make unique hash
         await admin.getAddress(),
         0,
         emptyBytes,
@@ -515,7 +513,7 @@ describe('AutomationRegistrar2_1', () => {
           upkeepName,
           emptyBytes,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -537,7 +535,7 @@ describe('AutomationRegistrar2_1', () => {
       assert.equal(newupkeep.admin, await admin.getAddress())
       assert.equal(newupkeep.checkData, emptyBytes)
       assert.equal(newupkeep.balance.toString(), amount.toString())
-      assert.equal(newupkeep.executeGas, executeGas.toNumber())
+      assert.equal(newupkeep.performGas, performGas.toNumber())
 
       await expect(tx).to.emit(registrar, 'RegistrationRequested')
       await expect(tx).to.emit(registrar, 'RegistrationApproved')
@@ -568,7 +566,7 @@ describe('AutomationRegistrar2_1', () => {
           upkeepName,
           emptyBytes,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -605,7 +603,7 @@ describe('AutomationRegistrar2_1', () => {
         registrar.connect(someAddress).registerUpkeep({
           name: upkeepName,
           upkeepContract: mock.address,
-          gasLimit: executeGas,
+          gasLimit: performGas,
           adminAddress: await admin.getAddress(),
           triggerType: 0,
           checkData: emptyBytes,
@@ -634,7 +632,7 @@ describe('AutomationRegistrar2_1', () => {
         registrar.connect(someAddress).registerUpkeep({
           name: upkeepName,
           upkeepContract: mock.address,
-          gasLimit: executeGas,
+          gasLimit: performGas,
           adminAddress: await admin.getAddress(),
           triggerType: 0,
           checkData: emptyBytes,
@@ -662,7 +660,7 @@ describe('AutomationRegistrar2_1', () => {
       const tx = await registrar.connect(requestSender).registerUpkeep({
         name: upkeepName,
         upkeepContract: mock.address,
-        gasLimit: executeGas,
+        gasLimit: performGas,
         adminAddress: await admin.getAddress(),
         triggerType: 0,
         checkData: emptyBytes,
@@ -680,7 +678,7 @@ describe('AutomationRegistrar2_1', () => {
       assert.equal(newupkeep.admin, await admin.getAddress())
       assert.equal(newupkeep.checkData, emptyBytes)
       assert.equal(newupkeep.balance.toString(), amount.toString())
-      assert.equal(newupkeep.executeGas, executeGas.toNumber())
+      assert.equal(newupkeep.performGas, performGas.toNumber())
       assert.equal(newupkeep.offchainConfig, offchainConfig)
 
       await expect(tx).to.emit(registrar, 'RegistrationRequested')
@@ -762,7 +760,7 @@ describe('AutomationRegistrar2_1', () => {
           upkeepName,
           emptyBytes,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -786,7 +784,7 @@ describe('AutomationRegistrar2_1', () => {
         .approve(
           upkeepName,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -803,7 +801,7 @@ describe('AutomationRegistrar2_1', () => {
         .approve(
           upkeepName,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -820,7 +818,7 @@ describe('AutomationRegistrar2_1', () => {
         .approve(
           upkeepName,
           ethers.Wallet.createRandom().address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -848,7 +846,7 @@ describe('AutomationRegistrar2_1', () => {
         .approve(
           upkeepName,
           mock.address,
-          executeGas,
+          performGas,
           ethers.Wallet.createRandom().address,
           0,
           emptyBytes,
@@ -862,7 +860,7 @@ describe('AutomationRegistrar2_1', () => {
         .approve(
           upkeepName,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           '0x1234',
@@ -879,7 +877,7 @@ describe('AutomationRegistrar2_1', () => {
         .approve(
           upkeepName,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -896,7 +894,7 @@ describe('AutomationRegistrar2_1', () => {
         .approve(
           upkeepName,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -909,7 +907,7 @@ describe('AutomationRegistrar2_1', () => {
         .approve(
           upkeepName,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -940,7 +938,7 @@ describe('AutomationRegistrar2_1', () => {
           upkeepName,
           emptyBytes,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
@@ -1000,7 +998,7 @@ describe('AutomationRegistrar2_1', () => {
         .approve(
           upkeepName,
           mock.address,
-          executeGas,
+          performGas,
           await admin.getAddress(),
           0,
           emptyBytes,
