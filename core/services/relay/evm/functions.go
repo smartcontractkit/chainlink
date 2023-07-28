@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -10,6 +11,8 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"go.uber.org/multierr"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -19,13 +22,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type functionsProvider struct {
-	*configWatcher
+	utils.StartStopOnce
+	configWatcher       *configWatcher
 	contractTransmitter ContractTransmitter
+	logPollerWrapper    evmRelayTypes.LogPollerWrapper
 }
 
 var (
@@ -36,28 +43,47 @@ func (p *functionsProvider) ContractTransmitter() types.ContractTransmitter {
 	return p.contractTransmitter
 }
 
-func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (relaytypes.Plugin, error) {
-	configWatcher, err := newFunctionsConfigProvider(pluginType, chainSet, rargs, lggr)
-	if err != nil {
-		return nil, err
-	}
-	var pluginConfig config.PluginConfig
-	if err2 := json.Unmarshal(pargs.PluginConfig, &pluginConfig); err2 != nil {
-		return nil, err2
-	}
-	contractTransmitter, err := newFunctionsContractTransmitter(pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, lggr)
-	if err != nil {
-		return nil, err
-	}
-	return &functionsProvider{
-		configWatcher:       configWatcher,
-		contractTransmitter: contractTransmitter,
-	}, nil
+func (p *functionsProvider) LogPollerWrapper() evmRelayTypes.LogPollerWrapper {
+	return nil
 }
 
-func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chainSet evm.ChainSet, args relaytypes.RelayArgs, lggr logger.Logger) (*configWatcher, error) {
+func (p *functionsProvider) Start(ctx context.Context) error {
+	return p.StartOnce("FunctionsProvider", func() error {
+		if err := p.configWatcher.Start(ctx); err != nil {
+			return err
+		}
+		return p.logPollerWrapper.Start(ctx)
+	})
+}
+
+func (p *functionsProvider) Close() error {
+	return p.StopOnce("FunctionsProvider", func() (err error) {
+		err = multierr.Combine(err, p.logPollerWrapper.Close())
+		err = multierr.Combine(err, p.configWatcher.Close())
+		return
+	})
+}
+
+// Forward all calls to the underlying configWatcher
+func (p *functionsProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDigester {
+	return p.configWatcher.OffchainConfigDigester()
+}
+
+func (p *functionsProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
+	return p.configWatcher.ContractConfigTracker()
+}
+
+func (p *functionsProvider) HealthReport() map[string]error {
+	return p.configWatcher.HealthReport()
+}
+
+func (p *functionsProvider) Name() string {
+	return p.configWatcher.Name()
+}
+
+func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
 	var relayConfig evmRelayTypes.RelayConfig
-	err := json.Unmarshal(args.RelayConfig, &relayConfig)
+	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -65,6 +91,28 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 	if err != nil {
 		return nil, err
 	}
+	logPollerWrapper := functions.NewLogPollerWrapper(chain.LogPoller(), lggr)
+	configWatcher, err := newFunctionsConfigProvider(pluginType, chain, rargs, relayConfig.FromBlock, logPollerWrapper, lggr)
+	if err != nil {
+		return nil, err
+	}
+	var pluginConfig config.PluginConfig
+	if err2 := json.Unmarshal(pargs.PluginConfig, &pluginConfig); err2 != nil {
+		return nil, err2
+	}
+	contractTransmitter, err := newFunctionsContractTransmitter(pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
+	if err != nil {
+		return nil, err
+	}
+	return &functionsProvider{
+		configWatcher:       configWatcher,
+		contractTransmitter: contractTransmitter,
+		logPollerWrapper:    logPollerWrapper,
+	}, nil
+}
+
+func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chain evm.Chain, args relaytypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
+
 	if !common.IsHexAddress(args.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
@@ -88,10 +136,10 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 		},
 	}
 
-	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
+	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
 }
 
-func newFunctionsContractTransmitter(contractVersion uint32, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, lggr logger.Logger) (ContractTransmitter, error) {
+func newFunctionsContractTransmitter(contractVersion uint32, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
 	var relayConfig evmRelayTypes.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
