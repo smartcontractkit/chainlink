@@ -137,7 +137,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 	return opts
 }
 
-func MustGetDefaultChain(t testing.TB, cc *evm.Chains) evm.Chain {
+func MustGetDefaultChain(t testing.TB, cc evm.LegacyChainContainer) evm.Chain {
 	chain, err := cc.Default()
 	require.NoError(t, err)
 	return chain

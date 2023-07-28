@@ -59,7 +59,7 @@ type vrfUniverse struct {
 	submitter    common.Address
 	txm          *txmmocks.MockEvmTxManager
 	hb           httypes.HeadBroadcaster
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	cid          big.Int
 }
 

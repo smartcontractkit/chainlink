@@ -39,7 +39,7 @@ func TestDelegate_JobType(t *testing.T) {
 type testData struct {
 	ethClient    *mocks.Client
 	ethKeyStore  keystore.Eth
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	sendingKey   ethkey.KeyV2
 	logs         *observer.ObservedLogs
 }

@@ -51,7 +51,7 @@ type PendingSecretsRequest struct {
 
 var _ handlers.Handler = (*functionsHandler)(nil)
 
-func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains *evm.Chains, lggr logger.Logger) (handlers.Handler, error) {
+func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains evm.LegacyChainContainer, lggr logger.Logger) (handlers.Handler, error) {
 	var cfg FunctionsHandlerConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {

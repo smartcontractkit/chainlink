@@ -20,7 +20,7 @@ type Delegate struct {
 	db           *sqlx.DB
 	jrm          job.ORM
 	pr           pipeline.Runner
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	mailMon      *utils.MailboxMonitor
 }
 
@@ -30,7 +30,7 @@ func NewDelegate(
 	jrm job.ORM,
 	pr pipeline.Runner,
 	logger logger.Logger,
-	legacyChains *evm.Chains,
+	legacyChains evm.LegacyChainContainer,
 	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{

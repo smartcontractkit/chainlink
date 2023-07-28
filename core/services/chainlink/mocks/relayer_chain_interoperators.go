@@ -12,7 +12,7 @@ import (
 
 	evm "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 
-	internal "github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	internal "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -128,15 +128,15 @@ func (_m *RelayerChainInteroperators) LegacyCosmosChains() *chains.ChainsKV[adap
 }
 
 // LegacyEVMChains provides a mock function with given fields:
-func (_m *RelayerChainInteroperators) LegacyEVMChains() *evm.Chains {
+func (_m *RelayerChainInteroperators) LegacyEVMChains() evm.LegacyChainContainer {
 	ret := _m.Called()
 
-	var r0 *evm.Chains
-	if rf, ok := ret.Get(0).(func() *evm.Chains); ok {
+	var r0 evm.LegacyChainContainer
+	if rf, ok := ret.Get(0).(func() evm.LegacyChainContainer); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm.Chains)
+			r0 = ret.Get(0).(evm.LegacyChainContainer)
 		}
 	}
 

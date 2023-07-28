@@ -42,7 +42,7 @@ type ETHTxTask struct {
 	forwardingAllowed bool
 	specGasLimit      *uint32
 	keyStore          ETHKeyStore
-	legacyChains      *evm.Chains
+	legacyChains      evm.LegacyChainContainer
 	jobType           string
 }
 

@@ -26,13 +26,13 @@ var _ job.ServiceCtx = &service{}
 
 type Delegate struct {
 	logger       logger.Logger
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	ks           keystore.Eth
 }
 
 func NewDelegate(
 	logger logger.Logger,
-	legacyChains *evm.Chains,
+	legacyChains evm.LegacyChainContainer,
 	ks keystore.Eth,
 ) *Delegate {
 	return &Delegate{

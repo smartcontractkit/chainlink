@@ -54,9 +54,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
-//go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
-
 // Application implements the common functions used in the core node.
+
+//go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
 type Application interface {
 	Start(ctx context.Context) error
 	Stop() error
@@ -74,6 +74,8 @@ type Application interface {
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
 	//GetChains() Chains
 	GetRelayers() RelayerChainInteroperators
+	// this is in the interface until products are
+
 	GetLoopRegistry() *plugins.LoopRegistry
 
 	// V2 Jobs (TOML specified)

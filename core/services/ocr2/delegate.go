@@ -87,7 +87,7 @@ type Delegate struct {
 	mailMon           *utils.MailboxMonitor
 	eventBroadcaster  pg.EventBroadcaster
 
-	legacyChains *evm.Chains // legacy: use relayers instead
+	legacyChains evm.LegacyChainContainer // legacy: use relayers instead
 }
 
 type DelegateConfig interface {
@@ -184,7 +184,7 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
-	legacyChains *evm.Chains,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg DelegateConfig,
 	ks keystore.OCR2,
@@ -423,7 +423,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 }
 
-func GetEVMEffectiveTransmitterID(jb *job.Job, legacyChains *evm.Chains, chainID string, lggr logger.SugaredLogger) (string, error) {
+func GetEVMEffectiveTransmitterID(jb *job.Job, legacyChains evm.LegacyChainContainer, chainID string, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
 	if spec.PluginType == job.Mercury {
 		return spec.TransmitterID.String, nil

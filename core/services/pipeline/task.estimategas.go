@@ -30,7 +30,7 @@ type EstimateGasLimitTask struct {
 	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
 
 	specGasLimit *uint32
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	jobType      string
 }
 

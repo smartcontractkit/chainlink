@@ -49,7 +49,7 @@ type LoopRelayerStorer interface {
 // This will be deprecated/removed when products depend only
 // on the relayer interface.
 type LegacyChainer interface {
-	LegacyEVMChains() *evm.Chains
+	LegacyEVMChains() evm.LegacyChainContainer //evm.LegacyChainContainer
 	LegacyCosmosChains() *cosmos.Chains
 }
 
@@ -140,7 +140,7 @@ func (rs *CoreRelayerChainInteroperators) PutBatch(b map[relay.Identifier]loop.R
 	return err
 }
 
-func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() *evm.Chains {
+func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() evm.LegacyChainContainer {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
@@ -259,6 +259,6 @@ func sortByChainID[V services.ServiceCtx](m map[relay.Identifier]V) []services.S
 // legacyChains encapsulates the chain-specific dependencies. Will be
 // deprecated when chain-specific logic is removed from products.
 type legacyChains struct {
-	EVMChains    *evm.Chains
+	EVMChains    evm.LegacyChainContainer
 	CosmosChains *cosmos.Chains
 }

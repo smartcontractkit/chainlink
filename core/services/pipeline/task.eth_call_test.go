@@ -256,7 +256,7 @@ func TestETHCallTask(t *testing.T) {
 			txManager := txmmocks.NewMockEvmTxManager(t)
 			db := pgtest.NewSqlxDB(t)
 
-			var legacyChains *evm.Chains
+			var legacyChains evm.LegacyChainContainer
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
 				exts := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
 				legacyChains = evm.NewLegacyChainsFromRelayerExtenders(exts)

@@ -17,13 +17,13 @@ const (
 )
 
 type handlerFactory struct {
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	lggr         logger.Logger
 }
 
 var _ HandlerFactory = (*handlerFactory)(nil)
 
-func NewHandlerFactory(legacyChains *evm.Chains, lggr logger.Logger) HandlerFactory {
+func NewHandlerFactory(legacyChains evm.LegacyChainContainer, lggr logger.Logger) HandlerFactory {
 	return &handlerFactory{legacyChains, lggr}
 }
 

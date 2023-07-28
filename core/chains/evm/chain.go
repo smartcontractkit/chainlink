@@ -52,30 +52,41 @@ type Chain interface {
 }
 
 var (
-	_         Chain = &chain{}
-	nilBigInt *big.Int
+	_           Chain = &chain{}
+	nilBigInt   *big.Int
+	emptyString string
 )
 
-//var Chains = chains.NewChainsKV[Chain]()
-
-type Chains struct {
+// LegacyChains implements [LegacyChainContainer]
+type LegacyChains struct {
 	*chains.ChainsKV[Chain]
 	dflt Chain
-	// backward compatibility
-
 }
 
-func NewLegacyChains() *Chains {
-	return &Chains{
+//go:generate mockery --quiet --name LegacyChainContainer --output ./mocks/ --case=underscore
+type LegacyChainContainer interface {
+	SetDefault(Chain)
+	Default() (Chain, error)
+	Get(id string) (Chain, error)
+	Len() int
+	List(ids ...string) ([]Chain, error)
+	Put(id string, chain Chain)
+	Slice() []Chain
+}
+
+var _ LegacyChainContainer = &LegacyChains{}
+
+func NewLegacyChains() *LegacyChains {
+	return &LegacyChains{
 		ChainsKV: chains.NewChainsKV[Chain](),
 	}
 }
 
-func (c *Chains) SetDefault(dflt Chain) {
+func (c *LegacyChains) SetDefault(dflt Chain) {
 	c.dflt = dflt
 }
 
-func (c *Chains) Default() (Chain, error) {
+func (c *LegacyChains) Default() (Chain, error) {
 	if c.dflt == nil {
 		return nil, fmt.Errorf("no default chain specified")
 	}
@@ -91,15 +102,15 @@ func (c *Chains) Default() (Chain, error) {
 //	double check that empty string handling is ok here
 //
 // TODO unify the type system
-func (c *Chains) Get(id string) (Chain, error) {
-	if id == nilBigInt.String() || id == "" {
+func (c *LegacyChains) Get(id string) (Chain, error) {
+	if id == nilBigInt.String() || id == emptyString {
 		return c.Default()
 	}
 	return c.ChainsKV.Get(id)
 }
 
 // func NewLegacyChainsFromRelayerExtenders(exts []EVMChainRelayerExtender) *Chains {
-func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *Chains {
+func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *LegacyChains {
 	l := NewLegacyChains()
 	for _, r := range exts.Slice() {
 		l.Put(r.Chain().ID().String(), r.Chain())

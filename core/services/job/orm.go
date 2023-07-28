@@ -83,7 +83,7 @@ type ORMConfig interface {
 
 type orm struct {
 	q            pg.Q
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	keyStore     keystore.Master
 	pipelineORM  pipeline.ORM
 	lggr         logger.SugaredLogger
@@ -95,7 +95,7 @@ var _ ORM = (*orm)(nil)
 
 func NewORM(
 	db *sqlx.DB,
-	legacyChains *evm.Chains,
+	legacyChains evm.LegacyChainContainer,
 	pipelineORM pipeline.ORM,
 	bridgeORM bridges.ORM,
 	keyStore keystore.Master, // needed to validation key properties on new job creation

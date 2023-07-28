@@ -29,7 +29,7 @@ type (
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
 		chHeads        chan *evmtypes.Head
-		legacyChains   *evm.Chains
+		legacyChains   evm.LegacyChainContainer
 		mailMon        *utils.MailboxMonitor
 	}
 
@@ -45,7 +45,7 @@ func NewDelegate(
 	logger logger.Logger,
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
-	legacyChains *evm.Chains,
+	legacyChains evm.LegacyChainContainer,
 	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{

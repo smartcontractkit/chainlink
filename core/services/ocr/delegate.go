@@ -41,7 +41,7 @@ type Delegate struct {
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
-	legacyChains          *evm.Chains
+	legacyChains          evm.LegacyChainContainer
 	lggr                  logger.Logger
 	cfg                   Config
 	mailMon               *utils.MailboxMonitor
@@ -58,7 +58,7 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
-	legacyChains *evm.Chains,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg Config,
 	mailMon *utils.MailboxMonitor,

@@ -113,7 +113,7 @@ type service struct {
 	ocrCfg       OCRConfig
 	ocr2cfg      OCR2Config
 	connMgr      ConnectionsManager
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	lggr         logger.Logger
 	version      string
 }
@@ -130,7 +130,7 @@ func NewService(
 	ocrCfg OCRConfig,
 	ocr2Cfg OCR2Config,
 	dbCfg pg.QConfig,
-	legacyChains *evm.Chains,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 	version string,
 ) *service {

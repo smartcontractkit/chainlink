@@ -38,7 +38,7 @@ type Delegate struct {
 	pr           pipeline.Runner
 	porm         pipeline.ORM
 	ks           keystore.Master
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	lggr         logger.Logger
 	mailMon      *utils.MailboxMonitor
 }
@@ -48,7 +48,7 @@ func NewDelegate(
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
-	legacyChains *evm.Chains,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg pg.QConfig,
 	mailMon *utils.MailboxMonitor) *Delegate {

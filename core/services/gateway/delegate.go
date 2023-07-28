@@ -16,14 +16,14 @@ import (
 )
 
 type Delegate struct {
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	ks           keystore.Eth
 	lggr         logger.Logger
 }
 
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(legacyChains *evm.Chains, ks keystore.Eth, lggr logger.Logger) *Delegate {
+func NewDelegate(legacyChains evm.LegacyChainContainer, ks keystore.Eth, lggr logger.Logger) *Delegate {
 	return &Delegate{legacyChains: legacyChains, ks: ks, lggr: lggr}
 }
 

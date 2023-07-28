@@ -31,7 +31,7 @@ func (p *functionsProvider) ContractTransmitter() types.ContractTransmitter {
 	return p.contractTransmitter
 }
 
-func NewFunctionsProvider(legacyChains *evm.Chains, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (relaytypes.Plugin, error) {
+func NewFunctionsProvider(legacyChains evm.LegacyChainContainer, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (relaytypes.Plugin, error) {
 	configWatcher, err := newFunctionsConfigProvider(pluginType, legacyChains, rargs, lggr)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func NewFunctionsProvider(legacyChains *evm.Chains, rargs relaytypes.RelayArgs, 
 	}, nil
 }
 
-func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, legacyChains *evm.Chains, args relaytypes.RelayArgs, lggr logger.Logger) (*configWatcher, error) {
+func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, legacyChains evm.LegacyChainContainer, args relaytypes.RelayArgs, lggr logger.Logger) (*configWatcher, error) {
 	relayOpts := evmRelayTypes.NewRelayOpts(args)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {

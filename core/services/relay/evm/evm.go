@@ -44,7 +44,7 @@ var _ relaytypes.Relayer = &Relayer{}
 
 type Relayer struct {
 	db               *sqlx.DB
-	legacyChains     *evm.Chains
+	legacyChains     evm.LegacyChainContainer
 	lggr             logger.Logger
 	ks               RelayerKeystore
 	mercuryPool      wsrpc.Pool
@@ -57,7 +57,7 @@ type RelayerKeystore interface {
 	Eth() keystore.Eth
 }
 
-func NewRelayer(db *sqlx.DB, legacyChains *evm.Chains, cfg pg.QConfig, lggr logger.Logger, ks RelayerKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
+func NewRelayer(db *sqlx.DB, legacyChains evm.LegacyChainContainer, cfg pg.QConfig, lggr logger.Logger, ks RelayerKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
 	return &Relayer{
 		db:               db,
 		legacyChains:     legacyChains,

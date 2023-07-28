@@ -35,7 +35,7 @@ type ETHCallTask struct {
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
 
 	specGasLimit *uint32
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	config       Config
 	jobType      string
 }

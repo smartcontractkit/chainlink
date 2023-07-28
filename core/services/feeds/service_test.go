@@ -147,7 +147,7 @@ type TestService struct {
 	p2pKeystore  *ksmocks.P2P
 	ocr1Keystore *ksmocks.OCR
 	ocr2Keystore *ksmocks.OCR2
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 }
 
 func setupTestService(t *testing.T) *TestService {

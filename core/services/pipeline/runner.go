@@ -58,7 +58,7 @@ type runner struct {
 	config       Config
 	bridgeConfig BridgeConfig
 	//chainSet               evm.ChainSet
-	legacyEVMChains        *evm.Chains
+	legacyEVMChains        evm.LegacyChainContainer
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
 	runReaperWorker        utils.SleeperTask
@@ -104,7 +104,7 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains *evm.Chains, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains evm.LegacyChainContainer, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
 		orm:          orm,
 		btORM:        btORM,

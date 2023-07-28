@@ -25,14 +25,14 @@ var _ job.ServiceCtx = &service{}
 // Delegate creates BlockhashStore feeder jobs.
 type Delegate struct {
 	logger       logger.Logger
-	legacyChains *evm.Chains
+	legacyChains evm.LegacyChainContainer
 	ks           keystore.Eth
 }
 
 // NewDelegate creates a new Delegate.
 func NewDelegate(
 	logger logger.Logger,
-	legacyChains *evm.Chains,
+	legacyChains evm.LegacyChainContainer,
 	ks keystore.Eth,
 ) *Delegate {
 	return &Delegate{

@@ -12,7 +12,7 @@ var (
 	ErrMultipleChains = errors.New("more than one chain available, you must specify evmChainID parameter")
 )
 
-func getChain(legacyChains *evm.Chains, chainIDstr string) (chain evm.Chain, err error) {
+func getChain(legacyChains evm.LegacyChainContainer, chainIDstr string) (chain evm.Chain, err error) {
 	if legacyChains.Len() > 1 {
 		return nil, ErrMultipleChains
 	}

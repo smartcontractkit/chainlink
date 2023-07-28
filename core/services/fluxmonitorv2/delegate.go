@@ -21,7 +21,7 @@ type Delegate struct {
 	jobORM         job.ORM
 	pipelineORM    pipeline.ORM
 	pipelineRunner pipeline.Runner
-	legacyChains   *evm.Chains
+	legacyChains   evm.LegacyChainContainer
 	lggr           logger.Logger
 }
 
@@ -34,7 +34,7 @@ func NewDelegate(
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,
 	db *sqlx.DB,
-	legacyChains *evm.Chains,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{
