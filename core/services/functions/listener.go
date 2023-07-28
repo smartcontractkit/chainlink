@@ -124,7 +124,6 @@ type FunctionsListener struct {
 	utils.StartStopOnce
 	client             client.Client
 	contractAddressHex string
-	contractVersion    uint32
 	job                job.Job
 	bridgeAccessor     BridgeAccessor
 	logBroadcaster     log.Broadcaster
@@ -165,7 +164,6 @@ func NewFunctionsListener(
 	return &FunctionsListener{
 		client:             client,
 		contractAddressHex: contractAddressHex,
-		contractVersion:    pluginConfig.ContractVersion,
 		job:                job,
 		bridgeAccessor:     bridgeAccessor,
 		logBroadcaster:     logBroadcaster,
@@ -182,10 +180,6 @@ func NewFunctionsListener(
 	}
 }
 
-func (l *FunctionsListener) ContractVersion() uint32 {
-	return l.contractVersion
-}
-
 // Start complies with job.Service
 func (l *FunctionsListener) Start(context.Context) error {
 	return l.StartOnce("FunctionsListener", func() error {
@@ -193,7 +187,7 @@ func (l *FunctionsListener) Start(context.Context) error {
 		contractAddress := common.HexToAddress(l.contractAddressHex)
 		var unsubscribeLogs func()
 
-		switch l.contractVersion {
+		switch l.pluginConfig.ContractVersion {
 		case 0:
 			oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(contractAddress, l.client)
 			if err != nil {
@@ -226,9 +220,6 @@ func (l *FunctionsListener) Start(context.Context) error {
 				LogsWithTopics: map[common.Hash][][]log.Topic{
 					functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic():  {},
 					functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(): {},
-					// functions_coordinator.FunctionsCoordinatorInvalidRequestID{}.Topic(): {},
-					// functions_coordinator.FunctionsCoordinatorInsufficientGasProvided{}.Topic(): {},
-					// functions_coordinator.FunctionsCoordinatorCostExceedsCommitment{}.Topic():   {},
 				},
 				MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
 			})
