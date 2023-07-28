@@ -15,6 +15,12 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
   bool public autoLog;
   bool public useMercury;
 
+  /**
+   * @param _registrar a automation registrar 2.1 address
+   * @param _useArb if this contract will use arbitrum block number
+   * @param _autoLog if the upkeep will emit logs to trigger its next log trigger process
+   * @param _useMercury if the log trigger upkeeps will use mercury lookup
+   */
   constructor(
     AutomationRegistrar2_1 _registrar,
     bool _useArb,
@@ -51,10 +57,16 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
       uint256 checkGasToBurn = checkGasToBurns[upkeepId];
       while (startGas - gasleft() + 15000 < checkGasToBurn) {
         dummyMap[blockhash(blockNum)] = false;
-        blockNum--;
       }
 
-      revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum));
+      if (useMercury) {
+        revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum));
+      }
+
+      // if we don't use mercury, create a perform data which resembles the output of checkCallback
+      bytes[] memory values = new bytes[](1);
+      bytes memory extraData = abi.encode(upkeepId, blockNum);
+      return (true, abi.encode(values, extraData));
     }
     revert("could not find matching event sig");
   }
