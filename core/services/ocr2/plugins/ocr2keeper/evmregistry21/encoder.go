@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry21/logprovider"
 )
 
 var (
