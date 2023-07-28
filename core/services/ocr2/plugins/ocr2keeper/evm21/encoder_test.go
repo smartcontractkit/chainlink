@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -110,6 +111,13 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 			nil,
 		},
 		{
+			"happy flow single - encoded",
+			[]ocr2keepers.CheckResult{
+				newResultEncoded(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "10").String())),
+			},
+			nil,
+		},
+		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
 				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "10").String())),
@@ -153,6 +161,7 @@ func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckRe
 		logExt.LogIndex = 1
 		logExt.TxHash = "0x1234567890123456789012345678901234567890123456789012345678901234"
 	}
+
 	payload := ocr2keepers.UpkeepPayload{
 		Upkeep: ocr2keepers.ConfiguredUpkeep{
 			ID:   id,
@@ -164,7 +173,9 @@ func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckRe
 			Extension:   logExt,
 		},
 	}
+
 	payload.ID = payload.GenerateID()
+
 	return ocr2keepers.CheckResult{
 		Payload:      payload,
 		Eligible:     true,
@@ -174,6 +185,44 @@ func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckRe
 			FastGasWei: big.NewInt(100),
 			LinkNative: big.NewInt(100),
 		},
+	}
+}
+
+func newResultEncoded(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckResult {
+	logExt := logprovider.LogTriggerExtension{}
+	tp := getUpkeepType(id)
+	if tp == logTrigger {
+		logExt.LogIndex = 1
+		logExt.TxHash = "0x1234567890123456789012345678901234567890123456789012345678901234"
+	}
+
+	encLogExt, _ := json.Marshal(logExt)
+
+	payload := ocr2keepers.UpkeepPayload{
+		Upkeep: ocr2keepers.ConfiguredUpkeep{
+			ID:   id,
+			Type: int(tp),
+		},
+		Trigger: ocr2keepers.Trigger{
+			BlockNumber: block,
+			BlockHash:   hexutil.Encode([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}),
+			Extension:   encLogExt,
+		},
+	}
+
+	payload.ID = payload.GenerateID()
+
+	encResExt, _ := json.Marshal(EVMAutomationResultExtension21{
+		FastGasWei: big.NewInt(100),
+		LinkNative: big.NewInt(100),
+	})
+
+	return ocr2keepers.CheckResult{
+		Payload:      payload,
+		Eligible:     true,
+		GasAllocated: 100,
+		PerformData:  []byte("data0"),
+		Extension:    encResExt,
 	}
 }
 
