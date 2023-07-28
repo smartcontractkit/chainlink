@@ -39,12 +39,11 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
     }
     return s_subId;
   }
-  
+
   function createSubscriptionAndFundNative() external payable {
     subscribe();
     s_vrfCoordinatorApiV1.fundSubscriptionWithEth{value: msg.value}(s_subId);
   }
-
 
   function createSubscriptionAndFund(uint96 amount) external {
     subscribe();
