@@ -19,10 +19,10 @@ type MockServer struct {
 	InternalEndpoint string
 }
 
-func NewMockServer(cfg any) ContainerSetupFunc {
+func NewMockServer(cfg any) ComponentSetupFunc {
 	c := &MockServer{prefix: "mockserver"}
 	return func(network string) (Component, error) {
-		return c.Start(network, c.prefix, cfg)
+		return c.Start(network, cfg)
 	}
 }
 
@@ -34,9 +34,9 @@ func (m *MockServer) Containers() []tc.Container {
 	return []tc.Container{m.container}
 }
 
-func (m *MockServer) Start(network, name string, cfg any) (Component, error) {
+func (m *MockServer) Start(dockerNet string, cfg any) (Component, error) {
 	req := tc.GenericContainerRequest{
-		ContainerRequest: *msContainerRequest(network, name),
+		ContainerRequest: *msContainerRequest(dockerNet, m.prefix),
 		Started:          true,
 	}
 	c, err := tc.GenericContainer(context.Background(), req)
@@ -60,13 +60,6 @@ func (m *MockServer) Start(network, name string, cfg any) (Component, error) {
 	m.InternalEndpoint = fmt.Sprintf("http://%s:1080", cName)
 	log.Info().Any("endpoint", endpoint).Str("containerName", cName).
 		Msgf("Started mockserver container")
-
-	//client := ctfClient.NewMockserverClient(&ctfClient.MockserverConfig{
-	//	LocalURL: endpoint,
-	//})
-	//if err != nil {
-	//	return errors.Wrapf(err, "cannot connect to mockserver client")
-	//}
 	m.container = c
 	return m, nil
 }

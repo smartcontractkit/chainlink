@@ -13,7 +13,8 @@ import (
 
 /*
 	These are the high level components you should reuse in your docker tests in other repos
-	Should be moved to chainlink-env or CTF in the next stage
+	Interfaces from env.go should be moved to chainlink-env or CTF in the next stage
+	Implementations must stay in the repos where they belong
 */
 
 type Endpoints struct {
@@ -29,7 +30,8 @@ type Clients struct {
 	Chainlink        []*client.Chainlink
 }
 
-func ConnectClients(env *Environment) (*Clients, error) {
+// ConnectClients connects network/CL nodes/mockserver clients
+func ConnectClients(network blockchain.EVMNetwork, env *Environment) (*Clients, error) {
 	endpoints := &Endpoints{
 		Networks: make([]string, 0),
 		Nodes:    make([]string, 0),
@@ -39,17 +41,16 @@ func ConnectClients(env *Environment) (*Clients, error) {
 		Networks:  make([]blockchain.EVMClient, 0),
 	}
 
-	en := blockchain.SimulatedEVMNetwork
-	en.URLs = make([]string, 0)
-	en.HTTPURLs = make([]string, 0)
+	network.URLs = make([]string, 0)
+	network.HTTPURLs = make([]string, 0)
 
 	// networks
 	for _, networkNode := range env.Get("geth") {
 		url := networkNode.(*Geth).ExternalWsUrl
-		en.Name = "geth"
-		en.URLs = append(en.URLs, url)
-		en.HTTPURLs = append(en.URLs, url)
-		c, err := blockchain.NewDecoupledEVMClient(en)
+		network.Name = "geth"
+		network.URLs = append(network.URLs, url)
+		network.HTTPURLs = append(network.URLs, url)
+		c, err := blockchain.NewDecoupledEVMClient(network)
 		if err != nil {
 			return nil, err
 		}
@@ -88,17 +89,23 @@ func ConnectClients(env *Environment) (*Clients, error) {
 	return clients, nil
 }
 
-func NewChainlinkCluster(t *testing.T, nodes int) (*Environment, error) {
+// NewCommonChainlinkCluster is a common N nodes cluster that contains:
+// - N nodes of Chainlink
+// - Geth dev network
+// - Mockserver
+func NewCommonChainlinkCluster(t *testing.T, nodes int) (*Environment, error) {
+	// if pushToLoki set to true you can select logs for your test like
+	// {type="log_watch", test="TestFluxBasic", container="..."}
 	lw, err := logwatch.NewLogWatch(t, nil)
 	require.NoError(t, err)
-	env, err := NewEnvironment(lw).
-		WithContainer(NewGeth(nil)).
-		WithContainer(NewMockServer(nil)).
+	env, err := NewEnvironment(lw, false).
+		Add(NewGeth(nil)).
+		Add(NewMockServer(nil)).
 		Start(true)
 	require.NoError(t, err)
 	gethComponent := env.Get("geth")[0].(*Geth)
 	for i := 0; i < nodes; i++ {
-		env.WithContainer(NewChainlink(NodeConfigOpts{
+		env.Add(NewChainlink(NodeConfigOpts{
 			EVM: NodeEVMSettings{
 				HTTPURL: gethComponent.InternalHttpUrl,
 				WSURL:   gethComponent.InternalWsUrl,

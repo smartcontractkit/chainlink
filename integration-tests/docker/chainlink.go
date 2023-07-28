@@ -223,10 +223,11 @@ type Chainlink struct {
 	Endpoint string
 }
 
-func NewChainlink(cfg any) ContainerSetupFunc {
+func NewChainlink(cfg any) ComponentSetupFunc {
+	// static prefix must be defined here, so later we can select all Components with this prefix
 	c := &Chainlink{prefix: "chainlink"}
 	return func(network string) (Component, error) {
-		return c.Start(network, c.prefix, cfg)
+		return c.Start(network, cfg)
 	}
 }
 
@@ -246,12 +247,12 @@ func (m *Chainlink) Stop() error {
 	return m.dbContainer.Terminate(context.Background())
 }
 
-func (m *Chainlink) Start(network, name string, cfg any) (Component, error) {
+func (m *Chainlink) Start(dockerNet string, cfg any) (Component, error) {
 	nco, ok := cfg.(NodeConfigOpts)
 	if !ok {
 		return m, fmt.Errorf("cfg must be of type NodeConfigOpts")
 	}
-	networks := []string{network}
+	networks := []string{dockerNet}
 	pgOpts := PgOpts{
 		Port:     "5432",
 		User:     "postgres",
@@ -276,7 +277,7 @@ func (m *Chainlink) Start(network, name string, cfg any) (Component, error) {
 	if err != nil {
 		return m, err
 	}
-	clReq, err := nodeContainerRequest(name, nco, nodeSecrets, networks)
+	clReq, err := nodeContainerRequest(m.prefix, nco, nodeSecrets, networks)
 	if err != nil {
 		return m, err
 	}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/stretchr/testify/require"
@@ -12,9 +13,9 @@ import (
 
 func TestCronBasic(t *testing.T) {
 	t.Parallel()
-	env, err := docker.NewChainlinkCluster(t, 1)
+	env, err := docker.NewCommonChainlinkCluster(t, 1)
 	require.NoError(t, err)
-	clients, err := docker.ConnectClients(env)
+	clients, err := docker.ConnectClients(blockchain.SimulatedEVMNetwork, env)
 	require.NoError(t, err)
 	err = clients.Mockserver.SetValuePath("/variable", 5)
 	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")

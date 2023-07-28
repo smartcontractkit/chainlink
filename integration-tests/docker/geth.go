@@ -15,6 +15,14 @@ import (
 	"time"
 )
 
+const (
+	// RootFundingAddr is the static key that hardhat and ganache are using
+	// https://hardhat.org/hardhat-runner/docs/getting-started
+	// if you need more keys, keep them compatible, so we can swap Geth to Ganache/Hardhat in the future
+	RootFundingAddr   = `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`
+	RootFundingWallet = `{"address":"f39fd6e51aad88f6f4ce6ab8827279cfffb92266","crypto":{"cipher":"aes-128-ctr","ciphertext":"c36afd6e60b82d6844530bd6ab44dbc3b85a53e826c3a7f6fc6a75ce38c1e4c6","cipherparams":{"iv":"f69d2bb8cd0cb6274535656553b61806"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"80d5f5e38ba175b6b89acfc8ea62a6f163970504af301292377ff7baafedab53"},"mac":"f2ecec2c4d05aacc10eba5235354c2fcc3776824f81ec6de98022f704efbf065"},"id":"e5c124e9-e280-4b10-a27b-d7f3e516b408","version":3}`
+)
+
 var (
 	InitGethScript = `
 #!/bin/bash
@@ -77,10 +85,10 @@ type Geth struct {
 	InternalWsUrl   string
 }
 
-func NewGeth(cfg any) ContainerSetupFunc {
+func NewGeth(cfg any) ComponentSetupFunc {
 	c := &Geth{prefix: "geth"}
 	return func(network string) (Component, error) {
-		return c.Start(network, c.prefix, cfg)
+		return c.Start(network, cfg)
 	}
 }
 
@@ -93,8 +101,8 @@ func (m *Geth) Containers() []tc.Container {
 	return append(containers, m.container)
 }
 
-func (m *Geth) Start(network, name string, cfg any) (Component, error) {
-	r, _, _, err := gethContainerRequest(network)
+func (m *Geth) Start(dockerNet string, cfg any) (Component, error) {
+	r, _, _, err := gethContainerRequest(dockerNet)
 	if err != nil {
 		return m, err
 	}
@@ -184,7 +192,7 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 	if err != nil {
 		return nil, ks, &account, err
 	}
-	_, err = key1File.WriteString(`{"address":"f39fd6e51aad88f6f4ce6ab8827279cfffb92266","crypto":{"cipher":"aes-128-ctr","ciphertext":"c36afd6e60b82d6844530bd6ab44dbc3b85a53e826c3a7f6fc6a75ce38c1e4c6","cipherparams":{"iv":"f69d2bb8cd0cb6274535656553b61806"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"80d5f5e38ba175b6b89acfc8ea62a6f163970504af301292377ff7baafedab53"},"mac":"f2ecec2c4d05aacc10eba5235354c2fcc3776824f81ec6de98022f704efbf065"},"id":"e5c124e9-e280-4b10-a27b-d7f3e516b408","version":3}`)
+	_, err = key1File.WriteString(RootFundingWallet)
 	if err != nil {
 		return nil, ks, &account, err
 	}
@@ -211,16 +219,10 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 			"--datadir",
 			"/root/.ethereum/devchain",
 			"--unlock",
-			"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-			//"--unlock",
-			//account.Address.Hex(),
-			// "--password",
-			// password,
+			RootFundingAddr,
 			"--mine",
 			"--miner.etherbase",
-			"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-			//"--miner.etherbase",
-			//account.Address.Hex(),
+			RootFundingAddr,
 			"--ipcdisable",
 			"--http",
 			"--http.vhosts",
@@ -261,11 +263,6 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 				ContainerFilePath: "/root/genesis.json",
 				FileMode:          0644,
 			},
-			//{
-			//	HostFilePath:      key1File.Name(),
-			//	ContainerFilePath: "/root/.ethereum/devchain/keystore/key1",
-			//	FileMode:          0644,
-			//},
 		},
 		Mounts: tc.ContainerMounts{
 			tc.ContainerMount{

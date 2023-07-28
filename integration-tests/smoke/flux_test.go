@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -21,9 +22,9 @@ func TestFluxBasic(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 
-	env, err := docker.NewChainlinkCluster(t, 3)
+	env, err := docker.NewCommonChainlinkCluster(t, 3)
 	require.NoError(t, err)
-	clients, err := docker.ConnectClients(env)
+	clients, err := docker.ConnectClients(blockchain.SimulatedEVMNetwork, env)
 	require.NoError(t, err)
 	err = clients.Mockserver.SetValuePath("/variable", 5)
 	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
