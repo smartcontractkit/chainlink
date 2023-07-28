@@ -4,15 +4,19 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	relaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var (
-	_                     types.OffchainConfigDigester = functionsOffchainConfigDigester{}
-	FunctionsDigestPrefix                              = types.ConfigDigestPrefixEVM
+	_                     types.OffchainConfigDigester     = &functionsOffchainConfigDigester{}
+	_                     relaytypes.RouteUpdateSubscriber = &functionsOffchainConfigDigester{}
+	FunctionsDigestPrefix                                  = types.ConfigDigestPrefixEVM
 	// In order to support multiple OCR plugins with a single jobspec & OCR2Base contract, each plugin must have a unique config digest.
 	// This is accomplished by overriding the single config digest from the contract with a unique prefix for each plugin via this custom offchain digester & config poller.
 	ThresholdDigestPrefix = types.ConfigDigestPrefix(7)
@@ -22,21 +26,24 @@ var (
 type functionsOffchainConfigDigester struct {
 	pluginType      FunctionsPluginType
 	chainID         uint64
-	contractAddress common.Address
+	contractAddress atomic.Pointer[common.Address]
 }
 
-func NewFunctionsOffchainConfigDigester(pluginType FunctionsPluginType, chainID uint64, contractAddress common.Address) *functionsOffchainConfigDigester {
+func NewFunctionsOffchainConfigDigester(pluginType FunctionsPluginType, chainID uint64) *functionsOffchainConfigDigester {
 	return &functionsOffchainConfigDigester{
-		pluginType:      pluginType,
-		chainID:         chainID,
-		contractAddress: contractAddress,
+		pluginType: pluginType,
+		chainID:    chainID,
 	}
 }
 
-func (d functionsOffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.ConfigDigest, error) {
+func (d *functionsOffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (types.ConfigDigest, error) {
+	contractAddress := d.contractAddress.Load()
+	if contractAddress == nil {
+		return types.ConfigDigest{}, errors.New("contract address not set")
+	}
 	baseDigester := evmutil.EVMOffchainConfigDigester{
 		ChainID:         d.chainID,
-		ContractAddress: d.contractAddress,
+		ContractAddress: *contractAddress,
 	}
 
 	configDigest, err := baseDigester.ConfigDigest(cc)
@@ -61,7 +68,7 @@ func (d functionsOffchainConfigDigester) ConfigDigest(cc types.ContractConfig) (
 	return configDigest, nil
 }
 
-func (d functionsOffchainConfigDigester) ConfigDigestPrefix() (types.ConfigDigestPrefix, error) {
+func (d *functionsOffchainConfigDigester) ConfigDigestPrefix() (types.ConfigDigestPrefix, error) {
 	switch d.pluginType {
 	case FunctionsPlugin:
 		return FunctionsDigestPrefix, nil
@@ -72,4 +79,10 @@ func (d functionsOffchainConfigDigester) ConfigDigestPrefix() (types.ConfigDiges
 	default:
 		return 0, fmt.Errorf("unknown plugin type: %v", d.pluginType)
 	}
+}
+
+// called from LogPollerWrapper in a separate goroutine
+func (d *functionsOffchainConfigDigester) UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error {
+	d.contractAddress.Store(&activeCoordinator)
+	return nil
 }

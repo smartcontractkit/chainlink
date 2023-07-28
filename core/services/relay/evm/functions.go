@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"go.uber.org/multierr"
 
@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -34,16 +33,14 @@ type functionsProvider struct {
 	logPollerWrapper    evmRelayTypes.LogPollerWrapper
 }
 
-var (
-	_ relaytypes.Plugin = (*functionsProvider)(nil)
-)
+var _ evmRelayTypes.FunctionsProvider = (*functionsProvider)(nil)
 
-func (p *functionsProvider) ContractTransmitter() types.ContractTransmitter {
+func (p *functionsProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return p.contractTransmitter
 }
 
 func (p *functionsProvider) LogPollerWrapper() evmRelayTypes.LogPollerWrapper {
-	return nil
+	return p.logPollerWrapper
 }
 
 func (p *functionsProvider) Start(ctx context.Context) error {
@@ -90,14 +87,18 @@ func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, par
 	if err != nil {
 		return nil, err
 	}
-	logPollerWrapper := functions.NewLogPollerWrapper(chain.LogPoller(), lggr)
-	configWatcher, err := newFunctionsConfigProvider(pluginType, chain, rargs, relayConfig.FromBlock, logPollerWrapper, lggr)
-	if err != nil {
-		return nil, err
+	if !common.IsHexAddress(rargs.ContractID) {
+		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
 	var pluginConfig config.PluginConfig
 	if err2 := json.Unmarshal(pargs.PluginConfig, &pluginConfig); err2 != nil {
 		return nil, err2
+	}
+	routerContractAddress := common.HexToAddress(rargs.ContractID)
+	logPollerWrapper := functionsRelay.NewLogPollerWrapper(routerContractAddress, pluginConfig.ContractVersion, chain.LogPoller(), lggr)
+	configWatcher, err := newFunctionsConfigProvider(pluginType, chain, rargs, relayConfig.FromBlock, logPollerWrapper, lggr)
+	if err != nil {
+		return nil, err
 	}
 	contractTransmitter, err := newFunctionsContractTransmitter(pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
 	if err != nil {
@@ -111,24 +112,26 @@ func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, par
 }
 
 func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, chain evm.Chain, args relaytypes.RelayArgs, fromBlock uint64, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (*configWatcher, error) {
-
 	if !common.IsHexAddress(args.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}
 
-	contractAddress := common.HexToAddress(args.ContractID)
+	routerContractAddress := common.HexToAddress(args.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
 
-	cp, err := functionsRelay.NewFunctionsConfigPoller(pluginType, chain.LogPoller(), contractAddress, lggr)
+	cp, err := functionsRelay.NewFunctionsConfigPoller(pluginType, chain.LogPoller(), lggr)
 	if err != nil {
 		return nil, err
 	}
+	logPollerWrapper.SubscribeToUpdates("FunctionsConfigPoller", cp)
 
-	offchainConfigDigester := functionsRelay.NewFunctionsOffchainConfigDigester(pluginType, chain.ID().Uint64(), contractAddress)
-	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
+	offchainConfigDigester := functionsRelay.NewFunctionsOffchainConfigDigester(pluginType, chain.ID().Uint64())
+	logPollerWrapper.SubscribeToUpdates("FunctionsOffchainConfigDigester", offchainConfigDigester)
+
+	return newConfigWatcher(lggr, routerContractAddress, contractABI, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
 }
 
 func newFunctionsContractTransmitter(contractVersion uint32, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
@@ -189,8 +192,7 @@ func newFunctionsContractTransmitter(contractVersion uint32, rargs relaytypes.Re
 		return nil, errors.Wrap(err, "failed to create transmitter")
 	}
 
-	return functionsRelay.NewFunctionsContractTransmitter(
-		configWatcher.contractAddress,
+	functionsTransmitter, err := functionsRelay.NewFunctionsContractTransmitter(
 		configWatcher.chain.Client(),
 		configWatcher.contractABI,
 		transmitter,
@@ -199,4 +201,9 @@ func newFunctionsContractTransmitter(contractVersion uint32, rargs relaytypes.Re
 		nil,
 		contractVersion,
 	)
+	if err != nil {
+		return nil, err
+	}
+	logPollerWrapper.SubscribeToUpdates("FunctionsConfigTransmitter", functionsTransmitter)
+	return functionsTransmitter, err
 }
