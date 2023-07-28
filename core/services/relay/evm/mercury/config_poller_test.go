@@ -1,7 +1,6 @@
 package mercury
 
 import (
-	"database/sql"
 	"math/big"
 	"testing"
 	"time"
@@ -20,6 +19,7 @@ import (
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -27,12 +27,16 @@ import (
 func TestMercuryConfigPoller(t *testing.T) {
 	feedID := utils.NewHash()
 
-	th := SetupTH(t, feedID)
+	th := SetupTH(t, feedID, false)
 	th.configPoller.Start()
 	t.Cleanup(func() {
 		require.NoError(t, th.configPoller.Close())
 	})
-	th.subscription.On("Events").Return(nil)
+	chEvents := make(chan pg.Event)
+	th.subscription.On("Close").Run(func(args mock.Arguments) {
+		close(chEvents)
+	})
+	th.subscription.On("Events").Return((<-chan pg.Event)(chEvents))
 
 	notify := th.configPoller.Notify()
 	assert.Empty(t, notify)
@@ -74,7 +78,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 
 func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 	feedID := utils.NewHash()
-	th := SetupTH(t, feedID)
+	th := SetupTH(t, feedID, false)
 
 	t.Run("callIsConfigPersisted returns false", func(t *testing.T) {
 		t.Run("when contract method missing, does not enable persistConfig", func(t *testing.T) {
@@ -93,9 +97,9 @@ func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 		})
 	})
 
-	t.Run("callIsConfigPersisted returns true", func(t *testing.T) {
-		th.replaceVerifier(t, true)
+	th = SetupTH(t, feedID, true)
 
+	t.Run("callIsConfigPersisted returns true", func(t *testing.T) {
 		persistConfig, err := th.configPoller.callIsConfigPersisted(testutils.Context(t))
 		require.NoError(t, err)
 		assert.True(t, persistConfig)
@@ -103,16 +107,15 @@ func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 
 	t.Run("LatestConfigDetails, when logs have been pruned and persistConfig is true", func(t *testing.T) {
 		// Give it a log poller that will never return logs
-		mp := new(mocks.LogPoller)
+		mp := mocks.NewLogPoller(t)
 		mp.On("RegisterFilter", mock.Anything).Return(nil)
-		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
+		mp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
 
 		cp := th.configPoller
 		cp.destChainLogPoller = mp
+		cp.persistConfig.Store(true)
 
 		t.Run("if callLatestConfigDetails succeeds", func(t *testing.T) {
-			cp.persistConfig.Store(true)
-
 			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
 				changedInBlock, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
 				require.NoError(t, err)
@@ -142,36 +145,30 @@ func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
 			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded!"))
 
-			th.configPoller.client = failingClient
+			cp, err := NewConfigPoller(logger.TestLogger(t), failingClient, mp, utils.ZeroAddress, feedID, th.eventBroadcaster)
+			require.NoError(t, err)
+			cp.persistConfig.Store(true)
 
-			_, _, err := th.configPoller.LatestConfigDetails(testutils.Context(t))
+			_, _, err = cp.LatestConfigDetails(testutils.Context(t))
 			assert.EqualError(t, err, "something exploded!")
 
 			failingClient.AssertExpectations(t)
 		})
 	})
 
-	th.replaceVerifier(t, true)
-	// ocrAddressPersistConfigEnabled, _, ocrContractPersistConfigEnabled, err = ocr2aggregator.DeployOCR2Aggregator(
-	//     user,
-	//     b,
-	//     linkTokenAddress,
-	//     big.NewInt(0),
-	//     big.NewInt(10),
-	//     accessAddress,
-	//     accessAddress,
-	//     9,
-	//     "TEST",
-	//     true,
-	// )
-	// require.NoError(t, err)
+	th = SetupTH(t, feedID, true)
 	th.backend.Commit()
 
 	t.Run("LatestConfig, when logs have been pruned and persistConfig is true", func(t *testing.T) {
 		// Give it a log poller that will never return logs
-		mp := new(mocks.LogPoller)
+		mp := mocks.NewLogPoller(t)
 		mp.On("RegisterFilter", mock.Anything).Return(nil)
-		mp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
+		mp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
+		mp.On("IndexedLogsByBlockRange", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
+
+		cp := th.configPoller
+		cp.destChainLogPoller = mp
+		cp.persistConfig.Store(true)
 
 		latest, err := th.backend.BlockByNumber(testutils.Context(t), nil)
 		require.NoError(t, err)
@@ -226,7 +223,7 @@ func TestNotify(t *testing.T) {
 
 	eventCh := make(chan pg.Event)
 
-	th := SetupTH(t, feedID)
+	th := SetupTH(t, feedID, false)
 	th.subscription.On("Events").Return((<-chan pg.Event)(eventCh))
 
 	notify := th.configPoller.Notify()

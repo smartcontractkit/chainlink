@@ -42,7 +42,9 @@ type TestHarness struct {
 
 func (th TestHarness) replaceVerifier(t *testing.T, persistConfig bool) *mercury_verifier.MercuryVerifier {
 	th.verifierContract, th.verifierContractAddr = deployVerifier(t, th.user, th.backend, persistConfig)
-	th.configPoller.addr = th.verifierContract.Address()
+	th.backend.Commit()
+	th.configPoller.contract = th.verifierContract
+	th.configPoller.addr = th.verifierContractAddr
 	return th.verifierContract
 }
 
@@ -109,7 +111,7 @@ func (th TestHarness) setConfig(t *testing.T, feedID [32]byte) ocrtypes2.Contrac
 	}
 }
 
-func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
+func SetupTH(t *testing.T, feedID common.Hash, persistConfig bool) TestHarness {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
 	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
@@ -118,7 +120,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
 		5*ethconfig.Defaults.Miner.GasCeil)
 
-	verifierContract, addr := deployVerifier(t, user, b, false)
+	verifierContract, addr := deployVerifier(t, user, b, persistConfig)
 	b.Commit()
 
 	db := pgtest.NewSqlxDB(t)

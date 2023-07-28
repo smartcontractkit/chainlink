@@ -71,7 +71,7 @@ func configFromLog(logData []byte) (FullConfigFromLog, error) {
 
 	var transmitAccounts []ocrtypes.Account
 	for _, addr := range unpacked.OffchainTransmitters {
-		transmitAccounts = append(transmitAccounts, ocrtypes.Account(fmt.Sprintf("0x%x", addr[:])))
+		transmitAccounts = append(transmitAccounts, ocrtypes.Account(fmt.Sprintf("%x", addr[:])))
 	}
 	var signers []ocrtypes.OnchainPublicKey
 	for _, addr := range unpacked.Signers {
@@ -197,10 +197,13 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
 	if len(logs) == 0 {
+		fmt.Println("BALLS 1")
 		if cp.persistConfig.Load() {
+			fmt.Println("BALLS 2")
 			// Fallback to RPC call in case logs have been pruned
 			return cp.callLatestConfigDetails(ctx)
 		}
+		fmt.Println("BALLS 3")
 		return 0, ocrtypes.ConfigDigest{}, nil
 	}
 	latest := logs[len(logs)-1]
@@ -301,7 +304,7 @@ func (cp *configPoller) enablePersistConfig() {
 }
 
 func (cp *configPoller) callIsConfigPersisted(ctx context.Context) (persistConfig bool, err error) {
-	persistConfig, err = cp.contract.SPersistConfig(&bind.CallOpts{Context: ctx})
+	persistConfig, err = cp.contract.PersistConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		if methodNotImplemented(err) {
 			return false, nil
@@ -336,8 +339,9 @@ func (cp *configPoller) callLatestConfig(ctx context.Context, blockNum *big.Int)
 		Context:     ctx,
 		BlockNumber: blockNum,
 	}, cp.feedId)
+	fmt.Printf("BALLS ocr2AbstractConfig %#v\n", ocr2AbstractConfig)
 	if int64(ocr2AbstractConfig.PreviousConfigBlockNumber) != blockNum.Int64() {
-		err = fmt.Errorf("block number mismatch: expected to find config changed in block %d but the config was changed in block %d", changedInBlock, ocr2AbstractConfig.PreviousConfigBlockNumber)
+		err = fmt.Errorf("block number mismatch: expected to find config changed in block %d but the config was changed in block %d", blockNum, ocr2AbstractConfig.PreviousConfigBlockNumber)
 		return
 	}
 	if err != nil {
@@ -350,7 +354,7 @@ func (cp *configPoller) callLatestConfig(ctx context.Context, blockNum *big.Int)
 	}
 	transmitters := make([]ocrtypes.Account, len(ocr2AbstractConfig.Transmitters))
 	for i := range transmitters {
-		transmitters[i] = ocrtypes.Account(fmt.Sprintf("0x%x", ocr2AbstractConfig.Transmitters[i][:]))
+		transmitters[i] = ocrtypes.Account(fmt.Sprintf("%x", ocr2AbstractConfig.Transmitters[i][:]))
 	}
 	return uint64(ocr2AbstractConfig.PreviousConfigBlockNumber), ocrtypes.ContractConfig{
 		ConfigDigest:          ocr2AbstractConfig.ConfigDigest,
