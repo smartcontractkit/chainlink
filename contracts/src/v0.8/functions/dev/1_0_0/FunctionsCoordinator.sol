@@ -28,6 +28,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   event InvalidRequestID(bytes32 indexed requestId);
   event InsufficientGasProvided(bytes32 indexed requestId);
   event CostExceedsCommitment(bytes32 indexed requestId);
+  event InsufficientSubscriptionBalance(bytes32 indexed requestId);
 
   error EmptyRequestData();
   error InconsistentReportData();
@@ -241,6 +242,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
         emit InsufficientGasProvided(requestIds[i]);
       } else if (result == FulfillResult.COST_EXCEEDS_COMMITMENT) {
         emit CostExceedsCommitment(requestIds[i]);
+      } else if (result == FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE) {
+        emit InsufficientSubscriptionBalance(requestIds[i]);
       }
     }
   }
