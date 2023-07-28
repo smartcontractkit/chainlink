@@ -8,8 +8,8 @@ import "./interfaces/OwnableInterface.sol";
  * @notice A contract with helpers for basic contract ownership.
  */
 contract ConfirmedOwnerWithProposal is OwnableInterface {
-  address private s_pendingOwner;
   address private s_owner;
+  address private s_pendingOwner;
 
   event OwnershipTransferRequested(address indexed from, address indexed to);
   event OwnershipTransferred(address indexed from, address indexed to);
