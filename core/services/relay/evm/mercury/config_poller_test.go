@@ -157,13 +157,11 @@ func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 	})
 
 	th = SetupTH(t, feedID, true)
-	th.backend.Commit()
 
 	t.Run("LatestConfig, when logs have been pruned and persistConfig is true", func(t *testing.T) {
 		// Give it a log poller that will never return logs
 		mp := mocks.NewLogPoller(t)
 		mp.On("RegisterFilter", mock.Anything).Return(nil)
-		mp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
 		mp.On("IndexedLogsByBlockRange", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
 
 		cp := th.configPoller
@@ -181,12 +179,29 @@ func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 
 				assert.Equal(t, ocrtypes.ConfigDigest{}, contractConfig.ConfigDigest)
 			})
-			t.Run("when config has been set, returns config details", func(t *testing.T) {
+			t.Run("when config has been set, returns config", func(t *testing.T) {
 				contractConfig := th.setConfig(t, feedID)
 				th.backend.Commit()
-				blockNum++
 
-				newConfig, err := th.configPoller.LatestConfig(testutils.Context(t), blockNum)
+				newConfig, err := th.configPoller.LatestConfig(testutils.Context(t), 0)
+				require.NoError(t, err)
+
+				onchainDetails, err := th.verifierContract.LatestConfigDetails(nil, feedID)
+				require.NoError(t, err)
+
+				assert.Equal(t, onchainDetails.ConfigDigest, [32]byte(newConfig.ConfigDigest))
+				assert.Equal(t, contractConfig.Signers, newConfig.Signers)
+				assert.Equal(t, contractConfig.Transmitters, newConfig.Transmitters)
+				assert.Equal(t, contractConfig.F, newConfig.F)
+				assert.Equal(t, contractConfig.OffchainConfigVersion, newConfig.OffchainConfigVersion)
+				assert.Equal(t, contractConfig.OffchainConfig, newConfig.OffchainConfig)
+			})
+			t.Run("with multiple configs, returns latest config", func(t *testing.T) {
+				th.backend.Commit()
+				contractConfig := th.setConfig(t, feedID)
+				th.backend.Commit()
+
+				newConfig, err := th.configPoller.LatestConfig(testutils.Context(t), 2)
 				require.NoError(t, err)
 
 				onchainDetails, err := th.verifierContract.LatestConfigDetails(nil, feedID)
@@ -205,9 +220,11 @@ func Test_MercuryConfigPoller_ConfigPersisted(t *testing.T) {
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
 			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded!"))
 
-			th.configPoller.client = failingClient
+			cp, err := NewConfigPoller(logger.TestLogger(t), failingClient, mp, utils.ZeroAddress, feedID, th.eventBroadcaster)
+			require.NoError(t, err)
+			cp.persistConfig.Store(true)
 
-			_, err = th.configPoller.LatestConfig(testutils.Context(t), blockNum)
+			_, err = cp.LatestConfig(testutils.Context(t), 32)
 			assert.EqualError(t, err, "something exploded!")
 
 			failingClient.AssertExpectations(t)

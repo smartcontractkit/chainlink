@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math/big"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -191,7 +190,13 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	}
 	if len(lgs) == 0 {
 		if cp.persistConfig.Load() {
-			_, cfg, err := cp.callLatestConfig(ctx, big.NewInt(int64(changedInBlock)))
+			minedInBlock, cfg, err := cp.callLatestConfig(ctx)
+			if err != nil {
+				return cfg, err
+			}
+			if cfg.ConfigDigest != (ocrtypes.ConfigDigest{}) && changedInBlock != minedInBlock {
+				return cfg, fmt.Errorf("block number mismatch: expected to find config changed in block %d but the config was changed in block %d", changedInBlock, minedInBlock)
+			}
 			return cfg, err
 		}
 		return ocrtypes.ContractConfig{}, fmt.Errorf("missing config on contract %s (chain %s) at block %d", cp.addr.Hex(), cp.client.ConfiguredChainID().String(), changedInBlock)
@@ -270,17 +275,12 @@ func (cp *configPoller) callLatestConfigDetails(ctx context.Context) (changedInB
 
 // Some chains "manage" state bloat by deleting older logs. This RPC call
 // allows us work around such restrictions.
-func (cp *configPoller) callLatestConfig(ctx context.Context, blockNum *big.Int) (changedInBlock uint64, cfg ocrtypes.ContractConfig, err error) {
+func (cp *configPoller) callLatestConfig(ctx context.Context) (changedInBlock uint64, cfg ocrtypes.ContractConfig, err error) {
 	ocr2AbstractConfig, err := cp.contract.LatestConfig(&bind.CallOpts{
-		Context:     ctx,
-		BlockNumber: blockNum,
+		Context: ctx,
 	})
 	if err != nil {
 		cp.failedRPCContractCalls.Inc()
-		return
-	}
-	if int64(ocr2AbstractConfig.PreviousConfigBlockNumber) != blockNum.Int64() {
-		err = fmt.Errorf("block number mismatch: expected to find config changed in block %d but the config was changed in block %d", blockNum, ocr2AbstractConfig.PreviousConfigBlockNumber)
 		return
 	}
 	signers := make([]ocrtypes.OnchainPublicKey, len(ocr2AbstractConfig.Signers))

@@ -197,13 +197,10 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
 	if len(logs) == 0 {
-		fmt.Println("BALLS 1")
 		if cp.persistConfig.Load() {
-			fmt.Println("BALLS 2")
 			// Fallback to RPC call in case logs have been pruned
 			return cp.callLatestConfigDetails(ctx)
 		}
-		fmt.Println("BALLS 3")
 		return 0, ocrtypes.ConfigDigest{}, nil
 	}
 	latest := logs[len(logs)-1]
@@ -223,7 +220,13 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	}
 	if len(lgs) == 0 {
 		if cp.persistConfig.Load() {
-			_, cfg, err := cp.callLatestConfig(ctx, big.NewInt(int64(changedInBlock)))
+			minedInBlock, cfg, err := cp.callLatestConfig(ctx)
+			if err != nil {
+				return cfg, err
+			}
+			if cfg.ConfigDigest != (ocrtypes.ConfigDigest{}) && changedInBlock != minedInBlock {
+				return cfg, fmt.Errorf("block number mismatch: expected to find config changed in block %d but the config was changed in block %d", changedInBlock, minedInBlock)
+			}
 			return cfg, err
 		}
 		return ocrtypes.ContractConfig{}, fmt.Errorf("missing config on contract %s (chain %s) at block %d", cp.addr.Hex(), cp.client.ConfiguredChainID().String(), changedInBlock)
@@ -334,16 +337,10 @@ func (cp *configPoller) callLatestConfigDetails(ctx context.Context) (changedInB
 
 // Some chains "manage" state bloat by deleting older logs. This RPC call
 // allows us work around such restrictions.
-func (cp *configPoller) callLatestConfig(ctx context.Context, blockNum *big.Int) (changedInBlock uint64, cfg ocrtypes.ContractConfig, err error) {
+func (cp *configPoller) callLatestConfig(ctx context.Context) (changedInBlock uint64, cfg ocrtypes.ContractConfig, err error) {
 	ocr2AbstractConfig, err := cp.contract.LatestConfig(&bind.CallOpts{
-		Context:     ctx,
-		BlockNumber: blockNum,
+		Context: ctx,
 	}, cp.feedId)
-	fmt.Printf("BALLS ocr2AbstractConfig %#v\n", ocr2AbstractConfig)
-	if int64(ocr2AbstractConfig.PreviousConfigBlockNumber) != blockNum.Int64() {
-		err = fmt.Errorf("block number mismatch: expected to find config changed in block %d but the config was changed in block %d", blockNum, ocr2AbstractConfig.PreviousConfigBlockNumber)
-		return
-	}
 	if err != nil {
 		cp.failedRPCContractCalls.Inc()
 		return

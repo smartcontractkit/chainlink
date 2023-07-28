@@ -236,7 +236,7 @@ func TestConfigPoller(t *testing.T) {
 
 	t.Run("LatestConfig, when logs have been pruned and persistConfig is true", func(t *testing.T) {
 		// Give it a log poller that will never return logs
-		mp := new(mocks.LogPoller)
+		mp := mocks.NewLogPoller(t)
 		mp.On("RegisterFilter", mock.Anything).Return(nil)
 		mp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
 
