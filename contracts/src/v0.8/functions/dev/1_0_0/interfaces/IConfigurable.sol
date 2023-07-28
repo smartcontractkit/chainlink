@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 /**
  * @title Configurable contract interface.
@@ -16,5 +16,5 @@ interface IConfigurable {
    * @dev Only callable by the Router
    * @param config bytes containing config data
    */
-  function setConfig(bytes calldata config) external;
+  function updateConfig(bytes calldata config) external;
 }

@@ -127,6 +127,25 @@ type coordinatorV2Universe struct {
 	batchCoordinatorContractAddress    common.Address
 }
 
+const (
+	ConfirmedEthTxesV2Query = `SELECT * FROM eth_txes
+		WHERE eth_txes.state = 'confirmed'
+		AND eth_txes.meta->>'RequestID' = $1
+		AND CAST(eth_txes.meta->>'SubId' AS NUMERIC) = $2 LIMIT 1`
+	ConfirmedEthTxesV2PlusQuery = `SELECT * FROM eth_txes
+		WHERE eth_txes.state = 'confirmed'
+		AND eth_txes.meta->>'RequestID' = $1
+		AND CAST(eth_txes.meta->>'GlobalSubId' AS NUMERIC) = $2 LIMIT 1`
+	ConfirmedEthTxesV2BatchQuery = `
+		SELECT * FROM eth_txes
+		WHERE eth_txes.state = 'confirmed'
+		AND CAST(eth_txes.meta->>'SubId' AS NUMERIC) = $1`
+	ConfirmedEthTxesV2PlusBatchQuery = `
+		SELECT * FROM eth_txes
+		WHERE eth_txes.state = 'confirmed'
+		AND CAST(eth_txes.meta->>'GlobalSubId' AS NUMERIC) = $1`
+)
+
 func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers int) coordinatorV2Universe {
 	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
 	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
@@ -459,7 +478,7 @@ func subscribeVRF(
 	coordinator v22.CoordinatorV2_X,
 	backend *backends.SimulatedBackend,
 	fundingJuels *big.Int,
-) (*v22.GetSubscription, uint64) {
+) (v22.Subscription, *big.Int) {
 	_, err := consumerContract.CreateSubscriptionAndFund(author, fundingJuels)
 	require.NoError(t, err)
 	backend.Commit()
@@ -557,7 +576,7 @@ func requestRandomnessForWrapper(
 	vrfWrapperConsumer vrfv2_wrapper_consumer_example.VRFV2WrapperConsumerExample,
 	consumerOwner *bind.TransactOpts,
 	keyHash common.Hash,
-	subID uint64,
+	subID *big.Int,
 	numWords uint32,
 	cbGasLimit uint32,
 	coordinator v22.CoordinatorV2_X,
@@ -574,10 +593,10 @@ func requestRandomnessForWrapper(
 	require.NoError(t, err)
 	uni.backend.Commit()
 
-	iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []uint64{subID}, nil)
+	iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []*big.Int{subID}, nil)
 	require.NoError(t, err, "could not filter RandomWordsRequested events")
 
-	var events []*v22.RandomWordsRequested
+	var events []v22.RandomWordsRequested
 	for iter.Next() {
 		events = append(events, iter.Event())
 	}
@@ -611,7 +630,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	vrfConsumerHandle vrftesthelpers.VRFConsumerContract,
 	consumerOwner *bind.TransactOpts,
 	keyHash common.Hash,
-	subID uint64,
+	subID *big.Int,
 	numWords uint32,
 	cbGasLimit uint32,
 	coordinator v22.CoordinatorV2_X,
@@ -630,10 +649,10 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	require.NoError(t, err)
 	backend.Commit()
 
-	iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []uint64{subID}, nil)
+	iter, err := coordinator.FilterRandomWordsRequested(nil, nil, []*big.Int{subID}, nil)
 	require.NoError(t, err, "could not filter RandomWordsRequested events")
 
-	var events []*v22.RandomWordsRequested
+	var events []v22.RandomWordsRequested
 	for iter.Next() {
 		events = append(events, iter.Event())
 	}
@@ -663,14 +682,13 @@ func subscribeAndAssertSubscriptionCreatedEvent(
 	fundingJuels *big.Int,
 	coordinator v22.CoordinatorV2_X,
 	backend *backends.SimulatedBackend,
-) uint64 {
+) *big.Int {
 	// Create a subscription and fund with LINK.
 	sub, subID := subscribeVRF(t, consumerOwner, vrfConsumerHandle, coordinator, backend, fundingJuels)
-	require.Equal(t, uint64(1), subID)
 	require.Equal(t, fundingJuels.String(), sub.Balance().String())
 
 	// Assert the subscription event in the coordinator contract.
-	iter, err := coordinator.FilterSubscriptionCreated(nil, []uint64{subID})
+	iter, err := coordinator.FilterSubscriptionCreated(nil, []*big.Int{subID})
 	require.NoError(t, err)
 	found := false
 	for iter.Next() {
@@ -690,13 +708,13 @@ func assertRandomWordsFulfilled(
 	requestID *big.Int,
 	expectedSuccess bool,
 	coordinator v22.CoordinatorV2_X,
-) (rwfe *v22.RandomWordsFulfilled) {
+) (rwfe v22.RandomWordsFulfilled) {
 	// Check many times in case there are delays processing the event
 	// this could happen occasionally and cause flaky tests.
 	numChecks := 3
 	found := false
 	for i := 0; i < numChecks; i++ {
-		filter, err := coordinator.FilterRandomWordsFulfilled(nil, []*big.Int{requestID})
+		filter, err := coordinator.FilterRandomWordsFulfilled(nil, []*big.Int{requestID}, nil)
 		require.NoError(t, err)
 		for filter.Next() {
 			require.Equal(t, expectedSuccess, filter.Event().Success(), "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, filter.Event().Success())
@@ -728,42 +746,48 @@ func assertNumRandomWords(
 	}
 }
 
-func mine(t *testing.T, requestID *big.Int, subID uint64, backend *backends.SimulatedBackend, db *sqlx.DB) bool {
+func mine(t *testing.T, requestID, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version) bool {
+	var query string
+	if vrfVersion == vrfcommon.V2Plus {
+		query = ConfirmedEthTxesV2PlusQuery
+	} else if vrfVersion == vrfcommon.V2 {
+		query = ConfirmedEthTxesV2Query
+	} else {
+		t.Errorf("unsupported vrf version %s", vrfVersion)
+	}
 	return gomega.NewWithT(t).Eventually(func() bool {
 		backend.Commit()
 		var txs []txmgr.DbEthTx
-		err := db.Select(&txs, `
-		SELECT * FROM eth_txes
-		WHERE eth_txes.state = 'confirmed'
-			AND eth_txes.meta->>'RequestID' = $1
-			AND CAST(eth_txes.meta->>'SubId' AS NUMERIC) = $2 LIMIT 1
-		`, common.BytesToHash(requestID.Bytes()).String(), subID)
+		err := db.Select(&txs, query, common.BytesToHash(requestID.Bytes()).String(), subID.String())
 		require.NoError(t, err)
 		t.Log("num txs", len(txs))
 		return len(txs) == 1
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
 
-func mineBatch(t *testing.T, requestIDs []*big.Int, subID uint64, backend *backends.SimulatedBackend, db *sqlx.DB) bool {
+func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *backends.SimulatedBackend, db *sqlx.DB, vrfVersion vrfcommon.Version) bool {
 	requestIDMap := map[string]bool{}
+	var query string
+	if vrfVersion == vrfcommon.V2Plus {
+		query = ConfirmedEthTxesV2PlusBatchQuery
+	} else if vrfVersion == vrfcommon.V2 {
+		query = ConfirmedEthTxesV2BatchQuery
+	} else {
+		t.Errorf("unsupported vrf version %s", vrfVersion)
+	}
 	for _, requestID := range requestIDs {
 		requestIDMap[common.BytesToHash(requestID.Bytes()).String()] = false
 	}
 	return gomega.NewWithT(t).Eventually(func() bool {
 		backend.Commit()
 		var txs []txmgr.DbEthTx
-		err := db.Select(&txs, `
-		SELECT * FROM eth_txes
-		WHERE eth_txes.state = 'confirmed'
-			AND CAST(eth_txes.meta->>'SubId' AS NUMERIC) = $1
-		`, subID)
+		err := db.Select(&txs, query, subID.String())
 		require.NoError(t, err)
 		for _, tx := range txs {
 			var evmTx txmgr.Tx
 			txmgr.DbEthTxToEthTx(tx, &evmTx)
 			meta, err := evmTx.GetMeta()
 			require.NoError(t, err)
-			t.Log("meta:", meta)
 			for _, requestID := range meta.RequestIDs {
 				if _, ok := requestIDMap[requestID.String()]; ok {
 					requestIDMap[requestID.String()] = true
@@ -869,20 +893,52 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 		uni.batchCoordinatorContractAddress,
 		ptr(uni.vrfOwnerAddress),
 		vrfcommon.V2,
+		func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
+			require.PanicsWithValue(t, "VRF V2 RandomWordsFulfilled does not implement SubID", func() {
+				rwfe.SubID()
+			})
+		},
 	)
 }
 
 func TestVRFV2Integration_SingleConsumer_EOA_Request(t *testing.T) {
 	t.Parallel()
-	testEoa(t, false)
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	testEoa(
+		t,
+		ownerKey,
+		uni.coordinatorV2UniverseCommon,
+		false,
+		uni.batchBHSContractAddress,
+		ptr(uni.vrfOwnerAddress),
+		vrfcommon.V2,
+	)
 }
 
 func TestVRFV2Integration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing.T) {
 	t.Parallel()
-	testEoa(t, true)
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
+	testEoa(
+		t,
+		ownerKey,
+		uni.coordinatorV2UniverseCommon,
+		true,
+		uni.batchBHSContractAddress,
+		ptr(uni.vrfOwnerAddress),
+		vrfcommon.V2,
+	)
 }
 
-func testEoa(t *testing.T, batchingEnabled bool) {
+func testEoa(
+	t *testing.T,
+	ownerKey ethkey.KeyV2,
+	uni coordinatorV2UniverseCommon,
+	batchingEnabled bool,
+	batchCoordinatorAddress common.Address,
+	vrfOwnerAddress *common.Address,
+	vrfVersion vrfcommon.Version) {
 	gasLimit := int64(2_500_000)
 
 	finalityDepth := uint32(50)
@@ -899,32 +955,20 @@ func testEoa(t *testing.T, batchingEnabled bool) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
 		c.EVM[0].FinalityDepth = ptr(finalityDepth)
 	})
-	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1)
 	consumer := uni.vrfConsumers[0]
-	consumerContract := uni.consumerContracts[0]
-	consumerContractAddress := uni.consumerContractAddresses[0]
-	// Create a subscription and fund with 500 LINK.
-	subAmount := big.NewInt(1).Mul(big.NewInt(5e18), big.NewInt(100))
-	subID := subscribeAndAssertSubscriptionCreatedEvent(t, consumerContract, consumer, consumerContractAddress, subAmount, uni.rootContract, uni.backend)
 
 	// Createa a new subscription.
-	_, err := uni.rootContract.CreateSubscription(consumer)
-	require.NoError(t, err)
-	uni.backend.Commit()
-
-	// Add the EOA as a consumer.
-	_, err = uni.rootContract.AddConsumer(consumer, subID+1, consumer.From)
-	require.NoError(t, err)
-	uni.backend.Commit()
-
-	// Fund the subscription with 1 LINK.
-	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID+1)
-	require.NoError(t, err)
-	_, err = uni.linkContract.TransferAndCall(uni.sergey, uni.rootContractAddress, big.NewInt(1e18), b)
-	require.NoError(t, err)
-	uni.backend.Commit()
+	subID := setupAndFundSubscriptionAndConsumer(
+		t,
+		uni,
+		uni.rootContract,
+		uni.rootContractAddress,
+		consumer,
+		consumer.From,
+		vrfVersion,
+		assets.Ether(1).ToInt(),
+	)
 
 	// Fund gas lane.
 	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
@@ -937,10 +981,10 @@ func testEoa(t *testing.T, batchingEnabled bool) {
 		app,
 		uni.rootContract,
 		uni.rootContractAddress,
-		uni.batchCoordinatorContractAddress,
-		uni.coordinatorV2UniverseCommon,
-		ptr(uni.vrfOwnerAddress),
-		vrfcommon.V2,
+		batchCoordinatorAddress,
+		uni,
+		vrfOwnerAddress,
+		vrfVersion,
 		batchingEnabled,
 		gasLanePriceWei)
 	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
@@ -948,7 +992,7 @@ func testEoa(t *testing.T, batchingEnabled bool) {
 	// Make a randomness request with the EOA. This request is impossible to fulfill.
 	numWords := uint32(1)
 	minRequestConfirmations := uint16(2)
-	_, err = uni.rootContract.RequestRandomWords(consumer, keyHash, subID+1, minRequestConfirmations, uint32(200_000), numWords, false)
+	_, err := uni.rootContract.RequestRandomWords(consumer, keyHash, subID, minRequestConfirmations, uint32(200_000), numWords, false)
 	require.NoError(t, err)
 	uni.backend.Commit()
 
@@ -1111,7 +1155,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 
 	// Make the first randomness request.
 	numWords := uint32(1)
-	requestID, _ := requestRandomnessForWrapper(t, *consumer, uni.neil, keyHash, wrapperSubID, numWords, uint32(callBackGasLimit), uni.rootContract, uni.coordinatorV2UniverseCommon, wrapperOverhead)
+	requestID, _ := requestRandomnessForWrapper(t, *consumer, uni.neil, keyHash, new(big.Int).SetUint64(wrapperSubID), numWords, uint32(callBackGasLimit), uni.rootContract, uni.coordinatorV2UniverseCommon, wrapperOverhead)
 
 	// Wait for simulation to pass.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -1123,7 +1167,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, wrapperSubID, uni.backend, db)
+	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract)
@@ -1191,7 +1235,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 
 	// Make the first randomness request.
 	numWords := uint32(1)
-	requestID, _ := requestRandomnessForWrapper(t, *consumer, uni.neil, keyHash, wrapperSubID, numWords, uint32(callBackGasLimit), uni.rootContract, uni.coordinatorV2UniverseCommon, wrapperOverhead)
+	requestID, _ := requestRandomnessForWrapper(t, *consumer, uni.neil, keyHash, new(big.Int).SetUint64(wrapperSubID), numWords, uint32(callBackGasLimit), uni.rootContract, uni.coordinatorV2UniverseCommon, wrapperOverhead)
 
 	// Wait for simulation to pass.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -1203,7 +1247,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	// Mine the fulfillment that was queued.
-	mine(t, requestID, wrapperSubID, uni.backend, db)
+	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2)
 
 	// Assert correct state of RandomWordsFulfilled event.
 	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract)
@@ -1562,9 +1606,9 @@ func TestIntegrationVRFV2(t *testing.T) {
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// Wait for the request to be fulfilled on-chain.
-	var rf []*v22.RandomWordsFulfilled
+	var rf []v22.RandomWordsFulfilled
 	gomega.NewWithT(t).Eventually(func() bool {
-		rfIterator, err2 := uni.rootContract.FilterRandomWordsFulfilled(nil, nil)
+		rfIterator, err2 := uni.rootContract.FilterRandomWordsFulfilled(nil, nil, nil)
 		require.NoError(t, err2, "failed to logs")
 		uni.backend.Commit()
 		for rfIterator.Next() {
@@ -1699,7 +1743,7 @@ func TestRequestCost(t *testing.T) {
 		require.NoError(tt, err)
 		estimate := estimateGas(tt, uni.backend, common.Address{},
 			carolContractAddress, uni.consumerABI,
-			"requestRandomness", vrfkey.PublicKey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
+			"requestRandomness", vrfkey.PublicKey.MustHash(), subId.Uint64(), uint16(2), uint32(10000), uint32(1))
 		tt.Log("gas estimate of non-proxied testRequestRandomness:", estimate)
 		// V2 should be at least (87000-134000)/134000 = 35% cheaper
 		// Note that a second call drops further to 68998 gas, but would also drop in V1.
@@ -1728,7 +1772,7 @@ func TestRequestCost(t *testing.T) {
 		theAbi := evmtypes.MustGetABI(vrf_consumer_v2_upgradeable_example.VRFConsumerV2UpgradeableExampleMetaData.ABI)
 		estimate := estimateGas(tt, uni.backend, common.Address{},
 			consumerContractAddress, &theAbi,
-			"requestRandomness", vrfkey.PublicKey.MustHash(), subId, uint16(2), uint32(10000), uint32(1))
+			"requestRandomness", vrfkey.PublicKey.MustHash(), subId.Uint64(), uint16(2), uint32(10000), uint32(1))
 		tt.Log("gas estimate of proxied requestRandomness:", estimate)
 		// There is some gas overhead of the delegatecall that is made by the proxy
 		// to the logic contract. See https://www.evm.codes/#f4?fork=grayGlacier for a detailed
@@ -1763,12 +1807,12 @@ func TestMaxConsumersCost(t *testing.T) {
 	require.NoError(t, err)
 	estimate := estimateGas(t, uni.backend, carolContractAddress,
 		uni.rootContractAddress, uni.coordinatorABI,
-		"removeConsumer", subId, carolContractAddress)
+		"removeConsumer", subId.Uint64(), carolContractAddress)
 	t.Log(estimate)
 	assert.Less(t, estimate, uint64(310000))
 	estimate = estimateGas(t, uni.backend, carolContractAddress,
 		uni.rootContractAddress, uni.coordinatorABI,
-		"addConsumer", subId, testutils.NewAddress())
+		"addConsumer", subId.Uint64(), testutils.NewAddress())
 	t.Log(estimate)
 	assert.Less(t, estimate, uint64(100000))
 }
@@ -1822,7 +1866,7 @@ func TestFulfillmentCost(t *testing.T) {
 			PreSeed:          s,
 			BlockHash:        requestLog.Raw().BlockHash,
 			BlockNum:         requestLog.Raw().BlockNumber,
-			SubId:            subId,
+			SubId:            subId.Uint64(),
 			CallbackGasLimit: uint32(gasRequested),
 			NumWords:         uint32(nw),
 			Sender:           carolContractAddress,
@@ -1864,7 +1908,7 @@ func TestFulfillmentCost(t *testing.T) {
 			PreSeed:          s,
 			BlockHash:        requestLog.Raw().BlockHash,
 			BlockNum:         requestLog.Raw().BlockNumber,
-			SubId:            subId,
+			SubId:            subId.Uint64(),
 			CallbackGasLimit: uint32(gasRequested),
 			NumWords:         uint32(nw),
 			Sender:           consumerContractAddress,
@@ -2070,8 +2114,8 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 
 func FindLatestRandomnessRequestedLog(t *testing.T,
 	coordContract v22.CoordinatorV2_X,
-	keyHash [32]byte) *v22.RandomWordsRequested {
-	var rf []*v22.RandomWordsRequested
+	keyHash [32]byte) v22.RandomWordsRequested {
+	var rf []v22.RandomWordsRequested
 	gomega.NewWithT(t).Eventually(func() bool {
 		rfIterator, err2 := coordContract.FilterRandomWordsRequested(nil, [][32]byte{keyHash}, nil, []common.Address{})
 		require.NoError(t, err2, "failed to logs")

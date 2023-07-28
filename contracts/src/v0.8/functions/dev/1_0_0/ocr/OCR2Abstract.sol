@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
 
@@ -19,7 +19,7 @@ abstract contract OCR2Abstract is ITypeAndVersion {
    * @param offchainConfigVersion version of the serialization format used for "offchainConfig" parameter
    * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
    */
-  event OCRConfigSet(
+  event ConfigSet(
     uint32 previousConfigBlockNumber,
     bytes32 configDigest,
     uint64 configCount,

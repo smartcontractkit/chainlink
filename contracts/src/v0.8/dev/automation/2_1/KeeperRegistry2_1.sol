@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
 import "./KeeperRegistryBase2_1.sol";
-import "./KeeperRegistryLogicA2_1.sol";
+import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
 import "../../../interfaces/ERC677ReceiverInterface.sol";
 import "../../../OCR2Abstract.sol";
@@ -40,16 +40,17 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   string public constant override typeAndVersion = "KeeperRegistry 2.1.0";
 
   /**
-   * @param logicA the address of the first logic contract
+   * @param logicA the address of the first logic contract, but cast as logicB in order to call logicB functions
    */
   constructor(
-    KeeperRegistryLogicA2_1 logicA
+    KeeperRegistryLogicB2_1 logicA
   )
     KeeperRegistryBase2_1(
       logicA.getMode(),
       logicA.getLinkAddress(),
       logicA.getLinkNativeFeedAddress(),
-      logicA.getFastGasFeedAddress()
+      logicA.getFastGasFeedAddress(),
+      logicA.getAutomationForwarderLogic()
     )
     Chainable(address(logicA))
   {}
@@ -85,17 +86,17 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
 
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
-      upkeepTransmitInfo[i].triggerType = getTriggerType(report.upkeepIds[i]);
+      upkeepTransmitInfo[i].triggerType = _getTriggerType(report.upkeepIds[i]);
       upkeepTransmitInfo[i].maxLinkPayment = _getMaxLinkPayment(
         hotVars,
         upkeepTransmitInfo[i].triggerType,
-        upkeepTransmitInfo[i].upkeep.executeGas,
+        uint32(report.gasLimits[i]),
         uint32(report.performDatas[i].length),
         report.fastGasWei,
         report.linkNative,
         true
       );
-      upkeepTransmitInfo[i].triggerID = _triggerID(report.upkeepIds[i], report.triggers[i]);
+      upkeepTransmitInfo[i].upkeepTriggerID = _upkeepTriggerID(report.upkeepIds[i], report.triggers[i]);
       (upkeepTransmitInfo[i].earlyChecksPassed, upkeepTransmitInfo[i].dedupID) = _prePerformChecks(
         report.upkeepIds[i],
         report.triggers[i],
@@ -166,7 +167,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
             reimbursement + premium,
             upkeepTransmitInfo[i].gasUsed,
             upkeepTransmitInfo[i].gasOverhead,
-            upkeepTransmitInfo[i].triggerID
+            upkeepTransmitInfo[i].upkeepTriggerID
           );
         }
       }
@@ -194,9 +195,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     bytes calldata performData
   ) external cannotExecute returns (bool success, uint256 gasUsed) {
     if (s_hotVars.paused) revert RegistryPaused();
-
     Upkeep memory upkeep = s_upkeep[id];
-    (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.executeGas, performData);
+    (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.performGas, performData);
     return (success, gasUsed);
   }
 
@@ -211,10 +211,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
-
     emit FundsAdded(id, sender, uint96(amount));
   }
 
@@ -234,7 +232,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external override {
-    setConfig(
+    setConfigTypeSafe(
       signers,
       transmitters,
       f,
@@ -244,7 +242,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     );
   }
 
-  function setConfig(
+  function setConfigTypeSafe(
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,
@@ -392,212 +390,5 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     returns (bool scanLogs, bytes32 configDigest, uint32 epoch)
   {
     return (false, s_latestConfigDigest, s_hotVars.latestEpoch);
-  }
-
-  ////////////////////////
-  // INTERNAL FUNCTIONS //
-  ////////////////////////
-
-  /**
-   * @dev _decodeReport decodes a serialized report into a Report struct
-   */
-  function _decodeReport(bytes calldata rawReport) internal pure returns (Report memory) {
-    Report memory report = abi.decode(rawReport, (Report));
-    uint256 expectedLength = report.upkeepIds.length;
-    if (
-      report.gasLimits.length != expectedLength ||
-      report.triggers.length != expectedLength ||
-      report.performDatas.length != expectedLength
-    ) {
-      revert InvalidReport();
-    }
-    return report;
-  }
-
-  /**
-   * @dev Does some early sanity checks before actually performing an upkeep
-   * @return bool whether the upkeep should be performed
-   * @return bytes32 dedupID for preventing duplicate performances of this trigger
-   */
-  function _prePerformChecks(
-    uint256 upkeepId,
-    bytes memory rawTrigger,
-    UpkeepTransmitInfo memory transmitInfo
-  ) internal returns (bool, bytes32) {
-    bytes32 dedupID;
-    if (transmitInfo.triggerType == Trigger.CONDITION) {
-      if (!_validateConditionalTrigger(upkeepId, rawTrigger, transmitInfo)) return (false, dedupID);
-    } else if (transmitInfo.triggerType == Trigger.LOG) {
-      bool valid;
-      (valid, dedupID) = _validateLogTrigger(upkeepId, rawTrigger, transmitInfo);
-      if (!valid) return (false, dedupID);
-    } else {
-      revert InvalidTriggerType();
-    }
-    if (transmitInfo.upkeep.maxValidBlocknumber <= _blockNum()) {
-      // Can happen when an upkeep got cancelled after report was generated.
-      // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
-      emit CancelledUpkeepReport(upkeepId, transmitInfo.triggerID);
-      return (false, dedupID);
-    }
-
-    if (transmitInfo.upkeep.balance < transmitInfo.maxLinkPayment) {
-      // Can happen due to flucutations in gas / link prices
-      emit InsufficientFundsUpkeepReport(upkeepId, transmitInfo.triggerID);
-      return (false, dedupID);
-    }
-
-    return (true, dedupID);
-  }
-
-  /**
-   * @dev Does some early sanity checks before actually performing an upkeep
-   */
-  function _validateConditionalTrigger(
-    uint256 upkeepId,
-    bytes memory rawTrigger,
-    UpkeepTransmitInfo memory transmitInfo
-  ) internal returns (bool) {
-    ConditionalTrigger memory trigger = abi.decode(rawTrigger, (ConditionalTrigger));
-    if (trigger.blockNum < transmitInfo.upkeep.lastPerformedBlockNumber) {
-      // Can happen when another report performed this upkeep after this report was generated
-      emit StaleUpkeepReport(upkeepId, transmitInfo.triggerID);
-      return false;
-    }
-    if (
-      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
-      trigger.blockNum >= _blockNum()
-    ) {
-      // There are two cases of reorged report
-      // 1. trigger block number is in future: this is an edge case during extreme deep reorgs of chain
-      // which is always protected against
-      // 2. blockHash at trigger block number was same as trigger time. This is an optional check which is
-      // applied if DON sends non empty trigger.blockHash. Note: It only works for last 256 blocks on chain
-      // when it is sent
-      emit ReorgedUpkeepReport(upkeepId, transmitInfo.triggerID);
-      return false;
-    }
-    return true;
-  }
-
-  function _validateLogTrigger(
-    uint256 upkeepId,
-    bytes memory rawTrigger,
-    UpkeepTransmitInfo memory transmitInfo
-  ) internal returns (bool, bytes32) {
-    LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
-    bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.txHash, trigger.logIndex));
-    if (
-      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
-      trigger.blockNum >= _blockNum()
-    ) {
-      // Reorg protection is same as conditional trigger upkeeps
-      emit ReorgedUpkeepReport(upkeepId, transmitInfo.triggerID);
-      return (false, dedupID);
-    }
-    if (s_dedupKeys[dedupID]) {
-      emit StaleUpkeepReport(upkeepId, transmitInfo.triggerID);
-      return (false, dedupID);
-    }
-    return (true, dedupID);
-  }
-
-  /**
-   * @dev Verify signatures attached to report
-   */
-  function _verifyReportSignature(
-    bytes32[3] calldata reportContext,
-    bytes calldata report,
-    bytes32[] calldata rs,
-    bytes32[] calldata ss,
-    bytes32 rawVs
-  ) internal view {
-    bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
-    // i-th byte counts number of sigs made by i-th signer
-    uint256 signedCount = 0;
-
-    Signer memory signer;
-    address signerAddress;
-    for (uint256 i = 0; i < rs.length; i++) {
-      signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
-      signer = s_signers[signerAddress];
-      if (!signer.active) revert OnlyActiveSigners();
-      unchecked {
-        signedCount += 1 << (8 * signer.index);
-      }
-    }
-
-    if (signedCount & ORACLE_MASK != signedCount) revert DuplicateSigners();
-  }
-
-  /**
-   * @notice updates a storage marker for this upkeep to prevent duplicate and out of order performances
-   * @dev for conditional triggers we set the latest block number, for log triggers we store a dedupID
-   */
-  function _updateTriggerMarker(uint256 upkeepID, UpkeepTransmitInfo memory upkeepTransmitInfo) private {
-    if (upkeepTransmitInfo.triggerType == Trigger.CONDITION) {
-      s_upkeep[upkeepID].lastPerformedBlockNumber = uint32(_blockNum());
-    } else if (upkeepTransmitInfo.triggerType == Trigger.LOG) {
-      s_dedupKeys[upkeepTransmitInfo.dedupID] = true;
-    }
-  }
-
-  /**
-   * @dev calls the Upkeep target with the performData param passed in by the
-   * transmitter and the exact gas required by the Upkeep
-   */
-  function _performUpkeep(
-    AutomationForwarder forwarder,
-    uint256 executeGas,
-    bytes memory performData
-  ) private nonReentrant returns (bool success, uint256 gasUsed) {
-    performData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
-    return forwarder.forward(executeGas, performData);
-  }
-
-  /**
-   * @dev does postPerform payment processing for an upkeep. Deducts upkeep's balance and increases
-   * amount spent.
-   */
-  function _postPerformPayment(
-    HotVars memory hotVars,
-    uint256 upkeepId,
-    UpkeepTransmitInfo memory upkeepTransmitInfo,
-    uint256 fastGasWei,
-    uint256 linkNative,
-    uint16 numBatchedUpkeeps
-  ) internal returns (uint96 gasReimbursement, uint96 premium) {
-    (gasReimbursement, premium) = _calculatePaymentAmount(
-      hotVars,
-      upkeepTransmitInfo.gasUsed,
-      upkeepTransmitInfo.gasOverhead,
-      fastGasWei,
-      linkNative,
-      numBatchedUpkeeps,
-      true
-    );
-
-    uint96 payment = gasReimbursement + premium;
-    s_upkeep[upkeepId].balance -= payment;
-    s_upkeep[upkeepId].amountSpent += payment;
-
-    return (gasReimbursement, premium);
-  }
-
-  /**
-   * @dev Caps the gas overhead by the constant overhead used within initial payment checks in order to
-   * prevent a revert in payment processing.
-   */
-  function _getCappedGasOverhead(
-    uint256 calculatedGasOverhead,
-    Trigger triggerType,
-    uint32 performDataLength,
-    uint8 f
-  ) private pure returns (uint256 cappedGasOverhead) {
-    cappedGasOverhead = _getMaxGasOverhead(triggerType, performDataLength, f);
-    if (calculatedGasOverhead < cappedGasOverhead) {
-      return calculatedGasOverhead;
-    }
-    return cappedGasOverhead;
   }
 }

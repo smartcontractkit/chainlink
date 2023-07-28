@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {IFunctionsBilling, FunctionsBilling} from "./FunctionsBilling.sol";
@@ -20,12 +20,15 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     uint64 subscriptionId,
     address subscriptionOwner,
     bytes data,
-    uint16 dataVersion
+    uint16 dataVersion,
+    bytes32 flags,
+    uint64 callbackGasLimit
   );
   event OracleResponse(bytes32 indexed requestId, address transmitter);
   event InvalidRequestID(bytes32 indexed requestId);
   event InsufficientGasProvided(bytes32 indexed requestId);
   event CostExceedsCommitment(bytes32 indexed requestId);
+  event InsufficientSubscriptionBalance(bytes32 indexed requestId);
 
   error EmptyRequestData();
   error InconsistentReportData();
@@ -33,7 +36,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   error UnauthorizedPublicKeyChange();
 
   bytes private s_donPublicKey;
-  mapping(address => bytes) private s_nodePublicKeys;
+  mapping(address signerAddress => bytes publicKey) private s_nodePublicKeys;
   bytes private s_thresholdPublicKey;
 
   constructor(
@@ -53,6 +56,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    * @inheritdoc IFunctionsCoordinator
    */
   function getThresholdPublicKey() external view override returns (bytes memory) {
+    if (s_thresholdPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
     return s_thresholdPublicKey;
   }
 
@@ -70,6 +76,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    * @inheritdoc IFunctionsCoordinator
    */
   function getDONPublicKey() external view override returns (bytes memory) {
+    if (s_donPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
     return s_donPublicKey;
   }
 
@@ -125,6 +134,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     address[] memory nodes = this.transmitters();
     bytes[] memory keys = new bytes[](nodes.length);
     for (uint256 i = 0; i < nodes.length; i++) {
+      if (s_nodePublicKeys[nodes[i]].length == 0) {
+        revert EmptyPublicKey();
+      }
       keys[i] = s_nodePublicKeys[nodes[i]];
     }
     return (nodes, keys);
@@ -147,7 +159,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     RequestBilling memory billing = IFunctionsBilling.RequestBilling(
       request.subscriptionId,
-      request.caller,
+      request.requestingContract,
       request.callbackGasLimit,
       tx.gasprice
     );
@@ -160,12 +172,14 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     emit OracleRequest(
       requestId,
-      request.caller,
+      request.requestingContract,
       tx.origin,
       request.subscriptionId,
       request.subscriptionOwner,
       request.data,
-      request.dataVersion
+      request.dataVersion,
+      request.flags,
+      request.callbackGasLimit
     );
   }
 
@@ -228,6 +242,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
         emit InsufficientGasProvided(requestIds[i]);
       } else if (result == FulfillResult.COST_EXCEEDS_COMMITMENT) {
         emit CostExceedsCommitment(requestIds[i]);
+      } else if (result == FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE) {
+        emit InsufficientSubscriptionBalance(requestIds[i]);
       }
     }
   }

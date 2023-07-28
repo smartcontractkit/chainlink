@@ -90,7 +90,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.stranger)
             .requestSubscriptionOwnerTransfer(subId, roles.strangerAddress),
-        ).to.be.revertedWith(`MustBeSubOwner("${roles.subOwnerAddress}")`)
+        ).to.be.revertedWith(`MustBeSubOwner()`)
       })
       it('owner can request transfer', async function () {
         await expect(
@@ -184,7 +184,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.stranger)
             .addConsumer(subId, roles.strangerAddress),
-        ).to.be.revertedWith(`MustBeSubOwner("${roles.subOwnerAddress}")`)
+        ).to.be.revertedWith(`MustBeSubOwner()`)
       })
       it('add is idempotent', async function () {
         await contracts.router
@@ -260,7 +260,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.stranger)
             .removeConsumer(subId, roles.strangerAddress),
-        ).to.be.revertedWith(`MustBeSubOwner("${roles.subOwnerAddress}")`)
+        ).to.be.revertedWith(`MustBeSubOwner()`)
       })
       it('owner can update', async function () {
         const subBefore = await contracts.router.getSubscription(subId)
@@ -330,6 +330,7 @@ describe('Functions Router - Subscriptions', () => {
             `return 'hello world'`,
             subId,
             donLabel,
+            20_000,
           )
         expect(
           await contracts.router
@@ -361,7 +362,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.stranger)
             .cancelSubscription(subId, roles.subOwnerAddress),
-        ).to.be.revertedWith(`MustBeSubOwner("${roles.subOwnerAddress}")`)
+        ).to.be.revertedWith(`MustBeSubOwner()`)
       })
       it('can cancel', async function () {
         await contracts.linkToken
@@ -430,6 +431,7 @@ describe('Functions Router - Subscriptions', () => {
             `return 'hello world'`,
             subId,
             donLabel,
+            20_000,
           )
         // Should revert with outstanding requests
         await expect(
@@ -548,6 +550,24 @@ describe('Functions Router - Subscriptions', () => {
           .connect(roles.oracleNode)
           .oracleWithdraw(randomAddressString(), BigNumber.from('100')),
       ).to.be.revertedWith(`InsufficientBalance`)
+    })
+  })
+
+  describe('#flagsSet', async function () {
+    it('get flags that were previously set', async function () {
+      const flags = ethers.utils.formatBytes32String('arbitrary_byte_values')
+      await acceptTermsOfService(
+        contracts.accessControl,
+        roles.subOwner,
+        roles.subOwnerAddress,
+      )
+      await expect(
+        contracts.router.connect(roles.subOwner).createSubscription(),
+      )
+        .to.emit(contracts.router, 'SubscriptionCreated')
+        .withArgs(1, roles.subOwnerAddress)
+      await contracts.router.setFlags(1, flags)
+      expect(await contracts.router.getFlags(1)).to.equal(flags)
     })
   })
 })

@@ -23,7 +23,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   LinkTokenInterface public s_link;
   AggregatorV3Interface public s_linkEthFeed;
   ExtendedVRFCoordinatorV2PlusInterface public immutable COORDINATOR;
-  uint64 public immutable SUBSCRIPTION_ID;
+  uint256 public immutable SUBSCRIPTION_ID;
   /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
   /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
   /// @dev commitmentSize = 5 words = 5 * 256 = 1280 bits
@@ -106,7 +106,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     COORDINATOR = ExtendedVRFCoordinatorV2PlusInterface(_coordinator);
 
     // Create this wrapper's subscription and add itself as a consumer.
-    uint64 subId = ExtendedVRFCoordinatorV2PlusInterface(_coordinator).createSubscription();
+    uint256 subId = ExtendedVRFCoordinatorV2PlusInterface(_coordinator).createSubscription();
     SUBSCRIPTION_ID = subId;
     ExtendedVRFCoordinatorV2PlusInterface(_coordinator).addConsumer(subId, address(this));
   }

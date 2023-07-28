@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
@@ -27,15 +27,13 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 private s_totalBalance;
 
-  mapping(uint64 => IFunctionsSubscriptions.Subscription) /* subscriptionId */ /* subscription */
-    internal s_subscriptions;
+  mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) internal s_subscriptions;
 
   // We need to maintain a list of addresses that can consume a subscription.
   // This bound ensures we are able to loop over them as needed.
   // Should a user require more consumers, they can use multiple subscriptions.
   uint16 private constant MAX_CONSUMERS = 100;
-  mapping(address => mapping(uint64 => IFunctionsSubscriptions.Consumer)) /* consumer */ /* subscriptionId */ /* Consumer data */
-    internal s_consumers;
+  mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) internal s_consumers;
 
   event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
   event SubscriptionFunded(uint64 indexed subscriptionId, uint256 oldBalance, uint256 newBalance);
@@ -52,14 +50,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   error InvalidSubscription();
   error OnlyCallableFromLink();
   error InvalidCalldata();
-  error MustBeSubOwner(address owner);
+  error MustBeSubOwner();
   error PendingRequestExists();
   error MustBeRequestedOwner(address proposedOwner);
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
 
   // @dev NOP balances are held as a single amount. The breakdown is held by the Coordinator.
-  mapping(address => uint96) /* Coordinator => LINK balance (Juels) */ private s_withdrawableTokens;
+  mapping(address coordinator => uint96 balanceJuelsLink) private s_withdrawableTokens;
 
   // ================================================================
   // |                       Request state                          |
@@ -76,7 +74,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint96 adminFee;
   }
 
-  mapping(bytes32 => Commitment) /* request ID */ /* Request data */ internal s_requestCommitments;
+  mapping(bytes32 requestId => Commitment) internal s_requestCommitments;
 
   struct Receipt {
     uint96 callbackGasCostJuels;
@@ -235,7 +233,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function ownerCancelSubscription(uint64 subscriptionId) external override onlyRouterOwner {
+  function ownerCancelSubscription(uint64 subscriptionId) external override {
+    _onlyRouterOwner();
     address owner = s_subscriptions[subscriptionId].owner;
     if (owner == address(0)) {
       revert InvalidSubscription();
@@ -246,7 +245,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function recoverFunds(address to) external override onlyRouterOwner {
+  function recoverFunds(address to) external override {
+    _onlyRouterOwner();
     uint256 externalBalance = LINK.balanceOf(address(this));
     uint256 internalBalance = uint256(s_totalBalance);
     if (internalBalance > externalBalance) {
@@ -266,7 +266,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
-  function ownerWithdraw(address recipient, uint96 amount) internal nonReentrant onlyRouterOwner {
+  function ownerWithdraw(address recipient, uint96 amount) internal {
+    _nonReentrant();
+    _onlyRouterOwner();
     if (amount == 0) {
       amount = s_withdrawableTokens[address(this)];
     }
@@ -288,7 +290,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function oracleWithdraw(address recipient, uint96 amount) external override nonReentrant {
+  function oracleWithdraw(address recipient, uint96 amount) external override {
+    _nonReentrant();
     if (amount == 0) {
       revert InvalidCalldata();
     }
@@ -305,7 +308,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // ================================================================
   // |                   Deposit helper method                      |
   // ================================================================
-  function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override nonReentrant {
+  function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override {
+    _nonReentrant();
     if (msg.sender != address(LINK)) {
       revert OnlyCallableFromLink();
     }
@@ -330,13 +334,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function createSubscription()
-    external
-    override
-    nonReentrant
-    onlySenderThatAcceptedToS
-    returns (uint64 subscriptionId)
-  {
+  function createSubscription() external override returns (uint64 subscriptionId) {
+    _nonReentrant();
+    _onlySenderThatAcceptedToS();
+
     s_currentsubscriptionId++;
     subscriptionId = s_currentsubscriptionId;
     s_subscriptions[subscriptionId] = Subscription({
@@ -344,7 +345,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       blockedBalance: 0,
       owner: msg.sender,
       requestedOwner: address(0),
-      consumers: new address[](0)
+      consumers: new address[](0),
+      flags: bytes32(0)
     });
 
     emit SubscriptionCreated(subscriptionId, msg.sender);
@@ -353,10 +355,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function requestSubscriptionOwnerTransfer(
-    uint64 subscriptionId,
-    address newOwner
-  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant onlySenderThatAcceptedToS {
+  function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external override {
+    _onlySubscriptionOwner(subscriptionId);
+    _nonReentrant();
+    _onlySenderThatAcceptedToS();
+
     // Proposing to address(0) would never be claimable, so don't need to check.
 
     if (s_subscriptions[subscriptionId].requestedOwner != newOwner) {
@@ -368,9 +371,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function acceptSubscriptionOwnerTransfer(
-    uint64 subscriptionId
-  ) external override nonReentrant onlySenderThatAcceptedToS {
+  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external override {
+    _nonReentrant();
+    _onlySenderThatAcceptedToS();
     address previousOwner = s_subscriptions[subscriptionId].owner;
     address nextOwner = s_subscriptions[subscriptionId].requestedOwner;
     if (nextOwner != msg.sender) {
@@ -384,10 +387,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function removeConsumer(
-    uint64 subscriptionId,
-    address consumer
-  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant onlySenderThatAcceptedToS {
+  function removeConsumer(uint64 subscriptionId, address consumer) external override {
+    _onlySubscriptionOwner(subscriptionId);
+    _nonReentrant();
+    _onlySenderThatAcceptedToS();
     Consumer memory consumerData = s_consumers[consumer][subscriptionId];
     if (!consumerData.allowed) {
       revert InvalidConsumer(subscriptionId, consumer);
@@ -415,10 +418,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function addConsumer(
-    uint64 subscriptionId,
-    address consumer
-  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant onlySenderThatAcceptedToS {
+  function addConsumer(uint64 subscriptionId, address consumer) external override {
+    _onlySubscriptionOwner(subscriptionId);
+    _nonReentrant();
+    _onlySenderThatAcceptedToS();
     // Already maxed, cannot add any more consumers.
     if (s_subscriptions[subscriptionId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
@@ -437,17 +440,18 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function cancelSubscription(
-    uint64 subscriptionId,
-    address to
-  ) external override onlySubscriptionOwner(subscriptionId) nonReentrant onlySenderThatAcceptedToS {
+  function cancelSubscription(uint64 subscriptionId, address to) external override {
+    _onlySubscriptionOwner(subscriptionId);
+    _nonReentrant();
+    _onlySenderThatAcceptedToS();
     if (_pendingRequestExists(subscriptionId)) {
       revert PendingRequestExists();
     }
     _cancelSubscriptionHelper(subscriptionId, to);
   }
 
-  function _cancelSubscriptionHelper(uint64 subscriptionId, address to) private nonReentrant {
+  function _cancelSubscriptionHelper(uint64 subscriptionId, address to) private {
+    _nonReentrant();
     Subscription memory sub = s_subscriptions[subscriptionId];
     uint96 balance = sub.balance;
     // Note bounded by MAX_CONSUMERS;
@@ -481,13 +485,34 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     return false;
   }
 
+  /**
+   * @inheritdoc IFunctionsSubscriptions
+   */
+  function setFlags(uint64 subscriptionId, bytes32 flags) external override {
+    _onlyRouterOwner();
+    _isValidSubscription(subscriptionId);
+    s_subscriptions[subscriptionId].flags = flags;
+  }
+
+  function _getFlags(uint64 subscriptionId) internal view returns (bytes32) {
+    return s_subscriptions[subscriptionId].flags;
+  }
+
+  /**
+   * @inheritdoc IFunctionsSubscriptions
+   */
+  function getFlags(uint64 subscriptionId) external view returns (bytes32) {
+    return _getFlags(subscriptionId);
+  }
+
   // ================================================================
   // |                  Request Timeout Methods                     |
   // ================================================================
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override nonReentrant {
+  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override {
+    _nonReentrant();
     for (uint256 i = 0; i < requestIdsToTimeout.length; i++) {
       bytes32 requestId = requestIdsToTimeout[i];
       Commitment memory request = s_requestCommitments[requestId];
@@ -497,7 +522,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       _isValidSubscription(subscriptionId);
       address owner = s_subscriptions[subscriptionId].owner;
       if (msg.sender != owner) {
-        revert MustBeSubOwner(owner);
+        revert MustBeSubOwner();
       }
 
       // Check that request has exceeded allowed request time
@@ -520,29 +545,23 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // ================================================================
   // |                         Modifiers                            |
   // ================================================================
-  modifier onlySubscriptionOwner(uint64 subscriptionId) {
+  function _onlySubscriptionOwner(uint64 subscriptionId) internal view {
     address owner = s_subscriptions[subscriptionId].owner;
     if (owner == address(0)) {
       revert InvalidSubscription();
     }
     if (msg.sender != owner) {
-      revert MustBeSubOwner(owner);
+      revert MustBeSubOwner();
     }
-    _;
   }
 
-  modifier nonReentrant() {
+  function _nonReentrant() internal view {
     if (s_reentrancyLock) {
       revert Reentrant();
     }
-    _;
   }
 
-  modifier onlySenderThatAcceptedToS() virtual {
-    _;
-  }
+  function _onlySenderThatAcceptedToS() internal virtual;
 
-  modifier onlyRouterOwner() virtual {
-    _;
-  }
+  function _onlyRouterOwner() internal virtual;
 }

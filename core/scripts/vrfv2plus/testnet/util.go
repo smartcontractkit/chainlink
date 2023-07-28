@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
@@ -50,13 +51,10 @@ func deployCoordinator(
 	coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
-	linkTx, err := coordinator.SetLINK(e.Owner, common.HexToAddress(linkAddress))
+	linkTx, err := coordinator.SetLINKAndLINKETHFeed(e.Owner,
+		common.HexToAddress(linkAddress), common.HexToAddress(linkEthAddress))
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, linkTx, e.ChainID)
-
-	linkETHTx, err := coordinator.SetLinkEthFeed(e.Owner, common.HexToAddress(linkEthAddress))
-	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, linkETHTx, e.ChainID)
 	return coordinatorAddress
 }
 
@@ -67,7 +65,7 @@ func deployBatchCoordinatorV2(e helpers.Environment, coordinatorAddress common.A
 }
 
 func eoaAddConsumerToSub(e helpers.Environment,
-	coordinator vrf_coordinator_v2plus.VRFCoordinatorV2Plus, subID uint64, consumerAddress string) {
+	coordinator vrf_coordinator_v2plus.VRFCoordinatorV2Plus, subID *big.Int, consumerAddress string) {
 	txadd, err := coordinator.AddConsumer(e.Owner, subID, common.HexToAddress(consumerAddress))
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, txadd, e.ChainID)
@@ -77,6 +75,24 @@ func eoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2plus.VRFC
 	tx, err := coordinator.CreateSubscription(e.Owner)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+// returns subscription ID that belongs to the given owner. Returns result found first
+func findSubscriptionID(e helpers.Environment, coordinator *vrf_coordinator_v2plus.VRFCoordinatorV2Plus) *big.Int {
+	// Use most recent 500 blocks as search window.
+	head, err := e.Ec.BlockNumber(context.Background())
+	helpers.PanicErr(err)
+	fopts := &bind.FilterOpts{
+		Start: head - 500,
+	}
+
+	subscriptionIterator, err := coordinator.FilterSubscriptionCreated(fopts, nil)
+	helpers.PanicErr(err)
+
+	if !subscriptionIterator.Next() {
+		helpers.PanicErr(fmt.Errorf("expected at least 1 subID for the given owner %s", e.Owner.From.Hex()))
+	}
+	return subscriptionIterator.Event.SubId
 }
 
 func eoaDeployConsumer(e helpers.Environment,
@@ -93,13 +109,13 @@ func eoaDeployConsumer(e helpers.Environment,
 }
 
 func eoaFundSubscription(e helpers.Environment,
-	coordinator vrf_coordinator_v2plus.VRFCoordinatorV2Plus, linkAddress string, amount *big.Int, subID uint64) {
+	coordinator vrf_coordinator_v2plus.VRFCoordinatorV2Plus, linkAddress string, amount, subID *big.Int) {
 	linkToken, err := link_token_interface.NewLinkToken(common.HexToAddress(linkAddress), e.Ec)
 	helpers.PanicErr(err)
 	bal, err := linkToken.BalanceOf(nil, e.Owner.From)
 	helpers.PanicErr(err)
 	fmt.Println("Initial account balance:", bal, e.Owner.From.String(), "Funding amount:", amount.String())
-	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
+	b, err := utils.ABIEncode(`[{"type":"uint256"}]`, subID)
 	helpers.PanicErr(err)
 	tx, err := linkToken.TransferAndCall(e.Owner, coordinator.Address(), amount, b)
 	helpers.PanicErr(err)
@@ -163,7 +179,7 @@ func registerCoordinatorProvingKey(e helpers.Environment,
 func wrapperDeploy(
 	e helpers.Environment,
 	link, linkEthFeed, coordinator common.Address,
-) (common.Address, uint64) {
+) (common.Address, *big.Int) {
 	address, tx, _, err := vrfv2plus_wrapper.DeployVRFV2PlusWrapper(e.Owner, e.Ec,
 		link,
 		linkEthFeed,

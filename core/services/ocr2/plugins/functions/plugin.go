@@ -121,9 +121,10 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	allServices = append(allServices, functionsListener)
 
 	functionsOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
-		Logger:    functionsOracleArgs.Logger,
-		PluginORM: pluginORM,
-		JobID:     conf.Job.ExternalJobID,
+		Logger:          functionsOracleArgs.Logger,
+		PluginORM:       pluginORM,
+		JobID:           conf.Job.ExternalJobID,
+		ContractVersion: pluginConfig.ContractVersion,
 	}
 	functionsReportingPluginOracle, err := libocr2.NewOracle(*functionsOracleArgs)
 	if err != nil {

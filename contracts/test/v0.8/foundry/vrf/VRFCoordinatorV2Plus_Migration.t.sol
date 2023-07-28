@@ -10,8 +10,8 @@ import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 
 contract VRFCoordinatorV2Plus_Migration is BaseTest {
-  uint256 internal constant DEFAULT_LINK_FUNDING = 10 * 1e18; // 10 LINK
-  uint256 internal constant DEFAULT_NATIVE_FUNDING = 50 * 1e18; // 5 ETH
+  uint256 internal constant DEFAULT_LINK_FUNDING = 10 ether; // 10 LINK
+  uint256 internal constant DEFAULT_NATIVE_FUNDING = 50 ether; // 50 ETH
   uint32 internal constant DEFAULT_CALLBACK_GAS_LIMIT = 50_000;
   uint16 internal constant DEFAULT_REQUEST_CONFIRMATIONS = 3;
   uint32 internal constant DEFAULT_NUM_WORDS = 1;
@@ -25,7 +25,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
 
   ExposedVRFCoordinatorV2Plus v1Coordinator;
   VRFCoordinatorV2Plus_V2Example v2Coordinator;
-  uint64 v1SubId;
+  uint256 subId;
   VRFV2PlusConsumerExample testConsumer;
   MockLinkToken linkToken;
   address linkTokenAddr;
@@ -35,18 +35,17 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
 
   event CoordinatorRegistered(address coordinatorAddress);
   event CoordinatorDeregistered(address coordinatorAddress);
-  event MigrationCompleted(address newCoordinator, uint64 prevSubId, uint64 newSubId);
+  event MigrationCompleted(address newCoordinator, uint256 subId);
 
   function setUp() public override {
     BaseTest.setUp();
     vm.deal(OWNER, 100 ether);
     address bhs = makeAddr("bhs");
     v1Coordinator = new ExposedVRFCoordinatorV2Plus(bhs);
-    v1SubId = v1Coordinator.createSubscription();
+    subId = v1Coordinator.createSubscription();
     linkToken = new MockLinkToken();
     linkEthFeed = new MockV3Aggregator(18, 500000000000000000); // .5 ETH (good for testing)
-    v1Coordinator.setLINK(address(linkToken));
-    v1Coordinator.setLinkEthFeed(address(linkEthFeed));
+    v1Coordinator.setLINKAndLINKETHFeed(address(linkToken), address(linkEthFeed));
     linkTokenAddr = address(linkToken);
     v2Coordinator = new VRFCoordinatorV2Plus_V2Example(address(linkToken), address(v1Coordinator));
     v1CoordinatorAddr = address(v1Coordinator);
@@ -72,7 +71,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
       VRFCoordinatorV2Plus.FeeConfig({fulfillmentFlatFeeLinkPPM: 200, fulfillmentFlatFeeEthPPM: 100})
     );
     registerProvingKey();
-    testConsumer.setConfig(v1CoordinatorAddr, v1SubId);
+    testConsumer.setCoordinator(v1CoordinatorAddr);
   }
 
   function testDeregister() public {
@@ -87,7 +86,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
     assertFalse(v1Coordinator.isTargetRegisteredExternal(v2CoordinatorAddr));
 
     vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2Plus.CoordinatorNotRegistered.selector, v2CoordinatorAddr));
-    v1Coordinator.migrate(v1SubId, v2CoordinatorAddr);
+    v1Coordinator.migrate(subId, v2CoordinatorAddr);
 
     // test register/deregister multiple coordinators
     address v3CoordinatorAddr = makeAddr("v3Coordinator");
@@ -114,13 +113,13 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
   }
 
   function testMigration() public {
-    linkToken.transferAndCall(v1CoordinatorAddr, DEFAULT_LINK_FUNDING, abi.encode(v1SubId));
-    v1Coordinator.fundSubscriptionWithEth{value: DEFAULT_NATIVE_FUNDING}(v1SubId);
-    v1Coordinator.addConsumer(v1SubId, address(testConsumer));
+    linkToken.transferAndCall(v1CoordinatorAddr, DEFAULT_LINK_FUNDING, abi.encode(subId));
+    v1Coordinator.fundSubscriptionWithEth{value: DEFAULT_NATIVE_FUNDING}(subId);
+    v1Coordinator.addConsumer(subId, address(testConsumer));
 
     // subscription exists in V1 coordinator before migration
     (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) = v1Coordinator.getSubscription(
-      v1SubId
+      subId
     );
     assertEq(balance, DEFAULT_LINK_FUNDING);
     assertEq(ethBalance, DEFAULT_NATIVE_FUNDING);
@@ -138,20 +137,19 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
       false, // no third indexed field
       true // check data fields
     );
-    emit MigrationCompleted(v2CoordinatorAddr, v1SubId, 1);
-    uint64 newSubId = v1Coordinator.migrate(v1SubId, v2CoordinatorAddr);
+    emit MigrationCompleted(v2CoordinatorAddr, subId);
+    v1Coordinator.migrate(subId, v2CoordinatorAddr);
 
     // subscription no longer exists in v1 coordinator after migration
     vm.expectRevert(SubscriptionAPI.InvalidSubscription.selector);
-    v1Coordinator.getSubscription(v1SubId);
-    assertEq(newSubId, 1);
+    v1Coordinator.getSubscription(subId);
     assertEq(v1Coordinator.s_totalBalance(), 0);
     assertEq(v1Coordinator.s_totalEthBalance(), 0);
     assertEq(linkToken.balanceOf(v1CoordinatorAddr), 0);
     assertEq(v1CoordinatorAddr.balance, 0);
 
     // subscription exists in v2 coordinator
-    (owner, consumers, balance, ethBalance) = v2Coordinator.getSubscription(newSubId);
+    (owner, consumers, balance, ethBalance) = v2Coordinator.getSubscription(subId);
     assertEq(owner, address(OWNER));
     assertEq(consumers.length, 1);
     assertEq(consumers[0], address(testConsumer));
@@ -164,7 +162,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
 
     // calling migrate again on V1 coordinator should fail
     vm.expectRevert(SubscriptionAPI.InvalidSubscription.selector);
-    v1Coordinator.migrate(v1SubId, v2CoordinatorAddr);
+    v1Coordinator.migrate(subId, v2CoordinatorAddr);
 
     // test request still works after migration
     testConsumer.requestRandomWords(
@@ -189,17 +187,18 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
     vm.expectRevert(
       abi.encodeWithSelector(VRFCoordinatorV2Plus.CoordinatorNotRegistered.selector, address(invalidCoordinator))
     );
-    v1Coordinator.migrate(v1SubId, invalidCoordinator);
+    v1Coordinator.migrate(subId, invalidCoordinator);
   }
 
   function testMigrateRevertsWhenInvalidCaller() external {
     changePrank(makeAddr("invalidCaller"));
     vm.expectRevert(bytes("Not subscription owner"));
-    v1Coordinator.migrate(v1SubId, v2CoordinatorAddr);
+    v1Coordinator.migrate(subId, v2CoordinatorAddr);
   }
 
   function testMigrateRevertsWhenPendingFulfillment() external {
-    v1Coordinator.addConsumer(v1SubId, address(testConsumer));
+    v1Coordinator.addConsumer(subId, address(testConsumer));
+    testConsumer.setSubId(subId);
     testConsumer.requestRandomWords(
       DEFAULT_CALLBACK_GAS_LIMIT,
       DEFAULT_REQUEST_CONFIRMATIONS,
@@ -209,7 +208,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
     );
 
     vm.expectRevert(bytes("Pending request exists"));
-    v1Coordinator.migrate(v1SubId, v2CoordinatorAddr);
+    v1Coordinator.migrate(subId, v2CoordinatorAddr);
   }
 
   function registerProvingKey() public {

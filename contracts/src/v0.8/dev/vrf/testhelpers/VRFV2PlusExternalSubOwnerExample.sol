@@ -26,7 +26,7 @@ contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2Plus {
   }
 
   function requestRandomWords(
-    uint64 subId,
+    uint256 subId,
     uint32 callbackGasLimit,
     uint16 requestConfirmations,
     uint32 numWords,
