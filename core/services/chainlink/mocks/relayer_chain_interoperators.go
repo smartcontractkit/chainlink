@@ -12,7 +12,9 @@ import (
 
 	evm "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 
-	internal "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
+	// mockery generates the wrong dependency. manually edited to use `loop` rather than `loop/internal`
+	// seems to caused by incorrect alias resolution of the relayer dep
+	internal "github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
 	mock "github.com/stretchr/testify/mock"
 

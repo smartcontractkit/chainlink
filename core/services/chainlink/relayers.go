@@ -25,7 +25,9 @@ import (
 // the node to store relayers, get legacy chains associated to a relayer
 // and get status about the chains and nodes
 //
-//go:generate mockery --quiet --name RelayerChainInteroperators --output ./mocks/ --case=underscore
+// the generated mockery code incorrectly resolves dependencies and needs to be manually edited
+// therefore this interface is not auto-generated. for reference use and edit the result:
+// `go:generate mockery --quiet --name RelayerChainInteroperators --output ./mocks/ --case=underscore`
 type RelayerChainInteroperators interface {
 	Services() []services.ServiceCtx
 
