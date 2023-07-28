@@ -10,6 +10,7 @@ import {IRewardManager} from "./interfaces/IRewardManager.sol";
 import {IWERC20} from "../shared/vendor/IWERC20.sol";
 import {IERC20} from "../shared/vendor/IERC20.sol";
 import {Math} from "../shared/vendor/Math.sol";
+import {ByteUtil} from "../libraries/internal/ByteUtil.sol";
 
 /**
  * @title FeeManager
@@ -18,6 +19,8 @@ import {Math} from "../shared/vendor/Math.sol";
  * @notice This contract is used for the handling of fees required for users verifying reports.
  */
 contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
+  using ByteUtil for bytes;
+
   /// @notice list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
   mapping(address => mapping(bytes32 => mapping(address => uint256))) public subscriberDiscounts;
 
@@ -36,8 +39,20 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice the reward manager address
   IRewardManager private immutable i_rewardManager;
 
-  /// @notice the report packed length, each field is packed into 32 bytes
-  uint16 private constant DEFAULT_REPORT_LENGTH = 32 + 32 + 32 + 32 + 32 + 32 + 32 + 32;
+  /// @notice the packed report length
+  uint16 private constant DEFAULT_REPORT_LENGTH =  32 + 4 + 24 + 24 + 24 + 8 + 32 + 8;
+
+  /// @notice the index of the LINK fee
+  uint16 private constant LINK_FEE_INDEX = DEFAULT_REPORT_LENGTH;
+
+  /// @notice the index of the native fee
+  uint16 private constant NATIVE_FEE_INDEX = DEFAULT_REPORT_LENGTH + 24;
+
+  /// @notice the index of the expires at timestamp
+  uint16 private constant EXPIRES_AT_INDEX = NATIVE_FEE_INDEX + 24;
+
+  /// @notice the index of the address within the quote
+  uint256 private constant QUOTE_ADDRESS_INDEX = 0;
 
   /// @notice the premium fee to be paid if paying in native
   uint256 public nativePremium;
@@ -117,7 +132,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @inheritdoc IFeeManager
   function processFee(bytes calldata payload, address subscriber) external payable onlyOwnerOrProxy {
-    //decode the payload
+    //decode the payload, the payload is not packed but the report and quote is
     (, bytes memory report, , , , bytes memory quoteBytes) = abi.decode(
       payload,
       (bytes32[3], bytes, bytes32[], bytes32[], bytes32, bytes)
@@ -126,7 +141,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //reports without quotes are valid, decode the quote if there are quote bytes
     Quote memory quote;
     if (quoteBytes.length > 0) {
-      quote = abi.decode(quoteBytes, (Quote));
+      quote.quoteAddress = quoteBytes.readAddress(QUOTE_ADDRESS_INDEX);
     }
 
     //decode the fee, it will always be native or LINK
@@ -186,29 +201,32 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
   }
 
+  event DEBUG(uint256); //TODO add view back here, verifier, base
+
   /// @inheritdoc IFeeManager
   function getFeeAndReward(
     address subscriber,
     bytes memory report,
     Quote memory quote
-  ) public view returns (Common.Asset memory, Common.Asset memory) {
+  ) public returns (Common.Asset memory, Common.Asset memory) {
     Common.Asset memory fee;
     Common.Asset memory reward;
 
     //any report without a fee does not need to be processed
     if (report.length <= DEFAULT_REPORT_LENGTH) {
       fee.assetAddress = i_nativeAddress;
-      fee.amount = 0;
       reward.assetAddress = i_linkAddress;
-      reward.amount = 0;
       return (fee, reward);
     }
 
-    //decode the fee
-    (, , , , , , , , uint256 linkQuantity, uint256 nativeQuantity, uint256 expiresAt) = abi.decode(
-      report,
-      (bytes32, uint32, int192, int192, int192, uint64, bytes32, uint64, uint256, uint256, uint32)
-    );
+    //decode the fees and timestamp from the packed report
+    uint256 linkQuantity = report.readUint192(LINK_FEE_INDEX);
+    uint256 nativeQuantity = report.readUint192(NATIVE_FEE_INDEX);
+    uint256 expiresAt = report.readUint32(EXPIRES_AT_INDEX);
+
+    emit DEBUG(linkQuantity);
+    emit DEBUG(nativeQuantity);
+    emit DEBUG(expiresAt);
 
     //read the timestamp bytes from the report data and verify it has not expired
     if (expiresAt < block.timestamp) {
@@ -226,6 +244,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
     //the reward is always set in LINK
     reward.assetAddress = i_linkAddress;
+    reward.amount = linkQuantity;
 
     //calculate either the LINK fee or native fee if it's within the report
     if (quoteFeeAddress == i_linkAddress) {
@@ -235,7 +254,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     } else {
       fee.assetAddress = i_nativeAddress;
       fee.amount = (nativeQuantity * (PERCENTAGE_SCALAR + nativePremium)) / PERCENTAGE_SCALAR;
-      reward.amount = (linkQuantity * (PERCENTAGE_SCALAR + nativePremium)) / PERCENTAGE_SCALAR;
     }
 
     //decode the feedId from the report to calculate the discount being applied

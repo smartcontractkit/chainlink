@@ -6,6 +6,7 @@ import {FeeManager} from "../../FeeManager.sol";
 import {IFeeManager} from "../../interfaces/IFeeManager.sol";
 import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
+import {console} from "forge-std/Test.sol";
 
 /**
  * @title BaseFeeManagerTest
@@ -98,7 +99,7 @@ contract BaseFeeManagerTest is Test {
     bytes memory report,
     IFeeManager.Quote memory quote,
     address subscriber
-  ) public view returns (Common.Asset memory) {
+  ) public returns (Common.Asset memory) {
     //set the discount
     (Common.Asset memory fee, ) = feeManager.getFeeAndReward(subscriber, report, quote);
 
@@ -109,7 +110,7 @@ contract BaseFeeManagerTest is Test {
     bytes memory report,
     IFeeManager.Quote memory quote,
     address subscriber
-  ) public view returns (Common.Asset memory) {
+  ) public returns (Common.Asset memory) {
     //set the discount
     (, Common.Asset memory reward) = feeManager.getFeeAndReward(subscriber, report, quote);
 
@@ -117,12 +118,12 @@ contract BaseFeeManagerTest is Test {
   }
 
   function getReport(bytes32 feedId) public pure returns (bytes memory) {
-    return abi.encode(feedId, uint32(0), int192(0), int192(0), int192(0), uint64(0), bytes32(0), uint64(0));
+    return abi.encodePacked(feedId, uint32(0), int192(0), int192(0), int192(0), uint64(0), bytes32(0), uint64(0));
   }
 
   function getReportWithFee(bytes32 feedId) public view returns (bytes memory) {
     return
-      abi.encode(
+      abi.encodePacked(
         feedId,
         uint32(0),
         int192(0),
@@ -131,8 +132,8 @@ contract BaseFeeManagerTest is Test {
         uint64(0),
         bytes32(0),
         uint64(0),
-        DEFAULT_REPORT_LINK_FEE,
-        DEFAULT_REPORT_NATIVE_FEE,
+        uint192(DEFAULT_REPORT_LINK_FEE),
+        uint192(DEFAULT_REPORT_NATIVE_FEE),
         uint32(block.timestamp)
       );
   }
@@ -144,7 +145,7 @@ contract BaseFeeManagerTest is Test {
     uint256 nativeFee
   ) public pure returns (bytes memory) {
     return
-      abi.encode(
+      abi.encodePacked(
         feedId,
         uint32(0),
         int192(0),
@@ -153,10 +154,12 @@ contract BaseFeeManagerTest is Test {
         uint64(0),
         bytes32(0),
         uint64(0),
-        linkFee,
-        nativeFee,
+        uint192(linkFee),
+        uint192(nativeFee),
         uint32(expiry)
       );
+
+
   }
 
   function getLinkQuote() public pure returns (IFeeManager.Quote memory) {

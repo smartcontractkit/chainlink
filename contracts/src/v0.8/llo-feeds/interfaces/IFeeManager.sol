@@ -28,7 +28,7 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
     address subscriber,
     bytes memory report,
     Quote memory quote
-  ) external view returns (Common.Asset memory, Common.Asset memory);
+  ) external returns (Common.Asset memory, Common.Asset memory);
 
   /**
    * @notice Sets the fee recipients within the reward manager

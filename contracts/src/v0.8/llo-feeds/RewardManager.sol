@@ -222,6 +222,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     poolIds[0] = poolId;
 
     //loop all the reward recipients and claim their rewards before updating their weights
+    uint256 existingTotalWeight;
     for (uint256 i; i < newRewardRecipients.length; ) {
       //get the address
       address recipientAddress = newRewardRecipients[i].addr;
@@ -233,10 +234,17 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
       //if we're updating a recipient, we need to claim their rewards first as they can't claim previous fees at the new weight
       _claimRewards(newRewardRecipients[i].addr, poolIds);
+
+      unchecked {
+        //keep tally of the weights so we know the expected collective weight
+        existingTotalWeight += existingWeight;
+        //there will never be enough reward recipients for i to overflow
+        ++i;
+      }
     }
 
-    //update the reward recipients, if the new collective weight isn't equal to 100% (as with setRewardRecipients), the tx will be reverted
-    _setRewardRecipientWeights(poolId, newRewardRecipients, PERCENTAGE_SCALAR);
+    //update the reward recipients, if the new collective weight isn't equal to the previous collective weight, the fees will either be under or over distributed
+    _setRewardRecipientWeights(poolId, newRewardRecipients, existingTotalWeight);
 
     //emit event
     emit RewardRecipientsUpdated(poolId, newRewardRecipients);
