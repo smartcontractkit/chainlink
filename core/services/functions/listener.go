@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmrelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -137,6 +138,7 @@ type FunctionsListener struct {
 	mailMon           *utils.MailboxMonitor
 	urlsMonEndpoint   commontypes.MonitoringEndpoint
 	decryptor         threshold.Decryptor
+	logPollerWrapper  evmrelayTypes.LogPollerWrapper
 }
 
 func formatRequestId(requestId [32]byte) string {
@@ -155,22 +157,24 @@ func NewFunctionsListener(
 	mailMon *utils.MailboxMonitor,
 	urlsMonEndpoint commontypes.MonitoringEndpoint,
 	decryptor threshold.Decryptor,
+	logPollerWrapper evmrelayTypes.LogPollerWrapper,
 ) *FunctionsListener {
 	return &FunctionsListener{
-		oracle:          oracle,
-		oracleHexAddr:   oracle.Address().Hex(),
-		job:             job,
-		bridgeAccessor:  bridgeAccessor,
-		logBroadcaster:  logBroadcaster,
-		mbOracleEvents:  utils.NewHighCapacityMailbox[log.Broadcast](),
-		chStop:          make(chan struct{}),
-		pluginORM:       pluginORM,
-		pluginConfig:    pluginConfig,
-		s4Storage:       s4Storage,
-		logger:          lggr,
-		mailMon:         mailMon,
-		urlsMonEndpoint: urlsMonEndpoint,
-		decryptor:       decryptor,
+		oracle:           oracle,
+		oracleHexAddr:    oracle.Address().Hex(),
+		job:              job,
+		bridgeAccessor:   bridgeAccessor,
+		logBroadcaster:   logBroadcaster,
+		mbOracleEvents:   utils.NewHighCapacityMailbox[log.Broadcast](),
+		chStop:           make(chan struct{}),
+		pluginORM:        pluginORM,
+		pluginConfig:     pluginConfig,
+		s4Storage:        s4Storage,
+		logger:           lggr,
+		mailMon:          mailMon,
+		urlsMonEndpoint:  urlsMonEndpoint,
+		decryptor:        decryptor,
+		logPollerWrapper: logPollerWrapper,
 	}
 }
 
