@@ -397,6 +397,7 @@ func (l *FunctionsListener) getMaxSecretsSize(flags RequestFlags) uint32 {
 
 // TODO (FUN-662): call from LogPoller in a separate goroutine
 func (l *FunctionsListener) HandleOracleRequestV1(request *functions_coordinator.FunctionsCoordinatorOracleRequest, lb log.Broadcast) {
+	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("oracle request v1 received", "requestID", formatRequestId(request.RequestId))
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
