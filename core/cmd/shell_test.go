@@ -12,6 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
+	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -19,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -336,7 +342,17 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewLoopRegistry(lggr)
 	ks := mocks.NewSolana(t)
-	tConfig := configtest.NewGeneralConfig(t, nil)
+	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Solana = solana.SolanaConfigs{
+			&solana.SolanaConfig{
+				ChainID: ptr[string]("solana-id-1"),
+				Enabled: new(bool),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+		}
+	})
+
 	rf := cmd.RelayerFactory{
 		Logger:       lggr,
 		DB:           pgtest.NewSqlxDB(t),
@@ -346,9 +362,10 @@ func TestSetupSolanaRelayer(t *testing.T) {
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayer, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
+		relayers, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, 1)
 		// no using plugin, so registry should be empty
 		require.Len(t, reg.List(), 0)
 	})
@@ -356,9 +373,10 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 
-		relayer, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
+		relayers, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, 1)
 		// make sure registry has the plugin
 		require.Len(t, reg.List(), 1)
 	})
@@ -369,7 +387,16 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewLoopRegistry(lggr)
 	ks := mocks.NewStarkNet(t)
-	tConfig := configtest.NewGeneralConfig(t, nil)
+	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Starknet = starknet.StarknetConfigs{
+			&starknet.StarknetConfig{
+				ChainID: ptr[string]("starknet-id-1"),
+				Enabled: new(bool),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+		}
+	})
 	rf := cmd.RelayerFactory{
 		Logger:       lggr,
 		DB:           pgtest.NewSqlxDB(t),
@@ -379,9 +406,10 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayer, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
+		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, 1)
 		// no using plugin, so registry should be empty
 		require.Len(t, reg.List(), 0)
 	})
@@ -389,9 +417,10 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
 
-		relayer, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
+		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, 1)
 		// make sure registry has the plugin
 		require.Len(t, reg.List(), 1)
 	})

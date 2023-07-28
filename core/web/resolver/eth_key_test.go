@@ -84,6 +84,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 
 				legacyEVMChains := evm.NewLegacyChains()
 				legacyEVMChains.Put(states[0].EVMChainID.String(), f.Mocks.chain)
+
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
@@ -124,34 +125,36 @@ func TestResolver_ETHKeys(t *testing.T) {
 					}
 				}`,
 		},
-		/*
-			{
-				name:          "success with no chains",
-				authenticated: true,
-				before: func(f *gqlTestFramework) {
-					states := []ethkey.State{
-						{
-							Address:    ethkey.MustEIP55Address(address.Hex()),
-							EVMChainID: *utils.NewBigI(12),
-							Disabled:   false,
-							CreatedAt:  f.Timestamp(),
-							UpdatedAt:  f.Timestamp(),
-						},
-					}
-					chainID := *utils.NewBigI(12)
 
-					f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
-					f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
-					f.Mocks.ethKs.On("GetAll").Return(keys, nil)
-					//f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, evm.ErrNoChains)
-					f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
-					f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
-					f.App.On("GetKeyStore").Return(f.Mocks.keystore)
-					f.App.On("EVMORM").Return(f.Mocks.evmORM)
-					//				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
-				},
-				query: query,
-				result: `
+		{
+			name:          "success with no chains",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				states := []ethkey.State{
+					{
+						Address:    ethkey.MustEIP55Address(address.Hex()),
+						EVMChainID: *utils.NewBigI(12),
+						Disabled:   false,
+						CreatedAt:  f.Timestamp(),
+						UpdatedAt:  f.Timestamp(),
+					},
+				}
+				chainID := *utils.NewBigI(12)
+				legacyEVMChains := evm.NewLegacyChains()
+				legacyEVMChains.Put(states[0].EVMChainID.String(), f.Mocks.chain)
+
+				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
+				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
+				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
+				//f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, evm.ErrNoChains)
+				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
+				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
+				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
+				f.App.On("EVMORM").Return(f.Mocks.evmORM)
+				//				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
+			},
+			query: query,
+			result: `
 					{
 						"ethKeys": {
 							"results": [
@@ -170,7 +173,8 @@ func TestResolver_ETHKeys(t *testing.T) {
 							]
 						}
 					}`,
-			},
+		},
+		/*
 			{
 				name:          "generic error on GetAll()",
 				authenticated: true,

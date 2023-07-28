@@ -41,7 +41,7 @@ func TestChainRelayExtenders(t *testing.T) {
 	relayExtenders, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
 
-	require.Len(t, relayExtenders, 2)
+	require.Equal(t, relayExtenders.Len(), 2)
 	relayExtendersInstances := relayExtenders.Slice()
 	for _, c := range relayExtendersInstances {
 		require.NoError(t, c.Start(testutils.Context(t)))

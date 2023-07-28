@@ -82,10 +82,10 @@ func (r RelayerFactory) NewEVM(ctx context.Context, opts evm.RelayerFactoryOpts,
 }
 
 func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaConfigs) (map[relay.Identifier]loop.Relayer, error) {
+	solanaRelayers := make(map[relay.Identifier]loop.Relayer)
 	var (
-		solanaRelayers map[relay.Identifier]loop.Relayer
-		ids            []relay.Identifier
-		solLggr        = r.Logger.Named("Solana")
+		ids     []relay.Identifier
+		solLggr = r.Logger.Named("Solana")
 
 		signer = &keystore.SolanaSigner{ks}
 	)
@@ -143,11 +143,12 @@ func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCon
 }
 
 func (r RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (map[relay.Identifier]loop.Relayer, error) {
+	starknetRelayers := make(map[relay.Identifier]loop.Relayer)
+
 	var (
-		starknetRelayers map[relay.Identifier]loop.Relayer
-		ids              []string
-		starkLggr        = r.Logger.Named("StarkNet")
-		loopKs           = &keystore.StarknetLooppSigner{StarkNet: ks}
+		ids       []string
+		starkLggr = r.Logger.Named("StarkNet")
+		loopKs    = &keystore.StarknetLooppSigner{StarkNet: ks}
 	)
 	for _, c := range chainCfgs {
 		c := c

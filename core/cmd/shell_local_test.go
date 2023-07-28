@@ -48,7 +48,7 @@ func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.
 
 	exts, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
-	require.Len(t, exts, 1)
+	require.Equal(t, exts.Len(), 1)
 	ext := exts.Slice()[0]
 
 	adapter := evmrelayer.NewLoopRelayAdapter(rly, ext)

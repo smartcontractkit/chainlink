@@ -12,7 +12,7 @@ import (
 
 	evm "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 
-	internal "github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	internal "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 
 	mock "github.com/stretchr/testify/mock"
 
