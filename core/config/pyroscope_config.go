@@ -1,7 +1,7 @@
 package config
 
 type Pyroscope interface {
-	PyroscopeAuthToken() string
-	PyroscopeServerAddress() string
-	PyroscopeEnvironment() string
+	AuthToken() string
+	ServerAddress() string
+	Environment() string
 }

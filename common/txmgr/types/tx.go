@@ -9,8 +9,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
@@ -30,26 +32,49 @@ type TxStrategy interface {
 	PruneQueue(pruneService UnstartedTxQueuePruner, qopt pg.QOpt) (n int64, err error)
 }
 
-type TxAttemptState string
+type TxAttemptState int8
 
 type TxState string
 
 const (
-	TxAttemptInProgress = TxAttemptState("in_progress")
-	// TODO: Make name chain-agnostic (https://smartcontract-it.atlassian.net/browse/BCI-981)
-	TxAttemptInsufficientEth = TxAttemptState("insufficient_eth")
-	TxAttemptBroadcast       = TxAttemptState("broadcast")
+	TxAttemptInProgress TxAttemptState = iota + 1
+	TxAttemptInsufficientFunds
+	TxAttemptBroadcast
+	txAttemptStateCount // always at end to calculate number of states
 )
 
-type NewTx[ADDR types.Hashable, TX_HASH types.Hashable] struct {
+var txAttemptStateStrings = []string{
+	"unknown_attempt_state",    // default 0 value
+	TxAttemptInProgress:        "in_progress",
+	TxAttemptInsufficientFunds: "insufficient_funds",
+	TxAttemptBroadcast:         "broadcast",
+}
+
+func NewTxAttemptState(state string) (s TxAttemptState) {
+	if index := slices.Index(txAttemptStateStrings, state); index != -1 {
+		s = TxAttemptState(index)
+	}
+	return s
+}
+
+// String returns string formatted states for logging
+func (s TxAttemptState) String() (str string) {
+	if s < txAttemptStateCount {
+		return txAttemptStateStrings[s]
+	}
+	return txAttemptStateStrings[0]
+}
+
+type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
+	Value            big.Int
 	FeeLimit         uint32
 	Meta             *TxMeta[ADDR, TX_HASH]
 	ForwarderAddress ADDR
 
-	// Pipeline variables - if you aren't calling this from ethtx task within
+	// Pipeline variables - if you aren't calling this from chain tx task within
 	// the pipeline, you don't need these variables
 	MinConfirmations  clnull.Uint32
 	PipelineTaskRunID *uuid.UUID
@@ -99,6 +124,12 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	// Used for the VRFv2 - the subscription ID of the
 	// requester of the VRF.
 	SubID *uint64 `json:"SubId,omitempty"`
+	// Used for the VRFv2Plus - the uint256 subscription ID of the
+	// requester of the VRF.
+	GlobalSubID *string `json:"GlobalSubId,omitempty"`
+	// Used for VRFv2Plus - max native token this tx will bill
+	// should it get bumped
+	MaxEth *string `json:"MaxEth,omitempty"`
 
 	// Used for keepers
 	UpkeepID *string `json:"UpkeepID,omitempty"`
@@ -114,17 +145,15 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 }
 
 type TxAttempt[
-	CHAIN_ID ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	R ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ Sequence,
-	FEE Fee,
-	ADD any, // additional parameter inside of Tx, can be used for passing any additional information through the tx
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
 ] struct {
 	ID    int64
 	TxID  int64
-	Tx    Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]
+	Tx    Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	TxFee FEE
 	// ChainSpecificFeeLimit on the TxAttempt is always the same as the on-chain encoded value for fee limit
 	ChainSpecificFeeLimit   uint32
@@ -133,42 +162,20 @@ type TxAttempt[
 	CreatedAt               time.Time
 	BroadcastBeforeBlockNum *int64
 	State                   TxAttemptState
-	Receipts                []Receipt[R, TX_HASH, BLOCK_HASH] `json:"-"`
+	Receipts                []ChainReceipt[TX_HASH, BLOCK_HASH] `json:"-"`
 	TxType                  int
 }
 
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) String() string {
+func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) String() string {
 	return fmt.Sprintf("TxAttempt(ID:%d,TxID:%d,Fee:%s,TxType:%d", a.ID, a.TxID, a.TxFee, a.TxType)
 }
 
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) Fee() FEE {
-	return a.TxFee
-}
-
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetBroadcastBeforeBlockNum() *int64 {
-	return a.BroadcastBeforeBlockNum
-}
-
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetChainSpecificFeeLimit() uint32 {
-	return a.ChainSpecificFeeLimit
-}
-
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetHash() TX_HASH {
-	return a.Hash
-}
-
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetTxType() int {
-	return a.TxType
-}
-
 type Tx[
-	CHAIN_ID ID,
+	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	R ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ Sequence,
-	FEE Fee,
-	ADD any, // additional parameter can be used for passing any additional information through the tx, EVM passes an access list
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
 ] struct {
 	ID             int64
 	Sequence       *SEQ
@@ -180,14 +187,14 @@ type Tx[
 	// necessarily the same as the on-chain encoded value (i.e. Optimism)
 	FeeLimit uint32
 	Error    null.String
-	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
+	// BroadcastAt is updated every time an attempt for this tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.
 	BroadcastAt *time.Time
-	// InitialBroadcastAt is recorded once, the first ever time this eth_tx is sent
+	// InitialBroadcastAt is recorded once, the first ever time this tx is sent
 	InitialBroadcastAt *time.Time
 	CreatedAt          time.Time
 	State              TxState
-	TxAttempts         []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD] `json:"-"`
+	TxAttempts         []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] `json:"-"`
 	// Marshalled TxMeta
 	// Used for additional context around transactions which you want to log
 	// at send time.
@@ -198,17 +205,12 @@ type Tx[
 	PipelineTaskRunID uuid.NullUUID
 	MinConfirmations  clnull.Uint32
 
-	// AdditionalParameters is generic type that supports passing miscellaneous parameters
-	// as a part of the TX struct that may be used inside chain-specific components
-	// example: EVM + NullableEIP2930AccessList which only affects on DynamicFee transactions
-	AdditionalParameters ADD
-
 	// TransmitChecker defines the check that should be performed before a transaction is submitted on
 	// chain.
 	TransmitChecker *datatypes.JSON
 }
 
-func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetError() error {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetError() error {
 	if e.Error.Valid {
 		return errors.New(e.Error.String)
 	}
@@ -216,12 +218,12 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetError() e
 }
 
 // GetID allows Tx to be used as jsonapi.MarshalIdentifier
-func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetID() string {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetID() string {
 	return fmt.Sprintf("%d", e.ID)
 }
 
 // GetMeta returns an Tx's meta in struct form, unmarshalling it from JSON first.
-func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetMeta() (*TxMeta[ADDR, TX_HASH], error) {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetMeta() (*TxMeta[ADDR, TX_HASH], error) {
 	if e.Meta == nil {
 		return nil, nil
 	}
@@ -230,7 +232,7 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetMeta() (*
 }
 
 // GetLogger returns a new logger with metadata fields.
-func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetLogger(lgr logger.Logger) logger.Logger {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger.Logger) logger.Logger {
 	lgr = lgr.With(
 		"txID", e.ID,
 		"sequence", e.Sequence,
@@ -296,7 +298,7 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetLogger(lg
 
 // GetChecker returns an Tx's transmit checker spec in struct form, unmarshalling it from JSON
 // first.
-func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE, ADD]) GetChecker() (TransmitCheckerSpec[ADDR], error) {
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetChecker() (TransmitCheckerSpec[ADDR], error) {
 	if e.TransmitChecker == nil {
 		return TransmitCheckerSpec[ADDR]{}, nil
 	}

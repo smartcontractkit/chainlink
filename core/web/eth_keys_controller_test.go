@@ -3,12 +3,16 @@ package web_test
 import (
 	"math/big"
 	"net/http"
+	"net/url"
+	"strconv"
 	"testing"
 
 	"github.com/pkg/errors"
 
+	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -20,6 +24,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/google/uuid"
 )
 
 func TestETHKeysController_Index_Success(t *testing.T) {
@@ -34,11 +40,11 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
-	// disabled key
-	k0, addr0 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
-	// enabled keys
-	k1, addr1 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), false)
-	k2, addr2 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), false)
+	// enabled key
+	k0, addr0 := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+	// disabled keys
+	k1, addr1 := cltest.MustInsertRandomDisabledKey(t, app.KeyStore.Eth())
+	k2, addr2 := cltest.MustInsertRandomDisabledKey(t, app.KeyStore.Eth())
 	expectedKeys := []ethkey.KeyV2{k0, k1, k2}
 
 	ethClient.On("BalanceAt", mock.Anything, addr0, mock.Anything).Return(big.NewInt(256), nil).Once()
@@ -51,7 +57,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
-	resp, cleanup := client.Get("/v2/keys/eth")
+	resp, cleanup := client.Get("/v2/keys/evm")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -87,7 +93,7 @@ func TestETHKeysController_Index_Errors(t *testing.T) {
 
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
-	_, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
 
 	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(nil, errors.New("fake error")).Once()
 	ethClient.On("LINKBalance", mock.Anything, addr, mock.Anything).Return(nil, errors.New("fake error")).Once()
@@ -124,7 +130,7 @@ func TestETHKeysController_Index_Disabled(t *testing.T) {
 
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
-	_, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -210,7 +216,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient)
 
-	sub := evmclimocks.NewSubscription(t)
+	sub := commonmocks.NewSubscription(t)
 	cltest.MockApplicationEthCalls(t, app, ethClient, sub)
 
 	ethBalanceInt := big.NewInt(100)
@@ -222,8 +228,532 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	resp, cleanup := client.Post("/v2/keys/eth", nil)
+	resp, cleanup := client.Post("/v2/keys/evm", nil)
 	defer cleanup()
 
-	cltest.AssertServerResponse(t, resp, http.StatusCreated)
+	cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+	var balance webpresenters.ETHKeyResource
+	err := cltest.ParseJSONAPIResponse(t, resp, &balance)
+	assert.NoError(t, err)
+
+	assert.Equal(t, ethBalanceInt, balance.EthBalance.ToInt())
+	assert.Equal(t, linkBalance, balance.LinkBalance)
+	assert.Equal(t, "115792089237316195423570985008687907853269984665640564039457584007913129639935", balance.MaxGasPriceWei.String())
+}
+
+func TestETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	// enabled key
+	key, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("LINKBalance", mock.Anything, addr, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	nextNonce := 52
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("nextNonce", strconv.Itoa(nextNonce))
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var updatedKey webpresenters.ETHKeyResource
+	err := cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
+	assert.NoError(t, err)
+
+	assert.Equal(t, key.ID(), updatedKey.ID)
+	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
+	assert.Equal(t, false, updatedKey.Disabled)
+	assert.Equal(t, int64(nextNonce), updatedKey.NextNonce)
+}
+
+func TestETHKeysController_ChainSuccess_Disable(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	// enabled key
+	key, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("LINKBalance", mock.Anything, addr, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	enabled := "false"
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("enabled", enabled)
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var updatedKey webpresenters.ETHKeyResource
+	err := cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
+	assert.NoError(t, err)
+
+	assert.Equal(t, key.ID(), updatedKey.ID)
+	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
+	assert.Equal(t, int64(0), updatedKey.NextNonce)
+	assert.Equal(t, true, updatedKey.Disabled)
+}
+
+func TestETHKeysController_ChainSuccess_Enable(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	// disabled key
+	key, addr := cltest.MustInsertRandomDisabledKey(t, app.KeyStore.Eth())
+
+	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("LINKBalance", mock.Anything, addr, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	enabled := "true"
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("enabled", enabled)
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var updatedKey webpresenters.ETHKeyResource
+	err := cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
+	assert.NoError(t, err)
+
+	assert.Equal(t, key.ID(), updatedKey.ID)
+	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
+	assert.Equal(t, int64(0), updatedKey.NextNonce)
+	assert.Equal(t, false, updatedKey.Disabled)
+}
+
+func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	// enabled key
+	key, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("LINKBalance", mock.Anything, addr, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	chain := app.GetChains().EVM.Chains()[0]
+	subject := uuid.New()
+	strategy := commontxmmocks.NewTxStrategy(t)
+	strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
+	strategy.On("PruneQueue", mock.AnythingOfType("*txmgr.evmTxStore"), mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
+	_, err := chain.TxManager().CreateTransaction(txmgr.TxRequest{
+		FromAddress:    addr,
+		ToAddress:      testutils.NewAddress(),
+		EncodedPayload: []byte{1, 2, 3},
+		FeeLimit:       uint32(1000),
+		Meta:           nil,
+		Strategy:       strategy,
+	})
+	assert.NoError(t, err)
+
+	var count int
+	err = app.GetSqlxDB().Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
+	require.NoError(t, err)
+	assert.Equal(t, 0, count)
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("abandon", "true")
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var updatedKey webpresenters.ETHKeyResource
+	err = cltest.ParseJSONAPIResponse(t, resp, &updatedKey)
+	assert.NoError(t, err)
+
+	assert.Equal(t, key.ID(), updatedKey.ID)
+	assert.Equal(t, cltest.FixtureChainID.String(), updatedKey.EVMChainID.String())
+	assert.Equal(t, int64(0), updatedKey.NextNonce)
+	assert.Equal(t, false, updatedKey.Disabled)
+
+	var s string
+	err = app.GetSqlxDB().Get(&s, `SELECT error FROM eth_txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
+	require.NoError(t, err)
+	assert.Equal(t, "abandoned", s)
+}
+
+func TestETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	// enabled key
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	nextNonce := 52
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("nextNonce", strconv.Itoa(nextNonce))
+	query.Set("abandon", "invalid")
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	// enabled key
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	nextNonce := 52
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("nextNonce", strconv.Itoa(nextNonce))
+	query.Set("enabled", "invalid")
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	nextNonce := 52
+	query.Set("address", "invalid address")
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("nextNonce", strconv.Itoa(nextNonce))
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	nextNonce := 52
+	query.Set("address", testutils.NewAddress().Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("nextNonce", strconv.Itoa(nextNonce))
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	nextNonce := 52
+	query.Set("address", testutils.NewAddress().Hex())
+	query.Set("evmChainID", "bad chain ID")
+	query.Set("nextNonce", strconv.Itoa(nextNonce))
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	// enabled key
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	nextNonce := 52
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", "123456789")
+	query.Set("nextNonce", strconv.Itoa(nextNonce))
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+}
+
+func TestETHKeysController_ChainFailure_InvalidNonce(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	// enabled key
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("nextNonce", "bad nonce")
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestETHKeysController_DeleteSuccess(t *testing.T) {
+	t.Parallel()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	// enabled keys
+	key0, addr0 := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+	_, addr1 := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	ethClient.On("BalanceAt", mock.Anything, addr0, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("BalanceAt", mock.Anything, addr1, mock.Anything).Return(big.NewInt(1), nil).Once()
+	ethClient.On("LINKBalance", mock.Anything, addr0, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
+	ethClient.On("LINKBalance", mock.Anything, addr1, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/" + addr0.Hex()}
+	resp, cleanup := client.Delete(chainURL.String())
+	defer cleanup()
+	t.Log(resp)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var deletedKey webpresenters.ETHKeyResource
+	err := cltest.ParseJSONAPIResponse(t, resp, &deletedKey)
+	assert.NoError(t, err)
+
+	assert.Equal(t, key0.ID(), deletedKey.ID)
+	assert.Equal(t, cltest.FixtureChainID.String(), deletedKey.EVMChainID.String())
+	assert.Equal(t, false, deletedKey.Disabled)
+	assert.Equal(t, int64(0), deletedKey.NextNonce)
+
+	resp, cleanup2 := client.Get("/v2/keys/evm")
+	defer cleanup2()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var actualBalances []webpresenters.ETHKeyResource
+	err = cltest.ParseJSONAPIResponse(t, resp, &actualBalances)
+	assert.NoError(t, err)
+
+	require.Len(t, actualBalances, 1)
+
+	balance := actualBalances[0]
+	assert.Equal(t, addr1.String(), balance.Address)
+}
+
+func TestETHKeysController_DeleteFailure_InvalidAddress(t *testing.T) {
+	t.Parallel()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm" + "/bad_address"}
+
+	resp, cleanup := client.Delete(chainURL.String())
+	defer cleanup()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
+	t.Parallel()
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/" + testutils.NewAddress().Hex()}
+
+	resp, cleanup := client.Delete(chainURL.String())
+	defer cleanup()
+	t.Log(resp)
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }

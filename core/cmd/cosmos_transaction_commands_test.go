@@ -15,9 +15,9 @@ import (
 
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/denom"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/denom"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
-func TestClient_SendCosmosCoins(t *testing.T) {
+func TestShell_SendCosmosCoins(t *testing.T) {
 	// TODO(BCI-978): cleanup once SetupLocalCosmosNode is updated
 	chainID := cosmostest.RandomChainID()
 	accounts, _, _ := cosmosclient.SetupLocalCosmosNode(t, chainID)
@@ -55,7 +55,7 @@ func TestClient_SendCosmosCoins(t *testing.T) {
 	db := app.GetSqlxDB()
 	orm := cosmostxm.NewORM(chainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 	cliapp := cli.NewApp()
 
 	for _, tt := range []struct {
@@ -134,7 +134,7 @@ func TestClient_SendCosmosCoins(t *testing.T) {
 			require.NoError(t, err)
 			if assert.NotNil(t, startBal) && assert.NotNil(t, endBal) {
 				diff := startBal.Sub(*endBal).Amount
-				sent, err := denom.DecCoinToUAtom(sdk.NewDecCoinFromDec("atom", sdk.MustNewDecFromStr(tt.amount)))
+				sent, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec("atom", sdk.MustNewDecFromStr(tt.amount)), "uatom")
 				require.NoError(t, err)
 				if assert.True(t, diff.IsInt64()) && assert.True(t, sent.Amount.IsInt64()) {
 					require.Greater(t, diff.Int64(), sent.Amount.Int64())

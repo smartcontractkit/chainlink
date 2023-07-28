@@ -3,6 +3,7 @@ package ocr
 import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -12,8 +13,8 @@ type Config interface {
 	pg.QConfig
 }
 
-func toLocalConfig(cfg ValidationConfig, spec job.OCROracleSpec) ocrtypes.LocalConfig {
-	concreteSpec := job.LoadEnvConfigVarsLocalOCR(cfg, spec)
+func toLocalConfig(cfg ValidationConfig, evmOcrConfig evmconfig.OCR, insecureCfg insecureConfig, spec job.OCROracleSpec, ocrConfig job.OCRConfig) ocrtypes.LocalConfig {
+	concreteSpec := job.LoadEnvConfigVarsLocalOCR(evmOcrConfig, spec, ocrConfig)
 	lc := ocrtypes.LocalConfig{
 		BlockchainTimeout:                      concreteSpec.BlockchainTimeout.Duration(),
 		ContractConfigConfirmations:            concreteSpec.ContractConfigConfirmations,
@@ -25,7 +26,7 @@ func toLocalConfig(cfg ValidationConfig, spec job.OCROracleSpec) ocrtypes.LocalC
 		DataSourceTimeout:                      concreteSpec.ObservationTimeout.Duration(),
 		DataSourceGracePeriod:                  concreteSpec.ObservationGracePeriod.Duration(),
 	}
-	if cfg.OCRDevelopmentMode() {
+	if insecureCfg.OCRDevelopmentMode() {
 		// Skips config validation so we can use any config parameters we want.
 		// For example to lower contractConfigTrackerPollInterval to speed up tests.
 		lc.DevelopmentMode = ocrtypes.EnableDangerousDevelopmentMode

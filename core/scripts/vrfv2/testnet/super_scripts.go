@@ -203,7 +203,7 @@ func deployUniverse(e helpers.Environment) {
 	helpers.PanicErr(err)
 	fmt.Printf("Subscription %+v\n", s)
 
-	if len(*registerKeyOracleAddress) > 0 {
+	if len(*registerKeyOracleAddress) > 0 && *oracleFundingAmount > 0 {
 		fmt.Println("\nFunding oracle...")
 		helpers.FundNodes(e, []string{*registerKeyOracleAddress}, big.NewInt(*oracleFundingAmount))
 	}
@@ -289,6 +289,9 @@ func deployWrapperUniverse(e helpers.Environment) {
 
 	tx, err := link.Transfer(e.Owner, consumer, consumerAmount)
 	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "link transfer to consumer")
 
+	fmt.Println("wrapper universe deployment complete")
+	fmt.Println("wrapper address:", wrapper.String())
+	fmt.Println("wrapper consumer address:", consumer.String())
 }

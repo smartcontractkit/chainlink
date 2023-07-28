@@ -1,11 +1,13 @@
 package models
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/robfig/cron/v3"
 	"github.com/tidwall/gjson"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -560,4 +563,100 @@ func (u *URL) UnmarshalText(input []byte) error {
 	}
 	*u = URL(*v)
 	return nil
+}
+
+// ServiceHeader is an HTTP header to include in POST to log service.
+type ServiceHeader struct {
+	Header string
+	Value  string
+}
+
+func (h *ServiceHeader) UnmarshalText(input []byte) error {
+	parts := strings.SplitN(string(input), ":", 2)
+	h.Header = parts[0]
+	if len(parts) > 1 {
+		h.Value = strings.TrimSpace(parts[1])
+	}
+	return h.Validate()
+}
+
+func (h *ServiceHeader) MarshalText() ([]byte, error) {
+	var b bytes.Buffer
+	fmt.Fprintf(&b, "%s: %s", h.Header, h.Value)
+	return b.Bytes(), nil
+}
+
+type ServiceHeaders []ServiceHeader
+
+func (sh *ServiceHeaders) UnmarshalText(input []byte) error {
+	if sh == nil {
+		return errors.New("Cannot unmarshal to a nil receiver")
+	}
+
+	headers := string(input)
+
+	var parsedHeaders []ServiceHeader
+	if headers != "" {
+		headerLines := strings.Split(headers, "\\")
+		for _, header := range headerLines {
+			keyValue := strings.Split(header, "||")
+			if len(keyValue) != 2 {
+				return errors.Errorf("invalid headers provided for the audit logger. Value, single pair split on || required, got: %s", keyValue)
+			}
+			h := ServiceHeader{
+				Header: keyValue[0],
+				Value:  keyValue[1],
+			}
+
+			if err := h.Validate(); err != nil {
+				return err
+			}
+			parsedHeaders = append(parsedHeaders, h)
+		}
+	}
+
+	*sh = parsedHeaders
+	return nil
+}
+
+func (sh *ServiceHeaders) MarshalText() ([]byte, error) {
+	if sh == nil {
+		return nil, errors.New("Cannot marshal to a nil receiver")
+	}
+
+	sb := strings.Builder{}
+	for _, header := range *sh {
+		sb.WriteString(header.Header)
+		sb.WriteString("||")
+		sb.WriteString(header.Value)
+		sb.WriteString("\\")
+	}
+
+	serialized := sb.String()
+
+	if len(serialized) > 0 {
+		serialized = serialized[:len(serialized)-1]
+	}
+
+	return []byte(serialized), nil
+}
+
+// We act slightly more strictly than the HTTP specifications
+// technically allow instead following the guidelines of
+// cloudflare transforms.
+// https://developers.cloudflare.com/rules/transform/request-header-modification/reference/header-format
+var (
+	headerNameRegex  = regexp.MustCompile(`^[A-Za-z\-]+$`)
+	headerValueRegex = regexp.MustCompile("^[A-Za-z_ :;.,\\/\"'?!(){}[\\]@<>=\\-+*#$&`|~^%]+$")
+)
+
+func (h ServiceHeader) Validate() (err error) {
+	if !headerNameRegex.MatchString(h.Header) {
+		err = multierr.Append(err, errors.Errorf("invalid header name: %s", h.Header))
+	}
+
+	if !headerValueRegex.MatchString(h.Value) {
+		err = multierr.Append(err, errors.Errorf("invalid header value: %s", h.Value))
+	}
+	return
 }

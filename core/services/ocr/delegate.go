@@ -8,13 +8,17 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/sqlx"
+
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrnetworking "github.com/smartcontractkit/libocr/networking"
 	ocr "github.com/smartcontractkit/libocr/offchainreporting"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
@@ -91,7 +95,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	if err != nil {
 		return nil, err
 	}
-	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config(), d.keyStore.P2P(), *jb.OCROracleSpec)
+	concreteSpec, err := job.LoadEnvConfigVarsOCR(chain.Config().EVM().OCR(), chain.Config().OCR(), *jb.OCROracleSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +132,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		lggr,
 		d.db,
 		ocrDB,
-		chain.Config(),
+		chain.Config().EVM(),
+		chain.Config().Database(),
 		chain.HeadBroadcaster(),
 		d.mailMon,
 	)
@@ -145,7 +150,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	if concreteSpec.P2PBootstrapPeers != nil {
 		v1BootstrapPeers = concreteSpec.P2PBootstrapPeers
 	} else {
-		v1BootstrapPeers, err = chain.Config().P2PBootstrapPeers()
+		v1BootstrapPeers, err = chain.Config().P2P().V1().DefaultBootstrapPeers()
 		if err != nil {
 			return nil, err
 		}
@@ -159,14 +164,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		//  present in job spec, and p2pv2Bootstrappers = [].  So even if an empty list is
 		//  passed explicitly, this will still fall back to using the V2 bootstappers defined
 		//  in P2P.V2.DefaultBootstrappers config var.  Only a non-empty list will override the default list.
-		v2Bootstrappers = peerWrapper.Config().P2PV2Bootstrappers()
+		v2Bootstrappers = peerWrapper.P2PConfig().V2().DefaultBootstrappers()
 	}
 
-	ocrLogger := logger.NewOCRWrapper(lggr, chain.Config().OCRTraceLogging(), func(msg string) {
+	ocrLogger := relaylogger.NewOCRWrapper(lggr, chain.Config().OCR().TraceLogging(), func(msg string) {
 		d.jobORM.TryRecordError(jb.ID, msg)
 	})
 
-	lc := toLocalConfig(chain.Config(), *concreteSpec)
+	lc := toLocalConfig(chain.Config().EVM(), chain.Config().EVM().OCR(), chain.Config().Insecure(), *concreteSpec, chain.Config().OCR())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -191,7 +196,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 	} else {
 		// In V1 or V1V2 mode, p2pv1BootstrapPeers must be defined either in
 		//   node config or in job spec
-		if peerWrapper.Config().P2PNetworkingStack() != ocrnetworking.NetworkingStackV2 {
+		if peerWrapper.P2PConfig().NetworkStack() != ocrnetworking.NetworkingStackV2 {
 			if len(v1BootstrapPeers) < 1 {
 				return nil, errors.New("Need at least one v1 bootstrap peer defined")
 			}
@@ -199,7 +204,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 
 		// In V1V2 or V2 mode, p2pv2Bootstrappers must be defined either in
 		//   node config or in job spec
-		if peerWrapper.Config().P2PNetworkingStack() != ocrnetworking.NetworkingStackV1 {
+		if peerWrapper.P2PConfig().NetworkStack() != ocrnetworking.NetworkingStackV1 {
 			if len(v2Bootstrappers) < 1 {
 				return nil, errors.New("Need at least one v2 bootstrap peer defined")
 			}
@@ -215,10 +220,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		}
 
 		cfg := chain.Config()
-		strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCRDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
+		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCR().DefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
 
-		var checker txmgr.EvmTransmitCheckerSpec
-		if chain.Config().OCRSimulateTransactions() {
+		var checker txmgr.TransmitCheckerSpec
+		if chain.Config().OCR().SimulateTransactions() {
 			checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 		}
 
@@ -269,7 +274,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			effectiveTransmitterAddress,
 		)
 
-		runResults := make(chan pipeline.Run, chain.Config().JobPipelineResultWriteQueueDepth())
+		runResults := make(chan pipeline.Run, chain.Config().JobPipeline().ResultWriteQueueDepth())
 
 		var configOverrider ocrtypes.ConfigOverrider
 		configOverriderService, err := d.maybeCreateConfigOverrider(lggr, chain, concreteSpec.ContractAddress)
@@ -331,7 +336,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 			d.pipelineRunner,
 			make(chan struct{}),
 			lggr,
-			cfg.JobPipelineMaxSuccessfulRuns(),
+			cfg.JobPipeline().MaxSuccessfulRuns(),
 		)}, services...)
 	}
 
@@ -339,7 +344,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 }
 
 func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain evm.Chain, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
-	flagsContractAddress := chain.Config().FlagsContractAddress()
+	flagsContractAddress := chain.Config().EVM().FlagsContractAddress()
 	if flagsContractAddress != "" {
 		flags, err := NewFlags(flagsContractAddress, chain.Client())
 		if err != nil {

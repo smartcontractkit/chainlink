@@ -156,16 +156,21 @@ func NewFromJobSpec(
 	logBroadcaster log.Broadcaster,
 	pipelineRunner pipeline.Runner,
 	cfg Config,
+	fcfg EvmFeeConfig,
+	ecfg EvmTransactionsConfig,
+	fmcfg FluxMonitorConfig,
+	jcfg JobPipelineConfig,
+	dbCfg pg.QConfig,
 	lggr logger.Logger,
 ) (*FluxMonitor, error) {
 	fmSpec := jobSpec.FluxMonitorSpec
 	chainId := ethClient.ConfiguredChainID()
 
-	if !validatePollTimer(fmSpec.PollTimerDisabled, MinimumPollingInterval(cfg), fmSpec.PollTimerPeriod) {
+	if !validatePollTimer(fmSpec.PollTimerDisabled, MinimumPollingInterval(jcfg), fmSpec.PollTimerPeriod) {
 		return nil, fmt.Errorf(
 			"PollTimerPeriod (%s), must be equal or greater than JobPipeline.HTTPRequest.DefaultTimeout (%s) ",
 			fmSpec.PollTimerPeriod,
-			MinimumPollingInterval(cfg),
+			MinimumPollingInterval(jcfg),
 		)
 	}
 
@@ -178,11 +183,12 @@ func NewFromJobSpec(
 		return nil, err
 	}
 
-	gasLimit := cfg.EvmGasLimitDefault()
+	gasLimit := fcfg.LimitDefault()
+	fmLimit := fcfg.LimitJobType().FM()
 	if jobSpec.GasLimit.Valid {
 		gasLimit = jobSpec.GasLimit.Uint32
-	} else if cfg.EvmGasLimitFMJobType() != nil {
-		gasLimit = *cfg.EvmGasLimitFMJobType()
+	} else if fmLimit != nil {
+		gasLimit = *fmLimit
 	}
 
 	contractSubmitter := NewFluxAggregatorContractSubmitter(
@@ -203,7 +209,7 @@ func NewFromJobSpec(
 	)
 
 	paymentChecker := &PaymentChecker{
-		MinContractPayment: cfg.MinimumContractPayment(),
+		MinContractPayment: cfg.MinContractPayment(),
 		MinJobPayment:      fmSpec.MinPayment,
 	}
 
@@ -245,7 +251,7 @@ func NewFromJobSpec(
 		pipelineRunner,
 		jobSpec,
 		*jobSpec.PipelineSpec,
-		pg.NewQ(db, lggr, cfg),
+		pg.NewQ(db, lggr, dbCfg),
 		orm,
 		jobORM,
 		pipelineORM,

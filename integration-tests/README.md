@@ -2,11 +2,22 @@
 
 Here lives the integration tests for chainlink, utilizing our [chainlink-testing-framework](https://github.com/smartcontractkit/chainlink-testing-framework).
 
-## Setup
+## Full Setup
 
-Prerequisites to run the tests.
+Prerequisites to run the tests from your local machine. Best for debugging and developing new tests, or checking changes to the framework. This can be a bit complex however, so if you just want to run the tests, see the [Just Run](#just-run) section.
+
+<details>
+  <summary>Details</summary>
 
 ### Install Dependencies
+
+Run the below command to install all dependencies.
+
+```sh
+make install_qa_tools
+```
+
+Or you can choose to do it manually.
 
 <details>
   <summary>Install Go</summary>
@@ -133,3 +144,16 @@ make test_perf
 ## Common Issues
 
 When upgrading to a new version, it's possible the helm charts have changed. There are a myriad of errors that can result from this, so it's best to just try running `helm repo update` when encountering an error you're unsure of.
+
+</details>
+
+
+## Just Run
+
+If you're making changes to chainlink code, or just want to run some tests without a complex setup, follow the below steps.
+
+1. [Install Go](https://go.dev/doc/install)
+2. [Install GitHub CLI](https://cli.github.com/)
+3. Authenticate with GitHub CLI: `gh auth login`
+4. `make run`
+5. Follow the setup wizard and watch your tests run in the GitHub Action.

@@ -33,7 +33,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	link "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -195,7 +194,7 @@ func (k *Keeper) sendEth(ctx context.Context, to common.Address, amount *big.Int
 	}
 
 	if err := k.waitTx(ctx, signedTx); err != nil {
-		log.Fatal("Send ETH failed, error is %s", err.Error())
+		log.Fatalf("Send ETH failed, error is %s", err.Error())
 	}
 	log.Println("Send ETH successfully")
 
@@ -211,7 +210,7 @@ func (h *baseHandler) waitDeployment(ctx context.Context, tx *ethtypes.Transacti
 func (h *baseHandler) waitTx(ctx context.Context, tx *ethtypes.Transaction) error {
 	receipt, err := bind.WaitMined(ctx, h.client, tx)
 	if err != nil {
-		log.Println("WaitDeployed failed: ", err)
+		log.Println("WaitTx failed: ", err)
 		return err
 	}
 

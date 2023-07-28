@@ -1,6 +1,8 @@
 package cmd_test
 
 import (
+	"bytes"
+	"strings"
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
@@ -28,7 +30,7 @@ func solanaStartNewApplication(t *testing.T, cfgs ...*solana.SolanaConfig) *clte
 }
 
 // TODO fix https://smartcontract-it.atlassian.net/browse/BCF-2114
-func TestClient_IndexSolanaNodes(t *testing.T) {
+func TestShell_IndexSolanaNodes(t *testing.T) {
 	t.Parallel()
 
 	id := solanatest.RandomChainID()
@@ -45,7 +47,7 @@ func TestClient_IndexSolanaNodes(t *testing.T) {
 		Nodes:   solana.SolanaNodes{&node1, &node2},
 	}
 	app := solanaStartNewApplication(t, &chain)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	require.Nil(t, cmd.NewSolanaNodeClient(client).IndexNodes(cltest.EmptyCLIContext()))
 	require.NotEmpty(t, r.Renders)
@@ -66,4 +68,23 @@ func TestClient_IndexSolanaNodes(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, string(wantConfig2), n2.Config)
 	assertTableRenders(t, r)
+
+	//Render table and check the fields order
+	b := new(bytes.Buffer)
+	rt := cmd.RendererTable{b}
+	nodes.RenderTable(rt)
+	renderLines := strings.Split(b.String(), "\n")
+	assert.Equal(t, 17, len(renderLines))
+	assert.Contains(t, renderLines[2], "Name")
+	assert.Contains(t, renderLines[2], n1.Name)
+	assert.Contains(t, renderLines[3], "Chain ID")
+	assert.Contains(t, renderLines[3], n1.ChainID)
+	assert.Contains(t, renderLines[4], "State")
+	assert.Contains(t, renderLines[4], n1.State)
+	assert.Contains(t, renderLines[9], "Name")
+	assert.Contains(t, renderLines[9], n2.Name)
+	assert.Contains(t, renderLines[10], "Chain ID")
+	assert.Contains(t, renderLines[10], n2.ChainID)
+	assert.Contains(t, renderLines[11], "State")
+	assert.Contains(t, renderLines[11], n2.State)
 }

@@ -214,7 +214,7 @@ func Test_ORM_CreateChainConfig(t *testing.T) {
 				P2PPeerID:   null.StringFrom("p2pkey"),
 				KeyBundleID: null.StringFrom("ocrkey"),
 			},
-			OCR2Config: feeds.OCR2Config{
+			OCR2Config: feeds.OCR2ConfigModel{
 				Enabled:     true,
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom("dns/4"),
@@ -351,7 +351,7 @@ func Test_ORM_ListChainConfigsByManagerIDs(t *testing.T) {
 				P2PPeerID:   null.StringFrom("p2pkey"),
 				KeyBundleID: null.StringFrom("ocrkey"),
 			},
-			OCR2Config: feeds.OCR2Config{
+			OCR2Config: feeds.OCR2ConfigModel{
 				Enabled:     true,
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom("dns/4"),
@@ -392,7 +392,7 @@ func Test_ORM_UpdateChainConfig(t *testing.T) {
 			AdminAddress:      "0x1001",
 			FluxMonitorConfig: feeds.FluxMonitorConfig{Enabled: false},
 			OCR1Config:        feeds.OCR1Config{Enabled: false},
-			OCR2Config:        feeds.OCR2Config{Enabled: false},
+			OCR2Config:        feeds.OCR2ConfigModel{Enabled: false},
 		}
 		updateCfg = feeds.ChainConfig{
 			AccountAddress:    "0x0002",
@@ -404,7 +404,7 @@ func Test_ORM_UpdateChainConfig(t *testing.T) {
 				P2PPeerID:   null.StringFrom("p2pkey"),
 				KeyBundleID: null.StringFrom("ocrkey"),
 			},
-			OCR2Config: feeds.OCR2Config{
+			OCR2Config: feeds.OCR2ConfigModel{
 				Enabled:     true,
 				IsBootstrap: true,
 				Multiaddr:   null.StringFrom("dns/4"),
@@ -773,8 +773,8 @@ func Test_ORM_UpsertJobProposal(t *testing.T) {
 	actual, err = orm.GetJobProposal(jpID)
 	require.NoError(t, err)
 
-	assert.Equal(t, feeds.JobProposalStatusPending, actual.Status)
-	assert.Equal(t, uuid.NullUUID{}, actual.ExternalJobID)
+	assert.Equal(t, feeds.JobProposalStatusApproved, actual.Status)
+	assert.Equal(t, externalJobID, actual.ExternalJobID)
 	assert.True(t, actual.PendingUpdate)
 
 	// Delete the proposal
@@ -1468,12 +1468,12 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 
 	var (
 		config      = configtest.NewGeneralConfig(t, nil)
-		keyStore    = cltest.NewKeyStore(t, db, config)
+		keyStore    = cltest.NewKeyStore(t, db, config.Database())
 		lggr        = logger.TestLogger(t)
-		pipelineORM = pipeline.NewORM(db, lggr, config)
-		bridgeORM   = bridges.NewORM(db, lggr, config)
+		pipelineORM = pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM   = bridges.NewORM(db, lggr, config.Database())
 		cc          = evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-		orm         = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config)
+		orm         = job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
 	)
 
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
@@ -1481,8 +1481,8 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 
 	defer func() { assert.NoError(t, orm.Close()) }()
 
-	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
-	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config)
+	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
+	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	jb, err := ocr.ValidatedOracleSpecToml(cc,

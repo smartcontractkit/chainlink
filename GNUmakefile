@@ -20,7 +20,7 @@ operator-ui-autoinstall: | operator-ui ## Autoinstall frontend UI.
 .PHONY: pnpmdep
 pnpmdep: ## Install solidity contract dependencies through pnpm
 	(cd contracts && pnpm i)
-	
+
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
@@ -53,6 +53,10 @@ chainlink-dev: operator-ui ## Build a dev build of chainlink binary.
 chainlink-test: operator-ui ## Build a test build of chainlink binary.
 	go build -tags test $(GOFLAGS) .
 
+.PHONY: chainlink-local-start
+chainlink-local-start:
+	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
+
 .PHONY: install-solana
 install-solana: ## Build & install the chainlink-solana binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-solana
@@ -60,6 +64,10 @@ install-solana: ## Build & install the chainlink-solana binary.
 .PHONY: install-median
 install-median: ## Build & install the chainlink-median binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
+
+.PHONY: install-starknet
+install-starknet: ## Build & install the chainlink-solana binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-starknet
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -105,7 +113,7 @@ go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts an
 .PHONY: go-solidity-wrappers-functions
 go-solidity-wrappers-functions: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all_functions
-	go generate ./core/gethwrappers/go_generate_functions.go
+	go generate ./core/gethwrappers/functions/go_generate.go
 
 .PHONY: go-solidity-wrappers-llo
 go-solidity-wrappers-llo: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
@@ -119,8 +127,8 @@ generate: abigen codecgen mockery ## Execute all go:generate commands.
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
 	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
-	go run ./tools/txtar/cmd/lstxtardirs -recurse=true | xargs -I % \
-		sh -c 'PATH=$(CURDIR):$(PATH) testscript -e COMMIT_SHA=$(COMMIT_SHA) -e HOME="$(TMPDIR)/home" -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
+	go run ./tools/txtar/cmd/lstxtardirs -recurse=true | PATH="$(CURDIR):${PATH}" xargs -I % \
+		sh -c 'testscript -e COMMIT_SHA=$(COMMIT_SHA) -e HOME="$(TMPDIR)/home" -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
 
 .PHONY: testscripts-update
 testscripts-update: ## Update testdata/scripts/* files via testscript.
@@ -164,11 +172,11 @@ test_need_operator_assets: ## Add blank file in web assets if operator ui has no
 
 .PHONY: config-docs
 config-docs: ## Generate core node configuration documentation
-	go run ./core/config/v2/docs/cmd/generate -o ./docs/
+	go run ./core/config/docs/cmd/generate -o ./docs/
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.52.1 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.53.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
 
 .PHONY: snapshot
 snapshot:

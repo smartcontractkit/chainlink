@@ -6,26 +6,54 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+//go:generate mockery --quiet --name asyncDeleter --output ./mocks/ --case=underscore --structname=AsyncDeleter
+type asyncDeleter interface {
+	AsyncDelete(req *pb.TransmitRequest)
+}
+
 var _ services.ServiceCtx = (*TransmitQueue)(nil)
+
+var transmitQueueLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "mercury_transmit_queue_load",
+	Help: "Percent of transmit queue capacity used",
+},
+	[]string{"feedID", "capacity"},
+)
+
+// Prometheus' default interval is 15s, set this to under 7.5s to avoid
+// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
+const promInterval = 6500 * time.Millisecond
 
 // TransmitQueue is the high-level package that everything outside of this file should be using
 // It stores pending transmissions, yielding the latest (highest priority) first to the caller
 type TransmitQueue struct {
-	cond sync.Cond
-	lggr logger.Logger
-	mu   *sync.RWMutex
+	utils.StartStopOnce
+
+	cond         sync.Cond
+	lggr         logger.Logger
+	asyncDeleter asyncDeleter
+	mu           *sync.RWMutex
 
 	pq     *priorityQueue
 	maxlen int
 	closed bool
+
+	// monitor loop
+	stopMonitor       func()
+	transmitQueueLoad prometheus.Gauge
 }
 
 type Transmission struct {
@@ -40,11 +68,22 @@ type Transmission struct {
 
 // maxlen controls how many items will be stored in the queue
 // 0 means unlimited - be careful, this can cause memory leaks
-func NewTransmitQueue(lggr logger.Logger, maxlen int) *TransmitQueue {
-	pq := new(priorityQueue)
-	heap.Init(pq) // for completeness
+func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int, transmissions []*Transmission, asyncDeleter asyncDeleter) *TransmitQueue {
+	pq := priorityQueue(transmissions)
+	heap.Init(&pq) // ensure the heap is ordered
 	mu := new(sync.RWMutex)
-	return &TransmitQueue{sync.Cond{L: mu}, lggr.Named("TransmitQueue"), mu, pq, maxlen, false}
+	return &TransmitQueue{
+		utils.StartStopOnce{},
+		sync.Cond{L: mu},
+		lggr.Named("TransmitQueue"),
+		asyncDeleter,
+		mu,
+		&pq,
+		maxlen,
+		false,
+		nil,
+		transmitQueueLoad.WithLabelValues(feedID, fmt.Sprintf("%d", maxlen)),
+	}
 }
 
 func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) (ok bool) {
@@ -58,7 +97,10 @@ func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.Report
 	if tq.maxlen != 0 && tq.pq.Len() == tq.maxlen {
 		// evict oldest entry to make room
 		tq.lggr.Criticalf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen)
-		heap.Remove(tq.pq, tq.pq.Len()-1)
+		removed := heap.Remove(tq.pq, tq.pq.Len()-1)
+		if transmission, ok := removed.(*Transmission); ok {
+			tq.asyncDeleter.AsyncDelete(transmission.Req)
+		}
 	}
 
 	heap.Push(tq.pq, &Transmission{req, reportCtx, -1})
@@ -90,13 +132,51 @@ func (tq *TransmitQueue) IsEmpty() bool {
 	return tq.pq.Len() == 0
 }
 
-func (tq *TransmitQueue) Start(context.Context) error { return nil }
+func (tq *TransmitQueue) Start(context.Context) error {
+	return tq.StartOnce("TransmitQueue", func() error {
+		t := time.NewTicker(utils.WithJitter(promInterval))
+		wg := new(sync.WaitGroup)
+		chStop := make(chan struct{})
+		tq.stopMonitor = func() {
+			t.Stop()
+			close(chStop)
+			wg.Wait()
+		}
+		wg.Add(1)
+		go tq.monitorLoop(t.C, chStop, wg)
+		return nil
+	})
+}
+
 func (tq *TransmitQueue) Close() error {
-	tq.cond.L.Lock()
-	tq.closed = true
-	tq.cond.L.Unlock()
-	tq.cond.Broadcast()
-	return nil
+	return tq.StopOnce("TransmitQueue", func() error {
+		tq.cond.L.Lock()
+		tq.closed = true
+		tq.cond.L.Unlock()
+		tq.cond.Broadcast()
+		tq.stopMonitor()
+		return nil
+	})
+}
+
+func (tq *TransmitQueue) monitorLoop(c <-chan time.Time, chStop <-chan struct{}, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	for {
+		select {
+		case <-c:
+			tq.report()
+		case <-chStop:
+			return
+		}
+	}
+}
+
+func (tq *TransmitQueue) report() {
+	tq.mu.RLock()
+	length := tq.pq.Len()
+	tq.mu.RUnlock()
+	tq.transmitQueueLoad.Set(float64(length))
 }
 
 func (tq *TransmitQueue) Ready() error {
@@ -135,6 +215,8 @@ func (tq *TransmitQueue) pop() *Transmission {
 
 // HEAP
 // Adapted from https://pkg.go.dev/container/heap#example-package-PriorityQueue
+
+// WARNING: None of these methods are thread-safe, caller must synchronize
 
 var _ heap.Interface = &priorityQueue{}
 
