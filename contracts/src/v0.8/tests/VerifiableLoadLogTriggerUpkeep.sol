@@ -13,7 +13,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
   string public feedParamKey = "feedIdHex";
   string public timeParamKey = "blockNumber";
 
-  constructor(address _registrar, bool _useArb) VerifiableLoadBase(_registrar, _useArb) {}
+  constructor(AutomationRegistrar2_1 _registrar, bool _useArb) VerifiableLoadBase(_registrar, _useArb) {}
 
   function setFeedsHex(string[] memory newFeeds) external {
     feedsHex = newFeeds;

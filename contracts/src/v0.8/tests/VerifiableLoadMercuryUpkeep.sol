@@ -13,7 +13,7 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatible
   string public constant feedParamKey = "feedIdHex";
   string public constant timeParamKey = "blockNumber";
 
-  constructor(address registrarAddress, bool useArb) VerifiableLoadBase(registrarAddress, useArb) {}
+  constructor(AutomationRegistrar2_1 _registrar, bool useArb) VerifiableLoadBase(_registrar, useArb) {}
 
   function setFeedsHex(string[] memory newFeeds) external {
     feedsHex = newFeeds;
