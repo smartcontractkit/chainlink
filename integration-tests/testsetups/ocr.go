@@ -54,6 +54,7 @@ type OCRSoakTest struct {
 
 	t                *testing.T
 	startTime        time.Time
+	timeLeft         time.Duration
 	startingBlockNum uint64
 	testEnvironment  *environment.Environment
 	namespace        string
@@ -112,6 +113,7 @@ func NewOCRSoakTest(t *testing.T, forwarderFlow bool) (*OCRSoakTest, error) {
 		},
 		t:              t,
 		startTime:      time.Now(),
+		timeLeft:       testInputs.TestDuration,
 		log:            utils.GetTestLogger(t),
 		ocrRoundStates: make([]*testreporters.OCRRoundState, 0),
 		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
@@ -284,7 +286,6 @@ func (o *OCRSoakTest) Run() {
 
 	o.testLoop(o.Inputs.TestDuration, startingValue)
 
-	o.log.Info().Msg("Test Complete, collecting on-chain events")
 	// Keep trying to collect events until we get them
 	timeout := time.Second * 15
 	err = o.collectEvents(timeout)
@@ -303,7 +304,7 @@ func (o *OCRSoakTest) Run() {
 
 // testLoop is the primary test loop that will trigger new rounds and watch events
 func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
-	endTest := time.NewTimer(testDuration)
+	endTest := time.After(testDuration)
 	interruption := make(chan os.Signal, 1)
 	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
 	lastValue := 0
@@ -326,7 +327,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 			}
 			log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
 			os.Exit(1)
-		case <-endTest.C:
+		case <-endTest:
 			return
 		case <-newRoundTrigger.C:
 			err := o.triggerNewRound(newValue)
@@ -460,7 +461,8 @@ func (o *OCRSoakTest) LoadState() error {
 	}
 	o.ocrRoundStates = testState.OCRRoundStates
 	o.testIssues = testState.TestIssues
-	o.Inputs.TestDuration = testState.TestDuration - testState.TimeRunning
+	o.Inputs.TestDuration = testState.TestDuration
+	o.timeLeft = testState.TestDuration - testState.TimeRunning
 	o.startTime = testState.StartTime
 	o.startingBlockNum = testState.StartingBlockNum
 
@@ -519,7 +521,7 @@ func (o *OCRSoakTest) Resume() {
 	}
 
 	startingValue := 5
-	o.testLoop(o.Inputs.TestDuration, startingValue)
+	o.testLoop(o.timeLeft, startingValue)
 
 	o.log.Info().Msg("Test Complete, collecting on-chain events")
 

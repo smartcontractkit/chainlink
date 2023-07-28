@@ -45,7 +45,7 @@ func (r *TestIssue) Time() time.Time {
 }
 
 func (r *TestIssue) CSV() [][]string {
-	return [][]string{{r.StartTime.Format("2006-01-02 15:04:05.00 MST"), r.Message}}
+	return [][]string{{r.StartTime.Format("2006-01-02 15:04:05.00 MST"), "Test Issue!", r.Message}}
 }
 
 // OCRRoundState indicates that a round per contract should complete within this time with this answer
@@ -83,18 +83,18 @@ func (e *OCRRoundState) Validate() bool {
 		if len(eventList) == 0 {
 			e.Anomalous = true
 			anomalies = append(anomalies, []string{
-				e.StartTime.Format("2006-01-02 15:04:05.00 MST"), fmt.Sprintf("No AnswerUpdated for address '%s'", address),
+				e.StartTime.Format("2006-01-02 15:04:05.00 MST"), "Anomaly Found!", fmt.Sprintf("No AnswerUpdated for address '%s'", address),
 			})
 		} else if len(eventList) > 1 {
 			e.Anomalous = true
-			anomalies = append(anomalies, []string{e.StartTime.Format("2006-01-02 15:04:05.00 MST"),
+			anomalies = append(anomalies, []string{e.StartTime.Format("2006-01-02 15:04:05.00 MST"), "Anomaly Found!",
 				fmt.Sprintf("Multiple AnswerUpdated for address '%s', possible double-transmission", address)},
 			)
 		} else {
 			event := eventList[0]
 			if event.Answer != e.Answer {
 				e.Anomalous = true
-				anomalies = append(e.anomalies, []string{e.StartTime.Format("2006-01-02 15:04:05.00 MST"),
+				anomalies = append(e.anomalies, []string{e.StartTime.Format("2006-01-02 15:04:05.00 MST"), "Anomaly Found!",
 					fmt.Sprintf("FoundEvent for address '%s' has wrong answer '%d'", address, event.Answer)},
 				)
 			}
@@ -129,7 +129,7 @@ func (a *FoundEvent) CSV() [][]string {
 }
 
 // RecordEvents takes in a list of test states and RPC issues, orders them, and records them in the timeline
-func (o *OCRSoakTestReporter) RecordEvents(testStates []*OCRRoundState, rpcIssues []*TestIssue) {
+func (o *OCRSoakTestReporter) RecordEvents(testStates []*OCRRoundState, testIssues []*TestIssue) {
 	events := []TimeLineEvent{}
 	for _, expectedEvent := range testStates {
 		if expectedEvent.Validate() {
@@ -139,11 +139,12 @@ func (o *OCRSoakTestReporter) RecordEvents(testStates []*OCRRoundState, rpcIssue
 		events = append(events, expectedEvent)
 		events = append(events, expectedEvent.TimeLineEvents...)
 	}
-	if len(rpcIssues) > 0 {
+	if len(testIssues) > 0 {
 		o.AnomaliesDetected = true
 	}
-	for _, rpcIssue := range rpcIssues {
-		events = append(events, rpcIssue)
+	for _, testIssue := range testIssues {
+		events = append(events, testIssue)
+		o.anomalies = append(o.anomalies, testIssue.CSV()...)
 	}
 	sort.Slice(events, func(i, j int) bool {
 		return events[i].Time().Before(events[j].Time())
@@ -179,6 +180,8 @@ func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
 	err = ocrReportWriter.Write([]string{
 		"Namespace",
 		o.namespace,
+		"Started At",
+		o.StartTime.Format("2006-01-02 15:04:05.00 MST"),
 		"Test Duration",
 		time.Since(o.StartTime).String(),
 	})
