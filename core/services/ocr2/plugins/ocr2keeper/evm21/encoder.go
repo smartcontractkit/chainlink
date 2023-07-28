@@ -207,7 +207,7 @@ func decodeExtensions(result *ocr2keepers.CheckResult) error {
 			// in the case of a string, the value is probably still json
 			// encoded and coming from a plugin outcome
 			if err := json.Unmarshal(typedExt, &ext); err != nil {
-				return fmt.Errorf("%w: json encoded values do not match LogTriggerExtension struct", err)
+				return fmt.Errorf("%w: json encoded values do not match LogTriggerExtension struct: %s", err, string(typedExt))
 			}
 
 			result.Payload.Trigger.Extension = ext
