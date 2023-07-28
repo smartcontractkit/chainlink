@@ -12,8 +12,26 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
   ];
   string public feedParamKey = "feedIdHex";
   string public timeParamKey = "blockNumber";
+  bool public autoLog;
+  bool public useMercury;
 
-  constructor(AutomationRegistrar2_1 _registrar, bool _useArb) VerifiableLoadBase(_registrar, _useArb) {}
+  constructor(
+    AutomationRegistrar2_1 _registrar,
+    bool _useArb,
+    bool _autoLog,
+    bool _useMercury
+  ) VerifiableLoadBase(_registrar, _useArb) {
+    autoLog = _autoLog;
+    useMercury = _useMercury;
+  }
+
+  function setAutoLog(bool _autoLog) external {
+    autoLog = _autoLog;
+  }
+
+  function setUseMercury(bool _useMercury) external {
+    useMercury = _useMercury;
+  }
 
   function setFeedsHex(string[] memory newFeeds) external {
     feedsHex = newFeeds;
@@ -72,7 +90,9 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
     // minBalanceThresholdMultiplier (20) * min balance. If not, add addLinkAmount (0.2) to the upkeep
     // upkeepTopUpCheckInterval, minBalanceThresholdMultiplier, and addLinkAmount are configurable
     topUpFund(upkeepId, currentBlockNum);
-    emit LogEmitted(upkeepId, currentBlockNum, address(this));
+    if (autoLog) {
+      emit LogEmitted(upkeepId, currentBlockNum, address(this));
+    }
     burnPerformGas(upkeepId, startGas, currentBlockNum);
   }
 
