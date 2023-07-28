@@ -114,15 +114,15 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	require.NoError(t, err)
 
-	oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(common.HexToAddress("0xa"), chain.Client())
-	require.NoError(t, err)
+	contractAddress := "0xa"
 
 	ingressClient := sync_mocks.NewTelemetryIngressClient(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.FunctionsRequests)
+	monEndpoint := ingressAgent.GenMonitoringEndpoint(contractAddress, synchronization.FunctionsRequests)
 
 	s4Storage := s4_mocks.NewStorage(t)
-	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, bridgeAccessor, pluginORM, pluginConfig, s4Storage, broadcaster, lggr, mailMon, monEndpoint, decryptor, nil)
+	client := chain.Client()
+	functionsListener := functions_service.NewFunctionsListener(jb, client, contractAddress, bridgeAccessor, pluginORM, pluginConfig, s4Storage, broadcaster, lggr, mailMon, monEndpoint, decryptor, nil)
 
 	return &FunctionsListenerUniverse{
 		service:        functionsListener,
@@ -137,6 +137,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 
 func PrepareAndStartFunctionsListener(t *testing.T, cbor []byte) (*FunctionsListenerUniverse, *log_mocks.Broadcast, chan struct{}) {
 	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000, false)
+	contractVersion := uni.service.ContractVersion()
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 
 	err := uni.service.Start(testutils.Context(t))
@@ -144,15 +145,29 @@ func PrepareAndStartFunctionsListener(t *testing.T, cbor []byte) (*FunctionsList
 
 	log := log_mocks.NewBroadcast(t)
 	uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
-	logOracleRequest := ocr2dr_oracle.OCR2DROracleOracleRequest{
-		RequestId:          RequestID,
-		RequestingContract: common.Address{},
-		RequestInitiator:   common.Address{},
-		SubscriptionId:     uint64(SubscriptionID),
-		SubscriptionOwner:  SubscriptionOwner,
-		Data:               cbor,
+	switch contractVersion {
+	case 0:
+		logOracleRequest := ocr2dr_oracle.OCR2DROracleOracleRequest{
+			RequestId:          RequestID,
+			RequestingContract: common.Address{},
+			RequestInitiator:   common.Address{},
+			SubscriptionId:     uint64(SubscriptionID),
+			SubscriptionOwner:  SubscriptionOwner,
+			Data:               cbor,
+		}
+		log.On("DecodedLog").Return(&logOracleRequest)
+	case 1:
+		logOracleRequest := functions_coordinator.FunctionsCoordinatorOracleRequest{
+			RequestId:          RequestID,
+			RequestingContract: common.Address{},
+			RequestInitiator:   common.Address{},
+			SubscriptionId:     uint64(SubscriptionID),
+			SubscriptionOwner:  SubscriptionOwner,
+			Data:               cbor,
+		}
+		log.On("DecodedLog").Return(&logOracleRequest)
 	}
-	log.On("DecodedLog").Return(&logOracleRequest)
+
 	log.On("String").Return("")
 	return uni, log, make(chan struct{})
 }
@@ -479,7 +494,7 @@ func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 	err := uni.service.Start(testutils.Context(t))
 	require.NoError(t, err)
 
-	uni.service.HandleOracleRequestV1(&request, &request.RequestingContract, log)
+	uni.service.HandleOracleRequestV1(&request, log)
 	uni.service.Close()
 }
 
@@ -508,6 +523,6 @@ func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 	err := uni.service.Start(testutils.Context(t))
 	require.NoError(t, err)
 
-	uni.service.HandleOracleRequestV1(&request, &request.RequestingContract, log)
+	uni.service.HandleOracleRequestV1(&request, log)
 	uni.service.Close()
 }
