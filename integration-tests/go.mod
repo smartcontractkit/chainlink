@@ -5,11 +5,8 @@ go 1.20
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
-replace github.com/smartcontractkit/chainlink-testing-framework => /Users/f4hrenh9it/go/src/integrations-framework
-
 require (
 	github.com/cli/go-gh/v2 v2.0.0
-	github.com/docker/docker v24.0.2+incompatible
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/go-resty/resty/v2 v2.7.0
 	github.com/google/uuid v1.3.0
@@ -21,7 +18,7 @@ require (
 	github.com/rs/zerolog v1.29.1
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-env v0.35.0
-	github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230721212423-94ca008185b2
+	github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230728125833-2cb31175c1b1
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230724105022-c5e49b4195ac
 	github.com/smartcontractkit/ocr2keepers v1.0.0-alpha.0
@@ -78,6 +75,7 @@ require (
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/pebble v0.0.0-20230209160836-829675f94811 // indirect
 	github.com/cockroachdb/redact v1.1.3 // indirect
+	github.com/cometbft/cometbft v0.37.2 // indirect
 	github.com/confio/ics23/go v0.7.0 // indirect
 	github.com/containerd/containerd v1.6.19 // indirect
 	github.com/coreos/go-semver v0.3.0 // indirect
@@ -100,6 +98,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
+	github.com/docker/docker v24.0.2+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
@@ -437,6 +436,7 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gotest.tools/v3 v3.2.0 // indirect
 	k8s.io/api v0.26.2 // indirect
 	k8s.io/apiextensions-apiserver v0.25.3 // indirect
 	k8s.io/apimachinery v0.26.2 // indirect

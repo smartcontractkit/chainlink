@@ -62,7 +62,7 @@ func NewChainlink(c *ChainlinkConfig) (*Chainlink, error) {
 		resp, err = rc.R().SetBody(session).Post("/sessions")
 		if err != nil {
 			log.Debug().Err(err).Str("URL", c.URL).Interface("Session Details", session).Msg("Error connecting to Chainlink node, retrying")
-			time.Sleep(3 * time.Second)
+			time.Sleep(5 * time.Second)
 		} else { // Connection successful
 			break
 		}

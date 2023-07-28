@@ -50,7 +50,7 @@ func ConnectClients(network blockchain.EVMNetwork, env *Environment) (*Clients, 
 		network.Name = "geth"
 		network.URLs = append(network.URLs, url)
 		network.HTTPURLs = append(network.URLs, url)
-		c, err := blockchain.NewDecoupledEVMClient(network)
+		c, err := blockchain.NewEVMClientFromNetwork(network)
 		if err != nil {
 			return nil, err
 		}

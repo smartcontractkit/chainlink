@@ -737,6 +737,8 @@ github.com/cockroachdb/redact v1.1.3 h1:AKZds10rFSIj7qADf0g46UixK8NNLwWTNdCIGS5w
 github.com/cockroachdb/redact v1.1.3/go.mod h1:BVNblN9mBWFyMyqK1k3AAiSxhvhfK2oOZZ2lK+dpvRg=
 github.com/codahale/hdrhistogram v0.0.0-20161010025455-3a0bb77429bd/go.mod h1:sE/e/2PUdi/liOCUjSTXgM1o87ZssimdTWN964YiIeI=
 github.com/codegangsta/inject v0.0.0-20150114235600-33e0aa1cb7c0/go.mod h1:4Zcjuz89kmFXt9morQgcfYZAYZ5n8WHjt81YYWIwtTM=
+github.com/cometbft/cometbft v0.37.2 h1:XB0yyHGT0lwmJlFmM4+rsRnczPlHoAKFX6K8Zgc2/Jc=
+github.com/cometbft/cometbft v0.37.2/go.mod h1:Y2MMMN//O5K4YKd8ze4r9jmk4Y7h0ajqILXbH5JQFVs=
 github.com/confio/ics23/go v0.7.0 h1:00d2kukk7sPoHWL4zZBZwzxnpA2pec1NPdwbSokJ5w8=
 github.com/confio/ics23/go v0.7.0/go.mod h1:E45NqnlpxGnpfTWL/xauN7MRwEE28T4Dd4uraToOaKg=
 github.com/containerd/containerd v1.6.19 h1:F0qgQPrG0P2JPgwpxWxYavrVeXAG0ezUIB9Z/4FTUAU=
@@ -2186,6 +2188,8 @@ github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230620171700-bbcb3a99b7d3
 github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230620171700-bbcb3a99b7d3/go.mod h1:MfZBUifutkv3aK7abyw5YmTJbqt8iFwcQDFikrxC/uI=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230612131011-369bfb503592 h1:3Ul/LkULxrolCVguHUFnWJamgUDsSGISlm/DzclstmE=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230622060316-7ce48476dd7d h1:4jSCp6i/p/EIaAkYQDxPK8nXDuv0fBXzKIcVYzetCoI=
+github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230728125833-2cb31175c1b1 h1:KFXBqgPCPiSnS6WTzcF/RQnUdj3Be0Si21FKMe0GGq0=
+github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230728125833-2cb31175c1b1/go.mod h1:QVZ+0AZchJQttnpaYxgINEKxlFgmi4HxtptZLOc9YHg=
 github.com/smartcontractkit/libocr v0.0.0-20230724105022-c5e49b4195ac h1:ugouvLyN5D2AeztWrByENx08cx0phkxxvfP+AkBv3NI=
 github.com/smartcontractkit/libocr v0.0.0-20230724105022-c5e49b4195ac/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
 github.com/smartcontractkit/ocr2keepers v1.0.0-alpha.0 h1:zkXsh4MAARNXqUlsMPBzVtFVV7SN93SxQ3KfCicnans=
@@ -3296,8 +3300,8 @@ gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776/go.mod h1:K4uyk7z7BCEPqu6E+C
 gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
 gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
-gotest.tools v2.2.0+incompatible h1:VsBPFP1AI068pPrMxtb/S8Zkgf9xEmTLJjfM+P5UIEo=
-gotest.tools/v3 v3.0.3 h1:4AuOwCGf4lLR9u3YOe2awrHygurzhO/HeQ6laiA6Sx0=
+gotest.tools/v3 v3.2.0 h1:I0DwBVMGAx26dttAj1BtJLAkVGncrkkUXfJLC4Flt/I=
+gotest.tools/v3 v3.2.0/go.mod h1:Mcr9QNxkg0uMvy/YElmo4SpXgJKWgQvYrT7Kw5RzJ1A=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
