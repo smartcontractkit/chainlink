@@ -3,47 +3,23 @@ package evm
 import (
 	"fmt"
 	"math/big"
-	"reflect"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
+)
+
+var (
+	ErrEmptyResults = fmt.Errorf("empty results; cannot encode")
 )
 
 type EVMAutomationEncoder21 struct {
 	encoding.BasicEncoder
+	packer *evmRegistryPackerV2_1
 }
-
-func mustNewType(t string, internalType string, components []abi.ArgumentMarshaling) abi.Type {
-	a, err := abi.NewType(t, internalType, components)
-	if err != nil {
-		panic(err)
-	}
-	return a
-}
-
-var (
-	Uint256               = mustNewType("uint256", "", nil)
-	Uint256Arr            = mustNewType("uint256[]", "", nil)
-	BytesArr              = mustNewType("bytes[]", "", nil)
-	TriggerMarshalingArgs = []abi.ArgumentMarshaling{
-		{Name: "blockNumber", Type: "uint32"},
-		{Name: "blockHash", Type: "bytes32"},
-	}
-	TriggerArr          = mustNewType("tuple(uint32,bytes32)[]", "", TriggerMarshalingArgs)
-	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
-	packFn              = reportArgs.Pack
-	unpackIntoMapFn     = reportArgs.UnpackIntoMap
-	mKeys               = []string{"fastGasWei", "linkNative", "upkeepIds", "gasLimits", "triggers", "performDatas"}
-	reportArgs          = abi.Arguments{
-		{Name: mKeys[0], Type: Uint256},
-		{Name: mKeys[1], Type: Uint256},
-		{Name: mKeys[2], Type: Uint256Arr},
-		{Name: mKeys[3], Type: Uint256Arr},
-		{Name: mKeys[4], Type: TriggerArr},
-		{Name: mKeys[5], Type: BytesArr},
-	}
-)
 
 type EVMAutomationUpkeepResult21 struct {
 	// Block is the block number used to build an UpkeepKey for this result
@@ -64,175 +40,109 @@ type EVMAutomationUpkeepResult21 struct {
 	Retryable        bool
 }
 
-func (enc EVMAutomationEncoder21) EncodeReport(toReport []ocr2keepers.UpkeepResult) ([]byte, error) {
-	if len(toReport) == 0 {
-		return nil, nil
+type EVMAutomationResultExtension21 struct {
+	FastGasWei    *big.Int
+	LinkNative    *big.Int
+	FailureReason uint8 // this is not encoded, only pass along for the purpose of pipeline run
+}
+
+func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]byte, error) {
+	if len(results) == 0 {
+		return nil, ErrEmptyResults
 	}
 
-	var (
-		fastGas *big.Int
-		link    *big.Int
-	)
+	report := automation_utils_2_1.KeeperRegistryBase21Report{
+		UpkeepIds:    make([]*big.Int, len(results)),
+		GasLimits:    make([]*big.Int, len(results)),
+		Triggers:     make([][]byte, len(results)),
+		PerformDatas: make([][]byte, len(results)),
+	}
 
-	ids := make([]*big.Int, len(toReport))
-	gasLimits := make([]*big.Int, len(toReport))
-	triggers := make([]wrappedTrigger, len(toReport))
-	performDatas := make([][]byte, len(toReport))
-
-	for i, result := range toReport {
-		res, ok := result.(EVMAutomationUpkeepResult21)
+	for i, result := range results {
+		ext, ok := result.Extension.(EVMAutomationResultExtension21)
 		if !ok {
-			return nil, fmt.Errorf("unexpected upkeep result struct")
+			return nil, fmt.Errorf("unexpected check result extension struct")
 		}
 
 		// only take these values from the first result
 		// TODO: find a new way to get these values
 		if i == 0 {
-			fastGas = res.FastGasWei
-			link = res.LinkNative
+			report.FastGasWei = ext.FastGasWei
+			report.LinkNative = ext.LinkNative
 		}
 
-		ids[i] = res.ID
-		gasLimits[i] = res.GasUsed
-		triggers[i] = wrappedTrigger{
-			BlockNumber: res.CheckBlockNumber,
-			BlockHash:   res.CheckBlockHash,
-		}
-		performDatas[i] = res.PerformData
-	}
-
-	bts, err := packFn(fastGas, link, ids, gasLimits, triggers, performDatas)
-	if err != nil {
-		return []byte{}, fmt.Errorf("%w: failed to pack report data", err)
-	}
-
-	return bts, nil
-}
-
-func (enc EVMAutomationEncoder21) DecodeReport(report []byte) ([]ocr2keepers.UpkeepResult, error) {
-	m := make(map[string]interface{})
-	if err := unpackIntoMapFn(m, report); err != nil {
-		return nil, err
-	}
-
-	for _, key := range mKeys {
-		if _, ok := m[key]; !ok {
-			return nil, fmt.Errorf("decoding error: %s missing from struct", key)
-		}
-	}
-
-	res := []ocr2keepers.UpkeepResult{}
-
-	var (
-		ok        bool
-		upkeepIds []*big.Int
-		performs  [][]byte
-		// gasLimits []*big.Int // TODO
-		wei  *big.Int
-		link *big.Int
-	)
-
-	if upkeepIds, ok = m[mKeys[2]].([]*big.Int); !ok {
-		return res, fmt.Errorf("upkeep ids of incorrect type in report")
-	}
-
-	// TODO: a type assertion on `wrappedTrigger` did not work, even with the
-	// exact same struct definition as what follows. reflect was used to get the
-	// struct definition. not sure yet how to clean this up.
-	// ex:
-	// t := reflect.TypeOf(rawPerforms)
-	// fmt.Printf("%v\n", t)
-	triggers, ok := m[mKeys[4]].([]struct {
-		BlockNumber uint32   `abi:"blockNumber"`
-		BlockHash   [32]byte `abi:"blockHash"`
-	})
-	if !ok {
-		return res, fmt.Errorf("triggers of incorrect structure in report")
-	}
-
-	if len(upkeepIds) != len(triggers) {
-		return res, fmt.Errorf("upkeep ids and triggers should have matching length")
-	}
-
-	if wei, ok = m[mKeys[0]].(*big.Int); !ok {
-		return res, fmt.Errorf("fast gas as wrong type")
-	}
-
-	if link, ok = m[mKeys[1]].(*big.Int); !ok {
-		return res, fmt.Errorf("link native as wrong type")
-	}
-	// if gasLimits, ok = m[mKeys[3]].([]*big.Int); !ok {
-	// 	return res, fmt.Errorf("gas limits as wrong type")
-	// }
-
-	if performs, ok = m[mKeys[5]].([][]byte); !ok {
-		return res, fmt.Errorf("perform datas as wrong type")
-	}
-
-	res = make([]ocr2keepers.UpkeepResult, len(upkeepIds))
-
-	for i := 0; i < len(upkeepIds); i++ {
-		r := EVMAutomationUpkeepResult21{
-			Block:            triggers[i].BlockNumber,
-			ID:               upkeepIds[i],
-			Eligible:         true,
-			PerformData:      performs[i],
-			FastGasWei:       wei,
-			LinkNative:       link,
-			CheckBlockNumber: triggers[i].BlockNumber,
-			CheckBlockHash:   triggers[i].BlockHash,
-		}
-
-		res[i] = ocr2keepers.UpkeepResult(r)
-	}
-
-	return res, nil
-}
-
-func (enc EVMAutomationEncoder21) Eligible(result ocr2keepers.UpkeepResult) (bool, error) {
-	res, ok := result.(EVMAutomationUpkeepResult21)
-	if !ok {
-		tp := reflect.TypeOf(result)
-		return false, fmt.Errorf("%s: name: %s, kind: %s", ErrUnexpectedResult, tp.Name(), tp.Kind())
-	}
-
-	return res.Eligible, nil
-}
-
-func (enc EVMAutomationEncoder21) Detail(result ocr2keepers.UpkeepResult) (ocr2keepers.UpkeepKey, uint32, error) {
-	res, ok := result.(EVMAutomationUpkeepResult21)
-	if !ok {
-		return nil, 0, ErrUnexpectedResult
-	}
-
-	str := fmt.Sprintf("%d%s%s", res.Block, separator, res.ID)
-
-	return ocr2keepers.UpkeepKey([]byte(str)), res.ExecuteGas, nil
-}
-
-func (enc EVMAutomationEncoder21) KeysFromReport(b []byte) ([]ocr2keepers.UpkeepKey, error) {
-	results, err := enc.DecodeReport(b)
-	if err != nil {
-		return nil, err
-	}
-
-	keys := make([]ocr2keepers.UpkeepKey, 0, len(results))
-	for _, result := range results {
-		res, ok := result.(EVMAutomationUpkeepResult21)
+		id, ok := big.NewInt(0).SetString(string(result.Payload.Upkeep.ID), 10)
 		if !ok {
-			return nil, fmt.Errorf("unexpected result struct")
+			return nil, fmt.Errorf("failed to parse big int from upkeep id: %s", string(result.Payload.Upkeep.ID))
 		}
+		report.UpkeepIds[i] = id
+		report.GasLimits[i] = big.NewInt(0).SetUint64(result.GasAllocated)
 
-		str := fmt.Sprintf("%d%s%s", res.Block, separator, res.ID)
-		keys = append(keys, ocr2keepers.UpkeepKey([]byte(str)))
+		triggerW := triggerWrapper{
+			BlockNum:  uint32(result.Payload.Trigger.BlockNumber),
+			BlockHash: common.HexToHash(result.Payload.Trigger.BlockHash),
+		}
+		switch getUpkeepType(id.Bytes()) {
+		case logTrigger:
+			trExt, ok := result.Payload.Trigger.Extension.(logprovider.LogTriggerExtension)
+			if !ok {
+				return nil, fmt.Errorf("unrecognized trigger extension data")
+			}
+			hex, err := common.ParseHexOrString(trExt.TxHash)
+			if err != nil {
+				return nil, fmt.Errorf("tx hash parse error: %w", err)
+			}
+			triggerW.TxHash = common.BytesToHash(hex[:])
+			triggerW.LogIndex = uint32(trExt.LogIndex)
+		default:
+		}
+		trigger, err := enc.packer.PackTrigger(id, triggerW)
+		if err != nil {
+			return nil, fmt.Errorf("%w: failed to pack trigger", err)
+		}
+		report.Triggers[i] = trigger
+		report.PerformDatas[i] = result.PerformData
 	}
 
-	return keys, nil
+	return enc.packer.PackReport(report)
 }
 
-type wrappedTrigger struct {
-	BlockNumber uint32   `abi:"blockNumber"`
-	BlockHash   [32]byte `abi:"blockHash"`
+// Extract the plugin will call this function to accept/transmit reports
+func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error) {
+	report, err := enc.packer.UnpackReport(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to unpack report", err)
+	}
+	reportedUpkeeps := make([]ocr2keepers.ReportedUpkeep, len(report.UpkeepIds))
+	for i, upkeepId := range report.UpkeepIds {
+		triggerW, err := enc.packer.UnpackTrigger(upkeepId, report.Triggers[i])
+		if err != nil {
+			// TODO: log error and continue instead?
+			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
+		}
+		logExt := logprovider.LogTriggerExtension{}
+
+		switch getUpkeepType(upkeepId.Bytes()) {
+		case logTrigger:
+			logExt.TxHash = common.BytesToHash(triggerW.TxHash[:]).Hex()
+			logExt.LogIndex = int64(triggerW.LogIndex)
+		default:
+		}
+		trigger := ocr2keepers.NewTrigger(
+			int64(triggerW.BlockNum),
+			common.BytesToHash(triggerW.BlockHash[:]).Hex(),
+			logExt,
+		)
+		triggerID, _ := UpkeepTriggerID(upkeepId, report.Triggers[i])
+		reportedUpkeeps[i] = ocr2keepers.ReportedUpkeep{
+			ID:          triggerID,
+			UpkeepID:    ocr2keepers.UpkeepIdentifier(upkeepId.String()),
+			Trigger:     trigger,
+			PerformData: report.PerformDatas[i],
+		}
+	}
+
+	return reportedUpkeeps, nil
 }
 
 type BlockKeyHelper[T uint32 | int64] struct {

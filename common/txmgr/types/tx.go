@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
@@ -31,16 +32,38 @@ type TxStrategy interface {
 	PruneQueue(pruneService UnstartedTxQueuePruner, qopt pg.QOpt) (n int64, err error)
 }
 
-type TxAttemptState string
+type TxAttemptState int8
 
 type TxState string
 
 const (
-	TxAttemptInProgress = TxAttemptState("in_progress")
-	// TODO: Make name chain-agnostic (https://smartcontract-it.atlassian.net/browse/BCI-981)
-	TxAttemptInsufficientEth = TxAttemptState("insufficient_eth")
-	TxAttemptBroadcast       = TxAttemptState("broadcast")
+	TxAttemptInProgress TxAttemptState = iota + 1
+	TxAttemptInsufficientFunds
+	TxAttemptBroadcast
+	txAttemptStateCount // always at end to calculate number of states
 )
+
+var txAttemptStateStrings = []string{
+	"unknown_attempt_state",    // default 0 value
+	TxAttemptInProgress:        "in_progress",
+	TxAttemptInsufficientFunds: "insufficient_funds",
+	TxAttemptBroadcast:         "broadcast",
+}
+
+func NewTxAttemptState(state string) (s TxAttemptState) {
+	if index := slices.Index(txAttemptStateStrings, state); index != -1 {
+		s = TxAttemptState(index)
+	}
+	return s
+}
+
+// String returns string formatted states for logging
+func (s TxAttemptState) String() (str string) {
+	if s < txAttemptStateCount {
+		return txAttemptStateStrings[s]
+	}
+	return txAttemptStateStrings[0]
+}
 
 type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	FromAddress      ADDR
@@ -51,7 +74,7 @@ type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	Meta             *TxMeta[ADDR, TX_HASH]
 	ForwarderAddress ADDR
 
-	// Pipeline variables - if you aren't calling this from ethtx task within
+	// Pipeline variables - if you aren't calling this from chain tx task within
 	// the pipeline, you don't need these variables
 	MinConfirmations  clnull.Uint32
 	PipelineTaskRunID *uuid.UUID
@@ -101,6 +124,12 @@ type TxMeta[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	// Used for the VRFv2 - the subscription ID of the
 	// requester of the VRF.
 	SubID *uint64 `json:"SubId,omitempty"`
+	// Used for the VRFv2Plus - the uint256 subscription ID of the
+	// requester of the VRF.
+	GlobalSubID *string `json:"GlobalSubId,omitempty"`
+	// Used for VRFv2Plus - max native token this tx will bill
+	// should it get bumped
+	MaxEth *string `json:"MaxEth,omitempty"`
 
 	// Used for keepers
 	UpkeepID *string `json:"UpkeepID,omitempty"`
@@ -158,10 +187,10 @@ type Tx[
 	// necessarily the same as the on-chain encoded value (i.e. Optimism)
 	FeeLimit uint32
 	Error    null.String
-	// BroadcastAt is updated every time an attempt for this eth_tx is re-sent
+	// BroadcastAt is updated every time an attempt for this tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.
 	BroadcastAt *time.Time
-	// InitialBroadcastAt is recorded once, the first ever time this eth_tx is sent
+	// InitialBroadcastAt is recorded once, the first ever time this tx is sent
 	InitialBroadcastAt *time.Time
 	CreatedAt          time.Time
 	State              TxState

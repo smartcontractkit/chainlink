@@ -445,7 +445,7 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 
 	pctx := pg.WithParentCtx(ctx)
 	if err = s.orm.DeleteProposal(proposal.ID, pctx); err != nil {
-		s.lggr.Errorw("Failed to delete the proposal", "error", err)
+		s.lggr.Errorw("Failed to delete the proposal", "err", err)
 
 		return 0, errors.Wrap(err, "DeleteProposal failed")
 	}
@@ -489,7 +489,7 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 
 	pctx := pg.WithParentCtx(ctx)
 	if err = s.orm.RevokeSpec(latest.ID, pctx); err != nil {
-		s.lggr.Errorw("Failed to revoke the proposal", "error", err)
+		s.lggr.Errorw("Failed to revoke the proposal", "err", err)
 
 		return 0, errors.Wrap(err, "RevokeSpec failed")
 	}
@@ -682,7 +682,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 
 	fmsClient, err := s.connMgr.GetClient(proposal.FeedsManagerID)
 	if err != nil {
-		logger.Errorw("Failed to get FMS Client", "error", err)
+		logger.Errorw("Failed to get FMS Client", "err", err)
 
 		return errors.Wrap(err, "fms rpc client")
 	}
@@ -764,7 +764,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			approvedSpec, serr := s.orm.GetApprovedSpec(proposal.ID, pgOpts)
 			if serr != nil {
 				if !errors.Is(serr, sql.ErrNoRows) {
-					logger.Errorw("Failed to get approved spec", "error", serr)
+					logger.Errorw("Failed to get approved spec", "err", serr)
 
 					// Return an error for any other errors fetching the
 					// approved spec
@@ -775,7 +775,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			// If a spec is found, cancel the existing job spec
 			if serr == nil {
 				if cerr := s.orm.CancelSpec(approvedSpec.ID, pgOpts); cerr != nil {
-					logger.Errorw("Failed to delete the cancel the spec", "error", cerr)
+					logger.Errorw("Failed to delete the cancel the spec", "err", cerr)
 
 					return cerr
 				}
@@ -783,7 +783,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 
 			// Delete the job
 			if serr = s.jobSpawner.DeleteJob(existingJobID, pgOpts); serr != nil {
-				logger.Errorw("Failed to delete the job", "error", serr)
+				logger.Errorw("Failed to delete the job", "err", serr)
 
 				return errors.Wrap(serr, "DeleteJob failed")
 			}
@@ -791,14 +791,14 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 
 		// Create the job
 		if txerr = s.jobSpawner.CreateJob(j, pgOpts); txerr != nil {
-			logger.Errorw("Failed to create job", "error", txerr)
+			logger.Errorw("Failed to create job", "err", txerr)
 
 			return txerr
 		}
 
 		// Approve the job proposal spec
 		if txerr = s.orm.ApproveSpec(id, j.ExternalJobID, pgOpts); txerr != nil {
-			logger.Errorw("Failed to approve spec", "error", txerr)
+			logger.Errorw("Failed to approve spec", "err", txerr)
 
 			return txerr
 		}
@@ -808,7 +808,7 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 			Uuid:    proposal.RemoteUUID.String(),
 			Version: int64(spec.Version),
 		}); txerr != nil {
-			logger.Errorw("Failed to approve job to FMS", "error", txerr)
+			logger.Errorw("Failed to approve job to FMS", "err", txerr)
 
 			return txerr
 		}
@@ -1040,7 +1040,7 @@ func (s *service) Unsafe_SetConnectionsManager(connMgr ConnectionsManager) {
 // findExistingJobForOCR2 looks for existing job for OCR2
 func (s *service) findExistingJobForOCR2(j *job.Job, qopts pg.QOpt) (int32, error) {
 	var contractID string
-	var feedID common.Hash
+	var feedID *common.Hash
 
 	switch j.Type {
 	case job.OffchainReporting2:
@@ -1049,7 +1049,7 @@ func (s *service) findExistingJobForOCR2(j *job.Job, qopts pg.QOpt) (int32, erro
 	case job.Bootstrap:
 		contractID = j.BootstrapSpec.ContractID
 		if j.BootstrapSpec.FeedID != nil {
-			feedID = *j.BootstrapSpec.FeedID
+			feedID = j.BootstrapSpec.FeedID
 		}
 	case job.FluxMonitor, job.OffchainReporting:
 		return 0, errors.Errorf("contradID and feedID not applicable for job type: %s", j.Type)

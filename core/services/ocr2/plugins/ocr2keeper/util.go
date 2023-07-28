@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
 	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
 	"github.com/smartcontractkit/ocr2keepers/pkg/runner"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -19,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	kevm20 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm20"
 	kevm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -29,6 +31,10 @@ type Encoder interface {
 	polling.Encoder
 	runner.Encoder
 	coordinator.Encoder
+}
+
+type Encoder21 interface {
+	plugin.Encoder
 }
 
 var (
@@ -58,7 +64,7 @@ func EVMProvider(db *sqlx.DB, chain evm.Chain, lggr logger.Logger, spec job.Job,
 	return keeperProvider, nil
 }
 
-func EVMDependencies20(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm20.EvmRegistry, Encoder, *kevm20.LogProvider, error) {
+func EVMDependencies20(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner) (evmrelay.OCR2KeeperProvider, *kevm20.EvmRegistry, Encoder, *kevm20.LogProvider, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
@@ -105,7 +111,7 @@ func FilterNamesFromSpec20(spec *job.OCR2OracleSpec) (names []string, err error)
 	return []string{kevm20.LogProviderFilterName(addr.Address()), kevm20.UpkeepFilterName(addr.Address())}, err
 }
 
-func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder, *kevm21.LogProvider, error) {
+func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.ChainSet, pr pipeline.Runner, mc *models.MercuryCredentials) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder21, *kevm21.TransmitEventProvider, logprovider.LogEventProvider, *kevm21.BlockSubscriber, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
@@ -116,31 +122,33 @@ func EVMDependencies21(spec job.Job, db *sqlx.DB, lggr logger.Logger, set evm.Ch
 	// get the chain from the config
 	chainID, err2 := spec.OCR2OracleSpec.RelayConfig.EVMChainID()
 	if err2 != nil {
-		return nil, nil, nil, nil, err2
+		return nil, nil, nil, nil, nil, nil, err2
 	}
 	chain, err2 = set.Get(big.NewInt(chainID))
 	if err2 != nil {
-		return nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
+		return nil, nil, nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
 	}
 
 	// the provider will be returned as a dependency
 	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
 	if registry, err = kevm21.NewEVMRegistryService(rAddr, chain, mc, lggr); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, err
 	}
 	encoder := kevm21.EVMAutomationEncoder21{}
+
+	hp := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), 128, lggr)
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
 	var lookbackBlocks int64 = 250
 	// TODO: accept a version of the registry contract and use the correct interfaces
-	logProvider, err := kevm21.NewLogProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
+	logTransmitter, err := kevm21.NewTransmitEventProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
-	return keeperProvider, registry, encoder, logProvider, err
+	return keeperProvider, registry, encoder, logTransmitter, registry.LogEventProvider(), hp, err
 }
 
 func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {
@@ -148,5 +156,5 @@ func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error)
 	if err != nil {
 		return nil, err
 	}
-	return []string{kevm21.LogProviderFilterName(addr.Address()), kevm21.UpkeepFilterName(addr.Address())}, err
+	return []string{kevm21.TransmitEventProviderFilterName(addr.Address()), kevm21.UpkeepFilterName(addr.Address())}, err
 }

@@ -39,19 +39,30 @@ func (c *evmTxmClient) ConfiguredChainID() *big.Int {
 	return c.client.ConfiguredChainID()
 }
 
-func (c *evmTxmClient) BatchSendTransactions(ctx context.Context, updateBroadcastTime func(now time.Time, txIDs []int64) error, attempts []TxAttempt, batchSize int, lggr logger.Logger) (codes []clienttypes.SendTxReturnCode, txErrs []error, err error) {
+func (c *evmTxmClient) BatchSendTransactions(
+	ctx context.Context,
+	attempts []TxAttempt,
+	batchSize int,
+	lggr logger.Logger,
+) (
+	codes []clienttypes.SendTxReturnCode,
+	txErrs []error,
+	broadcastTime time.Time,
+	successfulTxIDs []int64,
+	err error,
+) {
 	// preallocate
 	codes = make([]clienttypes.SendTxReturnCode, len(attempts))
 	txErrs = make([]error, len(attempts))
 
-	reqs, batchErr := batchSendTransactions(ctx, updateBroadcastTime, attempts, batchSize, lggr, c.client)
+	reqs, broadcastTime, successfulTxIDs, batchErr := batchSendTransactions(ctx, attempts, batchSize, lggr, c.client)
 	err = errors.Join(err, batchErr) // this error does not block processing
 
 	// safety check - exits before processing
 	if len(reqs) != len(attempts) {
 		lenErr := fmt.Errorf("Returned request data length (%d) != number of tx attempts (%d)", len(reqs), len(attempts))
 		err = errors.Join(err, lenErr)
-		lggr.Criticalw("Mismatched length", "error", err)
+		lggr.Criticalw("Mismatched length", "err", err)
 		return
 	}
 

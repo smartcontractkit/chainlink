@@ -15,18 +15,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -38,22 +41,6 @@ type Delegate struct {
 	cc      evm.ChainSet
 	lggr    logger.Logger
 	mailMon *utils.MailboxMonitor
-}
-
-type GethKeyStore interface {
-	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
-}
-
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
-type Config interface {
-	FinalityDepth() uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
-	MinIncomingConfirmations() uint32
-}
-
-type FeeConfig interface {
-	LimitDefault() uint32
-	LimitJobType() config.LimitJobType
 }
 
 func NewDelegate(
@@ -107,6 +94,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
+	coordinatorV2Plus, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
+	if err != nil {
+		return nil, err
+	}
 
 	// If the batch coordinator address is not provided, we will fall back to non-batched
 	var batchCoordinatorV2 *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
@@ -141,20 +132,20 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 
 	for _, task := range pl.Tasks {
-		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+		if _, ok := task.(*pipeline.VRFTaskV2Plus); ok {
 			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
 				return nil, err
 			}
 
-			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().KeySpecificMaxGasPriceWei) {
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
 				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
-			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().KeySpecificMaxGasPriceWei); err != nil {
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
 				return nil, err
 			}
 
-			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
+			linkEthFeedAddress, err := coordinatorV2Plus.LINKETHFEED(nil)
 			if err != nil {
 				return nil, errors.Wrap(err, "LINKETHFEED")
 			}
@@ -163,7 +154,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
 			}
 
-			return []job.ServiceCtx{newListenerV2(
+			return []job.ServiceCtx{v2.New(
 				chain.Config().EVM(),
 				chain.Config().EVM().GasEstimator(),
 				lV2,
@@ -171,7 +162,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				chain.ID(),
 				chain.LogBroadcaster(),
 				d.q,
-				coordinatorV2,
+				v2.NewCoordinatorV2Plus(coordinatorV2Plus),
 				batchCoordinatorV2,
 				vrfOwner,
 				aggregator,
@@ -184,32 +175,77 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				func() {},
 				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
 				chain.HeadBroadcaster(),
-				newLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
+				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
+		}
+		if _, ok := task.(*pipeline.VRFTaskV2); ok {
+			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+				return nil, err
+			}
+
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
+				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
+			}
+
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
+				return nil, err
+			}
+
+			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
+			if err != nil {
+				return nil, errors.Wrap(err, "LINKETHFEED")
+			}
+			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
+			if err != nil {
+				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
+			}
+
+			return []job.ServiceCtx{v2.New(
+				chain.Config().EVM(),
+				chain.Config().EVM().GasEstimator(),
+				lV2,
+				chain.Client(),
+				chain.ID(),
+				chain.LogBroadcaster(),
+				d.q,
+				v2.NewCoordinatorV2(coordinatorV2),
+				batchCoordinatorV2,
+				vrfOwner,
+				aggregator,
+				chain.TxManager(),
+				d.pr,
+				d.ks.Eth(),
+				jb,
+				d.mailMon,
+				utils.NewHighCapacityMailbox[log.Broadcast](),
+				func() {},
+				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
+				chain.HeadBroadcaster(),
+				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
-			return []job.ServiceCtx{&listenerV1{
-				cfg:             chain.Config().EVM(),
-				feeCfg:          chain.Config().EVM().GasEstimator(),
-				l:               logger.Sugared(lV1),
-				headBroadcaster: chain.HeadBroadcaster(),
-				logBroadcaster:  chain.LogBroadcaster(),
-				q:               d.q,
-				txm:             chain.TxManager(),
-				coordinator:     coordinator,
-				pipelineRunner:  d.pr,
-				gethks:          d.ks.Eth(),
-				job:             jb,
-				mailMon:         d.mailMon,
+			return []job.ServiceCtx{&v1.Listener{
+				Cfg:             chain.Config().EVM(),
+				FeeCfg:          chain.Config().EVM().GasEstimator(),
+				L:               logger.Sugared(lV1),
+				HeadBroadcaster: chain.HeadBroadcaster(),
+				LogBroadcaster:  chain.LogBroadcaster(),
+				Q:               d.q,
+				Txm:             chain.TxManager(),
+				Coordinator:     coordinator,
+				PipelineRunner:  d.pr,
+				GethKs:          d.ks.Eth(),
+				Job:             jb,
+				MailMon:         d.mailMon,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
-				reqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
-				chStop:             make(chan struct{}),
-				waitOnStop:         make(chan struct{}),
-				newHead:            make(chan struct{}, 1),
-				respCount:          GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
-				blockNumberToReqID: pairing.New(),
-				reqAdded:           func() {},
-				deduper:            newLogDeduper(int(chain.Config().EVM().FinalityDepth())),
+				ReqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
+				ChStop:             make(chan struct{}),
+				WaitOnStop:         make(chan struct{}),
+				NewHead:            make(chan struct{}, 1),
+				ResponseCount:      GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
+				BlockNumberToReqID: pairing.New(),
+				ReqAdded:           func() {},
+				Deduper:            vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
 			}}, nil
 		}
 	}

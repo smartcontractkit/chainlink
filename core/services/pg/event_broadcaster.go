@@ -93,11 +93,11 @@ func (b *eventBroadcaster) Start(context.Context) error {
 			case pq.ListenerEventConnected:
 				b.lggr.Debug("Postgres event broadcaster: connected")
 			case pq.ListenerEventDisconnected:
-				b.lggr.Warnw("Postgres event broadcaster: disconnected, trying to reconnect...", "error", err)
+				b.lggr.Warnw("Postgres event broadcaster: disconnected, trying to reconnect...", "err", err)
 			case pq.ListenerEventReconnected:
 				b.lggr.Debug("Postgres event broadcaster: reconnected")
 			case pq.ListenerEventConnectionAttemptFailed:
-				b.lggr.Warnw("Postgres event broadcaster: reconnect attempt failed, trying again...", "error", err)
+				b.lggr.Warnw("Postgres event broadcaster: reconnect attempt failed, trying again...", "err", err)
 			}
 		})
 
@@ -203,7 +203,7 @@ func (b *eventBroadcaster) removeSubscription(sub Subscription) {
 	if len(b.subscriptions[sub.ChannelName()]) == 0 {
 		err := b.listener.Unlisten(sub.ChannelName())
 		if err != nil {
-			b.lggr.Errorw("Postgres event broadcaster: failed to unsubscribe", "error", err)
+			b.lggr.Errorw("Postgres event broadcaster: failed to unsubscribe", "err", err)
 		}
 		delete(b.subscriptions, sub.ChannelName())
 	}
@@ -295,8 +295,9 @@ func (sub *subscription) Close() {
 	close(sub.chDone)
 	err := sub.processQueueWorker.Stop()
 	if err != nil {
-		sub.lggr.Errorw("THIS NEVER RETURNS AN ERROR", "error", err)
+		sub.lggr.Errorw("THIS NEVER RETURNS AN ERROR", "err", err)
 	}
+	close(sub.chEvents)
 }
 
 // NullEventBroadcaster implements null pattern for event broadcaster

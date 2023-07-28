@@ -234,7 +234,7 @@ func (t *OCRContractTracker) processLogs() {
 func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	was, err := t.logBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
-		t.logger.Errorw("could not determine if log was already consumed", "error", err)
+		t.logger.Errorw("could not determine if log was already consumed", "err", err)
 		return
 	} else if was {
 		return
@@ -244,14 +244,14 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	if raw.Address != t.contract.Address() {
 		t.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
 		if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-			t.logger.Errorw("failed to mark log consumed", "error", err2)
+			t.logger.Errorw("failed to mark log consumed", "err", err2)
 		}
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
 		if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-			t.logger.Errorw("failed to mark log consumed", "error", err2)
+			t.logger.Errorw("failed to mark log consumed", "err", err2)
 		}
 		return
 	}
@@ -264,7 +264,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		if err != nil {
 			t.logger.Errorw("could not parse config set", "err", err)
 			if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-				t.logger.Errorw("failed to mark log consumed", "error", err2)
+				t.logger.Errorw("failed to mark log consumed", "err", err2)
 			}
 			return
 		}
@@ -281,7 +281,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		if err != nil {
 			t.logger.Errorw("could not parse round requested", "err", err)
 			if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-				t.logger.Errorw("failed to mark log consumed", "error", err2)
+				t.logger.Errorw("failed to mark log consumed", "err", err2)
 			}
 			return
 		}
@@ -309,7 +309,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	}
 	if !consumed {
 		if err := t.logBroadcaster.MarkConsumed(lb); err != nil {
-			t.logger.Errorw("failed to mark log consumed", "error", err)
+			t.logger.Errorw("failed to mark log consumed", "err", err)
 		}
 	}
 }

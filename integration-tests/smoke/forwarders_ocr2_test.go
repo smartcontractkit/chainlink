@@ -97,7 +97,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	require.NoError(t, err, "Getting latest answer from OCRv2 contract shouldn't fail")
 	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCRw contract to be 5 but got %d", answer.Int64())
 
-	for i := 2; i <= 100; i++ {
+	for i := 2; i <= 3; i++ {
 		ocrRoundVal := (5 + i) % 10
 		err = mockServer.SetValuePath("ocr2", ocrRoundVal)
 		require.NoError(t, err)

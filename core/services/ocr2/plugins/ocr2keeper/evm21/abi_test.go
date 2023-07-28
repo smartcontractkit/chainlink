@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -8,44 +9,76 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/stretchr/testify/assert"
 
+	automation21Utils "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
-func TestUnpackTransmitTxInputErrors(t *testing.T) {
+func TestUnpackCheckResults(t *testing.T) {
+	upkeepId, _ := new(big.Int).SetString("1843548457736589226156809205796175506139185429616502850435279853710366065936", 10)
 
 	tests := []struct {
-		Name    string
-		RawData string
+		Name           string
+		Payload        ocr2keepers.UpkeepPayload
+		RawData        string
+		ExpectedResult EVMAutomationUpkeepResult21
 	}{
 		{
-			Name:    "Empty Data",
-			RawData: "0x",
+			Name:    "upkeep not needed",
+			Payload: ocr2keepers.NewUpkeepPayload(upkeepId, 0, "19447615", ocr2keepers.NewTrigger(19447615, "0x0", struct{}{}), []byte{}),
+			RawData: "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000421c000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000c8caf37f3b3890000000000000000000000000000000000000000000000000000000000000000",
+			ExpectedResult: EVMAutomationUpkeepResult21{
+				Block:            19447615,
+				ID:               upkeepId,
+				Eligible:         false,
+				FailureReason:    UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED,
+				GasUsed:          big.NewInt(16924),
+				PerformData:      nil,
+				FastGasWei:       big.NewInt(1000000000),
+				LinkNative:       big.NewInt(3532383906411401),
+				CheckBlockNumber: 0,
+				CheckBlockHash:   [32]byte{},
+				ExecuteGas:       5000000,
+			},
 		},
 		{
-			Name:    "Random Data",
-			RawData: "0x2f08cfae623a0d96b9beb326c20e322001cbbd344700",
+			Name:    "target check reverted",
+			Payload: ocr2keepers.NewUpkeepPayload(upkeepId, 0, "19448272", ocr2keepers.NewTrigger(19448272, "0x0", struct{}{}), []byte{}),
+			RawData: "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000007531000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000c8caf37f3b3890000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000008914039bf676e20aad43a5642485e666575ed0d927a4b5679745e947e7d125ee2687c10000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000024462e8a50d00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000000128c1d000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000009666565644944537472000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000184554482d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000000000184254432d5553442d415242495452554d2d544553544e45540000000000000000000000000000000000000000000000000000000000000000000000000000000b626c6f636b4e756d6265720000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000000000000000000000",
+			ExpectedResult: EVMAutomationUpkeepResult21{
+				Block:            19448272,
+				ID:               upkeepId,
+				Eligible:         false,
+				FailureReason:    UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
+				GasUsed:          big.NewInt(30001),
+				PerformData:      []byte{98, 232, 165, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 40, 193, 208, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 83, 116, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 66, 84, 67, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				FastGasWei:       big.NewInt(1000000000),
+				LinkNative:       big.NewInt(3532383906411401),
+				CheckBlockNumber: 8983555,
+				CheckBlockHash:   [32]byte{155, 246, 118, 226, 10, 173, 67, 165, 100, 36, 133, 230, 102, 87, 94, 208, 217, 39, 164, 181, 103, 151, 69, 233, 71, 231, 209, 37, 238, 38, 135, 193},
+				ExecuteGas:       5000000,
+			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			abi, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
+			packer, err := newPacker()
+			assert.NoError(t, err)
+			rs, err := packer.UnpackCheckResult(test.Payload, test.RawData)
 			assert.Nil(t, err)
-
-			packer := &evmRegistryPackerV2_1{abi: abi}
-			_, err = packer.UnpackTransmitTxInput(hexutil.MustDecode(test.RawData))
-			assert.NotNil(t, err)
+			assert.Equal(t, test.ExpectedResult.Block, uint32(rs.Payload.Trigger.BlockNumber))
+			assert.Equal(t, ocr2keepers.UpkeepIdentifier(test.ExpectedResult.ID.Bytes()), rs.Payload.Upkeep.ID)
+			assert.Equal(t, test.ExpectedResult.Eligible, rs.Eligible)
+			ext, ok := rs.Extension.(EVMAutomationResultExtension21)
+			assert.True(t, ok)
+			assert.Equal(t, test.ExpectedResult.FailureReason, ext.FailureReason)
 		})
 	}
 }
 
-func TestUnpackPerformResult(t *testing.T) {
-	registryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	if err != nil {
-		assert.Nil(t, err)
-	}
-
+func TestPacker_UnpackPerformResult(t *testing.T) {
 	tests := []struct {
 		Name    string
 		RawData string
@@ -57,7 +90,8 @@ func TestUnpackPerformResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := &evmRegistryPackerV2_1{abi: registryABI}
+			packer, err := newPacker()
+			assert.NoError(t, err)
 			rs, err := packer.UnpackPerformResult(test.RawData)
 			assert.Nil(t, err)
 			assert.True(t, rs)
@@ -65,12 +99,7 @@ func TestUnpackPerformResult(t *testing.T) {
 	}
 }
 
-func TestUnpackCheckCallbackResult(t *testing.T) {
-	registryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	if err != nil {
-		assert.Nil(t, err)
-	}
-
+func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 	tests := []struct {
 		Name          string
 		CallbackResp  []byte
@@ -106,7 +135,9 @@ func TestUnpackCheckCallbackResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer := &evmRegistryPackerV2_1{abi: registryABI}
+			packer, err := newPacker()
+			assert.NoError(t, err)
+
 			needed, pd, failureReason, gasUsed, err := packer.UnpackCheckCallbackResult(test.CallbackResp)
 
 			if test.ErrorString != "" {
@@ -122,13 +153,11 @@ func TestUnpackCheckCallbackResult(t *testing.T) {
 	}
 }
 
-func TestUnpackLogTriggerConfig(t *testing.T) {
-	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	assert.NoError(t, err)
+func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 	tests := []struct {
 		name    string
 		raw     []byte
-		res     iregistry21.KeeperRegistryBase21LogTriggerConfig
+		res     automation21Utils.LogTriggerConfig
 		errored bool
 	}{
 		{
@@ -137,7 +166,7 @@ func TestUnpackLogTriggerConfig(t *testing.T) {
 				b, _ := hexutil.Decode("0x0000000000000000000000007456fadf415b7c34b1182bd20b0537977e945e3e00000000000000000000000000000000000000000000000000000000000000003d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 				return b
 			}(),
-			iregistry21.KeeperRegistryBase21LogTriggerConfig{
+			automation21Utils.LogTriggerConfig{
 				ContractAddress: common.HexToAddress("0x7456FadF415b7c34B1182Bd20B0537977e945e3E"),
 				Topic0:          [32]uint8{0x3d, 0x53, 0xa3, 0x95, 0x50, 0xe0, 0x46, 0x88, 0x6, 0x58, 0x27, 0xf3, 0xbb, 0x86, 0x58, 0x4c, 0xb0, 0x7, 0xab, 0x9e, 0xbc, 0xa7, 0xeb, 0xd5, 0x28, 0xe7, 0x30, 0x1c, 0x9c, 0x31, 0xeb, 0x5d},
 			},
@@ -149,16 +178,15 @@ func TestUnpackLogTriggerConfig(t *testing.T) {
 				b, _ := hexutil.Decode("0x000000000000000000000000b1182bd20b0537977e945e3e00000000000000000000000000000000000000000000000000000000000000003d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 				return b
 			}(),
-			iregistry21.KeeperRegistryBase21LogTriggerConfig{},
+			automation21Utils.LogTriggerConfig{},
 			true,
 		},
 	}
 
-	packer := &evmRegistryPackerV2_1{abi: keeperRegistryABI}
-
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-
+			packer, err := newPacker()
+			assert.NoError(t, err)
 			res, err := packer.UnpackLogTriggerConfig(tc.raw)
 			if tc.errored {
 				assert.Error(t, err)
@@ -168,4 +196,103 @@ func TestUnpackLogTriggerConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPacker_PackingTrigger(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      ocr2keepers.UpkeepIdentifier
+		trigger triggerWrapper
+		encoded []byte
+		err     error
+	}{
+		{
+			"happy flow log trigger",
+			append([]byte{1}, common.LeftPadBytes([]byte{1}, 15)...),
+			triggerWrapper{
+				BlockNum:  1,
+				BlockHash: common.HexToHash("0x01111111"),
+				LogIndex:  1,
+				TxHash:    common.HexToHash("0x01111111"),
+			},
+			func() []byte {
+				b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000001111111000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+				return b
+			}(),
+			nil,
+		},
+		{
+			"happy flow conditional trigger",
+			append([]byte{1}, common.LeftPadBytes([]byte{0}, 15)...),
+			triggerWrapper{
+				BlockNum:  1,
+				BlockHash: common.HexToHash("0x01111111"),
+			},
+			func() []byte {
+				b, _ := hexutil.Decode("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+				return b
+			}(),
+			nil,
+		},
+		{
+			"invalid type",
+			append([]byte{1}, common.LeftPadBytes([]byte{8}, 15)...),
+			triggerWrapper{
+				BlockNum:  1,
+				BlockHash: common.HexToHash("0x01111111"),
+			},
+			[]byte{},
+			fmt.Errorf("unknown trigger type: %d", 8),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			packer, err := newPacker()
+			assert.NoError(t, err)
+			id, ok := big.NewInt(0).SetString(hexutil.Encode(tc.id)[2:], 16)
+			assert.True(t, ok)
+
+			encoded, err := packer.PackTrigger(id, tc.trigger)
+			if tc.err != nil {
+				assert.EqualError(t, err, tc.err.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.encoded, encoded)
+				decoded, err := packer.UnpackTrigger(id, encoded)
+				assert.NoError(t, err)
+				assert.Equal(t, tc.trigger.BlockNum, decoded.BlockNum)
+			}
+		})
+	}
+
+	t.Run("unpacking invalid trigger", func(t *testing.T) {
+		packer, err := newPacker()
+		assert.NoError(t, err)
+		_, err = packer.UnpackTrigger(big.NewInt(0), []byte{1, 2, 3})
+		assert.Error(t, err)
+	})
+
+	t.Run("unpacking unknown type", func(t *testing.T) {
+		packer, err := newPacker()
+		assert.NoError(t, err)
+		uid := append([]byte{1}, common.LeftPadBytes([]byte{8}, 15)...)
+		id, ok := big.NewInt(0).SetString(hexutil.Encode(uid)[2:], 16)
+		assert.True(t, ok)
+		decoded, _ := hexutil.Decode("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+		_, err = packer.UnpackTrigger(id, decoded)
+		assert.EqualError(t, err, "unknown trigger type: 8")
+	})
+}
+
+func newPacker() (*evmRegistryPackerV2_1, error) {
+	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
+	if err != nil {
+		return nil, err
+	}
+	utilsABI, err := abi.JSON(strings.NewReader(automation21Utils.AutomationUtilsABI))
+	if err != nil {
+		return nil, err
+	}
+	return NewEvmRegistryPackerV2_1(keepersABI, utilsABI), nil
 }

@@ -37,8 +37,8 @@ Enabled = true
 [P2P]
 [P2P.V2]
 Enabled = true
-AnnounceAddresses = ["0.0.0.0:8090"]
-ListenAddresses = ["0.0.0.0:8090"]`
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]`
 
 	defaultAutomationSettings = map[string]interface{}{
 		"replicas": "6",
@@ -193,11 +193,11 @@ func TestAutomationChaos(t *testing.T) {
 				return
 			}
 
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 1, 2, ChaosGroupMinority)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajority)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 3, 5, ChaosGroupMajority)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityPlus)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 2, 5, ChaosGroupMajorityPlus)
 			require.NoError(t, err)
 
 			chainClient, err := blockchain.NewEVMClient(network, testEnvironment)

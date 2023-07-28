@@ -17,37 +17,37 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 type CosmosConfigs []*CosmosConfig
 
 func (cs CosmosConfigs) validateKeys() (err error) {
 	// Unique chain IDs
-	chainIDs := v2.UniqueStrings{}
+	chainIDs := config.UniqueStrings{}
 	for i, c := range cs {
 		if chainIDs.IsDupe(c.ChainID) {
-			err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), *c.ChainID))
+			err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.ChainID", i), *c.ChainID))
 		}
 	}
 
 	// Unique node names
-	names := v2.UniqueStrings{}
+	names := config.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
 			if names.IsDupe(n.Name) {
-				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
+				err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
 			}
 		}
 	}
 
 	// Unique TendermintURLs
-	urls := v2.UniqueStrings{}
+	urls := config.UniqueStrings{}
 	for i, c := range cs {
 		for j, n := range c.Nodes {
 			u := (*url.URL)(n.TendermintURL)
 			if urls.IsDupeFmt(u) {
-				err = multierr.Append(err, v2.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.TendermintURL", i, j), u.String()))
+				err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.TendermintURL", i, j), u.String()))
 			}
 		}
 	}
@@ -264,8 +264,8 @@ func setFromChain(c, f *coscfg.Chain) {
 	if f.ConfirmPollPeriod != nil {
 		c.ConfirmPollPeriod = f.ConfirmPollPeriod
 	}
-	if f.FallbackGasPriceUAtom != nil {
-		c.FallbackGasPriceUAtom = f.FallbackGasPriceUAtom
+	if f.FallbackGasPrice != nil {
+		c.FallbackGasPrice = f.FallbackGasPrice
 	}
 	if f.FCDURL != nil {
 		c.FCDURL = f.FCDURL
@@ -289,13 +289,13 @@ func setFromChain(c, f *coscfg.Chain) {
 
 func (c *CosmosConfig) ValidateConfig() (err error) {
 	if c.ChainID == nil {
-		err = multierr.Append(err, v2.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
+		err = multierr.Append(err, config.ErrMissing{Name: "ChainID", Msg: "required for all chains"})
 	} else if *c.ChainID == "" {
-		err = multierr.Append(err, v2.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
+		err = multierr.Append(err, config.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 	}
 
 	if len(c.Nodes) == 0 {
-		err = multierr.Append(err, v2.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
+		err = multierr.Append(err, config.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
 	}
 
 	return
@@ -323,8 +323,8 @@ func (c *CosmosConfig) ConfirmPollPeriod() time.Duration {
 	return c.Chain.ConfirmPollPeriod.Duration()
 }
 
-func (c *CosmosConfig) FallbackGasPriceUAtom() sdk.Dec {
-	return sdkDecFromDecimal(c.Chain.FallbackGasPriceUAtom)
+func (c *CosmosConfig) FallbackGasPrice() sdk.Dec {
+	return sdkDecFromDecimal(c.Chain.FallbackGasPrice)
 }
 
 func (c *CosmosConfig) FCDURL() url.URL {

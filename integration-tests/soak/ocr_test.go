@@ -43,7 +43,6 @@ func TestOCRSoak(t *testing.T) {
 		NumberOfContracts:    2,
 		ChainlinkNodeFunding: big.NewFloat(testInputs.ChainlinkNodeFunding),
 		ExpectedRoundTime:    time.Minute * 2,
-		RoundTimeout:         time.Minute * 15,
 		TimeBetweenRounds:    testInputs.TimeBetweenRounds,
 		StartingAdapterValue: 5,
 	})
@@ -83,6 +82,9 @@ func SetupOCRSoakEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetw
 		"toml": client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, customNetworkTOML, network),
 		"db": map[string]any{
 			"stateful": true, // stateful DB by default for soak tests
+		},
+		"chainlink": map[string]any{
+			"p2p_port": "6690",
 		},
 	})
 	require.NoError(t, err, "Error creating chainlink deployment")

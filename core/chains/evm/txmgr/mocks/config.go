@@ -3,11 +3,7 @@
 package mocks
 
 import (
-	common "github.com/ethereum/go-ethereum/common"
-	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
-
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
-
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -44,17 +40,15 @@ func (_m *Config) FinalityDepth() uint32 {
 	return r0
 }
 
-// KeySpecificMaxGasPriceWei provides a mock function with given fields: addr
-func (_m *Config) KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei {
-	ret := _m.Called(addr)
+// FinalityTagEnabled provides a mock function with given fields:
+func (_m *Config) FinalityTagEnabled() bool {
+	ret := _m.Called()
 
-	var r0 *assets.Wei
-	if rf, ok := ret.Get(0).(func(common.Address) *assets.Wei); ok {
-		r0 = rf(addr)
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*assets.Wei)
-		}
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

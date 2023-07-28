@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
@@ -44,7 +44,7 @@ func init() {
 		// -short tests don't need a DB
 		return
 	}
-	dbURL := string(v2.EnvDatabaseURL.Get())
+	dbURL := string(env.DatabaseURL.Get())
 	if dbURL == "" {
 		panic("you must provide a CL_DATABASE_URL environment variable")
 	}
@@ -54,11 +54,11 @@ func init() {
 		panic(err)
 	}
 	if parsed.Path == "" {
-		msg := fmt.Sprintf("invalid %[1]s: `%[2]s`. You must set %[1]s env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %[1]s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", v2.EnvDatabaseURL, parsed.String())
+		msg := fmt.Sprintf("invalid %[1]s: `%[2]s`. You must set %[1]s env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %[1]s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", env.DatabaseURL, parsed.String())
 		panic(msg)
 	}
 	if !strings.HasSuffix(parsed.Path, "_test") {
-		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:], v2.EnvDatabaseURL)
+		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:], env.DatabaseURL)
 		panic(msg)
 	}
 	name := string(dialects.TransactionWrappedPostgres)

@@ -2,13 +2,13 @@ package txmgr
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"sort"
 	"strconv"
 	"sync"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -43,32 +43,32 @@ var (
 	promNumGasBumps = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tx_manager_num_gas_bumps",
 		Help: "Number of gas bumps",
-	}, []string{"evmChainID"})
+	}, []string{"chainID"})
 
 	promGasBumpExceedsLimit = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tx_manager_gas_bump_exceeds_limit",
 		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
-	}, []string{"evmChainID"})
+	}, []string{"chainID"})
 	promNumConfirmedTxs = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tx_manager_num_confirmed_transactions",
 		Help: "Total number of confirmed transactions. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
-	}, []string{"evmChainID"})
+	}, []string{"chainID"})
 	promNumSuccessfulTxs = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tx_manager_num_successful_transactions",
 		Help: "Total number of successful transactions. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
-	}, []string{"evmChainID"})
+	}, []string{"chainID"})
 	promRevertedTxCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tx_manager_num_tx_reverted",
 		Help: "Number of times a transaction reverted on-chain. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
-	}, []string{"evmChainID"})
+	}, []string{"chainID"})
 	promFwdTxCount = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tx_manager_fwd_tx_count",
 		Help: "The number of forwarded transaction attempts labeled by status",
-	}, []string{"evmChainID", "successful"})
+	}, []string{"chainID", "successful"})
 	promTxAttemptCount = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "tx_manager_tx_attempt_count",
 		Help: "The number of transaction attempts that are currently being processed by the transaction manager",
-	}, []string{"evmChainID"})
+	}, []string{"chainID"})
 	promTimeUntilTxConfirmed = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "tx_manager_time_until_tx_confirmed",
 		Help: "The amount of time elapsed from a transaction being broadcast to being included in a block.",
@@ -83,7 +83,7 @@ var (
 			float64(5 * time.Minute),
 			float64(10 * time.Minute),
 		},
-	}, []string{"evmChainID"})
+	}, []string{"chainID"})
 	promBlocksUntilTxConfirmed = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "tx_manager_blocks_until_tx_confirmed",
 		Help: "The amount of blocks that have been mined from a transaction being broadcast to being included in a block.",
@@ -95,7 +95,7 @@ var (
 			float64(50),
 			float64(100),
 		},
-	}, []string{"evmChainID"})
+	}, []string{"chainID"})
 )
 
 // Confirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -182,9 +182,9 @@ func NewConfirmer[
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(_ context.Context) error {
 	return ec.StartOnce("Confirmer", func() error {
 		if ec.feeConfig.BumpThreshold() == 0 {
-			ec.lggr.Infow("Gas bumping is disabled (EVM.GasEstimator.BumpThreshold set to 0)", "ethGasBumpThreshold", 0)
+			ec.lggr.Infow("Gas bumping is disabled (FeeEstimator.BumpThreshold set to 0)", "feeBumpThreshold", 0)
 		} else {
-			ec.lggr.Infow(fmt.Sprintf("Gas bumping is enabled, unconfirmed transactions will have their gas price bumped every %d blocks", ec.feeConfig.BumpThreshold()), "ethGasBumpThreshold", ec.feeConfig.BumpThreshold())
+			ec.lggr.Infow(fmt.Sprintf("Fee bumping is enabled, unconfirmed transactions will have their fee bumped every %d blocks", ec.feeConfig.BumpThreshold()), "feeBumpThreshold", ec.feeConfig.BumpThreshold())
 		}
 
 		return ec.startInternal()
@@ -277,7 +277,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) processHead(ctx context.Context, head types.Head[BLOCK_HASH]) error {
 	mark := time.Now()
 
-	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "eth_confirmer")
+	ec.lggr.Debugw("processHead start", "headNum", head.BlockNumber(), "id", "confirmer")
 
 	if err := ec.txStore.SetBroadcastBeforeBlockNum(head.BlockNumber(), ec.chainID); err != nil {
 		return errors.Wrap(err, "SetBroadcastBeforeBlockNum failed")
@@ -290,21 +290,21 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 		return errors.Wrap(err, "CheckForReceipts failed")
 	}
 
-	ec.lggr.Debugw("Finished CheckForReceipts", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Debugw("Finished CheckForReceipts", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
 	if err := ec.RebroadcastWhereNecessary(ctx, head.BlockNumber()); err != nil {
 		return errors.Wrap(err, "RebroadcastWhereNecessary failed")
 	}
 
-	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Debugw("Finished RebroadcastWhereNecessary", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	mark = time.Now()
 
 	if err := ec.EnsureConfirmedTransactionsInLongestChain(ctx, head); err != nil {
 		return errors.Wrap(err, "EnsureConfirmedTransactionsInLongestChain failed")
 	}
 
-	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "eth_confirmer")
+	ec.lggr.Debugw("Finished EnsureConfirmedTransactionsInLongestChain", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 
 	if ec.resumeCallback != nil {
 		mark = time.Now()
@@ -312,10 +312,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 			return errors.Wrap(err, "ResumePendingTaskRuns failed")
 		}
 
-		ec.lggr.Debugw("Finished ResumePendingTaskRuns", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "eth_confirmer")
+		ec.lggr.Debugw("Finished ResumePendingTaskRuns", "headNum", head.BlockNumber(), "time", time.Since(mark), "id", "confirmer")
 	}
 
-	ec.lggr.Debugw("processHead finish", "headNum", head.BlockNumber(), "id", "eth_confirmer")
+	ec.lggr.Debugw("processHead finish", "headNum", head.BlockNumber(), "id", "confirmer")
 
 	return nil
 }
@@ -335,7 +335,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) pro
 // 3. We re-send that transaction to a RPC node 2 **which hasn't caught up to this re-org yet**
 // 4. RPC node 2 still has an old view of the chain, so it returns us "sequence too low" indicating "no problem this transaction is already mined"
 // 5. Now the transaction is marked "confirmed_missing_receipt" but the latest chain does not actually include it
-// 6. Now we are reliant on the EthResender to propagate it, and this transaction will not be gas bumped, so in the event of gas spikes it could languish or even be evicted from the mempool and hold up the queue
+// 6. Now we are reliant on the Resender to propagate it, and this transaction will not be gas bumped, so in the event of gas spikes it could languish or even be evicted from the mempool and hold up the queue
 // 7. Even if/when RPC node 2 catches up, the transaction is still stuck in state "confirmed_missing_receipt"
 //
 // This scenario might sound unlikely but has been observed to happen multiple times in the wild on Polygon.
@@ -348,11 +348,17 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 		return nil
 	}
 	ec.lggr.Infow(fmt.Sprintf("Found %d transactions confirmed_missing_receipt. The RPC node did not give us a receipt for these transactions even though it should have been mined. This could be due to using the wallet with an external account, or if the primary node is not synced or not propagating transactions properly", len(attempts)), "attempts", attempts)
-	txCodes, txErrs, err := ec.client.BatchSendTransactions(ctx, ec.txStore.UpdateBroadcastAts, attempts, int(ec.chainConfig.RPCDefaultBatchSize()), ec.lggr)
+	txCodes, txErrs, broadcastTime, txIDs, err := ec.client.BatchSendTransactions(ctx, attempts, int(ec.chainConfig.RPCDefaultBatchSize()), ec.lggr)
+	// update broadcast times before checking additional errors
+	if len(txIDs) > 0 {
+		if updateErr := ec.txStore.UpdateBroadcastAts(broadcastTime, txIDs); updateErr != nil {
+			err = fmt.Errorf("%w: failed to update broadcast time: %w", err, updateErr)
+		}
+	}
 	if err != nil {
 		ec.lggr.Debugw("Batch sending transactions failed", err)
 	}
-	var ethTxIDsToUnconfirm []int64
+	var txIDsToUnconfirm []int64
 	for idx, txErr := range txErrs {
 		// Add to Unconfirm array, all tx where error wasn't TransactionAlreadyKnown.
 		if txErr != nil {
@@ -361,9 +367,9 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 			}
 		}
 
-		ethTxIDsToUnconfirm = append(ethTxIDsToUnconfirm, attempts[idx].TxID)
+		txIDsToUnconfirm = append(txIDsToUnconfirm, attempts[idx].TxID)
 	}
-	err = ec.txStore.UpdateTxsUnconfirmed(ethTxIDsToUnconfirm)
+	err = ec.txStore.UpdateTxsUnconfirmed(txIDsToUnconfirm)
 
 	if err != nil {
 		return err
@@ -416,11 +422,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 	}
 
 	if err := ec.txStore.MarkAllConfirmedMissingReceipt(ec.chainID); err != nil {
-		return errors.Wrap(err, "unable to mark eth_txes as 'confirmed_missing_receipt'")
+		return errors.Wrap(err, "unable to mark txes as 'confirmed_missing_receipt'")
 	}
 
 	if err := ec.txStore.MarkOldTxesMissingReceiptAsErrored(blockNum, ec.chainConfig.FinalityDepth(), ec.chainID); err != nil {
-		return errors.Wrap(err, "unable to confirm buried unconfirmed eth_txes")
+		return errors.Wrap(err, "unable to confirm buried unconfirmed txes")
 	}
 	return nil
 }
@@ -524,8 +530,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 		err := txErrs[i]
 
 		l := logger.Sugared(attempt.Tx.GetLogger(lggr).With(
-			"txHash", attempt.Hash.String(), "ethTxAttemptID", attempt.ID,
-			"ethTxID", attempt.TxID, "err", err, "sequence", attempt.Tx.Sequence,
+			"txHash", attempt.Hash.String(), "txAttemptID", attempt.ID,
+			"txID", attempt.TxID, "err", err, "sequence", attempt.Tx.Sequence,
 		))
 
 		if err != nil {
@@ -593,7 +599,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 	return
 }
 
-// RebroadcastWhereNecessary bumps gas or resends transactions that were previously out-of-eth
+// RebroadcastWhereNecessary bumps gas or resends transactions that were previously out-of-funds
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RebroadcastWhereNecessary(ctx context.Context, blockHeight int64) error {
 	var wg sync.WaitGroup
 
@@ -608,7 +614,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reb
 				errMu.Lock()
 				errors = append(errors, err)
 				errMu.Unlock()
-				ec.lggr.Errorw("Error in RebroadcastWhereNecessary", "error", err, "fromAddress", fromAddress)
+				ec.lggr.Errorw("Error in RebroadcastWhereNecessary", "err", err, "fromAddress", fromAddress)
 			}
 
 			wg.Done()
@@ -657,7 +663,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) reb
 // We should try to ensure they get on-chain so we can fetch a receipt for them.
 // NOTE: We also use this to mark attempts for rebroadcast in event of a
 // re-org, so multiple attempts are allowed to be in in_progress state (but
-// only one per eth_tx).
+// only one per tx).
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleAnyInProgressAttempts(ctx context.Context, address ADDR, blockHeight int64) error {
 	attempts, err := ec.txStore.GetInProgressTxAttempts(ctx, address, ec.chainID)
 	if ctx.Err() != nil {
@@ -676,18 +682,18 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 	return nil
 }
 
-// FindTxsRequiringRebroadcast returns attempts that hit insufficient eth,
+// FindTxsRequiringRebroadcast returns attempts that hit insufficient native tokens,
 // and attempts that need bumping, in sequence ASC order
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxsRequiringRebroadcast(ctx context.Context, lggr logger.Logger, address ADDR, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID CHAIN_ID) (etxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	// NOTE: These two queries could be combined into one using union but it
 	// becomes harder to read and difficult to test in isolation. KISS principle
-	etxInsufficientEths, err := ec.txStore.FindTxsRequiringResubmissionDueToInsufficientFunds(address, chainID, pg.WithParentCtx(ctx))
+	etxInsufficientFunds, err := ec.txStore.FindTxsRequiringResubmissionDueToInsufficientFunds(address, chainID, pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
 	}
 
-	if len(etxInsufficientEths) > 0 {
-		lggr.Infow(fmt.Sprintf("Found %d transactions to be re-sent that were previously rejected due to insufficient eth balance", len(etxInsufficientEths)), "blockNum", blockNum, "address", address)
+	if len(etxInsufficientFunds) > 0 {
+		lggr.Infow(fmt.Sprintf("Found %d transactions to be re-sent that were previously rejected due to insufficient native token balance", len(etxInsufficientFunds)), "blockNum", blockNum, "address", address)
 	}
 
 	// TODO: Just pass the Q through everything
@@ -709,14 +715,14 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Fin
 				oldestBlocksBehind = blockNum - *oldestBlockNum
 			}
 		} else {
-			logger.Sugared(lggr).AssumptionViolationf("Expected eth_tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
+			logger.Sugared(lggr).AssumptionViolationf("Expected tx for gas bump to have at least one attempt", "etxID", etx.ID, "blockNum", blockNum, "address", address)
 		}
 		lggr.Infow(fmt.Sprintf("Found %d transactions to re-sent that have still not been confirmed after at least %d blocks. The oldest of these has not still not been confirmed after %d blocks. These transactions will have their gas price bumped. %s", len(etxBumps), gasBumpThreshold, oldestBlocksBehind, label.NodeConnectivityProblemWarning), "blockNum", blockNum, "address", address, "gasBumpThreshold", gasBumpThreshold)
 	}
 
 	seen := make(map[int64]struct{})
 
-	for _, etx := range etxInsufficientEths {
+	for _, etx := range etxInsufficientFunds {
 		seen[etx.ID] = struct{}{}
 		etxs = append(etxs, etx)
 	}
@@ -743,10 +749,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) att
 		etx.TxAttempts[0].Tx = etx
 		previousAttempt := etx.TxAttempts[0]
 		logFields := ec.logFieldsPreviousAttempt(previousAttempt)
-		if previousAttempt.State == txmgrtypes.TxAttemptInsufficientEth {
-			// Do not create a new attempt if we ran out of eth last time since bumping gas is pointless
+		if previousAttempt.State == txmgrtypes.TxAttemptInsufficientFunds {
+			// Do not create a new attempt if we ran out of funds last time since bumping gas is pointless
 			// Instead try to resubmit the same attempt at the same price, in the hope that the wallet was funded since our last attempt
-			lggr.Debugw("Rebroadcast InsufficientEth", logFields...)
+			lggr.Debugw("Rebroadcast InsufficientFunds", logFields...)
 			previousAttempt.State = txmgrtypes.TxAttemptInProgress
 			return previousAttempt, nil
 		}
@@ -805,17 +811,17 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bum
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleInProgressAttempt(ctx context.Context, lggr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], blockHeight int64) error {
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 
-		return errors.Errorf("invariant violation: expected eth_tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
+		return errors.Errorf("invariant violation: expected tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
 	}
 
 	now := time.Now()
-	lggr.Debugw("Sending transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
+	lggr.Debugw("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
 	errType, sendError := ec.client.SendTransactionReturnCode(ctx, etx, attempt, lggr)
 
 	switch errType {
 	case clienttypes.Underpriced:
 		// This should really not ever happen in normal operation since we
-		// already bumped above the required minimum in ethBroadcaster.
+		// already bumped above the required minimum in broadcaster.
 		ec.lggr.Warnw("Got terminally underpriced error for gas bump, this should never happen unless the remote RPC node changed its configuration on the fly, or you are using multiple RPC nodes with different minimum gas price requirements. This is not recommended", "err", sendError, "attempt", attempt)
 		// "Lazily" load attempts here since the overwhelmingly common case is
 		// that we don't need them unless we enter this path
@@ -829,7 +835,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		}
 		if attempt.ID != etx.TxAttempts[0].ID {
 			err := errors.New("expected highest priced attempt to be the current in_progress attempt")
-			logger.Sugared(ec.lggr).AssumptionViolationw(err.Error(), "err", err, "attempt", attempt, "ethTxAttempts", etx.TxAttempts)
+			logger.Sugared(ec.lggr).AssumptionViolationw(err.Error(), "err", err, "attempt", attempt, "txAttempts", etx.TxAttempts)
 			return err
 		}
 		replacementAttempt, err := ec.bumpGas(ctx, etx, etx.TxAttempts)
@@ -842,7 +848,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 			"maxGasPriceConfig", ec.feeConfig.MaxFeePrice(),
 			"previousAttempt", attempt,
 			"replacementAttempt", replacementAttempt,
-		).Errorf("gas price was rejected by the eth node for being too low. Eth node returned: '%s'", sendError.Error())
+		).Errorf("gas price was rejected by the node for being too low. Node returned: '%s'", sendError.Error())
 
 		if err := ec.txStore.SaveReplacementInProgressAttempt(attempt, &replacementAttempt); err != nil {
 			return errors.Wrap(err, "saveReplacementInProgressAttempt failed")
@@ -862,7 +868,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 			"err", sendError,
 			"fee", attempt.TxFee,
 			"feeLimit", etx.FeeLimit,
-			"signedRawTx", hexutil.Encode(attempt.SignedRawTx),
+			"signedRawTx", utils.AddHexPrefix(hex.EncodeToString(attempt.SignedRawTx)),
 			"blockHeight", blockHeight,
 		)
 		ec.SvcErrBuffer.Append(sendError)
@@ -871,14 +877,14 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 	case clienttypes.TransactionAlreadyKnown:
 		// Sequence too low indicated that a transaction at this sequence was confirmed already.
 		// Mark confirmed_missing_receipt and wait for the next cycle to try to get a receipt
-		lggr.Debugw("Sequence already used", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String(), "err", sendError)
+		lggr.Debugw("Sequence already used", "txAttemptID", attempt.ID, "txHash", attempt.Hash.String(), "err", sendError)
 		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveConfirmedMissingReceiptAttempt(ctx, timeout, &attempt, now)
 	case clienttypes.InsufficientFunds:
 		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveInsufficientFundsAttempt(timeout, &attempt, now)
 	case clienttypes.Successful:
-		lggr.Debugw("Successfully broadcast transaction", "ethTxAttemptID", attempt.ID, "txHash", attempt.Hash.String())
+		lggr.Debugw("Successfully broadcast transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash.String())
 		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveSentAttempt(timeout, &attempt, now)
 	case clienttypes.Unknown:
@@ -889,11 +895,11 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 		// node operator. The node may have it in the mempool so we must keep the
 		// attempt (leave it in_progress). Safest thing to do is bail out and wait
 		// for the next head.
-		return errors.Wrapf(sendError, "unexpected error sending eth_tx %v with hash %s", etx.ID, attempt.Hash.String())
+		return errors.Wrapf(sendError, "unexpected error sending tx %v with hash %s", etx.ID, attempt.Hash.String())
 	}
 }
 
-// EnsureConfirmedTransactionsInLongestChain finds all confirmed eth_txes up to the depth
+// EnsureConfirmedTransactionsInLongestChain finds all confirmed txes up to the depth
 // of the given chain and ensures that every one has a receipt with a block hash that is
 // in the given chain.
 //
@@ -902,13 +908,13 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) EnsureConfirmedTransactionsInLongestChain(ctx context.Context, head types.Head[BLOCK_HASH]) error {
 	if head.ChainLength() < ec.chainConfig.FinalityDepth() {
 		logArgs := []interface{}{
-			"chainLength", head.ChainLength(), "evmFinalityDepth", ec.chainConfig.FinalityDepth(),
+			"chainLength", head.ChainLength(), "finalityDepth", ec.chainConfig.FinalityDepth(),
 		}
 		if ec.nConsecutiveBlocksChainTooShort > logAfterNConsecutiveBlocksChainTooShort {
-			warnMsg := "Chain length supplied for re-org detection was shorter than EvmFinalityDepth. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
+			warnMsg := "Chain length supplied for re-org detection was shorter than FinalityDepth. Re-org protection is not working properly. This could indicate a problem with the remote RPC endpoint, a compatibility issue with a particular blockchain, a bug with this particular blockchain, heads table being truncated too early, remote node out of sync, or something else. If this happens a lot please raise a bug with the Chainlink team including a log output sample and details of the chain and RPC endpoint you are using."
 			ec.lggr.Warnw(warnMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
 		} else {
-			logMsg := "Chain length supplied for re-org detection was shorter than EvmFinalityDepth"
+			logMsg := "Chain length supplied for re-org detection was shorter than FinalityDepth"
 			ec.lggr.Debugw(logMsg, append(logArgs, "nConsecutiveBlocksChainTooShort", ec.nConsecutiveBlocksChainTooShort)...)
 		}
 		ec.nConsecutiveBlocksChainTooShort++
@@ -976,7 +982,7 @@ func hasReceiptInLongestChain[
 
 func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markForRebroadcast(etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) error {
 	if len(etx.TxAttempts) == 0 {
-		return errors.Errorf("invariant violation: expected eth_tx %v to have at least one attempt", etx.ID)
+		return errors.Errorf("invariant violation: expected tx %v to have at least one attempt", etx.ID)
 	}
 
 	// Rebroadcast the one with the highest gas price
@@ -990,10 +996,10 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 		"txhash", attempt.Hash.String(),
 		"currentBlockNum", head.BlockNumber(),
 		"currentBlockHash", head.BlockHash().String(),
-		"ethTxID", etx.ID,
+		"txID", etx.ID,
 		"attemptID", attempt.ID,
 		"nReceipts", len(attempt.Receipts),
-		"id", "eth_confirmer",
+		"id", "confirmer",
 	}
 
 	// nil check on receipt interface
@@ -1014,8 +1020,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) mar
 }
 
 // ForceRebroadcast sends a transaction for every sequence in the given sequence range at the given gas price.
-// If an eth_tx exists for this sequence, we re-send the existing eth_tx with the supplied parameters.
-// If an eth_tx doesn't exist for this sequence, we send a zero transaction.
+// If an tx exists for this sequence, we re-send the existing tx with the supplied parameters.
+// If an tx doesn't exist for this sequence, we send a zero transaction.
 // This operates completely orthogonal to the normal Confirmer and can result in untracked attempts!
 // Only for emergency usage.
 // This is in case of some unforeseen scenario where the node is refusing to release the lock. KISS.
@@ -1033,7 +1039,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 			return errors.Wrap(err, "ForceRebroadcast failed")
 		}
 		if etx == nil {
-			ec.lggr.Debugf("ForceRebroadcast: no eth_tx found with sequence %s, will rebroadcast empty transaction", seq)
+			ec.lggr.Debugf("ForceRebroadcast: no tx found with sequence %s, will rebroadcast empty transaction", seq)
 			hashStr, err := ec.sendEmptyTransaction(context.TODO(), address, seq, overrideGasLimit, fee)
 			if err != nil {
 				ec.lggr.Errorw("ForceRebroadcast: failed to send empty transaction", "sequence", seq, "err", err)
@@ -1041,22 +1047,22 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) For
 			}
 			ec.lggr.Infow("ForceRebroadcast: successfully rebroadcast empty transaction", "sequence", seq, "hash", hashStr)
 		} else {
-			ec.lggr.Debugf("ForceRebroadcast: got eth_tx %v with sequence %v, will rebroadcast this transaction", etx.ID, *etx.Sequence)
+			ec.lggr.Debugf("ForceRebroadcast: got tx %v with sequence %v, will rebroadcast this transaction", etx.ID, *etx.Sequence)
 			if overrideGasLimit != 0 {
 				etx.FeeLimit = overrideGasLimit
 			}
 			attempt, _, err := ec.NewCustomTxAttempt(*etx, fee, etx.FeeLimit, 0x0, ec.lggr)
 			if err != nil {
-				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "ethTxID", etx.ID, "err", err)
+				ec.lggr.Errorw("ForceRebroadcast: failed to create new attempt", "txID", etx.ID, "err", err)
 				continue
 			}
 			attempt.Tx = *etx // for logging
 			ec.lggr.Debugw("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "feeLimit", etx.FeeLimit, "attempt", attempt)
 			if errCode, err := ec.client.SendTransactionReturnCode(context.TODO(), *etx, attempt, ec.lggr); errCode != clienttypes.Successful && err != nil {
-				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast eth_tx %v with sequence %v and gas limit %v: %s", etx.ID, *etx.Sequence, etx.FeeLimit, err.Error()), "err", err, "fee", attempt.TxFee)
+				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast tx %v with sequence %v and gas limit %v: %s", etx.ID, *etx.Sequence, etx.FeeLimit, err.Error()), "err", err, "fee", attempt.TxFee)
 				continue
 			}
-			ec.lggr.Infof("ForceRebroadcast: successfully rebroadcast eth_tx %v with hash: 0x%x", etx.ID, attempt.Hash)
+			ec.lggr.Infof("ForceRebroadcast: successfully rebroadcast tx %v with hash: 0x%x", etx.ID, attempt.Hash)
 		}
 	}
 	return nil
@@ -1097,7 +1103,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Res
 			output = data.Receipt
 		}
 
-		ec.lggr.Debugw("Callback: resuming ethtx with receipt", "output", output, "taskErr", taskErr, "pipelineTaskRunID", data.ID)
+		ec.lggr.Debugw("Callback: resuming tx with receipt", "output", output, "taskErr", taskErr, "pipelineTaskRunID", data.ID)
 		if err := ec.resumeCallback(data.ID, output, taskErr); err != nil {
 			return err
 		}
@@ -1122,7 +1128,7 @@ func observeUntilTxConfirmed[
 				continue
 			}
 
-			// We estimate the time until confirmation by subtracting from the time the eth tx (not the attempt)
+			// We estimate the time until confirmation by subtracting from the time the tx (not the attempt)
 			// was created. We want to measure the amount of time taken from when a transaction is created
 			// via e.g Txm.CreateTransaction to when it is confirmed on-chain, regardless of how many attempts
 			// were needed to achieve this.
@@ -1131,7 +1137,7 @@ func observeUntilTxConfirmed[
 				WithLabelValues(chainID.String()).
 				Observe(float64(duration))
 
-			// Since a eth tx can have many attempts, we take the number of blocks to confirm as the block number
+			// Since a tx can have many attempts, we take the number of blocks to confirm as the block number
 			// of the receipt minus the block number of the first ever broadcast for this transaction.
 			broadcastBefore := utils.MinKey(attempt.Tx.TxAttempts, func(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) int64 {
 				if attempt.BroadcastBeforeBlockNum != nil {

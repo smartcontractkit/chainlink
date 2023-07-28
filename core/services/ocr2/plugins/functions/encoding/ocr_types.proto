@@ -18,4 +18,7 @@ message ProcessedRequest {
   bytes requestID = 1;
   bytes result = 2;
   bytes error = 3;
+  uint32 callbackGasLimit = 4;
+  bytes coordinatorContract = 5;
+  bytes onchainMetadata = 6;
 }

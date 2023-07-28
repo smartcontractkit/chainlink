@@ -3,7 +3,6 @@ package functions
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -34,6 +33,7 @@ type ExternalAdapterClient interface {
 		jobName string,
 		subscriptionOwner string,
 		subscriptionId uint64,
+		flags RequestFlags,
 		nodeProvidedSecrets string,
 		requestData *RequestData,
 	) (userResult, userError []byte, domains []string, err error)
@@ -67,6 +67,7 @@ type requestPayload struct {
 	JobName             string       `json:"jobName"`
 	SubscriptionOwner   string       `json:"subscriptionOwner"`
 	SubscriptionId      uint64       `json:"subscriptionId"`
+	Flags               RequestFlags `json:"flags"` // marshalled as an array of numbers
 	NodeProvidedSecrets string       `json:"nodeProvidedSecrets"`
 	Data                *RequestData `json:"data"`
 }
@@ -80,7 +81,7 @@ type secretsPayload struct {
 
 type secretsData struct {
 	RequestType          string `json:"requestType"`
-	EncryptedSecretsUrls string `json:"encryptedSecretsUrls"`
+	EncryptedSecretsUrls []byte `json:"encryptedSecretsUrls"`
 }
 
 type response struct {
@@ -124,6 +125,7 @@ func (ea *externalAdapterClient) RunComputation(
 	jobName string,
 	subscriptionOwner string,
 	subscriptionId uint64,
+	flags RequestFlags,
 	nodeProvidedSecrets string,
 	requestData *RequestData,
 ) (userResult, userError []byte, domains []string, err error) {
@@ -134,6 +136,7 @@ func (ea *externalAdapterClient) RunComputation(
 		JobName:             jobName,
 		SubscriptionOwner:   subscriptionOwner,
 		SubscriptionId:      subscriptionId,
+		Flags:               flags,
 		NodeProvidedSecrets: nodeProvidedSecrets,
 		Data:                requestData,
 	}
@@ -147,11 +150,9 @@ func (ea *externalAdapterClient) RunComputation(
 }
 
 func (ea *externalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encryptedSecretsUrls []byte, requestId string, jobName string) (encryptedSecrets, userError []byte, err error) {
-	encodedSecretsUrls := base64.StdEncoding.EncodeToString(encryptedSecretsUrls)
-
 	data := secretsData{
 		RequestType:          "fetchThresholdEncryptedSecrets",
-		EncryptedSecretsUrls: encodedSecretsUrls,
+		EncryptedSecretsUrls: encryptedSecretsUrls,
 	}
 
 	payload := secretsPayload{
