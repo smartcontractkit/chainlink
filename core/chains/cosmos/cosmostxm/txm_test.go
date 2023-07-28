@@ -2,8 +2,6 @@
 
 package cosmostxm_test
 
-// augustus todo: must re-evaluate params initialization //go:build integration && wasmd
-
 import (
 	"fmt"
 	"testing"
