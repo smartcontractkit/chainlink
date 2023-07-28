@@ -100,7 +100,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     MAXIMUM_TIMELOCK_BLOCKS = maximumTimelockBlocks;
     // Set the initial configuration for the Router
     s_route[routerId] = address(this);
-    _setConfig(selfConfig);
+    _updateConfig(selfConfig);
     s_config_hash = keccak256(selfConfig);
   }
 
@@ -249,7 +249,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @dev Must be implemented by inheriting contract
    * Use to set configuration state of the Router
    */
-  function _setConfig(bytes memory config) internal virtual;
+  function _updateConfig(bytes memory config) internal virtual;
 
   /**
    * @inheritdoc IRouterBase
@@ -278,10 +278,10 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       revert TimelockInEffect();
     }
     if (id == routerId) {
-      _setConfig(proposal.to);
+      _updateConfig(proposal.to);
       s_config_hash = keccak256(proposal.to);
     } else {
-      try IConfigurable(_getContractById(id, false)).setConfig(proposal.to) {} catch {
+      try IConfigurable(_getContractById(id, false)).updateConfig(proposal.to) {} catch {
         revert InvalidConfigData();
       }
     }
