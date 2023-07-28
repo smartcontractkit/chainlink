@@ -1,0 +1,85 @@
+name: SonarQube Scan
+
+on: [push]
+
+jobs:
+  wait_for_workflows:
+    name: Wait for workflows
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+
+      - name: Wait for workflows
+        uses: smartcontractkit/chainlink-github-actions/utils/wait-for-workflows@main
+        with:
+          max-timeout: "900"
+          polling-interval: "30"
+          exclude-workflow-names: ""
+          exclude-workflow-ids: ""
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          DEBUG: "true"
+
+  sonarqube:
+    name: SonarQube Scan
+    needs: [wait_for_workflows]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
+
+      - name: Download Golangci-lint report
+        if: always()
+        uses: dawidd6/action-download-artifact@v2.27.0
+        with:
+          workflow: golangci_lint.yml
+          workflow_conclusion: ""
+          name_is_regexp: true
+          name: golangci-lint-report
+          if_no_artifact_found: warn
+
+      - name: Download Go OPS test reports
+        if: always()
+        uses: dawidd6/action-download-artifact@v2.27.0
+        with:
+          workflow: ops.yml
+          workflow_conclusion: ""
+          name_is_regexp: true
+          name: go-test-results
+          if_no_artifact_found: warn
+
+      - name: Download Go PKG test reports
+        if: always()
+        uses: dawidd6/action-download-artifact@v2.27.0
+        with:
+          workflow: pkg.yml
+          workflow_conclusion: ""
+          name_is_regexp: true
+          name: go-test-results
+          if_no_artifact_found: warn
+
+      - name: Set SonarQube Report Paths
+        if: always()
+        id: sonarqube_report_paths
+        shell: bash
+        run: |
+          echo "sonarqube_coverage_report_paths=$(find -type f -name '*coverage.out' -printf "%p,")" >> $GITHUB_OUTPUT
+          echo "sonarqube_golangci_report_paths=$(find -type f -name 'golangci-lint-report.xml' -printf "%p,")" >> $GITHUB_OUTPUT
+          
+      - name: SonarQube Scan
+        if: always()
+        uses: sonarsource/sonarqube-scan-action@a6ba0aafc293e03de5437af7edbc97f7d3ebc91a # v1.2.0
+        with:
+          args: >
+            -Dsonar.go.coverage.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_coverage_report_paths }}
+            -Dsonar.go.golangci-lint.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_golangci_report_paths }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

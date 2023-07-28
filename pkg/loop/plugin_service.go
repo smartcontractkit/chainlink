@@ -101,6 +101,9 @@ func (s *pluginService[P, S]) tryLaunch(old plugin.ClientProtocol) (err error) {
 		// already replaced by another routine
 		return nil
 	}
+	if cerr := s.closeClient(); cerr != nil {
+		s.lggr.Errorw("Error closing old client", "err", cerr)
+	}
 	s.client, s.clientProtocol, err = s.launch()
 	return
 }
@@ -187,16 +190,21 @@ func (s *pluginService[P, S]) Close() error {
 			}
 		default:
 		}
-		if s.clientProtocol != nil {
-			if cerr := s.clientProtocol.Close(); !errors.Is(cerr, context.Canceled) {
-				err = errors.Join(err, cerr)
-			}
-		}
-		if s.client != nil {
-			s.client.Kill()
-		}
+		err = errors.Join(err, s.closeClient())
 		return
 	})
+}
+
+func (s *pluginService[P, S]) closeClient() (err error) {
+	if s.clientProtocol != nil {
+		if cerr := s.clientProtocol.Close(); !errors.Is(cerr, context.Canceled) {
+			err = cerr
+		}
+	}
+	if s.client != nil {
+		s.client.Kill()
+	}
+	return
 }
 
 func (s *pluginService[P, S]) wait(ctx context.Context) error {

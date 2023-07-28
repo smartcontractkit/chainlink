@@ -20,9 +20,7 @@ func (ch TestPluginService[P, S]) Kill() {
 	done := make(chan struct{})
 	ch <- func(s *pluginService[P, S]) {
 		defer close(done)
-		if s.client != nil {
-			s.client.Kill()
-		}
+		_ = s.closeClient()
 	}
 	<-done
 }
@@ -31,9 +29,7 @@ func (ch TestPluginService[P, S]) Reset() {
 	done := make(chan struct{})
 	ch <- func(r *pluginService[P, S]) {
 		defer close(done)
-		if r.client != nil {
-			r.client.Kill()
-		}
+		_ = r.closeClient()
 		r.client = nil
 		r.clientProtocol = nil
 	}
