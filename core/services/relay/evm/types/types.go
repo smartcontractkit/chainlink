@@ -14,6 +14,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -30,12 +31,12 @@ type RelayConfig struct {
 	FeedID *common.Hash `json:"feedID"`
 }
 
-func x(args types.RelayArgs) {}
+func x(args relaytypes.RelayArgs) {}
 
 type RelayOpts struct {
 	// TODO -- should anyone ever get the raw config bytes that are embedded in args? if not,
 	// make this private and wrap the arg fields with funcs on RelayOpts
-	types.RelayArgs
+	relaytypes.RelayArgs
 	c *RelayConfig
 }
 
@@ -68,4 +69,16 @@ type ConfigPoller interface {
 	Start()
 	Close() error
 	Replay(ctx context.Context, fromBlock int64) error
+}
+
+// TODO(FUN-668): Move chain-agnostic types to Relayer
+type FunctionsProvider interface {
+	relaytypes.PluginProvider
+	LogPollerWrapper() LogPollerWrapper
+}
+
+// A LogPoller wrapper that understands router proxy contracts
+type LogPollerWrapper interface {
+	relaytypes.Service
+	LatestRoutes() (activeCoordinator common.Address, proposedCoordinator common.Address, err error)
 }
