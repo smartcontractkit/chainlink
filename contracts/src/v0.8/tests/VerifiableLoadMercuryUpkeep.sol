@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity 0.8.16;
 
 import "./VerifiableLoadBase.sol";
 import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
@@ -10,18 +10,10 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatible
     "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
     "0x555344432d5553442d415242495452554d2d544553544e455400000000000000"
   ];
-  string public constant feedParamKey = "feedIDHex";
+  string public constant feedParamKey = "feedIdHex";
   string public constant timeParamKey = "blockNumber";
 
-  event MercuryPerformEvent(
-    address indexed origin,
-    uint256 indexed upkeepId,
-    uint256 indexed blockNumber,
-    bytes v0,
-    bytes ed
-  );
-
-  constructor(address registrarAddress, bool useArb) VerifiableLoadBase(registrarAddress, useArb) {}
+  constructor(AutomationRegistrar2_1 _registrar, bool _useArb) VerifiableLoadBase(_registrar, _useArb) {}
 
   function setFeedsHex(string[] memory newFeeds) external {
     feedsHex = newFeeds;
@@ -67,19 +59,8 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatible
 
     if (firstPerformBlock == 0) {
       firstPerformBlocks[upkeepId] = blockNum;
-      firstPerformBlock = blockNum;
-      timestamps[upkeepId].push(block.timestamp);
     } else {
-      // Calculate and append delay
       uint256 delay = blockNum - previousPerformBlock - intervals[upkeepId];
-
-      uint16 timestampBucket = timestampBuckets[upkeepId];
-      if (block.timestamp - TIMESTAMP_INTERVAL > timestamps[upkeepId][timestampBucket]) {
-        timestamps[upkeepId].push(block.timestamp);
-        timestampBucket++;
-        timestampBuckets[upkeepId] = timestampBucket;
-      }
-
       uint16 bucket = buckets[upkeepId];
       uint256[] memory bucketDelays = bucketedDelays[upkeepId][bucket];
       if (bucketDelays.length == BUCKET_SIZE) {
@@ -87,36 +68,14 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatible
         buckets[upkeepId] = bucket;
       }
       bucketedDelays[upkeepId][bucket].push(delay);
-      timestampDelays[upkeepId][timestampBucket].push(delay);
       delays[upkeepId].push(delay);
     }
 
     uint256 counter = counters[upkeepId] + 1;
     counters[upkeepId] = counter;
-    emit PerformingUpkeep(firstPerformBlock, blockNum, previousPerformBlock, counter);
     previousPerformBlocks[upkeepId] = blockNum;
 
-    // for every upkeepTopUpCheckInterval (5), check if the upkeep balance is at least
-    // minBalanceThresholdMultiplier (20) * min balance. If not, add addLinkAmount (0.2) to the upkeep
-    // upkeepTopUpCheckInterval, minBalanceThresholdMultiplier, and addLinkAmount are configurable
-    if (blockNum - lastTopUpBlocks[upkeepId] > upkeepTopUpCheckInterval) {
-      KeeperRegistryBase2_1.UpkeepInfo memory info = registry.getUpkeep(upkeepId);
-      uint96 minBalance = registry.getMinBalanceForUpkeep(upkeepId);
-      if (info.balance < minBalanceThresholdMultiplier * minBalance) {
-        this.addFunds(upkeepId, addLinkAmount);
-        lastTopUpBlocks[upkeepId] = blockNum;
-        emit UpkeepTopUp(upkeepId, addLinkAmount, blockNum);
-      }
-    }
-
-    uint256 performGasToBurn = performGasToBurns[upkeepId];
-    while (startGas - gasleft() + 10000 < performGasToBurn) {
-      // 10K margin over gas to burn
-      dummyMap[blockhash(blockNum)] = false; // arbitrary storage writes
-    }
-
-    //    bytes memory v0 = VERIFIER.verify(values[0]);
-    //    bytes memory v1 = VERIFIER.verify(values[1]);
-    emit MercuryPerformEvent(tx.origin, upkeepId, blockNum, values[0], extraData);
+    topUpFund(upkeepId, blockNum);
+    burnPerformGas(upkeepId, startGas, blockNum);
   }
 }

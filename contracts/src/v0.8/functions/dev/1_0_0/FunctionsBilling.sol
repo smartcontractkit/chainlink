@@ -65,8 +65,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   }
 
   Config private s_config;
-
-  event ConfigSet(
+  event ConfigChanged(
     uint32 maxCallbackGasLimit,
     uint32 feedStalenessSeconds,
     uint32 gasOverheadBeforeCallback,
@@ -125,7 +124,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
    * @param config bytes of abi.encoded config data to set the following:
    *  See the content of the Config struct above
    */
-  function _setConfig(bytes memory config) internal override {
+  function _updateConfig(bytes memory config) internal override {
     (
       uint32 maxCallbackGasLimit,
       uint32 feedStalenessSeconds,
@@ -152,7 +151,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       maxSupportedRequestDataVersion: maxSupportedRequestDataVersion,
       fulfillmentGasPriceOverEstimationBP: fulfillmentGasPriceOverEstimationBP
     });
-    emit ConfigSet(
+    emit ConfigChanged(
       maxCallbackGasLimit,
       feedStalenessSeconds,
       gasOverheadBeforeCallback,
@@ -380,7 +379,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
-    // (1e18 juels/link) * (gas/wei) / (wei/link) = juels per wei
+    // (1e18 juels/link) * (wei/gas) / (wei/link) = juels per gas
     uint256 juelsPerGas = (1e18 * tx.gasprice) / uint256(weiPerUnitLink);
     // Gas overhead without callback
     uint96 gasOverheadJuels = uint96(juelsPerGas * commitment.gasOverhead);

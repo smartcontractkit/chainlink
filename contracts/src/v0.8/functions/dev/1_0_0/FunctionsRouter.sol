@@ -56,8 +56,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint32[] maxCallbackGasLimits;
   }
   Config private s_config;
-
-  event ConfigSet(uint96 adminFee, bytes4 handleOracleFulfillmentSelector, uint32[] maxCallbackGasLimits);
+  event ConfigChanged(uint96 adminFee, bytes4 handleOracleFulfillmentSelector, uint32[] maxCallbackGasLimits);
 
   error OnlyCallableByRoute();
 
@@ -103,7 +102,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
    * @param config bytes of config data to set the following:
    *  - adminFee: fee that will be paid to the Router owner for operating the network
    */
-  function _setConfig(bytes memory config) internal override {
+  function _updateConfig(bytes memory config) internal override {
     (uint96 adminFee, bytes4 handleOracleFulfillmentSelector, uint32[] memory maxCallbackGasLimits) = abi.decode(
       config,
       (uint96, bytes4, uint32[])
@@ -113,7 +112,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       handleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
       maxCallbackGasLimits: maxCallbackGasLimits
     });
-    emit ConfigSet(adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits);
+    emit ConfigChanged(adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits);
   }
 
   // ================================================================
@@ -247,12 +246,21 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       return (resultCode, callbackGasCostJuels);
     }
 
+    // Check that the subscription can still afford
+    if (
+      commitment.adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit)) >
+      s_subscriptions[commitment.subscriptionId].balance
+    ) {
+      resultCode = 4; // IFunctionsRouter.FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE
+      return (resultCode, callbackGasCostJuels);
+    }
+
     // Check that the cost has not exceeded the quoted cost
     if (
       commitment.adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit)) >
       commitment.estimatedCost
     ) {
-      resultCode = 4; // IFunctionsRouter.FulfillResult.COST_EXCEEDS_COMMITMENT
+      resultCode = 5; // IFunctionsRouter.FulfillResult.COST_EXCEEDS_COMMITMENT
       return (resultCode, callbackGasCostJuels);
     }
 

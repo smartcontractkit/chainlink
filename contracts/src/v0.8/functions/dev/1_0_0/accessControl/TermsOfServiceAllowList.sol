@@ -47,7 +47,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
    *  - enabled: boolean representing if the allow list is active, when disabled all usage will be allowed
    *  - proofSignerPublicKey: public key of the signer of the proof
    */
-  function _setConfig(bytes memory config) internal override {
+  function _updateConfig(bytes memory config) internal override {
     (bool enabled, address proofSignerPublicKey) = abi.decode(config, (bool, address));
     s_config = Config({enabled: enabled, proofSignerPublicKey: proofSignerPublicKey});
     emit ConfigSet(enabled);
