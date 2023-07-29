@@ -254,14 +254,6 @@ func HexToInt64(input interface{}) int64 {
 	}
 }
 
-type bumpConfig interface {
-	LimitMultiplier() float32
-	PriceMax() *assets.Wei
-	BumpPercent() uint16
-	BumpMin() *assets.Wei
-	TipCapDefault() *assets.Wei
-}
-
 // BumpLegacyGasPriceOnly will increase the price and apply multiplier to the gas limit
 func BumpLegacyGasPriceOnly(cfg bumpConfig, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *assets.Wei, originalGasLimit uint32, maxGasPriceWei *assets.Wei) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	gasPrice, err = bumpGasPrice(cfg, lggr, currentGasPrice, originalGasPrice, maxGasPriceWei)
