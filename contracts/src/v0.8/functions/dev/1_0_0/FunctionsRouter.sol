@@ -126,7 +126,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes memory data,
     uint16 dataVersion,
     uint32 callbackGasLimit
-  ) private returns (bytes32 requestId) {
+  ) private whenNotPaused returns (bytes32 requestId) {
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
     _isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
@@ -209,7 +209,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint16 dataVersion,
     uint32 callbackGasLimit,
     bytes32 donId
-  ) external override whenNotPaused returns (bytes32) {
+  ) external override returns (bytes32) {
     _nonReentrant();
     return _sendRequest(donId, false, subscriptionId, data, dataVersion, callbackGasLimit);
   }
@@ -224,7 +224,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint96 juelsPerGas,
     uint96 costWithoutFulfillment,
     address transmitter
-  ) external override returns (uint8 resultCode, uint96 callbackGasCostJuels) {
+  ) external override whenNotPaused returns (uint8 resultCode, uint96 callbackGasCostJuels) {
     _nonReentrant();
 
     Commitment memory commitment = s_requestCommitments[requestId];
@@ -372,6 +372,10 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   // ================================================================
   // |                           Modifiers                          |
   // ================================================================
+
+  function _whenNotPaused() internal view override {
+    _requireNotPaused();
+  }
 
   function _onlyRouterOwner() internal view override {
     _validateOwnership();

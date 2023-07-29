@@ -40,7 +40,9 @@ func TestFunctionsConfigPoller(t *testing.T) {
 	t.Run("ThresholdPlugin", func(t *testing.T) {
 		runTest(t, functions.ThresholdPlugin, functions.ThresholdDigestPrefix)
 	})
-	// TODO: Test config poller for S4Plugin (requires S4Plugin to be implemented & corresponding updates to pluginConfig)
+	t.Run("S4Plugin", func(t *testing.T) {
+		runTest(t, functions.S4Plugin, functions.S4DigestPrefix)
+	})
 }
 
 func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDigestPrefix ocrtypes2.ConfigDigestPrefix) {
