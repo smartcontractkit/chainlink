@@ -41,8 +41,24 @@ type FunctionsProvider interface {
 	LogPollerWrapper() LogPollerWrapper
 }
 
+type OracleRequest struct {
+	// TODO: define
+}
+
+type OracleResponse struct {
+	// TODO: define
+}
+
+type RouteUpdateSubscriber interface {
+	UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error
+}
+
 // A LogPoller wrapper that understands router proxy contracts
 type LogPollerWrapper interface {
 	relaytypes.Service
-	LatestRoutes() (activeCoordinator common.Address, proposedCoordinator common.Address, err error)
+	LatestRequests() ([]OracleRequest, error)
+	LatestResponses() ([]OracleResponse, error)
+
+	// TODO (FUN-668): Remove from the LOOP interface and only use internally within the EVM relayer
+	SubscribeToUpdates(name string, subscriber RouteUpdateSubscriber)
 }
