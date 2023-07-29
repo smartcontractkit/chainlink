@@ -81,7 +81,7 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
     (uint256 orderId, uint256 amount, address exchange) = abi.decode(extraData, (uint256, uint256, address));
 
-    bytes memory verifiedResponse; // = VERIFIER.verify(values[0]);
+    bytes memory verifiedResponse = VERIFIER.verify(values[0]);
 
     emit PerformingLogTriggerUpkeep(
       tx.origin,
@@ -97,7 +97,7 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
   function checkCallback(
     bytes[] memory values,
     bytes memory extraData
-  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+  ) external view override returns (bool, bytes memory) {
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
     return (true, performData);

@@ -16,5 +16,5 @@ interface IConfigurable {
    * @dev Only callable by the Router
    * @param config bytes containing config data
    */
-  function setConfig(bytes calldata config) external;
+  function updateConfig(bytes calldata config) external;
 }

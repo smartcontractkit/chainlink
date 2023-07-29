@@ -15,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -28,6 +27,7 @@ import (
 	s4_plugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmrelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -45,6 +45,7 @@ type FunctionsServicesConfig struct {
 	URLsMonEndpoint   commontypes.MonitoringEndpoint
 	EthKeystore       keystore.Eth
 	ThresholdKeyShare []byte
+	LogPollerWrapper  evmrelayTypes.LogPollerWrapper
 }
 
 const (
@@ -67,11 +68,6 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	}
 
 	allServices := []job.ServiceCtx{}
-	contractAddress := common.HexToAddress(conf.Job.OCR2OracleSpec.ContractID)
-	oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(contractAddress, conf.Chain.Client())
-	if err != nil {
-		return nil, errors.Wrapf(err, "Functions: failed to create a FunctionsOracle wrapper for address: %v", contractAddress)
-	}
 
 	var decryptor threshold.Decryptor
 	// thresholdOracleArgs nil check will be removed once the Threshold plugin is fully integrated w/ Functions
@@ -106,8 +102,9 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	listenerLogger := conf.Logger.Named("FunctionsListener")
 	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
 	functionsListener := functions.NewFunctionsListener(
-		oracleContract,
 		conf.Job,
+		conf.Chain.Client(),
+		conf.Job.OCR2OracleSpec.ContractID,
 		bridgeAccessor,
 		pluginORM,
 		pluginConfig,
@@ -117,13 +114,15 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		conf.MailMon,
 		conf.URLsMonEndpoint,
 		decryptor,
+		conf.LogPollerWrapper,
 	)
 	allServices = append(allServices, functionsListener)
 
 	functionsOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
-		Logger:    functionsOracleArgs.Logger,
-		PluginORM: pluginORM,
-		JobID:     conf.Job.ExternalJobID,
+		Logger:          functionsOracleArgs.Logger,
+		PluginORM:       pluginORM,
+		JobID:           conf.Job.ExternalJobID,
+		ContractVersion: pluginConfig.ContractVersion,
 	}
 	functionsReportingPluginOracle, err := libocr2.NewOracle(*functionsOracleArgs)
 	if err != nil {

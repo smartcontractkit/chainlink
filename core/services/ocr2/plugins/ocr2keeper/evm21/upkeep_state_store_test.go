@@ -43,7 +43,7 @@ func TestUpkeepStateStore_InvalidBlockKey(t *testing.T) {
 	tests := []struct {
 		name          string
 		payloads      []ocr2keepers.UpkeepPayload
-		states        []UpkeepState
+		states        []ocr2keepers.UpkeepState
 		expectedError error
 	}{
 		{
@@ -51,7 +51,7 @@ func TestUpkeepStateStore_InvalidBlockKey(t *testing.T) {
 			payloads: []ocr2keepers.UpkeepPayload{
 				ocr2keepers.NewUpkeepPayload(upkeepId2, logTriggerType, invalidBlockKey, trigger1, []byte{}),
 			},
-			states:        []UpkeepState{Performed},
+			states:        []ocr2keepers.UpkeepState{ocr2keepers.Performed},
 			expectedError: fmt.Errorf("check block %s is invalid for upkeep %s", invalidBlockKey, upkeepId2),
 		},
 	}
@@ -68,13 +68,13 @@ func TestUpkeepStateStore_InvalidBlockKey(t *testing.T) {
 }
 
 func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
-	p := Performed
-	e := Eligible
+	p := ocr2keepers.Performed
+	e := ocr2keepers.Eligible
 
 	tests := []struct {
 		name          string
 		payloads      []ocr2keepers.UpkeepPayload
-		states        []UpkeepState
+		states        []ocr2keepers.UpkeepState
 		expectedError error
 		oldIds        []string
 		oldIdResult   []upkeepState
@@ -93,7 +93,7 @@ func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 				payload4,
 				payload5, // this overrides payload 2 bc they have the same payload ID
 			},
-			states: []UpkeepState{Performed, Performed, Performed, Eligible},
+			states: []ocr2keepers.UpkeepState{ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Eligible},
 			oldIds: []string{payload2.ID, payload3.ID, payload4.ID},
 			oldIdResult: []upkeepState{
 				{
