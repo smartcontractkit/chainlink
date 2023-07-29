@@ -111,7 +111,7 @@ func GetLegacyGas(cfg feetypes.FixedPriceEstimatorConfig, bumpCfg feetypes.BumpC
 // Dynamic Fee
 
 func GetDynamicFee(cfg feetypes.FixedPriceEstimatorConfig, originalGasLimit uint32, maxGasPriceWei *big.Int) (feeCap, tipCap *big.Int, chainSpecificGasLimit uint32, err error) {
-	tipCap := cfg.TipCapDefault()
+	tipCap = cfg.TipCapDefault()
 
 	if tipCap == nil {
 		return big.NewInt(0), big.NewInt(0), 0, errors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
