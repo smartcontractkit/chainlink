@@ -155,6 +155,8 @@ func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() *cosmos.Chains {
 	return rs.legacyChains.CosmosChains
 }
 
+// id must be string representation of [relayer.Identifier], which ensures unique identification
+// amongst the multiple relayer:chain pairs wrapped in the interoperators
 func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
 	relayID := new(relay.Identifier)
 	err := relayID.UnmarshalString(id)
@@ -167,12 +169,13 @@ func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id st
 	}
 	// this call is weird because the [loop.Relayer] interface still requires id
 	// but in this context the `relayer` should only have only id
-	return relayer.ChainStatus(ctx, id)
+	// moreover, the `relayer` here is pinned to one chain we need to pass the chain id
+	return relayer.ChainStatus(ctx, relayID.ChainID.String())
 }
 
 func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
 	// chain statuses are not dynamic; the call would be better named as ChainConfig or such.
-	// lazily create a cache and use that case for the offset and limit to ensure deterministic results
+	// TODO lazily create a cache and use that case for the offset and limit to ensure deterministic results
 
 	var (
 		stats    []types.ChainStatus
@@ -202,7 +205,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 		return nil, 0, totalErr
 	}
 	cnt := len(stats)
-	if len(stats) > limit && limit > 0 {
+	if len(stats) > limit+offset && limit > 0 {
 		return stats[offset : offset+limit], cnt, nil
 	}
 	return stats[offset:], cnt, nil

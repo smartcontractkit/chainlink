@@ -92,7 +92,12 @@ func (c *ChainRelayerExtenders) Len() int {
 
 // implements OneChain
 type ChainRelayerExt struct {
-	chain     Chain
+	chain Chain
+	// TODO remove chain altogether. chainset is an implementation detail
+	// that enables use to reuse config logic but the notion of a chainset is
+	// confusing and unneeded in our desired end state where there is 1:1
+	// relayer:chain
+	// TODO add ticket to track
 	cs        *chainSet
 	isDefault bool
 }
@@ -135,8 +140,15 @@ func (s *ChainRelayerExt) Ready() (err error) {
 	return s.cs.Ready()
 }
 
+var ErrInconsistentChainRelayerExtender = errors.New("inconsistent evm chain relayer extender")
+
 func (s *ChainRelayerExt) ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error) {
-	return s.cs.ChainStatus(ctx, s.Chain().ID().String())
+	// we need to implement the interface, but passing id doesn't really make sense because there is only
+	// one chain here. check the id here to provide clear error reporting.
+	if s.chain.ID().String() != id {
+		return relaytypes.ChainStatus{}, fmt.Errorf("%w: given id %q does not match expected id %q", ErrInconsistentChainRelayerExtender, id, s.chain.ID())
+	}
+	return s.cs.ChainStatus(ctx, id)
 }
 
 func (s *ChainRelayerExt) ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error) {

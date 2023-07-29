@@ -66,7 +66,8 @@ func (i *Identifier) UnmarshalString(s string) error {
 	if newID.Network == "" {
 		return fmt.Errorf("error unmarshaling identifier: did not find network in supported list %q", network)
 	}
-	i = newID
+	i.ChainID = newID.ChainID
+	i.Network = newID.Network
 	return nil
 }
 
