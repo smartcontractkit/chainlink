@@ -488,6 +488,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		[pluginConfig]
 		donId = "%s"
 		contractVersion = 1
+		processOracleEventsCheckFrequencySec = 12
 		minIncomingConfirmations = 3
 		requestTimeoutSec = 300
 		requestTimeoutCheckFrequencySec = 10

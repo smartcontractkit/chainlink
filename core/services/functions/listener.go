@@ -184,16 +184,19 @@ func NewFunctionsListener(
 func (l *FunctionsListener) Start(context.Context) error {
 	return l.StartOnce("FunctionsListener", func() error {
 		l.serviceContext, l.serviceCancel = context.WithCancel(context.Background())
-		contractAddress := common.HexToAddress(l.contractAddressHex)
-		var unsubscribeLogs func()
+
+		if l.pluginConfig.ListenerEventHandlerTimeoutSec == 0 {
+			l.logger.Warn("listenerEventHandlerTimeoutSec set to zero! ORM calls will never time out.")
+		}
 
 		switch l.pluginConfig.ContractVersion {
 		case 0:
+			contractAddress := common.HexToAddress(l.contractAddressHex)
 			oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(contractAddress, l.client)
 			if err != nil {
 				return err
 			}
-			unsubscribeLogs = l.logBroadcaster.Register(l, log.ListenerOpts{
+			unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
 				Contract: oracleContract.Address(),
 				ParseLog: oracleContract.ParseLog,
 				LogsWithTopics: map[common.Hash][][]log.Topic{
@@ -205,44 +208,37 @@ func (l *FunctionsListener) Start(context.Context) error {
 				},
 				MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
 			})
+
+			l.shutdownWaitGroup.Add(4)
+			go l.processOracleEventsV0()
+			go l.timeoutRequests()
+			go l.pruneRequests()
+			go func() {
+				<-l.chStop
+				unsubscribeLogs()
+				l.shutdownWaitGroup.Done()
+			}()
+
+			l.mailMon.Monitor(l.mbOracleEvents, "FunctionsListener", "OracleEvents", fmt.Sprint(l.job.ID))
+
+			return nil
+
 		case 1:
-			// TODO: Utilize Log Poller here instead to listen to:
-			// - Router.getContractById(PluginConfig.DONId, false) = current route
-			// - Router.getContractById(PluginConfig.DONId, false) = proposed route
-			// If current = proposed, only listen to current
-			coordinatorContract, err := functions_coordinator.NewFunctionsCoordinator(contractAddress, l.client)
-			if err != nil {
-				return err
-			}
-			unsubscribeLogs = l.logBroadcaster.Register(l, log.ListenerOpts{
-				Contract: coordinatorContract.Address(),
-				ParseLog: coordinatorContract.ParseLog,
-				LogsWithTopics: map[common.Hash][][]log.Topic{
-					functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic():  {},
-					functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(): {},
-				},
-				MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
-			})
+			l.shutdownWaitGroup.Add(4)
+			go l.processOracleEvents()
+			go l.timeoutRequests()
+			go l.pruneRequests()
+			go func() {
+				<-l.chStop
+				// l.logPollerWrapper.stop() // TODO: do we need teardown in logPollerWrapper?
+				l.shutdownWaitGroup.Done()
+			}()
+
+			return nil
+
 		default:
 			return errors.New("Functions: unsupported PluginConfig.ContractVersion")
 		}
-
-		if l.pluginConfig.ListenerEventHandlerTimeoutSec == 0 {
-			l.logger.Warn("listenerEventHandlerTimeoutSec set to zero! ORM calls will never time out.")
-		}
-		l.shutdownWaitGroup.Add(4)
-		go l.processOracleEvents()
-		go l.timeoutRequests()
-		go l.pruneRequests()
-		go func() {
-			<-l.chStop
-			unsubscribeLogs()
-			l.shutdownWaitGroup.Done()
-		}()
-
-		l.mailMon.Monitor(l.mbOracleEvents, "FunctionsListener", "OracleEvents", fmt.Sprint(l.job.ID))
-
-		return nil
 	})
 }
 
@@ -281,7 +277,8 @@ func (l *FunctionsListener) JobID() int32 {
 	return l.job.ID
 }
 
-func (l *FunctionsListener) processOracleEvents() {
+// NOTE: DEPRECATED
+func (l *FunctionsListener) processOracleEventsV0() {
 	defer l.shutdownWaitGroup.Done()
 	for {
 		select {
@@ -321,30 +318,55 @@ func (l *FunctionsListener) processOracleEvents() {
 				case *ocr2dr_oracle.OCR2DROracleOracleResponse:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleResponse").Inc()
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("OracleResponse", log.RequestId, lb)
+					go l.handleOracleResponseV0("OracleResponse", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackError:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackError").Inc()
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("UserCallbackError", log.RequestId, lb)
+					go l.handleOracleResponseV0("UserCallbackError", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackRawError").Inc()
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
+					go l.handleOracleResponseV0("UserCallbackRawError", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleResponseTransmitted:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "ResponseTransmitted").Inc()
-				// Version 1
-				case *functions_coordinator.FunctionsCoordinatorOracleRequest:
-					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleRequest").Inc()
-					l.shutdownWaitGroup.Add(1)
-					go l.HandleOracleRequestV1(log, lb)
-				case *functions_coordinator.FunctionsCoordinatorOracleResponse:
-					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleResponse").Inc()
-					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("OracleResponse", log.RequestId, lb)
-				// TODO: handle other events
 				default:
 					l.logger.Warnf("Unexpected log type %T", log)
 				}
+			}
+		}
+	}
+}
+
+func (l *FunctionsListener) processOracleEvents() {
+	defer l.shutdownWaitGroup.Done()
+	freqSec := l.pluginConfig.ProcessOracleEventsCheckFrequencySec
+	if freqSec == 0 {
+		l.logger.Errorw("ProcessOracleEventsCheckFrequencySec must set to more than 0 in PluginConfig")
+		return
+	}
+	ticker := time.NewTicker(time.Duration(freqSec) * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-l.chStop:
+			return
+		case <-ticker.C:
+			requests, err := l.logPollerWrapper.LatestRequests()
+			if err != nil {
+				l.logger.Errorw("error when calling processOracleEvents", "err", err)
+				break
+			}
+			for _, request := range requests {
+				l.handleOracleRequestV1(request)
+			}
+
+			responses, err := l.logPollerWrapper.LatestResponses()
+			if err != nil {
+				l.logger.Errorw("error when calling processOracleEvents", "err", err)
+				break
+			}
+			for _, response := range responses {
+				l.handleOracleResponseV1(response)
 			}
 		}
 	}
@@ -386,40 +408,44 @@ func (l *FunctionsListener) getMaxSecretsSize(flags RequestFlags) uint32 {
 	return l.pluginConfig.MaxSecretsSizesList[idx]
 }
 
-// TODO (FUN-662): call from LogPoller in a separate goroutine
-func (l *FunctionsListener) HandleOracleRequestV1(request *functions_coordinator.FunctionsCoordinatorOracleRequest, lb log.Broadcast) {
+func (l *FunctionsListener) handleOracleRequestV1(request evmrelayTypes.OracleRequest) {
 	defer l.shutdownWaitGroup.Done()
-	l.logger.Infow("oracle request v1 received", "requestID", formatRequestId(request.RequestId))
+	var requestId [32]byte
+	copy(requestId[:], request.RequestId)
+	l.logger.Infow("oracle request v1 received", "requestID", formatRequestId(requestId))
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
 
 	callbackGasLimit := uint32(request.CallbackGasLimit)
 	newReq := &Request{
-		RequestID:                  request.RequestId,
-		RequestTxHash:              &request.Raw.TxHash,
+		RequestID:                  requestId,
+		RequestTxHash:              (*common.Hash)(request.TxHash),
 		ReceivedAt:                 time.Now(),
 		Flags:                      request.Flags[:],
 		CallbackGasLimit:           &callbackGasLimit,
-		CoordinatorContractAddress: &request.Raw.Address,
+		CoordinatorContractAddress: (*common.Address)(request.OracleContract),
 	}
 	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
 		if errors.Is(err, ErrDuplicateRequestID) {
-			l.logger.Warnw("received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
-			l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+			l.logger.Warnw("received a log with duplicate request ID", "requestID", formatRequestId(requestId), "err", err)
+			// l.markLogConsumed(lb, pg.WithParentCtx(ctx)) // TODO?
 		} else {
-			l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
+			l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(requestId), "err", err)
 		}
 		return
 	}
-	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+	// l.markLogConsumed(lb, pg.WithParentCtx(ctx)) // TODO?
 
-	promRequestDataSize.WithLabelValues(l.contractAddressHex).Observe(float64(len(request.Data)))
-	requestData, err := l.parseCBOR(request.RequestId, request.Data, l.getMaxCBORsize(request.Flags))
+	promRequestDataSize.WithLabelValues(string(request.OracleContract)).Observe(float64(len(request.Data)))
+	var flags [32]byte
+	copy(flags[:], request.Flags)
+	requestData, err := l.parseCBOR(requestId, request.Data, l.getMaxCBORsize(flags))
 	if err != nil {
-		l.setError(ctx, request.RequestId, USER_ERROR, []byte(err.Error()))
+		l.setError(ctx, requestId, USER_ERROR, []byte(err.Error()))
 		return
 	}
-	l.handleRequest(ctx, request.RequestId, request.SubscriptionId, request.SubscriptionOwner, request.Flags, requestData)
+	subscriptionOwner := (*common.Address)(request.SubscriptionOwner)
+	l.handleRequest(ctx, requestId, request.SubscriptionId, *subscriptionOwner, flags, requestData)
 }
 
 // deprecated
@@ -536,9 +562,9 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 	}
 }
 
-func (l *FunctionsListener) handleOracleResponse(responseType string, requestID [32]byte, lb log.Broadcast) {
+func (l *FunctionsListener) handleOracleResponseV0(responseType string, requestID [32]byte, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
-	l.logger.Infow("oracle response received", "type", responseType, "requestID", formatRequestId(requestID))
+	l.logger.Infow("oracle response v0 received", "type", responseType, "requestID", formatRequestId(requestID))
 
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
@@ -547,6 +573,21 @@ func (l *FunctionsListener) handleOracleResponse(responseType string, requestID 
 	}
 	promRequestConfirmed.WithLabelValues(l.contractAddressHex, responseType).Inc()
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+}
+
+func (l *FunctionsListener) handleOracleResponseV1(response evmrelayTypes.OracleResponse) {
+	defer l.shutdownWaitGroup.Done()
+	var requestID [32]byte
+	copy(requestID[:], response.RequestId)
+	l.logger.Infow("oracle response v1 received", "requestID", formatRequestId(requestID))
+
+	ctx, cancel := l.getNewHandlerContext()
+	defer cancel()
+	if err := l.pluginORM.SetConfirmed(requestID, pg.WithParentCtx(ctx)); err != nil {
+		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(requestID), "err", err)
+	}
+	promRequestConfirmed.WithLabelValues(l.contractAddressHex, response.Type).Inc()
+	// l.markLogConsumed(lb, pg.WithParentCtx(ctx)) // TODO?
 }
 
 func (l *FunctionsListener) markLogConsumed(lb log.Broadcast, qopts ...pg.QOpt) {

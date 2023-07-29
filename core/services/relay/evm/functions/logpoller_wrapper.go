@@ -47,3 +47,8 @@ func (l *logPollerWrapper) Ready() error {
 func (l *logPollerWrapper) LatestRoutes() (activeCoordinator common.Address, proposedCoordinator common.Address, err error) {
 	return common.Address{}, common.Address{}, nil
 }
+
+// TODO: Utilize Log Poller here instead to listen to:
+// - Router.getContractById(PluginConfig.DONId, false) = current route
+// - Router.getContractById(PluginConfig.DONId, false) = proposed route
+// If current = proposed, only listen to current

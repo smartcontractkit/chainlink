@@ -40,9 +40,33 @@ type FunctionsProvider interface {
 	relaytypes.PluginProvider
 	LogPollerWrapper() LogPollerWrapper
 }
+type OracleRequest struct {
+	OracleContract     []byte
+	RequestId          []byte
+	RequestingContract []byte
+	RequestInitiator   []byte
+	SubscriptionId     uint64
+	SubscriptionOwner  []byte
+	Data               []byte
+	DataVersion        uint16
+	Flags              []byte
+	CallbackGasLimit   uint64
+	TxHash             []byte
+}
+
+type OracleResponse struct {
+	RequestId   []byte
+	Transmitter []byte
+	Type        string
+}
+
+type RouteUpdateSubscriber interface {
+	UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address)
+}
 
 // A LogPoller wrapper that understands router proxy contracts
 type LogPollerWrapper interface {
 	relaytypes.Service
-	LatestRoutes() (activeCoordinator common.Address, proposedCoordinator common.Address, err error)
+	LatestRequests() ([]OracleRequest, error)
+	LatestResponses() ([]OracleResponse, error)
 }

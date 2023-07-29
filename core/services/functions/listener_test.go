@@ -468,6 +468,7 @@ func TestFunctionsListener_PruneRequests(t *testing.T) {
 	uni.service.Close()
 }
 
+// TODO: add mock logpoller_wrapper and use in test
 // func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
 // 	testutils.SkipShortDB(t)
 // 	t.Parallel()
@@ -499,7 +500,7 @@ func TestFunctionsListener_PruneRequests(t *testing.T) {
 // 	uni.service.Close()
 // }
 
-// TODO
+// TODO: add mock logpoller_wrapper and use in test
 // func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
 // 	testutils.SkipShortDB(t)
 // 	t.Parallel()
