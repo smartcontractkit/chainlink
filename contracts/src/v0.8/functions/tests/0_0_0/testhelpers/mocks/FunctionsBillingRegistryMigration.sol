@@ -12,8 +12,8 @@ import {AuthorizedOriginReceiverInterface} from "./AuthorizedOriginReceiverInter
 import {ConfirmedOwnerUpgradeable} from "./ConfirmedOwnerUpgradeable.sol";
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
 import {SafeCast} from "../../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
-import {PausableUpgradeable} from "../../../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/security/PausableUpgradeable.sol";
-import {Initializable} from "../../../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
+import {PausableUpgradeable} from "../../../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/security/PausableUpgradeable.sol";
+import {Initializable} from "../../../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Billing Registry contract
