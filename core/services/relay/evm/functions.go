@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"go.uber.org/multierr"
@@ -128,14 +127,7 @@ func newFunctionsConfigProvider(pluginType functionsRelay.FunctionsPluginType, c
 		return nil, err
 	}
 
-	offchainConfigDigester := functionsRelay.FunctionsOffchainConfigDigester{
-		PluginType: pluginType,
-		BaseDigester: evmutil.EVMOffchainConfigDigester{
-			ChainID:         chain.ID().Uint64(),
-			ContractAddress: contractAddress,
-		},
-	}
-
+	offchainConfigDigester := functionsRelay.NewFunctionsOffchainConfigDigester(pluginType, chain.ID().Uint64(), contractAddress)
 	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
 }
 
