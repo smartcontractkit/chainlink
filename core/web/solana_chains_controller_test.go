@@ -8,11 +8,12 @@ import (
 	"time"
 
 	"github.com/manyminds/api2go/jsonapi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -147,6 +148,7 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
+	//	require.Len(t, chains, 1)
 	assert.Equal(t, *chainA.ChainID, chains[0].ID)
 	tomlA, err := chainA.TOMLString()
 	require.NoError(t, err)

@@ -174,7 +174,38 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 	// chain statuses are not dynamic; the call would be better named as ChainConfig or such.
 	// lazily create a cache and use that case for the offset and limit to ensure deterministic results
 
-	return nil, 0, nil
+	var (
+		stats    []types.ChainStatus
+		totalErr error
+	)
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+
+	relayerIds := make([]relay.Identifier, 0)
+	for rid, _ := range rs.relayers {
+		relayerIds = append(relayerIds, rid)
+	}
+	sort.Slice(relayerIds, func(i, j int) bool {
+		return relayerIds[i].String() < relayerIds[j].String()
+	})
+	for _, rid := range relayerIds {
+		relayer := rs.relayers[rid]
+		// the relayer is chain specific; use the chain id and not the relayer id
+		stat, err := relayer.ChainStatus(ctx, rid.ChainID.String())
+		if err != nil {
+			totalErr = errors.Join(totalErr, err)
+			continue
+		}
+		stats = append(stats, stat)
+	}
+	if totalErr != nil {
+		return nil, 0, totalErr
+	}
+	cnt := len(stats)
+	if len(stats) > limit && limit > 0 {
+		return stats[offset : offset+limit], cnt, nil
+	}
+	return stats[offset:], cnt, nil
 }
 
 // ids must be a string representation of relay.Identifier
@@ -198,9 +229,14 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 			continue
 		}
 		result = append(result, nodeStats...)
-
 	}
-	return result, len(result), totalErr
+	if totalErr != nil {
+		return nil, 0, totalErr
+	}
+	if len(result) > limit {
+		return result[offset : offset+limit], limit, nil
+	}
+	return result[offset:], len(result[offset:]), nil
 }
 
 type FilterFn func(id relay.Identifier) bool
