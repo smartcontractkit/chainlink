@@ -333,6 +333,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function createSubscription() external override returns (uint64 subscriptionId) {
     _onlySenderThatAcceptedToS();
+    _nonReentrant();
 
     s_currentsubscriptionId++;
     subscriptionId = s_currentsubscriptionId;
@@ -354,6 +355,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external override {
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
+    _nonReentrant();
 
     // Proposing to address(0) would never be claimable, so don't need to check.
 
@@ -368,6 +370,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external override {
     _onlySenderThatAcceptedToS();
+    _nonReentrant();
     address previousOwner = s_subscriptions[subscriptionId].owner;
     address nextOwner = s_subscriptions[subscriptionId].requestedOwner;
     if (nextOwner != msg.sender) {
@@ -384,6 +387,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function removeConsumer(uint64 subscriptionId, address consumer) external override {
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
+    _nonReentrant();
     Consumer memory consumerData = s_consumers[consumer][subscriptionId];
     if (!consumerData.allowed) {
       revert InvalidConsumer(subscriptionId, consumer);
@@ -414,6 +418,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function addConsumer(uint64 subscriptionId, address consumer) external override {
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
+    _nonReentrant();
     // Already maxed, cannot add any more consumers.
     if (s_subscriptions[subscriptionId].consumers.length == MAX_CONSUMERS) {
       revert TooManyConsumers();
@@ -503,7 +508,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @inheritdoc IFunctionsSubscriptions
    */
   function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override {
-    _nonReentrant(); // GOLF-TODO: Necessary(?) check for exploits
+    _nonReentrant();
     for (uint256 i = 0; i < requestIdsToTimeout.length; i++) {
       bytes32 requestId = requestIdsToTimeout[i];
       Commitment memory request = s_requestCommitments[requestId];
