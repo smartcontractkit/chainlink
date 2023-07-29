@@ -53,7 +53,6 @@ contract FunctionsBillingRegistry is
     uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
     uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
   }
-
   // We use the config for the mgmt APIs
   struct SubscriptionConfig {
     address owner; // Owner can fund/withdraw/cancel the sub.
@@ -66,16 +65,13 @@ contract FunctionsBillingRegistry is
     // consumer is valid without reading all the consumers from storage.
     address[] consumers;
   }
-
   // Note a nonce of 0 indicates an the consumer is not assigned to that subscription.
   mapping(address => mapping(uint64 => uint64)) /* consumer */ /* subscriptionId */ /* nonce */ private s_consumers;
   mapping(uint64 => SubscriptionConfig) /* subscriptionId */ /* subscriptionConfig */ private s_subscriptionConfigs;
   mapping(uint64 => Subscription) /* subscriptionId */ /* subscription */ private s_subscriptions;
-
   // We make the sub count public so that its possible to
   // get all the current subscriptions via getSubscription.
-  uint64 private s_currentSubscriptionId;
-
+  uint64 private s_currentsubscriptionId;
   // s_totalBalance tracks the total link sent to/from
   // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
   // A discrepancy with this contract's link balance indicates someone
@@ -95,28 +91,24 @@ contract FunctionsBillingRegistry is
   error Reentrant();
 
   mapping(address => uint96) /* oracle node */ /* LINK balance */ private s_withdrawableTokens;
-
   struct Commitment {
-    uint64 subscriptionId; // -┐
-    address client; //         |
-    uint32 gasLimit; // -------┘
-    address don; // -----------┐
-    uint96 donFee; // ---------┘
-    uint96 registryFee; // ----┐
-    uint96 estimatedCost; //   |
-    uint40 timestamp; // ------┘
+    uint64 subscriptionId;
+    address client;
+    uint32 gasLimit;
     uint256 gasPrice;
+    address don;
+    uint96 donFee;
+    uint96 registryFee;
+    uint96 estimatedCost;
+    uint256 timestamp;
   }
-
   mapping(bytes32 => Commitment) /* requestID */ /* Commitment */ private s_requestCommitments;
   event BillingStart(bytes32 indexed requestId, Commitment commitment);
-
   struct ItemizedBill {
     uint96 signerPayment;
     uint96 transmitterPayment;
     uint96 totalCost;
   }
-
   event BillingEnd(
     bytes32 indexed requestId,
     uint64 subscriptionId,
@@ -125,26 +117,24 @@ contract FunctionsBillingRegistry is
     uint96 totalCost,
     bool success
   );
-
   event RequestTimedOut(bytes32 indexed requestId);
 
   struct Config {
-    // Maximum amount of gas that can be given to a request's client callback
+    // Maxiumum amount of gas that can be given to a request's client callback
     uint32 maxGasLimit;
     // Reentrancy protection.
     bool reentrancyLock;
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.
     uint32 stalenessSeconds;
+    // Gas to cover transmitter oracle payment after we calculate the payment.
+    // We make it configurable in case those operations are repriced.
+    uint256 gasAfterPaymentCalculation;
     // Represents the average gas execution cost. Used in estimating cost beforehand.
     uint32 gasOverhead;
     // how many seconds it takes before we consider a request to be timed out
     uint32 requestTimeoutSeconds;
-    // Gas to cover transmitter oracle payment after we calculate the payment.
-    // We make it configurable in case those operations are repriced.
-    uint256 gasAfterPaymentCalculation;
   }
-
   int256 private s_fallbackWeiPerUnitLink;
   Config private s_config;
   event ConfigSet(
@@ -351,24 +341,25 @@ contract FunctionsBillingRegistry is
       revert InsufficientBalance();
     }
 
-    bytes32 requestId = computeRequestId(msg.sender, billing.client, billing.subscriptionId, currentNonce + 1);
+    uint64 nonce = currentNonce + 1;
+    bytes32 requestId = computeRequestId(msg.sender, billing.client, billing.subscriptionId, nonce);
 
     Commitment memory commitment = Commitment(
       billing.subscriptionId,
       billing.client,
       billing.gasLimit,
+      billing.gasPrice,
       msg.sender,
       oracleFee,
       registryFee,
       estimatedCost,
-      uint40(block.timestamp),
-      billing.gasPrice
+      block.timestamp
     );
     s_requestCommitments[requestId] = commitment;
     s_subscriptions[billing.subscriptionId].blockedBalance += estimatedCost;
 
     emit BillingStart(requestId, commitment);
-    s_consumers[billing.client][billing.subscriptionId] = currentNonce + 1;
+    s_consumers[billing.client][billing.subscriptionId] = nonce;
     return requestId;
   }
 
@@ -574,7 +565,7 @@ contract FunctionsBillingRegistry is
   }
 
   function getCurrentsubscriptionId() external view returns (uint64) {
-    return s_currentSubscriptionId;
+    return s_currentsubscriptionId;
   }
 
   /**
@@ -608,8 +599,8 @@ contract FunctionsBillingRegistry is
    * @dev    abi.encode(subscriptionId));
    */
   function createSubscription() external nonReentrant whenNotPaused onlyAuthorizedUsers returns (uint64) {
-    s_currentSubscriptionId++;
-    uint64 currentsubscriptionId = s_currentSubscriptionId;
+    s_currentsubscriptionId++;
+    uint64 currentsubscriptionId = s_currentsubscriptionId;
     address[] memory consumers = new address[](0);
     s_subscriptions[currentsubscriptionId] = Subscription({balance: 0, blockedBalance: 0});
     s_subscriptionConfigs[currentsubscriptionId] = SubscriptionConfig({
