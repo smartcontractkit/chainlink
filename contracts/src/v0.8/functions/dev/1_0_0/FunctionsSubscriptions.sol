@@ -291,6 +291,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @inheritdoc IFunctionsSubscriptions
    */
   function oracleWithdraw(address recipient, uint96 amount) external override {
+    _whenNotPaused();
     _nonReentrant();
     if (amount == 0) {
       revert InvalidCalldata();
@@ -309,6 +310,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // |                   Deposit helper method                      |
   // ================================================================
   function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override {
+    _whenNotPaused();
     _nonReentrant();
     if (msg.sender != address(LINK)) {
       revert OnlyCallableFromLink();
@@ -335,6 +337,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @inheritdoc IFunctionsSubscriptions
    */
   function createSubscription() external override returns (uint64 subscriptionId) {
+    _whenNotPaused();
     _nonReentrant();
     _onlySenderThatAcceptedToS();
 
@@ -356,6 +359,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @inheritdoc IFunctionsSubscriptions
    */
   function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external override {
+    _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
     _nonReentrant();
     _onlySenderThatAcceptedToS();
@@ -372,6 +376,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @inheritdoc IFunctionsSubscriptions
    */
   function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external override {
+    _whenNotPaused();
     _nonReentrant();
     _onlySenderThatAcceptedToS();
     address previousOwner = s_subscriptions[subscriptionId].owner;
@@ -388,6 +393,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @inheritdoc IFunctionsSubscriptions
    */
   function removeConsumer(uint64 subscriptionId, address consumer) external override {
+    _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
     _nonReentrant();
     _onlySenderThatAcceptedToS();
@@ -419,6 +425,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @inheritdoc IFunctionsSubscriptions
    */
   function addConsumer(uint64 subscriptionId, address consumer) external override {
+    _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
     _nonReentrant();
     _onlySenderThatAcceptedToS();
@@ -441,6 +448,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @inheritdoc IFunctionsSubscriptions
    */
   function cancelSubscription(uint64 subscriptionId, address to) external override {
+    _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
     _nonReentrant();
     _onlySenderThatAcceptedToS();
@@ -512,6 +520,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @inheritdoc IFunctionsSubscriptions
    */
   function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override {
+    _whenNotPaused();
     _nonReentrant();
     for (uint256 i = 0; i < requestIdsToTimeout.length; i++) {
       bytes32 requestId = requestIdsToTimeout[i];
@@ -564,4 +573,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function _onlySenderThatAcceptedToS() internal virtual;
 
   function _onlyRouterOwner() internal virtual;
+
+  function _whenNotPaused() internal virtual;
 }
