@@ -4,7 +4,7 @@
 pragma solidity ^0.8.6;
 
 contract FunctionsBillingRegistryEventsMock {
-    struct Commitment {uint64 subscriptionId;address client;uint32 gasLimit;address don;uint96 donFee;uint96 registryFee;uint96 estimatedCost;uint40 timestamp;uint256 gasPrice; }
+    struct Commitment {uint64 subscriptionId;address client;uint32 gasLimit;uint256 gasPrice;address don;uint96 donFee;uint96 registryFee;uint96 estimatedCost;uint256 timestamp; }
     event AuthorizedSendersChanged(address[] senders,address changedBy);
     event BillingEnd(bytes32 indexed requestId,uint64 subscriptionId,uint96 signerPayment,uint96 transmitterPayment,uint96 totalCost,bool success);
     event BillingStart(bytes32 indexed requestId,Commitment commitment);

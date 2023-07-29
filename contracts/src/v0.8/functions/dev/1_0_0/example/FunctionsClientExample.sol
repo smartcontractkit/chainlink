@@ -67,11 +67,8 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
     if (b.length < 32) {
       maxLen = b.length;
     }
-    for (uint256 i = 0; i < maxLen; ) {
+    for (uint256 i = 0; i < maxLen; ++i) {
       out |= bytes32(b[i]) >> (i * 8);
-      unchecked {
-        ++i;
-      }
     }
     return out;
   }

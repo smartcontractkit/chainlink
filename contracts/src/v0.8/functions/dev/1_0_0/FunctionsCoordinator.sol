@@ -97,12 +97,10 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function _isTransmitter(address node) internal view returns (bool) {
     address[] memory nodes = s_transmitters;
-    for (uint256 i = 0; i < nodes.length; ) {
+    // Bounded by "maxNumOracles" on OCR2Abstract.sol
+    for (uint256 i = 0; i < nodes.length; ++i) {
       if (nodes[i] == node) {
         return true;
-      }
-      unchecked {
-        ++i;
       }
     }
     return false;
@@ -136,14 +134,12 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   function getAllNodePublicKeys() external view override returns (address[] memory, bytes[] memory) {
     address[] memory nodes = s_transmitters;
     bytes[] memory keys = new bytes[](nodes.length);
-    for (uint256 i = 0; i < nodes.length; ) {
+    // Bounded by "maxNumOracles" on OCR2Abstract.sol
+    for (uint256 i = 0; i < nodes.length; ++i) {
       if (s_nodePublicKeys[nodes[i]].length == 0) {
         revert EmptyPublicKey();
       }
       keys[i] = s_nodePublicKeys[nodes[i]];
-      unchecked {
-        ++i;
-      }
     }
     return (nodes, keys);
   }
@@ -230,7 +226,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       revert ReportInvalid();
     }
 
-    for (uint256 i = 0; i < requestIds.length; ) {
+    // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
+    for (uint256 i = 0; i < requestIds.length; ++i) {
       FulfillResult result = FulfillResult(
         _fulfillAndBill(
           requestIds[i],
@@ -250,9 +247,6 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
         emit CostExceedsCommitment(requestIds[i]);
       } else if (result == FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE) {
         emit InsufficientSubscriptionBalance(requestIds[i]);
-      }
-      unchecked {
-        ++i;
       }
     }
   }

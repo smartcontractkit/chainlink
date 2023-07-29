@@ -59,11 +59,8 @@ library Functions {
     if (self.args.length > 0) {
       CBOR.writeString(buffer, "args");
       CBOR.startArray(buffer);
-      for (uint256 i = 0; i < self.args.length; ) {
+      for (uint256 i = 0; i < self.args.length; ++i) {
         CBOR.writeString(buffer, self.args[i]);
-        unchecked {
-          ++i;
-        }
       }
       CBOR.endSequence(buffer);
     }
@@ -81,11 +78,8 @@ library Functions {
     if (self.bytesArgs.length > 0) {
       CBOR.writeString(buffer, "bytesArgs");
       CBOR.startArray(buffer);
-      for (uint256 i = 0; i < self.bytesArgs.length; ) {
+      for (uint256 i = 0; i < self.bytesArgs.length; ++i) {
         CBOR.writeBytes(buffer, self.bytesArgs[i]);
-        unchecked {
-          ++i;
-        }
       }
       CBOR.endSequence(buffer);
     }

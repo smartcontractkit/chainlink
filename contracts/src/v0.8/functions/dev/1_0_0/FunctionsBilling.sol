@@ -459,17 +459,14 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function _disperseFeePool() internal {
     // All transmitters are assumed to also be observers
     // Pay out the DON fee to all transmitters
-    // Bounded by "maxNumOracles" on OCR2Abstract.sol
     address[] memory transmitters = _getTransmitters();
     if (transmitters.length == 0) {
       revert NoTransmittersSet();
     }
     uint96 feePoolShare = s_feePool / uint96(transmitters.length);
-    for (uint8 i = 0; i < transmitters.length; ) {
+    // Bounded by "maxNumOracles" on OCR2Abstract.sol
+    for (uint8 i = 0; i < transmitters.length; ++i) {
       s_withdrawableTokens[transmitters[i]] += feePoolShare;
-      unchecked {
-        ++i;
-      }
     }
     s_feePool -= feePoolShare * uint96(transmitters.length);
   }

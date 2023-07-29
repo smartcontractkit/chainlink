@@ -194,11 +194,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes32 requestId = _sendRequest(donId, true, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
     // Convert to bytes as a more generic return
     output = new bytes(32);
-    for (uint256 i; i < 32; ) {
+    // Bounded by 32
+    for (uint256 i; i < 32; ++i) {
       output[i] = requestId[i];
-      unchecked {
-        ++i;
-      }
     }
   }
 
