@@ -2,7 +2,7 @@
 
 pragma solidity >=0.7.6 <0.9.0;
 
-import "../dev/vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
+import "./openzeppelin-solidity/v4.7.0/contracts/utils/Address.sol";
 
 /**
  * @title iOVM_CrossDomainMessenger

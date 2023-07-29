@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./interfaces/DelegateForwarderInterface.sol";
 import "./vendor/@eth-optimism/contracts/0.4.7/contracts/optimistic-ethereum/iOVM/bridge/messaging/iOVM_CrossDomainMessenger.sol";
-import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
+import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 import "./OptimismCrossDomainForwarder.sol";
 
 /**

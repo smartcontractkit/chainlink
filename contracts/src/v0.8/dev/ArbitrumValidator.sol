@@ -13,7 +13,7 @@ import "./interfaces/FlagsInterface.sol";
 import "./interfaces/IArbitrumDelayedInbox.sol";
 import "./vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "./vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
-import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
+import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 
 /**
  * @title ArbitrumValidator - makes xDomain L2 Flags contract call (using L2 xDomain Forwarder contract)
