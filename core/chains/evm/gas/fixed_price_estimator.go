@@ -15,20 +15,10 @@ import (
 var _ EvmEstimator = (*fixedPriceEstimator)(nil)
 
 type fixedPriceEstimator struct {
-	config   fixedPriceEstimatorConfig
-	bhConfig fixedPriceEstimatorBlockHistoryConfig
-	lggr     logger.SugaredLogger
-}
-
-type fixedPriceEstimatorConfig interface {
-	BumpThreshold() uint64
-	FeeCapDefault() *assets.Wei
-	LimitMultiplier() float32
-	PriceDefault() *assets.Wei
-	TipCapDefault() *assets.Wei
-	PriceMax() *assets.Wei
-	Mode() string
-	bumpConfig
+	config     fixedPriceEstimatorConfigWrapper
+	bumpConfig wrappedBumpConfig
+	bhConfig   fixedPriceEstimatorBlockHistoryConfig
+	lggr       logger.SugaredLogger
 }
 
 type fixedPriceEstimatorBlockHistoryConfig interface {
@@ -37,8 +27,8 @@ type fixedPriceEstimatorBlockHistoryConfig interface {
 
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
 // always use the config default values for gas prices and limits
-func NewFixedPriceEstimator(cfg fixedPriceEstimatorConfig, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger) EvmEstimator {
-	return &fixedPriceEstimator{cfg, bhCfg, logger.Sugared(lggr.Named("FixedPriceEstimator"))}
+func NewFixedPriceEstimator(config fixedPriceEstimatorConfigWrapper, bumpCfg wrappedBumpConfig, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger) EvmEstimator {
+	return &fixedPriceEstimator{config, bumpCfg, bhCfg, logger.Sugared(lggr.Named("FixedPriceEstimator"))}
 }
 
 func (f *fixedPriceEstimator) Start(context.Context) error {
@@ -56,39 +46,28 @@ func (f *fixedPriceEstimator) HealthReport() map[string]error                   
 func (f *fixedPriceEstimator) Close() error                                          { return nil }
 func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
-func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
-	gasPrice = f.config.PriceDefault()
-	gasPrice, chainSpecificGasLimit = capGasPrice(gasPrice, maxGasPriceWei, f.config.PriceMax(), gasLimit, f.config.LimitMultiplier())
-	return
+func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (*assets.Wei, uint32, error) {
+	gasPrice, chainSpecificGasLimit, err := commonfee.GetLegacyGas(f.config, f.bumpConfig, gasLimit, maxGasPriceWei.ToInt())
+	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
 }
 
-func (f *fixedPriceEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (gasPrice *assets.Wei, gasLimit uint32, err error) {
-	return BumpLegacyGasPriceOnly(f.config, f.lggr, f.config.PriceDefault(), originalGasPrice, originalGasLimit, maxGasPriceWei)
+func (f *fixedPriceEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (*assets.Wei, uint32, error) {
+	gasPrice, chainSpecificGasLimit, err := commonfee.BumpLegacyGasPriceOnlyBigInt(f.bumpConfig, f.lggr, f.config.PriceDefault(), originalGasPrice.ToInt(), originalGasLimit, maxGasPriceWei.ToInt())
+	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
 }
 
 func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit uint32, maxGasPriceWei *assets.Wei) (d DynamicFee, chainSpecificGasLimit uint32, err error) {
-	gasTipCap := f.config.TipCapDefault()
-
-	if gasTipCap == nil {
-		return d, 0, errors.New("cannot calculate dynamic fee: EthGasTipCapDefault was not set")
-	}
-	chainSpecificGasLimit = commonfee.ApplyMultiplier(originalGasLimit, f.config.LimitMultiplier())
-
-	var feeCap *assets.Wei
-	if f.config.BumpThreshold() == 0 {
-		// Gas bumping is disabled, just use the max fee cap
-		feeCap = getMaxGasPrice(maxGasPriceWei, f.config.PriceMax())
-	} else {
-		// Need to leave headroom for bumping so we fallback to the default value here
-		feeCap = f.config.FeeCapDefault()
+	feeCap, tipCap, chainSpecificGasLimit, err := commonfee.GetDynamicFee(f.config, originalGasLimit, maxGasPriceWei.ToInt())
+	if err != nil {
+		return d, 0, err
 	}
 
 	return DynamicFee{
-		FeeCap: feeCap,
-		TipCap: gasTipCap,
+		FeeCap: assets.NewWei(feeCap),
+		TipCap: assets.NewWei(tipCap),
 	}, chainSpecificGasLimit, nil
 }
 
 func (f *fixedPriceEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
-	return BumpDynamicFeeOnly(f.config, f.bhConfig.EIP1559FeeCapBufferBlocks(), f.lggr, f.config.TipCapDefault(), nil, originalFee, originalGasLimit, maxGasPriceWei)
+	return BumpDynamicFeeOnly(f.bumpConfig.config, f.bhConfig.EIP1559FeeCapBufferBlocks(), f.lggr, f.config.config.TipCapDefault(), nil, originalFee, originalGasLimit, maxGasPriceWei)
 }
