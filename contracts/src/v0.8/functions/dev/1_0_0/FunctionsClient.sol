@@ -4,8 +4,6 @@ pragma solidity ^0.8.19;
 import {Functions} from "./Functions.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
-import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 
 /**
  * @title The Chainlink Functions client contract

@@ -17,7 +17,7 @@ block_timestamp = 1234567890
 block_number = 12345
 
 [profile.functions]
-solc_version = '0.8.6'
+solc_version = '0.8.19'
 src = 'src/v0.8/functions'
 test = 'src/v0.8/functions/tests'
 

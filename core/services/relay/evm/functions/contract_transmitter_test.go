@@ -50,10 +50,11 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	require.NoError(t, err)
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 
-	functionsTransmitter, err := functions.NewFunctionsContractTransmitter(gethcommon.Address{}, c, contractABI, &mockTransmitter{}, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
+	functionsTransmitter, err := functions.NewFunctionsContractTransmitter(c, contractABI, &mockTransmitter{}, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
 	}, 0)
 	require.NoError(t, err)
+	require.NoError(t, functionsTransmitter.UpdateRoutes(gethcommon.Address{}, gethcommon.Address{}))
 
 	digest, epoch, err := functionsTransmitter.LatestConfigDigestAndEpoch(testutils.Context(t))
 	require.NoError(t, err)
@@ -74,10 +75,11 @@ func TestContractTransmitter_Transmit_V0(t *testing.T) {
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 
 	ocrTransmitter := mockTransmitter{}
-	ot, err := functions.NewFunctionsContractTransmitter(destAddress, c, contractABI, &ocrTransmitter, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
+	ot, err := functions.NewFunctionsContractTransmitter(c, contractABI, &ocrTransmitter, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
 	}, contractVersion)
 	require.NoError(t, err)
+	require.NoError(t, ot.UpdateRoutes(destAddress, destAddress))
 
 	require.NoError(t, ot.Transmit(testutils.Context(t), ocrtypes.ReportContext{}, []byte("bar"), []ocrtypes.AttributedOnchainSignature{}))
 	require.Equal(t, destAddress, ocrTransmitter.toAddress)
@@ -95,10 +97,11 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 
 	ocrTransmitter := mockTransmitter{}
-	ot, err := functions.NewFunctionsContractTransmitter(configuredDestAddress, c, contractABI, &ocrTransmitter, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
+	ot, err := functions.NewFunctionsContractTransmitter(c, contractABI, &ocrTransmitter, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
 	}, contractVersion)
 	require.NoError(t, err)
+	require.NoError(t, ot.UpdateRoutes(configuredDestAddress, configuredDestAddress))
 
 	reqId, err := hex.DecodeString("000102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
 	require.NoError(t, err)
