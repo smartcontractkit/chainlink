@@ -34,3 +34,5 @@ func (la *LoopRelayer) Chain() evm.Chain {
 func (la *LoopRelayer) Default() bool {
 	return la.x.Default()
 }
+
+//TODO need service multi start/close, etc for the contained relayer and extender?

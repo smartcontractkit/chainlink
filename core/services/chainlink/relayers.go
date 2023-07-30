@@ -52,7 +52,7 @@ type LoopRelayerStorer interface {
 // on the relayer interface.
 type LegacyChainer interface {
 	LegacyEVMChains() evm.LegacyChainContainer //evm.LegacyChainContainer
-	LegacyCosmosChains() *cosmos.Chains
+	LegacyCosmosChains() cosmos.LegacyChainContainer
 }
 
 // ChainsNodesStatuser report statuses about chains and nodes
@@ -69,12 +69,17 @@ type CoreRelayerChainInteroperators struct {
 	mu           sync.Mutex
 	relayers     map[relay.Identifier]loop.Relayer
 	legacyChains legacyChains
+
+	// we keep an explicit list of services because the legacy implementations have more than
+	// just the relayer service
+	srvs []services.ServiceCtx
 }
 
 func NewCoreRelayerChainInteroperators() *CoreRelayerChainInteroperators {
 	return &CoreRelayerChainInteroperators{
 		relayers:     make(map[relay.Identifier]loop.Relayer),
-		legacyChains: legacyChains{EVMChains: evm.NewLegacyChains(), CosmosChains: new(cosmos.Chains)},
+		legacyChains: legacyChains{EVMChains: evm.NewLegacyChains(), CosmosChains: cosmos.NewLegacyChains()},
+		srvs:         make([]services.ServiceCtx, 0),
 	}
 }
 
@@ -108,13 +113,17 @@ func (rs *CoreRelayerChainInteroperators) putOne(id relay.Identifier, r loop.Rel
 			}
 			rs.legacyChains.EVMChains.SetDefault(adapter.Chain())
 		}
+		rs.srvs = append(rs.srvs, adapter)
 	case relay.Cosmos:
-		adapter, ok := r.(cosmos.LoopRelayAdapter)
+		adapter, ok := r.(cosmos.LoopRelayerChainer)
 		if !ok {
 			return fmt.Errorf("unsupported cosmos loop relayer implementation. got %t want (cosmos.LoopRelayAdapter)", r)
 		}
 
 		rs.legacyChains.CosmosChains.Put(id.ChainID.String(), adapter.Chain())
+		rs.srvs = append(rs.srvs, adapter)
+	default:
+		rs.srvs = append(rs.srvs, r)
 	}
 
 	rs.relayers[id] = r
@@ -149,7 +158,7 @@ func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() evm.LegacyChainConta
 	return rs.legacyChains.EVMChains
 }
 
-func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() *cosmos.Chains {
+func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() cosmos.LegacyChainContainer {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.legacyChains.CosmosChains
@@ -277,9 +286,7 @@ func (rs *CoreRelayerChainInteroperators) Slice() []loop.Relayer {
 	return result
 }
 func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
-	// TODO. ensure that the services are not duplicated between the chain and relayers...
-	s = append(s, sortByChainID(rs.relayers)...)
-	return
+	return rs.srvs
 }
 
 func sortByChainID[V services.ServiceCtx](m map[relay.Identifier]V) []services.ServiceCtx {
@@ -301,5 +308,5 @@ func sortByChainID[V services.ServiceCtx](m map[relay.Identifier]V) []services.S
 // deprecated when chain-specific logic is removed from products.
 type legacyChains struct {
 	EVMChains    evm.LegacyChainContainer
-	CosmosChains *cosmos.Chains
+	CosmosChains cosmos.LegacyChainContainer
 }

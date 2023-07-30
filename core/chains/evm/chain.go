@@ -63,7 +63,9 @@ type LegacyChains struct {
 	dflt Chain
 }
 
+// LegacyChainContainer is container for EVM chains.
 //go:generate mockery --quiet --name LegacyChainContainer --output ./mocks/ --case=underscore
+
 type LegacyChainContainer interface {
 	SetDefault(Chain)
 	Default() (Chain, error)

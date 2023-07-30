@@ -46,11 +46,6 @@ func (r RelayerFactory) NewEVM(ctx context.Context, opts evm.RelayerFactoryOpts,
 		DB:                 r.DB,
 		KeyStore:           ks.Eth(),
 		RelayerFactoryOpts: opts,
-		/*
-			KeyStore:         ks.Eth(),
-			EventBroadcaster: eb,
-			MailMon:          mmon,
-		*/
 	}
 
 	var ids []utils.Big
@@ -204,8 +199,8 @@ func (r RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.Sta
 
 }
 
-func (r RelayerFactory) NewCosmos(ks keystore.Cosmos, chainCfgs cosmos.CosmosConfigs, eb pg.EventBroadcaster) (map[relay.Identifier]cosmos.LoopRelayAdapter, error) {
-	relayers := make(map[relay.Identifier]cosmos.LoopRelayAdapter)
+func (r RelayerFactory) NewCosmos(ks keystore.Cosmos, chainCfgs cosmos.CosmosConfigs, eb pg.EventBroadcaster) (map[relay.Identifier]cosmos.LoopRelayerChainer, error) {
+	relayers := make(map[relay.Identifier]cosmos.LoopRelayerChainer)
 
 	var (
 		ids  []string
@@ -242,7 +237,7 @@ func (r RelayerFactory) NewCosmos(ks keystore.Cosmos, chainCfgs cosmos.CosmosCon
 			return nil, fmt.Errorf("failed to load Cosmos chain %q: %w", relayId, err)
 		}
 
-		relayers[relayId] = cosmos.NewLoopRelayer(pkgcosmos.NewRelayer(lggr, singleChainChainSet), singleChainChainSet)
+		relayers[relayId] = cosmos.NewLoopRelayerSingleChain(pkgcosmos.NewRelayer(lggr, singleChainChainSet), singleChainChainSet)
 
 	}
 	return relayers, nil

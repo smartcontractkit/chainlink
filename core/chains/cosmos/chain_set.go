@@ -2,9 +2,11 @@ package cosmos
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
-	"github.com/pkg/errors"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -17,6 +19,7 @@ import (
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -41,7 +44,7 @@ type ChainSetOpts struct {
 
 func (o *ChainSetOpts) Validate() (err error) {
 	required := func(s string) error {
-		return errors.Errorf("%s is required", s)
+		return fmt.Errorf("%s is required", s)
 	}
 	if o.Config == nil {
 		err = multierr.Append(err, required("Config"))
@@ -70,7 +73,7 @@ func (o *ChainSetOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logg
 
 func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	if !cfg.IsEnabled() {
-		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
+		return nil, fmt.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
 	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.Configs, o.Logger)
 	if err != nil {
@@ -79,84 +82,133 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	return c, nil
 }
 
-type Chains = chains.ChainsKV[adapters.Chain]
-
-// SingleChainSet is a chainset with 1 chain. TODO remove when relayer interface is updated
-type SingleChainSet struct {
-	adapters.ChainSet
-	// TODO what type for ID?
-	ID string
+// LegacyChainContainer is container interface for Cosmos chains
+type LegacyChainContainer interface {
+	Get(id string) (adapters.Chain, error)
+	Len() int
+	List(ids ...string) ([]adapters.Chain, error)
+	Put(id string, chain adapters.Chain)
+	Slice() []adapters.Chain
 }
 
-func (s SingleChainSet) getChain(ctx context.Context) adapters.Chain {
-	c, err := s.Chain(ctx, s.ID)
-	if err != nil {
-		panic("inconsistent single chain set")
-	}
-	return c
+type LegacyChains = chains.ChainsKV[adapters.Chain]
+
+var _ LegacyChainContainer = &LegacyChains{}
+
+func NewLegacyChains() *LegacyChains {
+	return chains.NewChainsKV[adapters.Chain]()
 }
 
-/*
-	func (s SingleChainSet) Chain() adapters.Chain {
-		return s.getChain(context.Background())
-	}
-*/
-type LoopRelayAdapter interface {
+type LoopRelayerChainer interface {
 	loop.Relayer
 	Chain() adapters.Chain
 }
 
-type LoopRelayer struct {
+type LoopRelayerSingleChain struct {
 	loop.Relayer
-	x *SingleChainSet
+	singleChain *SingleChainSet
 }
 
-func NewLoopRelayer(r *pkgcosmos.Relayer, s *SingleChainSet) *LoopRelayer {
+func NewLoopRelayerSingleChain(r *pkgcosmos.Relayer, s *SingleChainSet) *LoopRelayerSingleChain {
 	ra := relay.NewRelayerAdapter(r, s)
-	return &LoopRelayer{
-		Relayer: ra,
-		x:       s,
+	return &LoopRelayerSingleChain{
+		Relayer:     ra,
+		singleChain: s,
 	}
 }
-func (l *LoopRelayer) Chain() adapters.Chain {
-	return l.x.getChain(context.Background())
+func (r *LoopRelayerSingleChain) Chain() adapters.Chain {
+	return r.singleChain.chain
 }
 
-var _ LoopRelayAdapter = &LoopRelayer{}
+// implement service interface
+func (r *LoopRelayerSingleChain) Start(ctx context.Context) error {
+	var ms services.MultiStart
+	return ms.Start(ctx, r.singleChain, r.Relayer)
+}
 
-func newChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (adapters.ChainSet, error) {
-	solChains := map[string]adapters.Chain{}
+func (r *LoopRelayerSingleChain) Close() error {
+	return services.CloseAll(r.Relayer, r.singleChain)
+}
+
+func (r *LoopRelayerSingleChain) Name() string {
+	return fmt.Sprintf("%s-%s", r.Relayer.Name(), r.singleChain.Name())
+}
+
+func (r *LoopRelayerSingleChain) Ready() (err error) {
+	return errors.Join(r.Relayer.Ready(), r.singleChain.Ready())
+}
+
+func (r *LoopRelayerSingleChain) HealthReport() map[string]error {
+	hr := make(map[string]error)
+	maps.Copy(r.Relayer.HealthReport(), hr)
+	maps.Copy(r.singleChain.HealthReport(), hr)
+	return hr
+}
+
+var _ LoopRelayerChainer = &LoopRelayerSingleChain{}
+
+func newChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (adapters.ChainSet, map[string]adapters.Chain, error) {
+	cosmosChains := map[string]adapters.Chain{}
 	var err error
 	for _, chain := range cfgs {
 		if !chain.IsEnabled() {
 			continue
 		}
 		var err2 error
-		solChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
+		cosmosChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
 		if err2 != nil {
 			err = multierr.Combine(err, err2)
 			continue
 		}
 	}
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to load some Cosmos chains")
+		return nil, nil, fmt.Errorf("failed to load some Cosmos chains: %w", err)
 	}
 
-	cs, err := chains.NewChainSet[db.Node, adapters.Chain](solChains, &opts)
+	cs, err := chains.NewChainSet[db.Node, adapters.Chain](cosmosChains, &opts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return cs, nil
+	return cs, cosmosChains, nil
+}
+
+// SingleChainSet is a chainset with 1 chain. TODO remove when relayer interface is updated
+type SingleChainSet struct {
+	adapters.ChainSet
+	ID    string
+	chain adapters.Chain
+}
+
+/*
+func (s *SingleChainSet) getChain(ctx context.Context) adapters.Chain {
+	c, err := s.Chain(ctx, s.ID)
+	if err != nil {
+		panic(fmt.Errorf("inconsistent single chain set: %s", err))
+	}
+	return c
+}
+*/
+
+func (s *SingleChainSet) Chain(ctx context.Context, id string) (adapters.Chain, error) {
+	return s.chain, nil
 }
 
 func NewSingleChainSet(opts ChainSetOpts, cfg *CosmosConfig) (*SingleChainSet, error) {
-	cs, err := newChainSet(opts, CosmosConfigs{cfg})
+	cs, m, err := newChainSet(opts, CosmosConfigs{cfg})
 	if err != nil {
 		return nil, err
+	}
+	if len(m) != 1 {
+		return nil, fmt.Errorf("invalid Single chain: more than one chain %d", len(m))
+	}
+	var chain adapters.Chain
+	for _, ch := range m {
+		chain = ch
 	}
 	return &SingleChainSet{
 		ChainSet: cs,
 		ID:       *cfg.ChainID,
+		chain:    chain,
 	}, nil
 }
