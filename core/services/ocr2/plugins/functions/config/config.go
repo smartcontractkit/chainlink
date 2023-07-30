@@ -29,6 +29,7 @@ type PluginConfig struct {
 	PruneCheckFrequencySec          uint32                            `json:"pruneCheckFrequencySec"`
 	PruneBatchSize                  uint32                            `json:"pruneBatchSize"`
 	ListenerEventHandlerTimeoutSec  uint32                            `json:"listenerEventHandlerTimeoutSec"`
+	ContractUpdateCheckFrequencySec uint32                            `json:"contractUpdateCheckFrequencySec"`
 	MaxRequestSizeBytes             uint32                            `json:"maxRequestSizeBytes"`
 	MaxRequestSizesList             []uint32                          `json:"maxRequestSizesList"`
 	MaxSecretsSizesList             []uint32                          `json:"maxSecretsSizesList"`
