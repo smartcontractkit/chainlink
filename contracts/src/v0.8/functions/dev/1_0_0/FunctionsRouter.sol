@@ -133,7 +133,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes memory data,
     uint16 dataVersion,
     uint32 callbackGasLimit
-  ) private whenNotPaused returns (bytes32 requestId) {
+  ) private returns (bytes32 requestId) {
+    _whenNotPaused();
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
     _isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
@@ -217,7 +218,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint32 callbackGasLimit,
     bytes32 donId
   ) external override returns (bytes32) {
-    _nonReentrant();
     return _sendRequest(donId, false, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
@@ -231,8 +231,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint96 juelsPerGas,
     uint96 costWithoutFulfillment,
     address transmitter
-  ) external override whenNotPaused returns (uint8 resultCode, uint96 callbackGasCostJuels) {
-    _nonReentrant();
+  ) external override returns (uint8 resultCode, uint96 callbackGasCostJuels) {
+    _whenNotPaused();
 
     Commitment memory commitment = s_requestCommitments[requestId];
 
@@ -315,9 +315,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       response,
       err
     );
-    // Do not allow any non-view/non-pure coordinator functions to be called
-    // during the consumers callback code via reentrancyLock.
-    s_reentrancyLock = true;
+
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid payment.
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
@@ -369,8 +367,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       // copy the bytes from returnData[0:_toCopy]
       returndatacopy(add(returnData, 0x20), 0, toCopy)
     }
-
-    s_reentrancyLock = false;
 
     result = CallbackResult(success, gasUsed, returnData);
   }

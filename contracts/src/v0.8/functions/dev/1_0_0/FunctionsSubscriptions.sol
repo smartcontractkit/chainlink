@@ -264,8 +264,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
-  function ownerWithdraw(address recipient, uint96 amount) internal {
-    _nonReentrant();
+  function ownerWithdraw(address recipient, uint96 amount) external {
     _onlyRouterOwner();
     if (amount == 0) {
       amount = s_withdrawableTokens[address(this)];
@@ -290,7 +289,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function oracleWithdraw(address recipient, uint96 amount) external override {
     _whenNotPaused();
-    _nonReentrant();
     if (amount == 0) {
       revert InvalidCalldata();
     }
@@ -309,7 +307,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // ================================================================
   function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override {
     _whenNotPaused();
-    _nonReentrant();
     if (msg.sender != address(s_linkToken)) {
       revert OnlyCallableFromLink();
     }
@@ -336,7 +333,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function createSubscription() external override returns (uint64 subscriptionId) {
     _whenNotPaused();
-    _nonReentrant();
     _onlySenderThatAcceptedToS();
     subscriptionId = ++s_currentSubscriptionId;
     s_subscriptions[subscriptionId] = Subscription({
@@ -357,7 +353,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external override {
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
-    _nonReentrant();
     _onlySenderThatAcceptedToS();
 
     // Proposing to address(0) would never be claimable, so don't need to check.
@@ -373,7 +368,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external override {
     _whenNotPaused();
-    _nonReentrant();
     _onlySenderThatAcceptedToS();
     address previousOwner = s_subscriptions[subscriptionId].owner;
     address nextOwner = s_subscriptions[subscriptionId].requestedOwner;
@@ -391,7 +385,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function removeConsumer(uint64 subscriptionId, address consumer) external override {
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
-    _nonReentrant();
     _onlySenderThatAcceptedToS();
     Consumer memory consumerData = s_consumers[consumer][subscriptionId];
     if (!consumerData.allowed) {
@@ -423,7 +416,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function addConsumer(uint64 subscriptionId, address consumer) external override {
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
-    _nonReentrant();
     _onlySenderThatAcceptedToS();
     // Already maxed, cannot add any more consumers.
     if (s_subscriptions[subscriptionId].consumers.length == MAX_CONSUMERS) {
@@ -446,7 +438,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function cancelSubscription(uint64 subscriptionId, address to) external override {
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
-    _nonReentrant();
     _onlySenderThatAcceptedToS();
     if (_pendingRequestExists(subscriptionId)) {
       revert PendingRequestExists();
@@ -455,7 +446,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   }
 
   function _cancelSubscriptionHelper(uint64 subscriptionId, address to) private {
-    _nonReentrant();
     Subscription memory sub = s_subscriptions[subscriptionId];
     uint96 balance = sub.balance;
     // Note bounded by MAX_CONSUMERS;
@@ -518,7 +508,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override {
     _whenNotPaused();
-    _nonReentrant();
     for (uint256 i = 0; i < requestIdsToTimeout.length; ++i) {
       bytes32 requestId = requestIdsToTimeout[i];
       Commitment memory request = s_requestCommitments[requestId];
@@ -559,12 +548,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     }
     if (msg.sender != owner) {
       revert MustBeSubOwner();
-    }
-  }
-
-  function _nonReentrant() internal view {
-    if (s_reentrancyLock) {
-      revert Reentrant();
     }
   }
 
