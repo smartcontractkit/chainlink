@@ -14,7 +14,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   mapping(bytes32 id => address routableContract) internal s_route;
   error RouteNotFound(bytes32 id);
   // Use empty bytes to self-identify, since it does not have an id
-  bytes32 internal constant routerId = bytes32(0);
+  bytes32 internal constant ROUTER_ID = bytes32(0);
 
   // ================================================================
   // |                         Proposal state                       |
@@ -106,7 +106,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     // NOTE: this cannot be later modified
     s_maximumTimelockBlocks = maximumTimelockBlocks;
     // Set the initial configuration for the Router
-    s_route[routerId] = address(this);
+    s_route[ROUTER_ID] = address(this);
     _updateConfig(selfConfig);
     s_config_hash = keccak256(selfConfig);
   }
@@ -191,7 +191,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
         revert InvalidProposal();
       }
       // Reserved ids cannot be set
-      if (id == routerId) {
+      if (id == ROUTER_ID) {
         revert IdentifierIsReserved(id);
       }
     }
@@ -286,7 +286,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (block.number < proposal.timelockEndBlock) {
       revert TimelockInEffect();
     }
-    if (id == routerId) {
+    if (id == ROUTER_ID) {
       _updateConfig(proposal.to);
       s_config_hash = keccak256(proposal.to);
     } else {
