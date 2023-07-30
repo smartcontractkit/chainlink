@@ -1,110 +1,49 @@
-package docker
+package test_env
 
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"strings"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/google/uuid"
+
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
-	"io/ioutil"
-	"strings"
 	"time"
 )
 
 const (
-	// RootFundingAddr is the static key that hardhat and ganache are using
+	// RootFundingAddr is the static key that hardhat is using
 	// https://hardhat.org/hardhat-runner/docs/getting-started
 	// if you need more keys, keep them compatible, so we can swap Geth to Ganache/Hardhat in the future
 	RootFundingAddr   = `0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266`
 	RootFundingWallet = `{"address":"f39fd6e51aad88f6f4ce6ab8827279cfffb92266","crypto":{"cipher":"aes-128-ctr","ciphertext":"c36afd6e60b82d6844530bd6ab44dbc3b85a53e826c3a7f6fc6a75ce38c1e4c6","cipherparams":{"iv":"f69d2bb8cd0cb6274535656553b61806"},"kdf":"scrypt","kdfparams":{"dklen":32,"n":262144,"p":1,"r":8,"salt":"80d5f5e38ba175b6b89acfc8ea62a6f163970504af301292377ff7baafedab53"},"mac":"f2ecec2c4d05aacc10eba5235354c2fcc3776824f81ec6de98022f704efbf065"},"id":"e5c124e9-e280-4b10-a27b-d7f3e516b408","version":3}`
 )
 
-var (
-	InitGethScript = `
-#!/bin/bash
-if [ ! -d /root/.ethereum/keystore ]; then
-	echo "/root/.ethereum/keystore not found, running 'geth init'..."
-	geth init /root/genesis.json
-	echo "...done!"
-fi
-
-geth "$@"
-`
-
-	GenesisTemplate = `
-{
-	"config": {
-	  "chainId": {{ .ChainId }},
-	  "homesteadBlock": 0,
-	  "eip150Block": 0,
-	  "eip155Block": 0,
-	  "eip158Block": 0,
-	  "eip160Block": 0,
-	  "byzantiumBlock": 0,
-	  "constantinopleBlock": 0,
-	  "petersburgBlock": 0,
-	  "istanbulBlock": 0,
-	  "muirGlacierBlock": 0,
-	  "berlinBlock": 0,
-	  "londonBlock": 0
-	},
-	"nonce": "0x0000000000000042",
-	"mixhash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-	"difficulty": "1",
-	"coinbase": "0x3333333333333333333333333333333333333333",
-	"parentHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-	"extraData": "0x",
-	"gasLimit": "8000000000",
-	"alloc": {
-	  "{{ .AccountAddr }}": {
-		"balance": "2000000000000000000000"
-	  }
-	}
-  }`
-)
-
-/* data types for templates */
-
-type (
-	GenesisTemplateVars struct {
-		AccountAddr string
-		ChainId     string
-	}
-)
-
 type Geth struct {
-	prefix          string
-	container       tc.Container
-	ExternalHttpUrl string
-	InternalHttpUrl string
-	ExternalWsUrl   string
-	InternalWsUrl   string
+	Ct               tc.Container
+	ExternalHttpUrl  string
+	InternalHttpUrl  string
+	ExternalWsUrl    string
+	InternalWsUrl    string
+	EthClient        blockchain.EVMClient
+	ContractDeployer contracts.ContractDeployer
+	Networks         []string
 }
 
-func NewGeth(cfg any) ComponentSetupFunc {
-	c := &Geth{prefix: "geth"}
-	return func(network string) (Component, error) {
-		return c.Start(network, cfg)
-	}
-}
-
-func (m *Geth) Prefix() string {
-	return m.prefix
-}
-
-func (m *Geth) Containers() []tc.Container {
-	containers := make([]tc.Container, 0)
-	return append(containers, m.container)
-}
-
-func (m *Geth) Start(dockerNet string, cfg any) (Component, error) {
-	r, _, _, err := gethContainerRequest(dockerNet)
+func (m *Geth) StartContainer(lw *logwatch.LogWatch) error {
+	r, _, _, err := GetGethContainerRequest(m.Networks)
 	if err != nil {
-		return m, err
+		return err
 	}
 	ct, err := tc.GenericContainer(context.Background(),
 		tc.GenericContainerRequest{
@@ -112,31 +51,52 @@ func (m *Geth) Start(dockerNet string, cfg any) (Component, error) {
 			Started:          true,
 		})
 	if err != nil {
-		return m, errors.Wrapf(err, "cannot start geth container")
+		return errors.Wrapf(err, "cannot start geth container")
+	}
+	if lw != nil {
+		if err := lw.ConnectContainer(context.Background(), ct, "geth", true); err != nil {
+			return err
+		}
 	}
 	host, err := ct.Host(context.Background())
 	if err != nil {
-		return m, err
+		return err
 	}
 	httpPort, err := ct.MappedPort(context.Background(), "8544/tcp")
 	if err != nil {
-		return m, err
+		return err
 	}
 	wsPort, err := ct.MappedPort(context.Background(), "8545/tcp")
 	if err != nil {
-		return m, err
+		return err
 	}
 	ctName, err := ct.Name(context.Background())
 	if err != nil {
-		return m, err
+		return err
 	}
 	ctName = strings.Replace(ctName, "/", "", -1)
 
-	m.container = ct
+	m.Ct = ct
 	m.ExternalHttpUrl = fmt.Sprintf("http://%s:%s", host, httpPort.Port())
 	m.InternalHttpUrl = fmt.Sprintf("http://%s:8544", ctName)
 	m.ExternalWsUrl = fmt.Sprintf("ws://%s:%s", host, wsPort.Port())
 	m.InternalWsUrl = fmt.Sprintf("ws://%s:8545", ctName)
+
+	networkConfig := blockchain.SimulatedEVMNetwork
+	networkConfig.Name = "geth"
+	networkConfig.URLs = []string{m.ExternalWsUrl}
+	networkConfig.HTTPURLs = []string{m.ExternalWsUrl}
+
+	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig)
+	if err != nil {
+		return err
+	}
+	m.EthClient = bc
+	cd, err := contracts.NewContractDeployer(bc)
+	if err != nil {
+		return err
+	}
+	m.ContractDeployer = cd
 
 	log.Info().Str("containerName", ctName).
 		Str("internalHttpUrl", m.InternalHttpUrl).
@@ -144,14 +104,11 @@ func (m *Geth) Start(dockerNet string, cfg any) (Component, error) {
 		Str("externalWsUrl", m.ExternalWsUrl).
 		Str("internalWsUrl", m.InternalWsUrl).
 		Msg("Started Geth container")
-	return m, nil
+
+	return nil
 }
 
-func (m *Geth) Stop() error {
-	return m.container.Terminate(context.Background())
-}
-
-func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeyStore, *accounts.Account, error) {
+func GetGethContainerRequest(networks []string) (*tc.ContainerRequest, *keystore.KeyStore, *accounts.Account, error) {
 	chainId := "1337"
 	blocktime := "1"
 
@@ -159,7 +116,7 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	_, err = initScriptFile.WriteString(InitGethScript)
+	_, err = initScriptFile.WriteString(templates.InitGethScript)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -173,10 +130,7 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 	if err != nil {
 		return nil, ks, &account, err
 	}
-	genesis, err := ExecuteTemplate(GenesisTemplate, GenesisTemplateVars{
-		AccountAddr: account.Address.Hex(),
-		ChainId:     chainId,
-	})
+	genesisJsonStr, err := templates.BuildGenesisJson(chainId, account.Address.Hex())
 	if err != nil {
 		return nil, ks, &account, err
 	}
@@ -184,7 +138,7 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 	if err != nil {
 		return nil, ks, &account, err
 	}
-	_, err = genesisFile.WriteString(genesis)
+	_, err = genesisFile.WriteString(genesisJsonStr)
 	if err != nil {
 		return nil, ks, &account, err
 	}
@@ -209,7 +163,7 @@ func gethContainerRequest(network string) (*tc.ContainerRequest, *keystore.KeySt
 		Name:         fmt.Sprintf("geth-%s", uuid.NewString()),
 		Image:        "ethereum/client-go:stable",
 		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
-		Networks:     []string{network},
+		Networks:     networks,
 		WaitingFor: tcwait.ForLog("Commit new sealing work").
 			WithStartupTimeout(999 * time.Second).
 			WithPollInterval(1 * time.Second),

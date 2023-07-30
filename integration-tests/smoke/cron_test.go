@@ -4,31 +4,33 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func TestCronBasic(t *testing.T) {
 	t.Parallel()
-	env, err := docker.NewCommonChainlinkCluster(t, 1)
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithGeth().
+		WithMockServer(1).
+		WithCLNodes(1).
+		Build()
 	require.NoError(t, err)
-	clients, err := docker.ConnectClients(blockchain.SimulatedEVMNetwork, env)
-	require.NoError(t, err)
-	err = clients.Mockserver.SetValuePath("/variable", 5)
+	err = env.MockServer.Client.SetValuePath("/variable", 5)
 	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
 
 	bta := &client.BridgeTypeAttributes{
 		Name:        fmt.Sprintf("variable-%s", uuid.NewString()),
-		URL:         fmt.Sprintf("%s/variable", clients.Mockserver.Config.ClusterURL),
+		URL:         fmt.Sprintf("%s/variable", env.MockServer.InternalEndpoint),
 		RequestData: "{}",
 	}
-	err = clients.Chainlink[0].MustCreateBridge(bta)
+	err = env.CLNodes[0].API.MustCreateBridge(bta)
 	require.NoError(t, err, "Creating bridge in chainlink node shouldn't fail")
 
-	job, err := clients.Chainlink[0].MustCreateJob(&client.CronJobSpec{
+	job, err := env.CLNodes[0].API.MustCreateJob(&client.CronJobSpec{
 		Schedule:          "CRON_TZ=UTC * * * * * *",
 		ObservationSource: client.ObservationSourceSpecBridge(bta),
 	})
@@ -36,7 +38,7 @@ func TestCronBasic(t *testing.T) {
 
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
-		jobRuns, err := clients.Chainlink[0].MustReadRunsByJob(job.Data.ID)
+		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Data.ID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Reading Job run data shouldn't fail")
 
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))

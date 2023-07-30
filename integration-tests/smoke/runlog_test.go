@@ -3,53 +3,51 @@ package smoke
 import (
 	"context"
 	"fmt"
-	"math/big"
-	"strings"
-	"testing"
-
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/stretchr/testify/require"
+	"math/big"
+	"strings"
+	"testing"
 )
 
 func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	env, err := docker.NewCommonChainlinkCluster(t, 1)
-	require.NoError(t, err)
-	clients, err := docker.ConnectClients(blockchain.SimulatedEVMNetwork, env)
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithGeth().
+		WithMockServer(1).
+		WithCLNodes(1).
+		Build()
 	require.NoError(t, err)
 
-	err = actions.FundChainlinkNodes(clients.Chainlink, clients.Networks[0], big.NewFloat(.01))
+	err = env.FundChainlinkNodes(big.NewFloat(.01))
 	require.NoError(t, err, "Funding chainlink nodes with ETH shouldn't fail")
 
-	lt, err := clients.NetworkDeployers[0].DeployLinkTokenContract()
+	lt, err := env.Geth.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	oracle, err := clients.NetworkDeployers[0].DeployOracle(lt.Address())
+	oracle, err := env.Geth.ContractDeployer.DeployOracle(lt.Address())
 	require.NoError(t, err, "Deploying Oracle Contract shouldn't fail")
-	consumer, err := clients.NetworkDeployers[0].DeployAPIConsumer(lt.Address())
+	consumer, err := env.Geth.ContractDeployer.DeployAPIConsumer(lt.Address())
 	require.NoError(t, err, "Deploying Consumer Contract shouldn't fail")
-	err = clients.Networks[0].SetDefaultWallet(0)
+	err = env.Geth.EthClient.SetDefaultWallet(0)
 	require.NoError(t, err, "Setting default wallet shouldn't fail")
 	err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
 
-	err = clients.Mockserver.SetValuePath("/variable", 5)
+	err = env.MockServer.Client.SetValuePath("/variable", 5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
 	jobUUID := uuid.New()
 
 	bta := client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("five-%s", jobUUID.String()),
-		URL:  fmt.Sprintf("%s/variable", clients.Mockserver.Config.ClusterURL),
+		URL:  fmt.Sprintf("%s/variable", env.MockServer.Client.Config.ClusterURL),
 	}
-	err = clients.Chainlink[0].MustCreateBridge(&bta)
+	err = env.CLNodes[0].API.MustCreateBridge(&bta)
 	require.NoError(t, err, "Creating bridge shouldn't fail")
 
 	os := &client.DirectRequestTxPipelineSpec{
@@ -59,7 +57,7 @@ func TestRunLogBasic(t *testing.T) {
 	ost, err := os.String()
 	require.NoError(t, err, "Building observation source spec shouldn't fail")
 
-	_, err = clients.Chainlink[0].MustCreateJob(&client.DirectRequestJobSpec{
+	_, err = env.CLNodes[0].API.MustCreateJob(&client.DirectRequestJobSpec{
 		Name:                     "direct_request",
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
@@ -75,7 +73,7 @@ func TestRunLogBasic(t *testing.T) {
 		oracle.Address(),
 		jobID,
 		big.NewInt(1e18),
-		fmt.Sprintf("%s/variable", clients.Mockserver.Config.ClusterURL),
+		fmt.Sprintf("%s/variable", env.MockServer.Client.Config.ClusterURL),
 		"data,result",
 		big.NewInt(100),
 	)

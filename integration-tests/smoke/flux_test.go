@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"strings"
@@ -22,37 +20,37 @@ func TestFluxBasic(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 
-	env, err := docker.NewCommonChainlinkCluster(t, 3)
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithGeth().
+		WithMockServer(1).
+		WithCLNodes(3).
+		Build()
 	require.NoError(t, err)
-	clients, err := docker.ConnectClients(blockchain.SimulatedEVMNetwork, env)
-	require.NoError(t, err)
-	err = clients.Mockserver.SetValuePath("/variable", 5)
-	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
-	nodeAddresses, err := actions.ChainlinkNodeAddresses(clients.Chainlink)
-	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
-	clients.Networks[0].ParallelTransactions(true)
+	nodeAddresses, err := env.ChainlinkNodeAddresses()
+	require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
+	env.Geth.EthClient.ParallelTransactions(true)
 
 	adapterUUID := uuid.NewString()
 	adapterPath := fmt.Sprintf("/variable-%s", adapterUUID)
-	err = clients.Mockserver.SetValuePath(adapterPath, 1e5)
+	err = env.MockServer.Client.SetValuePath(adapterPath, 1e5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
-	linkToken, err := clients.NetworkDeployers[0].DeployLinkTokenContract()
+	linkToken, err := env.Geth.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	fluxInstance, err := clients.NetworkDeployers[0].DeployFluxAggregatorContract(linkToken.Address(), contracts.DefaultFluxAggregatorOptions())
+	fluxInstance, err := env.Geth.ContractDeployer.DeployFluxAggregatorContract(linkToken.Address(), contracts.DefaultFluxAggregatorOptions())
 	require.NoError(t, err, "Deploying Flux Aggregator Contract shouldn't fail")
-	err = clients.Networks[0].WaitForEvents()
+	err = env.Geth.EthClient.WaitForEvents()
 	require.NoError(t, err, "Failed waiting for deployment of flux aggregator contract")
 
 	err = linkToken.Transfer(fluxInstance.Address(), big.NewInt(1e18))
 	require.NoError(t, err, "Funding Flux Aggregator Contract shouldn't fail")
-	err = clients.Networks[0].WaitForEvents()
+	err = env.Geth.EthClient.WaitForEvents()
 	require.NoError(t, err, "Failed waiting for funding of flux aggregator contract")
 
 	err = fluxInstance.UpdateAvailableFunds()
 	require.NoError(t, err, "Updating the available funds on the Flux Aggregator Contract shouldn't fail")
 
-	err = actions.FundChainlinkNodes(clients.Chainlink, clients.Networks[0], big.NewFloat(.02))
+	err = env.FundChainlinkNodes(big.NewFloat(.02))
 	require.NoError(t, err, "Funding chainlink nodes with ETH shouldn't fail")
 
 	err = fluxInstance.SetOracles(
@@ -65,19 +63,20 @@ func TestFluxBasic(t *testing.T) {
 			RestartDelayRounds: 0,
 		})
 	require.NoError(t, err, "Setting oracle options in the Flux Aggregator contract shouldn't fail")
-	err = clients.Networks[0].WaitForEvents()
+	err = env.Geth.EthClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	oracles, err := fluxInstance.GetOracles(context.Background())
 	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
 	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
-	adapterFullURL := fmt.Sprintf("%s%s", clients.Mockserver.Config.ClusterURL, adapterPath)
+	adapterFullURL := fmt.Sprintf("%s%s", env.MockServer.Client.Config.ClusterURL, adapterPath)
+	l.Info().Str("AdapterFullURL", adapterFullURL).Send()
 	bta := &client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("variable-%s", adapterUUID),
 		URL:  adapterFullURL,
 	}
-	for i, n := range clients.Chainlink {
-		err = n.MustCreateBridge(bta)
+	for i, n := range env.CLNodes {
+		err = n.API.MustCreateBridge(bta)
 		require.NoError(t, err, "Creating bridge shouldn't fail for node %d", i+1)
 
 		fluxSpec := &client.FluxMonitorJobSpec{
@@ -89,19 +88,18 @@ func TestFluxBasic(t *testing.T) {
 			IdleTimerDisabled: true,
 			ObservationSource: client.ObservationSourceSpecBridge(bta),
 		}
-		_, err = n.MustCreateJob(fluxSpec)
+		_, err = n.API.MustCreateJob(fluxSpec)
 		require.NoError(t, err, "Creating flux job shouldn't fail for node %d", i+1)
 	}
 
 	// initial value set is performed before jobs creation
-	fluxRoundTimeout := 2 * time.Minute
+	fluxRoundTimeout := 1 * time.Minute
 	fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
-	clients.Networks[0].AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
-	err = clients.Networks[0].WaitForEvents()
+	env.Geth.EthClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
+	err = env.Geth.EthClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	data, err := fluxInstance.GetContractData(context.Background())
 	require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
-	l.Info().Interface("Data", data).Msg("Round data")
 	require.Equal(t, int64(1e5), data.LatestRoundData.Answer.Int64(),
 		"Expected latest round answer to be %d, but found %d", int64(1e5), data.LatestRoundData.Answer.Int64())
 	require.Equal(t, int64(1), data.LatestRoundData.RoundId.Int64(),
@@ -114,10 +112,10 @@ func TestFluxBasic(t *testing.T) {
 		"Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
 
 	fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
-	clients.Networks[0].AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
-	err = clients.Mockserver.SetValuePath(adapterPath, 1e10)
+	env.Geth.EthClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
+	err = env.MockServer.Client.SetValuePath(adapterPath, 1e10)
 	require.NoError(t, err, "Setting value path in mock server shouldn't fail")
-	err = clients.Networks[0].WaitForEvents()
+	err = env.Geth.EthClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	data, err = fluxInstance.GetContractData(context.Background())
 	require.NoError(t, err, "Getting contract data from flux aggregator contract shouldn't fail")
