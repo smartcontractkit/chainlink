@@ -4,15 +4,13 @@ pragma solidity ^0.8.19;
 import {Functions} from "./Functions.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
-import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 
 /**
  * @title The Chainlink Functions client contract
  * @notice Contract writers can inherit this contract in order to create Chainlink Functions requests
  */
 abstract contract FunctionsClient is IFunctionsClient {
-  IFunctionsRouter immutable internal s_router;
+  IFunctionsRouter internal immutable s_router;
 
   event RequestSent(bytes32 indexed id);
   event RequestFulfilled(bytes32 indexed id);

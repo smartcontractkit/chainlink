@@ -669,7 +669,7 @@ func ClientTestRequests(
 		go func() {
 			defer wg.Done()
 			gomega.NewGomegaWithT(t).Eventually(func() [32]byte {
-				answer, err := clientContracts[ic].Contract.LastResponse(nil)
+				answer, err := clientContracts[ic].Contract.SLastResponse(nil)
 				require.NoError(t, err)
 				return answer
 			}, timeout, 1*time.Second).Should(gomega.Equal(GetExpectedResponse(requestSources[ic])))

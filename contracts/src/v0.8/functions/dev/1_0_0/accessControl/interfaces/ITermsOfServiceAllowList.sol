@@ -44,13 +44,13 @@ interface ITermsOfServiceAllowList {
   function acceptTermsOfService(address acceptor, address recipient, bytes calldata proof) external;
 
   /**
-   * @notice Removes a sender's access if already authorized, and disallows re-acceptiong the Terms of Service
+   * @notice Removes a sender's access if already authorized, and disallows re-accepting the Terms of Service
    * @param sender - Address of the sender to block
    */
   function blockSender(address sender) external;
 
   /**
-   * @notice Re-allows a previosly blocked sender to accept the Terms of Service
+   * @notice Re-allows a previously blocked sender to accept the Terms of Service
    * @param sender - Address of the sender to unblock
    */
   function unblockSender(address sender) external;
