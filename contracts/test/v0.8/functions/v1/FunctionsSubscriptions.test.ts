@@ -649,7 +649,7 @@ describe('Functions Router - Subscriptions', () => {
         .connect(roles.subOwner)
         .transferAndCall(
           contracts.router.address,
-          BigNumber.from('120000000000000000'),
+          BigNumber.from('104000000000000000'),
           ethers.utils.defaultAbiCoder.encode(['uint64'], [subscriptionId]),
         )
 
