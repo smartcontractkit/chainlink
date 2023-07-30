@@ -8,7 +8,7 @@ import {IRouterBase} from "./interfaces/IRouterBase.sol";
 import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 
 abstract contract Routable is ITypeAndVersion, IConfigurable {
-  bytes32 internal s_config_hash;
+  bytes32 internal s_configHash;
 
   IRouterBase internal s_router;
 
@@ -25,14 +25,14 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
     }
     s_router = IRouterBase(router);
     _updateConfig(config);
-    s_config_hash = keccak256(config);
+    s_configHash = keccak256(config);
   }
 
   /**
    * @inheritdoc IConfigurable
    */
   function getConfigHash() external view override returns (bytes32 config) {
-    return s_config_hash;
+    return s_configHash;
   }
 
   /**
@@ -46,7 +46,7 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
    */
   function updateConfig(bytes memory config) external override onlyRouter {
     _updateConfig(config);
-    s_config_hash = keccak256(config);
+    s_configHash = keccak256(config);
   }
 
   /**
