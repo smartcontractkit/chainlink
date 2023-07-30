@@ -42,6 +42,7 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
 
   /**
    * @inheritdoc IConfigurable
+   * @dev Only callable by the Router
    */
   function updateConfig(bytes memory config) public override onlyRouter {
     _updateConfig(config);
