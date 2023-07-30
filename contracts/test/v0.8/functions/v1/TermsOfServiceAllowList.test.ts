@@ -43,7 +43,7 @@ describe('ToS Access Control', () => {
         roles.subOwnerAddress,
       )
       expect(
-        await contracts.accessControl.isAllowedSender(roles.subOwnerAddress),
+        await contracts.accessControl.hasAccess(roles.subOwnerAddress),
       ).to.equal(true)
     })
     it('cannot be done by Externally Owned Accounts if recipient another EoA', async () => {
@@ -69,7 +69,7 @@ describe('ToS Access Control', () => {
         .acceptTermsOfService(acceptorAddress, recipientAddress, proof)
 
       expect(
-        await contracts.accessControl.isAllowedSender(recipientAddress),
+        await contracts.accessControl.hasAccess(recipientAddress),
       ).to.equal(true)
     })
     it('cannot be done by Contract Accounts that if they are not the recipient', async () => {

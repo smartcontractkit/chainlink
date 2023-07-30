@@ -111,7 +111,7 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, coordinatorContract
 }
 
 func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionId uint64) {
-	allowed, err := allowListContract.IsAllowedSender(nilOpts, owner.From)
+	allowed, err := allowListContract.HasAccess0(nilOpts, owner.From)
 	require.NoError(t, err)
 	if allowed == false {
 		messageHash, err := allowListContract.GetMessageHash(nilOpts, owner.From, owner.From)
