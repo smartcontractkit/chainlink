@@ -401,7 +401,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   }
 
   function _onlySenderThatAcceptedToS() internal override {
-    if (!ITermsOfServiceAllowList(_getContractById(ALLOW_LIST_ID, false)).isAllowedSender(msg.sender)) {
+    if (!ITermsOfServiceAllowList(_getContractById(ALLOW_LIST_ID, false)).hasAccess(msg.sender)) {
       revert SenderMustAcceptTermsOfService(msg.sender);
     }
   }

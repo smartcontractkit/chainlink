@@ -171,6 +171,28 @@ func (_TermsOfServiceAllowList *TermsOfServiceAllowListTransactorRaw) Transact(o
 	return _TermsOfServiceAllowList.Contract.contract.Transact(opts, method, params...)
 }
 
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListCaller) GetAllAllowedSenders(opts *bind.CallOpts) ([]common.Address, error) {
+	var out []interface{}
+	err := _TermsOfServiceAllowList.contract.Call(opts, &out, "getAllAllowedSenders")
+
+	if err != nil {
+		return *new([]common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([]common.Address)).(*[]common.Address)
+
+	return out0, err
+
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListSession) GetAllAllowedSenders() ([]common.Address, error) {
+	return _TermsOfServiceAllowList.Contract.GetAllAllowedSenders(&_TermsOfServiceAllowList.CallOpts)
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListCallerSession) GetAllAllowedSenders() ([]common.Address, error) {
+	return _TermsOfServiceAllowList.Contract.GetAllAllowedSenders(&_TermsOfServiceAllowList.CallOpts)
+}
+
 func (_TermsOfServiceAllowList *TermsOfServiceAllowListCaller) GetConfigHash(opts *bind.CallOpts) ([32]byte, error) {
 	var out []interface{}
 	err := _TermsOfServiceAllowList.contract.Call(opts, &out, "getConfigHash")
@@ -237,9 +259,9 @@ func (_TermsOfServiceAllowList *TermsOfServiceAllowListCallerSession) GetMessage
 	return _TermsOfServiceAllowList.Contract.GetMessageHash(&_TermsOfServiceAllowList.CallOpts, acceptor, recipient)
 }
 
-func (_TermsOfServiceAllowList *TermsOfServiceAllowListCaller) IsAllowedSender(opts *bind.CallOpts, sender common.Address) (bool, error) {
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListCaller) HasAccess(opts *bind.CallOpts, user common.Address, arg1 []byte) (bool, error) {
 	var out []interface{}
-	err := _TermsOfServiceAllowList.contract.Call(opts, &out, "isAllowedSender", sender)
+	err := _TermsOfServiceAllowList.contract.Call(opts, &out, "hasAccess", user, arg1)
 
 	if err != nil {
 		return *new(bool), err
@@ -251,12 +273,34 @@ func (_TermsOfServiceAllowList *TermsOfServiceAllowListCaller) IsAllowedSender(o
 
 }
 
-func (_TermsOfServiceAllowList *TermsOfServiceAllowListSession) IsAllowedSender(sender common.Address) (bool, error) {
-	return _TermsOfServiceAllowList.Contract.IsAllowedSender(&_TermsOfServiceAllowList.CallOpts, sender)
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListSession) HasAccess(user common.Address, arg1 []byte) (bool, error) {
+	return _TermsOfServiceAllowList.Contract.HasAccess(&_TermsOfServiceAllowList.CallOpts, user, arg1)
 }
 
-func (_TermsOfServiceAllowList *TermsOfServiceAllowListCallerSession) IsAllowedSender(sender common.Address) (bool, error) {
-	return _TermsOfServiceAllowList.Contract.IsAllowedSender(&_TermsOfServiceAllowList.CallOpts, sender)
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListCallerSession) HasAccess(user common.Address, arg1 []byte) (bool, error) {
+	return _TermsOfServiceAllowList.Contract.HasAccess(&_TermsOfServiceAllowList.CallOpts, user, arg1)
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListCaller) HasAccess0(opts *bind.CallOpts, sender common.Address) (bool, error) {
+	var out []interface{}
+	err := _TermsOfServiceAllowList.contract.Call(opts, &out, "hasAccess0", sender)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListSession) HasAccess0(sender common.Address) (bool, error) {
+	return _TermsOfServiceAllowList.Contract.HasAccess0(&_TermsOfServiceAllowList.CallOpts, sender)
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListCallerSession) HasAccess0(sender common.Address) (bool, error) {
+	return _TermsOfServiceAllowList.Contract.HasAccess0(&_TermsOfServiceAllowList.CallOpts, sender)
 }
 
 func (_TermsOfServiceAllowList *TermsOfServiceAllowListCaller) IsBlockedSender(opts *bind.CallOpts, sender common.Address) (bool, error) {
@@ -487,13 +531,17 @@ func (_TermsOfServiceAllowList *TermsOfServiceAllowList) Address() common.Addres
 }
 
 type TermsOfServiceAllowListInterface interface {
+	GetAllAllowedSenders(opts *bind.CallOpts) ([]common.Address, error)
+
 	GetConfigHash(opts *bind.CallOpts) ([32]byte, error)
 
 	GetEthSignedMessageHash(opts *bind.CallOpts, messageHash [32]byte) ([32]byte, error)
 
 	GetMessageHash(opts *bind.CallOpts, acceptor common.Address, recipient common.Address) ([32]byte, error)
 
-	IsAllowedSender(opts *bind.CallOpts, sender common.Address) (bool, error)
+	HasAccess(opts *bind.CallOpts, user common.Address, arg1 []byte) (bool, error)
+
+	HasAccess0(opts *bind.CallOpts, sender common.Address) (bool, error)
 
 	IsBlockedSender(opts *bind.CallOpts, sender common.Address) (bool, error)
 

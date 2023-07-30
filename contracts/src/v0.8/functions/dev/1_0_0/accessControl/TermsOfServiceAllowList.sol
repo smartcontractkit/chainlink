@@ -3,16 +3,19 @@ pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
 import {Routable, ITypeAndVersion} from "../Routable.sol";
+import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
 
+import {EnumerableSet} from "../../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/structs/EnumerableSet.sol";
 import {Address} from "../../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/Address.sol";
 
 /**
  * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
  */
-contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
+contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessController {
   using Address for address;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
-  mapping(address => bool) private s_allowedSenders;
+  EnumerableSet.AddressSet private s_allowedSenders;
   mapping(address => bool) private s_blockedSenders;
 
   error InvalidProof();
@@ -102,23 +105,37 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
     }
 
     // Add recipient to the allow list
-    s_allowedSenders[recipient] = true;
+    s_allowedSenders.add(recipient);
   }
 
   /**
    * @inheritdoc ITermsOfServiceAllowList
    */
-  function isAllowedSender(address sender) public view override returns (bool) {
+  function getAllAllowedSenders() external view override returns (address[] memory) {
+    return s_allowedSenders.values();
+  }
+
+  /**
+   * @inheritdoc ITermsOfServiceAllowList
+   */
+  function hasAccess(address sender) external view override returns (bool) {
     if (!s_config.enabled) {
       return true;
     }
-    return s_allowedSenders[sender];
+    return s_allowedSenders.contains(sender);
+  }
+
+  function hasAccess(address user, bytes calldata /* data */) external view returns (bool) {
+    if (!s_config.enabled) {
+      return true;
+    }
+    return s_allowedSenders.contains(user);
   }
 
   /**
    * @inheritdoc ITermsOfServiceAllowList
    */
-  function isBlockedSender(address sender) public view override returns (bool) {
+  function isBlockedSender(address sender) external view override returns (bool) {
     if (!s_config.enabled) {
       return false;
     }
@@ -133,7 +150,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
    * @inheritdoc ITermsOfServiceAllowList
    */
   function blockSender(address sender) external override onlyRouterOwner {
-    s_allowedSenders[sender] = false;
+    s_allowedSenders.remove(sender);
     s_blockedSenders[sender] = true;
   }
 
