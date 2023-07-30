@@ -85,6 +85,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   error PaymentTooLarge();
   error NoTransmittersSet();
   error InvalidCalldata();
+  event InternalError(bytes32 indexed requestId, string reason);
+  event InternalErrorBytes(bytes32 indexed requestId, bytes reason);
 
   // ================================================================
   // |                        Balance state                         |
@@ -387,31 +389,38 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
     // The Functions Router will perform the callback to the client contract
     IFunctionsRouter router = IFunctionsRouter(address(s_router));
-    (uint8 result, uint96 callbackCostJuels) = router.fulfill(
-      requestId,
-      response,
-      err,
-      uint96(juelsPerGas),
-      costWithoutFulfillment,
-      msg.sender
-    );
+    try router.fulfill(requestId, response, err, uint96(juelsPerGas), costWithoutFulfillment, msg.sender) returns (
+      uint8 result,
+      uint96 callbackCostJuels
+    ) {
+      FulfillResult resultCode = FulfillResult(result);
+      if (resultCode == FulfillResult.USER_SUCCESS || resultCode == FulfillResult.USER_ERROR) {
+        // Reimburse the transmitter for the fulfillment gas cost
+        s_withdrawableTokens[msg.sender] = gasOverheadJuels + callbackCostJuels;
+        // Put donFee into the pool of fees, to be split later
+        // Saves on storage writes that would otherwise be charged to the user
+        s_feePool += commitment.donFee;
 
-    // Reimburse the transmitter for the fulfillment gas cost
-    s_withdrawableTokens[msg.sender] = gasOverheadJuels + callbackCostJuels;
-    // Put donFee into the pool of fees, to be split later
-    // Saves on storage writes that would otherwise be charged to the user
-    s_feePool += commitment.donFee;
+        emit BillingEnd(
+          requestId,
+          commitment.subscriptionId,
+          commitment.donFee,
+          gasOverheadJuels + callbackCostJuels,
+          gasOverheadJuels + callbackCostJuels + commitment.donFee + commitment.adminFee,
+          FulfillResult(result)
+        );
+      }
 
-    emit BillingEnd(
-      requestId,
-      commitment.subscriptionId,
-      commitment.donFee,
-      gasOverheadJuels + callbackCostJuels,
-      gasOverheadJuels + callbackCostJuels + commitment.donFee + commitment.adminFee,
-      FulfillResult(result)
-    );
-
-    return FulfillResult(result);
+      return resultCode;
+    } catch Error(string memory reason) {
+      // catch failing revert() and require()
+      emit InternalError(requestId, reason);
+      return FulfillResult.INTERNAL_ERROR;
+    } catch (bytes memory reason) {
+      // catch failing assert()
+      emit InternalErrorBytes(requestId, reason);
+      return FulfillResult.INTERNAL_ERROR;
+    }
   }
 
   // ================================================================

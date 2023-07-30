@@ -237,9 +237,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
         )
       );
 
-      if (result == FulfillResult.USER_SUCCESS || result == FulfillResult.USER_ERROR) {
-        emit OracleResponse(requestIds[i], msg.sender);
-      } else if (result == FulfillResult.INVALID_REQUEST_ID) {
+      if (result == FulfillResult.INVALID_REQUEST_ID) {
         emit InvalidRequestID(requestIds[i]);
       } else if (result == FulfillResult.INSUFFICIENT_GAS) {
         emit InsufficientGasProvided(requestIds[i]);
@@ -248,6 +246,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       } else if (result == FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE) {
         emit InsufficientSubscriptionBalance(requestIds[i]);
       }
+
+      emit OracleResponse(requestIds[i], msg.sender);
     }
   }
 }
