@@ -24,8 +24,7 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
       revert RouterMustBeSet();
     }
     s_router = IRouterBase(router);
-    _updateConfig(config);
-    s_configHash = keccak256(config);
+    updateConfig(config);
   }
 
   /**
@@ -44,7 +43,7 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
   /**
    * @inheritdoc IConfigurable
    */
-  function updateConfig(bytes memory config) external override onlyRouter {
+  function updateConfig(bytes memory config) public override onlyRouter {
     _updateConfig(config);
     s_configHash = keccak256(config);
   }
