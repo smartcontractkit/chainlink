@@ -145,9 +145,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     ) = IFunctionsCoordinator(coordinatorAddress).sendRequest(
       IFunctionsCoordinator.Request(
         msg.sender,
-        subscriptionId,
         s_subscriptions[subscriptionId].owner,
         data,
+        subscriptionId,
         dataVersion,
         _getFlags(subscriptionId),
         callbackGasLimit
@@ -158,14 +158,14 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
     // Store a commitment about the request
     s_requestCommitments[requestId] = Commitment(
+      s_config.adminFee,
       coordinatorAddress,
       msg.sender,
       subscriptionId,
       callbackGasLimit,
       estimatedCost,
-      block.timestamp + requestTimeoutSeconds,
-      gasAfterPaymentCalculation,
-      s_config.adminFee
+      uint40(block.timestamp + requestTimeoutSeconds),
+      uint120(gasAfterPaymentCalculation)
     );
 
     emit RequestStart(
@@ -194,7 +194,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes32 requestId = _sendRequest(donId, true, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
     // Convert to bytes as a more generic return
     output = new bytes(32);
-    for (uint256 i; i < 32; i++) {
+    // Bounded by 32
+    for (uint256 i; i < 32; ++i) {
       output[i] = requestId[i];
     }
   }
@@ -381,7 +382,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   }
 
   function _onlySenderThatAcceptedToS() internal override {
-    if (ITermsOfServiceAllowList(_getContractById(ALLOW_LIST_ID, false)).isAllowedSender(msg.sender) == false) {
+    if (!ITermsOfServiceAllowList(_getContractById(ALLOW_LIST_ID, false)).isAllowedSender(msg.sender)) {
       revert SenderMustAcceptTermsOfService(msg.sender);
     }
   }
