@@ -225,6 +225,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint96 costWithoutFulfillment,
     address transmitter
   ) external override returns (uint8 resultCode, uint96 callbackGasCostJuels) {
+    _whenNotPaused();
+
     Commitment memory commitment = s_requestCommitments[requestId];
 
     if (msg.sender != commitment.coordinator) {
