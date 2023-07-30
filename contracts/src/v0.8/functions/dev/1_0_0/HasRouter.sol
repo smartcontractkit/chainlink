@@ -7,7 +7,7 @@ import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IRouterBase} from "./interfaces/IRouterBase.sol";
 import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 
-abstract contract Routable is ITypeAndVersion, IConfigurable {
+abstract contract HasRouter is ITypeAndVersion, IConfigurable {
   bytes32 internal s_configHash;
 
   IRouterBase private s_router;

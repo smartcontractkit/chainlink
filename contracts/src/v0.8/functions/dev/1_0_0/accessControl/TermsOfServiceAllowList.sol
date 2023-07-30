@@ -2,14 +2,14 @@
 pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
-import {Routable, ITypeAndVersion} from "../Routable.sol";
+import {HasRouter, ITypeAndVersion} from "../HasRouter.sol";
 
 import {Address} from "../../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/Address.sol";
 
 /**
  * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
  */
-contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
+contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList {
   using Address for address;
 
   mapping(address => bool) private s_allowedSenders;
@@ -35,7 +35,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList {
   // |                       Initialization                         |
   // ================================================================
 
-  constructor(address router, bytes memory config) Routable(router, config) {}
+  constructor(address router, bytes memory config) HasRouter(router, config) {}
 
   // ================================================================
   // |                    Configuration methods                     |
