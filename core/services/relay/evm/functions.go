@@ -95,7 +95,10 @@ func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, par
 		return nil, err2
 	}
 	routerContractAddress := common.HexToAddress(rargs.ContractID)
-	logPollerWrapper := functionsRelay.NewLogPollerWrapper(routerContractAddress, pluginConfig.ContractVersion, chain.LogPoller(), lggr)
+	logPollerWrapper, err := functionsRelay.NewLogPollerWrapper(routerContractAddress, pluginConfig, chain.Client(), chain.LogPoller(), lggr)
+	if err != nil {
+		return nil, err
+	}
 	configWatcher, err := newFunctionsConfigProvider(pluginType, chain, rargs, relayConfig.FromBlock, logPollerWrapper, lggr)
 	if err != nil {
 		return nil, err
