@@ -59,7 +59,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // |                          Config state                        |
   // ================================================================
 
-  bytes32 internal s_config_hash;
+  bytes32 internal s_configHash;
 
   error InvalidConfigData();
 
@@ -108,7 +108,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     // Set the initial configuration for the Router
     s_route[ROUTER_ID] = address(this);
     _updateConfig(selfConfig);
-    s_config_hash = keccak256(selfConfig);
+    s_configHash = keccak256(selfConfig);
   }
 
   // ================================================================
@@ -251,7 +251,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @return config hash of config bytes
    */
   function getConfigHash() external view returns (bytes32 config) {
-    return s_config_hash;
+    return s_configHash;
   }
 
   /**
@@ -267,7 +267,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     address implAddr = _getContractById(id, false);
     bytes32 currentConfigHash;
     if (implAddr == address(this)) {
-      currentConfigHash = s_config_hash;
+      currentConfigHash = s_configHash;
     } else {
       currentConfigHash = IConfigurable(implAddr).getConfigHash();
     }
@@ -288,7 +288,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     }
     if (id == ROUTER_ID) {
       _updateConfig(proposal.to);
-      s_config_hash = keccak256(proposal.to);
+      s_configHash = keccak256(proposal.to);
     } else {
       try IConfigurable(_getContractById(id, false)).updateConfig(proposal.to) {} catch {
         revert InvalidConfigData();
