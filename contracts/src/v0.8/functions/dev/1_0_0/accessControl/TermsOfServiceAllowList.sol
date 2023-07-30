@@ -116,16 +116,9 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
   }
 
   /**
-   * @inheritdoc ITermsOfServiceAllowList
+   * @inheritdoc IAccessController
    */
-  function hasAccess(address sender) external view override returns (bool) {
-    if (!s_config.enabled) {
-      return true;
-    }
-    return s_allowedSenders.contains(sender);
-  }
-
-  function hasAccess(address user, bytes calldata /* data */) external view returns (bool) {
+  function hasAccess(address user, bytes calldata /* data */) external view override returns (bool) {
     if (!s_config.enabled) {
       return true;
     }
