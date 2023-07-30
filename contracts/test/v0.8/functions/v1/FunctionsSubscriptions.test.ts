@@ -576,6 +576,9 @@ describe('Functions Router - Subscriptions', () => {
   // })
 
   describe('#reentrancy', async function () {
+    // Use a fixed gas price for these tests
+    const gasPrice = 3000000000 // 3 gwei
+
     it('allows callbacks to start another request if they have sufficient funds', async function () {
       const subscriptionId = await createSubscription(
         roles.subOwner,
@@ -605,6 +608,7 @@ describe('Functions Router - Subscriptions', () => {
         subscriptionId,
         ids.donId,
         400_000,
+        { gasPrice },
       )
       const { events } = await tx.wait()
       const requestId = getEventArg(events, 'RequestSent', 0)
@@ -621,7 +625,7 @@ describe('Functions Router - Subscriptions', () => {
         [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
       )
 
-      await expect(contracts.coordinator.callReport(report))
+      await expect(contracts.coordinator.callReport(report, { gasPrice }))
         .to.emit(contracts.coordinator, 'OracleResponse')
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.coordinator, 'BillingEnd')
@@ -649,7 +653,7 @@ describe('Functions Router - Subscriptions', () => {
         .connect(roles.subOwner)
         .transferAndCall(
           contracts.router.address,
-          BigNumber.from('104000000000000000'),
+          BigNumber.from('300000000000000000'),
           ethers.utils.defaultAbiCoder.encode(['uint64'], [subscriptionId]),
         )
 
@@ -673,6 +677,7 @@ describe('Functions Router - Subscriptions', () => {
         subscriptionId,
         ids.donId,
         400_000,
+        { gasPrice },
       )
       const { events } = await tx.wait()
       const requestId = getEventArg(events, 'RequestSent', 0)
@@ -689,7 +694,7 @@ describe('Functions Router - Subscriptions', () => {
         [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
       )
 
-      await expect(contracts.coordinator.callReport(report))
+      await expect(contracts.coordinator.callReport(report, { gasPrice }))
         .to.emit(contracts.coordinator, 'OracleResponse')
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.client, 'FulfillRequestInvoked')
@@ -769,6 +774,7 @@ describe('Functions Router - Subscriptions', () => {
         subscriptionId,
         ids.donId,
         400_000,
+        { gasPrice },
       )
       const { events } = await tx.wait()
       const requestId = getEventArg(events, 'RequestSent', 0)
@@ -785,7 +791,7 @@ describe('Functions Router - Subscriptions', () => {
         [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
       )
 
-      await expect(contracts.coordinator.callReport(report))
+      await expect(contracts.coordinator.callReport(report, { gasPrice }))
         .to.emit(contracts.coordinator, 'OracleResponse')
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.client, 'FulfillRequestInvoked')
