@@ -10,7 +10,7 @@ import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 abstract contract Routable is ITypeAndVersion, IConfigurable {
   bytes32 internal s_configHash;
 
-  IRouterBase internal s_router;
+  IRouterBase private s_router;
 
   error RouterMustBeSet();
   error OnlyCallableByRouter();
@@ -25,6 +25,10 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
     }
     s_router = IRouterBase(router);
     updateConfig(config);
+  }
+
+  function _getRouter() internal view returns (IRouterBase router) {
+    return s_router;
   }
 
   /**
