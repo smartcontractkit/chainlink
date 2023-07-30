@@ -10,7 +10,7 @@ import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
  * @notice Contract writers can inherit this contract in order to create Chainlink Functions requests
  */
 abstract contract FunctionsClient is IFunctionsClient {
-  IFunctionsRouter internal s_router;
+  IFunctionsRouter internal immutable s_router;
 
   event RequestSent(bytes32 indexed id);
   event RequestFulfilled(bytes32 indexed id);
@@ -18,7 +18,7 @@ abstract contract FunctionsClient is IFunctionsClient {
   error OnlyRouterCanFufill();
 
   constructor(address router) {
-    setRouter(router);
+    s_router = IFunctionsRouter(router);
   }
 
   /**
@@ -73,14 +73,6 @@ abstract contract FunctionsClient is IFunctionsClient {
     bytes memory err
   ) external override onlyRouter {
     fulfillRequest(requestId, response, err);
-  }
-
-  /**
-   * @notice Sets the stored router address
-   * @param router The address of Functions router contract
-   */
-  function setRouter(address router) internal {
-    s_router = IFunctionsRouter(router);
   }
 
   /**
