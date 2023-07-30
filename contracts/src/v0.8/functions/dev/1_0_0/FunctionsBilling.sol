@@ -6,7 +6,7 @@ import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
-import {FulfillResult} from "./FulfillResultCodes.sol";
+import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
 
 /**
  * @title Functions Billing contract
