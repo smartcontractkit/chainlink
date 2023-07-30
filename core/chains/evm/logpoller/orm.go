@@ -122,7 +122,7 @@ func (o *ORM) SelectLatestLogEventSigWithConfs(eventSig common.Hash, address com
          WHERE evm_chain_id = $1 
             AND event_sig = $2 
             AND address = $3 
-            AND (block_number + $4) <= (SELECT COALESCE(block_number, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+            AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $4
         ORDER BY (block_number, log_index) DESC LIMIT 1`, utils.NewBig(o.chainID), eventSig, address, confs); err != nil {
 		return nil, err
 	}
@@ -239,8 +239,8 @@ func (o *ORM) SelectLogsCreatedAfter(eventSig []byte, address common.Address, af
 			WHERE evm_chain_id = $1 
 			AND address = $2 
 			AND event_sig = $3 	
-			AND block_number >= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 and block_timestamp > $4 ORDER BY block_number LIMIT 1)
-			AND (block_number + $5) <= (SELECT COALESCE(block_number, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			AND block_number >= (SELECT COALESCE(block_number, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = $1 and block_timestamp > $4 ORDER BY block_number LIMIT 1)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $5
 			ORDER BY (block_number, log_index)`, utils.NewBig(o.chainID), address, eventSig, after, confs)
 	if err != nil {
 		return nil, err
@@ -508,7 +508,7 @@ func (o *ORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig com
 			AND address = $2 
 			AND event_sig = $3
 			AND topics[$4] = ANY($5)
-			AND block_number >= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 and block_timestamp > $6 ORDER BY block_number LIMIT 1)
+			AND block_number >= (SELECT COALESCE(block_number, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = $1 and block_timestamp > $6 ORDER BY block_number LIMIT 1)
 			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $7
 			ORDER BY (block_number, log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValuesBytes, after, confs)
 	if err != nil {
