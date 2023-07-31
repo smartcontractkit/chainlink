@@ -1,10 +1,10 @@
 GETH_VERSION: 1.12.0
 functions: ../../../contracts/solc/v0.8.19/functions/1_0_0/Functions.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/Functions.bin 3c972870b0afeb6d73a29ebb182f24956a2cebb127b21c4f867d1ecf19a762db
-functions_allow_list: ../../../contracts/solc/v0.8.19/functions/1_0_0/TermsOfServiceAllowList.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/TermsOfServiceAllowList.bin c1e05728f436bfc4ee2d93cc22b555c4d86b25b522ebe10b76203472927dfbbc
+functions_allow_list: ../../../contracts/solc/v0.8.19/functions/1_0_0/TermsOfServiceAllowList.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/TermsOfServiceAllowList.bin 0c2ebadf2cd22af8ee26ceb7ad2c6f459f78bb3b6c771207c3d411bbb87ec316
 functions_client: ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsClient.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsClient.bin fcfdcd4c0916533f648e5290768a34382465944b2ffe9465add1d5e81175a415
 functions_client_example: ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsClientExample.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsClientExample.bin 747aece848474708a007de3deb6d6e76c6407ac8850c84db6aa294acdf289d21
-functions_coordinator: ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsCoordinator.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsCoordinator.bin aefc4795c28e52f4cfb9f2374b7c31a19583fb113219c2378ef74dd351be1c8b
-functions_router: ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsRouter.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsRouter.bin 44fc70ab0fd16a37e16222e01de3f836d94f9a491b422db6e298581cd7843f45
+functions_coordinator: ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsCoordinator.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsCoordinator.bin 31fc8e875b606644f262b6da39e5812a6d74593bc6e8cac050d8507c6109c217
+functions_router: ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsRouter.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsRouter.bin 350cf153cfc41e7cc89caab713dc1a6555655fe6890b607c8489be0a9b7a33d3
 ocr2dr: ../../../contracts/solc/v0.8.6/functions/0_0_0/Functions.abi ../../../contracts/solc/v0.8.6/functions/0_0_0/Functions.bin d9a794b33f47cc57563d216f7cf3a612309fc3062356a27e30005cf1d59e449d
 ocr2dr_client: ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsClient.abi ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsClient.bin 84aa63f9dbc5c7eac240db699b09e613ca4c6cd56dab10bdc25b02461b717e21
 ocr2dr_client_example: ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsClientExample.abi ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsClientExample.bin a978d9b52a5a2da19eef0975979de256e62980a0cfb3084fe6d66a351b4ef534

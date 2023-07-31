@@ -36,10 +36,19 @@ describe('Gas Golf', () => {
       roles.consumerAddress,
     )
     const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-    const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+    const flatSignature = await wallet.signMessage(
+      ethers.utils.arrayify(messageHash),
+    )
+    let { r, s, v } = ethers.utils.splitSignature(flatSignature)
     const acceptTermsOfServiceTx = await contracts.accessControl
       .connect(roles.consumer)
-      .acceptTermsOfService(roles.consumerAddress, roles.consumerAddress, proof)
+      .acceptTermsOfService(
+        roles.consumerAddress,
+        roles.consumerAddress,
+        r,
+        s,
+        v,
+      )
     const { gasUsed: acceptTermsOfServiceGasUsed } =
       await acceptTermsOfServiceTx.wait()
 

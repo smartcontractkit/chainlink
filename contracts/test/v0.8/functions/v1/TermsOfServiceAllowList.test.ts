@@ -23,16 +23,19 @@ describe('ToS Access Control', () => {
         roles.strangerAddress,
         roles.strangerAddress,
       )
-      const proof = await roles.stranger.signMessage(
+      const flatSignature = await roles.stranger.signMessage(
         ethers.utils.arrayify(messageHash),
       )
+      let { r, s, v } = ethers.utils.splitSignature(flatSignature)
       await expect(
         contracts.accessControl
           .connect(roles.stranger)
           .acceptTermsOfService(
             roles.strangerAddress,
             roles.strangerAddress,
-            proof,
+            r,
+            s,
+            v,
           ),
       ).to.be.revertedWith('InvalidProof')
     })
@@ -63,10 +66,13 @@ describe('ToS Access Control', () => {
         recipientAddress,
       )
       const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-      const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+      const flatSignature = await wallet.signMessage(
+        ethers.utils.arrayify(messageHash),
+      )
+      let { r, s, v } = ethers.utils.splitSignature(flatSignature)
       await contracts.client
         .connect(roles.consumer)
-        .acceptTermsOfService(acceptorAddress, recipientAddress, proof)
+        .acceptTermsOfService(acceptorAddress, recipientAddress, r, s, v)
 
       expect(
         await contracts.accessControl.isAllowedSender(recipientAddress),
@@ -80,11 +86,14 @@ describe('ToS Access Control', () => {
         recipientAddress,
       )
       const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-      const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+      const flatSignature = await wallet.signMessage(
+        ethers.utils.arrayify(messageHash),
+      )
+      let { r, s, v } = ethers.utils.splitSignature(flatSignature)
       await expect(
         contracts.client
           .connect(roles.consumer)
-          .acceptTermsOfService(acceptorAddress, recipientAddress, proof),
+          .acceptTermsOfService(acceptorAddress, recipientAddress, r, s, v),
       ).to.be.revertedWith('InvalidProof')
     })
   })

@@ -82,14 +82,14 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList {
   /**
    * @inheritdoc ITermsOfServiceAllowList
    */
-  function acceptTermsOfService(address acceptor, address recipient, bytes calldata signature) external override {
+  function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external override {
     if (s_blockedSenders[recipient]) {
       revert RecipientIsBlocked();
     }
 
     // Validate that the signature is correct and the correct data has been signed
     if (
-      _getSigner(getEthSignedMessageHash(getMessageHash(acceptor, recipient)), signature) != s_config.signerPublicKey
+      ecrecover(getEthSignedMessageHash(getMessageHash(acceptor, recipient)), v, r, s) != s_config.signerPublicKey
     ) {
       revert InvalidSignature();
     }
@@ -143,38 +143,5 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList {
    */
   function unblockSender(address sender) external override onlyRouterOwner {
     s_blockedSenders[sender] = false;
-  }
-
-  // ================================================================
-  // |                     Signature checking                       |
-  // ================================================================
-
-  function _getSigner(bytes32 _ethSignedMessageHash, bytes memory signature) private pure returns (address) {
-    bytes32 r;
-    bytes32 s;
-    uint8 v;
-
-    if (signature.length != 65) {
-      revert InvalidSignature();
-    }
-    // solhint-disable-next-line no-inline-assembly
-    assembly {
-      /*/
-      First 32 bytes stores the length of the signature
-
-      add(sig, 32) = pointer of sig + 32
-      effectively, skips first 32 bytes of signature
-
-      mload(p) loads next 32 bytes starting at the memory address p into memory
-    */
-      // first 32 bytes, after the length prefix
-      r := mload(add(signature, 32))
-      // second 32 bytes
-      s := mload(add(signature, 64))
-      // final byte (first byte of the next 32 bytes)
-      v := byte(0, mload(add(signature, 96)))
-    }
-
-    return ecrecover(_ethSignedMessageHash, v, r, s);
   }
 }

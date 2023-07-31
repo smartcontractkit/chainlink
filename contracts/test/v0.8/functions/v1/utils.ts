@@ -162,10 +162,13 @@ export async function acceptTermsOfService(
     recipientAddress,
   )
   const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-  const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+  const flatSignature = await wallet.signMessage(
+    ethers.utils.arrayify(messageHash),
+  )
+  let { r, s, v } = ethers.utils.splitSignature(flatSignature)
   return accessControl
     .connect(acceptor)
-    .acceptTermsOfService(acceptorAddress, recipientAddress, proof)
+    .acceptTermsOfService(acceptorAddress, recipientAddress, r, s, v)
 }
 
 export async function createSubscription(
