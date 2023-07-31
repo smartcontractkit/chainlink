@@ -26,8 +26,8 @@ func DeployOCRContracts(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
-	bootstrapNode *client.Chainlink,
-	workerNodes []*client.Chainlink,
+	bootstrapNode *client.ChainlinkK8sClient,
+	workerNodes []*client.ChainlinkK8sClient,
 	client blockchain.EVMClient,
 ) ([]contracts.OffchainAggregator, error) {
 	// Deploy contracts
@@ -118,7 +118,7 @@ func DeployOCRContractsForwarderFlow(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
-	workerNodes []*client.Chainlink,
+	workerNodes []*client.ChainlinkK8sClient,
 	forwarderAddresses []common.Address,
 	client blockchain.EVMClient,
 ) []contracts.OffchainAggregator {
@@ -182,8 +182,8 @@ func DeployOCRContractsForwarderFlow(
 // read from different adapters, to be used in combination with SetAdapterResponses
 func CreateOCRJobs(
 	ocrInstances []contracts.OffchainAggregator,
-	bootstrapNode *client.Chainlink,
-	workerNodes []*client.Chainlink,
+	bootstrapNode *client.ChainlinkK8sClient,
+	workerNodes []*client.ChainlinkK8sClient,
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
 ) error {
@@ -237,10 +237,11 @@ func CreateOCRJobs(
 				return fmt.Errorf("creating bridge job have failed: %w", err)
 			}
 
+			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode.ChainlinkClient}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
 				P2PPeerID:          nodeP2PId,
-				P2PBootstrapPeers:  []*client.Chainlink{bootstrapNode},
+				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
 				TransmitterAddress: nodeTransmitterAddress,
 				ObservationSource:  client.ObservationSourceSpecBridge(bta),
@@ -259,8 +260,8 @@ func CreateOCRJobs(
 func CreateOCRJobsWithForwarder(
 	t *testing.T,
 	ocrInstances []contracts.OffchainAggregator,
-	bootstrapNode *client.Chainlink,
-	workerNodes []*client.Chainlink,
+	bootstrapNode *client.ChainlinkK8sClient,
+	workerNodes []*client.ChainlinkK8sClient,
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
 ) {
@@ -298,10 +299,11 @@ func CreateOCRJobsWithForwarder(
 			err = node.MustCreateBridge(bta)
 			require.NoError(t, err, "Failed creating bridge on OCR node %d", nodeIndex+1)
 
+			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode.ChainlinkClient}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
 				P2PPeerID:          nodeP2PId,
-				P2PBootstrapPeers:  []*client.Chainlink{bootstrapNode},
+				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
 				TransmitterAddress: nodeTransmitterAddress,
 				ObservationSource:  client.ObservationSourceSpecBridge(bta),
@@ -338,7 +340,7 @@ func StartNewRound(
 func SetAdapterResponse(
 	response int,
 	ocrInstance contracts.OffchainAggregator,
-	chainlinkNode *client.Chainlink,
+	chainlinkNode *client.ChainlinkK8sClient,
 	mockserver *ctfClient.MockserverClient,
 ) error {
 	nodeContractPairID, err := BuildNodeContractPairID(chainlinkNode, ocrInstance)
@@ -358,7 +360,7 @@ func SetAdapterResponse(
 func SetAllAdapterResponsesToTheSameValue(
 	response int,
 	ocrInstances []contracts.OffchainAggregator,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	mockserver *ctfClient.MockserverClient,
 ) error {
 	eg := &errgroup.Group{}
@@ -380,7 +382,7 @@ func SetAllAdapterResponsesToDifferentValues(
 	t *testing.T,
 	responses []int,
 	ocrInstances []contracts.OffchainAggregator,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	mockserver *ctfClient.MockserverClient,
 ) {
 	require.Equal(t, len(chainlinkNodes)-1, len(responses),
@@ -394,7 +396,7 @@ func SetAllAdapterResponsesToDifferentValues(
 }
 
 // BuildNodeContractPairID builds a UUID based on a related pair of a Chainlink node and OCR contract
-func BuildNodeContractPairID(node *client.Chainlink, ocrInstance contracts.OffchainAggregator) (string, error) {
+func BuildNodeContractPairID(node *client.ChainlinkK8sClient, ocrInstance contracts.OffchainAggregator) (string, error) {
 	if node == nil {
 		return "", fmt.Errorf("chainlink node is nil")
 	}
