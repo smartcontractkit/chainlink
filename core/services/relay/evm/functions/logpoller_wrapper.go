@@ -191,9 +191,6 @@ func (l *logPollerWrapper) SubscribeToUpdates(subscriberName string, subscriber 
 		l.mu.Lock()
 		defer l.mu.Unlock()
 		l.subscribers[subscriberName] = subscriber
-
-		// TODO remove when periodic updates are ready and integration tests are properly migrated
-		_ = subscriber.UpdateRoutes(l.routerContract.Address(), l.routerContract.Address())
 	}
 }
 
