@@ -50,6 +50,9 @@ func TestOCRBasic(t *testing.T) {
 	})
 	chainClient.ParallelTransactions(true)
 
+	// DEBUG: Testing what happens on normal fail
+	require.Equal(t, 1, 2, "Designed to fail")
+
 	linkTokenContract, err := contractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
