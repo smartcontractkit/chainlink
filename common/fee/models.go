@@ -48,7 +48,7 @@ func bumpFeePrice(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentfee
 		// NOTE: This really shouldn't happen since we enforce minimums for
 		// FeeEstimator.BumpPercent and FeeEstimator.BumpMin in the config validation,
 		// but it's here anyway for a "belts and braces" approach
-		return bumpedFeePrice, errors.Wrapf(ErrBump, "bumped fee price of %s is equal to original fee price of %s."+
+		return bumpedFeePrice, errors.Wrapf(ErrBump, "bumped fee price of %s fee unit is equal to original fee price of %s fee unit."+
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
 			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", bumpedFeePrice.String(), originalfeePrice.String())
 	}
@@ -134,7 +134,7 @@ func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr log
 		// NOTE: This really shouldn't happen since we enforce minimums for
 		// FeeEstimator.BumpPercent and FeeEstimator.BumpMin in the config validation,
 		// It's here for extra precaution
-		return bumpedFeeCap, bumpedTipCap, errors.Wrapf(ErrBump, "bumped fee tip cap of %s is less than or equal to original fee tip cap of %s."+
+		return bumpedFeeCap, bumpedTipCap, errors.Wrapf(ErrBump, "bumped fee tip cap of %s fee unit is less than or equal to original fee tip cap of %s fee unit."+
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
 			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", bumpedTipCap.String(), originalTipCap)
 	}
