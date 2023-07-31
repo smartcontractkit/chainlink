@@ -19,7 +19,6 @@ import (
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -122,12 +121,14 @@ func (r *LoopRelayerSingleChain) Chain() adapters.Chain {
 
 // implement service interface
 func (r *LoopRelayerSingleChain) Start(ctx context.Context) error {
-	var ms services.MultiStart
-	return ms.Start(ctx, r.singleChain, r.Relayer)
+	// we only need to start the private relayer because it is a relay adapter
+	// that does the start of the single chain for us
+	return r.Relayer.Start(ctx)
 }
 
 func (r *LoopRelayerSingleChain) Close() error {
-	return services.CloseAll(r.Relayer, r.singleChain)
+	// same here; only close the underlying relayer
+	return r.Relayer.Close()
 }
 
 func (r *LoopRelayerSingleChain) Name() string {
