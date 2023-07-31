@@ -18,19 +18,22 @@ compileContract () {
   solc @openzeppelin/=$ROOT/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
       -o $ROOT/contracts/solc/v$SOLC_VERSION/functions/$1 \
       --abi --bin \
-      --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/src/v0.8/functions,$ROOT/contracts/node_modules/.pnpm/@openzeppelin+contracts-upgradeable@4.8.1/node_modules/@openzeppelin/contracts-upgradeable \
+      --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/src/v0.8/functions \
       $ROOT/contracts/src/v0.8/functions/$2
 }
 
 ##########################
 # Version 0 (Testnet Beta)
 ##########################
+
 ## Set solidity version
 SOLC_VERSION="0.8.6"
 solc-select install $SOLC_VERSION
 solc-select use $SOLC_VERSION
 export SOLC_VERSION=$SOLC_VERSION
+
 #######################
+
 compileContract 0_0_0 dev/0_0_0/Functions.sol
 compileContract 0_0_0 dev/0_0_0/FunctionsBillingRegistry.sol
 compileContract 0_0_0 dev/0_0_0/FunctionsClient.sol
@@ -43,12 +46,15 @@ compileContract 0_0_0 tests/0_0_0/testhelpers/FunctionsOracleWithInit.sol
 ############################
 # Version 1 (Mainnet Preview)
 ############################
+
 ## Set solidity version
 SOLC_VERSION="0.8.19"
 solc-select install $SOLC_VERSION
 solc-select use $SOLC_VERSION
 export SOLC_VERSION=$SOLC_VERSION
+
 #######################
+
 compileContract 1_0_0 dev/1_0_0/Functions.sol
 compileContract 1_0_0 dev/1_0_0/FunctionsRouter.sol
 compileContract 1_0_0 dev/1_0_0/FunctionsCoordinator.sol

@@ -15,7 +15,6 @@ solc-select use 0.8.19
 # Optionally set optimize runs from arguments (default = 1000)
 OPTIMIZE_RUNS="${3}"
 
-solc-select use 0.8.19
 solc @openzeppelin/=$ROOT/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
     -o $ROOT/contracts/solc/v0.8.19 \
     --abi --bin \
