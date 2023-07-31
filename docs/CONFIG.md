@@ -829,7 +829,7 @@ CaptureEATelemetry toggles collecting extra information from External Adaptares
 ```toml
 CaptureAutomationCustomTelem = false # Default
 ```
-CaptureAutomationCustomTelem toggles collecting automation specific telemetry (latest block, soon: LogTriggers, Mercury)
+CaptureAutomationCustomTelem toggles collecting automation specific telemetry
 
 ### DefaultTransactionQueueDepth
 ```toml
