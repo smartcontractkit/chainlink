@@ -680,7 +680,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     if (!isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
-    (uint96 balance, uint96 ethBalance, , address owner, address[] memory consumers) = getSubscription(subId);
+    (uint96 balance, uint96 ethBalance, , address owner, address[] memory consumers, ) = getSubscription(subId);
     require(owner == msg.sender, "Not subscription owner");
     require(!pendingRequestExists(subId), "Pending request exists");
 

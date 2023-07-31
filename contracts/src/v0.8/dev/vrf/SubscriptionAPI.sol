@@ -230,17 +230,30 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     public
     view
     override
-    returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers)
+    returns (
+      uint96 balance,
+      uint96 ethBalance,
+      uint64 reqCount,
+      address owner,
+      address[] memory consumers,
+      uint64[] memory nonces
+    )
   {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
+    }
+    consumers = s_subscriptionConfigs[subId].consumers;
+    nonces = new uint64[](consumers.length);
+    for (uint256 i = 0; i < consumers.length; i++) {
+      nonces[i] = s_consumers[consumers[i]][subId];
     }
     return (
       s_subscriptions[subId].balance,
       s_subscriptions[subId].ethBalance,
       s_subscriptions[subId].reqCount,
       s_subscriptionConfigs[subId].owner,
-      s_subscriptionConfigs[subId].consumers
+      consumers,
+      nonces
     );
   }
 

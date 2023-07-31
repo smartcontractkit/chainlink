@@ -63,13 +63,21 @@ interface IVRFSubscriptionV2Plus {
    * @return reqCount - Requests count of subscription.
    * @return owner - owner of the subscription.
    * @return consumers - list of consumer address which are able to use this subscription.
+   * @return nonces - list of consumer nonces for the given subscription ID.
    */
   function getSubscription(
     uint256 subId
   )
     external
     view
-    returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers);
+    returns (
+      uint96 balance,
+      uint96 ethBalance,
+      uint64 reqCount,
+      address owner,
+      address[] memory consumers,
+      uint64[] memory nonces
+    );
 
   /**
    * @notice Fund a subscription with ETH.
