@@ -13,9 +13,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -100,13 +102,14 @@ type Node[
 	// State returns NodeState
 	State() NodeState
 	// StateAndLatest returns NodeState with the latest received block number & total difficulty.
-	StateAndLatest() (state NodeState, blockNum int64, totalDifficulty *utils.Big)
+	StateAndLatest() (NodeState, int64, *utils.Big)
 	// Name is a unique identifier for this node.
 	Name() string
-
 	String() string
 
 	Order() int32
+	Start(context.Context) error
+	Close() error
 }
 
 type node[
@@ -188,7 +191,7 @@ func NewNode[
 	chainID CHAINID,
 	nodeOrder int32,
 	rpcClient ChainRPCClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE],
-) *Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE] {
+) Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE] {
 	n := new(node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE])
 	n.name = name
 	n.id = id
@@ -332,6 +335,45 @@ func makeQueryCtx(ctx context.Context, ch utils.StopChan) (context.Context, cont
 	return ctx, cancel
 }
 
+// Start dials and verifies the node
+// Should only be called once in a node's lifecycle
+// Return value is necessary to conform to interface but this will never
+// actually return an error.
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) Start(startCtx context.Context) error {
+	return n.StartOnce(n.name, func() error {
+		n.start(startCtx)
+		return nil
+	})
+}
+
+// start initially dials the node and verifies chain ID
+// This spins off lifecycle goroutines.
+// Not thread-safe.
+// Node lifecycle is synchronous: only one goroutine should be running at a
+// time.
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) start(startCtx context.Context) {
+	n.rpcClient.Start(startCtx)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) Close() error {
+	return n.StopOnce(n.name, func() error {
+		defer func() {
+			n.wg.Wait()
+			if n.rpcClient != nil {
+				n.rpcClient.CloseWS()
+			}
+		}()
+
+		n.stateMu.Lock()
+		defer n.stateMu.Unlock()
+
+		n.cancelNodeCtx()
+		n.cancelInflightRequests()
+		n.state = NodeStateClosed
+		return nil
+	})
+}
+
 // disconnectAll disconnects all clients connected to the node
 // WARNING: NOT THREAD-SAFE
 // This must be called from within the n.stateMu lock
@@ -445,4 +487,119 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) BatchCallContext(ctx context.Context, b []any) error {
 	return n.rpcClient.BatchCallContext(ctx, b)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) BatchCallContextAll(ctx context.Context, b []any) error {
+	return n.rpcClient.BatchCallContextAll(ctx, b)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) BatchGetReceipts(
+	ctx context.Context,
+	attempts []txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
+) (txReceipt []TXRECEIPT, txErr []error, err error) {
+	return n.rpcClient.BatchGetReceipts(ctx, attempts)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) BlockByHash(ctx context.Context, hash BLOCKHASH) (*BLOCK, error) {
+	return n.rpcClient.BlockByHash(ctx, hash)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) BlockByNumber(ctx context.Context, number *big.Int) (*BLOCK, error) {
+	return n.rpcClient.BlockByNumber(ctx, number)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) CallContract(
+	ctx context.Context,
+	attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
+	blockNumber *big.Int,
+) (rpcErr fmt.Stringer, extractErr error) {
+	return n.rpcClient.CallContract(ctx, attempt, blockNumber)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) ([]byte, error) {
+	return n.rpcClient.CodeAt(ctx, account, blockNumber)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) ConfiguredChainID() CHAINID {
+	return n.rpcClient.ConfiguredChainID()
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) EstimateGas(ctx context.Context, call any) (gas uint64, err error) {
+	return n.rpcClient.EstimateGas(ctx, call)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) FilterEvents(ctx context.Context, query EVENTOPS) ([]EVENT, error) {
+	return n.rpcClient.FilterEvents(ctx, query)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) HeadByNumber(ctx context.Context, number *big.Int) (head *types.Head[BLOCKHASH], err error) {
+	return n.rpcClient.HeadByNumber(ctx, number)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) HeadByHash(ctx context.Context, hash BLOCKHASH) (head *types.Head[BLOCKHASH], err error) {
+	return n.rpcClient.HeadByHash(ctx, hash)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) IsL2() bool {
+	return n.rpcClient.IsL2()
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
+	return n.rpcClient.LatestBlockHeight(ctx)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) LINKBalance(ctx context.Context, accountAddress ADDR, linkAddress ADDR) (*assets.Link, error) {
+	return n.rpcClient.LINKBalance(ctx, accountAddress, linkAddress)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error) {
+	return n.rpcClient.PendingSequenceAt(ctx, addr)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) SendEmptyTransaction(
+	ctx context.Context,
+	newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE], err error),
+	seq SEQ,
+	gasLimit uint32,
+	fee FEE,
+	fromAddress ADDR,
+) (txhash string, err error) {
+	return n.rpcClient.SendEmptyTransaction(ctx, newTxAttempt, seq, gasLimit, fee, fromAddress)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) SendTransaction(ctx context.Context, tx *TX) error {
+	return n.rpcClient.SendTransaction(ctx, tx)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) SendTransactionReturnCode(
+	ctx context.Context,
+	tx txmgrtypes.Tx[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
+	attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
+	lggr logger.Logger,
+) (clienttypes.SendTxReturnCode, error) {
+	return n.rpcClient.SendTransactionReturnCode(ctx, tx, attempt, lggr)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) SequenceAt(ctx context.Context, account ADDR, blockNumber *big.Int) (SEQ, error) {
+	return n.rpcClient.SequenceAt(ctx, account, blockNumber)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) SimulateTransaction(ctx context.Context, tx *TX) error {
+	return n.rpcClient.SimulateTransaction(ctx, tx)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) Subscribe(ctx context.Context, channel chan<- types.Head[BLOCKHASH], args ...interface{}) (types.Subscription, error) {
+	return n.rpcClient.Subscribe(ctx, channel, args)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) TokenBalance(ctx context.Context, account ADDR, tokenAddr ADDR) (*big.Int, error) {
+	return n.rpcClient.TokenBalance(ctx, account, tokenAddr)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) TransactionByHash(ctx context.Context, txHash TXHASH) (*TX, error) {
+	return n.rpcClient.TransactionByHash(ctx, txHash)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) TransactionReceipt(ctx context.Context, txHash TXHASH) (*TXRECEIPT, error) {
+	return n.rpcClient.TransactionReceipt(ctx, txHash)
 }

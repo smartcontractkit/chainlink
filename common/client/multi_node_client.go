@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -19,6 +21,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
+)
+
+var (
+	// PromMultiNodeClientRPCNodeStates reports current RPC node state
+	PromMultiNodeClientRPCNodeStates = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "client_rpc_node_states",
+		Help: "The number of RPC nodes currently in the given state for the given chain",
+	}, []string{"chainId", "state"})
 )
 
 const (
@@ -62,9 +72,12 @@ type MultiNodeClient[
 	FEE feetypes.Fee,
 ] interface {
 	RPCClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]
-	Dial(ctx context.Context) error
-	Close()
+	Dial(context.Context) error
+	Close() error
 	NodeStates() map[string]string
+	runLoop()
+	nLiveNodes() (int, int64, *utils.Big)
+	report()
 }
 
 type multiNodeClient[
@@ -179,7 +192,7 @@ func (c *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT
 }
 
 func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) Dial(ctx context.Context) error {
-	return client.StartOnce("Pool", func() (merr error) {
+	return client.StartOnce("Client", func() (merr error) {
 		if len(client.nodes) == 0 {
 			return errors.Errorf("no available nodes for chain %s", client.chainID.String())
 		}
@@ -190,12 +203,12 @@ func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, 
 				return errors.Errorf("Invalid ChainID")
 			}
 			if chainID.String() != client.chainID.String() {
-				return ms.CloseBecause(errors.Errorf("node %s has chain ID %s which does not match pool chain ID of %s", n.String(), n.ChainID().String(), client.chainID.String()))
+				return ms.CloseBecause(errors.Errorf("node %s has chain ID %s which does not match client chain ID of %s", n.String(), chainID.String(), client.chainID.String()))
 			}
 			rawNode, ok := n.(*node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE])
 			if ok {
 				// This is a bit hacky but it allows the node to be aware of
-				// pool state and prevent certain state transitions that might
+				// client / pool state and prevent certain state transitions that might
 				// otherwise leave no nodes available. It is better to have one
 				// node in a degraded state than no nodes at all.
 				rawNode.nLiveNodes = rawNode.nLiveNodes
@@ -211,7 +224,7 @@ func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, 
 				return errors.Errorf("Invalid ChainID")
 			}
 			if chainID.String() != client.chainID.String() {
-				return ms.CloseBecause(errors.Errorf("sendonly node %s has chain ID %s which does not match pool chain ID of %s", s.String(), s.ChainID().String(), client.chainID.String()))
+				return ms.CloseBecause(errors.Errorf("sendonly node %s has chain ID %s which does not match client chain ID of %s", s.String(), chainID.String(), client.chainID.String()))
 			}
 			if err := ms.Start(ctx, s); err != nil {
 				return err
@@ -222,6 +235,104 @@ func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, 
 
 		return nil
 	})
+}
+
+// Close tears down the pool and closes all nodes
+func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) Close() error {
+	return client.StopOnce("Client", func() error {
+		close(client.chStop)
+		client.wg.Wait()
+
+		return services.CloseAll(services.MultiCloser(client.nodes), services.MultiCloser(client.sendonlys))
+	})
+}
+
+func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) NodeStates() (states map[string]string) {
+	states = make(map[string]string)
+	for _, n := range client.nodes {
+		states[n.Name()] = n.State().String()
+	}
+	for _, s := range client.sendonlys {
+		states[s.Name()] = s.State().String()
+	}
+	return
+}
+
+// nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
+// totalDifficulty will be 0 if all nodes return nil.
+func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *utils.Big) {
+	totalDifficulty = utils.NewBigI(0)
+	for _, n := range client.nodes {
+		if s, num, td := n.StateAndLatest(); s == NodeStateAlive {
+			nLiveNodes++
+			if num > blockNumber {
+				blockNumber = num
+			}
+			if td != nil && td.Cmp(totalDifficulty) > 0 {
+				totalDifficulty = td
+			}
+		}
+	}
+	return
+}
+
+func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) runLoop() {
+	defer client.wg.Done()
+
+	client.report()
+
+	// Prometheus' default interval is 15s, set this to under 7.5s to avoid
+	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
+	reportInterval := 6500 * time.Millisecond
+	monitor := time.NewTicker(utils.WithJitter(reportInterval))
+	defer monitor.Stop()
+
+	for {
+		select {
+		case <-monitor.C:
+			client.report()
+		case <-client.chStop:
+			return
+		}
+	}
+}
+
+func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) ChainType() config.ChainType {
+	return client.chainType
+}
+
+func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) report() {
+	type nodeWithState struct {
+		Node  string
+		State string
+	}
+
+	var total, dead int
+	counts := make(map[NodeState]int)
+	nodeStates := make([]nodeWithState, len(client.nodes))
+	for i, n := range client.nodes {
+		state := n.State()
+		nodeStates[i] = nodeWithState{n.String(), state.String()}
+		total++
+		if state != NodeStateAlive {
+			dead++
+		}
+		counts[state]++
+	}
+	for _, state := range allNodeStates {
+		count := counts[state]
+		PromMultiNodeClientRPCNodeStates.WithLabelValues(client.chainID.String(), state.String()).Set(float64(count))
+	}
+
+	live := total - dead
+	client.logger.Tracew(fmt.Sprintf("Client state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	if total == dead {
+		rerr := fmt.Errorf("no EVM primary nodes available: 0/%d nodes are alive", total)
+		client.logger.Criticalw(rerr.Error(), "nodeStates", nodeStates)
+		client.SvcErrBuffer.Append(rerr)
+	} else if dead > 0 {
+		client.logger.Errorw(fmt.Sprintf("At least one EVM primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	}
 }
 
 func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) BalanceAt(ctx context.Context, account ADDR, blockNumber *big.Int) (*big.Int, error) {

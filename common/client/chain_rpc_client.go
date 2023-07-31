@@ -24,7 +24,9 @@ type ChainRPCClient[
 	RPCClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]
 
 	RPCCallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
+	Start(startCtx context.Context) error
 	Close()
 	Dial(callerCtx context.Context) error
 	Verify(callerCtx context.Context) (err error)
+	CloseWS() error
 }
