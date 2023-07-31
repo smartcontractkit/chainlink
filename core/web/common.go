@@ -19,13 +19,12 @@ func getChain(legacyChains evm.LegacyChainContainer, chainIDstr string) (chain e
 		return nil, ErrMultipleChains
 	}
 
-	// evm keys are expected to be parsable as a big int
-	_, ok := big.NewInt(0).SetString(chainIDstr, 10)
-	if !ok {
-		return nil, ErrInvalidChainID
-	}
-
 	if chainIDstr != "" && chainIDstr != "<nil>" {
+		// evm keys are expected to be parsable as a big int
+		_, ok := big.NewInt(0).SetString(chainIDstr, 10)
+		if !ok {
+			return nil, ErrInvalidChainID
+		}
 		chain, err = legacyChains.Get(chainIDstr)
 		if err != nil {
 			return nil, ErrMissingChainID
