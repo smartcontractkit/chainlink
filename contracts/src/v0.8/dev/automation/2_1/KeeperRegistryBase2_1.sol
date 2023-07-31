@@ -13,8 +13,8 @@ import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";
 import "../../../shared/access/ConfirmedOwner.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
 import "../../../shared/interfaces/LinkTokenInterface.sol";
-import "../../../interfaces/automation/KeeperCompatibleInterface.sol";
-import "../../../interfaces/automation/UpkeepTranscoderInterface.sol";
+import "../../../automation/interfaces/KeeperCompatibleInterface.sol";
+import "../../../automation/interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between

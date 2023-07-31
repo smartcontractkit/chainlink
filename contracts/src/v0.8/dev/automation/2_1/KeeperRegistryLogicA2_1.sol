@@ -5,8 +5,8 @@ import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
-import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
-import "../../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
+import "../../../automation/interfaces/UpkeepTranscoderInterfaceV2.sol";
+import "../../../automation/interfaces/MigratableKeeperRegistryInterfaceV2.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy

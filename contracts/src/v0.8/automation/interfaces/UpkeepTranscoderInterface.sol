@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-import "../../automation/UpkeepFormat.sol";
+import "../UpkeepFormat.sol";
 
 pragma solidity ^0.8.0;
 

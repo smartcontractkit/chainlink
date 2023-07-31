@@ -4,8 +4,8 @@ pragma solidity 0.8.6;
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase1_3.sol";
-import "../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
-import "../../interfaces/automation/UpkeepTranscoderInterface.sol";
+import "../interfaces/MigratableKeeperRegistryInterface.sol";
+import "../interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
