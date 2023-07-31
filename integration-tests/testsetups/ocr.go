@@ -59,8 +59,8 @@ type OCRSoakTest struct {
 	testEnvironment  *environment.Environment
 	namespace        string
 	log              zerolog.Logger
-	bootstrapNode    *client.Chainlink
-	workerNodes      []*client.Chainlink
+	bootstrapNode    *client.ChainlinkK8sClient
+	workerNodes      []*client.ChainlinkK8sClient
 	chainClient      blockchain.EVMClient
 	mockServer       *ctfClient.MockserverClient
 	filterQuery      geth.FilterQuery
@@ -364,7 +364,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 	*testing.T,
 	string,
-	[]*client.Chainlink,
+	[]*client.ChainlinkK8sClient,
 	reportModel.TestReporter,
 	blockchain.EVMClient,
 ) {
