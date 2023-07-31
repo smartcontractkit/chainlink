@@ -3,6 +3,7 @@ package gas
 import (
 	"math/big"
 
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 )
 
@@ -14,35 +15,6 @@ type bumpConfig interface {
 	TipCapDefault() *assets.Wei
 }
 
-// wrappedBumpConfig is a wrapper that uses *big.Int instead of *assets.Wei
-type wrappedBumpConfig struct {
-	config bumpConfig
-}
-
-func NewWrappedBumpConfig(config bumpConfig) wrappedBumpConfig {
-	return wrappedBumpConfig{config: config}
-}
-
-func (bw wrappedBumpConfig) LimitMultiplier() float32 {
-	return bw.config.LimitMultiplier()
-}
-
-func (bw wrappedBumpConfig) PriceMax() *big.Int {
-	return bw.config.PriceMax().ToInt()
-}
-
-func (bw wrappedBumpConfig) BumpPercent() uint16 {
-	return bw.config.BumpPercent()
-}
-
-func (bw wrappedBumpConfig) BumpMin() *big.Int {
-	return bw.config.BumpMin().ToInt()
-}
-
-func (bw wrappedBumpConfig) TipCapDefault() *big.Int {
-	return bw.config.TipCapDefault().ToInt()
-}
-
 type fixedPriceEstimatorConfig interface {
 	BumpThreshold() uint64
 	FeeCapDefault() *assets.Wei
@@ -51,41 +23,53 @@ type fixedPriceEstimatorConfig interface {
 	TipCapDefault() *assets.Wei
 	PriceMax() *assets.Wei
 	Mode() string
+	bumpConfig
 }
+
+var _ feetypes.FixedPriceEstimatorConfig = (*wrappedPriceEstimatorConfig)(nil)
+var _ feetypes.BumpConfig = (*wrappedPriceEstimatorConfig)(nil)
 
 // wrappedPriceEstimatorConfig is a wrapper that uses *big.Int instead of *assets.Wei
 type wrappedPriceEstimatorConfig struct {
-	config fixedPriceEstimatorConfig
+	peCfg fixedPriceEstimatorConfig
 }
 
-func NewWrappedPriceEstimatorConfig(config fixedPriceEstimatorConfig) wrappedPriceEstimatorConfig {
-	return wrappedPriceEstimatorConfig{config: config}
+func NewWrappedPriceEstimatorConfig(peCfg fixedPriceEstimatorConfig) wrappedPriceEstimatorConfig {
+	return wrappedPriceEstimatorConfig{peCfg: peCfg}
 }
 
-func (fw wrappedPriceEstimatorConfig) BumpThreshold() uint64 {
-	return fw.config.BumpThreshold()
+func (w wrappedPriceEstimatorConfig) BumpThreshold() uint64 {
+	return w.peCfg.BumpThreshold()
 }
 
-func (fw wrappedPriceEstimatorConfig) FeeCapDefault() *big.Int {
-	return fw.config.FeeCapDefault().ToInt()
+func (w wrappedPriceEstimatorConfig) FeeCapDefault() *big.Int {
+	return w.peCfg.FeeCapDefault().ToInt()
 }
 
-func (fw wrappedPriceEstimatorConfig) LimitMultiplier() float32 {
-	return fw.config.LimitMultiplier()
+func (w wrappedPriceEstimatorConfig) LimitMultiplier() float32 {
+	return w.peCfg.LimitMultiplier()
 }
 
-func (fw wrappedPriceEstimatorConfig) PriceDefault() *big.Int {
-	return fw.config.PriceDefault().ToInt()
+func (w wrappedPriceEstimatorConfig) PriceDefault() *big.Int {
+	return w.peCfg.PriceDefault().ToInt()
 }
 
-func (fw wrappedPriceEstimatorConfig) TipCapDefault() *big.Int {
-	return fw.config.TipCapDefault().ToInt()
+func (w wrappedPriceEstimatorConfig) TipCapDefault() *big.Int {
+	return w.peCfg.TipCapDefault().ToInt()
 }
 
-func (fw wrappedPriceEstimatorConfig) PriceMax() *big.Int {
-	return fw.config.PriceMax().ToInt()
+func (w wrappedPriceEstimatorConfig) PriceMax() *big.Int {
+	return w.peCfg.PriceMax().ToInt()
 }
 
-func (fw wrappedPriceEstimatorConfig) Mode() string {
-	return fw.config.Mode()
+func (w wrappedPriceEstimatorConfig) Mode() string {
+	return w.peCfg.Mode()
+}
+
+func (w wrappedPriceEstimatorConfig) BumpPercent() uint16 {
+	return w.peCfg.BumpPercent()
+}
+
+func (w wrappedPriceEstimatorConfig) BumpMin() *big.Int {
+	return w.peCfg.BumpMin().ToInt()
 }
