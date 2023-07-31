@@ -66,7 +66,10 @@ interface IVRFSubscriptionV2Plus {
    */
   function getSubscription(
     uint256 subId
-  ) external view returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers);
+  )
+    external
+    view
+    returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers);
 
   /**
    * @notice Fund a subscription with ETH.
