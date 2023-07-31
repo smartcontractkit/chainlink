@@ -1,3 +1,4 @@
+import { ethers } from 'hardhat'
 import { expect } from 'chai'
 import {
   getSetupFactory,
@@ -19,9 +20,19 @@ describe('Functions Router - Request lifecycle', () => {
         'Functions Router v1.0.0',
       )
     })
-    it('#adminFee', async () => {
-      expect(await contracts.router.getAdminFee()).to.be.equal(
+    it('#subscriptionConfig', async () => {
+      const subscriptionConfig = await contracts.router.getSubscriptionConfig()
+      expect(subscriptionConfig.maxConsumers).to.be.equal(
+        functionsRouterConfig.maxConsumers,
+      )
+      expect(subscriptionConfig.adminFee).to.be.equal(
         functionsRouterConfig.adminFee,
+      )
+      expect(subscriptionConfig.handleOracleFulfillmentSelector).to.be.equal(
+        functionsRouterConfig.handleOracleFulfillmentSelector,
+      )
+      expect(subscriptionConfig.maxCallbackGasLimits.toString()).to.be.equal(
+        functionsRouterConfig.maxCallbackGasLimits.toString(),
       )
     })
   })

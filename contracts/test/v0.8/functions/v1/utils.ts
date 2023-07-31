@@ -62,7 +62,7 @@ export type FunctionsRouterConfig = {
   maxCallbackGasLimits: number[]
 }
 export const functionsRouterConfig: FunctionsRouterConfig = {
-  maxConsumers: 2000,
+  maxConsumers: 100,
   adminFee: 0,
   handleOracleFulfillmentSelector: '0x0ca76175',
   maxCallbackGasLimits: [300_000, 500_000, 1_000_000],
