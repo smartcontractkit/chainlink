@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {IRouterBase} from "./IRouterBase.sol";
+import {FulfillResult} from "./FulfillResultCodes.sol";
 
 /**
  * @title Chainlink Functions Router interface.
@@ -59,7 +60,7 @@ interface IFunctionsRouter is IRouterBase {
     uint96 juelsPerGas,
     uint96 costWithoutFulfillment,
     address transmitter
-  ) external returns (uint8, uint96);
+  ) external returns (FulfillResult, uint96);
 
   /**
    * @notice Validate requested gas limit is below the subscription max.

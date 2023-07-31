@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {RouterBase, ITypeAndVersion} from "./RouterBase.sol";
+import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
@@ -31,7 +32,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint64 indexed subscriptionId,
     uint96 totalCostJuels,
     address transmitter,
-    uint8 resultCode,
+    FulfillResult resultCode,
     bytes response,
     bytes returnData
   );
@@ -231,7 +232,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint96 juelsPerGas,
     uint96 costWithoutFulfillment,
     address transmitter
-  ) external override returns (uint8 resultCode, uint96 callbackGasCostJuels) {
+  ) external override returns (FulfillResult resultCode, uint96 callbackGasCostJuels) {
     _whenNotPaused();
 
     Commitment memory commitment = s_requestCommitments[requestId];
@@ -241,14 +242,12 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     }
 
     if (commitment.client == address(0)) {
-      resultCode = 2; // FulfillResult.INVALID_REQUEST_ID
-      return (resultCode, callbackGasCostJuels);
+      return (FulfillResult.INVALID_REQUEST_ID, callbackGasCostJuels);
     }
 
     // Check that the transmitter has supplied enough gas for the callback to succeed
     if (gasleft() < commitment.callbackGasLimit + commitment.gasAfterPaymentCalculation) {
-      resultCode = 3; // IFunctionsRouter.FulfillResult.INSUFFICIENT_GAS;
-      return (resultCode, callbackGasCostJuels);
+      return (FulfillResult.INSUFFICIENT_GAS, callbackGasCostJuels);
     }
 
     // Check that the subscription can still afford
@@ -256,8 +255,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       commitment.adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit)) >
       s_subscriptions[commitment.subscriptionId].balance
     ) {
-      resultCode = 4; // IFunctionsRouter.FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE
-      return (resultCode, callbackGasCostJuels);
+      return (FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE, callbackGasCostJuels);
     }
 
     // Check that the cost has not exceeded the quoted cost
@@ -265,19 +263,13 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       commitment.adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit)) >
       commitment.estimatedCost
     ) {
-      resultCode = 5; // IFunctionsRouter.FulfillResult.COST_EXCEEDS_COMMITMENT
-      return (resultCode, callbackGasCostJuels);
+      return (FulfillResult.COST_EXCEEDS_COMMITMENT, callbackGasCostJuels);
     }
-
-    // If checks pass, continue as default, 0 = USER_SUCCESS;
-    resultCode = 0;
 
     delete s_requestCommitments[requestId];
 
     CallbackResult memory result = _callback(requestId, response, err, commitment.callbackGasLimit, commitment.client);
-    resultCode = result.success
-      ? 0 // FulfillResult.USER_SUCCESS
-      : 1; // FulfillResult.USER_ERROR
+    resultCode = result.success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
 
     Receipt memory receipt = _pay(
       commitment.subscriptionId,

@@ -359,13 +359,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     bytes32 requestId,
     bytes memory response,
     bytes memory err
-  )
-    internal
-    returns (
-      /* bytes calldata metadata, */
-      FulfillResult
-    )
-  {
+  ) internal returns (FulfillResult) {
     Commitment memory commitment = s_requestCommitments[requestId];
     if (commitment.don == address(0)) {
       return FulfillResult.INVALID_REQUEST_ID;
@@ -385,7 +379,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
 
     // The Functions Router will perform the callback to the client contract
     IFunctionsRouter router = IFunctionsRouter(address(_getRouter()));
-    (uint8 result, uint96 callbackCostJuels) = router.fulfill(
+    (FulfillResult resultCode, uint96 callbackCostJuels) = router.fulfill(
       requestId,
       response,
       err,
@@ -406,10 +400,10 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
       commitment.donFee,
       gasOverheadJuels + callbackCostJuels,
       gasOverheadJuels + callbackCostJuels + commitment.donFee + commitment.adminFee,
-      FulfillResult(result)
+      resultCode
     );
 
-    return FulfillResult(result);
+    return resultCode;
   }
 
   // ================================================================
