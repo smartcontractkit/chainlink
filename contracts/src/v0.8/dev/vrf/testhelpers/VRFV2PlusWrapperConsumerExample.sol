@@ -2,7 +2,7 @@
 pragma solidity ^0.8.6;
 
 import "../VRFV2PlusWrapperConsumerBase.sol";
-import "../../../ConfirmedOwner.sol";
+import "../../../shared/access/ConfirmedOwner.sol";
 
 contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, ConfirmedOwner {
   event WrappedRequestFulfilled(uint256 requestId, uint256[] randomWords, uint256 payment);

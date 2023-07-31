@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {IRouterBase} from "./interfaces/IRouterBase.sol";
-import {ConfirmedOwnerWithProposal} from "../../../ConfirmedOwnerWithProposal.sol";
+import {ConfirmedOwnerWithProposal} from "../../../shared/access/ConfirmedOwnerWithProposal.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {Pausable} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
 import {IConfigurable} from "./interfaces/IConfigurable.sol";

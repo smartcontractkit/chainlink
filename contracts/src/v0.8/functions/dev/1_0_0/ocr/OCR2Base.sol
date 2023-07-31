@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ConfirmedOwner} from "../../../../ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
 import {OCR2Abstract} from "./OCR2Abstract.sol";
 
 /**

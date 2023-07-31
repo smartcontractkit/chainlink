@@ -4,7 +4,7 @@ pragma solidity 0.8.16;
 import "../../../interfaces/LinkTokenInterface.sol";
 import "./interfaces/IKeeperRegistryMaster.sol";
 import "../../../interfaces/TypeAndVersionInterface.sol";
-import "../../../ConfirmedOwner.sol";
+import "../../../shared/access/ConfirmedOwner.sol";
 import "../../../interfaces/ERC677ReceiverInterface.sol";
 
 /**

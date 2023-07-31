@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {OwnableInterface} from "../../../../interfaces/OwnableInterface.sol";
+import {IOwnable} from "../../../../shared/interfaces/IOwnable.sol";
 import {Initializable} from "../../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
 
 /**
  * @title The ConfirmedOwnerUpgradeable contract
  * @notice An upgrade compatible contract with helpers for basic contract ownership.
  */
-contract ConfirmedOwnerUpgradeable is Initializable, OwnableInterface {
+contract ConfirmedOwnerUpgradeable is Initializable, IOwnable {
   address private s_owner;
   address private s_pendingOwner;
 
