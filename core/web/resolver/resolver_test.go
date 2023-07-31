@@ -50,6 +50,7 @@ type mocks struct {
 	vrf                  *keystoreMocks.VRF
 	solana               *keystoreMocks.Solana
 	chain                *evmORMMocks.Chain
+	legacyEVMChains      *evmORMMocks.LegacyChainContainer
 	relayerChainInterops *chainlinkMocks.RelayerChainInteroperators
 	ethClient            *evmClientMocks.Client
 	eIMgr                *webhookmocks.ExternalInitiatorManager
@@ -109,6 +110,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		solana:      keystoreMocks.NewSolana(t),
 		chain:       evmORMMocks.NewChain(t),
 		//	chainSet:    evmORMMocks.NewChainSet(t),
+		legacyEVMChains:      evmORMMocks.NewLegacyChainContainer(t),
 		relayerChainInterops: chainlinkMocks.NewRelayerChainInteroperators(t),
 		ethClient:            evmClientMocks.NewClient(t),
 		eIMgr:                webhookmocks.NewExternalInitiatorManager(t),
