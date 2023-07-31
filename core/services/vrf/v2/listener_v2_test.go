@@ -2,6 +2,7 @@ package v2
 
 import (
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -10,15 +11,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/theodesp/go-heaps/pairing"
 
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -417,4 +422,69 @@ func TestListener_Backoff(t *testing.T) {
 			require.Equal(t, test.expected, lsn.ready(req, 10))
 		})
 	}
+}
+
+func TestListener_handleLog(t *testing.T) {
+	lb := mocks.NewBroadcaster(t)
+	chainID := int64(2)
+	minConfs := uint32(3)
+	blockNumber := uint64(5)
+	requestID := int64(6)
+	t.Run("v2", func(tt *testing.T) {
+		j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+			RequestedConfsDelay: 10,
+		}).Toml())
+		require.NoError(t, err)
+		fulfilledLog := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{
+			RequestId: big.NewInt(requestID),
+			Raw:       types.Log{BlockNumber: blockNumber},
+		}
+		log := log.NewLogBroadcast(types.Log{}, *big.NewInt(chainID), &fulfilledLog)
+		lb.On("WasAlreadyConsumed", log).Return(false, nil).Once()
+		lb.On("MarkConsumed", log).Return(nil).Once()
+		listener := &listenerV2{
+			respCount:          map[string]uint64{},
+			job:                j,
+			blockNumberToReqID: pairing.New(),
+			latestHeadMu:       sync.RWMutex{},
+			logBroadcaster:     lb,
+			l:                  logger.TestLogger(t),
+		}
+		listener.handleLog(log, minConfs)
+		require.Equal(t, listener.respCount[fulfilledLog.RequestId.String()], uint64(1))
+		req, ok := listener.blockNumberToReqID.FindMin().(fulfilledReqV2)
+		require.True(t, ok)
+		require.Equal(t, req.blockNumber, blockNumber)
+		require.Equal(t, req.reqID, "6")
+	})
+
+	t.Run("v2 plus", func(tt *testing.T) {
+		j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+			VRFVersion:          vrfcommon.V2Plus,
+			RequestedConfsDelay: 10,
+		}).Toml())
+		require.NoError(t, err)
+		fulfilledLog := vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{
+			RequestId: big.NewInt(requestID),
+			Raw:       types.Log{BlockNumber: blockNumber},
+		}
+		log := log.NewLogBroadcast(types.Log{}, *big.NewInt(chainID), &fulfilledLog)
+		lb.On("WasAlreadyConsumed", log).Return(false, nil).Once()
+		lb.On("MarkConsumed", log).Return(nil).Once()
+		listener := &listenerV2{
+			respCount:          map[string]uint64{},
+			job:                j,
+			blockNumberToReqID: pairing.New(),
+			latestHeadMu:       sync.RWMutex{},
+			logBroadcaster:     lb,
+			l:                  logger.TestLogger(t),
+		}
+		listener.handleLog(log, minConfs)
+		require.Equal(t, listener.respCount[fulfilledLog.RequestId.String()], uint64(1))
+		req, ok := listener.blockNumberToReqID.FindMin().(fulfilledReqV2)
+		require.True(t, ok)
+		require.Equal(t, req.blockNumber, blockNumber)
+		require.Equal(t, req.reqID, "6")
+	})
+
 }

@@ -725,6 +725,7 @@ func assertRandomWordsFulfilled(
 	requestID *big.Int,
 	expectedSuccess bool,
 	coordinator v22.CoordinatorV2_X,
+	nativePayment bool,
 ) (rwfe v22.RandomWordsFulfilled) {
 	// Check many times in case there are delays processing the event
 	// this could happen occasionally and cause flaky tests.
@@ -736,6 +737,7 @@ func assertRandomWordsFulfilled(
 		for filter.Next() {
 			require.Equal(t, expectedSuccess, filter.Event().Success(), "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, filter.Event().Success())
 			require.Equal(t, requestID, filter.Event().RequestID())
+			require.Equal(t, nativePayment, filter.Event().NativePayment())
 			found = true
 			rwfe = filter.Event()
 		}
@@ -1192,7 +1194,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract)
+	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, false)
 
 	t.Log("Done!")
 }
@@ -1272,7 +1274,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract)
+	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, false)
 
 	t.Log("Done!")
 }

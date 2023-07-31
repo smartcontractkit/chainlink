@@ -1194,7 +1194,7 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
 	mine(t, requestID, subID, uni.backend, db, vrfcommon.V2Plus)
-	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract)
+	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, false)
 
 	// Assert correct number of random words sent by coordinator.
 	assertNumRandomWords(t, consumerContract, numWords)

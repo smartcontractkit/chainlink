@@ -118,7 +118,7 @@ func testSingleConsumerHappyPath(
 	// In particular:
 	// * success should be true
 	// * payment should be exactly the amount specified as the premium in the coordinator fee config
-	rwfe := assertRandomWordsFulfilled(t, requestID1, true, coordinator)
+	rwfe := assertRandomWordsFulfilled(t, requestID1, true, coordinator, nativePayment)
 	if len(assertions) > 0 {
 		assertions[0](t, coordinator, rwfe, subID)
 	}
@@ -138,7 +138,7 @@ func testSingleConsumerHappyPath(
 	// In particular:
 	// * success should be true
 	// * payment should be exactly the amount specified as the premium in the coordinator fee config
-	rwfe = assertRandomWordsFulfilled(t, requestID2, true, coordinator)
+	rwfe = assertRandomWordsFulfilled(t, requestID2, true, coordinator, nativePayment)
 	if len(assertions) > 0 {
 		assertions[0](t, coordinator, rwfe, subID)
 	}
@@ -288,7 +288,7 @@ func testMultipleConsumersNeedBHS(
 
 		mine(t, requestID, subID, uni.backend, db, vrfVersion)
 
-		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
+		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
 		if len(assertions) > 0 {
 			assertions[0](t, coordinator, rwfe)
 		}
@@ -421,9 +421,9 @@ func testSingleConsumerHappyPathBatchFulfillment(
 		// contract is written.
 		var rwfe v22.RandomWordsFulfilled
 		if i == (len(reqIDs) - 1) {
-			rwfe = assertRandomWordsFulfilled(t, requestID, true, coordinator)
+			rwfe = assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
 		} else {
-			rwfe = assertRandomWordsFulfilled(t, requestID, false, coordinator)
+			rwfe = assertRandomWordsFulfilled(t, requestID, false, coordinator, nativePayment)
 		}
 		if len(assertions) > 0 {
 			assertions[0](t, coordinator, rwfe, subID)
@@ -518,7 +518,7 @@ func testSingleConsumerNeedsTopUp(
 	mine(t, requestID, subID, uni.backend, db, vrfVersion)
 
 	// Assert the state of the RandomWordsFulfilled event.
-	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
+	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
 	if len(assertions) > 0 {
 		assertions[0](t, coordinator, rwfe)
 	}
@@ -641,7 +641,7 @@ func testBlockHeaderFeeder(
 
 		mine(t, requestID, subID, uni.backend, db, vrfVersion)
 
-		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
+		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
 		if len(assertions) > 0 {
 			assertions[0](t, coordinator, rwfe)
 		}
@@ -848,7 +848,7 @@ func testSingleConsumerForcedFulfillment(
 	// In this particular case:
 	// * success should be true
 	// * payment should be zero (forced fulfillment)
-	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
+	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, false)
 	require.Equal(t, "0", rwfe.Payment().String())
 
 	// Check that the RandomWordsForced event is emitted correctly.
@@ -1086,7 +1086,7 @@ func testSingleConsumerBigGasCallbackSandwich(
 	mine(t, reqIDs[1], subID, uni.backend, db, vrfVersion)
 
 	// Assert the random word was fulfilled
-	assertRandomWordsFulfilled(t, reqIDs[1], false, uni.rootContract)
+	assertRandomWordsFulfilled(t, reqIDs[1], false, uni.rootContract, nativePayment)
 
 	// Assert that we've still only completed 1 run before adding new requests.
 	runs, err = app.PipelineORM().GetAllRuns()
@@ -1185,7 +1185,7 @@ func testSingleConsumerMultipleGasLanes(
 	mine(t, cheapRequestID, subID, uni.backend, db, vrfVersion)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, cheapRequestID, true, uni.rootContract)
+	assertRandomWordsFulfilled(t, cheapRequestID, true, uni.rootContract, nativePayment)
 
 	// Assert correct number of random words sent by coordinator.
 	assertNumRandomWords(t, consumerContract, numWords)
@@ -1217,7 +1217,7 @@ func testSingleConsumerMultipleGasLanes(
 	mine(t, expensiveRequestID, subID, uni.backend, db, vrfVersion)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, expensiveRequestID, true, uni.rootContract)
+	assertRandomWordsFulfilled(t, expensiveRequestID, true, uni.rootContract, nativePayment)
 
 	// Assert correct number of random words sent by coordinator.
 	assertNumRandomWords(t, consumerContract, numWords)
@@ -1297,7 +1297,7 @@ func testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 	mine(t, requestID, subID, uni.backend, db, vrfVersion)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID, false, uni.rootContract)
+	assertRandomWordsFulfilled(t, requestID, false, uni.rootContract, nativePayment)
 	t.Log("Done!")
 }
 
@@ -1372,7 +1372,7 @@ func testConsumerProxyHappyPath(
 	mine(t, requestID1, subID, uni.backend, db, vrfVersion)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID1, true, uni.rootContract)
+	assertRandomWordsFulfilled(t, requestID1, true, uni.rootContract, nativePayment)
 
 	// Gas available will be around 724,385, which means that 750,000 - 724,385 = 25,615 gas was used.
 	// This is ~20k more than what the non-proxied consumer uses.
@@ -1392,7 +1392,7 @@ func testConsumerProxyHappyPath(
 		return len(runs) == 2
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 	mine(t, requestID2, subID, uni.backend, db, vrfVersion)
-	assertRandomWordsFulfilled(t, requestID2, true, uni.rootContract)
+	assertRandomWordsFulfilled(t, requestID2, true, uni.rootContract, nativePayment)
 
 	// Assert correct number of random words sent by coordinator.
 	assertNumRandomWords(t, consumerContract, numWords)
