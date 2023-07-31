@@ -46,10 +46,10 @@ contract FunctionsClientTestHelper is FunctionsClient {
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 
-  function acceptTermsOfService(address acceptor, address recipient,  bytes32 r, bytes32 s, uint8 v) external {
+  function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external {
     bytes32 allowListId = s_router.getAllowListId();
     ITermsOfServiceAllowList allowList = ITermsOfServiceAllowList(s_router.getContractById(allowListId));
-    allowList.acceptTermsOfService(acceptor, recipient, r,s,v);
+    allowList.acceptTermsOfService(acceptor, recipient, r, s, v);
   }
 
   function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {

@@ -340,13 +340,13 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @inheritdoc IRouterBase
    */
   function pause() external override onlyOwner {
-      _pause();
+    _pause();
   }
 
-    /**
+  /**
    * @inheritdoc IRouterBase
    */
   function unpause() external override onlyOwner {
-      _unpause();
+    _unpause();
   }
 }

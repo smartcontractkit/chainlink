@@ -7,4 +7,6 @@ import {IOwnable} from "../../../../shared/interfaces/IOwnable.sol";
 /**
  * @title Chainlink base Router interface with Ownable.
  */
-interface IOwnableRouter is IOwnable, IRouterBase {}
+interface IOwnableRouter is IOwnable, IRouterBase {
+
+}

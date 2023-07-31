@@ -23,7 +23,7 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
       revert RouterMustBeSet();
     }
     s_router = IOwnableRouter(router);
-    updateConfig(config);
+    _handleConfigUpdate(config);
   }
 
   function _getRouter() internal view returns (IOwnableRouter router) {
@@ -44,12 +44,19 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
   function _updateConfig(bytes memory config) internal virtual;
 
   /**
+   * @dev Internal function that can be re-used in the constructor
+   */
+  function _handleConfigUpdate(bytes memory config) private {
+    _updateConfig(config);
+    s_configHash = keccak256(config);
+  }
+
+  /**
    * @inheritdoc IConfigurable
    * @dev Only callable by the Router
    */
   function updateConfig(bytes memory config) public override onlyRouter {
-    _updateConfig(config);
-    s_configHash = keccak256(config);
+    _handleConfigUpdate(config);
   }
 
   /**
@@ -66,7 +73,7 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
    * @notice Reverts if called by anyone other than the router owner.
    */
   modifier onlyRouterOwner() {
-    if (msg.sender != IOwnableRouter(address(s_router)).owner()) {
+    if (msg.sender != s_router.owner()) {
       revert OnlyCallableByRouterOwner();
     }
     _;

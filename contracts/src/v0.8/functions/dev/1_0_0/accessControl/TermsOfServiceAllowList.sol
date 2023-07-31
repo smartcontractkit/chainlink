@@ -88,9 +88,7 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList {
     }
 
     // Validate that the signature is correct and the correct data has been signed
-    if (
-      ecrecover(getEthSignedMessageHash(getMessageHash(acceptor, recipient)), v, r, s) != s_config.signerPublicKey
-    ) {
+    if (ecrecover(getEthSignedMessageHash(getMessageHash(acceptor, recipient)), v, r, s) != s_config.signerPublicKey) {
       revert InvalidSignature();
     }
 
