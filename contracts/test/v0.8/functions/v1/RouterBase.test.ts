@@ -117,8 +117,13 @@ describe('FunctionsRouter - Base', () => {
 
     it('returns the config set on the Router', async () => {
       expect(
-        await contracts.router.connect(roles.stranger).getAdminFee(),
-      ).to.equal(0)
+        await contracts.router.connect(roles.stranger).getConfig(),
+      ).to.equal(
+        ethers.utils.defaultAbiCoder.encode(
+          ['uint16', 'uint96', 'bytes4', 'uint32[]'],
+          [2000, 1, 0x0ca76175, [300_000, 500_000]],
+        ),
+      )
     })
   })
 
