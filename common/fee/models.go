@@ -5,8 +5,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink/v2/common/chains/label"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label" // TODO: Remove import from core
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
