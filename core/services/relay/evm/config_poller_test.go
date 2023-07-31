@@ -2,6 +2,7 @@ package evm
 
 import (
 	"database/sql"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -252,6 +253,14 @@ func TestConfigPoller(t *testing.T) {
 				assert.Equal(t, ocrtypes.ConfigDigest{}, contractConfig.ConfigDigest)
 			})
 			t.Run("when config has been set, returns config", func(t *testing.T) {
+				b.Commit()
+				onchainDetails, err := ocrContractPersistConfigEnabled.LatestConfigDetails(nil)
+				require.NoError(t, err)
+
+				fmt.Printf("TRASH setConfig digest OLD %x\n", onchainDetails.ConfigDigest[:])
+				b.Commit()
+				b.Commit()
+				b.Commit()
 				contractConfig := setConfig(t, median.OffchainConfig{
 					AlphaReportInfinite: false,
 					AlphaReportPPB:      0,
@@ -260,14 +269,19 @@ func TestConfigPoller(t *testing.T) {
 					DeltaC:              10,
 				}, ocrContractPersistConfigEnabled, user)
 				b.Commit()
+				onchainDetails, err = ocrContractPersistConfigEnabled.LatestConfigDetails(nil)
+				require.NoError(t, err)
+
+				fmt.Printf("TRASH setConfig digest NEW %x\n", onchainDetails.ConfigDigest[:])
+
 				latest, err := b.BlockByNumber(testutils.Context(t), nil)
 				require.NoError(t, err)
 				blockNum := uint64(latest.Number().Int64())
 
-				newConfig, err := cp.LatestConfig(testutils.Context(t), blockNum)
+				newConfig, err := cp.LatestConfig(testutils.Context(t), blockNum+1)
 				require.NoError(t, err)
 
-				onchainDetails, err := ocrContractPersistConfigEnabled.LatestConfigDetails(nil)
+				onchainDetails, err = ocrContractPersistConfigEnabled.LatestConfigDetails(nil)
 				require.NoError(t, err)
 
 				assert.Equal(t, onchainDetails.ConfigDigest, [32]byte(newConfig.ConfigDigest))
