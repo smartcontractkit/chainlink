@@ -4,6 +4,7 @@ pragma solidity ^0.8.19;
 import {HasRouter} from "./HasRouter.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
+import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
@@ -18,19 +19,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   // |                  Request Commitment state                    |
   // ================================================================
 
-  struct Commitment {
-    uint64 subscriptionId; // ---------┐
-    address client; //                 |
-    uint32 callbackGasLimit; // -------┘
-    address don; // -------------------┐
-    uint96 adminFee; // ---------------┘
-    uint96 estimatedTotalCostJuels; // ┐
-    uint80 donFee; //                  |
-    uint32 timestamp; //               |
-    uint40 gasOverhead; // ------------┘
-    uint256 expectedGasPrice;
-  }
-  mapping(bytes32 requestId => Commitment) private s_requestCommitments;
+  mapping(bytes32 requestId => bytes32 commitmentHash) private s_requestCommitments;
 
   // ================================================================
   // |                     Configuration state                      |
@@ -97,7 +86,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   // ================================================================
   // |                         Cost Events                          |
   // ================================================================
-  event BillingStart(bytes32 indexed requestId, Commitment commitment);
+  event BillingStart(bytes32 indexed requestId, uint96 estimatedTotalCost);
   event BillingEnd(
     bytes32 indexed requestId,
     uint64 subscriptionId,
@@ -288,14 +277,13 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
    * @param billing - Billing configuration for the request
    * @return requestId - A unique identifier of the request. Can be used to match a request to a response in fulfillRequest.
    * @return estimatedCost - The estimated cost in Juels of LINK that will be charged to the subscription if all callback gas is used
-   * @return gasOverheadAfterCallback - The amount of gas that will be used after the user's callback
-   * @return requestTimeoutSeconds - The number of seconds that this request can remain unfilled before being considered stale
+   * @return commitment - The parameters of the request that must be held consistent at response time
    */
   function _startBilling(
     bytes memory data,
     uint16 requestDataVersion,
     RequestBilling memory billing
-  ) internal returns (bytes32, uint96, uint256, uint256) {
+  ) internal returns (bytes32, uint96, IFunctionsRequest.Commitment memory) {
     // Nodes should support all past versions of the structure
     if (requestDataVersion > s_config.maxSupportedRequestDataVersion) {
       revert UnsupportedRequestDataVersion();
@@ -315,23 +303,25 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
 
     bytes32 requestId = computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
 
-    Commitment memory commitment = Commitment(
-      billing.subscriptionId,
-      billing.client,
-      billing.callbackGasLimit,
-      address(this),
+    IFunctionsRequest.Commitment memory commitment = IFunctionsRequest.Commitment(
       adminFee,
+      address(this),
+      billing.client,
+      billing.subscriptionId,
+      billing.callbackGasLimit,
       estimatedCost,
+      uint40(block.timestamp + s_config.requestTimeoutSeconds),
+      requestId,
       donFee,
-      uint32(block.timestamp),
-      s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback,
-      billing.expectedGasPrice
+      s_config.gasOverheadBeforeCallback,
+      s_config.gasOverheadAfterCallback
     );
-    s_requestCommitments[requestId] = commitment;
 
-    emit BillingStart(requestId, commitment);
+    s_requestCommitments[requestId] = keccak256(abi.encode(commitment));
 
-    return (requestId, estimatedCost, s_config.gasOverheadAfterCallback, s_config.requestTimeoutSeconds);
+    emit BillingStart(requestId, estimatedCost);
+
+    return (requestId, estimatedCost, commitment);
   }
 
   /**
@@ -358,16 +348,12 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   function _fulfillAndBill(
     bytes32 requestId,
     bytes memory response,
-    bytes memory err
-  )
-    internal
-    returns (
-      /* bytes calldata metadata, */
-      FulfillResult
-    )
-  {
-    Commitment memory commitment = s_requestCommitments[requestId];
-    if (commitment.don == address(0)) {
+    bytes memory err,
+    bytes memory onchainMetadata,
+    bytes memory /* offchainMetadata TODO: use in getDonFee() for dynamic billing */
+  ) internal returns (FulfillResult) {
+    IFunctionsRequest.Commitment memory commitment = _retrieveCommitmentData(onchainMetadata);
+    if (s_requestCommitments[requestId] != keccak256(abi.encode(commitment))) {
       return FulfillResult.INVALID_REQUEST_ID;
     }
     delete s_requestCommitments[requestId];
@@ -380,36 +366,46 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     // (1e18 juels/link) * (wei/gas) / (wei/link) = juels per gas
     uint256 juelsPerGas = (1e18 * tx.gasprice) / uint256(weiPerUnitLink);
     // Gas overhead without callback
-    uint96 gasOverheadJuels = uint96(juelsPerGas * commitment.gasOverhead);
-    uint96 costWithoutFulfillment = gasOverheadJuels + commitment.donFee;
+    uint96 gasOverhead = uint96(
+      juelsPerGas * (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback)
+    );
 
     // The Functions Router will perform the callback to the client contract
     IFunctionsRouter router = IFunctionsRouter(address(_getRouter()));
     (uint8 result, uint96 callbackCostJuels) = router.fulfill(
-      requestId,
       response,
       err,
       uint96(juelsPerGas),
-      costWithoutFulfillment,
-      msg.sender
+      gasOverhead + commitment.donFee, // costWithoutFulfillment
+      msg.sender,
+      commitment
     );
 
     // Reimburse the transmitter for the fulfillment gas cost
-    s_withdrawableTokens[msg.sender] = gasOverheadJuels + callbackCostJuels;
+    s_withdrawableTokens[msg.sender] = gasOverhead + callbackCostJuels;
     // Put donFee into the pool of fees, to be split later
     // Saves on storage writes that would otherwise be charged to the user
     s_feePool += commitment.donFee;
 
-    emit BillingEnd(
-      requestId,
-      commitment.subscriptionId,
-      commitment.donFee,
-      gasOverheadJuels + callbackCostJuels,
-      gasOverheadJuels + callbackCostJuels + commitment.donFee + commitment.adminFee,
-      FulfillResult(result)
-    );
+    FulfillResult resultCode = FulfillResult(result);
+    if (resultCode == FulfillResult.USER_SUCCESS || resultCode == FulfillResult.USER_ERROR) {
+      emit BillingEnd(
+        requestId,
+        commitment.subscriptionId,
+        commitment.donFee,
+        gasOverhead + callbackCostJuels,
+        gasOverhead + callbackCostJuels + commitment.donFee + commitment.adminFee,
+        resultCode
+      );
+    }
 
-    return FulfillResult(result);
+    return resultCode;
+  }
+
+  function _retrieveCommitmentData(
+    bytes memory packedCommitment
+  ) private pure returns (IFunctionsRequest.Commitment memory commitment) {
+    commitment = abi.decode(packedCommitment, (IFunctionsRequest.Commitment));
   }
 
   // ================================================================
@@ -419,9 +415,8 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
    * @inheritdoc IFunctionsBilling
    */
   function deleteCommitment(bytes32 requestId) external override onlyRouter returns (bool) {
-    Commitment memory commitment = s_requestCommitments[requestId];
     // Ensure that commitment exists
-    if (commitment.don == address(0)) {
+    if (s_requestCommitments[requestId] == bytes32(0)) {
       return false;
     }
     // Delete commitment

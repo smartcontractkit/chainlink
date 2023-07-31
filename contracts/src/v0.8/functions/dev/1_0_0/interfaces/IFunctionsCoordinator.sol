@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {IFunctionsRequest} from "./IFunctionsRequest.sol";
+
 /**
  * @title Chainlink Functions oracle interface.
  */
@@ -72,8 +74,9 @@ interface IFunctionsCoordinator {
    * @param request The request information, @dev see the struct for field descriptions
    * @return requestId A unique request identifier (unique per DON)
    * @return estimatedCost The cost in Juels of LINK that the request is estimated to charge if market conditions were to stay the same
-   * @return gasAfterPaymentCalculation The amount of gas overhead that will be used after balances have already been changed
-   * @return requestTimeoutSeconds The amount of time in seconds before this request is considered stale
+   * @return commitment - The parameters of the request that must be held consistent at response time
    */
-  function sendRequest(Request calldata request) external returns (bytes32, uint96, uint256, uint256);
+  function sendRequest(
+    Request calldata request
+  ) external returns (bytes32, uint96, IFunctionsRequest.Commitment memory commitment);
 }

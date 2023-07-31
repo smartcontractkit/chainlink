@@ -47,11 +47,13 @@ export const encodeReport = (
   requestId: string,
   result: string,
   err: string,
+  onchainMetadata: string,
+  offchainMetadata: string,
 ) => {
   const abi = ethers.utils.defaultAbiCoder
   return abi.encode(
-    ['bytes32[]', 'bytes[]', 'bytes[]'],
-    [[requestId], [result], [err]],
+    ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
+    [[requestId], [result], [err], [onchainMetadata], [offchainMetadata]],
   )
 }
 
