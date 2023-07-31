@@ -148,9 +148,8 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
         revert InvalidTranscoding();
       }
       // bit of a hack - transcodeUpkeeps should be a pure function
-      AutomationRegistryBaseInterface registry20 = AutomationRegistryBaseInterface(msg.sender);
       R21.Upkeep[] memory newUpkeeps = new R21.Upkeep[](ids.length);
-      bytes[] memory offchainConfigs = new bytes[](ids.length);
+      bytes[] memory emptyBytes = new bytes[](ids.length);
       address[] memory targets = new address[](ids.length);
       UpkeepV20 memory upkeepV20;
       for (uint256 idx = 0; idx < ids.length; idx++) {
@@ -165,9 +164,8 @@ contract UpkeepTranscoder4_0 is UpkeepTranscoderInterfaceV2, TypeAndVersionInter
           lastPerformedBlockNumber: 0
         });
         targets[idx] = upkeepV20.target;
-        offchainConfigs[idx] = registry20.getUpkeep(ids[idx]).offchainConfig;
       }
-      return abi.encode(ids, newUpkeeps, targets, admins, checkDatas, new bytes[](ids.length), offchainConfigs);
+      return abi.encode(ids, newUpkeeps, targets, admins, checkDatas, emptyBytes, emptyBytes);
     }
     // v2.1 => v2.1
     if (fromVersion == uint8(RegistryVersion.V21)) {

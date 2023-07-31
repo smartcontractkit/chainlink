@@ -3,7 +3,7 @@ import { BigNumber } from 'ethers'
 import { expect, assert } from 'chai'
 import { getUsers } from '../../test-helpers/setup'
 import { randomAddress, toWei } from '../../test-helpers/helpers'
-import { deployRegistry21, setConfigExplicit } from './helpers'
+import { deployRegistry21 } from './helpers'
 
 // don't run these tests in CI
 const describeMaybe = process.env.CI ? describe.skip : describe
@@ -203,7 +203,7 @@ describeMaybe('Automation Gas Analysis', () => {
     }
     await registry21
       .connect(owner)
-      [setConfigExplicit](signers, transmitters, f, onchainConfig21, 1, '0x')
+      .setConfigTypeSafe(signers, transmitters, f, onchainConfig21, 1, '0x')
 
     // approve LINK
     await linkToken.connect(owner).approve(registrar20.address, amount)
