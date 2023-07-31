@@ -19,27 +19,31 @@ interface IFunctionsBilling {
 
   /**
    * @notice Gets the configuration of the Chainlink Functions billing registry
-   * @return maxGasLimit global max for request gas limit
-   * @return stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
-   * @return gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
-   * @return fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
-   * @return gasOverhead average gas execution cost used in estimating total cost
-   * @return linkPriceFeed address of contract for a conversion price between LINK token and native token
+   * @return maxCallbackGasLimit global max for request gas limit
+   * @return feedStalenessSeconds if the eth/link feed is more stale then this, use the fallback price
+   * @return gasOverheadBeforeCallback gas used in doing accounting before completing the gas measurement
+   * @return gasOverheadAfterCallback gas used in doing accounting after completing the gas measurement
+   * @return requestTimeoutSeconds e2e timeout for a request
+   * @return donFee extra fee added to every request
    * @return maxSupportedRequestDataVersion The highest support request data version supported by the node
    * @return fulfillmentGasPriceOverEstimationBP Percentage of gas price overestimation to account for changes in gas price between request and response. Held as basis points (one hundredth of 1 percentage point)
+   * @return fallbackNativePerUnitLink fallback native/link price in the case of a stale feed
+   * @return linkPriceFeed address of contract for a conversion price between LINK token and native token
    */
   function getConfig()
     external
     view
     returns (
-      uint32 maxGasLimit,
-      uint32 stalenessSeconds,
-      uint256 gasAfterPaymentCalculation,
-      int256 fallbackWeiPerUnitLink,
-      uint32 gasOverhead,
-      address linkPriceFeed,
+      uint32 maxCallbackGasLimit,
+      uint32 feedStalenessSeconds,
+      uint32 gasOverheadBeforeCallback,
+      uint32 gasOverheadAfterCallback,
+      uint32 requestTimeoutSeconds,
+      uint80 donFee,
       uint16 maxSupportedRequestDataVersion,
-      uint256 fulfillmentGasPriceOverEstimationBP
+      uint256 fulfillmentGasPriceOverEstimationBP,
+      int256 fallbackNativePerUnitLink,
+      address linkPriceFeed
     );
 
   /**
