@@ -221,30 +221,42 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 }
 
 // ids must be a string representation of relay.Identifier
-func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
+// ids are a filter; if none are specificied, all are returned.
+func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...string) (nodes []types.NodeStatus, count int, err error) {
 	var (
 		totalErr error
 		result   []types.NodeStatus
 	)
-	for _, idStr := range chainIDs {
-		rid := new(relay.Identifier)
-		err := rid.UnmarshalString(idStr)
-		if err != nil {
-			totalErr = errors.Join(totalErr, err)
-			continue
+	if len(relayerIDs) == 0 {
+		for rid, relayer := range rs.relayers {
+			stats, _, err := relayer.NodeStatuses(ctx, offset, limit, rid.ChainID.String())
+			if err != nil {
+				totalErr = errors.Join(totalErr, err)
+				continue
+			}
+			result = append(result, stats...)
 		}
-		relayer, exist := rs.relayers[*rid]
-		if !exist {
-			totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
-			continue
-		}
-		nodeStats, _, err := relayer.NodeStatuses(ctx, offset, limit, rid.ChainID.String())
+	} else {
+		for _, idStr := range relayerIDs {
+			rid := new(relay.Identifier)
+			err := rid.UnmarshalString(idStr)
+			if err != nil {
+				totalErr = errors.Join(totalErr, err)
+				continue
+			}
+			relayer, exist := rs.relayers[*rid]
+			if !exist {
+				totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
+				continue
+			}
+			nodeStats, _, err := relayer.NodeStatuses(ctx, offset, limit, rid.ChainID.String())
 
-		if err != nil {
-			totalErr = errors.Join(totalErr, err)
-			continue
+			if err != nil {
+				totalErr = errors.Join(totalErr, err)
+				continue
+			}
+			result = append(result, nodeStats...)
 		}
-		result = append(result, nodeStats...)
 	}
 	if totalErr != nil {
 		return nil, 0, totalErr
