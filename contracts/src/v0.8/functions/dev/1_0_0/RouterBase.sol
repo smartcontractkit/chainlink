@@ -14,13 +14,13 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   mapping(bytes32 id => address routableContract) internal s_route;
   error RouteNotFound(bytes32 id);
   // Use empty bytes to self-identify, since it does not have an id
-  bytes32 internal constant ROUTER_ID = bytes32(0);
+  bytes32 private constant ROUTER_ID = bytes32(0);
 
   // ================================================================
   // |                         Proposal state                       |
   // ================================================================
 
-  uint8 internal constant MAX_PROPOSAL_SET_LENGTH = 8;
+  uint8 private constant MAX_PROPOSAL_SET_LENGTH = 8;
 
   struct ContractProposalSet {
     bytes32[] ids;
@@ -49,7 +49,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     bytes to;
     uint256 timelockEndBlock;
   }
-  mapping(bytes32 id => ConfigProposal) internal s_proposedConfig;
+  mapping(bytes32 id => ConfigProposal) private s_proposedConfig;
   event ConfigProposed(bytes32 id, bytes32 fromHash, bytes toBytes);
   event ConfigUpdated(bytes32 id, bytes32 fromHash, bytes toBytes);
   error InvalidProposal();
