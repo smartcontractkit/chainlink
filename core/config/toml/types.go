@@ -847,12 +847,11 @@ type OCR struct {
 	ContractSubscribeInterval    *models.Duration
 	DefaultTransactionQueueDepth *uint32
 	// Optional
-	KeyBundleID                  *models.Sha256Hash
-	SimulateTransactions         *bool
-	TransmitterAddress           *ethkey.EIP55Address
-	CaptureEATelemetry           *bool
-	CaptureAutomationCustomTelem *bool
-	TraceLogging                 *bool
+	KeyBundleID          *models.Sha256Hash
+	SimulateTransactions *bool
+	TransmitterAddress   *ethkey.EIP55Address
+	CaptureEATelemetry   *bool
+	TraceLogging         *bool
 }
 
 func (o *OCR) setFrom(f *OCR) {
@@ -885,9 +884,6 @@ func (o *OCR) setFrom(f *OCR) {
 	}
 	if v := f.CaptureEATelemetry; v != nil {
 		o.CaptureEATelemetry = v
-	}
-	if v := f.CaptureAutomationCustomTelem; v != nil {
-		o.CaptureAutomationCustomTelem = v
 	}
 	if v := f.TraceLogging; v != nil {
 		o.TraceLogging = v

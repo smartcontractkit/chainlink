@@ -256,7 +256,6 @@ type OCROracleSpec struct {
 	ContractTransmitterTransmitTimeout        *models.Interval `toml:"contractTransmitterTransmitTimeout"`
 	ContractTransmitterTransmitTimeoutEnv     bool
 	CaptureEATelemetry                        bool      `toml:"captureEATelemetry"`
-	CaptureAutomationCustomTelem              bool      `toml:"captureAutomationCustomTelem"`
 	CreatedAt                                 time.Time `toml:"-"`
 	UpdatedAt                                 time.Time `toml:"-"`
 }
