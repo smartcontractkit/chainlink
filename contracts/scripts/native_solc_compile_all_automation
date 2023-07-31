@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo "Compiling Automation contracts..."
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+
+solc-select install 0.8.6
+solc-select install 0.8.16
+
+
+$SCRIPTPATH/native_solc8_6_compile automation/upkeeps/CronUpkeepFactory.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistrar1_2.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistry1_2.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_2/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistry1_3.sol
+$SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistryLogic1_3.sol
+$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistrar2_0.sol
+$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistry2_0.sol
+$SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistryLogic2_0.sol
+$SCRIPTPATH/native_solc8_6_compile automation/UpkeepTranscoder.sol
+$SCRIPTPATH/native_solc8_6_compile automation/mocks/MockAggregatorProxy.sol
+$SCRIPTPATH/native_solc8_6_compile dev/automation/tests/LogUpkeepCounter.sol
+
+# Keepers x VRF v2
+$SCRIPTPATH/native_solc8_6_compile KeepersVRFConsumer.sol
+
+# v0.8.16
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/AutomationRegistrar2_1.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/KeeperRegistry2_1.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/KeeperRegistryLogicA2_1.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/KeeperRegistryLogicB2_1.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/interfaces/ILogAutomation.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/AutomationUtils2_1.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/AutomationForwarderLogic.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/tests/LogTriggeredFeedLookup.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol
+
+$SCRIPTPATH/native_solc8_16_compile tests/VerifiableLoadUpkeep.sol
+$SCRIPTPATH/native_solc8_16_compile tests/VerifiableLoadMercuryUpkeep.sol
+$SCRIPTPATH/native_solc8_16_compile tests/VerifiableLoadLogTriggerUpkeep.sol
+$SCRIPTPATH/native_solc8_16_compile tests/AutomationConsumerBenchmark.sol
+$SCRIPTPATH/native_solc8_16_compile tests/MercuryUpkeep.sol
