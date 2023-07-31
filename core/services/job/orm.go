@@ -747,6 +747,7 @@ func LoadEnvConfigVarsDR(cfg DRSpecConfig, drs DirectRequestSpec) *DirectRequest
 type OCRConfig interface {
 	BlockchainTimeout() time.Duration
 	CaptureEATelemetry() bool
+	CaptureAutomationCustomTelem() bool
 	ContractPollInterval() time.Duration
 	ContractSubscribeInterval() time.Duration
 	KeyBundleID() (string, error)
@@ -789,6 +790,7 @@ func LoadEnvConfigVarsLocalOCR(evmOcrCfg evmconfig.OCR, os OCROracleSpec, ocrCfg
 		os.ContractTransmitterTransmitTimeout = models.NewInterval(evmOcrCfg.ContractTransmitterTransmitTimeout())
 	}
 	os.CaptureEATelemetry = ocrCfg.CaptureEATelemetry()
+	os.CaptureAutomationCustomTelem = ocrCfg.CaptureAutomationCustomTelem()
 
 	return &os
 }
