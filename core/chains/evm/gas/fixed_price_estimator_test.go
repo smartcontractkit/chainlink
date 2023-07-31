@@ -128,12 +128,12 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 	t.Run("BumpDynamicFee calls BumpDynamicFeeOnly", func(t *testing.T) {
 		config := &gas.MockGasEstimatorConfig{}
-		wrappedConfig := gas.NewWrappedPriceEstimatorConfig(config)
 		config.LimitMultiplierF = float32(1.1)
 		config.PriceMaxF = maxGasPrice
 		config.TipCapDefaultF = assets.NewWeiI(52)
 		config.BumpMinF = assets.NewWeiI(150)
 		config.BumpPercentF = uint16(10)
+		wrappedConfig := gas.NewWrappedPriceEstimatorConfig(config)
 
 		lggr := logger.TestLogger(t)
 		f := gas.NewFixedPriceEstimator(wrappedConfig, &blockHistoryConfig{}, lggr)
@@ -146,6 +146,6 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, expectedGasLimit, gasLimit)
-		assert.Equal(t, expectedFee, fee)
+		assert.Equal(t, expectedFee, fee) // error
 	})
 }
