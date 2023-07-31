@@ -322,8 +322,8 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 	return name, nil
 }
 
-func (r JSONConfig) EnableCustomTelemetry() (bool, error) {
-	value, exists := r["enableCustomTelemetry"]
+func (r JSONConfig) AutomationCustomTelemEnabled() (bool, error) {
+	value, exists := r["automationCustomTelemEnabled"]
 	if !exists {
 		return false, nil
 	}
