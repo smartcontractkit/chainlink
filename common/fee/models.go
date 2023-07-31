@@ -60,7 +60,7 @@ func getMaxFeePrice(userSpecifiedMax, maxFeePrice *big.Int) *big.Int {
 }
 
 func bumpFeePriceByPercentage(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits *big.Int) *big.Int {
-	return Max(new(big.Int).Add(originalFeePrice, feeBumpUnits), AddPercentage(originalFeePrice, feeBumpPercent))
+	return max(new(big.Int).Add(originalFeePrice, feeBumpUnits), addPercentage(originalFeePrice, feeBumpPercent))
 }
 
 func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, maxFeePrice *big.Int, feeType string) *big.Int {
@@ -121,7 +121,7 @@ func CalculateBumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16,
 
 func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *big.Int, originalFeeCap, originalTipCap *big.Int, maxFeePriceInput *big.Int) (bumpedFeeCap, bumpedTipCap *big.Int, err error) {
 	maxFeePrice := getMaxFeePrice(maxFeePriceInput, cfg.PriceMax())
-	baselineTipCap := Max(originalTipCap, cfg.TipCapDefault())
+	baselineTipCap := max(originalTipCap, cfg.TipCapDefault())
 	bumpedTipCap = bumpFeePriceByPercentage(baselineTipCap, cfg.BumpPercent(), cfg.BumpMin())
 
 	// Update bumpedTipCap if currentTipCap is higher than bumpedTipCap and within maxFeePrice
@@ -133,17 +133,16 @@ func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr log
 	} else if bumpedTipCap.Cmp(originalTipCap) <= 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
 		// FeeEstimator.BumpPercent and FeeEstimator.BumpMin in the config validation,
-		// but it's here anyway for a "belts and braces" approach
+		// It's here for extra precaution
 		return bumpedFeeCap, bumpedTipCap, errors.Wrapf(ErrBump, "bumped fee tip cap of %s is less than or equal to original fee tip cap of %s."+
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
 			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", bumpedTipCap.String(), originalTipCap)
 	}
 
-	// Always bump the FeeCap by at least the bump percentage (should be greater than or
-	// equal to than geth's configured bump minimum which is 10%)
-	// See: https://github.com/ethereum/go-ethereum/blob/bff330335b94af3643ac2fb809793f77de3069d4/core/tx_list.go#L298
-	bumpedFeeCap = Max(
-		AddPercentage(originalFeeCap, cfg.BumpPercent()),
+	// Always bump the FeeCap by at least the bump percentage
+	// For geth the configured bump is 10%
+	bumpedFeeCap = max(
+		addPercentage(originalFeeCap, cfg.BumpPercent()),
 		new(big.Int).Add(originalFeeCap, cfg.BumpMin()),
 	)
 
@@ -152,7 +151,7 @@ func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr log
 			lggr.Warnf("Ignoring current base fee of %s which is greater than max fee price of %s", currentBaseFee.String(), maxFeePrice.String())
 		} else {
 			currentFeeCap := calcFeeCap(currentBaseFee, int(feeCapBufferBlocks), bumpedTipCap, maxFeePrice)
-			bumpedFeeCap = Max(bumpedFeeCap, currentFeeCap)
+			bumpedFeeCap = max(bumpedFeeCap, currentFeeCap)
 		}
 	}
 
@@ -168,7 +167,7 @@ func calcFeeCap(latestAvailableBaseFeePerUnit *big.Int, bufferBlocks int, tipCap
 
 	baseFee := new(big.Float)
 	baseFee.SetInt(latestAvailableBaseFeePerUnit)
-	// Find out the worst case base fee before we should bump
+	// Find out the worst case base fee before we bump
 	multiplier := big.NewFloat(maxBaseFeeIncreasePerBlock)
 	for i := 0; i < bufferBlocks; i++ {
 		baseFee.Mul(baseFee, multiplier)
