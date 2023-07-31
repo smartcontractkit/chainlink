@@ -356,7 +356,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external override {
+  function proposeSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external override {
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
     _nonReentrant();
