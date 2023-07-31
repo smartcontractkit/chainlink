@@ -8,13 +8,13 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-func GetCeilingFeePrice(userSpecifiedMax, maxFee *big.Int) *big.Int {
+func FeePriceLimit(userSpecifiedMax, maxFee *big.Int) *big.Int {
 	return bigmath.Min(userSpecifiedMax, maxFee)
 }
 
 func CapFeePrice(calculatedFeePrice, userSpecifiedMax, maxFeePriceWei *big.Int, feeLimit uint32, multiplier float32) (maxFeePrice *big.Int, chainSpecificFeeLimit uint32) {
 	chainSpecificFeeLimit = ApplyMultiplier(feeLimit, multiplier)
-	maxFeePrice = GetCeilingFeePrice(userSpecifiedMax, maxFeePriceWei)
+	maxFeePrice = FeePriceLimit(userSpecifiedMax, maxFeePriceWei)
 	return bigmath.Min(calculatedFeePrice, maxFeePrice), chainSpecificFeeLimit
 }
 

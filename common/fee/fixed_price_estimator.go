@@ -58,7 +58,7 @@ func bumpGasPrice(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentGas
 }
 
 func getMaxGasPrice(userSpecifiedMax, maxGasPriceWei *big.Int) *big.Int {
-	return GetCeilingFeePrice(userSpecifiedMax, maxGasPriceWei)
+	return FeePriceLimit(userSpecifiedMax, maxGasPriceWei)
 }
 
 func bumpFeePrice(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits *big.Int) *big.Int {
