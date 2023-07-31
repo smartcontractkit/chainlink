@@ -111,7 +111,7 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, coordinatorContract
 }
 
 func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionId uint64) {
-	allowed, err := allowListContract.IsAllowedSender(nilOpts, owner.From)
+	allowed, err := allowListContract.HasAccess(nilOpts, owner.From, []byte{})
 	require.NoError(t, err)
 	if allowed == false {
 		messageHash, err := allowListContract.GetMessageHash(nilOpts, owner.From, owner.From)
@@ -328,7 +328,7 @@ func SetupRouterRoutes(t *testing.T, owner *bind.TransactOpts, routerContract *f
 	allowListId, err := routerContract.GetAllowListId(nilOpts)
 	require.NoError(t, err)
 	var donId [32]byte
-	copy(donId[:], "1")
+	copy(donId[:], DefaultDONId)
 	proposedContractSetIds := []([32]byte){allowListId, donId}
 	proposedContractSetAddresses := []common.Address{allowListAddress, coordinatorAddress}
 	_, err = routerContract.ProposeContractsUpdate(owner, proposedContractSetIds, proposedContractSetAddresses)
@@ -468,8 +468,6 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		Name: "ea_bridge",
 		URL:  models.WebURL(*u),
 	}))
-	var donId []byte
-	copy(donId[:], "1")
 	job, err := validate.ValidatedOracleSpecToml(app.Config.OCR2(), app.Config.Insecure(), fmt.Sprintf(`
 		type               = "offchainreporting2"
 		name               = "functions-node"
@@ -498,7 +496,9 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		requestTimeoutCheckFrequencySec = 10
 		requestTimeoutBatchLookupSize = 20
 		listenerEventHandlerTimeoutSec = 120
+		listenerEventsCheckFrequencyMillis = 1000
 		maxRequestSizeBytes = 30720
+		contractUpdateCheckFrequencySec = 1
 
 			[pluginConfig.decryptionQueueConfig]
 			completedCacheTimeoutSec = 300
@@ -510,7 +510,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 			[pluginConfig.s4Constraints]
 			maxPayloadSizeBytes = 10_1000
 			maxSlotsPerUser = 10
-	`, contractAddress, keyBundleID, transmitter, hex.EncodeToString(donId)))
+	`, contractAddress, keyBundleID, transmitter, DefaultDONId))
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
@@ -578,7 +578,8 @@ func CreateFunctionsNodes(
 	t *testing.T,
 	owner *bind.TransactOpts,
 	b *backends.SimulatedBackend,
-	coordinatorContractAddress common.Address,
+	routerAddress common.Address,
+	coordinatorAddress common.Address,
 	startingPort uint16,
 	nOracleNodes int,
 	maxGas int,
@@ -598,7 +599,8 @@ func CreateFunctionsNodes(
 	}
 
 	bootstrapNode = StartNewNode(t, owner, startingPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
-	AddBootstrapJob(t, bootstrapNode.App, coordinatorContractAddress)
+	// TODO(FUN-696): refactor bootstrap job to support Functions relayers
+	AddBootstrapJob(t, bootstrapNode.App, coordinatorAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
 	for i := 0; i < nOracleNodes; i++ {
@@ -623,7 +625,7 @@ func CreateFunctionsNodes(
 		ea := StartNewMockEA(t)
 		t.Cleanup(ea.Close)
 
-		_ = AddOCR2Job(t, oracleNodes[i], coordinatorContractAddress, oracleNode.Keybundle.ID(), oracleNode.Transmitter, ea.URL)
+		_ = AddOCR2Job(t, oracleNodes[i], routerAddress, oracleNode.Keybundle.ID(), oracleNode.Transmitter, ea.URL)
 	}
 
 	return bootstrapNode, oracleNodes, oracleIdentites
@@ -644,7 +646,7 @@ func ClientTestRequests(
 ) {
 	t.Helper()
 	var donId [32]byte
-	copy(donId[:], "1")
+	copy(donId[:], []byte(DefaultDONId))
 	subscriptionId := CreateAndFundSubscriptions(t, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
 	// send requests
 	requestSources := make([][]byte, len(clientContracts))

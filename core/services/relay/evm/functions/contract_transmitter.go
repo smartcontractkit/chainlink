@@ -3,7 +3,6 @@ package functions
 import (
 	"context"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync/atomic"
@@ -124,24 +123,26 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		}
 		destinationContract = *destinationContractPtr
 	} else if oc.contractVersion == 1 {
+		oc.lggr.Debugw("FunctionsContractTransmitter: start", "reportLenBytes", len(report))
 		requests, err2 := oc.reportCodec.DecodeReport(report)
 		if err2 != nil {
-			return errors.Wrap(err2, "DecodeReport failed")
+			return errors.Wrap(err2, "FunctionsContractTransmitter: DecodeReport failed")
 		}
 		if len(requests) == 0 {
-			return errors.New("no requests in report")
+			return errors.New("FunctionsContractTransmitter: no requests in report")
 		}
 		if len(requests[0].CoordinatorContract) != common.AddressLength {
-			return fmt.Errorf("incorrect length of CoordinatorContract field: %d", len(requests[0].CoordinatorContract))
+			return fmt.Errorf("FunctionsContractTransmitter: incorrect length of CoordinatorContract field: %d", len(requests[0].CoordinatorContract))
 		}
 		// NOTE: this is incorrect if batch contains requests destined for different contracts (unlikely)
 		// it will be fixed when we get rid of batching
 		destinationContract.SetBytes(requests[0].CoordinatorContract)
+		oc.lggr.Debugw("FunctionsContractTransmitter: ready", "nRequests", len(requests), "coordinatorContract", destinationContract.Hex())
 	} else {
 		return fmt.Errorf("unsupported contract version: %d", oc.contractVersion)
 	}
 
-	oc.lggr.Debugw("Transmitting report", "report", hex.EncodeToString(report), "rawReportCtx", rawReportCtx, "contractAddress", destinationContract, "txMeta", txMeta)
+	oc.lggr.Debugw("FunctionsContractTransmitter: transmitting report", "contractAddress", destinationContract, "txMeta", txMeta)
 
 	payload, err := oc.contractABI.Pack("transmit", rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
@@ -244,6 +245,7 @@ func (oc *contractTransmitter) UpdateRoutes(activeCoordinator common.Address, pr
 	if previousContract != nil && *previousContract == activeCoordinator {
 		return nil
 	}
+	oc.lggr.Debugw("FunctionsContractTransmitter: updating routes", "previousContract", previousContract, "activeCoordinator", activeCoordinator)
 	err := oc.lp.RegisterFilter(logpoller.Filter{Name: transmitterFilterName(activeCoordinator), EventSigs: []common.Hash{oc.transmittedEventSig}, Addresses: []common.Address{activeCoordinator}})
 	if err != nil {
 		return err

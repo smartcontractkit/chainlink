@@ -5,8 +5,8 @@ import {RouterBase, ITypeAndVersion} from "./RouterBase.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
-import {ITermsOfServiceAllowList} from "./accessControl/interfaces/ITermsOfServiceAllowList.sol";
-import {SafeCast} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
+import {IAccessController} from "../../../shared/interfaces/IAccessController.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
 
 contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions {
   // We limit return data to a selector plus 4 words. This is to avoid
@@ -133,7 +133,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes memory data,
     uint16 dataVersion,
     uint32 callbackGasLimit
-  ) private whenNotPaused returns (bytes32 requestId) {
+  ) private returns (bytes32 requestId) {
+    _whenNotPaused();
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
     _isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
@@ -217,7 +218,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint32 callbackGasLimit,
     bytes32 donId
   ) external override returns (bytes32) {
-    _nonReentrant();
     return _sendRequest(donId, false, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
@@ -231,8 +231,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint96 juelsPerGas,
     uint96 costWithoutFulfillment,
     address transmitter
-  ) external override whenNotPaused returns (uint8 resultCode, uint96 callbackGasCostJuels) {
-    _nonReentrant();
+  ) external override returns (uint8 resultCode, uint96 callbackGasCostJuels) {
+    _whenNotPaused();
 
     Commitment memory commitment = s_requestCommitments[requestId];
 
@@ -315,9 +315,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       response,
       err
     );
-    // Do not allow any non-view/non-pure coordinator functions to be called
-    // during the consumers callback code via reentrancyLock.
-    s_reentrancyLock = true;
+
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid payment.
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
@@ -370,8 +368,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       returndatacopy(add(returnData, 0x20), 0, toCopy)
     }
 
-    s_reentrancyLock = false;
-
     result = CallbackResult(success, gasUsed, returnData);
   }
 
@@ -404,8 +400,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     _validateOwnership();
   }
 
-  function _onlySenderThatAcceptedToS() internal override {
-    if (!ITermsOfServiceAllowList(_getContractById(ALLOW_LIST_ID, false)).isAllowedSender(msg.sender)) {
+  function _onlySenderThatAcceptedToS() internal view override {
+    if (!IAccessController(_getContractById(ALLOW_LIST_ID, false)).hasAccess(msg.sender, new bytes(0))) {
       revert SenderMustAcceptTermsOfService(msg.sender);
     }
   }

@@ -205,24 +205,11 @@ func (l *FunctionsListener) Start(context.Context) error {
 				},
 				MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
 			})
+			l.shutdownWaitGroup.Add(1)
+			go l.processOracleEventsV0()
 		case 1:
-			// TODO: Utilize Log Poller here instead to listen to:
-			// - Router.getContractById(PluginConfig.DONId, false) = current route
-			// - Router.getContractById(PluginConfig.DONId, false) = proposed route
-			// If current = proposed, only listen to current
-			coordinatorContract, err := functions_coordinator.NewFunctionsCoordinator(contractAddress, l.client)
-			if err != nil {
-				return err
-			}
-			unsubscribeLogs = l.logBroadcaster.Register(l, log.ListenerOpts{
-				Contract: coordinatorContract.Address(),
-				ParseLog: coordinatorContract.ParseLog,
-				LogsWithTopics: map[common.Hash][][]log.Topic{
-					functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic():  {},
-					functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(): {},
-				},
-				MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
-			})
+			l.shutdownWaitGroup.Add(1)
+			go l.processOracleEventsV1()
 		default:
 			return errors.New("Functions: unsupported PluginConfig.ContractVersion")
 		}
@@ -230,13 +217,14 @@ func (l *FunctionsListener) Start(context.Context) error {
 		if l.pluginConfig.ListenerEventHandlerTimeoutSec == 0 {
 			l.logger.Warn("listenerEventHandlerTimeoutSec set to zero! ORM calls will never time out.")
 		}
-		l.shutdownWaitGroup.Add(4)
-		go l.processOracleEvents()
+		l.shutdownWaitGroup.Add(3)
 		go l.timeoutRequests()
 		go l.pruneRequests()
 		go func() {
 			<-l.chStop
-			unsubscribeLogs()
+			if unsubscribeLogs != nil {
+				unsubscribeLogs() // v0 only
+			}
 			l.shutdownWaitGroup.Done()
 		}()
 
@@ -281,7 +269,7 @@ func (l *FunctionsListener) JobID() int32 {
 	return l.job.ID
 }
 
-func (l *FunctionsListener) processOracleEvents() {
+func (l *FunctionsListener) processOracleEventsV0() {
 	defer l.shutdownWaitGroup.Done()
 	for {
 		select {
@@ -321,30 +309,54 @@ func (l *FunctionsListener) processOracleEvents() {
 				case *ocr2dr_oracle.OCR2DROracleOracleResponse:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleResponse").Inc()
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("OracleResponse", log.RequestId, lb)
+					go l.handleOracleResponseV0("OracleResponse", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackError:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackError").Inc()
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("UserCallbackError", log.RequestId, lb)
+					go l.handleOracleResponseV0("UserCallbackError", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackRawError").Inc()
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
+					go l.handleOracleResponseV0("UserCallbackRawError", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleResponseTransmitted:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "ResponseTransmitted").Inc()
-				// Version 1
-				case *functions_coordinator.FunctionsCoordinatorOracleRequest:
-					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleRequest").Inc()
-					l.shutdownWaitGroup.Add(1)
-					go l.HandleOracleRequestV1(log, lb)
-				case *functions_coordinator.FunctionsCoordinatorOracleResponse:
-					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleResponse").Inc()
-					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("OracleResponse", log.RequestId, lb)
-				// TODO: handle other events
 				default:
 					l.logger.Warnf("Unexpected log type %T", log)
 				}
+			}
+		}
+	}
+}
+
+func (l *FunctionsListener) processOracleEventsV1() {
+	defer l.shutdownWaitGroup.Done()
+	freqMillis := l.pluginConfig.ListenerEventsCheckFrequencyMillis
+	if freqMillis == 0 {
+		l.logger.Errorw("ListenerEventsCheckFrequencyMillis must set to more than 0 in PluginConfig")
+		return
+	}
+	ticker := time.NewTicker(time.Duration(freqMillis) * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-l.chStop:
+			return
+		case <-ticker.C:
+			requests, responses, err := l.logPollerWrapper.LatestEvents()
+			if err != nil {
+				l.logger.Errorw("error when calling LatestEvents()", "err", err)
+				break
+			}
+			l.logger.Debugw("processOracleEventsV1: processing v1 events", "nRequests", len(requests), "nResponses", len(responses))
+			for _, request := range requests {
+				request := request
+				l.shutdownWaitGroup.Add(1)
+				go l.handleOracleRequestV1(&request)
+			}
+			for _, response := range responses {
+				response := response
+				l.shutdownWaitGroup.Add(1)
+				go l.handleOracleResponseV1(&response)
 			}
 		}
 	}
@@ -386,32 +398,29 @@ func (l *FunctionsListener) getMaxSecretsSize(flags RequestFlags) uint32 {
 	return l.pluginConfig.MaxSecretsSizesList[idx]
 }
 
-// TODO (FUN-662): call from LogPoller in a separate goroutine
-func (l *FunctionsListener) HandleOracleRequestV1(request *functions_coordinator.FunctionsCoordinatorOracleRequest, lb log.Broadcast) {
+func (l *FunctionsListener) handleOracleRequestV1(request *evmrelayTypes.OracleRequest) {
 	defer l.shutdownWaitGroup.Done()
-	l.logger.Infow("oracle request v1 received", "requestID", formatRequestId(request.RequestId))
+	l.logger.Infow("handleOracleRequestV1: oracle request v1 received", "requestID", formatRequestId(request.RequestId))
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
 
 	callbackGasLimit := uint32(request.CallbackGasLimit)
 	newReq := &Request{
 		RequestID:                  request.RequestId,
-		RequestTxHash:              &request.Raw.TxHash,
+		RequestTxHash:              &request.TxHash,
 		ReceivedAt:                 time.Now(),
 		Flags:                      request.Flags[:],
 		CallbackGasLimit:           &callbackGasLimit,
-		CoordinatorContractAddress: &request.Raw.Address,
+		CoordinatorContractAddress: &request.CoordinatorContract,
 	}
 	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
 		if errors.Is(err, ErrDuplicateRequestID) {
-			l.logger.Warnw("received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
-			l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+			l.logger.Warnw("handleOracleRequestV1: received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
 		} else {
-			l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
+			l.logger.Errorw("handleOracleRequestV1: failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
 		}
 		return
 	}
-	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 
 	promRequestDataSize.WithLabelValues(l.contractAddressHex).Observe(float64(len(request.Data)))
 	requestData, err := l.parseCBOR(request.RequestId, request.Data, l.getMaxCBORsize(request.Flags))
@@ -536,7 +545,19 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 	}
 }
 
-func (l *FunctionsListener) handleOracleResponse(responseType string, requestID [32]byte, lb log.Broadcast) {
+func (l *FunctionsListener) handleOracleResponseV1(response *evmrelayTypes.OracleResponse) {
+	defer l.shutdownWaitGroup.Done()
+	l.logger.Infow("oracle response v1 received", "requestID", formatRequestId(response.RequestId))
+
+	ctx, cancel := l.getNewHandlerContext()
+	defer cancel()
+	if err := l.pluginORM.SetConfirmed(response.RequestId, pg.WithParentCtx(ctx)); err != nil {
+		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(response.RequestId), "err", err)
+	}
+	promRequestConfirmed.WithLabelValues(l.contractAddressHex, "OracleResponse").Inc()
+}
+
+func (l *FunctionsListener) handleOracleResponseV0(responseType string, requestID [32]byte, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("oracle response received", "type", responseType, "requestID", formatRequestId(requestID))
 
@@ -650,7 +671,7 @@ func (l *FunctionsListener) reportSourceCodeDomains(requestId RequestID, domains
 
 func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID string, subscriptionOwner common.Address, requestData *RequestData) (decryptedSecrets string, userError, internalError error) {
 	if l.decryptor == nil {
-		l.logger.Errorf("Decryptor not configured")
+		l.logger.Warn("Decryptor not configured")
 		return "", nil, nil
 	}
 

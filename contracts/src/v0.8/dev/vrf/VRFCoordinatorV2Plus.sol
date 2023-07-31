@@ -430,6 +430,10 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     // to give the callee their requested amount.
     bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
 
+    // Increment the req count for the subscription.
+    uint64 reqCount = s_subscriptions[rc.subId].reqCount;
+    s_subscriptions[rc.subId].reqCount = reqCount + 1;
+
     // stack too deep error
     {
       bool nativePayment = _fromBytes(rc.extraArgs).nativePayment;
@@ -676,7 +680,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     if (!isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
-    (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) = getSubscription(subId);
+    (uint96 balance, uint96 ethBalance, , address owner, address[] memory consumers) = getSubscription(subId);
     require(owner == msg.sender, "Not subscription owner");
     require(!pendingRequestExists(subId), "Pending request exists");
 

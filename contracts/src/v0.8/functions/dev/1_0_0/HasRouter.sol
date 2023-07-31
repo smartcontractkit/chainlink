@@ -9,7 +9,7 @@ import {IOwnableRouter} from "./interfaces/IOwnableRouter.sol";
 abstract contract HasRouter is ITypeAndVersion, IConfigurable {
   bytes32 internal s_configHash;
 
-  IOwnableRouter private s_router;
+  IOwnableRouter internal immutable s_router;
 
   error RouterMustBeSet();
   error OnlyCallableByRouter();
