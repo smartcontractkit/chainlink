@@ -32,8 +32,6 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   }
   mapping(bytes32 requestId => Commitment) private s_requestCommitments;
 
-  event RequestTimedOut(bytes32 indexed requestId);
-
   // ================================================================
   // |                     Configuration state                      |
   // ================================================================
@@ -428,7 +426,6 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     }
     // Delete commitment
     delete s_requestCommitments[requestId];
-    emit RequestTimedOut(requestId);
     return true;
   }
 

@@ -88,6 +88,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint96 totalCostJuels;
   }
 
+  event RequestTimedOut(bytes32 indexed requestId);
+
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
@@ -537,14 +539,15 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       }
 
       IFunctionsBilling coordinator = IFunctionsBilling(request.coordinator);
+      coordinator.deleteCommitment(requestId);
 
-      if (coordinator.deleteCommitment(requestId)) {
-        // Release blocked balance
-        s_subscriptions[subscriptionId].blockedBalance -= request.estimatedCost;
-        s_consumers[request.client][subscriptionId].completedRequests += 1;
-        // Delete commitment
-        delete s_requestCommitments[requestId];
-      }
+      // Release blocked balance
+      s_subscriptions[subscriptionId].blockedBalance -= request.estimatedCost;
+      s_consumers[request.client][subscriptionId].completedRequests += 1;
+      // Delete commitment
+      delete s_requestCommitments[requestId];
+
+      emit RequestTimedOut(requestId);
     }
   }
 
