@@ -347,6 +347,11 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     }
   }
 
+  function sendLog(uint256 upkeepId) external {
+    uint256 blockNum = getBlockNumber();
+    emit LogEmitted(upkeepId, blockNum, address(this));
+  }
+
   function getDelaysLength(uint256 upkeepId) public view returns (uint256) {
     return delays[upkeepId].length;
   }
