@@ -4,13 +4,12 @@ pragma solidity ^0.8.19;
 
 import {IConfigurable} from "./interfaces/IConfigurable.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {IRouterBase} from "./interfaces/IRouterBase.sol";
-import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
+import {IOwnableRouter} from "./interfaces/IOwnableRouter.sol";
 
 abstract contract HasRouter is ITypeAndVersion, IConfigurable {
   bytes32 internal s_configHash;
 
-  IRouterBase private s_router;
+  IOwnableRouter private s_router;
 
   error RouterMustBeSet();
   error OnlyCallableByRouter();
@@ -23,11 +22,11 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
     if (router == address(0)) {
       revert RouterMustBeSet();
     }
-    s_router = IRouterBase(router);
+    s_router = IOwnableRouter(router);
     updateConfig(config);
   }
 
-  function _getRouter() internal view returns (IRouterBase router) {
+  function _getRouter() internal view returns (IOwnableRouter router) {
     return s_router;
   }
 
@@ -67,7 +66,7 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
    * @notice Reverts if called by anyone other than the router owner.
    */
   modifier onlyRouterOwner() {
-    if (msg.sender != IOwnable(address(s_router)).owner()) {
+    if (msg.sender != IOwnableRouter(address(s_router)).owner()) {
       revert OnlyCallableByRouterOwner();
     }
     _;
