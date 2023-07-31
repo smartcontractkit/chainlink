@@ -21,7 +21,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230730203755-cd05cd40da5d
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230724105022-c5e49b4195ac
-	github.com/smartcontractkit/ocr2keepers v1.0.0-alpha.0
+	github.com/smartcontractkit/ocr2keepers v0.7.2
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230616201444-d8b4222aff3c
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.4
@@ -355,7 +355,7 @@ require (
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230620171700-bbcb3a99b7d3 // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
-	github.com/smartcontractkit/wasp v0.2.9-0.20230726172130-3a7d3c6f365c // indirect
+	github.com/smartcontractkit/wasp v0.2.7 // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
@@ -469,6 +469,7 @@ replace (
 
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
 	github.com/hashicorp/go-plugin => github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75
+
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.43.1-0.20230327151049-211ae4f1f0a2
 	github.com/sercand/kuberesolver v2.4.0+incompatible => github.com/sercand/kuberesolver/v5 v5.1.0
 
