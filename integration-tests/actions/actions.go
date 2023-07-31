@@ -32,7 +32,7 @@ var ContractDeploymentInterval = 200
 
 // FundChainlinkNodes will fund all of the provided Chainlink nodes with a set amount of native currency
 func FundChainlinkNodes(
-	nodes []*client.Chainlink,
+	nodes []*client.ChainlinkK8sClient,
 	client blockchain.EVMClient,
 	amount *big.Float,
 ) error {
@@ -55,7 +55,7 @@ func FundChainlinkNodes(
 
 // FundChainlinkNodesAddress will fund all of the provided Chainlink nodes address at given index with a set amount of native currency
 func FundChainlinkNodesAddress(
-	nodes []*client.Chainlink,
+	nodes []*client.ChainlinkK8sClient,
 	client blockchain.EVMClient,
 	amount *big.Float,
 	keyIndex int,
@@ -79,7 +79,7 @@ func FundChainlinkNodesAddress(
 
 // FundChainlinkNodesAddress will fund all of the provided Chainlink nodes addresses with a set amount of native currency
 func FundChainlinkNodesAddresses(
-	nodes []*client.Chainlink,
+	nodes []*client.ChainlinkK8sClient,
 	client blockchain.EVMClient,
 	amount *big.Float,
 ) error {
@@ -104,7 +104,7 @@ func FundChainlinkNodesAddresses(
 
 // FundChainlinkNodes will fund all of the provided Chainlink nodes with a set amount of native currency
 func FundChainlinkNodesLink(
-	nodes []*client.Chainlink,
+	nodes []*client.ChainlinkK8sClient,
 	blockchain blockchain.EVMClient,
 	linkToken contracts.LinkToken,
 	linkAmount *big.Int,
@@ -123,7 +123,7 @@ func FundChainlinkNodesLink(
 }
 
 // ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes
-func ChainlinkNodeAddresses(nodes []*client.Chainlink) ([]common.Address, error) {
+func ChainlinkNodeAddresses(nodes []*client.ChainlinkK8sClient) ([]common.Address, error) {
 	addresses := make([]common.Address, 0)
 	for _, node := range nodes {
 		primaryAddress, err := node.PrimaryEthAddress()
@@ -136,7 +136,7 @@ func ChainlinkNodeAddresses(nodes []*client.Chainlink) ([]common.Address, error)
 }
 
 // ChainlinkNodeAddressesAtIndex will return all the on-chain wallet addresses for a set of Chainlink nodes
-func ChainlinkNodeAddressesAtIndex(nodes []*client.Chainlink, keyIndex int) ([]common.Address, error) {
+func ChainlinkNodeAddressesAtIndex(nodes []*client.ChainlinkK8sClient, keyIndex int) ([]common.Address, error) {
 	addresses := make([]common.Address, 0)
 	for _, node := range nodes {
 		nodeAddresses, err := node.EthAddresses()
@@ -149,7 +149,7 @@ func ChainlinkNodeAddressesAtIndex(nodes []*client.Chainlink, keyIndex int) ([]c
 }
 
 // SetChainlinkAPIPageSize specifies the page size from the Chainlink API, useful for high volume testing
-func SetChainlinkAPIPageSize(nodes []*client.Chainlink, pageSize int) {
+func SetChainlinkAPIPageSize(nodes []*client.ChainlinkK8sClient, pageSize int) {
 	for _, n := range nodes {
 		n.SetPageSize(pageSize)
 	}
@@ -192,7 +192,7 @@ func EncodeOnChainVRFProvingKey(vrfKey client.VRFKey) ([2]*big.Int, error) {
 // GetMockserverInitializerDataForOTPE creates mocked weiwatchers data needed for otpe
 func GetMockserverInitializerDataForOTPE(
 	OCRInstances []contracts.OffchainAggregator,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 ) (interface{}, error) {
 	var contractsInfo []ctfClient.ContractInfoJSON
 
@@ -240,7 +240,7 @@ func TeardownSuite(
 	t *testing.T,
 	env *environment.Environment,
 	logsFolderPath string,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
 	clients ...blockchain.EVMClient,
@@ -285,7 +285,7 @@ func TeardownSuite(
 func TeardownRemoteSuite(
 	t *testing.T,
 	env *environment.Environment,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
@@ -308,7 +308,7 @@ func TeardownRemoteSuite(
 	return err
 }
 
-func DeleteAllJobs(chainlinkNodes []*client.Chainlink) error {
+func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
 	for _, node := range chainlinkNodes {
 		jobs, _, err := node.ReadJobs()
 		if err != nil {
@@ -329,7 +329,7 @@ func DeleteAllJobs(chainlinkNodes []*client.Chainlink) error {
 }
 
 // Returns all the funds from the chainlink nodes to the networks default address
-func returnFunds(chainlinkNodes []*client.Chainlink, blockchainClient blockchain.EVMClient) error {
+func returnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient blockchain.EVMClient) error {
 	if blockchainClient == nil {
 		log.Warn().Msg("No blockchain client found, unable to return funds from chainlink nodes.")
 	}
@@ -391,7 +391,7 @@ func EncodeOnChainExternalJobID(jobID uuid.UUID) [32]byte {
 func UpgradeChainlinkNodeVersions(
 	testEnvironment *environment.Environment,
 	newImage, newVersion string,
-	nodes ...*client.Chainlink,
+	nodes ...*client.ChainlinkK8sClient,
 ) error {
 	if newImage == "" && newVersion == "" {
 		return errors.New("unable to upgrade node version, found empty image and version, must provide either a new image or a new version")

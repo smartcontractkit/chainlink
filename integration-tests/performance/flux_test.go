@@ -109,8 +109,8 @@ func TestFluxPerformance(t *testing.T) {
 		require.NoError(t, err, "Creating flux job shouldn't fail for node %d", i+1)
 	}
 
-	profileFunction := func(chainlinkNode *client.Chainlink) {
-		if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1] {
+	profileFunction := func(chainlinkNode *client.ChainlinkClient) {
+		if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1].ChainlinkClient {
 			// Not the last node, hence not all nodes started profiling yet.
 			return
 		}
