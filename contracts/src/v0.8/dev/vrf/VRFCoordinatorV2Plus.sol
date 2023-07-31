@@ -430,7 +430,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     // to give the callee their requested amount.
     bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
 
-    // Increment the req count for fee tier selection.
+    // Increment the req count for the subscription.
     uint64 reqCount = s_subscriptions[rc.subId].reqCount;
     s_subscriptions[rc.subId].reqCount = reqCount + 1;
 
