@@ -9,7 +9,7 @@ import {AutomationRegistryExecutableInterface, UpkeepInfo} from "../../interface
 import "../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
 import "../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
-import "../../OCR2Abstract.sol";
+import {OCR2Abstract} from "../../shared/ocr2/OCR2Abstract.sol";
 
 /**
  _.  _|_ _ ._ _  _._|_o _ ._  o _  _    ._  _| _  __|_o._

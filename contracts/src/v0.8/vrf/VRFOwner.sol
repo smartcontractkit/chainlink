@@ -2,7 +2,7 @@
 pragma solidity ^0.8.6;
 
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
-import {AuthorizedReceiver} from "../AuthorizedReceiver.sol";
+import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
 import "./VRFTypes.sol";
 
 // Taken from VRFCoordinatorV2.sol

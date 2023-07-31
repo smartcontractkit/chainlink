@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../interfaces/ITypeAndVersion.sol";
 
-abstract contract OCR2Abstract is TypeAndVersionInterface {
+abstract contract OCR2Abstract is ITypeAndVersion {
   // Maximum number of oracles the offchain reporting protocol is designed for
   uint256 internal constant maxNumOracles = 31;
   uint256 private constant prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00

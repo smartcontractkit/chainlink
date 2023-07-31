@@ -6,7 +6,7 @@ import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
 import "../../../interfaces/ERC677ReceiverInterface.sol";
-import "../../../OCR2Abstract.sol";
+import "../../../shared/ocr2/OCR2Abstract.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
