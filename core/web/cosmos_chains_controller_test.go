@@ -106,23 +106,23 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainA := &cosmos.CosmosConfig{
-		ChainID: ptr(cosmostest.RandomChainID()),
+		ChainID: ptr("a" + cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
 			FallbackGasPrice: ptr(decimal.RequireFromString("9.999")),
 		},
 	}
-	/*
-		chainB := &cosmos.CosmosConfig{
-			ChainID: ptr(cosmostest.RandomChainID()),
-			Enabled: ptr(true),
-			Chain: coscfg.Chain{
-				GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
-			},
-		}
-		controller := setupCosmosChainsControllerTestV2(t, chainA, chainB)
-	*/
-	controller := setupCosmosChainsControllerTestV2(t, chainA)
+
+	chainB := &cosmos.CosmosConfig{
+		ChainID: ptr("b" + cosmostest.RandomChainID()),
+		Enabled: ptr(true),
+		Chain: coscfg.Chain{
+			GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
+		},
+	}
+	controller := setupCosmosChainsControllerTestV2(t, chainA, chainB)
+
+	//controller := setupCosmosChainsControllerTestV2(t, chainA)
 
 	badResp, cleanup := controller.client.Get("/v2/chains/cosmos?size=asd")
 	t.Cleanup(cleanup)
@@ -136,8 +136,7 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 
 	metaCount, err := cltest.ParseJSONAPIResponseMetaCount(body)
 	require.NoError(t, err)
-	//	require.Equal(t, 2, metaCount)
-	require.Equal(t, 1, metaCount)
+	require.Equal(t, 2, metaCount)
 
 	var links jsonapi.Links
 
