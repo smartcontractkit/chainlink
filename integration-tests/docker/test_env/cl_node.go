@@ -26,7 +26,7 @@ import (
 type ClNode struct {
 	NodeC    tc.Container
 	DbC      *tc.Container
-	API      *client.Chainlink
+	API      *client.ChainlinkClient
 	Networks []string
 }
 
@@ -122,7 +122,7 @@ func (m *ClNode) StartContainer(lw *logwatch.LogWatch, nodeConfOpts node.NodeCon
 		Str("clEndpoint", clEndpoint).
 		Msg("Started Chainlink Node container")
 
-	clClient, err := client.NewChainlink(&client.ChainlinkConfig{
+	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
 		URL:      clEndpoint,
 		Email:    "local@local.com",
 		Password: "localdevpassword",
