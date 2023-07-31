@@ -31,7 +31,7 @@ type VRFV2SoakTest struct {
 	TestReporter testreporters.VRFV2SoakTestReporter
 
 	testEnvironment *environment.Environment
-	ChainlinkNodes  []*client.Chainlink
+	ChainlinkNodes  []*client.ChainlinkK8sClient
 	chainClient     blockchain.EVMClient
 	DefaultNetwork  blockchain.EVMClient
 
@@ -59,7 +59,7 @@ type VRFV2SoakTestInputs struct {
 }
 
 // NewVRFV2SoakTest creates a new vrfv2 soak test to setup and run
-func NewVRFV2SoakTest(inputs *VRFV2SoakTestInputs, chainlinkNodes []*client.Chainlink) *VRFV2SoakTest {
+func NewVRFV2SoakTest(inputs *VRFV2SoakTestInputs, chainlinkNodes []*client.ChainlinkK8sClient) *VRFV2SoakTest {
 	return &VRFV2SoakTest{
 		Inputs: inputs,
 		TestReporter: testreporters.VRFV2SoakTestReporter{
@@ -162,7 +162,7 @@ func requestAndValidate(t *VRFV2SoakTest, requestNumber int) {
 func (v *VRFV2SoakTest) TearDownVals(t *testing.T) (
 	*testing.T,
 	*environment.Environment,
-	[]*client.Chainlink,
+	[]*client.ChainlinkK8sClient,
 	reportModel.TestReporter,
 	blockchain.EVMClient,
 ) {
