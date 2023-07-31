@@ -57,7 +57,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   error InvalidSubscription();
   error OnlyCallableFromLink();
   error InvalidCalldata();
-  error MustBeSubOwner();
+  error MustBeSubscriptionOwner();
   error PendingRequestExists();
   error MustBeRequestedOwner(address proposedOwner);
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
@@ -528,7 +528,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       _isValidSubscription(subscriptionId);
       address owner = s_subscriptions[subscriptionId].owner;
       if (msg.sender != owner) {
-        revert MustBeSubOwner();
+        revert MustBeSubscriptionOwner();
       }
 
       // Check that request has exceeded allowed request time
@@ -558,7 +558,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       revert InvalidSubscription();
     }
     if (msg.sender != owner) {
-      revert MustBeSubOwner();
+      revert MustBeSubscriptionOwner();
     }
   }
 
