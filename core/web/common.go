@@ -1,6 +1,8 @@
 package web
 
 import (
+	"math/big"
+
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -15,6 +17,12 @@ var (
 func getChain(legacyChains evm.LegacyChainContainer, chainIDstr string) (chain evm.Chain, err error) {
 	if legacyChains.Len() > 1 {
 		return nil, ErrMultipleChains
+	}
+
+	// evm keys are expected to be parsable as a big int
+	_, ok := big.NewInt(0).SetString(chainIDstr, 10)
+	if !ok {
+		return nil, ErrInvalidChainID
 	}
 
 	if chainIDstr != "" && chainIDstr != "<nil>" {

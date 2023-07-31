@@ -93,7 +93,7 @@ func (c *ChainRelayerExtenders) Len() int {
 // implements OneChain
 type ChainRelayerExt struct {
 	chain Chain
-	// TODO remove chain altogether. chainset is an implementation detail
+	// TODO remove this altogether. chainset is an implementation detail
 	// that enables use to reuse config logic but the notion of a chainset is
 	// confusing and unneeded in our desired end state where there is 1:1
 	// relayer:chain

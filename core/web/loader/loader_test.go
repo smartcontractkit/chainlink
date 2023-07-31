@@ -15,20 +15,18 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	jobORMMocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	evmrelaymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -70,9 +68,11 @@ func TestLoader_Nodes(t *testing.T) {
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
-	var mockedLoopAdapters []*evmrelaymocks.LoopRelayAdapter
-	chainID1, chainID2 := big.NewInt(1), big.NewInt(2)
-	notAnId := big.NewInt(3)
+	//var mockedLoopAdapters []*evmrelaymocks.LoopRelayAdapter
+	chainID1, chainID2, notAnID := big.NewInt(1), big.NewInt(2), big.NewInt(3)
+	relayID1 := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(chainID1.String())}
+	relayID2 := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(chainID2.String())}
+	notARelayID := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(notAnID.String())}
 
 	genNodeStat := func(id string) relaytypes.NodeStatus {
 		return relaytypes.NodeStatus{
@@ -80,27 +80,16 @@ func TestLoader_Nodes(t *testing.T) {
 			ChainID: id,
 		}
 	}
-	rcInterops := chainlink.NewCoreRelayerChainInteroperators()
-	for _, id := range []*big.Int{chainID1, chainID2} {
-		adpater := evmrelaymocks.NewLoopRelayAdapter(t) //evmmocks.NewChainSet(t)
-
-		nodeStat := genNodeStat(id.String())
-
-		chainMock := evmmocks.NewChain(t)
-		adpater.On("Chain").Return(chainMock)
-		adpater.On("Default").Return(false)
-		adpater.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return([]relaytypes.NodeStatus{
-			nodeStat,
-		}, 1, nil)
-		mockedLoopAdapters = append(mockedLoopAdapters, adpater)
-		assert.NoError(t, rcInterops.Put(relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(id.String())}, adpater))
-
-	}
+	rcInterops := chainlinkmocks.NewRelayerChainInteroperators(t)
+	rcInterops.On("NodeStatuses", mock.Anything, mock.Anything, mock.Anything,
+		relayID2.String(), relayID1.String(), notARelayID.String()).Return([]relaytypes.NodeStatus{
+		genNodeStat(chainID2.String()), genNodeStat(chainID1.String()),
+	}, 2, nil)
 
 	app.On("GetRelayers").Return(rcInterops)
 	batcher := nodeBatcher{app}
 
-	keys := dataloader.NewKeysFromStrings([]string{chainID2.String(), chainID1.String(), notAnId.String()})
+	keys := dataloader.NewKeysFromStrings([]string{chainID2.String(), chainID1.String(), notAnID.String()})
 	found := batcher.loadByChainIDs(ctx, keys)
 
 	require.Len(t, found, 3)

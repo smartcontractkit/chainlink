@@ -3,12 +3,11 @@
 package mocks
 
 import (
-	adapters "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
+	context "context"
+
 	chainlink "github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	chains "github.com/smartcontractkit/chainlink/v2/core/chains"
-
-	context "context"
+	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 
 	evm "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 
@@ -114,15 +113,15 @@ func (_m *RelayerChainInteroperators) Get(id relay.Identifier) (internal.Relayer
 }
 
 // LegacyCosmosChains provides a mock function with given fields:
-func (_m *RelayerChainInteroperators) LegacyCosmosChains() *chains.ChainsKV[adapters.Chain] {
+func (_m *RelayerChainInteroperators) LegacyCosmosChains() cosmos.LegacyChainContainer {
 	ret := _m.Called()
 
-	var r0 *chains.ChainsKV[adapters.Chain]
-	if rf, ok := ret.Get(0).(func() *chains.ChainsKV[adapters.Chain]); ok {
+	var r0 cosmos.LegacyChainContainer
+	if rf, ok := ret.Get(0).(func() cosmos.LegacyChainContainer); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*chains.ChainsKV[adapters.Chain])
+			r0 = ret.Get(0).(cosmos.LegacyChainContainer)
 		}
 	}
 

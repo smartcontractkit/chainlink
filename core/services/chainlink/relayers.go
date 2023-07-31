@@ -27,7 +27,7 @@ import (
 //
 // the generated mockery code incorrectly resolves dependencies and needs to be manually edited
 // therefore this interface is not auto-generated. for reference use and edit the result:
-// `go:generate mockery --quiet --name RelayerChainInteroperators --output ./mocks/ --case=underscore`
+// `go:generate mockery --quiet --name RelayerChainInteroperators --output ./mocks/ --case=underscore“
 type RelayerChainInteroperators interface {
 	Services() []services.ServiceCtx
 
@@ -233,7 +233,11 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 			totalErr = errors.Join(totalErr, err)
 			continue
 		}
-		relayer := rs.relayers[*rid]
+		relayer, exist := rs.relayers[*rid]
+		if !exist {
+			totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
+			continue
+		}
 		nodeStats, _, err := relayer.NodeStatuses(ctx, offset, limit, rid.ChainID.String())
 
 		if err != nil {
