@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -303,25 +304,20 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 42, fromAddress)
 
 	lggr := logger.TestLogger(t)
-	opts := evm.ChainRelayExtOpts{
-		Logger:   lggr,
-		DB:       sqlxDB,
-		KeyStore: keyStore.Eth(),
-		RelayerFactoryOpts: evm.RelayerFactoryOpts{
-			Config:           config,
-			EventBroadcaster: pg.NewNullEventBroadcaster(),
-
-			MailMon: &utils.MailboxMonitor{},
-		},
-	}
 
 	app := mocks.NewApplication(t)
 	app.On("GetSqlxDB").Return(sqlxDB)
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("ID").Maybe().Return(uuid.New())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))
+
+	mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
+	mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+	app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
+
 	//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
-	app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore)).Maybe()
+	//	app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore)).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
 
 	//lggr := logger.TestLogger(t)
@@ -394,17 +390,6 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress)
 
 			lggr := logger.TestLogger(t)
-			opts := evm.ChainRelayExtOpts{
-				Logger:   lggr,
-				DB:       sqlxDB,
-				KeyStore: keyStore.Eth(),
-				RelayerFactoryOpts: evm.RelayerFactoryOpts{
-					Config:           config,
-					EventBroadcaster: pg.NewNullEventBroadcaster(),
-
-					MailMon: &utils.MailboxMonitor{},
-				},
-			}
 
 			app := mocks.NewApplication(t)
 			app.On("GetSqlxDB").Return(sqlxDB)
@@ -412,8 +397,11 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
-			app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore)).Maybe()
+			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))
+
+			mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
+			mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 
 			client := cmd.Shell{
 				Config:                 config,
@@ -465,10 +453,8 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 
 			config, sqlxDB := heavyweight.FullTestDBV2(t, "rebroadcasttransactions_outsiderange", func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Database.Dialect = dialects.Postgres
-				c.EVM[0].Nodes[0].Name = ptr("fake")
-				c.EVM[0].Nodes[0].WSURL = models.MustParseURL("WSS://fake.com/ws")
-				c.EVM[0].Nodes[0].HTTPURL = models.MustParseURL("http://fake.com")
-				//c.EVM = nil
+
+				c.EVM = nil
 				// seems to be needed for config validate
 				c.Insecure.OCRDevelopmentMode = nil
 			})
@@ -478,33 +464,23 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
 			if !test.enableAddress {
-				//err := keyStore.Eth().Disable(fromAddress, big.NewInt(0))
 				err := keyStore.Eth().Disable(fromAddress, testutils.FixtureChainID)
 				require.NoError(t, err, "failed to disable test key")
 			}
 
 			lggr := logger.TestLogger(t)
-			opts := evm.ChainRelayExtOpts{
-				Logger:   lggr,
-				DB:       sqlxDB,
-				KeyStore: keyStore.Eth(),
-				RelayerFactoryOpts: evm.RelayerFactoryOpts{
-					Config:           config,
-					EventBroadcaster: pg.NewNullEventBroadcaster(),
 
-					MailMon: &utils.MailboxMonitor{},
-				},
-			}
-
-			testRelayers := genTestEVMRelayers(t, opts, keyStore)
 			app := mocks.NewApplication(t)
 			app.On("GetSqlxDB").Maybe().Return(sqlxDB)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
-			app.On("GetRelayers").Return(testRelayers).Maybe()
+			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))
+
+			mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
+			mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
+			app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
 			ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(clienttypes.Successful, nil)
 
 			client := cmd.Shell{

@@ -590,7 +590,8 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	//hack. default to simulated id until figure out how to
 	// plumb ctx in tests
-	chainID := big.NewInt(1337)
+	//	chainID := big.NewInt(1337)
+	var chainID *big.Int
 	if chainIDStr != "" {
 		var ok bool
 		chainID, ok = big.NewInt(0).SetString(chainIDStr, 10)
