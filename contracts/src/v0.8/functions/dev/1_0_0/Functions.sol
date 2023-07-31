@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {CBOR, Buffer} from "../../../shared/vendor/solidity-cborutils/v2.0.0/CBOR.sol";
+import {CBOR, Buffer} from "../../../vendor/solidity-cborutils/v2.0.0/CBOR.sol";
 
 /**
  * @title Library for Chainlink Functions
@@ -59,7 +59,7 @@ library Functions {
     if (self.args.length > 0) {
       CBOR.writeString(buffer, "args");
       CBOR.startArray(buffer);
-      for (uint256 i = 0; i < self.args.length; i++) {
+      for (uint256 i = 0; i < self.args.length; ++i) {
         CBOR.writeString(buffer, self.args[i]);
       }
       CBOR.endSequence(buffer);
@@ -78,7 +78,7 @@ library Functions {
     if (self.bytesArgs.length > 0) {
       CBOR.writeString(buffer, "bytesArgs");
       CBOR.startArray(buffer);
-      for (uint256 i = 0; i < self.bytesArgs.length; i++) {
+      for (uint256 i = 0; i < self.bytesArgs.length; ++i) {
         CBOR.writeBytes(buffer, self.bytesArgs[i]);
       }
       CBOR.endSequence(buffer);

@@ -8,8 +8,8 @@ interface IFunctionsSubscriptions {
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
     uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
-    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub.
+    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
     address requestedOwner; // For safely transferring sub ownership.
     // Maintains the list of keys in s_consumers.
     // We do this for 2 reasons:

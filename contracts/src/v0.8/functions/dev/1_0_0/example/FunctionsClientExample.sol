@@ -13,11 +13,11 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
 
   uint32 public constant MAX_CALLBACK_GAS = 70_000;
 
-  bytes32 public lastRequestId;
-  bytes32 public lastResponse;
-  bytes32 public lastError;
-  uint32 public lastResponseLength;
-  uint32 public lastErrorLength;
+  bytes32 public s_lastRequestId;
+  bytes32 public s_lastResponse;
+  bytes32 public s_lastError;
+  uint32 public s_lastResponseLength;
+  uint32 public s_lastErrorLength;
 
   error UnexpectedRequestID(bytes32 requestId);
 
@@ -41,7 +41,7 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
     req.initializeRequestForInlineJavaScript(source);
     if (encryptedSecretsReferences.length > 0) req.addSecretsReference(encryptedSecretsReferences);
     if (args.length > 0) req.addArgs(args);
-    lastRequestId = _sendRequest(req, subscriptionId, MAX_CALLBACK_GAS, jobId);
+    s_lastRequestId = _sendRequest(req, subscriptionId, MAX_CALLBACK_GAS, jobId);
   }
 
   /**
@@ -52,23 +52,22 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
    * Either response or error parameter will be set, but never both
    */
   function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
-    if (lastRequestId != requestId) {
+    if (s_lastRequestId != requestId) {
       revert UnexpectedRequestID(requestId);
     }
-    // Save only the first 32 bytes of reponse/error to always fit within MAX_CALLBACK_GAS
-    lastResponse = bytesToBytes32(response);
-    lastResponseLength = uint32(response.length);
-    lastError = bytesToBytes32(err);
-    lastErrorLength = uint32(err.length);
+    // Save only the first 32 bytes of response/error to always fit within MAX_CALLBACK_GAS
+    s_lastResponse = bytesToBytes32(response);
+    s_lastResponseLength = uint32(response.length);
+    s_lastError = bytesToBytes32(err);
+    s_lastErrorLength = uint32(err.length);
   }
 
-  function bytesToBytes32(bytes memory b) private pure returns (bytes32) {
-    bytes32 out;
+  function bytesToBytes32(bytes memory b) private pure returns (bytes32 out) {
     uint256 maxLen = 32;
     if (b.length < 32) {
       maxLen = b.length;
     }
-    for (uint256 i = 0; i < maxLen; i++) {
+    for (uint256 i = 0; i < maxLen; ++i) {
       out |= bytes32(b[i]) >> (i * 8);
     }
     return out;

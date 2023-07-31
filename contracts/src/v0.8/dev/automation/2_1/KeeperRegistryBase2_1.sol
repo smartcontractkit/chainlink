@@ -6,7 +6,7 @@ import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol
 import "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../../../vendor/@eth-optimism/contracts/0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../../../automation/ExecutionPrevention.sol";
-import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "./interfaces/FeedLookupCompatibleInterface.sol";
 import "./interfaces/ILogAutomation.sol";
 import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";

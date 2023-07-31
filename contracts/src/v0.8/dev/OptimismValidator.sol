@@ -9,7 +9,7 @@ import "../SimpleWriteAccessController.sol";
 
 import "./interfaces/OptimismSequencerUptimeFeedInterface.sol";
 import "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";
-import "./vendor/openzeppelin-solidity/v4.3.1/contracts/utils/Address.sol";
+import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 
 /**
  * @title OptimismValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
