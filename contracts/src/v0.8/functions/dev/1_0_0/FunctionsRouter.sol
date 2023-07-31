@@ -5,10 +5,15 @@ import {RouterBase, ITypeAndVersion} from "./RouterBase.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
-import {ITermsOfServiceAllowList} from "./accessControl/interfaces/ITermsOfServiceAllowList.sol";
+import {IAccessController} from "../../../shared/interfaces/IAccessController.sol";
 import {SafeCast} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
 
 contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions {
+  // We limit return data to a selector plus 4 words. This is to avoid
+  // malicious contracts from returning large amounts of data and causing
+  // repeated out-of-gas scenarios.
+  uint16 public constant MAX_CALLBACK_RETURN_BYTES = 4 + 4 * 32;
+
   event RequestStart(
     bytes32 indexed requestId,
     bytes32 indexed donId,
@@ -27,7 +32,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint96 totalCostJuels,
     address transmitter,
     uint8 resultCode,
-    bytes response
+    bytes response,
+    bytes returnData
   );
 
   error OnlyCallableFromCoordinator();
@@ -38,6 +44,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   struct CallbackResult {
     bool success;
     uint256 gasUsed;
+    bytes returnData;
   }
 
   // Identifier for the route to the Terms of Service Allow List
@@ -127,6 +134,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint16 dataVersion,
     uint32 callbackGasLimit
   ) private returns (bytes32 requestId) {
+    _whenNotPaused();
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
     _isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
@@ -145,9 +153,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     ) = IFunctionsCoordinator(coordinatorAddress).sendRequest(
       IFunctionsCoordinator.Request(
         msg.sender,
-        subscriptionId,
         s_subscriptions[subscriptionId].owner,
         data,
+        subscriptionId,
         dataVersion,
         _getFlags(subscriptionId),
         callbackGasLimit
@@ -158,14 +166,14 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
     // Store a commitment about the request
     s_requestCommitments[requestId] = Commitment(
+      s_config.adminFee,
       coordinatorAddress,
       msg.sender,
       subscriptionId,
       callbackGasLimit,
       estimatedCost,
-      block.timestamp + requestTimeoutSeconds,
-      gasAfterPaymentCalculation,
-      s_config.adminFee
+      uint40(block.timestamp + requestTimeoutSeconds),
+      uint120(gasAfterPaymentCalculation)
     );
 
     emit RequestStart(
@@ -194,7 +202,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes32 requestId = _sendRequest(donId, true, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
     // Convert to bytes as a more generic return
     output = new bytes(32);
-    for (uint256 i; i < 32; i++) {
+    // Bounded by 32
+    for (uint256 i; i < 32; ++i) {
       output[i] = requestId[i];
     }
   }
@@ -208,8 +217,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint16 dataVersion,
     uint32 callbackGasLimit,
     bytes32 donId
-  ) external override whenNotPaused returns (bytes32) {
-    _nonReentrant();
+  ) external override returns (bytes32) {
     return _sendRequest(donId, false, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
@@ -224,7 +232,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint96 costWithoutFulfillment,
     address transmitter
   ) external override returns (uint8 resultCode, uint96 callbackGasCostJuels) {
-    _nonReentrant();
+    _whenNotPaused();
 
     Commitment memory commitment = s_requestCommitments[requestId];
 
@@ -287,7 +295,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       receipt.totalCostJuels,
       transmitter,
       resultCode,
-      result.success ? response : err // TODO: handle more response data scenarios
+      result.success ? response : err,
+      result.returnData
     );
 
     return (resultCode, receipt.callbackGasCostJuels);
@@ -306,9 +315,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       response,
       err
     );
-    // Do not allow any non-view/non-pure coordinator functions to be called
-    // during the consumers callback code via reentrancyLock.
-    s_reentrancyLock = true;
+
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid payment.
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
@@ -316,16 +323,25 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
     bool success;
     uint256 gasUsed;
+    // allocate return data memory ahead of time
+    bytes memory returnData = new bytes(MAX_CALLBACK_RETURN_BYTES);
 
     // solhint-disable-next-line no-inline-assembly
     assembly {
+      // solidity calls check that a contract actually exists at the destination, so we do the same
+      // Note we do this check prior to measuring gas so gasForCallExactCheck (our "cushion")
+      // doesn't need to account for it.
+      if iszero(extcodesize(client)) {
+        revert(0, 0)
+      }
+
       let g := gas()
-      // GAS_FOR_CALL_EXACT_CHECK = 5000
-      // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
-      // The gas actually passed to the callee is min(gasAmount, 63//64*gas available).
+      // GASFORCALLEXACTCHECK = 5000
+      // Compute g -= gasForCallExactCheck and check for underflow
+      // The gas actually passed to the callee is _min(gasAmount, 63//64*gas available).
       // We want to ensure that we revert if gasAmount >  63//64*gas available
       // as we do not want to provide them with less, however that check itself costs
-      // gas.  GAS_FOR_CALL_EXACT_CHECK ensures we have at least enough gas to be able
+      // gas. gasForCallExactCheck ensures we have at least enough gas to be able
       // to revert if gasAmount >  63//64*gas available.
       if lt(g, 5000) {
         revert(0, 0)
@@ -336,19 +352,23 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       if iszero(gt(sub(g, div(g, 64)), callbackGasLimit)) {
         revert(0, 0)
       }
-      // solidity calls check that a contract actually exists at the destination, so we do the same
-      if iszero(extcodesize(client)) {
-        revert(0, 0)
-      }
-      // call and return whether we succeeded. ignore return data
+      // call and  whether we succeeded
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
       success := call(callbackGasLimit, client, 0, add(encodedCallback, 0x20), mload(encodedCallback), 0, 0)
       gasUsed := sub(g, gas())
+
+      // limit our copy to MAX_CALLBACK_RETURN_BYTES bytes
+      let toCopy := returndatasize()
+      if gt(toCopy, MAX_CALLBACK_RETURN_BYTES) {
+        toCopy := MAX_CALLBACK_RETURN_BYTES
+      }
+      // Store the length of the copied bytes
+      mstore(returnData, toCopy)
+      // copy the bytes from returnData[0:_toCopy]
+      returndatacopy(add(returnData, 0x20), 0, toCopy)
     }
 
-    s_reentrancyLock = false;
-
-    result = CallbackResult(success, gasUsed);
+    result = CallbackResult(success, gasUsed, returnData);
   }
 
   /**
@@ -372,12 +392,16 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   // |                           Modifiers                          |
   // ================================================================
 
+  function _whenNotPaused() internal view override {
+    _requireNotPaused();
+  }
+
   function _onlyRouterOwner() internal view override {
     _validateOwnership();
   }
 
-  function _onlySenderThatAcceptedToS() internal override {
-    if (ITermsOfServiceAllowList(_getContractById(ALLOW_LIST_ID, false)).isAllowedSender(msg.sender) == false) {
+  function _onlySenderThatAcceptedToS() internal view override {
+    if (!IAccessController(_getContractById(ALLOW_LIST_ID, false)).hasAccess(msg.sender, new bytes(0))) {
       revert SenderMustAcceptTermsOfService(msg.sender);
     }
   }
