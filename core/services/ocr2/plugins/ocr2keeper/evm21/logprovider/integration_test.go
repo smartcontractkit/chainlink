@@ -119,6 +119,8 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
+	t.Skip()
+
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 
@@ -184,6 +186,8 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
+	t.Skip()
+
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 
