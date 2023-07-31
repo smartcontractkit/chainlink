@@ -57,8 +57,8 @@ func (o *ocr2Config) CaptureEATelemetry() bool {
 	return *o.c.CaptureEATelemetry
 }
 
-func (o *ocr2Config) CaptureAutomationCustomTelem() bool {
-	return *o.c.CaptureAutomationCustomTelem
+func (o *ocr2Config) CaptureAutomationCustomTelemetry() bool {
+	return *o.c.CaptureAutomationCustomTelemetry
 }
 
 func (o *ocr2Config) DefaultTransactionQueueDepth() uint32 {

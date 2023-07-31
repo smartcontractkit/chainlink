@@ -791,7 +791,7 @@ type OCR2 struct {
 	DatabaseTimeout                    *models.Duration
 	KeyBundleID                        *models.Sha256Hash
 	CaptureEATelemetry                 *bool
-	CaptureAutomationCustomTelem       *bool
+	CaptureAutomationCustomTelemetry   *bool
 	DefaultTransactionQueueDepth       *uint32
 	SimulateTransactions               *bool
 	TraceLogging                       *bool
@@ -825,8 +825,8 @@ func (o *OCR2) setFrom(f *OCR2) {
 	if v := f.CaptureEATelemetry; v != nil {
 		o.CaptureEATelemetry = v
 	}
-	if v := f.CaptureAutomationCustomTelem; v != nil {
-		o.CaptureAutomationCustomTelem = v
+	if v := f.CaptureAutomationCustomTelemetry; v != nil {
+		o.CaptureAutomationCustomTelemetry = v
 	}
 	if v := f.DefaultTransactionQueueDepth; v != nil {
 		o.DefaultTransactionQueueDepth = v

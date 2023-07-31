@@ -20,5 +20,5 @@ type OCR2 interface {
 	CaptureEATelemetry() bool
 	DefaultTransactionQueueDepth() uint32
 	SimulateTransactions() bool
-	CaptureAutomationCustomTelem() bool
+	CaptureAutomationCustomTelemetry() bool
 }
