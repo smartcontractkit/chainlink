@@ -11,6 +11,7 @@ import {
   encodeReport,
   stringToHex,
   getEventArg,
+  functionsRouterConfig,
 } from './utils'
 
 const setup = getSetupFactory()
@@ -116,16 +117,21 @@ describe('FunctionsRouter - Base', () => {
     })
 
     it('returns the config set on the Router', async () => {
-      const expectedSubscriptionConfig = ethers.utils.defaultAbiCoder.encode(
-        ['uint16', 'uint96', 'bytes4', 'uint32[]'],
-        [2000, 1, 0x0ca76175, [300_000, 500_000]],
-      )
-      const actualSubscriptionConfig = await contracts.router
+      const subscriptionConfig = await contracts.router
         .connect(roles.stranger)
         .getSubscriptionConfig()
-      console.log('actualSubscriptionConfig', actualSubscriptionConfig)
-      console.log('expectedSubscriptionConfig', expectedSubscriptionConfig)
-      expect(actualSubscriptionConfig).to.equal(expectedSubscriptionConfig)
+      expect(subscriptionConfig.maxConsumers).to.equal(
+        functionsRouterConfig.maxConsumers,
+      )
+      expect(subscriptionConfig.adminFee).to.equal(
+        functionsRouterConfig.adminFee,
+      )
+      expect(subscriptionConfig.handleOracleFulfillmentSelector).to.equal(
+        functionsRouterConfig.handleOracleFulfillmentSelector,
+      )
+      expect(subscriptionConfig.maxCallbackGasLimits.toString()).to.equal(
+        functionsRouterConfig.maxCallbackGasLimits.toString(),
+      )
     })
   })
 
