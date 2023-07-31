@@ -6,7 +6,12 @@ import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
+<<<<<<< HEAD
 import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
+=======
+import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
+import {FulfillResult} from "./FulfillResultCodes.sol";
+>>>>>>> fae285b743 (made maxConsumers configurable)
 
 /**
  * @title Functions Billing contract
@@ -213,7 +218,8 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     RequestBilling memory /* billing */
   ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
-    return IFunctionsRouter(address(_getRouter())).getAdminFee();
+    IFunctionsRouter.SubscriptionConfig memory subscriptionConfig = IFunctionsRouter(address(s_router)).getSubscriptionConfig();
+    return subscriptionConfig.adminFee;
   }
 
   function getFeedData() public view returns (int256) {
