@@ -18,8 +18,8 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.29.1
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-env v0.35.2
-	github.com/smartcontractkit/chainlink-testing-framework v1.14.0
+	github.com/smartcontractkit/chainlink-env v0.36.0
+	github.com/smartcontractkit/chainlink-testing-framework v1.15.0
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230724105022-c5e49b4195ac
 	github.com/smartcontractkit/ocr2keepers v0.7.2
@@ -32,10 +32,11 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
-// DEBUG Remove on PR and pin to the real one
-replace github.com/smartcontractkit/chainlink-testing-framework => github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230726213437-7128560bfbca
-
-replace github.com/smartcontractkit/chainlink-env => github.com/smartcontractkit/chainlink-env v0.35.3-0.20230726213524-7bda3a4a40f6
+// Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
+replace (
+	k8s.io/api => k8s.io/api v0.25.11
+	k8s.io/client-go => k8s.io/client-go v0.25.11
+)
 
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
@@ -395,7 +396,4 @@ replace (
 
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
 	github.com/hashicorp/go-plugin => github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75
-
-	k8s.io/api => k8s.io/api v0.25.11
-	k8s.io/client-go => k8s.io/client-go v0.25.11
 )
