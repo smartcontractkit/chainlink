@@ -208,7 +208,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@93e1e8abbe4720d068cd62b664cbb352663cd21f
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@v2.2.3
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
