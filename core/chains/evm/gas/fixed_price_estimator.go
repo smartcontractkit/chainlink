@@ -50,7 +50,8 @@ func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit
 }
 
 func (f *fixedPriceEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (*assets.Wei, uint32, error) {
-	gasPrice, chainSpecificGasLimit, err := commonfee.BumpLegacyGasPriceOnly(f.config, f.lggr, f.config.PriceDefault(), originalGasPrice.ToInt(), originalGasLimit, maxGasPriceWei.ToInt())
+	gasPrice, chainSpecificGasLimit, err := commonfee.BumpLegacyGasPriceOnly(f.config, f.lggr, f.config.PriceDefault(),
+		originalGasPrice.ToInt(), originalGasLimit, maxGasPriceWei.ToInt())
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
 }
 
@@ -67,5 +68,20 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit 
 }
 
 func (f *fixedPriceEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
-	return BumpDynamicFeeOnly(f.config.peCfg, f.bhConfig.EIP1559FeeCapBufferBlocks(), f.lggr, f.config.peCfg.TipCapDefault(), nil, originalFee, originalGasLimit, maxGasPriceWei)
+	bumpedFeeCap, bumpedTipCap, chainSpecificGasLimit, err :=
+		commonfee.BumpDynamicFeeOnly(f.config, f.bhConfig.EIP1559FeeCapBufferBlocks(),
+			f.lggr, f.config.peCfg.TipCapDefault().ToInt(),
+			nil, originalFee.FeeCap.ToInt(), originalFee.TipCap.ToInt(),
+			originalGasLimit, maxGasPriceWei.ToInt())
+
+	if err != nil {
+		return DynamicFee{}, 0, err
+	}
+
+	bumped = DynamicFee{
+		FeeCap: assets.NewWei(bumpedFeeCap),
+		TipCap: assets.NewWei(bumpedTipCap),
+	}
+
+	return bumped, chainSpecificGasLimit, nil
 }
