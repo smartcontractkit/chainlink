@@ -15,7 +15,8 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList {
   mapping(address => bool) private s_allowedSenders;
   mapping(address => bool) private s_blockedSenders;
 
-  error InvalidProof();
+  error InvalidSignature();
+  error InvalidUsage();
   error RecipientIsBlocked();
 
   // ================================================================
@@ -24,7 +25,7 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList {
 
   struct Config {
     bool enabled;
-    address proofSignerPublicKey;
+    address signerPublicKey;
   }
 
   Config private s_config;
@@ -45,11 +46,11 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList {
    * @notice Sets the configuration
    * @param config bytes of config data to set the following:
    *  - enabled: boolean representing if the allow list is active, when disabled all usage will be allowed
-   *  - proofSignerPublicKey: public key of the signer of the proof
+   *  - signerPublicKey: public key of the signer of the proof
    */
   function _updateConfig(bytes memory config) internal override {
-    (bool enabled, address proofSignerPublicKey) = abi.decode(config, (bool, address));
-    s_config = Config({enabled: enabled, proofSignerPublicKey: proofSignerPublicKey});
+    (bool enabled, address signerPublicKey) = abi.decode(config, (bool, address));
+    s_config = Config({enabled: enabled, signerPublicKey: signerPublicKey});
     emit ConfigSet(enabled);
   }
 
@@ -81,16 +82,16 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList {
   /**
    * @inheritdoc ITermsOfServiceAllowList
    */
-  function acceptTermsOfService(address acceptor, address recipient, bytes calldata proof) external override {
+  function acceptTermsOfService(address acceptor, address recipient, bytes calldata signature) external override {
     if (s_blockedSenders[recipient]) {
       revert RecipientIsBlocked();
     }
 
-    // Validate that the proof is correct and has been signed
+    // Validate that the signature is correct and the correct data has been signed
     if (
-      _getSigner(getEthSignedMessageHash(getMessageHash(acceptor, recipient)), proof) != s_config.proofSignerPublicKey
+      _getSigner(getEthSignedMessageHash(getMessageHash(acceptor, recipient)), signature) != s_config.signerPublicKey
     ) {
-      revert InvalidProof();
+      revert InvalidSignature();
     }
 
     // If contract, validate that msg.sender == recipient
@@ -98,7 +99,7 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList {
     // If EoA, validate that msg.sender == acceptor == recipient
     // This is to prevent EoAs from accepting for other EoAs
     if (msg.sender != recipient || (msg.sender != acceptor && !msg.sender.isContract())) {
-      revert InvalidProof();
+      revert InvalidUsage();
     }
 
     // Add recipient to the allow list
@@ -154,7 +155,7 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList {
     uint8 v;
 
     if (signature.length != 65) {
-      revert InvalidProof();
+      revert InvalidSignature();
     }
     // solhint-disable-next-line no-inline-assembly
     assembly {
