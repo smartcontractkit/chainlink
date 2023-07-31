@@ -211,9 +211,9 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   function getAdminFee(
     bytes memory /* requestData */,
     RequestBilling memory /* billing */
-  ) public view override returns (uint96) {
+  ) public view override returns (uint96 adminFee) {
     // NOTE: Optionally, compute additional fee here
-    return IFunctionsRouter(address(_getRouter())).getAdminFee();
+    (adminFee, , ) = IFunctionsRouter(address(_getRouter())).getConfig();
   }
 
   function getFeedData() public view returns (int256) {

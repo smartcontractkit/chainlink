@@ -16,10 +16,12 @@ interface IFunctionsRouter is IRouterBase {
   function getAllowListId() external pure returns (bytes32);
 
   /**
-   * @notice The fee that will be paid to the Router owner for operating the network
-   * @return fee Cost in Juels (1e18) of LINK
+   * @notice Returns configuration of the Functions Router contract
+   * @return adminFee Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
+   * @return handleOracleFulfillmentSelector The function selector that is used when calling back to the Client contract
+   * @return maxCallbackGasLimits List of max callback gas limits used by flag with GAS_FLAG_INDEX
    */
-  function getAdminFee() external view returns (uint96);
+  function getConfig() external view returns (uint96, bytes4, uint32[] memory);
 
   /**
    * @notice Sends a request (encoded as data) using the provided subscriptionId

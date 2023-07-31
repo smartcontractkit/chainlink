@@ -116,9 +116,8 @@ describe('FunctionsRouter - Base', () => {
     })
 
     it('returns the config set on the Router', async () => {
-      expect(
-        await contracts.router.connect(roles.stranger).getAdminFee(),
-      ).to.equal(0)
+      const config = await contracts.router.connect(roles.stranger).getConfig()
+      expect(config[0].toNumber()).to.equal(0)
     })
   })
 

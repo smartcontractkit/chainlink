@@ -98,8 +98,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   /**
    * @inheritdoc IFunctionsRouter
    */
-  function getAdminFee() external view override returns (uint96) {
-    return s_config.adminFee;
+  function getConfig() external view override returns (uint96, bytes4, uint32[] memory) {
+    return (s_config.adminFee, s_config.handleOracleFulfillmentSelector, s_config.maxCallbackGasLimits);
   }
 
   // ================================================================

@@ -20,9 +20,8 @@ describe('Functions Router - Request lifecycle', () => {
       )
     })
     it('#adminFee', async () => {
-      expect(await contracts.router.getAdminFee()).to.be.equal(
-        functionsRouterConfig.adminFee,
-      )
+      const config = await contracts.router.getConfig()
+      expect(config[0].toNumber()).to.be.equal(functionsRouterConfig.adminFee)
     })
   })
 })
