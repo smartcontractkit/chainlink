@@ -67,29 +67,10 @@ abstract contract FunctionsClient is IFunctionsClient {
   /**
    * @inheritdoc IFunctionsClient
    */
-  function handleOracleFulfillment(
-    bytes32 requestId,
-    bytes memory response,
-    bytes memory err
-  ) external override onlyRouter {
-    fulfillRequest(requestId, response, err);
-  }
-
-  /**
-   * @notice Gets the stored address of the router contract
-   * @return The address of the router contract
-   */
-  function getRouter() internal view returns (address) {
-    return address(s_router);
-  }
-
-  /**
-   * @dev Reverts if the request is not from the Router
-   */
-  modifier onlyRouter() {
+  function handleOracleFulfillment(bytes32 requestId, bytes memory response, bytes memory err) external override {
     if (msg.sender != address(s_router)) {
       revert OnlyRouterCanFufill();
     }
-    _;
+    fulfillRequest(requestId, response, err);
   }
 }
