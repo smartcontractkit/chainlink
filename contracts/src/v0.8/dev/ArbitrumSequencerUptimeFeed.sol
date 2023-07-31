@@ -10,7 +10,7 @@ import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol
 import {FlagsInterface} from "./interfaces/FlagsInterface.sol";
 import {ArbitrumSequencerUptimeFeedInterface} from "./interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
 import {SimpleReadAccessController} from "../SimpleReadAccessController.sol";
-import {ConfirmedOwner} from "../ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 
 /**
  * @title ArbitrumSequencerUptimeFeed - L2 sequencer uptime status aggregator

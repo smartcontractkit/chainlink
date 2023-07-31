@@ -5,7 +5,7 @@ import "../../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../VRFConsumerBaseV2Plus.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../../../ConfirmedOwner.sol";
+import "../../../shared/access/ConfirmedOwner.sol";
 
 /// @notice This contract is used for testing only and should not be used for production.
 contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {

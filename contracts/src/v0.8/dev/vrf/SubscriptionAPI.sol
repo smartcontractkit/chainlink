@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../../interfaces/LinkTokenInterface.sol";
-import "../../ConfirmedOwner.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";

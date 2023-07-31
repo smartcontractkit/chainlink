@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {ConfirmedOwner} from "../ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";

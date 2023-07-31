@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../KeeperBase.sol";
-import "../../ConfirmedOwner.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../../interfaces/LinkTokenInterface.sol";

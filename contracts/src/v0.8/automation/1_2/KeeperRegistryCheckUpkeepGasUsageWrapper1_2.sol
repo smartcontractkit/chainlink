@@ -2,7 +2,7 @@
 pragma solidity 0.8.6;
 
 import {AutomationRegistryExecutableInterface} from "../../interfaces/automation/1_2/AutomationRegistryInterface1_2.sol";
-import {ConfirmedOwner} from "../../ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 
 /**
  * @notice This contract serves as a wrapper around a keeper registry's checkUpkeep function.

@@ -3,7 +3,7 @@ pragma solidity 0.8.6;
 
 import "../../interfaces/automation/KeeperCompatibleInterface.sol";
 import "../../interfaces/automation/1_2/KeeperRegistryInterface1_2.sol";
-import "../../ConfirmedOwner.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 
 error NoKeeperNodes();
 error InsufficientInterval();

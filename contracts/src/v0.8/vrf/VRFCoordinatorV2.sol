@@ -8,7 +8,7 @@ import "../interfaces/VRFCoordinatorV2Interface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 import "../interfaces/ERC677ReceiverInterface.sol";
 import "./VRF.sol";
-import "../ConfirmedOwner.sol";
+import "../shared/access/ConfirmedOwner.sol";
 import "./VRFConsumerBaseV2.sol";
 import "../ChainSpecificUtil.sol";
 
