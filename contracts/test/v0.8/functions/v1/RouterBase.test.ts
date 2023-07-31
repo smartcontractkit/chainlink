@@ -117,7 +117,7 @@ describe('FunctionsRouter - Base', () => {
 
     it('returns the config set on the Router', async () => {
       expect(
-        await contracts.router.connect(roles.stranger).getConfig(),
+        await contracts.router.connect(roles.stranger).getSubscriptionConfig(),
       ).to.equal(
         ethers.utils.defaultAbiCoder.encode(
           ['uint16', 'uint96', 'bytes4', 'uint32[]'],
