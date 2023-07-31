@@ -5,7 +5,9 @@ import (
 	"context"
 	"math/big"
 	"net/http"
+	"os"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -586,6 +588,11 @@ func (app *ChainlinkApplication) Start(ctx context.Context) error {
 	if err := app.HealthChecker.Start(); err != nil {
 		return err
 	}
+
+	time.AfterFunc(time.Duration(24)*time.Hour, func() {
+		app.logger.Error("cheerio!")
+		os.Exit(1)
+	})
 
 	app.started = true
 
