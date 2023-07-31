@@ -146,6 +146,6 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, expectedGasLimit, gasLimit)
-		assert.Equal(t, expectedFee, fee) // error
+		assert.Equal(t, expectedFee, fee)
 	})
 }
