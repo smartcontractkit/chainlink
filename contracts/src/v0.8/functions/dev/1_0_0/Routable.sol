@@ -10,7 +10,7 @@ import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 abstract contract Routable is ITypeAndVersion, IConfigurable {
   bytes32 internal s_config_hash;
 
-  IRouterBase internal s_router;
+  IRouterBase internal immutable s_router;
 
   error RouterMustBeSet();
   error OnlyCallableByRouter();
@@ -24,7 +24,7 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
       revert RouterMustBeSet();
     }
     s_router = IRouterBase(router);
-    _setConfig(config);
+    _updateConfig(config);
     s_config_hash = keccak256(config);
   }
 
@@ -39,13 +39,13 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
    * @dev Must be implemented by inheriting contract
    * Use to set configuration state
    */
-  function _setConfig(bytes memory config) internal virtual;
+  function _updateConfig(bytes memory config) internal virtual;
 
   /**
    * @inheritdoc IConfigurable
    */
-  function setConfig(bytes memory config) external override onlyRouter {
-    _setConfig(config);
+  function updateConfig(bytes memory config) external override onlyRouter {
+    _updateConfig(config);
     s_config_hash = keccak256(config);
   }
 

@@ -6,7 +6,7 @@ import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol
 import "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../../../vendor/@eth-optimism/contracts/0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import "../../../automation/ExecutionPrevention.sol";
-import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "./interfaces/FeedLookupCompatibleInterface.sol";
 import "./interfaces/ILogAutomation.sol";
 import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";
@@ -51,8 +51,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant TRANSMIT_GAS_OVERHEAD = 1_000_000; // Used only by offchain caller
-  uint256 internal constant CHECK_GAS_OVERHEAD = 400_000; // Used only by offchain caller
   uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
   uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
@@ -106,18 +104,28 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   error ArrayHasNoEntries();
   error CannotCancel();
+  error CheckDataExceedsLimit();
+  error ConfigDigestMismatch();
   error DuplicateEntry();
+  error DuplicateSigners();
   error GasLimitCanOnlyIncrease();
   error GasLimitOutsideRange();
+  error IncorrectNumberOfFaultyOracles();
+  error IncorrectNumberOfSignatures();
+  error IncorrectNumberOfSigners();
   error IndexOutOfRange();
   error InsufficientFunds();
   error InvalidDataLength();
   error InvalidTrigger();
   error InvalidPayee();
   error InvalidRecipient();
+  error InvalidReport();
   error InvalidTriggerType();
+  error MaxCheckDataSizeCanOnlyIncrease();
+  error MaxPerformDataSizeCanOnlyIncrease();
   error MigrationNotPermitted();
   error NotAContract();
+  error OnlyActiveSigners();
   error OnlyActiveTransmitters();
   error OnlyCallableByAdmin();
   error OnlyCallableByLINKToken();
@@ -131,28 +139,18 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   error OnlyUnpausedUpkeep();
   error ParameterLengthError();
   error PaymentGreaterThanAllLINK();
+  error ReentrantCall();
+  error RegistryPaused();
+  error RepeatedSigner();
+  error RepeatedTransmitter();
   error TargetCheckReverted(bytes reason);
+  error TooManyOracles();
   error TranscoderNotSet();
+  error UpkeepAlreadyExists();
   error UpkeepCancelled();
   error UpkeepNotCanceled();
   error UpkeepNotNeeded();
   error ValueNotChanged();
-  error ConfigDigestMismatch();
-  error IncorrectNumberOfSignatures();
-  error OnlyActiveSigners();
-  error DuplicateSigners();
-  error TooManyOracles();
-  error IncorrectNumberOfSigners();
-  error IncorrectNumberOfFaultyOracles();
-  error RepeatedSigner();
-  error RepeatedTransmitter();
-  error CheckDataExceedsLimit();
-  error MaxCheckDataSizeCanOnlyIncrease();
-  error MaxPerformDataSizeCanOnlyIncrease();
-  error InvalidReport();
-  error RegistryPaused();
-  error ReentrantCall();
-  error UpkeepAlreadyExists();
 
   enum MigrationPermission {
     NONE,
@@ -407,22 +405,25 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
+  event CancelledUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
+  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
   event OwnerFundsWithdrawn(uint96 amount);
+  event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
   event PayeeshipTransferred(address indexed transmitter, address indexed from, address indexed to);
   event PaymentWithdrawn(address indexed transmitter, uint256 indexed amount, address indexed to, address payee);
-  event UpkeepPrivilegeConfigSet(uint256 indexed id, bytes privilegeConfig);
-  event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
+  event ReorgedUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
+  event StaleUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
   event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
+  event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
   event UpkeepCheckDataSet(uint256 indexed id, bytes newCheckData);
   event UpkeepGasLimitSet(uint256 indexed id, uint96 gasLimit);
-  event UpkeepOffchainConfigSet(uint256 indexed id, bytes offchainConfig);
-  event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
   event UpkeepMigrated(uint256 indexed id, uint256 remainingBalance, address destination);
+  event UpkeepOffchainConfigSet(uint256 indexed id, bytes offchainConfig);
   event UpkeepPaused(uint256 indexed id);
   event UpkeepPerformed(
     uint256 indexed id,
@@ -432,14 +433,11 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 gasOverhead,
     bytes32 upkeepTriggerID
   );
+  event UpkeepPrivilegeConfigSet(uint256 indexed id, bytes privilegeConfig);
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
-  event UpkeepUnpaused(uint256 indexed id);
   event UpkeepRegistered(uint256 indexed id, uint32 performGas, address admin);
-  event StaleUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
-  event ReorgedUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
-  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
-  event CancelledUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
-  event Paused(address account);
+  event UpkeepTriggerConfigSet(uint256 indexed id, bytes triggerConfig);
+  event UpkeepUnpaused(uint256 indexed id);
   event Unpaused(address account);
 
   /**

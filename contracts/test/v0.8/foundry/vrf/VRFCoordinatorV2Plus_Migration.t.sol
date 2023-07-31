@@ -45,8 +45,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
     subId = v1Coordinator.createSubscription();
     linkToken = new MockLinkToken();
     linkEthFeed = new MockV3Aggregator(18, 500000000000000000); // .5 ETH (good for testing)
-    v1Coordinator.setLINK(address(linkToken));
-    v1Coordinator.setLinkEthFeed(address(linkEthFeed));
+    v1Coordinator.setLINKAndLINKETHFeed(address(linkToken), address(linkEthFeed));
     linkTokenAddr = address(linkToken);
     v2Coordinator = new VRFCoordinatorV2Plus_V2Example(address(linkToken), address(v1Coordinator));
     v1CoordinatorAddr = address(v1Coordinator);
@@ -119,9 +118,8 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
     v1Coordinator.addConsumer(subId, address(testConsumer));
 
     // subscription exists in V1 coordinator before migration
-    (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) = v1Coordinator.getSubscription(
-      subId
-    );
+    (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers) = v1Coordinator
+      .getSubscription(subId);
     assertEq(balance, DEFAULT_LINK_FUNDING);
     assertEq(ethBalance, DEFAULT_NATIVE_FUNDING);
     assertEq(owner, address(OWNER));
