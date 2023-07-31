@@ -57,7 +57,7 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList {
    * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() public pure override returns (string memory) {
-    return "Functions Terms of Service Allow List v1";
+    return "Functions Terms of Service Allow List v1.0.0";
   }
 
   // ================================================================
