@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 
 import {ILogAutomation, Log} from "../2_1/interfaces/ILogAutomation.sol";
 import "../2_1/interfaces/FeedLookupCompatibleInterface.sol";
-import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 interface IVerifierProxy {
   /**

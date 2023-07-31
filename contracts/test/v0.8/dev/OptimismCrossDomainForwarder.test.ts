@@ -34,7 +34,7 @@ before(async () => {
     owner,
   )
   crossDomainMessengerFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/vendor/MockOVMCrossDomainMessenger.sol:MockOVMCrossDomainMessenger',
+    'src/v0.8/vendor/MockOVMCrossDomainMessenger.sol:MockOVMCrossDomainMessenger',
   )
 })
 
