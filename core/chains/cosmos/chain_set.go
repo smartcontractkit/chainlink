@@ -118,35 +118,6 @@ func (r *LoopRelayerSingleChain) Chain() adapters.Chain {
 	return r.singleChain.chain
 }
 
-/*
-// implement service interface
-
-	func (r *LoopRelayerSingleChain) Start(ctx context.Context) error {
-		// we only need to start the private relayer because it is a relay adapter
-		// that does the start of the single chain for us
-		return r.Relayer.Start(ctx)
-	}
-
-	func (r *LoopRelayerSingleChain) Close() error {
-		// same here; only close the underlying relayer
-		return r.Relayer.Close()
-	}
-
-	func (r *LoopRelayerSingleChain) Name() string {
-		return fmt.Sprintf("%s-%s", r.Relayer.Name(), r.singleChain.Name())
-	}
-
-	func (r *LoopRelayerSingleChain) Ready() (err error) {
-		return errors.Join(r.Relayer.Ready(), r.singleChain.Ready())
-	}
-
-	func (r *LoopRelayerSingleChain) HealthReport() map[string]error {
-		hr := make(map[string]error)
-		maps.Copy(r.Relayer.HealthReport(), hr)
-		maps.Copy(r.singleChain.HealthReport(), hr)
-		return hr
-	}
-*/
 var _ LoopRelayerChainer = &LoopRelayerSingleChain{}
 
 func newChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (adapters.ChainSet, map[string]adapters.Chain, error) {

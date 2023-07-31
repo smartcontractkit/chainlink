@@ -19,32 +19,14 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 	// Create a map for remembering the order of keys passed in
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
-	var ids []string
-	var evmrelayerIds []relay.Identifier
+	// note backward compatibility -- this only ever supported evm chains
 	var evmrelayIdStrs []string
 
 	for ix, key := range keys {
-		ids = append(ids, key.String())
-		rid := relay.Identifier{relay.EVM, relay.ChainID(key.String())}
-		evmrelayerIds = append(evmrelayerIds, rid)
+		rid := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(key.String())}
 		evmrelayIdStrs = append(evmrelayIdStrs, rid.String())
 		keyOrder[key.String()] = ix
 	}
-
-	// note backward compatibility -- this only ever supported evm chains
-	/*
-		evmRelayers := b.app.GetRelayers().List(chainlink.FilterByType(relay.EVM))
-		var allNodes []types.NodeStatus
-		for _, r := range evmRelayers.Slice() {
-
-			nodes, _, err := r.NodeStatuses(ctx, 0, -1, ids...)
-			if err != nil {
-				return []*dataloader.Result{{Data: nil, Error: err}}
-			}
-			allNodes = append(allNodes, nodes...)
-		}
-	*/
-	//var allNodes []types.NodeStatus
 
 	allNodes, _, err := b.app.GetRelayers().NodeStatuses(ctx, 0, 1, evmrelayIdStrs...)
 	if err != nil {

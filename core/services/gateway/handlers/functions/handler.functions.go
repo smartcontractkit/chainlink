@@ -59,12 +59,12 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 	}
 	var allowlist OnchainAllowlist
 	if cfg.OnchainAllowlist != nil {
-		chain, err := legacyChains.Get(cfg.OnchainAllowlistChainID)
-		if err != nil {
+		chain, err2 := legacyChains.Get(cfg.OnchainAllowlistChainID)
+		if err2 != nil {
 			return nil, err
 		}
-		allowlist, err = NewOnchainAllowlist(chain.Client(), *cfg.OnchainAllowlist, lggr)
-		if err != nil {
+		allowlist, err2 = NewOnchainAllowlist(chain.Client(), *cfg.OnchainAllowlist, lggr)
+		if err2 != nil {
 			return nil, err
 		}
 	}

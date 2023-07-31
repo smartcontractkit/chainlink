@@ -31,8 +31,6 @@ type RelayConfig struct {
 	FeedID *common.Hash `json:"feedID"`
 }
 
-func x(args relaytypes.RelayArgs) {}
-
 type RelayOpts struct {
 	// TODO -- should anyone ever get the raw config bytes that are embedded in args? if not,
 	// make this private and wrap the arg fields with funcs on RelayOpts

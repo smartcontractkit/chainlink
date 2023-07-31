@@ -145,7 +145,7 @@ func (rs *CoreRelayerChainInteroperators) PutBatch(b map[relay.Identifier]loop.R
 	for id, r := range b {
 		err2 := rs.putOne(id, r)
 		if err2 != nil {
-			multierror.Append(err, err2)
+			err = multierror.Append(err, err2)
 		}
 	}
 	return err
@@ -194,7 +194,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 	defer rs.mu.Unlock()
 
 	relayerIds := make([]relay.Identifier, 0)
-	for rid, _ := range rs.relayers {
+	for rid := range rs.relayers {
 		relayerIds = append(relayerIds, rid)
 	}
 	sort.Slice(relayerIds, func(i, j int) bool {
@@ -303,21 +303,6 @@ func (rs *CoreRelayerChainInteroperators) Slice() []loop.Relayer {
 }
 func (rs *CoreRelayerChainInteroperators) Services() (s []services.ServiceCtx) {
 	return rs.srvs
-}
-
-func sortByChainID[V services.ServiceCtx](m map[relay.Identifier]V) []services.ServiceCtx {
-	sorted := make([]services.ServiceCtx, len(m))
-	ids := make([]relay.Identifier, 0)
-	for id := range m {
-		ids = append(ids, id)
-	}
-	sort.Slice(ids, func(i, j int) bool {
-		return ids[i].ChainID.String() < ids[j].ChainID.String()
-	})
-	for i := 0; i < len(m); i += 1 {
-		sorted[i] = m[ids[i]]
-	}
-	return sorted
 }
 
 // legacyChains encapsulates the chain-specific dependencies. Will be
