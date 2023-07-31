@@ -19,7 +19,7 @@ type ChainlinkK8sClient struct {
 
 // NewChainlink creates a new Chainlink model using a provided config
 func NewChainlinkK8sClient(c *ChainlinkConfig, podName, chartName string) (*ChainlinkK8sClient, error) {
-	rc, err := initRestyClient(c.URL, c.Email, c.Password)
+	rc, err := initRestyClient(c.URL, c.Email, c.Password, c.HTTPTimeout)
 	if err != nil {
 		return nil, err
 	}
