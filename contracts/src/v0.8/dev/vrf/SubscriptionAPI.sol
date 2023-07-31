@@ -41,8 +41,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     // a uint96 is large enough to hold around ~8e28 wei, or 80 billion ether.
     // That should be enough to cover most (if not all) subscriptions.
     uint96 ethBalance; // Common eth balance used for all consumer requests.
-
-    uint64 reqCount; 
+    uint64 reqCount;
   }
   // We use the config for the mgmt APIs
   struct SubscriptionConfig {
@@ -227,7 +226,12 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
    */
   function getSubscription(
     uint256 subId
-  ) public view override returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers) {
+  )
+    public
+    view
+    override
+    returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers)
+  {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
