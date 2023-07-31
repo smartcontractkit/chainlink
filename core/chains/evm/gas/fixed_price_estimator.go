@@ -70,10 +70,12 @@ func (f *fixedPriceEstimator) GetDynamicFee(_ context.Context, originalGasLimit 
 func (f *fixedPriceEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	bumpedFeeCap, bumpedTipCap, chainSpecificGasLimit, err :=
 		commonfee.BumpDynamicFeeOnly(f.config, f.bhConfig.EIP1559FeeCapBufferBlocks(),
-			f.lggr, f.config.peCfg.TipCapDefault().ToInt(),
+			f.lggr, f.config.TipCapDefault(),
 			nil, originalFee.FeeCap.ToInt(), originalFee.TipCap.ToInt(),
 			originalGasLimit, maxGasPriceWei.ToInt())
-
+		// BumpDynamicFeeOnly(f.config, f.bhConfig.EIP1559FeeCapBufferBlocks(),
+		// f.lggr, f.config.TipCapDefault(),
+		// nil, originalFee, originalGasLimit, maxGasPriceWei)
 	if err != nil {
 		return DynamicFee{}, 0, err
 	}
