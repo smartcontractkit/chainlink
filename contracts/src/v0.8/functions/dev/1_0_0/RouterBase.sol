@@ -38,10 +38,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   event ContractUpdated(
     bytes32 proposedContractSetId,
     address proposedContractSetFromAddress,
-    address proposedContractSetToAddress,
-    uint16 major,
-    uint16 minor,
-    uint16 patch
+    address proposedContractSetToAddress
   );
 
   struct ConfigProposal {
@@ -64,13 +61,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   error InvalidConfigData();
 
   TimeLockProposal internal s_timelockProposal;
-  // ================================================================
-  // |                         Version state                        |
-  // ================================================================
-
-  uint16 internal constant s_majorVersion = 1;
-  uint16 internal s_minorVersion = 0;
-  uint16 internal s_patchVersion = 0;
 
   // ================================================================
   // |                          Timelock state                      |
@@ -109,17 +99,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     s_route[ROUTER_ID] = address(this);
     _updateConfig(selfConfig);
     s_configHash = keccak256(selfConfig);
-  }
-
-  // ================================================================
-  // |                       Version methods                        |
-  // ================================================================
-
-  /**
-   * @inheritdoc IRouterBase
-   */
-  function version() external view override returns (uint16, uint16, uint16) {
-    return (s_majorVersion, s_minorVersion, s_patchVersion);
   }
 
   // ================================================================
@@ -231,15 +210,13 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (block.number < s_proposedContractSet.timelockEndBlock) {
       revert TimelockInEffect();
     }
-    s_minorVersion = s_minorVersion + 1;
-    if (s_patchVersion != 0) s_patchVersion = 0;
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
       bytes32 id = s_proposedContractSet.ids[i];
       address from = s_route[id];
       address to = s_proposedContractSet.to[i];
       s_route[id] = to;
-      emit ContractUpdated(id, from, to, s_majorVersion, s_minorVersion, s_patchVersion);
+      emit ContractUpdated(id, from, to);
     }
   }
 
@@ -294,7 +271,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
         revert InvalidConfigData();
       }
     }
-    s_patchVersion = s_patchVersion + 1;
     emit ConfigUpdated(id, proposal.fromHash, proposal.to);
   }
 
