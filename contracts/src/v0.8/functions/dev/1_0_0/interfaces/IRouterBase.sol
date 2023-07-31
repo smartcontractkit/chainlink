@@ -88,8 +88,14 @@ interface IRouterBase {
   function isPaused() external view returns (bool);
 
   /**
-   * @dev Toggles the stopped state.
+   * @dev Puts the system into an emergency stopped state.
    * @dev Only callable by owner
    */
-  function togglePaused() external;
+  function pause() external;
+
+  /**
+   * @dev Takes the system out of an emergency stopped state.
+   * @dev Only callable by owner
+   */
+  function unpause() external;
 }
