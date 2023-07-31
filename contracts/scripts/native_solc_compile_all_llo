@@ -2,6 +2,8 @@
 
 set -e
 
+echo "Compiling LLO contracts..."
+
 SOLC_VERSION="0.8.16"
 OPTIMIZE_RUNS=15000
 

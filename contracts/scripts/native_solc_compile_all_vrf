@@ -2,6 +2,8 @@
 
 set -e
 
+echo "Compiling VRF contracts..."
+
 SOLC_VERSION="0.8.6"
 OPTIMIZE_RUNS=1000000
 

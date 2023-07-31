@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+# This script generates .abi and .bin files for a selected .sol contract.
+# Example call:
+#   ./contracts/scripts/native_solc_compile dev/Operator.sol
+#
+# The resulting abi and bin files are stored in ./contracts/solc/v0.7
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd .. && pwd -P )"
+
+solc-select install 0.7.6
+solc-select use 0.7.6
+
+compileContract () {
+  solc --overwrite --optimize --optimize-runs 1000000 --metadata-hash none \
+      -o $SCRIPTPATH/solc/v0.7 \
+      --abi --bin --allow-paths $SCRIPTPATH/src/v0.7 \
+      $SCRIPTPATH/src/v0.7/$1
+}
+
+compileContract tests/MultiWordConsumer.sol
+compileContract Operator.sol
+compileContract AuthorizedForwarder.sol
+compileContract AuthorizedReceiver.sol
+compileContract OperatorFactory.sol
+compileContract tests/Consumer.sol
+compileContract tests/VRFCoordinatorMock.sol
+
+# Keeper/Automation
+compileContract KeeperRegistry1_1.sol
+compileContract UpkeepRegistrationRequests.sol
+compileContract tests/UpkeepPerformCounterRestrictive.sol
+compileContract tests/UpkeepCounter.sol

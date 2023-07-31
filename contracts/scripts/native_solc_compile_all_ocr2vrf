@@ -2,6 +2,8 @@
 
 set -e
 
+echo "Compiling OCR2VRF contracts..."
+
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 echo $SCRIPTPATH
 python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
