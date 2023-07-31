@@ -424,13 +424,13 @@ func TestListener_Backoff(t *testing.T) {
 	}
 }
 
-func TestListener_handleLog(t *testing.T) {
-	lb := mocks.NewBroadcaster(t)
+func TestListener_handleLog(tt *testing.T) {
+	lb := mocks.NewBroadcaster(tt)
 	chainID := int64(2)
 	minConfs := uint32(3)
 	blockNumber := uint64(5)
 	requestID := int64(6)
-	t.Run("v2", func(tt *testing.T) {
+	tt.Run("v2", func(t *testing.T) {
 		j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 			RequestedConfsDelay: 10,
 		}).Toml())
@@ -458,7 +458,7 @@ func TestListener_handleLog(t *testing.T) {
 		require.Equal(t, req.reqID, "6")
 	})
 
-	t.Run("v2 plus", func(tt *testing.T) {
+	tt.Run("v2 plus", func(t *testing.T) {
 		j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 			VRFVersion:          vrfcommon.V2Plus,
 			RequestedConfsDelay: 10,
