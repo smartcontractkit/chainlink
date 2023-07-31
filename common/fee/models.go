@@ -20,11 +20,10 @@ func IsBumpErr(err error) bool {
 	return err != nil && (errors.Is(err, ErrBumpGasExceedsLimit) || errors.Is(err, ErrBump) || errors.Is(err, ErrConnectivity))
 }
 
-// LegacyGas Price
 // TODO: What does legacy gas price mean? define that
 // BumpLegacyGasPriceOnly will increase the price and apply multiplier to the gas limit
-func BumpLegacyGasPriceOnly(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *big.Int, originalGasLimit uint32, maxGasPriceWei *big.Int) (gasPrice *big.Int, chainSpecificGasLimit uint32, err error) {
-	gasPrice, err = bumpGasPrice(cfg, lggr, currentGasPrice, originalGasPrice, maxGasPriceWei)
+func BumpLegacyGasPriceOnly(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice *big.Int, originalGasLimit uint32, maxGasPrice *big.Int) (gasPrice *big.Int, chainSpecificGasLimit uint32, err error) {
+	gasPrice, err = bumpGasPrice(cfg, lggr, currentGasPrice, originalGasPrice, maxGasPrice)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -34,10 +33,10 @@ func BumpLegacyGasPriceOnly(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, 
 
 // bumpGasPrice computes the next gas price to attempt as the largest of:
 // - A configured percentage bump (GasEstimator.BumpPercent) on top of the baseline price.
-// - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
+// - A configured fixed amount of Unit (ETH_GAS_PRICE_Unit) on top of the baseline price.
 // The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
-func bumpGasPrice(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice, maxGasPriceWei *big.Int) (*big.Int, error) {
-	maxGasPrice := getMaxGasPrice(maxGasPriceWei, cfg.PriceMax()) // Make a wrapper config
+func bumpGasPrice(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice, maxGasPriceInput *big.Int) (*big.Int, error) {
+	maxGasPrice := getMaxGasPrice(maxGasPriceInput, cfg.PriceMax()) // Make a wrapper config
 	bumpedGasPrice := bumpFeePrice(originalGasPrice, cfg.BumpPercent(), cfg.BumpMin())
 
 	// Update bumpedGasPrice if currentGasPrice is higher than bumpedGasPrice and within maxGasPrice
@@ -57,12 +56,11 @@ func bumpGasPrice(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentGas
 	return bumpedGasPrice, nil
 }
 
-func getMaxGasPrice(userSpecifiedMax, maxGasPriceWei *big.Int) *big.Int {
-	return FeePriceLimit(userSpecifiedMax, maxGasPriceWei)
+func getMaxGasPrice(userSpecifiedMax, maxGasPrice *big.Int) *big.Int {
+	return FeePriceLimit(userSpecifiedMax, maxGasPrice)
 }
 
 func bumpFeePrice(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits *big.Int) *big.Int {
-
 	linearFeePrice := new(big.Int)
 	linearFeePrice.Add(originalFeePrice, feeBumpUnits)
 	percentageFeePrice := AddPercentage(originalFeePrice, feeBumpPercent)
@@ -83,33 +81,14 @@ func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, ma
 	return bumpedFeePrice
 }
 
-// TODO: Refactor this into another package
-// Max returns the maximum of the two given values.
-func Max(x, y *big.Int) *big.Int {
-	if x.Cmp(y) == 1 {
-		return x
-	}
-	return y
-}
-
-// TODO: Refactor this into another package
-func AddPercentage(value *big.Int, percentage uint16) *big.Int {
-	bumped := new(big.Int)
-	bumped.Mul(value, big.NewInt(int64(100+percentage)))
-	bumped.Div(bumped, big.NewInt(100))
-	return bumped
-}
-
 // GetLegacyGas computes the gas price and chain specific gas limit for a transaction.
-func GetLegacyGas(cfg feetypes.FixedPriceEstimatorConfig, bumpCfg feetypes.BumpConfig, gasLimit uint32, maxGasPriceUnit *big.Int) (gasPrice *big.Int, chainSpecificGasLimit uint32, err error) {
+func GetLegacyGas(cfg feetypes.FixedPriceEstimatorConfig, bumpCfg feetypes.BumpConfig, gasLimit uint32, maxGasPrice *big.Int) (gasPrice *big.Int, chainSpecificGasLimit uint32, err error) {
 	gasPrice = cfg.PriceDefault()
-	gasPrice, chainSpecificGasLimit = CapFeePrice(gasPrice, maxGasPriceUnit, bumpCfg.PriceMax(), gasLimit, bumpCfg.LimitMultiplier())
+	gasPrice, chainSpecificGasLimit = CapFeePrice(gasPrice, maxGasPrice, bumpCfg.PriceMax(), gasLimit, bumpCfg.LimitMultiplier())
 	return
 }
 
-// Dynamic Fee
-
-func GetDynamicFee(cfg feetypes.FixedPriceEstimatorConfig, originalGasLimit uint32, maxGasPriceWei *big.Int) (feeCap, tipCap *big.Int, chainSpecificGasLimit uint32, err error) {
+func GetDynamicFee(cfg feetypes.FixedPriceEstimatorConfig, originalGasLimit uint32, maxGasPrice *big.Int) (feeCap, tipCap *big.Int, chainSpecificGasLimit uint32, err error) {
 	tipCap = cfg.TipCapDefault()
 
 	if tipCap == nil {
@@ -117,16 +96,16 @@ func GetDynamicFee(cfg feetypes.FixedPriceEstimatorConfig, originalGasLimit uint
 	}
 
 	chainSpecificGasLimit = ApplyMultiplier(originalGasLimit, cfg.LimitMultiplier())
-	feeCap = GetFeeCap(cfg, originalGasLimit, maxGasPriceWei)
+	feeCap = GetFeeCap(cfg, originalGasLimit, maxGasPrice)
 
 	return feeCap, tipCap, chainSpecificGasLimit, nil
 
 }
 
-func GetFeeCap(cfg feetypes.FixedPriceEstimatorConfig, originalGasLimit uint32, maxGasPriceWei *big.Int) (feeCap *big.Int) {
+func GetFeeCap(cfg feetypes.FixedPriceEstimatorConfig, originalGasLimit uint32, maxGasPrice *big.Int) (feeCap *big.Int) {
 	if cfg.BumpThreshold() == 0 {
 		// Gas bumping is disabled, just use the max fee cap
-		feeCap = getMaxGasPrice(maxGasPriceWei, cfg.PriceMax())
+		feeCap = getMaxGasPrice(maxGasPrice, cfg.PriceMax())
 	} else {
 		// Need to leave headroom for bumping so we fallback to the default value here
 		feeCap = cfg.FeeCapDefault()
@@ -135,8 +114,8 @@ func GetFeeCap(cfg feetypes.FixedPriceEstimatorConfig, originalGasLimit uint32, 
 }
 
 // BumpDynamicFeeOnly bumps the tip cap and max gas price if necessary
-func BumpDynamicFeeOnly(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *big.Int, originalFeeCap, originalTipCap *big.Int, originalGasLimit uint32, maxGasPriceWei *big.Int) (bumpedFeeCap, bumpedTipCap *big.Int, chainSpecificGasLimit uint32, err error) {
-	bumpedFeeCap, bumpedTipCap, err = bumpDynamicFee(cfg, feeCapBufferBlocks, lggr, currentTipCap, currentBaseFee, originalFeeCap, originalTipCap, maxGasPriceWei)
+func BumpDynamicFeeOnly(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *big.Int, originalFeeCap, originalTipCap *big.Int, originalGasLimit uint32, maxGasPrice *big.Int) (bumpedFeeCap, bumpedTipCap *big.Int, chainSpecificGasLimit uint32, err error) {
+	bumpedFeeCap, bumpedTipCap, err = bumpDynamicFee(cfg, feeCapBufferBlocks, lggr, currentTipCap, currentBaseFee, originalFeeCap, originalTipCap, maxGasPrice)
 	if err != nil {
 		return bumpedFeeCap, bumpedTipCap, 0, err
 	}
@@ -144,8 +123,8 @@ func BumpDynamicFeeOnly(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr
 	return
 }
 
-func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *big.Int, originalFeeCap, originalTipCap *big.Int, maxGasPriceWei *big.Int) (bumpedFeeCap, bumpedTipCap *big.Int, err error) {
-	maxGasPrice := getMaxGasPrice(maxGasPriceWei, cfg.PriceMax()) // TODO: Rename gas to fee
+func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *big.Int, originalFeeCap, originalTipCap *big.Int, maxGasPriceInput *big.Int) (bumpedFeeCap, bumpedTipCap *big.Int, err error) {
+	maxGasPrice := getMaxGasPrice(maxGasPriceInput, cfg.PriceMax()) // TODO: Rename gas to fee
 	baselineTipCap := Max(originalTipCap, cfg.TipCapDefault())
 	bumpedTipCap = bumpFeePrice(baselineTipCap, cfg.BumpPercent(), cfg.BumpMin())
 
@@ -171,7 +150,7 @@ func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr log
 	// TODO: check for correctness
 	bumpedFeeCap = Max(
 		AddPercentage(originalFeeCap, cfg.BumpPercent()),
-		originalFeeCap.Add(originalFeeCap, cfg.BumpMin()),
+		new(big.Int).Add(originalFeeCap, cfg.BumpMin()),
 	)
 
 	if currentBaseFee != nil {
@@ -187,11 +166,10 @@ func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr log
 		return bumpedFeeCap, bumpedTipCap, errors.Wrapf(ErrBumpGasExceedsLimit, "bumped fee cap of %s would exceed configured max gas price of %s (original fee: tip cap %s, fee cap %s). %s",
 			bumpedFeeCap.String(), maxGasPrice, originalTipCap.String(), originalFeeCap.String(), label.NodeConnectivityProblemWarning)
 	}
-
 	return bumpedFeeCap, bumpedTipCap, nil
 }
 
-func calcFeeCap(latestAvailableBaseFeePerGas *big.Int, bufferBlocks int, tipCap *big.Int, maxGasPriceWei *big.Int) (feeCap *big.Int) {
+func calcFeeCap(latestAvailableBaseFeePerGas *big.Int, bufferBlocks int, tipCap *big.Int, maxGasPrice *big.Int) (feeCap *big.Int) {
 	const maxBaseFeeIncreasePerBlock float64 = 1.125 // Todo: generalise this?
 
 	baseFee := new(big.Float)
@@ -205,8 +183,8 @@ func calcFeeCap(latestAvailableBaseFeePerGas *big.Int, bufferBlocks int, tipCap 
 	baseFeeInt, _ := baseFee.Int(nil)
 	feeCap = baseFeeInt.Add(baseFeeInt, tipCap)
 
-	if feeCap.Cmp(maxGasPriceWei) > 0 {
-		return maxGasPriceWei
+	if feeCap.Cmp(maxGasPrice) > 0 {
+		return maxGasPrice
 	}
 	return feeCap
 }
