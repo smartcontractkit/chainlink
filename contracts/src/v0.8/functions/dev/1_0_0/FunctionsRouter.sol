@@ -50,7 +50,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
   // Identifier for the route to the Terms of Service Allow List
   bytes32 private constant ALLOW_LIST_ID = keccak256("Functions Terms of Service Allow List");
-  uint8 private constant GAS_FLAG_INDEX = 0;
+  uint8 private constant MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX = 0;
 
   // ================================================================
   // |                    Configuration state                       |
@@ -60,7 +60,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint96 adminFee;
     // The function selector that is used when calling back to the Client contract
     bytes4 handleOracleFulfillmentSelector;
-    // List of max callback gas limits used by flag with GAS_FLAG_INDEX
+    // List of max callback gas limits used by flag with MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX
     uint32[] maxCallbackGasLimits;
   }
   Config private s_config;
@@ -371,7 +371,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   }
 
   function _isValidCallbackGasLimit(uint64 subscriptionId, uint32 callbackGasLimit) internal view {
-    uint8 index = uint8(_getFlags(subscriptionId)[GAS_FLAG_INDEX]);
+    uint8 index = uint8(_getFlags(subscriptionId)[MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX]);
     if (index >= s_config.maxCallbackGasLimits.length) {
       revert InvalidGasFlagValue(index);
     }
