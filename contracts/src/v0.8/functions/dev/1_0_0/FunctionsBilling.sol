@@ -218,7 +218,8 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     RequestBilling memory /* billing */
   ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
-    IFunctionsRouter.SubscriptionConfig memory subscriptionConfig = IFunctionsRouter(address(s_router)).getSubscriptionConfig();
+    IFunctionsRouter.SubscriptionConfig memory subscriptionConfig = IFunctionsRouter(address(s_router))
+      .getSubscriptionConfig();
     return subscriptionConfig.adminFee;
   }
 

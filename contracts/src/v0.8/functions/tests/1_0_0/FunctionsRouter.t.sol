@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsRouter} from "../../dev/1_0_0/FunctionsRouter.sol";
+import {IFunctionsRouter} from "../../dev/1_0_0/interfaces/IFunctionsRouter.sol";
 import {FunctionsCoordinator} from "../../dev/1_0_0/FunctionsCoordinator.sol";
 import {FunctionsBilling} from "../../dev/1_0_0/FunctionsBilling.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
@@ -37,7 +38,7 @@ contract FunctionsRouterSetup is BaseTest {
     maxCallbackGasLimits[0] = type(uint32).max;
 
     // First create the struct to get some type safety
-    FunctionsRouter.SubscriptionConfig memory routerConfig = FunctionsRouter.SubscriptionConfig({
+    IFunctionsRouter.SubscriptionConfig memory routerConfig = IFunctionsRouter.SubscriptionConfig({
       maxConsumers: s_maxConsumers,
       adminFee: s_adminFee,
       handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,

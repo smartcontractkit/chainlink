@@ -102,10 +102,12 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
    *  - adminFee: fee that will be paid to the Router owner for operating the network
    */
   function _updateConfig(bytes memory config) internal override {
-    (uint16 maxConsumers, uint96 adminFee, bytes4 handleOracleFulfillmentSelector, uint32[] memory maxCallbackGasLimits) = abi.decode(
-      config,
-      (uint16, uint96, bytes4, uint32[])
-    );
+    (
+      uint16 maxConsumers,
+      uint96 adminFee,
+      bytes4 handleOracleFulfillmentSelector,
+      uint32[] memory maxCallbackGasLimits
+    ) = abi.decode(config, (uint16, uint96, bytes4, uint32[]));
     s_config = SubscriptionConfig({
       maxConsumers: maxConsumers,
       adminFee: adminFee,
