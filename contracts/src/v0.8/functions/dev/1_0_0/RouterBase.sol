@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {IRouterBase} from "./interfaces/IRouterBase.sol";
 import {ConfirmedOwnerWithProposal} from "../../../ConfirmedOwnerWithProposal.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {Pausable} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/security/Pausable.sol";
+import {Pausable} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
 import {IConfigurable} from "./interfaces/IConfigurable.sol";
 
 abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, ConfirmedOwnerWithProposal {
