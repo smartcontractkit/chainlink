@@ -13,7 +13,7 @@ import (
 var _ EvmEstimator = (*fixedPriceEstimator)(nil)
 
 type fixedPriceEstimator struct {
-	config     fixedPriceEstimatorConfigWrapper
+	config     wrappedPriceEstimatorConfig
 	bumpConfig wrappedBumpConfig
 	bhConfig   fixedPriceEstimatorBlockHistoryConfig
 	lggr       logger.SugaredLogger
@@ -25,7 +25,7 @@ type fixedPriceEstimatorBlockHistoryConfig interface {
 
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
 // always use the config default values for gas prices and limits
-func NewFixedPriceEstimator(config fixedPriceEstimatorConfigWrapper, bumpCfg wrappedBumpConfig, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger) EvmEstimator {
+func NewFixedPriceEstimator(config wrappedPriceEstimatorConfig, bumpCfg wrappedBumpConfig, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger) EvmEstimator {
 	return &fixedPriceEstimator{config, bumpCfg, bhCfg, logger.Sugared(lggr.Named("FixedPriceEstimator"))}
 }
 

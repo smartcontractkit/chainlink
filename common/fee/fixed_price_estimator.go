@@ -33,7 +33,7 @@ func BumpLegacyGasPriceOnly(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, 
 }
 
 // bumpGasPrice computes the next gas price to attempt as the largest of:
-// - A configured percentage bump (EVM.GasEstimator.BumpPercent) on top of the baseline price.
+// - A configured percentage bump (GasEstimator.BumpPercent) on top of the baseline price.
 // - A configured fixed amount of Wei (ETH_GAS_PRICE_WEI) on top of the baseline price.
 // The baseline price is the maximum of the previous gas price attempt and the node's current gas price.
 func bumpGasPrice(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentGasPrice, originalGasPrice, maxGasPriceWei *big.Int) (*big.Int, error) {
@@ -48,11 +48,11 @@ func bumpGasPrice(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentGas
 			bumpedGasPrice.String(), maxGasPrice, originalGasPrice.String(), label.NodeConnectivityProblemWarning)
 	} else if bumpedGasPrice.Cmp(originalGasPrice) == 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
-		// EVM.GasEstimator.BumpPercent and EVM.GasEstimator.BumpMin in the config validation,
+		// GasEstimator.BumpPercent and GasEstimator.BumpMin in the config validation,
 		// but it's here anyway for a "belts and braces" approach
 		return bumpedGasPrice, errors.Wrapf(ErrBump, "bumped gas price of %s is equal to original gas price of %s."+
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
-			"EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin", bumpedGasPrice.String(), originalGasPrice.String())
+			"GasEstimator.BumpPercent or GasEstimator.BumpMin", bumpedGasPrice.String(), originalGasPrice.String())
 	}
 	return bumpedGasPrice, nil
 }
@@ -157,11 +157,11 @@ func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr log
 			bumpedTipCap.String(), maxGasPrice, originalTipCap.String(), originalFeeCap.String(), label.NodeConnectivityProblemWarning)
 	} else if bumpedTipCap.Cmp(originalTipCap) <= 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
-		// EVM.GasEstimator.BumpPercent and EVM.GasEstimator.BumpMin in the config validation,
+		// GasEstimator.BumpPercent and GasEstimator.BumpMin in the config validation,
 		// but it's here anyway for a "belts and braces" approach
 		return bumpedFeeCap, bumpedTipCap, errors.Wrapf(ErrBump, "bumped gas tip cap of %s is less than or equal to original gas tip cap of %s."+
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
-			"EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin", bumpedTipCap.String(), originalTipCap)
+			"GasEstimator.BumpPercent or GasEstimator.BumpMin", bumpedTipCap.String(), originalTipCap)
 	}
 
 	// Always bump the FeeCap by at least the bump percentage (should be greater than or
