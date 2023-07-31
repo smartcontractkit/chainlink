@@ -6,7 +6,7 @@ import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.s
 import {IFunctionsBillingRegistry} from "./interfaces/IFunctionsBillingRegistry.sol";
 import {IFunctionsOracle} from "./interfaces/IFunctionsOracle.sol";
 import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
-import {ERC677ReceiverInterface} from "../../../shared/interfaces/ERC677ReceiverInterface.sol";
+import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {IAuthorizedOriginReceiver} from "./accessControl/interfaces/IAuthorizedOriginReceiver.sol";
 import {ConfirmedOwnerUpgradeable} from "./accessControl/ConfirmedOwnerUpgradeable.sol";
 import {AuthorizedReceiver} from "./accessControl/AuthorizedReceiver.sol";
@@ -24,7 +24,7 @@ contract FunctionsBillingRegistry is
   ConfirmedOwnerUpgradeable,
   PausableUpgradeable,
   IFunctionsBillingRegistry,
-  ERC677ReceiverInterface,
+  IERC677Receiver,
   AuthorizedReceiver
 {
   LinkTokenInterface private LINK;

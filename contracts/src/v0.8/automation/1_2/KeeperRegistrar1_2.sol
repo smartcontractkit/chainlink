@@ -5,7 +5,7 @@ import "../interfaces/1_2/KeeperRegistryInterface1_2.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../shared/access/ConfirmedOwner.sol";
-import "../../shared/interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/interfaces/IERC677Receiver.sol";
 
 /**
  * @notice Contract to accept requests for upkeep registrations
@@ -17,7 +17,7 @@ import "../../shared/interfaces/ERC677ReceiverInterface.sol";
  * The idea is to have same interface(functions,events) for UI or anyone using this contract irrespective of auto approve being enabled or not.
  * they can just listen to `RegistrationRequested` & `RegistrationApproved` events and know the status on registrations.
  */
-contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, ERC677ReceiverInterface {
+contract KeeperRegistrar is TypeAndVersionInterface, ConfirmedOwner, IERC677Receiver {
   /**
    * DISABLED: No auto approvals, all new upkeeps should be approved manually.
    * ENABLED_SENDER_ALLOWLIST: Auto approvals for allowed senders subject to max allowed. Manual for rest.

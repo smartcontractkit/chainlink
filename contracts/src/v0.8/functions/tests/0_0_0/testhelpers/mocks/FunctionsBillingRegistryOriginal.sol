@@ -7,7 +7,7 @@ import {FunctionsOracleInterface} from "./FunctionsOracleInterface.sol";
 import {FunctionsBillingRegistryInterface} from "./FunctionsBillingRegistryInterface.sol";
 import {FunctionsClientInterface} from "./FunctionsClientInterface.sol";
 import {TypeAndVersionInterface} from "../../../../../interfaces/TypeAndVersionInterface.sol";
-import {ERC677ReceiverInterface} from "../../../../../shared/interfaces/ERC677ReceiverInterface.sol";
+import {IERC677Receiver} from "../../../../../shared/interfaces/IERC677Receiver.sol";
 import {AuthorizedOriginReceiverInterface} from "./AuthorizedOriginReceiverInterface.sol";
 import {ConfirmedOwnerUpgradeable} from "./ConfirmedOwnerUpgradeable.sol";
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
@@ -25,7 +25,7 @@ contract FunctionsBillingRegistryOriginal is
   ConfirmedOwnerUpgradeable,
   PausableUpgradeable,
   FunctionsBillingRegistryInterface,
-  ERC677ReceiverInterface,
+  IERC677Receiver,
   AuthorizedReceiver
 {
   LinkTokenInterface public LINK;
