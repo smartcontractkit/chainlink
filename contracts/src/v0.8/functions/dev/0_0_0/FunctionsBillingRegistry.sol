@@ -3,16 +3,16 @@ pragma solidity ^0.8.6;
 
 import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
-import {IFunctionsBillingRegistry} from "../interfaces/IFunctionsBillingRegistry.sol";
-import {IFunctionsOracle} from "../interfaces/IFunctionsOracle.sol";
-import {IFunctionsClient} from "../interfaces/IFunctionsClient.sol";
+import {IFunctionsBillingRegistry} from "./interfaces/IFunctionsBillingRegistry.sol";
+import {IFunctionsOracle} from "./interfaces/IFunctionsOracle.sol";
+import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
 import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
 import {IAuthorizedOriginReceiver} from "./accessControl/interfaces/IAuthorizedOriginReceiver.sol";
 import {ConfirmedOwnerUpgradeable} from "./accessControl/ConfirmedOwnerUpgradeable.sol";
 import {AuthorizedReceiver} from "./accessControl/AuthorizedReceiver.sol";
-import {SafeCast} from "../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
-import {PausableUpgradeable} from "../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/security/PausableUpgradeable.sol";
-import {Initializable} from "../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
+import {PausableUpgradeable} from "../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/security/PausableUpgradeable.sol";
+import {Initializable} from "../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Billing Registry contract

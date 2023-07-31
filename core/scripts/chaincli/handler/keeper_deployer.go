@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	gethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -336,28 +335,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfigType, err := gethabi.NewType("tuple", "", []gethabi.ArgumentMarshaling{
-		{Name: "payment_premiumPPB", Type: "uint32"},
-		{Name: "flat_fee_micro_link", Type: "uint32"},
-		{Name: "check_gas_limit", Type: "uint32"},
-		{Name: "staleness_seconds", Type: "uint24"},
-		{Name: "gas_ceiling_multiplier", Type: "uint16"},
-		{Name: "min_upkeep_spend", Type: "uint96"},
-		{Name: "max_perform_gas", Type: "uint32"},
-		{Name: "max_check_data_size", Type: "uint32"},
-		{Name: "max_perform_data_size", Type: "uint32"},
-		{Name: "max_revert_data_size", Type: "uint32"},
-		{Name: "fallback_gas_price", Type: "uint256"},
-		{Name: "fallback_link_price", Type: "uint256"},
-		{Name: "transcoder", Type: "address"},
-		{Name: "registrars", Type: "address[]"},
-		{Name: "upkeep_privilege_manager", Type: "address"},
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error creating onChainConfigType: %v", err)
-	}
-	var args gethabi.Arguments = []gethabi.Argument{{Type: onchainConfigType}}
-	onchainConfig, err := args.Pack(iregistry21.KeeperRegistryBase21OnchainConfig{
+	onchainConfig := iregistry21.KeeperRegistryBase21OnchainConfig{
 		PaymentPremiumPPB:      d.cfg.PaymentPremiumPBB,
 		FlatFeeMicroLink:       d.cfg.FlatFeeMicroLink,
 		CheckGasLimit:          d.cfg.CheckGasLimit,
@@ -373,12 +351,9 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		Transcoder:             common.HexToAddress(d.cfg.Transcoder),
 		Registrars:             []common.Address{common.HexToAddress(d.cfg.Registrar)},
 		UpkeepPrivilegeManager: common.HexToAddress(d.cfg.UpkeepPrivilegeManager),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("error packing onChainConfigType: %v", err)
 	}
 
-	return d.IKeeperRegistryMasterInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	return d.IKeeperRegistryMasterInterface.SetConfigTypeSafe(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 }
 
 // legacy support function

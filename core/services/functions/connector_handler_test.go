@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
+	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	gfmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	s4mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
@@ -29,14 +30,16 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	storage := s4mocks.NewStorage(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	allowlist := gfmocks.NewOnchainAllowlist(t)
+	rateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
+	require.NoError(t, err)
 	allowlist.On("Start", mock.Anything).Return(nil)
 	allowlist.On("Close", mock.Anything).Return(nil)
-	handler := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, logger)
-	require.NotNil(t, handler)
+	handler, err := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, rateLimiter, logger)
+	require.NoError(t, err)
 
 	handler.SetConnector(connector)
 
-	err := handler.Start(testutils.Context(t))
+	err = handler.Start(testutils.Context(t))
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		assert.NoError(t, handler.Close())

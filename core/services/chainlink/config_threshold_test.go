@@ -16,7 +16,7 @@ ThresholdKeyShare = "something"
 
 func TestThresholdConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
-		SecretsString: thresholdSecrets,
+		SecretsStrings: []string{thresholdSecrets},
 	}
 	cfg, err := opts.New()
 	require.NoError(t, err)

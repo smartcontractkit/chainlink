@@ -162,6 +162,10 @@ type OffchainAggregatorV2 interface {
 	ParseEventAnswerUpdated(log types.Log) (*ocr2aggregator.OCR2AggregatorAnswerUpdated, error)
 }
 
+type KeeperRegistryCheckUpkeepGasUsageWrapper interface {
+	Address() string
+}
+
 type Oracle interface {
 	Address() string
 	Fund(ethAmount *big.Float) error

@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	s4PluginConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
@@ -18,19 +19,26 @@ import (
 
 // This config is part of the job spec and is loaded only once on node boot/job creation.
 type PluginConfig struct {
-	MinIncomingConfirmations        uint32                            `json:"minIncomingConfirmations"`
-	RequestTimeoutSec               uint32                            `json:"requestTimeoutSec"`
-	RequestTimeoutCheckFrequencySec uint32                            `json:"requestTimeoutCheckFrequencySec"`
-	RequestTimeoutBatchLookupSize   uint32                            `json:"requestTimeoutBatchLookupSize"`
-	PruneMaxStoredRequests          uint32                            `json:"pruneMaxStoredRequests"`
-	PruneCheckFrequencySec          uint32                            `json:"pruneCheckFrequencySec"`
-	PruneBatchSize                  uint32                            `json:"pruneBatchSize"`
-	ListenerEventHandlerTimeoutSec  uint32                            `json:"listenerEventHandlerTimeoutSec"`
-	MaxRequestSizeBytes             uint32                            `json:"maxRequestSizeBytes"`
-	OnchainAllowlist                *functions.OnchainAllowlistConfig `json:"onchainAllowlist"`
-	S4Constraints                   *s4.Constraints                   `json:"s4Constraints"`
-	GatewayConnectorConfig          *connector.ConnectorConfig        `json:"gatewayConnectorConfig"`
-	DecryptionQueueConfig           *DecryptionQueueConfig            `json:"decryptionQueueConfig"`
+	DONId                              string                            `json:"donId"`
+	ContractVersion                    uint32                            `json:"contractVersion"`
+	MinIncomingConfirmations           uint32                            `json:"minIncomingConfirmations"`
+	RequestTimeoutSec                  uint32                            `json:"requestTimeoutSec"`
+	RequestTimeoutCheckFrequencySec    uint32                            `json:"requestTimeoutCheckFrequencySec"`
+	RequestTimeoutBatchLookupSize      uint32                            `json:"requestTimeoutBatchLookupSize"`
+	PruneMaxStoredRequests             uint32                            `json:"pruneMaxStoredRequests"`
+	PruneCheckFrequencySec             uint32                            `json:"pruneCheckFrequencySec"`
+	PruneBatchSize                     uint32                            `json:"pruneBatchSize"`
+	ListenerEventHandlerTimeoutSec     uint32                            `json:"listenerEventHandlerTimeoutSec"`
+	ListenerEventsCheckFrequencyMillis uint32                            `json:"listenerEventsCheckFrequencyMillis"`
+	ContractUpdateCheckFrequencySec    uint32                            `json:"contractUpdateCheckFrequencySec"`
+	MaxRequestSizeBytes                uint32                            `json:"maxRequestSizeBytes"`
+	MaxRequestSizesList                []uint32                          `json:"maxRequestSizesList"`
+	MaxSecretsSizesList                []uint32                          `json:"maxSecretsSizesList"`
+	GatewayConnectorConfig             *connector.ConnectorConfig        `json:"gatewayConnectorConfig"`
+	OnchainAllowlist                   *functions.OnchainAllowlistConfig `json:"onchainAllowlist"`
+	RateLimiter                        *common.RateLimiterConfig         `json:"rateLimiter"`
+	S4Constraints                      *s4.Constraints                   `json:"s4Constraints"`
+	DecryptionQueueConfig              *DecryptionQueueConfig            `json:"decryptionQueueConfig"`
 }
 
 type DecryptionQueueConfig struct {
@@ -38,23 +46,26 @@ type DecryptionQueueConfig struct {
 	MaxCiphertextBytes       uint32 `json:"maxCiphertextBytes"`
 	MaxCiphertextIdLength    uint32 `json:"maxCiphertextIdLength"`
 	CompletedCacheTimeoutSec uint32 `json:"completedCacheTimeoutSec"`
+	DecryptRequestTimeoutSec uint32 `json:"decryptRequestTimeoutSec"`
 }
 
 func ValidatePluginConfig(config PluginConfig) error {
-	if config.DecryptionQueueConfig == nil {
-		return errors.New("missing decryptionQueueConfig")
-	}
-	if config.DecryptionQueueConfig.MaxQueueLength <= 0 {
-		return errors.New("missing or invalid decryptionQueueConfig maxQueueLength")
-	}
-	if config.DecryptionQueueConfig.MaxCiphertextBytes <= 0 {
-		return errors.New("missing or invalid decryptionQueueConfig maxCiphertextBytes")
-	}
-	if config.DecryptionQueueConfig.MaxCiphertextIdLength <= 0 {
-		return errors.New("missing or invalid decryptionQueueConfig maxCiphertextIdLength")
-	}
-	if config.DecryptionQueueConfig.CompletedCacheTimeoutSec <= 0 {
-		return errors.New("missing or invalid decryptionQueueConfig completedCacheTimeoutSec")
+	if config.DecryptionQueueConfig != nil {
+		if config.DecryptionQueueConfig.MaxQueueLength <= 0 {
+			return errors.New("missing or invalid decryptionQueueConfig maxQueueLength")
+		}
+		if config.DecryptionQueueConfig.MaxCiphertextBytes <= 0 {
+			return errors.New("missing or invalid decryptionQueueConfig maxCiphertextBytes")
+		}
+		if config.DecryptionQueueConfig.MaxCiphertextIdLength <= 0 {
+			return errors.New("missing or invalid decryptionQueueConfig maxCiphertextIdLength")
+		}
+		if config.DecryptionQueueConfig.CompletedCacheTimeoutSec <= 0 {
+			return errors.New("missing or invalid decryptionQueueConfig completedCacheTimeoutSec")
+		}
+		if config.DecryptionQueueConfig.DecryptRequestTimeoutSec <= 0 {
+			return errors.New("missing or invalid decryptionQueueConfig decryptRequestTimeoutSec")
+		}
 	}
 	return nil
 }

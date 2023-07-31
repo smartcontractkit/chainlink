@@ -42,7 +42,7 @@ type ChainlinkClient struct {
 
 // NewChainlinkClient creates a new Chainlink model using a provided config
 func NewChainlinkClient(c *ChainlinkConfig) (*ChainlinkClient, error) {
-	rc, err := initRestyClient(c.URL, c.Email, c.Password)
+	rc, err := initRestyClient(c.URL, c.Email, c.Password, c.HTTPTimeout)
 	if err != nil {
 		return nil, err
 	}
@@ -53,8 +53,11 @@ func NewChainlinkClient(c *ChainlinkConfig) (*ChainlinkClient, error) {
 	}, nil
 }
 
-func initRestyClient(url string, email string, password string) (*resty.Client, error) {
+func initRestyClient(url string, email string, password string, timeout *time.Duration) (*resty.Client, error) {
 	rc := resty.New().SetBaseURL(url)
+	if timeout != nil {
+		rc.SetTimeout(*timeout)
+	}
 	session := &Session{Email: email, Password: password}
 	// Retry the connection on boot up, sometimes pods can still be starting up and not ready to accept connections
 	var resp *resty.Response
@@ -489,6 +492,9 @@ func (c *ChainlinkClient) UpdateEthKeyMaxGasPriceGWei(keyId string, gWei int) (*
 		}).
 		SetResult(ethKey).
 		Put("/v2/keys/eth/{keyId}")
+	if err != nil {
+		return nil, nil, err
+	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	if err != nil {
 		return nil, nil, err
