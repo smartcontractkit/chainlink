@@ -64,6 +64,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   struct ActiveConfig {
     uint32 previousConfigBlockNumber;
+    uint32 currentConfigBlockNumber;
     bytes32 configDigest;
     uint64 configCount;
     address[] signers;
@@ -464,10 +465,13 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest);
 
+    uint32 currentBlockNumber = uint32(block.number);
+
     if (s_persistConfig) {
       //create the config
       s_activeConfigs[feedId] = ActiveConfig(
         feedVerifierState.latestConfigBlockNumber,
+        currentBlockNumber,
         configDigest,
         feedVerifierState.configCount,
         signers,
@@ -493,7 +497,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     );
 
     feedVerifierState.latestEpoch = 0;
-    feedVerifierState.latestConfigBlockNumber = uint32(block.number);
+    feedVerifierState.latestConfigBlockNumber = currentBlockNumber;
     feedVerifierState.latestConfigDigest = configDigest;
   }
 

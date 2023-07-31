@@ -141,6 +141,7 @@ contract VerifierSetConfigTest is BaseTest {
 
     //check the latest config matches
     assertEq(latestConfig.previousConfigBlockNumber, 0);
+    assertEq(latestConfig.currentConfigBlockNumber, 12345);
     assertEq(latestConfig.configDigest, expectedConfigDigest);
     assertEq(latestConfig.configCount, 1);
     for (uint256 i; i < signers.length; i++) {
@@ -209,7 +210,8 @@ contract VerifierSetConfigTest is BaseTest {
     changePrank(msg.sender);
 
     //check the latest config matches
-    assertGt(latestConfig.previousConfigBlockNumber, 0);
+    assertEq(latestConfig.previousConfigBlockNumber, 12345);
+    assertEq(latestConfig.currentConfigBlockNumber, 12345);
     assertEq(latestConfig.configDigest, expectedConfigDigest);
     assertEq(latestConfig.configCount, 2);
     for (uint256 i; i < signers.length; i++) {
@@ -339,6 +341,7 @@ contract VerifierProxyTestSetConfigWithoutPersist is BaseTest {
 
     //check the latest config is null
     assertEq(latestConfig.previousConfigBlockNumber, 0);
+    assertEq(latestConfig.currentConfigBlockNumber, 0);
     assertEq(latestConfig.configDigest, bytes32(""));
     assertEq(latestConfig.configCount, 0);
     assertEq(latestConfig.signers.length, 0);
