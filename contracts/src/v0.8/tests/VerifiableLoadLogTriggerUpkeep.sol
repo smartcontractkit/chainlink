@@ -12,8 +12,32 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
   ];
   string public feedParamKey = "feedIdHex";
   string public timeParamKey = "blockNumber";
+  bool public autoLog;
+  bool public useMercury;
 
-  constructor(address _registrar, bool _useArb) VerifiableLoadBase(_registrar, _useArb) {}
+  /**
+   * @param _registrar a automation registrar 2.1 address
+   * @param _useArb if this contract will use arbitrum block number
+   * @param _autoLog if the upkeep will emit logs to trigger its next log trigger process
+   * @param _useMercury if the log trigger upkeeps will use mercury lookup
+   */
+  constructor(
+    AutomationRegistrar2_1 _registrar,
+    bool _useArb,
+    bool _autoLog,
+    bool _useMercury
+  ) VerifiableLoadBase(_registrar, _useArb) {
+    autoLog = _autoLog;
+    useMercury = _useMercury;
+  }
+
+  function setAutoLog(bool _autoLog) external {
+    autoLog = _autoLog;
+  }
+
+  function setUseMercury(bool _useMercury) external {
+    useMercury = _useMercury;
+  }
 
   function setFeedsHex(string[] memory newFeeds) external {
     feedsHex = newFeeds;
@@ -33,10 +57,16 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
       uint256 checkGasToBurn = checkGasToBurns[upkeepId];
       while (startGas - gasleft() + 15000 < checkGasToBurn) {
         dummyMap[blockhash(blockNum)] = false;
-        blockNum--;
       }
 
-      revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum));
+      if (useMercury) {
+        revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum));
+      }
+
+      // if we don't use mercury, create a perform data which resembles the output of checkCallback
+      bytes[] memory values = new bytes[](1);
+      bytes memory extraData = abi.encode(upkeepId, blockNum);
+      return (true, abi.encode(values, extraData));
     }
     revert("could not find matching event sig");
   }
@@ -72,7 +102,9 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
     // minBalanceThresholdMultiplier (20) * min balance. If not, add addLinkAmount (0.2) to the upkeep
     // upkeepTopUpCheckInterval, minBalanceThresholdMultiplier, and addLinkAmount are configurable
     topUpFund(upkeepId, currentBlockNum);
-    emit LogEmitted(upkeepId, currentBlockNum, address(this));
+    if (autoLog) {
+      emit LogEmitted(upkeepId, currentBlockNum, address(this));
+    }
     burnPerformGas(upkeepId, startGas, currentBlockNum);
   }
 

@@ -10,7 +10,7 @@ import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
 abstract contract Routable is ITypeAndVersion, IConfigurable {
   bytes32 internal s_config_hash;
 
-  IRouterBase internal s_router;
+  IRouterBase internal immutable s_router;
 
   error RouterMustBeSet();
   error OnlyCallableByRouter();
