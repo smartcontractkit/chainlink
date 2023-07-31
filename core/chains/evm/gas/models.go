@@ -377,7 +377,7 @@ func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, ma
 }
 
 func getMaxGasPrice(userSpecifiedMax, maxGasPriceWei *assets.Wei) *assets.Wei {
-	return assets.NewWei(commonfee.GetMaxFeePrice(userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt()))
+	return assets.NewWei(commonfee.GetCeilingFeePrice(userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt()))
 }
 
 func capGasPrice(calculatedGasPrice, userSpecifiedMax, maxGasPriceWei *assets.Wei, gasLimit uint32, multiplier float32) (*assets.Wei, uint32) {
