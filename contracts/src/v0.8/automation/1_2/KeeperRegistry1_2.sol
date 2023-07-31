@@ -12,7 +12,7 @@ import "../interfaces/KeeperCompatibleInterface.sol";
 import "../interfaces/1_2/KeeperRegistryInterface1_2.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/UpkeepTranscoderInterface.sol";
-import "../../shared/interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/interfaces/IERC677Receiver.sol";
 import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 
@@ -38,7 +38,7 @@ contract KeeperRegistry1_2 is
   Pausable,
   KeeperRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
-  ERC677ReceiverInterface
+  IERC677Receiver
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;

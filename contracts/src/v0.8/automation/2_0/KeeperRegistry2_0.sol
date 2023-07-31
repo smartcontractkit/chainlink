@@ -8,7 +8,7 @@ import "./KeeperRegistryBase2_0.sol";
 import {AutomationRegistryExecutableInterface, UpkeepInfo} from "../interfaces/2_0/AutomationRegistryInterface2_0.sol";
 import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../interfaces/MigratableKeeperRegistryInterfaceV2.sol";
-import "../../shared/interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/interfaces/IERC677Receiver.sol";
 import {OCR2Abstract} from "../../shared/ocr2/OCR2Abstract.sol";
 
 /**
@@ -27,7 +27,7 @@ contract KeeperRegistry2_0 is
   AutomationRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
   MigratableKeeperRegistryInterfaceV2,
-  ERC677ReceiverInterface
+  IERC677Receiver
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
