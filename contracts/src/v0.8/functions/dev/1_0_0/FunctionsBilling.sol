@@ -6,12 +6,8 @@ import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
-<<<<<<< HEAD
 import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
-=======
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
-import {FulfillResult} from "./FulfillResultCodes.sol";
->>>>>>> fae285b743 (made maxConsumers configurable)
 
 /**
  * @title Functions Billing contract
