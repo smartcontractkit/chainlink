@@ -3,7 +3,7 @@ pragma solidity ^0.8.16;
 
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol";
-import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ArbSys} from "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "../dev/automation/2_1/AutomationRegistrar2_1.sol";
 import {LogTriggerConfig} from "../dev/automation/2_1/AutomationUtils2_1.sol";
 
@@ -345,6 +345,11 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
         emit LogEmitted(upkeepId, blockNum, address(this));
       }
     }
+  }
+
+  function sendLog(uint256 upkeepId) external {
+    uint256 blockNum = getBlockNumber();
+    emit LogEmitted(upkeepId, blockNum, address(this));
   }
 
   function getDelaysLength(uint256 upkeepId) public view returns (uint256) {

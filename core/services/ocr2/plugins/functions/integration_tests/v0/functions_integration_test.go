@@ -5,7 +5,7 @@ import (
 	"time"
 
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
-	utils "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/integration_tests/internal"
+	utils "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/integration_tests/v0/internal"
 )
 
 var (
@@ -30,7 +30,7 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 	pluginConfig := functionsConfig.ReportingPluginConfig{
 		MaxQueryLengthBytes:       10_000,
 		MaxObservationLengthBytes: 10_000,
-		MaxReportLengthBytes:      10_000,
+		MaxReportLengthBytes:      15_000,
 		MaxRequestBatchSize:       uint32(batchSize),
 		DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
 		UniqueReports:             true,
@@ -57,14 +57,14 @@ func TestIntegration_Functions_MultipleRequests_ThresholdDecryptionSuccess(t *te
 	pluginConfig := functionsConfig.ReportingPluginConfig{
 		MaxQueryLengthBytes:       10_000,
 		MaxObservationLengthBytes: 10_000,
-		MaxReportLengthBytes:      10_000,
+		MaxReportLengthBytes:      15_000,
 		MaxRequestBatchSize:       uint32(batchSize),
 		DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
 		UniqueReports:             true,
 		ThresholdPluginConfig: &functionsConfig.ThresholdReportingPluginConfig{
 			MaxQueryLengthBytes:       10_000,
 			MaxObservationLengthBytes: 10_000,
-			MaxReportLengthBytes:      10_000,
+			MaxReportLengthBytes:      15_000,
 			RequestCountLimit:         100,
 			RequestTotalBytesLimit:    1_000,
 			RequireLocalRequestCheck:  true,
