@@ -3,8 +3,8 @@ import { Contract } from 'ethers'
 import { assert, expect } from 'chai'
 import { CronUpkeepFactory } from '../../../typechain/CronUpkeepFactory'
 import type { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
-import { reset } from '../../test-helpers/helpers'
 import * as h from '../../test-helpers/helpers'
+import { reset } from '../../test-helpers/helpers'
 
 const OWNABLE_ERR = 'Only callable by owner'
 
@@ -22,7 +22,7 @@ describe('CronUpkeepFactory', () => {
     owner = accounts[1]
     stranger = accounts[2]
     const cronExternalFactory = await ethers.getContractFactory(
-      'src/v0.8/libraries/external/Cron.sol:Cron',
+      'src/v0.8/automation/libraries/external/Cron.sol:Cron',
       admin,
     )
     cronExternalLib = await cronExternalFactory.deploy()

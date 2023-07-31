@@ -81,7 +81,7 @@ describe('CronUpkeep', () => {
     )
     cronDelegate = await cronDelegateFactory.deploy()
     const cronExternalFactory = await ethers.getContractFactory(
-      'src/v0.8/libraries/external/Cron.sol:Cron',
+      'src/v0.8/automation/libraries/external/Cron.sol:Cron',
       admin,
     )
     const cronExternalLib = await cronExternalFactory.deploy()
@@ -521,7 +521,7 @@ describe.skip('Cron Gas Usage', () => {
     )
     const cronDelegate = await cronDelegateFactory.deploy()
     const cronExternalFactory = await ethers.getContractFactory(
-      'src/v0.8/libraries/external/Cron.sol:Cron',
+      'src/v0.8/automation/libraries/external/Cron.sol:Cron',
       admin,
     )
     const cronExternalLib = await cronExternalFactory.deploy()

@@ -33,8 +33,8 @@
 
 pragma solidity 0.8.6;
 
-import "../../vendor/Strings.sol";
-import "../../vendor/DateTime.sol";
+import "../../../vendor/Strings.sol";
+import "../../../vendor/DateTime.sol";
 
 // The fields of a cron spec, by name
 string constant MINUTE = "minute";
