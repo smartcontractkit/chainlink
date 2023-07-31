@@ -219,6 +219,7 @@ jobs:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_location: ./integration-tests/smoke/logs
           publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
