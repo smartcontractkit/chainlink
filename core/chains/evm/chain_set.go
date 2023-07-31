@@ -53,14 +53,12 @@ type legacyChainSet interface {
 	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
-//go:generate mockery --quiet --name EVMChainRelayerExtender --output ./mocks/ --case=underscore
 type EVMChainRelayerExtender interface {
 	relay.RelayerExt
 	Chain() Chain
 	Default() bool
 }
 
-//go:generate mockery --quiet --name EVMChainRelayerExtenderSlicer --output ./mocks/ --case=underscore
 type EVMChainRelayerExtenderSlicer interface {
 	Slice() []EVMChainRelayerExtender
 	Len() int
