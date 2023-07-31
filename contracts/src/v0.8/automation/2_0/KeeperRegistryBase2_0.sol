@@ -9,7 +9,7 @@ import "../ExecutionPrevention.sol";
 import {OnchainConfig, State, UpkeepFailureReason} from "../../interfaces/automation/2_0/AutomationRegistryInterface2_0.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
-import "../../interfaces/LinkTokenInterface.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/automation/KeeperCompatibleInterface.sol";
 import "../../interfaces/automation/UpkeepTranscoderInterface.sol";
 

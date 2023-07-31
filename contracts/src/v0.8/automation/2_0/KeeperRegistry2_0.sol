@@ -8,7 +8,7 @@ import "./KeeperRegistryBase2_0.sol";
 import {AutomationRegistryExecutableInterface, UpkeepInfo} from "../../interfaces/automation/2_0/AutomationRegistryInterface2_0.sol";
 import "../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
 import "../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/interfaces/ERC677ReceiverInterface.sol";
 import {OCR2Abstract} from "../../shared/ocr2/OCR2Abstract.sol";
 
 /**

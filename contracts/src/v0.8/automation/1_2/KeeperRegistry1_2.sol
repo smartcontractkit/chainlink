@@ -9,12 +9,12 @@ import "../KeeperBase.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
-import "../../interfaces/LinkTokenInterface.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/automation/KeeperCompatibleInterface.sol";
 import "../../interfaces/automation/1_2/KeeperRegistryInterface1_2.sol";
 import "../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
 import "../../interfaces/automation/UpkeepTranscoderInterface.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/interfaces/ERC677ReceiverInterface.sol";
 
 struct Upkeep {
   uint96 balance;

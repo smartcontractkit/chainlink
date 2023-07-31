@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
-import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
-import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
+import {ERC677ReceiverInterface} from "../../../shared/interfaces/ERC677ReceiverInterface.sol";
+import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
 

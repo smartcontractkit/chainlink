@@ -9,7 +9,7 @@ import "./KeeperRegistryLogic1_3.sol";
 import {AutomationRegistryExecutableInterface} from "../../interfaces/automation/1_3/AutomationRegistryInterface1_3.sol";
 import "../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/interfaces/ERC677ReceiverInterface.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client

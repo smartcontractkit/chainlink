@@ -9,7 +9,7 @@ import "../ExecutionPrevention.sol";
 import {Config, State, Upkeep} from "../../interfaces/automation/1_3/AutomationRegistryInterface1_3.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
-import "../../interfaces/LinkTokenInterface.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/automation/KeeperCompatibleInterface.sol";
 import "../../interfaces/automation/UpkeepTranscoderInterface.sol";
 

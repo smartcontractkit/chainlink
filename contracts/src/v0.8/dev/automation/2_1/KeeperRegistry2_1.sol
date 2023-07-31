@@ -5,7 +5,7 @@ import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
 import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
-import "../../../interfaces/ERC677ReceiverInterface.sol";
+import "../../../shared/interfaces/ERC677ReceiverInterface.sol";
 import "../../../shared/ocr2/OCR2Abstract.sol";
 
 /**
