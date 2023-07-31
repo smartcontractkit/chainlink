@@ -1133,7 +1133,8 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					require.NoError(t, err)
 					t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 					lggr := logger.TestLogger(t)
-					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(gas.NewWrappedPriceEstimatorConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees())
+					wrappedEstimator := gas.NewWrappedPriceEstimatorConfig(evmcfg.EVM().GasEstimator())
+					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(wrappedEstimator, evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees())
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
 					eb = txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), evmcfg.Database().Listener(), ethKeyStore, eventBroadcaster, txBuilder, nil, lggr, &testCheckerFactory{}, false)
 					require.NoError(t, err)
@@ -1486,7 +1487,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Do the thing
 		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "bumped gas price of 20 gwei is equal to original gas price of 20 gwei. ACTION REQUIRED: This is a configuration error, you must increase either EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin")
+		require.Contains(t, err.Error(), "bumped fee price of 20 gwei is equal to original fee price of 20 gwei. ACTION REQUIRED: This is a configuration error, you must increase either FeeEstimator.BumpPercent or FeeEstimator.BumpMin")
 		assert.True(t, retryable)
 
 		// TEARDOWN: Clear out the unsent tx before the next test
@@ -1577,7 +1578,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Check gas tip cap verification
 		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "bumped gas tip cap of 1 wei is less than or equal to original gas tip cap of 1 wei")
+		require.Contains(t, err.Error(), "bumped fee tip cap of 1 wei is less than or equal to original fee tip cap of 1 wei")
 		assert.True(t, retryable)
 
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
@@ -1601,7 +1602,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "specified gas tip cap of 0 is below min configured gas tip of 1 wei for key")
+		require.Contains(t, err.Error(), "specified fee tip cap of 0 is below min configured fee tip of 1 wei for key")
 		assert.True(t, retryable)
 
 		gasTipCapDefault := assets.NewWeiI(42)
