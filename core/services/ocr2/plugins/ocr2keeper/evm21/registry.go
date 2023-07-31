@@ -656,23 +656,27 @@ func (r *EvmRegistry) getBlockAndUpkeepId(key ocr2keepers.UpkeepPayload) (*big.I
 	return block, upkeepId
 }
 
-// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	var (
-		checkReqs    = make([]rpc.BatchElem, len(keys))
-		checkResults = make([]*string, len(keys))
-		blocks       = make([]*big.Int, len(keys))
-		upkeepIds    = make([]*big.Int, len(keys))
+		checkReqs    []rpc.BatchElem
+		checkResults []*string
+		results      = make([]ocr2keepers.CheckResult, len(keys))
 	)
+	indices := map[int]int{}
 
 	for i, key := range keys {
 		block, upkeepId := r.getBlockAndUpkeepId(key)
-		blocks[i] = block
-		upkeepIds[i] = upkeepId
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
-			return nil, err
+			r.lggr.Errorf("failed to build call opts for upkeepId %s and block %s: %s", upkeepId, block, err)
+			results[i] = ocr2keepers.CheckResult{
+				Payload: key,
+				Extension: EVMAutomationResultExtension21{
+					FailureReason: UPKEEP_FAILURE_BUILD_CALL_OPTS_FAILED,
+				},
+			}
+			continue
 		}
 		var payload []byte
 		switch getUpkeepType(upkeepId.Bytes()) {
@@ -680,17 +684,32 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			// check data will include the log trigger config
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, key.CheckData)
 			if err != nil {
-				return nil, err
+				r.lggr.Errorf("failed to pack checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(key.CheckData), err)
+				results[i] = ocr2keepers.CheckResult{
+					Payload: key,
+					Extension: EVMAutomationResultExtension21{
+						FailureReason: UPKEEP_FAILURE_PACK_FAILED,
+					},
+				}
+				continue
 			}
 		default:
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId)
 			if err != nil {
-				return nil, err
+				r.lggr.Errorf("failed to pack checkUpkeep data for upkeepId %s: %s", upkeepId, err)
+				results[i] = ocr2keepers.CheckResult{
+					Payload: key,
+					Extension: EVMAutomationResultExtension21{
+						FailureReason: UPKEEP_FAILURE_PACK_FAILED,
+					},
+				}
+				continue
 			}
 		}
 
+		indices[len(checkReqs)] = i
 		var result string
-		checkReqs[i] = rpc.BatchElem{
+		checkReqs = append(checkReqs, rpc.BatchElem{
 			Method: "eth_call",
 			Args: []interface{}{
 				map[string]interface{}{
@@ -700,37 +719,38 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 				hexutil.EncodeBig(opts.BlockNumber),
 			},
 			Result: &result,
-		}
+		})
 
-		checkResults[i] = &result
+		checkResults = append(checkResults, &result)
 	}
 
+	// In contrast to CallContext, BatchCallContext only returns errors that have occurred
+	// while sending the request. Any error specific to a request is reported through the
+	// Error field of the corresponding BatchElem.
+	// hence, if BatchCallContext returns an error, it will be an error which will terminate the pipeline
 	if err := r.client.BatchCallContext(ctx, checkReqs); err != nil {
+		r.lggr.Errorf("failed to batch call for checkUpkeeps: %s", err)
 		return nil, err
 	}
 
-	var (
-		multiErr error
-		results  = make([]ocr2keepers.CheckResult, len(keys))
-	)
-
 	for i, req := range checkReqs {
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %s with message '%s' in check", keys[i], req.Error)
-			multierr.AppendInto(&multiErr, req.Error)
-		} else {
-			var err error
-			results[i], err = r.packer.UnpackCheckResult(keys[i], *checkResults[i])
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to unpack check result")
+			results[indices[i]].Extension = EVMAutomationResultExtension21{
+				FailureReason: UPKEEP_FAILURE_ERROR_RESULT,
 			}
+			r.lggr.Errorf("error encountered in check result for upkeepId %s: %s", big.NewInt(0).SetBytes(keys[i].Upkeep.ID), req.Error)
+			continue
+		}
+		var err error
+		results[indices[i]], err = r.packer.UnpackCheckResult(keys[indices[i]], *checkResults[i])
+		if err != nil {
+			r.lggr.Errorf("failed to unpack check result: %s", err)
 		}
 	}
 
-	return results, multiErr
+	return results, nil
 }
 
-// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
 	var (
 		performReqs     = make([]rpc.BatchElem, 0, len(checkResults))
@@ -799,7 +819,6 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 	return checkResults, multiErr
 }
 
-// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]activeUpkeep, error) {
 	if len(ids) == 0 {
 		return []activeUpkeep{}, nil
