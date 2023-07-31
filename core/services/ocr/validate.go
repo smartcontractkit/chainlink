@@ -25,6 +25,7 @@ type ValidationConfig interface {
 type OCRValidationConfig interface {
 	BlockchainTimeout() time.Duration
 	CaptureEATelemetry() bool
+	CaptureAutomationCustomTelem() bool
 	ContractPollInterval() time.Duration
 	ContractSubscribeInterval() time.Duration
 	KeyBundleID() (string, error)
