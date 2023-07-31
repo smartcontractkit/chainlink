@@ -63,6 +63,7 @@ func TestFluxBasic(t *testing.T) {
 			RestartDelayRounds: 0,
 		})
 	require.NoError(t, err, "Setting oracle options in the Flux Aggregator contract shouldn't fail")
+
 	err = env.Geth.EthClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	oracles, err := fluxInstance.GetOracles(context.Background())
