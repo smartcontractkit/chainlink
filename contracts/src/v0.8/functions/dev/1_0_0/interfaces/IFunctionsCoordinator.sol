@@ -6,12 +6,13 @@ pragma solidity ^0.8.19;
  */
 interface IFunctionsCoordinator {
   struct Request {
-    uint64 subscriptionId; // Identifier of the subscription that will be charged for the request
-    bytes data; // Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
-    uint16 dataVersion; // The version of the structure of the encoded data
-    uint32 callbackGasLimit; // The amount of gas that the callback to the consuming contract can utilize
-    address caller; // The client contract that is sending the request
+    address requestingContract; // The client contract that is sending the request
     address subscriptionOwner; // The owner of the subscription
+    bytes data; // Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
+    uint64 subscriptionId; // Identifier of the subscription that will be charged for the request
+    uint16 dataVersion; // The version of the structure of the encoded data
+    bytes32 flags; // Per-subscription flags
+    uint32 callbackGasLimit; // The amount of gas that the callback to the consuming contract can utilize
   }
 
   /**

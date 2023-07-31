@@ -70,8 +70,8 @@ describe('FunctionsRouter - Base', () => {
         contracts.router.proposeConfigUpdate(
           ids.routerId,
           ethers.utils.defaultAbiCoder.encode(
-            ['uint96', 'bytes4'],
-            [1, 0x0ca76175],
+            ['uint96', 'bytes4', 'uint32[]'],
+            [1, 0x0ca76175, [300_000, 500_000]],
           ),
         ),
       ).to.emit(contracts.router, 'ConfigProposed')
@@ -112,6 +112,7 @@ describe('FunctionsRouter - Base', () => {
               'uint32',
               'uint96',
               'uint16',
+              'uint256',
             ],
             [
               ...Object.values({
@@ -168,6 +169,7 @@ describe('FunctionsRouter - Base', () => {
               'uint32',
               'uint96',
               'uint16',
+              'uint256',
             ],
             [...Object.values(coordinatorConfig)],
           ),
@@ -187,6 +189,7 @@ describe('FunctionsRouter - Base', () => {
               'uint32',
               'uint96',
               'uint16',
+              'uint256',
             ],
             [...Object.values(coordinatorConfig)],
           ),
@@ -206,6 +209,7 @@ describe('FunctionsRouter - Base', () => {
               'uint32',
               'uint96',
               'uint16',
+              'uint256',
             ],
             [...Object.values(coordinatorConfig)],
           ),
@@ -337,6 +341,7 @@ describe('FunctionsRouter - Base', () => {
               'uint32',
               'uint96',
               'uint16',
+              'uint256',
             ],
             [...Object.values(coordinatorConfig)],
           ),
@@ -375,6 +380,7 @@ describe('FunctionsRouter - Base', () => {
           `return 'hello world'`,
           subscriptionId,
           ids.donId,
+          20_000,
         ),
       ).to.be.revertedWith('Pausable: paused')
     })

@@ -20,12 +20,15 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     uint64 subscriptionId,
     address subscriptionOwner,
     bytes data,
-    uint16 dataVersion
+    uint16 dataVersion,
+    bytes32 flags,
+    uint64 callbackGasLimit
   );
   event OracleResponse(bytes32 indexed requestId, address transmitter);
   event InvalidRequestID(bytes32 indexed requestId);
   event InsufficientGasProvided(bytes32 indexed requestId);
   event CostExceedsCommitment(bytes32 indexed requestId);
+  event InsufficientSubscriptionBalance(bytes32 indexed requestId);
 
   error EmptyRequestData();
   error InconsistentReportData();
@@ -93,8 +96,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    * @dev check if node is in current transmitter list
    */
   function _isTransmitter(address node) internal view returns (bool) {
-    address[] memory nodes = this.transmitters();
-    for (uint256 i = 0; i < nodes.length; i++) {
+    address[] memory nodes = s_transmitters;
+    // Bounded by "maxNumOracles" on OCR2Abstract.sol
+    for (uint256 i = 0; i < nodes.length; ++i) {
       if (nodes[i] == node) {
         return true;
       }
@@ -128,9 +132,10 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    * @inheritdoc IFunctionsCoordinator
    */
   function getAllNodePublicKeys() external view override returns (address[] memory, bytes[] memory) {
-    address[] memory nodes = this.transmitters();
+    address[] memory nodes = s_transmitters;
     bytes[] memory keys = new bytes[](nodes.length);
-    for (uint256 i = 0; i < nodes.length; i++) {
+    // Bounded by "maxNumOracles" on OCR2Abstract.sol
+    for (uint256 i = 0; i < nodes.length; ++i) {
       if (s_nodePublicKeys[nodes[i]].length == 0) {
         revert EmptyPublicKey();
       }
@@ -156,7 +161,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     RequestBilling memory billing = IFunctionsBilling.RequestBilling(
       request.subscriptionId,
-      request.caller,
+      request.requestingContract,
       request.callbackGasLimit,
       tx.gasprice
     );
@@ -169,12 +174,14 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     emit OracleRequest(
       requestId,
-      request.caller,
+      request.requestingContract,
       tx.origin,
       request.subscriptionId,
       request.subscriptionOwner,
       request.data,
-      request.dataVersion
+      request.dataVersion,
+      request.flags,
+      request.callbackGasLimit
     );
   }
 
@@ -203,7 +210,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     uint256 /*initialGas*/,
     address /*transmitter*/,
     uint8 /*signerCount*/,
-    address[maxNumOracles] memory /*signers*/,
+    address[MAX_NUM_ORACLES] memory /*signers*/,
     bytes calldata report
   ) internal override {
     bytes32[] memory requestIds;
@@ -219,7 +226,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       revert ReportInvalid();
     }
 
-    for (uint256 i = 0; i < requestIds.length; i++) {
+    // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
+    for (uint256 i = 0; i < requestIds.length; ++i) {
       FulfillResult result = FulfillResult(
         _fulfillAndBill(
           requestIds[i],
@@ -237,6 +245,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
         emit InsufficientGasProvided(requestIds[i]);
       } else if (result == FulfillResult.COST_EXCEEDS_COMMITMENT) {
         emit CostExceedsCommitment(requestIds[i]);
+      } else if (result == FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE) {
+        emit InsufficientSubscriptionBalance(requestIds[i]);
       }
     }
   }

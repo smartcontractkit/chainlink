@@ -43,7 +43,7 @@ type CoordinatorV2_X interface {
 	RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error)
 	FilterSubscriptionCreated(opts *bind.FilterOpts, subID []*big.Int) (SubscriptionCreatedIterator, error)
 	FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subID []*big.Int, sender []common.Address) (RandomWordsRequestedIterator, error)
-	FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (RandomWordsFulfilledIterator, error)
+	FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error)
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 	RemoveConsumer(opts *bind.TransactOpts, subID *big.Int, consumer common.Address) (*types.Transaction, error)
 	CancelSubscription(opts *bind.TransactOpts, subID *big.Int, to common.Address) (*types.Transaction, error)
@@ -144,7 +144,7 @@ func (c *coordinatorV2) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHas
 	return NewV2RandomWordsRequestedIterator(it), nil
 }
 
-func (c *coordinatorV2) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (RandomWordsFulfilledIterator, error) {
+func (c *coordinatorV2) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error) {
 	it, err := c.coordinator.FilterRandomWordsFulfilled(opts, requestID)
 	if err != nil {
 		return nil, err
@@ -274,8 +274,8 @@ func (c *coordinatorV2Plus) FilterRandomWordsRequested(opts *bind.FilterOpts, ke
 	return NewV2PlusRandomWordsRequestedIterator(it), nil
 }
 
-func (c *coordinatorV2Plus) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (RandomWordsFulfilledIterator, error) {
-	it, err := c.coordinator.FilterRandomWordsFulfilled(opts, requestID)
+func (c *coordinatorV2Plus) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error) {
+	it, err := c.coordinator.FilterRandomWordsFulfilled(opts, requestID, subID)
 	if err != nil {
 		return nil, err
 	}
@@ -569,6 +569,7 @@ type RandomWordsFulfilled interface {
 	RequestID() *big.Int
 	Success() bool
 	NativePayment() bool
+	SubID() *big.Int
 	Payment() *big.Int
 	Raw() types.Log
 }
@@ -595,6 +596,10 @@ func (rwf *v2RandomWordsFulfilled) Success() bool {
 
 func (rwf *v2RandomWordsFulfilled) NativePayment() bool {
 	return false
+}
+
+func (rwf *v2RandomWordsFulfilled) SubID() *big.Int {
+	panic("VRF V2 RandomWordsFulfilled does not implement SubID")
 }
 
 func (rwf *v2RandomWordsFulfilled) Payment() *big.Int {
@@ -631,6 +636,10 @@ func (rwf *v2PlusRandomWordsFulfilled) NativePayment() bool {
 		panic(err)
 	}
 	return nativePayment
+}
+
+func (rwf *v2PlusRandomWordsFulfilled) SubID() *big.Int {
+	return rwf.event.SubID
 }
 
 func (rwf *v2PlusRandomWordsFulfilled) Payment() *big.Int {

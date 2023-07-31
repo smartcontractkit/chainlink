@@ -8,8 +8,8 @@ interface IFunctionsSubscriptions {
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
     uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
-    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub.
+    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
     address requestedOwner; // For safely transferring sub ownership.
     // Maintains the list of keys in s_consumers.
     // We do this for 2 reasons:
@@ -18,6 +18,7 @@ interface IFunctionsSubscriptions {
     // Note that we need the s_consumers map to be able to directly check if a
     // consumer is valid without reading all the consumers from storage.
     address[] consumers;
+    bytes32 flags; // Per-subscription flags.
   }
 
   struct Consumer {
@@ -166,4 +167,18 @@ interface IFunctionsSubscriptions {
    * @dev Used to disable subscription canceling while outstanding request are present.
    */
   function pendingRequestExists(uint64 subscriptionId) external view returns (bool);
+
+  /**
+   * @notice Set flags for a given subscription.
+   * @param subscriptionId - ID of the subscription
+   * @param flags - desired flag values
+   */
+  function setFlags(uint64 subscriptionId, bytes32 flags) external;
+
+  /**
+   * @notice Get flags for a given subscription.
+   * @param subscriptionId - ID of the subscription
+   * @return flags - current flag values
+   */
+  function getFlags(uint64 subscriptionId) external view returns (bytes32);
 }

@@ -9,11 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/stretchr/testify/assert"
 
 	automation21Utils "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
 func TestUnpackCheckResults(t *testing.T) {
