@@ -152,42 +152,42 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       gasAfterPaymentCalculation, // Used to ensure that the transmitter supplies enough gas
       requestTimeoutSeconds
     ) = IFunctionsCoordinator(coordinatorAddress).sendRequest(
-      IFunctionsCoordinator.Request(
-        msg.sender,
-        s_subscriptions[subscriptionId].owner,
-        data,
-        subscriptionId,
-        dataVersion,
-        _getFlags(subscriptionId),
-        callbackGasLimit
-      )
+      IFunctionsCoordinator.Request({
+        requestingContract: msg.sender,
+        subscriptionOwner: s_subscriptions[subscriptionId].owner,
+        data: data,
+        subscriptionId: subscriptionId,
+        dataVersion: dataVersion,
+        flags: _getFlags(subscriptionId),
+        callbackGasLimit: callbackGasLimit
+      })
     );
 
     _markRequestInFlight(msg.sender, subscriptionId, estimatedCost);
 
     // Store a commitment about the request
-    s_requestCommitments[requestId] = Commitment(
-      s_config.adminFee,
-      coordinatorAddress,
-      msg.sender,
-      subscriptionId,
-      callbackGasLimit,
-      estimatedCost,
-      uint40(block.timestamp + requestTimeoutSeconds),
-      uint120(gasAfterPaymentCalculation)
-    );
+    s_requestCommitments[requestId] = Commitment({
+      adminFee: s_config.adminFee,
+      coordinator: coordinatorAddress,
+      client: msg.sender,
+      subscriptionId: subscriptionId,
+      callbackGasLimit: callbackGasLimit,
+      estimatedCost: estimatedCost,
+      timeoutTimestamp: uint40(block.timestamp + requestTimeoutSeconds),
+      gasAfterPaymentCalculation: uint120(gasAfterPaymentCalculation)
+    });
 
-    emit RequestStart(
-      requestId,
-      donId,
-      subscriptionId,
-      s_subscriptions[subscriptionId].owner,
-      msg.sender,
-      tx.origin,
-      data,
-      dataVersion,
-      callbackGasLimit
-    );
+    emit RequestStart({
+      requestId: requestId,
+      donId: donId,
+      subscriptionId: subscriptionId,
+      subscriptionOwner: s_subscriptions[subscriptionId].owner,
+      requestingContract: msg.sender,
+      requestInitiator: tx.origin,
+      data: data,
+      dataVersion: dataVersion,
+      callbackGasLimit: callbackGasLimit
+    });
 
     return requestId;
   }
@@ -281,15 +281,15 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       costWithoutFulfillment
     );
 
-    emit RequestEnd(
-      requestId,
-      commitment.subscriptionId,
-      receipt.totalCostJuels,
-      transmitter,
-      resultCode,
-      result.success ? response : err,
-      result.returnData
-    );
+    emit RequestEnd({
+      requestId: requestId,
+      subscriptionId: commitment.subscriptionId,
+      totalCostJuels: receipt.totalCostJuels,
+      transmitter: transmitter,
+      resultCode: resultCode,
+      response: result.success ? response : err,
+      returnData: result.returnData
+    });
 
     return (resultCode, receipt.callbackGasCostJuels);
   }
