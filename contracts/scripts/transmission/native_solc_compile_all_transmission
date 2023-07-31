@@ -17,4 +17,4 @@ $SCRIPTPATH/native_solc8_15_compile dev/transmission/testhelpers/SmartContractAc
 $SCRIPTPATH/native_solc8_15_compile dev/transmission/testhelpers/Greeter.sol
 
 # Vendor
-$SCRIPTPATH/native_solc8_15_compile dev/vendor/entrypoint/core/EntryPoint.sol
+$SCRIPTPATH/native_solc8_15_compile vendor/entrypoint/core/EntryPoint.sol
