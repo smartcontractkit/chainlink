@@ -36,9 +36,13 @@ func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context, blockKey ocr2keep
 
 	var payloads []ocr2keepers.UpkeepPayload
 	for _, uid := range ids {
+		upkeep := ocr2keepers.ConfiguredUpkeep{
+			ID:   uid,
+			Type: int(conditionTrigger),
+		}
+
 		payloads = append(payloads, ocr2keepers.NewUpkeepPayload(
-			big.NewInt(0).SetBytes(uid),
-			int(conditionTrigger),
+			upkeep,
 			blockKey,
 			ocr2keepers.NewTrigger(block.Int64(), blockHash.Hex(), struct{}{}),
 			nil,

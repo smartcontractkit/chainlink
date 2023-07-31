@@ -163,7 +163,13 @@ func (p *logEventProvider) GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload
 			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
 			continue
 		}
-		payload := ocr2keepers.NewUpkeepPayload(l.id, logTriggerType, ocr2keepers.BlockKey(fmt.Sprintf("%d", log.BlockNumber)), trig, checkData)
+		
+		upkeep := ocr2keepers.ConfiguredUpkeep{
+			ID:   ocr2keepers.UpkeepIdentifier(l.id.Bytes()),
+			Type: logTriggerType,
+		}
+
+		payload := ocr2keepers.NewUpkeepPayload(upkeep, ocr2keepers.BlockKey(fmt.Sprintf("%d", log.BlockNumber)), trig, checkData)
 		payloads = append(payloads, payload)
 	}
 
