@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../../shared/access/ConfirmedOwner.sol";
-import "../../interfaces/LinkTokenInterface.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/VRFV2WrapperInterface.sol";
 
 contract VRFV2WrapperUnderFundingConsumer is ConfirmedOwner {

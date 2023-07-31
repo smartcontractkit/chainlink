@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ERC677ReceiverInterface} from "../interfaces/ERC677ReceiverInterface.sol";
+import {ERC677ReceiverInterface} from "../shared/interfaces/ERC677ReceiverInterface.sol";
 
 contract MockLinkToken {
   uint256 private constant TOTAL_SUPPLY = 1_000_000_000 * 1e18;

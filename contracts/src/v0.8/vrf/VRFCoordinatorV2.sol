@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../interfaces/LinkTokenInterface.sol";
+import "../shared/interfaces/LinkTokenInterface.sol";
 import "../interfaces/BlockhashStoreInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
-import "../interfaces/ERC677ReceiverInterface.sol";
+import "../shared/interfaces/ERC677ReceiverInterface.sol";
 import "./VRF.sol";
 import "../shared/access/ConfirmedOwner.sol";
 import "./VRFConsumerBaseV2.sol";

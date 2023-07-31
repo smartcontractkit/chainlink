@@ -5,7 +5,7 @@ pragma solidity 0.8.6;
 import "../shared/access/ConfirmedOwner.sol";
 import "../interfaces/automation/KeeperCompatibleInterface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../interfaces/LinkTokenInterface.sol";
+import "../shared/interfaces/LinkTokenInterface.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
