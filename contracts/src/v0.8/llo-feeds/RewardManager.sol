@@ -4,7 +4,6 @@ pragma solidity 0.8.16;
 import {ConfirmedOwner} from "../ConfirmedOwner.sol";
 import {IRewardManager} from "./interfaces/IRewardManager.sol";
 import {IERC20} from "../shared/vendor/IERC20.sol";
-import {SafeERC20} from "../shared/vendor/SafeERC20.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {IERC165} from "../shared/vendor/IERC165.sol";
 import {Common} from "../libraries/internal/Common.sol";
@@ -16,7 +15,6 @@ import {Common} from "../libraries/internal/Common.sol";
  * @notice This contract will be used to reward any configured recipients within a pool. Recipients will receive a share of their pool relative to their configured weight.
  */
 contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterface {
-  using SafeERC20 for IERC20;
 
   // @dev The mapping of total fees collected for a particular pot: totalRewardRecipientFees[poolId]
   mapping(bytes32 => uint256) public totalRewardRecipientFees;
@@ -104,7 +102,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     //transfer the fee to this contract
-    IERC20(i_linkAddress).safeTransferFrom(payee, address(this), fee.amount);
+    IERC20(i_linkAddress).transferFrom(payee, address(this), fee.amount);
   }
 
   /// @inheritdoc IRewardManager
@@ -149,7 +147,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     //check if there's any reward-manager to claim in the given poolId
     if (claimAmount > 0) {
       //transfer the reward to the recipient
-      IERC20(i_linkAddress).safeTransfer(recipient, claimAmount);
+      IERC20(i_linkAddress).transfer(recipient, claimAmount);
     }
 
     return claimAmount;
