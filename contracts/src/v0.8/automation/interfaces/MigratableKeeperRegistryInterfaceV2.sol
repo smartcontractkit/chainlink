@@ -2,9 +2,9 @@
 
 pragma solidity ^0.8.0;
 
-import "../../automation/UpkeepFormat.sol";
+import "../UpkeepFormat.sol";
 
-interface MigratableKeeperRegistryInterface {
+interface MigratableKeeperRegistryInterfaceV2 {
   /**
    * @notice Migrates upkeeps from one registry to another, including LINK and upkeep params.
    * Only callable by the upkeep admin. All upkeeps must have the same admin. Can only migrate active upkeeps.
@@ -22,5 +22,5 @@ interface MigratableKeeperRegistryInterface {
   /**
    * @notice Specifies the version of upkeep data that this registry requires in order to import
    */
-  function upkeepTranscoderVersion() external view returns (UpkeepFormat version);
+  function upkeepVersion() external view returns (uint8 version);
 }

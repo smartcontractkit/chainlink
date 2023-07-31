@@ -23,7 +23,7 @@ import "@openzeppelin/contracts/proxy/Proxy.sol";
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 import "../KeeperBase.sol";
-import "../../interfaces/automation/KeeperCompatibleInterface.sol";
+import "../interfaces/KeeperCompatibleInterface.sol";
 import {Cron as CronInternal, Spec} from "../../libraries/internal/Cron.sol";
 import {Cron as CronExternal} from "../../libraries/external/Cron.sol";
 

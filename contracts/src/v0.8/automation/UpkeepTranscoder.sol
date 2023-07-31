@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.0;
 
-import "../interfaces/automation/UpkeepTranscoderInterface.sol";
+import "./interfaces/UpkeepTranscoderInterface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
 
 /**

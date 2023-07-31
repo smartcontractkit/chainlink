@@ -2,7 +2,7 @@
 pragma solidity 0.8.6;
 
 import "../../shared/interfaces/LinkTokenInterface.sol";
-import "../../interfaces/automation/2_0/AutomationRegistryInterface2_0.sol";
+import "../interfaces/2_0/AutomationRegistryInterface2_0.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 import "../../shared/interfaces/ERC677ReceiverInterface.sol";
