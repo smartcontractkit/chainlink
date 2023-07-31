@@ -14,7 +14,7 @@ const setup = getSetupFactory()
 let contracts: FunctionsContracts
 let roles: FunctionsRoles
 
-const baselineGasUsed = 754223 // TODO: Update baseline
+const baselineGasUsed = 793891
 let currentGasUsed = 0
 
 beforeEach(async () => {
@@ -39,7 +39,7 @@ describe('Gas Golf', () => {
     const flatSignature = await wallet.signMessage(
       ethers.utils.arrayify(messageHash),
     )
-    let { r, s, v } = ethers.utils.splitSignature(flatSignature)
+    const { r, s, v } = ethers.utils.splitSignature(flatSignature)
     const acceptTermsOfServiceTx = await contracts.accessControl
       .connect(roles.consumer)
       .acceptTermsOfService(

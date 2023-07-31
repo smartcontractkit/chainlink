@@ -165,7 +165,7 @@ export async function acceptTermsOfService(
   const flatSignature = await wallet.signMessage(
     ethers.utils.arrayify(messageHash),
   )
-  let { r, s, v } = ethers.utils.splitSignature(flatSignature)
+  const { r, s, v } = ethers.utils.splitSignature(flatSignature)
   return accessControl
     .connect(acceptor)
     .acceptTermsOfService(acceptorAddress, recipientAddress, r, s, v)
