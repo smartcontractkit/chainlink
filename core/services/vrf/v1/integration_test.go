@@ -83,8 +83,12 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				cu.Backend.Commit()
 				t.Log("Debugging test flakes")
 				t.Log(len(runs))
-				t.Log(runs[0].State)
-				t.Log(runs[1].State)
+				if len(runs) > 0 {
+					t.Log(runs[0].State)
+				}
+				if len(runs) > 1 {
+					t.Log(runs[1].State)
+				}
 				return len(runs) == 2 && runs[0].State == pipeline.RunStatusCompleted && runs[1].State == pipeline.RunStatusCompleted
 			}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 			assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
@@ -204,7 +208,9 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 		cu.Backend.Commit()
 		t.Log("Debugging TestIntegration_VRF_WithBHS flakes")
 		t.Log(len(runs))
-		t.Log(runs[0])
+		if len(runs) > 0 {
+			t.Log(runs[0].State)
+		}
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
 	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 	assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
