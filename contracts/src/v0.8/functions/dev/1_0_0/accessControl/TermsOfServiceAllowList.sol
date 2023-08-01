@@ -71,15 +71,8 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
   /**
    * @inheritdoc ITermsOfServiceAllowList
    */
-  function getMessageHash(address acceptor, address recipient) public pure override returns (bytes32) {
+  function getMessage(address acceptor, address recipient) public pure override returns (bytes32) {
     return keccak256(abi.encodePacked(acceptor, recipient));
-  }
-
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
-  function getEthSignedMessageHash(bytes32 messageHash) public pure override returns (bytes32) {
-    return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
   }
 
   /**
@@ -91,7 +84,10 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
     }
 
     // Validate that the signature is correct and the correct data has been signed
-    if (ecrecover(getEthSignedMessageHash(getMessageHash(acceptor, recipient)), v, r, s) != s_config.signerPublicKey) {
+    bytes32 prefixedMessage = keccak256(
+      abi.encodePacked("\x19Ethereum Signed Message:\n32", getMessage(acceptor, recipient))
+    );
+    if (ecrecover(prefixedMessage, v, r, s) != s_config.signerPublicKey) {
       revert InvalidSignature();
     }
 

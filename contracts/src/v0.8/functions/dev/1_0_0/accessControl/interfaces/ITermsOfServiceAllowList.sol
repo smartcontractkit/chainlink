@@ -12,14 +12,7 @@ interface ITermsOfServiceAllowList {
    * @param recipient - The recipient address that the acceptor is taking responsibility for
    * @return Hash of the message data
    */
-  function getMessageHash(address acceptor, address recipient) external pure returns (bytes32);
-
-  /**
-   * @notice Wrap a bytes32 message as an ethereum signed message
-   * @param messageHash - Message hash produced from "getMessageHash"
-   * @return Hash of the message data packed as "\x19Ethereum Signed Message\n" + len(msg) + msg
-   */
-  function getEthSignedMessageHash(bytes32 messageHash) external pure returns (bytes32);
+  function getMessage(address acceptor, address recipient) external pure returns (bytes32);
 
   /**
    * @notice Check if the address is blocked for usage

@@ -19,12 +19,12 @@ beforeEach(async () => {
 describe('ToS Access Control', () => {
   describe('Accepting', () => {
     it('can only be done with a valid signature', async () => {
-      const messageHash = await contracts.accessControl.getMessageHash(
+      const message = await contracts.accessControl.getMessage(
         roles.strangerAddress,
         roles.strangerAddress,
       )
       const flatSignature = await roles.stranger.signMessage(
-        ethers.utils.arrayify(messageHash),
+        ethers.utils.arrayify(message),
       )
       const { r, s, v } = ethers.utils.splitSignature(flatSignature)
       await expect(
@@ -61,13 +61,13 @@ describe('ToS Access Control', () => {
     it('can be done by Contract Accounts if recipient themself', async () => {
       const acceptorAddress = roles.consumerAddress
       const recipientAddress = contracts.client.address
-      const messageHash = await contracts.accessControl.getMessageHash(
+      const message = await contracts.accessControl.getMessage(
         acceptorAddress,
         recipientAddress,
       )
       const wallet = new ethers.Wallet(accessControlMockPrivateKey)
       const flatSignature = await wallet.signMessage(
-        ethers.utils.arrayify(messageHash),
+        ethers.utils.arrayify(message),
       )
       const { r, s, v } = ethers.utils.splitSignature(flatSignature)
       await contracts.client
@@ -81,15 +81,15 @@ describe('ToS Access Control', () => {
     it('cannot be done by Contract Accounts that if they are not the recipient', async () => {
       const acceptorAddress = roles.consumerAddress
       const recipientAddress = contracts.coordinator.address
-      const messageHash = await contracts.accessControl.getMessageHash(
+      const message = await contracts.accessControl.getMessage(
         acceptorAddress,
         recipientAddress,
       )
       const wallet = new ethers.Wallet(accessControlMockPrivateKey)
       const flatSignature = await wallet.signMessage(
-        ethers.utils.arrayify(messageHash),
+        ethers.utils.arrayify(message),
       )
-      let { r, s, v } = ethers.utils.splitSignature(flatSignature)
+      const { r, s, v } = ethers.utils.splitSignature(flatSignature)
       await expect(
         contracts.client
           .connect(roles.consumer)
