@@ -17,7 +17,7 @@ contract FunctionsRouterSetup is BaseTest {
 
   uint16 internal s_timelockBlocks = 0;
   uint16 internal s_maximumTimelockBlocks = 20;
-  uint16 internal s_maxConsumers = 2000;
+  uint16 internal s_maxConsumers = 100;
   uint96 internal s_adminFee = 561724823;
   bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
 
@@ -38,7 +38,7 @@ contract FunctionsRouterSetup is BaseTest {
     maxCallbackGasLimits[0] = type(uint32).max;
 
     // First create the struct to get some type safety
-    IFunctionsRouter.SubscriptionConfig memory routerConfig = IFunctionsRouter.SubscriptionConfig({
+    IFunctionsRouter.Config memory routerConfig = IFunctionsRouter.Config({
       maxConsumers: s_maxConsumers,
       adminFee: s_adminFee,
       handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
