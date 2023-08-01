@@ -11,6 +11,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+var _ EvmEstimator = (*fixedPriceEstimator)(nil)
+
+type fixedPriceEstimator struct {
+	config   fixedPriceEstimatorConfig
+	bhConfig fixedPriceEstimatorBlockHistoryConfig
+	lggr     logger.SugaredLogger
+}
 type bumpConfig interface {
 	LimitMultiplier() float32
 	PriceMax() *assets.Wei
@@ -32,14 +39,6 @@ type fixedPriceEstimatorConfig interface {
 
 type fixedPriceEstimatorBlockHistoryConfig interface {
 	EIP1559FeeCapBufferBlocks() uint16
-}
-
-var _ EvmEstimator = (*fixedPriceEstimator)(nil)
-
-type fixedPriceEstimator struct {
-	config   fixedPriceEstimatorConfig
-	bhConfig fixedPriceEstimatorBlockHistoryConfig
-	lggr     logger.SugaredLogger
 }
 
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will

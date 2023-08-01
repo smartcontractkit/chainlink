@@ -43,7 +43,6 @@ func addPercentage(value *big.Int, percentage uint16) *big.Int {
 }
 
 // FeeUnitToChainUnit returns the string representation of the given big.Int value in chain units.
-// e.g 2 -> "2 wei"
 func FeeUnitToChainUnit(fee *big.Int, chain string) string {
 	switch chain {
 	case types.EVM:
