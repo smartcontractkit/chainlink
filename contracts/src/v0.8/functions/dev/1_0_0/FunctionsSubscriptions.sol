@@ -499,14 +499,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
         revert InvalidCalldata();
       }
 
-      // Check that the message sender is the subscription owner
-      uint64 subscriptionId = request.subscriptionId;
-      _isValidSubscription(subscriptionId);
-      address owner = s_subscriptions[subscriptionId].owner;
-      if (msg.sender != owner) {
-        revert MustBeSubscriptionOwner();
-      }
-
       // Check that request has exceeded allowed request time
       if (block.timestamp < request.timeoutTimestamp) {
         revert ConsumerRequestsInFlight();
@@ -516,8 +508,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
 
       coordinator.deleteCommitment(requestId);
       // Release blocked balance
-      s_subscriptions[subscriptionId].blockedBalance -= request.estimatedTotalCostJuels;
-      s_consumers[request.client][subscriptionId].completedRequests += 1;
+      s_subscriptions[request.subscriptionId].blockedBalance -= request.estimatedTotalCostJuels;
+      s_consumers[request.client][request.subscriptionId].completedRequests += 1;
       // Delete commitment
       delete s_requestCommitments[requestId];
 
