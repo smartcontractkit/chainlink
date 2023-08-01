@@ -45,9 +45,6 @@ func mustReadNodesList(path string) []*node {
 		if len(s) != 3 {
 			helpers.PanicErr(errors.New("wrong nodes list format"))
 		}
-		if !strings.HasPrefix(s[0], "https://") {
-			s[0] = "https://" + s[0]
-		}
 		if strings.Contains(s[0], "boot") && hasBoot {
 			helpers.PanicErr(errors.New("the single boot node must come first"))
 		}
