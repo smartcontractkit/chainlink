@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
@@ -10,7 +9,6 @@ import (
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type RPCClient[
@@ -25,6 +23,7 @@ type RPCClient[
 	EVENTOPS any, // event filter query options
 	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
 	FEE feetypes.Fee,
+	HEAD *types.Head[BLOCKHASH],
 ] interface {
 	Accounts[ADDR, SEQ]
 	Transactions[TX, TXHASH, TXRECEIPT]
@@ -32,23 +31,22 @@ type RPCClient[
 	Blocks[BLOCK, BLOCKHASH]
 
 	BatchCallContext(ctx context.Context, b []any) error
-	BatchCallContextAll(ctx context.Context, b []any) error
-	BatchGetReceipts(
-		ctx context.Context,
-		attempts []txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
-	) (txReceipt []TXRECEIPT, txErr []error, err error)
+	// BatchGetReceipts(
+	// 	ctx context.Context,
+	// 	attempts []txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
+	// ) (txReceipt []TXRECEIPT, txErr []error, err error)
 	CallContract(
 		ctx context.Context,
-		attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
+		attempt interface{},
 		blockNumber *big.Int,
-	) (rpcErr fmt.Stringer, extractErr error)
+	) (rpcErr []byte, extractErr error)
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	ChainID() (CHAINID, error)
 	CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) ([]byte, error)
 	ConfiguredChainID() CHAINID
 	EstimateGas(ctx context.Context, call any) (gas uint64, err error)
-	HeadByNumber(ctx context.Context, number *big.Int) (head *types.Head[BLOCKHASH], err error)
-	HeadByHash(ctx context.Context, hash BLOCKHASH) (head *types.Head[BLOCKHASH], err error)
+	HeadByNumber(ctx context.Context, number *big.Int) (head HEAD, err error)
+	HeadByHash(ctx context.Context, hash BLOCKHASH) (head HEAD, err error)
 	IsL2() bool
 	LINKBalance(ctx context.Context, accountAddress ADDR, linkAddress ADDR) (*assets.Link, error)
 	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
@@ -62,10 +60,14 @@ type RPCClient[
 	) (txhash string, err error)
 	SendTransactionReturnCode(
 		ctx context.Context,
-		tx txmgrtypes.Tx[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
-		attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
-		lggr logger.Logger,
+		tx any,
 	) (clienttypes.SendTxReturnCode, error)
+	// SendTransactionReturnCode(
+	// 	ctx context.Context,
+	// 	TX any,
+	// 	attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
+	// 	lggr logger.Logger,
+	// ) (clienttypes.SendTxReturnCode, error)
 	Subscribe(ctx context.Context, channel chan<- types.Head[BLOCKHASH], args ...interface{}) (types.Subscription, error)
 }
 

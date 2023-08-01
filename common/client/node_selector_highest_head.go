@@ -17,10 +17,11 @@ type highestHeadNodeSelector[
 	TX any,
 	TXHASH types.Hashable,
 	EVENT any,
-	EVENTOPS any,
+	EVENTOPS any, // event filter query options
 	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
 	FEE feetypes.Fee,
-] []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]
+	HEAD *types.Head[BLOCKHASH],
+] []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
 
 func NewHighestHeadNodeSelector[
 	CHAINID types.ID,
@@ -31,16 +32,17 @@ func NewHighestHeadNodeSelector[
 	TX any,
 	TXHASH types.Hashable,
 	EVENT any,
-	EVENTOPS any,
+	EVENTOPS any, // event filter query options
 	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
 	FEE feetypes.Fee,
-](nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) NodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE] {
-	return highestHeadNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE](nodes)
+	HEAD *types.Head[BLOCKHASH],
+](nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) NodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD] {
+	return highestHeadNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD](nodes)
 }
 
-func (s highestHeadNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) Select() Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE] {
+func (s highestHeadNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) Select() Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD] {
 	var highestHeadNumber int64 = math.MinInt64
-	var highestHeadNodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]
+	var highestHeadNodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
 	for _, n := range s {
 		state, currentHeadNumber, _ := n.StateAndLatest()
 		if state == NodeStateAlive && currentHeadNumber >= highestHeadNumber {
@@ -54,6 +56,6 @@ func (s highestHeadNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH
 	return firstOrHighestPriority(highestHeadNodes)
 }
 
-func (s highestHeadNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) Name() string {
+func (s highestHeadNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) Name() string {
 	return NodeSelectionMode_HighestHead
 }

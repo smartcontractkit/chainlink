@@ -20,13 +20,14 @@ type ChainRPCClient[
 	EVENTOPS any, // event filter query options
 	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
 	FEE feetypes.Fee,
+	HEAD *types.Head[BLOCKHASH],
 ] interface {
-	RPCClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]
+	RPCClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
 
 	RPCCallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	Start(startCtx context.Context) error
-	Close()
+	Close() error
 	Dial(callerCtx context.Context) error
 	Verify(callerCtx context.Context) (err error)
-	CloseWS() error
+	DisconnectAll()
 }
