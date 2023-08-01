@@ -480,16 +480,14 @@ func subscribeVRF(
 	fundingAmount *big.Int,
 	nativePayment bool,
 ) (v22.Subscription, *big.Int) {
+	var err error
 	if nativePayment {
-		_, err := consumerContract.CreateSubscriptionAndFundNative(author, fundingAmount)
-		require.NoError(t, err)
-		backend.Commit()
-
+		_, err = consumerContract.CreateSubscriptionAndFundNative(author, fundingAmount)
 	} else {
-		_, err := consumerContract.CreateSubscriptionAndFund(author, fundingAmount)
-		require.NoError(t, err)
-		backend.Commit()
+		_, err = consumerContract.CreateSubscriptionAndFund(author, fundingAmount)
 	}
+	require.NoError(t, err)
+	backend.Commit()
 
 	subID, err := consumerContract.SSubId(nil)
 	require.NoError(t, err)
