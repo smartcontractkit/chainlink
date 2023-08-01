@@ -45,7 +45,7 @@ func (f *fixedPriceEstimator) Close() error                                     
 func (f *fixedPriceEstimator) OnNewLongestChain(_ context.Context, _ *evmtypes.Head) {}
 
 func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (*assets.Wei, uint32, error) {
-	gasPrice, chainSpecificGasLimit, err := commonfee.CalculateFee(f.config, f.config, gasLimit, maxGasPriceWei.ToInt())
+	gasPrice, chainSpecificGasLimit, err := commonfee.CalculateFee(gasLimit, maxGasPriceWei.ToInt(), f.config.PriceDefault(), f.config.PriceMax(), f.config.LimitMultiplier())
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
 }
 

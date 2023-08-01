@@ -79,9 +79,8 @@ func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, ma
 }
 
 // CalculateFee computes the fee price and chain specific fee limit for a transaction.
-func CalculateFee(cfg feetypes.FixedPriceEstimatorConfig, bumpCfg feetypes.BumpConfig, feeLimit uint32, maxFeePrice *big.Int) (feePrice *big.Int, chainSpecificFeeLimit uint32, err error) {
-	feePrice = cfg.PriceDefault()
-	feePrice, chainSpecificFeeLimit = CapFeePrice(feePrice, maxFeePrice, bumpCfg.PriceMax(), feeLimit, bumpCfg.LimitMultiplier())
+func CalculateFee(feeLimit uint32, maxFeePrice, defaultPrice, maxBumpPrice *big.Int, bumpLimitMultiplier float32) (feePrice *big.Int, chainSpecificFeeLimit uint32, err error) {
+	feePrice, chainSpecificFeeLimit = CapFeePrice(defaultPrice, maxFeePrice, maxBumpPrice, feeLimit, bumpLimitMultiplier)
 	return
 }
 
@@ -96,7 +95,6 @@ func GetDynamicFee(cfg feetypes.FixedPriceEstimatorConfig, originalFeeLimit uint
 	feeCap = GetFeeCap(cfg, originalFeeLimit, maxFeePrice)
 
 	return feeCap, tipCap, chainSpecificFeeLimit, nil
-
 }
 
 func GetFeeCap(cfg feetypes.FixedPriceEstimatorConfig, originalFeeLimit uint32, maxFeePrice *big.Int) (feeCap *big.Int) {
