@@ -60,7 +60,10 @@ func getMaxFeePrice(userSpecifiedMax, maxFeePrice *big.Int) *big.Int {
 }
 
 func bumpFeePriceByPercentage(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits *big.Int) *big.Int {
-	return max(new(big.Int).Add(originalFeePrice, feeBumpUnits), addPercentage(originalFeePrice, feeBumpPercent))
+	return max(
+		new(big.Int).Add(originalFeePrice, feeBumpUnits), 
+		addPercentage(originalFeePrice, feeBumpPercent),
+	)
 }
 
 func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, maxFeePrice *big.Int, feeType string) *big.Int {
