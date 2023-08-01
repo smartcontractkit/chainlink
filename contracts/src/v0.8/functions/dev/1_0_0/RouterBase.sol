@@ -204,6 +204,8 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
         proposedContractSetToAddress: to
       });
     }
+
+    delete s_proposedContractSet;
   }
 
   // ================================================================
