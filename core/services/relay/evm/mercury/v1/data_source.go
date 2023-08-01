@@ -50,6 +50,8 @@ type datasource struct {
 
 var _ relaymercuryv1.DataSource = &datasource{}
 
+var maxInt192 *big.Int = new(big.Int).Exp(big.NewInt(2), big.NewInt(191), nil)
+
 func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID types.FeedID, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID types.FeedID) *datasource {
 	return &datasource{pr, jb, spec, feedID, lggr, rr, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
@@ -105,32 +107,38 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		}()
 	}
 
-	if ds.feedID != ds.linkFeedID {
+	// TODO: TEST prices logic
+	if ds.feedID == ds.linkFeedID {
+		// This IS the LINK feed, use our observed price
+		obs.LinkPrice.Val, obs.LinkPrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
+	} else {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			obs.LinkPrice.Val, obs.LinkPrice.Err = ds.fetcher.LatestPrice(ctx, ds.linkFeedID)
+			if obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
+				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing LINK feed, falling back to max int192"), "linkFeedID", ds.linkFeedID)
+				obs.LinkPrice.Val = maxInt192
+			}
 		}()
 	}
 
-	if ds.feedID != ds.nativeFeedID {
+	if ds.feedID == ds.nativeFeedID {
+		// This IS the native feed, use our observed price
+		obs.NativePrice.Val, obs.NativePrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
+	} else {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			obs.NativePrice.Val, obs.NativePrice.Err = ds.fetcher.LatestPrice(ctx, ds.nativeFeedID)
+			if obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
+				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing native feed, falling back to max int192"), "nativeFeedID", ds.nativeFeedID)
+				obs.NativePrice.Val = maxInt192
+			}
 		}()
 	}
 
 	wg.Wait()
-
-	switch ds.feedID {
-	case ds.linkFeedID:
-		// This IS the LINK feed, use our observed price
-		obs.LinkPrice.Val = obs.BenchmarkPrice.Val
-	case ds.nativeFeedID:
-		// This IS the native feed, use our observed price
-		obs.NativePrice.Val = obs.BenchmarkPrice.Val
-	}
 
 	// todo: implement telemetry
 	// if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {

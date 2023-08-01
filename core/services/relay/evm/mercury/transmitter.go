@@ -316,7 +316,7 @@ func (mt *mercuryTransmitter) LatestPrice(ctx context.Context, feedID [32]byte) 
 		return nil, err
 	}
 	if report == nil {
-		return nil, fmt.Errorf("mercury server is missing feed with id %s", types.FeedID(feedID))
+		return nil, nil
 	}
 	price, err := relaymercury.DecodeValueInt192(report.Price)
 	if err != nil {
