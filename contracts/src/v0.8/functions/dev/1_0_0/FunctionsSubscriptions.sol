@@ -5,6 +5,7 @@ import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol"
 import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
 import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
+import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
 
 /**
@@ -70,18 +71,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // |                       Request state                          |
   // ================================================================
 
-  struct Commitment {
-    uint96 adminFee; // -----------┐
-    address coordinator; // -------┘
-    address client; // ------------┐
-    uint64 subscriptionId; //      |
-    uint32 callbackGasLimit; // ---┘
-    uint96 estimatedCost; // --------------┐
-    uint40 timeoutTimestamp; //            |
-    uint120 gasAfterPaymentCalculation; // ┘ max 1e36 gas
-  }
-
-  mapping(bytes32 requestId => Commitment) internal s_requestCommitments;
+  mapping(bytes32 requestId => bytes32 commitmentHash) internal s_requestCommitments;
 
   struct Receipt {
     uint96 callbackGasCostJuels;
@@ -175,13 +165,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @notice Sets a request as in-flight
    * @dev Only callable within the Router
-   * @param client -
-   * @param subscriptionId  -
-   * @param estimatedCost  -
    */
-  function _markRequestInFlight(address client, uint64 subscriptionId, uint96 estimatedCost) internal {
+  function _markRequestInFlight(address client, uint64 subscriptionId, uint96 estimatedTotalCostJuels) internal {
     // Earmark subscription funds
-    s_subscriptions[subscriptionId].blockedBalance += estimatedCost;
+    s_subscriptions[subscriptionId].blockedBalance += estimatedTotalCostJuels;
 
     // Increment sent requests
     s_consumers[client][subscriptionId].initiatedRequests += 1;
@@ -190,17 +177,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @notice Moves funds from one subscription account to another.
    * @dev Only callable by the Coordinator contract that is saved in the request commitment
-   * @param subscriptionId -
-   * @param estimatedCost -
-   * @param client -
-   * @param adminFee -
-   * @param juelsPerGas -
-   * @param gasUsed -
-   * @param costWithoutCallbackJuels -
    */
   function _pay(
     uint64 subscriptionId,
-    uint96 estimatedCost,
+    uint96 estimatedTotalCostJuels,
     address client,
     uint96 adminFee,
     uint96 juelsPerGas,
@@ -222,7 +202,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     s_withdrawableTokens[address(this)] += adminFee;
 
     // Unblock earmarked funds
-    s_subscriptions[subscriptionId].blockedBalance -= estimatedCost;
+    s_subscriptions[subscriptionId].blockedBalance -= estimatedTotalCostJuels;
     // Increment finished requests
     s_consumers[client][subscriptionId].completedRequests += 1;
   }
@@ -508,18 +488,15 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override {
+  function timeoutRequests(IFunctionsRequest.Commitment[] calldata requestsToTimeoutByCommitment) external override {
     _whenNotPaused();
-    for (uint256 i = 0; i < requestIdsToTimeout.length; ++i) {
-      bytes32 requestId = requestIdsToTimeout[i];
-      Commitment memory request = s_requestCommitments[requestId];
-      uint64 subscriptionId = request.subscriptionId;
+    for (uint256 i = 0; i < requestsToTimeoutByCommitment.length; ++i) {
+      IFunctionsRequest.Commitment memory request = requestsToTimeoutByCommitment[i];
+      bytes32 requestId = request.requestId;
 
-      // Check that the message sender is the subscription owner
-      _isValidSubscription(subscriptionId);
-      address owner = s_subscriptions[subscriptionId].owner;
-      if (msg.sender != owner) {
-        revert MustBeSubscriptionOwner();
+      // Check that request ID is valid
+      if (keccak256(abi.encode(request)) != s_requestCommitments[requestId]) {
+        revert InvalidCalldata();
       }
 
       // Check that request has exceeded allowed request time
@@ -528,11 +505,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       }
 
       IFunctionsBilling coordinator = IFunctionsBilling(request.coordinator);
-      coordinator.deleteCommitment(requestId);
 
+      coordinator.deleteCommitment(requestId);
       // Release blocked balance
-      s_subscriptions[subscriptionId].blockedBalance -= request.estimatedCost;
-      s_consumers[request.client][subscriptionId].completedRequests += 1;
+      s_subscriptions[request.subscriptionId].blockedBalance -= request.estimatedTotalCostJuels;
+      s_consumers[request.client][request.subscriptionId].completedRequests += 1;
       // Delete commitment
       delete s_requestCommitments[requestId];
 
