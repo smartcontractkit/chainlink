@@ -240,6 +240,34 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
+  function proposeConfigUpdateSelf(bytes calldata config) external override onlyOwner {
+    if (s_configHash == keccak256(config)) {
+      revert InvalidProposal();
+    }
+    s_proposedConfig[ROUTER_ID] = ConfigProposal({
+      fromHash: s_configHash,
+      to: config,
+      timelockEndBlock: block.number + s_timelockBlocks
+    });
+    emit ConfigProposed({id: ROUTER_ID, fromHash: s_configHash, toBytes: config});
+  }
+
+  /**
+   * @inheritdoc IRouterBase
+   */
+  function updateConfigSelf() external override onlyOwner {
+    ConfigProposal memory proposal = s_proposedConfig[ROUTER_ID];
+    if (block.number < proposal.timelockEndBlock) {
+      revert TimelockInEffect();
+    }
+    _updateConfig(proposal.to);
+    s_configHash = keccak256(proposal.to);
+    emit ConfigUpdated({id: ROUTER_ID, fromHash: proposal.fromHash, toBytes: proposal.to});
+  }
+
+  /**
+   * @inheritdoc IRouterBase
+   */
   function proposeConfigUpdate(bytes32 id, bytes calldata config) external override onlyOwner {
     address implAddr = getContractById(id);
     bytes32 currentConfigHash;
