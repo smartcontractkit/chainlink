@@ -70,10 +70,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint32 feedStalenessSeconds,
     uint32 gasOverheadBeforeCallback,
     uint32 gasOverheadAfterCallback,
-    int256 fallbackNativePerUnitLink,
+    uint32 requestTimeoutSeconds,
     uint80 donFee,
     uint16 maxSupportedRequestDataVersion,
-    uint256 fulfillmentGasPriceOverEstimationBP
+    uint256 fulfillmentGasPriceOverEstimationBP,
+    int256 fallbackNativePerUnitLink
   );
 
   error UnsupportedRequestDataVersion();
@@ -128,14 +129,14 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     (
       uint32 maxCallbackGasLimit,
       uint32 feedStalenessSeconds,
-      uint32 gasOverheadAfterCallback,
       uint32 gasOverheadBeforeCallback,
-      int256 fallbackNativePerUnitLink,
+      uint32 gasOverheadAfterCallback,
       uint32 requestTimeoutSeconds,
       uint80 donFee,
       uint16 maxSupportedRequestDataVersion,
-      uint256 fulfillmentGasPriceOverEstimationBP
-    ) = abi.decode(config, (uint32, uint32, uint32, uint32, int256, uint32, uint80, uint16, uint256));
+      uint256 fulfillmentGasPriceOverEstimationBP,
+      int256 fallbackNativePerUnitLink
+    ) = abi.decode(config, (uint32, uint32, uint32, uint32, uint32, uint80, uint16, uint256, int256));
 
     if (fallbackNativePerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackNativePerUnitLink);
@@ -143,23 +144,24 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     s_config = Config({
       maxCallbackGasLimit: maxCallbackGasLimit,
       feedStalenessSeconds: feedStalenessSeconds,
-      gasOverheadAfterCallback: gasOverheadAfterCallback,
       gasOverheadBeforeCallback: gasOverheadBeforeCallback,
+      gasOverheadAfterCallback: gasOverheadAfterCallback,
       requestTimeoutSeconds: requestTimeoutSeconds,
       donFee: donFee,
-      fallbackNativePerUnitLink: fallbackNativePerUnitLink,
       maxSupportedRequestDataVersion: maxSupportedRequestDataVersion,
-      fulfillmentGasPriceOverEstimationBP: fulfillmentGasPriceOverEstimationBP
+      fulfillmentGasPriceOverEstimationBP: fulfillmentGasPriceOverEstimationBP,
+      fallbackNativePerUnitLink: fallbackNativePerUnitLink
     });
     emit ConfigChanged(
       maxCallbackGasLimit,
       feedStalenessSeconds,
       gasOverheadBeforeCallback,
       gasOverheadAfterCallback,
-      fallbackNativePerUnitLink,
+      requestTimeoutSeconds,
       donFee,
       maxSupportedRequestDataVersion,
-      fulfillmentGasPriceOverEstimationBP
+      fulfillmentGasPriceOverEstimationBP,
+      fallbackNativePerUnitLink
     );
   }
 
@@ -173,23 +175,27 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     returns (
       uint32 maxCallbackGasLimit,
       uint32 feedStalenessSeconds,
-      uint256 gasOverheadAfterCallback,
-      int256 fallbackNativePerUnitLink,
       uint32 gasOverheadBeforeCallback,
-      address linkPriceFeed,
+      uint32 gasOverheadAfterCallback,
+      uint32 requestTimeoutSeconds,
+      uint80 donFee,
       uint16 maxSupportedRequestDataVersion,
-      uint256 fulfillmentGasPriceOverEstimationBP
+      uint256 fulfillmentGasPriceOverEstimationBP,
+      int256 fallbackNativePerUnitLink,
+      address linkPriceFeed
     )
   {
     return (
       s_config.maxCallbackGasLimit,
       s_config.feedStalenessSeconds,
-      s_config.gasOverheadAfterCallback,
-      s_config.fallbackNativePerUnitLink,
       s_config.gasOverheadBeforeCallback,
-      address(s_linkToNativeFeed),
+      s_config.gasOverheadAfterCallback,
+      s_config.requestTimeoutSeconds,
+      s_config.donFee,
       s_config.maxSupportedRequestDataVersion,
-      s_config.fulfillmentGasPriceOverEstimationBP
+      s_config.fulfillmentGasPriceOverEstimationBP,
+      s_config.fallbackNativePerUnitLink,
+      address(s_linkToNativeFeed)
     );
   }
 

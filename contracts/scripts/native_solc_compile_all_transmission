@@ -34,4 +34,4 @@ compileContract dev/transmission/testhelpers/SmartContractAccountHelper.sol
 compileContract dev/transmission/testhelpers/Greeter.sol
 
 # Vendor
-compileContract dev/vendor/entrypoint/core/EntryPoint.sol
+compileContract vendor/entrypoint/core/EntryPoint.sol

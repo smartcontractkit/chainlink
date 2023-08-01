@@ -45,7 +45,7 @@ type KeeperBenchmarkTest struct {
 	upkeepIDs               [][]*big.Int
 
 	env              *environment.Environment
-	chainlinkNodes   []*client.Chainlink
+	chainlinkNodes   []*client.ChainlinkK8sClient
 	chainClient      blockchain.EVMClient
 	contractDeployer contracts.ContractDeployer
 
@@ -393,7 +393,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
 	*testing.T,
 	*environment.Environment,
-	[]*client.Chainlink,
+	[]*client.ChainlinkK8sClient,
 	reportModel.TestReporter,
 	blockchain.EVMClient,
 ) {
