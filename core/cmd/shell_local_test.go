@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"os"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -207,12 +206,9 @@ func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 			return logFileSize
 		}, true},
 	}
-	var closeOnce sync.Once
 	var closeFn func() error
 	t.Cleanup(func() {
-		closeOnce.Do(func() {
-			assert.NoError(t, closeFn())
-		})
+		assert.NoError(t, closeFn())
 	})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
