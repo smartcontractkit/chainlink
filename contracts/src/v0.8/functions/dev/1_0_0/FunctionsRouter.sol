@@ -271,7 +271,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       commitment.client,
       commitment.adminFee,
       juelsPerGas,
-      result.gasUsed,
+      SafeCast.toUint96(result.gasUsed),
       costWithoutFulfillment
     );
 

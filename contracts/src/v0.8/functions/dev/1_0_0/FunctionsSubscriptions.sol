@@ -193,10 +193,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     address client,
     uint96 adminFee,
     uint96 juelsPerGas,
-    uint256 gasUsed,
+    uint96 gasUsed,
     uint96 costWithoutCallbackJuels
   ) internal returns (Receipt memory receipt) {
-    uint96 callbackGasCostJuels = juelsPerGas * SafeCast.toUint96(gasUsed);
+    uint96 callbackGasCostJuels = juelsPerGas * gasUsed;
     uint96 totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels;
 
     receipt = Receipt(callbackGasCostJuels, totalCostJuels);
