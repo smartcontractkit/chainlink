@@ -52,6 +52,35 @@ increase minikube's resources significantly, or get a more substantial cluster.
 This is necessary to deploy ephemeral testing environments, which include external adapters, chainlink nodes and their DBs,
 as well as some simulated blockchains, all depending on the types of tests and networks being used.
 
+### Setup Kubernetes Cluster using k3d
+
+[k3d](https://k3d.io/) is a lightweight wrapper to run k3s (a lightweight kubernetes distribution) in docker. It's a great way to run a local kubernetes cluster for testing.
+To create a new cluster you can run:
+
+```sh
+k3d cluster create test-k8s --registry-create test-k8s-registry:0.0.0.0:5000
+```
+
+This will create a cluster with a local registry running on port 5000. You can then use the registry to push images to and pull images from.
+
+To build and push chainlink image to the registry you can run:
+
+```sh
+make build_push_docker_image
+````
+
+To stop the cluster you can run:
+
+```sh
+k3d cluster stop test-k8s
+```
+
+To start an existing cluster you can run:
+
+```sh
+k3d cluster start test-k8s
+```
+
 ## Configure Environment
 
 See the [example.env](./example.env) file and use it as a template for your own `.env` file. This allows you to configure general settings like what name to associate with your tests, and which Chainlink version to use when running them.
