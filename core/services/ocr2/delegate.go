@@ -139,6 +139,7 @@ func (d *delegateConfig) OCR2() ocr2Config {
 type ocr2Config interface {
 	BlockchainTimeout() time.Duration
 	CaptureEATelemetry() bool
+	CaptureAutomationCustomTelemetry() bool
 	ContractConfirmations() uint16
 	ContractPollInterval() time.Duration
 	ContractTransmitterTransmitTimeout() time.Duration
@@ -381,6 +382,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 
 	spec.CaptureEATelemetry = d.cfg.OCR2().CaptureEATelemetry()
+	spec.CaptureAutomationCustomTelemetry = d.cfg.OCR2().CaptureAutomationCustomTelemetry()
 
 	runResults := make(chan pipeline.Run, d.cfg.JobPipeline().ResultWriteQueueDepth())
 
@@ -1065,33 +1067,36 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		d.cfg.JobPipeline().MaxSuccessfulRuns(),
 	)
 
-	// get the chain from the config
-	chainID, err2 := spec.RelayConfig.EVMChainID()
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "ChainID did not get")
-	}
-	chain, err2 := d.chainSet.Get(big.NewInt(chainID))
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "ErrNoChainFromSpec")
-	}
-
-	hb := chain.HeadBroadcaster()
-	endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
-	customTelemService := ocr2keeper.NewAutomationCustomTelemetryService(
-		endpoint,
-		hb,
-		lggr,
-	)
-
-	return []job.ServiceCtx{
+	automationServices := []job.ServiceCtx{
 		job.NewServiceAdapter(runr),
 		runResultSaver,
 		keeperProvider,
 		rgstry,
 		logProvider,
 		pluginService,
-		customTelemService,
-	}, nil
+	}
+
+	if d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
+		chainID, err2 := spec.RelayConfig.EVMChainID()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "ChainID did not get")
+		}
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "ErrNoChainFromSpec")
+		}
+
+		hb := chain.HeadBroadcaster()
+		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
+		customTelemService := ocr2keeper.NewAutomationCustomTelemetryService(
+			endpoint,
+			hb,
+			lggr,
+		)
+		automationServices = append(automationServices, customTelemService)
+	}
+
+	return automationServices, nil
 }
 
 func (d *Delegate) newServicesOCR2Functions(
