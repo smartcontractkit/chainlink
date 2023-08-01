@@ -165,6 +165,7 @@ func (g *generateOCR2Config) Run(args []string) {
 		if err != nil {
 			panic(err)
 		}
+		fmt.Println("Functions OCR2 public keys have been saved to:", filepath)
 	}
 
 	onchainPubKeys := []common.Address{}
