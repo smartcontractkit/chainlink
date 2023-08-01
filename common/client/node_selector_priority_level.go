@@ -19,11 +19,12 @@ type priorityLevelNodeSelector[
 	TX any,
 	TXHASH types.Hashable,
 	EVENT any,
-	EVENTOPS any,
+	EVENTOPS any, // event filter query options
 	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
 	FEE feetypes.Fee,
+	HEAD *types.Head[BLOCKHASH],
 ] struct {
-	nodes           []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]
+	nodes           []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
 	roundRobinCount []atomic.Uint32
 }
 
@@ -36,11 +37,12 @@ type nodeWithPriority[
 	TX any,
 	TXHASH types.Hashable,
 	EVENT any,
-	EVENTOPS any,
+	EVENTOPS any, // event filter query options
 	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
 	FEE feetypes.Fee,
+	HEAD *types.Head[BLOCKHASH],
 ] struct {
-	node     Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]
+	node     Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
 	priority int32
 }
 
@@ -53,17 +55,18 @@ func NewPriorityLevelNodeSelector[
 	TX any,
 	TXHASH types.Hashable,
 	EVENT any,
-	EVENTOPS any,
+	EVENTOPS any, // event filter query options
 	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
 	FEE feetypes.Fee,
-](nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) NodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE] {
-	return &priorityLevelNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]{
+	HEAD *types.Head[BLOCKHASH],
+](nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) NodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD] {
+	return &priorityLevelNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]{
 		nodes:           nodes,
 		roundRobinCount: make([]atomic.Uint32, nrOfPriorityTiers(nodes)),
 	}
 }
 
-func (s priorityLevelNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) Select() Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE] {
+func (s priorityLevelNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) Select() Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD] {
 	nodes := s.getHighestPriorityAliveTier()
 
 	if len(nodes) == 0 {
@@ -78,17 +81,17 @@ func (s priorityLevelNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHA
 	return nodes[idx].node
 }
 
-func (s priorityLevelNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) Name() string {
+func (s priorityLevelNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) Name() string {
 	return NodeSelectionMode_PriorityLevel
 }
 
 // getHighestPriorityAliveTier filters nodes that are not in state NodeStateAlive and
 // returns only the highest tier of alive nodes
-func (s priorityLevelNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) getHighestPriorityAliveTier() []nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE] {
-	var nodes []nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]
+func (s priorityLevelNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) getHighestPriorityAliveTier() []nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD] {
+	var nodes []nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
 	for _, n := range s.nodes {
 		if n.State() == NodeStateAlive {
-			nodes = append(nodes, nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]{n, n.Order()})
+			nodes = append(nodes, nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]{n, n.Order()})
 		}
 	}
 
@@ -99,7 +102,7 @@ func (s priorityLevelNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHA
 	return removeLowerTiers(nodes)
 }
 
-// removeLowerTiers take a slice of nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE] and keeps only the highest tier
+// removeLowerTiers take a slice of nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD] and keeps only the highest tier
 func removeLowerTiers[
 	CHAINID types.ID,
 	SEQ types.Sequence,
@@ -109,15 +112,16 @@ func removeLowerTiers[
 	TX any,
 	TXHASH types.Hashable,
 	EVENT any,
-	EVENTOPS any,
+	EVENTOPS any, // event filter query options
 	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
 	FEE feetypes.Fee,
-](nodes []nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) []nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE] {
+	HEAD *types.Head[BLOCKHASH],
+](nodes []nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) []nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD] {
 	sort.SliceStable(nodes, func(i, j int) bool {
 		return nodes[i].priority > nodes[j].priority
 	})
 
-	var nodes2 []nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]
+	var nodes2 []nodeWithPriority[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
 	currentPriority := nodes[len(nodes)-1].priority
 
 	for _, n := range nodes {
@@ -139,10 +143,11 @@ func nrOfPriorityTiers[
 	TX any,
 	TXHASH types.Hashable,
 	EVENT any,
-	EVENTOPS any,
+	EVENTOPS any, // event filter query options
 	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
 	FEE feetypes.Fee,
-](nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) int32 {
+	HEAD *types.Head[BLOCKHASH],
+](nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) int32 {
 	highestPriority := int32(0)
 	for _, n := range nodes {
 		priority := n.Order()
@@ -163,12 +168,13 @@ func firstOrHighestPriority[
 	TX any,
 	TXHASH types.Hashable,
 	EVENT any,
-	EVENTOPS any,
+	EVENTOPS any, // event filter query options
 	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
 	FEE feetypes.Fee,
-](nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]) Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE] {
+	HEAD *types.Head[BLOCKHASH],
+](nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD] {
 	hp := int32(math.MaxInt32)
-	var node Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE]
+	var node Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
 	for _, n := range nodes {
 		if n.Order() < hp {
 			hp = n.Order()
