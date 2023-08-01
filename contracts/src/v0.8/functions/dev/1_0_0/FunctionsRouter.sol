@@ -232,6 +232,10 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   ) external override returns (uint8 resultCode, uint96 callbackGasCostJuels) {
     _whenNotPaused();
 
+    if (msg.sender != commitment.coordinator) {
+      revert OnlyCallableFromCoordinator();
+    }
+
     if (s_requestCommitments[commitment.requestId] == bytes32(0)) {
       resultCode = 2; // FulfillResult.INVALID_REQUEST_ID
       return (resultCode, callbackGasCostJuels);
@@ -240,10 +244,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     if (keccak256(abi.encode(commitment)) != s_requestCommitments[commitment.requestId]) {
       resultCode = 7; // FulfillResult.INVALID_REQUEST_ID
       return (resultCode, callbackGasCostJuels);
-    }
-
-    if (msg.sender != commitment.coordinator) {
-      revert OnlyCallableFromCoordinator();
     }
 
     // Check that the transmitter has supplied enough gas for the callback to succeed
