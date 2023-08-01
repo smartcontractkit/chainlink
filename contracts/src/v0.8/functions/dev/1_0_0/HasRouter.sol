@@ -23,7 +23,8 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
       revert RouterMustBeSet();
     }
     s_router = IOwnableRouter(router);
-    _handleConfigUpdate(config);
+    _updateConfig(config);
+    s_configHash = keccak256(config);
   }
 
   function _getRouter() internal view returns (IOwnableRouter router) {
@@ -44,19 +45,12 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
   function _updateConfig(bytes memory config) internal virtual;
 
   /**
-   * @dev Internal function that can be re-used in the constructor
-   */
-  function _handleConfigUpdate(bytes memory config) private {
-    _updateConfig(config);
-    s_configHash = keccak256(config);
-  }
-
-  /**
    * @inheritdoc IConfigurable
    * @dev Only callable by the Router
    */
   function updateConfig(bytes memory config) public override onlyRouter {
-    _handleConfigUpdate(config);
+    _updateConfig(config);
+    s_configHash = keccak256(config);
   }
 
   /**
