@@ -207,28 +207,6 @@ func (_FunctionsRouter *FunctionsRouterCallerSession) MAXCALLBACKRETURNBYTES() (
 	return _FunctionsRouter.Contract.MAXCALLBACKRETURNBYTES(&_FunctionsRouter.CallOpts)
 }
 
-func (_FunctionsRouter *FunctionsRouterCaller) GetAdminFee(opts *bind.CallOpts) (*big.Int, error) {
-	var out []interface{}
-	err := _FunctionsRouter.contract.Call(opts, &out, "getAdminFee")
-
-	if err != nil {
-		return *new(*big.Int), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-
-	return out0, err
-
-}
-
-func (_FunctionsRouter *FunctionsRouterSession) GetAdminFee() (*big.Int, error) {
-	return _FunctionsRouter.Contract.GetAdminFee(&_FunctionsRouter.CallOpts)
-}
-
-func (_FunctionsRouter *FunctionsRouterCallerSession) GetAdminFee() (*big.Int, error) {
-	return _FunctionsRouter.Contract.GetAdminFee(&_FunctionsRouter.CallOpts)
-}
-
 func (_FunctionsRouter *FunctionsRouterCaller) GetAllowListId(opts *bind.CallOpts) ([32]byte, error) {
 	var out []interface{}
 	err := _FunctionsRouter.contract.Call(opts, &out, "getAllowListId")
@@ -249,6 +227,28 @@ func (_FunctionsRouter *FunctionsRouterSession) GetAllowListId() ([32]byte, erro
 
 func (_FunctionsRouter *FunctionsRouterCallerSession) GetAllowListId() ([32]byte, error) {
 	return _FunctionsRouter.Contract.GetAllowListId(&_FunctionsRouter.CallOpts)
+}
+
+func (_FunctionsRouter *FunctionsRouterCaller) GetConfig(opts *bind.CallOpts) (IFunctionsRouterConfig, error) {
+	var out []interface{}
+	err := _FunctionsRouter.contract.Call(opts, &out, "getConfig")
+
+	if err != nil {
+		return *new(IFunctionsRouterConfig), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(IFunctionsRouterConfig)).(*IFunctionsRouterConfig)
+
+	return out0, err
+
+}
+
+func (_FunctionsRouter *FunctionsRouterSession) GetConfig() (IFunctionsRouterConfig, error) {
+	return _FunctionsRouter.Contract.GetConfig(&_FunctionsRouter.CallOpts)
+}
+
+func (_FunctionsRouter *FunctionsRouterCallerSession) GetConfig() (IFunctionsRouterConfig, error) {
+	return _FunctionsRouter.Contract.GetConfig(&_FunctionsRouter.CallOpts)
 }
 
 func (_FunctionsRouter *FunctionsRouterCaller) GetConfigHash(opts *bind.CallOpts) ([32]byte, error) {
@@ -368,28 +368,6 @@ func (_FunctionsRouter *FunctionsRouterSession) GetFlags(subscriptionId uint64) 
 
 func (_FunctionsRouter *FunctionsRouterCallerSession) GetFlags(subscriptionId uint64) ([32]byte, error) {
 	return _FunctionsRouter.Contract.GetFlags(&_FunctionsRouter.CallOpts, subscriptionId)
-}
-
-func (_FunctionsRouter *FunctionsRouterCaller) GetMaxConsumers(opts *bind.CallOpts) (uint16, error) {
-	var out []interface{}
-	err := _FunctionsRouter.contract.Call(opts, &out, "getMaxConsumers")
-
-	if err != nil {
-		return *new(uint16), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(uint16)).(*uint16)
-
-	return out0, err
-
-}
-
-func (_FunctionsRouter *FunctionsRouterSession) GetMaxConsumers() (uint16, error) {
-	return _FunctionsRouter.Contract.GetMaxConsumers(&_FunctionsRouter.CallOpts)
-}
-
-func (_FunctionsRouter *FunctionsRouterCallerSession) GetMaxConsumers() (uint16, error) {
-	return _FunctionsRouter.Contract.GetMaxConsumers(&_FunctionsRouter.CallOpts)
 }
 
 func (_FunctionsRouter *FunctionsRouterCaller) GetProposedContractSet(opts *bind.CallOpts) (*big.Int, [][32]byte, []common.Address, error) {
@@ -3870,9 +3848,9 @@ func (_FunctionsRouter *FunctionsRouter) Address() common.Address {
 type FunctionsRouterInterface interface {
 	MAXCALLBACKRETURNBYTES(opts *bind.CallOpts) (uint16, error)
 
-	GetAdminFee(opts *bind.CallOpts) (*big.Int, error)
-
 	GetAllowListId(opts *bind.CallOpts) ([32]byte, error)
+
+	GetConfig(opts *bind.CallOpts) (IFunctionsRouterConfig, error)
 
 	GetConfigHash(opts *bind.CallOpts) ([32]byte, error)
 
@@ -3885,8 +3863,6 @@ type FunctionsRouterInterface interface {
 	GetContractById0(opts *bind.CallOpts, id [32]byte) (common.Address, error)
 
 	GetFlags(opts *bind.CallOpts, subscriptionId uint64) ([32]byte, error)
-
-	GetMaxConsumers(opts *bind.CallOpts) (uint16, error)
 
 	GetProposedContractSet(opts *bind.CallOpts) (*big.Int, [][32]byte, []common.Address, error)
 

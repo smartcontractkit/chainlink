@@ -11,6 +11,7 @@ import {
   encodeReport,
   stringToHex,
   getEventArg,
+  functionsRouterConfig,
 } from './utils'
 
 const setup = getSetupFactory()
@@ -37,8 +38,8 @@ describe('FunctionsRouter - Base', () => {
         contracts.router.proposeConfigUpdate(
           ids.routerId,
           ethers.utils.defaultAbiCoder.encode(
-            ['uint96', 'bytes4'],
-            [1, 0x0ca76175],
+            ['uint16', 'uint96', 'bytes4', 'uint32[]'],
+            [2000, 1, 0x0ca76175, [300_000, 500_000]],
           ),
         ),
       ).to.emit(contracts.router, 'ConfigProposed')
@@ -65,8 +66,8 @@ describe('FunctionsRouter - Base', () => {
         contracts.router.proposeConfigUpdate(
           ids.routerId,
           ethers.utils.defaultAbiCoder.encode(
-            ['uint96', 'bytes4', 'uint32[]'],
-            [1, 0x0ca76175, [300_000, 500_000]],
+            ['uint16', 'uint96', 'bytes4', 'uint32[]'],
+            [2000, 1, 0x0ca76175, [300_000, 500_000]],
           ),
         ),
       ).to.emit(contracts.router, 'ConfigProposed')
@@ -116,9 +117,15 @@ describe('FunctionsRouter - Base', () => {
     })
 
     it('returns the config set on the Router', async () => {
-      expect(
-        await contracts.router.connect(roles.stranger).getAdminFee(),
-      ).to.equal(0)
+      const config = await contracts.router.connect(roles.stranger).getConfig()
+      expect(config.maxConsumers).to.equal(functionsRouterConfig.maxConsumers)
+      expect(config.adminFee).to.equal(functionsRouterConfig.adminFee)
+      expect(config.handleOracleFulfillmentSelector).to.equal(
+        functionsRouterConfig.handleOracleFulfillmentSelector,
+      )
+      expect(config.maxCallbackGasLimits.toString()).to.equal(
+        functionsRouterConfig.maxCallbackGasLimits.toString(),
+      )
     })
   })
 
@@ -282,8 +289,8 @@ describe('FunctionsRouter - Base', () => {
       await contracts.router.proposeConfigUpdate(
         ids.routerId,
         ethers.utils.defaultAbiCoder.encode(
-          ['uint96', 'bytes4'],
-          [20, 0x0ca76175],
+          ['uint16', 'uint96', 'bytes4', 'uint32[]'],
+          [2000, 1, 0x0ca76175, [300_000, 500_000]],
         ),
       )
       await expect(

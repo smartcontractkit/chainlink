@@ -8,6 +8,7 @@ import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
+import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 
 /**
  * @title Functions Billing contract
@@ -197,7 +198,8 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     RequestBilling memory /* billing */
   ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
-    return IFunctionsRouter(address(_getRouter())).getAdminFee();
+    IFunctionsRouter.Config memory config = IFunctionsRouter(address(_getRouter())).getConfig();
+    return config.adminFee;
   }
 
   function getFeedData() public view returns (int256) {

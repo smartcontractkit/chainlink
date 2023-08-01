@@ -60,12 +60,6 @@ interface IFunctionsSubscriptions {
   ) external view returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests);
 
   /**
-   * @notice Get the maximum number of consumers that can be added to one subscription
-   * @return maxConsumers - maximum number of consumers that can be added to one subscription
-   */
-  function getMaxConsumers() external view returns (uint16);
-
-  /**
    * @notice Get details about the total amount of LINK within the system
    * @return totalBalance - total Juels of LINK held by the contract
    */
