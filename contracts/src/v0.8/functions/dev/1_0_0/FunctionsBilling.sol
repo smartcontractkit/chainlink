@@ -306,10 +306,10 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     uint96 adminFee = getAdminFee(data, billing);
     uint96 estimatedCost = _calculateCostEstimate(billing.callbackGasLimit, billing.expectedGasPrice, donFee, adminFee);
     IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(_getRouter()));
-    (uint96 balance, uint96 blockedBalance, , , ) = subscriptions.getSubscription(billing.subscriptionId);
+    IFunctionsSubscriptions.Subscription memory subscription = subscriptions.getSubscription(billing.subscriptionId);
     (, uint64 initiatedRequests, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
 
-    if (balance - blockedBalance < estimatedCost) {
+    if (subscription.balance - subscription.blockedBalance < estimatedCost) {
       revert InsufficientBalance();
     }
 

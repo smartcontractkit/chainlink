@@ -51,14 +51,13 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   event ConfigUpdated(bytes32 id, bytes32 fromHash, bytes toBytes);
   error InvalidProposal();
   error IdentifierIsReserved(bytes32 id);
+  error AlreadyApplied();
 
   // ================================================================
   // |                          Config state                        |
   // ================================================================
 
   bytes32 internal s_configHash;
-
-  error InvalidConfigData();
 
   TimeLockProposal internal s_timelockProposal;
 
@@ -240,8 +239,12 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (block.number < proposal.timelockEndBlock) {
       revert TimelockInEffect();
     }
+    bytes32 nextConfigHash = keccak256(proposal.to);
+    if (s_configHash == nextConfigHash) {
+      revert AlreadyApplied();
+    }
     _updateConfig(proposal.to);
-    s_configHash = keccak256(proposal.to);
+    s_configHash = nextConfigHash;
     emit ConfigUpdated({id: ROUTER_ID, fromHash: proposal.fromHash, toBytes: proposal.to});
   }
 
@@ -249,13 +252,8 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @inheritdoc IRouterBase
    */
   function proposeConfigUpdate(bytes32 id, bytes calldata config) external override onlyOwner {
-    address implAddr = getContractById(id);
-    bytes32 currentConfigHash;
-    if (implAddr == address(this)) {
-      currentConfigHash = s_configHash;
-    } else {
-      currentConfigHash = IConfigurable(implAddr).getConfigHash();
-    }
+    IConfigurable configurableContract = IConfigurable(getContractById(id));
+    bytes32 currentConfigHash = configurableContract.getConfigHash();
     if (currentConfigHash == keccak256(config)) {
       revert InvalidProposal();
     }
@@ -272,17 +270,19 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    */
   function updateConfig(bytes32 id) external override onlyOwner {
     ConfigProposal memory proposal = s_proposedConfig[id];
+
     if (block.number < proposal.timelockEndBlock) {
       revert TimelockInEffect();
     }
-    if (id == ROUTER_ID) {
-      _updateConfig(proposal.to);
-      s_configHash = keccak256(proposal.to);
-    } else {
-      try IConfigurable(getContractById(id)).updateConfig(proposal.to) {} catch {
-        revert InvalidConfigData();
-      }
+
+    IConfigurable configurableContract = IConfigurable(getContractById(id));
+
+    if (configurableContract.getConfigHash() == keccak256(proposal.to)) {
+      revert AlreadyApplied();
     }
+
+    configurableContract.updateConfig(proposal.to);
+
     emit ConfigUpdated({id: id, fromHash: proposal.fromHash, toBytes: proposal.to});
   }
 
@@ -313,6 +313,9 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   function updateTimelockBlocks() external override onlyOwner {
     if (block.number < s_timelockProposal.timelockEndBlock) {
       revert TimelockInEffect();
+    }
+    if (s_timelockBlocks == s_timelockProposal.to) {
+      revert AlreadyApplied();
     }
     s_timelockBlocks = s_timelockProposal.to;
   }
