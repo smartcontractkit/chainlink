@@ -42,7 +42,7 @@ type Geth struct {
 func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
 	g := &Geth{
 		EnvComponent: EnvComponent{
-			ContainerName: fmt.Sprintf("%s-%s", "geth", uuid.NewString()),
+			ContainerName: fmt.Sprintf("%s-%s", "geth", uuid.NewString()[0:3]),
 			Networks:      networks,
 		},
 	}

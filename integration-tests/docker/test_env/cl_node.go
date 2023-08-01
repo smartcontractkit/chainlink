@@ -61,10 +61,12 @@ func WithDbContainerName(name string) ClNodeOption {
 }
 
 func NewClNode(networks []string, nodeConfOpts node.NodeConfigOpts, opts ...ClNodeOption) *ClNode {
-	pgDb := NewPostgresDb(networks)
+	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:3])
+	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
+	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
 	n := &ClNode{
 		EnvComponent: EnvComponent{
-			ContainerName: fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()),
+			ContainerName: nodeDefaultCName,
 			Networks:      networks,
 		},
 		NodeConfigOpts: nodeConfOpts,

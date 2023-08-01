@@ -36,10 +36,10 @@ func WithPostgresDbPort(port string) PostgresDbOption {
 	}
 }
 
-func NewPostgresDb(networks []string, opts ...EnvComponentOption) *PostgresDb {
+func NewPostgresDb(networks []string, opts ...PostgresDbOption) *PostgresDb {
 	pg := &PostgresDb{
 		EnvComponent: EnvComponent{
-			ContainerName: fmt.Sprintf("%s-%s", "postgres-db", uuid.NewString()),
+			ContainerName: fmt.Sprintf("%s-%s", "postgres-db", uuid.NewString()[0:3]),
 			Networks:      networks,
 		},
 		User:     "postgres",
@@ -48,7 +48,7 @@ func NewPostgresDb(networks []string, opts ...EnvComponentOption) *PostgresDb {
 		Port:     "5342",
 	}
 	for _, opt := range opts {
-		opt(&pg.EnvComponent)
+		opt(pg)
 	}
 	return pg
 }
