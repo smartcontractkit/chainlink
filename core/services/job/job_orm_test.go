@@ -542,6 +542,9 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	require.ElementsMatch(t, fromAddresses, actual)
 	var vrfOwnerAddress ethkey.EIP55Address
 	require.Error(t, db.Get(&vrfOwnerAddress, `SELECT vrf_owner_address FROM vrf_specs LIMIT 1`))
+	require.NoError(t, jobORM.DeleteJob(jb.ID))
+	cltest.AssertCount(t, db, "vrf_specs", 0)
+	cltest.AssertCount(t, db, "jobs", 0)
 
 	jb, err = vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{VRFVersion: vrfcommon.V2Plus, RequestTimeout: 1 * time.Hour}).Toml())
 	require.NoError(t, err)
