@@ -32,6 +32,8 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   }
   mapping(bytes32 requestId => Commitment) private s_requestCommitments;
 
+  event CommitmentDeleted(bytes32 requestId);
+
   // ================================================================
   // |                     Configuration state                      |
   // ================================================================
@@ -426,6 +428,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     }
     // Delete commitment
     delete s_requestCommitments[requestId];
+    emit CommitmentDeleted(requestId);
     return true;
   }
 
