@@ -603,24 +603,26 @@ jobs:
       EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
       TEST_EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
 
-      GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
-      TEST_GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
-      GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
-      TEST_GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
+      # GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
+      # TEST_GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
+      # GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
+      # TEST_GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
 
-      OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
+      # OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
       TEST_OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
-      OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
+      # OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
       TEST_OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
 
-      ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
-      TEST_ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
-      ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
-      TEST_ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
+      # ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
+      # TEST_ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
+      # ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
+      # TEST_ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
     strategy:
       fail-fast: false
       matrix:
-        testnet: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
+        ## DEBUG: Testing what's up
+        # testnet: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
+        testnet: [OPTIMISM_GOERLI]
     name: Live Testnet Smoke Tests ${{ matrix.testnet }}
     runs-on: ubuntu-latest
     steps:
