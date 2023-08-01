@@ -4,8 +4,8 @@ pragma solidity ^0.8.19;
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {IFunctionsBilling, FunctionsBilling} from "./FunctionsBilling.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
-import {FulfillResult} from "./FulfillResultCodes.sol";
-import {ITypeAndVersion} from "./Routable.sol";
+import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
+import {ITypeAndVersion} from "./HasRouter.sol";
 
 /**
  * @title Functions Coordinator contract
@@ -48,9 +48,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   /**
    * @inheritdoc ITypeAndVersion
    */
-  function typeAndVersion() public pure override returns (string memory) {
-    return "Functions Coordinator v1";
-  }
+  string public constant override typeAndVersion = "Functions Coordinator v1.0.0";
 
   /**
    * @inheritdoc IFunctionsCoordinator

@@ -59,11 +59,6 @@ describe('FunctionsRouter - Base', () => {
     })
 
     it('Owner can update config of the Router', async () => {
-      const [
-        beforeSystemVersionMajor,
-        beforeSystemVersionMinor,
-        beforeSystemVersionPatch,
-      ] = await contracts.router.version()
       const beforeConfigHash = await contracts.router.getConfigHash()
 
       await expect(
@@ -79,24 +74,12 @@ describe('FunctionsRouter - Base', () => {
         contracts.router,
         'ConfigUpdated',
       )
-      const [
-        afterSystemVersionMajor,
-        afterSystemVersionMinor,
-        afterSystemVersionPatch,
-      ] = await contracts.router.version()
+
       const afterConfigHash = await contracts.router.getConfigHash()
-      expect(afterSystemVersionMajor).to.equal(beforeSystemVersionMajor)
-      expect(afterSystemVersionMinor).to.equal(beforeSystemVersionMinor)
-      expect(afterSystemVersionPatch).to.equal(beforeSystemVersionPatch + 1)
       expect(beforeConfigHash).to.not.equal(afterConfigHash)
     })
 
     it('Config of a contract on a route can be updated', async () => {
-      const [
-        beforeSystemVersionMajor,
-        beforeSystemVersionMinor,
-        beforeSystemVersionPatch,
-      ] = await contracts.router.version()
       const beforeConfigHash = await contracts.coordinator.getConfigHash()
 
       await expect(
@@ -127,15 +110,8 @@ describe('FunctionsRouter - Base', () => {
         contracts.router,
         'ConfigUpdated',
       )
-      const [
-        afterSystemVersionMajor,
-        afterSystemVersionMinor,
-        afterSystemVersionPatch,
-      ] = await contracts.router.version()
+
       const afterConfigHash = await contracts.router.getConfigHash()
-      expect(afterSystemVersionMajor).to.equal(beforeSystemVersionMajor)
-      expect(afterSystemVersionMinor).to.equal(beforeSystemVersionMinor)
-      expect(afterSystemVersionPatch).to.equal(beforeSystemVersionPatch + 1)
       expect(beforeConfigHash).to.not.equal(afterConfigHash)
     })
 
@@ -216,11 +192,6 @@ describe('FunctionsRouter - Base', () => {
           contracts.mockLinkEth.address,
         )
 
-      const [
-        beforeSystemVersionMajor,
-        beforeSystemVersionMinor,
-        beforeSystemVersionPatch,
-      ] = await contracts.router.version()
       await expect(
         contracts.router['getContractById(bytes32)'](ids.donId2),
       ).to.be.revertedWith('RouteNotFound')
@@ -271,15 +242,6 @@ describe('FunctionsRouter - Base', () => {
       expect(
         await contracts.router['getContractById(bytes32)'](ids.donId4),
       ).to.equal(coordinator4.address)
-
-      const [
-        afterSystemVersionMajor,
-        afterSystemVersionMinor,
-        afterSystemVersionPatch,
-      ] = await contracts.router.version()
-      expect(afterSystemVersionMajor).to.equal(beforeSystemVersionMajor)
-      expect(afterSystemVersionMinor).to.equal(beforeSystemVersionMinor + 1)
-      expect(afterSystemVersionPatch).to.equal(beforeSystemVersionPatch)
     })
 
     it('non-owner is unable to propose contract updates', async () => {
@@ -373,7 +335,7 @@ describe('FunctionsRouter - Base', () => {
         contracts.linkToken,
       )
 
-      await contracts.router.togglePaused()
+      await contracts.router.pause()
 
       await expect(
         contracts.client.sendSimpleRequestWithJavaScript(

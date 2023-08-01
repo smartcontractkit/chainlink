@@ -16,7 +16,7 @@ describe('Functions Router - Request lifecycle', () => {
   describe('Getters', () => {
     it('#typeAndVersion', async () => {
       expect(await contracts.router.typeAndVersion()).to.be.equal(
-        'Functions Router v1',
+        'Functions Router v1.0.0',
       )
     })
     it('#adminFee', async () => {
