@@ -259,18 +259,6 @@ func (o *OCRSoakTest) Run() {
 	require.NoError(o.t, err, "Error getting current block number")
 	o.startingBlockNum = latestBlockNum
 
-	ocrAddresses := make([]common.Address, len(o.ocrInstances))
-	for i, ocrInstance := range o.ocrInstances {
-		ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
-	}
-	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
-	require.NoError(o.t, err, "Error retrieving OCR contract ABI")
-	o.filterQuery = geth.FilterQuery{
-		Addresses: ocrAddresses,
-		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
-		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
-	}
-
 	startingValue := 5
 	if o.OperatorForwarderFlow {
 		actions.CreateOCRJobsWithForwarder(o.t, o.ocrInstances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer)
@@ -285,79 +273,6 @@ func (o *OCRSoakTest) Run() {
 		Msg("Starting OCR Soak Test")
 
 	o.testLoop(o.Inputs.TestDuration, startingValue)
-
-	// Keep trying to collect events until we get them
-	timeout := time.Second * 15
-	err = o.collectEvents(timeout)
-	for err != nil {
-		log.Error().Err(err).Msg("Error collecting events")
-		if strings.Contains(err.Error(), "context deadline exceeded") {
-			timeout *= 2
-			log.Info().Str("New Timeout", timeout.String()).Msg("Attempting to collect events again")
-			err = o.collectEvents(timeout)
-		} else { // Some other error, not a timeout we can just retry
-			break
-		}
-	}
-	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
-}
-
-// testLoop is the primary test loop that will trigger new rounds and watch events
-func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
-	endTest := time.After(testDuration)
-	interruption := make(chan os.Signal, 1)
-	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
-	lastValue := 0
-	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP
-	defer newRoundTrigger.Stop()
-	err := o.observeOCREvents()
-	require.NoError(o.t, err, "Error subscribing to OCR events")
-
-	for {
-		select {
-		case <-interruption:
-			saveStart := time.Now()
-			o.log.Warn().Msg("Test interrupted, saving state before shut down")
-			o.testIssues = append(o.testIssues, &testreporters.TestIssue{
-				StartTime: time.Now(),
-				Message:   "Test Interrupted",
-			})
-			if err := o.SaveState(); err != nil {
-				o.log.Error().Err(err).Msg("Error saving state")
-			}
-			log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
-			os.Exit(1)
-		case <-endTest:
-			return
-		case <-newRoundTrigger.C:
-			err := o.triggerNewRound(newValue)
-			timerReset := o.Inputs.TimeBetweenRounds
-			if err != nil {
-				timerReset = time.Second * 5
-				o.log.Error().Err(err).
-					Str("Waiting", timerReset.String()).
-					Msg("Error triggering new round, waiting and trying again. Possible connection issues with mockserver")
-			}
-			newRoundTrigger.Reset(timerReset)
-
-			// Change value for the next round
-			newValue = rand.Intn(256) + 1 // #nosec G404 - not everything needs to be cryptographically secure
-			for newValue == lastValue {
-				newValue = rand.Intn(256) + 1 // #nosec G404 - kudos to you if you actually find a way to exploit this
-			}
-			lastValue = newValue
-		case t := <-o.chainClient.ConnectionIssue():
-			o.testIssues = append(o.testIssues, &testreporters.TestIssue{
-				StartTime: t,
-				Message:   "RPC Connection Lost",
-			})
-		case t := <-o.chainClient.ConnectionRestored():
-			o.testIssues = append(o.testIssues, &testreporters.TestIssue{
-				StartTime: t,
-				Message:   "RPC Connection Restored",
-			})
-		}
-	}
 }
 
 // Networks returns the networks that the test is running on
@@ -525,18 +440,8 @@ func (o *OCRSoakTest) Resume() {
 
 	o.log.Info().Msg("Test Complete, collecting on-chain events")
 
-	timeout := time.Second * 15
-	err = o.collectEvents(timeout)
-	for err != nil {
-		log.Error().Err(err).Msg("Error collecting events")
-		if strings.Contains(err.Error(), "context deadline exceeded") {
-			timeout *= 2
-			log.Info().Str("New Timeout", timeout.String()).Msg("Attempting to collect events again")
-			err = o.collectEvents(timeout)
-		} else { // Some other error, not a timeout we can just retry
-			break
-		}
-	}
+	err = o.collectEvents()
+	log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
 	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
 }
 
@@ -550,9 +455,80 @@ func (o *OCRSoakTest) Interrupted() bool {
 // ****** Helpers ******
 // *********************
 
+// testLoop is the primary test loop that will trigger new rounds and watch events
+func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
+	endTest := time.After(testDuration)
+	interruption := make(chan os.Signal, 1)
+	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
+	lastValue := 0
+	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP
+	defer newRoundTrigger.Stop()
+	err := o.observeOCREvents()
+	require.NoError(o.t, err, "Error subscribing to OCR events")
+
+	for {
+		select {
+		case <-interruption:
+			saveStart := time.Now()
+			o.log.Warn().Msg("Test interrupted, saving state before shut down")
+			o.testIssues = append(o.testIssues, &testreporters.TestIssue{
+				StartTime: time.Now(),
+				Message:   "Test Interrupted",
+			})
+			if err := o.SaveState(); err != nil {
+				o.log.Error().Err(err).Msg("Error saving state")
+			}
+			log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
+			os.Exit(1)
+		case <-endTest:
+			return
+		case <-newRoundTrigger.C:
+			err := o.triggerNewRound(newValue)
+			timerReset := o.Inputs.TimeBetweenRounds
+			if err != nil {
+				timerReset = time.Second * 5
+				o.log.Error().Err(err).
+					Str("Waiting", timerReset.String()).
+					Msg("Error triggering new round, waiting and trying again. Possible connection issues with mockserver")
+			}
+			newRoundTrigger.Reset(timerReset)
+
+			// Change value for the next round
+			newValue = rand.Intn(256) + 1 // #nosec G404 - not everything needs to be cryptographically secure
+			for newValue == lastValue {
+				newValue = rand.Intn(256) + 1 // #nosec G404 - kudos to you if you actually find a way to exploit this
+			}
+			lastValue = newValue
+		case t := <-o.chainClient.ConnectionIssue():
+			o.testIssues = append(o.testIssues, &testreporters.TestIssue{
+				StartTime: t,
+				Message:   "RPC Connection Lost",
+			})
+		case t := <-o.chainClient.ConnectionRestored():
+			o.testIssues = append(o.testIssues, &testreporters.TestIssue{
+				StartTime: t,
+				Message:   "RPC Connection Restored",
+			})
+		}
+	}
+}
+
 // observeOCREvents subscribes to OCR events and logs them to the test logger
 // WARNING: Should only be used for observation and logging. This is not a reliable way to collect events.
 func (o *OCRSoakTest) observeOCREvents() error {
+	// set the filter query to listen for AnswerUpdated events on all OCR contracts
+	ocrAddresses := make([]common.Address, len(o.ocrInstances))
+	for i, ocrInstance := range o.ocrInstances {
+		ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
+	}
+	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
+	require.NoError(o.t, err, "Error retrieving OCR contract ABI")
+	o.filterQuery = geth.FilterQuery{
+		Addresses: ocrAddresses,
+		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
+		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
+	}
+
 	eventLogs := make(chan types.Log)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -623,25 +599,36 @@ func (o *OCRSoakTest) triggerNewRound(newValue int) error {
 	return nil
 }
 
-func (o *OCRSoakTest) collectEvents(timeout time.Duration) error {
+func (o *OCRSoakTest) collectEvents() error {
 	start := time.Now()
 	if len(o.ocrRoundStates) == 0 {
 		return fmt.Errorf("error collecting on-chain events, no rounds have been started")
 	}
 	o.ocrRoundStates[len(o.ocrRoundStates)-1].EndTime = start // Set end time for last expected event
 	o.log.Info().Msg("Collecting on-chain events")
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	contractEvents, err := o.chainClient.FilterLogs(ctx, o.filterQuery)
-	if err != nil {
-		return fmt.Errorf("error collecting on-chain events after %s: %v", time.Since(start).String(), err)
+
+	// We must retrieve the events, use exponential backoff for timeout to retry
+	var (
+		contractEvents []types.Log
+		err            error
+		timeout        = time.Second * 15
+	)
+	for err != nil {
+		log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
+		cancel()
+		if err != nil {
+			log.Warn().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Error collecting on-chain events, trying again")
+			timeout *= 2
+		}
 	}
 
 	sortedFoundEvents := make([]*testreporters.FoundEvent, 0)
 	for _, event := range contractEvents {
 		answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
 		if err != nil {
-			return fmt.Errorf("error collecting on-chain events after %s: %v", time.Since(start).String(), err)
+			return fmt.Errorf("error parsing EventAnswerUpdated for event: %v, %w", event, err)
 		}
 		sortedFoundEvents = append(sortedFoundEvents, &testreporters.FoundEvent{
 			StartTime:   time.Unix(answerUpdated.UpdatedAt.Int64(), 0),
