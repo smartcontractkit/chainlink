@@ -638,6 +638,16 @@ describe('Functions Router - Subscriptions', () => {
       await expect(contracts.coordinator.callReport(report, { gasPrice }))
         .to.emit(contracts.coordinator, 'OracleResponse')
         .withArgs(requestId, await roles.defaultAccount.getAddress())
+        .to.emit(contracts.router, 'RequestEnd')
+        .withArgs(
+          requestId,
+          subscriptionId,
+          () => true,
+          () => true,
+          0, // Result code for callback failing
+          () => true,
+          () => true,
+        )
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
         .to.emit(contracts.client, 'SendRequestInvoked')
@@ -718,13 +728,15 @@ describe('Functions Router - Subscriptions', () => {
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
+        .to.emit(contracts.router, 'RequestEnd')
         .withArgs(
           requestId,
           subscriptionId,
           () => true,
           () => true,
-          () => true,
           1, // Result code for callback failing
+          () => true,
+          () => true,
         )
     })
 
@@ -827,13 +839,15 @@ describe('Functions Router - Subscriptions', () => {
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
+        .to.emit(contracts.router, 'RequestEnd')
         .withArgs(
           requestId,
           subscriptionId,
           () => true,
           () => true,
-          () => true,
           1, // Result code for callback failing
+          () => true,
+          () => true,
         )
     })
   })
