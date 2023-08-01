@@ -34,11 +34,6 @@ interface IRouterBase {
   function proposeContractsUpdate(bytes32[] memory proposalSetIds, address[] memory proposalSetAddresses) external;
 
   /**
-   * @notice Tests a proposal for the ability to make a successful upgrade
-   */
-  function validateProposedContracts(bytes32 id, bytes calldata data) external returns (bytes memory);
-
-  /**
    * @notice Updates the current contract routes to the proposed contracts
    * @dev Only callable once timelock has passed
    * @dev Only callable by owner

@@ -127,6 +127,34 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   // |                      Request methods                         |
   // ================================================================
 
+  /**
+   * @inheritdoc IFunctionsRouter
+   */
+  function sendRequest(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint16 dataVersion,
+    uint32 callbackGasLimit,
+    bytes32 donId
+  ) external override returns (bytes32) {
+    IFunctionsCoordinator coordinator = IFunctionsCoordinator(getContractById(donId));
+    return _sendRequest(donId, coordinator, subscriptionId, data, dataVersion, callbackGasLimit);
+  }
+
+  /**
+   * @inheritdoc IFunctionsRouter
+   */
+  function sendRequestToProposed(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint16 dataVersion,
+    uint32 callbackGasLimit,
+    bytes32 donId
+  ) external override returns (bytes32) {
+    IFunctionsCoordinator coordinator = IFunctionsCoordinator(getProposedContractById(donId));
+    return _sendRequest(donId, coordinator, subscriptionId, data, dataVersion, callbackGasLimit);
+  }
+
   function _sendRequest(
     bytes32 donId,
     IFunctionsCoordinator coordinator,
@@ -188,30 +216,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     });
 
     return requestId;
-  }
-
-  function _validateProposedContracts(bytes32 donId, bytes calldata data) internal override returns (bytes memory) {
-    (uint64 subscriptionId, bytes memory reqData, uint16 reqDataVersion, uint32 callbackGasLimit) = abi.decode(
-      data,
-      (uint64, bytes, uint16, uint32)
-    );
-    IFunctionsCoordinator coordinator = IFunctionsCoordinator(getProposedContractById(donId));
-    bytes32 requestId = _sendRequest(donId, coordinator, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
-    return abi.encode(requestId);
-  }
-
-  /**
-   * @inheritdoc IFunctionsRouter
-   */
-  function sendRequest(
-    uint64 subscriptionId,
-    bytes calldata data,
-    uint16 dataVersion,
-    uint32 callbackGasLimit,
-    bytes32 donId
-  ) external override returns (bytes32) {
-    IFunctionsCoordinator coordinator = IFunctionsCoordinator(getContractById(donId));
-    return _sendRequest(donId, coordinator, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
   /**

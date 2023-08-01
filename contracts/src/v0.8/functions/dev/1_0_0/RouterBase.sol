@@ -189,19 +189,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
-  function validateProposedContracts(bytes32 id, bytes calldata data) external override returns (bytes memory) {
-    return _validateProposedContracts(id, data);
-  }
-
-  /**
-   * @dev Must be implemented by the inheriting contract
-   * Use to test an end to end request through the system
-   */
-  function _validateProposedContracts(bytes32 id, bytes calldata data) internal virtual returns (bytes memory);
-
-  /**
-   * @inheritdoc IRouterBase
-   */
   function updateContracts() external override onlyOwner {
     if (block.number < s_proposedContractSet.timelockEndBlock) {
       revert TimelockInEffect();
