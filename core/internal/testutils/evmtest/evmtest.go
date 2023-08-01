@@ -86,14 +86,14 @@ func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) *evm.ChainRela
 	return cc
 }
 
-func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayExtOpts {
+func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayExtenderConfig {
 	require.NotNil(t, testopts.KeyStore)
-	opts := evm.ChainRelayExtOpts{
+	opts := evm.ChainRelayExtenderConfig{
 		Logger:   logger.TestLogger(t),
 		DB:       testopts.DB,
 		KeyStore: testopts.KeyStore,
-		RelayerFactoryOpts: evm.RelayerFactoryOpts{
-			Config:           testopts.GeneralConfig,
+		RelayerConfig: evm.RelayerConfig{
+			GeneralConfig:    testopts.GeneralConfig,
 			EventBroadcaster: pg.NewNullEventBroadcaster(),
 			MailMon:          testopts.MailMon,
 			GasEstimator:     testopts.GasEstimator,

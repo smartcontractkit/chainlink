@@ -29,7 +29,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
-	"github.com/hashicorp/go-multierror"
 	cryptop2p "github.com/libp2p/go-libp2p-core/crypto"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
@@ -398,7 +397,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"))
 
-	rf := cmd.RelayerFactory{
+	rf := chainlink.RelayerFactory{
 		Logger:       lggr,
 		DB:           db,
 		QConfig:      cfg.Database(),
@@ -406,90 +405,140 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		//TODO
 		GRPCOpts: loop.GRPCOpts{},
 	}
-	relayers := chainlink.NewCoreRelayerChainInteroperators()
-	// evm always enabled, for some reason ...
-	{
-		chainId := ethClient.ConfiguredChainID()
-		opts := evm.RelayerFactoryOpts{
-			Config:           cfg,
+
+	evmOpts := chainlink.EVMFactoryConfig{
+		RelayerConfig: evm.RelayerConfig{
+			GeneralConfig:    cfg,
 			EventBroadcaster: eventBroadcaster,
-			GenEthClient: func(_ *big.Int) evmclient.Client {
-				if chainId.Cmp(cfg.DefaultChainID()) != 0 {
-					t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())
-				}
-				return ethClient
-			},
-			MailMon: mailMon,
-		}
-		adapters, err2 := rf.NewEVM(testutils.Context(t), opts, keyStore)
-		if err2 != nil {
-			fmt.Errorf("failed to setup EVM relayer: %w", err2)
-		}
-		for id, a := range adapters {
-			err2 := relayers.Put(id, a)
-			if err2 != nil {
-				multierror.Append(err, err2)
-			}
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
+			MailMon:          mailMon,
+		},
+		CSAETHKeystore: keyStore,
 	}
+
+	testCtx := testutils.Context(t)
+	// evm alway enabled for backward compatibility
+	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(testCtx, evmOpts)}
+
 	if cfg.CosmosEnabled() {
-		adapters, err2 := rf.NewCosmos(keyStore.Cosmos(), cfg.CosmosConfigs(), eventBroadcaster)
-		if err2 != nil {
-			fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
+		cosmosCfg := chainlink.CosmosFactoryConfig{
+			Keystore:         keyStore.Cosmos(),
+			CosmosConfigs:    cfg.CosmosConfigs(),
+			EventBroadcaster: eventBroadcaster,
 		}
-		for id, a := range adapters {
-			err2 := relayers.Put(id, a)
-			if err2 != nil {
-				multierror.Append(err, err2)
-			}
-		}
-		if err != nil {
-			t.Fatal(err)
-		}
+		initOps = append(initOps, chainlink.InitCosmos(testCtx, cosmosCfg))
 	}
 	if cfg.SolanaEnabled() {
-
-		solRelayers, err2 := rf.NewSolana(keyStore.Solana(), cfg.SolanaConfigs())
-		if err2 != nil {
-			t.Fatal(fmt.Errorf("failed to setup Solana relayer: %w", err2))
+		solanaCfg := chainlink.SolanaFactoryConfig{
+			Keystore:      keyStore.Solana(),
+			SolanaConfigs: cfg.SolanaConfigs(),
 		}
-		err2 = relayers.PutBatch(solRelayers)
-		if err2 != nil {
-			t.Fatal(fmt.Errorf("failed to store Solana relayers: %w", err2))
-		}
+		initOps = append(initOps, chainlink.InitSolana(testCtx, solanaCfg))
 	}
-
 	if cfg.StarkNetEnabled() {
+		starkCfg := chainlink.StarkNetFactoryConfig{
+			Keystore:        keyStore.StarkNet(),
+			StarknetConfigs: cfg.StarknetConfigs(),
+		}
+		initOps = append(initOps, chainlink.InitStarknet(testCtx, starkCfg))
 
-		starkRelayers, err2 := rf.NewStarkNet(keyStore.StarkNet(), cfg.StarknetConfigs())
-		if err2 != nil {
-			t.Fatal(fmt.Errorf("failed to setup StarkNet relayer: %w", err2))
-		}
-		err2 = relayers.PutBatch(starkRelayers)
-		if err2 != nil {
-			t.Fatal(fmt.Errorf("failed to store StarkNet relayers: %w", err2))
-		}
 	}
+	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(rf, initOps...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	/*
+		rf := cmd.RelayerFactory{
+			Logger:       lggr,
+			DB:           db,
+			QConfig:      cfg.Database(),
+			LoopRegistry: loopRegistry,
+			//TODO
+			GRPCOpts: loop.GRPCOpts{},
+		}
+		relayers := chainlink.NewCoreRelayerChainInteroperators()
+		// evm always enabled, for some reason ...
+		{
+			chainId := ethClient.ConfiguredChainID()
+			opts := evm.RelayerConfig{
+				GeneralConfig:    cfg,
+				EventBroadcaster: eventBroadcaster,
+				GenEthClient: func(_ *big.Int) evmclient.Client {
+					if chainId.Cmp(cfg.DefaultChainID()) != 0 {
+						t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())
+					}
+					return ethClient
+				},
+				MailMon: mailMon,
+			}
+			adapters, err2 := rf.NewEVM(testutils.Context(t), opts, keyStore)
+			if err2 != nil {
+				fmt.Errorf("failed to setup EVM relayer: %w", err2)
+			}
+			for id, a := range adapters {
+				err2 := relayers.Put(id, a)
+				if err2 != nil {
+					multierror.Append(err, err2)
+				}
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		if cfg.CosmosEnabled() {
+			adapters, err2 := rf.NewCosmos(keyStore.Cosmos(), cfg.CosmosConfigs(), eventBroadcaster)
+			if err2 != nil {
+				fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
+			}
+			for id, a := range adapters {
+				err2 := relayers.Put(id, a)
+				if err2 != nil {
+					multierror.Append(err, err2)
+				}
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		if cfg.SolanaEnabled() {
 
+			solRelayers, err2 := rf.NewSolana(keyStore.Solana(), cfg.SolanaConfigs())
+			if err2 != nil {
+				t.Fatal(fmt.Errorf("failed to setup Solana relayer: %w", err2))
+			}
+			err2 = relayers.PutBatch(solRelayers)
+			if err2 != nil {
+				t.Fatal(fmt.Errorf("failed to store Solana relayers: %w", err2))
+			}
+		}
+
+		if cfg.StarkNetEnabled() {
+
+			starkRelayers, err2 := rf.NewStarkNet(keyStore.StarkNet(), cfg.StarknetConfigs())
+			if err2 != nil {
+				t.Fatal(fmt.Errorf("failed to setup StarkNet relayer: %w", err2))
+			}
+			err2 = relayers.PutBatch(starkRelayers)
+			if err2 != nil {
+				t.Fatal(fmt.Errorf("failed to store StarkNet relayers: %w", err2))
+			}
+		}
+	*/
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
-		Config:                   cfg,
-		EventBroadcaster:         eventBroadcaster,
-		MailMon:                  mailMon,
-		SqlxDB:                   db,
-		KeyStore:                 keyStore,
-		Relayers:                 relayers,
-		Logger:                   lggr,
-		AuditLogger:              auditLogger,
-		CloseLogger:              lggr.Sync,
-		ExternalInitiatorManager: externalInitiatorManager,
-		RestrictedHTTPClient:     c,
-		UnrestrictedHTTPClient:   c,
-		SecretGenerator:          MockSecretGenerator{},
-		LoopRegistry:             plugins.NewLoopRegistry(lggr),
+		Config:                     cfg,
+		EventBroadcaster:           eventBroadcaster,
+		MailMon:                    mailMon,
+		SqlxDB:                     db,
+		KeyStore:                   keyStore,
+		RelayerChainInteroperators: relayChainInterops,
+		Logger:                     lggr,
+		AuditLogger:                auditLogger,
+		CloseLogger:                lggr.Sync,
+		ExternalInitiatorManager:   externalInitiatorManager,
+		RestrictedHTTPClient:       c,
+		UnrestrictedHTTPClient:     c,
+		SecretGenerator:            MockSecretGenerator{},
+		LoopRegistry:               plugins.NewLoopRegistry(lggr),
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)

@@ -21,13 +21,13 @@ import (
 )
 
 // RelayerChainInteroperators
-// encapulates relayers and chains and is the primary entry point for
-// the node to store relayers, get legacy chains associated to a relayer
+// encapsulates relayers and chains and is the primary entry point for
+// the node to access relayers, get legacy chains associated to a relayer
 // and get status about the chains and nodes
 //
-// the generated mockery code incorrectly resolves dependencies and needs to be manually edited
+// note the generated mockery code incorrectly resolves dependencies and needs to be manually edited
 // therefore this interface is not auto-generated. for reference use and edit the result:
-// `go:generate mockery --quiet --name RelayerChainInteroperators --output ./mocks/ --case=underscore“
+// `go:generate mockery --quiet --name RelayerChainInteroperators --output ./mocks/ --case=underscore“`
 type RelayerChainInteroperators interface {
 	Services() []services.ServiceCtx
 
@@ -39,7 +39,7 @@ type RelayerChainInteroperators interface {
 }
 
 // LoopRelayerStorer is key-value like interface for storing and
-// retrieving [loop.Relayer] by [relay.Identifier]
+// retrieving [loop.Relayer]
 type LoopRelayerStorer interface {
 	ocr2.RelayGetter
 	Put(id relay.Identifier, r loop.Relayer) error
@@ -67,19 +67,96 @@ var _ RelayerChainInteroperators = &CoreRelayerChainInteroperators{}
 // as needed for the core [chainlink.Application]
 type CoreRelayerChainInteroperators struct {
 	mu           sync.Mutex
-	relayers     map[relay.Identifier]loop.Relayer
+	loopRelayers map[relay.Identifier]loop.Relayer
 	legacyChains legacyChains
+
+	relayerFactory RelayerFactory
 
 	// we keep an explicit list of services because the legacy implementations have more than
 	// just the relayer service
 	srvs []services.ServiceCtx
 }
 
-func NewCoreRelayerChainInteroperators() *CoreRelayerChainInteroperators {
-	return &CoreRelayerChainInteroperators{
-		relayers:     make(map[relay.Identifier]loop.Relayer),
+func NewCoreRelayerChainInteroperators(factory RelayerFactory, initOpts ...CoreRelayerChainInitFunc) (*CoreRelayerChainInteroperators, error) {
+	cr := &CoreRelayerChainInteroperators{
+		loopRelayers: make(map[relay.Identifier]loop.Relayer),
 		legacyChains: legacyChains{EVMChains: evm.NewLegacyChains(), CosmosChains: cosmos.NewLegacyChains()},
 		srvs:         make([]services.ServiceCtx, 0),
+	}
+	/*
+		err := initEVM(ctx, factory, evmConfig)(cr)
+		if err != nil {
+			return nil, err
+		}
+	*/
+	for _, initFn := range initOpts {
+		err2 := initFn(cr)
+		if err2 != nil {
+			return nil, err2
+		}
+	}
+	return cr, nil
+}
+
+type CoreRelayerChainInitFunc func(op *CoreRelayerChainInteroperators) error
+
+func InitEVM(ctx context.Context, config EVMFactoryConfig) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) (err error) {
+		adapters, err2 := op.relayerFactory.NewEVM(ctx, config)
+		if err2 != nil {
+			fmt.Errorf("failed to setup EVM relayer: %w", err2)
+		}
+		for id, a := range adapters {
+			err2 := op.Put(id, a)
+			if err2 != nil {
+				err = multierror.Append(err, err2)
+			}
+		}
+		return err
+	}
+}
+
+func InitCosmos(ctx context.Context, config CosmosFactoryConfig) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) (err error) {
+		adapters, err2 := op.relayerFactory.NewCosmos(ctx, config)
+		if err2 != nil {
+			fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
+		}
+		for id, a := range adapters {
+			err2 := op.Put(id, a)
+			if err2 != nil {
+				err = multierror.Append(err, err2)
+			}
+		}
+		return err
+	}
+}
+
+func InitSolana(ctx context.Context, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) error {
+		solRelayers, err2 := op.relayerFactory.NewSolana(config.Keystore, config.SolanaConfigs)
+		if err2 != nil {
+			return fmt.Errorf("failed to setup Solana relayer: %w", err2)
+		}
+		err2 = op.PutBatch(solRelayers)
+		if err2 != nil {
+			return fmt.Errorf("failed to store Solana relayers: %w", err2)
+		}
+		return nil
+	}
+}
+
+func InitStarknet(ctx context.Context, config StarkNetFactoryConfig) CoreRelayerChainInitFunc {
+	return func(op *CoreRelayerChainInteroperators) (err error) {
+		starkRelayers, err2 := op.relayerFactory.NewStarkNet(config.Keystore, config.StarknetConfigs)
+		if err2 != nil {
+			return fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
+		}
+		err2 = op.PutBatch(starkRelayers)
+		if err2 != nil {
+			return fmt.Errorf("failed to store StarkNet relayers: %w", err2)
+		}
+		return nil
 	}
 }
 
@@ -88,21 +165,21 @@ var ErrNoSuchRelayer = errors.New("relayer does not exist")
 func (rs *CoreRelayerChainInteroperators) Get(id relay.Identifier) (loop.Relayer, error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	r, exist := rs.relayers[id]
+	lr, exist := rs.loopRelayers[id]
 	if !exist {
 		return nil, fmt.Errorf("%w: %s", ErrNoSuchRelayer, id)
 	}
-	return r, nil
+	return lr, nil
 }
 
-func (rs *CoreRelayerChainInteroperators) putOne(id relay.Identifier, r loop.Relayer) error {
+func (rs *CoreRelayerChainInteroperators) putOne(id relay.Identifier, lr loop.Relayer) error {
 
 	// backward compatibility. this is bit gross to type cast but it hides the details from products.
 	switch id.Network {
 	case relay.EVM:
-		adapter, ok := r.(evmrelayer.LoopRelayAdapter)
+		adapter, ok := lr.(evmrelayer.LoopRelayAdapter)
 		if !ok {
-			return fmt.Errorf("unsupported evm loop relayer implementation. got %t want (evmrelayer.LoopRelayAdapter)", r)
+			return fmt.Errorf("unsupported evm loop relayer implementation. got %t want (evmrelayer.LoopRelayAdapter)", lr)
 		}
 
 		rs.legacyChains.EVMChains.Put(id.ChainID.String(), adapter.Chain())
@@ -115,25 +192,25 @@ func (rs *CoreRelayerChainInteroperators) putOne(id relay.Identifier, r loop.Rel
 		}
 		rs.srvs = append(rs.srvs, adapter)
 	case relay.Cosmos:
-		adapter, ok := r.(cosmos.LoopRelayerChainer)
+		adapter, ok := lr.(cosmos.LoopRelayerChainer)
 		if !ok {
-			return fmt.Errorf("unsupported cosmos loop relayer implementation. got %t want (cosmos.LoopRelayAdapter)", r)
+			return fmt.Errorf("unsupported cosmos loop relayer implementation. got %t want (cosmos.LoopRelayAdapter)", lr)
 		}
 
 		rs.legacyChains.CosmosChains.Put(id.ChainID.String(), adapter.Chain())
 		rs.srvs = append(rs.srvs, adapter)
 	default:
-		rs.srvs = append(rs.srvs, r)
+		rs.srvs = append(rs.srvs, lr)
 	}
 
-	rs.relayers[id] = r
+	rs.loopRelayers[id] = lr
 	return nil
 }
 
-func (rs *CoreRelayerChainInteroperators) Put(id relay.Identifier, r loop.Relayer) error {
+func (rs *CoreRelayerChainInteroperators) Put(id relay.Identifier, lr loop.Relayer) error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	return rs.putOne(id, r)
+	return rs.putOne(id, lr)
 }
 
 // TODO maybe make Relayer[U,V] where u,v are the chain specific types and then make this generic
@@ -154,7 +231,6 @@ func (rs *CoreRelayerChainInteroperators) PutBatch(b map[relay.Identifier]loop.R
 func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() evm.LegacyChainContainer {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-
 	return rs.legacyChains.EVMChains
 }
 
@@ -164,22 +240,22 @@ func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() cosmos.LegacyChai
 	return rs.legacyChains.CosmosChains
 }
 
-// id must be string representation of [relayer.Identifier], which ensures unique identification
+// ChainStatus gets [types.ChainStatus] relayID must be string representation of [relayer.Identifier], which ensures unique identification
 // amongst the multiple relayer:chain pairs wrapped in the interoperators
-func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
+func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, relayerID string) (types.ChainStatus, error) {
 	relayID := new(relay.Identifier)
-	err := relayID.UnmarshalString(id)
+	err := relayID.UnmarshalString(relayerID)
 	if err != nil {
 		return types.ChainStatus{}, fmt.Errorf("error getting chainstatus: %w", err)
 	}
-	relayer, err := rs.Get(*relayID)
+	lr, err := rs.Get(*relayID)
 	if err != nil {
 		return types.ChainStatus{}, fmt.Errorf("error getting chainstatus: %w", err)
 	}
 	// this call is weird because the [loop.Relayer] interface still requires id
 	// but in this context the `relayer` should only have only id
 	// moreover, the `relayer` here is pinned to one chain we need to pass the chain id
-	return relayer.ChainStatus(ctx, relayID.ChainID.String())
+	return lr.ChainStatus(ctx, relayID.ChainID.String())
 }
 
 func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
@@ -194,16 +270,16 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 	defer rs.mu.Unlock()
 
 	relayerIds := make([]relay.Identifier, 0)
-	for rid := range rs.relayers {
+	for rid := range rs.loopRelayers {
 		relayerIds = append(relayerIds, rid)
 	}
 	sort.Slice(relayerIds, func(i, j int) bool {
 		return relayerIds[i].String() < relayerIds[j].String()
 	})
 	for _, rid := range relayerIds {
-		relayer := rs.relayers[rid]
+		lr := rs.loopRelayers[rid]
 		// the relayer is chain specific; use the chain id and not the relayer id
-		stat, err := relayer.ChainStatus(ctx, rid.ChainID.String())
+		stat, err := lr.ChainStatus(ctx, rid.ChainID.String())
 		if err != nil {
 			totalErr = errors.Join(totalErr, err)
 			continue
@@ -228,8 +304,8 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		result   []types.NodeStatus
 	)
 	if len(relayerIDs) == 0 {
-		for rid, relayer := range rs.relayers {
-			stats, _, err := relayer.NodeStatuses(ctx, offset, limit, rid.ChainID.String())
+		for rid, lr := range rs.loopRelayers {
+			stats, _, err := lr.NodeStatuses(ctx, offset, limit, rid.ChainID.String())
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
 				continue
@@ -244,12 +320,12 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 				totalErr = errors.Join(totalErr, err)
 				continue
 			}
-			relayer, exist := rs.relayers[*rid]
+			lr, exist := rs.loopRelayers[*rid]
 			if !exist {
 				totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
 				continue
 			}
-			nodeStats, _, err := relayer.NodeStatuses(ctx, offset, limit, rid.ChainID.String())
+			nodeStats, _, err := lr.NodeStatuses(ctx, offset, limit, rid.ChainID.String())
 
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
@@ -273,30 +349,36 @@ var AllRelayers = func(id relay.Identifier) bool {
 	return true
 }
 
+// Returns true if the given network matches id.Network
 func FilterByType(network relay.Network) func(id relay.Identifier) bool {
 	return func(id relay.Identifier) bool {
 		return id.Network == network
 	}
 }
 
+// List returns all the [RelayerChainInteroperators] that match the [FilterFn].
+// A typical usage pattern to use [List] with [FilterByType] to obtain a set of [RelayerChainInteroperators]
+// for a given chain
 func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInteroperators {
 
 	matches := make(map[relay.Identifier]loop.Relayer)
 	rs.mu.Lock()
-	for id, relayer := range rs.relayers {
+	for id, relayer := range rs.loopRelayers {
 		if filter(id) {
 			matches[id] = relayer
 		}
 	}
 	rs.mu.Unlock()
 	return &CoreRelayerChainInteroperators{
-		relayers: matches,
+		loopRelayers: matches,
 	}
 }
 
+// Returns a slice of [loop.Relayer]. A typically usage pattern to is
+// use [List(criteria)].Slice() for range based operations
 func (rs *CoreRelayerChainInteroperators) Slice() []loop.Relayer {
 	var result []loop.Relayer
-	for _, r := range rs.relayers {
+	for _, r := range rs.loopRelayers {
 		result = append(result, r)
 	}
 	return result

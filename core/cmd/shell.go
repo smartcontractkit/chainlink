@@ -23,7 +23,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/getsentry/sentry-go"
 	"github.com/gin-gonic/gin"
-	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
@@ -140,75 +139,116 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
 	loopRegistry := plugins.NewLoopRegistry(appLggr.Named("LoopRegistry"))
 
-	rf := RelayerFactory{
+	evmOpts := chainlink.EVMFactoryConfig{
+		RelayerConfig: evm.RelayerConfig{
+			GeneralConfig:    cfg,
+			EventBroadcaster: eventBroadcaster,
+			MailMon:          mailMon,
+		},
+		CSAETHKeystore: keyStore,
+	}
+
+	// evm alway enabled for backward compatibility
+	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(ctx, evmOpts)}
+
+	if cfg.CosmosEnabled() {
+		cosmosCfg := chainlink.CosmosFactoryConfig{
+			Keystore:         keyStore.Cosmos(),
+			CosmosConfigs:    cfg.CosmosConfigs(),
+			EventBroadcaster: eventBroadcaster,
+		}
+		initOps = append(initOps, chainlink.InitCosmos(ctx, cosmosCfg))
+	}
+	if cfg.SolanaEnabled() {
+		solanaCfg := chainlink.SolanaFactoryConfig{
+			Keystore:      keyStore.Solana(),
+			SolanaConfigs: cfg.SolanaConfigs(),
+		}
+		initOps = append(initOps, chainlink.InitSolana(ctx, solanaCfg))
+	}
+	if cfg.StarkNetEnabled() {
+		starkCfg := chainlink.StarkNetFactoryConfig{
+			Keystore:        keyStore.StarkNet(),
+			StarknetConfigs: cfg.StarknetConfigs(),
+		}
+		initOps = append(initOps, chainlink.InitStarknet(ctx, starkCfg))
+
+	}
+	rf := chainlink.RelayerFactory{
 		Logger:       appLggr,
 		DB:           db,
 		QConfig:      cfg.Database(),
 		LoopRegistry: loopRegistry,
 		GRPCOpts:     grpcOpts,
 	}
+	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(rf, initOps...)
+	if err != nil {
+		return nil, err
+	}
+	//relayChainInterops.Init
 
-	relayers := chainlink.NewCoreRelayerChainInteroperators()
-	// evm always enabled, for some reason ...
-	{
-		opts := evm.RelayerFactoryOpts{
-			Config:           cfg,
-			EventBroadcaster: eventBroadcaster,
-			MailMon:          mailMon,
-		}
-		adapters, err2 := rf.NewEVM(ctx, opts, keyStore)
-		if err2 != nil {
-			fmt.Errorf("failed to setup EVM relayer: %w", err2)
-		}
-		for id, a := range adapters {
-			err2 := relayers.Put(id, a)
+	// backward compatibility: evm always enabled, for some reason
+	/*
+		{
+			opts := evm.RelayerFactoryConfig{
+				GeneralConfig:    cfg,
+				EventBroadcaster: eventBroadcaster,
+				MailMon:          mailMon,
+			}
+			adapters, err2 := rf.NewEVM(ctx, opts, keyStore)
 			if err2 != nil {
-				multierror.Append(err, err2)
+				fmt.Errorf("failed to setup EVM relayer: %w", err2)
+			}
+			for id, a := range adapters {
+				err2 := relayChainInterops.Put(id, a)
+				if err2 != nil {
+					multierror.Append(err, err2)
+				}
+			}
+			if err != nil {
+				return nil, err
 			}
 		}
-		if err != nil {
-			return nil, err
-		}
-	}
-	if cfg.CosmosEnabled() {
-		adapters, err2 := rf.NewCosmos(keyStore.Cosmos(), cfg.CosmosConfigs(), eventBroadcaster)
-		if err2 != nil {
-			fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
-		}
-		for id, a := range adapters {
-			err2 := relayers.Put(id, a)
+	*/
+	/*
+		if cfg.CosmosEnabled() {
+			adapters, err2 := rf.NewCosmos(keyStore.Cosmos(), cfg.CosmosConfigs(), eventBroadcaster)
 			if err2 != nil {
-				multierror.Append(err, err2)
+				fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
+			}
+			for id, a := range adapters {
+				err2 := relayChainInterops.Put(id, a)
+				if err2 != nil {
+					multierror.Append(err, err2)
+				}
+			}
+			if err != nil {
+				return nil, err
 			}
 		}
-		if err != nil {
-			return nil, err
+	*/
+	/*
+		if cfg.SolanaEnabled() {
+			solRelayers, err2 := rf.NewSolana(keyStore.Solana(), cfg.SolanaConfigs())
+			if err2 != nil {
+				return nil, fmt.Errorf("failed to setup Solana relayer: %w", err2)
+			}
+			err2 = relayChainInterops.PutBatch(solRelayers)
+			if err2 != nil {
+				return nil, fmt.Errorf("failed to store Solana relayers: %w", err2)
+			}
 		}
-	}
-	if cfg.SolanaEnabled() {
-
-		solRelayers, err2 := rf.NewSolana(keyStore.Solana(), cfg.SolanaConfigs())
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to setup Solana relayer: %w", err2)
+		if cfg.StarkNetEnabled() {
+			starkRelayers, err2 := rf.NewStarkNet(keyStore.StarkNet(), cfg.StarknetConfigs())
+			if err2 != nil {
+				return nil, fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
+			}
+			err2 = relayChainInterops.PutBatch(starkRelayers)
+			if err2 != nil {
+				return nil, fmt.Errorf("failed to store StarkNet relayers: %w", err2)
+			}
 		}
-		err2 = relayers.PutBatch(solRelayers)
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to store Solana relayers: %w", err2)
-		}
-	}
-
-	if cfg.StarkNetEnabled() {
-
-		starkRelayers, err2 := rf.NewStarkNet(keyStore.StarkNet(), cfg.StarknetConfigs())
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
-		}
-		err2 = relayers.PutBatch(starkRelayers)
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to store StarkNet relayers: %w", err2)
-		}
-	}
-
+	*/
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
 	if err != nil {
@@ -219,22 +259,21 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	unrestrictedClient := clhttp.NewUnrestrictedHTTPClient()
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(db, unrestrictedClient, appLggr, cfg.Database())
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
-		Config:   cfg,
-		SqlxDB:   db,
-		KeyStore: keyStore,
-		//Chains:                   chains,
-		Relayers:                 relayers,
-		EventBroadcaster:         eventBroadcaster,
-		MailMon:                  mailMon,
-		Logger:                   appLggr,
-		AuditLogger:              auditLogger,
-		ExternalInitiatorManager: externalInitiatorManager,
-		Version:                  static.Version,
-		RestrictedHTTPClient:     restrictedClient,
-		UnrestrictedHTTPClient:   unrestrictedClient,
-		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
-		LoopRegistry:             loopRegistry,
-		GRPCOpts:                 grpcOpts,
+		Config:                     cfg,
+		SqlxDB:                     db,
+		KeyStore:                   keyStore,
+		RelayerChainInteroperators: relayChainInterops,
+		EventBroadcaster:           eventBroadcaster,
+		MailMon:                    mailMon,
+		Logger:                     appLggr,
+		AuditLogger:                auditLogger,
+		ExternalInitiatorManager:   externalInitiatorManager,
+		Version:                    static.Version,
+		RestrictedHTTPClient:       restrictedClient,
+		UnrestrictedHTTPClient:     unrestrictedClient,
+		SecretGenerator:            chainlink.FilePersistedSecretGenerator{},
+		LoopRegistry:               loopRegistry,
+		GRPCOpts:                   grpcOpts,
 	})
 }
 

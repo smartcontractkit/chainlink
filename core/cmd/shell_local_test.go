@@ -39,13 +39,16 @@ import (
 	"github.com/urfave/cli"
 )
 
-func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.RelayerKeystore) *chainlink.CoreRelayerChainInteroperators {
-	relayers := chainlink.NewCoreRelayerChainInteroperators()
+func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
+	relayers, err := chainlink.NewCoreRelayerChainInteroperators(chainlink.RelayerFactory{})
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	legacyChains := cltest.NewLegacyChainsWithMockChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, opts.Config))
-	rly := evmrelayer.NewRelayer(opts.DB, legacyChains, opts.Config.Database(), opts.Logger, ks, pg.NewNullEventBroadcaster())
+	legacyChains := cltest.NewLegacyChainsWithMockChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, opts.GeneralConfig))
+	rly := evmrelayer.NewRelayer(opts.DB, legacyChains, opts.GeneralConfig.Database(), opts.Logger, ks, pg.NewNullEventBroadcaster())
 
-	require.NoError(t, opts.Config.Validate(), "invalid config")
+	require.NoError(t, opts.GeneralConfig.Validate(), "invalid config")
 
 	exts, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
@@ -59,6 +62,7 @@ func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtOpts, ks evmrelayer.
 	return relayers
 
 }
+
 func TestShell_RunNodeWithPasswords(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -86,12 +90,12 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 
 			lggr := logger.TestLogger(t)
 
-			opts := evm.ChainRelayExtOpts{
+			opts := evm.ChainRelayExtenderConfig{
 				Logger:   lggr,
 				DB:       db,
 				KeyStore: keyStore.Eth(),
-				RelayerFactoryOpts: evm.RelayerFactoryOpts{
-					Config:           cfg,
+				RelayerConfig: evm.RelayerConfig{
+					GeneralConfig:    cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
 				},
@@ -194,12 +198,12 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(10), nil).Maybe()
 
 			lggr := logger.TestLogger(t)
-			opts := evm.ChainRelayExtOpts{
+			opts := evm.ChainRelayExtenderConfig{
 				Logger:   lggr,
 				DB:       db,
 				KeyStore: keyStore.Eth(),
-				RelayerFactoryOpts: evm.RelayerFactoryOpts{
-					Config:           cfg,
+				RelayerConfig: evm.RelayerConfig{
+					GeneralConfig:    cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 
 					MailMon: &utils.MailboxMonitor{},

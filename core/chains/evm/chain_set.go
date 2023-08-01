@@ -179,15 +179,15 @@ type chainSet struct {
 	startedChains []Chain
 	chainsMu      sync.RWMutex
 	logger        logger.Logger
-	opts          ChainRelayExtOpts
+	opts          ChainRelayExtenderConfig
 }
 
 func (cll *chainSet) Start(ctx context.Context) error {
-	if !cll.opts.Config.EVMEnabled() {
+	if !cll.opts.GeneralConfig.EVMEnabled() {
 		cll.logger.Warn("EVM is disabled, no EVM-based chains will be started")
 		return nil
 	}
-	if !cll.opts.Config.EVMRPCEnabled() {
+	if !cll.opts.GeneralConfig.EVMRPCEnabled() {
 		cll.logger.Warn("EVM RPC connections are disabled. Chainlink will not connect to any EVM RPC node.")
 	}
 	var ms services.MultiStart
@@ -365,23 +365,23 @@ type GeneralConfig interface {
 	toml.HasEVMConfigs
 }
 
-type ChainRelayExtOpts struct {
+type ChainRelayExtenderConfig struct {
 	Logger   logger.Logger
 	DB       *sqlx.DB
 	KeyStore keystore.Eth
-	RelayerFactoryOpts
+	RelayerConfig
 }
 
 // options for the relayer factory. TODO the dependencies are odd;
 // the factory wants to own the logger and db
 // the factory creates extenders, which need the same and more opts
-type RelayerFactoryOpts struct {
-	Config GeneralConfig
+type RelayerConfig struct {
+	GeneralConfig GeneralConfig
 
 	EventBroadcaster   pg.EventBroadcaster
-	operationalConfigs evmtypes.Configs
 	MailMon            *utils.MailboxMonitor
 	GasEstimator       gas.EvmFeeEstimator
+	operationalConfigs evmtypes.Configs
 
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(*big.Int) client.Client
@@ -395,11 +395,11 @@ type RelayerFactoryOpts struct {
 // NewTOMLChainSet returns a new ChainSet from TOML configuration.
 // func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
 
-func NewChainRelayerExtenders(ctx context.Context, opts ChainRelayExtOpts) (*ChainRelayerExtenders, error) {
+func NewChainRelayerExtenders(ctx context.Context, opts ChainRelayExtenderConfig) (*ChainRelayerExtenders, error) {
 	if err := opts.check(); err != nil {
 		return nil, err
 	}
-	chains := opts.Config.EVMConfigs()
+	chains := opts.GeneralConfig.EVMConfigs()
 	var enabled []*toml.EVMConfig
 	for i := range chains {
 		if chains[i].IsEnabled() {
@@ -407,7 +407,7 @@ func NewChainRelayerExtenders(ctx context.Context, opts ChainRelayExtOpts) (*Cha
 		}
 	}
 
-	defaultChainID := opts.Config.DefaultChainID()
+	defaultChainID := opts.GeneralConfig.DefaultChainID()
 	if defaultChainID == nil && len(enabled) >= 1 {
 		defaultChainID = enabled[0].ChainID.ToInt()
 		if len(enabled) > 1 {
@@ -421,11 +421,11 @@ func NewChainRelayerExtenders(ctx context.Context, opts ChainRelayExtOpts) (*Cha
 
 		//	for i := range enabled {
 		cid := enabled[i].ChainID.String()
-		privOpts := ChainRelayExtOpts{
-			Logger:             opts.Logger.Named(cid),
-			RelayerFactoryOpts: opts.RelayerFactoryOpts,
-			DB:                 opts.DB,
-			KeyStore:           opts.KeyStore,
+		privOpts := ChainRelayExtenderConfig{
+			Logger:        opts.Logger.Named(cid),
+			RelayerConfig: opts.RelayerConfig,
+			DB:            opts.DB,
+			KeyStore:      opts.KeyStore,
 		}
 		// TODO is there any chance this cast can fail?
 		cll := newChainSet(privOpts)
@@ -452,7 +452,7 @@ func NewChainRelayerExtenders(ctx context.Context, opts ChainRelayExtOpts) (*Cha
 	return newChainRelayerExtsFromSlice(result), nil
 }
 
-func newChainSet(opts ChainRelayExtOpts) *chainSet {
+func newChainSet(opts ChainRelayExtenderConfig) *chainSet {
 	return &chainSet{
 		chains:        make(map[string]*chain),
 		startedChains: make([]Chain, 0),
@@ -461,14 +461,14 @@ func newChainSet(opts ChainRelayExtOpts) *chainSet {
 	}
 }
 
-func (opts *ChainRelayExtOpts) check() error {
+func (opts *ChainRelayExtenderConfig) check() error {
 	if opts.Logger == nil {
 		return errors.New("logger must be non-nil")
 	}
-	if opts.Config == nil {
+	if opts.GeneralConfig == nil {
 		return errors.New("config must be non-nil")
 	}
 
-	opts.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.Config.EVMConfigs())
+	opts.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.GeneralConfig.EVMConfigs())
 	return nil
 }

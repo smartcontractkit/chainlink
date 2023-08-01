@@ -46,18 +46,18 @@ type Relayer struct {
 	db               *sqlx.DB
 	legacyChains     evm.LegacyChainContainer
 	lggr             logger.Logger
-	ks               RelayerKeystore
+	ks               CSAETHKeystore
 	mercuryPool      wsrpc.Pool
 	eventBroadcaster pg.EventBroadcaster
 	pgCfg            pg.QConfig
 }
 
-type RelayerKeystore interface {
+type CSAETHKeystore interface {
 	CSA() keystore.CSA
 	Eth() keystore.Eth
 }
 
-func NewRelayer(db *sqlx.DB, legacyChains evm.LegacyChainContainer, cfg pg.QConfig, lggr logger.Logger, ks RelayerKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
+func NewRelayer(db *sqlx.DB, legacyChains evm.LegacyChainContainer, cfg pg.QConfig, lggr logger.Logger, ks CSAETHKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
 	return &Relayer{
 		db:               db,
 		legacyChains:     legacyChains,

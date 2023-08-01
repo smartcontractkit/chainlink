@@ -1,4 +1,4 @@
-package cmd
+package chainlink
 
 import (
 	"context"
@@ -33,23 +33,28 @@ type RelayerFactory struct {
 	loop.GRPCOpts
 }
 
+type EVMFactoryConfig struct {
+	evm.RelayerConfig
+	evmrelayer.CSAETHKeystore
+}
+
 // func (r RelayerFactory) NewEVM(ctx context.Context, cfg evm.GeneralConfig, ks evmrelayer.RelayerKeystore, eb pg.EventBroadcaster, mmon *utils.MailboxMonitor) (map[relay.Identifier]evmrelayer.LoopRelayAdapter, error) {
-func (r RelayerFactory) NewEVM(ctx context.Context, opts evm.RelayerFactoryOpts, ks evmrelayer.RelayerKeystore) (map[relay.Identifier]evmrelayer.LoopRelayAdapter, error) {
+func (r RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[relay.Identifier]evmrelayer.LoopRelayAdapter, error) {
 	// TODO impl EVM loop. For now always 'fallback' to an adapter and embedded chainset
 
 	relayers := make(map[relay.Identifier]evmrelayer.LoopRelayAdapter)
 
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
-	ccOpts := evm.ChainRelayExtOpts{
+	ccOpts := evm.ChainRelayExtenderConfig{
 
-		Logger:             r.Logger,
-		DB:                 r.DB,
-		KeyStore:           ks.Eth(),
-		RelayerFactoryOpts: opts,
+		Logger:        r.Logger,
+		DB:            r.DB,
+		KeyStore:      config.CSAETHKeystore.Eth(),
+		RelayerConfig: config.RelayerConfig,
 	}
 
 	var ids []utils.Big
-	for _, c := range opts.Config.EVMConfigs() {
+	for _, c := range config.RelayerConfig.GeneralConfig.EVMConfigs() {
 		c := c
 		ids = append(ids, *c.ChainID)
 	}
@@ -68,12 +73,17 @@ func (r RelayerFactory) NewEVM(ctx context.Context, opts evm.RelayerFactoryOpts,
 		relayId := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
 		legacyChains := evm.NewLegacyChains()
 		legacyChains.Put(ext.Chain().ID().String(), ext.Chain())
-		relayer := evmrelayer.NewLoopRelayAdapter(evmrelayer.NewRelayer(ccOpts.DB, legacyChains, r.QConfig, ccOpts.Logger, ks, ccOpts.EventBroadcaster), ext)
+		relayer := evmrelayer.NewLoopRelayAdapter(evmrelayer.NewRelayer(ccOpts.DB, legacyChains, r.QConfig, ccOpts.Logger, config.CSAETHKeystore, ccOpts.EventBroadcaster), ext)
 		relayers[relayId] = relayer
 
 	}
 
 	return relayers, nil
+}
+
+type SolanaFactoryConfig struct {
+	Keystore keystore.Solana
+	solana.SolanaConfigs
 }
 
 func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaConfigs) (map[relay.Identifier]loop.Relayer, error) {
@@ -135,6 +145,11 @@ func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCon
 		}
 	}
 	return solanaRelayers, nil
+}
+
+type StarkNetFactoryConfig struct {
+	Keystore keystore.StarkNet
+	starknet.StarknetConfigs
 }
 
 func (r RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (map[relay.Identifier]loop.Relayer, error) {
@@ -199,14 +214,20 @@ func (r RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.Sta
 
 }
 
-func (r RelayerFactory) NewCosmos(ks keystore.Cosmos, chainCfgs cosmos.CosmosConfigs, eb pg.EventBroadcaster) (map[relay.Identifier]cosmos.LoopRelayerChainer, error) {
+type CosmosFactoryConfig struct {
+	Keystore keystore.Cosmos
+	cosmos.CosmosConfigs
+	EventBroadcaster pg.EventBroadcaster
+}
+
+func (r RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.Identifier]cosmos.LoopRelayerChainer, error) {
 	relayers := make(map[relay.Identifier]cosmos.LoopRelayerChainer)
 
 	var (
 		ids  []string
 		lggr = r.Logger.Named("Cosmos")
 	)
-	for _, c := range chainCfgs {
+	for _, c := range config.CosmosConfigs {
 		c := c
 		ids = append(ids, *c.ChainID)
 	}
@@ -219,7 +240,7 @@ func (r RelayerFactory) NewCosmos(ks keystore.Cosmos, chainCfgs cosmos.CosmosCon
 		}
 	*/
 	// create one relayer per chain id
-	for _, chainCfg := range chainCfgs {
+	for _, chainCfg := range config.CosmosConfigs {
 		relayId := relay.Identifier{Network: relay.Cosmos, ChainID: relay.ChainID(*chainCfg.ChainID)}
 		// all the lower level APIs expect chainsets. create a single valued set per id
 		// TODO: Cosmos LOOPp impl. For now, use relayer adapter
@@ -228,8 +249,8 @@ func (r RelayerFactory) NewCosmos(ks keystore.Cosmos, chainCfgs cosmos.CosmosCon
 			Config:           r.QConfig,
 			Logger:           lggr.Named(relayId.ChainID.String()),
 			DB:               r.DB,
-			KeyStore:         ks,
-			EventBroadcaster: eb,
+			KeyStore:         config.Keystore,
+			EventBroadcaster: config.EventBroadcaster,
 		}
 		opts.Configs = cosmos.NewConfigs(cosmos.CosmosConfigs{chainCfg})
 		singleChainChainSet, err := cosmos.NewSingleChainSet(opts, chainCfg)

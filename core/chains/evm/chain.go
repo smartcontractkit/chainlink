@@ -147,18 +147,18 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("cannot create new chain with ID %s, the chain is disabled", e.ChainID.String())
 }
 
-func newTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtOpts) (*chain, error) {
+func newTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtenderConfig) (*chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !chain.IsEnabled() {
 		return nil, errChainDisabled{ChainID: chainID}
 	}
-	cfg := evmconfig.NewTOMLChainScopedConfig(opts.Config, chain, l)
+	cfg := evmconfig.NewTOMLChainScopedConfig(opts.GeneralConfig, chain, l)
 	// note: per-chain validation is not necessary at this point since everything is checked earlier on boot.
 	return newChain(ctx, cfg, chain.Nodes, opts)
 }
 
-func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*toml.Node, opts ChainRelayExtOpts) (*chain, error) {
+func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
 	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
 	l := opts.Logger.Named(chainID.String()).With("evmChainID", chainID.String())
 	var client evmclient.Client

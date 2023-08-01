@@ -144,23 +144,22 @@ type ChainlinkApplication struct {
 }
 
 type ApplicationOpts struct {
-	Config           GeneralConfig
-	Logger           logger.Logger
-	EventBroadcaster pg.EventBroadcaster
-	MailMon          *utils.MailboxMonitor
-	SqlxDB           *sqlx.DB
-	KeyStore         keystore.Master
-	// Chains                   Chains
-	Relayers                 *CoreRelayerChainInteroperators
-	AuditLogger              audit.AuditLogger
-	CloseLogger              func() error
-	ExternalInitiatorManager webhook.ExternalInitiatorManager
-	Version                  string
-	RestrictedHTTPClient     *http.Client
-	UnrestrictedHTTPClient   *http.Client
-	SecretGenerator          SecretGenerator
-	LoopRegistry             *plugins.LoopRegistry
-	GRPCOpts                 loop.GRPCOpts
+	Config                     GeneralConfig
+	Logger                     logger.Logger
+	EventBroadcaster           pg.EventBroadcaster
+	MailMon                    *utils.MailboxMonitor
+	SqlxDB                     *sqlx.DB
+	KeyStore                   keystore.Master
+	RelayerChainInteroperators *CoreRelayerChainInteroperators
+	AuditLogger                audit.AuditLogger
+	CloseLogger                func() error
+	ExternalInitiatorManager   webhook.ExternalInitiatorManager
+	Version                    string
+	RestrictedHTTPClient       *http.Client
+	UnrestrictedHTTPClient     *http.Client
+	SecretGenerator            SecretGenerator
+	LoopRegistry               *plugins.LoopRegistry
+	GRPCOpts                   loop.GRPCOpts
 }
 
 // NewApplication initializes a new store if one is not already
@@ -173,8 +172,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	auditLogger := opts.AuditLogger
 	db := opts.SqlxDB
 	cfg := opts.Config
-	//chains := opts.Chains
-	relayers := opts.Relayers
+	relayerChainInterops := opts.RelayerChainInteroperators
 	eventBroadcaster := opts.EventBroadcaster
 	mailMon := opts.MailMon
 	externalInitiatorManager := opts.ExternalInitiatorManager
@@ -268,14 +266,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	srvcs = append(srvcs, eventBroadcaster, mailMon)
-	srvcs = append(srvcs, relayers.Services()...)
+	srvcs = append(srvcs, relayerChainInterops.Services()...)
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	srvcs = append(srvcs, promReporter)
 
 	// EVM relayers are used all over the place. TODO, make the signatures generic. for now, get the subset of EVM relayers
 	// to pass as needed
 
-	legacyEVMChains := relayers.LegacyEVMChains()
+	legacyEVMChains := relayerChainInterops.LegacyEVMChains()
 	if legacyEVMChains == nil {
 		panic("no legacy evm chains")
 	}
@@ -403,7 +401,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore.DKGSign(),
 			keyStore.DKGEncrypt(),
 			keyStore.Eth(),
-			opts.Relayers,
+			opts.RelayerChainInteroperators,
 			mailMon,
 			eventBroadcaster,
 		)
@@ -414,7 +412,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			globalLogger,
 			cfg.OCR2(),
 			cfg.Insecure(),
-			opts.Relayers,
+			opts.RelayerChainInteroperators,
 		)
 	} else {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
@@ -458,7 +456,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	}
 
 	app := &ChainlinkApplication{
-		relayers:                 opts.Relayers,
+		relayers:                 opts.RelayerChainInteroperators,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
 		jobSpawner:               jobSpawner,

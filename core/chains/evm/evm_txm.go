@@ -22,7 +22,7 @@ func newEvmTxm(
 	client evmclient.Client,
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
-	opts ChainRelayExtOpts,
+	opts ChainRelayExtenderConfig,
 ) (txm txmgr.TxManager,
 	estimator gas.EvmFeeEstimator,
 	err error,
