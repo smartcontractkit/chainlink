@@ -360,7 +360,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     bytes memory onchainMetadata,
     bytes memory /* offchainMetadata TODO: use in getDonFee() for dynamic billing */
   ) internal returns (FulfillResult) {
-    IFunctionsRequest.Commitment memory commitment = _retrieveCommitmentData(onchainMetadata);
+    IFunctionsRequest.Commitment memory commitment = abi.decode(onchainMetadata, (IFunctionsRequest.Commitment));
     if (s_requestCommitments[requestId] != keccak256(abi.encode(commitment))) {
       return FulfillResult.INVALID_REQUEST_ID;
     }
@@ -405,12 +405,6 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     );
 
     return FulfillResult(result);
-  }
-
-  function _retrieveCommitmentData(
-    bytes memory packedCommitment
-  ) private pure returns (IFunctionsRequest.Commitment memory commitment) {
-    commitment = abi.decode(packedCommitment, (IFunctionsRequest.Commitment));
   }
 
   // ================================================================

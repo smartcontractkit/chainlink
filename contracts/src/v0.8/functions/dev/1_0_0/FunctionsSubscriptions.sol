@@ -5,7 +5,6 @@ import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol"
 import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
 import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
-
 import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
 
@@ -492,15 +491,16 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function timeoutRequests(IFunctionsRequest.Commitment[] calldata requestsToTimeoutByCommitment) external override {
     _whenNotPaused();
     for (uint256 i = 0; i < requestsToTimeoutByCommitment.length; ++i) {
-      bytes32 requestId = requestsToTimeoutByCommitment[i].requestId;
+      IFunctionsRequest.Commitment memory request = requestsToTimeoutByCommitment[i];
+      bytes32 requestId = request.requestId;
 
       // Check that request ID is valid
-      if (keccak256(abi.encode(requestsToTimeoutByCommitment[i])) != s_requestCommitments[requestId]) {
+      if (keccak256(abi.encode(request)) != s_requestCommitments[requestId]) {
         revert InvalidCalldata();
       }
 
       // Check that the message sender is the subscription owner
-      uint64 subscriptionId = requestsToTimeoutByCommitment[i].subscriptionId;
+      uint64 subscriptionId = request.subscriptionId;
       _isValidSubscription(subscriptionId);
       address owner = s_subscriptions[subscriptionId].owner;
       if (msg.sender != owner) {
@@ -508,19 +508,19 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       }
 
       // Check that request has exceeded allowed request time
-      if (block.timestamp < requestsToTimeoutByCommitment[i].timeoutTimestamp) {
+      if (block.timestamp < request.timeoutTimestamp) {
         revert ConsumerRequestsInFlight();
       }
 
-      IFunctionsBilling coordinator = IFunctionsBilling(requestsToTimeoutByCommitment[i].coordinator);
+      IFunctionsBilling coordinator = IFunctionsBilling(request.coordinator);
 
       coordinator.deleteCommitment(requestId);
       // Release blocked balance
-      s_subscriptions[subscriptionId].blockedBalance -= requestsToTimeoutByCommitment[i].estimatedTotalCostJuels;
-      s_consumers[requestsToTimeoutByCommitment[i].client][subscriptionId].completedRequests += 1;
+      s_subscriptions[subscriptionId].blockedBalance -= request.estimatedTotalCostJuels;
+      s_consumers[request.client][subscriptionId].completedRequests += 1;
       // Delete commitment
       delete s_requestCommitments[requestId];
-      
+
       emit RequestTimedOut(requestId);
     }
   }
