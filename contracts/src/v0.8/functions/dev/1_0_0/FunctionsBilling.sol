@@ -465,7 +465,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     }
     uint96 feePoolShare = s_feePool / uint96(transmitters.length);
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
-    for (uint8 i = 0; i < transmitters.length; ++i) {
+    for (uint256 i = 0; i < transmitters.length; ++i) {
       s_withdrawableTokens[transmitters[i]] += feePoolShare;
     }
     s_feePool -= feePoolShare * uint96(transmitters.length);

@@ -113,7 +113,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       }
     } else {
       // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
-      for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
+      for (uint256 i = 0; i < s_proposedContractSet.ids.length; ++i) {
         if (id == s_proposedContractSet.ids[i]) {
           // NOTE: proposals can be used immediately
           return s_proposedContractSet.to[i];
@@ -160,7 +160,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       revert InvalidProposal();
     }
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
-    for (uint8 i = 0; i < idsArrayLength; ++i) {
+    for (uint256 i = 0; i < idsArrayLength; ++i) {
       bytes32 id = proposedContractSetIds[i];
       address proposedContract = proposedContractSetAddresses[i];
       if (
@@ -180,7 +180,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     s_proposedContractSet = ContractProposalSet(proposedContractSetIds, proposedContractSetAddresses, timelockEndBlock);
 
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
-    for (uint8 i = 0; i < proposedContractSetIds.length; ++i) {
+    for (uint256 i = 0; i < proposedContractSetIds.length; ++i) {
       emit ContractProposed(
         proposedContractSetIds[i],
         s_route[proposedContractSetIds[i]],
@@ -211,7 +211,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       revert TimelockInEffect();
     }
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
-    for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
+    for (uint256 i = 0; i < s_proposedContractSet.ids.length; ++i) {
       bytes32 id = s_proposedContractSet.ids[i];
       address from = s_route[id];
       address to = s_proposedContractSet.to[i];
