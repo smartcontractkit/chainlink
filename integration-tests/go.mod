@@ -14,11 +14,12 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/manifoldco/promptui v0.9.0
 	github.com/onsi/gomega v1.27.8
+	github.com/pelletier/go-toml/v2 v2.0.9
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.29.1
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-env v0.35.2
-	github.com/smartcontractkit/chainlink-testing-framework v1.14.1-0.20230731095810-a70b0af9a909
+	github.com/smartcontractkit/chainlink-env v0.36.0
+	github.com/smartcontractkit/chainlink-testing-framework v1.15.0
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230724105022-c5e49b4195ac
 	github.com/smartcontractkit/ocr2keepers v0.7.2
@@ -32,6 +33,13 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/sync v0.3.0
 	gopkg.in/guregu/null.v4 v4.0.0
+)
+
+// Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
+replace (
+	k8s.io/api => k8s.io/api v0.25.11
+	k8s.io/client-go => k8s.io/client-go v0.25.11
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d
 )
 
 require (
@@ -325,7 +333,6 @@ require (
 	github.com/opentracing-contrib/go-stdlib v1.0.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
-	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/petermattis/goid v0.0.0-20230317030725-371a4b8eda08 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
@@ -443,8 +450,8 @@ require (
 	k8s.io/cli-runtime v0.25.11 // indirect
 	k8s.io/client-go v0.26.2 // indirect
 	k8s.io/component-base v0.25.11 // indirect
-	k8s.io/klog/v2 v2.100.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
+	k8s.io/klog/v2 v2.90.1 // indirect
+	k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d // indirect
 	k8s.io/kubectl v0.25.11 // indirect
 	k8s.io/utils v0.0.0-20230308161112-d77c459e9343 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
@@ -472,8 +479,4 @@ replace (
 
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.43.1-0.20230327151049-211ae4f1f0a2
 	github.com/sercand/kuberesolver v2.4.0+incompatible => github.com/sercand/kuberesolver/v5 v5.1.0
-
-	k8s.io/api => k8s.io/api v0.25.4
-	k8s.io/client-go => k8s.io/client-go v0.25.4
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d
 )

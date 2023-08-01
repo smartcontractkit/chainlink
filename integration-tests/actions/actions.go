@@ -284,14 +284,14 @@ func TeardownSuite(
 // soak tests
 func TeardownRemoteSuite(
 	t *testing.T,
-	env *environment.Environment,
+	namespace string,
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
 	l := utils.GetTestLogger(t)
 	var err error
-	if err = testreporters.SendReport(t, env, "./", optionalTestReporter); err != nil {
+	if err = testreporters.SendReport(t, namespace, "./", optionalTestReporter); err != nil {
 		l.Warn().Err(err).Msg("Error writing test report")
 	}
 	// Delete all jobs to stop depleting the funds
@@ -301,7 +301,7 @@ func TeardownRemoteSuite(
 	}
 
 	if err = returnFunds(chainlinkNodes, client); err != nil {
-		l.Error().Err(err).Str("Namespace", env.Cfg.Namespace).
+		l.Error().Err(err).Str("Namespace", namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
 	}
@@ -310,6 +310,9 @@ func TeardownRemoteSuite(
 
 func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
 	for _, node := range chainlinkNodes {
+		if node == nil {
+			return fmt.Errorf("found a nil chainlink node in the list of chainlink nodes while tearing down: %v", chainlinkNodes)
+		}
 		jobs, _, err := node.ReadJobs()
 		if err != nil {
 			return errors.Wrap(err, "error reading jobs from chainlink node")
@@ -331,7 +334,7 @@ func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
 // Returns all the funds from the chainlink nodes to the networks default address
 func returnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient blockchain.EVMClient) error {
 	if blockchainClient == nil {
-		log.Warn().Msg("No blockchain client found, unable to return funds from chainlink nodes.")
+		return errors.New("blockchain client is nil, unable to return funds from chainlink nodes")
 	}
 	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 	if blockchainClient.NetworkSimulated() {
