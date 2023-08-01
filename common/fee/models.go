@@ -59,10 +59,11 @@ func getMaxFeePrice(userSpecifiedMax, maxFeePrice *big.Int) *big.Int {
 	return FeePriceLimit(userSpecifiedMax, maxFeePrice)
 }
 
+// Returns max of originalFeePrice bumped by fixed units or percentage.
 func bumpFeePriceByPercentage(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits *big.Int) *big.Int {
 	return max(
-		new(big.Int).Add(originalFeePrice, feeBumpUnits), 
 		addPercentage(originalFeePrice, feeBumpPercent),
+		new(big.Int).Add(originalFeePrice, feeBumpUnits),
 	)
 }
 
@@ -140,15 +141,11 @@ func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr log
 		// It's here for extra precaution
 		return bumpedFeeCap, bumpedTipCap, errors.Wrapf(ErrBump, "bumped fee tip cap of %s fee unit is less than or equal to original fee tip cap of %s fee unit."+
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
-			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", bumpedTipCap.String(), originalTipCap)
+			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", bumpedTipCap.String(), originalTipCap) // TODO: Add a fee unit to string function
 	}
 
 	// Always bump the FeeCap by at least the bump percentage
-	// For geth the configured bump is 10%
-	bumpedFeeCap = max(
-		addPercentage(originalFeeCap, cfg.BumpPercent()),
-		new(big.Int).Add(originalFeeCap, cfg.BumpMin()),
-	)
+	bumpedFeeCap = bumpFeePriceByPercentage(originalFeeCap, cfg.BumpPercent(), cfg.BumpMin())
 
 	if currentBaseFee != nil {
 		if currentBaseFee.Cmp(maxFeePrice) > 0 {
