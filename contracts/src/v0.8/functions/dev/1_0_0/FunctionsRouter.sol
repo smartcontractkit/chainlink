@@ -129,7 +129,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
   function _sendRequest(
     bytes32 donId,
-    bool useProposed,
+    address coordinatorAddress,
     uint64 subscriptionId,
     bytes memory data,
     uint16 dataVersion,
@@ -139,8 +139,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
     _isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
-
-    address coordinatorAddress = _getContractById(donId, useProposed);
 
     // Forward request to DON
     uint96 estimatedCost;
@@ -200,7 +198,15 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       data,
       (uint64, bytes, uint16, uint32)
     );
-    bytes32 requestId = _sendRequest(donId, true, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
+    address coordinatorAddress = getProposedContractById(donId);
+    bytes32 requestId = _sendRequest(
+      donId,
+      coordinatorAddress,
+      subscriptionId,
+      reqData,
+      reqDataVersion,
+      callbackGasLimit
+    );
     // Convert to bytes as a more generic return
     output = new bytes(32);
     // Bounded by 32
@@ -219,7 +225,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint32 callbackGasLimit,
     bytes32 donId
   ) external override returns (bytes32) {
-    return _sendRequest(donId, false, subscriptionId, data, dataVersion, callbackGasLimit);
+    address coordinatorAddress = getContractById(donId);
+    return _sendRequest(donId, coordinatorAddress, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
   /**
@@ -393,7 +400,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   }
 
   function _onlySenderThatAcceptedToS() internal view override {
-    if (!IAccessController(_getContractById(ALLOW_LIST_ID, false)).hasAccess(msg.sender, new bytes(0))) {
+    if (!IAccessController(getContractById(ALLOW_LIST_ID)).hasAccess(msg.sender, new bytes(0))) {
       revert SenderMustAcceptTermsOfService(msg.sender);
     }
   }

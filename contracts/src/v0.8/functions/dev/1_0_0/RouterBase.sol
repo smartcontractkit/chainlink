@@ -105,20 +105,13 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // |                        Route methods                         |
   // ================================================================
 
-  function _getContractById(bytes32 id, bool useProposed) internal view returns (address) {
-    if (!useProposed) {
-      address currentImplementation = s_route[id];
-      if (currentImplementation != address(0)) {
-        return currentImplementation;
-      }
-    } else {
-      // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
-      for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
-        if (id == s_proposedContractSet.ids[i]) {
-          // NOTE: proposals can be used immediately
-          return s_proposedContractSet.to[i];
-        }
-      }
+  /**
+   * @inheritdoc IRouterBase
+   */
+  function getContractById(bytes32 id) public view override returns (address) {
+    address currentImplementation = s_route[id];
+    if (currentImplementation != address(0)) {
+      return currentImplementation;
     }
     revert RouteNotFound(id);
   }
@@ -126,15 +119,14 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
-  function getContractById(bytes32 id) external view override returns (address routeDestination) {
-    routeDestination = _getContractById(id, false);
-  }
-
-  /**
-   * @inheritdoc IRouterBase
-   */
-  function getContractById(bytes32 id, bool useProposed) external view override returns (address routeDestination) {
-    routeDestination = _getContractById(id, useProposed);
+  function getProposedContractById(bytes32 id) public view override returns (address) {
+    // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
+    for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
+      if (id == s_proposedContractSet.ids[i]) {
+        return s_proposedContractSet.to[i];
+      }
+    }
+    revert RouteNotFound(id);
   }
 
   // ================================================================
@@ -249,7 +241,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @inheritdoc IRouterBase
    */
   function proposeConfigUpdate(bytes32 id, bytes calldata config) external override onlyOwner {
-    address implAddr = _getContractById(id, false);
+    address implAddr = getContractById(id);
     bytes32 currentConfigHash;
     if (implAddr == address(this)) {
       currentConfigHash = s_configHash;
@@ -279,7 +271,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       _updateConfig(proposal.to);
       s_configHash = keccak256(proposal.to);
     } else {
-      try IConfigurable(_getContractById(id, false)).updateConfig(proposal.to) {} catch {
+      try IConfigurable(getContractById(id)).updateConfig(proposal.to) {} catch {
         revert InvalidConfigData();
       }
     }

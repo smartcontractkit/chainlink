@@ -17,7 +17,7 @@ interface IRouterBase {
    * @param id A bytes32 identifier for the route
    * @return contract The current or proposed contract address
    */
-  function getContractById(bytes32 id, bool useProposed) external view returns (address);
+  function getProposedContractById(bytes32 id) external view returns (address);
 
   /**
    * @notice Return the latest proprosal set
