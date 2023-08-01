@@ -39,9 +39,11 @@ func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Shell, *cli.App) {
 }
 
 var (
-	remoteNodeURLs = flag.String("remote-node-urls", "", "remote node URL")
-	credsFile      = flag.String("creds-file", "", "Creds to authenticate to the node")
-	numEthKeys     = flag.Int("num-eth-keys", 5, "Number of eth keys to create")
+	remoteNodeURLs  = flag.String("remote-node-urls", "", "remote node URL")
+	credsFile       = flag.String("creds-file", "", "Creds to authenticate to the node")
+	numEthKeys      = flag.Int("num-eth-keys", 5, "Number of eth keys to create")
+	maxGasPriceGwei = flag.Int("max-gas-price-gwei", -1, "Max gas price gwei of the eth keys")
+	numVRFKeys      = flag.Int("num-vrf-keys", 1, "Number of vrf keys to create")
 
 	checkMarkEmoji = "✅"
 	xEmoji         = "❌"
@@ -61,6 +63,7 @@ func main() {
 
 	var (
 		allETHKeys []string
+		allVRFKeys []string
 	)
 	for _, remoteNodeURL := range urls {
 		output := &bytes.Buffer{}
@@ -77,49 +80,103 @@ func main() {
 		output.Reset()
 		fmt.Println()
 
-		// check for ETH keys
-		err = client.ListETHKeys(&cli.Context{
-			App: app,
-		})
-		helpers.PanicErr(err)
-		var ethKeys []presenters.ETHKeyResource
-		var newKeys []presenters.ETHKeyResource
-		helpers.PanicErr(json.Unmarshal(output.Bytes(), &ethKeys))
-		switch {
-		case len(ethKeys) >= *numEthKeys:
-			fmt.Println(checkMarkEmoji, "found", len(ethKeys), "eth keys on", remoteNodeURL)
-		case len(ethKeys) < *numEthKeys:
-			fmt.Println(xEmoji, "found only", len(ethKeys), "eth keys on", remoteNodeURL,
-				"; creating", *numEthKeys-len(ethKeys), "more")
-			toCreate := *numEthKeys - len(ethKeys)
-			for i := 0; i < toCreate; i++ {
-				output.Reset()
-				var newKey presenters.ETHKeyResource
+		{
+			// check for ETH keys
+			err = client.ListETHKeys(&cli.Context{
+				App: app,
+			})
+			helpers.PanicErr(err)
+			var ethKeys []presenters.ETHKeyResource
+			var newKeys []presenters.ETHKeyResource
+			helpers.PanicErr(json.Unmarshal(output.Bytes(), &ethKeys))
+			switch {
+			case len(ethKeys) >= *numEthKeys:
+				fmt.Println(checkMarkEmoji, "found", len(ethKeys), "eth keys on", remoteNodeURL)
+			case len(ethKeys) < *numEthKeys:
+				fmt.Println(xEmoji, "found only", len(ethKeys), "eth keys on", remoteNodeURL,
+					"; creating", *numEthKeys-len(ethKeys), "more")
+				toCreate := *numEthKeys - len(ethKeys)
+				for i := 0; i < toCreate; i++ {
+					output.Reset()
+					var newKey presenters.ETHKeyResource
 
-				err = client.CreateETHKey(cli.NewContext(app, flag.NewFlagSet("blah", flag.ExitOnError), nil))
-				helpers.PanicErr(err)
-				helpers.PanicErr(json.Unmarshal(output.Bytes(), &newKey))
-				newKeys = append(newKeys, newKey)
+					flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
+					if *maxGasPriceGwei > 0 {
+						helpers.PanicErr(flagSet.Set("max-gas-price-gwei", fmt.Sprintf("%d", *maxGasPriceGwei)))
+					}
+					err = client.CreateETHKey(cli.NewContext(app, flagSet, nil))
+					helpers.PanicErr(err)
+					helpers.PanicErr(json.Unmarshal(output.Bytes(), &newKey))
+					newKeys = append(newKeys, newKey)
+				}
+
+				fmt.Println("NEW ETH KEYS:", strings.Join(func() (r []string) {
+					for _, k := range newKeys {
+						r = append(r, k.Address)
+					}
+					return
+				}(), ", "))
+			}
+			output.Reset()
+			fmt.Println()
+
+			for _, ethKey := range ethKeys {
+				allETHKeys = append(allETHKeys, ethKey.Address)
+			}
+			for _, nk := range newKeys {
+				allETHKeys = append(allETHKeys, nk.Address)
+			}
+		}
+
+		{
+			// check for VRF keys
+			err = client.ListVRFKeys(&cli.Context{
+				App: app,
+			})
+			helpers.PanicErr(err)
+			var vrfKeys []presenters.VRFKeyResource
+			var newKeys []presenters.VRFKeyResource
+			helpers.PanicErr(json.Unmarshal(output.Bytes(), &vrfKeys))
+			switch {
+			case len(vrfKeys) >= *numVRFKeys:
+				fmt.Println(checkMarkEmoji, "found", len(vrfKeys), "eth keys on", remoteNodeURL)
+			default:
+				fmt.Println(xEmoji, "found only", len(vrfKeys), "vrf keys on", remoteNodeURL, ", creating",
+					*numVRFKeys-len(vrfKeys), "more")
+				toCreate := *numVRFKeys - len(vrfKeys)
+				for i := 0; i < toCreate; i++ {
+					output.Reset()
+					var newKey presenters.VRFKeyResource
+
+					err = client.CreateVRFKey(
+						cli.NewContext(app, flag.NewFlagSet("blah", flag.ExitOnError), nil))
+					helpers.PanicErr(err)
+					helpers.PanicErr(json.Unmarshal(output.Bytes(), &newKey))
+					newKeys = append(newKeys, newKey)
+
+					fmt.Println("NEW VRF KEYS:", strings.Join(func() (r []string) {
+						for _, k := range newKeys {
+							r = append(r, k.Uncompressed)
+						}
+						return
+					}(), ", "))
+				}
+
+				output.Reset()
+				fmt.Println()
+
+				for _, vrfKey := range vrfKeys {
+					allVRFKeys = append(allVRFKeys, vrfKey.Uncompressed)
+				}
+				for _, nk := range newKeys {
+					allVRFKeys = append(allVRFKeys, nk.Uncompressed)
+				}
 			}
 
-			fmt.Println("NEW ETH KEYS:", strings.Join(func() (r []string) {
-				for _, k := range newKeys {
-					r = append(r, k.Address)
-				}
-				return
-			}(), ", "))
-		}
-		output.Reset()
-		fmt.Println()
-
-		for _, ethKey := range ethKeys {
-			allETHKeys = append(allETHKeys, ethKey.Address)
-		}
-		for _, nk := range newKeys {
-			allETHKeys = append(allETHKeys, nk.Address)
 		}
 	}
 
 	fmt.Println("------------- NODE INFORMATION -------------")
-	fmt.Println("ETH addresses:", strings.Join(allETHKeys, ","))
+	fmt.Println("ETH addresses:", strings.Join(allETHKeys, ", "))
+	fmt.Println("VRF keys:", strings.Join(allVRFKeys, ", "))
 }
