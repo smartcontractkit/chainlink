@@ -11,6 +11,29 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+type bumpConfig interface {
+	LimitMultiplier() float32
+	PriceMax() *assets.Wei
+	BumpPercent() uint16
+	BumpMin() *assets.Wei
+	TipCapDefault() *assets.Wei
+}
+
+type fixedPriceEstimatorConfig interface {
+	BumpThreshold() uint64
+	FeeCapDefault() *assets.Wei
+	LimitMultiplier() float32
+	PriceDefault() *assets.Wei
+	TipCapDefault() *assets.Wei
+	PriceMax() *assets.Wei
+	Mode() string
+	bumpConfig
+}
+
+type fixedPriceEstimatorBlockHistoryConfig interface {
+	EIP1559FeeCapBufferBlocks() uint16
+}
+
 var _ EvmEstimator = (*fixedPriceEstimator)(nil)
 
 type fixedPriceEstimator struct {
@@ -19,14 +42,10 @@ type fixedPriceEstimator struct {
 	lggr     logger.SugaredLogger
 }
 
-type fixedPriceEstimatorBlockHistoryConfig interface {
-	EIP1559FeeCapBufferBlocks() uint16
-}
-
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
 // always use the config default values for gas prices and limits
-func NewFixedPriceEstimator(config fixedPriceEstimatorConfig, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger) EvmEstimator {
-	return &fixedPriceEstimator{config, bhCfg, logger.Sugared(lggr.Named("FixedPriceEstimator"))}
+func NewFixedPriceEstimator(cfg fixedPriceEstimatorConfig, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger) EvmEstimator {
+	return &fixedPriceEstimator{cfg, bhCfg, logger.Sugared(lggr.Named("FixedPriceEstimator"))}
 }
 
 func (f *fixedPriceEstimator) Start(context.Context) error {

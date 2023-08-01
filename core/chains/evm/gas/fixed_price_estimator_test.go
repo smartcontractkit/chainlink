@@ -56,6 +56,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.PriceDefaultF = assets.NewWeiI(42)
 		config.LimitMultiplierF = float32(1.1)
 		config.PriceMaxF = assets.NewWeiI(20)
+
 		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, logger.TestLogger(t))
 		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, assets.NewWeiI(30))
 		require.NoError(t, err)
