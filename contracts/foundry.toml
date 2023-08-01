@@ -33,4 +33,10 @@ src = 'src/v0.8/automation'
 test = 'src/v0.8/automation/test'
 solc_version = '0.8.6'
 
+[profile.llo]
+optimizer_runs = 1000000
+src = 'src/v0.8/llo-feeds'
+test = 'src/v0.8/llo-feeds/test'
+solc_version = '0.8.16'
+
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

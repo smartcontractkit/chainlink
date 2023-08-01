@@ -179,7 +179,10 @@ golangci-lint: ## Run golangci-lint for all issues.
 
 .PHONY: snapshot
 snapshot:
-	cd ./contracts && forge snapshot --match-test _gas
+	cd ./contracts && export FOUNDRY_PROFILE=vrf && forge snapshot --snap gas-snapshots/vrf.gas-snapshot
+	cd ./contracts && export FOUNDRY_PROFILE=automation && forge snapshot --snap gas-snapshots/automation.gas-snapshot
+	cd ./contracts && export FOUNDRY_PROFILE=llo && forge snapshot --snap gas-snapshots/llo.gas-snapshot
+	cd ./contracts && export FOUNDRY_PROFILE=functions && forge snapshot --snap gas-snapshots/functions.gas-snapshot
 
 GORELEASER_CONFIG ?= .goreleaser.yaml
 

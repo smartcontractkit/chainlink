@@ -22,6 +22,9 @@ jobs:
               - '.github/workflows/solidity-foundry.yml'
 
   tests:
+    strategy:
+      matrix:
+        product: [ vrf, automation, llo, functions ]
     needs: [changes]
     name: Tests
     # See https://github.com/foundry-rs/foundry/issues/3827
@@ -53,6 +56,8 @@ jobs:
           forge build
         id: build
         working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge tests
         if: ${{ needs.changes.outputs.changes == 'true' }}
@@ -60,13 +65,18 @@ jobs:
           forge test -vvv
         id: test
         working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge snapshot
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: |
-          forge snapshot --match-test _gas --check
+          forge snapshot --check gas-snapshots/${{ matrix.product }}.gas-snapshot
         id: snapshot
         working-directory: contracts
+        env:
+          FOUNDRY_PROFILE: ${{ matrix.product }}
+
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -74,5 +84,5 @@ jobs:
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Foundry Tests
+          this-job-name: Foundry Tests ${{ matrix.product }}
         continue-on-error: true
