@@ -2,8 +2,9 @@
 pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
-import {HasRouter, ITypeAndVersion} from "../HasRouter.sol";
+import {HasRouter} from "../HasRouter.sol";
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
+import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
 
 import {Address} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
 import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
