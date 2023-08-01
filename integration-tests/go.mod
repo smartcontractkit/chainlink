@@ -39,6 +39,7 @@ require (
 replace (
 	k8s.io/api => k8s.io/api v0.25.11
 	k8s.io/client-go => k8s.io/client-go v0.25.11
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d
 )
 
 require (
@@ -115,10 +116,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
-<<<<<<< HEAD
-=======
 	github.com/edsrzf/mmap-go v1.1.0 // indirect
->>>>>>> d7872def491a905472c5b1df2712f812a8c64d0f
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
@@ -198,14 +196,10 @@ require (
 	github.com/gtank/ristretto255 v0.1.2 // indirect
 	github.com/hashicorp/consul/api v1.21.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
-<<<<<<< HEAD
-	github.com/hashicorp/go-hclog v1.5.0 // indirect
-=======
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.5.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-msgpack v0.5.5 // indirect
->>>>>>> d7872def491a905472c5b1df2712f812a8c64d0f
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-plugin v1.4.10 // indirect
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
@@ -308,10 +302,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/patternmatcher v0.5.0 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
-<<<<<<< HEAD
-=======
 	github.com/moby/sys/sequential v0.5.0 // indirect
->>>>>>> d7872def491a905472c5b1df2712f812a8c64d0f
 	github.com/moby/term v0.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
@@ -459,18 +450,11 @@ require (
 	k8s.io/cli-runtime v0.25.11 // indirect
 	k8s.io/client-go v0.26.2 // indirect
 	k8s.io/component-base v0.25.11 // indirect
-<<<<<<< HEAD
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d // indirect
 	k8s.io/kubectl v0.25.11 // indirect
 	k8s.io/utils v0.0.0-20230308161112-d77c459e9343 // indirect
-=======
-	k8s.io/klog/v2 v2.100.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20230501164219-8b0f38b5fd1f // indirect
-	k8s.io/kubectl v0.25.11 // indirect
-	k8s.io/utils v0.0.0-20230308161112-d77c459e9343 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
->>>>>>> d7872def491a905472c5b1df2712f812a8c64d0f
 	pgregory.net/rapid v0.5.5 // indirect
 	sigs.k8s.io/controller-runtime v0.13.0 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
@@ -495,8 +479,4 @@ replace (
 
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.43.1-0.20230327151049-211ae4f1f0a2
 	github.com/sercand/kuberesolver v2.4.0+incompatible => github.com/sercand/kuberesolver/v5 v5.1.0
-
-	k8s.io/api => k8s.io/api v0.25.4
-	k8s.io/client-go => k8s.io/client-go v0.25.4
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d
 )
