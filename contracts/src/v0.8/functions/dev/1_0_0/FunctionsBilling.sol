@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Routable} from "./Routable.sol";
+import {HasRouter} from "./HasRouter.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
-import {FulfillResult} from "./FulfillResultCodes.sol";
+import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
 
 /**
  * @title Functions Billing contract
  * @notice Contract that calculates payment from users to the nodes of the Decentralized Oracle Network (DON).
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-abstract contract FunctionsBilling is Routable, IFunctionsBilling {
+abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   // ================================================================
   // |                  Request Commitment state                    |
   // ================================================================
@@ -32,7 +32,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   }
   mapping(bytes32 requestId => Commitment) private s_requestCommitments;
 
-  event RequestTimedOut(bytes32 indexed requestId);
+  event CommitmentDeleted(bytes32 requestId);
 
   // ================================================================
   // |                     Configuration state                      |
@@ -113,7 +113,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
-  constructor(address router, bytes memory config, address linkToNativeFeed) Routable(router, config) {
+  constructor(address router, bytes memory config, address linkToNativeFeed) HasRouter(router, config) {
     s_linkToNativeFeed = AggregatorV3Interface(linkToNativeFeed);
   }
 
@@ -221,7 +221,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     RequestBilling memory /* billing */
   ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
-    return IFunctionsRouter(address(s_router)).getAdminFee();
+    return IFunctionsRouter(address(_getRouter())).getAdminFee();
   }
 
   function getFeedData() public view returns (int256) {
@@ -248,7 +248,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint256 gasPrice
   ) external view override returns (uint96) {
     // Reasonable ceilings to prevent integer overflows
-    IFunctionsRouter router = IFunctionsRouter(address(s_router));
+    IFunctionsRouter router = IFunctionsRouter(address(_getRouter()));
     router.isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
     if (gasPrice > 1_000_000) {
       revert InvalidCalldata();
@@ -313,7 +313,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint80 donFee = getDONFee(data, billing);
     uint96 adminFee = getAdminFee(data, billing);
     uint96 estimatedCost = _calculateCostEstimate(billing.callbackGasLimit, billing.expectedGasPrice, donFee, adminFee);
-    IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(s_router));
+    IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(_getRouter()));
     (uint96 balance, uint96 blockedBalance, , , ) = subscriptions.getSubscription(billing.subscriptionId);
     (, uint64 initiatedRequests, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
 
@@ -392,7 +392,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint96 costWithoutFulfillment = gasOverheadJuels + commitment.donFee;
 
     // The Functions Router will perform the callback to the client contract
-    IFunctionsRouter router = IFunctionsRouter(address(s_router));
+    IFunctionsRouter router = IFunctionsRouter(address(_getRouter()));
     (uint8 result, uint96 callbackCostJuels) = router.fulfill(
       requestId,
       response,
@@ -434,7 +434,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     }
     // Delete commitment
     delete s_requestCommitments[requestId];
-    emit RequestTimedOut(requestId);
+    emit CommitmentDeleted(requestId);
     return true;
   }
 
@@ -458,7 +458,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert InsufficientBalance();
     }
     s_withdrawableTokens[msg.sender] -= amount;
-    IFunctionsSubscriptions router = IFunctionsSubscriptions(address(s_router));
+    IFunctionsSubscriptions router = IFunctionsSubscriptions(address(_getRouter()));
     router.oracleWithdraw(recipient, amount);
   }
 
@@ -471,7 +471,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     }
     uint96 feePoolShare = s_feePool / uint96(transmitters.length);
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
-    for (uint8 i = 0; i < transmitters.length; ++i) {
+    for (uint256 i = 0; i < transmitters.length; ++i) {
       s_withdrawableTokens[transmitters[i]] += feePoolShare;
     }
     s_feePool -= feePoolShare * uint96(transmitters.length);

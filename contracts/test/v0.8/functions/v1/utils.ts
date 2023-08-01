@@ -123,11 +123,11 @@ export async function setupRolesAndFactories(): Promise<{
     roles.consumer,
   )
   const linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/mocks/MockLinkToken.sol:MockLinkToken',
     roles.defaultAccount,
   )
   const mockAggregatorV3Factory = await ethers.getContractFactory(
-    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     roles.defaultAccount,
   )
   return {
@@ -162,10 +162,13 @@ export async function acceptTermsOfService(
     recipientAddress,
   )
   const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-  const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+  const flatSignature = await wallet.signMessage(
+    ethers.utils.arrayify(messageHash),
+  )
+  const { r, s, v } = ethers.utils.splitSignature(flatSignature)
   return accessControl
     .connect(acceptor)
-    .acceptTermsOfService(acceptorAddress, recipientAddress, proof)
+    .acceptTermsOfService(acceptorAddress, recipientAddress, r, s, v)
 }
 
 export async function createSubscription(

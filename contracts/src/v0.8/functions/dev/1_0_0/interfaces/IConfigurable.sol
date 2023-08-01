@@ -13,7 +13,6 @@ interface IConfigurable {
 
   /**
    * @notice Set the contract's configuration
-   * @dev Only callable by the Router
    * @param config bytes containing config data
    */
   function updateConfig(bytes calldata config) external;

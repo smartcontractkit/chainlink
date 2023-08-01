@@ -120,9 +120,13 @@ func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToke
 		require.NoError(t, err)
 		privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
 		require.NoError(t, err)
-		proof, err := crypto.Sign(ethMessageHash[:], privateKey)
-		require.NoError(t, err)
-		allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, proof)
+		flatSignature, err := crypto.Sign(ethMessageHash[:], privateKey)
+		var r [32]byte
+		copy(r[:], flatSignature[:32])
+		var s [32]byte
+		copy(s[:], flatSignature[32:64])
+		v := uint8(flatSignature[65])
+		allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, r, s, v)
 	}
 
 	_, err = routerContract.CreateSubscription(owner)

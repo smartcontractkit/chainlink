@@ -42,9 +42,11 @@ interface ITermsOfServiceAllowList {
    * @notice Allows access to the sender based on acceptance of the Terms of Service
    * @param acceptor - The wallet address that has accepted the Terms of Service on the UI
    * @param recipient - The recipient address that the acceptor is taking responsibility for
-   * @param proof - Signed data produced by the Chainlink Functions Subscription UI
+   * @param r - ECDSA signature r data produced by the Chainlink Functions Subscription UI
+   * @param s - ECDSA signature s produced by the Chainlink Functions Subscription UI
+   * @param v - ECDSA signature v produced by the Chainlink Functions Subscription UI
    */
-  function acceptTermsOfService(address acceptor, address recipient, bytes calldata proof) external;
+  function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external;
 
   /**
    * @notice Removes a sender's access if already authorized, and disallows re-accepting the Terms of Service
