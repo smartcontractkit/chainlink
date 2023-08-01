@@ -153,7 +153,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     external
     override
     onlyRouter
-    returns (bytes32 requestId, uint96 estimatedCost, IFunctionsRequest.Commitment memory commitment)
+    returns (IFunctionsRequest.Commitment memory commitment)
   {
     if (request.data.length == 0) {
       revert EmptyRequestData();
@@ -166,10 +166,10 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       tx.gasprice
     );
 
-    (requestId, estimatedCost, commitment) = _startBilling(request.data, request.dataVersion, billing);
+    commitment = _startBilling(request.data, request.dataVersion, billing);
 
     emit OracleRequest(
-      requestId,
+      commitment.requestId,
       request.requestingContract,
       tx.origin,
       request.subscriptionId,

@@ -141,9 +141,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     address coordinatorAddress = _getContractById(donId, useProposed);
 
     // Forward request to DON
-    uint96 estimatedTotalCostJuels;
-    IFunctionsRequest.Commitment memory commitment;
-    (requestId, estimatedTotalCostJuels, commitment) = IFunctionsCoordinator(coordinatorAddress).sendRequest(
+    IFunctionsRequest.Commitment memory commitment = IFunctionsCoordinator(coordinatorAddress).sendRequest(
       IFunctionsCoordinator.Request(
         msg.sender,
         s_subscriptions[subscriptionId].owner,
@@ -155,10 +153,10 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       )
     );
 
-    _markRequestInFlight(msg.sender, subscriptionId, estimatedTotalCostJuels);
+    _markRequestInFlight(msg.sender, subscriptionId, commitment.estimatedTotalCostJuels);
 
     // Store a commitment about the request
-    s_requestCommitments[requestId] = keccak256(
+    s_requestCommitments[commitment.requestId] = keccak256(
       abi.encode(
         IFunctionsRequest.Commitment(
           s_config.adminFee,
@@ -166,9 +164,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
           msg.sender,
           subscriptionId,
           callbackGasLimit,
-          estimatedTotalCostJuels,
+          commitment.estimatedTotalCostJuels,
           commitment.timeoutTimestamp,
-          requestId,
+          commitment.requestId,
           commitment.donFee,
           commitment.gasOverheadBeforeCallback,
           commitment.gasOverheadAfterCallback
@@ -177,7 +175,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     );
 
     emit RequestStart(
-      requestId,
+      commitment.requestId,
       donId,
       subscriptionId,
       s_subscriptions[subscriptionId].owner,
@@ -188,7 +186,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       callbackGasLimit
     );
 
-    return requestId;
+    return commitment.requestId;
   }
 
   function _validateProposedContracts(

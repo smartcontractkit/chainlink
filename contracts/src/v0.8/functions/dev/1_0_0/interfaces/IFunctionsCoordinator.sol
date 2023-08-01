@@ -72,11 +72,9 @@ interface IFunctionsCoordinator {
    * @notice Sends a request (encoded as data) using the provided subscriptionId
    * @dev Callable only by the Router
    * @param request The request information, @dev see the struct for field descriptions
-   * @return requestId A unique request identifier (unique per DON)
-   * @return estimatedCost The cost in Juels of LINK that the request is estimated to charge if market conditions were to stay the same
    * @return commitment - The parameters of the request that must be held consistent at response time
    */
   function sendRequest(
     Request calldata request
-  ) external returns (bytes32, uint96, IFunctionsRequest.Commitment memory commitment);
+  ) external returns (IFunctionsRequest.Commitment memory commitment);
 }

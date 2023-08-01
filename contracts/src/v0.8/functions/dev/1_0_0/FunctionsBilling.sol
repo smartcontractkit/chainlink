@@ -283,15 +283,13 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
    * @param data - Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param requestDataVersion - Version number of the structure of the request data
    * @param billing - Billing configuration for the request
-   * @return requestId - A unique identifier of the request. Can be used to match a request to a response in fulfillRequest.
-   * @return estimatedCost - The estimated cost in Juels of LINK that will be charged to the subscription if all callback gas is used
    * @return commitment - The parameters of the request that must be held consistent at response time
    */
   function _startBilling(
     bytes memory data,
     uint16 requestDataVersion,
     RequestBilling memory billing
-  ) internal returns (bytes32, uint96, IFunctionsRequest.Commitment memory) {
+  ) internal returns (IFunctionsRequest.Commitment memory commitment) {
     // Nodes should support all past versions of the structure
     if (requestDataVersion > s_config.maxSupportedRequestDataVersion) {
       revert UnsupportedRequestDataVersion();
@@ -311,7 +309,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
 
     bytes32 requestId = computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
 
-    IFunctionsRequest.Commitment memory commitment = IFunctionsRequest.Commitment(
+    commitment = IFunctionsRequest.Commitment(
       adminFee,
       address(this),
       billing.client,
@@ -328,8 +326,6 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     s_requestCommitments[requestId] = keccak256(abi.encode(commitment));
 
     emit BillingStart(requestId, commitment);
-
-    return (requestId, estimatedCost, commitment);
   }
 
   /**
