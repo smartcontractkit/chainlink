@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -39,14 +38,9 @@ type Geth struct {
 	ContractDeployer contracts.ContractDeployer
 }
 
-func NewGeth(networks []string, reusable bool) *Geth {
+func NewGeth(compOpts env.EnvComponentOpts) *Geth {
 	return &Geth{
-		EnvComponent: env.NewEnvComponent(env.EnvComponentOpts{
-			Name:     "geth",
-			ID:       uuid.NewString(),
-			Networks: networks,
-			Reuse:    reusable,
-		}),
+		EnvComponent: env.NewEnvComponent("geth", compOpts),
 	}
 }
 

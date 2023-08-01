@@ -6,10 +6,14 @@ import (
 	"strings"
 	"sync"
 
+	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
+	env "github.com/smartcontractkit/chainlink/integration-tests/types/envcommon"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/node"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -20,7 +24,7 @@ import (
 )
 
 type CLClusterTestEnv struct {
-	reusable   bool
+	cfg        *TestEnvConfig
 	Network    *tc.DockerNetwork
 	LogWatch   *logwatch.LogWatch
 	CLNodes    []*ClNode
@@ -28,17 +32,41 @@ type CLClusterTestEnv struct {
 	MockServer *MockServer
 }
 
-func NewTestEnv(reusable bool) (*CLClusterTestEnv, error) {
+func NewTestEnv() (*CLClusterTestEnv, error) {
 	network, err := docker.CreateNetwork()
 	if err != nil {
 		return nil, err
 	}
 	networks := []string{network.Name}
 	return &CLClusterTestEnv{
-		reusable:   reusable,
-		Network:    network,
-		Geth:       NewGeth(networks, reusable),
-		MockServer: NewMockServer(networks, reusable),
+		Network: network,
+		Geth: NewGeth(env.EnvComponentOpts{
+			Networks: networks,
+		}),
+		MockServer: NewMockServer(env.EnvComponentOpts{
+			Networks: networks,
+		}),
+	}, nil
+}
+
+func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
+	network, err := docker.CreateNetwork()
+	if err != nil {
+		return nil, err
+	}
+	networks := []string{network.Name}
+	log.Info().Interface("Cfg", cfg).Send()
+	return &CLClusterTestEnv{
+		cfg:     cfg,
+		Network: network,
+		Geth: NewGeth(env.EnvComponentOpts{
+			ReuseContainerName: cfg.Geth.ContainerName,
+			Networks:           networks,
+		}),
+		MockServer: NewMockServer(env.EnvComponentOpts{
+			ReuseContainerName: cfg.MockServer.ContainerName,
+			Networks:           networks,
+		}),
 	}, nil
 }
 
@@ -62,8 +90,15 @@ func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts node.NodeConfigOpts, coun
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			nodeConfigOpts.ReplicaIndex = i
-			n := NewClNode([]string{m.Network.Name}, nodeConfigOpts, m.reusable)
+			dbContainerName := fmt.Sprintf("cl-db-%s", uuid.NewString())
+			opts := env.EnvComponentOpts{
+				Networks: []string{m.Network.Name},
+			}
+			if m.cfg != nil {
+				opts.ReuseContainerName = m.cfg.Nodes[i].NodeContainerName
+				dbContainerName = m.cfg.Nodes[i].DbContainerName
+			}
+			n := NewClNode(opts, nodeConfigOpts, dbContainerName)
 			err := n.StartContainer(m.LogWatch)
 			if err != nil {
 				mu.Lock()

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -25,14 +24,9 @@ type MockServer struct {
 	EAMockUrls       []*url.URL
 }
 
-func NewMockServer(networks []string, reusable bool) *MockServer {
+func NewMockServer(compOpts env.EnvComponentOpts) *MockServer {
 	return &MockServer{
-		EnvComponent: env.NewEnvComponent(env.EnvComponentOpts{
-			Name:     "mockserver",
-			ID:       uuid.NewString(),
-			Networks: networks,
-			Reuse:    reusable,
-		}),
+		EnvComponent: env.NewEnvComponent("mockserver", compOpts),
 	}
 }
 

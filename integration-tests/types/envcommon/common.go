@@ -1,9 +1,13 @@
 package envcommon
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/google/uuid"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
+	"io/ioutil"
+	"os"
 	"time"
 )
 
@@ -49,24 +53,34 @@ type EnvComponent struct {
 }
 
 type EnvComponentOpts struct {
-	Reuse        bool
-	Name         string
-	ReplicaIndex int
-	ID           string
-	Networks     []string
+	ReuseContainerName string
+	Networks           []string
 }
 
-func NewReusableName(name string, idx int, id string, reuse bool) string {
-	if reuse {
-		return fmt.Sprintf("%s-%d", name, idx)
+func NewEnvComponent(componentType string, opts EnvComponentOpts) EnvComponent {
+	var name string
+	if opts.ReuseContainerName != "" {
+		name = opts.ReuseContainerName
 	} else {
-		return fmt.Sprintf("%s-%d-%s", name, idx, id)
+		name = fmt.Sprintf("%s-%s", componentType, uuid.NewString())
 	}
-}
 
-func NewEnvComponent(opts EnvComponentOpts) EnvComponent {
 	return EnvComponent{
-		ContainerName: NewReusableName(opts.Name, opts.ReplicaIndex, opts.ID, opts.Reuse),
+		ContainerName: name,
 		Networks:      opts.Networks,
 	}
+}
+
+func ParseJSONFile(path string, v any) error {
+	jsonFile, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer jsonFile.Close()
+	b, _ := ioutil.ReadAll(jsonFile)
+	err = json.Unmarshal(b, v)
+	if err != nil {
+		return err
+	}
+	return nil
 }

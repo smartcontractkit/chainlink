@@ -8,7 +8,6 @@ import (
 )
 
 type CLTestEnvBuilder struct {
-	reusable             bool
 	hasLogWatch          bool
 	hasGeth              bool
 	hasMockServer        bool
@@ -39,12 +38,6 @@ func (m *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
 	return m
 }
 
-func (m *CLTestEnvBuilder) WithReusable() *CLTestEnvBuilder {
-	m.reusable = true
-	_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
-	return m
-}
-
 func (m *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBuilder {
 	m.hasMockServer = true
 	m.externalAdapterCount = externalAdapterCount
@@ -52,6 +45,89 @@ func (m *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBu
 }
 
 func (m *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
+	envConfigPath, isSet := os.LookupEnv("TEST_ENV_CONFIG_PATH")
+	if isSet {
+		cfg, err := NewTestEnvConfigFromFile(envConfigPath)
+		if err != nil {
+			return nil, err
+		}
+		_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
+		return m.connectExistingEnv(cfg)
+	} else {
+		return m.buildNewEnv()
+	}
+}
+
+func (m *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
+	log.Info().
+		Bool("hasGeth", m.hasGeth).
+		Bool("hasMockServer", m.hasMockServer).
+		Int("externalAdapterCount", m.externalAdapterCount).
+		Int("clNodesCount", m.clNodesCount).
+		Strs("customNodeCsaKeys", m.customNodeCsaKeys).
+		Strs("defaultNodeCsaKeys", m.defaultNodeCsaKeys).
+		Msg("Building CL cluster test environment..")
+	te, err := NewTestEnvFromCfg(cfg)
+	if err != nil {
+		return te, err
+	}
+
+	if m.hasLogWatch {
+		lw, err := logwatch.NewLogWatch(nil, nil)
+		if err != nil {
+			return te, err
+		}
+		te.LogWatch = lw
+	}
+
+	if m.hasMockServer {
+		err := te.StartMockServer()
+		if err != nil {
+			return te, err
+		}
+		err = te.MockServer.SetExternalAdapterMocks(m.externalAdapterCount)
+		if err != nil {
+			return te, err
+		}
+	}
+
+	if m.hasGeth {
+		err := te.StartGeth()
+		if err != nil {
+			return te, err
+		}
+	}
+
+	var nodeCsaKeys []string
+
+	// Start Chainlink Nodes
+	if m.clNodesCount > 0 {
+		// Create nodes
+		nodeConfOpts := node.NodeConfigOpts{
+			EVM: struct {
+				HttpUrl string
+				WsUrl   string
+			}{
+				HttpUrl: te.Geth.InternalHttpUrl,
+				WsUrl:   te.Geth.InternalWsUrl,
+			},
+		}
+		err = te.StartClNodes(nodeConfOpts, m.clNodesCount)
+		if err != nil {
+			return te, err
+		}
+
+		nodeCsaKeys, err = te.GetNodeCSAKeys()
+		if err != nil {
+			return te, err
+		}
+		m.defaultNodeCsaKeys = nodeCsaKeys
+	}
+
+	return te, nil
+}
+
+func (m *CLTestEnvBuilder) buildNewEnv() (*CLClusterTestEnv, error) {
 	log.Info().
 		Bool("hasGeth", m.hasGeth).
 		Bool("hasMockServer", m.hasMockServer).
@@ -61,7 +137,7 @@ func (m *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		Strs("defaultNodeCsaKeys", m.defaultNodeCsaKeys).
 		Msg("Building CL cluster test environment..")
 
-	te, err := NewTestEnv(m.reusable)
+	te, err := NewTestEnv()
 	if err != nil {
 		return te, err
 	}

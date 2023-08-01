@@ -12,7 +12,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -34,20 +33,12 @@ type ClNode struct {
 	DbOpts         env.PgOpts
 }
 
-func NewClNode(networks []string, opts node.NodeConfigOpts, reusable bool) *ClNode {
-	id := uuid.NewString()
-	co := env.EnvComponentOpts{
-		Name:         "cl-node",
-		ID:           id,
-		ReplicaIndex: opts.ReplicaIndex,
-		Networks:     networks,
-		Reuse:        reusable,
-	}
+func NewClNode(compOpts env.EnvComponentOpts, opts node.NodeConfigOpts, dbContainerName string) *ClNode {
 	return &ClNode{
-		EnvComponent:   env.NewEnvComponent(co),
-		DbCName:        env.NewReusableName("cl-db", co.ReplicaIndex, co.ID, co.Reuse),
+		EnvComponent:   env.NewEnvComponent("cl-node", compOpts),
+		DbCName:        dbContainerName,
 		NodeConfigOpts: opts,
-		DbOpts:         env.NewDefaultPgOpts("cl-node", networks),
+		DbOpts:         env.NewDefaultPgOpts("cl-node", compOpts.Networks),
 	}
 }
 
