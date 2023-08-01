@@ -30,8 +30,8 @@ interface IFunctionsRouter is IRouterBase {
   function getAllowListId() external pure returns (bytes32);
 
   /**
-   * @notice The fee that will be paid to the Router owner for operating the network
-   * @return fee Cost in Juels (1e18) of LINK
+   * @notice The router configuration
+   * @return config - the router configuration
    */
   function getConfig() external view returns (Config memory);
 

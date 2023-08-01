@@ -198,7 +198,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     RequestBilling memory /* billing */
   ) public view override returns (uint96) {
     // NOTE: Optionally, compute additional fee here
-    IFunctionsRouter.Config memory config = IFunctionsRouter(address(_getRouter())).getConfig();
+    IFunctionsRouter.Config memory config = _getRouter().getConfig();
     return config.adminFee;
   }
 
@@ -226,8 +226,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     uint256 gasPrice
   ) external view override returns (uint96) {
     // Reasonable ceilings to prevent integer overflows
-    IFunctionsRouter router = IFunctionsRouter(address(_getRouter()));
-    router.isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
+    _getRouter().isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
     if (gasPrice > 1_000_000) {
       revert InvalidCalldata();
     }
@@ -366,8 +365,8 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     );
 
     // The Functions Router will perform the callback to the client contract
-    IFunctionsRouter router = IFunctionsRouter(address(_getRouter()));
-    (uint8 result, uint96 callbackCostJuels) = router.fulfill(
+    (uint8 result, uint96 callbackCostJuels) = _getRouter().fulfill(
+      requestId,
       response,
       err,
       uint96(juelsPerGas),

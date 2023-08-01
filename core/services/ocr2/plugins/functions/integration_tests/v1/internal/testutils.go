@@ -206,17 +206,19 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 
 	// Deploy Router contract
 	routerConfigABI := abi.Arguments{
+		{Type: uint16Type},    // maxConsumers
 		{Type: uint96Type},    // adminFee
 		{Type: bytes4Type},    // handleOracleFulfillmentSelector
 		{Type: uint32ArrType}, // maxCallbackGasLimits
 	}
+	var maxConsumers = uint16(100)
 	var adminFee = big.NewInt(0)
 	handleOracleFulfillmentSelectorSlice, err := hex.DecodeString("0ca76175")
 	require.NoError(t, err)
 	var handleOracleFulfillmentSelector [4]byte
 	copy(handleOracleFulfillmentSelector[:], handleOracleFulfillmentSelectorSlice[:4])
 	maxCallbackGasLimits := []uint32{300_000, 500_000, 1_000_000}
-	routerConfig, err := routerConfigABI.Pack(adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits)
+	routerConfig, err := routerConfigABI.Pack(maxConsumers, adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits)
 	require.NoError(t, err)
 	var timelockBlocks = uint16(0)
 	var maximumTimelockBlocks = uint16(10)
