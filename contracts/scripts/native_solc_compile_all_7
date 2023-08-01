@@ -1,21 +1,28 @@
 #!/usr/bin/env bash
 
-# This script generates .abi and .bin files for a selected .sol contract.
-# Example call:
-#   ./contracts/scripts/native_solc_compile dev/Operator.sol
-#
-# The resulting abi and bin files are stored in ./contracts/solc/v0.7
+set -e
+
+echo "|----------------------------------------------|"
+echo "|  Compiling legacy Solidity 0.7 contracts...  |"
+echo "|----------------------------------------------|"
+
+SOLC_VERSION="0.7.6"
+OPTIMIZE_RUNS=1000000
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd .. && pwd -P )"
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 
-solc-select install 0.7.6
-solc-select use 0.7.6
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
 
 compileContract () {
-  solc --overwrite --optimize --optimize-runs 1000000 --metadata-hash none \
-      -o $SCRIPTPATH/solc/v0.7 \
-      --abi --bin --allow-paths $SCRIPTPATH/src/v0.7 \
-      $SCRIPTPATH/src/v0.7/$1
+  solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o $ROOT/contracts/solc/v0.7 \
+      --abi --bin --allow-paths $ROOT/contracts/src/v0.7 \
+      $ROOT/contracts/src/v0.7/$1
 }
 
 compileContract tests/MultiWordConsumer.sol
