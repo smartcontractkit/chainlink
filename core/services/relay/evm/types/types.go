@@ -53,6 +53,7 @@ type OracleRequest struct {
 	CallbackGasLimit    uint64
 	TxHash              common.Hash
 	CoordinatorContract common.Address
+	OnchainMetadata     []byte
 }
 
 type OracleResponse struct {
