@@ -2,12 +2,13 @@
 
 set -e
 
-echo "|----------------------------------------------|"
-echo "|  Compiling legacy Solidity 0.7 contracts...  |"
-echo "|----------------------------------------------|"
+echo " ┌──────────────────────────────────────────────┐"
+echo " │  Compiling legacy Solidity 0.7 contracts...  │"
+echo " └──────────────────────────────────────────────┘"
 
 SOLC_VERSION="0.7.6"
 OPTIMIZE_RUNS=1000000
+
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
