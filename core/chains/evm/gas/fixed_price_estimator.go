@@ -75,7 +75,7 @@ func (f *fixedPriceEstimator) BumpLegacyGas(
 		originalGasPrice.ToInt(),
 		maxGasPriceWei.ToInt(),
 		f.config.PriceMax().ToInt(),
-		f.config.FeeCapDefault().ToInt(),
+		f.config.BumpMin().ToInt(),
 		originalGasLimit,
 		f.config.BumpPercent(),
 		f.config.LimitMultiplier(),

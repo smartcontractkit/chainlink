@@ -33,13 +33,13 @@ func CalculateFee(
 func CalculateBumpedFee(
 	lggr logger.SugaredLogger,
 	currentFeePrice, originalFeePrice, maxFeePrice,
-	maxBumpPrice, defaultFeeCap *big.Int,
+	maxBumpPrice, bumpMin *big.Int,
 	originalFeeLimit uint32,
 	bumpPercent uint16,
 	bumpLimitMultiplier float32,
 	chain string,
 ) (*big.Int, uint32, error) {
-	feePrice, err := bumpFeePrice(lggr, currentFeePrice, originalFeePrice, maxFeePrice, maxBumpPrice, defaultFeeCap, bumpPercent, chain)
+	feePrice, err := bumpFeePrice(lggr, currentFeePrice, originalFeePrice, maxFeePrice, maxBumpPrice, bumpMin, bumpPercent, chain)
 	if err != nil {
 		return nil, 0, err
 	}
