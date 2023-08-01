@@ -66,26 +66,22 @@ func (m *MockServer) StartContainer(lw *logwatch.LogWatch) error {
 		Reuse:            true,
 	})
 	if err != nil {
-		return errors.Wrapf(err, "cannot start mock server container")
+		return errors.Wrapf(err, "cannot start MockServer container")
 	}
+	m.Container = c
 	if lw != nil {
 		if err := lw.ConnectContainer(context.Background(), c, m.ContainerName, true); err != nil {
 			return err
 		}
 	}
-	cName, err := c.Name(context.Background())
-	if err != nil {
-		return err
-	}
-	cName = strings.Replace(cName, "/", "", -1)
 	endpoint, err := c.Endpoint(context.Background(), "http")
 	if err != nil {
 		return err
 	}
-	log.Info().Any("endpoint", endpoint).Str("containerName", cName).
-		Msgf("Started mockserver container")
+	log.Info().Any("endpoint", endpoint).Str("containerName", m.ContainerName).
+		Msgf("Started MockServer container")
 	m.Endpoint = endpoint
-	m.InternalEndpoint = fmt.Sprintf("http://%s:%s", cName, "1080")
+	m.InternalEndpoint = fmt.Sprintf("http://%s:%s", m.ContainerName, "1080")
 
 	client := ctfClient.NewMockserverClient(&ctfClient.MockserverConfig{
 		LocalURL:   endpoint,
@@ -94,7 +90,6 @@ func (m *MockServer) StartContainer(lw *logwatch.LogWatch) error {
 	if err != nil {
 		return errors.Wrapf(err, "cannot connect to mockserver client")
 	}
-	m.EnvComponent.Container = c
 	m.Client = client
 
 	return nil

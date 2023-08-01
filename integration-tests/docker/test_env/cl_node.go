@@ -175,8 +175,12 @@ func (n *ClNode) Fund(g *Geth, amount *big.Float) error {
 }
 
 func (n *ClNode) StartContainer(lw *logwatch.LogWatch) error {
+	err := n.PostgresDb.StartContainer(lw)
+	if err != nil {
+		return err
+	}
 	nodeSecrets, err := templates.ExecuteNodeSecretsTemplate(
-		n.PostgresDb.ContainerName, "5432")
+		n.PostgresDb.DbName, n.PostgresDb.ContainerName, n.PostgresDb.Port)
 	if err != nil {
 		return err
 	}
@@ -190,7 +194,7 @@ func (n *ClNode) StartContainer(lw *logwatch.LogWatch) error {
 		Reuse:            true,
 	})
 	if err != nil {
-		return errors.Wrapf(err, "could not start chainlink node container")
+		return errors.Wrapf(err, "could not start Chainlink Node container")
 	}
 	if lw != nil {
 		if err := lw.ConnectContainer(context.Background(), container, "chainlink", true); err != nil {
