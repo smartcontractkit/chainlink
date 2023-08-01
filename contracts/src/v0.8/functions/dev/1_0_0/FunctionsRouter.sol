@@ -250,19 +250,17 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       return (FulfillResult.INSUFFICIENT_GAS, callbackGasCostJuels);
     }
 
+    uint96 fulfillmentCostJuels = commitment.adminFee +
+      costWithoutFulfillment +
+      (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit));
+
     // Check that the subscription can still afford
-    if (
-      commitment.adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit)) >
-      s_subscriptions[commitment.subscriptionId].balance
-    ) {
+    if (fulfillmentCostJuels > s_subscriptions[commitment.subscriptionId].balance) {
       return (FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE, callbackGasCostJuels);
     }
 
     // Check that the cost has not exceeded the quoted cost
-    if (
-      commitment.adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit)) >
-      commitment.estimatedCost
-    ) {
+    if (fulfillmentCostJuels > commitment.estimatedCost) {
       return (FulfillResult.COST_EXCEEDS_COMMITMENT, callbackGasCostJuels);
     }
 
