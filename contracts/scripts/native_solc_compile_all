@@ -7,7 +7,6 @@ echo $SCRIPTPATH
 python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 
 # Legacy contracts
-
 $SCRIPTPATH/native_solc_compile_all_6
 $SCRIPTPATH/native_solc_compile_all_7
 
@@ -21,8 +20,6 @@ solc-select install 0.8.19
 $SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
 $SCRIPTPATH/native_solc8_6_compile Chainlink.sol
 $SCRIPTPATH/native_solc8_6_compile ChainlinkClient.sol
-
-
 
 # Feeds
 $SCRIPTPATH/native_solc8_6_compile dev/DerivedPriceFeed.sol
