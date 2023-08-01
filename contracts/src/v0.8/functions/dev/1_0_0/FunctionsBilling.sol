@@ -366,7 +366,6 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
 
     // The Functions Router will perform the callback to the client contract
     (uint8 result, uint96 callbackCostJuels) = _getRouter().fulfill(
-      requestId,
       response,
       err,
       uint96(juelsPerGas),
