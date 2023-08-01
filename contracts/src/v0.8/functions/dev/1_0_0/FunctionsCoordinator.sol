@@ -50,9 +50,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   /**
    * @inheritdoc ITypeAndVersion
    */
-  function typeAndVersion() public pure override returns (string memory) {
-    return "Functions Coordinator v1.0.0";
-  }
+  string public constant override typeAndVersion = "Functions Coordinator v1.0.0";
 
   /**
    * @inheritdoc IFunctionsCoordinator

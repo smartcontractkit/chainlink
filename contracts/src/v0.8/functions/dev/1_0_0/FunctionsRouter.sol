@@ -85,9 +85,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   /**
    * @inheritdoc ITypeAndVersion
    */
-  function typeAndVersion() public pure override returns (string memory) {
-    return "Functions Router v1.0.0";
-  }
+  string public constant override typeAndVersion = "Functions Router v1.0.0";
 
   /**
    * @inheritdoc IFunctionsRouter

@@ -520,6 +520,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       s_consumers[requestsToTimeoutByCommitment[i].client][subscriptionId].completedRequests += 1;
       // Delete commitment
       delete s_requestCommitments[requestId];
+      
+      emit RequestTimedOut(requestId);
     }
   }
 

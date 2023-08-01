@@ -30,7 +30,7 @@ import (
 
 func BuildAutoOCR2ConfigVars(
 	t *testing.T,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
@@ -40,7 +40,7 @@ func BuildAutoOCR2ConfigVars(
 
 func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	t *testing.T,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
@@ -119,14 +119,13 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs
 func CreateOCRKeeperJobs(
 	t *testing.T,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	registryAddr string,
 	chainID int64,
 	keyIndex int,
 ) {
 	l := utils.GetTestLogger(t)
 	bootstrapNode := chainlinkNodes[0]
-	bootstrapNode.InternalIP()
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID

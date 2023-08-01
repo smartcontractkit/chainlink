@@ -101,7 +101,7 @@ func ConfigureOCRv2AggregatorContracts(
 }
 
 // BuildMedianOCR2Config builds a default OCRv2 config for the given chainlink nodes for a standard median aggregation job
-func BuildMedianOCR2Config(workerNodes []*client.Chainlink) (*contracts.OCRv2Config, error) {
+func BuildMedianOCR2Config(workerNodes []*client.ChainlinkK8sClient) (*contracts.OCRv2Config, error) {
 	S, oracleIdentities, err := GetOracleIdentities(workerNodes)
 	if err != nil {
 		return nil, err
@@ -157,13 +157,13 @@ func BuildMedianOCR2Config(workerNodes []*client.Chainlink) (*contracts.OCRv2Con
 }
 
 // GetOracleIdentities retrieves all chainlink nodes' OCR2 config identities with defaul key index
-func GetOracleIdentities(chainlinkNodes []*client.Chainlink) ([]int, []confighelper.OracleIdentityExtra, error) {
+func GetOracleIdentities(chainlinkNodes []*client.ChainlinkK8sClient) ([]int, []confighelper.OracleIdentityExtra, error) {
 	return GetOracleIdentitiesWithKeyIndex(chainlinkNodes, 0)
 }
 
 // GetOracleIdentitiesWithKeyIndex retrieves all chainlink nodes' OCR2 config identities by key index
 func GetOracleIdentitiesWithKeyIndex(
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	keyIndex int,
 ) ([]int, []confighelper.OracleIdentityExtra, error) {
 	S := make([]int, len(chainlinkNodes))
@@ -203,7 +203,7 @@ func GetOracleIdentitiesWithKeyIndex(
 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
 			if n != ed25519.PublicKeySize {
-				return fmt.Errorf("Wrong number of elements copied")
+				return fmt.Errorf("wrong number of elements copied")
 			}
 
 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
@@ -214,7 +214,7 @@ func GetOracleIdentitiesWithKeyIndex(
 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n = copy(configPkBytesFixed[:], configPkBytes)
 			if n != ed25519.PublicKeySize {
-				return fmt.Errorf("Wrong number of elements copied")
+				return fmt.Errorf("wrong number of elements copied")
 			}
 
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnChainPublicKey, "ocr2on_evm_"))
@@ -251,8 +251,8 @@ func GetOracleIdentitiesWithKeyIndex(
 // read from different adapters, to be used in combination with SetAdapterResponses
 func CreateOCRv2Jobs(
 	ocrInstances []contracts.OffchainAggregatorV2,
-	bootstrapNode *client.Chainlink,
-	workerChainlinkNodes []*client.Chainlink,
+	bootstrapNode *client.ChainlinkK8sClient,
+	workerChainlinkNodes []*client.ChainlinkK8sClient,
 	mockserver *ctfClient.MockserverClient,
 	mockServerPath string, // Path on the mock server for the Chainlink nodes to query
 	mockServerValue int, // Value to get from the mock server when querying the path

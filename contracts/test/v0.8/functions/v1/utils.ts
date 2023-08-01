@@ -74,9 +74,9 @@ export type CoordinatorConfig = {
   gasOverheadAfterCallback: number
   requestTimeoutSeconds: number
   donFee: number
-  fallbackNativePerUnitLink: BigNumber
   maxSupportedRequestDataVersion: number
   fulfillmentGasPriceOverEstimationBP: number
+  fallbackNativePerUnitLink: BigNumber
 }
 const fallbackNativePerUnitLink = 5000000000000000
 export const coordinatorConfig: CoordinatorConfig = {
@@ -86,9 +86,9 @@ export const coordinatorConfig: CoordinatorConfig = {
   gasOverheadAfterCallback: 44_615,
   requestTimeoutSeconds: 300,
   donFee: 0,
-  fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
   maxSupportedRequestDataVersion: 1,
   fulfillmentGasPriceOverEstimationBP: 0,
+  fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
 }
 export const accessControlMockPublicKey =
   '0x32237412cC0321f56422d206e505dB4B3871AF5c'
@@ -125,11 +125,11 @@ export async function setupRolesAndFactories(): Promise<{
     roles.consumer,
   )
   const linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/mocks/MockLinkToken.sol:MockLinkToken',
     roles.defaultAccount,
   )
   const mockAggregatorV3Factory = await ethers.getContractFactory(
-    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     roles.defaultAccount,
   )
   return {
@@ -246,11 +246,11 @@ export function getSetupFactory(): () => {
         'uint32',
         'uint32',
         'uint32',
-        'int256',
         'uint32',
-        'uint96',
+        'uint80',
         'uint16',
         'uint256',
+        'int256',
       ],
       [...Object.values(coordinatorConfig)],
     )

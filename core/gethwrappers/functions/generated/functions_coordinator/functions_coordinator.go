@@ -282,12 +282,14 @@ func (_FunctionsCoordinator *FunctionsCoordinatorCaller) GetConfig(opts *bind.Ca
 
 	outstruct.MaxCallbackGasLimit = *abi.ConvertType(out[0], new(uint32)).(*uint32)
 	outstruct.FeedStalenessSeconds = *abi.ConvertType(out[1], new(uint32)).(*uint32)
-	outstruct.GasOverheadAfterCallback = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
-	outstruct.FallbackNativePerUnitLink = *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	outstruct.GasOverheadBeforeCallback = *abi.ConvertType(out[4], new(uint32)).(*uint32)
-	outstruct.LinkPriceFeed = *abi.ConvertType(out[5], new(common.Address)).(*common.Address)
+	outstruct.GasOverheadBeforeCallback = *abi.ConvertType(out[2], new(uint32)).(*uint32)
+	outstruct.GasOverheadAfterCallback = *abi.ConvertType(out[3], new(uint32)).(*uint32)
+	outstruct.RequestTimeoutSeconds = *abi.ConvertType(out[4], new(uint32)).(*uint32)
+	outstruct.DonFee = *abi.ConvertType(out[5], new(*big.Int)).(**big.Int)
 	outstruct.MaxSupportedRequestDataVersion = *abi.ConvertType(out[6], new(uint16)).(*uint16)
 	outstruct.FulfillmentGasPriceOverEstimationBP = *abi.ConvertType(out[7], new(*big.Int)).(**big.Int)
+	outstruct.FallbackNativePerUnitLink = *abi.ConvertType(out[8], new(*big.Int)).(**big.Int)
+	outstruct.LinkPriceFeed = *abi.ConvertType(out[9], new(common.Address)).(*common.Address)
 
 	return *outstruct, err
 
@@ -947,6 +949,123 @@ func (_FunctionsCoordinator *FunctionsCoordinatorFilterer) ParseBillingStart(log
 	return event, nil
 }
 
+type FunctionsCoordinatorCommitmentDeletedIterator struct {
+	Event *FunctionsCoordinatorCommitmentDeleted
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *FunctionsCoordinatorCommitmentDeletedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FunctionsCoordinatorCommitmentDeleted)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(FunctionsCoordinatorCommitmentDeleted)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *FunctionsCoordinatorCommitmentDeletedIterator) Error() error {
+	return it.fail
+}
+
+func (it *FunctionsCoordinatorCommitmentDeletedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type FunctionsCoordinatorCommitmentDeleted struct {
+	RequestId [32]byte
+	Raw       types.Log
+}
+
+func (_FunctionsCoordinator *FunctionsCoordinatorFilterer) FilterCommitmentDeleted(opts *bind.FilterOpts) (*FunctionsCoordinatorCommitmentDeletedIterator, error) {
+
+	logs, sub, err := _FunctionsCoordinator.contract.FilterLogs(opts, "CommitmentDeleted")
+	if err != nil {
+		return nil, err
+	}
+	return &FunctionsCoordinatorCommitmentDeletedIterator{contract: _FunctionsCoordinator.contract, event: "CommitmentDeleted", logs: logs, sub: sub}, nil
+}
+
+func (_FunctionsCoordinator *FunctionsCoordinatorFilterer) WatchCommitmentDeleted(opts *bind.WatchOpts, sink chan<- *FunctionsCoordinatorCommitmentDeleted) (event.Subscription, error) {
+
+	logs, sub, err := _FunctionsCoordinator.contract.WatchLogs(opts, "CommitmentDeleted")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(FunctionsCoordinatorCommitmentDeleted)
+				if err := _FunctionsCoordinator.contract.UnpackLog(event, "CommitmentDeleted", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_FunctionsCoordinator *FunctionsCoordinatorFilterer) ParseCommitmentDeleted(log types.Log) (*FunctionsCoordinatorCommitmentDeleted, error) {
+	event := new(FunctionsCoordinatorCommitmentDeleted)
+	if err := _FunctionsCoordinator.contract.UnpackLog(event, "CommitmentDeleted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type FunctionsCoordinatorConfigChangedIterator struct {
 	Event *FunctionsCoordinatorConfigChanged
 
@@ -1012,10 +1131,11 @@ type FunctionsCoordinatorConfigChanged struct {
 	FeedStalenessSeconds                uint32
 	GasOverheadBeforeCallback           uint32
 	GasOverheadAfterCallback            uint32
-	FallbackNativePerUnitLink           *big.Int
+	RequestTimeoutSeconds               uint32
 	DonFee                              *big.Int
 	MaxSupportedRequestDataVersion      uint16
 	FulfillmentGasPriceOverEstimationBP *big.Int
+	FallbackNativePerUnitLink           *big.Int
 	Raw                                 types.Log
 }
 
@@ -2369,12 +2489,14 @@ func (_FunctionsCoordinator *FunctionsCoordinatorFilterer) ParseTransmitted(log 
 type GetConfig struct {
 	MaxCallbackGasLimit                 uint32
 	FeedStalenessSeconds                uint32
-	GasOverheadAfterCallback            *big.Int
-	FallbackNativePerUnitLink           *big.Int
 	GasOverheadBeforeCallback           uint32
-	LinkPriceFeed                       common.Address
+	GasOverheadAfterCallback            uint32
+	RequestTimeoutSeconds               uint32
+	DonFee                              *big.Int
 	MaxSupportedRequestDataVersion      uint16
 	FulfillmentGasPriceOverEstimationBP *big.Int
+	FallbackNativePerUnitLink           *big.Int
+	LinkPriceFeed                       common.Address
 }
 type LatestConfigDetails struct {
 	ConfigCount  uint32
@@ -2393,6 +2515,8 @@ func (_FunctionsCoordinator *FunctionsCoordinator) ParseLog(log types.Log) (gene
 		return _FunctionsCoordinator.ParseBillingEnd(log)
 	case _FunctionsCoordinator.abi.Events["BillingStart"].ID:
 		return _FunctionsCoordinator.ParseBillingStart(log)
+	case _FunctionsCoordinator.abi.Events["CommitmentDeleted"].ID:
+		return _FunctionsCoordinator.ParseCommitmentDeleted(log)
 	case _FunctionsCoordinator.abi.Events["ConfigChanged"].ID:
 		return _FunctionsCoordinator.ParseConfigChanged(log)
 	case _FunctionsCoordinator.abi.Events["ConfigSet"].ID:
@@ -2429,8 +2553,12 @@ func (FunctionsCoordinatorBillingStart) Topic() common.Hash {
 	return common.HexToHash("0xebc94a6fea57cb363e5d876da6bbc9072372f6839c0b5f86e890ee07aa8db6be")
 }
 
+func (FunctionsCoordinatorCommitmentDeleted) Topic() common.Hash {
+	return common.HexToHash("0x8a4b97add3359bd6bcf5e82874363670eb5ad0f7615abddbd0ed0a3a98f0f416")
+}
+
 func (FunctionsCoordinatorConfigChanged) Topic() common.Hash {
-	return common.HexToHash("0x9136fb3a39fbe82d27ef8048354b8fcc93cf828f72e5c877d8135fde8dc7fd73")
+	return common.HexToHash("0x3332571032ee658b30d567e63b2443e9d921162625e0f3fe86968a586c1a090f")
 }
 
 func (FunctionsCoordinatorConfigSet) Topic() common.Hash {
@@ -2547,6 +2675,12 @@ type FunctionsCoordinatorInterface interface {
 	WatchBillingStart(opts *bind.WatchOpts, sink chan<- *FunctionsCoordinatorBillingStart, requestId [][32]byte) (event.Subscription, error)
 
 	ParseBillingStart(log types.Log) (*FunctionsCoordinatorBillingStart, error)
+
+	FilterCommitmentDeleted(opts *bind.FilterOpts) (*FunctionsCoordinatorCommitmentDeletedIterator, error)
+
+	WatchCommitmentDeleted(opts *bind.WatchOpts, sink chan<- *FunctionsCoordinatorCommitmentDeleted) (event.Subscription, error)
+
+	ParseCommitmentDeleted(log types.Log) (*FunctionsCoordinatorCommitmentDeleted, error)
 
 	FilterConfigChanged(opts *bind.FilterOpts) (*FunctionsCoordinatorConfigChangedIterator, error)
 

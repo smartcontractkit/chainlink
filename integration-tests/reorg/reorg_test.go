@@ -59,7 +59,7 @@ func TestMain(m *testing.M) {
 func CleanupReorgTest(
 	t *testing.T,
 	testEnvironment *environment.Environment,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	chainClient blockchain.EVMClient,
 ) {
 	if chainClient != nil {
