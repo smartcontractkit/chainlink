@@ -1065,6 +1065,11 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		d.cfg.JobPipeline().MaxSuccessfulRuns(),
 	)
 
+	var chain evm.Chain
+	hb := chain.HeadBroadcaster()
+	endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
+	customTelemService := ocr2keeper.NewAutomationCustomTelemetryService(endpoint, hb)
+
 	return []job.ServiceCtx{
 		job.NewServiceAdapter(runr),
 		runResultSaver,
@@ -1072,6 +1077,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		rgstry,
 		logProvider,
 		pluginService,
+		customTelemService,
 	}, nil
 }
 
