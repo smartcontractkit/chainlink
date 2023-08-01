@@ -14,9 +14,9 @@ var (
 	nOracleNodes      = 4
 	nClients          = 50
 	requestLenBytes   = 1_000
-	maxGas            = 2_000_000
+	maxGas            = 1_700_000
 	maxTotalReportGas = 560_000
-	batchSize         = 2
+	batchSize         = 8
 )
 
 func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
