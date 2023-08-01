@@ -6,18 +6,19 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"time"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	env "github.com/smartcontractkit/chainlink/integration-tests/types/envcommon"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
-	"time"
 )
 
 const (
@@ -29,7 +30,7 @@ const (
 )
 
 type Geth struct {
-	env.EnvComponent
+	EnvComponent
 	ExternalHttpUrl  string
 	InternalHttpUrl  string
 	ExternalWsUrl    string
@@ -38,10 +39,17 @@ type Geth struct {
 	ContractDeployer contracts.ContractDeployer
 }
 
-func NewGeth(compOpts env.EnvComponentOpts) *Geth {
-	return &Geth{
-		EnvComponent: env.NewEnvComponent("geth", compOpts),
+func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
+	g := &Geth{
+		EnvComponent: EnvComponent{
+			ContainerName: fmt.Sprintf("%s-%s", "geth", uuid.NewString()),
+			Networks:      networks,
+		},
 	}
+	for _, opt := range opts {
+		opt(&g.EnvComponent)
+	}
+	return g
 }
 
 func (m *Geth) StartContainer(lw *logwatch.LogWatch) error {

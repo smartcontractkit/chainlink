@@ -7,27 +7,34 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-	env "github.com/smartcontractkit/chainlink/integration-tests/types/envcommon"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 )
 
 type MockServer struct {
-	env.EnvComponent
+	EnvComponent
 	Client           *ctfClient.MockserverClient
 	Endpoint         string
 	InternalEndpoint string
 	EAMockUrls       []*url.URL
 }
 
-func NewMockServer(compOpts env.EnvComponentOpts) *MockServer {
-	return &MockServer{
-		EnvComponent: env.NewEnvComponent("mockserver", compOpts),
+func NewMockServer(networks []string, opts ...EnvComponentOption) *MockServer {
+	ms := &MockServer{
+		EnvComponent: EnvComponent{
+			ContainerName: fmt.Sprintf("%s-%s", "mockserver", uuid.NewString()),
+			Networks:      networks,
+		},
 	}
+	for _, opt := range opts {
+		opt(&ms.EnvComponent)
+	}
+	return ms
 }
 
 func (m *MockServer) SetExternalAdapterMocks(count int) error {
