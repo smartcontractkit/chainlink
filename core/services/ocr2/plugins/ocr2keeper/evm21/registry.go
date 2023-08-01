@@ -120,7 +120,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
 		},
 		hc:               http.DefaultClient,
-		enc:              EVMAutomationEncoder21{},
+		enc:              EVMAutomationEncoder21{packer: packer},
 		logEventProvider: logprovider.New(lggr, client.LogPoller(), logPacker, nil), // TODO: pass opts
 	}
 
