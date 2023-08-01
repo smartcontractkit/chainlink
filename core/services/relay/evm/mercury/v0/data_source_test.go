@@ -15,6 +15,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	relaymercuryv0 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v0"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -25,11 +26,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ relaymercury.Fetcher = &mockFetcher{}
+var _ relaymercury.MercuryServerFetcher = &mockFetcher{}
 
 type mockFetcher struct {
 	num *int64
@@ -38,6 +40,14 @@ type mockFetcher struct {
 
 func (m *mockFetcher) FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error) {
 	return m.num, m.err
+}
+
+func (m *mockFetcher) LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error) {
+	return nil, nil
+}
+
+func (m *mockFetcher) LatestTimestamp(context.Context) (uint32, error) {
+	return 0, nil
 }
 
 var _ Runner = &mockRunner{}
@@ -72,7 +82,7 @@ func (m *mockTask) TaskRetries() uint32                { return 0 }
 func (m *mockTask) TaskMinBackoff() time.Duration      { return 0 }
 func (m *mockTask) TaskMaxBackoff() time.Duration      { return 0 }
 
-var _ ChainHeadTracker = &mockHeadTracker{}
+var _ mercury.ChainHeadTracker = &mockHeadTracker{}
 
 type mockHeadTracker struct {
 	c evmclient.Client
@@ -362,7 +372,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 
 		ds.chainHeadTracker = chainHeadTracker
 
-		obs := relaymercury.Observation{}
+		obs := relaymercuryv0.Observation{}
 		ds.setCurrentBlock(context.Background(), &obs)
 
 		assert.Equal(t, h.Number, obs.CurrentBlockNum.Val)
@@ -386,7 +396,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 
 		ds.chainHeadTracker = chainHeadTracker
 
-		obs := relaymercury.Observation{}
+		obs := relaymercuryv0.Observation{}
 		ds.setCurrentBlock(context.Background(), &obs)
 
 		assert.Equal(t, h.Number, obs.CurrentBlockNum.Val)
@@ -412,7 +422,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 
 		ds.chainHeadTracker = chainHeadTracker
 
-		obs := relaymercury.Observation{}
+		obs := relaymercuryv0.Observation{}
 		ds.setCurrentBlock(context.Background(), &obs)
 
 		assert.Equal(t, err, obs.CurrentBlockNum.Err)

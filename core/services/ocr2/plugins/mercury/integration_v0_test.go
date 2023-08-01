@@ -52,7 +52,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	reportcodec "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -317,7 +317,7 @@ func TestIntegration_Mercury_V0(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			num, err := (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(ocr2types.Report(report.([]byte)))
+			num, err := (&reportcodec.ReportCodec{}).CurrentBlockNumFromReport(ocr2types.Report(report.([]byte)))
 			require.NoError(t, err)
 			currentBlock, err := backend.BlockByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)
@@ -381,7 +381,7 @@ func TestIntegration_Mercury_V0(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			num, err := (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(ocr2types.Report(report.([]byte)))
+			num, err := (&reportcodec.ReportCodec{}).CurrentBlockNumFromReport(ocr2types.Report(report.([]byte)))
 			require.NoError(t, err)
 			currentBlock, err := backend.BlockByNumber(testutils.Context(t), nil)
 			require.NoError(t, err)

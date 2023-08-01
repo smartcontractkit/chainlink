@@ -49,7 +49,7 @@ func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
 	return &ReportCodec{lggr, feedID}
 }
 
-func (r *ReportCodec) BuildReport(paos []reportcodec.IParsedAttributedObservation, f int, validFromTimestamp, expiresAt uint32) (ocrtypes.Report, error) {
+func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation, f int, validFromTimestamp, expiresAt uint32) (ocrtypes.Report, error) {
 	if len(paos) == 0 {
 		return nil, errors.Errorf("cannot build report from empty attributed observations")
 	}
