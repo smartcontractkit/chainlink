@@ -1,8 +1,10 @@
 package fee
 
 import (
+	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 
 	"github.com/shopspring/decimal"
@@ -38,4 +40,17 @@ func addPercentage(value *big.Int, percentage uint16) *big.Int {
 	bumped.Mul(value, big.NewInt(int64(100+percentage)))
 	bumped.Div(bumped, big.NewInt(100))
 	return bumped
+}
+
+// FeeUnitToChainUnit returns the string representation of the given big.Int value in chain units.
+// e.g 2 -> "2 wei"
+func FeeUnitToChainUnit(fee *big.Int, chain string) string {
+	switch chain {
+	case types.EVM:
+		return fmt.Sprintf("%s wei", fee.String())
+	case types.SOL:
+		return fmt.Sprintf("%s lamports", fee.String())
+	default:
+		return fee.String()
+	}
 }

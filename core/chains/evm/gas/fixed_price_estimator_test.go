@@ -26,8 +26,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 
 	t.Run("GetLegacyGas returns EvmGasPriceDefault from config, with multiplier applied", func(t *testing.T) {
 		config := &gas.MockGasEstimatorConfig{}
-		wrappedConfig := gas.NewWrappedPriceEstimatorConfig(config)
-		f := gas.NewFixedPriceEstimator(wrappedConfig, &blockHistoryConfig{}, logger.TestLogger(t))
+		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, logger.TestLogger(t))
 
 		config.PriceDefaultF = assets.NewWeiI(42)
 		config.LimitMultiplierF = float32(1.1)
@@ -44,8 +43,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.PriceDefaultF = assets.NewWeiI(42)
 		config.LimitMultiplierF = float32(1.1)
 		config.PriceMaxF = assets.NewWeiI(35)
-		wrappedConfig := gas.NewWrappedPriceEstimatorConfig(config)
-		f := gas.NewFixedPriceEstimator(wrappedConfig, &blockHistoryConfig{}, logger.TestLogger(t))
+		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, logger.TestLogger(t))
 
 		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, assets.NewWeiI(30))
 		require.NoError(t, err)
@@ -58,8 +56,7 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.PriceDefaultF = assets.NewWeiI(42)
 		config.LimitMultiplierF = float32(1.1)
 		config.PriceMaxF = assets.NewWeiI(20)
-		wrappedConfig := gas.NewWrappedPriceEstimatorConfig(config)
-		f := gas.NewFixedPriceEstimator(wrappedConfig, &blockHistoryConfig{}, logger.TestLogger(t))
+		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, logger.TestLogger(t))
 		gasPrice, gasLimit, err := f.GetLegacyGas(testutils.Context(t), nil, 100000, assets.NewWeiI(30))
 		require.NoError(t, err)
 		assert.Equal(t, 110000, int(gasLimit))
@@ -73,10 +70,9 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.PriceMaxF = maxGasPrice
 		config.BumpPercentF = uint16(10)
 		config.BumpMinF = assets.NewWeiI(150)
-		wrappedConfig := gas.NewWrappedPriceEstimatorConfig(config)
 
 		lggr := logger.TestLogger(t)
-		f := gas.NewFixedPriceEstimator(wrappedConfig, &blockHistoryConfig{}, lggr)
+		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, lggr)
 
 		gasPrice, gasLimit, err := f.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, nil)
 		require.NoError(t, err)
@@ -95,10 +91,9 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.TipCapDefaultF = assets.NewWeiI(52)
 		config.FeeCapDefaultF = assets.NewWeiI(100)
 		config.BumpThresholdF = uint64(3)
-		wrappedConfig := gas.NewWrappedPriceEstimatorConfig(config)
 
 		lggr := logger.TestLogger(t)
-		f := gas.NewFixedPriceEstimator(wrappedConfig, &blockHistoryConfig{}, lggr)
+		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, lggr)
 
 		fee, gasLimit, err := f.GetDynamicFee(testutils.Context(t), 100000, maxGasPrice)
 		require.NoError(t, err)
@@ -133,10 +128,9 @@ func Test_FixedPriceEstimator(t *testing.T) {
 		config.TipCapDefaultF = assets.NewWeiI(52)
 		config.BumpMinF = assets.NewWeiI(150)
 		config.BumpPercentF = uint16(10)
-		wrappedConfig := gas.NewWrappedPriceEstimatorConfig(config)
 
 		lggr := logger.TestLogger(t)
-		f := gas.NewFixedPriceEstimator(wrappedConfig, &blockHistoryConfig{}, lggr)
+		f := gas.NewFixedPriceEstimator(config, &blockHistoryConfig{}, lggr)
 
 		originalFee := gas.DynamicFee{FeeCap: assets.NewWeiI(100), TipCap: assets.NewWeiI(25)}
 		fee, gasLimit, err := f.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, nil)

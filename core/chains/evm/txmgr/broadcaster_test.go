@@ -66,7 +66,7 @@ func NewTestEthBroadcaster(
 	t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 	lggr := logger.TestLogger(t)
 	ge := config.EVM().GasEstimator()
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(gas.NewWrappedPriceEstimatorConfig(config.EVM().GasEstimator()), ge.BlockHistory(), lggr), ge.EIP1559DynamicFees())
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config.EVM().GasEstimator(), ge.BlockHistory(), lggr), ge.EIP1559DynamicFees())
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, keyStore, estimator)
 	txNonceSyncer := txmgr.NewNonceSyncer(txStore, lggr, ethClient, keyStore)
 	ethBroadcaster := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(config.EVM().GasEstimator()), config.EVM().Transactions(), config.Database().Listener(), keyStore, eventBroadcaster, txBuilder, txNonceSyncer, lggr, checkerFactory, nonceAutoSync)
@@ -1133,8 +1133,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					require.NoError(t, err)
 					t.Cleanup(func() { assert.NoError(t, eventBroadcaster.Close()) })
 					lggr := logger.TestLogger(t)
-					wrappedEstimator := gas.NewWrappedPriceEstimatorConfig(evmcfg.EVM().GasEstimator())
-					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(wrappedEstimator, evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees())
+					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees())
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
 					eb = txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), evmcfg.Database().Listener(), ethKeyStore, eventBroadcaster, txBuilder, nil, lggr, &testCheckerFactory{}, false)
 					require.NoError(t, err)
@@ -1487,7 +1486,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Do the thing
 		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "bumped fee price of 20000000000 fee unit is equal to original fee price of 20000000000 fee unit. ACTION REQUIRED: This is a configuration error, you must increase either FeeEstimator.BumpPercent or FeeEstimator.BumpMin")
+		require.Contains(t, err.Error(), "bumped fee price of 20000000000 wei is equal to original fee price of 20000000000 wei. ACTION REQUIRED: This is a configuration error, you must increase either FeeEstimator.BumpPercent or FeeEstimator.BumpMin")
 		assert.True(t, retryable)
 
 		// TEARDOWN: Clear out the unsent tx before the next test
@@ -1578,7 +1577,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Check gas tip cap verification
 		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "bumped fee tip cap of 1 fee unit is less than or equal to original fee tip cap of 1 fee unit")
+		require.Contains(t, err.Error(), "bumped fee tip cap of 1 wei is less than or equal to original fee tip cap of 1 wei")
 		assert.True(t, retryable)
 
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
@@ -1789,7 +1788,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	sub.On("Events").Return(make(<-chan pg.Event))
 	sub.On("Close")
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(gas.NewWrappedPriceEstimatorConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees())
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees())
 	checkerFactory := &testCheckerFactory{}
 
 	ge := evmcfg.EVM().GasEstimator()

@@ -73,12 +73,12 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 	case "BlockHistory":
 		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID()), df)
 	case "FixedPrice":
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(NewWrappedPriceEstimatorConfig(geCfg), bh, lggr), df)
+		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df)
 	case "Optimism2", "L2Suggested":
 		return NewWrappedEvmEstimator(NewL2SuggestedPriceEstimator(lggr, ethClient), df)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(NewWrappedPriceEstimatorConfig(geCfg), bh, lggr), df)
+		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df)
 	}
 }
 
@@ -332,10 +332,7 @@ func bumpDynamicFee(cfg bumpConfig, feeCapBufferBlocks uint16, lggr logger.Sugar
 	// Always bump the FeeCap by at least the bump percentage (should be greater than or
 	// equal to than geth's configured bump minimum which is 10%)
 	// See: https://github.com/ethereum/go-ethereum/blob/bff330335b94af3643ac2fb809793f77de3069d4/core/tx_list.go#L298
-	bumpedFeeCap := assets.MaxWei(
-		originalFee.FeeCap.AddPercentage(cfg.BumpPercent()),
-		originalFee.FeeCap.Add(cfg.BumpMin()),
-	)
+	bumpedFeeCap := bumpFeePrice(originalFee.FeeCap, cfg.BumpPercent(), cfg.BumpMin())
 
 	if currentBaseFee != nil {
 		if currentBaseFee.Cmp(maxGasPrice) > 0 {

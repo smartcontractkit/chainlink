@@ -6,7 +6,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/common/chains/label"
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -20,13 +19,31 @@ func IsBumpErr(err error) bool {
 	return err != nil && (errors.Is(err, ErrBumpFeeExceedsLimit) || errors.Is(err, ErrBump) || errors.Is(err, ErrConnectivity))
 }
 
-// CalculateBumpedFee will increase the price and apply multiplier to the fee limit
-func CalculateBumpedFee(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentfeePrice, originalfeePrice *big.Int, originalFeeLimit uint32, maxFeePrice *big.Int) (*big.Int, uint32, error) {
-	feePrice, err := bumpFeePrice(cfg, lggr, currentfeePrice, originalfeePrice, maxFeePrice)
+// CalculateFee computes the fee price and chain specific fee limit for a transaction.
+func CalculateFee(
+	feeLimit uint32,
+	maxFeePrice, defaultPrice, maxBumpPrice *big.Int,
+	bumpLimitMultiplier float32,
+) (feePrice *big.Int, chainSpecificFeeLimit uint32, err error) {
+	feePrice, chainSpecificFeeLimit = CapFeePrice(defaultPrice, maxFeePrice, maxBumpPrice, feeLimit, bumpLimitMultiplier)
+	return
+}
+
+// CalculateBumpedFee will increase the price and apply multiplier to the fee limit.
+func CalculateBumpedFee(
+	lggr logger.SugaredLogger,
+	currentFeePrice, originalFeePrice, maxFeePrice,
+	maxBumpPrice, defaultFeeCap *big.Int,
+	originalFeeLimit uint32,
+	bumpPercent uint16,
+	bumpLimitMultiplier float32,
+	chain string,
+) (*big.Int, uint32, error) {
+	feePrice, err := bumpFeePrice(lggr, currentFeePrice, originalFeePrice, maxFeePrice, maxBumpPrice, defaultFeeCap, bumpPercent, chain)
 	if err != nil {
 		return nil, 0, err
 	}
-	chainSpecificFeeLimit := ApplyMultiplier(originalFeeLimit, cfg.LimitMultiplier())
+	chainSpecificFeeLimit := ApplyMultiplier(originalFeeLimit, bumpLimitMultiplier)
 	return feePrice, chainSpecificFeeLimit, nil
 }
 
@@ -34,145 +51,52 @@ func CalculateBumpedFee(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, curr
 // - A configured percentage bump (FeeEstimator.BumpPercent) on top of the baseline price.
 // - A configured fixed amount of Unit (FEE_PRICE_Unit) on top of the baseline price.
 // The baseline price is the maximum of the previous fee price attempt and the node's current fee price.
-func bumpFeePrice(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentfeePrice, originalfeePrice, maxFeePriceInput *big.Int) (*big.Int, error) {
-	maxFeePrice := FeePriceLimit(maxFeePriceInput, cfg.PriceMax()) // Make a wrapper config
-	bumpedFeePrice := bumpFeePriceByPercentage(originalfeePrice, cfg.BumpPercent(), cfg.BumpMin())
+func bumpFeePrice(
+	lggr logger.SugaredLogger,
+	currentfeePrice, originalfeePrice, maxFeePriceInput, maxBumpPrice, bumpMin *big.Int,
+	bumpPercent uint16,
+	chain string,
+) (*big.Int, error) {
+	maxFeePrice := FeePriceLimit(maxFeePriceInput, maxBumpPrice) // Make a wrapper config
+	bumpedFeePrice := maxBumpedFee(originalfeePrice, bumpPercent, bumpMin)
 
 	// Update bumpedFeePrice if currentfeePrice is higher than bumpedFeePrice and within maxFeePrice
-	bumpedFeePrice = maxBumpedFee(lggr, currentfeePrice, bumpedFeePrice, maxFeePrice, "fee price")
+	bumpedFeePrice = maxFee(lggr, currentfeePrice, bumpedFeePrice, maxFeePrice, "fee price", chain)
 
 	if bumpedFeePrice.Cmp(maxFeePrice) > 0 {
 		return maxFeePrice, errors.Wrapf(ErrBumpFeeExceedsLimit, "bumped fee price of %s would exceed configured max fee price of %s (original price was %s). %s",
-			bumpedFeePrice.String(), maxFeePrice, originalfeePrice.String(), label.NodeConnectivityProblemWarning)
+			FeeUnitToChainUnit(bumpedFeePrice, chain), maxFeePrice, FeeUnitToChainUnit(originalfeePrice, chain), label.NodeConnectivityProblemWarning)
 	} else if bumpedFeePrice.Cmp(originalfeePrice) == 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
 		// FeeEstimator.BumpPercent and FeeEstimator.BumpMin in the config validation,
 		// but it's here anyway for a "belts and braces" approach
-		return bumpedFeePrice, errors.Wrapf(ErrBump, "bumped fee price of %s fee unit is equal to original fee price of %s fee unit."+
+		return bumpedFeePrice, errors.Wrapf(ErrBump, "bumped fee price of %s is equal to original fee price of %s."+
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
-			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", bumpedFeePrice.String(), originalfeePrice.String())
+			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", FeeUnitToChainUnit(bumpedFeePrice, chain), FeeUnitToChainUnit(bumpedFeePrice, chain))
 	}
 	return bumpedFeePrice, nil
 }
 
-// Returns max of originalFeePrice bumped by fixed units or percentage.
-func bumpFeePriceByPercentage(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits *big.Int) *big.Int {
+// Returns highest bumped fee price of originalFeePrice bumped by fixed units or percentage.
+func maxBumpedFee(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits *big.Int) *big.Int {
 	return max(
 		addPercentage(originalFeePrice, feeBumpPercent),
 		new(big.Int).Add(originalFeePrice, feeBumpUnits),
 	)
 }
 
-func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, maxFeePrice *big.Int, feeType string) *big.Int {
+// Returns the max of currentFeePrice, bumpedFeePrice, and maxFeePrice
+func maxFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, maxFeePrice *big.Int, feeType string, chain string) *big.Int {
 	if currentFeePrice == nil {
 		return bumpedFeePrice
 	}
 	if currentFeePrice.Cmp(maxFeePrice) > 0 {
 		// Shouldn't happen because the estimator should not be allowed to
 		// estimate a higher fee than the maximum allowed
-		lggr.AssumptionViolationf("Ignoring current %s of %s that would exceed max %s of %s", feeType, currentFeePrice.String(), feeType, maxFeePrice.String())
+		lggr.AssumptionViolationf("Ignoring current %s of %s that would exceed max %s of %s", feeType, FeeUnitToChainUnit(currentFeePrice, chain), feeType, FeeUnitToChainUnit(maxFeePrice, chain))
 	} else if bumpedFeePrice.Cmp(currentFeePrice) < 0 {
 		// If the current fee price is higher than the old price bumped, use that instead
 		return currentFeePrice
 	}
 	return bumpedFeePrice
-}
-
-// CalculateFee computes the fee price and chain specific fee limit for a transaction.
-func CalculateFee(feeLimit uint32, maxFeePrice, defaultPrice, maxBumpPrice *big.Int, bumpLimitMultiplier float32) (feePrice *big.Int, chainSpecificFeeLimit uint32, err error) {
-	feePrice, chainSpecificFeeLimit = CapFeePrice(defaultPrice, maxFeePrice, maxBumpPrice, feeLimit, bumpLimitMultiplier)
-	return
-}
-
-func GetDynamicFee(cfg feetypes.FixedPriceEstimatorConfig, originalFeeLimit uint32, maxFeePrice *big.Int) (feeCap, tipCap *big.Int, chainSpecificFeeLimit uint32, err error) {
-	tipCap = cfg.TipCapDefault()
-
-	if tipCap == nil {
-		return big.NewInt(0), big.NewInt(0), 0, errors.New("cannot calculate dynamic fee: FeeTipCapDefault was not set")
-	}
-
-	chainSpecificFeeLimit = ApplyMultiplier(originalFeeLimit, cfg.LimitMultiplier())
-	feeCap = GetFeeCap(cfg, originalFeeLimit, maxFeePrice)
-
-	return feeCap, tipCap, chainSpecificFeeLimit, nil
-}
-
-func GetFeeCap(cfg feetypes.FixedPriceEstimatorConfig, originalFeeLimit uint32, maxFeePrice *big.Int) (feeCap *big.Int) {
-	if cfg.BumpThreshold() == 0 {
-		// Fee bumping is disabled, just use the max fee cap
-		feeCap = FeePriceLimit(maxFeePrice, cfg.PriceMax())
-	} else {
-		// Need to leave headroom for bumping so we fallback to the default value here
-		feeCap = cfg.FeeCapDefault()
-	}
-	return feeCap
-}
-
-// BumpDynamicFeeOnly bumps the tip cap and max fee price if necessary
-func CalculateBumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *big.Int, originalFeeCap, originalTipCap *big.Int, originalFeeLimit uint32, maxFeePrice *big.Int) (bumpedFeeCap, bumpedTipCap *big.Int, chainSpecificFeeLimit uint32, err error) {
-	bumpedFeeCap, bumpedTipCap, err = bumpDynamicFee(cfg, feeCapBufferBlocks, lggr, currentTipCap, currentBaseFee, originalFeeCap, originalTipCap, maxFeePrice)
-	if err != nil {
-		return bumpedFeeCap, bumpedTipCap, 0, err
-	}
-	chainSpecificFeeLimit = ApplyMultiplier(originalFeeLimit, cfg.LimitMultiplier())
-	return
-}
-
-func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *big.Int, originalFeeCap, originalTipCap *big.Int, maxFeePriceInput *big.Int) (bumpedFeeCap, bumpedTipCap *big.Int, err error) {
-	maxFeePrice := FeePriceLimit(maxFeePriceInput, cfg.PriceMax())
-	baselineTipCap := max(originalTipCap, cfg.TipCapDefault())
-	bumpedTipCap = bumpFeePriceByPercentage(baselineTipCap, cfg.BumpPercent(), cfg.BumpMin())
-
-	// Update bumpedTipCap if currentTipCap is higher than bumpedTipCap and within maxFeePrice
-	bumpedTipCap = maxBumpedFee(lggr, currentTipCap, bumpedTipCap, maxFeePrice, "tip cap")
-
-	if bumpedTipCap.Cmp(maxFeePrice) > 0 {
-		return bumpedFeeCap, bumpedTipCap, errors.Wrapf(ErrBumpFeeExceedsLimit, "bumped tip cap of %s would exceed configured max fee price of %s (original fee: tip cap %s, fee cap %s). %s",
-			bumpedTipCap.String(), maxFeePrice, originalTipCap.String(), originalFeeCap.String(), label.NodeConnectivityProblemWarning)
-	} else if bumpedTipCap.Cmp(originalTipCap) <= 0 {
-		// NOTE: This really shouldn't happen since we enforce minimums for
-		// FeeEstimator.BumpPercent and FeeEstimator.BumpMin in the config validation,
-		// It's here for extra precaution
-		return bumpedFeeCap, bumpedTipCap, errors.Wrapf(ErrBump, "bumped fee tip cap of %s fee unit is less than or equal to original fee tip cap of %s fee unit."+
-			" ACTION REQUIRED: This is a configuration error, you must increase either "+
-			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", bumpedTipCap.String(), originalTipCap) // TODO: Add a fee unit to string function
-	}
-
-	// Always bump the FeeCap by at least the bump percentage
-	bumpedFeeCap = bumpFeePriceByPercentage(originalFeeCap, cfg.BumpPercent(), cfg.BumpMin())
-
-	if currentBaseFee != nil {
-		if currentBaseFee.Cmp(maxFeePrice) > 0 {
-			lggr.Warnf("Ignoring current base fee of %s which is greater than max fee price of %s", currentBaseFee.String(), maxFeePrice.String())
-		} else {
-			currentFeeCap := calcFeeCap(currentBaseFee, int(feeCapBufferBlocks), bumpedTipCap, maxFeePrice)
-			bumpedFeeCap = max(bumpedFeeCap, currentFeeCap)
-		}
-	}
-
-	if bumpedFeeCap.Cmp(maxFeePrice) > 0 {
-		return bumpedFeeCap, bumpedTipCap, errors.Wrapf(ErrBumpFeeExceedsLimit, "bumped fee cap of %s would exceed configured max fee price of %s (original fee: tip cap %s, fee cap %s). %s",
-			bumpedFeeCap.String(), maxFeePrice, originalTipCap.String(), originalFeeCap.String(), label.NodeConnectivityProblemWarning)
-	}
-	return bumpedFeeCap, bumpedTipCap, nil
-}
-
-func calcFeeCap(latestAvailableBaseFeePerUnit *big.Int, bufferBlocks int, tipCap *big.Int, maxFeePrice *big.Int) (feeCap *big.Int) {
-	const maxBaseFeeIncreasePerBlock float64 = 1.125
-
-	baseFee := new(big.Float)
-	baseFee.SetInt(latestAvailableBaseFeePerUnit)
-	// Find out the worst case base fee before we bump
-	multiplier := big.NewFloat(maxBaseFeeIncreasePerBlock)
-	for i := 0; i < bufferBlocks; i++ {
-		baseFee.Mul(baseFee, multiplier)
-	}
-
-	baseFeeInt, _ := baseFee.Int(nil)
-	feeCap = baseFeeInt.Add(baseFeeInt, tipCap)
-
-	if feeCap.Cmp(maxFeePrice) > 0 {
-		return maxFeePrice
-	}
-	return feeCap
 }
