@@ -2,42 +2,17 @@
 
 set -e
 
+echo "-----------------------------"
+echo "Compiling *all* contracts..."
+echo "-----------------------------"
+
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-echo $SCRIPTPATH
 python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 
-# Legacy contracts
-$SCRIPTPATH/native_solc_compile_all_6
-$SCRIPTPATH/native_solc_compile_all_7
-
-
-solc-select install 0.8.6
-solc-select install 0.8.15
-solc-select install 0.8.16
-solc-select install 0.8.19
-
-# Aggregators
-$SCRIPTPATH/native_solc8_6_compile interfaces/AggregatorV2V3Interface.sol
-$SCRIPTPATH/native_solc8_6_compile Chainlink.sol
-$SCRIPTPATH/native_solc8_6_compile ChainlinkClient.sol
-
-# Feeds
-$SCRIPTPATH/native_solc8_6_compile dev/DerivedPriceFeed.sol
-
-# Log tester
-$SCRIPTPATH/native_solc8_6_compile tests/LogEmitter.sol
-
-# Chainlink Functions
-$SCRIPTPATH/native_solc_compile_all_functions
-
-# llo-feeds
-$SCRIPTPATH/native_solc_compile_all_llo
-
-# Transmission
-$SCRIPTPATH/native_solc_compile_all_transmission
-
-# VRF
-$SCRIPTPATH/native_solc_compile_all_vrf
-
-# Automation
-$SCRIPTPATH/native_solc_compile_all_automation
+# 6 and 7 are legacy contracts, for each other product we have a native_solc_compile_all_$product script
+# These scripts can be run individually, or all together with this script.
+# To add new CL products, simply write a native_solc_compile_all_$product script and add it to the list below.
+for product in 6 7 feeds functions llo transmission vrf automation logpoller
+do
+  $SCRIPTPATH/native_solc_compile_all_$product
+done
