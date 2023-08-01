@@ -2,6 +2,11 @@
 
 set -e
 
+echo "|----------------------------------------------|"
+echo "|        Compiling OCR2 VRF contracts...       |"
+echo "|----------------------------------------------|"
+
+
 SOLC_VERSION="0.8.19"
 OPTIMIZE_RUNS=1000000
 # The VRF contracts are not contained in the `chainlink` repository.
@@ -11,16 +16,13 @@ FOLDER="ocr2vrf-origin"
 echo "Compiling OCR2VRF contracts..."
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-ROOT="$(
-    cd "$(dirname "$0")" >/dev/null 2>&1
-    cd ../../ && pwd -P
-)"
-
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1; cd ../../ && pwd -P )"
 python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 
 solc-select install $SOLC_VERSION
 solc-select use $SOLC_VERSION
 export SOLC_VERSION=$SOLC_VERSION
+
 
 compileContract () {
   solc --overwrite --optimize --optimize-runs $2 --metadata-hash none \

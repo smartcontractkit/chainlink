@@ -9,7 +9,7 @@ echo "|----------------------------------------------|"
 SOLC_VERSION="0.7.6"
 OPTIMIZE_RUNS=1000000
 
-SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd .. && pwd -P )"
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
 python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 

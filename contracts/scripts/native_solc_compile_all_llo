@@ -2,7 +2,9 @@
 
 set -e
 
-echo "Compiling LLO contracts..."
+echo "|----------------------------------------------|"
+echo "|   Compiling Low Latency Oracle contracts...  |"
+echo "|----------------------------------------------|"
 
 SOLC_VERSION="0.8.16"
 OPTIMIZE_RUNS=15000

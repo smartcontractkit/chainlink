@@ -2,7 +2,10 @@
 
 set -e
 
-echo "Compiling LogPoller contracts..."
+echo "|----------------------------------------------|"
+echo "|        Compiling LogPoller contracts...      |"
+echo "|----------------------------------------------|"
+
 
 SOLC_VERSION="0.8.19"
 OPTIMIZE_RUNS=1000000
