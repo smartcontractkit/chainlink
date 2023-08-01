@@ -87,19 +87,6 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   AggregatorV3Interface private s_linkToNativeFeed;
 
   // ================================================================
-  // |                         Cost Events                          |
-  // ================================================================
-  event BillingStart(bytes32 indexed requestId, IFunctionsRequest.Commitment commitment);
-  event BillingEnd(
-    bytes32 indexed requestId,
-    uint64 subscriptionId,
-    uint96 signerPayment,
-    uint96 transmitterPayment,
-    uint96 totalCost,
-    FulfillResult result
-  );
-
-  // ================================================================
   // |                       Initialization                         |
   // ================================================================
   constructor(address router, bytes memory config, address linkToNativeFeed) HasRouter(router, config) {
@@ -324,8 +311,6 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     });
 
     s_requestCommitments[requestId] = keccak256(abi.encode(commitment));
-
-    emit BillingStart(requestId, commitment);
   }
 
   /**
@@ -390,15 +375,6 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     // Put donFee into the pool of fees, to be split later
     // Saves on storage writes that would otherwise be charged to the user
     s_feePool += commitment.donFee;
-
-    emit BillingEnd(
-      requestId,
-      commitment.subscriptionId,
-      commitment.donFee,
-      gasOverheadJuels + callbackCostJuels,
-      gasOverheadJuels + callbackCostJuels + commitment.donFee + commitment.adminFee,
-      FulfillResult(result)
-    );
 
     return FulfillResult(result);
   }

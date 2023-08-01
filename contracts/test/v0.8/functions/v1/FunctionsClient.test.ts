@@ -173,7 +173,6 @@ describe('Functions Client', () => {
       await expect(contracts.coordinator.callReport(report))
         .to.emit(contracts.coordinator, 'OracleResponse')
         .withArgs(requestId, await roles.defaultAccount.getAddress())
-        .to.emit(contracts.coordinator, 'BillingEnd')
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
     })

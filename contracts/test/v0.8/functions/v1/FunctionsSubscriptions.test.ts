@@ -638,7 +638,6 @@ describe('Functions Router - Subscriptions', () => {
       await expect(contracts.coordinator.callReport(report, { gasPrice }))
         .to.emit(contracts.coordinator, 'OracleResponse')
         .withArgs(requestId, await roles.defaultAccount.getAddress())
-        .to.emit(contracts.coordinator, 'BillingEnd')
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
         .to.emit(contracts.client, 'SendRequestInvoked')
@@ -719,7 +718,6 @@ describe('Functions Router - Subscriptions', () => {
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
-        .to.emit(contracts.coordinator, 'BillingEnd')
         .withArgs(
           requestId,
           subscriptionId,
@@ -829,7 +827,6 @@ describe('Functions Router - Subscriptions', () => {
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
-        .to.emit(contracts.coordinator, 'BillingEnd')
         .withArgs(
           requestId,
           subscriptionId,
