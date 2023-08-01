@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IRouterBase} from "./interfaces/IRouterBase.sol";
-import {ConfirmedOwnerWithProposal} from "../../../ConfirmedOwnerWithProposal.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {Pausable} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
+import {IRouterBase} from "./interfaces/IRouterBase.sol";
 import {IConfigurable} from "./interfaces/IConfigurable.sol";
 
-abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, ConfirmedOwnerWithProposal {
+import {ConfirmedOwner} from "../../../ConfirmedOwner.sol";
+
+import {Pausable} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
+
+abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, ConfirmedOwner {
   // ================================================================
   // |                          Route state                         |
   // ================================================================
@@ -35,6 +37,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     address proposedContractSetToAddress,
     uint256 timelockEndBlock
   );
+
   event ContractUpdated(
     bytes32 proposedContractSetId,
     address proposedContractSetFromAddress,
@@ -46,6 +49,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     bytes to;
     uint256 timelockEndBlock;
   }
+
   mapping(bytes32 id => ConfigProposal) private s_proposedConfig;
   event ConfigProposed(bytes32 id, bytes32 fromHash, bytes toBytes);
   event ConfigUpdated(bytes32 id, bytes32 fromHash, bytes toBytes);
@@ -89,7 +93,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     uint16 timelockBlocks,
     uint16 maximumTimelockBlocks,
     bytes memory selfConfig
-  ) ConfirmedOwnerWithProposal(newOwner, address(0)) Pausable() {
+  ) ConfirmedOwner(newOwner) Pausable() {
     // Set initial value for the number of blocks of the timelock
     s_timelockBlocks = timelockBlocks;
     // Set maximum number of blocks that the timelock can be
@@ -113,7 +117,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       }
     } else {
       // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
-      for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
+      for (uint256 i = 0; i < s_proposedContractSet.ids.length; ++i) {
         if (id == s_proposedContractSet.ids[i]) {
           // NOTE: proposals can be used immediately
           return s_proposedContractSet.to[i];
