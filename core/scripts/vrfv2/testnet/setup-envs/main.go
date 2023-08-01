@@ -41,6 +41,7 @@ func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Shell, *cli.App) {
 var (
 	remoteNodeURLs = flag.String("remote-node-urls", "", "remote node URL")
 	credsFile      = flag.String("creds-file", "", "Creds to authenticate to the node")
+	numEthKeys     = flag.Int("num-eth-keys", 5, "Number of eth keys to create")
 
 	checkMarkEmoji = "✅"
 	xEmoji         = "❌"
@@ -82,22 +83,31 @@ func main() {
 		})
 		helpers.PanicErr(err)
 		var ethKeys []presenters.ETHKeyResource
+		var newKeys []presenters.ETHKeyResource
 		helpers.PanicErr(json.Unmarshal(output.Bytes(), &ethKeys))
 		switch {
-		case len(ethKeys) >= 5:
+		case len(ethKeys) >= *numEthKeys:
 			fmt.Println(checkMarkEmoji, "found", len(ethKeys), "eth keys on", remoteNodeURL)
-		case len(ethKeys) < 5:
-			fmt.Println(xEmoji, "found only", len(ethKeys), "eth keys on", remoteNodeURL, ", consider creating more")
-			output.Reset()
-			var newETHKeys []presenters.ETHKeyResource
+		case len(ethKeys) < *numEthKeys:
+			fmt.Println(xEmoji, "found only", len(ethKeys), "eth keys on", remoteNodeURL,
+				"; creating", *numEthKeys-len(ethKeys), "more")
+			toCreate := *numEthKeys - len(ethKeys)
+			for i := 0; i < toCreate; i++ {
+				output.Reset()
+				var newKey presenters.ETHKeyResource
 
-			err = client.CreateETHKey(&cli.Context{
-				App: app,
-			})
-			helpers.PanicErr(err)
-			helpers.PanicErr(json.Unmarshal(output.Bytes(), &newETHKeys))
-			fmt.Println("NEW ETH KEY:", newETHKeys)
+				err = client.CreateETHKey(cli.NewContext(app, flag.NewFlagSet("blah", flag.ExitOnError), nil))
+				helpers.PanicErr(err)
+				helpers.PanicErr(json.Unmarshal(output.Bytes(), &newKey))
+				newKeys = append(newKeys, newKey)
+			}
 
+			fmt.Println("NEW ETH KEYS:", strings.Join(func() (r []string) {
+				for _, k := range newKeys {
+					r = append(r, k.Address)
+				}
+				return
+			}(), ", "))
 		}
 		output.Reset()
 		fmt.Println()
@@ -105,7 +115,9 @@ func main() {
 		for _, ethKey := range ethKeys {
 			allETHKeys = append(allETHKeys, ethKey.Address)
 		}
-
+		for _, nk := range newKeys {
+			allETHKeys = append(allETHKeys, nk.Address)
+		}
 	}
 
 	fmt.Println("------------- NODE INFORMATION -------------")
