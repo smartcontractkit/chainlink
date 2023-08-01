@@ -8,8 +8,8 @@ interface IFunctionsSubscriptions {
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
     uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
-    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub.
+    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
     address requestedOwner; // For safely transferring sub ownership.
     // Maintains the list of keys in s_consumers.
     // We do this for 2 reasons:
@@ -119,15 +119,15 @@ interface IFunctionsSubscriptions {
   function createSubscription() external returns (uint64);
 
   /**
-   * @notice Request subscription owner transfer.
+   * @notice Propose a new owner for a subscription.
    * @dev Only callable by the Subscription's owner
    * @param subscriptionId - ID of the subscription
    * @param newOwner - proposed new owner of the subscription
    */
-  function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external;
+  function proposeSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external;
 
   /**
-   * @notice Request subscription owner transfer.
+   * @notice Accept an ownership transfer.
    * @param subscriptionId - ID of the subscription
    * @dev will revert if original owner of subscriptionId has
    * not requested that msg.sender become the new owner.

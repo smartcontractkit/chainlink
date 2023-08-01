@@ -10,10 +10,11 @@ import (
 
 var (
 	// a batch of 8 max-length results uses around 2M gas (assuming 70k gas per client callback - see FunctionsClientExample.sol)
+	// TODO: revisit gas limit vs batch sizing once necessary contract changes are made
 	nOracleNodes      = 4
 	nClients          = 50
 	requestLenBytes   = 1_000
-	maxGas            = 2_000_000
+	maxGas            = 1_700_000
 	maxTotalReportGas = 560_000
 	batchSize         = 8
 )
@@ -26,7 +27,7 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 	utils.SetupRouterRoutes(t, owner, routerContract, coordinatorContractAddress, allowListContractAddress)
 	b.Commit()
 
-	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, coordinatorContractAddress, 39989, nOracleNodes, maxGas, nil, nil)
+	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, routerAddress, coordinatorContractAddress, 39989, nOracleNodes, maxGas, nil, nil)
 
 	pluginConfig := functionsConfig.ReportingPluginConfig{
 		MaxQueryLengthBytes:       10_000,

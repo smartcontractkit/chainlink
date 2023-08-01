@@ -3,14 +3,13 @@ package functions
 import (
 	"context"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"math/big"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -21,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -29,11 +29,9 @@ type FunctionsContractTransmitter interface {
 	ocrtypes.ContractTransmitter
 }
 
-var _ FunctionsContractTransmitter = &contractTransmitter{}
-
 type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
-	FromAddress() gethcommon.Address
+	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error
+	FromAddress() common.Address
 }
 
 type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
@@ -43,7 +41,7 @@ func reportToEvmTxMetaNoop([]byte) (*txmgr.TxMeta, error) {
 }
 
 type contractTransmitter struct {
-	contractAddress     gethcommon.Address
+	contractAddress     atomic.Pointer[common.Address]
 	contractABI         abi.ABI
 	transmitter         Transmitter
 	transmittedEventSig common.Hash
@@ -55,12 +53,14 @@ type contractTransmitter struct {
 	reportCodec         encoding.ReportCodec
 }
 
+var _ FunctionsContractTransmitter = &contractTransmitter{}
+var _ evmRelayTypes.RouteUpdateSubscriber = &contractTransmitter{}
+
 func transmitterFilterName(addr common.Address) string {
-	return logpoller.FilterName("OCR ContractTransmitter", addr.String())
+	return logpoller.FilterName("FunctionsOCR2ContractTransmitter", addr.String())
 }
 
 func NewFunctionsContractTransmitter(
-	destAddressV0 gethcommon.Address,
 	caller contractReader,
 	contractABI abi.ABI,
 	transmitter Transmitter,
@@ -74,11 +74,6 @@ func NewFunctionsContractTransmitter(
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
 
-	// TODO(FUN-674): Read updates from correct contract.
-	err := lp.RegisterFilter(logpoller.Filter{Name: transmitterFilterName(destAddressV0), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{destAddressV0}})
-	if err != nil {
-		return nil, err
-	}
 	if reportToEvmTxMeta == nil {
 		reportToEvmTxMeta = reportToEvmTxMetaNoop
 	}
@@ -87,7 +82,6 @@ func NewFunctionsContractTransmitter(
 		return nil, err
 	}
 	return &contractTransmitter{
-		contractAddress:     destAddressV0,
 		contractABI:         contractABI,
 		transmitter:         transmitter,
 		transmittedEventSig: transmitted.ID,
@@ -121,30 +115,38 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		oc.lggr.Warnw("failed to generate tx metadata for report", "err", err)
 	}
 
-	destinationContract := oc.contractAddress
-	if oc.contractVersion == 1 {
+	var destinationContract common.Address
+	if oc.contractVersion == 0 {
+		destinationContractPtr := oc.contractAddress.Load()
+		if destinationContractPtr == nil {
+			return errors.New("destination contract address not set")
+		}
+		destinationContract = *destinationContractPtr
+	} else if oc.contractVersion == 1 {
+		oc.lggr.Debugw("FunctionsContractTransmitter: start", "reportLenBytes", len(report))
 		requests, err2 := oc.reportCodec.DecodeReport(report)
 		if err2 != nil {
-			return errors.Wrap(err2, "DecodeReport failed")
+			return errors.Wrap(err2, "FunctionsContractTransmitter: DecodeReport failed")
 		}
 		if len(requests) == 0 {
-			return errors.New("no requests in report")
+			return errors.New("FunctionsContractTransmitter: no requests in report")
 		}
 		if len(requests[0].CoordinatorContract) != common.AddressLength {
-			return fmt.Errorf("incorrect length of CoordinatorContract field: %d", len(requests[0].CoordinatorContract))
+			return fmt.Errorf("FunctionsContractTransmitter: incorrect length of CoordinatorContract field: %d", len(requests[0].CoordinatorContract))
 		}
-		// NOTE: this is incorrect if batch contains requests destined for different contracts
-		// and there is currently no way areound it until we get rid of batching
+		// NOTE: this is incorrect if batch contains requests destined for different contracts (unlikely)
+		// it will be fixed when we get rid of batching
 		destinationContract.SetBytes(requests[0].CoordinatorContract)
+		oc.lggr.Debugw("FunctionsContractTransmitter: ready", "nRequests", len(requests), "coordinatorContract", destinationContract.Hex())
+	} else {
+		return fmt.Errorf("unsupported contract version: %d", oc.contractVersion)
 	}
-
-	oc.lggr.Debugw("Transmitting report", "report", hex.EncodeToString(report), "rawReportCtx", rawReportCtx, "contractAddress", destinationContract, "txMeta", txMeta)
-
 	payload, err := oc.contractABI.Pack("transmit", rawReportCtx, []byte(report), rs, ss, vs)
 	if err != nil {
 		return errors.Wrap(err, "abi.Pack failed")
 	}
 
+	oc.lggr.Debugw("FunctionsContractTransmitter: transmitting report", "contractAddress", destinationContract, "txMeta", txMeta, "payloadSize", len(payload))
 	return errors.Wrap(oc.transmitter.CreateEthTransaction(ctx, destinationContract, payload, txMeta), "failed to send Eth transaction")
 }
 
@@ -188,7 +190,11 @@ func callContract(ctx context.Context, addr common.Address, contractABI abi.ABI,
 // It is plugin independent, in particular avoids use of the plugin specific generated evm wrappers
 // by using the evm client Call directly for functions/events that are part of OCR2Abstract.
 func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (ocrtypes.ConfigDigest, uint32, error) {
-	latestConfigDigestAndEpoch, err := callContract(ctx, oc.contractAddress, oc.contractABI, "latestConfigDigestAndEpoch", nil, oc.contractReader)
+	contractAddr := oc.contractAddress.Load()
+	if contractAddr == nil {
+		return ocrtypes.ConfigDigest{}, 0, errors.New("destination contract address not set")
+	}
+	latestConfigDigestAndEpoch, err := callContract(ctx, *contractAddr, oc.contractABI, "latestConfigDigestAndEpoch", nil, oc.contractReader)
 	if err != nil {
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
@@ -205,7 +211,7 @@ func (oc *contractTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (
 		return ocrtypes.ConfigDigest{}, 0, err
 	}
 	latest, err := oc.lp.LatestLogByEventSigWithConfs(
-		oc.transmittedEventSig, oc.contractAddress, 1, pg.WithParentCtx(ctx))
+		oc.transmittedEventSig, *contractAddr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// No transmissions yet
@@ -230,3 +236,18 @@ func (oc *contractTransmitter) HealthReport() map[string]error {
 	return map[string]error{oc.Name(): nil}
 }
 func (oc *contractTransmitter) Name() string { return oc.lggr.Name() }
+
+func (oc *contractTransmitter) UpdateRoutes(activeCoordinator common.Address, proposedCoordinator common.Address) error {
+	// transmitter only cares about the active coordinator
+	previousContract := oc.contractAddress.Swap(&activeCoordinator)
+	if previousContract != nil && *previousContract == activeCoordinator {
+		return nil
+	}
+	oc.lggr.Debugw("FunctionsContractTransmitter: updating routes", "previousContract", previousContract, "activeCoordinator", activeCoordinator)
+	err := oc.lp.RegisterFilter(logpoller.Filter{Name: transmitterFilterName(activeCoordinator), EventSigs: []common.Hash{oc.transmittedEventSig}, Addresses: []common.Address{activeCoordinator}})
+	if err != nil {
+		return err
+	}
+	// TODO: unregister old filter (needs refactor to get pg.Queryer)
+	return nil
+}

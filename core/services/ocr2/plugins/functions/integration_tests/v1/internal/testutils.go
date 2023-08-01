@@ -111,17 +111,22 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, coordinatorContract
 }
 
 func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionId uint64) {
-	allowed, err := allowListContract.IsAllowedSender(nilOpts, owner.From)
+	allowed, err := allowListContract.HasAccess(nilOpts, owner.From, []byte{})
 	require.NoError(t, err)
-	if allowed == false {
+	if !allowed {
 		messageHash, err := allowListContract.GetMessageHash(nilOpts, owner.From, owner.From)
 		require.NoError(t, err)
 		ethMessageHash, err := allowListContract.GetEthSignedMessageHash(nilOpts, messageHash)
 		require.NoError(t, err)
 		privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
 		require.NoError(t, err)
-		proof, err := crypto.Sign(ethMessageHash[:], privateKey)
-		allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, proof)
+		flatSignature, err := crypto.Sign(ethMessageHash[:], privateKey)
+		var r [32]byte
+		copy(r[:], flatSignature[:32])
+		var s [32]byte
+		copy(s[:], flatSignature[32:64])
+		v := uint8(flatSignature[65])
+		allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, r, s, v)
 	}
 
 	_, err = routerContract.CreateSubscription(owner)
@@ -174,6 +179,8 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	require.NoError(t, err)
 	uint32Type, err := abi.NewType("uint32", "uint32", nil)
 	require.NoError(t, err)
+	uint80Type, err := abi.NewType("uint80", "uint80", nil)
+	require.NoError(t, err)
 	uint96Type, err := abi.NewType("uint96", "uint96", nil)
 	require.NoError(t, err)
 	uint256Type, err := abi.NewType("uint256", "uint256", nil)
@@ -199,15 +206,9 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 
 	// Deploy Router contract
 	routerConfigABI := abi.Arguments{
-		{
-			Type: uint96Type,
-		},
-		{
-			Type: bytes4Type,
-		},
-		{
-			Type: uint32ArrType,
-		},
+		{Type: uint96Type},    // adminFee
+		{Type: bytes4Type},    // handleOracleFulfillmentSelector
+		{Type: uint32ArrType}, // maxCallbackGasLimits
 	}
 	var adminFee = big.NewInt(0)
 	handleOracleFulfillmentSelectorSlice, err := hex.DecodeString("0ca76175")
@@ -224,12 +225,8 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 
 	// Deploy Allow List contract
 	allowListConfigABI := abi.Arguments{
-		{
-			Type: boolType,
-		},
-		{
-			Type: addressType,
-		},
+		{Type: boolType},    // enabled
+		{Type: addressType}, // proofSignerPublicKey
 	}
 	var enabled = false // TODO: true
 	privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
@@ -240,55 +237,37 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, routerAddress, allowListConfig)
 	require.NoError(t, err)
 
-	// Deploy Coordinator contract
+	// Deploy Coordinator contract (matches _updateConfig() in FunctionsBilling.sol)
 	coordinatorConfigABI := abi.Arguments{
-		{
-			Type: uint32Type,
-		},
-		{
-			Type: uint32Type,
-		},
-		{
-			Type: uint32Type,
-		},
-		{
-			Type: uint32Type,
-		},
-		{
-			Type: int256Type,
-		},
-		{
-			Type: uint32Type,
-		},
-		{
-			Type: uint96Type,
-		},
-		{
-			Type: uint16Type,
-		},
-		{
-			Type: uint256Type,
-		},
+		{Type: uint32Type},  // maxCallbackGasLimit
+		{Type: uint32Type},  // feedStalenessSeconds
+		{Type: uint32Type},  // gasOverheadBeforeCallback
+		{Type: uint32Type},  // gasOverheadAfterCallback
+		{Type: uint32Type},  // requestTimeoutSeconds
+		{Type: uint80Type},  // donFee
+		{Type: uint16Type},  // maxSupportedRequestDataVersion
+		{Type: uint256Type}, // fulfillmentGasPriceOverEstimationBP
+		{Type: int256Type},  // fallbackNativePerUnitLink
 	}
 	var maxCallbackGasLimit = uint32(450_000)
 	var feedStalenessSeconds = uint32(86_400)
 	var gasOverheadBeforeCallback = uint32(325_000)
 	var gasOverheadAfterCallback = uint32(50_000)
-	var fallbackNativePerUnitLink = big.NewInt(5_000_000_000_000_000)
 	var requestTimeoutSeconds = uint32(300)
 	var donFee = big.NewInt(0)
 	var maxSupportedRequestDataVersion = uint16(1)
 	var fulfillmentGasPriceOverEstimationBP = big.NewInt(6_600)
+	var fallbackNativePerUnitLink = big.NewInt(5_000_000_000_000_000)
 	coordinatorConfig, err := coordinatorConfigABI.Pack(
 		maxCallbackGasLimit,
 		feedStalenessSeconds,
 		gasOverheadBeforeCallback,
 		gasOverheadAfterCallback,
-		fallbackNativePerUnitLink,
 		requestTimeoutSeconds,
 		donFee,
 		maxSupportedRequestDataVersion,
 		fulfillmentGasPriceOverEstimationBP,
+		fallbackNativePerUnitLink,
 	)
 	require.NoError(t, err)
 	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr)
@@ -323,7 +302,7 @@ func SetupRouterRoutes(t *testing.T, owner *bind.TransactOpts, routerContract *f
 	allowListId, err := routerContract.GetAllowListId(nilOpts)
 	require.NoError(t, err)
 	var donId [32]byte
-	copy(donId[:], "1")
+	copy(donId[:], DefaultDONId)
 	proposedContractSetIds := []([32]byte){allowListId, donId}
 	proposedContractSetAddresses := []common.Address{allowListAddress, coordinatorAddress}
 	_, err = routerContract.ProposeContractsUpdate(owner, proposedContractSetIds, proposedContractSetAddresses)
@@ -463,8 +442,6 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		Name: "ea_bridge",
 		URL:  models.WebURL(*u),
 	}))
-	var donId []byte
-	copy(donId[:], "1")
 	job, err := validate.ValidatedOracleSpecToml(app.Config.OCR2(), app.Config.Insecure(), fmt.Sprintf(`
 		type               = "offchainreporting2"
 		name               = "functions-node"
@@ -493,7 +470,9 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		requestTimeoutCheckFrequencySec = 10
 		requestTimeoutBatchLookupSize = 20
 		listenerEventHandlerTimeoutSec = 120
+		listenerEventsCheckFrequencyMillis = 1000
 		maxRequestSizeBytes = 30720
+		contractUpdateCheckFrequencySec = 1
 
 			[pluginConfig.decryptionQueueConfig]
 			completedCacheTimeoutSec = 300
@@ -505,7 +484,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 			[pluginConfig.s4Constraints]
 			maxPayloadSizeBytes = 10_1000
 			maxSlotsPerUser = 10
-	`, contractAddress, keyBundleID, transmitter, hex.EncodeToString(donId)))
+	`, contractAddress, keyBundleID, transmitter, DefaultDONId))
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
@@ -573,7 +552,8 @@ func CreateFunctionsNodes(
 	t *testing.T,
 	owner *bind.TransactOpts,
 	b *backends.SimulatedBackend,
-	coordinatorContractAddress common.Address,
+	routerAddress common.Address,
+	coordinatorAddress common.Address,
 	startingPort uint16,
 	nOracleNodes int,
 	maxGas int,
@@ -593,7 +573,8 @@ func CreateFunctionsNodes(
 	}
 
 	bootstrapNode = StartNewNode(t, owner, startingPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
-	AddBootstrapJob(t, bootstrapNode.App, coordinatorContractAddress)
+	// TODO(FUN-696): refactor bootstrap job to support Functions relayers
+	AddBootstrapJob(t, bootstrapNode.App, coordinatorAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
 	for i := 0; i < nOracleNodes; i++ {
@@ -618,7 +599,7 @@ func CreateFunctionsNodes(
 		ea := StartNewMockEA(t)
 		t.Cleanup(ea.Close)
 
-		_ = AddOCR2Job(t, oracleNodes[i], coordinatorContractAddress, oracleNode.Keybundle.ID(), oracleNode.Transmitter, ea.URL)
+		_ = AddOCR2Job(t, oracleNodes[i], routerAddress, oracleNode.Keybundle.ID(), oracleNode.Transmitter, ea.URL)
 	}
 
 	return bootstrapNode, oracleNodes, oracleIdentites
@@ -639,7 +620,7 @@ func ClientTestRequests(
 ) {
 	t.Helper()
 	var donId [32]byte
-	copy(donId[:], "1")
+	copy(donId[:], []byte(DefaultDONId))
 	subscriptionId := CreateAndFundSubscriptions(t, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
 	// send requests
 	requestSources := make([][]byte, len(clientContracts))
@@ -669,7 +650,7 @@ func ClientTestRequests(
 		go func() {
 			defer wg.Done()
 			gomega.NewGomegaWithT(t).Eventually(func() [32]byte {
-				answer, err := clientContracts[ic].Contract.LastResponse(nil)
+				answer, err := clientContracts[ic].Contract.SLastResponse(nil)
 				require.NoError(t, err)
 				return answer
 			}, timeout, 1*time.Second).Should(gomega.Equal(GetExpectedResponse(requestSources[ic])))

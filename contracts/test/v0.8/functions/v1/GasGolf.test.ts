@@ -1,12 +1,12 @@
 import { ethers } from 'hardhat'
 import { BigNumber } from 'ethers'
 import {
-  getSetupFactory,
+  accessControlMockPrivateKey,
   FunctionsContracts,
   FunctionsRoles,
-  ids,
   getEventArg,
-  accessControlMockPrivateKey,
+  getSetupFactory,
+  ids,
 } from './utils'
 import { stringToBytes } from '../../../test-helpers/helpers'
 
@@ -14,7 +14,7 @@ const setup = getSetupFactory()
 let contracts: FunctionsContracts
 let roles: FunctionsRoles
 
-const baselineGasUsed = 944_073
+const baselineGasUsed = 793891
 let currentGasUsed = 0
 
 beforeEach(async () => {
@@ -36,10 +36,19 @@ describe('Gas Golf', () => {
       roles.consumerAddress,
     )
     const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-    const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+    const flatSignature = await wallet.signMessage(
+      ethers.utils.arrayify(messageHash),
+    )
+    const { r, s, v } = ethers.utils.splitSignature(flatSignature)
     const acceptTermsOfServiceTx = await contracts.accessControl
       .connect(roles.consumer)
-      .acceptTermsOfService(roles.consumerAddress, roles.consumerAddress, proof)
+      .acceptTermsOfService(
+        roles.consumerAddress,
+        roles.consumerAddress,
+        r,
+        s,
+        v,
+      )
     const { gasUsed: acceptTermsOfServiceGasUsed } =
       await acceptTermsOfServiceTx.wait()
 

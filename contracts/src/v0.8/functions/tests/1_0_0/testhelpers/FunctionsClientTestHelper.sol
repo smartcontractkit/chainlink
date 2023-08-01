@@ -3,6 +3,7 @@ pragma solidity ^0.8.6;
 
 import {FunctionsClient, Functions} from "../../../dev/1_0_0/FunctionsClient.sol";
 import {ITermsOfServiceAllowList} from "../../../dev/1_0_0/accessControl/interfaces/ITermsOfServiceAllowList.sol";
+import {IFunctionsSubscriptions} from "../../../dev/1_0_0/interfaces/IFunctionsSubscriptions.sol";
 
 contract FunctionsClientTestHelper is FunctionsClient {
   using Functions for Functions.Request;
@@ -12,6 +13,11 @@ contract FunctionsClientTestHelper is FunctionsClient {
 
   bool private s_revertFulfillRequest;
   bool private s_doInvalidOperation;
+  bool private s_doInvalidReentrantOperation;
+  bool private s_doValidReentrantOperation;
+
+  uint64 private s_subscriptionId;
+  bytes32 private s_donId;
 
   constructor(address router) FunctionsClient(router) {}
 
@@ -46,10 +52,14 @@ contract FunctionsClientTestHelper is FunctionsClient {
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 
-  function acceptTermsOfService(address acceptor, address recipient, bytes calldata proof) external {
+  function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external {
     bytes32 allowListId = s_router.getAllowListId();
     ITermsOfServiceAllowList allowList = ITermsOfServiceAllowList(s_router.getContractById(allowListId));
-    allowList.acceptTermsOfService(acceptor, recipient, proof);
+    allowList.acceptTermsOfService(acceptor, recipient, r, s, v);
+  }
+
+  function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external {
+    IFunctionsSubscriptions(address(s_router)).acceptSubscriptionOwnerTransfer(subscriptionId);
   }
 
   function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
@@ -61,6 +71,12 @@ contract FunctionsClientTestHelper is FunctionsClient {
       uint256 y = 0;
       x = x / y;
     }
+    if (s_doValidReentrantOperation) {
+      sendSimpleRequestWithJavaScript("somedata", s_subscriptionId, s_donId, 20_000);
+    }
+    if (s_doInvalidReentrantOperation) {
+      IFunctionsSubscriptions(address(s_router)).cancelSubscription(s_subscriptionId, msg.sender);
+    }
     emit FulfillRequestInvoked(requestId, response, err);
   }
 
@@ -70,5 +86,16 @@ contract FunctionsClientTestHelper is FunctionsClient {
 
   function setDoInvalidOperation(bool on) external {
     s_doInvalidOperation = on;
+  }
+
+  function setDoInvalidReentrantOperation(bool on, uint64 subscriptionId) external {
+    s_doInvalidReentrantOperation = on;
+    s_subscriptionId = subscriptionId;
+  }
+
+  function setDoValidReentrantOperation(bool on, uint64 subscriptionId, bytes32 donId) external {
+    s_doValidReentrantOperation = on;
+    s_subscriptionId = subscriptionId;
+    s_donId = donId;
   }
 }

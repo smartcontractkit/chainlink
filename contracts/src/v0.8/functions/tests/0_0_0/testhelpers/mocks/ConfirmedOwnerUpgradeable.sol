@@ -2,7 +2,7 @@
 pragma solidity ^0.8.6;
 
 import {OwnableInterface} from "../../../../../interfaces/OwnableInterface.sol";
-import {Initializable} from "../../../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
+import {Initializable} from "../../../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
 
 /**
  * @title The ConfirmedOwnerUpgradeable contract

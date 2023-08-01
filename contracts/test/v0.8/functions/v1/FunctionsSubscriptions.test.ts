@@ -8,7 +8,11 @@ import {
   FunctionsRoles,
   createSubscription,
   acceptTermsOfService,
+  ids,
+  getEventArg,
+  accessControlMockPrivateKey,
 } from './utils'
+import { stringToBytes } from '../../../test-helpers/helpers'
 
 const setup = getSetupFactory()
 let contracts: FunctionsContracts
@@ -75,7 +79,7 @@ describe('Functions Router - Subscriptions', () => {
       })
     })
 
-    describe('#requestSubscriptionOwnerTransfer', async function () {
+    describe('#proposeSubscriptionOwnerTransfer', async function () {
       let subId: number
       beforeEach(async () => {
         subId = await createSubscription(
@@ -89,14 +93,14 @@ describe('Functions Router - Subscriptions', () => {
         await expect(
           contracts.router
             .connect(roles.stranger)
-            .requestSubscriptionOwnerTransfer(subId, roles.strangerAddress),
-        ).to.be.revertedWith(`MustBeSubOwner()`)
+            .proposeSubscriptionOwnerTransfer(subId, roles.strangerAddress),
+        ).to.be.revertedWith(`MustBeSubscriptionOwner()`)
       })
       it('owner can request transfer', async function () {
         await expect(
           contracts.router
             .connect(roles.subOwner)
-            .requestSubscriptionOwnerTransfer(subId, roles.strangerAddress),
+            .proposeSubscriptionOwnerTransfer(subId, roles.strangerAddress),
         )
           .to.emit(contracts.router, 'SubscriptionOwnerTransferRequested')
           .withArgs(subId, roles.subOwnerAddress, roles.strangerAddress)
@@ -104,7 +108,7 @@ describe('Functions Router - Subscriptions', () => {
         await expect(
           contracts.router
             .connect(roles.subOwner)
-            .requestSubscriptionOwnerTransfer(subId, roles.strangerAddress),
+            .proposeSubscriptionOwnerTransfer(subId, roles.strangerAddress),
         ).to.not.emit(contracts.router, 'SubscriptionOwnerTransferRequested')
       })
     })
@@ -131,7 +135,7 @@ describe('Functions Router - Subscriptions', () => {
         await expect(
           contracts.router
             .connect(roles.subOwner)
-            .requestSubscriptionOwnerTransfer(subId, roles.strangerAddress),
+            .proposeSubscriptionOwnerTransfer(subId, roles.strangerAddress),
         )
         await expect(
           contracts.router
@@ -148,7 +152,7 @@ describe('Functions Router - Subscriptions', () => {
         await expect(
           contracts.router
             .connect(roles.subOwner)
-            .requestSubscriptionOwnerTransfer(subId, roles.strangerAddress),
+            .proposeSubscriptionOwnerTransfer(subId, roles.strangerAddress),
         )
           .to.emit(contracts.router, 'SubscriptionOwnerTransferRequested')
           .withArgs(subId, roles.subOwnerAddress, roles.strangerAddress)
@@ -184,7 +188,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.stranger)
             .addConsumer(subId, roles.strangerAddress),
-        ).to.be.revertedWith(`MustBeSubOwner()`)
+        ).to.be.revertedWith(`MustBeSubscriptionOwner()`)
       })
       it('add is idempotent', async function () {
         await contracts.router
@@ -260,7 +264,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.stranger)
             .removeConsumer(subId, roles.strangerAddress),
-        ).to.be.revertedWith(`MustBeSubOwner()`)
+        ).to.be.revertedWith(`MustBeSubscriptionOwner()`)
       })
       it('owner can update', async function () {
         const subBefore = await contracts.router.getSubscription(subId)
@@ -362,7 +366,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.stranger)
             .cancelSubscription(subId, roles.subOwnerAddress),
-        ).to.be.revertedWith(`MustBeSubOwner()`)
+        ).to.be.revertedWith(`MustBeSubscriptionOwner()`)
       })
       it('can cancel', async function () {
         await contracts.linkToken
@@ -568,6 +572,242 @@ describe('Functions Router - Subscriptions', () => {
         .withArgs(1, roles.subOwnerAddress)
       await contracts.router.setFlags(1, flags)
       expect(await contracts.router.getFlags(1)).to.equal(flags)
+    })
+  })
+
+  describe('#reentrancy', async function () {
+    // Use a fixed gas price for these tests
+    const gasPrice = 3000000000 // 3 gwei
+
+    it('allows callbacks to start another request if they have sufficient funds', async function () {
+      const subscriptionId = await createSubscription(
+        roles.subOwner,
+        [contracts.client.address],
+        contracts.router,
+        contracts.accessControl,
+        contracts.linkToken,
+      )
+
+      // Set test helper flag
+      await contracts.client.setDoValidReentrantOperation(
+        true,
+        subscriptionId,
+        ids.donId,
+      )
+
+      // Set flag so they have enough callback gas
+      const flags = new Uint8Array(32)
+      flags[0] = 1
+      await contracts.router
+        .connect(roles.defaultAccount)
+        .setFlags(subscriptionId, flags)
+
+      // Send request
+      const tx = await contracts.client.sendSimpleRequestWithJavaScript(
+        'function run(){return response}',
+        subscriptionId,
+        ids.donId,
+        400_000,
+        { gasPrice },
+      )
+      const { events } = await tx.wait()
+      const requestId = getEventArg(events, 'RequestSent', 0)
+      await expect(tx)
+        .to.emit(contracts.client, 'RequestSent')
+        .withArgs(requestId)
+
+      const response = stringToBytes('response')
+      const error = stringToBytes('')
+      const abi = ethers.utils.defaultAbiCoder
+
+      const report = abi.encode(
+        ['bytes32[]', 'bytes[]', 'bytes[]'],
+        [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
+      )
+
+      await expect(contracts.coordinator.callReport(report, { gasPrice }))
+        .to.emit(contracts.coordinator, 'OracleResponse')
+        .withArgs(requestId, await roles.defaultAccount.getAddress())
+        .to.emit(contracts.coordinator, 'BillingEnd')
+        .to.emit(contracts.client, 'FulfillRequestInvoked')
+        .withArgs(requestId, response, error)
+        .to.emit(contracts.client, 'SendRequestInvoked')
+    })
+
+    it('prevents callbacks from starting another request if have insufficient funds', async function () {
+      await acceptTermsOfService(
+        contracts.accessControl,
+        roles.subOwner,
+        roles.subOwnerAddress,
+      )
+      const createSubTx = await contracts.router
+        .connect(roles.subOwner)
+        .createSubscription()
+      const createSubReceipt = await createSubTx.wait()
+      const subscriptionId =
+        createSubReceipt.events[0].args['subscriptionId'].toNumber()
+      await contracts.router
+        .connect(roles.subOwner)
+        .addConsumer(subscriptionId, contracts.client.address)
+      await contracts.linkToken
+        .connect(roles.subOwner)
+        .transferAndCall(
+          contracts.router.address,
+          BigNumber.from('300000000000000000'),
+          ethers.utils.defaultAbiCoder.encode(['uint64'], [subscriptionId]),
+        )
+
+      // Set test helper flag
+      await contracts.client.setDoValidReentrantOperation(
+        true,
+        subscriptionId,
+        ids.donId,
+      )
+
+      // Set flag so they have enough callback gas
+      const flags = new Uint8Array(32)
+      flags[0] = 1
+      await contracts.router
+        .connect(roles.defaultAccount)
+        .setFlags(subscriptionId, flags)
+
+      // Send request
+      const tx = await contracts.client.sendSimpleRequestWithJavaScript(
+        'function run(){return response}',
+        subscriptionId,
+        ids.donId,
+        400_000,
+        { gasPrice },
+      )
+      const { events } = await tx.wait()
+      const requestId = getEventArg(events, 'RequestSent', 0)
+      await expect(tx)
+        .to.emit(contracts.client, 'RequestSent')
+        .withArgs(requestId)
+
+      const response = stringToBytes('response')
+      const error = stringToBytes('')
+      const abi = ethers.utils.defaultAbiCoder
+
+      const report = abi.encode(
+        ['bytes32[]', 'bytes[]', 'bytes[]'],
+        [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
+      )
+
+      await expect(contracts.coordinator.callReport(report, { gasPrice }))
+        .to.emit(contracts.coordinator, 'OracleResponse')
+        .withArgs(requestId, await roles.defaultAccount.getAddress())
+        .to.emit(contracts.client, 'FulfillRequestInvoked')
+        .withArgs(requestId, response, error)
+        .to.emit(contracts.coordinator, 'BillingEnd')
+        .withArgs(
+          requestId,
+          subscriptionId,
+          () => true,
+          () => true,
+          () => true,
+          1, // Result code for callback failing
+        )
+    })
+
+    it('callbacks are unable to improperly use subscription methods', async function () {
+      await acceptTermsOfService(
+        contracts.accessControl,
+        roles.subOwner,
+        roles.subOwnerAddress,
+      )
+      const createSubTx = await contracts.router
+        .connect(roles.subOwner)
+        .createSubscription()
+      const createSubReceipt = await createSubTx.wait()
+      const subscriptionId =
+        createSubReceipt.events[0].args['subscriptionId'].toNumber()
+      await contracts.router
+        .connect(roles.subOwner)
+        .addConsumer(subscriptionId, contracts.client.address)
+      await contracts.linkToken
+        .connect(roles.subOwner)
+        .transferAndCall(
+          contracts.router.address,
+          BigNumber.from('1000000000000000000'),
+          ethers.utils.defaultAbiCoder.encode(['uint64'], [subscriptionId]),
+        )
+
+      // Set flag so they have enough callback gas
+      const flags = new Uint8Array(32)
+      flags[0] = 1
+      await contracts.router
+        .connect(roles.defaultAccount)
+        .setFlags(subscriptionId, flags)
+
+      // Accept ToS for client contract
+      const acceptorAddress = roles.subOwnerAddress
+      const recipientAddress = contracts.client.address
+      const messageHash = await contracts.accessControl.getMessageHash(
+        acceptorAddress,
+        recipientAddress,
+      )
+      const wallet = new ethers.Wallet(accessControlMockPrivateKey)
+      const flatSignature = await wallet.signMessage(
+        ethers.utils.arrayify(messageHash),
+      )
+      const { r, s, v } = ethers.utils.splitSignature(flatSignature)
+      await contracts.client
+        .connect(roles.subOwner)
+        .acceptTermsOfService(acceptorAddress, recipientAddress, r, s, v)
+
+      // Transfer Subscription ownership to client contract so that it can call subscription methods
+      await contracts.router
+        .connect(roles.subOwner)
+        .proposeSubscriptionOwnerTransfer(
+          subscriptionId,
+          contracts.client.address,
+        )
+      await contracts.client.acceptSubscriptionOwnerTransfer(subscriptionId)
+
+      // Set test helper flag
+      await contracts.client.setDoInvalidReentrantOperation(
+        true,
+        subscriptionId,
+      )
+
+      // Send request
+      const tx = await contracts.client.sendSimpleRequestWithJavaScript(
+        'function run(){return response}',
+        subscriptionId,
+        ids.donId,
+        400_000,
+        { gasPrice },
+      )
+      const { events } = await tx.wait()
+      const requestId = getEventArg(events, 'RequestSent', 0)
+      await expect(tx)
+        .to.emit(contracts.client, 'RequestSent')
+        .withArgs(requestId)
+
+      const response = stringToBytes('response')
+      const error = stringToBytes('')
+      const abi = ethers.utils.defaultAbiCoder
+
+      const report = abi.encode(
+        ['bytes32[]', 'bytes[]', 'bytes[]'],
+        [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
+      )
+
+      await expect(contracts.coordinator.callReport(report, { gasPrice }))
+        .to.emit(contracts.coordinator, 'OracleResponse')
+        .withArgs(requestId, await roles.defaultAccount.getAddress())
+        .to.emit(contracts.client, 'FulfillRequestInvoked')
+        .withArgs(requestId, response, error)
+        .to.emit(contracts.coordinator, 'BillingEnd')
+        .withArgs(
+          requestId,
+          subscriptionId,
+          () => true,
+          () => true,
+          () => true,
+          1, // Result code for callback failing
+        )
     })
   })
 })
