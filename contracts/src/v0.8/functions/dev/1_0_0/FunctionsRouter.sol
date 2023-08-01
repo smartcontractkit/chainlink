@@ -190,22 +190,14 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     return requestId;
   }
 
-  function _validateProposedContracts(
-    bytes32 donId,
-    bytes calldata data
-  ) internal override returns (bytes memory output) {
+  function _validateProposedContracts(bytes32 donId, bytes calldata data) internal override returns (bytes memory) {
     (uint64 subscriptionId, bytes memory reqData, uint16 reqDataVersion, uint32 callbackGasLimit) = abi.decode(
       data,
       (uint64, bytes, uint16, uint32)
     );
     IFunctionsCoordinator coordinator = IFunctionsCoordinator(getProposedContractById(donId));
     bytes32 requestId = _sendRequest(donId, coordinator, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
-    // Convert to bytes as a more generic return
-    output = new bytes(32);
-    // Bounded by 32
-    for (uint256 i; i < 32; ++i) {
-      output[i] = requestId[i];
-    }
+    return abi.encode(requestId);
   }
 
   /**
