@@ -66,7 +66,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // |                          Timelock state                      |
   // ================================================================
 
-  uint16 internal s_maximumTimelockBlocks;
+  uint16 private immutable s_maximumTimelockBlocks;
   uint16 internal s_timelockBlocks;
 
   struct TimeLockProposal {
@@ -93,7 +93,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     // Set initial value for the number of blocks of the timelock
     s_timelockBlocks = timelockBlocks;
     // Set maximum number of blocks that the timelock can be
-    // NOTE: this cannot be later modified
     s_maximumTimelockBlocks = maximumTimelockBlocks;
     // Set the initial configuration for the Router
     s_route[ROUTER_ID] = address(this);
