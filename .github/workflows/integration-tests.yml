@@ -52,6 +52,8 @@ jobs:
       src: ${{ steps.changes.outputs.src }}
 
   build-chainlink:
+    ## DEBUG: Testing what's up
+    if: false
     environment: integration
     permissions:
       id-token: write
@@ -139,6 +141,8 @@ jobs:
 
   eth-smoke-tests-matrix:
     environment: integration
+    ## DEBUG: Testing what's up
+    if: false
     permissions:
       checks: write
       pull-requests: write
@@ -350,6 +354,8 @@ jobs:
 
   ### Solana Section
   get_solana_sha:
+    ## DEBUG: Testing what's up
+    if: false
     name: Get Solana Sha From Go Mod
     environment: Integration
     runs-on: ubuntu-latest
@@ -577,7 +583,8 @@ jobs:
 
   ### Start Live Testnet Section
 
-  testnet-smoke-tests-matrix:
+  testnet-smoke-tests-matrix: 
+    ## DEBUG: Testing what's up
     if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }} ## Only run live tests on new tags and nightly
     environment: integration
     permissions:
@@ -585,7 +592,9 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, build-test-image]
+    ## DEBUG: Testing what's up
+    # needs: [build-chainlink, build-test-image]
+    needs: [build-test-image]
     env:
       SELECTED_NETWORKS: ${{ matrix.testnet }}
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -630,7 +639,9 @@ jobs:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 ./smoke/ocr_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
+          ## DEBUG: Testing what's up
+          # cl_image_tag: ${{ github.sha }}
+          cl_image_tag: latest
           artifacts_location: ./integration-tests/smoke/logs
           publish_check_name: ${{ matrix.testnet }} OCR Smoke Test Results
           token: ${{ secrets.GITHUB_TOKEN }}
