@@ -232,8 +232,13 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   ) external override returns (uint8 resultCode, uint96 callbackGasCostJuels) {
     _whenNotPaused();
 
-    if (keccak256(abi.encode(commitment)) != s_requestCommitments[commitment.requestId]) {
+    if (s_requestCommitments[commitment.requestId] == bytes32(0)) {
       resultCode = 2; // FulfillResult.INVALID_REQUEST_ID
+      return (resultCode, callbackGasCostJuels);
+    }
+
+    if (keccak256(abi.encode(commitment)) != s_requestCommitments[commitment.requestId]) {
+      resultCode = 7; // FulfillResult.INVALID_REQUEST_ID
       return (resultCode, callbackGasCostJuels);
     }
 
