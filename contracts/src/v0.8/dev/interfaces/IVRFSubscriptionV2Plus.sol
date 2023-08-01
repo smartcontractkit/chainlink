@@ -60,12 +60,16 @@ interface IVRFSubscriptionV2Plus {
    * @param subId - ID of the subscription
    * @return balance - LINK balance of the subscription in juels.
    * @return ethBalance - ETH balance of the subscription in wei.
+   * @return reqCount - Requests count of subscription.
    * @return owner - owner of the subscription.
    * @return consumers - list of consumer address which are able to use this subscription.
    */
   function getSubscription(
     uint256 subId
-  ) external view returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers);
+  )
+    external
+    view
+    returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers);
 
   /**
    * @notice Fund a subscription with ETH.
