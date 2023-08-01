@@ -35,7 +35,7 @@ func CalculateBumpedFee(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, curr
 // - A configured fixed amount of Unit (FEE_PRICE_Unit) on top of the baseline price.
 // The baseline price is the maximum of the previous fee price attempt and the node's current fee price.
 func bumpFeePrice(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentfeePrice, originalfeePrice, maxFeePriceInput *big.Int) (*big.Int, error) {
-	maxFeePrice := getMaxFeePrice(maxFeePriceInput, cfg.PriceMax()) // Make a wrapper config
+	maxFeePrice := FeePriceLimit(maxFeePriceInput, cfg.PriceMax()) // Make a wrapper config
 	bumpedFeePrice := bumpFeePriceByPercentage(originalfeePrice, cfg.BumpPercent(), cfg.BumpMin())
 
 	// Update bumpedFeePrice if currentfeePrice is higher than bumpedFeePrice and within maxFeePrice
@@ -53,10 +53,6 @@ func bumpFeePrice(cfg feetypes.BumpConfig, lggr logger.SugaredLogger, currentfee
 			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", bumpedFeePrice.String(), originalfeePrice.String())
 	}
 	return bumpedFeePrice, nil
-}
-
-func getMaxFeePrice(userSpecifiedMax, maxFeePrice *big.Int) *big.Int {
-	return FeePriceLimit(userSpecifiedMax, maxFeePrice)
 }
 
 // Returns max of originalFeePrice bumped by fixed units or percentage.
@@ -106,7 +102,7 @@ func GetDynamicFee(cfg feetypes.FixedPriceEstimatorConfig, originalFeeLimit uint
 func GetFeeCap(cfg feetypes.FixedPriceEstimatorConfig, originalFeeLimit uint32, maxFeePrice *big.Int) (feeCap *big.Int) {
 	if cfg.BumpThreshold() == 0 {
 		// Fee bumping is disabled, just use the max fee cap
-		feeCap = getMaxFeePrice(maxFeePrice, cfg.PriceMax())
+		feeCap = FeePriceLimit(maxFeePrice, cfg.PriceMax())
 	} else {
 		// Need to leave headroom for bumping so we fallback to the default value here
 		feeCap = cfg.FeeCapDefault()
@@ -125,7 +121,7 @@ func CalculateBumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16,
 }
 
 func bumpDynamicFee(cfg feetypes.BumpConfig, feeCapBufferBlocks uint16, lggr logger.SugaredLogger, currentTipCap, currentBaseFee *big.Int, originalFeeCap, originalTipCap *big.Int, maxFeePriceInput *big.Int) (bumpedFeeCap, bumpedTipCap *big.Int, err error) {
-	maxFeePrice := getMaxFeePrice(maxFeePriceInput, cfg.PriceMax())
+	maxFeePrice := FeePriceLimit(maxFeePriceInput, cfg.PriceMax())
 	baselineTipCap := max(originalTipCap, cfg.TipCapDefault())
 	bumpedTipCap = bumpFeePriceByPercentage(baselineTipCap, cfg.BumpPercent(), cfg.BumpMin())
 
