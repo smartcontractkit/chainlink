@@ -374,7 +374,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     // (1e18 juels/link) * (wei/gas) / (wei/link) = juels per gas
     uint256 juelsPerGas = (1e18 * tx.gasprice) / uint256(weiPerUnitLink);
     // Gas overhead without callback
-    uint96 gasOverhead = uint96(
+    uint96 gasOverheadJuels = uint96(
       juelsPerGas * (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback)
     );
 
@@ -384,13 +384,13 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
       response,
       err,
       uint96(juelsPerGas),
-      gasOverhead + commitment.donFee, // costWithoutFulfillment
+      gasOverheadJuels + commitment.donFee, // costWithoutFulfillment
       msg.sender,
       commitment
     );
 
     // Reimburse the transmitter for the fulfillment gas cost
-    s_withdrawableTokens[msg.sender] = gasOverhead + callbackCostJuels;
+    s_withdrawableTokens[msg.sender] = gasOverheadJuels + callbackCostJuels;
     // Put donFee into the pool of fees, to be split later
     // Saves on storage writes that would otherwise be charged to the user
     s_feePool += commitment.donFee;
@@ -399,8 +399,8 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
       requestId,
       commitment.subscriptionId,
       commitment.donFee,
-      gasOverhead + callbackCostJuels,
-      gasOverhead + callbackCostJuels + commitment.donFee + commitment.adminFee,
+      gasOverheadJuels + callbackCostJuels,
+      gasOverheadJuels + callbackCostJuels + commitment.donFee + commitment.adminFee,
       FulfillResult(result)
     );
 
