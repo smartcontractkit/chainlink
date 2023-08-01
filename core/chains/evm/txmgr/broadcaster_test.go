@@ -1577,7 +1577,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Check gas tip cap verification
 		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "bumped fee tip cap of 1 wei is less than or equal to original fee tip cap of 1 wei")
+		require.Contains(t, err.Error(), "bumped gas tip cap of 1 wei is less than or equal to original gas tip cap of 1 wei")
 		assert.True(t, retryable)
 
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
