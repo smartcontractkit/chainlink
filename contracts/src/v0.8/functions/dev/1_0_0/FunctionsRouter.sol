@@ -129,7 +129,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
   function _sendRequest(
     bytes32 donId,
-    address coordinatorAddress,
+    IFunctionsCoordinator coordinator,
     uint64 subscriptionId,
     bytes memory data,
     uint16 dataVersion,
@@ -149,7 +149,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       estimatedCost,
       gasAfterPaymentCalculation, // Used to ensure that the transmitter supplies enough gas
       requestTimeoutSeconds
-    ) = IFunctionsCoordinator(coordinatorAddress).sendRequest(
+    ) = coordinator.sendRequest(
       IFunctionsCoordinator.Request({
         requestingContract: msg.sender,
         subscriptionOwner: s_subscriptions[subscriptionId].owner,
@@ -166,7 +166,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     // Store a commitment about the request
     s_requestCommitments[requestId] = Commitment({
       adminFee: s_config.adminFee,
-      coordinator: coordinatorAddress,
+      coordinator: address(coordinator),
       client: msg.sender,
       subscriptionId: subscriptionId,
       callbackGasLimit: callbackGasLimit,
@@ -198,15 +198,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       data,
       (uint64, bytes, uint16, uint32)
     );
-    address coordinatorAddress = getProposedContractById(donId);
-    bytes32 requestId = _sendRequest(
-      donId,
-      coordinatorAddress,
-      subscriptionId,
-      reqData,
-      reqDataVersion,
-      callbackGasLimit
-    );
+    IFunctionsCoordinator coordinator = IFunctionsCoordinator(getProposedContractById(donId));
+    bytes32 requestId = _sendRequest(donId, coordinator, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
     // Convert to bytes as a more generic return
     output = new bytes(32);
     // Bounded by 32
@@ -225,8 +218,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint32 callbackGasLimit,
     bytes32 donId
   ) external override returns (bytes32) {
-    address coordinatorAddress = getContractById(donId);
-    return _sendRequest(donId, coordinatorAddress, subscriptionId, data, dataVersion, callbackGasLimit);
+    IFunctionsCoordinator coordinator = IFunctionsCoordinator(getContractById(donId));
+    return _sendRequest(donId, coordinator, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
   /**
