@@ -504,12 +504,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
       Commitment memory request = s_requestCommitments[requestId];
       uint64 subscriptionId = request.subscriptionId;
 
-      // Check that the message sender is the subscription owner
-      _isValidSubscription(subscriptionId);
-      address owner = s_subscriptions[subscriptionId].owner;
-      if (msg.sender != owner) {
-        revert MustBeSubscriptionOwner();
-      }
+      _onlySubscriptionOwner(subscriptionId);
 
       // Check that request has exceeded allowed request time
       if (block.timestamp < request.timeoutTimestamp) {
