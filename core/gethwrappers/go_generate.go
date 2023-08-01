@@ -120,7 +120,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy.bin MockAggregatorProxy mock_aggregator_proxy
 
 // Log tester
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/LogEmitter.abi ../../contracts/solc/v0.8.6/LogEmitter.bin LogEmitter log_emitter
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/LogEmitter.abi ../../contracts/solc/v0.8.19/LogEmitter.bin LogEmitter log_emitter
 
 // Chainlink Functions
 //go:generate go generate ./functions
