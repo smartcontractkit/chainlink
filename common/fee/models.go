@@ -64,15 +64,16 @@ func bumpFeePriceByPercentage(originalFeePrice *big.Int, feeBumpPercent uint16, 
 }
 
 func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, maxFeePrice *big.Int, feeType string) *big.Int {
-	if currentFeePrice != nil {
-		if currentFeePrice.Cmp(maxFeePrice) > 0 {
-			// Shouldn't happen because the estimator should not be allowed to
-			// estimate a higher fee than the maximum allowed
-			lggr.AssumptionViolationf("Ignoring current %s of %s that would exceed max %s of %s", feeType, currentFeePrice.String(), feeType, maxFeePrice.String())
-		} else if bumpedFeePrice.Cmp(currentFeePrice) < 0 {
-			// If the current fee price is higher than the old price bumped, use that instead
-			bumpedFeePrice = currentFeePrice
-		}
+	if currentFeePrice == nil {
+		return bumpedFeePrice
+	}
+	if currentFeePrice.Cmp(maxFeePrice) > 0 {
+		// Shouldn't happen because the estimator should not be allowed to
+		// estimate a higher fee than the maximum allowed
+		lggr.AssumptionViolationf("Ignoring current %s of %s that would exceed max %s of %s", feeType, currentFeePrice.String(), feeType, maxFeePrice.String())
+	} else if bumpedFeePrice.Cmp(currentFeePrice) < 0 {
+		// If the current fee price is higher than the old price bumped, use that instead
+		return currentFeePrice
 	}
 	return bumpedFeePrice
 }
