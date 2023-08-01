@@ -25,11 +25,6 @@ var (
 func TestResolver_ConfigV2(t *testing.T) {
 	t.Parallel()
 
-	fmt.Println("configEmptyEffective: ", configEmptyEffective)
-	fmt.Println("configFull: ", configFull)
-	fmt.Println("configMulti: ", configMulti)
-	fmt.Println("configMultiEffective: ", configMultiEffective)
-
 	query := `
 		query FetchConfigV2 {
 			configv2 {
