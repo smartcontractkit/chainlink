@@ -223,13 +223,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                   Config Proposal methods                    |
   // ================================================================
-  /**
-   * @notice Get the hash of the Router's current configuration
-   * @return config hash of config bytes
-   */
-  function getConfigHash() external view returns (bytes32 config) {
-    return s_configHash;
-  }
 
   /**
    * @dev Must be implemented by inheriting contract
