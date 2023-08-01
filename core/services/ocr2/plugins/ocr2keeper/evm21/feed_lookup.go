@@ -84,13 +84,15 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d buildCallOpts: %v", upkeepId, block, err)
-			return nil, err
+			ext.FailureReason = UPKEEP_FAILURE_REASON_BUILD_CALL_OPTS_FAILED
+			upkeepResults[i].Extension = ext
+			r.lggr.Errorf("[FeedLookup] failed to build call opts for upkeepId %s and block %s: %s", upkeepId, block, err)
+			continue
 		}
 
 		allowed, err := r.allowedToUseMercury(opts, upkeepId)
 		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d failed to time mercury allow list: %v", upkeepId, block, err)
+			r.lggr.Errorf("[FeedLookup] failed to get mercury allow list for upkeep %s block %d : %s", upkeepId, block, err)
 			continue
 		}
 
@@ -104,6 +106,8 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 		r.lggr.Infof("[FeedLookup] upkeep %s block %d decodeFeedLookup performData=%s", upkeepId, block, hexutil.Encode(upkeepResults[i].PerformData))
 		lookup, err := r.decodeFeedLookup(res.PerformData)
 		if err != nil {
+			ext.FailureReason = UPKEEP_FAILURE_REASON_UNPACK_FAILED
+			upkeepResults[i].Extension = ext
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
 			continue
 		}
@@ -129,14 +133,14 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *FeedLookup, i int, upkeepResults []ocr2keepers.CheckResult) {
 	defer wg.Done()
 
+	ext := upkeepResults[i].Extension.(EVMAutomationResultExtension21)
 	values, retryable, err := r.doMercuryRequest(ctx, lookup)
 	if err != nil {
-		r.lggr.Errorf("[FeedLookup] upkeep %s retryable %v doMercuryRequest: %v", lookup.upkeepId, retryable, err)
+		r.lggr.Errorf("[FeedLookup] upkeep %s retryable %v: %s", lookup.upkeepId, retryable, err)
+		ext.FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
+		upkeepResults[i].Extension = ext
 		upkeepResults[i].Retryable = retryable
 		return
-	}
-	for j, v := range values {
-		r.lggr.Infof("[FeedLookup] checkCallback values[%d]=%s", j, hexutil.Encode(v))
 	}
 
 	mercuryBytes, err := r.checkCallback(ctx, values, lookup)

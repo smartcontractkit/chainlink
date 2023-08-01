@@ -30,10 +30,11 @@ const (
 	// Start of offchain failure types. All onchain failure reasons from
 	// contract should be put above
 	UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
-	UPKEEP_FAILURE_BUILD_CALL_OPTS_FAILED
-	UPKEEP_FAILURE_PACK_FAILED
-	UPKEEP_FAILURE_UNPACK_FAILED
-	UPKEEP_FAILURE_ERROR_RESULT
+	UPKEEP_FAILURE_REASON_MERCURY_REQUEST_FAILED
+	UPKEEP_FAILURE_REASON_BUILD_CALL_OPTS_FAILED
+	UPKEEP_FAILURE_REASON_PACK_FAILED
+	UPKEEP_FAILURE_REASON_UNPACK_FAILED
+	UPKEEP_FAILURE_REASON_ERROR_RESULT
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -59,7 +60,7 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		result.Extension = EVMAutomationResultExtension21{
-			FailureReason: UPKEEP_FAILURE_UNPACK_FAILED,
+			FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
 		}
 		return result, fmt.Errorf("failed to decode checkUpkeep result %s: %s", raw, err)
 	}
@@ -67,7 +68,7 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		result.Extension = EVMAutomationResultExtension21{
-			FailureReason: UPKEEP_FAILURE_UNPACK_FAILED,
+			FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
 		}
 		return result, fmt.Errorf("failed to unpack checkUpkeep result %s: %s", raw, err)
 	}
