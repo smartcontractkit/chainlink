@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -77,6 +78,53 @@ func NewClNode(networks []string, nodeConfOpts node.NodeConfigOpts, opts ...ClNo
 func (n *ClNode) AddBootstrapJob(verifierAddr common.Address, fromBlock uint64, chainId int64,
 	feedId [32]byte) (*client.Job, error) {
 	spec := utils.BuildBootstrapSpec(verifierAddr, chainId, fromBlock, feedId)
+	return n.API.MustCreateJob(spec)
+}
+
+func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64, chainId int64,
+	feedId [32]byte, customAllowedFaults *int, bootstrapUrl string,
+	mercuryServerUrl string, mercuryServerPubKey string,
+	eaUrls []*url.URL) (*client.Job, error) {
+
+	csaKeys, _, err := n.API.ReadCSAKeys()
+	if err != nil {
+		return nil, err
+	}
+	csaPubKey := csaKeys.Data[0].ID
+
+	nodeOCRKeys, err := n.API.MustReadOCR2Keys()
+	if err != nil {
+		return nil, err
+	}
+
+	var nodeOCRKeyId []string
+	for _, key := range nodeOCRKeys.Data {
+		if key.Attributes.ChainType == string(chaintype.EVM) {
+			nodeOCRKeyId = append(nodeOCRKeyId, key.ID)
+			break
+		}
+	}
+
+	bridges := utils.BuildBridges(eaUrls)
+	for _, b := range bridges {
+		err = n.API.MustCreateBridge(&b)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var allowedFaults int
+	if customAllowedFaults != nil {
+		allowedFaults = *customAllowedFaults
+	} else {
+		allowedFaults = 2
+	}
+
+	spec := utils.BuildOCRSpec(
+		verifierAddr, chainId, fromBlock, feedId, bridges,
+		csaPubKey, mercuryServerUrl, mercuryServerPubKey, nodeOCRKeyId[0],
+		bootstrapUrl, allowedFaults)
+
 	return n.API.MustCreateJob(spec)
 }
 
