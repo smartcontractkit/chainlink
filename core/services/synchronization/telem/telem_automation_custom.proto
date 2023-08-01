@@ -5,16 +5,21 @@ option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/sync
 package telem;
 
 message BlockNumber {
-    string node_id = 1;
-    uint64 timetsamp = 2;
-    uint64 block_number = 3;
-    string block_hash = 4;
+    uint64 timestamp = 1;
+    uint64 block_number = 2;
+    string block_hash = 3;
 }
 
 message NodeVersion {
-    string node_id = 1;
-    uint64 timestamp = 2;
-    uint32 node_version = 3;
+    uint64 timestamp = 1;
+    string node_version = 2;
+}
+
+message AutomationTelemWrapper{
+    oneof msg {
+        BlockNumber block_number = 1;
+        NodeVersion node_version = 2;
+    }
 }
 
 // // StreamsLookup contains the metadata about a mercury request
