@@ -119,15 +119,15 @@ interface IFunctionsSubscriptions {
   function createSubscription() external returns (uint64);
 
   /**
-   * @notice Request subscription owner transfer.
+   * @notice Propose a new owner for a subscription.
    * @dev Only callable by the Subscription's owner
    * @param subscriptionId - ID of the subscription
    * @param newOwner - proposed new owner of the subscription
    */
-  function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external;
+  function proposeSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external;
 
   /**
-   * @notice Request subscription owner transfer.
+   * @notice Accept an ownership transfer.
    * @param subscriptionId - ID of the subscription
    * @dev will revert if original owner of subscriptionId has
    * not requested that msg.sender become the new owner.
