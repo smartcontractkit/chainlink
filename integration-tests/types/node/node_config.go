@@ -59,7 +59,8 @@ ListenPort = 6690
 `
 
 type NodeConfigOpts struct {
-	EVM struct {
+	ReplicaIndex int
+	EVM          struct {
 		HttpUrl string
 		WsUrl   string
 	}

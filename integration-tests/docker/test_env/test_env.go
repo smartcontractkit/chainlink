@@ -1,14 +1,11 @@
 package test_env
 
 import (
-	"context"
 	"crypto/ed25519"
 	"encoding/hex"
-	"github.com/pkg/errors"
 	"strings"
 	"sync"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -23,27 +20,25 @@ import (
 )
 
 type CLClusterTestEnv struct {
+	reusable   bool
 	Network    *tc.DockerNetwork
 	LogWatch   *logwatch.LogWatch
-	CLNodes    []ClNode
-	Geth       Geth
-	MockServer MockServer
+	CLNodes    []*ClNode
+	Geth       *Geth
+	MockServer *MockServer
 }
 
-func NewTestEnv() (*CLClusterTestEnv, error) {
+func NewTestEnv(reusable bool) (*CLClusterTestEnv, error) {
 	network, err := docker.CreateNetwork()
 	if err != nil {
 		return nil, err
 	}
 	networks := []string{network.Name}
 	return &CLClusterTestEnv{
-		Network: network,
-		Geth: Geth{
-			Networks: networks,
-		},
-		MockServer: MockServer{
-			Networks: networks,
-		},
+		reusable:   reusable,
+		Network:    network,
+		Geth:       NewGeth(networks, reusable),
+		MockServer: NewMockServer(networks, reusable),
 	}, nil
 }
 
@@ -63,13 +58,13 @@ func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts node.NodeConfigOpts, coun
 
 	// Start nodes
 	for i := 0; i < count; i++ {
+		i := i
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			n := ClNode{
-				Networks: []string{m.Network.Name},
-			}
-			err := n.StartContainer(m.LogWatch, nodeConfigOpts)
+			nodeConfigOpts.ReplicaIndex = i
+			n := NewClNode([]string{m.Network.Name}, nodeConfigOpts, m.reusable)
+			err := n.StartContainer(m.LogWatch)
 			if err != nil {
 				mu.Lock()
 				errs = append(errs, err)
@@ -106,11 +101,11 @@ func (m *CLClusterTestEnv) GetDefaultNodeConfigOpts() node.NodeConfigOpts {
 func (m *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 	addresses := make([]common.Address, 0)
 	for _, n := range m.CLNodes {
-		primaryAddress, err := n.API.PrimaryEthAddress()
+		primaryAddress, err := n.ChainlinkNodeAddress()
 		if err != nil {
 			return nil, err
 		}
-		addresses = append(addresses, common.HexToAddress(primaryAddress))
+		addresses = append(addresses, primaryAddress)
 	}
 	return addresses, nil
 }
@@ -118,16 +113,7 @@ func (m *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
 func (m *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 	for _, cl := range m.CLNodes {
-		toAddress, err := cl.API.PrimaryEthAddress()
-		if err != nil {
-			return err
-		}
-		gasEstimates, err := m.Geth.EthClient.EstimateGas(ethereum.CallMsg{})
-		if err != nil {
-			return err
-		}
-		err = m.Geth.EthClient.Fund(toAddress, amount, gasEstimates)
-		if err != nil {
+		if err := cl.Fund(m.Geth, amount); err != nil {
 			return err
 		}
 	}
@@ -137,7 +123,7 @@ func (m *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 func (m *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 	var keys []string
 	for _, n := range m.CLNodes {
-		csaKeys, _, err := n.API.ReadCSAKeys()
+		csaKeys, err := n.GetNodeCSAKeys()
 		if err != nil {
 			return nil, err
 		}
@@ -227,46 +213,7 @@ func getOracleIdentities(chainlinkNodes []ClNode) ([]int, []confighelper.OracleI
 }
 
 func (m *CLClusterTestEnv) Terminate() error {
-	var wg sync.WaitGroup
-	var errs = []error{}
-	var errMu sync.Mutex
-
-	for _, n := range m.CLNodes {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := n.NodeC.Terminate(context.Background())
-			if err != nil {
-				errMu.Lock()
-				errs = append(errs, err)
-				errMu.Unlock()
-			}
-		}()
-	}
-	if m.Geth.Ct != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			err := m.Geth.Ct.Terminate(context.Background())
-			if err != nil {
-				errMu.Lock()
-				errs = append(errs, err)
-				errMu.Unlock()
-			}
-		}()
-	}
-
-	wg.Wait()
-
-	// Remove network after all active endpoints/containers deleted
-	err := m.Network.Remove(context.Background())
-	if err != nil {
-		errs = append(errs, err)
-	}
-
-	if len(errs) > 0 {
-		return errors.Wrapf(multierr.Combine(errs...),
-			"Error terminating Mercury test env")
-	}
+	// TESTCONTAINERS_RYUK_DISABLED=false by defualt so ryuk will remove all
+	// the containers and the network
 	return nil
 }

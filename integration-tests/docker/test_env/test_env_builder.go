@@ -1,14 +1,14 @@
 package test_env
 
 import (
-	"time"
-
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/node"
+	"os"
 )
 
 type CLTestEnvBuilder struct {
+	reusable             bool
 	hasLogWatch          bool
 	hasGeth              bool
 	hasMockServer        bool
@@ -16,13 +16,11 @@ type CLTestEnvBuilder struct {
 	externalAdapterCount int
 	customNodeCsaKeys    []string
 	defaultNodeCsaKeys   []string
-	ocrTimeout           time.Duration
 }
 
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
 		externalAdapterCount: 1,
-		ocrTimeout:           3 * time.Minute,
 	}
 }
 
@@ -41,6 +39,12 @@ func (m *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
 	return m
 }
 
+func (m *CLTestEnvBuilder) WithReusable() *CLTestEnvBuilder {
+	m.reusable = true
+	_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
+	return m
+}
+
 func (m *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBuilder {
 	m.hasMockServer = true
 	m.externalAdapterCount = externalAdapterCount
@@ -55,10 +59,9 @@ func (m *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		Int("clNodesCount", m.clNodesCount).
 		Strs("customNodeCsaKeys", m.customNodeCsaKeys).
 		Strs("defaultNodeCsaKeys", m.defaultNodeCsaKeys).
-		Str("ocrTimeout", m.ocrTimeout.String()).
 		Msg("Building CL cluster test environment..")
 
-	te, err := NewTestEnv()
+	te, err := NewTestEnv(m.reusable)
 	if err != nil {
 		return te, err
 	}

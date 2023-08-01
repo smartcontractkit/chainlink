@@ -58,7 +58,7 @@ func TestRunLogBasic(t *testing.T) {
 	require.NoError(t, err, "Building observation source spec shouldn't fail")
 
 	_, err = env.CLNodes[0].API.MustCreateJob(&client.DirectRequestJobSpec{
-		Name:                     "direct_request",
+		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
 		ExternalJobID:            jobUUID.String(),

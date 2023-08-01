@@ -9,12 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/google/uuid"
-
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	env "github.com/smartcontractkit/chainlink/integration-tests/types/envcommon"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
@@ -30,18 +30,28 @@ const (
 )
 
 type Geth struct {
-	Ct               tc.Container
+	env.EnvComponent
 	ExternalHttpUrl  string
 	InternalHttpUrl  string
 	ExternalWsUrl    string
 	InternalWsUrl    string
 	EthClient        blockchain.EVMClient
 	ContractDeployer contracts.ContractDeployer
-	Networks         []string
+}
+
+func NewGeth(networks []string, reusable bool) *Geth {
+	return &Geth{
+		EnvComponent: env.NewEnvComponent(env.EnvComponentOpts{
+			Name:     "geth",
+			ID:       uuid.NewString(),
+			Networks: networks,
+			Reuse:    reusable,
+		}),
+	}
 }
 
 func (m *Geth) StartContainer(lw *logwatch.LogWatch) error {
-	r, _, _, err := GetGethContainerRequest(m.Networks)
+	r, _, _, err := m.getGethContainerRequest(m.Networks)
 	if err != nil {
 		return err
 	}
@@ -49,6 +59,7 @@ func (m *Geth) StartContainer(lw *logwatch.LogWatch) error {
 		tc.GenericContainerRequest{
 			ContainerRequest: *r,
 			Started:          true,
+			Reuse:            true,
 		})
 	if err != nil {
 		return errors.Wrapf(err, "cannot start geth container")
@@ -76,7 +87,7 @@ func (m *Geth) StartContainer(lw *logwatch.LogWatch) error {
 	}
 	ctName = strings.Replace(ctName, "/", "", -1)
 
-	m.Ct = ct
+	m.EnvComponent.Container = ct
 	m.ExternalHttpUrl = fmt.Sprintf("http://%s:%s", host, httpPort.Port())
 	m.InternalHttpUrl = fmt.Sprintf("http://%s:8544", ctName)
 	m.ExternalWsUrl = fmt.Sprintf("ws://%s:%s", host, wsPort.Port())
@@ -108,7 +119,7 @@ func (m *Geth) StartContainer(lw *logwatch.LogWatch) error {
 	return nil
 }
 
-func GetGethContainerRequest(networks []string) (*tc.ContainerRequest, *keystore.KeyStore, *accounts.Account, error) {
+func (m *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest, *keystore.KeyStore, *accounts.Account, error) {
 	chainId := "1337"
 	blocktime := "1"
 
@@ -160,7 +171,7 @@ func GetGethContainerRequest(networks []string) (*tc.ContainerRequest, *keystore
 	}
 
 	return &tc.ContainerRequest{
-		Name:         fmt.Sprintf("geth-%s", uuid.NewString()),
+		Name:         m.ContainerName,
 		Image:        "ethereum/client-go:stable",
 		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
 		Networks:     networks,

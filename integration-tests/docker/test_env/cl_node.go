@@ -10,24 +10,45 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	commonTypes "github.com/smartcontractkit/chainlink/integration-tests/types/common"
+	env "github.com/smartcontractkit/chainlink/integration-tests/types/envcommon"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
+	"math/big"
 )
 
 type ClNode struct {
-	NodeC    tc.Container
-	DbC      *tc.Container
-	API      *client.ChainlinkClient
-	Networks []string
+	env.EnvComponent
+	API            *client.ChainlinkClient
+	NodeConfigOpts node.NodeConfigOpts
+	DbC            *tc.Container
+	DbCName        string
+	DbOpts         env.PgOpts
+}
+
+func NewClNode(networks []string, opts node.NodeConfigOpts, reusable bool) *ClNode {
+	id := uuid.NewString()
+	co := env.EnvComponentOpts{
+		Name:         "cl-node",
+		ID:           id,
+		ReplicaIndex: opts.ReplicaIndex,
+		Networks:     networks,
+		Reuse:        reusable,
+	}
+	return &ClNode{
+		EnvComponent:   env.NewEnvComponent(co),
+		DbCName:        env.NewReusableName("cl-db", co.ReplicaIndex, co.ID, co.Reuse),
+		NodeConfigOpts: opts,
+		DbOpts:         env.NewDefaultPgOpts("cl-node", networks),
+	}
 }
 
 func (m *ClNode) AddBootstrapJob(verifierAddr common.Address, fromBlock uint64, chainId int64,
@@ -37,7 +58,7 @@ func (m *ClNode) AddBootstrapJob(verifierAddr common.Address, fromBlock uint64, 
 }
 
 func (m *ClNode) GetContainerName() string {
-	name, err := m.NodeC.Name(context.Background())
+	name, err := m.EnvComponent.Container.Name(context.Background())
 	if err != nil {
 		return ""
 	}
@@ -54,35 +75,40 @@ func (m *ClNode) GetPeerUrl() (string, error) {
 	return fmt.Sprintf("%s@%s:%d", p2pId, m.GetContainerName(), 6690), nil
 }
 
-func GetPgContainerRequest(o commonTypes.PgOpts) *tc.ContainerRequest {
-	return &tc.ContainerRequest{
-		Name:         fmt.Sprintf("pg-%s", uuid.NewString()),
-		Image:        "postgres:15.3",
-		ExposedPorts: []string{fmt.Sprintf("%s/tcp", o.Port)},
-		Env: map[string]string{
-			"POSTGRES_USER":     o.User,
-			"POSTGRES_DB":       o.DbName,
-			"POSTGRES_PASSWORD": o.Password,
-		},
-		Networks: o.Networks,
-		WaitingFor: tcwait.ForExec([]string{"psql", "-h", "localhost",
-			"-U", o.User, "-c", "select", "1", "-d", o.DbName}).
-			WithStartupTimeout(10 * time.Second),
+func (m *ClNode) GetNodeCSAKeys() (*client.CSAKeys, error) {
+	csaKeys, _, err := m.API.ReadCSAKeys()
+	if err != nil {
+		return nil, err
 	}
+	return csaKeys, err
 }
 
-func (m *ClNode) StartContainer(lw *logwatch.LogWatch, nodeConfOpts node.NodeConfigOpts) error {
-	pgOpts := commonTypes.PgOpts{
-		Port:     "5432",
-		User:     "postgres",
-		Password: "test",
-		DbName:   "cl-node",
-		Networks: m.Networks,
+func (m *ClNode) ChainlinkNodeAddress() (common.Address, error) {
+	addr, err := m.API.PrimaryEthAddress()
+	if err != nil {
+		return common.Address{}, err
 	}
-	pgReq := GetPgContainerRequest(pgOpts)
+	return common.HexToAddress(addr), nil
+}
+
+func (m *ClNode) Fund(g *Geth, amount *big.Float) error {
+	toAddress, err := m.API.PrimaryEthAddress()
+	if err != nil {
+		return err
+	}
+	gasEstimates, err := g.EthClient.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return g.EthClient.Fund(toAddress, amount, gasEstimates)
+}
+
+func (m *ClNode) StartContainer(lw *logwatch.LogWatch) error {
+	pgReq := env.GetPgContainerRequest(m.DbCName, m.DbOpts)
 	pgC, err := tc.GenericContainer(context.Background(), tc.GenericContainerRequest{
 		ContainerRequest: *pgReq,
 		Started:          true,
+		Reuse:            true,
 	})
 	if err != nil {
 		return err
@@ -92,13 +118,14 @@ func (m *ClNode) StartContainer(lw *logwatch.LogWatch, nodeConfOpts node.NodeCon
 	if err != nil {
 		return err
 	}
-	clReq, err := GetClNodeContainerRequest(nodeConfOpts, nodeSecrets, m.Networks)
+	clReq, err := m.getContainerRequest(nodeSecrets)
 	if err != nil {
 		return err
 	}
 	clC, err := tc.GenericContainer(context.Background(), tc.GenericContainerRequest{
 		ContainerRequest: *clReq,
 		Started:          true,
+		Reuse:            true,
 	})
 	if err != nil {
 		return errors.Wrapf(err, "could not start chainlink node container")
@@ -131,20 +158,20 @@ func (m *ClNode) StartContainer(lw *logwatch.LogWatch, nodeConfOpts node.NodeCon
 		return errors.Wrapf(err, "could not connect Node HTTP Client")
 	}
 
-	m.NodeC = clC
+	m.EnvComponent.Container = clC
 	m.DbC = &pgC
 	m.API = clClient
 
 	return nil
 }
 
-func GetClNodeContainerRequest(nodeConfOpts node.NodeConfigOpts, secrets string, networks []string) (
+func (m *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := ioutil.TempFile("", "node_config")
 	if err != nil {
 		return nil, err
 	}
-	config, err := node.ExecuteNodeConfigTemplate(nodeConfOpts)
+	config, err := node.ExecuteNodeConfigTemplate(m.NodeConfigOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +224,7 @@ func GetClNodeContainerRequest(nodeConfOpts node.NodeConfigOpts, secrets string,
 	}
 
 	return &tc.ContainerRequest{
-		Name:         fmt.Sprintf("node-%s", uuid.NewString()[0:5]),
+		Name:         m.EnvComponent.ContainerName,
 		Image:        fmt.Sprintf("%s:%s", image, tag),
 		ExposedPorts: []string{"6688/tcp"},
 		Entrypoint: []string{"chainlink",
@@ -207,7 +234,7 @@ func GetClNodeContainerRequest(nodeConfOpts node.NodeConfigOpts, secrets string,
 			"-p", adminCredsPath,
 			"-a", apiCredsPath,
 		},
-		Networks: networks,
+		Networks: m.Networks,
 		WaitingFor: tcwait.ForHTTP("/health").
 			WithPort("6688/tcp").
 			WithStartupTimeout(90 * time.Second).
