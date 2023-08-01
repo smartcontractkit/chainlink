@@ -309,19 +309,19 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
 
     bytes32 requestId = computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
 
-    commitment = IFunctionsRequest.Commitment(
-      adminFee,
-      address(this),
-      billing.client,
-      billing.subscriptionId,
-      billing.callbackGasLimit,
-      estimatedCost,
-      uint40(block.timestamp + s_config.requestTimeoutSeconds),
-      requestId,
-      donFee,
-      s_config.gasOverheadBeforeCallback,
-      s_config.gasOverheadAfterCallback
-    );
+    commitment = IFunctionsRequest.Commitment({
+      adminFee: adminFee,
+      coordinator: address(this),
+      client: billing.client,
+      subscriptionId: billing.subscriptionId,
+      callbackGasLimit: billing.callbackGasLimit,
+      estimatedTotalCostJuels: estimatedCost,
+      timeoutTimestamp: uint40(block.timestamp + s_config.requestTimeoutSeconds),
+      requestId: requestId,
+      donFee: donFee,
+      gasOverheadBeforeCallback: s_config.gasOverheadBeforeCallback,
+      gasOverheadAfterCallback: s_config.gasOverheadAfterCallback
+    });
 
     s_requestCommitments[requestId] = keccak256(abi.encode(commitment));
 

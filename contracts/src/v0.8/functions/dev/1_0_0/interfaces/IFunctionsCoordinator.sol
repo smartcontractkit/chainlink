@@ -74,7 +74,5 @@ interface IFunctionsCoordinator {
    * @param request The request information, @dev see the struct for field descriptions
    * @return commitment - The parameters of the request that must be held consistent at response time
    */
-  function sendRequest(
-    Request calldata request
-  ) external returns (IFunctionsRequest.Commitment memory commitment);
+  function sendRequest(Request calldata request) external returns (IFunctionsRequest.Commitment memory commitment);
 }

@@ -158,19 +158,19 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     // Store a commitment about the request
     s_requestCommitments[commitment.requestId] = keccak256(
       abi.encode(
-        IFunctionsRequest.Commitment(
-          s_config.adminFee,
-          coordinatorAddress,
-          msg.sender,
-          subscriptionId,
-          callbackGasLimit,
-          commitment.estimatedTotalCostJuels,
-          commitment.timeoutTimestamp,
-          commitment.requestId,
-          commitment.donFee,
-          commitment.gasOverheadBeforeCallback,
-          commitment.gasOverheadAfterCallback
-        )
+        IFunctionsRequest.Commitment({
+          adminFee: s_config.adminFee,
+          coordinator: coordinatorAddress,
+          client: msg.sender,
+          subscriptionId: subscriptionId,
+          callbackGasLimit: callbackGasLimit,
+          estimatedTotalCostJuels: commitment.estimatedTotalCostJuels,
+          timeoutTimestamp: commitment.timeoutTimestamp,
+          requestId: commitment.requestId,
+          donFee: commitment.donFee,
+          gasOverheadBeforeCallback: commitment.gasOverheadBeforeCallback,
+          gasOverheadAfterCallback: commitment.gasOverheadAfterCallback
+        })
       )
     );
 

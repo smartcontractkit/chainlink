@@ -149,22 +149,17 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function sendRequest(
     Request calldata request
-  )
-    external
-    override
-    onlyRouter
-    returns (IFunctionsRequest.Commitment memory commitment)
-  {
+  ) external override onlyRouter returns (IFunctionsRequest.Commitment memory commitment) {
     if (request.data.length == 0) {
       revert EmptyRequestData();
     }
 
-    RequestBilling memory billing = IFunctionsBilling.RequestBilling(
-      request.subscriptionId,
-      request.requestingContract,
-      request.callbackGasLimit,
-      tx.gasprice
-    );
+    RequestBilling memory billing = IFunctionsBilling.RequestBilling({
+      subscriptionId: request.subscriptionId,
+      client: request.requestingContract,
+      callbackGasLimit: request.callbackGasLimit,
+      expectedGasPrice: tx.gasprice
+    });
 
     commitment = _startBilling(request.data, request.dataVersion, billing);
 
