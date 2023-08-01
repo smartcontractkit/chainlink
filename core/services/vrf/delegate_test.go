@@ -690,12 +690,16 @@ func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
 		logger.TestLogger(t),
 		cfg.Database(),
 		mailMon)
+	chain, err := vuni.cc.Get(testutils.FixtureChainID)
+	require.NoError(t, err)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
-		VRFVersion: vrfcommon.V2Plus,
-		PublicKey:  vuni.vrfkey.PublicKey.String(),
+		VRFVersion:    vrfcommon.V2Plus,
+		PublicKey:     vuni.vrfkey.PublicKey.String(),
+		FromAddresses: []string{string(vuni.submitter.Hex())},
+		GasLanePrice:  chain.Config().EVM().GasEstimator().PriceMax(),
 	})
-	vs.VRFOwnerAddress = "0xF62fEFb54a0af9D32CDF0Db21C52710844c7eddb"
-	jb, err := vrfcommon.ValidatedVRFSpec(vs.Toml())
+	toml := "vrfOwnerAddress=\"0xF62fEFb54a0af9D32CDF0Db21C52710844c7eddb\"\n" + vs.Toml()
+	jb, err := vrfcommon.ValidatedVRFSpec(toml)
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
 	require.NoError(t, err)

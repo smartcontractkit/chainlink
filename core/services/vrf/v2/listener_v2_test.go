@@ -432,7 +432,9 @@ func TestListener_handleLog(tt *testing.T) {
 	requestID := int64(6)
 	tt.Run("v2", func(t *testing.T) {
 		j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+			VRFVersion:          vrfcommon.V2,
 			RequestedConfsDelay: 10,
+			FromAddresses:       []string{"0xF2982b7Ef6E3D8BB738f8Ea20502229781f6Ad97"},
 		}).Toml())
 		require.NoError(t, err)
 		fulfilledLog := vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{
@@ -442,6 +444,7 @@ func TestListener_handleLog(tt *testing.T) {
 		log := log.NewLogBroadcast(types.Log{}, *big.NewInt(chainID), &fulfilledLog)
 		lb.On("WasAlreadyConsumed", log).Return(false, nil).Once()
 		lb.On("MarkConsumed", log).Return(nil).Once()
+		defer lb.AssertExpectations(t)
 		listener := &listenerV2{
 			respCount:          map[string]uint64{},
 			job:                j,
@@ -462,6 +465,7 @@ func TestListener_handleLog(tt *testing.T) {
 		j, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 			VRFVersion:          vrfcommon.V2Plus,
 			RequestedConfsDelay: 10,
+			FromAddresses:       []string{"0xF2982b7Ef6E3D8BB738f8Ea20502229781f6Ad97"},
 		}).Toml())
 		require.NoError(t, err)
 		fulfilledLog := vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{
@@ -471,6 +475,7 @@ func TestListener_handleLog(tt *testing.T) {
 		log := log.NewLogBroadcast(types.Log{}, *big.NewInt(chainID), &fulfilledLog)
 		lb.On("WasAlreadyConsumed", log).Return(false, nil).Once()
 		lb.On("MarkConsumed", log).Return(nil).Once()
+		defer lb.AssertExpectations(t)
 		listener := &listenerV2{
 			respCount:          map[string]uint64{},
 			job:                j,

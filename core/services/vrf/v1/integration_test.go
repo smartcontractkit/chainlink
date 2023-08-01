@@ -81,14 +81,6 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 				// the lb will backfill the logs. However we need to
 				// keep blocks coming in for the lb to send the backfilled logs.
 				cu.Backend.Commit()
-				t.Log("Debugging test flakes")
-				t.Log(len(runs))
-				if len(runs) > 0 {
-					t.Log(runs[0].State)
-				}
-				if len(runs) > 1 {
-					t.Log(runs[1].State)
-				}
 				return len(runs) == 2 && runs[0].State == pipeline.RunStatusCompleted && runs[1].State == pipeline.RunStatusCompleted
 			}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 			assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)
@@ -206,11 +198,6 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 		runs, err = app.PipelineORM().GetAllRuns()
 		require.NoError(t, err)
 		cu.Backend.Commit()
-		t.Log("Debugging TestIntegration_VRF_WithBHS flakes")
-		t.Log(len(runs))
-		if len(runs) > 0 {
-			t.Log(runs[0].State)
-		}
 		return len(runs) == 1 && runs[0].State == pipeline.RunStatusCompleted
 	}, 10*time.Second, 1*time.Second).Should(gomega.BeTrue())
 	assert.Equal(t, pipeline.RunErrors([]null.String{{}}), runs[0].FatalErrors)

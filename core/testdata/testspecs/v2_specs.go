@@ -317,9 +317,6 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.ChunkSize != 0 {
 		chunkSize = params.ChunkSize
 	}
-	if params.FromAddresses == nil {
-		params.FromAddresses = []string{"0x4bd43cb108Bc3742e484f47E69EBfa378cb6278B"}
-	}
 	observationSource := fmt.Sprintf(`
 decode_log   [type=ethabidecodelog
               abi="RandomnessRequest(bytes32 keyHash,uint256 seed,bytes32 indexed jobID,address sender,uint256 fee,bytes32 requestID)"

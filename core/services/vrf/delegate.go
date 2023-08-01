@@ -141,7 +141,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
 				return nil, err
 			}
-
+			if vrfOwner != nil {
+				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
+			}
 			linkEthFeedAddress, err := coordinatorV2Plus.LINKETHFEED(nil)
 			if err != nil {
 				return nil, errors.Wrap(err, "LINKETHFEED")
@@ -149,9 +151,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
 			if err != nil {
 				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
-			}
-			if vrfOwner != nil {
-				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
 			}
 
 			return []job.ServiceCtx{v2.New(
