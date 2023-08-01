@@ -18,7 +18,7 @@ import (
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   "test_env",
-		Short: "Mercury docker test env management tool",
+		Short: "CL cluster docker test env management tool",
 	}
 
 	startEnvCmd := &cobra.Command{
