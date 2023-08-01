@@ -21,22 +21,22 @@ contract BaseRewardManagerTest is Test {
   //default address for unregistered recipient
   address internal constant INVALID_ADDRESS = address(0);
   //contract owner
-  address internal constant ADMIN = address(1);
+  address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
   //user to represent verifier contract
-  address internal constant USER = address(2);
+  address internal constant USER = address(uint160(uint256(keccak256("PROXY"))));
 
   //default recipients configured in reward manager
-  address internal constant DEFAULT_RECIPIENT_1 = address(3);
-  address internal constant DEFAULT_RECIPIENT_2 = address(4);
-  address internal constant DEFAULT_RECIPIENT_3 = address(5);
-  address internal constant DEFAULT_RECIPIENT_4 = address(6);
-  address internal constant DEFAULT_RECIPIENT_5 = address(7);
-  address internal constant DEFAULT_RECIPIENT_6 = address(8);
-  address internal constant DEFAULT_RECIPIENT_7 = address(9);
+  address internal constant DEFAULT_RECIPIENT_1 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_1"))));
+  address internal constant DEFAULT_RECIPIENT_2 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_2"))));
+  address internal constant DEFAULT_RECIPIENT_3 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_3"))));
+  address internal constant DEFAULT_RECIPIENT_4 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_4"))));
+  address internal constant DEFAULT_RECIPIENT_5 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_5"))));
+  address internal constant DEFAULT_RECIPIENT_6 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_6"))));
+  address internal constant DEFAULT_RECIPIENT_7 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_7"))));
 
   //additional recipients not in the reward manager
-  address internal constant DEFAULT_RECIPIENT_8 = address(10);
-  address internal constant DEFAULT_RECIPIENT_9 = address(11);
+  address internal constant DEFAULT_RECIPIENT_8 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_8"))));
+  address internal constant DEFAULT_RECIPIENT_9 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_9"))));
 
   //two pools should be enough to test all edge cases
   bytes32 internal constant PRIMARY_POOL_ID = keccak256("primary_pool");

@@ -40,7 +40,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   IRewardManager private immutable i_rewardManager;
 
   /// @notice the packed report length
-  uint16 private constant DEFAULT_REPORT_LENGTH =  32 + 4 + 24 + 24 + 24 + 8 + 32 + 8;
+  uint16 private constant DEFAULT_REPORT_LENGTH = 32 + 4 + 24 + 24 + 24 + 8 + 32 + 8;
 
   /// @notice the index of the LINK fee
   uint16 private constant LINK_FEE_INDEX = DEFAULT_REPORT_LENGTH;
@@ -132,6 +132,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @inheritdoc IFeeManager
   function processFee(bytes calldata payload, address subscriber) external payable onlyOwnerOrProxy {
+    if (subscriber == address(this)) revert InvalidAddress();
+
     //decode the payload, the payload is not packed but the report and quote is
     (, bytes memory report, , , , bytes memory quoteBytes) = abi.decode(
       payload,
@@ -177,7 +179,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       } else {
         //if the fee is in native wrapped, we're transferring to this contract in exchange for the equivalent amount of LINK (minus the native premium)
         if (msg.value == 0) {
-          IERC20(fee.assetAddress).transferFrom(msg.sender, address(this), fee.amount);
+          IERC20(fee.assetAddress).transferFrom(subscriber, address(this), fee.amount);
         }
 
         //check we have enough LINK before paying the fee
@@ -201,14 +203,12 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
   }
 
-  event DEBUG(uint256); //TODO add view back here, verifier, base
-
   /// @inheritdoc IFeeManager
   function getFeeAndReward(
     address subscriber,
     bytes memory report,
     Quote memory quote
-  ) public returns (Common.Asset memory, Common.Asset memory) {
+  ) public view returns (Common.Asset memory, Common.Asset memory) {
     Common.Asset memory fee;
     Common.Asset memory reward;
 
@@ -223,10 +223,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     uint256 linkQuantity = report.readUint192(LINK_FEE_INDEX);
     uint256 nativeQuantity = report.readUint192(NATIVE_FEE_INDEX);
     uint256 expiresAt = report.readUint32(EXPIRES_AT_INDEX);
-
-    emit DEBUG(linkQuantity);
-    emit DEBUG(nativeQuantity);
-    emit DEBUG(expiresAt);
 
     //read the timestamp bytes from the report data and verify it has not expired
     if (expiresAt < block.timestamp) {
@@ -250,7 +246,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     if (quoteFeeAddress == i_linkAddress) {
       fee.assetAddress = reward.assetAddress;
       fee.amount = reward.amount;
-      reward.amount = linkQuantity;
     } else {
       fee.assetAddress = i_nativeAddress;
       fee.amount = (nativeQuantity * (PERCENTAGE_SCALAR + nativePremium)) / PERCENTAGE_SCALAR;

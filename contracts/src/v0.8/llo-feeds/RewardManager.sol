@@ -15,7 +15,6 @@ import {Common} from "../libraries/internal/Common.sol";
  * @notice This contract will be used to reward any configured recipients within a pool. Recipients will receive a share of their pool relative to their configured weight.
  */
 contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterface {
-
   // @dev The mapping of total fees collected for a particular pot: totalRewardRecipientFees[poolId]
   mapping(bytes32 => uint256) public totalRewardRecipientFees;
 

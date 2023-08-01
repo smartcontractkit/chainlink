@@ -108,7 +108,7 @@ contract ByteUtilTest is Test {
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
 
     //try and read 4 bytes from a 2 byte number
-   B_16.readUint32(0);
+    B_16.readUint32(0);
   }
 
   function test_readUint256WithEmptyArray() public {

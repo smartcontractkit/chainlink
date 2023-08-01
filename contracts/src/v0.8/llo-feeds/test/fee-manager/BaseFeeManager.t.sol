@@ -7,6 +7,8 @@ import {IFeeManager} from "../../interfaces/IFeeManager.sol";
 import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 import {console} from "forge-std/Test.sol";
+import {ERC20Mock} from "../../../shared/vendor/ERC20Mock.sol";
+import {WERC20Mock} from "../../../shared/vendor/WERC20Mock.sol";
 
 /**
  * @title BaseFeeManagerTest
@@ -19,17 +21,23 @@ contract BaseFeeManagerTest is Test {
   FeeManager internal feeManager;
   RewardManager internal rewardManager;
 
+  ERC20Mock internal link;
+  WERC20Mock internal native;
+
+  //erc20 config
+  uint256 internal constant DEFAULT_LINK_MINT_QUANTITY = 100 ether;
+  uint256 internal constant DEFAULT_NATIVE_MINT_QUANTITY = 100 ether;
+
   //contract owner
   address internal constant INVALID_ADDRESS = address(0);
-  address internal constant ADMIN = address(1);
-  address internal constant USER = address(2);
+  address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
+  address internal constant USER = address(uint160(uint256(keccak256("USER"))));
+  address internal constant PROXY = address(uint160(uint256(keccak256("PROXY"))));
 
-  address internal constant LINK_ADDRESS = address(3);
-  address internal constant NATIVE_ADDRESS = address(4);
-
-  //feed ids
+  //feed ids & config digests
   bytes32 internal constant DEFAULT_FEED_1 = keccak256("feed_id_1");
   bytes32 internal constant DEFAULT_FEED_2 = keccak256("feed_id_2");
+  bytes32 internal constant DEFAULT_CONFIG_DIGEST = keccak256("DEFAULT_CONFIG_DIGEST");
 
   //report
   uint256 internal constant DEFAULT_REPORT_LINK_FEE = 1e10;
@@ -39,16 +47,22 @@ contract BaseFeeManagerTest is Test {
   //rewards
   uint256 internal constant FEE_SCALAR = 1e18;
 
+  address internal constant NATIVE_WITHDRAW_ADDRESS = address(0);
+
   //the selector for each error
   bytes4 internal constant INVALID_DISCOUNT_ERROR = bytes4(keccak256("InvalidDiscount()"));
   bytes4 internal constant INVALID_ADDRESS_ERROR = bytes4(keccak256("InvalidAddress()"));
   bytes4 internal constant INVALID_PREMIUM_ERROR = bytes4(keccak256("InvalidPremium()"));
   bytes4 internal constant EXPIRED_REPORT_ERROR = bytes4(keccak256("ExpiredReport()"));
+  bytes4 internal constant INVALID_DEPOSIT_ERROR = bytes4(keccak256("InvalidDeposit()"));
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
+  bytes internal constant ONLY_CALLABLE_BY_OWNER_OR_PROXY_ERROR = "Only owner or proxy";
+  bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
 
   //events emitted
   event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
   event NativePremiumSet(uint256 newPremium);
+  event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
 
   function setUp() public virtual {
     //change to admin user
@@ -59,9 +73,29 @@ contract BaseFeeManagerTest is Test {
   }
 
   function _initializeContracts() internal {
-    rewardManager = new RewardManager(LINK_ADDRESS);
-    feeManager = new FeeManager(LINK_ADDRESS, NATIVE_ADDRESS, USER, address(rewardManager));
+    link = new ERC20Mock("link", "LINK");
+    native = new WERC20Mock("native", "NATIVE");
+
+    rewardManager = new RewardManager(getLinkAddress());
+    feeManager = new FeeManager(getLinkAddress(), getNativeAddress(), PROXY, address(rewardManager));
+
+    //link the fee manager to the reward manager
     rewardManager.setFeeManager(address(feeManager));
+
+    //mint some tokens to the admin
+    link.mint(ADMIN, DEFAULT_LINK_MINT_QUANTITY);
+    native.mint(ADMIN, DEFAULT_NATIVE_MINT_QUANTITY);
+    vm.deal(ADMIN, DEFAULT_NATIVE_MINT_QUANTITY);
+
+    //mint some tokens to the user
+    link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);
+    native.mint(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+    vm.deal(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+
+    //mint some tokens to the proxy
+    link.mint(PROXY, DEFAULT_LINK_MINT_QUANTITY);
+    native.mint(PROXY, DEFAULT_NATIVE_MINT_QUANTITY);
+    vm.deal(PROXY, DEFAULT_NATIVE_MINT_QUANTITY);
   }
 
   function setSubscriberDiscount(
@@ -99,7 +133,7 @@ contract BaseFeeManagerTest is Test {
     bytes memory report,
     IFeeManager.Quote memory quote,
     address subscriber
-  ) public returns (Common.Asset memory) {
+  ) public view returns (Common.Asset memory) {
     //set the discount
     (Common.Asset memory fee, ) = feeManager.getFeeAndReward(subscriber, report, quote);
 
@@ -110,7 +144,7 @@ contract BaseFeeManagerTest is Test {
     bytes memory report,
     IFeeManager.Quote memory quote,
     address subscriber
-  ) public returns (Common.Asset memory) {
+  ) public view returns (Common.Asset memory) {
     //set the discount
     (, Common.Asset memory reward) = feeManager.getFeeAndReward(subscriber, report, quote);
 
@@ -158,15 +192,137 @@ contract BaseFeeManagerTest is Test {
         uint192(nativeFee),
         uint32(expiry)
       );
-
-
   }
 
-  function getLinkQuote() public pure returns (IFeeManager.Quote memory) {
-    return IFeeManager.Quote(LINK_ADDRESS);
+  function getLinkQuote() public view returns (IFeeManager.Quote memory) {
+    return IFeeManager.Quote(getLinkAddress());
   }
 
-  function getNativeQuote() public pure returns (IFeeManager.Quote memory) {
-    return IFeeManager.Quote(NATIVE_ADDRESS);
+  function getNativeQuote() public view returns (IFeeManager.Quote memory) {
+    return IFeeManager.Quote(getNativeAddress());
+  }
+
+  function withdraw(address assetAddress, uint256 amount, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //set the premium
+    feeManager.withdraw(assetAddress, amount);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function getLinkBalance(address balanceAddress) public view returns (uint256) {
+    return link.balanceOf(balanceAddress);
+  }
+
+  function getNativeBalance(address balanceAddress) public view returns (uint256) {
+    return native.balanceOf(balanceAddress);
+  }
+
+  function getNativeUnwrappedBalance(address balanceAddress) public view returns (uint256) {
+    return balanceAddress.balance;
+  }
+
+  function mintLink(address recipient, uint256 amount) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(ADMIN);
+
+    //transfer the link from sender to recipient
+    link.mint(recipient, amount);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function mintNative(address recipient, uint256 amount, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //transfer the link from sender to recipient
+    native.mint(recipient, amount);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function transferNativeUnwrapped(uint256 quantity, address recipient, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //transfer the asset from sender to recipient
+    payable(recipient).transfer(quantity);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function issueUnwrappedNative(address recipient, uint256 quantity) public {
+    vm.deal(recipient, quantity);
+  }
+
+  function processFee(bytes memory payload, address subscriber, uint256 wrappedNativeValue, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //process the fee
+    feeManager.processFee{value: wrappedNativeValue}(payload, subscriber);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function getPayload(bytes memory reportPayload, bytes memory quotePayload) public pure returns (bytes memory) {
+    return
+      abi.encode(
+        [DEFAULT_CONFIG_DIGEST, 0, 0],
+        reportPayload,
+        new bytes32[](1),
+        new bytes32[](1),
+        bytes32(""),
+        quotePayload
+      );
+  }
+
+  function getQuotePayload(address quoteAddress) public pure returns (bytes memory) {
+    return abi.encodePacked(quoteAddress);
+  }
+
+  function approveLink(address spender, uint256 quantity, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //approve the link to be transferred
+    link.approve(spender, quantity);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function approveNative(address spender, uint256 quantity, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //approve the link to be transferred
+    native.approve(spender, quantity);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function getLinkAddress() public view returns (address) {
+    return address(link);
+  }
+
+  function getNativeAddress() public view returns (address) {
+    return address(native);
   }
 }

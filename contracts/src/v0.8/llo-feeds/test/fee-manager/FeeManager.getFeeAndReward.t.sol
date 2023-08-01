@@ -10,7 +10,7 @@ import "./BaseFeeManager.t.sol";
 /**
  * @title BaseFeeManagerTest
  * @author Michael Fletcher
- * @notice This contract will test the functionality of the fee manager
+ * @notice This contract will test the functionality of the fee manager's getFeeAndReward
  */
 contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   function test_baseFeeIsAppliedForNative() public {
@@ -31,7 +31,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_discountAIsNotAppliedWhenSetForOtherUsers() public {
     //set the subscriber discount for another user
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, LINK_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), INVALID_ADDRESS);
@@ -50,7 +50,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_discountIsAppliedForLink() public {
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, LINK_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getLinkQuote(), USER);
@@ -61,7 +61,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_DiscountIsAppliedForNative() public {
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -72,7 +72,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_discountIsNoLongerAppliedAfterRemoving() public {
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, LINK_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getLinkQuote(), USER);
@@ -81,7 +81,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE / 2);
 
     //remove the discount
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, LINK_ADDRESS, 0, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), 0, ADMIN);
 
     //get the fee required by the feeManager
     fee = getFee(getReportWithFee(DEFAULT_FEED_1), getLinkQuote(), USER);
@@ -181,7 +181,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     uint256 nativePremium = FEE_SCALAR / 5;
 
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
     //set the premium
     setNativePremium(nativePremium, ADMIN);
@@ -239,7 +239,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_discountIsAppliedWith100PercentPremium() public {
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
     //set the premium
     setNativePremium(FEE_SCALAR, ADMIN);
@@ -256,7 +256,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_feeIsZeroWith100PercentDiscount() public {
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -267,7 +267,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_feeIsUpdatedAfterDiscountIsRemoved() public {
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -279,7 +279,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE - expectedDiscount);
 
     //remove the discount
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, 0, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), 0, ADMIN);
 
     //get the fee required by the feeManager
     fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -290,7 +290,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_feeIsUpdatedAfterNewDiscountIsApplied() public {
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -302,7 +302,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE - expectedDiscount);
 
     //change the discount to 25%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 4, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 4, ADMIN);
 
     //get the fee required by the feeManager
     fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -319,7 +319,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectRevert(INVALID_DISCOUNT_ERROR);
 
     //set the subscriber discount to over 100%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR + 1, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR + 1, ADMIN);
   }
 
   function test_premiumIsNotAppliedWith100PercentDiscount() public {
@@ -327,7 +327,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     uint256 nativePremium = FEE_SCALAR / 5;
 
     //set the subscriber discount to 100%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR, ADMIN);
 
     //set the premium
     setNativePremium(nativePremium, ADMIN);
@@ -347,7 +347,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     changePrank(ADMIN);
 
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR, USER);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR, USER);
   }
 
   function test_premiumRoundsDownWhenUneven() public {
@@ -372,7 +372,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     uint256 discount = FEE_SCALAR / 3;
 
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, discount, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), discount, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -394,8 +394,8 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_correctDiscountIsAppliedWhenBothTokensAreDiscounted() public {
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, LINK_ADDRESS, FEE_SCALAR / 4, ADMIN);
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), FEE_SCALAR / 4, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager for both tokens
     Common.Asset memory linkFee = getFee(getReportWithFee(DEFAULT_FEED_1), getLinkQuote(), USER);
@@ -412,7 +412,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_discountIsNotAppliedToOtherFeeds() public {
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_2), getNativeQuote(), USER);
@@ -423,7 +423,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_noFeeIsAppliedWhenReportHasZeroFee() public {
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(
@@ -443,7 +443,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_noFeeIsAppliedWhenReportHasZeroFeeAndDiscountAndPremiumIsSet() public {
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
     //set the premium
     setNativePremium(FEE_SCALAR / 2, ADMIN);
@@ -478,20 +478,6 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     setNativePremium(nativePremium, ADMIN);
   }
 
-  function test_subscriberDiscountEventIsEmittedOnUpdate() public {
-    //native premium
-    uint256 discount = FEE_SCALAR / 3;
-
-    //an event should be emitted
-    vm.expectEmit();
-
-    //emit the event which we expect to be emitted
-    emit SubscriberDiscountUpdated(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, discount);
-
-    //set the premium
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, NATIVE_ADDRESS, discount, ADMIN);
-  }
-
   function test_getBaseRewardWithLinkQuote() public {
     //get the fee required by the feeManager
     Common.Asset memory fee = getReward(getReportWithFee(DEFAULT_FEED_1), getLinkQuote(), USER);
@@ -502,7 +488,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_getRewardWithLinkQuoteAndLinkDiscount() public {
     //set the link discount
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, LINK_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getReward(getReportWithFee(DEFAULT_FEED_1), getLinkQuote(), USER);
@@ -532,7 +518,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_getRewardWithLinkDiscount() public {
     //set the link discount
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, LINK_ADDRESS, FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getReward(getReportWithFee(DEFAULT_FEED_1), getLinkQuote(), USER);
@@ -543,7 +529,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_getLinkFeeIsRoundedUp() public {
     //set the link discount
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, LINK_ADDRESS, FEE_SCALAR / 3, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), FEE_SCALAR / 3, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getLinkQuote(), USER);
@@ -554,7 +540,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_getLinkRewardIsRoundedDown() public {
     //set the link discount
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, LINK_ADDRESS, FEE_SCALAR / 3, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), FEE_SCALAR / 3, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getReward(getReportWithFee(DEFAULT_FEED_1), getLinkQuote(), USER);
@@ -568,7 +554,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     setNativePremium(FEE_SCALAR / 2, ADMIN);
 
     //set the link discount
-    setSubscriberDiscount(USER, DEFAULT_FEED_1, LINK_ADDRESS, FEE_SCALAR / 3, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), FEE_SCALAR / 3, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getReward(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);

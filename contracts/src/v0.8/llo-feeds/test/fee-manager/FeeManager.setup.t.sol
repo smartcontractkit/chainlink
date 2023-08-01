@@ -12,5 +12,98 @@ import "./BaseFeeManager.t.sol";
  * @notice This contract will test the setup functionality of the fee manager
  */
 contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
+  function setUp() public override {
+    super.setUp();
+  }
 
+  function test_WithdrawERC20() public {
+    //simulate a fee
+    mintLink(address(feeManager), DEFAULT_LINK_MINT_QUANTITY);
+
+    //get the balances we're going to use for comparison
+    uint256 contractBalance = getLinkBalance(address(feeManager));
+    uint256 adminBalance = getLinkBalance(ADMIN);
+
+    //the amount to withdraw
+    uint256 withdrawAmount = contractBalance / 2;
+
+    //withdraw some balance
+    withdraw(getLinkAddress(), withdrawAmount, ADMIN);
+
+    //check the balance has been reduced
+    uint256 newContractBalance = getLinkBalance(address(feeManager));
+    uint256 newAdminBalance = getLinkBalance(ADMIN);
+
+    //check the balance is greater than zero
+    assertGt(newContractBalance, 0);
+    //check the balance has been reduced by the correct amount
+    assertEq(newContractBalance, contractBalance - withdrawAmount);
+    //check the admin balance has increased by the correct amount
+    assertEq(newAdminBalance, adminBalance + withdrawAmount);
+  }
+
+  function test_WithdrawUnwrappedNative() public {
+    //issue funds straight to the contract to bypass the lack of fallback function
+    issueUnwrappedNative(address(feeManager), DEFAULT_NATIVE_MINT_QUANTITY);
+
+    //get the balances we're going to use for comparison
+    uint256 contractBalance = getNativeUnwrappedBalance(address(feeManager));
+    uint256 adminBalance = getNativeUnwrappedBalance(ADMIN);
+
+    //the amount to withdraw
+    uint256 withdrawAmount = contractBalance / 2;
+
+    //withdraw some balance
+    withdraw(NATIVE_WITHDRAW_ADDRESS, withdrawAmount, ADMIN);
+
+    //check the balance has been reduced
+    uint256 newContractBalance = getNativeUnwrappedBalance(address(feeManager));
+    uint256 newAdminBalance = getNativeUnwrappedBalance(ADMIN);
+
+    //check the balance is greater than zero
+    assertGt(newContractBalance, 0);
+    //check the balance has been reduced by the correct amount
+    assertEq(newContractBalance, contractBalance - withdrawAmount);
+    //check the admin balance has increased by the correct amount
+    assertEq(newAdminBalance, adminBalance + withdrawAmount);
+  }
+
+  function test_WithdrawNonAdminAddr() public {
+    //simulate a fee
+    mintLink(address(feeManager), DEFAULT_LINK_MINT_QUANTITY);
+
+    //should revert if not admin
+    vm.expectRevert(ONLY_CALLABLE_BY_OWNER_ERROR);
+
+    //withdraw some balance
+    withdraw(getLinkAddress(), DEFAULT_LINK_MINT_QUANTITY, USER);
+  }
+
+  function test_eventIsEmittedAfterPremiumIsSet() public {
+    //native premium
+    uint256 nativePremium = FEE_SCALAR / 5;
+
+    //expect an emit
+    vm.expectEmit();
+
+    //emit the event we expect to be emitted
+    emit NativePremiumSet(nativePremium);
+
+    //set the premium
+    setNativePremium(nativePremium, ADMIN);
+  }
+
+  function test_subscriberDiscountEventIsEmittedOnUpdate() public {
+    //native premium
+    uint256 discount = FEE_SCALAR / 3;
+
+    //an event should be emitted
+    vm.expectEmit();
+
+    //emit the event which we expect to be emitted
+    emit SubscriberDiscountUpdated(USER, DEFAULT_FEED_1, getNativeAddress(), discount);
+
+    //set the premium
+    setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), discount, ADMIN);
+  }
 }
