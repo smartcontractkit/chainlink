@@ -86,7 +86,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   // ================================================================
   // |                         Cost Events                          |
   // ================================================================
-  event BillingStart(bytes32 indexed requestId, uint96 estimatedTotalCost);
+  event BillingStart(bytes32 indexed requestId, IFunctionsRequest.Commitment commitment);
   event BillingEnd(
     bytes32 indexed requestId,
     uint64 subscriptionId,
@@ -319,7 +319,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
 
     s_requestCommitments[requestId] = keccak256(abi.encode(commitment));
 
-    emit BillingStart(requestId, estimatedCost);
+    emit BillingStart(requestId, commitment);
 
     return (requestId, estimatedCost, commitment);
   }
@@ -387,19 +387,16 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     // Saves on storage writes that would otherwise be charged to the user
     s_feePool += commitment.donFee;
 
-    FulfillResult resultCode = FulfillResult(result);
-    if (resultCode == FulfillResult.USER_SUCCESS || resultCode == FulfillResult.USER_ERROR) {
-      emit BillingEnd(
-        requestId,
-        commitment.subscriptionId,
-        commitment.donFee,
-        gasOverhead + callbackCostJuels,
-        gasOverhead + callbackCostJuels + commitment.donFee + commitment.adminFee,
-        resultCode
-      );
-    }
+    emit BillingEnd(
+      requestId,
+      commitment.subscriptionId,
+      commitment.donFee,
+      gasOverhead + callbackCostJuels,
+      gasOverhead + callbackCostJuels + commitment.donFee + commitment.adminFee,
+      FulfillResult(result)
+    );
 
-    return resultCode;
+    return FulfillResult(result);
   }
 
   function _retrieveCommitmentData(
