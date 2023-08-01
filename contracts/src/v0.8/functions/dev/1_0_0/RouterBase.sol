@@ -177,16 +177,20 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
 
     uint256 timelockEndBlock = block.number + s_timelockBlocks;
 
-    s_proposedContractSet = ContractProposalSet(proposedContractSetIds, proposedContractSetAddresses, timelockEndBlock);
+    s_proposedContractSet = ContractProposalSet({
+      ids: proposedContractSetIds,
+      to: proposedContractSetAddresses,
+      timelockEndBlock: timelockEndBlock
+    });
 
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint8 i = 0; i < proposedContractSetIds.length; ++i) {
-      emit ContractProposed(
-        proposedContractSetIds[i],
-        s_route[proposedContractSetIds[i]],
-        proposedContractSetAddresses[i],
-        timelockEndBlock
-      );
+      emit ContractProposed({
+        proposedContractSetId: proposedContractSetIds[i],
+        proposedContractSetFromAddress: s_route[proposedContractSetIds[i]],
+        proposedContractSetToAddress: proposedContractSetAddresses[i],
+        timelockEndBlock: timelockEndBlock
+      });
     }
   }
 
@@ -216,7 +220,11 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       address from = s_route[id];
       address to = s_proposedContractSet.to[i];
       s_route[id] = to;
-      emit ContractUpdated(id, from, to);
+      emit ContractUpdated({
+        proposedContractSetId: id,
+        proposedContractSetFromAddress: from,
+        proposedContractSetToAddress: to
+      });
     }
   }
 
@@ -251,8 +259,12 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (currentConfigHash == keccak256(config)) {
       revert InvalidProposal();
     }
-    s_proposedConfig[id] = ConfigProposal(currentConfigHash, config, block.number + s_timelockBlocks);
-    emit ConfigProposed(id, currentConfigHash, config);
+    s_proposedConfig[id] = ConfigProposal({
+      fromHash: currentConfigHash,
+      to: config,
+      timelockEndBlock: block.number + s_timelockBlocks
+    });
+    emit ConfigProposed({id: id, fromHash: currentConfigHash, toBytes: config});
   }
 
   /**
@@ -271,7 +283,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
         revert InvalidConfigData();
       }
     }
-    emit ConfigUpdated(id, proposal.fromHash, proposal.to);
+    emit ConfigUpdated({id: id, fromHash: proposal.fromHash, toBytes: proposal.to});
   }
 
   // ================================================================
@@ -288,7 +300,11 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (blocks > s_maximumTimelockBlocks) {
       revert ProposedTimelockAboveMaximum();
     }
-    s_timelockProposal = TimeLockProposal(s_timelockBlocks, blocks, uint224(block.number + s_timelockBlocks));
+    s_timelockProposal = TimeLockProposal({
+      from: s_timelockBlocks,
+      to: blocks,
+      timelockEndBlock: uint224(block.number + s_timelockBlocks)
+    });
   }
 
   /**
