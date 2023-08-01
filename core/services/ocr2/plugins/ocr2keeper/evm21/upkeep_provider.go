@@ -6,6 +6,8 @@ import (
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 var _ keepersflows.UpkeepProvider = &upkeepProvider{}
@@ -21,7 +23,7 @@ func NewUpkeepProvider(reg *EvmRegistry) *upkeepProvider {
 }
 
 func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context, blockKey ocr2keepers.BlockKey) ([]ocr2keepers.UpkeepPayload, error) {
-	ids, err := p.reg.GetActiveUpkeepIDsByType(ctx, uint8(conditionTrigger))
+	ids, err := p.reg.GetActiveUpkeepIDsByType(ctx, uint8(core.ConditionTrigger))
 	if err != nil {
 		return nil, err
 	}
@@ -36,13 +38,18 @@ func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context, blockKey ocr2keep
 
 	var payloads []ocr2keepers.UpkeepPayload
 	for _, uid := range ids {
-		payloads = append(payloads, ocr2keepers.NewUpkeepPayload(
+		payload, err := core.NewUpkeepPayload(
 			big.NewInt(0).SetBytes(uid),
-			int(conditionTrigger),
-			blockKey,
+			int(core.ConditionTrigger),
 			ocr2keepers.NewTrigger(block.Int64(), blockHash.Hex(), struct{}{}),
 			nil,
-		))
+		)
+		if err != nil {
+			// skip invalid payloads
+			continue
+		}
+
+		payloads = append(payloads, payload)
 	}
 
 	return payloads, nil

@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -163,7 +164,13 @@ func (p *logEventProvider) GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload
 			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
 			continue
 		}
-		payload := ocr2keepers.NewUpkeepPayload(l.id, logTriggerType, ocr2keepers.BlockKey(fmt.Sprintf("%d", log.BlockNumber)), trig, checkData)
+
+		payload, err := core.NewUpkeepPayload(l.id, logTriggerType, trig, checkData)
+		if err != nil {
+			// skip invalid payloads
+			continue
+		}
+
 		payloads = append(payloads, payload)
 	}
 

@@ -1,20 +1,18 @@
-package evm
+package core
 
 import (
-	"encoding/hex"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
-type upkeepType uint8
+type UpkeepType uint8
 
 const (
-	conditionTrigger upkeepType = iota
-	logTrigger
-	cronTrigger
-	readyTrigger
+	ConditionTrigger UpkeepType = iota
+	LogTrigger
+	CronTrigger
+	ReadyTrigger
 )
 
 const (
@@ -26,13 +24,13 @@ const (
 	upkeepTypeByteIndex = 15
 )
 
-// getUpkeepType returns the upkeep type from the given ID.
+// GetUpkeepType returns the upkeep type from the given ID.
 // it follows the same logic as the contract, but performs it locally.
 //
 // TODO: check endianness
-func getUpkeepType(id ocr2keepers.UpkeepIdentifier) upkeepType {
+func GetUpkeepType(id ocr2keepers.UpkeepIdentifier) UpkeepType {
 	if len(id) < upkeepTypeByteIndex+1 {
-		return conditionTrigger
+		return ConditionTrigger
 	}
 	idx, ok := big.NewInt(0).SetString(string(id), 10)
 	if ok {
@@ -40,22 +38,9 @@ func getUpkeepType(id ocr2keepers.UpkeepIdentifier) upkeepType {
 	}
 	for i := upkeepTypeStartIndex; i < upkeepTypeByteIndex; i++ {
 		if id[i] != 0 { // old id
-			return conditionTrigger
+			return ConditionTrigger
 		}
 	}
 	typeByte := id[upkeepTypeByteIndex]
-	return upkeepType(typeByte)
-}
-
-// UpkeepTriggerID returns the identifier using the given upkeepID and trigger.
-// It follows the same logic as the contract, but performs it locally.
-func UpkeepTriggerID(id *big.Int, trigger []byte) (string, error) {
-	idBytes := id.Bytes()
-
-	combined := append(idBytes, trigger...)
-
-	triggerIDBytes := crypto.Keccak256(combined)
-	triggerID := hex.EncodeToString(triggerIDBytes)
-
-	return triggerID, nil
+	return UpkeepType(typeByte)
 }

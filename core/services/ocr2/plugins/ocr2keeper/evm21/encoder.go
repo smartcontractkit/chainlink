@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 var (
@@ -82,9 +82,9 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			BlockNum:  uint32(result.Payload.Trigger.BlockNumber),
 			BlockHash: common.HexToHash(result.Payload.Trigger.BlockHash),
 		}
-		switch getUpkeepType(id.Bytes()) {
-		case logTrigger:
-			trExt, ok := result.Payload.Trigger.Extension.(logprovider.LogTriggerExtension)
+		switch core.GetUpkeepType(id.Bytes()) {
+		case core.LogTrigger:
+			trExt, ok := result.Payload.Trigger.Extension.(core.LogTriggerExtension)
 			if !ok {
 				return nil, fmt.Errorf("unrecognized trigger extension data")
 			}
@@ -120,10 +120,10 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 			// TODO: log error and continue instead?
 			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
 		}
-		logExt := logprovider.LogTriggerExtension{}
+		logExt := core.LogTriggerExtension{}
 
-		switch getUpkeepType(upkeepId.Bytes()) {
-		case logTrigger:
+		switch core.GetUpkeepType(upkeepId.Bytes()) {
+		case core.LogTrigger:
 			logExt.TxHash = common.BytesToHash(triggerW.TxHash[:]).Hex()
 			logExt.LogIndex = int64(triggerW.LogIndex)
 		default:
@@ -133,9 +133,11 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 			common.BytesToHash(triggerW.BlockHash[:]).Hex(),
 			logExt,
 		)
-		triggerID, _ := UpkeepTriggerID(upkeepId, report.Triggers[i])
+		id, _ := core.UpkeepTriggerID(upkeepId, report.Triggers[i])
+		workID, _ := core.UpkeepWorkID(upkeepId, trigger)
 		reportedUpkeeps[i] = ocr2keepers.ReportedUpkeep{
-			ID:          triggerID,
+			ID:          id,
+			WorkID:      workID,
 			UpkeepID:    ocr2keepers.UpkeepIdentifier(upkeepId.String()),
 			Trigger:     trigger,
 			PerformData: report.PerformDatas[i],

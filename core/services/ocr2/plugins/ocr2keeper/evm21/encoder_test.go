@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 func TestEVMAutomationEncoder21_Encode(t *testing.T) {
@@ -36,7 +36,7 @@ func TestEVMAutomationEncoder21_Encode(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "10").String())),
+				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "10").String())),
 			},
 			640,
 			nil,
@@ -44,9 +44,9 @@ func TestEVMAutomationEncoder21_Encode(t *testing.T) {
 		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "10").String())),
-				newResult(2, ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "20").String())),
-				newResult(3, ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "30").String())),
+				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "10").String())),
+				newResult(2, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "20").String())),
+				newResult(3, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "30").String())),
 			},
 			1280,
 			nil,
@@ -105,16 +105,16 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "10").String())),
+				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "10").String())),
 			},
 			nil,
 		},
 		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "10").String())),
-				newResult(2, ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "20").String())),
-				newResult(3, ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "30").String())),
+				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "10").String())),
+				newResult(2, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "20").String())),
+				newResult(3, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "30").String())),
 			},
 			nil,
 		},
@@ -147,24 +147,24 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 }
 
 func newResult(block int64, id ocr2keepers.UpkeepIdentifier) ocr2keepers.CheckResult {
-	logExt := logprovider.LogTriggerExtension{}
-	tp := getUpkeepType(id)
-	if tp == logTrigger {
+	logExt := core.LogTriggerExtension{}
+	tp := core.GetUpkeepType(id)
+	if tp == core.LogTrigger {
 		logExt.LogIndex = 1
 		logExt.TxHash = "0x1234567890123456789012345678901234567890123456789012345678901234"
 	}
-	payload := ocr2keepers.UpkeepPayload{
-		Upkeep: ocr2keepers.ConfiguredUpkeep{
-			ID:   id,
-			Type: int(tp),
-		},
-		Trigger: ocr2keepers.Trigger{
+
+	payload, _ := core.NewUpkeepPayload(
+		new(big.Int).SetBytes(id),
+		int(tp),
+		ocr2keepers.Trigger{
 			BlockNumber: block,
 			BlockHash:   hexutil.Encode([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}),
 			Extension:   logExt,
 		},
-	}
-	payload.ID = payload.GenerateID()
+		[]byte{},
+	)
+
 	return ocr2keepers.CheckResult{
 		Payload:      payload,
 		Eligible:     true,
@@ -204,4 +204,10 @@ func decode(packer *evmRegistryPackerV2_1, raw []byte) ([]ocr2keepers.UpkeepResu
 	}
 
 	return res, nil
+}
+
+func genUpkeepID(uType core.UpkeepType, rand string) *big.Int {
+	b := append([]byte{1}, common.LeftPadBytes([]byte{uint8(uType)}, 15)...)
+	b = append(b, []byte(rand)...)
+	return big.NewInt(0).SetBytes(b)
 }
