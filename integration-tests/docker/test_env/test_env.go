@@ -128,7 +128,7 @@ func (m *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
 func (m *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 	for _, cl := range m.CLNodes {
-		if err := cl.Fund(m.Geth, amount); err != nil {
+		if err := cl.Fund(m.Geth.EthClient, amount); err != nil {
 			return err
 		}
 	}

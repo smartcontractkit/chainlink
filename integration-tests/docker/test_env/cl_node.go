@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/node"
@@ -162,16 +163,16 @@ func (n *ClNode) ChainlinkNodeAddress() (common.Address, error) {
 	return common.HexToAddress(addr), nil
 }
 
-func (n *ClNode) Fund(g *Geth, amount *big.Float) error {
+func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	toAddress, err := n.API.PrimaryEthAddress()
 	if err != nil {
 		return err
 	}
-	gasEstimates, err := g.EthClient.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{})
 	if err != nil {
 		return err
 	}
-	return g.EthClient.Fund(toAddress, amount, gasEstimates)
+	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
 
 func (n *ClNode) StartContainer(lw *logwatch.LogWatch) error {
