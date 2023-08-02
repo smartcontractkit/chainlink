@@ -21,14 +21,12 @@ describe('Functions Router - Request lifecycle', () => {
     })
     it('#config', async () => {
       const config = await contracts.router.getConfig()
-      expect(config.maxConsumers).to.be.equal(
-        functionsRouterConfig.maxConsumers,
-      )
-      expect(config.adminFee).to.be.equal(functionsRouterConfig.adminFee)
-      expect(config.handleOracleFulfillmentSelector).to.be.equal(
+      expect(config[0]).to.be.equal(functionsRouterConfig.maxConsumers)
+      expect(config[1]).to.be.equal(functionsRouterConfig.adminFee)
+      expect(config[2]).to.be.equal(
         functionsRouterConfig.handleOracleFulfillmentSelector,
       )
-      expect(config.maxCallbackGasLimits.toString()).to.be.equal(
+      expect(config[3].toString()).to.be.equal(
         functionsRouterConfig.maxCallbackGasLimits.toString(),
       )
     })

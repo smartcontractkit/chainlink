@@ -194,8 +194,8 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
    * @inheritdoc IFunctionsBilling
    */
   function getAdminFee() public view override returns (uint96) {
-    IFunctionsRouter.Config memory config = _getRouter().getConfig();
-    return config.adminFee;
+    (, uint96 adminFee, , ) = _getRouter().getConfig();
+    return adminFee;
   }
 
   function getFeedData() public view returns (int256) {
@@ -288,10 +288,10 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
       billing.adminFee
     );
     IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(_getRouter()));
-    (uint96 balance, uint96 blockedBalance, , , ) = subscriptions.getSubscription(billing.subscriptionId);
+    IFunctionsSubscriptions.Subscription memory subscription = subscriptions.getSubscription(billing.subscriptionId);
     (, uint64 initiatedRequests, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
 
-    if (balance - blockedBalance < estimatedCost) {
+    if (subscription.balance - subscription.blockedBalance < estimatedCost) {
       revert InsufficientBalance();
     }
 
@@ -364,7 +364,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     );
 
     // The Functions Router will perform the callback to the client contract
-    (uint8 result, uint96 callbackCostJuels) = _getRouter().fulfill(
+    (FulfillResult resultCode, uint96 callbackCostJuels) = _getRouter().fulfill(
       response,
       err,
       uint96(juelsPerGas),
@@ -373,8 +373,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
       commitment
     );
 
-    FulfillResult fulfillResult = FulfillResult(result);
-    if (fulfillResult == FulfillResult.USER_SUCCESS || fulfillResult == FulfillResult.USER_ERROR) {
+    if (resultCode == FulfillResult.USER_SUCCESS || resultCode == FulfillResult.USER_ERROR) {
       delete s_requestCommitments[requestId];
       // Reimburse the transmitter for the fulfillment gas cost
       s_withdrawableTokens[msg.sender] = gasOverheadJuels + callbackCostJuels;
@@ -383,7 +382,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
       s_feePool += commitment.donFee;
     }
 
-    return fulfillResult;
+    return resultCode;
   }
 
   // ================================================================

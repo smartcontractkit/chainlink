@@ -38,28 +38,22 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     uint256 timelockEndBlock
   );
 
-  event ContractUpdated(
-    bytes32 proposedContractSetId,
-    address proposedContractSetFromAddress,
-    address proposedContractSetToAddress
-  );
+  event ContractUpdated(bytes32 id, address from, address to);
 
   struct ConfigProposal {
-    bytes32 fromHash;
     bytes to;
     uint256 timelockEndBlock;
   }
   mapping(bytes32 id => ConfigProposal) private s_proposedConfig;
-  event ConfigProposed(bytes32 id, bytes32 fromHash, bytes toBytes);
-  event ConfigUpdated(bytes32 id, bytes32 fromHash, bytes toBytes);
+  event ConfigProposed(bytes32 id, bytes toBytes);
+  event ConfigUpdated(bytes32 id, bytes toBytes);
   error InvalidProposal();
   error IdentifierIsReserved(bytes32 id);
+  error AlreadyApplied();
 
   // ================================================================
   // |                          Config state                        |
   // ================================================================
-
-  bytes32 internal s_configHash;
 
   error InvalidConfigData();
 
@@ -100,27 +94,19 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     // Set the initial configuration for the Router
     s_route[ROUTER_ID] = address(this);
     _updateConfig(selfConfig);
-    s_configHash = keccak256(selfConfig);
   }
 
   // ================================================================
   // |                        Route methods                         |
   // ================================================================
 
-  function _getContractById(bytes32 id, bool useProposed) internal view returns (address) {
-    if (!useProposed) {
-      address currentImplementation = s_route[id];
-      if (currentImplementation != address(0)) {
-        return currentImplementation;
-      }
-    } else {
-      // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
-      for (uint256 i = 0; i < s_proposedContractSet.ids.length; ++i) {
-        if (id == s_proposedContractSet.ids[i]) {
-          // NOTE: proposals can be used immediately
-          return s_proposedContractSet.to[i];
-        }
-      }
+  /**
+   * @inheritdoc IRouterBase
+   */
+  function getContractById(bytes32 id) public view override returns (address) {
+    address currentImplementation = s_route[id];
+    if (currentImplementation != address(0)) {
+      return currentImplementation;
     }
     revert RouteNotFound(id);
   }
@@ -128,15 +114,14 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
-  function getContractById(bytes32 id) external view override returns (address routeDestination) {
-    routeDestination = _getContractById(id, false);
-  }
-
-  /**
-   * @inheritdoc IRouterBase
-   */
-  function getContractById(bytes32 id, bool useProposed) external view override returns (address routeDestination) {
-    routeDestination = _getContractById(id, useProposed);
+  function getProposedContractById(bytes32 id) public view override returns (address) {
+    // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
+    for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
+      if (id == s_proposedContractSet.ids[i]) {
+        return s_proposedContractSet.to[i];
+      }
+    }
+    revert RouteNotFound(id);
   }
 
   // ================================================================
@@ -179,31 +164,22 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
 
     uint256 timelockEndBlock = block.number + s_timelockBlocks;
 
-    s_proposedContractSet = ContractProposalSet(proposedContractSetIds, proposedContractSetAddresses, timelockEndBlock);
+    s_proposedContractSet = ContractProposalSet({
+      ids: proposedContractSetIds,
+      to: proposedContractSetAddresses,
+      timelockEndBlock: timelockEndBlock
+    });
 
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint256 i = 0; i < proposedContractSetIds.length; ++i) {
-      emit ContractProposed(
-        proposedContractSetIds[i],
-        s_route[proposedContractSetIds[i]],
-        proposedContractSetAddresses[i],
-        timelockEndBlock
-      );
+      emit ContractProposed({
+        proposedContractSetId: proposedContractSetIds[i],
+        proposedContractSetFromAddress: s_route[proposedContractSetIds[i]],
+        proposedContractSetToAddress: proposedContractSetAddresses[i],
+        timelockEndBlock: timelockEndBlock
+      });
     }
   }
-
-  /**
-   * @inheritdoc IRouterBase
-   */
-  function validateProposedContracts(bytes32 id, bytes calldata data) external override returns (bytes memory) {
-    return _validateProposedContracts(id, data);
-  }
-
-  /**
-   * @dev Must be implemented by the inheriting contract
-   * Use to test an end to end request through the system
-   */
-  function _validateProposedContracts(bytes32 id, bytes calldata data) internal virtual returns (bytes memory);
 
   /**
    * @inheritdoc IRouterBase
@@ -218,20 +194,15 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       address from = s_route[id];
       address to = s_proposedContractSet.to[i];
       s_route[id] = to;
-      emit ContractUpdated(id, from, to);
+      emit ContractUpdated({id: id, from: from, to: to});
     }
+
+    delete s_proposedContractSet;
   }
 
   // ================================================================
   // |                   Config Proposal methods                    |
   // ================================================================
-  /**
-   * @notice Get the hash of the Router's current configuration
-   * @return config hash of config bytes
-   */
-  function getConfigHash() external view returns (bytes32 config) {
-    return s_configHash;
-  }
 
   /**
    * @dev Must be implemented by inheriting contract
@@ -242,19 +213,29 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   /**
    * @inheritdoc IRouterBase
    */
+  function proposeConfigUpdateSelf(bytes calldata config) external override onlyOwner {
+    s_proposedConfig[ROUTER_ID] = ConfigProposal({to: config, timelockEndBlock: block.number + s_timelockBlocks});
+    emit ConfigProposed({id: ROUTER_ID, toBytes: config});
+  }
+
+  /**
+   * @inheritdoc IRouterBase
+   */
+  function updateConfigSelf() external override onlyOwner {
+    ConfigProposal memory proposal = s_proposedConfig[ROUTER_ID];
+    if (block.number < proposal.timelockEndBlock) {
+      revert TimelockInEffect();
+    }
+    _updateConfig(proposal.to);
+    emit ConfigUpdated({id: ROUTER_ID, toBytes: proposal.to});
+  }
+
+  /**
+   * @inheritdoc IRouterBase
+   */
   function proposeConfigUpdate(bytes32 id, bytes calldata config) external override onlyOwner {
-    address implAddr = _getContractById(id, false);
-    bytes32 currentConfigHash;
-    if (implAddr == address(this)) {
-      currentConfigHash = s_configHash;
-    } else {
-      currentConfigHash = IConfigurable(implAddr).getConfigHash();
-    }
-    if (currentConfigHash == keccak256(config)) {
-      revert InvalidProposal();
-    }
-    s_proposedConfig[id] = ConfigProposal(currentConfigHash, config, block.number + s_timelockBlocks);
-    emit ConfigProposed(id, currentConfigHash, config);
+    s_proposedConfig[id] = ConfigProposal({to: config, timelockEndBlock: block.number + s_timelockBlocks});
+    emit ConfigProposed({id: id, toBytes: config});
   }
 
   /**
@@ -262,18 +243,14 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    */
   function updateConfig(bytes32 id) external override onlyOwner {
     ConfigProposal memory proposal = s_proposedConfig[id];
+
     if (block.number < proposal.timelockEndBlock) {
       revert TimelockInEffect();
     }
-    if (id == ROUTER_ID) {
-      _updateConfig(proposal.to);
-      s_configHash = keccak256(proposal.to);
-    } else {
-      try IConfigurable(_getContractById(id, false)).updateConfig(proposal.to) {} catch {
-        revert InvalidConfigData();
-      }
-    }
-    emit ConfigUpdated(id, proposal.fromHash, proposal.to);
+
+    IConfigurable(getContractById(id)).updateConfig(proposal.to);
+
+    emit ConfigUpdated({id: id, toBytes: proposal.to});
   }
 
   // ================================================================
@@ -290,7 +267,11 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (blocks > s_maximumTimelockBlocks) {
       revert ProposedTimelockAboveMaximum();
     }
-    s_timelockProposal = TimeLockProposal(s_timelockBlocks, blocks, uint224(block.number + s_timelockBlocks));
+    s_timelockProposal = TimeLockProposal({
+      from: s_timelockBlocks,
+      to: blocks,
+      timelockEndBlock: uint224(block.number + s_timelockBlocks)
+    });
   }
 
   /**
@@ -299,6 +280,9 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   function updateTimelockBlocks() external override onlyOwner {
     if (block.number < s_timelockProposal.timelockEndBlock) {
       revert TimelockInEffect();
+    }
+    if (s_timelockBlocks == s_timelockProposal.to) {
+      revert AlreadyApplied();
     }
     s_timelockBlocks = s_timelockProposal.to;
   }

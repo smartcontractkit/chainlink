@@ -17,7 +17,7 @@ contract FunctionsRouterSetup is BaseTest {
 
   uint16 internal s_timelockBlocks = 0;
   uint16 internal s_maximumTimelockBlocks = 20;
-  uint16 internal s_maxConsumers = 100;
+  uint16 internal s_maxConsumersPerSubscription = 100;
   uint96 internal s_adminFee = 561724823;
   bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
 
@@ -39,7 +39,7 @@ contract FunctionsRouterSetup is BaseTest {
 
     // First create the struct to get some type safety
     IFunctionsRouter.Config memory routerConfig = IFunctionsRouter.Config({
-      maxConsumers: s_maxConsumers,
+      maxConsumersPerSubscription: s_maxConsumersPerSubscription,
       adminFee: s_adminFee,
       handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
       maxCallbackGasLimits: maxCallbackGasLimits
@@ -47,7 +47,7 @@ contract FunctionsRouterSetup is BaseTest {
 
     return
       abi.encode(
-        routerConfig.maxConsumers,
+        routerConfig.maxConsumersPerSubscription,
         routerConfig.adminFee,
         routerConfig.handleOracleFulfillmentSelector,
         routerConfig.maxCallbackGasLimits
