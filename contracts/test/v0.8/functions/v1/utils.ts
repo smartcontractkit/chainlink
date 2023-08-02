@@ -161,14 +161,12 @@ export async function acceptTermsOfService(
   recipientAddress: string,
 ) {
   const acceptorAddress = await acceptor.getAddress()
-  const messageHash = await accessControl.getMessageHash(
+  const message = await accessControl.getMessage(
     acceptorAddress,
     recipientAddress,
   )
   const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-  const flatSignature = await wallet.signMessage(
-    ethers.utils.arrayify(messageHash),
-  )
+  const flatSignature = await wallet.signMessage(ethers.utils.arrayify(message))
   const { r, s, v } = ethers.utils.splitSignature(flatSignature)
   return accessControl
     .connect(acceptor)

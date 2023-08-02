@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {RouterBase, ITypeAndVersion} from "./RouterBase.sol";
+import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
@@ -33,12 +34,17 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint64 indexed subscriptionId,
     uint96 totalCostJuels,
     address transmitter,
-    uint8 resultCode,
+    FulfillResult resultCode,
     bytes response,
     bytes returnData
   );
 
-  event RequestNotProcessed(bytes32 indexed requestId, address coordinator, address transmitter, uint8 resultCode);
+  event RequestNotProcessed(
+    bytes32 indexed requestId,
+    address coordinator,
+    address transmitter,
+    FulfillResult resultCode
+  );
 
   error OnlyCallableFromCoordinator();
   error SenderMustAcceptTermsOfService(address sender);
@@ -53,7 +59,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
   // Identifier for the route to the Terms of Service Allow List
   bytes32 private constant ALLOW_LIST_ID = keccak256("Functions Terms of Service Allow List");
-  uint8 private constant GAS_FLAG_INDEX = 0;
+  uint8 private constant MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX = 0;
 
   // ================================================================
   // |                    Configuration state                       |
@@ -91,8 +97,13 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   /**
    * @inheritdoc IFunctionsRouter
    */
-  function getConfig() external view override returns (Config memory) {
-    return s_config;
+  function getConfig() external view override returns (uint16, uint96, bytes4, uint32[] memory) {
+    return (
+      s_config.maxConsumersPerSubscription,
+      s_config.adminFee,
+      s_config.handleOracleFulfillmentSelector,
+      s_config.maxCallbackGasLimits
+    );
   }
 
   // ================================================================
@@ -105,13 +116,13 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
    */
   function _updateConfig(bytes memory config) internal override {
     (
-      uint16 maxConsumers,
+      uint16 maxConsumersPerSubscription,
       uint96 adminFee,
       bytes4 handleOracleFulfillmentSelector,
       uint32[] memory maxCallbackGasLimits
     ) = abi.decode(config, (uint16, uint96, bytes4, uint32[]));
     s_config = Config({
-      maxConsumers: maxConsumers,
+      maxConsumersPerSubscription: maxConsumersPerSubscription,
       adminFee: adminFee,
       handleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
       maxCallbackGasLimits: maxCallbackGasLimits
@@ -123,43 +134,67 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   // |                      Request methods                         |
   // ================================================================
 
+  /**
+   * @inheritdoc IFunctionsRouter
+   */
+  function sendRequest(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint16 dataVersion,
+    uint32 callbackGasLimit,
+    bytes32 donId
+  ) external override returns (bytes32) {
+    IFunctionsCoordinator coordinator = IFunctionsCoordinator(getContractById(donId));
+    return _sendRequest(donId, coordinator, subscriptionId, data, dataVersion, callbackGasLimit);
+  }
+
+  /**
+   * @inheritdoc IFunctionsRouter
+   */
+  function sendRequestToProposed(
+    uint64 subscriptionId,
+    bytes calldata data,
+    uint16 dataVersion,
+    uint32 callbackGasLimit,
+    bytes32 donId
+  ) external override returns (bytes32) {
+    IFunctionsCoordinator coordinator = IFunctionsCoordinator(getProposedContractById(donId));
+    return _sendRequest(donId, coordinator, subscriptionId, data, dataVersion, callbackGasLimit);
+  }
+
   function _sendRequest(
     bytes32 donId,
-    bool useProposed,
+    IFunctionsCoordinator coordinator,
     uint64 subscriptionId,
     bytes memory data,
     uint16 dataVersion,
     uint32 callbackGasLimit
-  ) private returns (bytes32 requestId) {
+  ) private returns (bytes32) {
     _whenNotPaused();
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
     isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
 
-    address coordinatorAddress = _getContractById(donId, useProposed);
-
     // Forward request to DON
-    IFunctionsRequest.Commitment memory commitment = IFunctionsCoordinator(coordinatorAddress).sendRequest(
-      IFunctionsCoordinator.Request(
-        msg.sender,
-        s_subscriptions[subscriptionId].owner,
-        data,
-        subscriptionId,
-        dataVersion,
-        _getFlags(subscriptionId),
-        callbackGasLimit,
-        s_config.adminFee
-      )
+    IFunctionsRequest.Commitment memory commitment = coordinator.sendRequest(
+      IFunctionsCoordinator.Request({
+        requestingContract: msg.sender,
+        subscriptionOwner: s_subscriptions[subscriptionId].owner,
+        data: data,
+        subscriptionId: subscriptionId,
+        dataVersion: dataVersion,
+        flags: getFlags(subscriptionId),
+        callbackGasLimit: callbackGasLimit,
+        adminFee: s_config.adminFee
+      })
     );
-
-    _markRequestInFlight(msg.sender, subscriptionId, commitment.estimatedTotalCostJuels);
 
     // Store a commitment about the request
     s_requestCommitments[commitment.requestId] = keccak256(
       abi.encode(
         IFunctionsRequest.Commitment({
           adminFee: s_config.adminFee,
-          coordinator: coordinatorAddress,
+          coordinator: address(coordinator),
           client: msg.sender,
           subscriptionId: subscriptionId,
           callbackGasLimit: callbackGasLimit,
@@ -173,49 +208,21 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       )
     );
 
-    emit RequestStart(
-      commitment.requestId,
-      donId,
-      subscriptionId,
-      s_subscriptions[subscriptionId].owner,
-      msg.sender,
-      tx.origin,
-      data,
-      dataVersion,
-      callbackGasLimit
-    );
+    _markRequestInFlight(msg.sender, subscriptionId, commitment.estimatedTotalCostJuels);
+
+    emit RequestStart({
+      requestId: commitment.requestId,
+      donId: donId,
+      subscriptionId: subscriptionId,
+      subscriptionOwner: s_subscriptions[subscriptionId].owner,
+      requestingContract: msg.sender,
+      requestInitiator: tx.origin,
+      data: data,
+      dataVersion: dataVersion,
+      callbackGasLimit: callbackGasLimit
+    });
 
     return commitment.requestId;
-  }
-
-  function _validateProposedContracts(
-    bytes32 donId,
-    bytes calldata data
-  ) internal override returns (bytes memory output) {
-    (uint64 subscriptionId, bytes memory reqData, uint16 reqDataVersion, uint32 callbackGasLimit) = abi.decode(
-      data,
-      (uint64, bytes, uint16, uint32)
-    );
-    bytes32 requestId = _sendRequest(donId, true, subscriptionId, reqData, reqDataVersion, callbackGasLimit);
-    // Convert to bytes as a more generic return
-    output = new bytes(32);
-    // Bounded by 32
-    for (uint256 i; i < 32; ++i) {
-      output[i] = requestId[i];
-    }
-  }
-
-  /**
-   * @inheritdoc IFunctionsRouter
-   */
-  function sendRequest(
-    uint64 subscriptionId,
-    bytes calldata data,
-    uint16 dataVersion,
-    uint32 callbackGasLimit,
-    bytes32 donId
-  ) external override returns (bytes32) {
-    return _sendRequest(donId, false, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
   /**
@@ -225,10 +232,10 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes memory response,
     bytes memory err,
     uint96 juelsPerGas,
-    uint96 costWithoutFulfillment,
+    uint96 costWithoutCallback,
     address transmitter,
     IFunctionsRequest.Commitment memory commitment
-  ) external override returns (uint8 resultCode, uint96 callbackGasCostJuels) {
+  ) external override returns (FulfillResult resultCode, uint96 callbackGasCostJuels) {
     _whenNotPaused();
 
     if (msg.sender != commitment.coordinator) {
@@ -236,47 +243,42 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     }
 
     if (s_requestCommitments[commitment.requestId] == bytes32(0)) {
-      resultCode = uint8(FulfillResult.INVALID_REQUEST_ID);
+      resultCode = FulfillResult.INVALID_REQUEST_ID;
       emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
       return (resultCode, callbackGasCostJuels);
     }
 
     if (keccak256(abi.encode(commitment)) != s_requestCommitments[commitment.requestId]) {
-      resultCode = uint8(FulfillResult.INVALID_COMMITMENT);
+      resultCode = FulfillResult.INVALID_COMMITMENT;
       emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
       return (resultCode, callbackGasCostJuels);
     }
 
     // Check that the transmitter has supplied enough gas for the callback to succeed
     if (gasleft() < commitment.callbackGasLimit + commitment.gasOverheadAfterCallback) {
-      resultCode = uint8(FulfillResult.INSUFFICIENT_GAS_PROVIDED);
+      resultCode = FulfillResult.INSUFFICIENT_GAS_PROVIDED;
       emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
       return (resultCode, callbackGasCostJuels);
     }
 
-    // Check that the subscription can still afford
-    if (
-      commitment.adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit)) >
-      s_subscriptions[commitment.subscriptionId].balance
-    ) {
-      resultCode = uint8(FulfillResult.SUBSCRIPTION_BALANCE_INVARIANT_VIOLATION);
-      delete s_requestCommitments[commitment.requestId];
-      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-      return (resultCode, callbackGasCostJuels);
-    }
+    {
+      uint96 callbackCost = juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit);
+      uint96 totalCostJuels = commitment.adminFee + costWithoutCallback + callbackCost;
 
-    // Check that the cost has not exceeded the quoted cost
-    if (
-      commitment.adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit)) >
-      commitment.estimatedTotalCostJuels
-    ) {
-      resultCode = uint8(FulfillResult.COST_EXCEEDS_COMMITMENT);
-      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-      return (resultCode, callbackGasCostJuels);
-    }
+      // Check that the subscription can still afford
+      if (totalCostJuels > s_subscriptions[commitment.subscriptionId].balance) {
+        resultCode = FulfillResult.SUBSCRIPTION_BALANCE_INVARIANT_VIOLATION;
+        emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+        return (resultCode, callbackGasCostJuels);
+      }
 
-    // If checks pass, continue as default, 0 = USER_SUCCESS;
-    resultCode = 0;
+      // Check that the cost has not exceeded the quoted cost
+      if (totalCostJuels > commitment.estimatedTotalCostJuels) {
+        resultCode = FulfillResult.COST_EXCEEDS_COMMITMENT;
+        emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+        return (resultCode, callbackGasCostJuels);
+      }
+    }
 
     delete s_requestCommitments[commitment.requestId];
 
@@ -287,9 +289,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       commitment.callbackGasLimit,
       commitment.client
     );
-    resultCode = result.success
-      ? 0 // FulfillResult.USER_SUCCESS
-      : 1; // FulfillResult.USER_ERROR
+    resultCode = result.success ? FulfillResult.USER_SUCCESS : FulfillResult.USER_ERROR;
 
     Receipt memory receipt = _pay(
       commitment.subscriptionId,
@@ -297,20 +297,19 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       commitment.client,
       commitment.adminFee,
       juelsPerGas,
-      result.gasUsed,
-      costWithoutFulfillment
+      SafeCast.toUint96(result.gasUsed),
+      costWithoutCallback
     );
 
-    // resultCode must be 0 or 1 here
-    emit RequestProcessed(
-      commitment.requestId,
-      commitment.subscriptionId,
-      receipt.totalCostJuels,
-      transmitter,
-      resultCode,
-      result.success ? response : err,
-      result.returnData
-    );
+    emit RequestProcessed({
+      requestId: commitment.requestId,
+      subscriptionId: commitment.subscriptionId,
+      totalCostJuels: receipt.totalCostJuels,
+      transmitter: transmitter,
+      resultCode: resultCode,
+      response: result.success ? response : err,
+      returnData: result.returnData
+    });
 
     return (resultCode, receipt.callbackGasCostJuels);
   }
@@ -388,7 +387,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
    * @inheritdoc IFunctionsRouter
    */
   function isValidCallbackGasLimit(uint64 subscriptionId, uint32 callbackGasLimit) public view {
-    uint8 index = uint8(_getFlags(subscriptionId)[GAS_FLAG_INDEX]);
+    uint8 index = uint8(getFlags(subscriptionId)[MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX]);
     if (index >= s_config.maxCallbackGasLimits.length) {
       revert InvalidGasFlagValue(index);
     }
@@ -398,7 +397,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   }
 
   function _getMaxConsumers() internal view override returns (uint16) {
-    return s_config.maxConsumers;
+    return s_config.maxConsumersPerSubscription;
   }
 
   // ================================================================
@@ -414,7 +413,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   }
 
   function _onlySenderThatAcceptedToS() internal view override {
-    if (!IAccessController(_getContractById(ALLOW_LIST_ID, false)).hasAccess(msg.sender, new bytes(0))) {
+    if (!IAccessController(getContractById(ALLOW_LIST_ID)).hasAccess(msg.sender, new bytes(0))) {
       revert SenderMustAcceptTermsOfService(msg.sender);
     }
   }

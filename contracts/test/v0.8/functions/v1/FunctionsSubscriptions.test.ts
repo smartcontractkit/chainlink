@@ -129,7 +129,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.subOwner)
             .acceptSubscriptionOwnerTransfer(1203123123),
-        ).to.be.revertedWith(`MustBeRequestedOwner`)
+        ).to.be.revertedWith(`MustBeProposedOwner`)
       })
       it('must be requested owner to accept', async function () {
         await expect(
@@ -141,7 +141,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.subOwner)
             .acceptSubscriptionOwnerTransfer(subId),
-        ).to.be.revertedWith(`MustBeRequestedOwner("${roles.strangerAddress}")`)
+        ).to.be.revertedWith(`MustBeProposedOwner`)
       })
       it('requested owner can accept', async function () {
         await acceptTermsOfService(
@@ -773,13 +773,13 @@ describe('Functions Router - Subscriptions', () => {
       // Accept ToS for client contract
       const acceptorAddress = roles.subOwnerAddress
       const recipientAddress = contracts.client.address
-      const messageHash = await contracts.accessControl.getMessageHash(
+      const message = await contracts.accessControl.getMessage(
         acceptorAddress,
         recipientAddress,
       )
       const wallet = new ethers.Wallet(accessControlMockPrivateKey)
       const flatSignature = await wallet.signMessage(
-        ethers.utils.arrayify(messageHash),
+        ethers.utils.arrayify(message),
       )
       const { r, s, v } = ethers.utils.splitSignature(flatSignature)
       await contracts.client
