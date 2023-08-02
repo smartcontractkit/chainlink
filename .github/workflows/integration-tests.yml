@@ -652,11 +652,10 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Notify Slack
-        if: false ## TODO: This is currently noisy and needs to be more compact.
         id: slack
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         with:
-          channel-id: ${{ secrets.QA_RELEASE_SLACK_CHANNEL }}
+          channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
           payload: |
             {
               "text": "",
