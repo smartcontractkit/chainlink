@@ -111,6 +111,7 @@ $SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusWrapperConsumerE
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusRevertingExample.sol
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/libraries/VRFV2PlusClient.sol
+$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
 
 # VRF V2 Wrapper
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFV2Wrapper.sol

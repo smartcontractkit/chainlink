@@ -673,3 +673,37 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.PriceMaxKey))
 	})
 }
+
+func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	vuni := buildVrfUni(t, db, cfg)
+
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+
+	vd := vrf.NewDelegate(
+		db,
+		vuni.ks,
+		vuni.pr,
+		vuni.prm,
+		vuni.cc,
+		logger.TestLogger(t),
+		cfg.Database(),
+		mailMon)
+	chain, err := vuni.cc.Get(testutils.FixtureChainID)
+	require.NoError(t, err)
+	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		VRFVersion:    vrfcommon.V2Plus,
+		PublicKey:     vuni.vrfkey.PublicKey.String(),
+		FromAddresses: []string{string(vuni.submitter.Hex())},
+		GasLanePrice:  chain.Config().EVM().GasEstimator().PriceMax(),
+	})
+	toml := "vrfOwnerAddress=\"0xF62fEFb54a0af9D32CDF0Db21C52710844c7eddb\"\n" + vs.Toml()
+	jb, err := vrfcommon.ValidatedVRFSpec(toml)
+	require.NoError(t, err)
+	err = vuni.jrm.CreateJob(&jb)
+	require.NoError(t, err)
+	_, err = vd.ServicesForSpec(jb)
+	require.Error(t, err)
+	require.Equal(t, "VRF Owner is not supported for VRF V2 Plus", err.Error())
+}
