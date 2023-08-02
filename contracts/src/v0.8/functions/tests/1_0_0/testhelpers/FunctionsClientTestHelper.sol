@@ -42,11 +42,12 @@ contract FunctionsClientTestHelper is FunctionsClient {
     uint32 callbackGasLimit = 20_000;
     request.initializeRequestForInlineJavaScript(sourceCode);
     bytes memory requestData = Functions.encodeCBOR(request);
-    requestId = bytes32(
-      s_router.validateProposedContracts(
-        donId,
-        abi.encode(subscriptionId, requestData, Functions.REQUEST_DATA_VERSION, callbackGasLimit)
-      )
+    requestId = s_router.sendRequestToProposed(
+      subscriptionId,
+      requestData,
+      Functions.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      donId
     );
     emit RequestSent(requestId);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
