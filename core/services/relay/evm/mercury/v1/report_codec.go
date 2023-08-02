@@ -16,6 +16,7 @@ import (
 )
 
 var ReportTypes = getReportTypes()
+var maxReportLength = 32 * len(ReportTypes) // each arg is 256 bit EVM word
 
 func getReportTypes() abi.Arguments {
 	mustNewType := func(t string) abi.Type {
@@ -28,10 +29,10 @@ func getReportTypes() abi.Arguments {
 	return abi.Arguments([]abi.Argument{
 		{Name: "feedId", Type: mustNewType("bytes32")},
 		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
-		{Name: "validFromTimestamp", Type: mustNewType("uint32")},
 		{Name: "benchmarkPrice", Type: mustNewType("int192")},
 		{Name: "bid", Type: mustNewType("int192")},
 		{Name: "ask", Type: mustNewType("int192")},
+		{Name: "validFromTimestamp", Type: mustNewType("uint32")},
 		{Name: "expiresAt", Type: mustNewType("uint32")},
 		{Name: "linkFee", Type: mustNewType("int192")},
 		{Name: "nativeFee", Type: mustNewType("int192")},
@@ -58,8 +59,6 @@ func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation
 
 	timestamp := relaymercury.GetConsensusTimestamp(mPaos)
 
-	// todo: add checks for validFromTimestamp
-
 	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(mPaos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBenchmarkPrice failed")
@@ -72,6 +71,7 @@ func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusAsk failed")
 	}
+
 	linkFee, err := relaymercury.GetConsensusLinkFee(mPaos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusLinkFee failed")
@@ -81,18 +81,12 @@ func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation
 		return nil, errors.Wrap(err, "GetConsensusNativeFee failed")
 	}
 
-	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, validFromTimestamp, benchmarkPrice, bid, ask, expiresAt, linkFee, nativeFee)
+	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, benchmarkPrice, bid, ask, validFromTimestamp, expiresAt, linkFee, nativeFee)
 	return ocrtypes.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
 }
 
 func (r *ReportCodec) MaxReportLength(n int) (int, error) {
-	return 8*32 + // feed ID
-			32 + // timestamp
-			32 + // validFromTimestamp
-			192 + // benchmarkPrice
-			192 + // bid
-			192, // ask
-		nil
+	return maxReportLength, nil
 }
 
 func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error) {
@@ -111,7 +105,7 @@ func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (ui
 		return 0, errors.Errorf("cannot cast timestamp to uint32, type is %T", timestampIface)
 	}
 
-	if timestamp > math.MaxUint32 {
+	if timestamp > math.MaxInt32 {
 		return 0, errors.Errorf("timestamp overflows max uint32, got: %d", timestamp)
 	}
 

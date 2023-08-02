@@ -103,7 +103,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			obs.MaxFinalizedTimestamp.Val, _ = ds.fetcher.LatestTimestamp(ctx)
+			obs.MaxFinalizedTimestamp.Val, obs.MaxFinalizedTimestamp.Err = ds.fetcher.LatestTimestamp(ctx)
 		}()
 	}
 
