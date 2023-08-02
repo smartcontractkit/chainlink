@@ -40,7 +40,7 @@ import (
 )
 
 func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
-	relayers, err := chainlink.NewCoreRelayerChainInteroperators(chainlink.RelayerFactory{})
+	relayers, err := chainlink.NewCoreRelayerChainInteroperators()
 	if err != nil {
 		t.Fatal(err)
 	}

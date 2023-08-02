@@ -145,7 +145,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 
 func (r *Relayer) NewFunctionsProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.FunctionsProvider, error) {
 	// TODO(FUN-668): Not ready yet (doesn't implement FunctionsEvents() properly)
-	return NewFunctionsProvider(r.chainSet, rargs, pargs, r.lggr, r.ks.Eth(), functions.FunctionsPlugin)
+	return NewFunctionsProvider(r.legacyChains, rargs, pargs, r.lggr, r.ks.Eth(), functions.FunctionsPlugin)
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {

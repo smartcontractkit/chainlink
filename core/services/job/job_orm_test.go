@@ -493,8 +493,10 @@ func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(cc)
+
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	fromAddresses := []string{cltest.NewEIP55Address().String(), cltest.NewEIP55Address().String()}
 	jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
