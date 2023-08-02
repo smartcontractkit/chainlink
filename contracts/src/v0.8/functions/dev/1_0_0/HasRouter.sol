@@ -7,7 +7,7 @@ import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IOwnableFunctionsRouter} from "./interfaces/IOwnableFunctionsRouter.sol";
 
 abstract contract HasRouter is ITypeAndVersion, IConfigurable {
-  IOwnableFunctionsRouter internal immutable s_router;
+  IOwnableFunctionsRouter private immutable s_router;
 
   error RouterMustBeSet();
   error OnlyCallableByRouter();
