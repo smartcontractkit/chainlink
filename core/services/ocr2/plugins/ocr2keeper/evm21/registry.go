@@ -64,7 +64,6 @@ type Registry interface {
 	GetUpkeep(opts *bind.CallOpts, id *big.Int) (UpkeepInfo, error)
 	GetState(opts *bind.CallOpts) (iregistry21.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
-	GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, endIndex *big.Int, trigger uint8) ([]*big.Int, error)
 	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	CheckCallback(opts *bind.TransactOpts, id *big.Int, values [][]byte, extraData []byte) (*coreTypes.Transaction, error)
@@ -160,8 +159,8 @@ type activeUpkeep struct {
 }
 
 type MercuryConfig struct {
-	cred           *models.MercuryCredentials
-	abi            abi.ABI
+	cred *models.MercuryCredentials
+	abi  abi.ABI
 	// allowListCache stores the admin address' privilege. in 2.1, this only includes a JSON bytes for allowed to use mercury
 	allowListCache *cache.Cache
 }
