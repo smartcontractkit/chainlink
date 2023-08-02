@@ -1,7 +1,9 @@
 package evm
 
 import (
+	"bytes"
 	"math/big"
+	"sort"
 	"sync"
 	"testing"
 
@@ -53,11 +55,13 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 			coreTypes.Header{Number: big.NewInt(1)},
 			[]ocr2keepers.UpkeepPayload{
 				{
-					ID:      "edc5ec5f1d41b338a9ba6902caa8620a992fd086dcb978a6baa11a08e2e2795f",
-					Trigger: ocr2keepers.Trigger{BlockNumber: 1, BlockHash: "0xc3bd2d00745c03048a5616146a96f5ff78e54efb9e5b04af208cdaff6f3830ee"},
+					Upkeep: ocr2keepers.ConfiguredUpkeep{
+						ID: ocr2keepers.UpkeepIdentifier(big.NewInt(1).String()),
+					},
 				}, {
-					ID:      "351362d44977dba636dd8b7429255db2e7b90a93ebddcb5f0f93cd81995ea887",
-					Trigger: ocr2keepers.Trigger{BlockNumber: 1, BlockHash: "0xc3bd2d00745c03048a5616146a96f5ff78e54efb9e5b04af208cdaff6f3830ee"},
+					Upkeep: ocr2keepers.ConfiguredUpkeep{
+						ID: ocr2keepers.UpkeepIdentifier(big.NewInt(2).String()),
+					},
 				},
 			},
 			false,
@@ -76,12 +80,14 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 			got, err := p.GetActiveUpkeeps(ctx, BlockKeyHelper[int64]{}.MakeBlockKey(b.Number().Int64()))
 			require.NoError(t, err)
 			require.Len(t, got, len(tc.want))
-
+			sort.Slice(got, func(i, j int) bool {
+				return bytes.Compare(got[i].Upkeep.ID, got[j].Upkeep.ID) < 0
+			})
 			for i, payload := range got {
 				expected := tc.want[i]
-				require.Equal(t, expected.ID, payload.ID)
-				require.Equal(t, expected.Trigger.BlockNumber, payload.Trigger.BlockNumber)
-				require.Equal(t, expected.Trigger.BlockHash, payload.Trigger.BlockHash)
+				// require.Equal(t, expected.ID, payload.ID) // TODO: uncomment once we change to workID
+				require.Equal(t, expected.Upkeep.ID, payload.Upkeep.ID)
+				require.Equal(t, b.Number().Int64(), payload.Trigger.BlockNumber)
 			}
 		})
 	}
