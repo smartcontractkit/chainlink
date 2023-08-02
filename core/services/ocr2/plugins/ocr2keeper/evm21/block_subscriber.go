@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -23,18 +22,9 @@ const (
 	PollLogInterval = time.Second
 	// CleanUpInterval is the interval for cleaning up block maps
 	CleanUpInterval = 15 * time.Minute
-	// Separator is the separator for block key
-	Separator = "|"
 	// ChannelSize represents the channel size for head broadcaster
 	ChannelSize = 20
 )
-
-type BlockSubscriber interface {
-	Subscribe() (int, chan ocr2keepers.BlockHistory, error)
-	Unsubscribe(subId int) error
-}
-
-var _ BlockSubscriber = &HeadProvider{}
 
 type BlockKey struct {
 	block int64
@@ -42,10 +32,10 @@ type BlockKey struct {
 }
 
 func (bk *BlockKey) getBlockKey() ocr2keepers.BlockKey {
-	return ocr2keepers.BlockKey(fmt.Sprintf("%d%s%s", bk.block, Separator, bk.hash.Hex()))
+	return ocr2keepers.BlockKey(fmt.Sprintf("%d%s%s", bk.block, BlockKeySeparator, bk.hash.Hex()))
 }
 
-type HeadProvider struct {
+type BlockSubscriber struct {
 	sync                  utils.StartStopOnce
 	mu                    sync.RWMutex
 	ctx                   context.Context
@@ -64,21 +54,88 @@ type HeadProvider struct {
 	lggr                  logger.Logger
 }
 
-func NewHeadProvider(c evm.Chain, blockHistorySize int64, lggr logger.Logger) *HeadProvider {
-	return &HeadProvider{
-		hb:                    c.HeadBroadcaster(),
-		lp:                    c.LogPoller(),
+func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, blockHistorySize int64, lggr logger.Logger) *BlockSubscriber {
+	return &BlockSubscriber{
+		hb:                    hb,
+		lp:                    lp,
 		headC:                 make(chan BlockKey, ChannelSize),
 		subscribers:           map[int]chan ocr2keepers.BlockHistory{},
 		blocksFromPoller:      map[int64]common.Hash{},
 		blocksFromBroadcaster: map[int64]common.Hash{},
 		blockHistorySize:      blockHistorySize,
-		lggr:                  lggr.Named("HeadProvider"),
+		lggr:                  lggr.Named("BlockSubscriber"),
 	}
 }
 
-func (hw *HeadProvider) Start(_ context.Context) error {
-	return hw.sync.StartOnce("HeadProvider", func() error {
+func (hw *BlockSubscriber) getBlockRange(ctx context.Context) ([]uint64, error) {
+	h, err := hw.lp.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, err
+	}
+	hw.lggr.Infof("latest block from log poller is %d", h)
+
+	var blocks []uint64
+	for i := int64(0); i < hw.blockHistorySize; i++ {
+		blocks = append(blocks, uint64(h-i))
+	}
+	return blocks, nil
+}
+
+func (hw *BlockSubscriber) getLogPollerBlocks(ctx context.Context, blocks []uint64) error {
+	// request the past LOOK_BACK blocksFromPoller from log poller
+	// returned blocksFromPoller are in ASC order
+	logpollerBlocks, err := hw.lp.GetBlocksRange(ctx, blocks, pg.WithParentCtx(ctx))
+	if err != nil {
+		return err
+	}
+	hw.mu.Lock()
+	for _, b := range logpollerBlocks {
+		hw.blocksFromPoller[b.BlockNumber] = b.BlockHash
+	}
+	hw.mu.Unlock()
+	return nil
+}
+
+func (hw *BlockSubscriber) buildHistory(block int64) ocr2keepers.BlockHistory {
+	var keys []BlockKey
+	// populate keys slice in block DES order
+	for i := int64(0); i < hw.blockHistorySize; i++ {
+		if h1, ok1 := hw.blocksFromPoller[block-i]; ok1 {
+			// if a block exists in log poller, use block data from log poller
+			keys = append(keys, BlockKey{
+				block: block - i,
+				hash:  h1,
+			})
+		} else if h2, ok2 := hw.blocksFromBroadcaster[block-i]; ok2 {
+			// if a block only exists in broadcaster, use data from broadcaster
+			keys = append(keys, BlockKey{
+				block: block - i,
+				hash:  h2,
+			})
+		} else {
+			hw.lggr.Infof("block %d is missing", block-i)
+		}
+		// if a block does not exist in both log poller and broadcaster, skip
+	}
+	return getBlockHistory(keys)
+}
+
+func (hw *BlockSubscriber) cleanup() {
+	hw.mu.Lock()
+	defer hw.mu.Unlock()
+
+	hw.lggr.Infof("start clearing blocks from %d to %d", hw.lastClearedBlock+1, hw.lastSentBlock-hw.blockHistorySize)
+	for i := hw.lastClearedBlock + 1; i <= hw.lastSentBlock-hw.blockHistorySize; i++ {
+		delete(hw.blocksFromPoller, i)
+		delete(hw.blocksFromBroadcaster, i)
+	}
+	hw.lastClearedBlock = hw.lastSentBlock - hw.blockHistorySize
+	hw.lggr.Infof("lastClearedBlock is set to %d", hw.lastClearedBlock)
+}
+
+func (hw *BlockSubscriber) Start(_ context.Context) error {
+	hw.lggr.Info("block subscriber started.")
+	return hw.sync.StartOnce("BlockSubscriber", func() error {
 		hw.mu.Lock()
 		defer hw.mu.Unlock()
 		_, hw.unsubscribe = hw.hb.Subscribe(&headWrapper{headC: hw.headC})
@@ -93,34 +150,20 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 						hw.mu.Lock()
 						if hw.lastClearedBlock == 0 {
 							hw.lastClearedBlock = bk.block - 1
+							hw.lggr.Infof("lastClearedBlock is %d", hw.lastClearedBlock)
 						}
 						hw.blocksFromBroadcaster[bk.block] = bk.hash
+						hw.lggr.Infof("blocksFromBroadcaster block %d hash is %s", bk.block, bk.hash.String())
 
-						var keys []BlockKey
-						// populate keys slice in block DES order
-						for i := int64(0); i < hw.blockHistorySize; i-- {
-							if h1, ok1 := hw.blocksFromPoller[bk.block-i]; ok1 {
-								// if a block exists in log poller, use block data from log poller
-								keys = append(keys, BlockKey{
-									block: bk.block - i,
-									hash:  h1,
-								})
-							} else if h2, ok2 := hw.blocksFromBroadcaster[bk.block-i]; ok2 {
-								// if a block only exists in broadcaster, use data from broadcaster
-								keys = append(keys, BlockKey{
-									block: bk.block - i,
-									hash:  h2,
-								})
-							}
-							// if a block does not exist in both log poller and broadcaster, skip
-						}
+						history := hw.buildHistory(bk.block)
 
 						hw.lastSentBlock = bk.block
-						history := getBlockHistory(keys)
+						hw.lggr.Infof("lastSentBlock is %d", hw.lastSentBlock)
 						// send history to all subscribers
 						for _, subC := range hw.subscribers {
 							subC <- history
 						}
+						hw.lggr.Infof("published block history with length %d to %d subscriber(s)", len(history), len(hw.subscribers))
 
 						hw.mu.Unlock()
 					case <-ctx.Done():
@@ -137,26 +180,14 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 				for {
 					select {
 					case <-ticker.C:
-						h, err := hw.lp.LatestBlock(pg.WithParentCtx(ctx))
+						blocks, err := hw.getBlockRange(ctx)
 						if err != nil {
-							hw.lggr.Errorf("failed to get latest block", err)
+							hw.lggr.Infof("failed to get block range", err)
+							return
 						}
-
-						var blocks []uint64
-						for i := int64(0); i < hw.blockHistorySize; i++ {
-							blocks = append(blocks, uint64(h-i))
-						}
-
-						// request the past LOOK_BACK blocksFromPoller from log poller
-						// returned blocksFromPoller are in ASC order
-						logpollerBlocks, err := hw.lp.GetBlocksRange(ctx, blocks, pg.WithParentCtx(ctx))
-						hw.mu.Lock()
-						for _, b := range logpollerBlocks {
-							hw.blocksFromPoller[b.BlockNumber] = b.BlockHash
-						}
-						hw.mu.Unlock()
+						err = hw.getLogPollerBlocks(ctx, blocks)
 						if err != nil {
-							hw.lggr.Errorf("failed to get blocksFromPoller range", err)
+							hw.lggr.Infof("failed to get log poller blocks", err)
 						}
 					case <-ctx.Done():
 						ticker.Stop()
@@ -173,13 +204,7 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 				for {
 					select {
 					case <-ticker.C:
-						hw.mu.Lock()
-						for i := hw.lastClearedBlock + 1; i <= hw.lastSentBlock-hw.blockHistorySize; i++ {
-							delete(hw.blocksFromPoller, i)
-							delete(hw.blocksFromBroadcaster, i)
-						}
-						hw.lastClearedBlock = hw.lastSentBlock - hw.blockHistorySize
-						hw.mu.Unlock()
+						hw.cleanup()
 					case <-ctx.Done():
 						ticker.Stop()
 						return
@@ -192,8 +217,9 @@ func (hw *HeadProvider) Start(_ context.Context) error {
 	})
 }
 
-func (hw *HeadProvider) Close() error {
-	return hw.sync.StopOnce("HeadProvider", func() error {
+func (hw *BlockSubscriber) Close() error {
+	hw.lggr.Info("stop block subscriber")
+	return hw.sync.StopOnce("BlockSubscriber", func() error {
 		hw.mu.Lock()
 		defer hw.mu.Unlock()
 
@@ -204,7 +230,7 @@ func (hw *HeadProvider) Close() error {
 	})
 }
 
-func (hw *HeadProvider) Subscribe() (int, chan ocr2keepers.BlockHistory, error) {
+func (hw *BlockSubscriber) Subscribe() (int, chan ocr2keepers.BlockHistory, error) {
 	hw.mu.Lock()
 	defer hw.mu.Unlock()
 
@@ -212,11 +238,12 @@ func (hw *HeadProvider) Subscribe() (int, chan ocr2keepers.BlockHistory, error) 
 	subId := hw.maxSubId
 	newC := make(chan ocr2keepers.BlockHistory, ChannelSize)
 	hw.subscribers[subId] = newC
+	hw.lggr.Infof("new subscriber %d", subId)
 
 	return subId, newC, nil
 }
 
-func (hw *HeadProvider) Unsubscribe(subId int) error {
+func (hw *BlockSubscriber) Unsubscribe(subId int) error {
 	hw.mu.Lock()
 	defer hw.mu.Unlock()
 
@@ -227,6 +254,7 @@ func (hw *HeadProvider) Unsubscribe(subId int) error {
 
 	close(c)
 	delete(hw.subscribers, subId)
+	hw.lggr.Infof("subscriber %d unsubscribed", subId)
 	return nil
 }
 
