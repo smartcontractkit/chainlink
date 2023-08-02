@@ -8,10 +8,10 @@ import {CBOR} from "../../../../vendor/solidity-cborutils/v2.0.0/CBOR.sol";
  * @title Library for encoding Functions request data to CBOR
  */
 library FunctionsRequest {
+  using CBOR for Buffer.buffer;
+
   uint16 public constant REQUEST_DATA_VERSION = 1;
   uint256 internal constant DEFAULT_BUFFER_SIZE = 256;
-
-  using CBOR for Buffer.buffer;
 
   enum Location {
     Inline,
