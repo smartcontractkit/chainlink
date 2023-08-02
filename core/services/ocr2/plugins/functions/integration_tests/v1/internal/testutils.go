@@ -114,13 +114,11 @@ func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToke
 	allowed, err := allowListContract.HasAccess(nilOpts, owner.From, []byte{})
 	require.NoError(t, err)
 	if !allowed {
-		messageHash, err := allowListContract.GetMessageHash(nilOpts, owner.From, owner.From)
-		require.NoError(t, err)
-		ethMessageHash, err := allowListContract.GetEthSignedMessageHash(nilOpts, messageHash)
+		message, err := allowListContract.GetMessage(nilOpts, owner.From, owner.From)
 		require.NoError(t, err)
 		privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
 		require.NoError(t, err)
-		flatSignature, err := crypto.Sign(ethMessageHash[:], privateKey)
+		flatSignature, err := crypto.Sign(message[:], privateKey)
 		var r [32]byte
 		copy(r[:], flatSignature[:32])
 		var s [32]byte
