@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {CBOR, Buffer} from "../../../../vendor/solidity-cborutils/v2.0.0/CBOR.sol";
+import {Buffer} from "../../../../vendor/@ensdomains/buffer/0.1.0/Buffer.sol";
+import {CBOR} from "../../../../vendor/solidity-cborutils/v2.0.0/CBOR.sol";
 
 /**
  * @title Library for encoding Functions request data to CBOR
