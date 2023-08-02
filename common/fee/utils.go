@@ -10,6 +10,8 @@ func ApplyMultiplier(feeLimit uint32, multiplier float32) uint32 {
 	return uint32(decimal.NewFromBigInt(big.NewInt(0).SetUint64(uint64(feeLimit)), 0).Mul(decimal.NewFromFloat32(multiplier)).IntPart())
 }
 
+// TODO: Remove function when we move utils.Big into `chainlink-relay`
+// Max is a duplicate in big.Utils package.
 // Max returns the maximum of the two given big.Int values.
 func max(x, y *big.Int) *big.Int {
 	if x.Cmp(y) == 1 {
