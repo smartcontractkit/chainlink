@@ -382,7 +382,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 
 	spec.CaptureEATelemetry = d.cfg.OCR2().CaptureEATelemetry()
-	spec.CaptureAutomationCustomTelemetry = d.cfg.OCR2().CaptureAutomationCustomTelemetry()
 
 	runResults := make(chan pipeline.Run, d.cfg.JobPipeline().ResultWriteQueueDepth())
 

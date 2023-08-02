@@ -44,21 +44,21 @@ func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb h
 func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 	return e.StartOnce("AutomationCustomTelemetryService", func() error {
 		e.lggr.Infof("Starting: Custom Telemetry Service")
-		versionMsg := &telem.NodeVersion{
+		vMsg := &telem.NodeVersion{
 			Timestamp:   uint64(time.Now().UTC().UnixMilli()),
 			NodeVersion: static.Version,
 		}
-		wrappedMessage := &telem.AutomationTelemWrapper{
+		wrappedVMsg := &telem.AutomationTelemWrapper{
 			Msg: &telem.AutomationTelemWrapper_NodeVersion{
-				NodeVersion: versionMsg,
+				NodeVersion: vMsg,
 			},
 		}
-		bytes, err := proto.Marshal(wrappedMessage)
+		bytes, err := proto.Marshal(wrappedVMsg)
 		if err != nil {
-			e.lggr.Errorf("Error occurred while marshalling the message: %v", err)
+			e.lggr.Errorf("Error occurred while marshalling the Node Version Message %s: %v", wrappedVMsg.String(), err)
 		}
 		e.monitoringEndpoint.SendLog(bytes)
-		e.lggr.Infof("NodeVersion Message Sent to Endpoint: %d", versionMsg.Timestamp)
+		e.lggr.Infof("NodeVersion Message Sent to Endpoint: %d", vMsg.Timestamp)
 		_, e.unsubscribe = e.headBroadcaster.Subscribe(&headWrapper{e.headCh})
 		go func() {
 			e.lggr.Infof("Started: Custom Telemetry Service")
@@ -70,17 +70,18 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 						BlockNumber: uint64(blockInfo.block),
 						BlockHash:   blockInfo.hash,
 					}
-					wrappedMessage := &telem.AutomationTelemWrapper{
+					wrappedBlockNumMsg := &telem.AutomationTelemWrapper{
 						Msg: &telem.AutomationTelemWrapper_BlockNumber{
 							BlockNumber: blockNumMsg,
 						},
 					}
-					bytes, err := proto.Marshal(wrappedMessage)
+					b, err := proto.Marshal(wrappedBlockNumMsg)
 					if err != nil {
-						e.lggr.Errorf("Error occurred while marshalling the message: %v", err)
+						e.lggr.Errorf("Error occurred while marshalling the Block Num Message %s: %v", wrappedBlockNumMsg.String(), err)
+					} else {
+						e.monitoringEndpoint.SendLog(b)
+						e.lggr.Infof("BlockNumber Message Sent to Endpoint: %d", blockNumMsg.Timestamp)
 					}
-					e.monitoringEndpoint.SendLog(bytes)
-					e.lggr.Infof("BlockNumber Message Sent to Endpoint: %d", blockNumMsg.Timestamp)
 				case <-e.chDone:
 					return
 				}
