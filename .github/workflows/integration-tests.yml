@@ -614,15 +614,15 @@ jobs:
       TEST_OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
 
       # ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
-      # TEST_ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
+      TEST_ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
       # ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
-      # TEST_ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
+      TEST_ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
     strategy:
       fail-fast: false
       matrix:
         ## DEBUG: Testing what's up
         # testnet: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
-        testnet: [OPTIMISM_GOERLI]
+        testnet: [OPTIMISM_GOERLI, ARBITRUM_GOERLI]
     name: Live Testnet Smoke Tests ${{ matrix.testnet }}
     runs-on: ubuntu-latest
     steps:
@@ -660,41 +660,38 @@ jobs:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
           payload: |
             {
-              attachments: [
-                {
-                  "color": "${{ job.status == 'success' && 'good' || 'danger' }}",
-                  "blocks": [
-                    {
-                      "type": "header",
-                      "text": {
-                        "type": "plain_text",
-                        "text": "Live Smoke Test Results ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}",
-                        "emoji": true
-                      }
-                    },
-                    {
-                      "type": "divider"
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "Tag: <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}>\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
-                      }
-                    },
-                    {
-                      "type": "divider"
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "OCR ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}"
-                      }
+              {
+                "blocks": [
+                  {
+                    "type": "header",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "Live Smoke Test Results ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}",
+                      "emoji": true
                     }
-                  ]
+                  },
+                  {
+                    "type": "divider"
+                  },
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": "Tag: <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}>\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+                    }
+                  },
+                  {
+                    "type": "divider"
+                  },
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": "OCR ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}"
+                    }
+                  }
+                ]
                 }
-              ]
             }
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
