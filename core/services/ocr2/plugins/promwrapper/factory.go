@@ -3,7 +3,7 @@ package promwrapper
 import (
 	"math/big"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 var _ types.ReportingPluginFactory = &promFactory{}

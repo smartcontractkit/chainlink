@@ -26,7 +26,7 @@ func TestLockedDB_HappyPath(t *testing.T) {
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
-	ldb := pg.NewLockedDB(config, lggr)
+	ldb := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 
 	err := ldb.Open(testutils.Context(t))
 	require.NoError(t, err)
@@ -41,7 +41,7 @@ func TestLockedDB_ContextCancelled(t *testing.T) {
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
-	ldb := pg.NewLockedDB(config, lggr)
+	ldb := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	cancel()
@@ -54,7 +54,7 @@ func TestLockedDB_OpenTwice(t *testing.T) {
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
-	ldb := pg.NewLockedDB(config, lggr)
+	ldb := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 
 	err := ldb.Open(testutils.Context(t))
 	require.NoError(t, err)
@@ -70,7 +70,7 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 	config := configtest.NewGeneralConfig(t, lease)
 	lggr := logger.TestLogger(t)
 
-	ldb1 := pg.NewLockedDB(config, lggr)
+	ldb1 := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 	err := ldb1.Open(testutils.Context(t))
 	require.NoError(t, err)
 	defer func() {
@@ -79,9 +79,9 @@ func TestLockedDB_TwoInstances(t *testing.T) {
 
 	// second instance would wait for locks to be released,
 	// hence we use some timeout
-	ctx, cancel := context.WithTimeout(testutils.Context(t), config.LeaseLockDuration())
+	ctx, cancel := context.WithTimeout(testutils.Context(t), config.Database().Lock().LeaseDuration())
 	defer cancel()
-	ldb2 := pg.NewLockedDB(config, lggr)
+	ldb2 := pg.NewLockedDB(config.AppID(), config.Database(), config.Database().Lock(), lggr)
 	err = ldb2.Open(ctx)
 	require.Error(t, err)
 }
@@ -90,12 +90,12 @@ func TestOpenUnlockedDB(t *testing.T) {
 	testutils.SkipShortDB(t)
 	config := configtest.NewGeneralConfig(t, nil)
 
-	db1, err1 := pg.OpenUnlockedDB(config)
+	db1, err1 := pg.OpenUnlockedDB(config.AppID(), config.Database())
 	require.NoError(t, err1)
 	require.NotNil(t, db1)
 
 	// should not block the second connection
-	db2, err2 := pg.OpenUnlockedDB(config)
+	db2, err2 := pg.OpenUnlockedDB(config.AppID(), config.Database())
 	require.NoError(t, err2)
 	require.NotNil(t, db2)
 

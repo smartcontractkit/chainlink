@@ -6,7 +6,7 @@ on:
         description: Chainlink image version to use
         required: true
         type: string
-        default: 1.10.0
+        default: 2.0.0
       chainlinkImage:
         description: Chainlink image repo to use
         required: true
@@ -97,7 +97,7 @@ jobs:
             done
           done <<< "$EVM_HTTP_URLS"
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ env.REF_NAME }}
       - name: Build Test Image
@@ -107,12 +107,13 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ab595504ae9cf10c60eb8d2c5ce025284e58b210 # v2.1.5
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@bc6e3b5cf369b76e361d372ceb7d144525635ce0 # v2.2.0
         env:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark
           TEST_ARGS: -test.timeout 720h
           ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
+          INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
         with:
           test_command_to_run: cd integration-tests && go test -timeout 30m -v -run ^TestAutomationBenchmark$ ./benchmark -count=1
           test_download_vendor_packages_command: make gomod
@@ -127,7 +128,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

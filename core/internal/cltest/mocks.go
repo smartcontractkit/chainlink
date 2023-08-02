@@ -69,21 +69,6 @@ func (mes *MockSubscription) Unsubscribe() {
 	close(mes.Errors)
 }
 
-// InstantClock an InstantClock
-type InstantClock struct{}
-
-// Now returns the current local time
-func (InstantClock) Now() time.Time {
-	return time.Now()
-}
-
-// After return channel of time
-func (InstantClock) After(_ time.Duration) <-chan time.Time {
-	c := make(chan time.Time, 100)
-	c <- time.Now()
-	return c
-}
-
 // RendererMock a mock renderer
 type RendererMock struct {
 	Renders []interface{}
@@ -443,7 +428,7 @@ func NewChainSetMockWithOneChain(t testing.TB, ethClient evmclient.Client, cfg e
 	ch.On("Client").Return(ethClient)
 	ch.On("Config").Return(cfg)
 	ch.On("Logger").Return(logger.TestLogger(t))
-	ch.On("ID").Return(cfg.ChainID())
+	ch.On("ID").Return(cfg.EVM().ChainID())
 	cc.On("Default").Return(ch, nil)
 	cc.On("Get", (*big.Int)(nil)).Return(ch, nil)
 	cc.On("Chains").Return([]evm.Chain{ch})

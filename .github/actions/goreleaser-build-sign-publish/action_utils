@@ -70,6 +70,9 @@ goreleaser_release() {
     rm -rf cosign.pub
     rm -rf cosign.key
   fi
+
+  echo "metadata=$(cat dist/metadata.json)" >> "$GITHUB_OUTPUT"
+  echo "artifacts=$(cat dist/artifacts.json)" >> "$GITHUB_OUTPUT"
 }
 
 "$@"

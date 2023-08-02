@@ -62,7 +62,7 @@ func TestEVMForwarderPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, createdAt.Format(time.RFC3339))
 }
 
-func TestClient_TrackEVMForwarder(t *testing.T) {
+func TestShell_TrackEVMForwarder(t *testing.T) {
 	t.Parallel()
 
 	id := newRandChainID()
@@ -70,7 +70,7 @@ func TestClient_TrackEVMForwarder(t *testing.T) {
 		c.EVM[0].ChainID = id
 		c.EVM[0].Enabled = ptr(true)
 	})
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	// Create the fwdr
 	set := flag.NewFlagSet("test", 0)
@@ -107,7 +107,7 @@ func TestClient_TrackEVMForwarder(t *testing.T) {
 	require.Equal(t, 0, len(fwds))
 }
 
-func TestClient_TrackEVMForwarder_BadAddress(t *testing.T) {
+func TestShell_TrackEVMForwarder_BadAddress(t *testing.T) {
 	t.Parallel()
 
 	id := newRandChainID()
@@ -115,7 +115,7 @@ func TestClient_TrackEVMForwarder_BadAddress(t *testing.T) {
 		c.EVM[0].ChainID = id
 		c.EVM[0].Enabled = ptr(true)
 	})
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 
 	// Create the fwdr
 	set := flag.NewFlagSet("test", 0)
@@ -128,13 +128,13 @@ func TestClient_TrackEVMForwarder_BadAddress(t *testing.T) {
 	require.Contains(t, err.Error(), "could not decode address: invalid hex string")
 }
 
-func TestClient_DeleteEVMForwarders_MissingFwdId(t *testing.T) {
+func TestShell_DeleteEVMForwarders_MissingFwdId(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 	})
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 
 	// Delete fwdr without id
 	set := flag.NewFlagSet("test", 0)

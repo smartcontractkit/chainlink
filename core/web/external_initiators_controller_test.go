@@ -77,7 +77,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
 	db := app.GetSqlxDB()
-	borm := bridges.NewORM(db, logger.TestLogger(t), app.GetConfig())
+	borm := bridges.NewORM(db, logger.TestLogger(t), app.GetConfig().Database())
 
 	eiFoo := cltest.MustInsertExternalInitiatorWithOpts(t, borm, cltest.ExternalInitiatorOpts{
 		NamePrefix:    "foo",

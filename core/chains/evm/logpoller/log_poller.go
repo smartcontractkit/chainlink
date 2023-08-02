@@ -41,12 +41,14 @@ type LogPoller interface {
 	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
 	LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
+	LogsCreatedAfter(eventSig common.Hash, address common.Address, time time.Time, confs int, qopts ...pg.QOpt) ([]Log, error)
 	LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error)
 	LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error)
 
 	// Content based querying
 	IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error)
+	IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error)
@@ -118,7 +120,7 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
-		lggr:              lggr,
+		lggr:              lggr.Named("LogPoller"),
 		replayStart:       make(chan int64),
 		replayComplete:    make(chan error),
 		pollPeriod:        pollPeriod,
@@ -307,6 +309,7 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // is already in progress, the replay will continue and ErrReplayInProgress will be returned.  If the client needs a
 // guarantee that the replay is complete before proceeding, it should either avoid cancelling or retry until nil is returned
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
+	lp.lggr.Debugf("Replaying from block %d", fromBlock)
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		return err
@@ -910,6 +913,10 @@ func (lp *logPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, add
 	return lp.orm.SelectLogsWithSigsByBlockRangeFilter(start, end, address, eventSigs, qopts...)
 }
 
+func (lp *logPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectLogsCreatedAfter(eventSig[:], address, after, confs, qopts...)
+}
+
 // IndexedLogs finds all the logs that have a topic value in topicValues at index topicIndex.
 func (lp *logPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectIndexedLogs(address, eventSig, topicIndex, topicValues, confs, qopts...)
@@ -918,6 +925,10 @@ func (lp *logPoller) IndexedLogs(eventSig common.Hash, address common.Address, t
 // IndexedLogsByBlockRange finds all the logs that have a topic value in topicValues at index topicIndex within the block range
 func (lp *logPoller) IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectIndexedLogsByBlockRangeFilter(start, end, address, eventSig, topicIndex, topicValues, qopts...)
+}
+
+func (lp *logPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectIndexedLogsCreatedAfter(address, eventSig, topicIndex, topicValues, after, confs, qopts...)
 }
 
 // LogsDataWordGreaterThan note index is 0 based.

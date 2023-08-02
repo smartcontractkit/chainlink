@@ -23,7 +23,7 @@ func (c sessionReaperConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(42 * time.Second)
 }
 
-func (c sessionReaperConfig) ReaperExpiration() models.Duration {
+func (c sessionReaperConfig) SessionReaperExpiration() models.Duration {
 	return models.MustMakeDuration(142 * time.Second)
 }
 
@@ -47,8 +47,8 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 	}{
 		{"current", time.Now(), false},
 		{"expired", time.Now().Add(-config.SessionTimeout().Duration()), false},
-		{"almost stale", time.Now().Add(-config.ReaperExpiration().Duration()), false},
-		{"stale", time.Now().Add(-config.ReaperExpiration().Duration()).
+		{"almost stale", time.Now().Add(-config.SessionReaperExpiration().Duration()), false},
+		{"stale", time.Now().Add(-config.SessionReaperExpiration().Duration()).
 			Add(-config.SessionTimeout().Duration()), true},
 	}
 

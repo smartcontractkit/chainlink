@@ -81,6 +81,11 @@ func (r *NodeResolver) SendOnly() bool {
 	return orZero(r.node.SendOnly)
 }
 
+// Order resolves the node's order field
+func (r *NodeResolver) Order() *int32 {
+	return r.node.Order
+}
+
 // Chain resolves the node's chain object field.
 func (r *NodeResolver) Chain(ctx context.Context) (*ChainResolver, error) {
 	chain, err := loader.GetChainByID(ctx, r.status.ChainID)

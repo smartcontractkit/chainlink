@@ -24,7 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
-func TestClient_SolanaSendSol(t *testing.T) {
+func TestShell_SolanaSendSol(t *testing.T) {
 	chainID := "localnet"
 	url := solanaClient.SetupLocalSolNode(t)
 	node := solcfg.Node{
@@ -50,7 +50,7 @@ func TestClient_SolanaSendSol(t *testing.T) {
 		return coin == 100*solanago.LAMPORTS_PER_SOL
 	}, time.Minute, 5*time.Second)
 
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 	cliapp := cli.NewApp()
 
 	for _, tt := range []struct {

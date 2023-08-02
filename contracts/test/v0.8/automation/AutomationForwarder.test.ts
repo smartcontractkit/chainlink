@@ -1,5 +1,5 @@
 import { expect } from 'chai'
-import { ethers, network } from 'hardhat'
+import { ethers } from 'hardhat'
 import { getUsers, Roles } from '../../test-helpers/setup'
 import { AutomationForwarder } from '../../../typechain/AutomationForwarder'
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
@@ -48,7 +48,7 @@ const setup = async () => {
   const factory = await ethers.getContractFactory('AutomationForwarder')
   forwarder = await factory
     .connect(roles.defaultAccount)
-    .deploy(100, target.address)
+    .deploy(100, target.address, await roles.defaultAccount.getAddress())
   await forwarder.deployed()
 }
 

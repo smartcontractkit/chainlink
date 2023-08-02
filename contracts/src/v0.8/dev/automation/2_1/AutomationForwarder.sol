@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
-import {AutomationRegistryBaseInterface as IRegistry} from "./interfaces/AutomationRegistryInterface2_1.sol";
 import "../../../interfaces/TypeAndVersionInterface.sol";
 import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsumer.sol";
 
@@ -21,8 +20,8 @@ contract AutomationForwarder is TypeAndVersionInterface {
 
   error NotAuthorized();
 
-  constructor(uint256 upkeepID, address target) {
-    s_registry = IAutomationRegistryConsumer(msg.sender);
+  constructor(uint256 upkeepID, address target, address registry) {
+    s_registry = IAutomationRegistryConsumer(registry);
     i_target = target;
     i_upkeepID = upkeepID;
   }

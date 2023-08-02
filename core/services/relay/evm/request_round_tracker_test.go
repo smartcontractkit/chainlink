@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -89,7 +89,8 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		lggr,
 		db,
 		uni.db,
-		chain,
+		chain.EVM(),
+		chain.Database(),
 	)
 
 	return uni

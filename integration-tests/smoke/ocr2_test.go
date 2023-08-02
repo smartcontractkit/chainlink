@@ -20,16 +20,16 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
-	testEnvironment, testNetwork := setupOCR2Test(t)
+	testEnvironment, testNetwork := setupOCR2Test(t, false)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -56,10 +56,20 @@ func TestOCRv2Basic(t *testing.T) {
 	err = actions.FundChainlinkNodes(workerNodes, chainClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, contractDeployer, workerNodes, chainClient)
+	// Gather transmitters
+	var transmitters []string
+	for _, node := range workerNodes {
+		addr, err := node.PrimaryEthAddress()
+		if err != nil {
+			require.NoError(t, fmt.Errorf("error getting node's primary ETH address: %w", err))
+		}
+		transmitters = append(transmitters, addr)
+	}
+
+	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, contractDeployer, transmitters, chainClient)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
-	err = actions.CreateOCRv2Jobs(aggregatorContracts, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64())
+	err = actions.CreateOCRv2Jobs(aggregatorContracts, bootstrapNode, workerNodes, mockServer, "ocr2", 5, chainClient.GetChainID().Uint64(), false)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	ocrv2Config, err := actions.BuildMedianOCR2Config(workerNodes)
@@ -90,7 +100,7 @@ func TestOCRv2Basic(t *testing.T) {
 	)
 }
 
-func setupOCR2Test(t *testing.T) (
+func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
 	testEnvironment *environment.Environment,
 	testNetwork blockchain.EVMNetwork,
 ) {
@@ -103,10 +113,18 @@ func setupOCR2Test(t *testing.T) (
 			WsURLs:      testNetwork.URLs,
 		})
 	}
-	chainlinkChart := chainlink.New(0, map[string]interface{}{
-		"toml":     client.AddNetworksConfig(config.BaseOCR2Config, testNetwork),
-		"replicas": 6,
+
+	var toml string
+	if forwardersEnabled {
+		toml = client.AddNetworkDetailedConfig(config.BaseOCR2Config, config.ForwarderNetworkDetailConfig, testNetwork)
+	} else {
+		toml = client.AddNetworksConfig(config.BaseOCR2Config, testNetwork)
+	}
+
+	chainlinkChart, err := chainlink.NewDeployment(6, map[string]interface{}{
+		"toml": toml,
 	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
@@ -115,8 +133,8 @@ func setupOCR2Test(t *testing.T) (
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlinkChart)
-	err := testEnvironment.Run()
+		AddHelmCharts(chainlinkChart)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

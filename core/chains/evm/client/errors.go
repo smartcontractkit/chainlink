@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -139,14 +140,6 @@ var arbitrum = ClientErrors{
 	L2Full:                regexp.MustCompile(`(: |^)(queue full|sequencer pending tx pool full, please try again)(:|$)`),
 }
 
-// Optimism Bedrock introduced the same errors as geth
-// https://github.com/ethereum-optimism/op-geth/blob/optimism/core/error.go
-// TODO: remove this when all Optimism networks have migrated: https://app.shortcut.com/chainlinklabs/story/55389/remove-optimism-pre-bedrock-error-messages
-var optimism = ClientErrors{
-	L2FeeTooLow:  regexp.MustCompile(`(: |^)fee too low: \d+, use at least tx.gasLimit = \d+ and tx.gasPrice = \d+$`),
-	L2FeeTooHigh: regexp.MustCompile(`(: |^)fee too high: \d+, use less than \d+ \* [0-9\.]+$`),
-}
-
 var celo = ClientErrors{
 	TxFeeExceedsCap:       regexp.MustCompile(`(: |^)tx fee \([0-9\.]+ of currency celo\) exceeds the configured cap \([0-9\.]+ [a-zA-Z]+\)$`),
 	TerminallyUnderpriced: regexp.MustCompile(`(: |^)gasprice is less than gas price minimum floor`),
@@ -214,7 +207,7 @@ var harmony = ClientErrors{
 	Fatal:                   harmonyFatal,
 }
 
-var clients = []ClientErrors{parity, geth, arbitrum, optimism, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo}
+var clients = []ClientErrors{parity, geth, arbitrum, metis, substrate, avalanche, nethermind, harmony, besu, erigon, klaytn, celo}
 
 func (s *SendError) is(errorType int) bool {
 	if s == nil || s.err == nil {

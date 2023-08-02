@@ -14,12 +14,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
-	gw_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
+	handler_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 	net_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/network/mocks"
 )
 
-func parseTOMLConfig(t *testing.T, tomlConfig string) *gateway.GatewayConfig {
-	var cfg gateway.GatewayConfig
+func parseTOMLConfig(t *testing.T, tomlConfig string) *config.GatewayConfig {
+	var cfg config.GatewayConfig
 	err := toml.Unmarshal([]byte(tomlConfig), &cfg)
 	require.NoError(t, err)
 	return &cfg
@@ -47,7 +50,8 @@ DonId = "my_don_2"
 HandlerName = "dummy"
 `)
 
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
 	require.NoError(t, err)
 }
 
@@ -64,7 +68,8 @@ DonId = "my_don"
 HandlerName = "dummy"
 `)
 
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -77,7 +82,8 @@ DonId = "my_don"
 HandlerName = "no_such_handler"
 `)
 
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -90,7 +96,8 @@ HandlerName = "dummy"
 SomeOtherField = "abcd"
 `)
 
-	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), logger.TestLogger(t))
+	lggr := logger.TestLogger(t)
+	_, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, tomlConfig), gateway.NewHandlerFactory(nil, lggr), lggr)
 	require.Error(t, err)
 }
 
@@ -102,14 +109,14 @@ func requireJsonRPCError(t *testing.T, response []byte, expectedId string, expec
 	require.Equal(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","error":{"code":%d,"message":"%s"}}`, expectedId, expectedCode, expectedMsg), string(response))
 }
 
-func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *gw_mocks.Handler) {
+func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handler_mocks.Handler) {
 	httpServer := net_mocks.NewHttpServer(t)
 	httpServer.On("SetHTTPRequestHandler", mock.Anything).Return(nil)
-	handler := gw_mocks.NewHandler(t)
-	handlers := map[string]gateway.Handler{
+	handler := handler_mocks.NewHandler(t)
+	handlers := map[string]handlers.Handler{
 		"testDON": handler,
 	}
-	gw := gateway.NewGateway(&gateway.JsonRPCCodec{}, httpServer, handlers, nil, logger.TestLogger(t))
+	gw := gateway.NewGateway(&api.JsonRPCCodec{}, httpServer, handlers, nil, logger.TestLogger(t))
 	return gw, handler
 }
 
@@ -140,11 +147,11 @@ func TestGateway_ProcessRequest_HandlerResponse(t *testing.T) {
 
 	gw, handler := newGatewayWithMockHandler(t)
 	handler.On("HandleUserMessage", mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		msg := args.Get(1).(*gateway.Message)
-		callbackCh := args.Get(2).(chan<- gateway.UserCallbackPayload)
+		msg := args.Get(1).(*api.Message)
+		callbackCh := args.Get(2).(chan<- handlers.UserCallbackPayload)
 		// echo back to sender with attached payload
 		msg.Body.Payload = []byte(`{"result":"OK"}`)
-		callbackCh <- gateway.UserCallbackPayload{Msg: msg, ErrCode: gateway.NoError, ErrMsg: ""}
+		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.NoError, ErrMsg: ""}
 	})
 
 	response, statusCode := gw.ProcessRequest(testutils.Context(t),

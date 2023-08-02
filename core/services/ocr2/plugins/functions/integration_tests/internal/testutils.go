@@ -18,8 +18,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/smartcontractkit/libocr/commontypes"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -33,14 +33,22 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	drconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+)
+
+var (
+	DefaultSecretsBytes  = []byte{0xaa, 0xbb, 0xcc}
+	DefaultSecretsBase64 = "qrvM"
+	DefaultArg1          = "arg1"
+	DefaultArg2          = "arg2"
 )
 
 func ptr[T any](v T) *T { return &v }
@@ -51,13 +59,13 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, oracleContract *ocr
 		S[i] = 1
 	}
 
-	reportingPluginConfigBytes, err := drconfig.EncodeReportingPluginConfig(&drconfig.ReportingPluginConfigWrapper{
-		Config: &drconfig.ReportingPluginConfig{
+	reportingPluginConfigBytes, err := functionsConfig.EncodeReportingPluginConfig(&functionsConfig.ReportingPluginConfigWrapper{
+		Config: &functionsConfig.ReportingPluginConfig{
 			MaxQueryLengthBytes:       10_000,
 			MaxObservationLengthBytes: 10_000,
 			MaxReportLengthBytes:      10_000,
 			MaxRequestBatchSize:       uint32(batchSize),
-			DefaultAggregationMethod:  drconfig.AggregationMethod_AGGREGATION_MODE,
+			DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
 			UniqueReports:             true,
 		},
 	})
@@ -307,7 +315,7 @@ func StartNewNode(
 func AddBootstrapJob(t *testing.T, app *cltest.TestApplication, contractAddress common.Address) job.Job {
 	job, err := ocrbootstrap.ValidatedBootstrapSpecToml(fmt.Sprintf(`
 		type                              = "bootstrap"
-		name                              = "dr-ocr-bootstrap"
+		name                              = "functions-bootstrap"
 		schemaVersion                     = 1
 		relay                             = "evm"
 		contractConfigConfirmations       = 1
@@ -331,9 +339,9 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		Name: "ea_bridge",
 		URL:  models.WebURL(*u),
 	}))
-	job, err := validate.ValidatedOracleSpecToml(app.Config, fmt.Sprintf(`
+	job, err := validate.ValidatedOracleSpecToml(app.Config.OCR2(), app.Config.Insecure(), fmt.Sprintf(`
 		type               = "offchainreporting2"
-		name               = "dr-ocr-node"
+		name               = "functions-node"
 		schemaVersion      = 1
 		relay              = "evm"
 		contractID         = "%s"
@@ -341,16 +349,10 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		transmitterID      = "%s"
 		contractConfigConfirmations = 1
 		contractConfigTrackerPollInterval = "1s"
-		maxTaskDuration    = "30s"
 		pluginType         = "functions"
 		observationSource  = """
-			decode_log         [type="ethabidecodelog" abi="OracleRequest(bytes32 indexed requestId, address requestingContract, address requestInitiator, uint64 subscriptionId, address subscriptionOwner, bytes data)" data="$(jobRun.logData)" topics="$(jobRun.logTopics)"]
-			decode_cbor        [type="cborparse" data="$(decode_log.data)"]
-			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"id\\": $(jobSpec.externalJobID), \\"data\\": $(decode_cbor)}"]
-			parse_result       [type=jsonparse data="$(run_computation)" path="data,result"]
-			parse_error        [type=jsonparse data="$(run_computation)" path="data,error"]
-			parse_domains      [type=jsonparse data="$(run_computation)" path="data,domains" lax=true]
-			decode_log -> decode_cbor -> run_computation -> parse_result -> parse_error -> parse_domains
+			run_computation    [type="bridge" name="ea_bridge" requestData="{\\"note\\": \\"observationSource is unused but the bridge is required\\"}"]
+			run_computation
 		"""
 
 		[relayConfig]
@@ -377,10 +379,19 @@ func StartNewMockEA(t *testing.T) *httptest.Server {
 		require.NoError(t, err)
 		var jsonMap map[string]any
 		require.NoError(t, json.Unmarshal(b, &jsonMap))
-		source := jsonMap["data"].(map[string]any)["source"].(string)
+		data := jsonMap["data"].(map[string]any)
+		require.Equal(t, functions.LanguageJavaScript, int(data["language"].(float64)))
+		require.Equal(t, functions.LocationInline, int(data["codeLocation"].(float64)))
+		require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
+		require.Equal(t, DefaultSecretsBase64, data["secrets"].(string))
+		args := data["args"].([]interface{})
+		require.Equal(t, 2, len(args))
+		require.Equal(t, DefaultArg1, args[0].(string))
+		require.Equal(t, DefaultArg2, args[1].(string))
+		source := data["source"].(string)
 		res.WriteHeader(http.StatusOK)
 		// prepend "0xab" to source and return as result
-		_, err = res.Write([]byte(fmt.Sprintf(`{"data": {"result": "0xab%s", "error": ""}}`, source)))
+		_, err = res.Write([]byte(fmt.Sprintf(`{"result": "success", "statusCode": 200, "data": {"result": "0xab%s", "error": ""}}`, source)))
 		require.NoError(t, err)
 	}))
 }

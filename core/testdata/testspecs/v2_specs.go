@@ -241,6 +241,7 @@ type VRFSpecParams struct {
 	Name                          string
 	CoordinatorAddress            string
 	BatchCoordinatorAddress       string
+	VRFOwnerAddress               string
 	BatchFulfillmentEnabled       bool
 	BatchFulfillmentGasMultiplier float64
 	MinIncomingConfirmations      int
@@ -282,7 +283,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.BatchCoordinatorAddress != "" {
 		batchCoordinatorAddress = params.BatchCoordinatorAddress
 	}
-
+	vrfOwnerAddress := "0x5383C25DA15b1253463626243215495a3718beE4"
+	if params.VRFOwnerAddress != "" {
+		vrfOwnerAddress = params.VRFOwnerAddress
+	}
 	batchFulfillmentGasMultiplier := 1.0
 	if params.BatchFulfillmentGasMultiplier >= 1.0 {
 		batchFulfillmentGasMultiplier = params.BatchFulfillmentGasMultiplier
@@ -365,6 +369,7 @@ coordinatorAddress = "%s"
 batchCoordinatorAddress = "%s"
 batchFulfillmentEnabled = %v
 batchFulfillmentGasMultiplier = %s
+vrfOwnerAddress = "%s"
 minIncomingConfirmations = %d
 requestedConfsDelay = %d
 requestTimeout = "%s"
@@ -380,7 +385,7 @@ observationSource = """
 	toml := fmt.Sprintf(template,
 		jobID, name, coordinatorAddress, batchCoordinatorAddress,
 		params.BatchFulfillmentEnabled, strconv.FormatFloat(batchFulfillmentGasMultiplier, 'f', 2, 64),
-		confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
+		vrfOwnerAddress, confirmations, params.RequestedConfsDelay, requestTimeout.String(), publicKey, chunkSize,
 		params.BackoffInitialDelay.String(), params.BackoffMaxDelay.String(), gasLanePrice.String(), observationSource)
 	if len(params.FromAddresses) != 0 {
 		var addresses []string
@@ -404,6 +409,7 @@ observationSource = """
 		ChunkSize:                chunkSize,
 		BackoffInitialDelay:      params.BackoffInitialDelay,
 		BackoffMaxDelay:          params.BackoffMaxDelay,
+		VRFOwnerAddress:          vrfOwnerAddress,
 	}, toml: toml}
 }
 

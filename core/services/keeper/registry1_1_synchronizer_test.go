@@ -72,7 +72,7 @@ func mockRegistry1_1(
 func Test_LogListenerOpts1_1(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	scopedConfig := evmtest.NewChainScopedConfig(t, configtest.NewGeneralConfig(t, nil))
-	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig)
+	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	j := cltest.MustInsertKeeperJob(t, db, korm, cltest.NewEIP55Address(), cltest.NewEIP55Address())
 
@@ -230,7 +230,7 @@ func Test_RegistrySynchronizer1_1_ConfigSetLog(t *testing.T) {
 	registryMock.MockResponse("getConfig", newConfig).Once()
 
 	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg, 1)
+	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_1.KeeperRegistryConfigSet{}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -278,7 +278,7 @@ func Test_RegistrySynchronizer1_1_KeepersUpdatedLog(t *testing.T) {
 	registryMock.MockResponse("getKeeperList", addresses).Once()
 
 	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg, 1)
+	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_1.KeeperRegistryKeepersUpdated{}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -319,7 +319,7 @@ func Test_RegistrySynchronizer1_1_UpkeepCanceledLog(t *testing.T) {
 	cltest.WaitForCount(t, db, "upkeep_registrations", 3)
 
 	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg, 1)
+	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_1.KeeperRegistryUpkeepCanceled{Id: big.NewInt(1)}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -361,7 +361,7 @@ func Test_RegistrySynchronizer1_1_UpkeepRegisteredLog(t *testing.T) {
 	registryMock.MockResponse("getUpkeep", upkeepConfig1_1).Once()
 
 	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg, 1)
+	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
 	rawLog := types.Log{BlockHash: head.Hash}
 	log := registry1_1.KeeperRegistryUpkeepRegistered{Id: big.NewInt(1)}
 	logBroadcast := logmocks.NewBroadcast(t)
@@ -404,7 +404,7 @@ func Test_RegistrySynchronizer1_1_UpkeepPerformedLog(t *testing.T) {
 	pgtest.MustExec(t, db, `UPDATE upkeep_registrations SET last_run_block_height = 100`)
 
 	cfg := configtest.NewGeneralConfig(t, nil)
-	head := cltest.MustInsertHead(t, db, cfg, 1)
+	head := cltest.MustInsertHead(t, db, cfg.Database(), 1)
 	rawLog := types.Log{BlockHash: head.Hash, BlockNumber: 200}
 	log := registry1_1.KeeperRegistryUpkeepPerformed{Id: big.NewInt(0), From: fromAddress}
 	logBroadcast := logmocks.NewBroadcast(t)

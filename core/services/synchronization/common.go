@@ -11,6 +11,6 @@ const (
 	OCR2Automation    TelemetryType = "ocr2-automation"
 	OCR2Functions     TelemetryType = "ocr2-functions"
 	OCR2Median        TelemetryType = "ocr2-median"
-	OCR2Mercury       TelemetryType = "ocr2-mercury"
+	OCR3Mercury       TelemetryType = "ocr3-mercury"
 	OCR2VRF           TelemetryType = "ocr2-vrf"
 )

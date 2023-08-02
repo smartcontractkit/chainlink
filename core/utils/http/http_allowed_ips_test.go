@@ -15,7 +15,7 @@ import (
 
 type emptyDBURLcfg struct{}
 
-func (emptyDBURLcfg) DatabaseURL() url.URL {
+func (emptyDBURLcfg) URL() url.URL {
 	return url.URL{}
 }
 
@@ -23,7 +23,7 @@ type testDBURLcfg struct {
 	u url.URL
 }
 
-func (c testDBURLcfg) DatabaseURL() url.URL {
+func (c testDBURLcfg) URL() url.URL {
 	return c.u
 }
 

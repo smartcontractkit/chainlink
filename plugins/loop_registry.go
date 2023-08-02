@@ -31,13 +31,13 @@ func NewLoopRegistry() *LoopRegistry {
 }
 
 // Register creates a port of the plugin. It is idempotent. Duplicate calls to Register will return the same port
-func (m *LoopRegistry) Register(id string, staticCfg LoggingConfig) (*RegisteredLoop, error) {
+func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	p, ok := m.get(id)
 	if !ok {
-		return m.create(id, staticCfg)
+		return m.create(id)
 	}
 	return p, nil
 }
@@ -65,12 +65,12 @@ func (m *LoopRegistry) Get(id string) (*RegisteredLoop, bool) {
 
 // create returns a port number for the given plugin to use for prometheus handler.
 // NOT safe for concurrent use.
-func (m *LoopRegistry) create(pluginName string, staticCfg LoggingConfig) (*RegisteredLoop, error) {
+func (m *LoopRegistry) create(pluginName string) (*RegisteredLoop, error) {
 	if _, exists := m.registry[pluginName]; exists {
 		return nil, ErrExists
 	}
 	nextPort := pluginDefaultPort + len(m.registry)
-	envCfg := NewEnvConfig(staticCfg, nextPort)
+	envCfg := NewEnvConfig(nextPort)
 
 	m.registry[pluginName] = &RegisteredLoop{Name: pluginName, EnvCfg: envCfg}
 	return m.registry[pluginName], nil

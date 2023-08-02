@@ -7,12 +7,12 @@ import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/facto
 
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
 import { UpkeepMock__factory as UpkeepMockFactory } from '../../../typechain/factories/UpkeepMock__factory'
-import { KeeperRegistry20 as KeeperRegistry } from '../../../typechain/KeeperRegistry20'
+import { KeeperRegistry2_0 as KeeperRegistry } from '../../../typechain/KeeperRegistry2_0'
 import { KeeperRegistryLogic20 as KeeperRegistryLogic } from '../../../typechain/KeeperRegistryLogic20'
 import { KeeperRegistrar20 as KeeperRegistrar } from '../../../typechain/KeeperRegistrar20'
-import { KeeperRegistry20__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry20__factory'
-import { KeeperRegistryLogic20__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic20__factory'
-import { KeeperRegistrar20__factory as KeeperRegistrarFactory } from '../../../typechain/factories/KeeperRegistrar20__factory'
+import { KeeperRegistry2_0__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry2_0__factory'
+import { KeeperRegistryLogic2_0__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic2_0__factory'
+import { KeeperRegistrar2_0__factory as KeeperRegistrarFactory } from '../../../typechain/factories/KeeperRegistrar2_0__factory'
 
 import { MockV3Aggregator } from '../../../typechain/MockV3Aggregator'
 import { LinkToken } from '../../../typechain/LinkToken'

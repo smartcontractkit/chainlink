@@ -56,11 +56,23 @@ func (m *MultiStart) CloseBecause(reason error) (err error) {
 	return multierr.Append(reason, m.Close())
 }
 
-// MultiClose is a utility for closing multiple services concurrently.
-type MultiClose []io.Closer
+// CloseAll closes all elements concurrently.
+// Use this when you have various different types of io.Closer.
+func CloseAll(cs ...io.Closer) error {
+	return multiCloser[io.Closer](cs).Close()
+}
 
-// Close closes alls service concurrently and collects any returned errors as a multierr.
-func (m MultiClose) Close() (err error) {
+// MultiCloser returns an io.Closer which closes all elements concurrently.
+// Use this when you have a slice of a type which implements io.Closer.
+// []io.Closer can be cast directly to MultiCloser.
+func MultiCloser[C io.Closer](cs []C) io.Closer {
+	return multiCloser[C](cs)
+}
+
+type multiCloser[C io.Closer] []C
+
+// Close closes all elements concurrently and collects any returned errors as a multierr.
+func (m multiCloser[C]) Close() (err error) {
 	if len(m) == 0 {
 		return nil
 	}

@@ -21,11 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 const (
@@ -1126,10 +1126,10 @@ func setupKeeperTest(
 		})
 	}
 
-	chainlinkChart := chainlink.New(0, map[string]interface{}{
-		"replicas": "5",
-		"toml":     client.AddNetworksConfig(keeperBaseTOML, network),
+	chainlinkChart, err := chainlink.NewDeployment(5, map[string]interface{}{
+		"toml": client.AddNetworksConfig(keeperBaseTOML, network),
 	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
 	testEnvironment := environment.New(
@@ -1140,8 +1140,8 @@ func setupKeeperTest(
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlinkChart)
-	err := testEnvironment.Run()
+		AddHelmCharts(chainlinkChart)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
 	onlyStartRunner = testEnvironment.WillUseRemoteRunner()
 	if !onlyStartRunner {

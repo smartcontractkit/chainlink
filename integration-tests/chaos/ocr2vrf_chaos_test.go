@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
@@ -13,38 +16,36 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/ocr2vrf_actions/ocr2vrf_constants"
-
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-)
-
-var (
-	defaultOCR2VRFSettings = map[string]interface{}{
-		"replicas": "6",
-		"toml": client.AddNetworkDetailedConfig(
-			config.BaseOCR2Config,
-			config.DefaultOCR2VRFNetworkDetailTomlConfig,
-			networks.SelectedNetwork),
-	}
-
-	defaultOCR2VRFEthereumSettings = &ethereum.Props{
-		NetworkName: networks.SelectedNetwork.Name,
-		Simulated:   networks.SelectedNetwork.Simulated,
-		WsURLs:      networks.SelectedNetwork.URLs,
-	}
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 func TestOCR2VRFChaos(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
+	loadedNetwork := networks.SelectedNetwork
+
+	defaultOCR2VRFSettings := map[string]interface{}{
+		"replicas": "6",
+		"toml": client.AddNetworkDetailedConfig(
+			config.BaseOCR2Config,
+			config.DefaultOCR2VRFNetworkDetailTomlConfig,
+			loadedNetwork,
+		),
+	}
+
+	defaultOCR2VRFEthereumSettings := &ethereum.Props{
+		NetworkName: loadedNetwork.Name,
+		Simulated:   loadedNetwork.Simulated,
+		WsURLs:      loadedNetwork.URLs,
+	}
+
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
 		clChart      environment.ConnectedChart
@@ -112,18 +113,16 @@ func TestOCR2VRFChaos(t *testing.T) {
 		//},
 	}
 
-	for testcaseName, tc := range testCases {
+	for testCaseName, tc := range testCases {
 		testCase := tc
-		t.Run(fmt.Sprintf("OCR2VRF_%s", testcaseName), func(t *testing.T) {
+		t.Run(fmt.Sprintf("OCR2VRF_%s", testCaseName), func(t *testing.T) {
 			t.Parallel()
-			testNetwork := networks.SelectedNetwork
+			testNetwork := networks.SelectedNetwork // Need a new copy of the network for each test
 			testEnvironment := environment.
 				New(&environment.Config{
 					NamespacePrefix: fmt.Sprintf(
-						"chaos-ocr2vrf-%s",
-						strings.ReplaceAll(strings.ToLower(testNetwork.Name),
-							" ",
-							"-")),
+						"chaos-ocr2vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"),
+					),
 					Test: t,
 				}).
 				AddHelm(testCase.networkChart).
@@ -146,7 +145,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Error connecting to Chainlink nodes")
 			nodeAddresses, err := actions.ChainlinkNodeAddresses(chainlinkNodes)
-			require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
+			require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 			t.Cleanup(func() {
 				err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.PanicLevel, chainClient)

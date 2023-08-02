@@ -29,7 +29,6 @@ import (
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -46,10 +45,10 @@ var (
 	multiChain = Config{
 		Core: config.Core{
 			RootDir: ptr("my/root/dir"),
-			AuditLogger: audit.AuditLoggerConfig{
+			AuditLogger: config.AuditLogger{
 				Enabled:      ptr(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
-				Headers: ptr([]audit.ServiceHeader{
+				Headers: ptr([]models.ServiceHeader{
 					{
 						Header: "Authorization",
 						Value:  "token",
@@ -119,8 +118,8 @@ var (
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("primary"),
-						WSURL: mustURL("wss://web.socket/test"),
+						Name:  ptr("foo"),
+						WSURL: mustURL("wss://web.socket/test/foo"),
 					},
 				}},
 			{
@@ -132,8 +131,8 @@ var (
 				},
 				Nodes: []*evmcfg.Node{
 					{
-						Name:  ptr("primary"),
-						WSURL: mustURL("wss://web.socket/test"),
+						Name:  ptr("bar"),
+						WSURL: mustURL("wss://web.socket/test/bar"),
 					},
 				}},
 		},
@@ -152,7 +151,7 @@ var (
 					BlocksUntilTxTimeout: ptr[int64](20),
 				},
 				Nodes: []*coscfg.Node{
-					{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://bombay.cosmos.com")},
+					{Name: ptr("secondary"), TendermintURL: relayutils.MustParseURL("http://bombay.cosmos.com")},
 				}},
 		},
 		Solana: []*solana.SolanaConfig{
@@ -171,7 +170,7 @@ var (
 					OCR2CachePollPeriod: relayutils.MustNewDuration(time.Minute),
 				},
 				Nodes: []*solcfg.Node{
-					{Name: ptr("primary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
+					{Name: ptr("secondary"), URL: relayutils.MustParseURL("http://testnet.solana.com")},
 				},
 			},
 		},
@@ -227,11 +226,11 @@ func TestConfig_Marshal(t *testing.T) {
 
 	full := global
 
-	serviceHeaders := []audit.ServiceHeader{
+	serviceHeaders := []models.ServiceHeader{
 		{Header: "Authorization", Value: "token"},
 		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
 	}
-	full.AuditLogger = audit.AuditLoggerConfig{
+	full.AuditLogger = config.AuditLogger{
 		Enabled:        ptr(true),
 		ForwardToUrl:   mustURL("http://localhost:9898"),
 		Headers:        ptr(serviceHeaders),
@@ -299,6 +298,9 @@ func TestConfig_Marshal(t *testing.T) {
 		SecureCookies:           ptr(true),
 		SessionTimeout:          models.MustNewDuration(time.Hour),
 		SessionReaperExpiration: models.MustNewDuration(7 * 24 * time.Hour),
+		HTTPMaxSize:             ptr(utils.FileSize(uint64(32770))),
+		StartTimeout:            models.MustNewDuration(15 * time.Second),
+		ListenIP:                mustIP("192.158.1.37"),
 		MFA: config.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
@@ -315,6 +317,7 @@ func TestConfig_Marshal(t *testing.T) {
 			KeyPath:       ptr("tls/key/path"),
 			HTTPSPort:     ptr[uint16](6789),
 			ForceRedirect: ptr(true),
+			ListenIP:      mustIP("192.158.1.38"),
 		},
 	}
 	full.JobPipeline = config.JobPipeline{
@@ -343,6 +346,9 @@ func TestConfig_Marshal(t *testing.T) {
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
+		DefaultTransactionQueueDepth:       ptr[uint32](1),
+		SimulateTransactions:               ptr(false),
+		TraceLogging:                       ptr(false),
 	}
 	full.OCR = config.OCR{
 		Enabled:                      ptr(true),
@@ -355,6 +361,7 @@ func TestConfig_Marshal(t *testing.T) {
 		SimulateTransactions:         ptr(true),
 		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
 		CaptureEATelemetry:           ptr(false),
+		TraceLogging:                 ptr(false),
 	}
 	full.P2P = config.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
@@ -464,6 +471,7 @@ func TestConfig_Marshal(t *testing.T) {
 						VRF:    ptr[uint32](1003),
 						FM:     ptr[uint32](1004),
 						Keeper: ptr[uint32](1005),
+						OCR2:   ptr[uint32](1006),
 					},
 
 					BlockHistory: evmcfg.BlockHistoryEstimator{
@@ -534,12 +542,12 @@ func TestConfig_Marshal(t *testing.T) {
 				{
 					Name:    ptr("foo"),
 					HTTPURL: mustURL("https://foo.web"),
-					WSURL:   mustURL("wss://web.socket/test"),
+					WSURL:   mustURL("wss://web.socket/test/foo"),
 				},
 				{
 					Name:    ptr("bar"),
 					HTTPURL: mustURL("https://bar.com"),
-					WSURL:   mustURL("wss://web.socket/test"),
+					WSURL:   mustURL("wss://web.socket/test/bar"),
 				},
 				{
 					Name:     ptr("broadcast"),
@@ -700,6 +708,9 @@ HTTPPort = 56
 SecureCookies = true
 SessionTimeout = '1h0m0s'
 SessionReaperExpiration = '168h0m0s'
+HTTPMaxSize = '32.77kb'
+StartTimeout = '15s'
+ListenIP = '192.158.1.37'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -717,6 +728,7 @@ ForceRedirect = true
 Host = 'tls-host'
 HTTPSPort = 6789
 KeyPath = 'tls/key/path'
+ListenIP = '192.158.1.38'
 `},
 		{"FluxMonitor", Config{Core: config.Core{FluxMonitor: full.FluxMonitor}}, `[FluxMonitor]
 DefaultTransactionQueueDepth = 100
@@ -745,6 +757,7 @@ KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 CaptureEATelemetry = false
+TraceLogging = false
 `},
 		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `[OCR2]
 Enabled = true
@@ -756,6 +769,9 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
+TraceLogging = false
 `},
 		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13
@@ -875,6 +891,7 @@ TipCapMin = '1 wei'
 
 [EVM.GasEstimator.LimitJobType]
 OCR = 1001
+OCR2 = 1006
 DR = 1002
 VRF = 1003
 FM = 1004
@@ -917,12 +934,12 @@ GasLimit = 540
 
 [[EVM.Nodes]]
 Name = 'foo'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/foo'
 HTTPURL = 'https://foo.web'
 
 [[EVM.Nodes]]
 Name = 'bar'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/bar'
 HTTPURL = 'https://bar.com'
 
 [[EVM.Nodes]]
@@ -1030,6 +1047,9 @@ func TestConfig_full(t *testing.T) {
 			if got.EVM[c].Nodes[n].SendOnly == nil {
 				got.EVM[c].Nodes[n].SendOnly = ptr(true)
 			}
+			if got.EVM[c].Nodes[n].Order == nil {
+				got.EVM[c].Nodes[n].Order = ptr(int32(100))
+			}
 		}
 	}
 
@@ -1068,16 +1088,16 @@ func TestConfig_Validate(t *testing.T) {
 		- 1: 6 errors:
 			- ChainType: invalid value (Foo): must not be set with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Foo): must be one of arbitrum, metis, optimism, xdai, optimismBedrock or omitted
+			- ChainType: invalid value (Foo): must be one of arbitrum, metis, xdai, optimismBedrock, celo or omitted
 			- HeadTracker.HistoryDepth: invalid value (30): must be equal to or greater than FinalityDepth
 			- GasEstimator: 2 errors:
 				- FeeCapDefault: invalid value (101 wei): must be equal to PriceMax (99 wei) since you are using FixedPrice estimation with gas bumping disabled in EIP1559 mode - PriceMax will be used as the FeeCap for transactions instead of FeeCapDefault
 				- PriceMax: invalid value (1 gwei): must be greater than or equal to PriceDefault
 			- KeySpecific.Key: invalid value (0xde709f2102306220921060314715629080e2fb77): duplicate - must be unique
 		- 2: 5 errors:
-			- ChainType: invalid value (Arbitrum): only "optimism" can be used with this chain id
+			- ChainType: invalid value (Arbitrum): only "optimismBedrock" can be used with this chain id
 			- Nodes: missing: must have at least one node
-			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, optimism, xdai, optimismBedrock or omitted
+			- ChainType: invalid value (Arbitrum): must be one of arbitrum, metis, xdai, optimismBedrock, celo or omitted
 			- FinalityDepth: invalid value (0): must be greater than or equal to 1
 			- MinIncomingConfirmations: invalid value (0): must be greater than or equal to 1
 		- 3.Nodes: 5 errors:
@@ -1260,8 +1280,8 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 	c, err := opts.New()
 	assert.NoError(t, err)
 	c.SetPasswords(ptr(PWD_OVERRIDE), nil)
-	assert.Equal(t, PWD_OVERRIDE, c.KeystorePassword())
-	dbURL := c.DatabaseURL()
+	assert.Equal(t, PWD_OVERRIDE, c.Password().Keystore())
+	dbURL := c.Database().URL()
 	assert.Equal(t, DBURL_OVERRIDE, (&dbURL).String())
 }
 
@@ -1375,7 +1395,7 @@ func TestConfig_SetFrom(t *testing.T) {
 			for _, fs := range tt.from {
 				var f Config
 				require.NoError(t, config.DecodeTOML(strings.NewReader(fs), &f))
-				c.SetFrom(&f)
+				require.NoError(t, c.SetFrom(&f))
 			}
 			ts, err := c.TOMLString()
 			require.NoError(t, err)

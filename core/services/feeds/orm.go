@@ -425,13 +425,8 @@ DO
 		status = (
 			CASE
 				WHEN job_proposals.status = 'deleted' THEN 'deleted'::job_proposal_status
+				WHEN job_proposals.status = 'approved' THEN 'approved'::job_proposal_status
 				ELSE EXCLUDED.status
-			END
-		),
-		external_job_id = (
-			CASE
-				WHEN job_proposals.status = 'deleted' THEN job_proposals.external_job_id
-				ELSE $6
 			END
 		),
 		multiaddrs = EXCLUDED.multiaddrs,
@@ -439,7 +434,7 @@ DO
 RETURNING id;
 `
 
-	err = o.q.WithOpts(qopts...).Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs, jp.ExternalJobID)
+	err = o.q.WithOpts(qopts...).Get(&id, stmt, jp.Name, jp.RemoteUUID, jp.Status, jp.FeedsManagerID, jp.Multiaddrs)
 	return id, errors.Wrap(err, "UpsertJobProposal")
 }
 
@@ -487,8 +482,9 @@ WHERE id = $3;
 	return nil
 }
 
-// CancelSpec cancels the spec and removes the external job id from the
-// associated job proposal.
+// CancelSpec cancels the spec and removes the external job id from the associated job proposal. It
+// sets the status of the spec and the proposal to cancelled, except in the case of deleted
+// proposals.
 func (o *orm) CancelSpec(id int64, qopts ...pg.QOpt) error {
 	// Update the status of the approval
 	stmt := `
@@ -548,8 +544,8 @@ RETURNING id;
 	return id, errors.Wrap(err, "CreateJobProposalSpec failed")
 }
 
-// ExistsSpecByJobProposalIDAndVersion checks if a job proposal spec exists for
-// a specific job proposal and version.
+// ExistsSpecByJobProposalIDAndVersion checks if a job proposal spec exists for a specific job
+// proposal and version.
 func (o *orm) ExistsSpecByJobProposalIDAndVersion(jpID int64, version int32, qopts ...pg.QOpt) (exists bool, err error) {
 	stmt := `
 SELECT exists (
@@ -563,9 +559,8 @@ SELECT exists (
 	return exists, errors.Wrap(err, "JobProposalSpecVersionExists failed")
 }
 
-// DeleteProposal performs a soft delete of the job proposal by setting the
-// status to deleted, remove the external job id, and update the status to
-// deleted
+// DeleteProposal performs a soft delete of the job proposal by setting the status to deleted and
+// update the status to deleted
 func (o *orm) DeleteProposal(id int64, qopts ...pg.QOpt) error {
 	stmt := `
 UPDATE job_proposals

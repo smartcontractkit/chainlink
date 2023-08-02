@@ -1,6 +1,7 @@
 name: Solidity
 
 on:
+  merge_group:
   push:
 
 env:
@@ -18,7 +19,7 @@ jobs:
       changes: ${{ steps.changes.outputs.src }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
@@ -34,7 +35,7 @@ jobs:
       splits: ${{ steps.split.outputs.splits }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Generate splits
         id: split
         uses: ./.github/actions/split-tests
@@ -42,7 +43,7 @@ jobs:
           config: ./contracts/ci.json
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -59,7 +60,7 @@ jobs:
     runs-on: ubuntu20.04-4cores-16GB
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
         if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
@@ -90,7 +91,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -103,7 +104,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
         if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
@@ -134,7 +135,7 @@ jobs:
     runs-on: ubuntu20.04-4cores-16GB
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
         if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
@@ -152,7 +153,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -163,8 +164,26 @@ jobs:
     needs: [changes, solidity-splits]
     name: Solidity
     runs-on: ubuntu-latest
+    if: always()
     steps:
       - run: echo 'Solidity tests finished!'
+      - name: Check test results
+        run: |
+          if [[ "${{ needs.changes.result }}" = "failure" || "${{ needs.solidity-splits.result }}" = "failure" ]]; then
+            echo "One or more changes / solidity-splits jobs failed"
+            exit 1
+          else
+            echo "All test jobs passed successfully"
+          fi
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity
+        continue-on-error: true
 
   prepublish-test:
     needs: [changes]
@@ -172,7 +191,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
         if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
@@ -183,7 +202,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -196,9 +215,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Checkout diff-so-fancy
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           repository: so-fancy/diff-so-fancy
           ref: a673cb4d2707f64d92b86498a2f5f71c8e2643d5 # v1.4.3
@@ -230,7 +249,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -246,7 +265,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
         if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
@@ -256,7 +275,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -272,7 +291,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
         if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
@@ -282,7 +301,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

@@ -18,6 +18,7 @@ COPY . .
 RUN make install-chainlink
 RUN make install-solana
 RUN make install-median
+RUN make install-starknet
 
 # Final image: ubuntu with chainlink binary
 FROM ubuntu:20.04
@@ -37,6 +38,8 @@ COPY --from=buildgo /go/bin/chainlink-solana /usr/local/bin/
 ENV CL_SOLANA_CMD chainlink-solana
 COPY --from=buildgo /go/bin/chainlink-median /usr/local/bin/
 ENV CL_MEDIAN_CMD chainlink-median
+COPY --from=buildgo /go/bin/chainlink-starknet /usr/local/bin/
+ENV CL_STARKNET_CMD chainlink-starknet
 
 # Dependency of CosmWasm/wasmd
 COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/

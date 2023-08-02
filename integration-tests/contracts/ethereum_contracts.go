@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -48,7 +49,11 @@ func (e *EthereumOracle) Address() string {
 }
 
 func (e *EthereumOracle) Fund(ethAmount *big.Float) error {
-	return e.client.Fund(e.address.Hex(), ethAmount)
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return e.client.Fund(e.address.Hex(), ethAmount, gasEstimates)
 }
 
 // SetFulfillmentPermission sets fulfillment permission for particular address
@@ -84,7 +89,11 @@ func (e *EthereumAPIConsumer) RoundID(ctx context.Context) (*big.Int, error) {
 }
 
 func (e *EthereumAPIConsumer) Fund(ethAmount *big.Float) error {
-	return e.client.Fund(e.address.Hex(), ethAmount)
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return e.client.Fund(e.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (e *EthereumAPIConsumer) Data(ctx context.Context) (*big.Int, error) {
@@ -132,7 +141,11 @@ func (f *EthereumStaking) Address() string {
 
 // Fund sends specified currencies to the contract
 func (f *EthereumStaking) Fund(ethAmount *big.Float) error {
-	return f.client.Fund(f.address.Hex(), ethAmount)
+	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return f.client.Fund(f.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (f *EthereumStaking) AddOperators(operators []common.Address) error {
@@ -326,7 +339,11 @@ func (f *EthereumFluxAggregator) Address() string {
 
 // Fund sends specified currencies to the contract
 func (f *EthereumFluxAggregator) Fund(ethAmount *big.Float) error {
-	return f.client.Fund(f.address.Hex(), ethAmount)
+	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return f.client.Fund(f.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (f *EthereumFluxAggregator) UpdateAvailableFunds() error {
@@ -609,7 +626,11 @@ type EthereumLinkToken struct {
 
 // Fund the LINK Token contract with ETH to distribute the token
 func (l *EthereumLinkToken) Fund(ethAmount *big.Float) error {
-	return l.client.Fund(l.address.Hex(), ethAmount)
+	gasEstimates, err := l.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return l.client.Fund(l.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (l *EthereumLinkToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
@@ -692,18 +713,6 @@ func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []b
 	return tx, l.client.ProcessTransaction(tx)
 }
 
-// LoadExistingLinkToken loads an EthereumLinkToken with a specific address
-func (l *EthereumLinkToken) LoadExistingLinkToken(address string, client blockchain.EVMClient) error {
-	l.address = common.HexToAddress(address)
-	instance, err := link_token_interface.NewLinkToken(l.address, client.(*blockchain.EthereumClient).Client)
-	if err != nil {
-		return err
-	}
-	l.client = client
-	l.instance = instance
-	return nil
-}
-
 // EthereumOffchainAggregator represents the offchain aggregation contract
 type EthereumOffchainAggregator struct {
 	client  blockchain.EVMClient
@@ -713,7 +722,11 @@ type EthereumOffchainAggregator struct {
 
 // Fund sends specified currencies to the contract
 func (o *EthereumOffchainAggregator) Fund(ethAmount *big.Float) error {
-	return o.client.Fund(o.address.Hex(), ethAmount)
+	gasEstimates, err := o.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return o.client.Fund(o.address.Hex(), ethAmount, gasEstimates)
 }
 
 // GetContractData retrieves basic data for the offchain aggregator contract
@@ -1374,7 +1387,11 @@ func (e *EthereumOffchainAggregatorV2) Address() string {
 }
 
 func (e *EthereumOffchainAggregatorV2) Fund(nativeAmount *big.Float) error {
-	return e.client.Fund(e.address.Hex(), nativeAmount)
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return e.client.Fund(e.address.Hex(), nativeAmount, gasEstimates)
 }
 
 func (e *EthereumOffchainAggregatorV2) RequestNewRound() error {

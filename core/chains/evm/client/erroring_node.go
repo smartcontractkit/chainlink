@@ -130,6 +130,10 @@ func (e *erroringNode) StateAndLatest() (NodeState, int64, *utils.Big) {
 	return NodeStateUnreachable, -1, nil
 }
 
+func (e *erroringNode) Order() int32 {
+	return 100
+}
+
 func (e *erroringNode) DeclareOutOfSync()            {}
 func (e *erroringNode) DeclareInSync()               {}
 func (e *erroringNode) DeclareUnreachable()          {}

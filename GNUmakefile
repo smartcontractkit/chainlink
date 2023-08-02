@@ -20,7 +20,7 @@ operator-ui-autoinstall: | operator-ui ## Autoinstall frontend UI.
 .PHONY: pnpmdep
 pnpmdep: ## Install solidity contract dependencies through pnpm
 	(cd contracts && pnpm i)
-	
+
 .PHONY: gomod
 gomod: ## Ensure chainlink's go dependencies are installed.
 	@if [ -z "`which gencodec`" ]; then \
@@ -60,6 +60,10 @@ install-solana: ## Build & install the chainlink-solana binary.
 .PHONY: install-median
 install-median: ## Build & install the chainlink-median binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
+
+.PHONY: install-starknet
+install-starknet: ## Build & install the chainlink-solana binary.
+	go install $(GOFLAGS) ./plugins/cmd/chainlink-starknet
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -119,8 +123,8 @@ generate: abigen codecgen mockery ## Execute all go:generate commands.
 .PHONY: testscripts
 testscripts: chainlink-test ## Install and run testscript against testdata/scripts/* files.
 	go install github.com/rogpeppe/go-internal/cmd/testscript@latest
-	go run ./tools/txtar/cmd/lstxtardirs -recurse=true | xargs -I % \
-		sh -c 'PATH=$(CURDIR):$(PATH) testscript -e COMMIT_SHA=$(COMMIT_SHA) -e HOME="$(TMPDIR)/home" -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
+	go run ./tools/txtar/cmd/lstxtardirs -recurse=true | PATH="$(CURDIR):${PATH}" xargs -I % \
+		sh -c 'testscript -e COMMIT_SHA=$(COMMIT_SHA) -e HOME="$(TMPDIR)/home" -e VERSION=$(VERSION) $(TS_FLAGS) %/*.txtar'
 
 .PHONY: testscripts-update
 testscripts-update: ## Update testdata/scripts/* files via testscript.
@@ -143,7 +147,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.22.1
+	go install github.com/vektra/mockery/v2@v2.28.1
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
@@ -168,7 +172,7 @@ config-docs: ## Generate core node configuration documentation
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.52.1 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.53.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
 
 .PHONY: snapshot
 snapshot:

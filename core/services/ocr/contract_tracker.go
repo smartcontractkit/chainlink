@@ -106,6 +106,7 @@ func NewOCRContractTracker(
 	db *sqlx.DB,
 	ocrDB OCRContractTrackerDB,
 	cfg ocrcommon.Config,
+	q pg.QConfig,
 	headBroadcaster httypes.HeadBroadcaster,
 	mailMon *utils.MailboxMonitor,
 ) (o *OCRContractTracker) {
@@ -119,7 +120,7 @@ func NewOCRContractTracker(
 		jobID:                jobID,
 		logger:               logger,
 		ocrDB:                ocrDB,
-		q:                    pg.NewQ(db, logger, cfg),
+		q:                    pg.NewQ(db, logger, q),
 		blockTranslator:      ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
 		cfg:                  cfg,
 		mailMon:              mailMon,
@@ -387,7 +388,7 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 // LatestBlockHeight queries the eth node for the most recent header
 func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
 	switch t.cfg.ChainType() {
-	case config.ChainMetis, config.ChainOptimism:
+	case config.ChainMetis:
 		// We skip confirmation checking anyway on these L2s so there's no need to
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway

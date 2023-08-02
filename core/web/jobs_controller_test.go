@@ -130,7 +130,7 @@ func mustInt32FromString(t *testing.T, s string) int32 {
 
 func TestJobController_Create_HappyPath(t *testing.T) {
 	app, client := setupJobsControllerTests(t)
-	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig())
+	b1, b2 := setupBridges(t, app.GetSqlxDB(), app.GetConfig().Database())
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	pks, err := app.KeyStore.VRF().GetAll()
 	require.NoError(t, err)
@@ -355,8 +355,8 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
-	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
@@ -484,8 +484,8 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
@@ -546,8 +546,8 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 
@@ -647,8 +647,8 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
-	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
+	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
 

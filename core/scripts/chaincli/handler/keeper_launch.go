@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -42,9 +43,15 @@ type startedNodeData struct {
 // 5. fund nodes if needed
 // 6. set keepers in the registry
 // 7. withdraw funds after tests are done -> TODO: wait until tests are done instead of cancel manually
-func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs bool, force bool) {
+func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, bootstrap bool) {
 	lggr, closeLggr := logger.NewLogger()
 	logger.Sugared(lggr).ErrorIfFn(closeLggr, "Failed to close logger")
+
+	if bootstrap {
+		baseHandler := NewBaseHandler(k.cfg)
+		tcpAddr := baseHandler.StartBootstrapNode(ctx, k.cfg.RegistryAddress, 5688, 8000, force)
+		k.cfg.BootstrapNodeAddr = tcpAddr
+	}
 
 	var extraTOML string
 	if k.cfg.OCR2Keepers {
@@ -192,6 +199,18 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw bool, printLogs boo
 			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
+		case keeper.RegistryVersion_2_1:
+			registry, err := iregistry21.NewIKeeperRegistryMaster(
+				registryAddr,
+				k.client,
+			)
+			if err != nil {
+				log.Fatal("Registry failed: ", err)
+			}
+			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), utils.MaxUint256)
+			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
+				log.Fatal("Failed to cancel upkeeps: ", err)
+			}
 		default:
 			panic("unexpected registry address")
 		}
@@ -208,12 +227,18 @@ func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkee
 		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), upkeepId); err != nil {
 			return fmt.Errorf("failed to cancel upkeep %s: %s", upkeepId.String(), err)
 		}
-		k.waitTx(ctx, tx)
+
+		if err := k.waitTx(ctx, tx); err != nil {
+			log.Fatalf("failed to cancel upkeep for upkeepId: %s, error is: %s", upkeepId.String(), err.Error())
+		}
 
 		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), upkeepId, k.fromAddr); err != nil {
 			return fmt.Errorf("failed to withdraw upkeep %s: %s", upkeepId.String(), err)
 		}
-		k.waitTx(ctx, tx)
+
+		if err := k.waitTx(ctx, tx); err != nil {
+			log.Fatalf("failed to withdraw upkeep for upkeepId: %s, error is: %s", upkeepId.String(), err.Error())
+		}
 
 		log.Printf("Upkeep %s successfully canceled and refunded: ", upkeepId.String())
 	}
@@ -222,7 +247,10 @@ func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkee
 	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
 		return fmt.Errorf("failed to recover funds: %s", err)
 	}
-	k.waitTx(ctx, tx)
+
+	if err := k.waitTx(ctx, tx); err != nil {
+		log.Fatalf("failed to recover funds, error is: %s", err.Error())
+	}
 
 	return nil
 }
@@ -235,12 +263,18 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), big.NewInt(i)); err != nil {
 			return fmt.Errorf("failed to cancel upkeep %d: %s", i, err)
 		}
-		k.waitTx(ctx, tx)
+
+		if err := k.waitTx(ctx, tx); err != nil {
+			log.Fatalf("failed to cancel upkeep, error is: %s", err.Error())
+		}
 
 		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), big.NewInt(i), k.fromAddr); err != nil {
 			return fmt.Errorf("failed to withdraw upkeep %d: %s", i, err)
 		}
-		k.waitTx(ctx, tx)
+
+		if err := k.waitTx(ctx, tx); err != nil {
+			log.Fatalf("failed to withdraw upkeep, error is: %s", err.Error())
+		}
 
 		log.Println("Upkeep successfully canceled and refunded: ", i)
 	}
@@ -249,7 +283,10 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
 		return fmt.Errorf("failed to recover funds: %s", err)
 	}
-	k.waitTx(ctx, tx)
+
+	if err := k.waitTx(ctx, tx); err != nil {
+		log.Fatalf("failed to recover funds, error is: %s", err.Error())
+	}
 
 	return nil
 }

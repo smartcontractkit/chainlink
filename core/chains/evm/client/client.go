@@ -8,7 +8,7 @@ import (
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -29,7 +29,7 @@ const queryTimeout = 10 * time.Second
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
-	txmgrtypes.Client[*big.Int, evmtypes.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
+	commontypes.Client[*big.Int, evmtypes.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
 
 	Dial(ctx context.Context) error
 	Close()
@@ -91,11 +91,12 @@ type client struct {
 
 var _ Client = (*client)(nil)
 var _ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.Hash] = (*client)(nil)
+var _ commontypes.Client[*big.Int, evmtypes.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery] = (*client)(nil)
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
-func NewClientWithNodes(logger logger.Logger, cfg PoolConfig, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
-	pool := NewPool(logger, cfg, primaryNodes, sendOnlyNodes, chainID, chainType)
+func NewClientWithNodes(logger logger.Logger, selectionMode string, noNewHeadsThreshold time.Duration, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
+	pool := NewPool(logger, selectionMode, noNewHeadsThreshold, primaryNodes, sendOnlyNodes, chainID, chainType)
 	return &client{
 		logger: logger,
 		pool:   pool,
@@ -256,7 +257,7 @@ func (client *client) BlockByHash(ctx context.Context, hash common.Hash) (*types
 }
 
 func (client *client) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
-	var height *big.Int
+	var height big.Int
 	h, err := client.pool.BlockNumber(ctx)
 	return height.SetUint64(h), err
 }

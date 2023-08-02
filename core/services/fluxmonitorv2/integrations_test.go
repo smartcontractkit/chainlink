@@ -559,7 +559,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig())
+			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig().Database())
 
 			lggr.Info("Updating price to 103")
 			// Change reported price to a value outside the deviation
@@ -588,7 +588,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig())
+			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig().Database())
 
 			// Should not received a submission as it is inside the deviation
 			reportPrice.Store(104)

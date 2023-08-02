@@ -46,4 +46,10 @@ contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner
     RequestStatus memory request = s_requests[_requestId];
     return (request.paid, request.fulfilled, request.randomWords);
   }
+
+  /// @notice withdrawLink withdraws the amount specified in amount to the owner
+  /// @param amount the amount to withdraw, in juels
+  function withdrawLink(uint256 amount) external onlyOwner {
+    LINK.transfer(owner(), amount);
+  }
 }

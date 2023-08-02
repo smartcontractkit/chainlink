@@ -70,6 +70,9 @@ HTTPPort = 56
 SecureCookies = true
 SessionTimeout = '1h0m0s'
 SessionReaperExpiration = '168h0m0s'
+HTTPMaxSize = '32.77kb'
+StartTimeout = '15s'
+ListenIP = '192.158.1.37'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -87,6 +90,7 @@ ForceRedirect = true
 Host = 'tls-host'
 HTTPSPort = 6789
 KeyPath = 'tls/key/path'
+ListenIP = '192.158.1.37'
 
 [JobPipeline]
 ExternalInitiatorsEnabled = true
@@ -114,6 +118,9 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
+DefaultTransactionQueueDepth = 1
+SimulateTransactions = false
+TraceLogging = false
 
 [OCR]
 Enabled = true
@@ -126,6 +133,7 @@ KeyBundleID = 'acdd42797a8b921b2910497badc5000600000000000000000000000000000000'
 SimulateTransactions = true
 TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 CaptureEATelemetry = false
+TraceLogging = false
 
 [P2P]
 IncomingMessageBufferSize = 13
@@ -293,12 +301,12 @@ GasLimit = 540
 
 [[EVM.Nodes]]
 Name = 'foo'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/foo'
 HTTPURL = 'https://foo.web'
 
 [[EVM.Nodes]]
 Name = 'bar'
-WSURL = 'wss://web.socket/test'
+WSURL = 'wss://web.socket/test/bar'
 HTTPURL = 'https://bar.com'
 
 [[EVM.Nodes]]

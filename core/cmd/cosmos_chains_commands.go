@@ -43,6 +43,6 @@ func (ps CosmosChainPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func CosmosChainClient(client *Client) ChainClient {
-	return newChainClient[CosmosChainPresenters](client, "cosmos")
+func CosmosChainClient(s *Shell) ChainClient {
+	return newChainClient[CosmosChainPresenters](s, "cosmos")
 }

@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"net"
 	"testing"
 	"time"
 
@@ -57,6 +58,9 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 
 	c.WebServer.SessionTimeout = models.MustNewDuration(2 * time.Minute)
 	c.WebServer.BridgeResponseURL = models.MustParseURL("http://localhost:6688")
+	testIP := net.ParseIP("127.0.0.1")
+	c.WebServer.ListenIP = &testIP
+	c.WebServer.TLS.ListenIP = &testIP
 
 	chainID := utils.NewBigI(evmclient.NullClientChainID)
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{

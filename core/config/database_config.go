@@ -7,24 +7,38 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
+type Backup interface {
+	Dir() string
+	Frequency() time.Duration
+	Mode() DatabaseBackupMode
+	OnVersionUpgrade() bool
+	URL() *url.URL
+}
+
+type Lock interface {
+	LockingMode() string
+	LeaseDuration() time.Duration
+	LeaseRefreshInterval() time.Duration
+}
+
+type Listener interface {
+	MaxReconnectDuration() time.Duration
+	MinReconnectInterval() time.Duration
+	FallbackPollInterval() time.Duration
+}
+
 type Database interface {
-	DatabaseBackupDir() string
-	DatabaseBackupFrequency() time.Duration
-	DatabaseBackupMode() DatabaseBackupMode
-	DatabaseBackupOnVersionUpgrade() bool
-	DatabaseBackupURL() *url.URL
-	DatabaseDefaultIdleInTxSessionTimeout() time.Duration
-	DatabaseDefaultLockTimeout() time.Duration
-	DatabaseDefaultQueryTimeout() time.Duration
-	DatabaseListenerMaxReconnectDuration() time.Duration
-	DatabaseListenerMinReconnectInterval() time.Duration
-	DatabaseLockingMode() string
-	DatabaseURL() url.URL
-	GetDatabaseDialectConfiguredOrDefault() dialects.DialectName
-	LeaseLockDuration() time.Duration
-	LeaseLockRefreshInterval() time.Duration
+	Backup() Backup
+	Listener() Listener
+	Lock() Lock
+
+	DefaultIdleInTxSessionTimeout() time.Duration
+	DefaultLockTimeout() time.Duration
+	DefaultQueryTimeout() time.Duration
+	Dialect() dialects.DialectName
+	LogSQL() bool
+	MaxIdleConns() int
+	MaxOpenConns() int
 	MigrateDatabase() bool
-	ORMMaxIdleConns() int
-	ORMMaxOpenConns() int
-	TriggerFallbackDBPollInterval() time.Duration
+	URL() url.URL
 }

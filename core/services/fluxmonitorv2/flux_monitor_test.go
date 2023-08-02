@@ -20,8 +20,8 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -47,10 +47,14 @@ import (
 
 const oracleCount uint8 = 17
 
+var (
+	defaultMinimumContractPayment = assets.NewLinkFromJuels(10_000_000_000_000) // 0.00001 LINK
+)
+
 type answerSet struct{ latestAnswer, polledAnswer int64 }
 
-func newORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig, txm txmgr.EvmTxManager) fluxmonitorv2.ORM {
-	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgr.SendEveryStrategy{}, txmgr.EvmTransmitCheckerSpec{})
+func newORM(t *testing.T, db *sqlx.DB, cfg pg.QConfig, txm txmgr.TxManager) fluxmonitorv2.ORM {
+	return fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, txmgrcommon.NewSendEveryStrategy(), txmgr.TransmitCheckerSpec{})
 }
 
 var (
@@ -276,7 +280,7 @@ func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 // setupStoreWithKey setups a new store and adds a key to the keystore
 func setupFullDBWithKey(t *testing.T, name string) (*sqlx.DB, common.Address) {
 	cfg, db := heavyweight.FullTestDBV2(t, name, nil)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 	return db, nodeAddr
@@ -402,7 +406,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 			// Set up funds
 			var availableFunds *big.Int
 			var paymentAmount *big.Int
-			minPayment := config.DefaultMinimumContractPayment.ToInt()
+			minPayment := defaultMinimumContractPayment.ToInt()
 			if tc.funded {
 				availableFunds = big.NewInt(1).Mul(big.NewInt(10000), minPayment)
 				paymentAmount = minPayment
@@ -539,8 +543,8 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 				RoundId:          roundID,
 				EligibleToSubmit: true,
 				LatestSubmission: big.NewInt(100),
-				AvailableFunds:   config.DefaultMinimumContractPayment.ToInt(),
-				PaymentAmount:    config.DefaultMinimumContractPayment.ToInt(),
+				AvailableFunds:   defaultMinimumContractPayment.ToInt(),
+				PaymentAmount:    defaultMinimumContractPayment.ToInt(),
 			}
 		}
 	)
@@ -1197,7 +1201,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_RoundTimeout(t *testing.T) 
 
 			cfg := configtest.NewTestGeneralConfig(t)
 			var (
-				orm = newORM(t, db, cfg, nil)
+				orm = newORM(t, db, cfg.Database(), nil)
 			)
 
 			fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -1267,7 +1271,7 @@ func TestFluxMonitor_UsesPreviousRoundStateOnStartup_IdleTimer(t *testing.T) {
 			cfg := configtest.NewTestGeneralConfig(t)
 
 			var (
-				orm = newORM(t, db, cfg, nil)
+				orm = newORM(t, db, cfg.Database(), nil)
 			)
 
 			fm, tm := setup(t,
@@ -1331,7 +1335,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutNotZero(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 
 	var (
-		orm = newORM(t, db, cfg, nil)
+		orm = newORM(t, db, cfg.Database(), nil)
 	)
 
 	fm, tm := setup(t, db, disablePollTicker(true), disableIdleTimer(true), withORM(orm))
@@ -1461,7 +1465,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
+			paymentAmount  = defaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1575,7 +1579,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
+			paymentAmount  = defaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1669,7 +1673,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 		)
 
 		var (
-			paymentAmount  = config.DefaultMinimumContractPayment.ToInt()
+			paymentAmount  = defaultMinimumContractPayment.ToInt()
 			availableFunds = big.NewInt(1).Mul(paymentAmount, big.NewInt(1000))
 		)
 
@@ -1841,8 +1845,8 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 			RoundId:          roundID,
 			EligibleToSubmit: true,
 			LatestSubmission: answerBigInt,
-			AvailableFunds:   big.NewInt(1).Mul(big.NewInt(10000), config.DefaultMinimumContractPayment.ToInt()),
-			PaymentAmount:    config.DefaultMinimumContractPayment.ToInt(),
+			AvailableFunds:   big.NewInt(1).Mul(big.NewInt(10000), defaultMinimumContractPayment.ToInt()),
+			PaymentAmount:    defaultMinimumContractPayment.ToInt(),
 			StartedAt:        now(),
 		}
 

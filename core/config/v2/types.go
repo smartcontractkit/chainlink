@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
-	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -39,22 +38,22 @@ type Core struct {
 	RootDir             *string
 	ShutdownGracePeriod *models.Duration
 
-	Feature          Feature                 `toml:",omitempty"`
-	Database         Database                `toml:",omitempty"`
-	TelemetryIngress TelemetryIngress        `toml:",omitempty"`
-	AuditLogger      audit.AuditLoggerConfig `toml:",omitempty"`
-	Log              Log                     `toml:",omitempty"`
-	WebServer        WebServer               `toml:",omitempty"`
-	JobPipeline      JobPipeline             `toml:",omitempty"`
-	FluxMonitor      FluxMonitor             `toml:",omitempty"`
-	OCR2             OCR2                    `toml:",omitempty"`
-	OCR              OCR                     `toml:",omitempty"`
-	P2P              P2P                     `toml:",omitempty"`
-	Keeper           Keeper                  `toml:",omitempty"`
-	AutoPprof        AutoPprof               `toml:",omitempty"`
-	Pyroscope        Pyroscope               `toml:",omitempty"`
-	Sentry           Sentry                  `toml:",omitempty"`
-	Insecure         Insecure                `toml:",omitempty"`
+	Feature          Feature          `toml:",omitempty"`
+	Database         Database         `toml:",omitempty"`
+	TelemetryIngress TelemetryIngress `toml:",omitempty"`
+	AuditLogger      AuditLogger      `toml:",omitempty"`
+	Log              Log              `toml:",omitempty"`
+	WebServer        WebServer        `toml:",omitempty"`
+	JobPipeline      JobPipeline      `toml:",omitempty"`
+	FluxMonitor      FluxMonitor      `toml:",omitempty"`
+	OCR2             OCR2             `toml:",omitempty"`
+	OCR              OCR              `toml:",omitempty"`
+	P2P              P2P              `toml:",omitempty"`
+	Keeper           Keeper           `toml:",omitempty"`
+	AutoPprof        AutoPprof        `toml:",omitempty"`
+	Pyroscope        Pyroscope        `toml:",omitempty"`
+	Sentry           Sentry           `toml:",omitempty"`
+	Insecure         Insecure         `toml:",omitempty"`
 }
 
 var (
@@ -121,12 +120,13 @@ func (c *Core) ValidateConfig() (err error) {
 }
 
 type Secrets struct {
-	Database   DatabaseSecrets   `toml:",omitempty"`
-	Explorer   ExplorerSecrets   `toml:",omitempty"`
-	Password   Passwords         `toml:",omitempty"`
-	Pyroscope  PyroscopeSecrets  `toml:",omitempty"`
-	Prometheus PrometheusSecrets `toml:",omitempty"`
-	Mercury    MercurySecrets    `toml:",omitempty"`
+	Database   DatabaseSecrets          `toml:",omitempty"`
+	Explorer   ExplorerSecrets          `toml:",omitempty"`
+	Password   Passwords                `toml:",omitempty"`
+	Pyroscope  PyroscopeSecrets         `toml:",omitempty"`
+	Prometheus PrometheusSecrets        `toml:",omitempty"`
+	Mercury    MercurySecrets           `toml:",omitempty"`
+	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
 }
 
 func dbURLPasswordComplexity(err error) string {
@@ -237,13 +237,6 @@ type Database struct {
 	Lock     DatabaseLock     `toml:",omitempty"`
 }
 
-func (d *Database) LockingMode() string {
-	if *d.Lock.Enabled {
-		return "lease"
-	}
-	return "none"
-}
-
 func (d *Database) setFrom(f *Database) {
 	if v := f.DefaultIdleInTxSessionTimeout; v != nil {
 		d.DefaultIdleInTxSessionTimeout = v
@@ -294,6 +287,13 @@ type DatabaseLock struct {
 	Enabled              *bool
 	LeaseDuration        *models.Duration
 	LeaseRefreshInterval *models.Duration
+}
+
+func (l *DatabaseLock) Mode() string {
+	if *l.Enabled {
+		return "lease"
+	}
+	return "none"
 }
 
 func (l *DatabaseLock) ValidateConfig() (err error) {
@@ -383,6 +383,29 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 }
 
+type AuditLogger struct {
+	Enabled        *bool
+	ForwardToUrl   *models.URL
+	JsonWrapperKey *string
+	Headers        *[]models.ServiceHeader
+}
+
+func (p *AuditLogger) SetFrom(f *AuditLogger) {
+	if v := f.Enabled; v != nil {
+		p.Enabled = v
+	}
+	if v := f.ForwardToUrl; v != nil {
+		p.ForwardToUrl = v
+	}
+	if v := f.JsonWrapperKey; v != nil {
+		p.JsonWrapperKey = v
+	}
+	if v := f.Headers; v != nil {
+		p.Headers = v
+	}
+
+}
+
 // LogLevel replaces dpanic with crit/CRIT
 type LogLevel zapcore.Level
 
@@ -467,6 +490,9 @@ type WebServer struct {
 	SecureCookies           *bool
 	SessionTimeout          *models.Duration
 	SessionReaperExpiration *models.Duration
+	HTTPMaxSize             *utils.FileSize
+	StartTimeout            *models.Duration
+	ListenIP                *net.IP
 
 	MFA       WebServerMFA       `toml:",omitempty"`
 	RateLimit WebServerRateLimit `toml:",omitempty"`
@@ -486,6 +512,9 @@ func (w *WebServer) setFrom(f *WebServer) {
 	if v := f.HTTPWriteTimeout; v != nil {
 		w.HTTPWriteTimeout = v
 	}
+	if v := f.ListenIP; v != nil {
+		w.ListenIP = v
+	}
 	if v := f.HTTPPort; v != nil {
 		w.HTTPPort = v
 	}
@@ -497,6 +526,12 @@ func (w *WebServer) setFrom(f *WebServer) {
 	}
 	if v := f.SessionReaperExpiration; v != nil {
 		w.SessionReaperExpiration = v
+	}
+	if v := f.StartTimeout; v != nil {
+		w.StartTimeout = v
+	}
+	if v := f.HTTPMaxSize; v != nil {
+		w.HTTPMaxSize = v
 	}
 
 	w.MFA.setFrom(&f.MFA)
@@ -546,6 +581,7 @@ type WebServerTLS struct {
 	Host          *string
 	HTTPSPort     *uint16
 	KeyPath       *string
+	ListenIP      *net.IP
 }
 
 func (w *WebServerTLS) setFrom(f *WebServerTLS) {
@@ -563,6 +599,9 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 	}
 	if v := f.KeyPath; v != nil {
 		w.KeyPath = v
+	}
+	if v := f.ListenIP; v != nil {
+		w.ListenIP = v
 	}
 }
 
@@ -638,6 +677,9 @@ type OCR2 struct {
 	DatabaseTimeout                    *models.Duration
 	KeyBundleID                        *models.Sha256Hash
 	CaptureEATelemetry                 *bool
+	DefaultTransactionQueueDepth       *uint32
+	SimulateTransactions               *bool
+	TraceLogging                       *bool
 }
 
 func (o *OCR2) setFrom(f *OCR2) {
@@ -668,6 +710,15 @@ func (o *OCR2) setFrom(f *OCR2) {
 	if v := f.CaptureEATelemetry; v != nil {
 		o.CaptureEATelemetry = v
 	}
+	if v := f.DefaultTransactionQueueDepth; v != nil {
+		o.DefaultTransactionQueueDepth = v
+	}
+	if v := f.SimulateTransactions; v != nil {
+		o.SimulateTransactions = v
+	}
+	if v := f.TraceLogging; v != nil {
+		o.TraceLogging = v
+	}
 }
 
 type OCR struct {
@@ -682,6 +733,7 @@ type OCR struct {
 	SimulateTransactions *bool
 	TransmitterAddress   *ethkey.EIP55Address
 	CaptureEATelemetry   *bool
+	TraceLogging         *bool
 }
 
 func (o *OCR) setFrom(f *OCR) {
@@ -714,6 +766,9 @@ func (o *OCR) setFrom(f *OCR) {
 	}
 	if v := f.CaptureEATelemetry; v != nil {
 		o.CaptureEATelemetry = v
+	}
+	if v := f.TraceLogging; v != nil {
+		o.TraceLogging = v
 	}
 }
 
@@ -1066,4 +1121,8 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 		urls[s] = struct{}{}
 	}
 	return err
+}
+
+type ThresholdKeyShareSecrets struct {
+	ThresholdKeyShare *models.Secret
 }

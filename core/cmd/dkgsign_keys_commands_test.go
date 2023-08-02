@@ -54,7 +54,7 @@ func TestDKGSignKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestClient_DKGSignKeys(t *testing.T) {
+func TestShell_DKGSignKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().DKGSign()
 	cleanup := func() {
@@ -68,7 +68,7 @@ func TestClient_DKGSignKeys(t *testing.T) {
 
 	t.Run("ListDKGSignKeys", func(tt *testing.T) {
 		defer cleanup()
-		client, r := app.NewClientAndRenderer()
+		client, r := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().DKGSign().Create()
 		assert.NoError(tt, err)
 		requireDKGSignKeyCount(t, app, 1)
@@ -80,7 +80,7 @@ func TestClient_DKGSignKeys(t *testing.T) {
 
 	t.Run("CreateDKGSignKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		assert.NoError(tt, cmd.NewDKGSignKeysClient(client).CreateKey(nilContext))
 		keys, err := app.GetKeyStore().DKGSign().GetAll()
 		assert.NoError(tt, err)
@@ -89,7 +89,7 @@ func TestClient_DKGSignKeys(t *testing.T) {
 
 	t.Run("DeleteDKGSignKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().DKGSign().Create()
 		assert.NoError(tt, err)
 		requireDKGSignKeyCount(tt, app, 1)
@@ -109,7 +109,7 @@ func TestClient_DKGSignKeys(t *testing.T) {
 	t.Run("ImportExportDKGSignKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(tt)
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 
 		_, err := app.GetKeyStore().DKGSign().Create()
 		require.NoError(tt, err)

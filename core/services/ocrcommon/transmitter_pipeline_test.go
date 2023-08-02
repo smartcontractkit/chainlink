@@ -24,7 +24,7 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
@@ -34,7 +34,7 @@ func Test_PipelineTransmitter_CreateEthTransaction(t *testing.T) {
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
 	strategy := newMockTxStrategy(t)
-	checker := txmgr.EvmTransmitCheckerSpec{CheckerType: txmgr.TransmitCheckerTypeSimulate}
+	checker := txmgr.TransmitCheckerSpec{CheckerType: txmgr.TransmitCheckerTypeSimulate}
 	runner := pipelinemocks.NewRunner(t)
 
 	transmitter := ocrcommon.NewPipelineTransmitter(

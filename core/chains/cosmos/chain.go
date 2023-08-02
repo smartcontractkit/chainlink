@@ -18,11 +18,12 @@ import (
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -48,12 +49,12 @@ type chain struct {
 }
 
 func newChain(id string, cfg coscfg.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
-	lggr = lggr.With("cosmosChainID", id)
+	lggr = logger.With(lggr, "cosmosChainID", id)
 	var ch = chain{
 		id:   id,
 		cfg:  cfg,
 		cfgs: cfgs,
-		lggr: lggr.Named("Chain"),
+		lggr: logger.Named(lggr, "Chain"),
 	}
 	tc := func() (cosmosclient.ReaderWriter, error) {
 		return ch.getClient("")
@@ -116,7 +117,7 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 			return nil, fmt.Errorf("failed to create client for chain %s with node %s: wrong chain id %s", c.id, name, node.CosmosChainID)
 		}
 	}
-	client, err := cosmosclient.NewClient(c.id, node.TendermintURL, DefaultRequestTimeout, c.lggr.Named("Client-"+name))
+	client, err := cosmosclient.NewClient(c.id, node.TendermintURL, DefaultRequestTimeout, logger.Named(c.lggr, "Client-"+name))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client")
 	}

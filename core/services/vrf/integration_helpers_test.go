@@ -1,6 +1,7 @@
 package vrf_test
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
@@ -15,12 +17,14 @@ import (
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func testSingleConsumerHappyPath(
@@ -584,4 +588,176 @@ func testBlockHeaderFeeder(
 		// Assert correct number of random words sent by coordinator.
 		assertNumRandomWords(t, consumerContract, numWords)
 	}
+}
+
+func testSingleConsumerForcedFulfillment(
+	t *testing.T,
+	ownerKey ethkey.KeyV2,
+	uni coordinatorV2Universe,
+	coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+	coordinatorAddress common.Address,
+	batchCoordinatorAddress common.Address,
+	batchEnabled bool,
+	assertions ...func(
+		t *testing.T,
+		coordinator vrf_coordinator_v2.VRFCoordinatorV2Interface,
+		rwfe *vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled),
+) {
+	key1 := cltest.MustGenerateRandomKey(t)
+	key2 := cltest.MustGenerateRandomKey(t)
+	gasLanePriceWei := assets.GWei(10)
+	config, db := heavyweight.FullTestDBV2(t, fmt.Sprintf("vrfv2_singleconsumer_forcefulfill_%v", batchEnabled), func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key1.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		}, v2.KeySpecific{
+			// Gas lane.
+			Key:          ptr(key2.EIP55Address),
+			GasEstimator: v2.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		})(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+	})
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, ownerKey, key1, key2)
+
+	eoaConsumerAddr, _, eoaConsumer, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
+		uni.neil,
+		uni.backend,
+		uni.oldRootContractAddress,
+		uni.linkContractAddress,
+	)
+	require.NoError(t, err, "failed to deploy eoa consumer")
+	uni.backend.Commit()
+
+	// Create a subscription and fund with 5 LINK.
+	_, err = uni.oldRootContract.CreateSubscription(uni.neil)
+	require.NoError(t, err, "failed to create eoa sub")
+	uni.backend.Commit()
+
+	// Fund the sub
+	subID := uint64(1)
+	b, err := utils.ABIEncode(`[{"type":"uint64"}]`, subID)
+	require.NoError(t, err)
+	_, err = uni.linkContract.TransferAndCall(
+		uni.sergey, uni.oldRootContractAddress, assets.Ether(5).ToInt(), b)
+	require.NoError(t, err, "failed to fund sub")
+	uni.backend.Commit()
+
+	// Add the consumer to the sub
+	_, err = uni.oldRootContract.AddConsumer(uni.neil, subID, eoaConsumerAddr)
+	require.NoError(t, err, "failed to add consumer")
+	uni.backend.Commit()
+
+	// Check the subscription state
+	sub, err := uni.oldRootContract.GetSubscription(nil, subID)
+	require.NoError(t, err, "failed to get subscription with id %d", subID)
+	require.Equal(t, assets.Ether(5).ToInt(), sub.Balance)
+	require.Equal(t, 1, len(sub.Consumers))
+	require.Equal(t, eoaConsumerAddr, sub.Consumers[0])
+	require.Equal(t, uni.neil.From, sub.Owner)
+
+	// Fund gas lanes.
+	sendEth(t, ownerKey, uni.backend, key1.Address, 10)
+	sendEth(t, ownerKey, uni.backend, key2.Address, 10)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job using key1 and key2 on the same gas lane.
+	jbs := createVRFJobs(
+		t,
+		[][]ethkey.KeyV2{{key1, key2}},
+		app,
+		coordinator,
+		coordinatorAddress,
+		batchCoordinatorAddress,
+		uni,
+		batchEnabled,
+		gasLanePriceWei)
+	keyHash := jbs[0].VRFSpec.PublicKey.MustHash()
+
+	// Transfer ownership of the VRF coordinator to the VRF owner,
+	// which is critical for this test.
+	_, err = uni.oldRootContract.TransferOwnership(uni.neil, uni.vrfOwnerAddress)
+	require.NoError(t, err, "unable to TransferOwnership of VRF coordinator to VRFOwner")
+	uni.backend.Commit()
+
+	_, err = uni.vrfOwner.AcceptVRFOwnership(uni.neil)
+	require.NoError(t, err, "unable to Accept VRF Ownership")
+	uni.backend.Commit()
+
+	actualCoordinatorAddr, err := uni.vrfOwner.GetVRFCoordinator(nil)
+	require.NoError(t, err)
+	require.Equal(t, uni.oldRootContractAddress, actualCoordinatorAddr)
+
+	t.Log("vrf owner address:", uni.vrfOwnerAddress)
+
+	// Add allowed callers so that the oracle can call fulfillRandomWords
+	// on VRFOwner.
+	_, err = uni.vrfOwner.SetAuthorizedSenders(uni.neil, []common.Address{
+		key1.EIP55Address.Address(),
+		key2.EIP55Address.Address(),
+	})
+	require.NoError(t, err, "unable to update authorized senders in VRFOwner")
+	uni.backend.Commit()
+
+	// Make the randomness request.
+	// Give it a larger number of confs so that we have enough time to remove the consumer
+	// and cause a 0 balance to the sub.
+	numWords := 3
+	confs := 10
+	_, err = eoaConsumer.RequestRandomWords(uni.neil, subID, 500_000, uint16(confs), uint32(numWords), keyHash)
+	require.NoError(t, err, "failed to request randomness from consumer")
+	uni.backend.Commit()
+
+	requestID, err := eoaConsumer.SRequestId(nil)
+	require.NoError(t, err)
+
+	// Remove consumer and cancel the sub before the request can be fulfilled
+	_, err = uni.oldRootContract.RemoveConsumer(uni.neil, subID, eoaConsumerAddr)
+	require.NoError(t, err, "RemoveConsumer tx failed")
+	_, err = uni.oldRootContract.CancelSubscription(uni.neil, subID, uni.neil.From)
+	require.NoError(t, err, "CancelSubscription tx failed")
+	uni.backend.Commit()
+
+	// Wait for force-fulfillment to be queued.
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		commitment, err := uni.oldRootContract.GetCommitment(nil, requestID)
+		require.NoError(t, err)
+		t.Log("commitment is:", hexutil.Encode(commitment[:]))
+		it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{requestID}, []uint64{subID}, []common.Address{eoaConsumerAddr})
+		require.NoError(t, err)
+		i := 0
+		for it.Next() {
+			i++
+			require.Equal(t, requestID.String(), it.Event.RequestId.String())
+			require.Equal(t, subID, it.Event.SubId)
+			require.Equal(t, eoaConsumerAddr.String(), it.Event.Sender.String())
+		}
+		t.Log("num RandomWordsForced logs:", i)
+		return utils.IsEmpty(commitment[:])
+	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+	// Mine the fulfillment that was queued.
+	mine(t, requestID, subID, uni, db)
+
+	// Assert correct state of RandomWordsFulfilled event.
+	// In this particular case:
+	// * success should be true
+	// * payment should be zero (forced fulfillment)
+	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator)
+	require.Equal(t, "0", rwfe.Payment.String())
+
+	// Check that the RandomWordsForced event is emitted correctly.
+	it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{requestID}, []uint64{subID}, []common.Address{eoaConsumerAddr})
+	require.NoError(t, err)
+	i := 0
+	for it.Next() {
+		i++
+		require.Equal(t, requestID.String(), it.Event.RequestId.String())
+		require.Equal(t, subID, it.Event.SubId)
+		require.Equal(t, eoaConsumerAddr.String(), it.Event.Sender.String())
+	}
+	require.Greater(t, i, 0)
+
+	t.Log("Done!")
 }

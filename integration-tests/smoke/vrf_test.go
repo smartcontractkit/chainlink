@@ -19,10 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 func TestVRFBasic(t *testing.T) {
@@ -138,15 +138,17 @@ func setupVRFTest(t *testing.T) (testEnvironment *environment.Environment, testN
 			WsURLs:      testNetwork.URLs,
 		})
 	}
+	cd, err := chainlink.NewDeployment(1, map[string]interface{}{
+		"toml": client.AddNetworksConfig("", testNetwork),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
 	}).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml": client.AddNetworksConfig("", testNetwork),
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

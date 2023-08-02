@@ -108,18 +108,13 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-type ORMConfig interface {
-	pg.QConfig
-	JobPipelineMaxSuccessfulRuns() uint64
-}
-
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg ORMConfig) *orm {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, jobPipelineMaxSuccessfulRuns uint64) *orm {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &orm{
 		utils.StartStopOnce{},
 		pg.NewQ(db, lggr, cfg),
 		lggr.Named("PipelineORM"),
-		cfg.JobPipelineMaxSuccessfulRuns(),
+		jobPipelineMaxSuccessfulRuns,
 		sync.Map{},
 		sync.WaitGroup{},
 		ctx,

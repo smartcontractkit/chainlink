@@ -2,60 +2,86 @@ package types
 
 import "time"
 
-// FEE_UNIT - fee unit
-type TxmConfig[FEE_UNIT Unit] interface {
-	BroadcasterConfig[FEE_UNIT]
-	ConfirmerConfig[FEE_UNIT]
-	ResenderConfig
-	ReaperConfig
-
-	SequenceAutoSync() bool
-	UseForwarders() bool
-	MaxQueuedTransactions() uint64
+type TransactionManagerChainConfig interface {
+	BroadcasterChainConfig
+	ConfirmerChainConfig
+	ReaperChainConfig
 }
 
-// FEE_UNIT - fee unit
-type BroadcasterConfig[FEE_UNIT Unit] interface {
-	TriggerFallbackDBPollInterval() time.Duration
-	MaxInFlightTransactions() uint32
+type TransactionManagerFeeConfig interface {
+	BroadcasterFeeConfig
+	ConfirmerFeeConfig
+}
 
-	// from gas.Config
+type TransactionManagerTransactionsConfig interface {
+	BroadcasterTransactionsConfig
+	ConfirmerTransactionsConfig
+	ResenderTransactionsConfig
+	ReaperTransactionsConfig
+
+	ForwardersEnabled() bool
+	MaxQueued() uint64
+}
+
+type BroadcasterChainConfig interface {
 	IsL2() bool
-	MaxFeePrice() FEE_UNIT
-	FeePriceDefault() FEE_UNIT
 }
 
-// FEE_UNIT - fee unit
-type ConfirmerConfig[FEE_UNIT Unit] interface {
-	RPCDefaultBatchSize() uint32
-	UseForwarders() bool
-	FeeBumpTxDepth() uint32
-	MaxInFlightTransactions() uint32
-	FeeLimitDefault() uint32
+type BroadcasterFeeConfig interface {
+	MaxFeePrice() string     // logging value
+	FeePriceDefault() string // logging value
+}
+
+type BroadcasterTransactionsConfig interface {
+	MaxInFlight() uint32
+}
+
+type BroadcasterListenerConfig interface {
+	FallbackPollInterval() time.Duration
+}
+
+type ConfirmerFeeConfig interface {
+	BumpTxDepth() uint32
+	LimitDefault() uint32
 
 	// from gas.Config
-	FeeBumpThreshold() uint64
-	FinalityDepth() uint32
-	MaxFeePrice() FEE_UNIT
-	FeeBumpPercent() uint16
-
-	// from pg.QConfig
-	DatabaseDefaultQueryTimeout() time.Duration
+	BumpThreshold() uint64
+	MaxFeePrice() string // logging value
+	BumpPercent() uint16
 }
 
-type ResenderConfig interface {
-	TxResendAfterThreshold() time.Duration
-	MaxInFlightTransactions() uint32
+type ConfirmerChainConfig interface {
+	RPCDefaultBatchSize() uint32
+	FinalityDepth() uint32
+}
+
+type ConfirmerDatabaseConfig interface {
+	// from pg.QConfig
+	DefaultQueryTimeout() time.Duration
+}
+
+type ConfirmerTransactionsConfig interface {
+	MaxInFlight() uint32
+	ForwardersEnabled() bool
+}
+
+type ResenderChainConfig interface {
 	RPCDefaultBatchSize() uint32
 }
 
-//go:generate mockery --quiet --name ReaperConfig --output ./mocks/ --case=underscore
+type ResenderTransactionsConfig interface {
+	ResendAfterThreshold() time.Duration
+	MaxInFlight() uint32
+}
 
 // ReaperConfig is the config subset used by the reaper
-type ReaperConfig interface {
-	TxReaperInterval() time.Duration
-	TxReaperThreshold() time.Duration
-
-	// gas config
+//
+//go:generate mockery --quiet --name ReaperChainConfig --structname ReaperConfig --output ./mocks/ --case=underscore
+type ReaperChainConfig interface {
 	FinalityDepth() uint32
+}
+
+type ReaperTransactionsConfig interface {
+	ReaperInterval() time.Duration
+	ReaperThreshold() time.Duration
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
 
 // Script to run Gateway outside of the core node. It works only with simple handlers.
@@ -20,14 +21,14 @@ import (
 //
 //	go run run_gateway.go --config sample_config.toml
 //
-//	curl -X POST -d  '{"jsonrpc":"2.0","method":"test","id":"abcd","params":{"body":{"don_id":"wrong"}}}' http://localhost:8080/user
+//	curl -X POST -d  '{"jsonrpc":"2.0","method":"test","id":"abcd","params":{"body":{"don_id":"example_don"}}}' http://localhost:8080/user
 //
 // Usage with TLS:
 //
 //	openssl req -newkey rsa:2048 -nodes -keyout key.pem -x509 -days 365 -out certificate.pem
 //	go run run_gateway.go --config sample_config_tls.toml
 //
-//	curl -X POST -d  '{"jsonrpc":"2.0","method":"test","id":"abcd","params":{"body":{"don_id":"wrong"}}}' https://localhost:8088/user -k
+//	curl -X POST -d  '{"jsonrpc":"2.0","method":"test","id":"abcd","params":{"body":{"don_id":"example_don"}}}' https://localhost:8088/user -k
 func main() {
 	configFile := flag.String("config", "", "Path to TOML config file")
 	flag.Parse()
@@ -38,7 +39,7 @@ func main() {
 		return
 	}
 
-	var cfg gateway.GatewayConfig
+	var cfg config.GatewayConfig
 	err = toml.Unmarshal(rawConfig, &cfg)
 	if err != nil {
 		fmt.Println("error parsing config:", err)
@@ -47,7 +48,8 @@ func main() {
 
 	lggr, _ := logger.NewLogger()
 
-	gw, err := gateway.NewGatewayFromConfig(&cfg, lggr)
+	handlerFactory := gateway.NewHandlerFactory(lggr)
+	gw, err := gateway.NewGatewayFromConfig(&cfg, handlerFactory, lggr)
 	if err != nil {
 		fmt.Println("error creating Gateway object:", err)
 		return

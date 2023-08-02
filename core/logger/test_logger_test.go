@@ -18,17 +18,18 @@ func TestTestLogger(t *testing.T) {
 	lgr, observed := TestLoggerObserved(t, zapcore.DebugLevel)
 
 	const (
-		testName    = "TestTestLogger"
 		testMessage = "Test message"
 	)
 	lgr.Warn(testMessage)
-	// [WARN]  Test message		logger/test_logger_test.go:23    logger=1.0.0@sHaValue.TestLogger
+	// [WARN]  Test message		logger/test_logger_test.go:23	version=unset@unset
 	logs := observed.TakeAll()
 	require.Len(t, logs, 1)
 	log := logs[0]
 	assert.Equal(t, zap.WarnLevel, log.Level)
 	assert.Equal(t, testMessage, log.Message)
 	assert.Equal(t, "", log.LoggerName)
+	ver := log.ContextMap()["version"]
+	assert.Contains(t, ver, "@")
 
 	const (
 		serviceName    = "ServiceName"
@@ -38,7 +39,7 @@ func TestTestLogger(t *testing.T) {
 	srvLgr := lgr.Named(serviceName)
 	srvLgr.SetLogLevel(zapcore.DebugLevel)
 	srvLgr.Debugw(serviceMessage, key, value)
-	// [DEBUG]  Service message		logger/test_logger_test.go:35    key=value logger=1.0.0@sHaValue.TestLogger.ServiceName
+	// [DEBUG]  Service message		logger/test_logger_test.go:35 version=unset@unset key=value logger=ServiceName
 	logs = observed.TakeAll()
 	require.Len(t, logs, 1)
 	log = logs[0]
@@ -47,7 +48,7 @@ func TestTestLogger(t *testing.T) {
 	assert.Equal(t, serviceName, log.LoggerName)
 	assert.Equal(t, value, log.ContextMap()[key])
 	assert.Contains(t, log.Caller.String(), "core/logger/test_logger_test.go")
-	assert.Equal(t, log.Caller.Line, 40)
+	assert.Equal(t, log.Caller.Line, 41)
 
 	const (
 		workerName           = "WorkerName"
@@ -57,7 +58,7 @@ func TestTestLogger(t *testing.T) {
 	)
 	wrkLgr := srvLgr.Named(workerName).With(idKey, workerId)
 	wrkLgr.Infow(workerMessage, resultKey, resultVal)
-	// [INFO]	Did some work		logger/test_logger_test.go:49    logger=1.0.0@sHaValue.TestLogger.ServiceName.WorkerName result=success workerId=42
+	// [INFO]	Did some work		logger/test_logger_test.go:49 version=unset@unset logger=ServiceName.WorkerName result=success workerId=42
 	logs = observed.TakeAll()
 	require.Len(t, logs, 1)
 	log = logs[0]

@@ -27,7 +27,7 @@ func TestCSAKeyResource(t *testing.T) {
 			"type":"csaKeys",
 			"id":"%s",
 			"attributes":{
-				"publicKey": "%s",
+				"publicKey": "csa_%s",
 				"version": 1
 			}
 		}

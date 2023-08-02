@@ -3,6 +3,7 @@ package cltest
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -41,10 +42,11 @@ import (
 	"github.com/urfave/cli"
 
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-
-	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
+	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -80,6 +82,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/solkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -156,7 +159,6 @@ func init() {
 	// the same advisory locks when tested with `go test -p N` for N > 1
 	seed := time.Now().UTC().UnixNano()
 	fmt.Printf("cltest random seed: %v\n", seed)
-	rand.Seed(seed)
 
 	// Also seed the local source
 	source = rand.NewSource(seed)
@@ -176,8 +178,7 @@ func MustRandomBytes(t *testing.T, l int) (b []byte) {
 	t.Helper()
 
 	b = make([]byte, l)
-	/* #nosec G404 */
-	_, err := rand.Read(b)
+	_, err := crand.Read(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,17 +192,16 @@ type JobPipelineV2TestHelper struct {
 }
 
 type JobPipelineConfig interface {
-	pipeline.ORMConfig
-	pg.QConfig
 	pipeline.Config
+	MaxSuccessfulRuns() uint64
 }
 
-func NewJobPipelineV2(t testing.TB, cfg JobPipelineConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipelineConfig, dbCfg pg.QConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
-	prm := pipeline.NewORM(db, lggr, cfg)
-	btORM := bridges.NewORM(db, lggr, cfg)
-	jrm := job.NewORM(db, cc, prm, btORM, keyStore, lggr, cfg)
-	pr := pipeline.NewRunner(prm, btORM, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
+	prm := pipeline.NewORM(db, lggr, dbCfg, jpcfg.MaxSuccessfulRuns())
+	btORM := bridges.NewORM(db, lggr, dbCfg)
+	jrm := job.NewORM(db, cc, prm, btORM, keyStore, lggr, dbCfg)
+	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
 		jrm,
@@ -214,12 +214,13 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.New())
 }
 
-func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgr.ResumeCallback) (*txmgr.EvmConfirmer, error) {
+func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgrcommon.ResumeCallback) (*txmgr.Confirmer, error) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(config, lggr), config)
-	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config, ks, estimator)
-	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), ks, txBuilder, lggr)
+	ge := config.EVM().GasEstimator()
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(ge, ge.BlockHistory(), lggr), ge.EIP1559DynamicFees())
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config.EVM(), ge, ks, estimator)
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database(), ks, txBuilder, lggr)
 	ec.SetResumeCallback(fn)
 	require.NoError(t, ec.Start(testutils.Context(t)))
 	return ec, nil
@@ -356,8 +357,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	var eventBroadcaster pg.EventBroadcaster = pg.NewNullEventBroadcaster()
 
-	url := cfg.DatabaseURL()
-	db, err := pg.NewConnection(url.String(), cfg.GetDatabaseDialectConfiguredOrDefault(), cfg)
+	url := cfg.Database().URL()
+	db, err := pg.NewConnection(url.String(), cfg.Database().Dialect(), cfg.Database())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
@@ -377,7 +378,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		default:
 			switch flag {
 			case UseRealExternalInitiatorManager:
-				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, clhttptest.NewTestLocalOnlyHTTPClient(), lggr, cfg)
+				externalInitiatorManager = webhook.NewExternalInitiatorManager(db, clhttptest.NewTestLocalOnlyHTTPClient(), lggr, cfg.Database())
 			}
 
 		}
@@ -386,7 +387,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		ethClient = evmclient.NewNullClient(cfg.DefaultChainID(), lggr)
 	}
 
-	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 	var ids []utils.Big
 	for _, c := range cfg.EVMConfigs() {
 		ids = append(ids, *c.ChainID)
@@ -394,7 +395,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if len(ids) > 0 {
 		o := chainCfgs
 		if o == nil {
-			if err = evm.EnsureChains(db, lggr, cfg, ids); err != nil {
+			if err = evm.EnsureChains(db, lggr, cfg.Database(), ids); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -444,7 +445,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = solana.EnsureChains(db, solLggr, cfg, ids); err != nil {
+			if err = solana.EnsureChains(db, solLggr, cfg.Database(), ids); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -463,26 +464,33 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 	if cfg.StarkNetEnabled() {
 		starkLggr := lggr.Named("StarkNet")
-		opts := starknet.ChainSetOpts{
-			Config:   cfg,
-			Logger:   starkLggr,
-			KeyStore: keyStore.StarkNet(),
-		}
 		cfgs := cfg.StarknetConfigs()
-		opts.Configs = starknet.NewConfigs(cfgs)
-		chains.StarkNet, err = starknet.NewChainSet(opts, cfgs)
+
 		var ids []string
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
 		}
 		if len(ids) > 0 {
-			if err = starknet.EnsureChains(db, starkLggr, cfg, ids); err != nil {
+			if err = starknet.EnsureChains(db, starkLggr, cfg.Database(), ids); err != nil {
 				t.Fatal(err)
 			}
 		}
 		if err != nil {
 			lggr.Fatal(err)
 		}
+
+		opts := starknet.ChainSetOpts{
+			Logger:   starkLggr,
+			KeyStore: &keystore.StarknetLooppSigner{StarkNet: keyStore.StarkNet()},
+			Configs:  starknet.NewConfigs(cfgs),
+		}
+
+		chainSet, err := starknet.NewChainSet(opts, cfgs)
+		if err != nil {
+			lggr.Fatal(err)
+		}
+
+		chains.StarkNet = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
@@ -510,7 +518,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	srvr := httptest.NewUnstartedServer(web.Router(t, app, nil))
-	srvr.Config.WriteTimeout = cfg.HTTPServerWriteTimeout()
+	srvr.Config.WriteTimeout = cfg.WebServer().HTTPWriteTimeout()
 	srvr.Start()
 	ta.Server = srvr
 
@@ -656,12 +664,12 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 	return cmd.ClientOpts{RemoteNodeURL: *MustParseURL(ta.t, ta.Server.URL), InsecureSkipVerify: true}
 }
 
-// NewClientAndRenderer creates a new cmd.Client for the test application
-func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
+// NewShellAndRenderer creates a new cmd.Shell for the test application
+func (ta *TestApplication) NewShellAndRenderer() (*cmd.Shell, *RendererMock) {
 	sessionID := ta.MustSeedNewSession(APIEmailAdmin)
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
-	client := &cmd.Client{
+	client := &cmd.Shell{
 		Renderer:                       r,
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
@@ -677,10 +685,10 @@ func (ta *TestApplication) NewClientAndRenderer() (*cmd.Client, *RendererMock) {
 	return client, r
 }
 
-func (ta *TestApplication) NewAuthenticatingClient(prompter cmd.Prompter) *cmd.Client {
+func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Shell {
 	lggr := logger.TestLogger(ta.t)
 	cookieAuth := cmd.NewSessionCookieAuthenticator(ta.NewClientOpts(), &cmd.MemoryCookieStore{}, lggr)
-	client := &cmd.Client{
+	client := &cmd.Shell{
 		Renderer:                       &RendererMock{},
 		Config:                         ta.GetConfig(),
 		Logger:                         lggr,
@@ -1292,8 +1300,7 @@ func GetLogs(t *testing.T, rv interface{}, logs EthereumLogIterator) []interface
 func MakeConfigDigest(t *testing.T) ocrtypes.ConfigDigest {
 	t.Helper()
 	b := make([]byte, 16)
-	/* #nosec G404 */
-	_, err := rand.Read(b)
+	_, err := crand.Read(b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1311,7 +1318,7 @@ func MustBytesToConfigDigest(t *testing.T, b []byte) ocrtypes.ConfigDigest {
 
 // MockApplicationEthCalls mocks all calls made by the chainlink application as
 // standard when starting and stopping
-func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmclimocks.Client, sub *evmclimocks.Subscription) {
+func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmclimocks.Client, sub *commonmocks.Subscription) {
 	t.Helper()
 
 	// Start
@@ -1626,12 +1633,16 @@ func NewTestChainScopedConfig(t testing.TB) evmconfig.ChainScopedConfig {
 }
 
 func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey.State {
-	states, err := kst.GetStatesForKeys([]ethkey.KeyV2{key})
+	state, err := kst.GetStateForKey(key)
 	require.NoError(t, err)
-	return states[0]
+	return state
 }
 
 func NewTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.EvmTxStore {
+	return txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+}
+
+func NewTestTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.TestEvmTxStore {
 	return txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
 }
 
@@ -1652,7 +1663,7 @@ func ClearDBTables(t *testing.T, db *sqlx.DB, tables ...string) {
 // FlagSetApplyFromAction applies the flags from action to the flagSet.
 // `parentCommand` will filter the app commands and only applies the flags if the command/subcommand has a parent with that name, if left empty no filtering is done
 func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCommand string) {
-	cliApp := cmd.Client{}
+	cliApp := cmd.Shell{}
 	app := cmd.NewApp(&cliApp)
 
 	foundName := parentCommand == ""
@@ -1680,7 +1691,7 @@ func recursiveFindFlagsWithName(actionFuncName string, command cli.Command, pare
 
 	for _, subcommand := range command.Subcommands {
 		if !foundName {
-			foundName = strings.ToLower(subcommand.Name) == strings.ToLower(parent)
+			foundName = strings.EqualFold(subcommand.Name, parent)
 		}
 
 		found := recursiveFindFlagsWithName(actionFuncName, subcommand, parent, foundName)

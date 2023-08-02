@@ -7,6 +7,15 @@
     "DefaultAggregationMethod": 0,
     "UniqueReports": true,
 
+    "ThresholdOffchainConfig": {
+      "MaxQueryLengthBytes": 10000,
+      "MaxObservationLengthBytes": 10000,
+      "MaxReportLengthBytes": 10000,
+      "RequestCountLimit": 100,
+      "RequestTotalBytesLimit": 100000,
+      "RequireLocalRequestCheck": true
+    },
+
     "DeltaProgressMillis": 30000,
     "DeltaResendMillis": 10000,
     "DeltaRoundMillis": 10000,

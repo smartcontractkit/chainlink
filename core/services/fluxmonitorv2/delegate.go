@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -67,23 +68,28 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		return nil, err
 	}
 	cfg := chain.Config()
-	strategy := txmgr.NewQueueingTxStrategy(jb.ExternalJobID, cfg.FMDefaultTransactionQueueDepth(), cfg.DatabaseDefaultQueryTimeout())
-	var checker txmgr.EvmTransmitCheckerSpec
-	if chain.Config().FMSimulateTransactions() {
+	strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.FluxMonitor().DefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
+	var checker txmgr.TransmitCheckerSpec
+	if chain.Config().FluxMonitor().SimulateTransactions() {
 		checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 	}
 
 	fm, err := NewFromJobSpec(
 		jb,
 		d.db,
-		NewORM(d.db, d.lggr, chain.Config(), chain.TxManager(), strategy, checker),
+		NewORM(d.db, d.lggr, chain.Config().Database(), chain.TxManager(), strategy, checker),
 		d.jobORM,
 		d.pipelineORM,
 		NewKeyStore(d.ethKeyStore),
 		chain.Client(),
 		chain.LogBroadcaster(),
 		d.pipelineRunner,
-		chain.Config(),
+		chain.Config().EVM(),
+		chain.Config().EVM().GasEstimator(),
+		chain.Config().EVM().Transactions(),
+		chain.Config().FluxMonitor(),
+		chain.Config().JobPipeline(),
+		chain.Config().Database(),
 		d.lggr,
 	)
 	if err != nil {

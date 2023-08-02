@@ -8,8 +8,9 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	"golang.org/x/exp/slices"
+
+	"github.com/smartcontractkit/sqlx"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -23,7 +24,8 @@ import (
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
@@ -52,7 +54,7 @@ type Txm struct {
 
 // NewTxm creates a txm. Uses simulation so should only be used to send txes to trusted contracts i.e. OCR.
 func NewTxm(db *sqlx.DB, tc func() (cosmosclient.ReaderWriter, error), gpe cosmosclient.ComposedGasPriceEstimator, chainID string, cfg coscfg.Config, ks keystore.Cosmos, lggr logger.Logger, logCfg pg.QConfig, eb pg.EventBroadcaster) *Txm {
-	lggr = lggr.Named("Txm")
+	lggr = logger.Named(lggr, "Txm")
 	return &Txm{
 		starter: utils.StartStopOnce{},
 		eb:      eb,
@@ -87,7 +89,7 @@ func (txm *Txm) confirmAnyUnconfirmed(ctx context.Context) {
 		broadcasted, err := txm.orm.GetMsgsState(db.Broadcasted, txm.cfg.MaxMsgsPerBatch())
 		if err != nil {
 			// Should never happen but if so, theoretically can retry with a reboot
-			txm.lggr.Criticalw("unable to look for broadcasted but unconfirmed txes", "err", err)
+			logger.Criticalw(txm.lggr, "unable to look for broadcasted but unconfirmed txes", "err", err)
 			return
 		}
 		if len(broadcasted) == 0 {
@@ -95,7 +97,7 @@ func (txm *Txm) confirmAnyUnconfirmed(ctx context.Context) {
 		}
 		tc, err := txm.tc()
 		if err != nil {
-			txm.lggr.Criticalw("unable to get client for handling broadcasted but unconfirmed txes", "count", len(broadcasted), "err", err)
+			logger.Criticalw(txm.lggr, "unable to get client for handling broadcasted but unconfirmed txes", "count", len(broadcasted), "err", err)
 			return
 		}
 		msgsByTxHash := make(map[string]adapters.Msgs)
@@ -235,14 +237,14 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 		msg, sender, err2 := unmarshalMsg(m.Type, m.Raw)
 		if err2 != nil {
 			// Should be impossible given the check in Enqueue
-			txm.lggr.Criticalw("Failed to unmarshal msg, skipping", "err", err2, "msg", m)
+			logger.Criticalw(txm.lggr, "Failed to unmarshal msg, skipping", "err", err2, "msg", m)
 			continue
 		}
 		m.DecodedMsg = msg
 		_, err2 = sdk.AccAddressFromBech32(sender)
 		if err2 != nil {
 			// Should never happen, we parse sender on Enqueue
-			txm.lggr.Criticalw("Unable to parse sender", "err", err2, "sender", sender)
+			logger.Criticalw(txm.lggr, "Unable to parse sender", "err", err2, "sender", sender)
 			continue
 		}
 		msgsByFrom[sender] = append(msgsByFrom[sender], m)
@@ -252,7 +254,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 	gasPrice, err := txm.GasPrice()
 	if err != nil {
 		// Should be impossible
-		txm.lggr.Criticalw("Failed to get gas price", "err", err)
+		logger.Criticalw(txm.lggr, "Failed to get gas price", "err", err)
 		return
 	}
 	for s, msgs := range msgsByFrom {
@@ -275,7 +277,7 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoin, sender sdk.AccAddress, key cosmoskey.Key, msgs adapters.Msgs) {
 	tc, err := txm.tc()
 	if err != nil {
-		txm.lggr.Criticalw("unable to get client", "err", err)
+		logger.Criticalw(txm.lggr, "unable to get client", "err", err)
 		return
 	}
 	an, sn, err := tc.Account(sender)
@@ -358,7 +360,7 @@ func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoi
 		}
 		if resp.TxResponse.TxHash != txHash {
 			// Should never happen
-			txm.lggr.Criticalw("txhash mismatch", "got", resp.TxResponse.TxHash, "want", txHash)
+			logger.Criticalw(txm.lggr, "txhash mismatch", "got", resp.TxResponse.TxHash, "want", txHash)
 		}
 		return nil
 	})

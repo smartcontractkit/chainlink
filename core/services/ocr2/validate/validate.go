@@ -9,7 +9,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	pkgerrors "github.com/pkg/errors"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
@@ -20,7 +20,7 @@ import (
 )
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) {
+func ValidatedOracleSpecToml(config OCR2Config, insConf InsecureConfig, tomlString string) (job.Job, error) {
 	var jb = job.Job{}
 	var spec job.OCR2OracleSpec
 	tree, err := toml.Load(tomlString)
@@ -59,7 +59,7 @@ func ValidatedOracleSpecToml(config Config, tomlString string) (job.Job, error) 
 	if err = validateSpec(tree, jb); err != nil {
 		return jb, err
 	}
-	if err = validateTimingParameters(config, spec); err != nil {
+	if err = validateTimingParameters(config, insConf, spec); err != nil {
 		return jb, err
 	}
 	return jb, nil
@@ -82,8 +82,8 @@ var (
 	}
 )
 
-func validateTimingParameters(config Config, spec job.OCR2OracleSpec) error {
-	lc := ToLocalConfig(config, spec)
+func validateTimingParameters(ocr2Conf OCR2Config, insConf InsecureConfig, spec job.OCR2OracleSpec) error {
+	lc := ToLocalConfig(ocr2Conf, insConf, spec)
 	return libocr2.SanityCheckLocalConfig(lc)
 }
 

@@ -2,24 +2,24 @@ package mercury
 
 import (
 	"encoding/json"
-	"math/big"
 
 	"github.com/pkg/errors"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
+
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
 type Config interface {
-	JobPipelineMaxSuccessfulRuns() uint64
+	MaxSuccessfulRuns() uint64
 }
 
 func NewServices(
@@ -28,7 +28,7 @@ func NewServices(
 	pipelineRunner pipeline.Runner,
 	runResults chan pipeline.Run,
 	lggr logger.Logger,
-	argsNoPlugin libocr2.OracleArgs,
+	argsNoPlugin libocr2.MercuryOracleArgs,
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 	chainHeadTracker mercury.ChainHeadTracker,
@@ -54,19 +54,15 @@ func NewServices(
 		runResults,
 		chEnhancedTelem,
 		chainHeadTracker,
+		ocr2Provider.ContractTransmitter(),
+		pluginConfig.InitialBlockNumber.Ptr(),
 	)
-	wrappedPluginFactory := relaymercury.NewFactory(
+	argsNoPlugin.MercuryPluginFactory = relaymercury.NewFactory(
 		ds,
 		lggr,
 		ocr2Provider.OnchainConfigCodec(),
 		ocr2Provider.ReportCodec(),
-		ocr2Provider.ContractTransmitter(),
 	)
-	chain, err := jb.OCR2OracleSpec.RelayConfig.EVMChainID()
-	if err != nil {
-		return nil, errors.Wrap(err, "get chainset")
-	}
-	argsNoPlugin.ReportingPluginFactory = promwrapper.NewPromFactory(wrappedPluginFactory, "Mercury", string(jb.OCR2OracleSpec.Relay), big.NewInt(chain))
 	oracle, err := libocr2.NewOracle(argsNoPlugin)
 	if err != nil {
 		return nil, errors.WithStack(err)
@@ -76,7 +72,7 @@ func NewServices(
 		pipelineRunner,
 		make(chan struct{}),
 		lggr,
-		cfg.JobPipelineMaxSuccessfulRuns(),
+		cfg.MaxSuccessfulRuns(),
 	),
 		job.NewServiceAdapter(oracle)}, nil
 }

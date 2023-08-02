@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -47,18 +47,14 @@ import (
 //
 // This gives us re-org protection up to EVM.FinalityDepth deep in the
 // worst case, which is in line with our other guarantees.
-type NonceSyncer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable] interface {
-	Sync(ctx context.Context, addr ADDR) (err error)
-}
-
-var _ NonceSyncer[common.Address, common.Hash, common.Hash] = &nonceSyncerImpl{}
+var _ txmgr.SequenceSyncer[common.Address, common.Hash, common.Hash] = &nonceSyncerImpl{}
 
 type nonceSyncerImpl struct {
 	txStore EvmTxStore
-	client  EvmTxmClient
+	client  TxmClient
 	chainID *big.Int
 	logger  logger.Logger
-	kst     EvmKeyStore
+	kst     KeyStore
 }
 
 // NewNonceSyncer returns a new syncer
@@ -66,8 +62,8 @@ func NewNonceSyncer(
 	txStore EvmTxStore,
 	lggr logger.Logger,
 	ethClient evmclient.Client,
-	kst EvmKeyStore,
-) EvmNonceSyncer {
+	kst KeyStore,
+) NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
 	return &nonceSyncerImpl{
 		txStore: txStore,
@@ -129,7 +125,7 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 		newNextNonce--
 	}
 
-	err = s.txStore.UpdateEthKeyNextNonce(evmtypes.Nonce(newNextNonce), keyNextNonce, address, s.chainID, pg.WithParentCtx(ctx))
+	err = s.txStore.UpdateKeyNextSequence(evmtypes.Nonce(newNextNonce), keyNextNonce, address, s.chainID, pg.WithParentCtx(ctx))
 
 	if errors.Is(err, ErrKeyNotUpdated) {
 		return errors.Errorf("NonceSyncer#fastForwardNonceIfNecessary optimistic lock failure fastforwarding nonce %v to %v for key %s", localNonce, chainNonce, address.String())
@@ -140,6 +136,6 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 }
 
 func (s nonceSyncerImpl) pendingNonceFromEthClient(ctx context.Context, account common.Address) (uint64, error) {
-	nextNonce, err := s.client.PendingNonceAt(ctx, account)
+	nextNonce, err := s.client.PendingSequenceAt(ctx, account)
 	return uint64(nextNonce), errors.WithStack(err)
 }

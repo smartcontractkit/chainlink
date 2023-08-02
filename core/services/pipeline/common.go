@@ -29,17 +29,20 @@ import (
 )
 
 const (
-	CronJobType               string = "cron"
-	DirectRequestJobType      string = "directrequest"
-	FluxMonitorJobType        string = "fluxmonitor"
-	OffchainReportingJobType  string = "offchainreporting"
-	OffchainReporting2JobType string = "offchainreporting2"
-	KeeperJobType             string = "keeper"
-	VRFJobType                string = "vrf"
-	BlockhashStoreJobType     string = "blockhashstore"
-	BlockHeaderFeederJobType  string = "blockheaderfeeder"
-	WebhookJobType            string = "webhook"
-	BootstrapJobType          string = "bootstrap"
+	CronJobType                    string = "cron"
+	DirectRequestJobType           string = "directrequest"
+	FluxMonitorJobType             string = "fluxmonitor"
+	OffchainReportingJobType       string = "offchainreporting"
+	OffchainReporting2JobType      string = "offchainreporting2"
+	KeeperJobType                  string = "keeper"
+	VRFJobType                     string = "vrf"
+	BlockhashStoreJobType          string = "blockhashstore"
+	BlockHeaderFeederJobType       string = "blockheaderfeeder"
+	WebhookJobType                 string = "webhook"
+	BootstrapJobType               string = "bootstrap"
+	GatewayJobType                 string = "gateway"
+	LegacyGasStationServerJobType  string = "legacygasstationserver"
+	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
@@ -61,15 +64,16 @@ type (
 	}
 
 	Config interface {
-		BridgeResponseURL() *url.URL
-		BridgeCacheTTL() time.Duration
-		DatabaseURL() url.URL
 		DefaultHTTPLimit() int64
 		DefaultHTTPTimeout() models.Duration
-		TriggerFallbackDBPollInterval() time.Duration
-		JobPipelineMaxRunDuration() time.Duration
-		JobPipelineReaperInterval() time.Duration
-		JobPipelineReaperThreshold() time.Duration
+		MaxRunDuration() time.Duration
+		ReaperInterval() time.Duration
+		ReaperThreshold() time.Duration
+	}
+
+	BridgeConfig interface {
+		BridgeResponseURL() *url.URL
+		BridgeCacheTTL() time.Duration
 	}
 )
 
@@ -555,24 +559,28 @@ func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *
 		return *specGasLimit
 	}
 
+	ge := cfg.EVM().GasEstimator()
+	jt := ge.LimitJobType()
 	var jobTypeGasLimit *uint32
 	switch jobType {
 	case DirectRequestJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitDRJobType()
+		jobTypeGasLimit = jt.DR()
 	case FluxMonitorJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitFMJobType()
+		jobTypeGasLimit = jt.FM()
 	case OffchainReportingJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitOCRJobType()
+		jobTypeGasLimit = jt.OCR()
+	case OffchainReporting2JobType:
+		jobTypeGasLimit = jt.OCR2()
 	case KeeperJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitKeeperJobType()
+		jobTypeGasLimit = jt.Keeper()
 	case VRFJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitVRFJobType()
+		jobTypeGasLimit = jt.VRF()
 	}
 
 	if jobTypeGasLimit != nil {
 		return *jobTypeGasLimit
 	}
-	return cfg.EvmGasLimitDefault()
+	return ge.LimitDefault()
 }
 
 // replaceBytesWithHex replaces all []byte with hex-encoded strings

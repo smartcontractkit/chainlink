@@ -9,9 +9,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
@@ -20,14 +19,13 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
-
-	"github.com/google/uuid"
 )
 
 func TestFluxPerformance(t *testing.T) {
@@ -188,6 +186,10 @@ HTTPWriteTimout = '300s'
 
 [OCR]
 Enabled = true`
+	cd, err := chainlink.NewDeployment(3, map[string]interface{}{
+		"toml": client.AddNetworksConfig(baseTOML, testNetwork),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("performance-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
 		Test:            t,
@@ -195,11 +197,8 @@ Enabled = true`
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConf).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml":     client.AddNetworksConfig(baseTOML, testNetwork),
-			"replicas": 3,
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

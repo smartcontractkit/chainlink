@@ -6,20 +6,21 @@ import (
 	"sort"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 )
 
-func CanAggregate(N int, F int, observations []*ProcessedRequest) bool {
+func CanAggregate(N int, F int, observations []*encoding.ProcessedRequest) bool {
 	return N > 0 && F >= 0 && len(observations) > 0 && len(observations) <= N && len(observations) >= 2*F+1
 }
 
-func Aggregate(aggMethod config.AggregationMethod, observations []*ProcessedRequest) (*ProcessedRequest, error) {
+func Aggregate(aggMethod config.AggregationMethod, observations []*encoding.ProcessedRequest) (*encoding.ProcessedRequest, error) {
 	if len(observations) == 0 {
 		return nil, fmt.Errorf("empty observation list passed for aggregation")
 	}
-	var errored []*ProcessedRequest
-	var successful []*ProcessedRequest
+	var errored []*encoding.ProcessedRequest
+	var successful []*encoding.ProcessedRequest
 	reqId := observations[0].RequestID
-	finalResult := ProcessedRequest{
+	finalResult := encoding.ProcessedRequest{
 		RequestID: reqId,
 		Result:    []byte{},
 		Error:     []byte{},

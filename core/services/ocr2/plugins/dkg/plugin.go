@@ -8,7 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/commontypes"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/sqlx"
@@ -32,7 +32,7 @@ func NewDKGServices(
 	dkgSignKs keystore.DKGSign,
 	dkgEncryptKs keystore.DKGEncrypt,
 	ethClient evmclient.Client,
-	oracleArgsNoPlugin libocr2.OracleArgs,
+	oracleArgsNoPlugin libocr2.OCR2OracleArgs,
 	db *sqlx.DB,
 	qConfig pg.QConfig,
 	chainID *big.Int,

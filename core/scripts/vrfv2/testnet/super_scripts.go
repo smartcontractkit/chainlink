@@ -289,6 +289,9 @@ func deployWrapperUniverse(e helpers.Environment) {
 
 	tx, err := link.Transfer(e.Owner, consumer, consumerAmount)
 	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "link transfer to consumer")
 
+	fmt.Println("wrapper universe deployment complete")
+	fmt.Println("wrapper address:", wrapper.String())
+	fmt.Println("wrapper consumer address:", consumer.String())
 }

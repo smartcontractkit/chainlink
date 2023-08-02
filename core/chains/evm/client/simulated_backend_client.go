@@ -17,8 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -489,7 +489,9 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 				return errors.Errorf("SimulatedBackendClient expected arg to be a hash, got: %T", elem.Args[0])
 			}
 			receipt, err := c.b.TransactionReceipt(ctx, hash)
-			b[i].Result = evmtypes.FromGethReceipt(receipt)
+			if receipt != nil {
+				*(b[i].Result.(*evmtypes.Receipt)) = *evmtypes.FromGethReceipt(receipt)
+			}
 			b[i].Error = err
 		case "eth_getBlockByNumber":
 			switch v := elem.Result.(type) {

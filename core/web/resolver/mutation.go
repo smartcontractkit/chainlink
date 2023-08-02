@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -215,7 +216,7 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 			return nil, err
 		}
 
-		params.OCR2Config = feeds.OCR2Config{
+		params.OCR2Config = feeds.OCR2ConfigModel{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
@@ -342,7 +343,7 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 			return nil, err
 		}
 
-		params.OCR2Config = feeds.OCR2Config{
+		params.OCR2Config = feeds.OCR2ConfigModel{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
@@ -1011,18 +1012,18 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	switch jbt {
 	case job.OffchainReporting:
 		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
-		if !config.FeatureOffchainReporting() {
+		if !config.OCR().Enabled() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
-		jb, err = validate.ValidatedOracleSpecToml(r.App.GetConfig(), args.Input.TOML)
-		if !config.FeatureOffchainReporting2() {
+		jb, err = validate.ValidatedOracleSpecToml(r.App.GetConfig().OCR2(), r.App.GetConfig().Insecure(), args.Input.TOML)
+		if !config.OCR2().Enabled() {
 			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(args.Input.TOML)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config, args.Input.TOML)
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), args.Input.TOML)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(args.Input.TOML)
 	case job.Cron:
@@ -1037,6 +1038,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = blockheaderfeeder.ValidatedSpec(args.Input.TOML)
 	case job.Bootstrap:
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(args.Input.TOML)
+	case job.Gateway:
+		jb, err = gateway.ValidatedGatewaySpec(args.Input.TOML)
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),

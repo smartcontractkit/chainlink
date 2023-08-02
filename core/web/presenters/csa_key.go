@@ -1,6 +1,8 @@
 package presenters
 
 import (
+	"fmt"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 )
 
@@ -19,7 +21,7 @@ func (CSAKeyResource) GetName() string {
 func NewCSAKeyResource(key csakey.KeyV2) *CSAKeyResource {
 	r := &CSAKeyResource{
 		JAID:    NewJAID(key.ID()),
-		PubKey:  key.PublicKeyString(),
+		PubKey:  fmt.Sprintf("csa_%s", key.PublicKeyString()),
 		Version: 1,
 	}
 

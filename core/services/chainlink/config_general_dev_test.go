@@ -21,10 +21,10 @@ func TestTOMLGeneralConfig_DevModeInsecureConfig(t *testing.T) {
 		config, err := GeneralConfigOpts{}.New(logger.TestLogger(t))
 		require.NoError(t, err)
 
-		assert.False(t, config.DevWebServer())
-		assert.False(t, config.DisableRateLimiting())
-		assert.False(t, config.InfiniteDepthQueries())
-		assert.False(t, config.OCRDevelopmentMode())
+		assert.False(t, config.Insecure().DevWebServer())
+		assert.False(t, config.Insecure().DisableRateLimiting())
+		assert.False(t, config.Insecure().InfiniteDepthQueries())
+		assert.False(t, config.Insecure().OCRDevelopmentMode())
 	})
 
 	t.Run("insecure config ignore override on non-dev builds", func(t *testing.T) {
@@ -37,9 +37,9 @@ func TestTOMLGeneralConfig_DevModeInsecureConfig(t *testing.T) {
 			}}.New(logger.TestLogger(t))
 		require.NoError(t, err)
 
-		assert.True(t, config.DevWebServer())
-		assert.True(t, config.DisableRateLimiting())
-		assert.True(t, config.InfiniteDepthQueries())
+		assert.True(t, config.Insecure().DevWebServer())
+		assert.True(t, config.Insecure().DisableRateLimiting())
+		assert.True(t, config.Insecure().InfiniteDepthQueries())
 		assert.True(t, config.OCRDevelopmentMode())
 	})
 

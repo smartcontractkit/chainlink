@@ -70,14 +70,14 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	prm := pipeline.NewORM(db, lggr, cfg)
-	btORM := bridges.NewORM(db, lggr, cfg)
+	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	btORM := bridges.NewORM(db, lggr, cfg.Database())
 	txm := txmmocks.NewMockEvmTxManager(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg)
+	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg.Database())
 	t.Cleanup(func() { jrm.Close() })
-	pr := pipeline.NewRunner(prm, btORM, cfg, cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
+	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(testutils.Password))
 	k, err := ks.Eth().Create(testutils.FixtureChainID)
 	require.NoError(t, err)
@@ -148,7 +148,7 @@ func setup(t *testing.T) (vrfUniverse, *vrf.ListenerV1, job.Job) {
 		vuni.prm,
 		vuni.cc,
 		logger.TestLogger(t),
-		cfg,
+		cfg.Database(),
 		mailMon)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
 	jb, err := vrf.ValidatedVRFSpec(vs.Toml())
@@ -299,16 +299,16 @@ func TestDelegate_ValidLog(t *testing.T) {
 
 		// Ensure we queue up a valid eth transaction
 		// Linked to requestID
-		vuni.txm.On("CreateEthTransaction",
-			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool {
-				meta := newTx.Meta
-				return newTx.FromAddress == vuni.submitter &&
-					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
-					newTx.FeeLimit == uint32(500000) &&
+		vuni.txm.On("CreateTransaction",
+			mock.MatchedBy(func(txRequest txmgr.TxRequest) bool {
+				meta := txRequest.Meta
+				return txRequest.FromAddress == vuni.submitter &&
+					txRequest.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
+					txRequest.FeeLimit == uint32(500000) &&
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),
-		).Once().Return(txmgr.EvmTx{}, nil)
+		).Once().Return(txmgr.Tx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
@@ -495,7 +495,7 @@ decode_log->vrf->encode_tx->submit_tx
 		require.NoError(tt, err)
 
 		cfg := vrf_mocks.NewConfig(t)
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.KeySpecificMaxGasPriceWei))
 	})
 
 	t.Run("returns nil error on valid gas lane <=> key specific gas price setting", func(tt *testing.T) {
@@ -522,7 +522,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.KeySpecificMaxGasPriceWei))
 	})
 
 	t.Run("returns error on invalid setting", func(tt *testing.T) {
@@ -550,7 +550,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.KeySpecificMaxGasPriceWei))
 	})
 }
 
@@ -559,7 +559,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -587,7 +587,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -638,7 +638,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}
 		defer cfg.AssertExpectations(tt)
 
-		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.KeySpecificMaxGasPriceWei))
 	})
 
 	t.Run("one max gas price not equal to others", func(tt *testing.T) {
@@ -667,6 +667,6 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 			Return(assets.GWei(200)) // doesn't match the rest
 		defer cfg.AssertExpectations(tt)
 
-		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.KeySpecificMaxGasPriceWei))
 	})
 }

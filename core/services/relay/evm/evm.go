@@ -11,16 +11,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
@@ -44,22 +46,24 @@ type RelayerConfig interface {
 }
 
 type Relayer struct {
-	db          *sqlx.DB
-	chainSet    evm.ChainSet
-	lggr        logger.Logger
-	cfg         RelayerConfig
-	ks          keystore.Master
-	mercuryPool wsrpc.Pool
+	db               *sqlx.DB
+	chainSet         evm.ChainSet
+	lggr             logger.Logger
+	cfg              RelayerConfig
+	ks               keystore.Master
+	mercuryPool      wsrpc.Pool
+	eventBroadcaster pg.EventBroadcaster
 }
 
-func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ks keystore.Master) *Relayer {
+func NewRelayer(db *sqlx.DB, chainSet evm.ChainSet, lggr logger.Logger, cfg RelayerConfig, ks keystore.Master, eventBroadcaster pg.EventBroadcaster) *Relayer {
 	return &Relayer{
-		db:          db,
-		chainSet:    chainSet,
-		lggr:        lggr.Named("Relayer"),
-		cfg:         cfg,
-		ks:          ks,
-		mercuryPool: wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
+		db:               db,
+		chainSet:         chainSet,
+		lggr:             lggr.Named("Relayer"),
+		cfg:              cfg,
+		ks:               ks,
+		mercuryPool:      wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
+		eventBroadcaster: eventBroadcaster,
 	}
 }
 
@@ -103,7 +107,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 		return nil, errors.New("FeedID must be specified")
 	}
 
-	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs, r.eventBroadcaster)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -128,7 +132,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {
-	configProvider, err := newConfigProvider(r.lggr, r.chainSet, args)
+	configProvider, err := newConfigProvider(r.lggr, r.chainSet, args, r.eventBroadcaster)
 	if err != nil {
 		// Never return (*configProvider)(nil)
 		return nil, err
@@ -147,17 +151,11 @@ func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, 
 	}
 
 	if relayConfig.FeedID != nil {
-		filterNames = []string{mercury.FilterName(addr.Address())}
+		filterNames = []string{mercury.FilterName(addr.Address(), *relayConfig.FeedID)}
 	} else {
 		filterNames = []string{configPollerFilterName(addr.Address()), transmitterFilterName(addr.Address())}
 	}
 	return filterNames, err
-}
-
-type ConfigPoller interface {
-	ocrtypes.ContractConfigTracker
-
-	Replay(ctx context.Context, fromBlock int64) error
 }
 
 type configWatcher struct {
@@ -166,7 +164,7 @@ type configWatcher struct {
 	contractAddress  common.Address
 	contractABI      abi.ABI
 	offchainDigester ocrtypes.OffchainConfigDigester
-	configPoller     ConfigPoller
+	configPoller     types.ConfigPoller
 	chain            evm.Chain
 	runReplay        bool
 	fromBlock        uint64
@@ -179,7 +177,7 @@ func newConfigWatcher(lggr logger.Logger,
 	contractAddress common.Address,
 	contractABI abi.ABI,
 	offchainDigester ocrtypes.OffchainConfigDigester,
-	configPoller ConfigPoller,
+	configPoller types.ConfigPoller,
 	chain evm.Chain,
 	fromBlock uint64,
 	runReplay bool,
@@ -221,6 +219,7 @@ func (c *configWatcher) Start(ctx context.Context) error {
 				}
 			}()
 		}
+		c.configPoller.Start()
 		return nil
 	})
 }
@@ -229,7 +228,7 @@ func (c *configWatcher) Close() error {
 	return c.StopOnce(fmt.Sprintf("configWatcher %x", c.contractAddress), func() error {
 		c.replayCancel()
 		c.wg.Wait()
-		return nil
+		return c.configPoller.Close()
 	})
 }
 
@@ -245,7 +244,7 @@ func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	return c.configPoller
 }
 
-func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs) (*configWatcher, error) {
+func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytypes.RelayArgs, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
 	var relayConfig types.RelayConfig
 	err := json.Unmarshal(args.RelayConfig, &relayConfig)
 	if err != nil {
@@ -264,13 +263,15 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get contract ABI JSON")
 	}
-	var cp ConfigPoller
+	var cp types.ConfigPoller
 
 	if relayConfig.FeedID != nil {
-		cp, err = mercury.NewConfigPoller(lggr,
+		cp, err = mercury.NewConfigPoller(
+			lggr,
 			chain.LogPoller(),
 			contractAddress,
 			*relayConfig.FeedID,
+			eventBroadcaster,
 		)
 	} else {
 		cp, err = NewConfigPoller(lggr,
@@ -285,11 +286,11 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	var offchainConfigDigester ocrtypes.OffchainConfigDigester
 	if relayConfig.FeedID != nil {
 		// Mercury
-		offchainConfigDigester = mercury.NewOffchainConfigDigester(*relayConfig.FeedID, chain.Config().ChainID().Uint64(), contractAddress)
+		offchainConfigDigester = mercury.NewOffchainConfigDigester(*relayConfig.FeedID, chain.Config().EVM().ChainID().Uint64(), contractAddress)
 	} else {
 		// Non-mercury
 		offchainConfigDigester = evmutil.EVMOffchainConfigDigester{
-			ChainID:         chain.Config().ChainID().Uint64(),
+			ChainID:         chain.Config().EVM().ChainID().Uint64(),
 			ContractAddress: contractAddress,
 		}
 	}
@@ -319,23 +320,24 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
 			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
-		if err := ethKeystore.CheckEnabled(common.HexToAddress(s), configWatcher.chain.Config().ChainID()); err != nil {
+		if err := ethKeystore.CheckEnabled(common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
 			return nil, errors.Wrap(err, "one of the sending keys given is not enabled")
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
 
 	scoped := configWatcher.chain.Config()
-	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCRDefaultTransactionQueueDepth(), scoped.DatabaseDefaultQueryTimeout())
+	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2().DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
 
-	var checker txm.EvmTransmitCheckerSpec
-	if configWatcher.chain.Config().OCRSimulateTransactions() {
+	var checker txm.TransmitCheckerSpec
+	if configWatcher.chain.Config().OCR2().SimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
-	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
-	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
-		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
+	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
+	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
+	if ocr2Limit != nil {
+		gasLimit = *ocr2Limit
 	}
 
 	transmitter, err := ocrcommon.NewTransmitter(
@@ -344,7 +346,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txm.EvmTransmitCheckerSpec{},
+		checker,
 		configWatcher.chain.ID(),
 		ethKeystore,
 	)
@@ -376,16 +378,17 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
 	transmitterAddress := common.HexToAddress(transmitterID)
 	scoped := configWatcher.chain.Config()
-	strategy := txm.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCRDefaultTransactionQueueDepth(), scoped.DatabaseDefaultQueryTimeout())
+	strategy := txmgrcommon.NewQueueingTxStrategy(rargs.ExternalJobID, scoped.OCR2().DefaultTransactionQueueDepth(), scoped.Database().DefaultQueryTimeout())
 
-	var checker txm.EvmTransmitCheckerSpec
-	if configWatcher.chain.Config().OCRSimulateTransactions() {
+	var checker txm.TransmitCheckerSpec
+	if configWatcher.chain.Config().OCR2().SimulateTransactions() {
 		checker.CheckerType = txm.TransmitCheckerTypeSimulate
 	}
 
-	gasLimit := configWatcher.chain.Config().EvmGasLimitDefault()
-	if configWatcher.chain.Config().EvmGasLimitOCRJobType() != nil {
-		gasLimit = *configWatcher.chain.Config().EvmGasLimitOCRJobType()
+	gasLimit := configWatcher.chain.Config().EVM().GasEstimator().LimitDefault()
+	ocr2Limit := configWatcher.chain.Config().EVM().GasEstimator().LimitJobType().OCR2()
+	if ocr2Limit != nil {
+		gasLimit = *ocr2Limit
 	}
 	if pluginGasLimit != nil {
 		gasLimit = *pluginGasLimit
@@ -413,7 +416,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 }
 
 func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
-	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs)
+	configWatcher, err := newConfigProvider(r.lggr, r.chainSet, rargs, r.eventBroadcaster)
 	if err != nil {
 		return nil, err
 	}

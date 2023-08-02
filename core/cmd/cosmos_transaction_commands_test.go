@@ -27,7 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
-func TestClient_SendCosmosCoins(t *testing.T) {
+func TestShell_SendCosmosCoins(t *testing.T) {
 	// TODO(BCI-978): cleanup once SetupLocalCosmosNode is updated
 	chainID := cosmostest.RandomChainID()
 	accounts, _, _ := cosmosclient.SetupLocalCosmosNode(t, chainID)
@@ -55,7 +55,7 @@ func TestClient_SendCosmosCoins(t *testing.T) {
 	db := app.GetSqlxDB()
 	orm := cosmostxm.NewORM(chainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
 
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 	cliapp := cli.NewApp()
 
 	for _, tt := range []struct {

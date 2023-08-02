@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"

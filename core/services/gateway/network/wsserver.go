@@ -18,6 +18,9 @@ import (
 //go:generate mockery --quiet --name WebSocketServer --output ./mocks/ --case=underscore
 type WebSocketServer interface {
 	job.ServiceCtx
+
+	// Not thread-safe. Can be called after Start() returns.
+	GetPort() int
 }
 
 type WebSocketServerConfig struct {
@@ -28,6 +31,7 @@ type WebSocketServerConfig struct {
 type webSocketServer struct {
 	utils.StartStopOnce
 	config            *WebSocketServerConfig
+	listener          net.Listener
 	server            *http.Server
 	acceptor          ConnectionAcceptor
 	upgrader          *websocket.Upgrader
@@ -62,9 +66,23 @@ func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAccept
 	return server
 }
 
+func (s *webSocketServer) GetPort() int {
+	return s.listener.Addr().(*net.TCPAddr).Port
+}
+
 func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get(WsServerHandshakeAuthHeaderName)
-	authBytes, _ := base64.StdEncoding.DecodeString(authHeader)
+	if len(authHeader) > HandshakeEncodedAuthHeaderMaxLen {
+		s.lggr.Errorw("received auth header is too large", "len", len(authHeader))
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	authBytes, err := base64.StdEncoding.DecodeString(authHeader)
+	if err != nil {
+		s.lggr.Error("received auth header can't be base64-decoded", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	attemptId, challenge, err := s.acceptor.StartHandshake(authBytes)
 	if err != nil {
 		s.lggr.Error("received invalid auth header", err)
@@ -99,8 +117,7 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 func (s *webSocketServer) Start(ctx context.Context) error {
 	return s.StartOnce("GatewayWebSocketServer", func() error {
 		s.lggr.Info("starting gateway WebSocket server")
-		s.runServer()
-		return nil
+		return s.runServer()
 	})
 }
 
@@ -114,20 +131,25 @@ func (s *webSocketServer) Close() error {
 	})
 }
 
-func (s *webSocketServer) runServer() {
+func (s *webSocketServer) runServer() (err error) {
+	s.listener, err = net.Listen("tcp", s.server.Addr)
+	if err != nil {
+		return
+	}
 	tlsEnabled := s.config.TLSEnabled
 	go func() {
 		if tlsEnabled {
-			err := s.server.ListenAndServeTLS(s.config.TLSCertPath, s.config.TLSKeyPath)
+			err := s.server.ServeTLS(s.listener, s.config.TLSCertPath, s.config.TLSKeyPath)
 			if err != http.ErrServerClosed {
 				s.lggr.Error("gateway WS server closed with error:", err)
 			}
 		} else {
-			err := s.server.ListenAndServe()
+			err := s.server.Serve(s.listener)
 			if err != http.ErrServerClosed {
 				s.lggr.Error("gateway WS server closed with error:", err)
 			}
 		}
 		s.doneCh <- struct{}{}
 	}()
+	return
 }

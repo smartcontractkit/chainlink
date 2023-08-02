@@ -8,14 +8,14 @@ import (
 )
 
 type EthTransactionAttemptResolver struct {
-	attmpt txmgr.EvmTxAttempt
+	attmpt txmgr.TxAttempt
 }
 
-func NewEthTransactionAttempt(attmpt txmgr.EvmTxAttempt) *EthTransactionAttemptResolver {
+func NewEthTransactionAttempt(attmpt txmgr.TxAttempt) *EthTransactionAttemptResolver {
 	return &EthTransactionAttemptResolver{attmpt: attmpt}
 }
 
-func NewEthTransactionsAttempts(results []txmgr.EvmTxAttempt) []*EthTransactionAttemptResolver {
+func NewEthTransactionsAttempts(results []txmgr.TxAttempt) []*EthTransactionAttemptResolver {
 	var resolver []*EthTransactionAttemptResolver
 
 	for _, tx := range results {
@@ -50,11 +50,11 @@ func (r *EthTransactionAttemptResolver) SentAt() *string {
 // -- EthTransactionAttempts Query --
 
 type EthTransactionsAttemptsPayloadResolver struct {
-	results []txmgr.EvmTxAttempt
+	results []txmgr.TxAttempt
 	total   int32
 }
 
-func NewEthTransactionsAttemptsPayload(results []txmgr.EvmTxAttempt, total int32) *EthTransactionsAttemptsPayloadResolver {
+func NewEthTransactionsAttemptsPayload(results []txmgr.TxAttempt, total int32) *EthTransactionsAttemptsPayloadResolver {
 	return &EthTransactionsAttemptsPayloadResolver{results: results, total: total}
 }
 

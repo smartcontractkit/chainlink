@@ -26,6 +26,7 @@ type MailboxMonitor struct {
 
 	mailboxes sync.Map
 	stop      func()
+	done      chan struct{}
 }
 
 func NewMailboxMonitor(appID string) *MailboxMonitor {
@@ -37,8 +38,13 @@ func (m *MailboxMonitor) Name() string { return "MailboxMonitor" }
 func (m *MailboxMonitor) Start(context.Context) error {
 	return m.StartOnce("MailboxMonitor", func() error {
 		t := time.NewTicker(WithJitter(mailboxPromInterval))
-		m.stop = t.Stop
-		go m.monitorLoop(t.C)
+		ctx, cancel := context.WithCancel(context.Background())
+		m.stop = func() {
+			t.Stop()
+			cancel()
+		}
+		m.done = make(chan struct{})
+		go m.monitorLoop(ctx, t.C)
 		return nil
 	})
 }
@@ -46,6 +52,7 @@ func (m *MailboxMonitor) Start(context.Context) error {
 func (m *MailboxMonitor) Close() error {
 	return m.StopOnce("MailboxMonitor", func() error {
 		m.stop()
+		<-m.done
 		return nil
 	})
 }
@@ -54,15 +61,21 @@ func (m *MailboxMonitor) HealthReport() map[string]error {
 	return map[string]error{m.Name(): m.StartStopOnce.Healthy()}
 }
 
-func (m *MailboxMonitor) monitorLoop(c <-chan time.Time) {
-	for range c {
-		m.mailboxes.Range(func(k, v any) bool {
-			name, mb := k.(string), v.(mailbox)
-			c, p := mb.load()
-			capacity := strconv.FormatUint(c, 10)
-			mailboxLoad.WithLabelValues(m.appID, name, capacity).Set(p)
-			return true
-		})
+func (m *MailboxMonitor) monitorLoop(ctx context.Context, c <-chan time.Time) {
+	defer close(m.done)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-c:
+			m.mailboxes.Range(func(k, v any) bool {
+				name, mb := k.(string), v.(mailbox)
+				c, p := mb.load()
+				capacity := strconv.FormatUint(c, 10)
+				mailboxLoad.WithLabelValues(m.appID, name, capacity).Set(p)
+				return true
+			})
+		}
 	}
 }
 

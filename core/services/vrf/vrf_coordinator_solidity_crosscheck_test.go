@@ -26,7 +26,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
@@ -35,6 +34,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
+
+const defaultGasLimit uint32 = 500000
 
 // coordinatorUniverse represents the universe in which a randomness request occurs and
 // is fulfilled.
@@ -338,7 +339,7 @@ func fulfillRandomnessRequest(t *testing.T, coordinator coordinatorUniverse, log
 	coordinator.backend.Commit()
 	// This is simulating a node response, so set the gas limit as chainlink does
 	var neil bind.TransactOpts = *coordinator.neil
-	neil.GasLimit = uint64(evmconfig.DefaultGasLimit)
+	neil.GasLimit = uint64(defaultGasLimit)
 	_, err = coordinator.rootContract.FulfillRandomnessRequest(&neil, proofBlob[:])
 	require.NoError(t, err, "failed to fulfill randomness request!")
 	coordinator.backend.Commit()

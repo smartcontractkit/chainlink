@@ -42,7 +42,7 @@ func setupORM(t *testing.T, name string) (db *sqlx.DB, orm pipeline.ORM) {
 		db = pgtest.NewSqlxDB(t)
 	}
 	cfg := ormconfig{pgtest.NewQConfig(true)}
-	orm = pipeline.NewORM(db, logger.TestLogger(t), cfg)
+	orm = pipeline.NewORM(db, logger.TestLogger(t), cfg, cfg.JobPipelineMaxSuccessfulRuns())
 
 	return
 }
@@ -516,12 +516,12 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	config := configtest2.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, config)
-	porm := pipeline.NewORM(db, lggr, config)
-	bridgeORM := bridges.NewORM(db, lggr, config)
+	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
+	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
@@ -617,12 +617,12 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	config := configtest2.NewTestGeneralConfig(t)
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db, config)
-	porm := pipeline.NewORM(db, lggr, config)
-	bridgeORM := bridges.NewORM(db, lggr, config)
+	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config)
+	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
@@ -711,7 +711,7 @@ func Test_Prune(t *testing.T) {
 	})
 	lggr, observed := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	db := pgtest.NewSqlxDB(t)
-	porm := pipeline.NewORM(db, lggr, cfg)
+	porm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 
 	ps1 := cltest.MustInsertPipelineSpec(t, db)
 

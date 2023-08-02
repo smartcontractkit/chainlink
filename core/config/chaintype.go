@@ -12,19 +12,19 @@ type ChainType string
 const (
 	ChainArbitrum        ChainType = "arbitrum"
 	ChainMetis           ChainType = "metis"
-	ChainOptimism        ChainType = "optimism"
 	ChainOptimismBedrock ChainType = "optimismBedrock"
 	ChainXDai            ChainType = "xdai"
+	ChainCelo            ChainType = "celo"
 )
 
 var ErrInvalidChainType = fmt.Errorf("must be one of %s or omitted", strings.Join([]string{
-	string(ChainArbitrum), string(ChainMetis), string(ChainOptimism), string(ChainXDai), string(ChainOptimismBedrock),
+	string(ChainArbitrum), string(ChainMetis), string(ChainXDai), string(ChainOptimismBedrock), string(ChainCelo),
 }, ", "))
 
 // IsValid returns true if the ChainType value is known or empty.
 func (c ChainType) IsValid() bool {
 	switch c {
-	case "", ChainArbitrum, ChainMetis, ChainOptimism, ChainOptimismBedrock, ChainXDai:
+	case "", ChainArbitrum, ChainMetis, ChainOptimismBedrock, ChainXDai, ChainCelo:
 		return true
 	}
 	return false
@@ -35,7 +35,7 @@ func (c ChainType) IsValid() bool {
 //   - gas bumping is not supported, since there is no tx mempool
 func (c ChainType) IsL2() bool {
 	switch c {
-	case ChainArbitrum, ChainMetis, ChainOptimism:
+	case ChainArbitrum, ChainMetis:
 		return true
 
 	case ChainXDai:

@@ -58,14 +58,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			"getting chain ID %d: %w", jb.BlockHeaderFeederSpec.EVMChainID.ToInt(), err)
 	}
 
-	if !chain.Config().FeatureLogPoller() {
+	if !chain.Config().Feature().LogPoller() {
 		return nil, errors.New("log poller must be enabled to run blockheaderfeeder")
 	}
 
-	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(chain.Config().EvmFinalityDepth()) {
+	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(chain.Config().EVM().FinalityDepth()) {
 		return nil, fmt.Errorf(
 			"lookbackBlocks must be greater than or equal to chain's finality depth (%d), currently %d",
-			chain.Config().EvmFinalityDepth(), jb.BlockHeaderFeederSpec.LookbackBlocks)
+			chain.Config().EVM().FinalityDepth(), jb.BlockHeaderFeederSpec.LookbackBlocks)
 	}
 
 	keys, err := d.ks.EnabledKeysForChain(chain.ID())
@@ -123,13 +123,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		coordinators = append(coordinators, coord)
 	}
 
-	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
+	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config().EVM().GasEstimator(), chain.Config().Database(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
 
 	batchBHS, err := blockhashstore.NewBatchBHS(
-		chain.Config(),
+		chain.Config().EVM().GasEstimator(),
 		fromAddresses,
 		chain.TxManager(),
 		batchBlockhashStore,

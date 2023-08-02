@@ -1,7 +1,7 @@
 package plugins
 
 import (
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )

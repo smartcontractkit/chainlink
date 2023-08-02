@@ -144,5 +144,5 @@ func getProjectRoot(t *testing.T) (rootPath string) {
 		}
 	}
 	t.Fatal("could not find project root")
-	panic("can't get here") // Appease staticcheck
+	return
 }

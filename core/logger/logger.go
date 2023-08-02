@@ -12,6 +12,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -32,6 +34,8 @@ func init() {
 		InitColor(false)
 	}
 }
+
+var _ relaylogger.Logger = (Logger)(nil)
 
 //go:generate mockery --quiet --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
 
@@ -134,8 +138,7 @@ func verShaNameStatic() string {
 // Tests should use TestLogger.
 func NewLogger() (Logger, func() error) {
 	var c Config
-	l, closeLogger := c.New()
-	return l.With("version", verShaNameStatic()), closeLogger
+	return c.New()
 }
 
 type Config struct {
@@ -180,7 +183,9 @@ func (c *Config) New() (Logger, func() error) {
 	}
 
 	l = newSentryLogger(l)
-	return newPrometheusLogger(l), closeLogger
+	l = newPrometheusLogger(l)
+	l = l.With("version", verShaNameStatic())
+	return l, closeLogger
 }
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk

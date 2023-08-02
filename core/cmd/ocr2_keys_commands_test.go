@@ -65,7 +65,7 @@ func TestOCR2KeyBundlePresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, hex.EncodeToString(pubKeyConfig[:]))
 }
 
-func TestClient_OCR2Keys(t *testing.T) {
+func TestShell_OCR2Keys(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
@@ -81,7 +81,7 @@ func TestClient_OCR2Keys(t *testing.T) {
 
 	t.Run("ListOCR2KeyBundles", func(tt *testing.T) {
 		defer cleanup()
-		client, r := app.NewClientAndRenderer()
+		client, r := app.NewShellAndRenderer()
 
 		key, err := app.GetKeyStore().OCR2().Create("evm")
 		require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestClient_OCR2Keys(t *testing.T) {
 
 	t.Run("CreateOCR2KeyBundle", func(tt *testing.T) {
 		defer cleanup()
-		client, r := app.NewClientAndRenderer()
+		client, r := app.NewShellAndRenderer()
 
 		set := flag.NewFlagSet("test", 0)
 		cltest.FlagSetApplyFromAction(client.CreateOCR2KeyBundle, set, "")
@@ -113,7 +113,7 @@ func TestClient_OCR2Keys(t *testing.T) {
 
 	t.Run("DeleteOCR2KeyBundle", func(tt *testing.T) {
 		defer cleanup()
-		client, r := app.NewClientAndRenderer()
+		client, r := app.NewShellAndRenderer()
 
 		key, err := app.GetKeyStore().OCR2().Create("evm")
 		require.NoError(t, err)
@@ -136,7 +136,7 @@ func TestClient_OCR2Keys(t *testing.T) {
 	t.Run("ImportExportOCR2Key", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(t)
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 
 		err := app.KeyStore.OCR2().Add(cltest.DefaultOCR2Key)
 		require.NoError(t, err)

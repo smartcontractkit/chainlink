@@ -19,6 +19,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -92,6 +93,7 @@ type Node interface {
 	// Name is a unique identifier for this node.
 	Name() string
 	ChainID() *big.Int
+	Order() int32
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -129,12 +131,14 @@ type rawclient struct {
 // It must have a ws url and may have a http url
 type node struct {
 	utils.StartStopOnce
-	lfcLog  logger.Logger
-	rpcLog  logger.Logger
-	name    string
-	id      int32
-	chainID *big.Int
-	cfg     NodeConfig
+	lfcLog              logger.Logger
+	rpcLog              logger.Logger
+	name                string
+	id                  int32
+	chainID             *big.Int
+	nodePoolCfg         config.NodePool
+	noNewHeadsThreshold time.Duration
+	order               int32
 
 	ws   rawclient
 	http *rawclient
@@ -167,23 +171,16 @@ type node struct {
 	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *utils.Big)
 }
 
-// NodeConfig allows configuration of the node
-type NodeConfig interface {
-	NodeNoNewHeadsThreshold() time.Duration
-	NodePollFailureThreshold() uint32
-	NodePollInterval() time.Duration
-	NodeSelectionMode() string
-	NodeSyncThreshold() uint32
-}
-
 // NewNode returns a new *node as Node
-func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int) Node {
+func NewNode(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, nodeOrder int32) Node {
 	n := new(node)
 	n.name = name
 	n.id = id
 	n.chainID = chainID
-	n.cfg = nodeCfg
+	n.nodePoolCfg = nodeCfg
+	n.noNewHeadsThreshold = noNewHeadsThreshold
 	n.ws.uri = wsuri
+	n.order = nodeOrder
 	if httpuri != nil {
 		n.http = &rawclient{uri: *httpuri}
 	}
@@ -194,10 +191,12 @@ func NewNode(nodeCfg NodeConfig, lggr logger.Logger, wsuri url.URL, httpuri *url
 		"nodeName", name,
 		"node", n.String(),
 		"evmChainID", chainID,
+		"nodeOrder", n.order,
 	)
 	n.lfcLog = lggr.Named("Lifecycle")
 	n.rpcLog = lggr.Named("RPC")
 	n.stateLatestBlockNumber = -1
+
 	return n
 }
 
@@ -449,7 +448,7 @@ func (n *node) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	defer cancel()
 	lggr := n.newRqLggr(switching(n)).With("nBatchElems", len(b), "batchElems", b)
 
-	lggr.Debug("RPC call: evmclient.Client#BatchCallContext")
+	lggr.Trace("RPC call: evmclient.Client#BatchCallContext")
 	start := time.Now()
 	if http != nil {
 		err = n.wrapHTTP(http.rpc.BatchCallContext(ctx, b))
@@ -999,7 +998,7 @@ func (n *node) logResult(
 	promEVMPoolRPCNodeCalls.WithLabelValues(n.chainID.String(), n.name).Inc()
 	if err == nil {
 		promEVMPoolRPCNodeCallsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
-		lggr.Debugw(
+		lggr.Tracew(
 			fmt.Sprintf("evmclient.Client#%s RPC call success", callName),
 			results...,
 		)
@@ -1104,4 +1103,8 @@ func (n *node) String() string {
 
 func (n *node) Name() string {
 	return n.name
+}
+
+func (n *node) Order() int32 {
+	return n.order
 }

@@ -54,7 +54,7 @@ func TestSolanaKeyPresenter_RenderTable(t *testing.T) {
 	assert.Contains(t, output, pubKey)
 }
 
-func TestClient_SolanaKeys(t *testing.T) {
+func TestShell_SolanaKeys(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	ks := app.GetKeyStore().Solana()
 	cleanup := func() {
@@ -68,7 +68,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 
 	t.Run("ListSolanaKeys", func(tt *testing.T) {
 		defer cleanup()
-		client, r := app.NewClientAndRenderer()
+		client, r := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Solana().Create()
 		require.NoError(t, err)
 		requireSolanaKeyCount(t, app, 1)
@@ -81,7 +81,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 
 	t.Run("CreateSolanaKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		require.NoError(t, cmd.NewSolanaKeysClient(client).CreateKey(nilContext))
 		keys, err := app.GetKeyStore().Solana().GetAll()
 		require.NoError(t, err)
@@ -90,7 +90,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 
 	t.Run("DeleteSolanaKey", func(tt *testing.T) {
 		defer cleanup()
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 		key, err := app.GetKeyStore().Solana().Create()
 		require.NoError(t, err)
 		requireSolanaKeyCount(t, app, 1)
@@ -111,7 +111,7 @@ func TestClient_SolanaKeys(t *testing.T) {
 	t.Run("ImportExportSolanaKey", func(tt *testing.T) {
 		defer cleanup()
 		defer deleteKeyExportFile(t)
-		client, _ := app.NewClientAndRenderer()
+		client, _ := app.NewShellAndRenderer()
 
 		_, err := app.GetKeyStore().Solana().Create()
 		require.NoError(t, err)
