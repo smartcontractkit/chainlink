@@ -4,9 +4,8 @@ pragma solidity ^0.8.19;
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {IFunctionsBilling, FunctionsBilling} from "./FunctionsBilling.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
-import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
+import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 import {ITypeAndVersion} from "./HasRouter.sol";
-import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
 
 /**
  * @title Functions Coordinator contract
@@ -14,6 +13,9 @@ import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
+  using FunctionsResponse for FunctionsResponse.Commitment;
+  using FunctionsResponse for FunctionsResponse.FulfillResult;
+
   event OracleRequest(
     bytes32 indexed requestId,
     address indexed requestingContract,
@@ -145,7 +147,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function sendRequest(
     Request calldata request
-  ) external override onlyRouter returns (IFunctionsRequest.Commitment memory commitment) {
+  ) external override onlyRouter returns (FunctionsResponse.Commitment memory commitment) {
     if (request.data.length == 0) {
       revert EmptyRequestData();
     }
@@ -223,11 +225,13 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
     for (uint256 i = 0; i < requestIds.length; ++i) {
-      FulfillResult result = FulfillResult(
+      FunctionsResponse.FulfillResult result = FunctionsResponse.FulfillResult(
         _fulfillAndBill(requestIds[i], results[i], errors[i], onchainMetadata[i], offchainMetadata[i])
       );
 
-      if (result == FulfillResult.USER_SUCCESS || result == FulfillResult.USER_ERROR) {
+      if (
+        result == FunctionsResponse.FulfillResult.USER_SUCCESS || result == FunctionsResponse.FulfillResult.USER_ERROR
+      ) {
         emit OracleResponse(requestIds[i], msg.sender);
       }
     }

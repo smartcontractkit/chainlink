@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {FunctionsClient, Functions} from "../../../dev/1_0_0/FunctionsClient.sol";
+import {FunctionsRequest} from "../../../dev/1_0_0/libraries/FunctionsRequest.sol";
+import {FunctionsClient} from "../../../dev/1_0_0/FunctionsClient.sol";
 import {ITermsOfServiceAllowList} from "../../../dev/1_0_0/accessControl/interfaces/ITermsOfServiceAllowList.sol";
 import {IFunctionsSubscriptions} from "../../../dev/1_0_0/interfaces/IFunctionsSubscriptions.sol";
 
 contract FunctionsClientTestHelper is FunctionsClient {
-  using Functions for Functions.Request;
+  using FunctionsRequest for FunctionsRequest.Request;
 
   event SendRequestInvoked(bytes32 requestId, string sourceCode, uint64 subscriptionId);
   event FulfillRequestInvoked(bytes32 requestId, bytes response, bytes err);
@@ -27,7 +28,7 @@ contract FunctionsClientTestHelper is FunctionsClient {
     bytes32 donId,
     uint32 callbackGasLimit
   ) public returns (bytes32 requestId) {
-    Functions.Request memory request;
+    FunctionsRequest.Request memory request;
     request.initializeRequestForInlineJavaScript(sourceCode);
     requestId = _sendRequest(request, subscriptionId, callbackGasLimit, donId);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
@@ -38,14 +39,14 @@ contract FunctionsClientTestHelper is FunctionsClient {
     uint64 subscriptionId,
     bytes32 donId
   ) public returns (bytes32 requestId) {
-    Functions.Request memory request;
+    FunctionsRequest.Request memory request;
     uint32 callbackGasLimit = 20_000;
     request.initializeRequestForInlineJavaScript(sourceCode);
-    bytes memory requestData = Functions.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
     requestId = s_router.sendRequestToProposed(
       subscriptionId,
       requestData,
-      Functions.REQUEST_DATA_VERSION,
+      FunctionsRequest.REQUEST_DATA_VERSION,
       callbackGasLimit,
       donId
     );

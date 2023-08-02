@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Functions} from "./Functions.sol";
+import {FunctionsRequest} from "./libraries/FunctionsRequest.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
 
@@ -10,6 +10,8 @@ import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
  * @notice Contract writers can inherit this contract in order to create Chainlink Functions requests
  */
 abstract contract FunctionsClient is IFunctionsClient {
+  using FunctionsRequest for FunctionsRequest.Request;
+
   IFunctionsRouter internal immutable s_router;
 
   event RequestSent(bytes32 indexed id);
@@ -29,12 +31,12 @@ abstract contract FunctionsClient is IFunctionsClient {
    * @return requestId The generated request ID
    */
   function _sendRequest(
-    Functions.Request memory req,
+    FunctionsRequest.Request memory req,
     uint64 subscriptionId,
     uint32 callbackGasLimit,
     bytes32 donId
   ) internal returns (bytes32 requestId) {
-    bytes memory requestData = Functions.encodeCBOR(req);
+    bytes memory requestData = FunctionsRequest.encodeCBOR(req);
     requestId = _sendRequestBytes(requestData, subscriptionId, callbackGasLimit, donId);
   }
 
@@ -51,7 +53,13 @@ abstract contract FunctionsClient is IFunctionsClient {
     uint32 callbackGasLimit,
     bytes32 donId
   ) internal returns (bytes32 requestId) {
-    requestId = s_router.sendRequest(subscriptionId, data, Functions.REQUEST_DATA_VERSION, callbackGasLimit, donId);
+    requestId = s_router.sendRequest(
+      subscriptionId,
+      data,
+      FunctionsRequest.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      donId
+    );
     emit RequestSent(requestId);
   }
 

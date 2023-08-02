@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {CBOR, Buffer} from "../../../vendor/solidity-cborutils/v2.0.0/CBOR.sol";
+import {CBOR, Buffer} from "../../../../vendor/solidity-cborutils/v2.0.0/CBOR.sol";
 
 /**
- * @title Library for Chainlink Functions
+ * @title Library for encoding Functions request data to CBOR
  */
-library Functions {
+library FunctionsRequest {
   uint16 public constant REQUEST_DATA_VERSION = 1;
   uint256 internal constant DEFAULT_BUFFER_SIZE = 256;
 

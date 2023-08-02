@@ -4,11 +4,11 @@ pragma solidity ^0.8.19;
 import {HasRouter} from "./HasRouter.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
-import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
-import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
+
+import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
 /**
  * @title Functions Billing contract
@@ -16,6 +16,8 @@ import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
+  using FunctionsResponse for FunctionsResponse.Commitment;
+  using FunctionsResponse for FunctionsResponse.FulfillResult;
   // ================================================================
   // |                  Request Commitment state                    |
   // ================================================================
@@ -273,7 +275,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     bytes memory data,
     uint16 requestDataVersion,
     RequestBilling memory billing
-  ) internal returns (IFunctionsRequest.Commitment memory commitment) {
+  ) internal returns (FunctionsResponse.Commitment memory commitment) {
     // Nodes should support all past versions of the structure
     if (requestDataVersion > s_config.maxSupportedRequestDataVersion) {
       revert UnsupportedRequestDataVersion();
@@ -297,7 +299,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
 
     bytes32 requestId = computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
 
-    commitment = IFunctionsRequest.Commitment({
+    commitment = FunctionsResponse.Commitment({
       adminFee: billing.adminFee,
       coordinator: address(this),
       client: billing.client,
@@ -341,14 +343,14 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     bytes memory err,
     bytes memory onchainMetadata,
     bytes memory /* offchainMetadata TODO: use in getDonFee() for dynamic billing */
-  ) internal returns (FulfillResult) {
-    IFunctionsRequest.Commitment memory commitment = abi.decode(onchainMetadata, (IFunctionsRequest.Commitment));
+  ) internal returns (FunctionsResponse.FulfillResult) {
+    FunctionsResponse.Commitment memory commitment = abi.decode(onchainMetadata, (FunctionsResponse.Commitment));
     if (s_requestCommitments[requestId] == bytes32(0)) {
-      return FulfillResult.INVALID_REQUEST_ID;
+      return FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
     }
 
     if (s_requestCommitments[requestId] != keccak256(abi.encode(commitment))) {
-      return FulfillResult.INVALID_COMMITMENT;
+      return FunctionsResponse.FulfillResult.INVALID_COMMITMENT;
     }
 
     int256 weiPerUnitLink;
@@ -364,7 +366,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     );
 
     // The Functions Router will perform the callback to the client contract
-    (FulfillResult resultCode, uint96 callbackCostJuels) = _getRouter().fulfill(
+    (FunctionsResponse.FulfillResult resultCode, uint96 callbackCostJuels) = _getRouter().fulfill(
       response,
       err,
       uint96(juelsPerGas),
@@ -373,7 +375,10 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
       commitment
     );
 
-    if (resultCode == FulfillResult.USER_SUCCESS || resultCode == FulfillResult.USER_ERROR) {
+    if (
+      resultCode == FunctionsResponse.FulfillResult.USER_SUCCESS ||
+      resultCode == FunctionsResponse.FulfillResult.USER_ERROR
+    ) {
       delete s_requestCommitments[requestId];
       // Reimburse the transmitter for the fulfillment gas cost
       s_withdrawableTokens[msg.sender] = gasOverheadJuels + callbackCostJuels;
