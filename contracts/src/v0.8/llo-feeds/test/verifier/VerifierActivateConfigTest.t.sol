@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {BaseTestWithConfiguredVerifier, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
+import {BaseTestWithConfiguredVerifierAndFeeManager, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
 import {VerifierProxy} from "../../VerifierProxy.sol";
 
-contract VerifierActivateConfigTest is BaseTestWithConfiguredVerifier {
+contract VerifierActivateConfigTest is BaseTestWithConfiguredVerifierAndFeeManager {
   function test_revertsIfNotOwner() public {
     vm.expectRevert("Only callable by owner");
 

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {BaseTestWithConfiguredVerifier} from "./BaseVerifierTest.t.sol";
+import {BaseTestWithConfiguredVerifierAndFeeManager} from "./BaseVerifierTest.t.sol";
 import {IVerifier} from "../../interfaces/IVerifier.sol";
 import {VerifierProxy} from "../../VerifierProxy.sol";
 import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
 import {IERC165} from "../../../shared/vendor/IERC165.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 
-contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifier {
+contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifierAndFeeManager {
   function test_revertsIfNotCorrectVerifier() public {
     vm.expectRevert(abi.encodeWithSelector(VerifierProxy.AccessForbidden.selector));
     s_verifierProxy.setVerifier(bytes32("prev-config"), bytes32("new-config"), new Common.AddressAndWeight[](0));

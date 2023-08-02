@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {BaseTestWithConfiguredVerifier} from "./BaseVerifierTest.t.sol";
+import {BaseTestWithConfiguredVerifierAndFeeManager} from "./BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
 import {VerifierProxy} from "../../VerifierProxy.sol";
 import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 
-contract VerifierVerifyTest is BaseTestWithConfiguredVerifier {
+contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
   bytes32[3] internal s_reportContext;
 
   event ReportVerified(bytes32 indexed feedId, address requester);
@@ -15,7 +15,7 @@ contract VerifierVerifyTest is BaseTestWithConfiguredVerifier {
   Report internal s_testReportOne;
 
   function setUp() public virtual override {
-    BaseTestWithConfiguredVerifier.setUp();
+    BaseTestWithConfiguredVerifierAndFeeManager.setUp();
     (, , bytes32 configDigest) = s_verifier.latestConfigDetails(FEED_ID);
     s_reportContext[0] = configDigest;
     s_reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));

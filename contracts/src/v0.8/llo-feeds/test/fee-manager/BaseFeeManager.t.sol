@@ -6,7 +6,6 @@ import {FeeManager} from "../../FeeManager.sol";
 import {IFeeManager} from "../../interfaces/IFeeManager.sol";
 import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
-import {console} from "forge-std/Test.sol";
 import {ERC20Mock} from "../../../shared/vendor/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/vendor/WERC20Mock.sol";
 
@@ -42,7 +41,6 @@ contract BaseFeeManagerTest is Test {
   //report
   uint256 internal constant DEFAULT_REPORT_LINK_FEE = 1e10;
   uint256 internal constant DEFAULT_REPORT_NATIVE_FEE = 1e12;
-  uint256 internal constant DEFAULT_REPORT_EXPIRY_OFFSET_SECONDS = 300;
 
   //rewards
   uint256 internal constant FEE_SCALAR = 1e18;
@@ -55,6 +53,7 @@ contract BaseFeeManagerTest is Test {
   bytes4 internal constant INVALID_PREMIUM_ERROR = bytes4(keccak256("InvalidPremium()"));
   bytes4 internal constant EXPIRED_REPORT_ERROR = bytes4(keccak256("ExpiredReport()"));
   bytes4 internal constant INVALID_DEPOSIT_ERROR = bytes4(keccak256("InvalidDeposit()"));
+  bytes4 internal constant INVALID_QUOTE_ERROR = bytes4(keccak256("InvalidQuote()"));
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
   bytes internal constant ONLY_CALLABLE_BY_OWNER_OR_PROXY_ERROR = "Only owner or proxy";
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
@@ -63,6 +62,7 @@ contract BaseFeeManagerTest is Test {
   event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
   event NativePremiumSet(uint256 newPremium);
   event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
+  event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
 
   function setUp() public virtual {
     //change to admin user
@@ -151,13 +151,13 @@ contract BaseFeeManagerTest is Test {
     return reward;
   }
 
-  function getReport(bytes32 feedId) public pure returns (bytes memory) {
-    return abi.encodePacked(feedId, uint32(0), int192(0), int192(0), int192(0), uint64(0), bytes32(0), uint64(0));
+  function getDefaultReport(bytes32 feedId) public pure returns (bytes memory) {
+    return abi.encode(feedId, uint32(0), int192(0), int192(0), int192(0), uint64(0), bytes32(0), uint64(0));
   }
 
-  function getReportWithFee(bytes32 feedId) public view returns (bytes memory) {
+  function getReportNoFeeOrExpiry(bytes32 feedId) public view returns (bytes memory) {
     return
-      abi.encodePacked(
+      abi.encode(
         feedId,
         uint32(0),
         int192(0),
@@ -165,6 +165,22 @@ contract BaseFeeManagerTest is Test {
         int192(0),
         uint64(0),
         bytes32(0),
+        uint64(0),
+        uint64(0)
+      );
+  }
+
+  function getReportWithFee(bytes32 feedId) public view returns (bytes memory) {
+    return
+      abi.encode(
+        feedId,
+        uint32(0),
+        int192(0),
+        int192(0),
+        int192(0),
+        uint64(0),
+        bytes32(0),
+        uint64(0),
         uint64(0),
         uint192(DEFAULT_REPORT_LINK_FEE),
         uint192(DEFAULT_REPORT_NATIVE_FEE),
@@ -179,7 +195,7 @@ contract BaseFeeManagerTest is Test {
     uint256 nativeFee
   ) public pure returns (bytes memory) {
     return
-      abi.encodePacked(
+      abi.encode(
         feedId,
         uint32(0),
         int192(0),
@@ -187,6 +203,7 @@ contract BaseFeeManagerTest is Test {
         int192(0),
         uint64(0),
         bytes32(0),
+        uint64(0),
         uint64(0),
         uint192(linkFee),
         uint192(nativeFee),
@@ -278,6 +295,7 @@ contract BaseFeeManagerTest is Test {
     changePrank(originalAddr);
   }
 
+
   function getPayload(bytes memory reportPayload, bytes memory quotePayload) public pure returns (bytes memory) {
     return
       abi.encode(
@@ -291,7 +309,7 @@ contract BaseFeeManagerTest is Test {
   }
 
   function getQuotePayload(address quoteAddress) public pure returns (bytes memory) {
-    return abi.encodePacked(quoteAddress);
+    return abi.encode(quoteAddress);
   }
 
   function approveLink(address spender, uint256 quantity, address sender) public {

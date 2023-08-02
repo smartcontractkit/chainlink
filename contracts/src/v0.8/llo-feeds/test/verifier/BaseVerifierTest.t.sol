@@ -13,6 +13,8 @@ import {FeeManager} from "../../FeeManager.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 import {ERC20Mock} from "../../../shared/vendor/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/vendor/WERC20Mock.sol";
+import {FeeManager} from "../../FeeManager.sol";
+import {RewardManager} from "../../RewardManager.sol";
 
 contract BaseTest is Test {
   uint256 internal constant MAX_ORACLES = 31;
@@ -115,7 +117,7 @@ contract BaseTest is Test {
   }
 
   function _generateSignerSignatures(
-    Report memory report,
+    bytes memory report,
     bytes32[3] memory reportContext,
     Signer[] memory signers
   ) internal pure returns (bytes32[] memory rawRs, bytes32[] memory rawSs, bytes32 rawVs) {
@@ -123,7 +125,7 @@ contract BaseTest is Test {
     bytes32[] memory ss = new bytes32[](signers.length);
     bytes memory vs = new bytes(signers.length);
 
-    bytes32 hash = keccak256(abi.encodePacked(keccak256(abi.encode(report)), reportContext));
+    bytes32 hash = keccak256(abi.encodePacked(keccak256(report), reportContext));
 
     for (uint256 i = 0; i < signers.length; i++) {
       (uint8 v, bytes32 r, bytes32 s) = vm.sign(signers[i].mockPrivateKey, hash);
@@ -139,12 +141,13 @@ contract BaseTest is Test {
     bytes32[3] memory reportContext,
     Signer[] memory signers
   ) internal pure returns (bytes memory) {
+    bytes memory reportBytes = abi.encode(report);
     (bytes32[] memory rs, bytes32[] memory ss, bytes32 rawVs) = _generateSignerSignatures(
-      report,
+      reportBytes,
       reportContext,
       signers
     );
-    return abi.encode(reportContext, abi.encode(report), rs, ss, rawVs);
+    return abi.encode(reportContext, reportBytes, rs, ss, rawVs);
   }
 
   function _configDigestFromConfigData(
@@ -216,7 +219,12 @@ contract BaseTest is Test {
   }
 }
 
-contract BaseTestWithConfiguredVerifier is BaseTest {
+contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
+  FeeManager internal feeManager;
+  RewardManager internal rewardManager;
+  ERC20Mock internal link;
+  WERC20Mock internal native;
+
   function setUp() public virtual override {
     BaseTest.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
@@ -233,10 +241,18 @@ contract BaseTestWithConfiguredVerifier is BaseTest {
       bytes(""),
       new Common.AddressAndWeight[](0)
     );
+
+    link = new ERC20Mock("link", "LINK");
+    native = new WERC20Mock("native", "NATIVE");
+
+    rewardManager = new RewardManager(address(link));
+    feeManager = new FeeManager(address(link), address(native), address(s_verifierProxy), address(rewardManager));
+
+    s_verifierProxy.setFeeManager(feeManager);
   }
 }
 
-contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier {
+contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifierAndFeeManager {
   bytes32 internal s_configDigestOne;
   bytes32 internal s_configDigestTwo;
   bytes32 internal s_configDigestThree;
@@ -249,7 +265,7 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
   uint8 internal constant FAULT_TOLERANCE_THREE = 1;
 
   function setUp() public virtual override {
-    BaseTestWithConfiguredVerifier.setUp();
+    BaseTestWithConfiguredVerifierAndFeeManager.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
 
     (, , s_configDigestOne) = s_verifier.latestConfigDetails(FEED_ID);

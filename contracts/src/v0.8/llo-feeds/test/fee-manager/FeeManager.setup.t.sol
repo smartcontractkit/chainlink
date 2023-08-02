@@ -106,4 +106,21 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //set the premium
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), discount, ADMIN);
   }
+
+  function test_eventIsEmittedUponWithdraw() public {
+    //simulate a fee
+    mintLink(address(feeManager), DEFAULT_LINK_MINT_QUANTITY);
+
+    //the amount to withdraw
+    uint256 withdrawAmount = 1;
+
+    //expect an emit
+    vm.expectEmit();
+
+    //the event to be emitted
+    emit Withdraw(ADMIN, getLinkAddress(), withdrawAmount);
+
+    //withdraw some balance
+    withdraw(getLinkAddress(), withdrawAmount, ADMIN);
+  }
 }

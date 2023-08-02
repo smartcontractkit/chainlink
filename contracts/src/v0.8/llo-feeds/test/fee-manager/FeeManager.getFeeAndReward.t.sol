@@ -199,12 +199,12 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium - expectedDiscount);
   }
 
-  function test_emptyQuoteReturnsLinkBaseFee() public {
-    //get the fee required by the feeManager
-    Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), IFeeManager.Quote(address(0)), USER);
+  function test_emptyQuoteRevertsWithError() public {
+    //expect a revert
+    vm.expectRevert(INVALID_QUOTE_ERROR);
 
-    //fee should be the base link fee
-    assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
+    //get the fee required by the feeManager
+    getFee(getReportWithFee(DEFAULT_FEED_1), IFeeManager.Quote(address(0)), USER);
   }
 
   function test_nativePremium100Percent() public {
@@ -386,7 +386,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_reportWithNoExpiryOrFeeReturnsZero() public {
     //get the fee required by the feeManager
-    Common.Asset memory fee = getFee(getReport(DEFAULT_FEED_1), getNativeQuote(), USER);
+    Common.Asset memory fee = getFee(getDefaultReport(DEFAULT_FEED_1), getNativeQuote(), USER);
 
     //fee should be zero
     assertEq(fee.amount, 0);
@@ -429,7 +429,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     Common.Asset memory fee = getFee(
       getReportWithCustomExpiryAndFee(
         DEFAULT_FEED_1,
-        uint32(block.timestamp + DEFAULT_REPORT_EXPIRY_OFFSET_SECONDS),
+        uint32(block.timestamp),
         0,
         0
       ),
@@ -452,7 +452,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     Common.Asset memory fee = getFee(
       getReportWithCustomExpiryAndFee(
         DEFAULT_FEED_1,
-        uint32(block.timestamp + DEFAULT_REPORT_EXPIRY_OFFSET_SECONDS),
+        uint32(block.timestamp),
         0,
         0
       ),

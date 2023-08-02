@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {BaseTest, BaseTestWithConfiguredVerifier} from "../verifier/BaseVerifierTest.t.sol";
+import {BaseTest, BaseTestWithConfiguredVerifierAndFeeManager} from "../verifier/BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
 import {SimpleWriteAccessController} from "../../../SimpleWriteAccessController.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
@@ -30,12 +30,12 @@ contract Verifier_setConfig is BaseTest {
   }
 }
 
-contract Verifier_verify is BaseTestWithConfiguredVerifier {
+contract Verifier_verify is BaseTestWithConfiguredVerifierAndFeeManager {
   bytes internal s_signedReport;
   bytes32 internal s_configDigest;
 
   function setUp() public override {
-    BaseTestWithConfiguredVerifier.setUp();
+    BaseTestWithConfiguredVerifierAndFeeManager.setUp();
     BaseTest.Report memory s_testReportOne = _createReport(
       FEED_ID,
       OBSERVATIONS_TIMESTAMP,
@@ -63,7 +63,7 @@ contract Verifier_verify is BaseTestWithConfiguredVerifier {
   }
 }
 
-contract Verifier_accessControlledVerify is BaseTestWithConfiguredVerifier {
+contract Verifier_accessControlledVerify is BaseTestWithConfiguredVerifierAndFeeManager {
   bytes internal s_signedReport;
   bytes32 internal s_configDigest;
   SimpleWriteAccessController s_accessController;
@@ -72,7 +72,7 @@ contract Verifier_accessControlledVerify is BaseTestWithConfiguredVerifier {
   address internal constant ACCESS_CONTROLLER_ADDR = address(10000);
 
   function setUp() public override {
-    BaseTestWithConfiguredVerifier.setUp();
+    BaseTestWithConfiguredVerifierAndFeeManager.setUp();
     BaseTest.Report memory s_testReportOne = _createReport(
       FEED_ID,
       OBSERVATIONS_TIMESTAMP,
