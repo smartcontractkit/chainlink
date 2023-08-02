@@ -6,15 +6,6 @@ pragma solidity ^0.8.19;
  */
 interface IRouterBase {
   /**
-   * @notice Returns the latest semantic version of the system
-   * @dev See https://semver.org/ for more details
-   * @return major The current major version number
-   * @return minor The current minor version number
-   * @return patch The current patch version number
-   */
-  function version() external view returns (uint16 major, uint16 minor, uint16 patch);
-
-  /**
    * @notice Get the current contract given an ID
    * @param id A bytes32 identifier for the route
    * @return contract The current contract address
@@ -26,7 +17,7 @@ interface IRouterBase {
    * @param id A bytes32 identifier for the route
    * @return contract The current or proposed contract address
    */
-  function getContractById(bytes32 id, bool useProposed) external view returns (address);
+  function getProposedContractById(bytes32 id) external view returns (address);
 
   /**
    * @notice Return the latest proprosal set
@@ -43,16 +34,24 @@ interface IRouterBase {
   function proposeContractsUpdate(bytes32[] memory proposalSetIds, address[] memory proposalSetAddresses) external;
 
   /**
-   * @notice Tests a proposal for the ability to make a successful upgrade
-   */
-  function validateProposedContracts(bytes32 id, bytes calldata data) external returns (bytes memory);
-
-  /**
    * @notice Updates the current contract routes to the proposed contracts
    * @dev Only callable once timelock has passed
    * @dev Only callable by owner
    */
   function updateContracts() external;
+
+  /**
+   * @notice Proposes new configuration data for the Router contract itself
+   * @dev Only callable by owner
+   */
+  function proposeConfigUpdateSelf(bytes calldata config) external;
+
+  /**
+   * @notice Updates configuration data for the Router contract itself
+   * @dev Only callable once timelock has passed
+   * @dev Only callable by owner
+   */
+  function updateConfigSelf() external;
 
   /**
    * @notice Proposes new configuration data for the current (not proposed) contract
@@ -88,8 +87,14 @@ interface IRouterBase {
   function isPaused() external view returns (bool);
 
   /**
-   * @dev Toggles the stopped state.
+   * @dev Puts the system into an emergency stopped state.
    * @dev Only callable by owner
    */
-  function togglePaused() external;
+  function pause() external;
+
+  /**
+   * @dev Takes the system out of an emergency stopped state.
+   * @dev Only callable by owner
+   */
+  function unpause() external;
 }

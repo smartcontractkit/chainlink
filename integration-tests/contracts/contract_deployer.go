@@ -49,6 +49,7 @@ type ContractDeployer interface {
 	DeployLinkTokenContract() (LinkToken, error)
 	LoadLinkToken(address common.Address) (LinkToken, error)
 	DeployOffChainAggregator(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregator, error)
+	LoadOffChainAggregator(address *common.Address) (OffchainAggregator, error)
 	DeployVRFContract() (VRF, error)
 	DeployMockETHLINKFeed(answer *big.Int) (MockETHLINKFeed, error)
 	LoadETHLINKFeed(address common.Address) (MockETHLINKFeed, error)
@@ -397,6 +398,24 @@ func (e *EthereumContractDeployer) DeployOffChainAggregator(
 		client:  e.client,
 		ocr:     instance.(*offchainaggregator.OffchainAggregator),
 		address: address,
+	}, err
+}
+
+// LoadOffChainAggregator loads an already deployed offchain aggregator contract
+func (e *EthereumContractDeployer) LoadOffChainAggregator(address *common.Address) (OffchainAggregator, error) {
+	instance, err := e.client.LoadContract("OffChainAggregator", *address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return offchainaggregator.NewOffchainAggregator(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumOffchainAggregator{
+		address: address,
+		client:  e.client,
+		ocr:     instance.(*offchainaggregator.OffchainAggregator),
 	}, err
 }
 

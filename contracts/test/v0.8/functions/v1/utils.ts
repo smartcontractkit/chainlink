@@ -47,20 +47,24 @@ export const encodeReport = (
   requestId: string,
   result: string,
   err: string,
+  onchainMetadata: string,
+  offchainMetadata: string,
 ) => {
   const abi = ethers.utils.defaultAbiCoder
   return abi.encode(
-    ['bytes32[]', 'bytes[]', 'bytes[]'],
-    [[requestId], [result], [err]],
+    ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
+    [[requestId], [result], [err], [onchainMetadata], [offchainMetadata]],
   )
 }
 
 export type FunctionsRouterConfig = {
+  maxConsumers: number
   adminFee: number
   handleOracleFulfillmentSelector: string
   maxCallbackGasLimits: number[]
 }
 export const functionsRouterConfig: FunctionsRouterConfig = {
+  maxConsumers: 100,
   adminFee: 0,
   handleOracleFulfillmentSelector: '0x0ca76175',
   maxCallbackGasLimits: [300_000, 500_000, 1_000_000],
@@ -123,11 +127,11 @@ export async function setupRolesAndFactories(): Promise<{
     roles.consumer,
   )
   const linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/mocks/MockLinkToken.sol:MockLinkToken',
     roles.defaultAccount,
   )
   const mockAggregatorV3Factory = await ethers.getContractFactory(
-    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     roles.defaultAccount,
   )
   return {
@@ -157,15 +161,16 @@ export async function acceptTermsOfService(
   recipientAddress: string,
 ) {
   const acceptorAddress = await acceptor.getAddress()
-  const messageHash = await accessControl.getMessageHash(
+  const message = await accessControl.getMessage(
     acceptorAddress,
     recipientAddress,
   )
   const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-  const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+  const flatSignature = await wallet.signMessage(ethers.utils.arrayify(message))
+  const { r, s, v } = ethers.utils.splitSignature(flatSignature)
   return accessControl
     .connect(acceptor)
-    .acceptTermsOfService(acceptorAddress, recipientAddress, proof)
+    .acceptTermsOfService(acceptorAddress, recipientAddress, r, s, v)
 }
 
 export async function createSubscription(
@@ -222,7 +227,7 @@ export function getSetupFactory(): () => {
       linkEthRate,
     )
     const routerConfigBytes = ethers.utils.defaultAbiCoder.encode(
-      ['uint96', 'bytes4', 'uint32[]'],
+      ['uint16', 'uint96', 'bytes4', 'uint32[]'],
       [...Object.values(functionsRouterConfig)],
     )
     const startingTimelockBlocks = 0
