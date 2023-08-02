@@ -58,14 +58,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   // ================================================================
   // |                    Configuration state                       |
   // ================================================================
-  struct Config {
-    // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
-    uint96 adminFee;
-    // The function selector that is used when calling back to the Client contract
-    bytes4 handleOracleFulfillmentSelector;
-    // List of max callback gas limits used by flag with GAS_FLAG_INDEX
-    uint32[] maxCallbackGasLimits;
-  }
   Config private s_config;
   event ConfigChanged(uint96 adminFee, bytes4 handleOracleFulfillmentSelector, uint32[] maxCallbackGasLimits);
 
@@ -99,8 +91,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   /**
    * @inheritdoc IFunctionsRouter
    */
-  function getAdminFee() external view override returns (uint96) {
-    return s_config.adminFee;
+  function getConfig() external view override returns (Config memory) {
+    return s_config;
   }
 
   // ================================================================
@@ -112,11 +104,14 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
    *  - adminFee: fee that will be paid to the Router owner for operating the network
    */
   function _updateConfig(bytes memory config) internal override {
-    (uint96 adminFee, bytes4 handleOracleFulfillmentSelector, uint32[] memory maxCallbackGasLimits) = abi.decode(
-      config,
-      (uint96, bytes4, uint32[])
-    );
+    (
+      uint16 maxConsumers,
+      uint96 adminFee,
+      bytes4 handleOracleFulfillmentSelector,
+      uint32[] memory maxCallbackGasLimits
+    ) = abi.decode(config, (uint16, uint96, bytes4, uint32[]));
     s_config = Config({
+      maxConsumers: maxConsumers,
       adminFee: adminFee,
       handleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
       maxCallbackGasLimits: maxCallbackGasLimits
@@ -152,7 +147,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
         subscriptionId,
         dataVersion,
         _getFlags(subscriptionId),
-        callbackGasLimit
+        callbackGasLimit,
+        s_config.adminFee
       )
     );
 
@@ -399,6 +395,10 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     if (callbackGasLimit > s_config.maxCallbackGasLimits[index]) {
       revert GasLimitTooBig(s_config.maxCallbackGasLimits[index]);
     }
+  }
+
+  function _getMaxConsumers() internal view override returns (uint16) {
+    return s_config.maxConsumers;
   }
 
   // ================================================================

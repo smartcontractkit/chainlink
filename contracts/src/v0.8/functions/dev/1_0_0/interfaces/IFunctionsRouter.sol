@@ -8,6 +8,20 @@ import {IFunctionsRequest} from "./IFunctionsRequest.sol";
  * @title Chainlink Functions Router interface.
  */
 interface IFunctionsRouter is IRouterBase {
+  struct Config {
+    // Maximum number of consumers which can be added to a single subscription
+    // This bound ensures we are able to loop over all subscription consumers as needed,
+    // without exceeding gas limits.
+    // Should a user require more consumers, they can use multiple subscriptions.
+    uint16 maxConsumers;
+    // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
+    uint96 adminFee;
+    // The function selector that is used when calling back to the Client contract
+    bytes4 handleOracleFulfillmentSelector;
+    // List of max callback gas limits used by flag with GAS_FLAG_INDEX
+    uint32[] maxCallbackGasLimits;
+  }
+
   /**
    * @notice The identifier of the route to retrieve the address of the access control contract
    * The access control contract controls which accounts can manage subscriptions
@@ -16,10 +30,10 @@ interface IFunctionsRouter is IRouterBase {
   function getAllowListId() external pure returns (bytes32);
 
   /**
-   * @notice The fee that will be paid to the Router owner for operating the network
-   * @return fee Cost in Juels (1e18) of LINK
+   * @notice The router configuration
+   * @return config - the router configuration
    */
-  function getAdminFee() external view returns (uint96);
+  function getConfig() external view returns (Config memory);
 
   /**
    * @notice Sends a request (encoded as data) using the provided subscriptionId

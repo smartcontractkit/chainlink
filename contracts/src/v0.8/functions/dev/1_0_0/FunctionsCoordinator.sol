@@ -154,7 +154,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       subscriptionId: request.subscriptionId,
       client: request.requestingContract,
       callbackGasLimit: request.callbackGasLimit,
-      expectedGasPrice: tx.gasprice
+      expectedGasPrice: tx.gasprice,
+      adminFee: request.adminFee
     });
 
     commitment = _startBilling(request.data, request.dataVersion, billing);
