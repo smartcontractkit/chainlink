@@ -13,9 +13,3 @@ const (
 )
 
 type Fee fmt.Stringer
-
-// Constants for chains with unique fee denominations
-const (
-	EVM = "EVM"
-	SOL = "Solana"
-)

@@ -37,9 +37,9 @@ func CalculateBumpedFee(
 	originalFeeLimit uint32,
 	bumpPercent uint16,
 	bumpLimitMultiplier float32,
-	chain string,
+	toChainUnit func(*big.Int) string,
 ) (*big.Int, uint32, error) {
-	feePrice, err := bumpFeePrice(lggr, currentFeePrice, originalFeePrice, maxFeePrice, maxBumpPrice, bumpMin, bumpPercent, chain)
+	feePrice, err := bumpFeePrice(lggr, currentFeePrice, originalFeePrice, maxFeePrice, maxBumpPrice, bumpMin, bumpPercent, toChainUnit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -55,24 +55,24 @@ func bumpFeePrice(
 	lggr logger.SugaredLogger,
 	currentfeePrice, originalfeePrice, maxFeePriceInput, maxBumpPrice, bumpMin *big.Int,
 	bumpPercent uint16,
-	chain string,
+	toChainUnit FeeUnitToChainUnit,
 ) (*big.Int, error) {
 	maxFeePrice := FeePriceLimit(maxFeePriceInput, maxBumpPrice) // Make a wrapper config
 	bumpedFeePrice := maxBumpedFee(originalfeePrice, bumpPercent, bumpMin)
 
 	// Update bumpedFeePrice if currentfeePrice is higher than bumpedFeePrice and within maxFeePrice
-	bumpedFeePrice = maxFee(lggr, currentfeePrice, bumpedFeePrice, maxFeePrice, "fee price", chain)
+	bumpedFeePrice = maxFee(lggr, currentfeePrice, bumpedFeePrice, maxFeePrice, "fee price", toChainUnit)
 
 	if bumpedFeePrice.Cmp(maxFeePrice) > 0 {
 		return maxFeePrice, errors.Wrapf(ErrBumpFeeExceedsLimit, "bumped fee price of %s would exceed configured max fee price of %s (original price was %s). %s",
-			FeeUnitToChainUnit(bumpedFeePrice, chain), maxFeePrice, FeeUnitToChainUnit(originalfeePrice, chain), label.NodeConnectivityProblemWarning)
+			toChainUnit(bumpedFeePrice), maxFeePrice, toChainUnit(originalfeePrice), label.NodeConnectivityProblemWarning)
 	} else if bumpedFeePrice.Cmp(originalfeePrice) == 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
 		// FeeEstimator.BumpPercent and FeeEstimator.BumpMin in the config validation,
 		// but it's here anyway for a "belts and braces" approach
 		return bumpedFeePrice, errors.Wrapf(ErrBump, "bumped fee price of %s is equal to original fee price of %s."+
 			" ACTION REQUIRED: This is a configuration error, you must increase either "+
-			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", FeeUnitToChainUnit(bumpedFeePrice, chain), FeeUnitToChainUnit(bumpedFeePrice, chain))
+			"FeeEstimator.BumpPercent or FeeEstimator.BumpMin", toChainUnit(bumpedFeePrice), toChainUnit(bumpedFeePrice))
 	}
 	return bumpedFeePrice, nil
 }
@@ -86,14 +86,14 @@ func maxBumpedFee(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits
 }
 
 // Returns the max of currentFeePrice, bumpedFeePrice, and maxFeePrice
-func maxFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, maxFeePrice *big.Int, feeType string, chain string) *big.Int {
+func maxFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, maxFeePrice *big.Int, feeType string, toChainUnit FeeUnitToChainUnit) *big.Int {
 	if currentFeePrice == nil {
 		return bumpedFeePrice
 	}
 	if currentFeePrice.Cmp(maxFeePrice) > 0 {
 		// Shouldn't happen because the estimator should not be allowed to
 		// estimate a higher fee than the maximum allowed
-		lggr.AssumptionViolationf("Ignoring current %s of %s that would exceed max %s of %s", feeType, FeeUnitToChainUnit(currentFeePrice, chain), feeType, FeeUnitToChainUnit(maxFeePrice, chain))
+		lggr.AssumptionViolationf("Ignoring current %s of %s that would exceed max %s of %s", feeType, toChainUnit(currentFeePrice), feeType, toChainUnit(maxFeePrice))
 	} else if bumpedFeePrice.Cmp(currentFeePrice) < 0 {
 		// If the current fee price is higher than the old price bumped, use that instead
 		return currentFeePrice

@@ -79,7 +79,7 @@ func (f *fixedPriceEstimator) BumpLegacyGas(
 		originalGasLimit,
 		f.config.BumpPercent(),
 		f.config.LimitMultiplier(),
-		feetypes.EVM,
+		assets.NewWeiString,
 	)
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
 }
