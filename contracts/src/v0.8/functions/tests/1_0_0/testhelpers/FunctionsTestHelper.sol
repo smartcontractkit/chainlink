@@ -29,7 +29,7 @@ contract FunctionsTestHelper {
   function addEmptyArgs() public pure {
     Functions.Request memory r;
     string[] memory args;
-    r.addArgs(args);
+    r.setArgs(args);
   }
 
   function addTwoArgs(string memory arg1, string memory arg2) public {
@@ -37,7 +37,7 @@ contract FunctionsTestHelper {
     args[0] = arg1;
     args[1] = arg2;
     Functions.Request memory r = s_req;
-    r.addArgs(args);
+    r.setArgs(args);
     storeRequest(r);
   }
 

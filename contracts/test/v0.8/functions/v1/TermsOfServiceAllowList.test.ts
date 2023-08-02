@@ -18,23 +18,26 @@ beforeEach(async () => {
 
 describe('ToS Access Control', () => {
   describe('Accepting', () => {
-    it('can only be done with a valid proof', async () => {
-      const messageHash = await contracts.accessControl.getMessageHash(
+    it('can only be done with a valid signature', async () => {
+      const message = await contracts.accessControl.getMessage(
         roles.strangerAddress,
         roles.strangerAddress,
       )
-      const proof = await roles.stranger.signMessage(
-        ethers.utils.arrayify(messageHash),
+      const flatSignature = await roles.stranger.signMessage(
+        ethers.utils.arrayify(message),
       )
+      const { r, s, v } = ethers.utils.splitSignature(flatSignature)
       await expect(
         contracts.accessControl
           .connect(roles.stranger)
           .acceptTermsOfService(
             roles.strangerAddress,
             roles.strangerAddress,
-            proof,
+            r,
+            s,
+            v,
           ),
-      ).to.be.revertedWith('InvalidProof')
+      ).to.be.revertedWith('InvalidSignature')
     })
     it('can be done by Externally Owned Accounts if recipient themself', async () => {
       await acceptTermsOfService(
@@ -53,20 +56,23 @@ describe('ToS Access Control', () => {
           roles.subOwner,
           roles.strangerAddress,
         ),
-      ).to.be.revertedWith('InvalidProof')
+      ).to.be.revertedWith('InvalidUsage')
     })
     it('can be done by Contract Accounts if recipient themself', async () => {
       const acceptorAddress = roles.consumerAddress
       const recipientAddress = contracts.client.address
-      const messageHash = await contracts.accessControl.getMessageHash(
+      const message = await contracts.accessControl.getMessage(
         acceptorAddress,
         recipientAddress,
       )
       const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-      const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+      const flatSignature = await wallet.signMessage(
+        ethers.utils.arrayify(message),
+      )
+      const { r, s, v } = ethers.utils.splitSignature(flatSignature)
       await contracts.client
         .connect(roles.consumer)
-        .acceptTermsOfService(acceptorAddress, recipientAddress, proof)
+        .acceptTermsOfService(acceptorAddress, recipientAddress, r, s, v)
 
       expect(
         await contracts.accessControl.hasAccess(recipientAddress, '0x'),
@@ -75,17 +81,20 @@ describe('ToS Access Control', () => {
     it('cannot be done by Contract Accounts that if they are not the recipient', async () => {
       const acceptorAddress = roles.consumerAddress
       const recipientAddress = contracts.coordinator.address
-      const messageHash = await contracts.accessControl.getMessageHash(
+      const message = await contracts.accessControl.getMessage(
         acceptorAddress,
         recipientAddress,
       )
       const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-      const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+      const flatSignature = await wallet.signMessage(
+        ethers.utils.arrayify(message),
+      )
+      const { r, s, v } = ethers.utils.splitSignature(flatSignature)
       await expect(
         contracts.client
           .connect(roles.consumer)
-          .acceptTermsOfService(acceptorAddress, recipientAddress, proof),
-      ).to.be.revertedWith('InvalidProof')
+          .acceptTermsOfService(acceptorAddress, recipientAddress, r, s, v),
+      ).to.be.revertedWith('InvalidUsage')
     })
   })
 
