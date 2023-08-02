@@ -123,4 +123,15 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //withdraw some balance
     withdraw(getLinkAddress(), withdrawAmount, ADMIN);
   }
+
+  function test_linkAvailableForPaymentReturnsLinkBalance() public {
+    //simulate a deposit of link for the conversion pool
+    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+
+    //check there's a balance
+    assertGt(getLinkBalance(address(feeManager)), 0);
+
+    //check the link available for payment is the link balance
+    assertEq(feeManager.linkAvailableForPayment(), getLinkBalance(address(feeManager)));
+  }
 }

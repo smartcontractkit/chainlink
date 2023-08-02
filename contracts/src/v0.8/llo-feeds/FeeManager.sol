@@ -328,4 +328,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //emit event when funds are withdrawn
     emit Withdraw(msg.sender, assetAddress, quantity);
   }
+
+  function linkAvailableForPayment() external view returns (uint256) {
+    return IERC20(i_linkAddress).balanceOf(address(this));
+  }
 }

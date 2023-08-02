@@ -57,10 +57,18 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_processFeeWithWithEmptyQuotePayload() public {
     //get the default payload
-    bytes memory payload = getPayload(getReportWithFee(DEFAULT_FEED_1), getQuotePayload(address(0)));
+    bytes memory payload = getPayload(getReportWithFee(DEFAULT_FEED_1), bytes(""));
 
-    //approve the link to be transferred from the user
-    approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
+    //expect a revert as the quote is invalid
+    vm.expectRevert();
+
+    //processing the fee will transfer the link by default
+    processFee(payload, USER, 0, ADMIN);
+  }
+
+  function test_processFeeWithWithZeroQuotePayload() public {
+    //get the default payload
+    bytes memory payload = getPayload(getReportWithFee(DEFAULT_FEED_1), getQuotePayload(INVALID_ADDRESS));
 
     //expect a revert as the quote is invalid
     vm.expectRevert(INVALID_QUOTE_ERROR);
@@ -68,6 +76,24 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //processing the fee will transfer the link by default
     processFee(payload, USER, 0, ADMIN);
   }
+
+  function test_processFeeWithWithCorruptQuotePayload() public {
+    //get the default payload
+    bytes memory payload = abi.encode(
+      [DEFAULT_CONFIG_DIGEST, 0, 0],
+      getReportWithFee(DEFAULT_FEED_1),
+      new bytes32[](1),
+      new bytes32[](1),
+      bytes32("")
+    );
+
+    //expect an evm revert as the quote is corrupt
+    vm.expectRevert();
+
+    //processing the fee will not withdraw anything as there is no fee to collect
+    processFee(payload, USER, 0, ADMIN);
+  }
+
 
   function test_processFeeWithWithNoReportPayload() public {
     //get the default payload
@@ -77,7 +103,15 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     processFee(payload, USER, 0, ADMIN);
   }
 
-  function test_processFeeWithDefaultReportPayload() public {
+  function test_processFeeDefaultReportsStillVerifiesWithEmptyQuote() public {
+    //get the default payload
+    bytes memory payload = getPayload(getDefaultReport(DEFAULT_FEED_1), bytes(""));
+
+    //processing the fee will transfer the link from the user to the rewardManager
+    processFee(payload, USER, 0, PROXY);
+  }
+
+  function test_processFeeWithDefaultReportPayloadAndQuoteStillVerifies() public {
     //get the default payload
     bytes memory payload = getPayload(getDefaultReport(DEFAULT_FEED_1), getQuotePayload(getLinkAddress()));
 
@@ -237,7 +271,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(rewardManager.totalRewardRecipientFees(DEFAULT_CONFIG_DIGEST), DEFAULT_REPORT_LINK_FEE);
   }
 
-  function test_V02ReportsStillVerify() public {
+  function test_V02PayloadStillVerifies() public {
     //replicate a default payload
     bytes memory payload = abi.encode(
       [DEFAULT_CONFIG_DIGEST, 0, 0],
@@ -252,14 +286,8 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   }
 
   function test_reportWithoutFeeOrExpiryStillVerifies() public {
-    //replicate a default payload
-    bytes memory payload = abi.encode(
-      [DEFAULT_CONFIG_DIGEST, 0, 0],
-      getReportNoFeeOrExpiry(DEFAULT_FEED_1),
-      new bytes32[](1),
-      new bytes32[](1),
-      bytes32("")
-    );
+    //get the default payload
+    bytes memory payload = getPayload(getReportNoFeeOrExpiry(DEFAULT_FEED_1), getQuotePayload(getLinkAddress()));
 
     //processing the fee will transfer the link from the user to the rewardManager
     processFee(payload, USER, 0, PROXY);

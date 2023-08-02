@@ -155,7 +155,7 @@ contract BaseFeeManagerTest is Test {
     return abi.encode(feedId, uint32(0), int192(0), int192(0), int192(0), uint64(0), bytes32(0), uint64(0));
   }
 
-  function getReportNoFeeOrExpiry(bytes32 feedId) public view returns (bytes memory) {
+  function getReportNoFeeOrExpiry(bytes32 feedId) public pure returns (bytes memory) {
     return
       abi.encode(
         feedId,
