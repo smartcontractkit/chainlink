@@ -1,10 +1,12 @@
-package main
+package scripts
 
 import (
 	"context"
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/constants"
+	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/jobs"
 	"math/big"
 	"os"
 	"strings"
@@ -15,76 +17,37 @@ import (
 	"github.com/shopspring/decimal"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
-const formattedVRFJob = `
-type = "vrf"
-name = "vrf_v2"
-schemaVersion = 1
-coordinatorAddress = "%s"
-batchCoordinatorAddress = "%s"
-batchFulfillmentEnabled = %t
-batchFulfillmentGasMultiplier = 1.1
-publicKey = "%s"
-minIncomingConfirmations = 3
-evmChainID = "%d"
-fromAddresses = ["%s"]
-pollPeriod = "5s"
-requestTimeout = "24h"
-observationSource = """decode_log   [type=ethabidecodelog
-              abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint64 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,address indexed sender)"
-              data="$(jobRun.logData)"
-              topics="$(jobRun.logTopics)"]
-vrf          [type=vrfv2
-              publicKey="$(jobSpec.publicKey)"
-              requestBlockHash="$(jobRun.logBlockHash)"
-              requestBlockNumber="$(jobRun.logBlockNumber)"
-              topics="$(jobRun.logTopics)"]
-estimate_gas [type=estimategaslimit
-              to="%s"
-              multiplier="1.1"
-              data="$(vrf.output)"]
-simulate     [type=ethcall
-              to="%s"
-              gas="$(estimate_gas)"
-              gasPrice="$(jobSpec.maxGasPrice)"
-              extractRevertReason=true
-              contract="%s"
-              data="$(vrf.output)"]
-decode_log->vrf->estimate_gas->simulate
-"""
-`
-
-func deployUniverse(e helpers.Environment) {
+func DeployUniverseViaCLI(e helpers.Environment) {
 	deployCmd := flag.NewFlagSet("deploy-universe", flag.ExitOnError)
 
 	// required flags
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
-	subscriptionBalanceString := deployCmd.String("subscription-balance", "1e19", "amount to fund subscription")
+	subscriptionBalanceString := deployCmd.String("subscription-balance", constants.SubscriptionBalanceString, "amount to fund subscription")
 
 	// optional flags
-	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", "6e16", "fallback wei/link ratio")
+	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", constants.FallbackWeiPerUnitLinkString, "fallback wei/link ratio")
 	registerKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
-	registerKeyOracleAddress := deployCmd.String("oracle-address", "", "oracle sender address")
-	minConfs := deployCmd.Int("min-confs", 3, "min confs")
-	oracleFundingAmount := deployCmd.Int64("oracle-funding-amount", assets.GWei(100_000_000).Int64(), "amount to fund sending oracle")
-	maxGasLimit := deployCmd.Int64("max-gas-limit", 2.5e6, "max gas limit")
-	stalenessSeconds := deployCmd.Int64("staleness-seconds", 86400, "staleness in seconds")
-	gasAfterPayment := deployCmd.Int64("gas-after-payment", 33285, "gas after payment calculation")
-	flatFeeTier1 := deployCmd.Int64("flat-fee-tier-1", 500, "flat fee tier 1")
-	flatFeeTier2 := deployCmd.Int64("flat-fee-tier-2", 500, "flat fee tier 2")
-	flatFeeTier3 := deployCmd.Int64("flat-fee-tier-3", 500, "flat fee tier 3")
-	flatFeeTier4 := deployCmd.Int64("flat-fee-tier-4", 500, "flat fee tier 4")
-	flatFeeTier5 := deployCmd.Int64("flat-fee-tier-5", 500, "flat fee tier 5")
-	reqsForTier2 := deployCmd.Int64("reqs-for-tier-2", 0, "requests for tier 2")
-	reqsForTier3 := deployCmd.Int64("reqs-for-tier-3", 0, "requests for tier 3")
-	reqsForTier4 := deployCmd.Int64("reqs-for-tier-4", 0, "requests for tier 4")
-	reqsForTier5 := deployCmd.Int64("reqs-for-tier-5", 0, "requests for tier 5")
+	vrfPrimaryNodeSendingKeysString := deployCmd.String("vrf-primary-node-sending-keys", "", "VRF Primary Node sending keys")
+	minConfs := deployCmd.Int("min-confs", constants.MinConfs, "min confs")
+	oracleFundingAmount := deployCmd.Int64("oracle-funding-amount", constants.OracleFundingAmount, "amount to fund sending oracle")
+	maxGasLimit := deployCmd.Int64("max-gas-limit", constants.MaxGasLimit, "max gas limit")
+	stalenessSeconds := deployCmd.Int64("staleness-seconds", constants.StalenessSeconds, "staleness in seconds")
+	gasAfterPayment := deployCmd.Int64("gas-after-payment", constants.GasAfterPayment, "gas after payment calculation")
+	flatFeeTier1 := deployCmd.Int64("flat-fee-tier-1", constants.FlatFeeTier1, "flat fee tier 1")
+	flatFeeTier2 := deployCmd.Int64("flat-fee-tier-2", constants.FlatFeeTier2, "flat fee tier 2")
+	flatFeeTier3 := deployCmd.Int64("flat-fee-tier-3", constants.FlatFeeTier3, "flat fee tier 3")
+	flatFeeTier4 := deployCmd.Int64("flat-fee-tier-4", constants.FlatFeeTier4, "flat fee tier 4")
+	flatFeeTier5 := deployCmd.Int64("flat-fee-tier-5", constants.FlatFeeTier5, "flat fee tier 5")
+	reqsForTier2 := deployCmd.Int64("reqs-for-tier-2", constants.ReqsForTier2, "requests for tier 2")
+	reqsForTier3 := deployCmd.Int64("reqs-for-tier-3", constants.ReqsForTier3, "requests for tier 3")
+	reqsForTier4 := deployCmd.Int64("reqs-for-tier-4", constants.ReqsForTier4, "requests for tier 4")
+	reqsForTier5 := deployCmd.Int64("reqs-for-tier-5", constants.ReqsForTier5, "requests for tier 5")
 
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:],
@@ -92,6 +55,53 @@ func deployUniverse(e helpers.Environment) {
 
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()
 	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
+
+	feeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
+		FulfillmentFlatFeeLinkPPMTier1: uint32(*flatFeeTier1),
+		FulfillmentFlatFeeLinkPPMTier2: uint32(*flatFeeTier2),
+		FulfillmentFlatFeeLinkPPMTier3: uint32(*flatFeeTier3),
+		FulfillmentFlatFeeLinkPPMTier4: uint32(*flatFeeTier4),
+		FulfillmentFlatFeeLinkPPMTier5: uint32(*flatFeeTier5),
+		ReqsForTier2:                   big.NewInt(*reqsForTier2),
+		ReqsForTier3:                   big.NewInt(*reqsForTier3),
+		ReqsForTier4:                   big.NewInt(*reqsForTier4),
+		ReqsForTier5:                   big.NewInt(*reqsForTier5),
+	}
+
+	vrfPrimaryNodeSendingKeys := strings.Split(*vrfPrimaryNodeSendingKeysString, ",")
+
+	VRFV2DeployUniverse(
+		e,
+		fallbackWeiPerUnitLink,
+		subscriptionBalance,
+		registerKeyUncompressedPubKey,
+		linkAddress,
+		linkEthAddress,
+		minConfs,
+		maxGasLimit,
+		stalenessSeconds,
+		gasAfterPayment,
+		feeConfig,
+		vrfPrimaryNodeSendingKeys,
+		oracleFundingAmount,
+	)
+}
+
+func VRFV2DeployUniverse(
+	e helpers.Environment,
+	fallbackWeiPerUnitLink *big.Int,
+	subscriptionBalance *big.Int,
+	registerKeyUncompressedPubKey *string,
+	linkAddress *string,
+	linkEthAddress *string,
+	minConfs *int,
+	maxGasLimit *int64,
+	stalenessSeconds *int64,
+	gasAfterPayment *int64,
+	feeConfig vrf_coordinator_v2.VRFCoordinatorV2FeeConfig,
+	vrfPrimaryNodeSendingKeys []string,
+	oracleFundingAmount *int64,
+) string {
 
 	// Put key in ECDSA format
 	if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
@@ -129,14 +139,14 @@ func deployUniverse(e helpers.Environment) {
 	}
 
 	fmt.Println("\nDeploying BHS...")
-	bhsContractAddress := deployBHS(e)
+	bhsContractAddress := DeployBHS(e)
 
 	fmt.Println("\nDeploying Batch BHS...")
-	batchBHSAddress := deployBatchBHS(e, bhsContractAddress)
+	batchBHSAddress := DeployBatchBHS(e, bhsContractAddress)
 
 	var coordinatorAddress common.Address
 	fmt.Println("\nDeploying Coordinator...")
-	coordinatorAddress = deployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
+	coordinatorAddress = DeployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
 
 	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
@@ -145,7 +155,7 @@ func deployUniverse(e helpers.Environment) {
 	batchCoordinatorAddress := deployBatchCoordinatorV2(e, coordinatorAddress)
 
 	fmt.Println("\nSetting Coordinator Config...")
-	setCoordinatorConfig(
+	SetCoordinatorConfig(
 		e,
 		*coordinator,
 		uint16(*minConfs),
@@ -153,25 +163,18 @@ func deployUniverse(e helpers.Environment) {
 		uint32(*stalenessSeconds),
 		uint32(*gasAfterPayment),
 		fallbackWeiPerUnitLink,
-		vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-			FulfillmentFlatFeeLinkPPMTier1: uint32(*flatFeeTier1),
-			FulfillmentFlatFeeLinkPPMTier2: uint32(*flatFeeTier2),
-			FulfillmentFlatFeeLinkPPMTier3: uint32(*flatFeeTier3),
-			FulfillmentFlatFeeLinkPPMTier4: uint32(*flatFeeTier4),
-			FulfillmentFlatFeeLinkPPMTier5: uint32(*flatFeeTier5),
-			ReqsForTier2:                   big.NewInt(*reqsForTier2),
-			ReqsForTier3:                   big.NewInt(*reqsForTier3),
-			ReqsForTier4:                   big.NewInt(*reqsForTier4),
-			ReqsForTier5:                   big.NewInt(*reqsForTier5),
-		},
+		feeConfig,
 	)
 
 	fmt.Println("\nConfig set, getting current config from deployed contract...")
-	printCoordinatorConfig(coordinator)
+	PrintCoordinatorConfig(coordinator)
 
-	if len(*registerKeyUncompressedPubKey) > 0 && len(*registerKeyOracleAddress) > 0 {
+	if len(*registerKeyUncompressedPubKey) > 0 {
 		fmt.Println("\nRegistering proving key...")
-		registerCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
+
+		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
+		// easily withdraw funds from Coordinator contract back to EOA account
+		RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, e.Owner.From.String())
 
 		fmt.Println("\nProving key registered, getting proving key hashes from deployed contract...")
 		_, _, provingKeyHashes, configErr := coordinator.GetRequestConfig(nil)
@@ -182,18 +185,18 @@ func deployUniverse(e helpers.Environment) {
 	}
 
 	fmt.Println("\nDeploying consumer...")
-	consumerAddress := eoaDeployConsumer(e, coordinatorAddress.String(), *linkAddress)
+	consumerAddress := EoaDeployConsumer(e, coordinatorAddress.String(), *linkAddress)
 
 	fmt.Println("\nAdding subscription...")
-	eoaCreateSub(e, *coordinator)
+	EoaCreateSub(e, *coordinator)
 	subID := uint64(1)
 
 	fmt.Println("\nAdding consumer to subscription...")
-	eoaAddConsumerToSub(e, *coordinator, subID, consumerAddress.String())
+	EoaAddConsumerToSub(e, *coordinator, subID, consumerAddress.String())
 
 	if subscriptionBalance.Cmp(big.NewInt(0)) > 0 {
 		fmt.Println("\nFunding subscription with", subscriptionBalance, "juels...")
-		eoaFundSubscription(e, *coordinator, *linkAddress, subscriptionBalance, subID)
+		EoaFundSubscription(e, *coordinator, *linkAddress, subscriptionBalance, subID)
 	} else {
 		fmt.Println("Subscription", subID, "NOT getting funded. You must fund the subscription in order to use it!")
 	}
@@ -203,19 +206,20 @@ func deployUniverse(e helpers.Environment) {
 	helpers.PanicErr(err)
 	fmt.Printf("Subscription %+v\n", s)
 
-	if len(*registerKeyOracleAddress) > 0 && *oracleFundingAmount > 0 {
+	if len(vrfPrimaryNodeSendingKeys) > 0 && *oracleFundingAmount > 0 {
 		fmt.Println("\nFunding oracle...")
-		helpers.FundNodes(e, []string{*registerKeyOracleAddress}, big.NewInt(*oracleFundingAmount))
+		helpers.FundNodes(e, vrfPrimaryNodeSendingKeys, big.NewInt(*oracleFundingAmount))
 	}
 
 	formattedJobSpec := fmt.Sprintf(
-		formattedVRFJob,
+		jobs.VRFJobFormatted,
 		coordinatorAddress,
 		batchCoordinatorAddress,
 		false,
 		compressedPkHex,
 		e.ChainID,
-		*registerKeyOracleAddress,
+		minConfs,
+		strings.Join(vrfPrimaryNodeSendingKeys, "\",\""),
 		coordinatorAddress,
 		coordinatorAddress,
 		coordinatorAddress,
@@ -231,15 +235,17 @@ func deployUniverse(e helpers.Environment) {
 		"\nBatch VRF Coordinator Address:", batchCoordinatorAddress,
 		"\nVRF Consumer Address:", consumerAddress,
 		"\nVRF Subscription Id:", subID,
-		"\nVRF Subscription Balance:", *subscriptionBalanceString,
+		"\nVRF Subscription Balance:", *subscriptionBalance,
 		"\nPossible VRF Request command: ",
 		fmt.Sprintf("go run . eoa-request --consumer-address %s --sub-id %d --key-hash %s", consumerAddress, subID, keyHash),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",
 		formattedJobSpec,
 	)
+
+	return formattedJobSpec
 }
 
-func deployWrapperUniverse(e helpers.Environment) {
+func DeployWrapperUniverse(e helpers.Environment) {
 	cmd := flag.NewFlagSet("wrapper-universe-deploy", flag.ExitOnError)
 	linkAddress := cmd.String("link-address", "", "address of link token")
 	linkETHFeedAddress := cmd.String("link-eth-feed", "", "address of link-eth-feed")
@@ -258,12 +264,12 @@ func deployWrapperUniverse(e helpers.Environment) {
 		panic(fmt.Sprintf("failed to parse top up amount '%s'", *subFunding))
 	}
 
-	wrapper, subID := wrapperDeploy(e,
+	wrapper, subID := WrapperDeploy(e,
 		common.HexToAddress(*linkAddress),
 		common.HexToAddress(*linkETHFeedAddress),
 		common.HexToAddress(*coordinatorAddress))
 
-	wrapperConfigure(e,
+	WrapperConfigure(e,
 		wrapper,
 		*wrapperGasOverhead,
 		*coordinatorGasOverhead,
@@ -271,14 +277,14 @@ func deployWrapperUniverse(e helpers.Environment) {
 		*keyHash,
 		*maxNumWords)
 
-	consumer := wrapperConsumerDeploy(e,
+	consumer := WrapperConsumerDeploy(e,
 		common.HexToAddress(*linkAddress),
 		wrapper)
 
 	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 	helpers.PanicErr(err)
 
-	eoaFundSubscription(e, *coordinator, *linkAddress, amount, subID)
+	EoaFundSubscription(e, *coordinator, *linkAddress, amount, subID)
 
 	link, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
 	helpers.PanicErr(err)

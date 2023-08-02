@@ -1,4 +1,4 @@
-package main
+package scripts
 
 import (
 	"context"
@@ -21,19 +21,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func deployBHS(e helpers.Environment) (blockhashStoreAddress common.Address) {
+func DeployBHS(e helpers.Environment) (blockhashStoreAddress common.Address) {
 	_, tx, _, err := blockhash_store.DeployBlockhashStore(e.Owner, e.Ec)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployBatchBHS(e helpers.Environment, bhsAddress common.Address) (batchBHSAddress common.Address) {
+func DeployBatchBHS(e helpers.Environment, bhsAddress common.Address) (batchBHSAddress common.Address) {
 	_, tx, _, err := batch_blockhash_store.DeployBatchBlockhashStore(e.Owner, e.Ec, bhsAddress)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func deployCoordinator(
+func DeployCoordinator(
 	e helpers.Environment,
 	linkAddress string,
 	bhsAddress string,
@@ -55,19 +55,19 @@ func deployBatchCoordinatorV2(e helpers.Environment, coordinatorAddress common.A
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func eoaAddConsumerToSub(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2, subID uint64, consumerAddress string) {
+func EoaAddConsumerToSub(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2, subID uint64, consumerAddress string) {
 	txadd, err := coordinator.AddConsumer(e.Owner, subID, common.HexToAddress(consumerAddress))
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, txadd, e.ChainID)
 }
 
-func eoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2) {
+func EoaCreateSub(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2) {
 	tx, err := coordinator.CreateSubscription(e.Owner)
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func eoaDeployConsumer(e helpers.Environment, coordinatorAddress string, linkAddress string) (consumerAddress common.Address) {
+func EoaDeployConsumer(e helpers.Environment, coordinatorAddress string, linkAddress string) (consumerAddress common.Address) {
 	_, tx, _, err := vrf_external_sub_owner_example.DeployVRFExternalSubOwnerExample(
 		e.Owner,
 		e.Ec,
@@ -77,7 +77,7 @@ func eoaDeployConsumer(e helpers.Environment, coordinatorAddress string, linkAdd
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func eoaFundSubscription(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2, linkAddress string, amount *big.Int, subID uint64) {
+func EoaFundSubscription(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2, linkAddress string, amount *big.Int, subID uint64) {
 	linkToken, err := link_token_interface.NewLinkToken(common.HexToAddress(linkAddress), e.Ec)
 	helpers.PanicErr(err)
 	bal, err := linkToken.BalanceOf(nil, e.Owner.From)
@@ -91,7 +91,7 @@ func eoaFundSubscription(e helpers.Environment, coordinator vrf_coordinator_v2.V
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("sub ID: %d", subID))
 }
 
-func printCoordinatorConfig(coordinator *vrf_coordinator_v2.VRFCoordinatorV2) {
+func PrintCoordinatorConfig(coordinator *vrf_coordinator_v2.VRFCoordinatorV2) {
 	cfg, err := coordinator.GetConfig(nil)
 	helpers.PanicErr(err)
 
@@ -102,7 +102,7 @@ func printCoordinatorConfig(coordinator *vrf_coordinator_v2.VRFCoordinatorV2) {
 	fmt.Printf("Coordinator fee config: %+v\n", feeConfig)
 }
 
-func setCoordinatorConfig(
+func SetCoordinatorConfig(
 	e helpers.Environment,
 	coordinator vrf_coordinator_v2.VRFCoordinatorV2,
 	minConfs uint16,
@@ -125,7 +125,7 @@ func setCoordinatorConfig(
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func registerCoordinatorProvingKey(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2, uncompressed string, oracleAddress string) {
+func RegisterCoordinatorProvingKey(e helpers.Environment, coordinator vrf_coordinator_v2.VRFCoordinatorV2, uncompressed string, oracleAddress string) {
 	pubBytes, err := hex.DecodeString(uncompressed)
 	helpers.PanicErr(err)
 	pk, err := crypto.UnmarshalPubkey(pubBytes)
@@ -144,7 +144,7 @@ func registerCoordinatorProvingKey(e helpers.Environment, coordinator vrf_coordi
 	)
 }
 
-func wrapperDeploy(
+func WrapperDeploy(
 	e helpers.Environment,
 	link, linkEthFeed, coordinator common.Address,
 ) (common.Address, uint64) {
@@ -167,7 +167,7 @@ func wrapperDeploy(
 	return address, subID
 }
 
-func wrapperConfigure(
+func WrapperConfigure(
 	e helpers.Environment,
 	wrapperAddress common.Address,
 	wrapperGasOverhead, coordinatorGasOverhead, premiumPercentage uint,
@@ -188,7 +188,7 @@ func wrapperConfigure(
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }
 
-func wrapperConsumerDeploy(
+func WrapperConsumerDeploy(
 	e helpers.Environment,
 	link, wrapper common.Address,
 ) common.Address {
