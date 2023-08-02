@@ -42,12 +42,24 @@ declare -a arr=(
     "Ag%3D%3D"
 )
 
+declare -a testarr=(
+    "wss://foo.bar"
+    "wss://fake.com"
+    "wss://web.socket/test"
+)
+
 # For each potential secret above, check for presence of string and encoded version in log files
 MATCHED_LINES=()
 for substr in "${arr[@]}"; do
-   MATCHES="$(grep -i "$substr" $OUTPUT_FILE || true)"
-   if [ -n "$MATCHES" ]; then
-      MATCHED_LINES+=("$MATCHES")
+    MATCHES="$(grep -i "$substr" $OUTPUT_FILE || true)"
+    if [ -n "$MATCHES" ]; then
+    # check if the matched string is part of a known test case that is safe to pass
+    for safesubstr in "${testarr[@]}"; do
+        SAFE_MATCH="$(echo "${MATCHED_LINE}" | grep -i "$safesubstr" || true)"
+        if [ -n "$SAFE_MATCH" ]; then
+            MATCHED_LINES+=("$MATCHES")
+        fi
+    done
    fi
 done
 
