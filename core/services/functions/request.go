@@ -7,6 +7,8 @@ const (
 	LanguageJavaScript = 0
 )
 
+type RequestFlags [32]byte
+
 type RequestData struct {
 	Source          string   `json:"source" cbor:"source"`
 	Language        int      `json:"language" cbor:"language"`

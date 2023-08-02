@@ -49,7 +49,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       logicA.getMode(),
       logicA.getLinkAddress(),
       logicA.getLinkNativeFeedAddress(),
-      logicA.getFastGasFeedAddress()
+      logicA.getFastGasFeedAddress(),
+      logicA.getAutomationForwarderLogic()
     )
     Chainable(address(logicA))
   {}
@@ -89,7 +90,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       upkeepTransmitInfo[i].maxLinkPayment = _getMaxLinkPayment(
         hotVars,
         upkeepTransmitInfo[i].triggerType,
-        upkeepTransmitInfo[i].upkeep.performGas,
+        uint32(report.gasLimits[i]),
         uint32(report.performDatas[i].length),
         report.fastGasWei,
         report.linkNative,
@@ -231,7 +232,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
   ) external override {
-    setConfig(
+    setConfigTypeSafe(
       signers,
       transmitters,
       f,
@@ -241,7 +242,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     );
   }
 
-  function setConfig(
+  function setConfigTypeSafe(
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,

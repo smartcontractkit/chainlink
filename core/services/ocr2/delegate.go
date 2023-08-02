@@ -965,7 +965,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 	}
 
-	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (types.PluginProvider, error) {
+	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmrelaytypes.FunctionsProvider, error) {
 		return evmrelay.NewFunctionsProvider(
 			d.chainSet,
 			types.RelayArgs{
@@ -1081,6 +1081,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		URLsMonEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.FunctionsRequests),
 		EthKeystore:       d.ethKs,
 		ThresholdKeyShare: thresholdKeyShare,
+		LogPollerWrapper:  functionsProvider.LogPollerWrapper(),
 	}
 
 	functionsServices, err := functions.NewFunctionsServices(&functionsOracleArgs, &thresholdOracleArgs, &s4OracleArgs, &functionsServicesConfig)
@@ -1099,7 +1100,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		d.cfg.JobPipeline().MaxSuccessfulRuns(),
 	)
 
-	return append([]job.ServiceCtx{runResultSaver, functionsProvider, s4Provider}, functionsServices...), nil
+	return append([]job.ServiceCtx{runResultSaver, functionsProvider, thresholdProvider, s4Provider}, functionsServices...), nil
 }
 
 // errorLog implements [loop.ErrorLog]

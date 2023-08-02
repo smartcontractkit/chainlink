@@ -17,13 +17,13 @@ contract FunctionsCoordinatorTestHelper is FunctionsCoordinator {
   }
 
   function callReport(bytes calldata report) external {
-    address[maxNumOracles] memory signers;
+    address[MAX_NUM_ORACLES] memory signers;
     signers[0] = msg.sender;
     _report(gasleft(), msg.sender, 1, signers, report);
   }
 
   function callReportMultipleSigners(bytes calldata report, address secondSigner) external {
-    address[maxNumOracles] memory signers;
+    address[MAX_NUM_ORACLES] memory signers;
     signers[0] = msg.sender;
     signers[1] = secondSigner;
     _report(gasleft(), msg.sender, 2, signers, report);

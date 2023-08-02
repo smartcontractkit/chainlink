@@ -12,10 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -45,12 +43,7 @@ func TestGetActiveUpkeepIDs(t *testing.T) {
 				actives[id] = activeUpkeep{ID: idNum}
 			}
 
-			mht := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-
 			rg := &EvmRegistry{
-				HeadProvider: HeadProvider{
-					ht: mht,
-				},
 				active: actives,
 			}
 
@@ -122,12 +115,7 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 				actives[id] = activeUpkeep{ID: idNum}
 			}
 
-			mht := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-
 			rg := &EvmRegistry{
-				HeadProvider: HeadProvider{
-					ht: mht,
-				},
 				active: actives,
 			}
 

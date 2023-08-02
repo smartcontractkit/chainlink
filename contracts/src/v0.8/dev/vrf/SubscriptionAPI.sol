@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../ConfirmedOwner.sol";
+import "../../interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../../interfaces/ERC677ReceiverInterface.sol";
 import "../interfaces/IVRFSubscriptionV2Plus.sol";
@@ -10,6 +11,8 @@ import "../interfaces/IVRFSubscriptionV2Plus.sol";
 abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInterface, IVRFSubscriptionV2Plus {
   /// @dev may not be provided upon construction on some chains due to lack of availability
   LinkTokenInterface public LINK;
+  /// @dev may not be provided upon construction on some chains due to lack of availability
+  AggregatorV3Interface public LINK_ETH_FEED;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -38,8 +41,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     // a uint96 is large enough to hold around ~8e28 wei, or 80 billion ether.
     // That should be enough to cover most (if not all) subscriptions.
     uint96 ethBalance; // Common eth balance used for all consumer requests.
-
-    // TODO: put back request count?
+    uint64 reqCount;
   }
   // We use the config for the mgmt APIs
   struct SubscriptionConfig {
@@ -83,12 +85,19 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
 
   constructor() ConfirmedOwner(msg.sender) {}
 
-  function setLINK(address link) external onlyOwner {
+  /**
+   * @notice set the LINK token contract and link eth feed to be
+   * used by this coordinator
+   * @param link - address of link token
+   * @param linkEthFeed address of the link eth feed
+   */
+  function setLINKAndLINKETHFeed(address link, address linkEthFeed) external onlyOwner {
     // Disallow re-setting link token because the logic wouldn't really make sense
     if (address(LINK) != address(0)) {
       revert LinkAlreadySet();
     }
     LINK = LinkTokenInterface(link);
+    LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
   }
 
   /**
@@ -217,13 +226,19 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
    */
   function getSubscription(
     uint256 subId
-  ) public view override returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) {
+  )
+    public
+    view
+    override
+    returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers)
+  {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     return (
       s_subscriptions[subId].balance,
       s_subscriptions[subId].ethBalance,
+      s_subscriptions[subId].reqCount,
       s_subscriptionConfigs[subId].owner,
       s_subscriptionConfigs[subId].consumers
     );
@@ -238,7 +253,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     );
     s_currentSubNonce++;
     address[] memory consumers = new address[](0);
-    s_subscriptions[subId] = Subscription({balance: 0, ethBalance: 0});
+    s_subscriptions[subId] = Subscription({balance: 0, ethBalance: 0, reqCount: 0});
     s_subscriptionConfigs[subId] = SubscriptionConfig({
       owner: msg.sender,
       requestedOwner: address(0),

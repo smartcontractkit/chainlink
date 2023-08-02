@@ -78,15 +78,10 @@ jobs:
           cache: false
       - name: golangci-lint
         if: needs.init.outputs.on_trigger_lint == 'true'
-        ##
-        # XXX: change this to the official action once multiple --out-format args are supported.
-        # See: https://github.com/golangci/golangci-lint-action/issues/612
-        ##
-        uses: smartcontractkit/golangci-lint-action@54ab6c5f11d66a92d14c3f7cc41ea13f676644bd # feature/multiple-output-formats-backup
+        uses: golangci/golangci-lint-action@639cd343e1d3b897ff35927a75193d57cfcba299 # v3.6.0
         with:
-          version: v1.53.2
+          version: v1.53.3
           only-new-issues: ${{ github.event.schedule == '' }} # show only new issues, unless it's a scheduled run
-          allow-extra-out-format-args: true
           args: --out-format checkstyle:golangci-lint-report.xml
       - name: Print lint report artifact
         if: always()
@@ -100,7 +95,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -129,7 +124,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -160,6 +155,8 @@ jobs:
         uses: ./.github/actions/setup-go
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
+      - name: Setup wasmd
+        uses: ./.github/actions/setup-wasmd
       - name: Setup Postgres
         uses: ./.github/actions/setup-postgres
       - name: Touching core/web/assets/index.html
@@ -193,7 +190,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -219,7 +216,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -312,7 +309,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -344,7 +341,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

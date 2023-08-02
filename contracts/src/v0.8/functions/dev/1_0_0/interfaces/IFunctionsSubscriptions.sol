@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {IFunctionsRequest} from "./IFunctionsRequest.sol";
+
 /**
  * @title Chainlink Functions Subscription interface.
  */
@@ -8,8 +10,8 @@ interface IFunctionsSubscriptions {
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
     uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
-    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub.
+    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
     address requestedOwner; // For safely transferring sub ownership.
     // Maintains the list of keys in s_consumers.
     // We do this for 2 reasons:
@@ -18,6 +20,7 @@ interface IFunctionsSubscriptions {
     // Note that we need the s_consumers map to be able to directly check if a
     // consumer is valid without reading all the consumers from storage.
     address[] consumers;
+    bytes32 flags; // Per-subscription flags.
   }
 
   struct Consumer {
@@ -29,18 +32,9 @@ interface IFunctionsSubscriptions {
   /**
    * @notice Get details about a subscription.
    * @param subscriptionId - ID of the subscription
-   * @return balance - LINK balance of the subscription in juels.
-   * @return blockedBalance - amount of LINK balance of the subscription in juels that is blocked for an in flight request.
-   * @return owner - owner of the subscription.
-   * @return requestedOwner - proposed owner to move ownership of the subscription to.
-   * @return consumers - list of consumer address which are able to use this subscription.
+   * @return subscription - list of consumer address which are able to use this subscription.
    */
-  function getSubscription(
-    uint64 subscriptionId
-  )
-    external
-    view
-    returns (uint96 balance, uint96 blockedBalance, address owner, address requestedOwner, address[] memory consumers);
+  function getSubscription(uint64 subscriptionId) external view returns (Subscription memory);
 
   /**
    * @notice Get details about a consumer of a subscription.
@@ -57,12 +51,6 @@ interface IFunctionsSubscriptions {
   ) external view returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests);
 
   /**
-   * @notice Get the maximum number of consumers that can be added to one subscription
-   * @return maxConsumers - maximum number of consumers that can be added to one subscription
-   */
-  function getMaxConsumers() external view returns (uint16);
-
-  /**
    * @notice Get details about the total amount of LINK within the system
    * @return totalBalance - total Juels of LINK held by the contract
    */
@@ -76,9 +64,10 @@ interface IFunctionsSubscriptions {
 
   /**
    * @notice Time out all expired requests: unlocks funds and removes the ability for the request to be fulfilled
-   * @param requestIdsToTimeout - A list of request IDs to time out
+   * @param requestsToTimeoutByCommitment - A list of request commitments to time out
+   * @dev The commitment can be found on the "OracleRequest" event created when sending the request.
    */
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external;
+  function timeoutRequests(IFunctionsRequest.Commitment[] calldata requestsToTimeoutByCommitment) external;
 
   /**
    * @notice Oracle withdraw LINK earned through fulfilling requests
@@ -118,15 +107,15 @@ interface IFunctionsSubscriptions {
   function createSubscription() external returns (uint64);
 
   /**
-   * @notice Request subscription owner transfer.
+   * @notice Propose a new owner for a subscription.
    * @dev Only callable by the Subscription's owner
    * @param subscriptionId - ID of the subscription
    * @param newOwner - proposed new owner of the subscription
    */
-  function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external;
+  function proposeSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external;
 
   /**
-   * @notice Request subscription owner transfer.
+   * @notice Accept an ownership transfer.
    * @param subscriptionId - ID of the subscription
    * @dev will revert if original owner of subscriptionId has
    * not requested that msg.sender become the new owner.
@@ -166,4 +155,18 @@ interface IFunctionsSubscriptions {
    * @dev Used to disable subscription canceling while outstanding request are present.
    */
   function pendingRequestExists(uint64 subscriptionId) external view returns (bool);
+
+  /**
+   * @notice Set flags for a given subscription.
+   * @param subscriptionId - ID of the subscription
+   * @param flags - desired flag values
+   */
+  function setFlags(uint64 subscriptionId, bytes32 flags) external;
+
+  /**
+   * @notice Get flags for a given subscription.
+   * @param subscriptionId - ID of the subscription
+   * @return flags - current flag values
+   */
+  function getFlags(uint64 subscriptionId) external view returns (bytes32);
 }

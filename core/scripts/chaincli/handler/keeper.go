@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registrylogic20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
 	registrylogica21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
@@ -250,6 +251,13 @@ func (k *Keeper) VerifyContract(params ...string) {
 
 // deployRegistry21 deploys a version 2.1 keeper registry
 func (k *Keeper) deployRegistry21(ctx context.Context, verify bool) (common.Address, *iregistry21.IKeeperRegistryMaster) {
+	automationForwarderLogicAddr, tx, _, err := automationForwarderLogic.DeployAutomationForwarderLogic(k.buildTxOpts(ctx), k.client)
+	if err != nil {
+		log.Fatal("Deploy AutomationForwarderLogic failed: ", err)
+	}
+	k.waitDeployment(ctx, tx)
+	log.Println("AutomationForwarderLogic deployed:", automationForwarderLogicAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
+
 	registryLogicBAddr, tx, _, err := registrylogicb21.DeployKeeperRegistryLogicB(
 		k.buildTxOpts(ctx),
 		k.client,
@@ -257,12 +265,13 @@ func (k *Keeper) deployRegistry21(ctx context.Context, verify bool) (common.Addr
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
 		common.HexToAddress(k.cfg.FastGasFeedAddr),
+		automationForwarderLogicAddr,
 	)
 	if err != nil {
 		log.Fatal("DeployAbi failed: ", err)
 	}
 	k.waitDeployment(ctx, tx)
-	log.Println("KeeperRegistryLogicB 2.1 Logic deployed:", registryLogicBAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
+	log.Println("KeeperRegistry LogicB 2.1 deployed:", registryLogicBAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
 
 	// verify KeeperRegistryLogicB
 	if verify {
@@ -279,7 +288,7 @@ func (k *Keeper) deployRegistry21(ctx context.Context, verify bool) (common.Addr
 		log.Fatal("DeployAbi failed: ", err)
 	}
 	k.waitDeployment(ctx, tx)
-	log.Println("KeeperRegistryLogicA 2.1 Logic deployed:", registryLogicAAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
+	log.Println("KeeperRegistry LogicA 2.1 deployed:", registryLogicAAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
 
 	// verify KeeperRegistryLogicA
 	if verify {

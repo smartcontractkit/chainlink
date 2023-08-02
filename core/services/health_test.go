@@ -2,12 +2,17 @@ package services_test
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
@@ -64,4 +69,25 @@ func TestCheck(t *testing.T) {
 		assert.Equal(t, test.healthy, healthy, "case %d", i)
 		assert.Equal(t, test.expected, results, "case %d", i)
 	}
+}
+
+func TestNewInBackupHealthReport(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
+	ibhr := services.NewInBackupHealthReport(1234, lggr)
+
+	ibhr.Start()
+	require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)
+	require.Equal(t, "Starting InBackupHealthReport", observed.TakeAll()[0].Message)
+
+	res, err := http.Get("http://localhost:1234/health")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
+
+	resBody, err := io.ReadAll(res.Body)
+	require.NoError(t, err)
+	require.Equal(t, "Database backup in progress...", string(resBody))
+
+	ibhr.Stop()
+	require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)
+	require.Equal(t, "InBackupHealthReport shutdown complete", observed.TakeAll()[0].Message)
 }

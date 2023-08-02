@@ -2,7 +2,9 @@
 pragma solidity 0.8.16;
 
 import {IAutomationRegistryConsumer} from "../interfaces/IAutomationRegistryConsumer.sol";
+import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
 import {AutomationForwarder} from "../AutomationForwarder.sol";
+import {AutomationForwarderLogic} from "../AutomationForwarderLogic.sol";
 import {MockKeeperRegistry2_1} from "../mocks/MockKeeperRegistry2_1.sol";
 import {UpkeepCounter} from "../mocks/UpkeepCounter.sol";
 import {BaseTest} from "./BaseTest.t.sol";
@@ -11,7 +13,8 @@ import {BaseTest} from "./BaseTest.t.sol";
 // forge test --match-path src/v0.8/dev/automation/2_1/test/AutomationForwarder.t.sol
 
 contract AutomationForwarderSetUp is BaseTest {
-  AutomationForwarder internal forwarder;
+  IAutomationForwarder internal forwarder;
+  AutomationForwarderLogic internal logicContract;
   IAutomationRegistryConsumer internal default_registry;
   UpkeepCounter internal default_target;
   uint256 constant GAS = 1e18;
@@ -21,7 +24,10 @@ contract AutomationForwarderSetUp is BaseTest {
     default_registry = IAutomationRegistryConsumer(new MockKeeperRegistry2_1());
     default_target = new UpkeepCounter(10000, 1);
     vm.startPrank(address(default_registry));
-    forwarder = new AutomationForwarder(1, address(default_target), address(default_registry));
+    logicContract = new AutomationForwarderLogic();
+    forwarder = IAutomationForwarder(
+      address(new AutomationForwarder(address(default_target), address(default_registry), address(logicContract)))
+    );
     // OWNER not necessary?
     OWNER = address(default_registry);
   }
@@ -57,7 +63,7 @@ contract AutomationForwarder_forward is AutomationForwarderSetUp {
     uint256 prevCount = default_target.counter();
     bytes memory selector = getSelector("performUpkeep(bytes)", "");
     changePrank(STRANGER);
-    vm.expectRevert(AutomationForwarder.NotAuthorized.selector);
+    vm.expectRevert();
     (bool val, uint256 gasUsed) = forwarder.forward(GAS, selector);
     assertFalse(val);
     assertEq(gasUsed, 0);
@@ -77,7 +83,7 @@ contract AutomationForwarder_updateRegistry is AutomationForwarderSetUp {
   function testNotFromRegistryNotAuthorizedReverts() public {
     address newRegistry = address(1);
     changePrank(STRANGER);
-    vm.expectRevert(AutomationForwarder.NotAuthorized.selector);
+    vm.expectRevert();
     forwarder.updateRegistry(address(newRegistry));
   }
 }

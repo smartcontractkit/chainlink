@@ -26,7 +26,8 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       logicB.getMode(),
       logicB.getLinkAddress(),
       logicB.getLinkNativeFeedAddress(),
-      logicB.getFastGasFeedAddress()
+      logicB.getFastGasFeedAddress(),
+      logicB.getAutomationForwarderLogic()
     )
     Chainable(address(logicB))
   {}
@@ -34,7 +35,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   /**
    * @notice called by the automation DON to check if work is needed
    * @param id the upkeep ID to check for work needed
-   * @param checkData the data passed to the upkeep contract's checkUpkeep function
+   * @param triggerData extra contextual data about the trigger (not used in all code paths)
    * @dev this one of the core functions called in the hot path
    * @dev there is a 2nd checkUpkeep function (below) that is being maintained for backwards compatibility
    * @dev there is an incongruency on what gets returned during failure modes
@@ -42,7 +43,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
    */
   function checkUpkeep(
     uint256 id,
-    bytes memory checkData
+    bytes memory triggerData
   )
     public
     cannotExecute
@@ -79,14 +80,10 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas, 0, 0);
     }
 
-    bytes memory callData;
-    if (triggerType == Trigger.CONDITION) {
-      callData = abi.encodeWithSelector(CHECK_SELECTOR, checkData);
-    } else {
-      callData = bytes.concat(CHECK_LOG_SELECTOR, checkData);
-    }
+    bytes memory callData = _checkPayload(id, triggerType, triggerData);
+
     gasUsed = gasleft();
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
     if (!success) {
@@ -157,7 +154,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       uint256 linkNative
     )
   {
-    return checkUpkeep(id, s_checkData[id]);
+    return checkUpkeep(id, bytes(""));
   }
 
   /**
@@ -195,7 +192,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   {
     Upkeep memory upkeep = s_upkeep[id];
     gasUsed = gasleft();
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(payload);
+    (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
     gasUsed = gasUsed - gasleft();
     if (!success) {
       return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed);
@@ -231,12 +228,14 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
     bytes memory offchainConfig
   ) public returns (uint256 id) {
     if (msg.sender != owner() && !s_registrars.contains(msg.sender)) revert OnlyCallableByOwnerOrRegistrar();
+    if (!target.isContract()) revert NotAContract();
     id = _createID(triggerType);
-    AutomationForwarder forwarder = new AutomationForwarder(id, target, address(this));
+    IAutomationForwarder forwarder = IAutomationForwarder(
+      address(new AutomationForwarder(target, address(this), i_automationForwarderLogic))
+    );
     _createUpkeep(
       id,
       Upkeep({
-        target: target,
         performGas: gasLimit,
         balance: 0,
         maxValidBlocknumber: UINT32_MAX,
@@ -367,7 +366,15 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
-    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, admins, checkDatas, triggerConfigs, offchainConfigs);
+    bytes memory encodedUpkeeps = abi.encode(
+      ids,
+      upkeeps,
+      new address[](ids.length),
+      admins,
+      checkDatas,
+      triggerConfigs,
+      offchainConfigs
+    );
     MigratableKeeperRegistryInterfaceV2(destination).receiveUpkeeps(
       UpkeepTranscoderInterfaceV2(s_storage.transcoder).transcodeUpkeeps(
         UPKEEP_VERSION_BASE,
@@ -391,14 +398,17 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
     (
       uint256[] memory ids,
       Upkeep[] memory upkeeps,
+      address[] memory targets,
       address[] memory upkeepAdmins,
       bytes[] memory checkDatas,
       bytes[] memory triggerConfigs,
       bytes[] memory offchainConfigs
-    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], address[], bytes[], bytes[], bytes[]));
+    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], address[], address[], bytes[], bytes[], bytes[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
       if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
-        upkeeps[idx].forwarder = new AutomationForwarder(ids[idx], upkeeps[idx].target, address(this));
+        upkeeps[idx].forwarder = IAutomationForwarder(
+          address(new AutomationForwarder(targets[idx], address(this), i_automationForwarderLogic))
+        );
       }
       _createUpkeep(
         ids[idx],

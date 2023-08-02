@@ -2,7 +2,7 @@ pragma solidity 0.8.15;
 
 import "../interfaces/automation/AutomationCompatibleInterface.sol";
 import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
-import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ArbSys} from "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 //interface IVerifierProxy {
 //  /**

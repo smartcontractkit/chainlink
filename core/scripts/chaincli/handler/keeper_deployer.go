@@ -353,7 +353,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		UpkeepPrivilegeManager: common.HexToAddress(d.cfg.UpkeepPrivilegeManager),
 	}
 
-	return d.IKeeperRegistryMasterInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	return d.IKeeperRegistryMasterInterface.SetConfigTypeSafe(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 }
 
 // legacy support function

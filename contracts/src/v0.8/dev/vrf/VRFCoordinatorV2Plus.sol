@@ -3,7 +3,6 @@ pragma solidity ^0.8.4;
 
 import "../../interfaces/LinkTokenInterface.sol";
 import "../../interfaces/BlockhashStoreInterface.sol";
-import "../../interfaces/AggregatorV3Interface.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../vrf/VRF.sol";
 import "./VRFConsumerBaseV2Plus.sol";
@@ -13,8 +12,6 @@ import "./libraries/VRFV2PlusClient.sol";
 import "../interfaces/IVRFCoordinatorV2PlusMigration.sol";
 
 contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
-  /// @dev may not be provided upon construction on some chains due to lack of availability
-  AggregatorV3Interface public LINK_ETH_FEED;
   /// @dev should always be available
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
@@ -64,6 +61,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   event RandomWordsFulfilled(
     uint256 indexed requestId,
     uint256 outputSeed,
+    uint256 indexed subID,
     uint96 payment,
     bytes extraArgs,
     bool success
@@ -110,14 +108,6 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
 
   constructor(address blockhashStore) SubscriptionAPI() {
     BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
-  }
-
-  /**
-   * @notice set the link eth feed to be used by this coordinator
-   * @param linkEthFeed address of the link eth feed
-   */
-  function setLinkEthFeed(address linkEthFeed) external onlyOwner {
-    LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
   }
 
   /**
@@ -377,7 +367,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   function getRandomnessFromProof(
     Proof calldata proof,
     RequestCommitment calldata rc
-  ) private view returns (Output memory) {
+  ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     // Only registered proving keys are permitted.
     address oracle = s_provingKeys[keyHash];
@@ -440,6 +430,10 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     // to give the callee their requested amount.
     bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
 
+    // Increment the req count for the subscription.
+    uint64 reqCount = s_subscriptions[rc.subId].reqCount;
+    s_subscriptions[rc.subId].reqCount = reqCount + 1;
+
     // stack too deep error
     {
       bool nativePayment = _fromBytes(rc.extraArgs).nativePayment;
@@ -471,7 +465,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       );
       // Include payment in the event for tracking costs.
       // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);
-      emit RandomWordsFulfilled(output.requestId, output.randomness, payment, extraArgs, success);
+      emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, extraArgs, success);
 
       return payment;
     }
@@ -686,7 +680,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     if (!isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
-    (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) = getSubscription(subId);
+    (uint96 balance, uint96 ethBalance, , address owner, address[] memory consumers) = getSubscription(subId);
     require(owner == msg.sender, "Not subscription owner");
     require(!pendingRequestExists(subId), "Pending request exists");
 

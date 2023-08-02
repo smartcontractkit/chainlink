@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
@@ -14,11 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
-)
-
-var (
-	_ CoordinatorV2_X = (*coordinatorV2)(nil)
-	_ CoordinatorV2_X = (*coordinatorV2Plus)(nil)
 )
 
 var (
@@ -43,11 +39,13 @@ type CoordinatorV2_X interface {
 	RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error)
 	FilterSubscriptionCreated(opts *bind.FilterOpts, subID []*big.Int) (SubscriptionCreatedIterator, error)
 	FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subID []*big.Int, sender []common.Address) (RandomWordsRequestedIterator, error)
-	FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (RandomWordsFulfilledIterator, error)
+	FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error)
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 	RemoveConsumer(opts *bind.TransactOpts, subID *big.Int, consumer common.Address) (*types.Transaction, error)
 	CancelSubscription(opts *bind.TransactOpts, subID *big.Int, to common.Address) (*types.Transaction, error)
 	GetCommitment(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error)
+	Migrate(opts *bind.TransactOpts, subID *big.Int, newCoordinator common.Address) (*types.Transaction, error)
+	FundSubscriptionWithEth(opts *bind.TransactOpts, subID *big.Int, amount *big.Int) (*types.Transaction, error)
 }
 
 type coordinatorV2 struct {
@@ -144,7 +142,7 @@ func (c *coordinatorV2) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHas
 	return NewV2RandomWordsRequestedIterator(it), nil
 }
 
-func (c *coordinatorV2) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (RandomWordsFulfilledIterator, error) {
+func (c *coordinatorV2) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error) {
 	it, err := c.coordinator.FilterRandomWordsFulfilled(opts, requestID)
 	if err != nil {
 		return nil, err
@@ -166,6 +164,14 @@ func (c *coordinatorV2) CancelSubscription(opts *bind.TransactOpts, subID *big.I
 
 func (c *coordinatorV2) GetCommitment(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error) {
 	return c.coordinator.GetCommitment(opts, requestID)
+}
+
+func (c *coordinatorV2) Migrate(opts *bind.TransactOpts, subID *big.Int, newCoordinator common.Address) (*types.Transaction, error) {
+	panic("migrate not implemented for v2")
+}
+
+func (c *coordinatorV2) FundSubscriptionWithEth(opts *bind.TransactOpts, subID *big.Int, amount *big.Int) (*types.Transaction, error) {
+	panic("fund subscription with Eth not implemented for v2")
 }
 
 type coordinatorV2Plus struct {
@@ -274,8 +280,8 @@ func (c *coordinatorV2Plus) FilterRandomWordsRequested(opts *bind.FilterOpts, ke
 	return NewV2PlusRandomWordsRequestedIterator(it), nil
 }
 
-func (c *coordinatorV2Plus) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int) (RandomWordsFulfilledIterator, error) {
-	it, err := c.coordinator.FilterRandomWordsFulfilled(opts, requestID)
+func (c *coordinatorV2Plus) FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error) {
+	it, err := c.coordinator.FilterRandomWordsFulfilled(opts, requestID, subID)
 	if err != nil {
 		return nil, err
 	}
@@ -296,6 +302,19 @@ func (c *coordinatorV2Plus) CancelSubscription(opts *bind.TransactOpts, subID *b
 
 func (c *coordinatorV2Plus) GetCommitment(opts *bind.CallOpts, requestID *big.Int) ([32]byte, error) {
 	return c.coordinator.SRequestCommitments(opts, requestID)
+}
+
+func (c *coordinatorV2Plus) Migrate(opts *bind.TransactOpts, subID *big.Int, newCoordinator common.Address) (*types.Transaction, error) {
+	return c.coordinator.Migrate(opts, subID, newCoordinator)
+}
+
+func (c *coordinatorV2Plus) FundSubscriptionWithEth(opts *bind.TransactOpts, subID *big.Int, amount *big.Int) (*types.Transaction, error) {
+	if opts == nil {
+		return nil, errors.New("*bind.TransactOpts cannot be nil")
+	}
+	o := *opts
+	o.Value = amount
+	return c.coordinator.FundSubscriptionWithEth(&o, subID)
 }
 
 var (
@@ -569,6 +588,7 @@ type RandomWordsFulfilled interface {
 	RequestID() *big.Int
 	Success() bool
 	NativePayment() bool
+	SubID() *big.Int
 	Payment() *big.Int
 	Raw() types.Log
 }
@@ -595,6 +615,10 @@ func (rwf *v2RandomWordsFulfilled) Success() bool {
 
 func (rwf *v2RandomWordsFulfilled) NativePayment() bool {
 	return false
+}
+
+func (rwf *v2RandomWordsFulfilled) SubID() *big.Int {
+	panic("VRF V2 RandomWordsFulfilled does not implement SubID")
 }
 
 func (rwf *v2RandomWordsFulfilled) Payment() *big.Int {
@@ -631,6 +655,10 @@ func (rwf *v2PlusRandomWordsFulfilled) NativePayment() bool {
 		panic(err)
 	}
 	return nativePayment
+}
+
+func (rwf *v2PlusRandomWordsFulfilled) SubID() *big.Int {
+	return rwf.event.SubID
 }
 
 func (rwf *v2PlusRandomWordsFulfilled) Payment() *big.Int {

@@ -10,6 +10,7 @@ import {BlockhashStore} from "../../../../src/v0.8/dev/BlockhashStore.sol";
 import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
 import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 
 /*
  * USAGE INSTRUCTIONS:
@@ -80,8 +81,7 @@ contract VRFV2Plus is BaseTest {
     s_testConsumer = VRFV2PlusConsumerExample(consumerCreate2Address);
 
     // Configure the coordinator.
-    s_testCoordinator.setLINK(address(s_linkToken));
-    s_testCoordinator.setLinkEthFeed(address(s_linkEthFeed));
+    s_testCoordinator.setLINKAndLINKETHFeed(address(s_linkToken), address(s_linkEthFeed));
   }
 
   function setConfig(VRFCoordinatorV2Plus.FeeConfig memory feeConfig) internal {
@@ -151,6 +151,14 @@ contract VRFV2Plus is BaseTest {
     uint32 numWords,
     bytes extraArgs,
     address indexed sender
+  );
+  event RandomWordsFulfilled(
+    uint256 indexed requestId,
+    uint256 outputSeed,
+    uint256 indexed subID,
+    uint96 payment,
+    bytes extraArgs,
+    bool success
   );
 
   function testRequestAndFulfillRandomWordsNative() public {
@@ -240,8 +248,22 @@ contract VRFV2Plus is BaseTest {
       sender: address(s_testConsumer),
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
     });
-    (, uint96 ethBalanceBefore, , ) = s_testCoordinator.getSubscription(subId);
+    (, uint96 ethBalanceBefore, , , ) = s_testCoordinator.getSubscription(subId);
+
+    uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
+    vm.recordLogs();
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
+    VmSafe.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
+    assertEq(entries[0].topics[2], bytes32(uint256(subId)));
+    (uint256 loggedOutputSeed, , bytes memory loggedExtraArgs, bool loggedSuccess) = abi.decode(
+      entries[0].data,
+      (uint256, uint256, bytes, bool)
+    );
+    assertEq(loggedOutputSeed, outputSeed);
+    assertEq(loggedExtraArgs, rc.extraArgs);
+    assertEq(loggedSuccess, true);
+
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
@@ -256,7 +278,7 @@ contract VRFV2Plus is BaseTest {
     // billed_fee = baseFeeWei + flatFeeWei + l1CostWei
     // billed_fee = baseFeeWei + 0 + 0
     // billed_fee = 150_000
-    (, uint96 ethBalanceAfter, , ) = s_testCoordinator.getSubscription(subId);
+    (, uint96 ethBalanceAfter, , , ) = s_testCoordinator.getSubscription(subId);
     assertApproxEqAbs(ethBalanceAfter, ethBalanceBefore - 120_000, 10_000);
   }
 
@@ -272,7 +294,7 @@ contract VRFV2Plus is BaseTest {
     registerProvingKey();
 
     // Request random words.
-    vm.expectEmit(true, true, true, true);
+    vm.expectEmit(true, true, false, true);
     (uint256 requestId, uint256 preSeed) = s_testCoordinator.computeRequestIdExternal(
       vrfKeyHash,
       address(s_testConsumer),
@@ -346,8 +368,23 @@ contract VRFV2Plus is BaseTest {
       sender: address(s_testConsumer),
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
     });
-    (uint96 linkBalanceBefore, , , ) = s_testCoordinator.getSubscription(subId);
+    (uint96 linkBalanceBefore, , , , ) = s_testCoordinator.getSubscription(subId);
+
+    uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
+    vm.recordLogs();
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
+
+    VmSafe.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
+    assertEq(entries[0].topics[2], bytes32(uint256(subId)));
+    (uint256 loggedOutputSeed, , bytes memory loggedExtraArgs, bool loggedSuccess) = abi.decode(
+      entries[0].data,
+      (uint256, uint256, bytes, bool)
+    );
+    assertEq(loggedOutputSeed, outputSeed);
+    assertEq(loggedExtraArgs, rc.extraArgs);
+    assertEq(loggedSuccess, true);
+
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
@@ -363,7 +400,7 @@ contract VRFV2Plus is BaseTest {
     // billed_fee = baseFeeWei + 0
     // billed_fee = 280_000
     // note: delta is doubled from the native test to account for more variance due to the link/eth ratio
-    (uint96 linkBalanceAfter, , , ) = s_testCoordinator.getSubscription(subId);
+    (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
     assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 280_000, 20_000);
   }
 }

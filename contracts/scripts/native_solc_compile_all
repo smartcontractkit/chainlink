@@ -51,17 +51,20 @@ $SCRIPTPATH/native_solc8_6_compile automation/1_3/KeeperRegistryLogic1_3.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistrar2_0.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistry2_0.sol
 $SCRIPTPATH/native_solc8_6_compile automation/2_0/KeeperRegistryLogic2_0.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/AutomationRegistrar2_1.sol
 $SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/KeeperRegistry2_1.sol
 $SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/KeeperRegistryLogicA2_1.sol
 $SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/KeeperRegistryLogicB2_1.sol
 $SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol
 $SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/interfaces/ILogAutomation.sol
 $SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/AutomationUtils2_1.sol
+$SCRIPTPATH/native_solc8_16_compile dev/automation/2_1/AutomationForwarderLogic.sol
 $SCRIPTPATH/native_solc8_6_compile dev/automation/tests/LogUpkeepCounter.sol
 $SCRIPTPATH/native_solc8_16_compile dev/automation/tests/LogTriggeredFeedLookup.sol
 $SCRIPTPATH/native_solc8_6_compile automation/UpkeepTranscoder.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VerifiableLoadUpkeep.sol
-$SCRIPTPATH/native_solc8_6_compile tests/VerifiableLoadMercuryUpkeep.sol
+$SCRIPTPATH/native_solc8_16_compile tests/VerifiableLoadUpkeep.sol
+$SCRIPTPATH/native_solc8_16_compile tests/VerifiableLoadMercuryUpkeep.sol
+$SCRIPTPATH/native_solc8_16_compile tests/VerifiableLoadLogTriggerUpkeep.sol
 $SCRIPTPATH/native_solc8_15_compile tests/MercuryUpkeep.sol
 $SCRIPTPATH/native_solc8_15_compile dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol
 $SCRIPTPATH/native_solc8_16_compile tests/AutomationConsumerBenchmark.sol
@@ -108,6 +111,7 @@ $SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusWrapperConsumerE
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFV2PlusRevertingExample.sol
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
 $SCRIPTPATH/native_solc8_6_compile dev/vrf/libraries/VRFV2PlusClient.sol
+$SCRIPTPATH/native_solc8_6_compile dev/vrf/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
 
 # VRF V2 Wrapper
 $SCRIPTPATH/native_solc8_6_compile vrf/VRFV2Wrapper.sol
