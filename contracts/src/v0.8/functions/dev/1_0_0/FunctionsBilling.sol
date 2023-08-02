@@ -350,7 +350,6 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     if (s_requestCommitments[requestId] != keccak256(abi.encode(commitment))) {
       return FulfillResult.INVALID_COMMITMENT;
     }
-    delete s_requestCommitments[requestId];
 
     int256 weiPerUnitLink;
     weiPerUnitLink = getFeedData();
@@ -374,13 +373,17 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
       commitment
     );
 
-    // Reimburse the transmitter for the fulfillment gas cost
-    s_withdrawableTokens[msg.sender] = gasOverheadJuels + callbackCostJuels;
-    // Put donFee into the pool of fees, to be split later
-    // Saves on storage writes that would otherwise be charged to the user
-    s_feePool += commitment.donFee;
+    FulfillResult fulfillResult = FulfillResult(result);
+    if (fulfillResult == FulfillResult.USER_SUCCESS || fulfillResult == FulfillResult.USER_ERROR) {
+      delete s_requestCommitments[requestId];
+      // Reimburse the transmitter for the fulfillment gas cost
+      s_withdrawableTokens[msg.sender] = gasOverheadJuels + callbackCostJuels;
+      // Put donFee into the pool of fees, to be split later
+      // Saves on storage writes that would otherwise be charged to the user
+      s_feePool += commitment.donFee;
+    }
 
-    return FulfillResult(result);
+    return fulfillResult;
   }
 
   // ================================================================

@@ -2023,8 +2023,8 @@ func (_FunctionsRouter *FunctionsRouterFilterer) ParsePaused(log types.Log) (*Fu
 	return event, nil
 }
 
-type FunctionsRouterRequestEndIterator struct {
-	Event *FunctionsRouterRequestEnd
+type FunctionsRouterRequestNotProcessedIterator struct {
+	Event *FunctionsRouterRequestNotProcessed
 
 	contract *bind.BoundContract
 	event    string
@@ -2035,7 +2035,7 @@ type FunctionsRouterRequestEndIterator struct {
 	fail error
 }
 
-func (it *FunctionsRouterRequestEndIterator) Next() bool {
+func (it *FunctionsRouterRequestNotProcessedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -2044,7 +2044,7 @@ func (it *FunctionsRouterRequestEndIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(FunctionsRouterRequestEnd)
+			it.Event = new(FunctionsRouterRequestNotProcessed)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2059,7 +2059,7 @@ func (it *FunctionsRouterRequestEndIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(FunctionsRouterRequestEnd)
+		it.Event = new(FunctionsRouterRequestNotProcessed)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2074,56 +2074,45 @@ func (it *FunctionsRouterRequestEndIterator) Next() bool {
 	}
 }
 
-func (it *FunctionsRouterRequestEndIterator) Error() error {
+func (it *FunctionsRouterRequestNotProcessedIterator) Error() error {
 	return it.fail
 }
 
-func (it *FunctionsRouterRequestEndIterator) Close() error {
+func (it *FunctionsRouterRequestNotProcessedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type FunctionsRouterRequestEnd struct {
-	RequestId      [32]byte
-	SubscriptionId uint64
-	TotalCostJuels *big.Int
-	Transmitter    common.Address
-	ResultCode     uint8
-	Response       []byte
-	ReturnData     []byte
-	Raw            types.Log
+type FunctionsRouterRequestNotProcessed struct {
+	RequestId   [32]byte
+	Coordinator common.Address
+	Transmitter common.Address
+	ResultCode  uint8
+	Raw         types.Log
 }
 
-func (_FunctionsRouter *FunctionsRouterFilterer) FilterRequestEnd(opts *bind.FilterOpts, requestId [][32]byte, subscriptionId []uint64) (*FunctionsRouterRequestEndIterator, error) {
+func (_FunctionsRouter *FunctionsRouterFilterer) FilterRequestNotProcessed(opts *bind.FilterOpts, requestId [][32]byte) (*FunctionsRouterRequestNotProcessedIterator, error) {
 
 	var requestIdRule []interface{}
 	for _, requestIdItem := range requestId {
 		requestIdRule = append(requestIdRule, requestIdItem)
 	}
-	var subscriptionIdRule []interface{}
-	for _, subscriptionIdItem := range subscriptionId {
-		subscriptionIdRule = append(subscriptionIdRule, subscriptionIdItem)
-	}
 
-	logs, sub, err := _FunctionsRouter.contract.FilterLogs(opts, "RequestEnd", requestIdRule, subscriptionIdRule)
+	logs, sub, err := _FunctionsRouter.contract.FilterLogs(opts, "RequestNotProcessed", requestIdRule)
 	if err != nil {
 		return nil, err
 	}
-	return &FunctionsRouterRequestEndIterator{contract: _FunctionsRouter.contract, event: "RequestEnd", logs: logs, sub: sub}, nil
+	return &FunctionsRouterRequestNotProcessedIterator{contract: _FunctionsRouter.contract, event: "RequestNotProcessed", logs: logs, sub: sub}, nil
 }
 
-func (_FunctionsRouter *FunctionsRouterFilterer) WatchRequestEnd(opts *bind.WatchOpts, sink chan<- *FunctionsRouterRequestEnd, requestId [][32]byte, subscriptionId []uint64) (event.Subscription, error) {
+func (_FunctionsRouter *FunctionsRouterFilterer) WatchRequestNotProcessed(opts *bind.WatchOpts, sink chan<- *FunctionsRouterRequestNotProcessed, requestId [][32]byte) (event.Subscription, error) {
 
 	var requestIdRule []interface{}
 	for _, requestIdItem := range requestId {
 		requestIdRule = append(requestIdRule, requestIdItem)
 	}
-	var subscriptionIdRule []interface{}
-	for _, subscriptionIdItem := range subscriptionId {
-		subscriptionIdRule = append(subscriptionIdRule, subscriptionIdItem)
-	}
 
-	logs, sub, err := _FunctionsRouter.contract.WatchLogs(opts, "RequestEnd", requestIdRule, subscriptionIdRule)
+	logs, sub, err := _FunctionsRouter.contract.WatchLogs(opts, "RequestNotProcessed", requestIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -2133,8 +2122,8 @@ func (_FunctionsRouter *FunctionsRouterFilterer) WatchRequestEnd(opts *bind.Watc
 			select {
 			case log := <-logs:
 
-				event := new(FunctionsRouterRequestEnd)
-				if err := _FunctionsRouter.contract.UnpackLog(event, "RequestEnd", log); err != nil {
+				event := new(FunctionsRouterRequestNotProcessed)
+				if err := _FunctionsRouter.contract.UnpackLog(event, "RequestNotProcessed", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -2155,9 +2144,150 @@ func (_FunctionsRouter *FunctionsRouterFilterer) WatchRequestEnd(opts *bind.Watc
 	}), nil
 }
 
-func (_FunctionsRouter *FunctionsRouterFilterer) ParseRequestEnd(log types.Log) (*FunctionsRouterRequestEnd, error) {
-	event := new(FunctionsRouterRequestEnd)
-	if err := _FunctionsRouter.contract.UnpackLog(event, "RequestEnd", log); err != nil {
+func (_FunctionsRouter *FunctionsRouterFilterer) ParseRequestNotProcessed(log types.Log) (*FunctionsRouterRequestNotProcessed, error) {
+	event := new(FunctionsRouterRequestNotProcessed)
+	if err := _FunctionsRouter.contract.UnpackLog(event, "RequestNotProcessed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type FunctionsRouterRequestProcessedIterator struct {
+	Event *FunctionsRouterRequestProcessed
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *FunctionsRouterRequestProcessedIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FunctionsRouterRequestProcessed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(FunctionsRouterRequestProcessed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *FunctionsRouterRequestProcessedIterator) Error() error {
+	return it.fail
+}
+
+func (it *FunctionsRouterRequestProcessedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type FunctionsRouterRequestProcessed struct {
+	RequestId      [32]byte
+	SubscriptionId uint64
+	TotalCostJuels *big.Int
+	Transmitter    common.Address
+	ResultCode     uint8
+	Response       []byte
+	ReturnData     []byte
+	Raw            types.Log
+}
+
+func (_FunctionsRouter *FunctionsRouterFilterer) FilterRequestProcessed(opts *bind.FilterOpts, requestId [][32]byte, subscriptionId []uint64) (*FunctionsRouterRequestProcessedIterator, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+	var subscriptionIdRule []interface{}
+	for _, subscriptionIdItem := range subscriptionId {
+		subscriptionIdRule = append(subscriptionIdRule, subscriptionIdItem)
+	}
+
+	logs, sub, err := _FunctionsRouter.contract.FilterLogs(opts, "RequestProcessed", requestIdRule, subscriptionIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return &FunctionsRouterRequestProcessedIterator{contract: _FunctionsRouter.contract, event: "RequestProcessed", logs: logs, sub: sub}, nil
+}
+
+func (_FunctionsRouter *FunctionsRouterFilterer) WatchRequestProcessed(opts *bind.WatchOpts, sink chan<- *FunctionsRouterRequestProcessed, requestId [][32]byte, subscriptionId []uint64) (event.Subscription, error) {
+
+	var requestIdRule []interface{}
+	for _, requestIdItem := range requestId {
+		requestIdRule = append(requestIdRule, requestIdItem)
+	}
+	var subscriptionIdRule []interface{}
+	for _, subscriptionIdItem := range subscriptionId {
+		subscriptionIdRule = append(subscriptionIdRule, subscriptionIdItem)
+	}
+
+	logs, sub, err := _FunctionsRouter.contract.WatchLogs(opts, "RequestProcessed", requestIdRule, subscriptionIdRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(FunctionsRouterRequestProcessed)
+				if err := _FunctionsRouter.contract.UnpackLog(event, "RequestProcessed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_FunctionsRouter *FunctionsRouterFilterer) ParseRequestProcessed(log types.Log) (*FunctionsRouterRequestProcessed, error) {
+	event := new(FunctionsRouterRequestProcessed)
+	if err := _FunctionsRouter.contract.UnpackLog(event, "RequestProcessed", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -3728,8 +3858,10 @@ func (_FunctionsRouter *FunctionsRouter) ParseLog(log types.Log) (generated.Abig
 		return _FunctionsRouter.ParseOwnershipTransferred(log)
 	case _FunctionsRouter.abi.Events["Paused"].ID:
 		return _FunctionsRouter.ParsePaused(log)
-	case _FunctionsRouter.abi.Events["RequestEnd"].ID:
-		return _FunctionsRouter.ParseRequestEnd(log)
+	case _FunctionsRouter.abi.Events["RequestNotProcessed"].ID:
+		return _FunctionsRouter.ParseRequestNotProcessed(log)
+	case _FunctionsRouter.abi.Events["RequestProcessed"].ID:
+		return _FunctionsRouter.ParseRequestProcessed(log)
 	case _FunctionsRouter.abi.Events["RequestStart"].ID:
 		return _FunctionsRouter.ParseRequestStart(log)
 	case _FunctionsRouter.abi.Events["RequestTimedOut"].ID:
@@ -3796,8 +3928,12 @@ func (FunctionsRouterPaused) Topic() common.Hash {
 	return common.HexToHash("0x62e78cea01bee320cd4e420270b5ea74000d11b0c9f74754ebdbfc544b05a258")
 }
 
-func (FunctionsRouterRequestEnd) Topic() common.Hash {
-	return common.HexToHash("0x45bb48b6ec798595a260f114720360b95cc58c94c6ddd37a1acc3896ec94a23a")
+func (FunctionsRouterRequestNotProcessed) Topic() common.Hash {
+	return common.HexToHash("0x1a90e9a50793db2e394cf581e7c522e10c358a81e70acf6b5a0edd620c08dee1")
+}
+
+func (FunctionsRouterRequestProcessed) Topic() common.Hash {
+	return common.HexToHash("0x47ffcaa55fde21cc7135c65541826c9e65dda59c29dc109aae964989e8fc664b")
 }
 
 func (FunctionsRouterRequestStart) Topic() common.Hash {
@@ -3999,11 +4135,17 @@ type FunctionsRouterInterface interface {
 
 	ParsePaused(log types.Log) (*FunctionsRouterPaused, error)
 
-	FilterRequestEnd(opts *bind.FilterOpts, requestId [][32]byte, subscriptionId []uint64) (*FunctionsRouterRequestEndIterator, error)
+	FilterRequestNotProcessed(opts *bind.FilterOpts, requestId [][32]byte) (*FunctionsRouterRequestNotProcessedIterator, error)
 
-	WatchRequestEnd(opts *bind.WatchOpts, sink chan<- *FunctionsRouterRequestEnd, requestId [][32]byte, subscriptionId []uint64) (event.Subscription, error)
+	WatchRequestNotProcessed(opts *bind.WatchOpts, sink chan<- *FunctionsRouterRequestNotProcessed, requestId [][32]byte) (event.Subscription, error)
 
-	ParseRequestEnd(log types.Log) (*FunctionsRouterRequestEnd, error)
+	ParseRequestNotProcessed(log types.Log) (*FunctionsRouterRequestNotProcessed, error)
+
+	FilterRequestProcessed(opts *bind.FilterOpts, requestId [][32]byte, subscriptionId []uint64) (*FunctionsRouterRequestProcessedIterator, error)
+
+	WatchRequestProcessed(opts *bind.WatchOpts, sink chan<- *FunctionsRouterRequestProcessed, requestId [][32]byte, subscriptionId []uint64) (event.Subscription, error)
+
+	ParseRequestProcessed(log types.Log) (*FunctionsRouterRequestProcessed, error)
 
 	FilterRequestStart(opts *bind.FilterOpts, requestId [][32]byte, donId [][32]byte, subscriptionId []uint64) (*FunctionsRouterRequestStartIterator, error)
 
