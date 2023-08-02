@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
@@ -30,12 +31,6 @@ func WithPostgresDbContainerName(name string) PostgresDbOption {
 	}
 }
 
-func WithPostgresDbPort(port string) PostgresDbOption {
-	return func(c *PostgresDb) {
-		c.Port = port
-	}
-}
-
 func NewPostgresDb(networks []string, opts ...PostgresDbOption) *PostgresDb {
 	pg := &PostgresDb{
 		EnvComponent: EnvComponent{
@@ -45,7 +40,7 @@ func NewPostgresDb(networks []string, opts ...PostgresDbOption) *PostgresDb {
 		User:     "postgres",
 		Password: "test",
 		DbName:   "testdb",
-		Port:     "5342",
+		Port:     "5432",
 	}
 	for _, opt := range opts {
 		opt(pg)
@@ -64,6 +59,9 @@ func (pg *PostgresDb) StartContainer(lw *logwatch.LogWatch) error {
 		return err
 	}
 	pg.Container = c
+
+	log.Info().Str("containerName", pg.ContainerName).
+		Msg("Started Postgres DB container")
 
 	return nil
 }
