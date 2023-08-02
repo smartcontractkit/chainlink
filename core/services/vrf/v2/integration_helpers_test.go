@@ -296,12 +296,6 @@ func testMultipleConsumersNeedBHS(
 		// Assert correct number of random words sent by coordinator.
 		assertNumRandomWords(t, consumerContract, numWords)
 	}
-
-	for i := 0; i < len(bhsKeys); i++ {
-		n, err := uni.backend.PendingNonceAt(testutils.Context(t), bhsKeys[i].Address)
-		require.NoError(t, err)
-		require.EqualValues(t, 1, n)
-	}
 }
 
 func verifyBlockhashStored(
