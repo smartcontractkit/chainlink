@@ -63,14 +63,13 @@ describe('FunctionsRouter - Base', () => {
 
       await expect(
         contracts.router.proposeConfigUpdateSelf(
-          ids.routerId,
           ethers.utils.defaultAbiCoder.encode(
             ['uint96', 'bytes4', 'uint32[]'],
             [1, 0x0ca76175, [300_000, 500_000]],
           ),
         ),
       ).to.emit(contracts.router, 'ConfigProposed')
-      await expect(contracts.router.updateConfig(ids.routerId)).to.emit(
+      await expect(contracts.router.updateConfigSelf()).to.emit(
         contracts.router,
         'ConfigUpdated',
       )
