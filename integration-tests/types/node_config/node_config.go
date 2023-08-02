@@ -5,7 +5,8 @@ type NodeConfig struct {
 	EVM       []EVM  `toml:"EVM"`
 	EVMNodes  []Node `toml:"EVM.Nodes"`
 	P2P       `toml:"P2P"`
-	OCR       `toml:"OCR"`
+	*OCR      `toml:"OCR"`
+	*OCR2     `toml:"OCR2"`
 	Feature   `toml:"Feature"`
 	WebServer `toml:"WebServer"`
 	Log       `toml:"Log"`
@@ -18,9 +19,6 @@ func NewNodeConfig(opts ...NodeConfigOpt) NodeConfig {
 	// Default options
 	nodeConfOpts := NodeConfig{
 		RootDir: "/home/chainlink",
-		OCR: OCR{
-			Enabled: true,
-		},
 		WebServer: WebServer{
 			AllowOrigins:   "*",
 			HTTPPort:       6688,

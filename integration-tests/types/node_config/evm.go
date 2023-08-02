@@ -15,22 +15,10 @@ type Node struct {
 	SendOnly bool   `toml:"SendOnly"`
 }
 
-func WithEvm() NodeConfigOpt {
+func WithEvmNode(chainId, wsUrl, httpUrl string) NodeConfigOpt {
 	return func(n *NodeConfig) {
 		evm := EVM{
-			ChainID:            "1337",
-			AutoCreateKey:      true,
-			FinalityDepth:      1,
-			MinContractPayment: "0",
-		}
-		n.EVM = append(n.EVM, evm)
-	}
-}
-
-func WithEvmNode(wsUrl, httpUrl string) NodeConfigOpt {
-	return func(n *NodeConfig) {
-		evm := EVM{
-			ChainID:            "1337",
+			ChainID:            chainId,
 			AutoCreateKey:      true,
 			FinalityDepth:      1,
 			MinContractPayment: "0",

@@ -60,7 +60,7 @@ func WithDbContainerName(name string) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, nodeConfOpts node_config.NodeConfig, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, nodeConf node_config.NodeConfig, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:3])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
@@ -69,7 +69,7 @@ func NewClNode(networks []string, nodeConfOpts node_config.NodeConfig, opts ...C
 			ContainerName: nodeDefaultCName,
 			Networks:      networks,
 		},
-		NodeConfigOpts: nodeConfOpts,
+		NodeConfigOpts: nodeConf,
 		PostgresDb:     pgDb,
 	}
 	for _, opt := range opts {

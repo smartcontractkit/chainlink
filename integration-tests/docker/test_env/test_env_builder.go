@@ -106,7 +106,8 @@ func (m *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTes
 		// Create nodes
 		nodeConfOpts := node_config.NewNodeConfig(
 			node_config.WithP2Pv1(),
-			node_config.WithEvmNode(te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl),
+			node_config.WithOCR1(),
+			node_config.WithEvmNode("1337", te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl),
 		)
 		err = te.StartClNodes(nodeConfOpts, m.clNodesCount)
 		if err != nil {
@@ -171,7 +172,8 @@ func (m *CLTestEnvBuilder) buildNewEnv() (*CLClusterTestEnv, error) {
 		// Create nodes
 		nodeConfOpts := node_config.NewNodeConfig(
 			node_config.WithP2Pv1(),
-			node_config.WithEvmNode(te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl),
+			node_config.WithOCR1(),
+			node_config.WithEvmNode("1337", te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl),
 		)
 		err = te.StartClNodes(nodeConfOpts, m.clNodesCount)
 		if err != nil {
