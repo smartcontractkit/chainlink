@@ -88,7 +88,7 @@ func (m *MockServer) StartContainer(lw *logwatch.LogWatch) error {
 		ClusterURL: m.InternalEndpoint,
 	})
 	if err != nil {
-		return errors.Wrapf(err, "cannot connect to mockserver client")
+		return errors.Wrapf(err, "cannot connect to MockServer client")
 	}
 	m.Client = client
 
