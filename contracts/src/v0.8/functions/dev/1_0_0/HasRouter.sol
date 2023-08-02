@@ -7,8 +7,6 @@ import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IOwnableRouter} from "./interfaces/IOwnableRouter.sol";
 
 abstract contract HasRouter is ITypeAndVersion, IConfigurable {
-  bytes32 internal s_configHash;
-
   IOwnableRouter internal immutable s_router;
 
   error RouterMustBeSet();
@@ -24,18 +22,10 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
     }
     s_router = IOwnableRouter(router);
     _updateConfig(config);
-    s_configHash = keccak256(config);
   }
 
   function _getRouter() internal view returns (IOwnableRouter router) {
     return s_router;
-  }
-
-  /**
-   * @inheritdoc IConfigurable
-   */
-  function getConfigHash() external view override returns (bytes32 config) {
-    return s_configHash;
   }
 
   /**
@@ -50,7 +40,6 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
    */
   function updateConfig(bytes memory config) public override onlyRouter {
     _updateConfig(config);
-    s_configHash = keccak256(config);
   }
 
   /**

@@ -45,13 +45,12 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   );
 
   struct ConfigProposal {
-    bytes32 fromHash;
     bytes to;
     uint256 timelockEndBlock;
   }
   mapping(bytes32 id => ConfigProposal) private s_proposedConfig;
-  event ConfigProposed(bytes32 id, bytes32 fromHash, bytes toBytes);
-  event ConfigUpdated(bytes32 id, bytes32 fromHash, bytes toBytes);
+  event ConfigProposed(bytes32 id, bytes toBytes);
+  event ConfigUpdated(bytes32 id, bytes toBytes);
   error InvalidProposal();
   error IdentifierIsReserved(bytes32 id);
   error AlreadyApplied();
@@ -59,8 +58,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                          Config state                        |
   // ================================================================
-
-  bytes32 internal s_configHash;
 
   error InvalidConfigData();
 
@@ -101,7 +98,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     // Set the initial configuration for the Router
     s_route[ROUTER_ID] = address(this);
     _updateConfig(selfConfig);
-    s_configHash = keccak256(selfConfig);
   }
 
   // ================================================================
@@ -226,15 +222,8 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @inheritdoc IRouterBase
    */
   function proposeConfigUpdateSelf(bytes calldata config) external override onlyOwner {
-    if (s_configHash == keccak256(config)) {
-      revert InvalidProposal();
-    }
-    s_proposedConfig[ROUTER_ID] = ConfigProposal({
-      fromHash: s_configHash,
-      to: config,
-      timelockEndBlock: block.number + s_timelockBlocks
-    });
-    emit ConfigProposed({id: ROUTER_ID, fromHash: s_configHash, toBytes: config});
+    s_proposedConfig[ROUTER_ID] = ConfigProposal({to: config, timelockEndBlock: block.number + s_timelockBlocks});
+    emit ConfigProposed({id: ROUTER_ID, toBytes: config});
   }
 
   /**
@@ -245,30 +234,16 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     if (block.number < proposal.timelockEndBlock) {
       revert TimelockInEffect();
     }
-    bytes32 nextConfigHash = keccak256(proposal.to);
-    if (s_configHash == nextConfigHash) {
-      revert AlreadyApplied();
-    }
     _updateConfig(proposal.to);
-    s_configHash = nextConfigHash;
-    emit ConfigUpdated({id: ROUTER_ID, fromHash: proposal.fromHash, toBytes: proposal.to});
+    emit ConfigUpdated({id: ROUTER_ID, toBytes: proposal.to});
   }
 
   /**
    * @inheritdoc IRouterBase
    */
   function proposeConfigUpdate(bytes32 id, bytes calldata config) external override onlyOwner {
-    IConfigurable configurableContract = IConfigurable(getContractById(id));
-    bytes32 currentConfigHash = configurableContract.getConfigHash();
-    if (currentConfigHash == keccak256(config)) {
-      revert InvalidProposal();
-    }
-    s_proposedConfig[id] = ConfigProposal({
-      fromHash: currentConfigHash,
-      to: config,
-      timelockEndBlock: block.number + s_timelockBlocks
-    });
-    emit ConfigProposed({id: id, fromHash: currentConfigHash, toBytes: config});
+    s_proposedConfig[id] = ConfigProposal({to: config, timelockEndBlock: block.number + s_timelockBlocks});
+    emit ConfigProposed({id: id, toBytes: config});
   }
 
   /**
@@ -281,15 +256,9 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       revert TimelockInEffect();
     }
 
-    IConfigurable configurableContract = IConfigurable(getContractById(id));
+    IConfigurable(getContractById(id)).updateConfig(proposal.to);
 
-    if (configurableContract.getConfigHash() == keccak256(proposal.to)) {
-      revert AlreadyApplied();
-    }
-
-    configurableContract.updateConfig(proposal.to);
-
-    emit ConfigUpdated({id: id, fromHash: proposal.fromHash, toBytes: proposal.to});
+    emit ConfigUpdated({id: id, toBytes: proposal.to});
   }
 
   // ================================================================
