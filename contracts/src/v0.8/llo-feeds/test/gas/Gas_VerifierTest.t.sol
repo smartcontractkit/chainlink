@@ -30,6 +30,51 @@ contract Verifier_setConfig is BaseTest {
   }
 }
 
+contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
+  uint256 internal constant DEFAULT_LINK_MINT_QUANTITY = 100 ether;
+  uint256 internal constant DEFAULT_NATIVE_MINT_QUANTITY = 100 ether;
+
+  bytes internal signedLinkPayload;
+  bytes internal signedNativePayload;
+
+  function setUp() public virtual override {
+    super.setUp();
+
+    //mint some tokens to the user
+    link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);
+    native.mint(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+    vm.deal(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+
+    //approve funds prior to test
+    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
+    _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+
+    signedLinkPayload = _generateEncodedBlobWithFeesAndQuote(
+      _generateBillingReport(),
+      _generateReportContext(),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(link))
+    );
+
+    signedNativePayload = _generateEncodedBlobWithFeesAndQuote(
+      _generateBillingReport(),
+      _generateReportContext(),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(native))
+    );
+
+    changePrank(USER);
+  }
+
+  function testVerifyProxyWithLinkFeeSuccess_gas() public {
+    s_verifierProxy.verify(signedLinkPayload);
+  }
+
+  function testVerifyProxyWithNativeFeeSuccess_gas() public {
+    s_verifierProxy.verify(signedNativePayload);
+  }
+}
+
 contract Verifier_verify is BaseTestWithConfiguredVerifierAndFeeManager {
   bytes internal s_signedReport;
   bytes32 internal s_configDigest;
