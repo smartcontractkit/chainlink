@@ -20,6 +20,8 @@ import (
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
+var ErrNoSuchRelayer = errors.New("relayer does not exist")
+
 // RelayerChainInteroperators
 // encapsulates relayers and chains and is the primary entry point for
 // the node to access relayers, get legacy chains associated to a relayer
@@ -99,7 +101,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 	return func(op *CoreRelayerChainInteroperators) (err error) {
 		adapters, err2 := factory.NewEVM(ctx, config)
 		if err2 != nil {
-			fmt.Errorf("failed to setup EVM relayer: %w", err2)
+			return fmt.Errorf("failed to setup EVM relayer: %w", err2)
 		}
 		for id, a := range adapters {
 			err2 := op.Put(id, a)
@@ -116,7 +118,7 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 	return func(op *CoreRelayerChainInteroperators) (err error) {
 		adapters, err2 := factory.NewCosmos(ctx, config)
 		if err2 != nil {
-			fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
+			return fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
 		}
 		for id, a := range adapters {
 			err2 := op.Put(id, a)
@@ -157,8 +159,6 @@ func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFa
 		return nil
 	}
 }
-
-var ErrNoSuchRelayer = errors.New("relayer does not exist")
 
 func (rs *CoreRelayerChainInteroperators) Get(id relay.Identifier) (loop.Relayer, error) {
 	rs.mu.Lock()
@@ -335,7 +335,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 	if totalErr != nil {
 		return nil, 0, totalErr
 	}
-	if len(result) > limit {
+	if len(result) > limit && limit > 0 {
 		return result[offset : offset+limit], limit, nil
 	}
 	return result[offset:], len(result[offset:]), nil
