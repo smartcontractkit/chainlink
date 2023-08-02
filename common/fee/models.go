@@ -25,9 +25,9 @@ func IsBumpErr(err error) bool {
 // - max fee price specified, default fee price and max fee price for the node.
 func CalculateFee(
 	maxFeePrice, defaultPrice, maxFeePriceConfigured *big.Int,
-) (feePrice *big.Int) {
+) *big.Int {
 	maxFeePriceAllowed := bigmath.Min(maxFeePrice, maxFeePriceConfigured)
-	return bigmath.Min(feePrice, maxFeePriceAllowed)
+	return bigmath.Min(defaultPrice, maxFeePriceAllowed)
 }
 
 // CalculateBumpedFee computes the next fee price to attempt as the largest of:
