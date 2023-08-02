@@ -4,7 +4,6 @@ import (
 	"context"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -18,16 +17,15 @@ type ChainRPCClient[
 	TXHASH types.Hashable,
 	EVENT any,
 	EVENTOPS any, // event filter query options
-	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
+	TXRECEIPT any,
 	FEE feetypes.Fee,
-	HEAD *types.Head[BLOCKHASH],
+	HEAD types.Head[BLOCKHASH],
+	SUB types.Subscription,
 ] interface {
-	RPCClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
+	RPCClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]
 
-	RPCCallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
-	Start(startCtx context.Context) error
 	Close() error
+	ClientChainID(context.Context) (CHAINID, error)
 	Dial(callerCtx context.Context) error
-	Verify(callerCtx context.Context) (err error)
 	DisconnectAll()
 }

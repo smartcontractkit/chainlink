@@ -6,7 +6,6 @@ import (
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 )
@@ -21,9 +20,10 @@ type RPCClient[
 	TXHASH types.Hashable,
 	EVENT any,
 	EVENTOPS any, // event filter query options
-	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
+	TXRECEIPT any,
 	FEE feetypes.Fee,
-	HEAD *types.Head[BLOCKHASH],
+	HEAD types.Head[BLOCKHASH],
+	SUB types.Subscription,
 ] interface {
 	Accounts[ADDR, SEQ]
 	Transactions[TX, TXHASH, TXRECEIPT]
@@ -47,20 +47,19 @@ type RPCClient[
 	EstimateGas(ctx context.Context, call any) (gas uint64, err error)
 	HeadByNumber(ctx context.Context, number *big.Int) (head HEAD, err error)
 	HeadByHash(ctx context.Context, hash BLOCKHASH) (head HEAD, err error)
-	IsL2() bool
 	LINKBalance(ctx context.Context, accountAddress ADDR, linkAddress ADDR) (*assets.Link, error)
 	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
-	SendEmptyTransaction(
-		ctx context.Context,
-		newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE], err error),
-		seq SEQ,
-		gasLimit uint32,
-		fee FEE,
-		fromAddress ADDR,
-	) (txhash string, err error)
+	// SendEmptyTransaction(
+	// 	ctx context.Context,
+	// 	newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE], err error),
+	// 	seq SEQ,
+	// 	gasLimit uint32,
+	// 	fee FEE,
+	// 	fromAddress ADDR,
+	// ) (txhash string, err error)
 	SendTransactionReturnCode(
 		ctx context.Context,
-		tx any,
+		tx *TX,
 	) (clienttypes.SendTxReturnCode, error)
 	// SendTransactionReturnCode(
 	// 	ctx context.Context,
@@ -68,7 +67,7 @@ type RPCClient[
 	// 	attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
 	// 	lggr logger.Logger,
 	// ) (clienttypes.SendTxReturnCode, error)
-	Subscribe(ctx context.Context, channel chan<- types.Head[BLOCKHASH], args ...interface{}) (types.Subscription, error)
+	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (SUB, error)
 }
 
 type Accounts[ADDR types.Hashable, SEQ types.Sequence] interface {

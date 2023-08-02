@@ -16,7 +16,9 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -72,13 +74,14 @@ func NewRPCClient(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lg
 	common.Address,
 	types.Block,
 	common.Hash,
-	evmtypes.Transaction,
+	types.Transaction,
 	common.Hash,
 	types.Log,
 	ethereum.FilterQuery,
-	*evmtypes.Receipt,
+	types.Receipt,
 	evmtypes.EvmFee,
 	*evmtypes.Head,
+	ethereum.Subscription,
 ] {
 	r := new(rpcClient)
 	r.name = name
@@ -512,8 +515,23 @@ func (r *rpcClient) SendTransaction(ctx context.Context, tx *types.Transaction) 
 	return err
 }
 
-// PendingNonceAt returns one higher than the highest nonce from both mempool and mined transactions
-func (r *rpcClient) PendingNonceAt(ctx context.Context, account common.Address) (nonce uint64, err error) {
+func (r *rpcClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction) (clienttypes.SendTxReturnCode, error) {
+	from, err := types.Sender(types.NewEIP155Signer(tx.ChainId()), tx)
+	if err != nil {
+		return clienttypes.Fatal, err
+	}
+	err = r.SendTransaction(ctx, tx)
+
+	return NewSendOnlyErrorReturnCode(err, r.rpcLog, tx, from, true)
+}
+
+func (r *rpcClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
+	// todo: implement if used
+	return errors.New("SimulateTransaction not implemented")
+}
+
+// PendingSequenceAt returns one higher than the highest nonce from both mempool and mined transactions
+func (r *rpcClient) PendingSequenceAt(ctx context.Context, account common.Address) (nonce evmtypes.Nonce, err error) {
 	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return 0, err
@@ -524,15 +542,48 @@ func (r *rpcClient) PendingNonceAt(ctx context.Context, account common.Address) 
 	lggr.Debug("RPC call: evmclient.Client#PendingNonceAt")
 	start := time.Now()
 	if http != nil {
-		nonce, err = http.geth.PendingNonceAt(ctx, account)
+		n, err := http.geth.PendingNonceAt(ctx, account)
+		nonce = evmtypes.Nonce(int64(n))
 		err = r.wrapHTTP(err)
 	} else {
-		nonce, err = ws.geth.PendingNonceAt(ctx, account)
+		n, err := ws.geth.PendingNonceAt(ctx, account)
+		nonce = evmtypes.Nonce(int64(n))
 		err = r.wrapWS(err)
 	}
 	duration := time.Since(start)
 
 	r.logResult(lggr, err, duration, r.getRPCDomain(), "PendingNonceAt",
+		"nonce", nonce,
+	)
+
+	return
+}
+
+// SequenceAt is a bit of a misnomer. You might expect it to return the highest
+// mined nonce at the given block number, but it actually returns the total
+// transaction count which is the highest mined nonce + 1
+func (r *rpcClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce evmtypes.Nonce, err error) {
+	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer cancel()
+	lggr := r.newRqLggr().With("account", account, "blockNumber", blockNumber)
+
+	lggr.Debug("RPC call: evmclient.Client#NonceAt")
+	start := time.Now()
+	if http != nil {
+		n, err := http.geth.NonceAt(ctx, account, blockNumber)
+		nonce = evmtypes.Nonce(int64(n))
+		err = r.wrapHTTP(err)
+	} else {
+		n, err := ws.geth.NonceAt(ctx, account, blockNumber)
+		nonce = evmtypes.Nonce(int64(n))
+		err = r.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "NonceAt",
 		"nonce", nonce,
 	)
 
@@ -753,6 +804,12 @@ func (r *rpcClient) BlockByHash(ctx context.Context, hash common.Hash) (b *types
 	return
 }
 
+func (r *rpcClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
+	var height big.Int
+	h, err := r.BlockNumber(ctx)
+	return height.SetUint64(h), err
+}
+
 func (r *rpcClient) BlockNumber(ctx context.Context) (height uint64, err error) {
 	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
@@ -803,6 +860,33 @@ func (r *rpcClient) BalanceAt(ctx context.Context, account common.Address, block
 	)
 
 	return
+}
+
+// TokenBalance returns the balance of the given address for the token contract address.
+func (r *rpcClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
+	result := ""
+	numLinkBigInt := new(big.Int)
+	functionSelector := evmtypes.HexToFunctionSelector(BALANCE_OF_ADDRESS_FUNCTION_SELECTOR) // balanceOf(address)
+	data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen))
+	args := CallArgs{
+		To:   contractAddress,
+		Data: data,
+	}
+	err := r.CallContext(ctx, &result, "eth_call", args, "latest")
+	if err != nil {
+		return numLinkBigInt, err
+	}
+	numLinkBigInt.SetString(result, 0)
+	return numLinkBigInt, nil
+}
+
+// LINKBalance returns the balance of LINK at the given address
+func (r *rpcClient) LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error) {
+	balance, err := r.TokenBalance(ctx, address, linkAddress)
+	if err != nil {
+		return assets.NewLinkFromJuels(0), err
+	}
+	return (*assets.Link)(balance), nil
 }
 
 func (r *rpcClient) FilterEvents(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
@@ -885,11 +969,26 @@ func (r *rpcClient) SuggestGasTipCap(ctx context.Context) (tipCap *big.Int, err 
 
 func (r *rpcClient) ChainID() (chainID *big.Int, err error) { return r.chainID, nil }
 
-func (r *rpcClient) ConfiguredChainID() *big.Int {
-	chainID, err := r.ChainID()
-	if err != nil {
-		return chainID
+// Returns the ChainID according to the geth client. This is useful for functions like verify()
+// the common node.
+func (r *rpcClient) ClientChainID(ctx context.Context) (chainID *big.Int, err error) {
+	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+
+	defer cancel()
+
+	if http != nil {
+		chainID, err = http.geth.ChainID(ctx)
+		err = r.wrapHTTP(err)
+	} else {
+		chainID, err = ws.geth.ChainID(ctx)
+		err = r.wrapWS(err)
 	}
+	return
+}
+
+func (r *rpcClient) ConfiguredChainID() *big.Int {
+	chainID, _ := r.ChainID()
+	return chainID
 }
 
 // newRqLggr generates a new logger with a unique request ID
