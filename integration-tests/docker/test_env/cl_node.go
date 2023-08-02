@@ -5,7 +5,6 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
@@ -230,7 +229,7 @@ func (n *ClNode) StartContainer(lw *logwatch.LogWatch) error {
 
 func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
-	configFile, err := ioutil.TempFile("", "node_config")
+	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +242,7 @@ func (n *ClNode) getContainerRequest(secrets string) (
 		return nil, err
 	}
 
-	secretsFile, err := ioutil.TempFile("", "node_secrets")
+	secretsFile, err := os.CreateTemp("", "node_secrets")
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +252,7 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	}
 
 	adminCreds := "local@local.com\nlocaldevpassword"
-	adminCredsFile, err := ioutil.TempFile("", "admin_creds")
+	adminCredsFile, err := os.CreateTemp("", "admin_creds")
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +262,7 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	}
 
 	apiCreds := "local@local.com\nlocaldevpassword"
-	apiCredsFile, err := ioutil.TempFile("", "api_creds")
+	apiCredsFile, err := os.CreateTemp("", "api_creds")
 	if err != nil {
 		return nil, err
 	}
