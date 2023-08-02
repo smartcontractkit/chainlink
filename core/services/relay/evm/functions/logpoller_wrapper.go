@@ -161,6 +161,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 				Flags:               oracleRequest.Flags,
 				CallbackGasLimit:    oracleRequest.CallbackGasLimit,
 				TxHash:              oracleRequest.Raw.TxHash,
+				OnchainMetadata:     oracleRequest.Commitment,
 				CoordinatorContract: coordinator,
 			})
 		}

@@ -2,8 +2,9 @@
 pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
-import {HasRouter, ITypeAndVersion} from "../HasRouter.sol";
+import {HasRouter} from "../HasRouter.sol";
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
+import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
 
 import {Address} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
 import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
@@ -60,9 +61,7 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
   /**
    * @inheritdoc ITypeAndVersion
    */
-  function typeAndVersion() public pure override returns (string memory) {
-    return "Functions Terms of Service Allow List v1.0.0";
-  }
+  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
 
   // ================================================================
   // |                  Terms of Service methods                    |

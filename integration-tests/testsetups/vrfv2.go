@@ -31,7 +31,8 @@ type VRFV2SoakTest struct {
 	TestReporter testreporters.VRFV2SoakTestReporter
 
 	testEnvironment *environment.Environment
-	ChainlinkNodes  []*client.Chainlink
+	namespace       string
+	ChainlinkNodes  []*client.ChainlinkK8sClient
 	chainClient     blockchain.EVMClient
 	DefaultNetwork  blockchain.EVMClient
 
@@ -59,7 +60,7 @@ type VRFV2SoakTestInputs struct {
 }
 
 // NewVRFV2SoakTest creates a new vrfv2 soak test to setup and run
-func NewVRFV2SoakTest(inputs *VRFV2SoakTestInputs, chainlinkNodes []*client.Chainlink) *VRFV2SoakTest {
+func NewVRFV2SoakTest(inputs *VRFV2SoakTestInputs, chainlinkNodes []*client.ChainlinkK8sClient) *VRFV2SoakTest {
 	return &VRFV2SoakTest{
 		Inputs: inputs,
 		TestReporter: testreporters.VRFV2SoakTestReporter{
@@ -73,6 +74,7 @@ func NewVRFV2SoakTest(inputs *VRFV2SoakTestInputs, chainlinkNodes []*client.Chai
 func (v *VRFV2SoakTest) Setup(t *testing.T, env *environment.Environment) {
 	v.ensureInputValues(t)
 	v.testEnvironment = env
+	v.namespace = v.testEnvironment.Cfg.Namespace
 	v.chainClient.ParallelTransactions(true)
 }
 
@@ -161,12 +163,12 @@ func requestAndValidate(t *VRFV2SoakTest, requestNumber int) {
 // Networks returns the networks that the test is running on
 func (v *VRFV2SoakTest) TearDownVals(t *testing.T) (
 	*testing.T,
-	*environment.Environment,
-	[]*client.Chainlink,
+	string,
+	[]*client.ChainlinkK8sClient,
 	reportModel.TestReporter,
 	blockchain.EVMClient,
 ) {
-	return t, v.testEnvironment, v.ChainlinkNodes, &v.TestReporter, v.chainClient
+	return t, v.namespace, v.ChainlinkNodes, &v.TestReporter, v.chainClient
 }
 
 // ensureValues ensures that all values needed to run the test are present
