@@ -82,8 +82,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     // 2*2100 + 5000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
     // 4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
     // 6685 + // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
-    // 21000  // cost of a cold storage write to update the request payments mapping.
-    // Total: 58,815 gas.
+    // Total: 37,185 gas.
     uint32 gasAfterPaymentCalculation;
   }
   int256 public s_fallbackWeiPerUnitLink;
