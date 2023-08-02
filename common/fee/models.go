@@ -20,11 +20,13 @@ func IsBumpErr(err error) bool {
 	return err != nil && (errors.Is(err, ErrBumpFeeExceedsLimit) || errors.Is(err, ErrBump) || errors.Is(err, ErrConnectivity))
 }
 
-// CalculateFee computes the fee price and chain specific fee limit for a transaction.
+// CalculateFee computes the fee price for a transaction.
+// The fee price is the minimum of:
+// - max fee price specified, default fee price and max fee price for the node.
 func CalculateFee(
-	maxFeePrice, defaultPrice, maxBumpPrice *big.Int,
+	maxFeePrice, defaultPrice, maxFeePriceConfigured *big.Int,
 ) (feePrice *big.Int) {
-	maxFeePriceAllowed := bigmath.Min(maxFeePrice, maxBumpPrice)
+	maxFeePriceAllowed := bigmath.Min(maxFeePrice, maxFeePriceConfigured)
 	return bigmath.Min(feePrice, maxFeePriceAllowed)
 }
 
