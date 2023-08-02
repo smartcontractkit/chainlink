@@ -36,4 +36,4 @@ func addPercentage(value *big.Int, percentage uint16) *big.Int {
 }
 
 // Returns the fee in its chain specific unit.
-type FeeUnitToChainUnit func(fee *big.Int) string
+type feeUnitToChainUnit func(fee *big.Int) string

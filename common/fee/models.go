@@ -53,7 +53,7 @@ func bumpFeePrice(
 	lggr logger.SugaredLogger,
 	currentfeePrice, originalfeePrice, maxFeePriceInput, maxBumpPrice, bumpMin *big.Int,
 	bumpPercent uint16,
-	toChainUnit FeeUnitToChainUnit,
+	toChainUnit feeUnitToChainUnit,
 ) (*big.Int, error) {
 	maxFeePrice := bigmath.Min(maxFeePriceInput, maxBumpPrice)
 	bumpedFeePrice := maxBumpedFee(originalfeePrice, bumpPercent, bumpMin)
@@ -84,7 +84,7 @@ func maxBumpedFee(originalFeePrice *big.Int, feeBumpPercent uint16, feeBumpUnits
 }
 
 // Returns the max of currentFeePrice, bumpedFeePrice, and maxFeePrice
-func maxFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, maxFeePrice *big.Int, feeType string, toChainUnit FeeUnitToChainUnit) *big.Int {
+func maxFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, maxFeePrice *big.Int, feeType string, toChainUnit feeUnitToChainUnit) *big.Int {
 	if currentFeePrice == nil {
 		return bumpedFeePrice
 	}
