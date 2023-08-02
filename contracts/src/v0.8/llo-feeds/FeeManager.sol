@@ -143,25 +143,19 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     if (subscriber == address(this)) revert InvalidAddress();
 
     //decode the report from the payload
-    (, bytes memory report) = abi.decode(
-      payload,
-      (bytes32[3], bytes)
-    );
+    (, bytes memory report) = abi.decode(payload, (bytes32[3], bytes));
 
     //default reports don't need a quote payload, so we can skip the decoding if the report is default
     Quote memory quote;
-    if(report.length > DEFAULT_REPORT_LENGTH) {
+    if (report.length > DEFAULT_REPORT_LENGTH) {
       //decode the quoteBytes, if the bytes are missing the tx will revert
-      (,,,,, bytes memory quoteBytes) = abi.decode(
+      (, , , , , bytes memory quoteBytes) = abi.decode(
         payload,
         (bytes32[3], bytes, bytes32[], bytes32[], bytes32, bytes)
       );
 
       //decode the quote from the bytes
-      (quote) = abi.decode(
-        quoteBytes,
-        (Quote)
-      );
+      (quote) = abi.decode(quoteBytes, (Quote));
     }
 
     //decode the fee, it will always be native or LINK
@@ -243,7 +237,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     //decode the report fields we need
-    (,,,,,,,,, uint256 linkQuantity, uint256 nativeQuantity, uint256 expiresAt) = abi.decode(
+    (, , , , , , , , , uint256 linkQuantity, uint256 nativeQuantity, uint256 expiresAt) = abi.decode(
       report,
       (bytes32, uint32, int192, int192, int192, uint64, bytes32, uint64, uint64, uint192, uint192, uint32)
     );

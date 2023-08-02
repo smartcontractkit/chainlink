@@ -94,7 +94,6 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     processFee(payload, USER, 0, ADMIN);
   }
 
-
   function test_processFeeWithWithNoReportPayload() public {
     //get the default payload
     bytes memory payload = getPayload(bytes(""), getQuotePayload(getLinkAddress()));

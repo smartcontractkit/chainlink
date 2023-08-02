@@ -156,18 +156,7 @@ contract BaseFeeManagerTest is Test {
   }
 
   function getReportNoFeeOrExpiry(bytes32 feedId) public pure returns (bytes memory) {
-    return
-      abi.encode(
-        feedId,
-        uint32(0),
-        int192(0),
-        int192(0),
-        int192(0),
-        uint64(0),
-        bytes32(0),
-        uint64(0),
-        uint64(0)
-      );
+    return abi.encode(feedId, uint32(0), int192(0), int192(0), int192(0), uint64(0), bytes32(0), uint64(0), uint64(0));
   }
 
   function getReportWithFee(bytes32 feedId) public view returns (bytes memory) {
@@ -294,7 +283,6 @@ contract BaseFeeManagerTest is Test {
     //change back to the original address
     changePrank(originalAddr);
   }
-
 
   function getPayload(bytes memory reportPayload, bytes memory quotePayload) public pure returns (bytes memory) {
     return

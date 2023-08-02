@@ -45,6 +45,9 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
     native.mint(USER, DEFAULT_NATIVE_MINT_QUANTITY);
     vm.deal(USER, DEFAULT_NATIVE_MINT_QUANTITY);
 
+    //mint some link tokens to the feeManager pool
+    link.mint(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+
     //approve funds prior to test
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
     _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);

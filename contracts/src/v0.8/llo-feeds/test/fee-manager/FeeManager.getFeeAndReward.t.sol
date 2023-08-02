@@ -427,12 +427,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(
-      getReportWithCustomExpiryAndFee(
-        DEFAULT_FEED_1,
-        uint32(block.timestamp),
-        0,
-        0
-      ),
+      getReportWithCustomExpiryAndFee(DEFAULT_FEED_1, uint32(block.timestamp), 0, 0),
       getNativeQuote(),
       USER
     );
@@ -450,12 +445,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(
-      getReportWithCustomExpiryAndFee(
-        DEFAULT_FEED_1,
-        uint32(block.timestamp),
-        0,
-        0
-      ),
+      getReportWithCustomExpiryAndFee(DEFAULT_FEED_1, uint32(block.timestamp), 0, 0),
       getNativeQuote(),
       USER
     );

@@ -282,20 +282,21 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
   }
 
   function _encodeReport(BillingReport memory report) internal pure returns (bytes memory) {
-    return abi.encode(
-      report.feedId,
-      report.observationsTimestamp,
-      report.median,
-      report.bid,
-      report.ask,
-      report.blocknumberUpperBound,
-      report.upperBlockhash,
-      report.blocknumberLowerBound,
-      report.currentBlockTimestamp,
-      report.linkFee,
-      report.nativeFee,
-      report.expiresAt
-    );
+    return
+      abi.encode(
+        report.feedId,
+        report.observationsTimestamp,
+        report.median,
+        report.bid,
+        report.ask,
+        report.blocknumberUpperBound,
+        report.upperBlockhash,
+        report.blocknumberLowerBound,
+        report.currentBlockTimestamp,
+        report.linkFee,
+        report.nativeFee,
+        report.expiresAt
+      );
   }
 
   function _generateEncodedBlobWithFeesAndQuote(
@@ -319,20 +320,21 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
   }
 
   function _generateBillingReport() internal returns (BillingReport memory) {
-    return BillingReport({
-      feedId: FEED_ID,
-      observationsTimestamp: OBSERVATIONS_TIMESTAMP,
-      median: MEDIAN,
-      bid: BID,
-      ask: ASK,
-      blocknumberUpperBound: BLOCKNUMBER_UPPER_BOUND,
-      upperBlockhash: blockhash(BLOCKNUMBER_UPPER_BOUND),
-      blocknumberLowerBound: BLOCKNUMBER_LOWER_BOUND,
-      currentBlockTimestamp: uint64(block.timestamp),
-      linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
-      nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
-      expiresAt: uint32(block.timestamp)
-    });
+    return
+      BillingReport({
+        feedId: FEED_ID,
+        observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+        median: MEDIAN,
+        bid: BID,
+        ask: ASK,
+        blocknumberUpperBound: BLOCKNUMBER_UPPER_BOUND,
+        upperBlockhash: blockhash(BLOCKNUMBER_UPPER_BOUND),
+        blocknumberLowerBound: BLOCKNUMBER_LOWER_BOUND,
+        currentBlockTimestamp: uint64(block.timestamp),
+        linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+        nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+        expiresAt: uint32(block.timestamp)
+      });
   }
 
   function _generateReportContext() internal returns (bytes32[3] memory) {
