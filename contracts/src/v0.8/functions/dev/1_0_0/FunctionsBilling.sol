@@ -193,11 +193,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   /**
    * @inheritdoc IFunctionsBilling
    */
-  function getAdminFee(
-    bytes memory /* requestData */,
-    RequestBilling memory /* billing */
-  ) public view override returns (uint96) {
-    // NOTE: Optionally, compute additional fee here
+  function getAdminFee() public view override returns (uint96) {
     IFunctionsRouter.Config memory config = _getRouter().getConfig();
     return config.adminFee;
   }
@@ -230,9 +226,9 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     if (gasPrice > 1_000_000) {
       revert InvalidCalldata();
     }
-    RequestBilling memory billing = RequestBilling(subscriptionId, msg.sender, callbackGasLimit, gasPrice);
+    uint96 adminFee = getAdminFee();
+    RequestBilling memory billing = RequestBilling(subscriptionId, msg.sender, callbackGasLimit, gasPrice, adminFee);
     uint96 donFee = getDONFee(data, billing);
-    uint96 adminFee = getAdminFee(data, billing);
     return _calculateCostEstimate(callbackGasLimit, gasPrice, donFee, adminFee);
   }
 
@@ -285,8 +281,12 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
 
     // Check that subscription can afford the estimated cost
     uint80 donFee = getDONFee(data, billing);
-    uint96 adminFee = getAdminFee(data, billing);
-    uint96 estimatedCost = _calculateCostEstimate(billing.callbackGasLimit, billing.expectedGasPrice, donFee, adminFee);
+    uint96 estimatedCost = _calculateCostEstimate(
+      billing.callbackGasLimit,
+      billing.expectedGasPrice,
+      donFee,
+      billing.adminFee
+    );
     IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(_getRouter()));
     (uint96 balance, uint96 blockedBalance, , , ) = subscriptions.getSubscription(billing.subscriptionId);
     (, uint64 initiatedRequests, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
@@ -298,7 +298,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     bytes32 requestId = computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
 
     commitment = IFunctionsRequest.Commitment({
-      adminFee: adminFee,
+      adminFee: billing.adminFee,
       coordinator: address(this),
       client: billing.client,
       subscriptionId: billing.subscriptionId,

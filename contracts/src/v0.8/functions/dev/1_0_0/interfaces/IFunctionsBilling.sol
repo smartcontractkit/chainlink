@@ -15,6 +15,8 @@ interface IFunctionsBilling {
     uint32 callbackGasLimit;
     // the expected gas price used to execute the transaction
     uint256 expectedGasPrice;
+    // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
+    uint96 adminFee;
   }
 
   /**
@@ -56,11 +58,9 @@ interface IFunctionsBilling {
 
   /**
    * @notice Determine the fee that will be paid to the Router owner for operating the network
-   * @param requestData Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
-   * @param billing The request's billing configuration
    * @return fee Cost in Juels (1e18) of LINK
    */
-  function getAdminFee(bytes memory requestData, RequestBilling memory billing) external view returns (uint96);
+  function getAdminFee() external view returns (uint96);
 
   /**
    * @notice Estimate the total cost that will be charged to a subscription to make a request: gas re-reimbursement, plus DON fee, plus Registry fee

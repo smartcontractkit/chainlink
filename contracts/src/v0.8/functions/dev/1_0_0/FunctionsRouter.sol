@@ -144,7 +144,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
         subscriptionId,
         dataVersion,
         _getFlags(subscriptionId),
-        callbackGasLimit
+        callbackGasLimit,
+        s_config.adminFee
       )
     );
 
@@ -384,6 +385,10 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     if (callbackGasLimit > s_config.maxCallbackGasLimits[index]) {
       revert GasLimitTooBig(s_config.maxCallbackGasLimits[index]);
     }
+  }
+
+  function _getMaxConsumers() internal view override returns (uint16) {
+    return s_config.maxConsumers;
   }
 
   // ================================================================

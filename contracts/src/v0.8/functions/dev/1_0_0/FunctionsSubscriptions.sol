@@ -389,7 +389,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
     // Already maxed, cannot add any more consumers.
-    if (s_subscriptions[subscriptionId].consumers.length == IFunctionsRouter(address(this)).getConfig().maxConsumers) {
+    if (s_subscriptions[subscriptionId].consumers.length == _getMaxConsumers()) {
       revert TooManyConsumers();
     }
     if (s_consumers[consumer][subscriptionId].allowed) {
@@ -470,6 +470,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function getFlags(uint64 subscriptionId) external view returns (bytes32) {
     return _getFlags(subscriptionId);
   }
+
+  function _getMaxConsumers() internal view virtual returns (uint16);
 
   // ================================================================
   // |                  Request Timeout Methods                     |

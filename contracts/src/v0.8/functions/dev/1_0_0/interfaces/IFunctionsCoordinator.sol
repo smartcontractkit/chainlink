@@ -15,6 +15,7 @@ interface IFunctionsCoordinator {
     uint16 dataVersion; // The version of the structure of the encoded data
     bytes32 flags; // Per-subscription flags
     uint32 callbackGasLimit; // The amount of gas that the callback to the consuming contract can utilize
+    uint96 adminFee; // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
   }
 
   /**
