@@ -73,6 +73,32 @@ func (_m *Registry) GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int,
 	return r0, r1
 }
 
+// GetActiveUpkeepIDsByType provides a mock function with given fields: opts, startIndex, endIndex, trigger
+func (_m *Registry) GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, endIndex *big.Int, trigger uint8) ([]*big.Int, error) {
+	ret := _m.Called(opts, startIndex, endIndex, trigger)
+
+	var r0 []*big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, *big.Int, uint8) ([]*big.Int, error)); ok {
+		return rf(opts, startIndex, endIndex, trigger)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int, *big.Int, uint8) []*big.Int); ok {
+		r0 = rf(opts, startIndex, endIndex, trigger)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int, *big.Int, uint8) error); ok {
+		r1 = rf(opts, startIndex, endIndex, trigger)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetState provides a mock function with given fields: opts
 func (_m *Registry) GetState(opts *bind.CallOpts) (i_keeper_registry_master_wrapper_2_1.GetState, error) {
 	ret := _m.Called(opts)
