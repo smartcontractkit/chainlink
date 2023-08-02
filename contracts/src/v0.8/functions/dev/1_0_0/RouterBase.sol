@@ -38,11 +38,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     uint256 timelockEndBlock
   );
 
-  event ContractUpdated(
-    bytes32 id,
-    address from,
-    address to
-  );
+  event ContractUpdated(bytes32 id, address from, address to);
 
   struct ConfigProposal {
     bytes to;
@@ -198,11 +194,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       address from = s_route[id];
       address to = s_proposedContractSet.to[i];
       s_route[id] = to;
-      emit ContractUpdated({
-        id: id,
-        from: from,
-        to: to
-      });
+      emit ContractUpdated({id: id, from: from, to: to});
     }
 
     delete s_proposedContractSet;
