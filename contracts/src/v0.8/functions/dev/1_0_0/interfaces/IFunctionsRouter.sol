@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {IRouterBase} from "./IRouterBase.sol";
+import {IFunctionsRequest} from "./IFunctionsRequest.sol";
 
 /**
  * @title Chainlink Functions Router interface.
@@ -43,22 +44,22 @@ interface IFunctionsRouter is IRouterBase {
    * - calling back the data that the Oracle returned to the client contract
    * - pay the DON for processing the request
    * @dev Only callable by the Coordinator contract that is saved in the commitment
-   * @param requestId The identifier for the request
    * @param response response data from DON consensus
    * @param err error from DON consensus
-   * @param juelsPerGas -
-   * @param costWithoutFulfillment -
-   * @param transmitter -
+   * @param juelsPerGas - current rate of juels/gas
+   * @param costWithoutFulfillment - The cost of processing the request (in Juels of LINK ), without fulfillment
+   * @param transmitter - The Node that transmitted the OCR report
+   * @param commitment - The parameters of the request that must be held consistent between request and response time
    * @return fulfillResult -
    * @return callbackGasCostJuels -
    */
   function fulfill(
-    bytes32 requestId,
     bytes memory response,
     bytes memory err,
     uint96 juelsPerGas,
     uint96 costWithoutFulfillment,
-    address transmitter
+    address transmitter,
+    IFunctionsRequest.Commitment memory commitment
   ) external returns (uint8, uint96);
 
   /**

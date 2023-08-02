@@ -412,6 +412,7 @@ func (l *FunctionsListener) handleOracleRequestV1(request *evmrelayTypes.OracleR
 		Flags:                      request.Flags[:],
 		CallbackGasLimit:           &callbackGasLimit,
 		CoordinatorContractAddress: &request.CoordinatorContract,
+		OnchainMetadata:            request.OnchainMetadata,
 	}
 	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
 		if errors.Is(err, ErrDuplicateRequestID) {

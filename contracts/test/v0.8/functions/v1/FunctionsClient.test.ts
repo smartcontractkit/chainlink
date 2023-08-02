@@ -58,6 +58,7 @@ describe('Functions Client', () => {
           anyValue,
           flags,
           callbackGas,
+          anyValue,
         )
     })
 
@@ -153,16 +154,25 @@ describe('Functions Client', () => {
       const response = stringToBytes('response')
       const error = stringToBytes('')
       const abi = ethers.utils.defaultAbiCoder
-
+      const oracleRequestEvent = await contracts.coordinator.queryFilter(
+        contracts.coordinator.filters.OracleRequest(),
+      )
+      const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
+      const offchainMetadata = stringToBytes('')
       const report = abi.encode(
-        ['bytes32[]', 'bytes[]', 'bytes[]'],
-        [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
+        ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
+        [
+          [ethers.utils.hexZeroPad(requestId, 32)],
+          [response],
+          [error],
+          [onchainMetadata],
+          [offchainMetadata],
+        ],
       )
 
       await expect(contracts.coordinator.callReport(report))
         .to.emit(contracts.coordinator, 'OracleResponse')
         .withArgs(requestId, await roles.defaultAccount.getAddress())
-        .to.emit(contracts.coordinator, 'BillingEnd')
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
     })

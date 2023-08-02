@@ -217,9 +217,15 @@ describe('FunctionsRouter - Base', () => {
       const { events } = await requestProposedTx.wait()
       const requestId = getEventArg(events, 'RequestSent', 0)
 
+      const oracleRequestEvent = await coordinator2.queryFilter(
+        contracts.coordinator.filters.OracleRequest(),
+      )
+      const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
       const report = encodeReport(
         ethers.utils.hexZeroPad(requestId, 32),
         stringToHex('hello world'),
+        stringToHex(''),
+        onchainMetadata,
         stringToHex(''),
       )
 
