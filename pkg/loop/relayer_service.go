@@ -63,6 +63,13 @@ func (r *RelayerService) NewMercuryProvider(ctx context.Context, rargs types.Rel
 	return r.service.NewMercuryProvider(ctx, rargs, pargs)
 }
 
+func (r *RelayerService) NewFunctionsProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.FunctionsProvider, error) {
+	if err := r.wait(ctx); err != nil {
+		return nil, err
+	}
+	return r.service.NewFunctionsProvider(ctx, rargs, pargs)
+}
+
 func (r *RelayerService) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
 	if err := r.wait(ctx); err != nil {
 		return types.ChainStatus{}, err

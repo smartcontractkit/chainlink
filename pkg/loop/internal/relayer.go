@@ -168,6 +168,7 @@ type Relayer interface {
 	NewConfigProvider(context.Context, types.RelayArgs) (types.ConfigProvider, error)
 	NewMedianProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.MedianProvider, error)
 	NewMercuryProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.MercuryProvider, error)
+	NewFunctionsProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.FunctionsProvider, error)
 
 	ChainStatus(ctx context.Context, id string) (types.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) (chains []types.ChainStatus, count int, err error)
@@ -236,6 +237,10 @@ func (r *relayerClient) NewMedianProvider(ctx context.Context, rargs types.Relay
 
 func (r *relayerClient) NewMercuryProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.MercuryProvider, error) {
 	return nil, errors.New("mercury is not supported")
+}
+
+func (r *relayerClient) NewFunctionsProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.FunctionsProvider, error) {
+	return nil, errors.New("functions are not supported")
 }
 
 func (r *relayerClient) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {

@@ -90,6 +90,10 @@ func (s staticRelayer) NewMercuryProvider(ctx context.Context, rargs types.Relay
 	panic("unimplemented")
 }
 
+func (s staticRelayer) NewFunctionsProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.FunctionsProvider, error) {
+	panic("unimplemented")
+}
+
 func (s staticRelayer) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
 	if id != chainID {
 		return types.ChainStatus{}, fmt.Errorf("expected id %s but got %s", chainID, id)
