@@ -653,6 +653,8 @@ jobs:
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
       - name: Notify Slack
         id: slack
+        ## DEBUG: Testing what's up
+        if: always()
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         with:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
