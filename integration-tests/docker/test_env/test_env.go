@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/node"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/node_config"
 	tc "github.com/testcontainers/testcontainers-go"
 	"go.uber.org/multierr"
 )
@@ -60,7 +60,7 @@ func (m *CLClusterTestEnv) StartMockServer() error {
 }
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
-func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts node.NodeConfigOpts, count int) error {
+func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts node_config.NodeConfig, count int) error {
 	var wg sync.WaitGroup
 	var errs = []error{}
 	var mu sync.Mutex
@@ -98,18 +98,6 @@ func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts node.NodeConfigOpts, coun
 		return multierr.Combine(errs...)
 	}
 	return nil
-}
-
-func (m *CLClusterTestEnv) GetDefaultNodeConfigOpts() node.NodeConfigOpts {
-	return node.NodeConfigOpts{
-		EVM: struct {
-			HttpUrl string
-			WsUrl   string
-		}{
-			HttpUrl: m.Geth.InternalHttpUrl,
-			WsUrl:   m.Geth.InternalWsUrl,
-		},
-	}
 }
 
 // ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes

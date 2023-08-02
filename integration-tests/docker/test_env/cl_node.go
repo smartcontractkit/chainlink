@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 
 	"math/big"
@@ -22,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/node"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/node_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -35,7 +36,7 @@ import (
 type ClNode struct {
 	EnvComponent
 	API            *client.ChainlinkClient
-	NodeConfigOpts node.NodeConfigOpts
+	NodeConfigOpts node_config.NodeConfig
 	PostgresDb     *PostgresDb
 }
 
@@ -59,7 +60,7 @@ func WithDbContainerName(name string) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, nodeConfOpts node.NodeConfigOpts, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, nodeConfOpts node_config.NodeConfig, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:3])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
@@ -233,11 +234,11 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	if err != nil {
 		return nil, err
 	}
-	config, err := node.ExecuteNodeConfigTemplate(n.NodeConfigOpts)
+	data, err := toml.Marshal(n.NodeConfigOpts)
 	if err != nil {
 		return nil, err
 	}
-	_, err = configFile.WriteString(config)
+	_, err = configFile.WriteString(string(data))
 	if err != nil {
 		return nil, err
 	}
