@@ -66,7 +66,15 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 		ChainID: chainID,
 		Chain:   evmcfg.Defaults(chainID),
-		Nodes:   evmcfg.EVMNodes{{Name: ptr("test")}},
+		Nodes: evmcfg.EVMNodes{
+			&evmcfg.Node{
+				Name:     ptr("test"),
+				WSURL:    &models.URL{},
+				HTTPURL:  &models.URL{},
+				SendOnly: new(bool),
+				Order:    new(int32),
+			},
+		},
 	})
 }
 
