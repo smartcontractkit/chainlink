@@ -651,7 +651,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Notify Slack
+      - name: Main Slack Notification
         id: slack
         ## DEBUG: Testing what's up
         if: always()
@@ -659,39 +659,41 @@ jobs:
         with:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
           payload: |
-            {
-              "text": "",
-              "blocks": [
-                {
-                  "type": "header",
-                  "text": {
-                    "type": "plain_text",
-                    "text": "Live Smoke Test Results for ${{ matrix.testnet }} ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}",
-                    "emoji": true
+            attachments: [
+              {
+                "color": "${{ job.status == 'success' && 'good' || 'danger' }}",
+                "blocks": [
+                  {
+                    "type": "header",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "Live Smoke Test Results ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}",
+                      "emoji": true
+                    }
+                  },
+                  {
+                    "type": "divider"
+                  },
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": "Tag: <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}>\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
+                    }
+                  },
+                  {
+                    "type": "divider"
+                  },
+                  {
+                    "type": "section",
+                    "text": {
+                      "type": "mrkdwn",
+                      "text": "OCR ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}"
+                    }
                   }
-                },
-                {
-                  "type": "divider"
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "Tag: <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}>\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
-                  }
-                },
-                {
-                  "type": "divider"
-                },
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "OCR ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}"
-                  }
-                }
-              ]
-            }
+                ]
+              }
+            ]
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
