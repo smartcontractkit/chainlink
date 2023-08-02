@@ -78,15 +78,10 @@ jobs:
           cache: false
       - name: golangci-lint
         if: needs.init.outputs.on_trigger_lint == 'true'
-        ##
-        # XXX: change this to the official action once multiple --out-format args are supported.
-        # See: https://github.com/golangci/golangci-lint-action/issues/612
-        ##
-        uses: smartcontractkit/golangci-lint-action@54ab6c5f11d66a92d14c3f7cc41ea13f676644bd # feature/multiple-output-formats-backup
+        uses: golangci/golangci-lint-action@639cd343e1d3b897ff35927a75193d57cfcba299 # v3.6.0
         with:
-          version: v1.53.2
+          version: v1.53.3
           only-new-issues: ${{ github.event.schedule == '' }} # show only new issues, unless it's a scheduled run
-          allow-extra-out-format-args: true
           args: --out-format checkstyle:golangci-lint-report.xml
       - name: Print lint report artifact
         if: always()
