@@ -59,10 +59,10 @@ describe('FunctionsRouter - Base', () => {
     })
 
     it('Owner can update config of the Router', async () => {
-      const beforeConfigHash = await contracts.router.getConfigHash()
+      const beforeConfig = await contracts.router.getConfig()
 
       await expect(
-        contracts.router.proposeConfigUpdate(
+        contracts.router.proposeConfigUpdateSelf(
           ids.routerId,
           ethers.utils.defaultAbiCoder.encode(
             ['uint96', 'bytes4', 'uint32[]'],
@@ -75,12 +75,12 @@ describe('FunctionsRouter - Base', () => {
         'ConfigUpdated',
       )
 
-      const afterConfigHash = await contracts.router.getConfigHash()
-      expect(beforeConfigHash).to.not.equal(afterConfigHash)
+      const afterConfig = await contracts.router.getConfig()
+      expect(beforeConfig).to.not.equal(afterConfig)
     })
 
     it('Config of a contract on a route can be updated', async () => {
-      const beforeConfigHash = await contracts.coordinator.getConfigHash()
+      const beforeConfig = await contracts.coordinator.getConfig()
 
       await expect(
         contracts.router.proposeConfigUpdate(
@@ -111,8 +111,8 @@ describe('FunctionsRouter - Base', () => {
         'ConfigUpdated',
       )
 
-      const afterConfigHash = await contracts.router.getConfigHash()
-      expect(beforeConfigHash).to.not.equal(afterConfigHash)
+      const afterConfig = await contracts.router.getConfig()
+      expect(beforeConfig).to.not.equal(afterConfig)
     })
 
     it('returns the config set on the Router', async () => {

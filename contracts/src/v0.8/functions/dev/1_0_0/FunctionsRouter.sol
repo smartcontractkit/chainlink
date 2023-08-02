@@ -161,7 +161,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes memory data,
     uint16 dataVersion,
     uint32 callbackGasLimit
-  ) private returns (bytes32 requestId) {
+  ) private returns (bytes32) {
     _whenNotPaused();
     _isValidSubscription(subscriptionId);
     _isValidConsumer(msg.sender, subscriptionId);
@@ -181,7 +181,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     );
 
     // Store a commitment about the request
-    s_requestCommitments[requestId] = keccak256(
+    s_requestCommitments[commitment.requestId] = keccak256(
       abi.encode(
         IFunctionsRequest.Commitment({
           adminFee: s_config.adminFee,
@@ -202,7 +202,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     _markRequestInFlight(msg.sender, subscriptionId, commitment.estimatedTotalCostJuels);
 
     emit RequestStart({
-      requestId: requestId,
+      requestId: commitment.requestId,
       donId: donId,
       subscriptionId: subscriptionId,
       subscriptionOwner: s_subscriptions[subscriptionId].owner,
@@ -213,7 +213,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       callbackGasLimit: callbackGasLimit
     });
 
-    return requestId;
+    return commitment.requestId;
   }
 
   /**
