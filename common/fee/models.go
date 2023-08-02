@@ -24,32 +24,15 @@ func IsBumpErr(err error) bool {
 func CalculateFee(
 	maxFeePrice, defaultPrice, maxBumpPrice *big.Int,
 ) (feePrice *big.Int) {
-	feePrice = CapFeePrice(defaultPrice, maxFeePrice, maxBumpPrice)
-	return
+	maxFeePriceAllowed := bigmath.Min(maxFeePrice, maxBumpPrice)
+	return bigmath.Min(feePrice, maxFeePriceAllowed)
 }
 
-// CalculateBumpedFee will increase the price and apply multiplier to the fee limit.
-func CalculateBumpedFee(
-	lggr logger.SugaredLogger,
-	currentFeePrice, originalFeePrice, maxFeePrice,
-	maxBumpPrice, bumpMin *big.Int,
-	bumpPercent uint16,
-	toChainUnit func(*big.Int) string,
-) (*big.Int, error) {
-	feePrice, err := bumpFeePrice(lggr, currentFeePrice, originalFeePrice, maxFeePrice, maxBumpPrice, bumpMin, bumpPercent, toChainUnit)
-	if err != nil {
-		return nil, err
-	}
-	return feePrice, nil
-}
-
-// chainSpecificFeeLimit := ApplyMultiplier(originalFeeLimit, bumpLimitMultiplier)
-
-// bumpfeePrice computes the next fee price to attempt as the largest of:
-// - A configured percentage bump (FeeEstimator.BumpPercent) on top of the baseline price.
-// - A configured fixed amount of Unit (FEE_PRICE_Unit) on top of the baseline price.
+// CalculateBumpedFee computes the next fee price to attempt as the largest of:
+// - A configured percentage bump (bumpPercent) on top of the baseline price.
+// - A configured fixed amount of Unit (bumpMin) on top of the baseline price.
 // The baseline price is the maximum of the previous fee price attempt and the node's current fee price.
-func bumpFeePrice(
+func CalculateBumpedFee(
 	lggr logger.SugaredLogger,
 	currentfeePrice, originalfeePrice, maxFeePriceInput, maxBumpPrice, bumpMin *big.Int,
 	bumpPercent uint16,
