@@ -23,10 +23,7 @@ export function getPackageList(
     { encoding: "utf8" }
   );
   const packages: GoPackageData[] = JSON.parse(rawPackages.trimEnd());
-  const filteredData = packages.filter(
-    (item) => item.TestGoFiles && item.TestGoFiles.length > 0
-  );
-  const packagePaths = filteredData.map((item) => item.ImportPath);
+  const packagePaths = packages.map((item) => item.ImportPath);
   return handleSplit(packagePaths, numOfSplits);
 }
 
