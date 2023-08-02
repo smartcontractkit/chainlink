@@ -387,17 +387,11 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	for _, c := range cfg.EVMConfigs() {
 		ids = append(ids, *c.ChainID)
 	}
-	/*
-		if len(ids) > 0 {
-			if err = evm.EnsureChains(db, lggr, cfg.Database(), ids); err != nil {
-				t.Fatal(err)
-			}
-		}
-	*/
+
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"))
 
-	rf := chainlink.RelayerFactory{
+	relayerFactory := chainlink.RelayerFactory{
 		Logger:       lggr,
 		DB:           db,
 		QConfig:      cfg.Database(),
@@ -417,7 +411,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	testCtx := testutils.Context(t)
 	// evm alway enabled for backward compatibility
-	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(testCtx, evmOpts)}
+	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(testCtx, relayerFactory, evmOpts)}
 
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
@@ -425,24 +419,24 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			CosmosConfigs:    cfg.CosmosConfigs(),
 			EventBroadcaster: eventBroadcaster,
 		}
-		initOps = append(initOps, chainlink.InitCosmos(testCtx, cosmosCfg))
+		initOps = append(initOps, chainlink.InitCosmos(testCtx, relayerFactory, cosmosCfg))
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := chainlink.SolanaFactoryConfig{
 			Keystore:      keyStore.Solana(),
 			SolanaConfigs: cfg.SolanaConfigs(),
 		}
-		initOps = append(initOps, chainlink.InitSolana(testCtx, solanaCfg))
+		initOps = append(initOps, chainlink.InitSolana(testCtx, relayerFactory, solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
 		starkCfg := chainlink.StarkNetFactoryConfig{
 			Keystore:        keyStore.StarkNet(),
 			StarknetConfigs: cfg.StarknetConfigs(),
 		}
-		initOps = append(initOps, chainlink.InitStarknet(testCtx, starkCfg))
+		initOps = append(initOps, chainlink.InitStarknet(testCtx, relayerFactory, starkCfg))
 
 	}
-	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(rf, initOps...)
+	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
 		t.Fatal(err)
 	}

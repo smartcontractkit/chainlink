@@ -139,7 +139,16 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
 	loopRegistry := plugins.NewLoopRegistry(appLggr.Named("LoopRegistry"))
 
-	evmOpts := chainlink.EVMFactoryConfig{
+	// create the relayer-chain interoperators from application configuration
+	relayerFactory := chainlink.RelayerFactory{
+		Logger:       appLggr,
+		DB:           db,
+		QConfig:      cfg.Database(),
+		LoopRegistry: loopRegistry,
+		GRPCOpts:     grpcOpts,
+	}
+
+	evmFactoryCfg := chainlink.EVMFactoryConfig{
 		RelayerConfig: evm.RelayerConfig{
 			GeneralConfig:    cfg,
 			EventBroadcaster: eventBroadcaster,
@@ -147,9 +156,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		},
 		CSAETHKeystore: keyStore,
 	}
-
 	// evm alway enabled for backward compatibility
-	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(ctx, evmOpts)}
+	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(ctx, relayerFactory, evmFactoryCfg)}
 
 	if cfg.CosmosEnabled() {
 		cosmosCfg := chainlink.CosmosFactoryConfig{
@@ -157,98 +165,29 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 			CosmosConfigs:    cfg.CosmosConfigs(),
 			EventBroadcaster: eventBroadcaster,
 		}
-		initOps = append(initOps, chainlink.InitCosmos(ctx, cosmosCfg))
+		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, cosmosCfg))
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := chainlink.SolanaFactoryConfig{
 			Keystore:      keyStore.Solana(),
 			SolanaConfigs: cfg.SolanaConfigs(),
 		}
-		initOps = append(initOps, chainlink.InitSolana(ctx, solanaCfg))
+		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
 		starkCfg := chainlink.StarkNetFactoryConfig{
 			Keystore:        keyStore.StarkNet(),
 			StarknetConfigs: cfg.StarknetConfigs(),
 		}
-		initOps = append(initOps, chainlink.InitStarknet(ctx, starkCfg))
+		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
 
 	}
-	rf := chainlink.RelayerFactory{
-		Logger:       appLggr,
-		DB:           db,
-		QConfig:      cfg.Database(),
-		LoopRegistry: loopRegistry,
-		GRPCOpts:     grpcOpts,
-	}
-	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(rf, initOps...)
+
+	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
 		return nil, err
 	}
-	//relayChainInterops.Init
 
-	// backward compatibility: evm always enabled, for some reason
-	/*
-		{
-			opts := evm.RelayerFactoryConfig{
-				GeneralConfig:    cfg,
-				EventBroadcaster: eventBroadcaster,
-				MailMon:          mailMon,
-			}
-			adapters, err2 := rf.NewEVM(ctx, opts, keyStore)
-			if err2 != nil {
-				fmt.Errorf("failed to setup EVM relayer: %w", err2)
-			}
-			for id, a := range adapters {
-				err2 := relayChainInterops.Put(id, a)
-				if err2 != nil {
-					multierror.Append(err, err2)
-				}
-			}
-			if err != nil {
-				return nil, err
-			}
-		}
-	*/
-	/*
-		if cfg.CosmosEnabled() {
-			adapters, err2 := rf.NewCosmos(keyStore.Cosmos(), cfg.CosmosConfigs(), eventBroadcaster)
-			if err2 != nil {
-				fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
-			}
-			for id, a := range adapters {
-				err2 := relayChainInterops.Put(id, a)
-				if err2 != nil {
-					multierror.Append(err, err2)
-				}
-			}
-			if err != nil {
-				return nil, err
-			}
-		}
-	*/
-	/*
-		if cfg.SolanaEnabled() {
-			solRelayers, err2 := rf.NewSolana(keyStore.Solana(), cfg.SolanaConfigs())
-			if err2 != nil {
-				return nil, fmt.Errorf("failed to setup Solana relayer: %w", err2)
-			}
-			err2 = relayChainInterops.PutBatch(solRelayers)
-			if err2 != nil {
-				return nil, fmt.Errorf("failed to store Solana relayers: %w", err2)
-			}
-		}
-		if cfg.StarkNetEnabled() {
-			starkRelayers, err2 := rf.NewStarkNet(keyStore.StarkNet(), cfg.StarknetConfigs())
-			if err2 != nil {
-				return nil, fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
-			}
-			err2 = relayChainInterops.PutBatch(starkRelayers)
-			if err2 != nil {
-				return nil, fmt.Errorf("failed to store StarkNet relayers: %w", err2)
-			}
-		}
-	*/
 	// Configure and optionally start the audit log forwarder service
 	auditLogger, err := audit.NewAuditLogger(appLggr, cfg.AuditLogger())
 	if err != nil {

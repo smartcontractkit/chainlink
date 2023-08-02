@@ -43,7 +43,6 @@ type RelayerChainInteroperators interface {
 type LoopRelayerStorer interface {
 	ocr2.RelayGetter
 	Put(id relay.Identifier, r loop.Relayer) error
-	PutBatch(b map[relay.Identifier]loop.Relayer) error
 	Slice() []loop.Relayer
 }
 
@@ -70,26 +69,18 @@ type CoreRelayerChainInteroperators struct {
 	loopRelayers map[relay.Identifier]loop.Relayer
 	legacyChains legacyChains
 
-	relayerFactory RelayerFactory
-
 	// we keep an explicit list of services because the legacy implementations have more than
 	// just the relayer service
 	srvs []services.ServiceCtx
 }
 
-func NewCoreRelayerChainInteroperators(factory RelayerFactory, initOpts ...CoreRelayerChainInitFunc) (*CoreRelayerChainInteroperators, error) {
+func NewCoreRelayerChainInteroperators(initFuncs ...CoreRelayerChainInitFunc) (*CoreRelayerChainInteroperators, error) {
 	cr := &CoreRelayerChainInteroperators{
 		loopRelayers: make(map[relay.Identifier]loop.Relayer),
 		legacyChains: legacyChains{EVMChains: evm.NewLegacyChains(), CosmosChains: cosmos.NewLegacyChains()},
 		srvs:         make([]services.ServiceCtx, 0),
 	}
-	/*
-		err := initEVM(ctx, factory, evmConfig)(cr)
-		if err != nil {
-			return nil, err
-		}
-	*/
-	for _, initFn := range initOpts {
+	for _, initFn := range initFuncs {
 		err2 := initFn(cr)
 		if err2 != nil {
 			return nil, err2
@@ -98,11 +89,15 @@ func NewCoreRelayerChainInteroperators(factory RelayerFactory, initOpts ...CoreR
 	return cr, nil
 }
 
+//	CoreRelayerChainInitFunc is a hook in the constructor to create relayers from a factory.
+//
+// It is a convenience upon construction rather than using the Put API
 type CoreRelayerChainInitFunc func(op *CoreRelayerChainInteroperators) error
 
-func InitEVM(ctx context.Context, config EVMFactoryConfig) CoreRelayerChainInitFunc {
+// InitEVM is a option for instantiating evm relayers
+func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		adapters, err2 := op.relayerFactory.NewEVM(ctx, config)
+		adapters, err2 := factory.NewEVM(ctx, config)
 		if err2 != nil {
 			fmt.Errorf("failed to setup EVM relayer: %w", err2)
 		}
@@ -116,9 +111,10 @@ func InitEVM(ctx context.Context, config EVMFactoryConfig) CoreRelayerChainInitF
 	}
 }
 
-func InitCosmos(ctx context.Context, config CosmosFactoryConfig) CoreRelayerChainInitFunc {
+// InitCosmos is a option for instantiating Cosmos relayers
+func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		adapters, err2 := op.relayerFactory.NewCosmos(ctx, config)
+		adapters, err2 := factory.NewCosmos(ctx, config)
 		if err2 != nil {
 			fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
 		}
@@ -132,13 +128,14 @@ func InitCosmos(ctx context.Context, config CosmosFactoryConfig) CoreRelayerChai
 	}
 }
 
-func InitSolana(ctx context.Context, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
+// InitSolana is a option for instantiating Solana relayers
+func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
-		solRelayers, err2 := op.relayerFactory.NewSolana(config.Keystore, config.SolanaConfigs)
+		solRelayers, err2 := factory.NewSolana(config.Keystore, config.SolanaConfigs)
 		if err2 != nil {
 			return fmt.Errorf("failed to setup Solana relayer: %w", err2)
 		}
-		err2 = op.PutBatch(solRelayers)
+		err2 = op.putBatch(solRelayers)
 		if err2 != nil {
 			return fmt.Errorf("failed to store Solana relayers: %w", err2)
 		}
@@ -146,13 +143,14 @@ func InitSolana(ctx context.Context, config SolanaFactoryConfig) CoreRelayerChai
 	}
 }
 
-func InitStarknet(ctx context.Context, config StarkNetFactoryConfig) CoreRelayerChainInitFunc {
+// InitStarknet is a option for instantiating Starknet relayers
+func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		starkRelayers, err2 := op.relayerFactory.NewStarkNet(config.Keystore, config.StarknetConfigs)
+		starkRelayers, err2 := factory.NewStarkNet(config.Keystore, config.StarknetConfigs)
 		if err2 != nil {
 			return fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
 		}
-		err2 = op.PutBatch(starkRelayers)
+		err2 = op.putBatch(starkRelayers)
 		if err2 != nil {
 			return fmt.Errorf("failed to store StarkNet relayers: %w", err2)
 		}
@@ -215,8 +213,8 @@ func (rs *CoreRelayerChainInteroperators) Put(id relay.Identifier, lr loop.Relay
 
 // TODO maybe make Relayer[U,V] where u,v are the chain specific types and then make this generic
 // Relayer[U evm.LoopAdapter, Vcosmos.LoopAdapter]
-// (rs Relayer[U,V] PutBatch(map[](loop.relayer|U|V))
-func (rs *CoreRelayerChainInteroperators) PutBatch(b map[relay.Identifier]loop.Relayer) (err error) {
+// (rs Relayer[U,V] putBatch(map[](loop.relayer|U|V))
+func (rs *CoreRelayerChainInteroperators) putBatch(b map[relay.Identifier]loop.Relayer) (err error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	for id, r := range b {

@@ -377,16 +377,6 @@ type Configs interface {
 
 var _ chains.Configs[string, soldb.Node] = (Configs)(nil)
 
-/*
-	func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []relay.Identifier) error {
-		q := pg.NewQ(db, lggr.Named("Ensure"), cfg)
-		sids := make([]string, len(ids))
-		for i, id := range ids {
-			sids[i] = id.ChainID.String()
-		}
-		return chains.EnsureChains[string](q, string(relay.Solana), sids)
-	}
-*/
 func NewConfigs(cfgs chains.ConfigsV2[string, soldb.Node]) Configs {
 	return chains.NewConfigs(cfgs)
 }

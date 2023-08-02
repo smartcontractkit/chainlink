@@ -58,13 +58,7 @@ func (r RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (ma
 		c := c
 		ids = append(ids, *c.ChainID)
 	}
-	/*
-		if len(ids) > 0 {
-			if err := evm.EnsureChains(r.DB, r.Logger, opts.Config.Database(), ids); err != nil {
-				return nil, errors.Wrap(err, "failed to setup EVM chains")
-			}
-		}
-	*/
+
 	evmRelayExtenders, err := evm.NewChainRelayerExtenders(ctx, ccOpts)
 	if err != nil {
 		return nil, err
@@ -98,13 +92,7 @@ func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCon
 		c := c
 		ids = append(ids, relay.Identifier{Network: relay.StarkNet, ChainID: relay.ChainID(*c.ChainID)})
 	}
-	/*
-		if len(ids) > 0 {
-			if err := solana.EnsureChains(r.DB, solLggr, r.QConfig, ids); err != nil {
-				return nil, fmt.Errorf("failed to setup Solana chains: %w", err)
-			}
-		}
-	*/
+
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
 		relayId := relay.Identifier{Network: relay.Solana, ChainID: relay.ChainID(*chainCfg.ChainID)}
@@ -164,13 +152,7 @@ func (r RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.Sta
 		c := c
 		ids = append(ids, *c.ChainID)
 	}
-	/*
-		if len(ids) > 0 {
-			if err := starknet.EnsureChains(r.DB, starkLggr, r.QConfig, ids); err != nil {
-				return nil, fmt.Errorf("failed to setup StarkNet chains: %w", err)
-			}
-		}
-	*/
+
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
 		relayId := relay.Identifier{Network: relay.StarkNet, ChainID: relay.ChainID(*chainCfg.ChainID)}
@@ -231,14 +213,7 @@ func (r RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfi
 		c := c
 		ids = append(ids, *c.ChainID)
 	}
-	//TODO Cosmos doesn't seem to Ensure chains like others...
-	/*
-		if len(ids) > 0 {
-			if err := cosmos.EnsureChains(r.DB, lggr, r.QConfig, ids); err != nil {
-				return nil, fmt.Errorf("failed to setup StarkNet chains: %w", err)
-			}
-		}
-	*/
+
 	// create one relayer per chain id
 	for _, chainCfg := range config.CosmosConfigs {
 		relayId := relay.Identifier{Network: relay.Cosmos, ChainID: relay.ChainID(*chainCfg.ChainID)}
