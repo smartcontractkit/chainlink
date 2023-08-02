@@ -4,7 +4,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -18,10 +17,11 @@ type totalDifficultyNodeSelector[
 	TXHASH types.Hashable,
 	EVENT any,
 	EVENTOPS any, // event filter query options
-	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
+	TXRECEIPT any,
 	FEE feetypes.Fee,
-	HEAD *types.Head[BLOCKHASH],
-] []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
+	HEAD types.Head[BLOCKHASH],
+	SUB types.Subscription,
+] []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]
 
 func NewTotalDifficultyNodeSelector[
 	CHAINID types.ID,
@@ -33,18 +33,19 @@ func NewTotalDifficultyNodeSelector[
 	TXHASH types.Hashable,
 	EVENT any,
 	EVENTOPS any, // event filter query options
-	TXRECEIPT txmgrtypes.ChainReceipt[TXHASH, BLOCKHASH],
+	TXRECEIPT any,
 	FEE feetypes.Fee,
-	HEAD *types.Head[BLOCKHASH],
-](nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) NodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD] {
-	return totalDifficultyNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD](nodes)
+	HEAD types.Head[BLOCKHASH],
+	SUB types.Subscription,
+](nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) NodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB] {
+	return totalDifficultyNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB](nodes)
 }
 
-func (s totalDifficultyNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) Select() Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD] {
+func (s totalDifficultyNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) Select() Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB] {
 	// NodeNoNewHeadsThreshold may not be enabled, in this case all nodes have td == nil
 	var highestTD *utils.Big
-	var nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
-	var aliveNodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]
+	var nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]
+	var aliveNodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]
 
 	for _, n := range s {
 		state, _, currentTD := n.StateAndLatest()
@@ -69,6 +70,6 @@ func (s totalDifficultyNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TX
 	return firstOrHighestPriority(nodes)
 }
 
-func (s totalDifficultyNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) Name() string {
+func (s totalDifficultyNodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) Name() string {
 	return NodeSelectionMode_TotalDifficulty
 }

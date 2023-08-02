@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -49,7 +48,7 @@ func zombieNodeCheckInterval(noNewHeadsThreshold time.Duration) time.Duration {
 	return utils.WithJitter(interval)
 }
 
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	n.stateLatestBlockNumber = blockNumber
@@ -68,7 +67,7 @@ const (
 
 // This handles node lifecycle for the ALIVE state
 // Should only be run ONCE per node, after a successful Dial
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) aliveLoop() {
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) aliveLoop() {
 	defer n.wg.Done()
 
 	{
@@ -90,7 +89,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	lggr := n.lfcLog.Named("Alive").With("noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
 	lggr.Tracew("Alive loop starting", "nodeState", n.State())
 
-	headsC := make(chan types.Head[BLOCKHASH])
+	headsC := make(chan HEAD)
 	sub, err := n.rpcClient.Subscribe(n.nodeCtx, headsC, "newHeads")
 	if err != nil {
 		lggr.Errorw("Initial subscribe for heads failed", "nodeState", n.State())
@@ -218,7 +217,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	}
 }
 
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
 	outOfSync, _ = n.syncStatus(num, td)
 	return
 }
@@ -226,7 +225,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 // syncStatus returns outOfSync true if num or td is more than SyncThresold behind the best node.
 // Always returns outOfSync false for SyncThreshold 0.
 // liveNodes is only included when outOfSync is true.
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
 	if n.nLiveNodes == nil {
 		return // skip for tests
 	}
@@ -254,7 +253,7 @@ const (
 )
 
 // outOfSyncLoop takes an OutOfSync node and waits until isOutOfSync returns false to go back to live status
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
 	defer n.wg.Done()
 
 	{
@@ -282,7 +281,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	}
 
 	// Manually re-verify since out-of-sync nodes are automatically disconnected
-	if err := n.rpcClient.Verify(n.nodeCtx); err != nil {
+	if err := n.verify(n.nodeCtx); err != nil {
 		lggr.Errorw(fmt.Sprintf("Failed to verify out-of-sync RPC node: %v", err), "err", err)
 		n.declareInvalidChainID()
 		return
@@ -290,7 +289,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 
 	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node", "nodeState", n.State())
 
-	ch := make(chan types.Head[BLOCKHASH])
+	ch := make(chan HEAD)
 	subCtx, cancel := n.makeQueryCtx(n.nodeCtx)
 	// raw call here to bypass node state checking
 	// TODO: Here is where I changed the functionality
@@ -337,7 +336,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	}
 }
 
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) unreachableLoop() {
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) unreachableLoop() {
 	defer n.wg.Done()
 
 	{
@@ -374,7 +373,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 
 			n.setState(NodeStateDialed)
 
-			err = n.rpcClient.Verify(n.nodeCtx)
+			err = n.verify(n.nodeCtx)
 
 			if errors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to redial RPC node; remote endpoint returned the wrong chain ID", "err", err)
@@ -393,7 +392,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	}
 }
 
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD]) invalidChainIDLoop() {
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) invalidChainIDLoop() {
 	defer n.wg.Done()
 
 	{
@@ -420,7 +419,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 		case <-n.nodeCtx.Done():
 			return
 		case <-time.After(chainIDRecheckBackoff.Duration()):
-			err := n.rpcClient.Verify(n.nodeCtx)
+			err := n.verify(n.nodeCtx)
 			if errors.Is(err, errInvalidChainID) {
 				lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err)
 				continue
