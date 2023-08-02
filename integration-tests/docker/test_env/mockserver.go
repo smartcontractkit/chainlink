@@ -7,27 +7,34 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-	env "github.com/smartcontractkit/chainlink/integration-tests/types/envcommon"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 )
 
 type MockServer struct {
-	env.EnvComponent
+	EnvComponent
 	Client           *ctfClient.MockserverClient
 	Endpoint         string
 	InternalEndpoint string
 	EAMockUrls       []*url.URL
 }
 
-func NewMockServer(compOpts env.EnvComponentOpts) *MockServer {
-	return &MockServer{
-		EnvComponent: env.NewEnvComponent("mockserver", compOpts),
+func NewMockServer(networks []string, opts ...EnvComponentOption) *MockServer {
+	ms := &MockServer{
+		EnvComponent: EnvComponent{
+			ContainerName: fmt.Sprintf("%s-%s", "mockserver", uuid.NewString()[0:3]),
+			Networks:      networks,
+		},
 	}
+	for _, opt := range opts {
+		opt(&ms.EnvComponent)
+	}
+	return ms
 }
 
 func (m *MockServer) SetExternalAdapterMocks(count int) error {
@@ -59,35 +66,30 @@ func (m *MockServer) StartContainer(lw *logwatch.LogWatch) error {
 		Reuse:            true,
 	})
 	if err != nil {
-		return errors.Wrapf(err, "cannot start mock server container")
+		return errors.Wrapf(err, "cannot start MockServer container")
 	}
+	m.Container = c
 	if lw != nil {
 		if err := lw.ConnectContainer(context.Background(), c, m.ContainerName, true); err != nil {
 			return err
 		}
 	}
-	cName, err := c.Name(context.Background())
-	if err != nil {
-		return err
-	}
-	cName = strings.Replace(cName, "/", "", -1)
 	endpoint, err := c.Endpoint(context.Background(), "http")
 	if err != nil {
 		return err
 	}
-	log.Info().Any("endpoint", endpoint).Str("containerName", cName).
-		Msgf("Started mockserver container")
+	log.Info().Any("endpoint", endpoint).Str("containerName", m.ContainerName).
+		Msgf("Started MockServer container")
 	m.Endpoint = endpoint
-	m.InternalEndpoint = fmt.Sprintf("http://%s:%s", cName, "1080")
+	m.InternalEndpoint = fmt.Sprintf("http://%s:%s", m.ContainerName, "1080")
 
 	client := ctfClient.NewMockserverClient(&ctfClient.MockserverConfig{
 		LocalURL:   endpoint,
 		ClusterURL: m.InternalEndpoint,
 	})
 	if err != nil {
-		return errors.Wrapf(err, "cannot connect to mockserver client")
+		return errors.Wrapf(err, "cannot connect to MockServer client")
 	}
-	m.EnvComponent.Container = c
 	m.Client = client
 
 	return nil

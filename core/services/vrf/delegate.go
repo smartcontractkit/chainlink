@@ -126,10 +126,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	)
 	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
-
-	if vrfOwner == nil {
-		lV2.Infow("Running without VRFOwnerAddress set on the spec")
-	}
+	lV2Plus := l.Named("VRFListenerV2Plus")
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2Plus); ok {
@@ -144,7 +141,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
 				return nil, err
 			}
-
+			if vrfOwner != nil {
+				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
+			}
 			linkEthFeedAddress, err := coordinatorV2Plus.LINKETHFEED(nil)
 			if err != nil {
 				return nil, errors.Wrap(err, "LINKETHFEED")
@@ -157,7 +156,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return []job.ServiceCtx{v2.New(
 				chain.Config().EVM(),
 				chain.Config().EVM().GasEstimator(),
-				lV2,
+				lV2Plus,
 				chain.Client(),
 				chain.ID(),
 				chain.LogBroadcaster(),
@@ -173,7 +172,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.mailMon,
 				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
-				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
+				GetStartingResponseCountsV2(d.q, lV2Plus, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
 				chain.HeadBroadcaster(),
 				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
 		}
@@ -197,6 +196,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
 			if err != nil {
 				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
+			}
+			if vrfOwner == nil {
+				lV2.Infow("Running without VRFOwnerAddress set on the spec")
 			}
 
 			return []job.ServiceCtx{v2.New(

@@ -31,13 +31,13 @@ after(() => {
 describe('Gas Golf', () => {
   it('taking a swing', async () => {
     // User signs Terms of Service
-    const messageHash = await contracts.accessControl.getMessageHash(
+    const message = await contracts.accessControl.getMessage(
       roles.consumerAddress,
       roles.consumerAddress,
     )
     const wallet = new ethers.Wallet(accessControlMockPrivateKey)
     const flatSignature = await wallet.signMessage(
-      ethers.utils.arrayify(messageHash),
+      ethers.utils.arrayify(message),
     )
     const { r, s, v } = ethers.utils.splitSignature(flatSignature)
     const acceptTermsOfServiceTx = await contracts.accessControl

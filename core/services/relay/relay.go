@@ -121,6 +121,10 @@ func (r *relayerAdapter) NewMercuryProvider(ctx context.Context, rargs types.Rel
 	return r.Relayer.NewMercuryProvider(rargs, pargs)
 }
 
+func (r *relayerAdapter) NewFunctionsProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.FunctionsProvider, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (r *relayerAdapter) Start(ctx context.Context) error {
 	var ms services.MultiStart
 	return ms.Start(ctx, r.RelayerExt, r.Relayer)

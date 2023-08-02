@@ -58,11 +58,13 @@ export const encodeReport = (
 }
 
 export type FunctionsRouterConfig = {
+  maxConsumers: number
   adminFee: number
   handleOracleFulfillmentSelector: string
   maxCallbackGasLimits: number[]
 }
 export const functionsRouterConfig: FunctionsRouterConfig = {
+  maxConsumers: 100,
   adminFee: 0,
   handleOracleFulfillmentSelector: '0x0ca76175',
   maxCallbackGasLimits: [300_000, 500_000, 1_000_000],
@@ -159,14 +161,12 @@ export async function acceptTermsOfService(
   recipientAddress: string,
 ) {
   const acceptorAddress = await acceptor.getAddress()
-  const messageHash = await accessControl.getMessageHash(
+  const message = await accessControl.getMessage(
     acceptorAddress,
     recipientAddress,
   )
   const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-  const flatSignature = await wallet.signMessage(
-    ethers.utils.arrayify(messageHash),
-  )
+  const flatSignature = await wallet.signMessage(ethers.utils.arrayify(message))
   const { r, s, v } = ethers.utils.splitSignature(flatSignature)
   return accessControl
     .connect(acceptor)
@@ -227,7 +227,7 @@ export function getSetupFactory(): () => {
       linkEthRate,
     )
     const routerConfigBytes = ethers.utils.defaultAbiCoder.encode(
-      ['uint96', 'bytes4', 'uint32[]'],
+      ['uint16', 'uint96', 'bytes4', 'uint32[]'],
       [...Object.values(functionsRouterConfig)],
     )
     const startingTimelockBlocks = 0

@@ -17,7 +17,7 @@ interface IRouterBase {
    * @param id A bytes32 identifier for the route
    * @return contract The current or proposed contract address
    */
-  function getContractById(bytes32 id, bool useProposed) external view returns (address);
+  function getProposedContractById(bytes32 id) external view returns (address);
 
   /**
    * @notice Return the latest proprosal set
@@ -34,16 +34,24 @@ interface IRouterBase {
   function proposeContractsUpdate(bytes32[] memory proposalSetIds, address[] memory proposalSetAddresses) external;
 
   /**
-   * @notice Tests a proposal for the ability to make a successful upgrade
-   */
-  function validateProposedContracts(bytes32 id, bytes calldata data) external returns (bytes memory);
-
-  /**
    * @notice Updates the current contract routes to the proposed contracts
    * @dev Only callable once timelock has passed
    * @dev Only callable by owner
    */
   function updateContracts() external;
+
+  /**
+   * @notice Proposes new configuration data for the Router contract itself
+   * @dev Only callable by owner
+   */
+  function proposeConfigUpdateSelf(bytes calldata config) external;
+
+  /**
+   * @notice Updates configuration data for the Router contract itself
+   * @dev Only callable once timelock has passed
+   * @dev Only callable by owner
+   */
+  function updateConfigSelf() external;
 
   /**
    * @notice Proposes new configuration data for the current (not proposed) contract
