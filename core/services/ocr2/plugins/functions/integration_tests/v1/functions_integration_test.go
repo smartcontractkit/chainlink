@@ -31,7 +31,7 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 
 	pluginConfig := functionsConfig.ReportingPluginConfig{
 		MaxQueryLengthBytes:       10_000,
-		MaxObservationLengthBytes: 10_000,
+		MaxObservationLengthBytes: 15_000,
 		MaxReportLengthBytes:      15_000,
 		MaxRequestBatchSize:       uint32(batchSize),
 		MaxReportTotalCallbackGas: uint32(maxTotalReportGas),
