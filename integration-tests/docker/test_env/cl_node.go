@@ -204,17 +204,12 @@ func (n *ClNode) StartContainer(lw *logwatch.LogWatch) error {
 			return err
 		}
 	}
-	ctName, err := container.Name(context.Background())
-	if err != nil {
-		return err
-	}
-	ctName = strings.Replace(ctName, "/", "", -1)
 	clEndpoint, err := container.Endpoint(context.Background(), "http")
 	if err != nil {
 		return err
 	}
 
-	log.Info().Str("containerName", ctName).
+	log.Info().Str("containerName", n.ContainerName).
 		Str("clEndpoint", clEndpoint).
 		Msg("Started Chainlink Node container")
 
