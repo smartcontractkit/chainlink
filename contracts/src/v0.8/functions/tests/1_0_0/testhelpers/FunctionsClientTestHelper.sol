@@ -43,7 +43,7 @@ contract FunctionsClientTestHelper is FunctionsClient {
     uint32 callbackGasLimit = 20_000;
     request.initializeRequestForInlineJavaScript(sourceCode);
     bytes memory requestData = FunctionsRequest.encodeCBOR(request);
-    requestId = s_router.sendRequestToProposed(
+    requestId = i_router.sendRequestToProposed(
       subscriptionId,
       requestData,
       FunctionsRequest.REQUEST_DATA_VERSION,
@@ -55,13 +55,13 @@ contract FunctionsClientTestHelper is FunctionsClient {
   }
 
   function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external {
-    bytes32 allowListId = s_router.getAllowListId();
-    ITermsOfServiceAllowList allowList = ITermsOfServiceAllowList(s_router.getContractById(allowListId));
+    bytes32 allowListId = i_router.getAllowListId();
+    ITermsOfServiceAllowList allowList = ITermsOfServiceAllowList(i_router.getContractById(allowListId));
     allowList.acceptTermsOfService(acceptor, recipient, r, s, v);
   }
 
   function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external {
-    IFunctionsSubscriptions(address(s_router)).acceptSubscriptionOwnerTransfer(subscriptionId);
+    IFunctionsSubscriptions(address(i_router)).acceptSubscriptionOwnerTransfer(subscriptionId);
   }
 
   function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
@@ -77,7 +77,7 @@ contract FunctionsClientTestHelper is FunctionsClient {
       sendSimpleRequestWithJavaScript("somedata", s_subscriptionId, s_donId, 20_000);
     }
     if (s_doInvalidReentrantOperation) {
-      IFunctionsSubscriptions(address(s_router)).cancelSubscription(s_subscriptionId, msg.sender);
+      IFunctionsSubscriptions(address(i_router)).cancelSubscription(s_subscriptionId, msg.sender);
     }
     emit FulfillRequestInvoked(requestId, response, err);
   }

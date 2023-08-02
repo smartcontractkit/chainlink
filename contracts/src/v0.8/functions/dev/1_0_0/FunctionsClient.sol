@@ -36,7 +36,7 @@ abstract contract FunctionsClient is IFunctionsClient {
     uint32 callbackGasLimit,
     bytes32 donId
   ) internal returns (bytes32) {
-    return _sendRequestBytes(Functions.encodeCBOR(request), subscriptionId, callbackGasLimit, donId);
+    return _sendRequestBytes(FunctionsRequest.encodeCBOR(request), subscriptionId, callbackGasLimit, donId);
   }
 
   /**
