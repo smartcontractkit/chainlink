@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/common/chains/label"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 var (
@@ -21,11 +22,9 @@ func IsBumpErr(err error) bool {
 
 // CalculateFee computes the fee price and chain specific fee limit for a transaction.
 func CalculateFee(
-	feeLimit uint32,
 	maxFeePrice, defaultPrice, maxBumpPrice *big.Int,
-	bumpLimitMultiplier float32,
-) (feePrice *big.Int, chainSpecificFeeLimit uint32, err error) {
-	feePrice, chainSpecificFeeLimit = CapFeePrice(defaultPrice, maxFeePrice, maxBumpPrice, feeLimit, bumpLimitMultiplier)
+) (feePrice *big.Int) {
+	feePrice = CapFeePrice(defaultPrice, maxFeePrice, maxBumpPrice)
 	return
 }
 
@@ -34,18 +33,17 @@ func CalculateBumpedFee(
 	lggr logger.SugaredLogger,
 	currentFeePrice, originalFeePrice, maxFeePrice,
 	maxBumpPrice, bumpMin *big.Int,
-	originalFeeLimit uint32,
 	bumpPercent uint16,
-	bumpLimitMultiplier float32,
 	toChainUnit func(*big.Int) string,
-) (*big.Int, uint32, error) {
+) (*big.Int, error) {
 	feePrice, err := bumpFeePrice(lggr, currentFeePrice, originalFeePrice, maxFeePrice, maxBumpPrice, bumpMin, bumpPercent, toChainUnit)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
-	chainSpecificFeeLimit := ApplyMultiplier(originalFeeLimit, bumpLimitMultiplier)
-	return feePrice, chainSpecificFeeLimit, nil
+	return feePrice, nil
 }
+
+// chainSpecificFeeLimit := ApplyMultiplier(originalFeeLimit, bumpLimitMultiplier)
 
 // bumpfeePrice computes the next fee price to attempt as the largest of:
 // - A configured percentage bump (FeeEstimator.BumpPercent) on top of the baseline price.
@@ -57,7 +55,7 @@ func bumpFeePrice(
 	bumpPercent uint16,
 	toChainUnit FeeUnitToChainUnit,
 ) (*big.Int, error) {
-	maxFeePrice := FeePriceLimit(maxFeePriceInput, maxBumpPrice) // Make a wrapper config
+	maxFeePrice := bigmath.Min(maxFeePriceInput, maxBumpPrice)
 	bumpedFeePrice := maxBumpedFee(originalfeePrice, bumpPercent, bumpMin)
 
 	// Update bumpedFeePrice if currentfeePrice is higher than bumpedFeePrice and within maxFeePrice

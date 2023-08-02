@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 var (
@@ -374,10 +375,11 @@ func maxBumpedFee(lggr logger.SugaredLogger, currentFeePrice, bumpedFeePrice, ma
 }
 
 func getMaxGasPrice(userSpecifiedMax, maxGasPriceWei *assets.Wei) *assets.Wei {
-	return assets.NewWei(commonfee.FeePriceLimit(userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt()))
+	return assets.NewWei(bigmath.Min(userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt()))
 }
 
 func capGasPrice(calculatedGasPrice, userSpecifiedMax, maxGasPriceWei *assets.Wei, gasLimit uint32, multiplier float32) (*assets.Wei, uint32) {
-	maxGasPrice, chainSpecificGasLimit := commonfee.CapFeePrice(calculatedGasPrice.ToInt(), userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt(), gasLimit, multiplier)
+	maxGasPrice := commonfee.CapFeePrice(calculatedGasPrice.ToInt(), userSpecifiedMax.ToInt(), maxGasPriceWei.ToInt())
+	chainSpecificGasLimit := commonfee.ApplyMultiplier(gasLimit, multiplier)
 	return assets.NewWei(maxGasPrice), chainSpecificGasLimit
 }

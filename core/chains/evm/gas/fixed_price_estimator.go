@@ -58,8 +58,9 @@ func (f *fixedPriceEstimator) Start(context.Context) error {
 }
 
 func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (*assets.Wei, uint32, error) {
-	gasPrice, chainSpecificGasLimit, err := commonfee.CalculateFee(gasLimit, maxGasPriceWei.ToInt(), f.config.PriceDefault().ToInt(), f.config.PriceMax().ToInt(), f.config.LimitMultiplier())
-	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
+	gasPrice := commonfee.CalculateFee(maxGasPriceWei.ToInt(), f.config.PriceDefault().ToInt(), f.config.PriceMax().ToInt())
+	chainSpecificGasLimit := commonfee.ApplyMultiplier(gasLimit, f.config.LimitMultiplier())
+	return assets.NewWei(gasPrice), chainSpecificGasLimit, nil
 }
 
 func (f *fixedPriceEstimator) BumpLegacyGas(
@@ -69,18 +70,18 @@ func (f *fixedPriceEstimator) BumpLegacyGas(
 	maxGasPriceWei *assets.Wei,
 	_ []EvmPriorAttempt,
 ) (*assets.Wei, uint32, error) {
-	gasPrice, chainSpecificGasLimit, err := commonfee.CalculateBumpedFee(
+	gasPrice, err := commonfee.CalculateBumpedFee(
 		f.lggr,
 		f.config.PriceDefault().ToInt(),
 		originalGasPrice.ToInt(),
 		maxGasPriceWei.ToInt(),
 		f.config.PriceMax().ToInt(),
 		f.config.BumpMin().ToInt(),
-		originalGasLimit,
 		f.config.BumpPercent(),
-		f.config.LimitMultiplier(),
 		assets.NewWeiString,
 	)
+
+	chainSpecificGasLimit := commonfee.ApplyMultiplier(originalGasLimit, f.config.LimitMultiplier())
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
 }
 

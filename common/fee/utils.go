@@ -10,14 +10,9 @@ import (
 
 // Returns the minimum of the calculated fee price, user specified max fee price and maxFeePrice for the node,
 // and the adjusted chain specific fee limit.
-func CapFeePrice(calculatedFeePrice, userSpecifiedMax, maxFeePriceAllowed *big.Int, feeLimit uint32, multiplier float32) (maxFeePrice *big.Int, chainSpecificFeeLimit uint32) {
-	chainSpecificFeeLimit = ApplyMultiplier(feeLimit, multiplier)
-	maxFeePrice = FeePriceLimit(userSpecifiedMax, maxFeePriceAllowed)
-	return bigmath.Min(calculatedFeePrice, maxFeePrice), chainSpecificFeeLimit
-}
-
-func FeePriceLimit(userSpecifiedMax, maxFee *big.Int) *big.Int {
-	return bigmath.Min(userSpecifiedMax, maxFee)
+func CapFeePrice(calculatedFeePrice, userSpecifiedMax, maxFeePriceAllowed *big.Int) (maxFeePrice *big.Int) {
+	maxFeePrice = bigmath.Min(userSpecifiedMax, maxFeePriceAllowed)
+	return bigmath.Min(calculatedFeePrice, maxFeePrice)
 }
 
 func ApplyMultiplier(feeLimit uint32, multiplier float32) uint32 {
