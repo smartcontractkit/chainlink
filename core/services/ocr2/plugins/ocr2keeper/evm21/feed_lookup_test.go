@@ -340,7 +340,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 		{
 			name:         "failure - cannot unmarshal privilege config",
 			cached:       false,
-			errorMessage: "failed to unmarshal privilege config for upkeep ID 71022726777042968814359024671382968091267501884371696415772139504780367423725: invalid character '\\x00' looking for beginning of value",
+			errorMessage: "failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value",
 		},
 	}
 
