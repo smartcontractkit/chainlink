@@ -14,27 +14,11 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var closeFn func() error
-
-func TestMain(m *testing.M) {
-	// initialize closeFn in case it is not part of a test
-	closeFn = func() error { return nil }
-
-	// Run the tests.
-	code := m.Run()
-
-	// Call cleanup function
-	if err := closeFn(); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to close zap logger: %v", err)
-		os.Exit(1)
-	}
-
-	// exit with the code returned from m.Run()
-	os.Exit(code)
-}
 func newTestLogger(t *testing.T, cfg Config) Logger {
-	var lggr Logger
-	lggr, closeFn = cfg.New()
+	lggr, closeFn := cfg.New()
+	t.Cleanup(func() {
+		assert.NoError(t, closeFn())
+	})
 	return lggr
 }
 
@@ -271,7 +255,7 @@ func TestZapLogger_LogCaller(t *testing.T) {
 	logs := string(b)
 	lines := strings.Split(logs, "\n")
 
-	require.Contains(t, lines[0], "logger/zap_test.go:262")
+	require.Contains(t, lines[0], "logger/zap_test.go:246")
 }
 
 func TestZapLogger_Name(t *testing.T) {

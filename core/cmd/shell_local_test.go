@@ -206,10 +206,6 @@ func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 			return logFileSize
 		}, true},
 	}
-	var closeFn func() error
-	t.Cleanup(func() {
-		assert.NoError(t, closeFn())
-	})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := logger.Config{
@@ -218,8 +214,8 @@ func TestShell_DiskMaxSizeBeforeRotateOptionDisablesAsExpected(t *testing.T) {
 			}
 			assert.NoError(t, os.MkdirAll(cfg.Dir, os.FileMode(0700)))
 
-			var lggr logger.Logger
-			lggr, closeFn = cfg.New()
+			lggr, closeFn := cfg.New()
+			t.Cleanup(func() { assert.NoError(t, closeFn()) })
 
 			// Tries to create a log file by logging. The log file won't be created if there's no logging happening.
 			lggr.Debug("Trying to create a log file by logging.")
