@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 func CleanupPerformanceTest(
 	t *testing.T,
 	testEnvironment *environment.Environment,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	testReporter testreporters.ChainlinkProfileTestReporter,
 	chainClient blockchain.EVMClient,
 ) {
@@ -61,8 +61,8 @@ func TestCronPerformance(t *testing.T) {
 	err = mockServer.SetValuePath("/variable", 5)
 	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
 
-	profileFunction := func(chainlinkNode *client.Chainlink) {
-		if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1] {
+	profileFunction := func(chainlinkNode *client.ChainlinkClient) {
+		if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1].ChainlinkClient {
 			// Not the last node, hence not all nodes started profiling yet.
 			return
 		}
@@ -96,7 +96,7 @@ func TestCronPerformance(t *testing.T) {
 	profileTest := testsetups.NewChainlinkProfileTest(testsetups.ChainlinkProfileTestInputs{
 		ProfileFunction: profileFunction,
 		ProfileDuration: 30 * time.Second,
-		ChainlinkNodes:  []*client.Chainlink{chainlinkNode},
+		ChainlinkNodes:  []*client.ChainlinkK8sClient{chainlinkNode},
 	})
 	// Register cleanup for any test
 	t.Cleanup(func() {

@@ -184,7 +184,7 @@ func TrackForwarder(
 	t *testing.T,
 	chainClient blockchain.EVMClient,
 	authorizedForwarder common.Address,
-	node *client.Chainlink,
+	node *client.ChainlinkK8sClient,
 ) {
 	l := utils.GetTestLogger(t)
 	chainID := chainClient.GetChainID()
