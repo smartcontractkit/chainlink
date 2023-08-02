@@ -562,7 +562,7 @@ func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
 	}
 }
 
-func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.CallOpts, error) {
+func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) *bind.CallOpts {
 	opts := bind.CallOpts{
 		Context:     ctx,
 		BlockNumber: nil,
@@ -577,14 +577,11 @@ func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.
 		opts.BlockNumber = block
 	}
 
-	return &opts, nil
+	return &opts
 }
 
 func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int, error) {
-	opts, err := r.buildCallOpts(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
+	opts := r.buildCallOpts(ctx, nil)
 
 	state, err := r.registry.GetState(opts)
 	if err != nil {
@@ -629,13 +626,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		return
 	}
 
-	upkeepResults, err = r.feedLookup(ctx, upkeepResults)
-	if err != nil {
-		chResult <- checkResult{
-			err: err,
-		}
-		return
-	}
+	upkeepResults = r.feedLookup(ctx, upkeepResults)
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
@@ -666,25 +657,16 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 
 	for i, key := range keys {
 		block, upkeepId := r.getBlockAndUpkeepId(key)
+		opts := r.buildCallOpts(ctx, block)
 
-		opts, err := r.buildCallOpts(ctx, block)
-		if err != nil {
-			r.lggr.Errorf("failed to build call opts for upkeepId %s and block %s: %s", upkeepId, block, err)
-			results[i] = ocr2keepers.CheckResult{
-				Payload: key,
-				Extension: EVMAutomationResultExtension21{
-					FailureReason: UPKEEP_FAILURE_REASON_BUILD_CALL_OPTS_FAILED,
-				},
-			}
-			continue
-		}
 		var payload []byte
+		var err error
 		switch getUpkeepType(upkeepId.Bytes()) {
 		case logTrigger:
 			// check data will include the log trigger config
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, key.CheckData)
 			if err != nil {
-				r.lggr.Errorf("failed to pack checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(key.CheckData), err)
+				r.lggr.Warnf("failed to pack checkUpkeep data for upkeepId %s at block %d with check data %s: %s", upkeepId, block, hexutil.Encode(key.CheckData), err)
 				results[i] = ocr2keepers.CheckResult{
 					Payload: key,
 					Extension: EVMAutomationResultExtension21{
@@ -696,7 +678,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		default:
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId)
 			if err != nil {
-				r.lggr.Errorf("failed to pack checkUpkeep data for upkeepId %s: %s", upkeepId, err)
+				r.lggr.Warnf("failed to pack checkUpkeep data for upkeepId %s at block %d: %s", upkeepId, block, err)
 				results[i] = ocr2keepers.CheckResult{
 					Payload: key,
 					Extension: EVMAutomationResultExtension21{
@@ -734,17 +716,20 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 	}
 
 	for i, req := range checkReqs {
+		index := indices[i]
 		if req.Error != nil {
-			results[indices[i]].Extension = EVMAutomationResultExtension21{
+			results[index].Payload = keys[index]
+			results[index].Extension = EVMAutomationResultExtension21{
 				FailureReason: UPKEEP_FAILURE_REASON_ERROR_RESULT,
 			}
-			r.lggr.Errorf("error encountered in check result for upkeepId %s: %s", big.NewInt(0).SetBytes(keys[i].Upkeep.ID), req.Error)
+			results[index].Retryable = true
+			r.lggr.Warnf("error encountered in check result for upkeepId %s: %s", big.NewInt(0).SetBytes(results[index].Payload.Upkeep.ID), req.Error)
 			continue
 		}
 		var err error
-		results[indices[i]], err = r.packer.UnpackCheckResult(keys[indices[i]], *checkResults[i])
+		results[index], err = r.packer.UnpackCheckResult(keys[index], *checkResults[i])
 		if err != nil {
-			r.lggr.Errorf("failed to unpack check result: %s", err)
+			r.lggr.Warnf("failed to unpack check result for upkeepId %s: %s", big.NewInt(0).SetBytes(results[index].Payload.Upkeep.ID), err)
 		}
 	}
 
@@ -765,19 +750,12 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 		block, upkeepId := r.getBlockAndUpkeepId(cr.Payload)
 		ext := cr.Extension.(EVMAutomationResultExtension21)
-
-		opts, err := r.buildCallOpts(ctx, block)
-		if err != nil {
-			ext.FailureReason = UPKEEP_FAILURE_REASON_BUILD_CALL_OPTS_FAILED
-			checkResults[i].Extension = ext
-			r.lggr.Errorf("failed to build call opts for upkeepId %s and block %s: %s", upkeepId, block, err)
-			continue
-		}
+		opts := r.buildCallOpts(ctx, block)
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
 		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, cr.PerformData)
 		if err != nil {
-			r.lggr.Errorf("failed to pack simulatePerformUpkeep data for upkeepId %s with perform data %s: %s", upkeepId, hexutil.Encode(cr.PerformData), err)
+			r.lggr.Warnf("failed to pack simulatePerformUpkeep data for upkeepId %s with perform data %s: %s", upkeepId, hexutil.Encode(cr.PerformData), err)
 			ext.FailureReason = UPKEEP_FAILURE_REASON_PACK_FAILED
 			checkResults[i].Extension = ext
 			continue
@@ -808,7 +786,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 	for i, req := range performReqs {
 		if req.Error != nil {
-			r.lggr.Errorf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Payload.Trigger.BlockNumber, new(big.Int).SetBytes(checkResults[i].Payload.Upkeep.ID), req.Error)
+			r.lggr.Warnf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Payload.Trigger.BlockNumber, new(big.Int).SetBytes(checkResults[i].Payload.Upkeep.ID), req.Error)
 			ext := checkResults[performToKeyIdx[i]].Extension.(EVMAutomationResultExtension21)
 			ext.FailureReason = UPKEEP_FAILURE_REASON_ERROR_RESULT
 			checkResults[performToKeyIdx[i]].Extension = ext
@@ -839,11 +817,7 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	)
 
 	for i, id := range ids {
-		opts, err := r.buildCallOpts(ctx, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get call opts: %s", err)
-		}
-
+		opts := r.buildCallOpts(ctx, nil)
 		payload, err := r.abi.Pack("getUpkeep", id)
 		if err != nil {
 			return nil, fmt.Errorf("failed to pack id with abi: %s", err)
@@ -920,11 +894,7 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) error {
 
 // updateTriggerConfig gets invoked upon changes in the trigger config of an upkeep.
 func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
-	opts, err := r.buildCallOpts(r.ctx, nil)
-	if err != nil {
-		r.lggr.Warnw("failed to build opts for tx", "err", err)
-		return nil, err
-	}
+	opts := r.buildCallOpts(r.ctx, nil)
 	cfg, err := r.registry.GetUpkeepTriggerConfig(opts, id)
 	if err != nil {
 		r.lggr.Warnw("failed to get trigger config", "err", err)
