@@ -11,6 +11,7 @@ import {
   encodeReport,
   stringToHex,
   getEventArg,
+  functionsRouterConfig,
 } from './utils'
 
 const setup = getSetupFactory()
@@ -37,8 +38,8 @@ describe('FunctionsRouter - Base', () => {
         contracts.router.proposeConfigUpdate(
           ids.routerId,
           ethers.utils.defaultAbiCoder.encode(
-            ['uint96', 'bytes4'],
-            [1, 0x0ca76175],
+            ['uint16', 'uint96', 'bytes4', 'uint32[]'],
+            [2000, 1, 0x0ca76175, [300_000, 500_000]],
           ),
         ),
       ).to.emit(contracts.router, 'ConfigProposed')
@@ -59,28 +60,27 @@ describe('FunctionsRouter - Base', () => {
     })
 
     it('Owner can update config of the Router', async () => {
-      const beforeConfigHash = await contracts.router.getConfigHash()
+      const beforeConfig = await contracts.router.getConfig()
 
       await expect(
-        contracts.router.proposeConfigUpdate(
-          ids.routerId,
+        contracts.router.proposeConfigUpdateSelf(
           ethers.utils.defaultAbiCoder.encode(
-            ['uint96', 'bytes4', 'uint32[]'],
-            [1, 0x0ca76175, [300_000, 500_000]],
+            ['uint16', 'uint96', 'bytes4', 'uint32[]'],
+            [2000, 1, 0x0ca76175, [300_000, 500_000]],
           ),
         ),
       ).to.emit(contracts.router, 'ConfigProposed')
-      await expect(contracts.router.updateConfig(ids.routerId)).to.emit(
+      await expect(contracts.router.updateConfigSelf()).to.emit(
         contracts.router,
         'ConfigUpdated',
       )
 
-      const afterConfigHash = await contracts.router.getConfigHash()
-      expect(beforeConfigHash).to.not.equal(afterConfigHash)
+      const afterConfig = await contracts.router.getConfig()
+      expect(beforeConfig).to.not.equal(afterConfig)
     })
 
     it('Config of a contract on a route can be updated', async () => {
-      const beforeConfigHash = await contracts.coordinator.getConfigHash()
+      const beforeConfig = await contracts.coordinator.getConfig()
 
       await expect(
         contracts.router.proposeConfigUpdate(
@@ -111,14 +111,20 @@ describe('FunctionsRouter - Base', () => {
         'ConfigUpdated',
       )
 
-      const afterConfigHash = await contracts.router.getConfigHash()
-      expect(beforeConfigHash).to.not.equal(afterConfigHash)
+      const afterConfig = await contracts.router.getConfig()
+      expect(beforeConfig).to.not.equal(afterConfig)
     })
 
     it('returns the config set on the Router', async () => {
-      expect(
-        await contracts.router.connect(roles.stranger).getAdminFee(),
-      ).to.equal(0)
+      const config = await contracts.router.connect(roles.stranger).getConfig()
+      expect(config[0]).to.equal(functionsRouterConfig.maxConsumers)
+      expect(config[1]).to.equal(functionsRouterConfig.adminFee)
+      expect(config[2]).to.equal(
+        functionsRouterConfig.handleOracleFulfillmentSelector,
+      )
+      expect(config[3].toString()).to.equal(
+        functionsRouterConfig.maxCallbackGasLimits.toString(),
+      )
     })
   })
 
@@ -217,9 +223,15 @@ describe('FunctionsRouter - Base', () => {
       const { events } = await requestProposedTx.wait()
       const requestId = getEventArg(events, 'RequestSent', 0)
 
+      const oracleRequestEvent = await coordinator2.queryFilter(
+        contracts.coordinator.filters.OracleRequest(),
+      )
+      const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
       const report = encodeReport(
         ethers.utils.hexZeroPad(requestId, 32),
         stringToHex('hello world'),
+        stringToHex(''),
+        onchainMetadata,
         stringToHex(''),
       )
 
@@ -276,8 +288,8 @@ describe('FunctionsRouter - Base', () => {
       await contracts.router.proposeConfigUpdate(
         ids.routerId,
         ethers.utils.defaultAbiCoder.encode(
-          ['uint96', 'bytes4'],
-          [20, 0x0ca76175],
+          ['uint16', 'uint96', 'bytes4', 'uint32[]'],
+          [2000, 1, 0x0ca76175, [300_000, 500_000]],
         ),
       )
       await expect(

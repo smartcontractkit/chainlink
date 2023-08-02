@@ -114,13 +114,11 @@ func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToke
 	allowed, err := allowListContract.HasAccess(nilOpts, owner.From, []byte{})
 	require.NoError(t, err)
 	if !allowed {
-		messageHash, err := allowListContract.GetMessageHash(nilOpts, owner.From, owner.From)
-		require.NoError(t, err)
-		ethMessageHash, err := allowListContract.GetEthSignedMessageHash(nilOpts, messageHash)
+		message, err := allowListContract.GetMessage(nilOpts, owner.From, owner.From)
 		require.NoError(t, err)
 		privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
 		require.NoError(t, err)
-		flatSignature, err := crypto.Sign(ethMessageHash[:], privateKey)
+		flatSignature, err := crypto.Sign(message[:], privateKey)
 		var r [32]byte
 		copy(r[:], flatSignature[:32])
 		var s [32]byte
@@ -206,17 +204,19 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 
 	// Deploy Router contract
 	routerConfigABI := abi.Arguments{
+		{Type: uint16Type},    // maxConsumers
 		{Type: uint96Type},    // adminFee
 		{Type: bytes4Type},    // handleOracleFulfillmentSelector
 		{Type: uint32ArrType}, // maxCallbackGasLimits
 	}
+	var maxConsumers = uint16(100)
 	var adminFee = big.NewInt(0)
 	handleOracleFulfillmentSelectorSlice, err := hex.DecodeString("0ca76175")
 	require.NoError(t, err)
 	var handleOracleFulfillmentSelector [4]byte
 	copy(handleOracleFulfillmentSelector[:], handleOracleFulfillmentSelectorSlice[:4])
 	maxCallbackGasLimits := []uint32{300_000, 500_000, 1_000_000}
-	routerConfig, err := routerConfigABI.Pack(adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits)
+	routerConfig, err := routerConfigABI.Pack(maxConsumers, adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits)
 	require.NoError(t, err)
 	var timelockBlocks = uint16(0)
 	var maximumTimelockBlocks = uint16(10)

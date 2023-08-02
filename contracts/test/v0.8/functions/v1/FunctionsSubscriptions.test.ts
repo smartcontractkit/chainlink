@@ -129,7 +129,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.subOwner)
             .acceptSubscriptionOwnerTransfer(1203123123),
-        ).to.be.revertedWith(`MustBeRequestedOwner`)
+        ).to.be.revertedWith(`MustBeProposedOwner`)
       })
       it('must be requested owner to accept', async function () {
         await expect(
@@ -141,7 +141,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.subOwner)
             .acceptSubscriptionOwnerTransfer(subId),
-        ).to.be.revertedWith(`MustBeRequestedOwner("${roles.strangerAddress}")`)
+        ).to.be.revertedWith(`MustBeProposedOwner`)
       })
       it('requested owner can accept', async function () {
         await acceptTermsOfService(
@@ -619,16 +619,35 @@ describe('Functions Router - Subscriptions', () => {
       const response = stringToBytes('response')
       const error = stringToBytes('')
       const abi = ethers.utils.defaultAbiCoder
-
+      const oracleRequestEvent = await contracts.coordinator.queryFilter(
+        contracts.coordinator.filters.OracleRequest(),
+      )
+      const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
+      const offchainMetadata = stringToBytes('')
       const report = abi.encode(
-        ['bytes32[]', 'bytes[]', 'bytes[]'],
-        [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
+        ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
+        [
+          [ethers.utils.hexZeroPad(requestId, 32)],
+          [response],
+          [error],
+          [onchainMetadata],
+          [offchainMetadata],
+        ],
       )
 
       await expect(contracts.coordinator.callReport(report, { gasPrice }))
         .to.emit(contracts.coordinator, 'OracleResponse')
         .withArgs(requestId, await roles.defaultAccount.getAddress())
-        .to.emit(contracts.coordinator, 'BillingEnd')
+        .to.emit(contracts.router, 'RequestProcessed')
+        .withArgs(
+          requestId,
+          subscriptionId,
+          () => true,
+          () => true,
+          0, // Result code for callback failing
+          () => true,
+          () => true,
+        )
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
         .to.emit(contracts.client, 'SendRequestInvoked')
@@ -688,10 +707,20 @@ describe('Functions Router - Subscriptions', () => {
       const response = stringToBytes('response')
       const error = stringToBytes('')
       const abi = ethers.utils.defaultAbiCoder
-
+      const oracleRequestEvent = await contracts.coordinator.queryFilter(
+        contracts.coordinator.filters.OracleRequest(),
+      )
+      const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
+      const offchainMetadata = stringToBytes('')
       const report = abi.encode(
-        ['bytes32[]', 'bytes[]', 'bytes[]'],
-        [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
+        ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
+        [
+          [ethers.utils.hexZeroPad(requestId, 32)],
+          [response],
+          [error],
+          [onchainMetadata],
+          [offchainMetadata],
+        ],
       )
 
       await expect(contracts.coordinator.callReport(report, { gasPrice }))
@@ -699,14 +728,15 @@ describe('Functions Router - Subscriptions', () => {
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
-        .to.emit(contracts.coordinator, 'BillingEnd')
+        .to.emit(contracts.router, 'RequestProcessed')
         .withArgs(
           requestId,
           subscriptionId,
           () => true,
           () => true,
-          () => true,
           1, // Result code for callback failing
+          () => true,
+          () => true,
         )
     })
 
@@ -743,13 +773,13 @@ describe('Functions Router - Subscriptions', () => {
       // Accept ToS for client contract
       const acceptorAddress = roles.subOwnerAddress
       const recipientAddress = contracts.client.address
-      const messageHash = await contracts.accessControl.getMessageHash(
+      const message = await contracts.accessControl.getMessage(
         acceptorAddress,
         recipientAddress,
       )
       const wallet = new ethers.Wallet(accessControlMockPrivateKey)
       const flatSignature = await wallet.signMessage(
-        ethers.utils.arrayify(messageHash),
+        ethers.utils.arrayify(message),
       )
       const { r, s, v } = ethers.utils.splitSignature(flatSignature)
       await contracts.client
@@ -788,10 +818,20 @@ describe('Functions Router - Subscriptions', () => {
       const response = stringToBytes('response')
       const error = stringToBytes('')
       const abi = ethers.utils.defaultAbiCoder
-
+      const oracleRequestEvent = await contracts.coordinator.queryFilter(
+        contracts.coordinator.filters.OracleRequest(),
+      )
+      const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
+      const offchainMetadata = stringToBytes('')
       const report = abi.encode(
-        ['bytes32[]', 'bytes[]', 'bytes[]'],
-        [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
+        ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
+        [
+          [ethers.utils.hexZeroPad(requestId, 32)],
+          [response],
+          [error],
+          [onchainMetadata],
+          [offchainMetadata],
+        ],
       )
 
       await expect(contracts.coordinator.callReport(report, { gasPrice }))
@@ -799,14 +839,15 @@ describe('Functions Router - Subscriptions', () => {
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
-        .to.emit(contracts.coordinator, 'BillingEnd')
+        .to.emit(contracts.router, 'RequestProcessed')
         .withArgs(
           requestId,
           subscriptionId,
           () => true,
           () => true,
-          () => true,
           1, // Result code for callback failing
+          () => true,
+          () => true,
         )
     })
   })

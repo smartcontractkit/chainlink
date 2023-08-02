@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {IFunctionsRequest} from "./IFunctionsRequest.sol";
+
 /**
  * @title Chainlink Functions Subscription interface.
  */
@@ -30,18 +32,9 @@ interface IFunctionsSubscriptions {
   /**
    * @notice Get details about a subscription.
    * @param subscriptionId - ID of the subscription
-   * @return balance - LINK balance of the subscription in juels.
-   * @return blockedBalance - amount of LINK balance of the subscription in juels that is blocked for an in flight request.
-   * @return owner - owner of the subscription.
-   * @return requestedOwner - proposed owner to move ownership of the subscription to.
-   * @return consumers - list of consumer address which are able to use this subscription.
+   * @return subscription - list of consumer address which are able to use this subscription.
    */
-  function getSubscription(
-    uint64 subscriptionId
-  )
-    external
-    view
-    returns (uint96 balance, uint96 blockedBalance, address owner, address requestedOwner, address[] memory consumers);
+  function getSubscription(uint64 subscriptionId) external view returns (Subscription memory);
 
   /**
    * @notice Get details about a consumer of a subscription.
@@ -58,12 +51,6 @@ interface IFunctionsSubscriptions {
   ) external view returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests);
 
   /**
-   * @notice Get the maximum number of consumers that can be added to one subscription
-   * @return maxConsumers - maximum number of consumers that can be added to one subscription
-   */
-  function getMaxConsumers() external view returns (uint16);
-
-  /**
    * @notice Get details about the total amount of LINK within the system
    * @return totalBalance - total Juels of LINK held by the contract
    */
@@ -77,9 +64,10 @@ interface IFunctionsSubscriptions {
 
   /**
    * @notice Time out all expired requests: unlocks funds and removes the ability for the request to be fulfilled
-   * @param requestIdsToTimeout - A list of request IDs to time out
+   * @param requestsToTimeoutByCommitment - A list of request commitments to time out
+   * @dev The commitment can be found on the "OracleRequest" event created when sending the request.
    */
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external;
+  function timeoutRequests(IFunctionsRequest.Commitment[] calldata requestsToTimeoutByCommitment) external;
 
   /**
    * @notice Oracle withdraw LINK earned through fulfilling requests
