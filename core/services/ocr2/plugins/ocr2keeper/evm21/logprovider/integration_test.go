@@ -171,8 +171,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	poll(backend.Commit())
 
 	wg.Wait()
-	// TODO: fix test (might be caused by timeouts) and uncomment
-	// require.GreaterOrEqual(t, atomic.LoadInt32(&limitErrs), int32(1), "didn't got rate limit errors")
+	require.GreaterOrEqual(t, atomic.LoadInt32(&limitErrs), int32(1), "didn't got rate limit errors")
 	t.Logf("got %d rate limit errors", atomic.LoadInt32(&limitErrs))
 
 	_, err := logProvider.GetLogs(ctx)
@@ -235,8 +234,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, logProvider.Close())
 
-	expected := 0 // TODO: fix test (might be caused by timeouts) and change to n
-	require.GreaterOrEqual(t, len(logs), expected, "failed to backfill logs")
+	require.GreaterOrEqual(t, len(logs), n, "failed to backfill logs")
 }
 
 func pollFn(ctx context.Context, t *testing.T, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) func(blockHash common.Hash) {

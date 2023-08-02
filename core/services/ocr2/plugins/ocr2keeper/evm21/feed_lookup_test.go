@@ -315,8 +315,7 @@ func TestEvmRegistry_DecodeFeedLookup(t *testing.T) {
 }
 
 func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
-	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
-	assert.True(t, ok, t.Name())
+	upkeepId := big.NewInt(123456789)
 	tests := []struct {
 		name         string
 		cached       bool
@@ -346,7 +345,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 		{
 			name:         "failure - cannot unmarshal privilege config",
 			cached:       false,
-			errorMessage: "failed to unmarshal privilege config for upkeep ID 71022726777042968814359024671382968091267501884371696415772139504780367423725: invalid character '\\x00' looking for beginning of value",
+			errorMessage: "failed to unmarshal privilege config for upkeep ID 123456789: invalid character '\\x00' looking for beginning of value",
 		},
 	}
 
