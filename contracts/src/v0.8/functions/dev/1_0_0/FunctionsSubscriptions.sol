@@ -6,6 +6,7 @@ import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterfa
 import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
+import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
 
 /**
@@ -14,10 +15,6 @@ import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/u
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677ReceiverInterface {
-  // Reentrancy guard
-  bool internal s_reentrancyLock;
-  error Reentrant();
-
   // ================================================================
   // |                      Subscription state                      |
   // ================================================================
@@ -36,11 +33,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   LinkTokenInterface private s_linkToken;
 
   mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) internal s_subscriptions;
-
-  // We need to maintain a list of addresses that can consume a subscription.
-  // This bound ensures we are able to loop over them as needed.
-  // Should a user require more consumers, they can use multiple subscriptions.
-  uint16 private constant MAX_CONSUMERS = 100;
   mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) internal s_consumers;
 
   event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
@@ -53,14 +45,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
 
   error TooManyConsumers();
   error InsufficientBalance();
-  error InvalidConsumer(uint64 subscriptionId, address consumer);
+  error InvalidConsumer();
   error ConsumerRequestsInFlight();
   error InvalidSubscription();
   error OnlyCallableFromLink();
   error InvalidCalldata();
   error MustBeSubscriptionOwner();
   error PendingRequestExists();
-  error MustBeRequestedOwner(address proposedOwner);
+  error MustBeProposedOwner();
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
 
@@ -90,13 +82,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // ================================================================
   // |                      Getter methods                          |
   // ================================================================
-  /**
-   * @inheritdoc IFunctionsSubscriptions
-   */
-  function getMaxConsumers() external pure override returns (uint16) {
-    return MAX_CONSUMERS;
-  }
-
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
@@ -144,7 +129,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
 
   function _isValidConsumer(address client, uint64 subscriptionId) internal view {
     if (!s_consumers[client][subscriptionId].allowed) {
-      revert InvalidConsumer(subscriptionId, client);
+      revert InvalidConsumer();
     }
   }
 
@@ -204,11 +189,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function ownerCancelSubscription(uint64 subscriptionId) external override {
     _onlyRouterOwner();
-    address owner = s_subscriptions[subscriptionId].owner;
-    if (owner == address(0)) {
-      revert InvalidSubscription();
-    }
-    _cancelSubscriptionHelper(subscriptionId, owner);
+    _isValidSubscription(subscriptionId);
+    _cancelSubscriptionHelper(subscriptionId, s_subscriptions[subscriptionId].owner);
   }
 
   /**
@@ -343,7 +325,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     address previousOwner = s_subscriptions[subscriptionId].owner;
     address nextOwner = s_subscriptions[subscriptionId].requestedOwner;
     if (nextOwner != msg.sender) {
-      revert MustBeRequestedOwner(nextOwner);
+      revert MustBeProposedOwner();
     }
     s_subscriptions[subscriptionId].owner = msg.sender;
     s_subscriptions[subscriptionId].requestedOwner = address(0);
@@ -359,12 +341,12 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     _onlySenderThatAcceptedToS();
     Consumer memory consumerData = s_consumers[consumer][subscriptionId];
     if (!consumerData.allowed) {
-      revert InvalidConsumer(subscriptionId, consumer);
+      revert InvalidConsumer();
     }
     if (consumerData.initiatedRequests != consumerData.completedRequests) {
       revert ConsumerRequestsInFlight();
     }
-    // Note bounded by MAX_CONSUMERS
+    // Note bounded by config.maxConsumers
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
     uint256 lastConsumerIndex = consumers.length - 1;
     for (uint256 i = 0; i < consumers.length; ++i) {
@@ -389,7 +371,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
     // Already maxed, cannot add any more consumers.
-    if (s_subscriptions[subscriptionId].consumers.length == MAX_CONSUMERS) {
+    if (s_subscriptions[subscriptionId].consumers.length == _getMaxConsumers()) {
       revert TooManyConsumers();
     }
     if (s_consumers[consumer][subscriptionId].allowed) {
@@ -419,7 +401,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function _cancelSubscriptionHelper(uint64 subscriptionId, address to) private {
     Subscription memory sub = s_subscriptions[subscriptionId];
     uint96 balance = sub.balance;
-    // Note bounded by MAX_CONSUMERS;
+    // Note bounded by config.maxConsumers
     // If no consumers, does nothing.
     for (uint256 i = 0; i < sub.consumers.length; ++i) {
       delete s_consumers[sub.consumers[i]][subscriptionId];
@@ -441,7 +423,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
 
   function _pendingRequestExists(uint64 subscriptionId) internal view returns (bool) {
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
-    // Iterations will not exceed MAX_CONSUMERS
+    // Iterations will not exceed config.maxConsumers
     for (uint256 i = 0; i < consumers.length; ++i) {
       Consumer memory consumer = s_consumers[consumers[i]][subscriptionId];
       if (consumer.initiatedRequests != consumer.completedRequests) {
@@ -460,16 +442,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     s_subscriptions[subscriptionId].flags = flags;
   }
 
-  function _getFlags(uint64 subscriptionId) internal view returns (bytes32) {
-    return s_subscriptions[subscriptionId].flags;
-  }
-
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function getFlags(uint64 subscriptionId) external view returns (bytes32) {
-    return _getFlags(subscriptionId);
+  function getFlags(uint64 subscriptionId) public view returns (bytes32) {
+    return s_subscriptions[subscriptionId].flags;
   }
+
+  function _getMaxConsumers() internal view virtual returns (uint16);
 
   // ================================================================
   // |                  Request Timeout Methods                     |

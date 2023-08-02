@@ -27,10 +27,6 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     bytes commitment
   );
   event OracleResponse(bytes32 indexed requestId, address transmitter);
-  event InvalidRequestID(bytes32 indexed requestId);
-  event InsufficientGasProvided(bytes32 indexed requestId);
-  event CostExceedsCommitment(bytes32 indexed requestId);
-  event InsufficientSubscriptionBalance(bytes32 indexed requestId);
 
   error EmptyRequestData();
   error InconsistentReportData();
@@ -158,7 +154,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       subscriptionId: request.subscriptionId,
       client: request.requestingContract,
       callbackGasLimit: request.callbackGasLimit,
-      expectedGasPrice: tx.gasprice
+      expectedGasPrice: tx.gasprice,
+      adminFee: request.adminFee
     });
 
     commitment = _startBilling(request.data, request.dataVersion, billing);
@@ -232,14 +229,6 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
       if (result == FulfillResult.USER_SUCCESS || result == FulfillResult.USER_ERROR) {
         emit OracleResponse(requestIds[i], msg.sender);
-      } else if (result == FulfillResult.INVALID_REQUEST_ID) {
-        emit InvalidRequestID(requestIds[i]);
-      } else if (result == FulfillResult.INSUFFICIENT_GAS) {
-        emit InsufficientGasProvided(requestIds[i]);
-      } else if (result == FulfillResult.COST_EXCEEDS_COMMITMENT) {
-        emit CostExceedsCommitment(requestIds[i]);
-      } else if (result == FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE) {
-        emit InsufficientSubscriptionBalance(requestIds[i]);
       }
     }
   }

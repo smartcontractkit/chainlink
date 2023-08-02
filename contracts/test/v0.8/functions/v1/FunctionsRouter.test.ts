@@ -19,9 +19,16 @@ describe('Functions Router - Request lifecycle', () => {
         'Functions Router v1.0.0',
       )
     })
-    it('#adminFee', async () => {
+    it('#config', async () => {
       const config = await contracts.router.getConfig()
-      expect(config[0].toNumber()).to.be.equal(functionsRouterConfig.adminFee)
+      expect(config[0]).to.be.equal(functionsRouterConfig.maxConsumers)
+      expect(config[1]).to.be.equal(functionsRouterConfig.adminFee)
+      expect(config[2]).to.be.equal(
+        functionsRouterConfig.handleOracleFulfillmentSelector,
+      )
+      expect(config[3].toString()).to.be.equal(
+        functionsRouterConfig.maxCallbackGasLimits.toString(),
+      )
     })
   })
 })

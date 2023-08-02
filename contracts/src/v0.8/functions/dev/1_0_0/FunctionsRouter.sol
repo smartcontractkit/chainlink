@@ -6,6 +6,7 @@ import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
+import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
 import {IAccessController} from "../../../shared/interfaces/IAccessController.sol";
 import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
@@ -28,7 +29,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint32 callbackGasLimit
   );
 
-  event RequestEnd(
+  event RequestProcessed(
     bytes32 indexed requestId,
     uint64 indexed subscriptionId,
     uint96 totalCostJuels,
@@ -36,6 +37,13 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     FulfillResult resultCode,
     bytes response,
     bytes returnData
+  );
+
+  event RequestNotProcessed(
+    bytes32 indexed requestId,
+    address coordinator,
+    address transmitter,
+    FulfillResult resultCode
   );
 
   error OnlyCallableFromCoordinator();
@@ -56,14 +64,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   // ================================================================
   // |                    Configuration state                       |
   // ================================================================
-  struct Config {
-    // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
-    uint96 adminFee;
-    // The function selector that is used when calling back to the Client contract
-    bytes4 handleOracleFulfillmentSelector;
-    // List of max callback gas limits used by flag with MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX
-    uint32[] maxCallbackGasLimits;
-  }
   Config private s_config;
   event ConfigChanged(uint96 adminFee, bytes4 handleOracleFulfillmentSelector, uint32[] maxCallbackGasLimits);
 
@@ -97,8 +97,13 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   /**
    * @inheritdoc IFunctionsRouter
    */
-  function getConfig() external view override returns (uint96, bytes4, uint32[] memory) {
-    return (s_config.adminFee, s_config.handleOracleFulfillmentSelector, s_config.maxCallbackGasLimits);
+  function getConfig() external view override returns (uint16, uint96, bytes4, uint32[] memory) {
+    return (
+      s_config.maxConsumersPerSubscription,
+      s_config.adminFee,
+      s_config.handleOracleFulfillmentSelector,
+      s_config.maxCallbackGasLimits
+    );
   }
 
   // ================================================================
@@ -110,11 +115,14 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
    *  - adminFee: fee that will be paid to the Router owner for operating the network
    */
   function _updateConfig(bytes memory config) internal override {
-    (uint96 adminFee, bytes4 handleOracleFulfillmentSelector, uint32[] memory maxCallbackGasLimits) = abi.decode(
-      config,
-      (uint96, bytes4, uint32[])
-    );
+    (
+      uint16 maxConsumersPerSubscription,
+      uint96 adminFee,
+      bytes4 handleOracleFulfillmentSelector,
+      uint32[] memory maxCallbackGasLimits
+    ) = abi.decode(config, (uint16, uint96, bytes4, uint32[]));
     s_config = Config({
+      maxConsumersPerSubscription: maxConsumersPerSubscription,
       adminFee: adminFee,
       handleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
       maxCallbackGasLimits: maxCallbackGasLimits
@@ -175,8 +183,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
         data: data,
         subscriptionId: subscriptionId,
         dataVersion: dataVersion,
-        flags: _getFlags(subscriptionId),
-        callbackGasLimit: callbackGasLimit
+        flags: getFlags(subscriptionId),
+        callbackGasLimit: callbackGasLimit,
+        adminFee: s_config.adminFee
       })
     );
 
@@ -234,16 +243,22 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     }
 
     if (s_requestCommitments[commitment.requestId] == bytes32(0)) {
-      return (FulfillResult.INVALID_REQUEST_ID, callbackGasCostJuels);
+      resultCode = FulfillResult.INVALID_REQUEST_ID;
+      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+      return (resultCode, callbackGasCostJuels);
     }
 
     if (keccak256(abi.encode(commitment)) != s_requestCommitments[commitment.requestId]) {
-      return (FulfillResult.INVALID_COMMITMENT, callbackGasCostJuels);
+      resultCode = FulfillResult.INVALID_COMMITMENT;
+      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+      return (resultCode, callbackGasCostJuels);
     }
 
     // Check that the transmitter has supplied enough gas for the callback to succeed
     if (gasleft() < commitment.callbackGasLimit + commitment.gasOverheadAfterCallback) {
-      return (FulfillResult.INSUFFICIENT_GAS, callbackGasCostJuels);
+      resultCode = FulfillResult.INSUFFICIENT_GAS_PROVIDED;
+      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+      return (resultCode, callbackGasCostJuels);
     }
 
     {
@@ -252,12 +267,16 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
       // Check that the subscription can still afford
       if (totalCostJuels > s_subscriptions[commitment.subscriptionId].balance) {
-        return (FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE, callbackGasCostJuels);
+        resultCode = FulfillResult.SUBSCRIPTION_BALANCE_INVARIANT_VIOLATION;
+        emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+        return (resultCode, callbackGasCostJuels);
       }
 
       // Check that the cost has not exceeded the quoted cost
       if (totalCostJuels > commitment.estimatedTotalCostJuels) {
-        return (FulfillResult.COST_EXCEEDS_COMMITMENT, callbackGasCostJuels);
+        resultCode = FulfillResult.COST_EXCEEDS_COMMITMENT;
+        emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+        return (resultCode, callbackGasCostJuels);
       }
     }
 
@@ -282,7 +301,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       costWithoutCallback
     );
 
-    emit RequestEnd({
+    emit RequestProcessed({
       requestId: commitment.requestId,
       subscriptionId: commitment.subscriptionId,
       totalCostJuels: receipt.totalCostJuels,
@@ -368,13 +387,17 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
    * @inheritdoc IFunctionsRouter
    */
   function isValidCallbackGasLimit(uint64 subscriptionId, uint32 callbackGasLimit) public view {
-    uint8 index = uint8(_getFlags(subscriptionId)[MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX]);
+    uint8 index = uint8(getFlags(subscriptionId)[MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX]);
     if (index >= s_config.maxCallbackGasLimits.length) {
       revert InvalidGasFlagValue(index);
     }
     if (callbackGasLimit > s_config.maxCallbackGasLimits[index]) {
       revert GasLimitTooBig(s_config.maxCallbackGasLimits[index]);
     }
+  }
+
+  function _getMaxConsumers() internal view override returns (uint16) {
+    return s_config.maxConsumersPerSubscription;
   }
 
   // ================================================================

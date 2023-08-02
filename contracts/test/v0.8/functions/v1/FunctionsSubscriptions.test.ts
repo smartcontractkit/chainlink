@@ -129,7 +129,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.subOwner)
             .acceptSubscriptionOwnerTransfer(1203123123),
-        ).to.be.revertedWith(`MustBeRequestedOwner`)
+        ).to.be.revertedWith(`MustBeProposedOwner`)
       })
       it('must be requested owner to accept', async function () {
         await expect(
@@ -141,7 +141,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.subOwner)
             .acceptSubscriptionOwnerTransfer(subId),
-        ).to.be.revertedWith(`MustBeRequestedOwner("${roles.strangerAddress}")`)
+        ).to.be.revertedWith(`MustBeProposedOwner`)
       })
       it('requested owner can accept', async function () {
         await acceptTermsOfService(
@@ -638,7 +638,7 @@ describe('Functions Router - Subscriptions', () => {
       await expect(contracts.coordinator.callReport(report, { gasPrice }))
         .to.emit(contracts.coordinator, 'OracleResponse')
         .withArgs(requestId, await roles.defaultAccount.getAddress())
-        .to.emit(contracts.router, 'RequestEnd')
+        .to.emit(contracts.router, 'RequestProcessed')
         .withArgs(
           requestId,
           subscriptionId,
@@ -728,7 +728,7 @@ describe('Functions Router - Subscriptions', () => {
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
-        .to.emit(contracts.router, 'RequestEnd')
+        .to.emit(contracts.router, 'RequestProcessed')
         .withArgs(
           requestId,
           subscriptionId,
@@ -839,7 +839,7 @@ describe('Functions Router - Subscriptions', () => {
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
-        .to.emit(contracts.router, 'RequestEnd')
+        .to.emit(contracts.router, 'RequestProcessed')
         .withArgs(
           requestId,
           subscriptionId,
