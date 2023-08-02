@@ -5,6 +5,7 @@ import {RouterBase, ITypeAndVersion} from "./RouterBase.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
+import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
 import {IAccessController} from "../../../shared/interfaces/IAccessController.sol";
 import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
@@ -27,7 +28,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint32 callbackGasLimit
   );
 
-  event RequestEnd(
+  event RequestProcessed(
     bytes32 indexed requestId,
     uint64 indexed subscriptionId,
     uint96 totalCostJuels,
@@ -36,6 +37,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes response,
     bytes returnData
   );
+
+  event RequestNotProcessed(bytes32 indexed requestId, address coordinator, address transmitter, uint8 resultCode);
 
   error OnlyCallableFromCoordinator();
   error SenderMustAcceptTermsOfService(address sender);
@@ -237,18 +240,21 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     }
 
     if (s_requestCommitments[commitment.requestId] == bytes32(0)) {
-      resultCode = 2; // FulfillResult.INVALID_REQUEST_ID
+      resultCode = uint8(FulfillResult.INVALID_REQUEST_ID);
+      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
       return (resultCode, callbackGasCostJuels);
     }
 
     if (keccak256(abi.encode(commitment)) != s_requestCommitments[commitment.requestId]) {
-      resultCode = 7; // FulfillResult.INVALID_REQUEST_ID
+      resultCode = uint8(FulfillResult.INVALID_COMMITMENT);
+      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
       return (resultCode, callbackGasCostJuels);
     }
 
     // Check that the transmitter has supplied enough gas for the callback to succeed
     if (gasleft() < commitment.callbackGasLimit + commitment.gasOverheadAfterCallback) {
-      resultCode = 3; // IFunctionsRouter.FulfillResult.INSUFFICIENT_GAS;
+      resultCode = uint8(FulfillResult.INSUFFICIENT_GAS_PROVIDED);
+      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
       return (resultCode, callbackGasCostJuels);
     }
 
@@ -257,7 +263,9 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       commitment.adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit)) >
       s_subscriptions[commitment.subscriptionId].balance
     ) {
-      resultCode = 4; // IFunctionsRouter.FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE
+      resultCode = uint8(FulfillResult.SUBSCRIPTION_BALANCE_INVARIANT_VIOLATION);
+      delete s_requestCommitments[commitment.requestId];
+      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
       return (resultCode, callbackGasCostJuels);
     }
 
@@ -266,7 +274,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       commitment.adminFee + costWithoutFulfillment + (juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit)) >
       commitment.estimatedTotalCostJuels
     ) {
-      resultCode = 5; // IFunctionsRouter.FulfillResult.COST_EXCEEDS_COMMITMENT
+      resultCode = uint8(FulfillResult.COST_EXCEEDS_COMMITMENT);
+      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
       return (resultCode, callbackGasCostJuels);
     }
 
@@ -296,7 +305,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       costWithoutFulfillment
     );
 
-    emit RequestEnd(
+    // resultCode must be 0 or 1 here
+    emit RequestProcessed(
       commitment.requestId,
       commitment.subscriptionId,
       receipt.totalCostJuels,
