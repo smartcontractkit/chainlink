@@ -54,25 +54,29 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
-	result := ocr2keepers.CheckResult{Payload: key}
-
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		result.Extension = EVMAutomationResultExtension21{
-			FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
+		result := ocr2keepers.CheckResult{
+			Payload: key,
+			Extension: EVMAutomationResultExtension21{
+				FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
+			},
 		}
 		return result, fmt.Errorf("failed to decode checkUpkeep result %s: %s", raw, err)
 	}
 
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		result.Extension = EVMAutomationResultExtension21{
-			FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
+		result := ocr2keepers.CheckResult{
+			Payload: key,
+			Extension: EVMAutomationResultExtension21{
+				FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
+			},
 		}
 		return result, fmt.Errorf("failed to unpack checkUpkeep result %s: %s", raw, err)
 	}
 
-	result = ocr2keepers.CheckResult{
+	result := ocr2keepers.CheckResult{
 		Eligible:     *abi.ConvertType(out[0], new(bool)).(*bool),
 		Retryable:    false,
 		GasAllocated: uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
