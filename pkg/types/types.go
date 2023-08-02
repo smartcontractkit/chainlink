@@ -40,8 +40,7 @@ type Relayer interface {
 	NewConfigProvider(rargs RelayArgs) (ConfigProvider, error)
 	NewMedianProvider(rargs RelayArgs, pargs PluginArgs) (MedianProvider, error)
 	NewMercuryProvider(rargs RelayArgs, pargs PluginArgs) (MercuryProvider, error)
-	// TODO: enable when all dependencies are ready
-	// NewFunctionsProvider(rargs RelayArgs, pargs PluginArgs) (FunctionsProvider, error)
+	NewFunctionsProvider(rargs RelayArgs, pargs PluginArgs) (FunctionsProvider, error)
 }
 
 // The bootstrap jobs only watch config.
