@@ -8,6 +8,7 @@ import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
+import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 
 /**
  * @title Functions Billing contract
@@ -192,12 +193,9 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   /**
    * @inheritdoc IFunctionsBilling
    */
-  function getAdminFee(
-    bytes memory /* requestData */,
-    RequestBilling memory /* billing */
-  ) public view override returns (uint96) {
-    // NOTE: Optionally, compute additional fee here
-    return IFunctionsRouter(address(_getRouter())).getAdminFee();
+  function getAdminFee() public view override returns (uint96) {
+    IFunctionsRouter.Config memory config = _getRouter().getConfig();
+    return config.adminFee;
   }
 
   function getFeedData() public view returns (int256) {
@@ -224,14 +222,13 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     uint256 gasPrice
   ) external view override returns (uint96) {
     // Reasonable ceilings to prevent integer overflows
-    IFunctionsRouter router = IFunctionsRouter(address(_getRouter()));
-    router.isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
+    _getRouter().isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
     if (gasPrice > 1_000_000) {
       revert InvalidCalldata();
     }
-    RequestBilling memory billing = RequestBilling(subscriptionId, msg.sender, callbackGasLimit, gasPrice);
+    uint96 adminFee = getAdminFee();
+    RequestBilling memory billing = RequestBilling(subscriptionId, msg.sender, callbackGasLimit, gasPrice, adminFee);
     uint96 donFee = getDONFee(data, billing);
-    uint96 adminFee = getAdminFee(data, billing);
     return _calculateCostEstimate(callbackGasLimit, gasPrice, donFee, adminFee);
   }
 
@@ -284,8 +281,12 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
 
     // Check that subscription can afford the estimated cost
     uint80 donFee = getDONFee(data, billing);
-    uint96 adminFee = getAdminFee(data, billing);
-    uint96 estimatedCost = _calculateCostEstimate(billing.callbackGasLimit, billing.expectedGasPrice, donFee, adminFee);
+    uint96 estimatedCost = _calculateCostEstimate(
+      billing.callbackGasLimit,
+      billing.expectedGasPrice,
+      donFee,
+      billing.adminFee
+    );
     IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(_getRouter()));
     (uint96 balance, uint96 blockedBalance, , , ) = subscriptions.getSubscription(billing.subscriptionId);
     (, uint64 initiatedRequests, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
@@ -297,7 +298,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     bytes32 requestId = computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
 
     commitment = IFunctionsRequest.Commitment({
-      adminFee: adminFee,
+      adminFee: billing.adminFee,
       coordinator: address(this),
       client: billing.client,
       subscriptionId: billing.subscriptionId,
@@ -363,8 +364,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
     );
 
     // The Functions Router will perform the callback to the client contract
-    IFunctionsRouter router = IFunctionsRouter(address(_getRouter()));
-    (uint8 result, uint96 callbackCostJuels) = router.fulfill(
+    (uint8 result, uint96 callbackCostJuels) = _getRouter().fulfill(
       response,
       err,
       uint96(juelsPerGas),

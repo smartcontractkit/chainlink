@@ -4,12 +4,12 @@ pragma solidity ^0.8.19;
 
 import {IConfigurable} from "./interfaces/IConfigurable.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {IOwnableRouter} from "./interfaces/IOwnableRouter.sol";
+import {IOwnableFunctionsRouter} from "./interfaces/IOwnableFunctionsRouter.sol";
 
 abstract contract HasRouter is ITypeAndVersion, IConfigurable {
   bytes32 internal s_configHash;
 
-  IOwnableRouter internal immutable s_router;
+  IOwnableFunctionsRouter internal immutable s_router;
 
   error RouterMustBeSet();
   error OnlyCallableByRouter();
@@ -22,12 +22,12 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
     if (router == address(0)) {
       revert RouterMustBeSet();
     }
-    s_router = IOwnableRouter(router);
+    s_router = IOwnableFunctionsRouter(router);
     _updateConfig(config);
     s_configHash = keccak256(config);
   }
 
-  function _getRouter() internal view returns (IOwnableRouter router) {
+  function _getRouter() internal view returns (IOwnableFunctionsRouter router) {
     return s_router;
   }
 
