@@ -3,21 +3,20 @@ package test_env
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	env "github.com/smartcontractkit/chainlink/integration-tests/types/envcommon"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
-	"time"
+	"os"
 )
 
 const (
@@ -29,23 +28,30 @@ const (
 )
 
 type Geth struct {
-	env.EnvComponent
+	EnvComponent
 	ExternalHttpUrl  string
 	InternalHttpUrl  string
 	ExternalWsUrl    string
 	InternalWsUrl    string
-	EthClient        blockchain.EVMClient
+	EthClient        *blockchain.EthereumClient
 	ContractDeployer contracts.ContractDeployer
 }
 
-func NewGeth(compOpts env.EnvComponentOpts) *Geth {
-	return &Geth{
-		EnvComponent: env.NewEnvComponent("geth", compOpts),
+func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
+	g := &Geth{
+		EnvComponent: EnvComponent{
+			ContainerName: fmt.Sprintf("%s-%s", "geth", uuid.NewString()[0:3]),
+			Networks:      networks,
+		},
 	}
+	for _, opt := range opts {
+		opt(&g.EnvComponent)
+	}
+	return g
 }
 
-func (m *Geth) StartContainer(lw *logwatch.LogWatch) error {
-	r, _, _, err := m.getGethContainerRequest(m.Networks)
+func (g *Geth) StartContainer(lw *logwatch.LogWatch) error {
+	r, _, _, err := g.getGethContainerRequest(g.Networks)
 	if err != nil {
 		return err
 	}
@@ -75,49 +81,55 @@ func (m *Geth) StartContainer(lw *logwatch.LogWatch) error {
 	if err != nil {
 		return err
 	}
-	ctName, err := ct.Name(context.Background())
-	if err != nil {
-		return err
-	}
-	ctName = strings.Replace(ctName, "/", "", -1)
 
-	m.EnvComponent.Container = ct
-	m.ExternalHttpUrl = fmt.Sprintf("http://%s:%s", host, httpPort.Port())
-	m.InternalHttpUrl = fmt.Sprintf("http://%s:8544", ctName)
-	m.ExternalWsUrl = fmt.Sprintf("ws://%s:%s", host, wsPort.Port())
-	m.InternalWsUrl = fmt.Sprintf("ws://%s:8545", ctName)
+	g.EnvComponent.Container = ct
+	g.ExternalHttpUrl = fmt.Sprintf("http://%s:%s", host, httpPort.Port())
+	g.InternalHttpUrl = fmt.Sprintf("http://%s:8544", g.ContainerName)
+	g.ExternalWsUrl = fmt.Sprintf("ws://%s:%s", host, wsPort.Port())
+	g.InternalWsUrl = fmt.Sprintf("ws://%s:8545", g.ContainerName)
 
 	networkConfig := blockchain.SimulatedEVMNetwork
 	networkConfig.Name = "geth"
-	networkConfig.URLs = []string{m.ExternalWsUrl}
-	networkConfig.HTTPURLs = []string{m.ExternalWsUrl}
+	networkConfig.URLs = []string{g.ExternalWsUrl}
+	networkConfig.HTTPURLs = []string{g.ExternalWsUrl}
 
 	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig)
 	if err != nil {
 		return err
 	}
-	m.EthClient = bc
+	// Get blockchain.EthereumClient as this is the only possible client for Geth
+	switch val := bc.(type) {
+	case *blockchain.EthereumMultinodeClient:
+		ethClient, ok := val.Clients[0].(*blockchain.EthereumClient)
+		if !ok {
+			return errors.Errorf("could not get blockchain.EthereumClient from %+v", val)
+		}
+		g.EthClient = ethClient
+	default:
+		return errors.Errorf("%+v not supported for geth", val)
+	}
+
 	cd, err := contracts.NewContractDeployer(bc)
 	if err != nil {
 		return err
 	}
-	m.ContractDeployer = cd
+	g.ContractDeployer = cd
 
-	log.Info().Str("containerName", ctName).
-		Str("internalHttpUrl", m.InternalHttpUrl).
-		Str("externalHttpUrl", m.ExternalHttpUrl).
-		Str("externalWsUrl", m.ExternalWsUrl).
-		Str("internalWsUrl", m.InternalWsUrl).
+	log.Info().Str("containerName", g.ContainerName).
+		Str("internalHttpUrl", g.InternalHttpUrl).
+		Str("externalHttpUrl", g.ExternalHttpUrl).
+		Str("externalWsUrl", g.ExternalWsUrl).
+		Str("internalWsUrl", g.InternalWsUrl).
 		Msg("Started Geth container")
 
 	return nil
 }
 
-func (m *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest, *keystore.KeyStore, *accounts.Account, error) {
+func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest, *keystore.KeyStore, *accounts.Account, error) {
 	chainId := "1337"
 	blocktime := "1"
 
-	initScriptFile, err := ioutil.TempFile("", "init_script")
+	initScriptFile, err := os.CreateTemp("", "init_script")
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -125,7 +137,7 @@ func (m *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	keystoreDir, err := ioutil.TempDir("", "keystore")
+	keystoreDir, err := os.MkdirTemp("", "keystore")
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -139,7 +151,7 @@ func (m *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 	if err != nil {
 		return nil, ks, &account, err
 	}
-	genesisFile, err := ioutil.TempFile("", "genesis_json")
+	genesisFile, err := os.CreateTemp("", "genesis_json")
 	if err != nil {
 		return nil, ks, &account, err
 	}
@@ -147,7 +159,7 @@ func (m *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 	if err != nil {
 		return nil, ks, &account, err
 	}
-	key1File, err := ioutil.TempFile(keystoreDir, "key1")
+	key1File, err := os.CreateTemp(keystoreDir, "key1")
 	if err != nil {
 		return nil, ks, &account, err
 	}
@@ -155,17 +167,17 @@ func (m *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 	if err != nil {
 		return nil, ks, &account, err
 	}
-	configDir, err := ioutil.TempDir("", "config")
+	configDir, err := os.MkdirTemp("", "config")
 	if err != nil {
 		return nil, ks, &account, err
 	}
-	err = ioutil.WriteFile(configDir+"/password.txt", []byte(""), 0644)
+	err = os.WriteFile(configDir+"/password.txt", []byte(""), 0600)
 	if err != nil {
 		return nil, ks, &account, err
 	}
 
 	return &tc.ContainerRequest{
-		Name:         m.ContainerName,
+		Name:         g.ContainerName,
 		Image:        "ethereum/client-go:stable",
 		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
 		Networks:     networks,
