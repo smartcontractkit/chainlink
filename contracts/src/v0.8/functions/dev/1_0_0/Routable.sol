@@ -6,7 +6,13 @@ import {IConfigurable} from "./interfaces/IConfigurable.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IOwnableFunctionsRouter} from "./interfaces/IOwnableFunctionsRouter.sol";
 
-abstract contract HasRouter is ITypeAndVersion, IConfigurable {
+/**
+ * @title This abstract should be inherited by contracts that will be used
+ * as the destinations to a route (id=>contract) on the Router.
+ * It provides a Router getter and modifiers
+ * and enforces that the Router can update the configuration of this contract
+ */
+abstract contract Routable is ITypeAndVersion, IConfigurable {
   IOwnableFunctionsRouter private immutable s_router;
 
   error RouterMustBeSet();

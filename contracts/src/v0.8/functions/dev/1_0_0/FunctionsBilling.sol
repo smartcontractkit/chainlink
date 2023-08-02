@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {HasRouter} from "./HasRouter.sol";
+import {Routable} from "./Routable.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
@@ -15,7 +15,7 @@ import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
  * @notice Contract that calculates payment from users to the nodes of the Decentralized Oracle Network (DON).
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
-abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
+abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   using FunctionsResponse for FunctionsResponse.Commitment;
   using FunctionsResponse for FunctionsResponse.FulfillResult;
   // ================================================================
@@ -92,7 +92,7 @@ abstract contract FunctionsBilling is HasRouter, IFunctionsBilling {
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
-  constructor(address router, bytes memory config, address linkToNativeFeed) HasRouter(router, config) {
+  constructor(address router, bytes memory config, address linkToNativeFeed) Routable(router, config) {
     s_linkToNativeFeed = AggregatorV3Interface(linkToNativeFeed);
   }
 

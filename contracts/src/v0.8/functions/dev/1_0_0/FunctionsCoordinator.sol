@@ -5,7 +5,7 @@ import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {IFunctionsBilling, FunctionsBilling} from "./FunctionsBilling.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
-import {ITypeAndVersion} from "./HasRouter.sol";
+import {ITypeAndVersion} from "./Routable.sol";
 
 /**
  * @title Functions Coordinator contract
