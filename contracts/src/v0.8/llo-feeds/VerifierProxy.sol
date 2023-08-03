@@ -124,18 +124,15 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     bytes32 configDigest = bytes32(payload);
     address verifierAddress = s_verifiersByConfig[configDigest];
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);
-    bytes memory verifiedReport = IVerifier(verifierAddress).verify(payload, msg.sender);
+
+    IVerifierFeeManager feeManager = s_feeManager;
 
     // Bill the verifier
-    if (address(s_feeManager) != address(0)) {
-      try s_feeManager.processFee{value: msg.value}(payload, msg.sender) {} catch {
-        revert BadVerification();
-      }
+    if (address(feeManager) != address(0)) {
+      feeManager.processFee{value: msg.value}(payload, msg.sender);
     }
 
-    //TODO processFee introduces a reentrancy risk, need to understand risks of this order of operations
-
-    return verifiedReport;
+    return IVerifier(verifierAddress).verify(payload, msg.sender);
   }
 
   /// @inheritdoc IVerifierProxy
