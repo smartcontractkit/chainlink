@@ -46,9 +46,6 @@ const (
 var (
 	ErrLogReadFailure                = fmt.Errorf("failure reading logs")
 	ErrHeadNotAvailable              = fmt.Errorf("head not available")
-	ErrRegistryCallFailure           = fmt.Errorf("registry chain call failure")
-	ErrBlockKeyNotParsable           = fmt.Errorf("block identifier not parsable")
-	ErrUpkeepKeyNotParsable          = fmt.Errorf("upkeep key not parsable")
 	ErrInitializationFailure         = fmt.Errorf("failed to initialize registry")
 	ErrContextCancelled              = fmt.Errorf("context was cancelled")
 	ErrABINotParsable                = fmt.Errorf("error parsing abi")
@@ -663,28 +660,27 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		var err error
 		switch getUpkeepType(upkeepId.Bytes()) {
 		case logTrigger:
+			triggerExt := key.Trigger.Extension.(logprovider.LogTriggerExtension)
+			// if the tx hash does not exist on the chain, 
+			tx, err := r.client.TransactionByHash(r.ctx, common.HexToHash(triggerExt.TxHash))
+			if err != nil || tx == nil {
+				r.lggr.Errorf("failed to get transaction by hash %s: %s", triggerExt.TxHash, err)
+				results[i] = getCheckResult(key, true, UPKEEP_FAILURE_REASON_TRANSACTION_MISSING)
+				continue
+			}
+
 			// check data will include the log trigger config
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, key.CheckData)
 			if err != nil {
 				r.lggr.Warnf("failed to pack checkUpkeep data for upkeepId %s at block %d with check data %s: %s", upkeepId, block, hexutil.Encode(key.CheckData), err)
-				results[i] = ocr2keepers.CheckResult{
-					Payload: key,
-					Extension: EVMAutomationResultExtension21{
-						FailureReason: UPKEEP_FAILURE_REASON_PACK_FAILED,
-					},
-				}
+				results[i] = getCheckResult(key, false, UPKEEP_FAILURE_REASON_PACK_FAILED)
 				continue
 			}
 		default:
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId)
 			if err != nil {
 				r.lggr.Warnf("failed to pack checkUpkeep data for upkeepId %s at block %d: %s", upkeepId, block, err)
-				results[i] = ocr2keepers.CheckResult{
-					Payload: key,
-					Extension: EVMAutomationResultExtension21{
-						FailureReason: UPKEEP_FAILURE_REASON_PACK_FAILED,
-					},
-				}
+				results[i] = getCheckResult(key, false, UPKEEP_FAILURE_REASON_PACK_FAILED)
 				continue
 			}
 		}
@@ -710,6 +706,8 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 	// while sending the request. Any error specific to a request is reported through the
 	// Error field of the corresponding BatchElem.
 	// hence, if BatchCallContext returns an error, it will be an error which will terminate the pipeline
+
+	// retryable
 	if err := r.client.BatchCallContext(ctx, checkReqs); err != nil {
 		r.lggr.Errorf("failed to batch call for checkUpkeeps: %s", err)
 		return nil, err
@@ -717,16 +715,14 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 
 	for i, req := range checkReqs {
 		index := indices[i]
+		// not retryable
 		if req.Error != nil {
-			results[index].Payload = keys[index]
-			results[index].Extension = EVMAutomationResultExtension21{
-				FailureReason: UPKEEP_FAILURE_REASON_ERROR_RESULT,
-			}
-			results[index].Retryable = true
+			results[index] = getCheckResult(keys[index], true, UPKEEP_FAILURE_REASON_ERROR_RESULT)
 			r.lggr.Warnf("error encountered in check result for upkeepId %s: %s", big.NewInt(0).SetBytes(results[index].Payload.Upkeep.ID), req.Error)
 			continue
 		}
 		var err error
+		// not retryable
 		results[index], err = r.packer.UnpackCheckResult(keys[index], *checkResults[i])
 		if err != nil {
 			r.lggr.Warnf("failed to unpack check result for upkeepId %s: %s", big.NewInt(0).SetBytes(results[index].Payload.Upkeep.ID), err)
@@ -778,6 +774,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		performToKeyIdx = append(performToKeyIdx, i)
 	}
 
+	// retryable
 	if len(performReqs) > 0 {
 		if err := r.client.BatchCallContext(ctx, performReqs); err != nil {
 			return nil, err
@@ -909,4 +906,23 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 		return [32]byte{}, fmt.Errorf("%w: failed to get latest block", ErrHeadNotAvailable)
 	}
 	return block.Hash(), nil
+}
+
+func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
+	txr, err := r.client.TransactionReceipt(r.ctx, txHash)
+	if err != nil {
+		return nil, common.Hash{}, err
+	}
+
+	return txr.BlockNumber, txr.BlockHash, nil
+}
+
+func getCheckResult(payload ocr2keepers.UpkeepPayload, retryable bool, failureReason uint8) ocr2keepers.CheckResult {
+	return ocr2keepers.CheckResult{
+		Retryable: retryable,
+		Payload:   payload,
+		Extension: EVMAutomationResultExtension21{
+			FailureReason: failureReason,
+		},
+	}
 }

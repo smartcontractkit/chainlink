@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	// PollLogInterval is the interval to query log poller
-	PollLogInterval = time.Second
-	// CleanUpInterval is the interval for cleaning up block maps
-	CleanUpInterval = 15 * time.Minute
-	// ChannelSize represents the channel size for head broadcaster
-	ChannelSize = 20
+	// pollLogInterval is the interval to query log poller
+	pollLogInterval = time.Second
+	// cleanUpInterval is the interval for cleaning up block maps
+	cleanUpInterval = 15 * time.Minute
+	// channelSize represents the channel size for head broadcaster
+	channelSize = 20
 )
 
 type BlockKey struct {
@@ -58,7 +58,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, bloc
 	return &BlockSubscriber{
 		hb:                    hb,
 		lp:                    lp,
-		headC:                 make(chan BlockKey, ChannelSize),
+		headC:                 make(chan BlockKey, channelSize),
 		subscribers:           map[int]chan ocr2keepers.BlockHistory{},
 		blocksFromPoller:      map[int64]common.Hash{},
 		blocksFromBroadcaster: map[int64]common.Hash{},
@@ -176,7 +176,7 @@ func (hw *BlockSubscriber) Start(_ context.Context) error {
 		// poll logs from log poller at an interval and update block map
 		{
 			go func(ctx context.Context) {
-				ticker := time.NewTicker(PollLogInterval)
+				ticker := time.NewTicker(pollLogInterval)
 				for {
 					select {
 					case <-ticker.C:
@@ -200,7 +200,7 @@ func (hw *BlockSubscriber) Start(_ context.Context) error {
 		// clean up block maps
 		{
 			go func(ctx context.Context) {
-				ticker := time.NewTicker(CleanUpInterval)
+				ticker := time.NewTicker(cleanUpInterval)
 				for {
 					select {
 					case <-ticker.C:
@@ -236,7 +236,7 @@ func (hw *BlockSubscriber) Subscribe() (int, chan ocr2keepers.BlockHistory, erro
 
 	hw.maxSubId++
 	subId := hw.maxSubId
-	newC := make(chan ocr2keepers.BlockHistory, ChannelSize)
+	newC := make(chan ocr2keepers.BlockHistory, channelSize)
 	hw.subscribers[subId] = newC
 	hw.lggr.Infof("new subscriber %d", subId)
 

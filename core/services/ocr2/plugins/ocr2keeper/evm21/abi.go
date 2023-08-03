@@ -34,6 +34,8 @@ const (
 	UPKEEP_FAILURE_REASON_PACK_FAILED
 	UPKEEP_FAILURE_REASON_UNPACK_FAILED
 	UPKEEP_FAILURE_REASON_ERROR_RESULT
+	UPKEEP_FAILURE_REASON_TRANSACTION_MISSING
+	UPKEEP_FAILURE_REASON_BLOCK_TOO_OLD
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -56,24 +58,12 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV
 func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		result := ocr2keepers.CheckResult{
-			Payload: key,
-			Extension: EVMAutomationResultExtension21{
-				FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
-			},
-		}
-		return result, fmt.Errorf("failed to decode checkUpkeep result %s: %s", raw, err)
+		return getCheckResult(key, false, UPKEEP_FAILURE_REASON_UNPACK_FAILED), fmt.Errorf("failed to decode checkUpkeep result %s: %s", raw, err)
 	}
 
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		result := ocr2keepers.CheckResult{
-			Payload: key,
-			Extension: EVMAutomationResultExtension21{
-				FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
-			},
-		}
-		return result, fmt.Errorf("failed to unpack checkUpkeep result %s: %s", raw, err)
+		return getCheckResult(key, false, UPKEEP_FAILURE_REASON_UNPACK_FAILED), fmt.Errorf("failed to unpack checkUpkeep result %s: %s", raw, err)
 	}
 
 	result := ocr2keepers.CheckResult{
