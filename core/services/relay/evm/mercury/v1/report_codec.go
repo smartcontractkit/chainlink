@@ -95,7 +95,7 @@ func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (ui
 		return 0, errors.Errorf("error during unpack: %v", err)
 	}
 
-	timestampIface, ok := reportElems["timestamp"]
+	timestampIface, ok := reportElems["observationsTimestamp"]
 	if !ok {
 		return 0, errors.Errorf("unpacked report has no 'timestamp' field")
 	}
