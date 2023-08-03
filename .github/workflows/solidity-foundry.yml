@@ -24,7 +24,7 @@ jobs:
   tests:
     strategy:
       matrix:
-        product: [ vrf, automation, llo, functions ]
+        product: [ vrf, automation, llo, functions, automation-dev ]
     needs: [changes]
     name: Tests
     # See https://github.com/foundry-rs/foundry/issues/3827

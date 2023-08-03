@@ -177,12 +177,6 @@ config-docs: ## Generate core node configuration documentation
 golangci-lint: ## Run golangci-lint for all issues.
 	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.53.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
 
-.PHONY: snapshot
-snapshot:
-	cd ./contracts && export FOUNDRY_PROFILE=vrf && forge snapshot --snap gas-snapshots/vrf.gas-snapshot
-	cd ./contracts && export FOUNDRY_PROFILE=automation && forge snapshot --snap gas-snapshots/automation.gas-snapshot
-	cd ./contracts && export FOUNDRY_PROFILE=llo && forge snapshot --snap gas-snapshots/llo.gas-snapshot
-	cd ./contracts && export FOUNDRY_PROFILE=functions && forge snapshot --snap gas-snapshots/functions.gas-snapshot
 
 GORELEASER_CONFIG ?= .goreleaser.yaml
 
