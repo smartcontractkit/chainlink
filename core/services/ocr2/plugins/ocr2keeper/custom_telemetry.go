@@ -56,10 +56,10 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 		bytes, err := proto.Marshal(wrappedVMsg)
 		if err != nil {
 			e.lggr.Errorf("Error occurred while marshalling the Node Version Message %s: %v", wrappedVMsg.String(), err)
-			return err
+		} else {
+			e.monitoringEndpoint.SendLog(bytes)
+			e.lggr.Infof("NodeVersion Message Sent to Endpoint: %d", vMsg.Timestamp)
 		}
-		e.monitoringEndpoint.SendLog(bytes)
-		e.lggr.Infof("NodeVersion Message Sent to Endpoint: %d", vMsg.Timestamp)
 		_, e.unsubscribe = e.headBroadcaster.Subscribe(&headWrapper{e.headCh})
 		go func() {
 			e.lggr.Infof("Started: Custom Telemetry Service")
