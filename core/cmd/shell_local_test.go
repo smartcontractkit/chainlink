@@ -109,7 +109,6 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			app := mocks.NewApplication(t)
 			app.On("SessionORM").Return(sessionORM).Maybe()
 			app.On("GetKeyStore").Return(keyStore).Maybe()
-			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewChainSetMockWithOneChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
 			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
@@ -213,8 +212,6 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			app := mocks.NewApplication(t)
 			app.On("SessionORM").Return(sessionORM)
 			app.On("GetKeyStore").Return(keyStore)
-			//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))}).Maybe()
-
 			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
 			app.On("Stop").Maybe().Return(nil)
@@ -319,12 +316,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
 	mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
 	app.On("GetRelayers").Return(mockRelayerChainInteroperators).Maybe()
-
-	//app.On("GetChains").Return(chainlink.Chains{EVM: cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))}).Maybe()
-	//	app.On("GetRelayers").Return(genTestEVMRelayers(t, opts, keyStore)).Maybe()
 	ethClient.On("Dial", mock.Anything).Return(nil)
-
-	//lggr := logger.TestLogger(t)
 
 	client := cmd.Shell{
 		Config:                 config,

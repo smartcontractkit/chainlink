@@ -72,7 +72,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 				WSURL:    &models.URL{},
 				HTTPURL:  &models.URL{},
 				SendOnly: new(bool),
-				Order:    new(int32),
+				Order:    ptr[int32](100),
 			},
 		},
 	})

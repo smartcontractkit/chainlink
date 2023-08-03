@@ -400,11 +400,18 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		GRPCOpts: loop.GRPCOpts{},
 	}
 
+	chainId := ethClient.ConfiguredChainID()
 	evmOpts := chainlink.EVMFactoryConfig{
 		RelayerConfig: evm.RelayerConfig{
 			GeneralConfig:    cfg,
 			EventBroadcaster: eventBroadcaster,
 			MailMon:          mailMon,
+			GenEthClient: func(_ *big.Int) evmclient.Client {
+				if chainId.Cmp(cfg.DefaultChainID()) != 0 {
+					t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())
+				}
+				return ethClient
+			},
 		},
 		CSAETHKeystore: keyStore,
 	}
