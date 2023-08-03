@@ -121,6 +121,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     i_nativeAddress = _nativeAddress;
     i_proxyAddress = _proxyAddress;
     i_rewardManager = IRewardManager(_rewardManagerAddress);
+
+    IERC20(i_linkAddress).approve(address(i_rewardManager), type(uint256).max);
   }
 
   modifier onlyOwnerOrProxy() {
@@ -200,9 +202,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
           // call onFeePaid out-of-band to pay out rewards
           emit InsufficientLink(configDigest, reward.amount, fee.amount);
         } else {
-          //approve the transfer of LINK required to verify the report to the reward manager
-          IERC20(i_linkAddress).approve(address(i_rewardManager), reward.amount);
-
           //bill the payee and distribute the fee using the config digest as the key
           i_rewardManager.onFeePaid(configDigest, address(this), reward);
         }
