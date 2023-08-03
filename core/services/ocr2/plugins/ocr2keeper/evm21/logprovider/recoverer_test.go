@@ -11,7 +11,9 @@ import (
 )
 
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
-	r := NewLogRecoverer(logger.TestLogger(t), nil, time.Millisecond*10)
+	r := NewLogRecoverer(logger.TestLogger(t), nil, nil, NewUpkeepFilterStore(), &RecoveryOptions{
+		Interval: time.Millisecond * 10,
+	})
 
 	tests := []struct {
 		name    string
