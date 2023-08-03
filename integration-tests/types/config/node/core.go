@@ -23,7 +23,11 @@ var BaseConf = chainlink.Config{
 			MigrateOnStartup: ptr(true),
 		},
 		Log: toml.Log{
-			Level: ptr(toml.LogLevel(zapcore.DebugLevel)),
+			Level:       ptr(toml.LogLevel(zapcore.DebugLevel)),
+			JSONConsole: ptr(true),
+		},
+		JobPipeline: toml.JobPipeline{
+			MaxSuccessfulRuns: ptr[uint64](0),
 		},
 		WebServer: toml.WebServer{
 			AllowOrigins:   ptr("*"),
@@ -43,13 +47,7 @@ var BaseConf = chainlink.Config{
 			FeedsManager: ptr(true),
 			UICSAKeys:    ptr(true),
 		},
-		P2P: toml.P2P{
-			V1: toml.P2PV1{
-				Enabled:    ptr(true),
-				ListenIP:   mustIP("0.0.0.0"),
-				ListenPort: ptr[uint16](6690),
-			},
-		},
+		P2P: toml.P2P{},
 	},
 }
 
