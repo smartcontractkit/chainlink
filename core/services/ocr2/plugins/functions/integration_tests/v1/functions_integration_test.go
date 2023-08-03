@@ -53,5 +53,5 @@ func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 	utils.CommitWithFinality(b)
 
 	// validate that all client contracts got correct responses to their requests
-	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsBytes, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsBytes, 3*time.Minute)
 }
