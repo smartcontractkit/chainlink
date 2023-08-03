@@ -10,12 +10,22 @@ const (
 type RequestFlags [32]byte
 
 type RequestData struct {
-	Source          string   `json:"source" cbor:"source"`
-	Language        int      `json:"language" cbor:"language"`
-	CodeLocation    int      `json:"codeLocation" cbor:"codeLocation"`
-	Secrets         []byte   `json:"secrets" cbor:"secrets"`
-	SecretsLocation int      `json:"secretsLocation" cbor:"secretsLocation"`
-	Args            []string `json:"args" cbor:"args"`
+	Source           string   `json:"source" cbor:"source"`
+	Language         int      `json:"language" cbor:"language"`
+	CodeLocation     int      `json:"codeLocation" cbor:"codeLocation"`
+	Secrets          []byte   `json:"secrets" cbor:"secrets"`
+	SecretsLocation  int      `json:"secretsLocation" cbor:"secretsLocation"`
+	RequestSignature []byte   `json:"requestSignature" cbor:"requestSignature"`
+	Args             []string `json:"args" cbor:"args"`
+	BytesArgs        [][]byte `json:"bytesArgs" cbor:"bytesArgs"`
+}
+
+type SignedRequestData struct {
+	CodeLocation    int    `json:"codeLocation" cbor:"codeLocation"`
+	Language        int    `json:"language" cbor:"language"`
+	Secrets         []byte `json:"secrets" cbor:"secrets"`
+	SecretsLocation int    `json:"secretsLocation" cbor:"secretsLocation"`
+	Source          string `json:"source" cbor:"source"`
 }
 
 type DONHostedSecrets struct {

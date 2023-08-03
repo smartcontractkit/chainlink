@@ -19,7 +19,8 @@ import (
 
 // This config is part of the job spec and is loaded only once on node boot/job creation.
 type PluginConfig struct {
-	DONID                              string                            `json:"donID"`
+	EnableRequestSignatureCheck        bool                              `json:"enableRequestSignatureCheck"`
+	DONID                              string                            `json:"donId"`
 	ContractVersion                    uint32                            `json:"contractVersion"`
 	MinIncomingConfirmations           uint32                            `json:"minIncomingConfirmations"`
 	RequestTimeoutSec                  uint32                            `json:"requestTimeoutSec"`

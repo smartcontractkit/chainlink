@@ -1,6 +1,7 @@
 package functions_test
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -66,6 +67,9 @@ var (
 	EncryptedSecretsUrls []byte                      = []byte{0x11, 0x22}
 	EncryptedSecrets     []byte                      = []byte(`{"TDH2Ctxt":"eyJHcm","SymCtxt":"+yHR","Nonce":"kgjHyT3Jar0M155E"}`)
 	DecryptedSecrets     []byte                      = []byte(`{"0x0":"lhcK"}`)
+	SignedCBORRequestHex string                      = "a666736f75726365782172657475726e2046756e6374696f6e732e656e636f646555696e743235362831296773656372657473421234686c616e6775616765006c636f64654c6f636174696f6e006f736563726574734c6f636174696f6e0170726571756573745369676e617475726558416fb6d10871aa3865b6620dc5f4594d2a9ad9166ba6b1dbc3f508362fd27aa0461babada48979092a11ecadec9c663a2ea99da4e368408b36a3fb414acfefdd2a1c"
+	SubOwnerAddr         common.Address              = common.HexToAddress("0x2334dE553AB93c69b0ccbe278B6f5E8350Db6204")
+	NonSubOwnerAddr      common.Address              = common.HexToAddress("0x60C9CF55b9de9A956d921A97575108149b758131")
 )
 
 func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySec int, setTiers bool) *FunctionsListenerUniverse {
@@ -466,6 +470,41 @@ func TestFunctionsListener_PruneRequests(t *testing.T) {
 	require.NoError(t, err)
 	<-doneCh
 	uni.service.Close()
+}
+
+func TestFunctionsListener_RequestSignatureVerification(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000, false)
+	l := uni.service
+
+	cborBytes, err := hex.DecodeString(SignedCBORRequestHex)
+	require.NoError(t, err)
+
+	reqId := newRequestID()
+	requestData, err := l.ParseCBOR(reqId, cborBytes, 10_000)
+	require.NoError(t, err)
+
+	err = l.VerifyRequestSignature(reqId, SubOwnerAddr, requestData)
+	assert.NoError(t, err)
+}
+
+func TestFunctionsListener_RequestSignatureVerificationFailure(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000, false)
+	l := uni.service
+
+	cborBytes, err := hex.DecodeString(SignedCBORRequestHex)
+	require.NoError(t, err)
+
+	reqId := newRequestID()
+	requestData, err := l.ParseCBOR(reqId, cborBytes, 10_000)
+	require.NoError(t, err)
+
+	err = l.VerifyRequestSignature(reqId, NonSubOwnerAddr, requestData)
+	assert.EqualError(t, err, "invalid signature: signer's address does not match subscription owner")
 }
 
 // func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
