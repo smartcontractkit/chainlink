@@ -140,21 +140,21 @@ func EVMDependencies21(
 	// get the chain from the config
 	chainID, err2 := spec.OCR2OracleSpec.RelayConfig.EVMChainID()
 	if err2 != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err2
+		return nil, nil, nil, nil, nil, nil, kevm21.BlockSubscriber{}, err2
 	}
 	chain, err2 = set.Get(big.NewInt(chainID))
 	if err2 != nil {
-		return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
+		return nil, nil, nil, nil, nil, nil, kevm21.BlockSubscriber{}, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
 	}
 
 	// the provider will be returned as a dependency
 	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, kevm21.BlockSubscriber{}, err
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
 	if registry, encoder, err = kevm21.NewEVMRegistryService(rAddr, chain, mc, lggr); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, kevm21.BlockSubscriber{}, err
 	}
 
 	hp := kevm21.NewHeadProvider(chain, 128, lggr)

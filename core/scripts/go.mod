@@ -18,9 +18,9 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.8
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/libocr v0.0.0-20230724105022-c5e49b4195ac
-	github.com/smartcontractkit/ocr2keepers v0.7.2
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230616201444-d8b4222aff3c
+	github.com/smartcontractkit/libocr v0.0.0-20230726142939-a2ab71019d9c
+	github.com/smartcontractkit/ocr2keepers v1.0.0-alpha.0.0.20230802150540-edb2c07905f5
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20230726171328-d7102be88a8e
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0

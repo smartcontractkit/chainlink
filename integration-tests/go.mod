@@ -21,9 +21,9 @@ require (
 	github.com/smartcontractkit/chainlink-env v0.36.0
 	github.com/smartcontractkit/chainlink-testing-framework v1.15.0
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
-	github.com/smartcontractkit/libocr v0.0.0-20230724105022-c5e49b4195ac
-	github.com/smartcontractkit/ocr2keepers v0.7.2
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230616201444-d8b4222aff3c
+	github.com/smartcontractkit/libocr v0.0.0-20230726142939-a2ab71019d9c
+	github.com/smartcontractkit/ocr2keepers v1.0.0-alpha.0.0.20230802150540-edb2c07905f5
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20230726171328-d7102be88a8e
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.21.1-0.20230623154539-f5a4a541f71a
