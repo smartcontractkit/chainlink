@@ -90,8 +90,10 @@ library FunctionsRequest {
       buffer.endSequence();
     }
 
-    CBOR.writeString(buffer, "requestSignature");
-    CBOR.writeBytes(buffer, self.requestSignature);
+    if (self.requestSignature.length > 0) {
+      CBOR.writeString(buffer, "requestSignature");
+      CBOR.writeBytes(buffer, self.requestSignature);
+    }
 
     return buffer.buf.buf;
   }
