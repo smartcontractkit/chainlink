@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IFunctionsRequest} from "./IFunctionsRequest.sol";
+import {FunctionsResponse} from "../libraries/FunctionsResponse.sol";
 
 /**
  * @title Chainlink Functions oracle interface.
@@ -75,5 +75,5 @@ interface IFunctionsCoordinator {
    * @param request The request information, @dev see the struct for field descriptions
    * @return commitment - The parameters of the request that must be held consistent at response time
    */
-  function sendRequest(Request calldata request) external returns (IFunctionsRequest.Commitment memory commitment);
+  function sendRequest(Request calldata request) external returns (FunctionsResponse.Commitment memory commitment);
 }
