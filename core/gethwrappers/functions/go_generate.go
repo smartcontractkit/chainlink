@@ -15,7 +15,7 @@ package gethwrappers
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsBillingRegistryEventsMock.abi ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsBillingRegistryEventsMock.bin FunctionsBillingRegistryEventsMock functions_billing_registry_events_mock
 
 // Version 1 (Mainnet Preview)
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/functions/1_0_0/Functions.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/Functions.bin Functions functions
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsRequest.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsRequest.bin Functions functions
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsClient.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsClient.bin FunctionsClient functions_client
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsClientExample.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsClientExample.bin FunctionsClientExample functions_client_example
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsCoordinator.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsCoordinator.bin FunctionsCoordinator functions_coordinator

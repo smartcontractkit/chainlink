@@ -5,7 +5,7 @@ import {IFunctionsRouter} from "./IFunctionsRouter.sol";
 import {IOwnable} from "../../../../shared/interfaces/IOwnable.sol";
 
 /**
- * @title Chainlink base Router interface with Ownable.
+ * @title Chainlink Functions Router interface with Ownable.
  */
 interface IOwnableFunctionsRouter is IOwnable, IFunctionsRouter {
 
