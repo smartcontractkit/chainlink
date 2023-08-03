@@ -136,13 +136,12 @@ library FunctionsRequest {
    * @param version User data version (for the slotID)
    */
   function addDONHostedSecrets(Request memory self, uint8 slotID, uint64 version) internal pure {
-    CBOR.CBORBuffer memory buffer;
-    Buffer.init(buffer.buf, DEFAULT_BUFFER_SIZE);
+    CBOR.CBORBuffer memory buffer = CBOR.create(DEFAULT_BUFFER_SIZE);
 
-    CBOR.writeString(buffer, "slotID");
-    CBOR.writeUInt64(buffer, slotID);
-    CBOR.writeString(buffer, "version");
-    CBOR.writeUInt64(buffer, version);
+    buffer.writeString("slotID");
+    buffer.writeUInt64(slotID);
+    buffer.writeString("version");
+    buffer.writeUInt64(version);
 
     self.secretsLocation = Location.DONHosted;
     self.encryptedSecretsReference = buffer.buf.buf;
