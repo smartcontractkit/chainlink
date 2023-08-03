@@ -30,7 +30,7 @@ var (
 	_ = abi.ConvertType
 )
 
-type IFunctionsRequestCommitment struct {
+type FunctionsResponseCommitment struct {
 	AdminFee                  *big.Int
 	Coordinator               common.Address
 	Client                    common.Address
@@ -832,15 +832,15 @@ func (_FunctionsRouter *FunctionsRouterTransactorSession) SetFlags(subscriptionI
 	return _FunctionsRouter.Contract.SetFlags(&_FunctionsRouter.TransactOpts, subscriptionId, flags)
 }
 
-func (_FunctionsRouter *FunctionsRouterTransactor) TimeoutRequests(opts *bind.TransactOpts, requestsToTimeoutByCommitment []IFunctionsRequestCommitment) (*types.Transaction, error) {
+func (_FunctionsRouter *FunctionsRouterTransactor) TimeoutRequests(opts *bind.TransactOpts, requestsToTimeoutByCommitment []FunctionsResponseCommitment) (*types.Transaction, error) {
 	return _FunctionsRouter.contract.Transact(opts, "timeoutRequests", requestsToTimeoutByCommitment)
 }
 
-func (_FunctionsRouter *FunctionsRouterSession) TimeoutRequests(requestsToTimeoutByCommitment []IFunctionsRequestCommitment) (*types.Transaction, error) {
+func (_FunctionsRouter *FunctionsRouterSession) TimeoutRequests(requestsToTimeoutByCommitment []FunctionsResponseCommitment) (*types.Transaction, error) {
 	return _FunctionsRouter.Contract.TimeoutRequests(&_FunctionsRouter.TransactOpts, requestsToTimeoutByCommitment)
 }
 
-func (_FunctionsRouter *FunctionsRouterTransactorSession) TimeoutRequests(requestsToTimeoutByCommitment []IFunctionsRequestCommitment) (*types.Transaction, error) {
+func (_FunctionsRouter *FunctionsRouterTransactorSession) TimeoutRequests(requestsToTimeoutByCommitment []FunctionsResponseCommitment) (*types.Transaction, error) {
 	return _FunctionsRouter.Contract.TimeoutRequests(&_FunctionsRouter.TransactOpts, requestsToTimeoutByCommitment)
 }
 
@@ -4054,7 +4054,7 @@ type FunctionsRouterInterface interface {
 
 	SetFlags(opts *bind.TransactOpts, subscriptionId uint64, flags [32]byte) (*types.Transaction, error)
 
-	TimeoutRequests(opts *bind.TransactOpts, requestsToTimeoutByCommitment []IFunctionsRequestCommitment) (*types.Transaction, error)
+	TimeoutRequests(opts *bind.TransactOpts, requestsToTimeoutByCommitment []FunctionsResponseCommitment) (*types.Transaction, error)
 
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 

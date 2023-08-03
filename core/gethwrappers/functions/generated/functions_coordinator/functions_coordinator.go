@@ -30,6 +30,20 @@ var (
 	_ = abi.ConvertType
 )
 
+type FunctionsResponseCommitment struct {
+	AdminFee                  *big.Int
+	Coordinator               common.Address
+	Client                    common.Address
+	SubscriptionId            uint64
+	CallbackGasLimit          uint32
+	EstimatedTotalCostJuels   *big.Int
+	TimeoutTimestamp          *big.Int
+	RequestId                 [32]byte
+	DonFee                    *big.Int
+	GasOverheadBeforeCallback *big.Int
+	GasOverheadAfterCallback  *big.Int
+}
+
 type IFunctionsBillingRequestBilling struct {
 	SubscriptionId   uint64
 	Client           common.Address
@@ -47,20 +61,6 @@ type IFunctionsCoordinatorRequest struct {
 	Flags              [32]byte
 	CallbackGasLimit   uint32
 	AdminFee           *big.Int
-}
-
-type IFunctionsRequestCommitment struct {
-	AdminFee                  *big.Int
-	Coordinator               common.Address
-	Client                    common.Address
-	SubscriptionId            uint64
-	CallbackGasLimit          uint32
-	EstimatedTotalCostJuels   *big.Int
-	TimeoutTimestamp          *big.Int
-	RequestId                 [32]byte
-	DonFee                    *big.Int
-	GasOverheadBeforeCallback *big.Int
-	GasOverheadAfterCallback  *big.Int
 }
 
 var FunctionsCoordinatorMetaData = &bind.MetaData{

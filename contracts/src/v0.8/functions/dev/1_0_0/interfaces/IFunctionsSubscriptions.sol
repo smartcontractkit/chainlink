@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IFunctionsRequest} from "./IFunctionsRequest.sol";
+import {FunctionsResponse} from "../libraries/FunctionsResponse.sol";
 
 /**
  * @title Chainlink Functions Subscription interface.
@@ -67,7 +67,7 @@ interface IFunctionsSubscriptions {
    * @param requestsToTimeoutByCommitment - A list of request commitments to time out
    * @dev The commitment can be found on the "OracleRequest" event created when sending the request.
    */
-  function timeoutRequests(IFunctionsRequest.Commitment[] calldata requestsToTimeoutByCommitment) external;
+  function timeoutRequests(FunctionsResponse.Commitment[] calldata requestsToTimeoutByCommitment) external;
 
   /**
    * @notice Oracle withdraw LINK earned through fulfilling requests

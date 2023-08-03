@@ -6,8 +6,14 @@ import {IConfigurable} from "./interfaces/IConfigurable.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IOwnableFunctionsRouter} from "./interfaces/IOwnableFunctionsRouter.sol";
 
-abstract contract HasRouter is ITypeAndVersion, IConfigurable {
-  IOwnableFunctionsRouter internal immutable s_router;
+/**
+ * @title This abstract should be inherited by contracts that will be used
+ * as the destinations to a route (id=>contract) on the Router.
+ * It provides a Router getter and modifiers
+ * and enforces that the Router can update the configuration of this contract
+ */
+abstract contract Routable is ITypeAndVersion, IConfigurable {
+  IOwnableFunctionsRouter private immutable i_router;
 
   error RouterMustBeSet();
   error OnlyCallableByRouter();
@@ -20,12 +26,12 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
     if (router == address(0)) {
       revert RouterMustBeSet();
     }
-    s_router = IOwnableFunctionsRouter(router);
+    i_router = IOwnableFunctionsRouter(router);
     _updateConfig(config);
   }
 
   function _getRouter() internal view returns (IOwnableFunctionsRouter router) {
-    return s_router;
+    return i_router;
   }
 
   /**
@@ -46,7 +52,7 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
    * @notice Reverts if called by anyone other than the router.
    */
   modifier onlyRouter() {
-    if (msg.sender != address(s_router)) {
+    if (msg.sender != address(i_router)) {
       revert OnlyCallableByRouter();
     }
     _;
@@ -56,7 +62,7 @@ abstract contract HasRouter is ITypeAndVersion, IConfigurable {
    * @notice Reverts if called by anyone other than the router owner.
    */
   modifier onlyRouterOwner() {
-    if (msg.sender != s_router.owner()) {
+    if (msg.sender != i_router.owner()) {
       revert OnlyCallableByRouterOwner();
     }
     _;
