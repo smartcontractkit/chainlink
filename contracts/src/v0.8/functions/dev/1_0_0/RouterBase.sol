@@ -27,7 +27,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   struct ContractProposalSet {
     bytes32[] ids;
     address[] to;
-    uint256 timelockEndBlock;
+    uint64 timelockEndBlock;
   }
   ContractProposalSet internal s_proposedContractSet;
 
@@ -35,14 +35,14 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     bytes32 proposedContractSetId,
     address proposedContractSetFromAddress,
     address proposedContractSetToAddress,
-    uint256 timelockEndBlock
+    uint64 timelockEndBlock
   );
 
   event ContractUpdated(bytes32 id, address from, address to);
 
   struct ConfigProposal {
     bytes to;
-    uint256 timelockEndBlock;
+    uint64 timelockEndBlock;
   }
   mapping(bytes32 id => ConfigProposal) private s_proposedConfig;
   event ConfigProposed(bytes32 id, bytes toBytes);
@@ -69,7 +69,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   struct TimeLockProposal {
     uint16 from;
     uint16 to;
-    uint224 timelockEndBlock;
+    uint64 timelockEndBlock;
   }
 
   event TimeLockProposed(uint16 from, uint16 to);
@@ -105,10 +105,10 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    */
   function getContractById(bytes32 id) public view override returns (address) {
     address currentImplementation = s_route[id];
-    if (currentImplementation != address(0)) {
-      return currentImplementation;
+    if (currentImplementation == address(0)) {
+      revert RouteNotFound(id);
     }
-    revert RouteNotFound(id);
+    return currentImplementation;
   }
 
   /**
@@ -162,7 +162,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
       }
     }
 
-    uint256 timelockEndBlock = block.number + s_timelockBlocks;
+    uint64 timelockEndBlock = uint64(block.number + s_timelockBlocks);
 
     s_proposedContractSet = ContractProposalSet({
       ids: proposedContractSetIds,
@@ -214,7 +214,10 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @inheritdoc IRouterBase
    */
   function proposeConfigUpdateSelf(bytes calldata config) external override onlyOwner {
-    s_proposedConfig[ROUTER_ID] = ConfigProposal({to: config, timelockEndBlock: block.number + s_timelockBlocks});
+    s_proposedConfig[ROUTER_ID] = ConfigProposal({
+      to: config,
+      timelockEndBlock: uint64(block.number + s_timelockBlocks)
+    });
     emit ConfigProposed({id: ROUTER_ID, toBytes: config});
   }
 
@@ -234,7 +237,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
    * @inheritdoc IRouterBase
    */
   function proposeConfigUpdate(bytes32 id, bytes calldata config) external override onlyOwner {
-    s_proposedConfig[id] = ConfigProposal({to: config, timelockEndBlock: block.number + s_timelockBlocks});
+    s_proposedConfig[id] = ConfigProposal({to: config, timelockEndBlock: uint64(block.number + s_timelockBlocks)});
     emit ConfigProposed({id: id, toBytes: config});
   }
 
@@ -270,7 +273,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     s_timelockProposal = TimeLockProposal({
       from: s_timelockBlocks,
       to: blocks,
-      timelockEndBlock: uint224(block.number + s_timelockBlocks)
+      timelockEndBlock: uint64(block.number + s_timelockBlocks)
     });
   }
 
@@ -290,13 +293,6 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                     Pausable methods                         |
   // ================================================================
-
-  /**
-   * @inheritdoc IRouterBase
-   */
-  function isPaused() external view override returns (bool) {
-    return Pausable.paused();
-  }
 
   /**
    * @inheritdoc IRouterBase
