@@ -17,24 +17,21 @@ func (p *logEventProvider) RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfi
 	}
 	filter := p.newLogFilter(upkeepID, cfg)
 
-	// TODO: optimize locking, currently we lock the whole map while registering the filter
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
-	uid := upkeepID.String()
-	if _, ok := p.active[uid]; ok {
+	if p.filterStore.Has(upkeepID) {
 		// TODO: check for updates
-		return errors.Errorf("filter for upkeep with id %s already registered", uid)
+		return errors.Errorf("filter for upkeep with id %s already registered", upkeepID.String())
 	}
 	if err := p.poller.RegisterFilter(filter); err != nil {
 		return errors.Wrap(err, "failed to register upkeep filter")
 	}
-	p.active[uid] = upkeepFilterEntry{
-		id:           upkeepID,
-		filter:       filter,
-		cfg:          cfg,
+	eventSigs := make([]common.Hash, len(filter.EventSigs))
+	copy(eventSigs, filter.EventSigs)
+	p.filterStore.AddActiveUpkeeps(upkeepFilter{
+		upkeepID:     upkeepID,
+		addr:         filter.Addresses[0].Bytes(),
+		eventSigs:    eventSigs,
 		blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
-	}
+	})
 
 	return nil
 }
@@ -42,9 +39,9 @@ func (p *logEventProvider) RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfi
 func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
 	err := p.poller.UnregisterFilter(p.filterName(upkeepID), nil)
 	if err == nil {
-		p.lock.Lock()
-		delete(p.active, upkeepID.String())
-		p.lock.Unlock()
+		p.filterStore.RemoveActiveUpkeeps(upkeepFilter{
+			upkeepID: upkeepID,
+		})
 	}
 	return errors.Wrap(err, "failed to unregister upkeep filter")
 }

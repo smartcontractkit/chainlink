@@ -100,6 +100,9 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 
+	filterStore := logprovider.NewUpkeepFilterStore()
+	logEventProvider := logprovider.New(lggr, client.LogPoller(), logPacker, filterStore, nil)
+
 	r := &EvmRegistry{
 		ht:       client.HeadTracker(),
 		lggr:     lggr.Named("EvmRegistry"),
@@ -119,8 +122,8 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
 		},
 		hc:               http.DefaultClient,
-		enc:              EVMAutomationEncoder21{},
-		logEventProvider: logprovider.New(lggr, client.LogPoller(), logPacker, nil), // TODO: pass opts
+		enc:              EVMAutomationEncoder21{packer: packer},
+		logEventProvider: logEventProvider,
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -908,7 +911,8 @@ func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
 func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 	block, err := r.client.BlockByNumber(r.ctx, blockNumber)
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("%w: failed to get latest block", ErrHeadNotAvailable)
+		return [32]byte{}, err
 	}
+
 	return block.Hash(), nil
 }
