@@ -64,7 +64,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 
 		run, trrs, err := ds.executeRun(ctx)
 		if err != nil {
-			err = fmt.Errorf("Observe failed while executing run: %w", err)
+			merr = fmt.Errorf("Observe failed while executing run: %w", err)
 			obs.BenchmarkPrice.Err = err
 			obs.Bid.Err = err
 			obs.Ask.Err = err
@@ -76,28 +76,21 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
 		}
 
-		var finaltrrs []pipeline.TaskRunResult
-		for _, trr := range trrs {
-			if trr.IsTerminal() {
-				finaltrrs = append(finaltrrs, trr)
-			}
-		}
-
 		var parsed parseOutput
-		parsed, err = ds.parse(finaltrrs)
+		parsed, err = ds.parse(trrs)
 		if err != nil {
 			// This is not expected under normal circumstances
 			ds.lggr.Errorw("Observe failed while parsing run results", "err", err)
-			err = fmt.Errorf("Observe failed while parsing run results: %w", err)
-			obs.BenchmarkPrice.Err = err
-			obs.Bid.Err = err
-			obs.Ask.Err = err
+			merr = fmt.Errorf("Observe failed while parsing run results: %w", err)
 			return
 		}
 		obs.BenchmarkPrice = parsed.benchmarkPrice
 		obs.Bid = parsed.bid
 		obs.Ask = parsed.ask
 	}()
+
+	// wait for runner to finish
+	wg.Wait()
 
 	if fetchMaxFinalizedTimestamp {
 		wg.Add(1)
@@ -107,7 +100,6 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		}()
 	}
 
-	// TODO: TEST prices logic
 	if ds.feedID == ds.linkFeedID {
 		// This IS the LINK feed, use our observed price
 		obs.LinkPrice.Val, obs.LinkPrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
@@ -117,7 +109,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			defer wg.Done()
 			obs.LinkPrice.Val, obs.LinkPrice.Err = ds.fetcher.LatestPrice(ctx, ds.linkFeedID)
 			if obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
-				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing LINK feed, falling back to max int192"), "linkFeedID", ds.linkFeedID)
+				ds.lggr.Warnw("Mercury server was missing LINK feed, falling back to max int192", "linkFeedID", ds.linkFeedID)
 				obs.LinkPrice.Val = maxInt192
 			}
 		}()
@@ -132,7 +124,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			defer wg.Done()
 			obs.NativePrice.Val, obs.NativePrice.Err = ds.fetcher.LatestPrice(ctx, ds.nativeFeedID)
 			if obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
-				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing native feed, falling back to max int192"), "nativeFeedID", ds.nativeFeedID)
+				ds.lggr.Warnw("Mercury server was missing native feed, falling back to max int192", "nativeFeedID", ds.nativeFeedID)
 				obs.NativePrice.Val = maxInt192
 			}
 		}()
@@ -149,7 +141,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	// 	})
 	// }
 
-	return obs, nil
+	return obs, merr
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
@@ -180,6 +172,7 @@ func (ds *datasource) parse(trrs pipeline.TaskRunResults) (o parseOutput, merr e
 	if len(finaltrrs) != 3 {
 		return o, fmt.Errorf("invalid number of results, expected: 3, got: %d", len(finaltrrs))
 	}
+
 	merr = errors.Join(
 		setBenchmarkPrice(&o, finaltrrs[0].Result),
 		setBid(&o, finaltrrs[1].Result),
@@ -192,6 +185,7 @@ func (ds *datasource) parse(trrs pipeline.TaskRunResults) (o parseOutput, merr e
 func setBenchmarkPrice(o *parseOutput, res pipeline.Result) error {
 	if res.Error != nil {
 		o.benchmarkPrice.Err = res.Error
+		return res.Error
 	} else if val, err := toBigInt(res.Value); err != nil {
 		return fmt.Errorf("failed to parse BenchmarkPrice: %w", err)
 	} else {
@@ -203,6 +197,7 @@ func setBenchmarkPrice(o *parseOutput, res pipeline.Result) error {
 func setBid(o *parseOutput, res pipeline.Result) error {
 	if res.Error != nil {
 		o.bid.Err = res.Error
+		return res.Error
 	} else if val, err := toBigInt(res.Value); err != nil {
 		return fmt.Errorf("failed to parse Bid: %w", err)
 	} else {
@@ -214,6 +209,7 @@ func setBid(o *parseOutput, res pipeline.Result) error {
 func setAsk(o *parseOutput, res pipeline.Result) error {
 	if res.Error != nil {
 		o.ask.Err = res.Error
+		return res.Error
 	} else if val, err := toBigInt(res.Value); err != nil {
 		return fmt.Errorf("failed to parse Ask: %w", err)
 	} else {
