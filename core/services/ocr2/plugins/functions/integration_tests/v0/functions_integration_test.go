@@ -69,6 +69,15 @@ func TestIntegration_Functions_MultipleRequests_ThresholdDecryptionSuccess(t *te
 			RequestTotalBytesLimit:    1_000,
 			RequireLocalRequestCheck:  true,
 		},
+		S4PluginConfig: &functionsConfig.S4ReportingPluginConfig{
+			MaxQueryLengthBytes:       10_000,
+			MaxObservationLengthBytes: 15_000,
+			MaxReportLengthBytes:      15_000,
+			NSnapshotShards:           1,
+			MaxObservationEntries:     100,
+			MaxReportEntries:          100,
+			MaxDeleteExpiredEntries:   100,
+		},
 	}
 
 	// config for oracle contract
