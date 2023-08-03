@@ -25,5 +25,6 @@ compileContract () {
       $ROOT/contracts/src/v0.8/$1
 }
 
+# This script is used to compile the contracts for the Events Mocks used in the tests.
 compileContract mocks/FunctionsOracleEventsMock.sol
 compileContract mocks/FunctionsBillingRegistryEventsMock.sol

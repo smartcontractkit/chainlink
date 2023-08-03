@@ -132,6 +132,12 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../contracts/solc/v0.8.16/ExposedVerifier.bin MercuryExposedVerifier mercury_exposed_verifier
 
 // Mocks that contain only events and functions to emit them
+// These contracts are used in testing Atlas flows. The contracts contain no logic, only events, structures, and functions to emit them.
+// The flow is as follows:
+// 1. Compile all non events mock contracts.
+// 2. Generate events mock .sol files based on ABI of compiled contracts.
+// 3. Compile events mock contracts. ./generation/compile_event_mock_contract.sh calls contracts/scripts/native_solc_compile_events_mock to compile events mock contracts.
+// 4. Generate wrappers for events mock contracts.
 //go:generate go run ./generation/generate_events_mock/create_events_mock_contract.go ../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsOracle.abi ../../contracts/src/v0.8/mocks/FunctionsOracleEventsMock.sol FunctionsOracleEventsMock
 //go:generate go run ./generation/generate_events_mock/create_events_mock_contract.go ../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsBillingRegistry.abi ../../contracts/src/v0.8/mocks/FunctionsBillingRegistryEventsMock.sol FunctionsBillingRegistryEventsMock
 //go:generate ./generation/compile_event_mock_contract.sh
