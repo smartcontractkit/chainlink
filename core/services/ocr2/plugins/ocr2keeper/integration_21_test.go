@@ -1,12 +1,14 @@
 package ocr2keeper_test
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -27,6 +30,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registrylogica21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
 	registrylogicb21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
@@ -70,8 +74,106 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
 }
 
+func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
+	t.Skip()
+
+	g := gomega.NewWithT(t)
+	lggr := logger.TestLogger(t)
+
+	// setup blockchain
+	sergey := testutils.MustNewSimTransactor(t) // owns all the link
+	steve := testutils.MustNewSimTransactor(t)  // registry owner
+	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
+	genesisData := core.GenesisAlloc{
+		sergey.From: {Balance: assets.Ether(10000).ToInt()},
+		steve.From:  {Balance: assets.Ether(10000).ToInt()},
+		carrol.From: {Balance: assets.Ether(10000).ToInt()},
+	}
+	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
+	var nodeKeys [5]ethkey.KeyV2
+	for i := int64(0); i < 5; i++ {
+		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
+		genesisData[nodeKeys[i].Address] = core.GenesisAccount{Balance: assets.Ether(1000).ToInt()}
+	}
+
+	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
+	stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	defer stopMining()
+
+	// Deploy registry
+	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
+	require.NoError(t, err)
+	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
+	require.NoError(t, err)
+	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(2000000000000000000))
+	require.NoError(t, err)
+	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+
+	nodes := setupNodes(t, nodeKeys, registry, backend, steve)
+
+	<-time.After(time.Second * 5)
+
+	upkeeps := 1
+
+	_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
+	require.NoError(t, err)
+
+	// Register new upkeep
+	upkeepAddr, _, upkeepContract, err := basic_upkeep_contract.DeployBasicUpkeepContract(carrol, backend)
+	require.NoError(t, err)
+	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 0, []byte{}, []byte{}, []byte{})
+	require.NoError(t, err)
+	backend.Commit()
+	upkeepID := getUpkeepIdFromTx21(t, registry, registrationTx, backend)
+
+	// Fund the upkeep
+	_, err = linkToken.Transfer(sergey, carrol.From, oneHunEth)
+	require.NoError(t, err)
+	_, err = linkToken.Approve(carrol, registry.Address(), oneHunEth)
+	require.NoError(t, err)
+	_, err = registry.AddFunds(carrol, upkeepID, oneHunEth)
+	require.NoError(t, err)
+	backend.Commit()
+
+	// Set upkeep to be performed
+	_, err = upkeepContract.SetBytesToSend(carrol, payload1)
+	require.NoError(t, err)
+	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
+	require.NoError(t, err)
+	backend.Commit()
+
+	lggr.Infow("Upkeep registered and funded", "upkeepID", upkeepID.String())
+
+	// keeper job is triggered and payload is received
+	receivedBytes := func() []byte {
+		received, err2 := upkeepContract.ReceivedBytes(nil)
+		require.NoError(t, err2)
+		return received
+	}
+	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
+
+	// check pipeline runs
+	var allRuns []pipeline.Run
+	for _, node := range nodes {
+		runs, err2 := node.App.PipelineORM().GetAllRuns()
+		require.NoError(t, err2)
+		allRuns = append(allRuns, runs...)
+	}
+	require.GreaterOrEqual(t, len(allRuns), 1)
+
+	// change payload
+	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
+	require.NoError(t, err)
+	_, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
+	require.NoError(t, err)
+
+	// observe 2nd job run and received payload changes
+	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
+}
+
 func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
-	// g := gomega.NewWithT(t)
+	// t.Skip()
+	g := gomega.NewWithT(t)
 	// lggr := logger.TestLogger(t)
 
 	// setup blockchain
@@ -131,7 +233,17 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		}
 	}(contracts)
 
-	<-time.After(time.Second * 40)
+	performed := listenPerformed(t, backend, registry, ids)
+
+	performedEvents := func() int {
+		count := 0
+		performed.Range(func(key, value interface{}) bool {
+			count++
+			return true
+		})
+		return count
+	}
+	g.Eventually(performedEvents, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(1))
 
 	// check pipeline runs
 	var allRuns []pipeline.Run
@@ -140,18 +252,39 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		require.NoError(t, err2)
 		allRuns = append(allRuns, runs...)
 	}
-	t.Logf("EvmRegistry: allRuns: %d", len(allRuns))
-	require.GreaterOrEqual(t, len(allRuns), 0)
 
-	<-time.After(time.Second)
-	// change payload
-	// _, err = upkeepContract.SetBytesToSend(carrol, payload2)
-	// require.NoError(t, err)
-	// _, err = upkeepContract.SetShouldPerformUpkeep(carrol, true)
-	// require.NoError(t, err)
+	require.GreaterOrEqual(t, len(allRuns), 1)
+}
 
-	// observe 2nd job run and received payload changes
-	// g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload2))
+func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int) *sync.Map {
+	performed := &sync.Map{}
+
+	go func() {
+		ctx, cancel := context.WithCancel(testutils.Context(t))
+		defer cancel()
+
+		for ctx.Err() == nil {
+			bl := backend.Blockchain().CurrentBlock().Number.Uint64()
+			sc := make([]bool, len(ids))
+			for i := range sc {
+				sc[i] = true
+			}
+			iter, err := registry.FilterUpkeepPerformed(&bind.FilterOpts{
+				Start:   0,
+				End:     &bl,
+				Context: testutils.Context(t),
+			}, ids, sc)
+			require.NoError(t, err)
+			for iter.Next() {
+				if iter.Event != nil {
+					t.Log("EvmRegistry: upkeep performed event emitted")
+					performed.Store(iter.Event.Id, true)
+				}
+			}
+			time.Sleep(time.Second)
+		}
+	}()
+	return performed
 }
 
 func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *backends.SimulatedBackend, usr *bind.TransactOpts) []Node {
