@@ -134,6 +134,9 @@ package gethwrappers
 // Mocks that contain only events and functions to emit them
 //go:generate go run ./generation/generate_events_mock/create_events_mock_contract.go ../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsOracle.abi ../../contracts/src/v0.8/mocks/FunctionsOracleEventsMock.sol FunctionsOracleEventsMock
 //go:generate go run ./generation/generate_events_mock/create_events_mock_contract.go ../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsBillingRegistry.abi ../../contracts/src/v0.8/mocks/FunctionsBillingRegistryEventsMock.sol FunctionsBillingRegistryEventsMock
+//go:generate ./generation/compile_event_mock_contract.sh
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsOracleEventsMock.abi ../../contracts/solc/v0.8.6/FunctionsOracleEventsMock.bin FunctionsOracleEventsMock functions_oracle_events_mock
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsBillingRegistryEventsMock.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryEventsMock.bin FunctionsBillingRegistryEventsMock functions_billing_registry_events_mock
 
 // Transmission
 //go:generate go generate ./transmission
