@@ -677,6 +677,13 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		var payload []byte
 		switch getUpkeepType(upkeepId.Bytes()) {
 		case logTrigger:
+			triggerExt := key.Trigger.Extension.(logprovider.LogTriggerExtension)
+			b, _, err := r.getTxBlock(common.HexToHash(triggerExt.TxHash))
+			if err != nil || b == nil {
+				r.lggr.Errorf("failed to get transaction block by hash %s: %s", triggerExt.TxHash, err)
+				return nil, err
+			}
+
 			// check data will include the log trigger config
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, key.CheckData)
 			if err != nil {
@@ -911,4 +918,13 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 		return [32]byte{}, fmt.Errorf("%w: failed to get latest block", ErrHeadNotAvailable)
 	}
 	return block.Hash(), nil
+}
+
+func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
+	txr, err := r.client.TransactionReceipt(r.ctx, txHash)
+	if err != nil {
+		return nil, common.Hash{}, err
+	}
+
+	return txr.BlockNumber, txr.BlockHash, nil
 }
