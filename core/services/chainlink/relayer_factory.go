@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -53,12 +52,6 @@ func (r RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (ma
 		RelayerConfig: config.RelayerConfig,
 	}
 
-	var ids []utils.Big
-	for _, c := range config.RelayerConfig.GeneralConfig.EVMConfigs() {
-		c := c
-		ids = append(ids, *c.ChainID)
-	}
-
 	evmRelayExtenders, err := evm.NewChainRelayerExtenders(ctx, ccOpts)
 	if err != nil {
 		return nil, err
@@ -83,15 +76,9 @@ type SolanaFactoryConfig struct {
 func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaConfigs) (map[relay.Identifier]loop.Relayer, error) {
 	solanaRelayers := make(map[relay.Identifier]loop.Relayer)
 	var (
-		ids     []relay.Identifier
 		solLggr = r.Logger.Named("Solana")
-
-		signer = &keystore.SolanaSigner{ks}
+		signer  = &keystore.SolanaSigner{Solana: ks}
 	)
-	for _, c := range chainCfgs {
-		c := c
-		ids = append(ids, relay.Identifier{Network: relay.StarkNet, ChainID: relay.ChainID(*c.ChainID)})
-	}
 
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
@@ -144,14 +131,9 @@ func (r RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.Sta
 	starknetRelayers := make(map[relay.Identifier]loop.Relayer)
 
 	var (
-		ids       []string
 		starkLggr = r.Logger.Named("StarkNet")
 		loopKs    = &keystore.StarknetLooppSigner{StarkNet: ks}
 	)
-	for _, c := range chainCfgs {
-		c := c
-		ids = append(ids, *c.ChainID)
-	}
 
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
@@ -205,14 +187,7 @@ type CosmosFactoryConfig struct {
 func (r RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.Identifier]cosmos.LoopRelayerChainer, error) {
 	relayers := make(map[relay.Identifier]cosmos.LoopRelayerChainer)
 
-	var (
-		ids  []string
-		lggr = r.Logger.Named("Cosmos")
-	)
-	for _, c := range config.CosmosConfigs {
-		c := c
-		ids = append(ids, *c.ChainID)
-	}
+	var lggr = r.Logger.Named("Cosmos")
 
 	// create one relayer per chain id
 	for _, chainCfg := range config.CosmosConfigs {

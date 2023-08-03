@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/denom"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/params"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -33,10 +32,12 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	params.InitCosmosSdk(
-		/* bech32Prefix= */ "wasm",
-		/* token= */ "atom",
-	)
+
+	// params.InitCosmosSdk(
+	// 	/* bech32Prefix= */ "wasm",
+	// 	/* token= */ "atom",
+	// )
+
 	code := m.Run()
 	os.Exit(code)
 }
