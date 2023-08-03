@@ -26,9 +26,6 @@ var BaseConf = chainlink.Config{
 			Level:       ptr(toml.LogLevel(zapcore.DebugLevel)),
 			JSONConsole: ptr(true),
 		},
-		JobPipeline: toml.JobPipeline{
-			MaxSuccessfulRuns: ptr[uint64](0),
-		},
 		WebServer: toml.WebServer{
 			AllowOrigins:   ptr("*"),
 			HTTPPort:       ptr[uint16](6688),
@@ -104,12 +101,6 @@ func WithSimulatedEVM(httpUrl, wsUrl string) NodeConfigOpt {
 					AutoCreateKey:      ptr(true),
 					FinalityDepth:      ptr[uint32](1),
 					MinContractPayment: assets.NewLinkFromJuels(0),
-					GasEstimator: evmcfg.GasEstimator{
-						LimitDefault: ptr[uint32](3500000),
-					},
-					Transactions: evmcfg.Transactions{
-						MaxQueued: ptr[uint32](10000),
-					},
 				},
 				Nodes: []*evmcfg.Node{
 					{
@@ -120,6 +111,17 @@ func WithSimulatedEVM(httpUrl, wsUrl string) NodeConfigOpt {
 					},
 				},
 			},
+		}
+	}
+}
+
+func WithVRFv2EVMEstimator() NodeConfigOpt {
+	return func(c *chainlink.Config) {
+		c.EVM[0].Chain.GasEstimator = evmcfg.GasEstimator{
+			LimitDefault: ptr[uint32](3500000),
+		}
+		c.EVM[0].Chain.Transactions = evmcfg.Transactions{
+			MaxQueued: ptr[uint32](10000),
 		}
 	}
 }
