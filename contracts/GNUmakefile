@@ -45,15 +45,26 @@ abigen: ## Build & install abigen.
 .PHONY: wrappers
 wrappers: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./scripts/native_solc_compile_all_$(FOUNDRY_PROFILE)
-	go generate ./core/gethwrappers/go_generate_$(FOUNDRY_PROFILE).go
+	go generate ../core/gethwrappers/go_generate_$(FOUNDRY_PROFILE).go
 
 # This call generates all gethwrappers for all products. It does so based on the
 # assumption that native_solc_compile_all contains sub-calls to each product, and
 # go_generate does the same.
 .PHONY: wrappers-all
 wrappers-all: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
-	./scripts/native_solc_compile_all
-	go generate ./core/gethwrappers/go_generate.go
+	# go_generate contains a call to  compile all contracts before generating wrappers
+	go generate ../core/gethwrappers/go_generate.go
+
+# Custom wrapper generation for OCR2VRF as their contracts do not exist in this repo
+.PHONY: go-solidity-wrappers-ocr2vrf
+go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles OCR2VRF solidity contracts and their go wrappers.
+	./scripts/native_solc_compile_all_ocr2vrf
+	# replace the go:generate_disabled directive with the regular go:generate directive
+	sed -i '' 's/go:generate_disabled/go:generate/g' ../core/gethwrappers/ocr2vrf/go_generate.go
+	go generate ../core/gethwrappers/ocr2vrf
+	go generate ../core/internal/mocks
+	# put the go:generate_disabled directive back
+	sed -i '' 's/go:generate/go:generate_disabled/g' ../core/gethwrappers/ocr2vrf/go_generate.go
 
 
 help:

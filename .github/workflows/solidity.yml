@@ -234,7 +234,8 @@ jobs:
         uses: ./.github/actions/setup-go
       - name: Run native compile and generate wrappers
         if: ${{ needs.changes.outputs.changes == 'true' }}
-        run: make go-solidity-wrappers
+        run: make wrappers-all
+        working-directory: ./contracts
       - name: Verify local solc binaries
         if: ${{ needs.changes.outputs.changes == 'true' }}
         run: ./tools/ci/check_solc_hashes
@@ -245,7 +246,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         if: ${{ failure() }}
-        run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make go-solidity-wrappers` command'
+        run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make wrappers-all` command'
       - name: Collect Metrics
         if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
