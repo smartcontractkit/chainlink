@@ -19,6 +19,10 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
   EnumerableSet.AddressSet private s_allowedSenders;
   mapping(address => bool) private s_blockedSenders;
 
+  event AddedAccess(address user);
+  event BlockedAccess(address user);
+  event UnblockedAccess(address user);
+
   error InvalidSignature();
   error InvalidUsage();
   error RecipientIsBlocked();
@@ -34,7 +38,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
 
   Config private s_config;
 
-  event ConfigSet(bool enabled);
+  event ConfigSet(bool enabled, address signerPublicKey);
 
   // ================================================================
   // |                       Initialization                         |
@@ -55,7 +59,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
   function _updateConfig(bytes memory config) internal override {
     (bool enabled, address signerPublicKey) = abi.decode(config, (bool, address));
     s_config = Config({enabled: enabled, signerPublicKey: signerPublicKey});
-    emit ConfigSet(enabled);
+    emit ConfigSet(enabled, signerPublicKey);
   }
 
   /**
@@ -100,6 +104,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
 
     // Add recipient to the allow list
     s_allowedSenders.add(recipient);
+    emit AddedAccess(recipient);
   }
 
   /**
@@ -139,6 +144,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
   function blockSender(address sender) external override onlyRouterOwner {
     s_allowedSenders.remove(sender);
     s_blockedSenders[sender] = true;
+    emit BlockedAccess(sender);
   }
 
   /**
@@ -146,5 +152,6 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
    */
   function unblockSender(address sender) external override onlyRouterOwner {
     s_blockedSenders[sender] = false;
+    emit UnblockedAccess(sender);
   }
 }
