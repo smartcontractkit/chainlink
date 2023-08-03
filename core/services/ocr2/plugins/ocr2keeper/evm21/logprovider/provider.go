@@ -291,13 +291,13 @@ func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big
 			return
 		}
 		// cloning struct to be thread safe
-		eventSigs := make([]common.Hash, len(f.eventSigs))
-		copy(eventSigs, f.eventSigs)
+		topics := make([]common.Hash, len(f.topics))
+		copy(topics, f.topics)
 		addr := make([]byte, len(f.addr))
 		copy(addr, f.addr)
 		filters = append(filters, upkeepFilter{
 			upkeepID:        f.upkeepID,
-			eventSigs:       eventSigs,
+			topics:          topics,
 			addr:            addr,
 			lastPollBlock:   f.lastPollBlock,
 			lastRePollBlock: f.lastRePollBlock,
@@ -322,7 +322,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries [
 		if len(entry.addr) == 0 {
 			continue
 		}
-		// lggr := mainLggr.With("upkeep", entry.id.String(), "addrs", entry.filter.Addresses, "sigs", entry.filter.EventSigs)
+		// lggr := mainLggr.With("upkeep", entry.upkeepID.String(), "addrs", entry.addr, "sigs", entry.topics)
 		start := entry.lastPollBlock
 		if start == 0 || start < latest-logBlocksLookback {
 			// long range or first time polling,
@@ -340,7 +340,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries [
 			start = 0
 		}
 		// lggr = lggr.With("startBlock", start)
-		logs, err := p.poller.LogsWithSigs(start, latest, entry.eventSigs, common.BytesToAddress(entry.addr), pg.WithParentCtx(ctx))
+		logs, err := p.poller.LogsWithSigs(start, latest, entry.topics, common.BytesToAddress(entry.addr), pg.WithParentCtx(ctx))
 		if err != nil {
 			resv.Cancel() // cancels limit reservation as we failed to get logs
 			if ctx.Err() != nil {

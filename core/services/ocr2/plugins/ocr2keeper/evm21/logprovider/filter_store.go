@@ -23,9 +23,9 @@ type UpkeepFilterStore interface {
 var _ UpkeepFilterStore = &upkeepFilterStore{}
 
 type upkeepFilter struct {
-	addr      []byte
-	eventSigs []common.Hash
-	upkeepID  *big.Int
+	addr     []byte
+	topics   []common.Hash
+	upkeepID *big.Int
 	// lastPollBlock is the last block number the logs were fetched for this upkeep
 	// used by log event provider.
 	lastPollBlock int64

@@ -291,7 +291,7 @@ func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upk
 	f := upkeepFilter{
 		upkeepID:     uid,
 		addr:         filter.Addresses[0].Bytes(),
-		eventSigs:    eventSigs,
+		topics:       eventSigs,
 		blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
 	}
 	return cfg, f

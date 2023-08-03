@@ -24,12 +24,12 @@ func (p *logEventProvider) RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfi
 	if err := p.poller.RegisterFilter(filter); err != nil {
 		return errors.Wrap(err, "failed to register upkeep filter")
 	}
-	eventSigs := make([]common.Hash, len(filter.EventSigs))
-	copy(eventSigs, filter.EventSigs)
+	topics := make([]common.Hash, len(filter.EventSigs))
+	copy(topics, filter.EventSigs)
 	p.filterStore.AddActiveUpkeeps(upkeepFilter{
 		upkeepID:     upkeepID,
 		addr:         filter.Addresses[0].Bytes(),
-		eventSigs:    eventSigs,
+		topics:       topics,
 		blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
 	})
 
@@ -48,11 +48,11 @@ func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
 
 // newLogFilter creates logpoller.Filter from the given upkeep config
 func (p *logEventProvider) newLogFilter(upkeepID *big.Int, cfg LogTriggerConfig) logpoller.Filter {
-	sigs := p.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
-	sigs = append([]common.Hash{common.BytesToHash(cfg.Topic0[:])}, sigs...)
+	topics := p.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
+	topics = append([]common.Hash{common.BytesToHash(cfg.Topic0[:])}, topics...)
 	return logpoller.Filter{
 		Name:      p.filterName(upkeepID),
-		EventSigs: sigs,
+		EventSigs: topics,
 		Addresses: []common.Address{cfg.ContractAddress},
 		Retention: p.opts.LogRetention,
 	}
