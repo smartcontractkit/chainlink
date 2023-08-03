@@ -5,11 +5,15 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
+	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
+	"github.com/smartcontractkit/ocr2keepers/pkg/runner"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
@@ -802,6 +806,24 @@ func (d *Delegate) newServicesOCR2Keepers(
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
+	switch jb.KeeperSpec.ContractVersion {
+	case "v2.1":
+		return d.newServicesOCR2Keepers21(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+	default:
+		return d.newServicesOCR2Keepers20(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+	}
+}
+
+func (d *Delegate) newServicesOCR2Keepers21(
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	runResults chan pipeline.Run,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+	ocrLogger commontypes.Logger,
+) ([]job.ServiceCtx, error) {
 	credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "failed to get mercury credential name")
@@ -896,6 +918,144 @@ func (d *Delegate) newServicesOCR2Keepers(
 		keeperProvider,
 		rgstry,
 		transmitEventProvider,
+		pluginService,
+	}, nil
+}
+
+func (d *Delegate) newServicesOCR2Keepers20(
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	runResults chan pipeline.Run,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+	ocrLogger commontypes.Logger,
+) ([]job.ServiceCtx, error) {
+	credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
+	if err2 != nil {
+		return nil, errors.Wrap(err2, "failed to get mercury credential name")
+	}
+
+	mc := d.cfg.Mercury().Credentials(credName)
+
+	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc)
+	if err2 != nil {
+		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
+	}
+
+	spec := jb.OCR2OracleSpec
+	var cfg ocr2keeper.PluginConfig
+	err2 = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg)
+	if err2 != nil {
+		return nil, errors.Wrap(err2, "unmarshal ocr2keepers plugin config")
+	}
+
+	err2 = ocr2keeper.ValidatePluginConfig(cfg)
+	if err2 != nil {
+		return nil, errors.Wrap(err2, "ocr2keepers plugin config validation failure")
+	}
+
+	w := &logWriter{log: lggr.Named("Automation Dependencies")}
+
+	// set some defaults
+	conf := config.ReportingFactoryConfig{
+		CacheExpiration:       config.DefaultCacheExpiration,
+		CacheEvictionInterval: config.DefaultCacheClearInterval,
+		MaxServiceWorkers:     config.DefaultMaxServiceWorkers,
+		ServiceQueueLength:    config.DefaultServiceQueueLength,
+	}
+
+	// override if set in config
+	if cfg.CacheExpiration.Value() != 0 {
+		conf.CacheExpiration = cfg.CacheExpiration.Value()
+	}
+
+	if cfg.CacheEvictionInterval.Value() != 0 {
+		conf.CacheEvictionInterval = cfg.CacheEvictionInterval.Value()
+	}
+
+	if cfg.MaxServiceWorkers != 0 {
+		conf.MaxServiceWorkers = cfg.MaxServiceWorkers
+	}
+
+	if cfg.ServiceQueueLength != 0 {
+		conf.ServiceQueueLength = cfg.ServiceQueueLength
+	}
+
+	runr, err2 := runner.NewRunner(
+		log.New(w, "[automation-plugin-runner] ", log.Lshortfile),
+		rgstry,
+		encoder,
+		conf.MaxServiceWorkers,
+		conf.ServiceQueueLength,
+		conf.CacheExpiration,
+		conf.CacheEvictionInterval,
+	)
+	if err2 != nil {
+		return nil, errors.Wrap(err2, "failed to create automation pipeline runner")
+	}
+
+	condObs := &polling.PollingObserverFactory{
+		Logger:  log.New(w, "[automation-plugin-conditional-observer] ", log.Lshortfile),
+		Source:  rgstry,
+		Heads:   rgstry,
+		Runner:  runr,
+		Encoder: encoder,
+	}
+
+	coord := &coordinator.CoordinatorFactory{
+		Logger:     log.New(w, "[automation-plugin-coordinator] ", log.Lshortfile),
+		Encoder:    encoder,
+		Logs:       logProvider,
+		CacheClean: conf.CacheEvictionInterval,
+	}
+
+	dConf := ocr2keepers.DelegateConfig{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractTransmitter:          keeperProvider.ContractTransmitter(),
+		ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
+		KeepersDatabase:              ocrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Automation),
+		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kb,
+		ConditionalObserverFactory:   condObs,
+		CoordinatorFactory:           coord,
+		Encoder:                      encoder,
+		Runner:                       runr,
+		// the following values are not needed in the delegate config anymore
+		CacheExpiration:       cfg.CacheExpiration.Value(),
+		CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),
+		MaxServiceWorkers:     cfg.MaxServiceWorkers,
+		ServiceQueueLength:    cfg.ServiceQueueLength,
+	}
+
+	pluginService, err := ocr2keepers.NewDelegate(dConf)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
+	}
+
+	// RunResultSaver needs to be started first, so it's available
+	// to read odb writes. It is stopped last after the OraclePlugin is shut down
+	// so no further runs are enqueued, and we can drain the queue.
+	runResultSaver := ocrcommon.NewResultRunSaver(
+		runResults,
+		d.pipelineRunner,
+		make(chan struct{}),
+		lggr,
+		d.cfg.JobPipeline().MaxSuccessfulRuns(),
+	)
+
+	return []job.ServiceCtx{
+		job.NewServiceAdapter(runr),
+		runResultSaver,
+		keeperProvider,
+		rgstry,
+		logProvider,
 		pluginService,
 	}, nil
 }
