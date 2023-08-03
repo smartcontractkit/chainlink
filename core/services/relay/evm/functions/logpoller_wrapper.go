@@ -56,7 +56,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 
 func (l *logPollerWrapper) Start(context.Context) error {
 	return l.StartOnce("LogPollerWrapper", func() error {
-		l.lggr.Info("starting LogPollerWrapper")
+		l.lggr.Infow("starting LogPollerWrapper", "routerContract", l.routerContract.Address().Hex(), "contractVersion", l.pluginConfig.ContractVersion)
 		l.mu.Lock()
 		defer l.mu.Unlock()
 		if l.pluginConfig.ContractVersion == 0 {
@@ -66,7 +66,7 @@ func (l *logPollerWrapper) Start(context.Context) error {
 			nextBlock, err := l.logPoller.LatestBlock()
 			l.nextBlock = nextBlock
 			if err != nil {
-				l.lggr.Error("LogPollerWrapper: LatestBlock() failed, starting from 0")
+				l.lggr.Errorw("LogPollerWrapper: LatestBlock() failed, starting from 0", "error", err)
 			} else {
 				l.lggr.Debugw("LogPollerWrapper: LatestBlock() got starting block", "block", nextBlock)
 			}
@@ -186,8 +186,9 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 func (l *logPollerWrapper) SubscribeToUpdates(subscriberName string, subscriber evmRelayTypes.RouteUpdateSubscriber) {
 	if l.pluginConfig.ContractVersion == 0 {
 		// in V0, immediately set contract address to Oracle contract and never update again
-		err := subscriber.UpdateRoutes(l.routerContract.Address(), l.routerContract.Address())
-		l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "error", err)
+		if err := subscriber.UpdateRoutes(l.routerContract.Address(), l.routerContract.Address()); err != nil {
+			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "error", err)
+		}
 	} else if l.pluginConfig.ContractVersion == 1 {
 		l.mu.Lock()
 		defer l.mu.Unlock()
@@ -199,7 +200,7 @@ func (l *logPollerWrapper) checkForRouteUpdates() {
 	defer l.closeWait.Done()
 	freqSec := l.pluginConfig.ContractUpdateCheckFrequencySec
 	if freqSec == 0 {
-		l.lggr.Errorw("ContractUpdateCheckFrequencySec is zero - route update checks disabled")
+		l.lggr.Errorw("LogPollerWrapper: ContractUpdateCheckFrequencySec is zero - route update checks disabled")
 		return
 	}
 
