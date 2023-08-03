@@ -58,8 +58,6 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		PerformDatas: make([][]byte, len(results)),
 	}
 
-	fmt.Printf("[EVMAutomationEncoder21] encoding %d results\n", len(results))
-
 	highestCheckBlock := big.NewInt(0)
 	for i, result := range results {
 		ext, ok := result.Extension.(EVMAutomationResultExtension21)
