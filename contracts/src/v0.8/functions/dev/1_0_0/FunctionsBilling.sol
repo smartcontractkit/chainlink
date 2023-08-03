@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Routable} from "./Routable.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 
+import {Routable} from "./Routable.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
 /**
@@ -290,10 +290,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       billing.adminFee
     );
     IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(_getRouter()));
-    IFunctionsSubscriptions.Subscription memory subscription = subscriptions.getSubscription(billing.subscriptionId);
+    (uint96 balance, , uint96 blockedBalance, , , ) = subscriptions.getSubscription(billing.subscriptionId);
     (, uint64 initiatedRequests, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
 
-    if (subscription.balance - subscription.blockedBalance < estimatedCost) {
+    if (balance - blockedBalance < estimatedCost) {
       revert InsufficientBalance();
     }
 

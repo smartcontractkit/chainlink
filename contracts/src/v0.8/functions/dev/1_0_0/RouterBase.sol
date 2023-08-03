@@ -13,8 +13,10 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                          Route state                         |
   // ================================================================
-  mapping(bytes32 id => address routableContract) internal s_route;
+  mapping(bytes32 id => address routableContract) private s_route;
+
   error RouteNotFound(bytes32 id);
+
   // Use empty bytes to self-identify, since it does not have an id
   bytes32 private constant ROUTER_ID = bytes32(0);
 
@@ -29,7 +31,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     address[] to;
     uint64 timelockEndBlock;
   }
-  ContractProposalSet internal s_proposedContractSet;
+  ContractProposalSet private s_proposedContractSet;
 
   event ContractProposed(
     bytes32 proposedContractSetId,
@@ -49,28 +51,20 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   event ConfigUpdated(bytes32 id, bytes toBytes);
   error InvalidProposal();
   error IdentifierIsReserved(bytes32 id);
-  error AlreadyApplied();
-
-  // ================================================================
-  // |                          Config state                        |
-  // ================================================================
-
-  error InvalidConfigData();
-
-  TimeLockProposal internal s_timelockProposal;
 
   // ================================================================
   // |                          Timelock state                      |
   // ================================================================
-
   uint16 private immutable s_maximumTimelockBlocks;
-  uint16 internal s_timelockBlocks;
+  uint16 private s_timelockBlocks;
 
   struct TimeLockProposal {
     uint16 from;
     uint16 to;
     uint64 timelockEndBlock;
   }
+
+  TimeLockProposal private s_timelockProposal;
 
   event TimeLockProposed(uint16 from, uint16 to);
   event TimeLockUpdated(uint16 from, uint16 to);
@@ -100,9 +94,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // |                        Route methods                         |
   // ================================================================
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function getContractById(bytes32 id) public view override returns (address) {
     address currentImplementation = s_route[id];
     if (currentImplementation == address(0)) {
@@ -111,9 +103,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     return currentImplementation;
   }
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function getProposedContractById(bytes32 id) public view override returns (address) {
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
@@ -127,16 +117,21 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // ================================================================
   // |                 Contract Proposal methods                    |
   // ================================================================
-  /**
-   * @inheritdoc IRouterBase
-   */
-  function getProposedContractSet() external view override returns (uint256, bytes32[] memory, address[] memory) {
-    return (s_proposedContractSet.timelockEndBlock, s_proposedContractSet.ids, s_proposedContractSet.to);
+
+  // @inheritdoc IRouterBase
+  function getProposedContractSet()
+    external
+    view
+    override
+    returns (uint256 timelockEndBlock, bytes32[] memory ids, address[] memory to)
+  {
+    timelockEndBlock = s_proposedContractSet.timelockEndBlock;
+    ids = s_proposedContractSet.ids;
+    to = s_proposedContractSet.to;
+    return (timelockEndBlock, ids, to);
   }
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function proposeContractsUpdate(
     bytes32[] memory proposedContractSetIds,
     address[] memory proposedContractSetAddresses
@@ -181,9 +176,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     }
   }
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function updateContracts() external override onlyOwner {
     if (block.number < s_proposedContractSet.timelockEndBlock) {
       revert TimelockInEffect();
@@ -191,10 +184,9 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint256 i = 0; i < s_proposedContractSet.ids.length; ++i) {
       bytes32 id = s_proposedContractSet.ids[i];
-      address from = s_route[id];
       address to = s_proposedContractSet.to[i];
+      emit ContractUpdated({id: id, from: s_route[id], to: to});
       s_route[id] = to;
-      emit ContractUpdated({id: id, from: from, to: to});
     }
 
     delete s_proposedContractSet;
@@ -204,15 +196,11 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // |                   Config Proposal methods                    |
   // ================================================================
 
-  /**
-   * @dev Must be implemented by inheriting contract
-   * Use to set configuration state of the Router
-   */
+  // @dev Must be implemented by inheriting contract
+  // Use to set configuration state of the Router
   function _updateConfig(bytes memory config) internal virtual;
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function proposeConfigUpdateSelf(bytes calldata config) external override onlyOwner {
     s_proposedConfig[ROUTER_ID] = ConfigProposal({
       to: config,
@@ -221,9 +209,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     emit ConfigProposed({id: ROUTER_ID, toBytes: config});
   }
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function updateConfigSelf() external override onlyOwner {
     ConfigProposal memory proposal = s_proposedConfig[ROUTER_ID];
     if (block.number < proposal.timelockEndBlock) {
@@ -233,17 +219,13 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     emit ConfigUpdated({id: ROUTER_ID, toBytes: proposal.to});
   }
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function proposeConfigUpdate(bytes32 id, bytes calldata config) external override onlyOwner {
     s_proposedConfig[id] = ConfigProposal({to: config, timelockEndBlock: uint64(block.number + s_timelockBlocks)});
     emit ConfigProposed({id: id, toBytes: config});
   }
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function updateConfig(bytes32 id) external override onlyOwner {
     ConfigProposal memory proposal = s_proposedConfig[id];
 
@@ -260,9 +242,7 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // |                         Timelock methods                     |
   // ================================================================
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function proposeTimelockBlocks(uint16 blocks) external override onlyOwner {
     if (s_timelockBlocks == blocks) {
       revert InvalidProposal();
@@ -277,15 +257,10 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
     });
   }
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function updateTimelockBlocks() external override onlyOwner {
     if (block.number < s_timelockProposal.timelockEndBlock) {
       revert TimelockInEffect();
-    }
-    if (s_timelockBlocks == s_timelockProposal.to) {
-      revert AlreadyApplied();
     }
     s_timelockBlocks = s_timelockProposal.to;
   }
@@ -294,16 +269,12 @@ abstract contract RouterBase is IRouterBase, Pausable, ITypeAndVersion, Confirme
   // |                     Pausable methods                         |
   // ================================================================
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function pause() external override onlyOwner {
     _pause();
   }
 
-  /**
-   * @inheritdoc IRouterBase
-   */
+  // @inheritdoc IRouterBase
   function unpause() external override onlyOwner {
     _unpause();
   }

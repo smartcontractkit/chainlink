@@ -3,10 +3,11 @@ pragma solidity ^0.8.19;
 
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+
 import {FunctionsBilling} from "./FunctionsBilling.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 
 /**
  * @title Functions Coordinator contract
@@ -16,6 +17,9 @@ import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
   using FunctionsResponse for FunctionsResponse.Commitment;
   using FunctionsResponse for FunctionsResponse.FulfillResult;
+
+  // @inheritdoc ITypeAndVersion
+  string public constant override typeAndVersion = "Functions Coordinator v1.0.0";
 
   event OracleRequest(
     bytes32 indexed requestId,
@@ -45,11 +49,6 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     bytes memory config,
     address linkToNativeFeed
   ) OCR2Base(true) FunctionsBilling(router, config, linkToNativeFeed) {}
-
-  /**
-   * @inheritdoc ITypeAndVersion
-   */
-  string public constant override typeAndVersion = "Functions Coordinator v1.0.0";
 
   /**
    * @inheritdoc IFunctionsCoordinator

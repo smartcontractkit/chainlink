@@ -19,7 +19,7 @@ interface IFunctionsSubscriptions {
     // 2. To be able to return the list of all consumers in getSubscription.
     // Note that we need the s_consumers map to be able to directly check if a
     // consumer is valid without reading all the consumers from storage.
-    address[] consumers;
+    address[] consumers; // Client contracts that can use the subscription
     bytes32 flags; // Per-subscription flags.
   }
 
@@ -32,9 +32,26 @@ interface IFunctionsSubscriptions {
   /**
    * @notice Get details about a subscription.
    * @param subscriptionId - ID of the subscription
-   * @return subscription - list of consumer address which are able to use this subscription.
+   * @return balance - Common LINK balance that is controlled by the Registry to be used for all consumer requests.
+   * @return owner - Owner can fund/withdraw/cancel the sub.
+   * @return blockedBalance - LINK balance that is reserved to pay for pending consumer requests.
+   * @return requestedOwner - For safely transferring sub ownership.
+   * @return consumers - Client contracts that can use the subscription
+   * @return flags - Per-subscription flags.
    */
-  function getSubscription(uint64 subscriptionId) external view returns (Subscription memory);
+  function getSubscription(
+    uint64 subscriptionId
+  )
+    external
+    view
+    returns (
+      uint96 balance,
+      address owner,
+      uint96 blockedBalance,
+      address requestedOwner,
+      address[] memory consumers,
+      bytes32 flags
+    );
 
   /**
    * @notice Get details about a consumer of a subscription.

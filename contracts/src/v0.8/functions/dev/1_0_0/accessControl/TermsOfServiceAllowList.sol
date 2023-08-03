@@ -2,9 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
-import {Routable} from "../Routable.sol";
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
 import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
+
+import {Routable} from "../Routable.sol";
 
 import {Address} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
 import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
@@ -15,6 +16,9 @@ import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/con
 contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessController {
   using Address for address;
   using EnumerableSet for EnumerableSet.AddressSet;
+
+  // @inheritdoc ITypeAndVersion
+  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
 
   EnumerableSet.AddressSet private s_allowedSenders;
   mapping(address => bool) private s_blockedSenders;
@@ -61,11 +65,6 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
     s_config = Config({enabled: enabled, signerPublicKey: signerPublicKey});
     emit ConfigSet(enabled, signerPublicKey);
   }
-
-  /**
-   * @inheritdoc ITypeAndVersion
-   */
-  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
 
   // ================================================================
   // |                  Terms of Service methods                    |
