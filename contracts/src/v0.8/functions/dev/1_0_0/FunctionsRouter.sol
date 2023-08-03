@@ -390,12 +390,12 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
    * @inheritdoc IFunctionsRouter
    */
   function isValidCallbackGasLimit(uint64 subscriptionId, uint32 callbackGasLimit) public view {
-    uint8 index = uint8(getFlags(subscriptionId)[MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX]);
-    if (index >= s_config.maxCallbackGasLimits.length) {
-      revert InvalidGasFlagValue(index);
+    uint8 callbackGasLimitsIndexSelector = uint8(getFlags(subscriptionId)[MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX]);
+    if (callbackGasLimitsIndexSelector >= s_config.maxCallbackGasLimits.length) {
+      revert InvalidGasFlagValue(callbackGasLimitsIndexSelector);
     }
-    if (callbackGasLimit > s_config.maxCallbackGasLimits[index]) {
-      revert GasLimitTooBig(s_config.maxCallbackGasLimits[index]);
+    if (callbackGasLimit > s_config.maxCallbackGasLimits[callbackGasLimitsIndexSelector]) {
+      revert GasLimitTooBig(s_config.maxCallbackGasLimits[callbackGasLimitsIndexSelector]);
     }
   }
 
@@ -406,7 +406,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   // ================================================================
   // |                           Modifiers                          |
   // ================================================================
-
+  // Favoring internal functions over actual modifiers to reduce contract size
   function _whenNotPaused() internal view override {
     _requireNotPaused();
   }
