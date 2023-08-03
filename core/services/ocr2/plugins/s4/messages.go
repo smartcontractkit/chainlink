@@ -1,7 +1,6 @@
 package s4
 
 import (
-	"bytes"
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
@@ -71,12 +70,10 @@ func (row *Row) VerifySignature() error {
 		Version:    row.Version,
 		Expiration: row.Expiration,
 	}
-	signer, err := e.GetSignerAddress(row.Signature)
+	err := e.VerifySignerAddress(row.Signature)
 	if err != nil {
 		return err
 	}
-	if !bytes.Equal(signer.Bytes(), address.Bytes()) {
-		return s4.ErrWrongSignature
-	}
+
 	return nil
 }

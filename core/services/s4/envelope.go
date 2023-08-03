@@ -1,6 +1,7 @@
 package s4
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
@@ -22,6 +23,8 @@ type Envelope struct {
 	Version    uint64 `json:"version"`
 	Expiration int64  `json:"expiration"`
 }
+
+const EthSignedMessagePrefix = "\x19Ethereum Signed Message:\n"
 
 func NewEnvelopeFromRecord(key *Key, record *Record) *Envelope {
 	return &Envelope{
@@ -46,21 +49,43 @@ func (e Envelope) Sign(privateKey *ecdsa.PrivateKey) (signature []byte, err erro
 	return crypto.Sign(hash[:], privateKey)
 }
 
-// GetSignerAddress verifies the signature and returns the signing address.
-func (e Envelope) GetSignerAddress(signature []byte) (address common.Address, err error) {
+// Verifies the signature belongs to the sender's address
+func (e Envelope) VerifySignerAddress(signature []byte) (err error) {
 	if len(e.Address) != common.AddressLength {
-		return common.Address{}, fmt.Errorf("invalid address length: %d", len(e.Address))
+		return fmt.Errorf("invalid address length: %d", len(e.Address))
 	}
+
+	// Adjust the V component of the signature if using 27 or 28 instead of 0 or 1
+	if signature[64] > 1 {
+		signature[64] -= 27
+	}
+
 	js, err := e.ToJson()
 	if err != nil {
-		return common.Address{}, err
+		return err
 	}
 	hash := crypto.Keccak256Hash(js)
 	sigPublicKey, err := crypto.SigToPub(hash[:], signature)
-	if err != nil {
-		return common.Address{}, err
+	if err == nil {
+		recoveredAddr := crypto.PubkeyToAddress(*sigPublicKey)
+		if bytes.Equal(recoveredAddr.Bytes(), e.Address) {
+			return nil
+		}
 	}
-	return crypto.PubkeyToAddress(*sigPublicKey), nil
+
+	// If unable to verify the raw signature, try to verify the signature of the prefixed message
+	prefixedJs := fmt.Sprintf("%s%d%s", EthSignedMessagePrefix, len(js), js)
+	prefixedHash := crypto.Keccak256Hash([]byte(prefixedJs))
+	sigPublicKey, err = crypto.SigToPub(prefixedHash[:], signature)
+	if err == nil {
+		recoveredAddr := crypto.PubkeyToAddress(*sigPublicKey)
+		if bytes.Equal(recoveredAddr.Bytes(), e.Address) {
+			return nil
+		}
+		return ErrWrongSignature
+	}
+
+	return err
 }
 
 func (e Envelope) ToJson() ([]byte, error) {

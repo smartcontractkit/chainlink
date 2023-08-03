@@ -1,7 +1,6 @@
 package s4_test
 
 import (
-	"crypto/ecdsa"
 	"encoding/json"
 	"testing"
 	"time"
@@ -35,13 +34,8 @@ func TestEnvelope(t *testing.T) {
 		sig, err := env.Sign(privateKey)
 		assert.NoError(t, err)
 
-		addr, err := env.GetSignerAddress(sig)
+		err = env.VerifySignerAddress(sig)
 		assert.NoError(t, err)
-
-		publicKey := privateKey.Public()
-		publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
-		assert.True(t, ok)
-		assert.Equal(t, crypto.PubkeyToAddress(*publicKeyECDSA), addr)
 	})
 
 	t.Run("json", func(t *testing.T) {

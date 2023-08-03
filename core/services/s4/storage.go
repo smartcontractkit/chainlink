@@ -133,8 +133,8 @@ func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature [
 	}
 
 	envelope := NewEnvelopeFromRecord(key, record)
-	signer, err := envelope.GetSignerAddress(signature)
-	if err != nil || signer != key.Address {
+	err := envelope.VerifySignerAddress(signature)
+	if err != nil {
 		return ErrWrongSignature
 	}
 
