@@ -10,6 +10,7 @@ import {BlockhashStore} from "../../../../src/v0.8/dev/BlockhashStore.sol";
 import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
 import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
+import {VmSafe} from "forge-std/Vm.sol";
 
 /*
  * USAGE INSTRUCTIONS:
@@ -248,10 +249,21 @@ contract VRFV2Plus is BaseTest {
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
     });
     (, uint96 ethBalanceBefore, , , ) = s_testCoordinator.getSubscription(subId);
-    vm.expectEmit(true, true, false, true);
+
     uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
-    emit RandomWordsFulfilled(requestId, outputSeed, subId, 123150, rc.extraArgs, true);
+    vm.recordLogs();
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
+    VmSafe.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
+    assertEq(entries[0].topics[2], bytes32(uint256(subId)));
+    (uint256 loggedOutputSeed, , bytes memory loggedExtraArgs, bool loggedSuccess) = abi.decode(
+      entries[0].data,
+      (uint256, uint256, bytes, bool)
+    );
+    assertEq(loggedOutputSeed, outputSeed);
+    assertEq(loggedExtraArgs, rc.extraArgs);
+    assertEq(loggedSuccess, true);
+
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 
@@ -357,10 +369,22 @@ contract VRFV2Plus is BaseTest {
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
     });
     (uint96 linkBalanceBefore, , , , ) = s_testCoordinator.getSubscription(subId);
-    vm.expectEmit(true, true, false, true);
+
     uint256 outputSeed = s_testCoordinator.getRandomnessFromProofExternal(proof, rc).randomness;
-    emit RandomWordsFulfilled(requestId, outputSeed, subId, 292278, rc.extraArgs, true);
+    vm.recordLogs();
     s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
+
+    VmSafe.Log[] memory entries = vm.getRecordedLogs();
+    assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
+    assertEq(entries[0].topics[2], bytes32(uint256(subId)));
+    (uint256 loggedOutputSeed, , bytes memory loggedExtraArgs, bool loggedSuccess) = abi.decode(
+      entries[0].data,
+      (uint256, uint256, bytes, bool)
+    );
+    assertEq(loggedOutputSeed, outputSeed);
+    assertEq(loggedExtraArgs, rc.extraArgs);
+    assertEq(loggedSuccess, true);
+
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
     assertEq(fulfilled, true);
 

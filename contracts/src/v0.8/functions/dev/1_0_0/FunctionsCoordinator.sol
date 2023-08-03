@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {IFunctionsBilling, FunctionsBilling} from "./FunctionsBilling.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
-import {FulfillResult} from "./FulfillResultCodes.sol";
+import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 import {ITypeAndVersion} from "./Routable.sol";
 
 /**
@@ -13,6 +13,9 @@ import {ITypeAndVersion} from "./Routable.sol";
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
+  using FunctionsResponse for FunctionsResponse.Commitment;
+  using FunctionsResponse for FunctionsResponse.FulfillResult;
+
   event OracleRequest(
     bytes32 indexed requestId,
     address indexed requestingContract,
@@ -22,13 +25,10 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     bytes data,
     uint16 dataVersion,
     bytes32 flags,
-    uint64 callbackGasLimit
+    uint64 callbackGasLimit,
+    bytes commitment
   );
   event OracleResponse(bytes32 indexed requestId, address transmitter);
-  event InvalidRequestID(bytes32 indexed requestId);
-  event InsufficientGasProvided(bytes32 indexed requestId);
-  event CostExceedsCommitment(bytes32 indexed requestId);
-  event InsufficientSubscriptionBalance(bytes32 indexed requestId);
 
   error EmptyRequestData();
   error InconsistentReportData();
@@ -48,9 +48,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   /**
    * @inheritdoc ITypeAndVersion
    */
-  function typeAndVersion() public pure override returns (string memory) {
-    return "Functions Coordinator v1";
-  }
+  string public constant override typeAndVersion = "Functions Coordinator v1.0.0";
 
   /**
    * @inheritdoc IFunctionsCoordinator
@@ -149,31 +147,23 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function sendRequest(
     Request calldata request
-  )
-    external
-    override
-    onlyRouter
-    returns (bytes32 requestId, uint96 estimatedCost, uint256 gasAfterPaymentCalculation, uint256 requestTimeoutSeconds)
-  {
+  ) external override onlyRouter returns (FunctionsResponse.Commitment memory commitment) {
     if (request.data.length == 0) {
       revert EmptyRequestData();
     }
 
-    RequestBilling memory billing = IFunctionsBilling.RequestBilling(
-      request.subscriptionId,
-      request.requestingContract,
-      request.callbackGasLimit,
-      tx.gasprice
-    );
+    RequestBilling memory billing = IFunctionsBilling.RequestBilling({
+      subscriptionId: request.subscriptionId,
+      client: request.requestingContract,
+      callbackGasLimit: request.callbackGasLimit,
+      expectedGasPrice: tx.gasprice,
+      adminFee: request.adminFee
+    });
 
-    (requestId, estimatedCost, gasAfterPaymentCalculation, requestTimeoutSeconds) = _startBilling(
-      request.data,
-      request.dataVersion,
-      billing
-    );
+    commitment = _startBilling(request.data, request.dataVersion, billing);
 
     emit OracleRequest(
-      requestId,
+      commitment.requestId,
       request.requestingContract,
       tx.origin,
       request.subscriptionId,
@@ -181,7 +171,8 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       request.data,
       request.dataVersion,
       request.flags,
-      request.callbackGasLimit
+      request.callbackGasLimit,
+      abi.encode(commitment)
     );
   }
 
@@ -216,37 +207,32 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     bytes32[] memory requestIds;
     bytes[] memory results;
     bytes[] memory errors;
-    (
-      requestIds,
-      results,
-      errors
-      /*metadata, TODO: usage metadata through report*/
-    ) = abi.decode(report, (bytes32[], bytes[], bytes[]));
-    if (requestIds.length == 0 || requestIds.length != results.length || requestIds.length != errors.length) {
+    bytes[] memory onchainMetadata;
+    bytes[] memory offchainMetadata;
+    (requestIds, results, errors, onchainMetadata, offchainMetadata) = abi.decode(
+      report,
+      (bytes32[], bytes[], bytes[], bytes[], bytes[])
+    );
+    if (
+      requestIds.length == 0 ||
+      requestIds.length != results.length ||
+      requestIds.length != errors.length ||
+      requestIds.length != onchainMetadata.length ||
+      requestIds.length != offchainMetadata.length
+    ) {
       revert ReportInvalid();
     }
 
     // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
     for (uint256 i = 0; i < requestIds.length; ++i) {
-      FulfillResult result = FulfillResult(
-        _fulfillAndBill(
-          requestIds[i],
-          results[i],
-          errors[i]
-          /* metadata[i], */
-        )
+      FunctionsResponse.FulfillResult result = FunctionsResponse.FulfillResult(
+        _fulfillAndBill(requestIds[i], results[i], errors[i], onchainMetadata[i], offchainMetadata[i])
       );
 
-      if (result == FulfillResult.USER_SUCCESS || result == FulfillResult.USER_ERROR) {
+      if (
+        result == FunctionsResponse.FulfillResult.USER_SUCCESS || result == FunctionsResponse.FulfillResult.USER_ERROR
+      ) {
         emit OracleResponse(requestIds[i], msg.sender);
-      } else if (result == FulfillResult.INVALID_REQUEST_ID) {
-        emit InvalidRequestID(requestIds[i]);
-      } else if (result == FulfillResult.INSUFFICIENT_GAS) {
-        emit InsufficientGasProvided(requestIds[i]);
-      } else if (result == FulfillResult.COST_EXCEEDS_COMMITMENT) {
-        emit CostExceedsCommitment(requestIds[i]);
-      } else if (result == FulfillResult.INSUFFICIENT_SUBSCRIPTION_BALANCE) {
-        emit InsufficientSubscriptionBalance(requestIds[i]);
       }
     }
   }

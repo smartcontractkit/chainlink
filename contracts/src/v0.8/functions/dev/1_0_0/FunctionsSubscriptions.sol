@@ -5,6 +5,8 @@ import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol"
 import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
+import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
+import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
 
 /**
@@ -13,10 +15,7 @@ import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/u
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Receiver {
-  // Reentrancy guard
-  bool internal s_reentrancyLock;
-  error Reentrant();
-
+  using FunctionsResponse for FunctionsResponse.Commitment;
   // ================================================================
   // |                      Subscription state                      |
   // ================================================================
@@ -35,11 +34,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   LinkTokenInterface private s_linkToken;
 
   mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) internal s_subscriptions;
-
-  // We need to maintain a list of addresses that can consume a subscription.
-  // This bound ensures we are able to loop over them as needed.
-  // Should a user require more consumers, they can use multiple subscriptions.
-  uint16 private constant MAX_CONSUMERS = 100;
   mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) internal s_consumers;
 
   event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
@@ -52,14 +46,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
   error TooManyConsumers();
   error InsufficientBalance();
-  error InvalidConsumer(uint64 subscriptionId, address consumer);
+  error InvalidConsumer();
   error ConsumerRequestsInFlight();
   error InvalidSubscription();
   error OnlyCallableFromLink();
   error InvalidCalldata();
-  error MustBeSubOwner();
+  error MustBeSubscriptionOwner();
   error PendingRequestExists();
-  error MustBeRequestedOwner(address proposedOwner);
+  error MustBeProposedOwner();
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
 
@@ -70,23 +64,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // |                       Request state                          |
   // ================================================================
 
-  struct Commitment {
-    uint96 adminFee; // -----------┐
-    address coordinator; // -------┘
-    address client; // ------------┐
-    uint64 subscriptionId; //      |
-    uint32 callbackGasLimit; // ---┘
-    uint96 estimatedCost; // --------------┐
-    uint40 timeoutTimestamp; //            |
-    uint120 gasAfterPaymentCalculation; // ┘ max 1e36 gas
-  }
-
-  mapping(bytes32 requestId => Commitment) internal s_requestCommitments;
+  mapping(bytes32 requestId => bytes32 commitmentHash) internal s_requestCommitments;
 
   struct Receipt {
     uint96 callbackGasCostJuels;
     uint96 totalCostJuels;
   }
+
+  event RequestTimedOut(bytes32 indexed requestId);
 
   // ================================================================
   // |                       Initialization                         |
@@ -98,13 +83,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // ================================================================
   // |                      Getter methods                          |
   // ================================================================
-  /**
-   * @inheritdoc IFunctionsSubscriptions
-   */
-  function getMaxConsumers() external pure override returns (uint16) {
-    return MAX_CONSUMERS;
-  }
-
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
@@ -122,21 +100,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function getSubscription(
-    uint64 subscriptionId
-  )
-    external
-    view
-    override
-    returns (uint96 balance, uint96 blockedBalance, address owner, address requestedOwner, address[] memory consumers)
-  {
+  function getSubscription(uint64 subscriptionId) external view override returns (Subscription memory) {
     _isValidSubscription(subscriptionId);
 
-    balance = s_subscriptions[subscriptionId].balance;
-    blockedBalance = s_subscriptions[subscriptionId].blockedBalance;
-    owner = s_subscriptions[subscriptionId].owner;
-    requestedOwner = s_subscriptions[subscriptionId].requestedOwner;
-    consumers = s_subscriptions[subscriptionId].consumers;
+    return s_subscriptions[subscriptionId];
   }
 
   /**
@@ -163,7 +130,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
   function _isValidConsumer(address client, uint64 subscriptionId) internal view {
     if (!s_consumers[client][subscriptionId].allowed) {
-      revert InvalidConsumer(subscriptionId, client);
+      revert InvalidConsumer();
     }
   }
 
@@ -173,13 +140,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   /**
    * @notice Sets a request as in-flight
    * @dev Only callable within the Router
-   * @param client -
-   * @param subscriptionId  -
-   * @param estimatedCost  -
    */
-  function _markRequestInFlight(address client, uint64 subscriptionId, uint96 estimatedCost) internal {
+  function _markRequestInFlight(address client, uint64 subscriptionId, uint96 estimatedTotalCostJuels) internal {
     // Earmark subscription funds
-    s_subscriptions[subscriptionId].blockedBalance += estimatedCost;
+    s_subscriptions[subscriptionId].blockedBalance += estimatedTotalCostJuels;
 
     // Increment sent requests
     s_consumers[client][subscriptionId].initiatedRequests += 1;
@@ -188,24 +152,17 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   /**
    * @notice Moves funds from one subscription account to another.
    * @dev Only callable by the Coordinator contract that is saved in the request commitment
-   * @param subscriptionId -
-   * @param estimatedCost -
-   * @param client -
-   * @param adminFee -
-   * @param juelsPerGas -
-   * @param gasUsed -
-   * @param costWithoutCallbackJuels -
    */
   function _pay(
     uint64 subscriptionId,
-    uint96 estimatedCost,
+    uint96 estimatedTotalCostJuels,
     address client,
     uint96 adminFee,
     uint96 juelsPerGas,
-    uint256 gasUsed,
+    uint96 gasUsed,
     uint96 costWithoutCallbackJuels
   ) internal returns (Receipt memory receipt) {
-    uint96 callbackGasCostJuels = juelsPerGas * SafeCast.toUint96(gasUsed);
+    uint96 callbackGasCostJuels = juelsPerGas * gasUsed;
     uint96 totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels;
 
     receipt = Receipt(callbackGasCostJuels, totalCostJuels);
@@ -220,7 +177,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     s_withdrawableTokens[address(this)] += adminFee;
 
     // Unblock earmarked funds
-    s_subscriptions[subscriptionId].blockedBalance -= estimatedCost;
+    s_subscriptions[subscriptionId].blockedBalance -= estimatedTotalCostJuels;
     // Increment finished requests
     s_consumers[client][subscriptionId].completedRequests += 1;
   }
@@ -233,11 +190,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
    */
   function ownerCancelSubscription(uint64 subscriptionId) external override {
     _onlyRouterOwner();
-    address owner = s_subscriptions[subscriptionId].owner;
-    if (owner == address(0)) {
-      revert InvalidSubscription();
-    }
-    _cancelSubscriptionHelper(subscriptionId, owner);
+    _isValidSubscription(subscriptionId);
+    _cancelSubscriptionHelper(subscriptionId, s_subscriptions[subscriptionId].owner);
   }
 
   /**
@@ -350,7 +304,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function requestSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external override {
+  function proposeSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external override {
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
@@ -372,7 +326,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     address previousOwner = s_subscriptions[subscriptionId].owner;
     address nextOwner = s_subscriptions[subscriptionId].requestedOwner;
     if (nextOwner != msg.sender) {
-      revert MustBeRequestedOwner(nextOwner);
+      revert MustBeProposedOwner();
     }
     s_subscriptions[subscriptionId].owner = msg.sender;
     s_subscriptions[subscriptionId].requestedOwner = address(0);
@@ -388,12 +342,12 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlySenderThatAcceptedToS();
     Consumer memory consumerData = s_consumers[consumer][subscriptionId];
     if (!consumerData.allowed) {
-      revert InvalidConsumer(subscriptionId, consumer);
+      revert InvalidConsumer();
     }
     if (consumerData.initiatedRequests != consumerData.completedRequests) {
       revert ConsumerRequestsInFlight();
     }
-    // Note bounded by MAX_CONSUMERS
+    // Note bounded by config.maxConsumers
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
     uint256 lastConsumerIndex = consumers.length - 1;
     for (uint256 i = 0; i < consumers.length; ++i) {
@@ -418,7 +372,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
     // Already maxed, cannot add any more consumers.
-    if (s_subscriptions[subscriptionId].consumers.length == MAX_CONSUMERS) {
+    if (s_subscriptions[subscriptionId].consumers.length == _getMaxConsumers()) {
       revert TooManyConsumers();
     }
     if (s_consumers[consumer][subscriptionId].allowed) {
@@ -448,7 +402,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   function _cancelSubscriptionHelper(uint64 subscriptionId, address to) private {
     Subscription memory sub = s_subscriptions[subscriptionId];
     uint96 balance = sub.balance;
-    // Note bounded by MAX_CONSUMERS;
+    // Note bounded by config.maxConsumers
     // If no consumers, does nothing.
     for (uint256 i = 0; i < sub.consumers.length; ++i) {
       delete s_consumers[sub.consumers[i]][subscriptionId];
@@ -470,7 +424,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
   function _pendingRequestExists(uint64 subscriptionId) internal view returns (bool) {
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
-    // Iterations will not exceed MAX_CONSUMERS
+    // Iterations will not exceed config.maxConsumers
     for (uint256 i = 0; i < consumers.length; ++i) {
       Consumer memory consumer = s_consumers[consumers[i]][subscriptionId];
       if (consumer.initiatedRequests != consumer.completedRequests) {
@@ -489,16 +443,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     s_subscriptions[subscriptionId].flags = flags;
   }
 
-  function _getFlags(uint64 subscriptionId) internal view returns (bytes32) {
-    return s_subscriptions[subscriptionId].flags;
-  }
-
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function getFlags(uint64 subscriptionId) external view returns (bytes32) {
-    return _getFlags(subscriptionId);
+  function getFlags(uint64 subscriptionId) public view returns (bytes32) {
+    return s_subscriptions[subscriptionId].flags;
   }
+
+  function _getMaxConsumers() internal view virtual returns (uint16);
 
   // ================================================================
   // |                  Request Timeout Methods                     |
@@ -506,18 +458,15 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function timeoutRequests(bytes32[] calldata requestIdsToTimeout) external override {
+  function timeoutRequests(FunctionsResponse.Commitment[] calldata requestsToTimeoutByCommitment) external override {
     _whenNotPaused();
-    for (uint256 i = 0; i < requestIdsToTimeout.length; ++i) {
-      bytes32 requestId = requestIdsToTimeout[i];
-      Commitment memory request = s_requestCommitments[requestId];
-      uint64 subscriptionId = request.subscriptionId;
+    for (uint256 i = 0; i < requestsToTimeoutByCommitment.length; ++i) {
+      FunctionsResponse.Commitment memory request = requestsToTimeoutByCommitment[i];
+      bytes32 requestId = request.requestId;
 
-      // Check that the message sender is the subscription owner
-      _isValidSubscription(subscriptionId);
-      address owner = s_subscriptions[subscriptionId].owner;
-      if (msg.sender != owner) {
-        revert MustBeSubOwner();
+      // Check that request ID is valid
+      if (keccak256(abi.encode(request)) != s_requestCommitments[requestId]) {
+        revert InvalidCalldata();
       }
 
       // Check that request has exceeded allowed request time
@@ -526,14 +475,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
       }
 
       IFunctionsBilling coordinator = IFunctionsBilling(request.coordinator);
+      coordinator.deleteCommitment(requestId);
+      // Release blocked balance
+      s_subscriptions[request.subscriptionId].blockedBalance -= request.estimatedTotalCostJuels;
+      s_consumers[request.client][request.subscriptionId].completedRequests += 1;
+      // Delete commitment
+      delete s_requestCommitments[requestId];
 
-      if (coordinator.deleteCommitment(requestId)) {
-        // Release blocked balance
-        s_subscriptions[subscriptionId].blockedBalance -= request.estimatedCost;
-        s_consumers[request.client][subscriptionId].completedRequests += 1;
-        // Delete commitment
-        delete s_requestCommitments[requestId];
-      }
+      emit RequestTimedOut(requestId);
     }
   }
 
@@ -547,7 +496,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
       revert InvalidSubscription();
     }
     if (msg.sender != owner) {
-      revert MustBeSubOwner();
+      revert MustBeSubscriptionOwner();
     }
   }
 

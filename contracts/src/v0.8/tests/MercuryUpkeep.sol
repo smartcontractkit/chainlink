@@ -1,4 +1,4 @@
-pragma solidity 0.8.15;
+pragma solidity 0.8.16;
 
 import "../automation/interfaces/AutomationCompatibleInterface.sol";
 import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";

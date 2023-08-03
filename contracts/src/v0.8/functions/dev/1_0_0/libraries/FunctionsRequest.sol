@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {CBOR, Buffer} from "../../../vendor/solidity-cborutils/v2.0.0/CBOR.sol";
+import {Buffer} from "../../../../vendor/@ensdomains/buffer/0.1.0/Buffer.sol";
+import {CBOR} from "../../../../vendor/solidity-cborutils/v2.0.0/CBOR.sol";
 
 /**
- * @title Library for Chainlink Functions
+ * @title Library for encoding the input data of a Functions request into CBOR
  */
-library Functions {
+library FunctionsRequest {
+  using CBOR for Buffer.buffer;
+
   uint16 public constant REQUEST_DATA_VERSION = 1;
   uint256 internal constant DEFAULT_BUFFER_SIZE = 256;
 
-  using CBOR for Buffer.buffer;
-
   enum Location {
-    Inline,
-    Remote,
-    DONHosted
+    Inline, // Provided within the Request
+    Remote, // Hosted through remote location that can be accessed through a provided URL
+    DONHosted // Hosted on the DON's storage
   }
 
   enum CodeLanguage {
@@ -24,13 +25,13 @@ library Functions {
   }
 
   struct Request {
-    Location codeLocation;
-    Location secretsLocation; // Only Remote secrets are supported
-    CodeLanguage language;
-    string source; // Source code for Location.Inline, url for Location.Remote or slot decimal number for Location.DONHosted
-    bytes encryptedSecretsReference; // Encrypted urls for Location.Remote or CBOR encoded slotid+version for Location.DONHosted, use addDONHostedSecrets()
-    string[] args;
-    bytes[] bytesArgs;
+    Location codeLocation; // The location of the source code that will be executed on each node in the DON
+    Location secretsLocation; // The location of secrets that will be passed into the source code. *Only Remote secrets are supported
+    CodeLanguage language; // The coding language that the source code is written in
+    string source; // Raw source code for Request.codeLocation of Location.Inline, URL for Request.codeLocation of Location.Remote, or slot decimal number for Request.codeLocation of Location.DONHosted
+    bytes encryptedSecretsReference; // Encrypted URLs for Request.secretsLocation of Location.Remote (use addSecretsReference()), or CBOR encoded slotid+version for Request.secretsLocation of Location.DONHosted (use addDONHostedSecrets())
+    string[] args; // String arguments that will be passed into the source code
+    bytes[] bytesArgs; // Bytes arguments that will be passed into the source code
   }
 
   error EmptySource();
@@ -150,22 +151,22 @@ library Functions {
   }
 
   /**
-   * @notice Adds args for the user run function
+   * @notice Sets args for the user run function
    * @param self The initialized request
    * @param args The array of string args (must not be empty)
    */
-  function addArgs(Request memory self, string[] memory args) internal pure {
+  function setArgs(Request memory self, string[] memory args) internal pure {
     if (args.length == 0) revert EmptyArgs();
 
     self.args = args;
   }
 
   /**
-   * @notice Adds bytes args for the user run function
+   * @notice Sets bytes args for the user run function
    * @param self The initialized request
    * @param args The array of bytes args (must not be empty)
    */
-  function addBytesArgs(Request memory self, bytes[] memory args) internal pure {
+  function setBytesArgs(Request memory self, bytes[] memory args) internal pure {
     if (args.length == 0) revert EmptyArgs();
 
     self.bytesArgs = args;
