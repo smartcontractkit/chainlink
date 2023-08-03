@@ -30,7 +30,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   uint96 private s_totalLinkBalance;
 
   // link token address
-  SafeERC20 private s_linkToken;
+  LinkTokenInterface private s_linkToken;
 
   mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) internal s_subscriptions;
   mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) internal s_consumers;
@@ -76,7 +76,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // |                       Initialization                         |
   // ================================================================
   constructor(address link) {
-    s_linkToken = SafeERC20(link);
+    s_linkToken = LinkTokenInterface(link);
   }
 
   // ================================================================
@@ -408,7 +408,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
 
     s_linkToken.transfer(to, uint256(balance));
 
-    SubscriptionCanceled(subscriptionId, to, balance);
+    emit SubscriptionCanceled(subscriptionId, to, balance);
   }
 
   // @inheritdoc IFunctionsSubscriptions
