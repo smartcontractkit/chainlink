@@ -5,7 +5,7 @@ import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol"
 import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
 import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
-import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
+import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
 
@@ -15,6 +15,7 @@ import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/u
  * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  */
 abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677ReceiverInterface {
+  using FunctionsResponse for FunctionsResponse.Commitment;
   // ================================================================
   // |                      Subscription state                      |
   // ================================================================
@@ -457,10 +458,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function timeoutRequests(IFunctionsRequest.Commitment[] calldata requestsToTimeoutByCommitment) external override {
+  function timeoutRequests(FunctionsResponse.Commitment[] calldata requestsToTimeoutByCommitment) external override {
     _whenNotPaused();
     for (uint256 i = 0; i < requestsToTimeoutByCommitment.length; ++i) {
-      IFunctionsRequest.Commitment memory request = requestsToTimeoutByCommitment[i];
+      FunctionsResponse.Commitment memory request = requestsToTimeoutByCommitment[i];
       bytes32 requestId = request.requestId;
 
       // Check that request ID is valid
