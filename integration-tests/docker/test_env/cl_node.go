@@ -12,10 +12,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pelletier/go-toml/v2"
+	"github.com/pkg/errors"
 
 	"math/big"
 
-	"errors"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
@@ -24,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -32,15 +34,15 @@ import (
 )
 
 var (
-	ErrConnectNodeClient    = errors.New("could not connect Node HTTP Client")
-	ErrStartCLNodeContainer = errors.New("failed to start CL node container")
+	ErrConnectNodeClient    = "could not connect Node HTTP Client"
+	ErrStartCLNodeContainer = "failed to start CL node container"
 )
 
 type ClNode struct {
 	EnvComponent
-	API            *client.ChainlinkClient
-	NodeConfigOpts templates.NodeConfigOpts
-	PostgresDb     *PostgresDb
+	API        *client.ChainlinkClient
+	NodeConfig *chainlink.Config
+	PostgresDb *PostgresDb
 	lw             *logwatch.LogWatch
 }
 
@@ -70,7 +72,7 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, nodeConfOpts templates.NodeConfigOpts, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, nodeConfig chainlink.Config, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:3])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
@@ -79,8 +81,8 @@ func NewClNode(networks []string, nodeConfOpts templates.NodeConfigOpts, opts ..
 			ContainerName: nodeDefaultCName,
 			Networks:      networks,
 		},
-		NodeConfigOpts: nodeConfOpts,
-		PostgresDb:     pgDb,
+		NodeConfig: &nodeConfig,
+		PostgresDb: pgDb,
 	}
 	for _, opt := range opts {
 		opt(n)
@@ -89,11 +91,11 @@ func NewClNode(networks []string, nodeConfOpts templates.NodeConfigOpts, opts ..
 }
 
 // Restart restarts only CL node, DB container is reused
-func (m *ClNode) Restart(opts templates.NodeConfigOpts) error {
+func (m *ClNode) Restart(opts chainlink.Config) error {
 	if err := m.Container.Terminate(context.Background()); err != nil {
 		return err
 	}
-	m.NodeConfigOpts = opts
+	m.NodeConfig = &opts
 	return m.StartContainer()
 }
 
@@ -223,7 +225,7 @@ func (m *ClNode) StartContainer() error {
 		Reuse:            true,
 	})
 	if err != nil {
-		return errors.Join(err, ErrStartCLNodeContainer)
+		return errors.Wrap(err, ErrStartCLNodeContainer)
 	}
 	if m.lw != nil {
 		if err := m.lw.ConnectContainer(context.Background(), container, "cl-node", true); err != nil {
@@ -245,7 +247,7 @@ func (m *ClNode) StartContainer() error {
 		Password: "localdevpassword",
 	})
 	if err != nil {
-		return errors.Join(err, ErrConnectNodeClient)
+		return errors.Wrap(err, ErrConnectNodeClient)
 	}
 
 	m.Container = container
@@ -260,11 +262,11 @@ func (m *ClNode) getContainerRequest(secrets string) (
 	if err != nil {
 		return nil, err
 	}
-	config, err := m.NodeConfigOpts.String()
+	data, err := toml.Marshal(m.NodeConfig)
 	if err != nil {
 		return nil, err
 	}
-	_, err = configFile.WriteString(config)
+	_, err = configFile.WriteString(string(data))
 	if err != nil {
 		return nil, err
 	}

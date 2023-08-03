@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	tc "github.com/testcontainers/testcontainers-go"
 	"go.uber.org/multierr"
 )
@@ -98,7 +99,7 @@ func (m *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
 }
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
-func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts templates.NodeConfigOpts, count int) error {
+func (m *CLClusterTestEnv) StartClNodes(nodeConfig chainlink.Config, count int) error {
 	var wg sync.WaitGroup
 	var errs = []error{}
 	var mu sync.Mutex
@@ -114,7 +115,7 @@ func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts templates.NodeConfigOpts,
 				nodeContainerName = m.Cfg.Nodes[i].NodeContainerName
 				dbContainerName = m.Cfg.Nodes[i].DbContainerName
 			}
-			n := NewClNode([]string{m.Network.Name}, nodeConfigOpts,
+			n := NewClNode([]string{m.Network.Name}, nodeConfig,
 				WithNodeContainerName(nodeContainerName),
 				WithDbContainerName(dbContainerName),
 				WithLogWatch(m.LogWatch))
@@ -137,18 +138,6 @@ func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts templates.NodeConfigOpts,
 		return multierr.Combine(errs...)
 	}
 	return nil
-}
-
-func (m *CLClusterTestEnv) GetDefaultNodeConfigOpts() templates.NodeConfigOpts {
-	return templates.NodeConfigOpts{
-		EVM: struct {
-			HttpUrl string
-			WsUrl   string
-		}{
-			HttpUrl: m.Geth.InternalHttpUrl,
-			WsUrl:   m.Geth.InternalWsUrl,
-		},
-	}
 }
 
 // ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes

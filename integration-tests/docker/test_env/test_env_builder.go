@@ -1,11 +1,13 @@
 package test_env
 
 import (
+	"os"
+
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	"math/big"
-	"os"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
 type CLTestEnvBuilder struct {
@@ -111,16 +113,12 @@ func (m *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTes
 	// Start Chainlink Nodes
 	if m.CLNodesCount > 0 {
 		// Create nodes
-		nodeConfOpts := templates.NodeConfigOpts{
-			EVM: struct {
-				HttpUrl string
-				WsUrl   string
-			}{
-				HttpUrl: te.Geth.InternalHttpUrl,
-				WsUrl:   te.Geth.InternalWsUrl,
-			},
-		}
-		err = te.StartClNodes(nodeConfOpts, m.CLNodesCount)
+		nodeConfig := node.NewConfig(node.BaseConf,
+			node.WithOCR1(),
+			node.WithP2Pv1(),
+			node.WithSimulatedEVM(te.Geth.InternalHttpUrl, te.Geth.InternalWsUrl),
+		)
+		err = te.StartClNodes(nodeConfig, m.clNodesCount)
 		if err != nil {
 			return te, err
 		}
@@ -181,16 +179,12 @@ func (m *CLTestEnvBuilder) buildNewEnv() (*CLClusterTestEnv, error) {
 	// Start Chainlink Nodes
 	if m.CLNodesCount > 0 {
 		// Create nodes
-		nodeConfOpts := templates.NodeConfigOpts{
-			EVM: struct {
-				HttpUrl string
-				WsUrl   string
-			}{
-				HttpUrl: te.Geth.InternalHttpUrl,
-				WsUrl:   te.Geth.InternalWsUrl,
-			},
-		}
-		err = te.StartClNodes(nodeConfOpts, m.CLNodesCount)
+		nodeConfig := node.NewConfig(node.BaseConf,
+			node.WithOCR1(),
+			node.WithP2Pv1(),
+			node.WithSimulatedEVM(te.Geth.InternalHttpUrl, te.Geth.InternalWsUrl),
+		)
+		err = te.StartClNodes(nodeConfig, m.clNodesCount)
 		if err != nil {
 			return te, err
 		}
