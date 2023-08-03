@@ -4,13 +4,16 @@ pragma solidity ^0.8.19;
 
 import {IConfigurable} from "./interfaces/IConfigurable.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
-import {IRouterBase} from "./interfaces/IRouterBase.sol";
-import {IOwnable} from "../../../shared/interfaces/IOwnable.sol";
+import {IOwnableFunctionsRouter} from "./interfaces/IOwnableFunctionsRouter.sol";
 
+/**
+ * @title This abstract should be inherited by contracts that will be used
+ * as the destinations to a route (id=>contract) on the Router.
+ * It provides a Router getter and modifiers
+ * and enforces that the Router can update the configuration of this contract
+ */
 abstract contract Routable is ITypeAndVersion, IConfigurable {
-  bytes32 internal s_config_hash;
-
-  IRouterBase internal immutable s_router;
+  IOwnableFunctionsRouter private immutable s_router;
 
   error RouterMustBeSet();
   error OnlyCallableByRouter();
@@ -23,16 +26,12 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
     if (router == address(0)) {
       revert RouterMustBeSet();
     }
-    s_router = IRouterBase(router);
+    s_router = IOwnableFunctionsRouter(router);
     _updateConfig(config);
-    s_config_hash = keccak256(config);
   }
 
-  /**
-   * @inheritdoc IConfigurable
-   */
-  function getConfigHash() external view override returns (bytes32 config) {
-    return s_config_hash;
+  function _getRouter() internal view returns (IOwnableFunctionsRouter router) {
+    return s_router;
   }
 
   /**
@@ -43,10 +42,10 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
 
   /**
    * @inheritdoc IConfigurable
+   * @dev Only callable by the Router
    */
-  function updateConfig(bytes memory config) external override onlyRouter {
+  function updateConfig(bytes memory config) public override onlyRouter {
     _updateConfig(config);
-    s_config_hash = keccak256(config);
   }
 
   /**
@@ -63,7 +62,7 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
    * @notice Reverts if called by anyone other than the router owner.
    */
   modifier onlyRouterOwner() {
-    if (msg.sender != IOwnable(address(s_router)).owner()) {
+    if (msg.sender != s_router.owner()) {
       revert OnlyCallableByRouterOwner();
     }
     _;

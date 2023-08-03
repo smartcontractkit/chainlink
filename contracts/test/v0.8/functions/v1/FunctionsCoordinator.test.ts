@@ -28,11 +28,11 @@ describe('Functions Coordinator', () => {
             'uint32',
             'uint32',
             'uint32',
-            'int256',
             'uint32',
-            'uint96',
+            'uint80',
             'uint16',
             'uint256',
+            'int256',
           ],
           [
             ...Object.values({

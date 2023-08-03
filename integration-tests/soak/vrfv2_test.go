@@ -124,7 +124,7 @@ func TestVRFV2Soak(t *testing.T) {
 	vrfV2SoakTest.Run(t)
 }
 
-func printDebugData(l zerolog.Logger, vrfV2Contracts vrfv2_actions.VRFV2Contracts, chainlinkNodesAfterRedeployment []*client.Chainlink) {
+func printDebugData(l zerolog.Logger, vrfV2Contracts vrfv2_actions.VRFV2Contracts, chainlinkNodesAfterRedeployment []*client.ChainlinkK8sClient) {
 	subscription, err := vrfV2Contracts.Coordinator.GetSubscription(nil, vrfv2_constants.SubID)
 	if err != nil {
 		l.Error().Err(err).

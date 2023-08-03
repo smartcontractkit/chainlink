@@ -113,15 +113,18 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, coordinatorContract
 func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionId uint64) {
 	allowed, err := allowListContract.HasAccess(nilOpts, owner.From, []byte{})
 	require.NoError(t, err)
-	if allowed == false {
-		messageHash, err := allowListContract.GetMessageHash(nilOpts, owner.From, owner.From)
-		require.NoError(t, err)
-		ethMessageHash, err := allowListContract.GetEthSignedMessageHash(nilOpts, messageHash)
+	if !allowed {
+		message, err := allowListContract.GetMessage(nilOpts, owner.From, owner.From)
 		require.NoError(t, err)
 		privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
 		require.NoError(t, err)
-		proof, err := crypto.Sign(ethMessageHash[:], privateKey)
-		allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, proof)
+		flatSignature, err := crypto.Sign(message[:], privateKey)
+		var r [32]byte
+		copy(r[:], flatSignature[:32])
+		var s [32]byte
+		copy(s[:], flatSignature[32:64])
+		v := uint8(flatSignature[65])
+		allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, r, s, v)
 	}
 
 	_, err = routerContract.CreateSubscription(owner)
@@ -174,6 +177,8 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	require.NoError(t, err)
 	uint32Type, err := abi.NewType("uint32", "uint32", nil)
 	require.NoError(t, err)
+	uint80Type, err := abi.NewType("uint80", "uint80", nil)
+	require.NoError(t, err)
 	uint96Type, err := abi.NewType("uint96", "uint96", nil)
 	require.NoError(t, err)
 	uint256Type, err := abi.NewType("uint256", "uint256", nil)
@@ -199,23 +204,19 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 
 	// Deploy Router contract
 	routerConfigABI := abi.Arguments{
-		{
-			Type: uint96Type,
-		},
-		{
-			Type: bytes4Type,
-		},
-		{
-			Type: uint32ArrType,
-		},
+		{Type: uint16Type},    // maxConsumers
+		{Type: uint96Type},    // adminFee
+		{Type: bytes4Type},    // handleOracleFulfillmentSelector
+		{Type: uint32ArrType}, // maxCallbackGasLimits
 	}
+	var maxConsumers = uint16(100)
 	var adminFee = big.NewInt(0)
 	handleOracleFulfillmentSelectorSlice, err := hex.DecodeString("0ca76175")
 	require.NoError(t, err)
 	var handleOracleFulfillmentSelector [4]byte
 	copy(handleOracleFulfillmentSelector[:], handleOracleFulfillmentSelectorSlice[:4])
 	maxCallbackGasLimits := []uint32{300_000, 500_000, 1_000_000}
-	routerConfig, err := routerConfigABI.Pack(adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits)
+	routerConfig, err := routerConfigABI.Pack(maxConsumers, adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits)
 	require.NoError(t, err)
 	var timelockBlocks = uint16(0)
 	var maximumTimelockBlocks = uint16(10)
@@ -224,12 +225,8 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 
 	// Deploy Allow List contract
 	allowListConfigABI := abi.Arguments{
-		{
-			Type: boolType,
-		},
-		{
-			Type: addressType,
-		},
+		{Type: boolType},    // enabled
+		{Type: addressType}, // proofSignerPublicKey
 	}
 	var enabled = false // TODO: true
 	privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
@@ -240,55 +237,37 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, routerAddress, allowListConfig)
 	require.NoError(t, err)
 
-	// Deploy Coordinator contract
+	// Deploy Coordinator contract (matches _updateConfig() in FunctionsBilling.sol)
 	coordinatorConfigABI := abi.Arguments{
-		{
-			Type: uint32Type,
-		},
-		{
-			Type: uint32Type,
-		},
-		{
-			Type: uint32Type,
-		},
-		{
-			Type: uint32Type,
-		},
-		{
-			Type: int256Type,
-		},
-		{
-			Type: uint32Type,
-		},
-		{
-			Type: uint96Type,
-		},
-		{
-			Type: uint16Type,
-		},
-		{
-			Type: uint256Type,
-		},
+		{Type: uint32Type},  // maxCallbackGasLimit
+		{Type: uint32Type},  // feedStalenessSeconds
+		{Type: uint32Type},  // gasOverheadBeforeCallback
+		{Type: uint32Type},  // gasOverheadAfterCallback
+		{Type: uint32Type},  // requestTimeoutSeconds
+		{Type: uint80Type},  // donFee
+		{Type: uint16Type},  // maxSupportedRequestDataVersion
+		{Type: uint256Type}, // fulfillmentGasPriceOverEstimationBP
+		{Type: int256Type},  // fallbackNativePerUnitLink
 	}
 	var maxCallbackGasLimit = uint32(450_000)
 	var feedStalenessSeconds = uint32(86_400)
 	var gasOverheadBeforeCallback = uint32(325_000)
 	var gasOverheadAfterCallback = uint32(50_000)
-	var fallbackNativePerUnitLink = big.NewInt(5_000_000_000_000_000)
 	var requestTimeoutSeconds = uint32(300)
 	var donFee = big.NewInt(0)
 	var maxSupportedRequestDataVersion = uint16(1)
 	var fulfillmentGasPriceOverEstimationBP = big.NewInt(6_600)
+	var fallbackNativePerUnitLink = big.NewInt(5_000_000_000_000_000)
 	coordinatorConfig, err := coordinatorConfigABI.Pack(
 		maxCallbackGasLimit,
 		feedStalenessSeconds,
 		gasOverheadBeforeCallback,
 		gasOverheadAfterCallback,
-		fallbackNativePerUnitLink,
 		requestTimeoutSeconds,
 		donFee,
 		maxSupportedRequestDataVersion,
 		fulfillmentGasPriceOverEstimationBP,
+		fallbackNativePerUnitLink,
 	)
 	require.NoError(t, err)
 	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr)

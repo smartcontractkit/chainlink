@@ -14,12 +14,12 @@ var (
 	nOracleNodes      = 4
 	nClients          = 50
 	requestLenBytes   = 1_000
-	maxGas            = 2_000_000
+	maxGas            = 1_700_000
 	maxTotalReportGas = 560_000
-	batchSize         = 2
+	batchSize         = 8
 )
 
-func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
+func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 	// simulated chain with all contracts
 	owner, b, ticker, coordinatorContractAddress, coordinatorContract, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
 	defer ticker.Stop()
@@ -31,7 +31,7 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 
 	pluginConfig := functionsConfig.ReportingPluginConfig{
 		MaxQueryLengthBytes:       10_000,
-		MaxObservationLengthBytes: 10_000,
+		MaxObservationLengthBytes: 15_000,
 		MaxReportLengthBytes:      15_000,
 		MaxRequestBatchSize:       uint32(batchSize),
 		MaxReportTotalCallbackGas: uint32(maxTotalReportGas),
