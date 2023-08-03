@@ -63,6 +63,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 	highestCheckBlock := big.NewInt(0)
 
 	for i, result := range results {
+		result := result
 		if err := decodeExtensions(&result); err != nil {
 			return nil, err
 		}
