@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
-import {HasRouter} from "../HasRouter.sol";
+import {Routable} from "../Routable.sol";
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
 import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
 
@@ -12,7 +12,7 @@ import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/con
 /**
  * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
  */
-contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccessController {
+contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessController {
   using Address for address;
   using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -40,7 +40,7 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
   // |                       Initialization                         |
   // ================================================================
 
-  constructor(address router, bytes memory config) HasRouter(router, config) {}
+  constructor(address router, bytes memory config) Routable(router, config) {}
 
   // ================================================================
   // |                    Configuration methods                     |
@@ -70,15 +70,8 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
   /**
    * @inheritdoc ITermsOfServiceAllowList
    */
-  function getMessageHash(address acceptor, address recipient) public pure override returns (bytes32) {
+  function getMessage(address acceptor, address recipient) public pure override returns (bytes32) {
     return keccak256(abi.encodePacked(acceptor, recipient));
-  }
-
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
-  function getEthSignedMessageHash(bytes32 messageHash) public pure override returns (bytes32) {
-    return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
   }
 
   /**
@@ -90,7 +83,10 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
     }
 
     // Validate that the signature is correct and the correct data has been signed
-    if (ecrecover(getEthSignedMessageHash(getMessageHash(acceptor, recipient)), v, r, s) != s_config.signerPublicKey) {
+    bytes32 prefixedMessage = keccak256(
+      abi.encodePacked("\x19Ethereum Signed Message:\n32", getMessage(acceptor, recipient))
+    );
+    if (ecrecover(prefixedMessage, v, r, s) != s_config.signerPublicKey) {
       revert InvalidSignature();
     }
 

@@ -9,7 +9,7 @@ import (
 
 var NodeSecretsTemplate = `
 [Database]
-URL = 'postgresql://postgres:test@{{ .PgHost }}:{{ .PgPort }}/cl-node?sslmode=disable' # Required
+URL = 'postgresql://postgres:test@{{ .PgHost }}:{{ .PgPort }}/{{ .PgDbName }}?sslmode=disable' # Required
 AllowSimplePasswords = true
 
 [Password]
@@ -22,13 +22,15 @@ Username = 'node'
 Password = 'nodepass'
 `
 
-func ExecuteNodeSecretsTemplate(pgHost string, pgPort string) (string, error) {
+func ExecuteNodeSecretsTemplate(pgDbName, pgHost, pgPort string) (string, error) {
 	data := struct {
-		PgHost string
-		PgPort string
+		PgDbName string
+		PgHost   string
+		PgPort   string
 	}{
-		PgHost: pgHost,
-		PgPort: pgPort,
+		PgDbName: pgDbName,
+		PgHost:   pgHost,
+		PgPort:   pgPort,
 	}
 
 	t, err := template.New("node-secrets").Parse(NodeSecretsTemplate)

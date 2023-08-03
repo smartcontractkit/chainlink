@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {FunctionsResponse} from "../libraries/FunctionsResponse.sol";
+
 /**
  * @title Chainlink Functions oracle interface.
  */
@@ -13,6 +15,7 @@ interface IFunctionsCoordinator {
     uint16 dataVersion; // The version of the structure of the encoded data
     bytes32 flags; // Per-subscription flags
     uint32 callbackGasLimit; // The amount of gas that the callback to the consuming contract can utilize
+    uint96 adminFee; // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
   }
 
   /**
@@ -70,10 +73,7 @@ interface IFunctionsCoordinator {
    * @notice Sends a request (encoded as data) using the provided subscriptionId
    * @dev Callable only by the Router
    * @param request The request information, @dev see the struct for field descriptions
-   * @return requestId A unique request identifier (unique per DON)
-   * @return estimatedCost The cost in Juels of LINK that the request is estimated to charge if market conditions were to stay the same
-   * @return gasAfterPaymentCalculation The amount of gas overhead that will be used after balances have already been changed
-   * @return requestTimeoutSeconds The amount of time in seconds before this request is considered stale
+   * @return commitment - The parameters of the request that must be held consistent at response time
    */
-  function sendRequest(Request calldata request) external returns (bytes32, uint96, uint256, uint256);
+  function sendRequest(Request calldata request) external returns (FunctionsResponse.Commitment memory commitment);
 }
