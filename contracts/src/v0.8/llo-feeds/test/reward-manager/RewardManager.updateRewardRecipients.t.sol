@@ -120,7 +120,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     recipients[6] = Common.AddressAndWeight(DEFAULT_RECIPIENT_7, ONE_PERCENT * 25);
     recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, ONE_PERCENT * 25);
 
-    //should revert as you cannot add new recipients
+    //should revert as it's not possible to new recipients
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
 
     //updating a recipient should force the funds to be paid out for the primary recipients
@@ -139,7 +139,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, FIFTY_PERCENT);
     recipients[5] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, FIFTY_PERCENT);
 
-    //should revert as you cannot remove recipients
+    //should revert as it's not possible to add new recipients
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
 
     //updating a recipient should force the funds to be paid out for the primary recipients
@@ -185,7 +185,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     recipients[7] = Common.AddressAndWeight(DEFAULT_RECIPIENT_8, TEN_PERCENT);
     recipients[8] = Common.AddressAndWeight(DEFAULT_RECIPIENT_9, TEN_PERCENT);
 
-    //should revert as you cannot remove recipients
+    //should revert as it's not possible to add new recipients
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
 
     //updating a recipient should force the funds to be paid out for the primary recipients
@@ -205,7 +205,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     //add the new recipients individually
     recipients[4] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, TEN_PERCENT * 5);
 
-    //should revert as you cannot remove recipients
+    //should revert as it's not possible to add new recipients
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
 
     //updating a recipient should force the funds to be paid out for the primary recipients
@@ -246,7 +246,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     updateRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
   }
 
-  function test_updatePartialRecipientsTowithUnderWeight() public {
+  function test_updatePartialRecipientsWithUnderWeightSet() public {
     //create a list of containing recipients from the primary configured set, and new recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
     recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, TEN_PERCENT);
@@ -308,7 +308,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
       claimRewards(PRIMARY_POOL_ARRAY, recipients[i].addr);
     }
 
-    //manually check the balance of each recipient which should be their original amount of 1/4 plus their new weighted amount
+    //manually check the balance of each recipient
     assertEq(
       getAssetBalance(DEFAULT_RECIPIENT_1),
       (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount
@@ -331,7 +331,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     //expected recipient amount is 1/4 of the pool deposit for original recipients
     uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
 
-    //create a list of containing recipients from the primary configured set with their new weights, which should total TEN_PERCENT * 5
+    //create a list of containing recipients from the primary configured set with their new weights
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](2);
     recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, TEN_PERCENT);
     recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_2, TEN_PERCENT * 4);
@@ -357,7 +357,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
       claimRewards(PRIMARY_POOL_ARRAY, recipients[i].addr);
     }
 
-    //manually check the balance of each recipient which should be their original amount of 1/4 plus their new weighted amount
+    //manually check the balance of each recipient
     assertEq(
       getAssetBalance(DEFAULT_RECIPIENT_1),
       (POOL_DEPOSIT_AMOUNT * TEN_PERCENT) / POOL_SCALAR + expectedRecipientAmount
@@ -375,7 +375,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     //expect an emit
     vm.expectEmit();
 
-    //emit the event we expect to be emitted
+    //emit the event that is expected to be emitted
     emit RewardRecipientsUpdated(PRIMARY_POOL_ID, getPrimaryRecipients());
 
     //expected recipient amount is 1/4 of the pool deposit
@@ -409,7 +409,7 @@ contract RewardManagerUpdateRewardRecipientsMultiplePoolsTest is BaseRewardManag
   }
 
   function getSecondaryRecipients() public override returns (Common.AddressAndWeight[] memory) {
-    //for testing purposes, we want the primary and secondary pool to contain the same recipients
+    //for testing purposes, the primary and secondary pool to contain the same recipients
     return getPrimaryRecipients();
   }
 

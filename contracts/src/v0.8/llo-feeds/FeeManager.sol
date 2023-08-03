@@ -86,7 +86,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @param newPremium Premium amount to apply relative to PERCENTAGE_SCALAR
   event NativePremiumSet(uint256 newPremium);
 
-  /// @notice Emitted when this contract does not have enough LINK to send to the reward manager (if user chooses to pay in native)
+  /// @notice Emits when this contract does not have enough LINK to send to the reward manager when paying in native
   /// @param configDigest Config digest of the report
   /// @param linkQuantity Amount of LINK required to pay the reward
   /// @param nativeQuantity Amount of native required to pay the reward
@@ -147,7 +147,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //decode the report from the payload
     (, bytes memory report) = abi.decode(payload, (bytes32[3], bytes));
 
-    //default reports don't need a quote payload, so we can skip the decoding if the report is default
+    //default reports don't need a quote payload, so skip the decoding if the report is a default report
     Quote memory quote;
     if (report.length > DEFAULT_REPORT_LENGTH) {
       //decode the quoteBytes, if the bytes are missing the tx will revert
@@ -172,7 +172,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       if (fee.assetAddress != i_nativeAddress) revert InvalidDeposit();
       if (fee.amount > msg.value) revert InvalidDeposit();
 
-      //wrap the amount required to pay the bill & approve
+      //wrap the amount required to pay the fee & approve
       IWERC20(i_nativeAddress).deposit{value: fee.amount}();
 
       unchecked {
@@ -186,17 +186,17 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
     //some users might not be billed
     if (fee.amount > 0) {
-      //if the fee is in LINK, we're transferring directly from the subscriber, else the contract is covering the LINK
+      //if the fee is in LINK, transfer directly from the subscriber to the reward manager
       if (fee.assetAddress == i_linkAddress) {
-        //bill the payee and distribute the fee
+        //distributes the fee
         i_rewardManager.onFeePaid(configDigest, subscriber, reward);
       } else {
-        //if the fee is in native wrapped, we're transferring to this contract in exchange for the equivalent amount of LINK (minus the native premium)
+        //if the fee is in native wrapped, transfer to this contract in exchange for the equivalent amount of LINK excluding the premium
         if (msg.value == 0) {
           IERC20(fee.assetAddress).transferFrom(subscriber, address(this), fee.amount);
         }
 
-        //check we have enough LINK before paying the fee
+        //check that the contract has enough LINK before paying the fee
         if (reward.amount > IERC20(i_linkAddress).balanceOf(address(this))) {
           // If not enough LINK on this contract to forward for rewards, fire this event and
           // call onFeePaid out-of-band to pay out rewards
@@ -208,7 +208,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       }
     }
 
-    //we may need to refund if the payee paid in excess of the fee
+    // a refund may be needed if the payee has paid in excess of the fee
     if (change > 0) {
       payable(subscriber).transfer(change);
     }
@@ -235,7 +235,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       revert InvalidQuote();
     }
 
-    //decode the report fields we need
+    //decode the report fields needed
     (, , , , , , , , , uint256 linkQuantity, uint256 nativeQuantity, uint256 expiresAt) = abi.decode(
       report,
       (bytes32, uint32, int192, int192, int192, uint64, bytes32, uint64, uint64, uint192, uint192, uint32)
@@ -256,7 +256,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       fee.amount = reward.amount;
     } else {
       fee.assetAddress = i_nativeAddress;
-      fee.amount = (nativeQuantity * (PERCENTAGE_SCALAR + nativePremium)) / PERCENTAGE_SCALAR;
+      fee.amount = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + nativePremium), PERCENTAGE_SCALAR);
     }
 
     //decode the feedId from the report to calculate the discount being applied
@@ -309,7 +309,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @inheritdoc IFeeManager
   function withdraw(address assetAddress, uint256 quantity) external onlyOwner {
-    //address 0 is used to withdraw native
+    //address 0 is used to withdraw native in the context of withdrawing
     if (assetAddress == address(0)) {
       payable(owner()).transfer(quantity);
       return;
@@ -323,6 +323,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   function linkAvailableForPayment() external view returns (uint256) {
+    //return the amount of LINK this contact has available to pay rewards
     return IERC20(i_linkAddress).balanceOf(address(this));
   }
 }

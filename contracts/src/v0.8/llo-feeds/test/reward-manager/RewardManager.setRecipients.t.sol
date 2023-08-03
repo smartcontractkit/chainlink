@@ -46,7 +46,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     //Zero weight should fail
     vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
 
-    //set the recipients with a recipient with a weight of 0
+    //set the recipients
     setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
   }
 
@@ -60,7 +60,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     //should revert if the recipients array is empty
     vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
 
-    //set the recipients with a recipient with a weight of 0
+    //set the recipients
     setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
   }
 
@@ -77,7 +77,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     //should revert if the recipients array is empty
     vm.expectRevert(INVALID_WEIGHT_ERROR_SELECTOR);
 
-    //set the recipients with a recipient with a weight of 0
+    //set the recipients with a recipient with a weight of 100%
     setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
   }
 
@@ -88,7 +88,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     //init each recipient with even weights
     recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, POOL_SCALAR);
 
-    //set the recipients with a recipient with a weight of 0
+    //set the recipients with a recipient with a weight of 100%
     setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
   }
 
@@ -131,7 +131,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     //expect an emit
     vm.expectEmit();
 
-    //emit the event we expect to be emitted
+    //emit the event that is expected to be emitted
     emit RewardRecipientsUpdated(PRIMARY_POOL_ID, getPrimaryRecipients());
 
     //set the recipients

@@ -6,11 +6,12 @@ import {FeeManager} from "../../FeeManager.sol";
 import {IFeeManager} from "../../interfaces/IFeeManager.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 import "./BaseFeeManager.t.sol";
+import {Math} from "../shared/vendor/Math.sol";
 
 /**
  * @title BaseFeeManagerTest
  * @author Michael Fletcher
- * @notice This contract will test the functionality of the fee manager's getFeeAndReward
+ * @notice This contract will test the functionality of the feeManager's getFeeAndReward
  */
 contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   function test_baseFeeIsAppliedForNative() public {
@@ -134,7 +135,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //calculate the expected premium
     uint256 expectedPremium = ((DEFAULT_REPORT_NATIVE_FEE * nativePremium) / FEE_SCALAR);
 
-    //expected fee should the base fee offset by the premium and discount
+    //expected fee should be the base fee offset by the premium and discount
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium);
 
     //remove the premium
@@ -214,7 +215,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
-    //fee should be zero
+    //fee should be twice the base fee
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE * 2);
   }
 
@@ -225,7 +226,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
-    //fee should be zero
+    //fee should base fee
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE);
   }
 
@@ -233,7 +234,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //should revert if premium is greater than 100%
     vm.expectRevert(INVALID_PREMIUM_ERROR);
 
-    //set the premium
+    //set the premium above the max
     setNativePremium(FEE_SCALAR + 1, ADMIN);
   }
 
@@ -250,12 +251,12 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //calculate the expected discount quantity
     uint256 expectedDiscount = DEFAULT_REPORT_NATIVE_FEE;
 
-    //fee should be zero
+    //fee should be twice the premium minus the discount
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE * 2 - expectedDiscount);
   }
 
   function test_feeIsZeroWith100PercentDiscount() public {
-    //set the subscriber discount to 50%
+    //set the subscriber discount to 100%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR, ADMIN);
 
     //get the fee required by the feeManager
@@ -343,14 +344,11 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //should revert with unauthorized
     vm.expectRevert(ONLY_CALLABLE_BY_OWNER_ERROR);
 
-    //change to the user prank
-    changePrank(ADMIN);
-
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR, USER);
   }
 
-  function test_premiumRoundsDownWhenUneven() public {
+  function test_premiumFeeRoundsUpWhenUneven() public {
     //native premium
     uint256 nativePremium = FEE_SCALAR / 3;
 
@@ -361,26 +359,26 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
     //calculate the expected premium quantity
-    uint256 expectedPremium = ((DEFAULT_REPORT_NATIVE_FEE * nativePremium) / FEE_SCALAR);
+    uint256 expectedPremium = (DEFAULT_REPORT_NATIVE_FEE * nativePremium) / FEE_SCALAR;
 
-    //expected fee should the base fee offset by the premium and discount
-    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium);
+    //expected fee should the base fee offset by the expected premium
+    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium + 1);
   }
 
-  function test_discountRoundsUpWhenUneven() public {
+  function test_discountFeeRoundsDownWhenUneven() public {
     //native premium
     uint256 discount = FEE_SCALAR / 3;
 
-    //set the subscriber discount to 50%
+    //set the subscriber discount to 33.333%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), discount, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
-    //calculate the expected premium quantity
+    //calculate the expected quantity
     uint256 expectedDiscount = ((DEFAULT_REPORT_NATIVE_FEE * discount) / FEE_SCALAR);
 
-    //fee should be zero
+    //expected fee should the base fee offset by the expected premium
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE - expectedDiscount);
   }
 
@@ -393,7 +391,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   }
 
   function test_correctDiscountIsAppliedWhenBothTokensAreDiscounted() public {
-    //set the subscriber discount to 50%
+    //set the subscriber and native discounts
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), FEE_SCALAR / 4, ADMIN);
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
@@ -417,7 +415,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_2), getNativeQuote(), USER);
 
-    //fee should be zero
+    //fee should be the base fee
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE);
   }
 
@@ -461,7 +459,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //an event should be emitted
     vm.expectEmit();
 
-    //emit the event which we expect to be emitted
+    //emit the event that is expected to be emitted
     emit NativePremiumSet(nativePremium);
 
     //set the premium

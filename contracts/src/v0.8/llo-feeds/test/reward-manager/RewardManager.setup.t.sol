@@ -28,7 +28,7 @@ contract RewardManagerSetupTest is BaseRewardManagerTest {
     //expect the event to be emitted
     vm.expectEmit();
 
-    //emit the event we expect to be emitted
+    //emit the event that is expected to be emitted
     emit FeeManagerUpdated(USER);
 
     //set the verifier proxy

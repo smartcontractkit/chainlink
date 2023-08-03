@@ -12,8 +12,8 @@ import {WERC20Mock} from "../../../shared/vendor/WERC20Mock.sol";
 /**
  * @title BaseFeeManagerTest
  * @author Michael Fletcher
- * @notice Base class for all fee manager tests
- * @dev This contract is intended to be inherited from and not used directly. It contains functionality to setup the fee manager
+ * @notice Base class for all feeManager tests
+ * @dev This contract is intended to be inherited from and not used directly. It contains functionality to setup the feeManager
  */
 contract BaseFeeManagerTest is Test {
   //contracts
@@ -79,7 +79,7 @@ contract BaseFeeManagerTest is Test {
     rewardManager = new RewardManager(getLinkAddress());
     feeManager = new FeeManager(getLinkAddress(), getNativeAddress(), PROXY, address(rewardManager));
 
-    //link the fee manager to the reward manager
+    //link the feeManager to the reward manager
     rewardManager.setFeeManager(address(feeManager));
 
     //mint some tokens to the admin
@@ -134,7 +134,7 @@ contract BaseFeeManagerTest is Test {
     IFeeManager.Quote memory quote,
     address subscriber
   ) public view returns (Common.Asset memory) {
-    //set the discount
+    //get the fee
     (Common.Asset memory fee, ) = feeManager.getFeeAndReward(subscriber, report, quote);
 
     return fee;
@@ -145,7 +145,7 @@ contract BaseFeeManagerTest is Test {
     IFeeManager.Quote memory quote,
     address subscriber
   ) public view returns (Common.Asset memory) {
-    //set the discount
+    //get the reward
     (, Common.Asset memory reward) = feeManager.getFeeAndReward(subscriber, report, quote);
 
     return reward;
@@ -237,7 +237,7 @@ contract BaseFeeManagerTest is Test {
     address originalAddr = msg.sender;
     changePrank(ADMIN);
 
-    //transfer the link from sender to recipient
+    //mint the link to the recipient
     link.mint(recipient, amount);
 
     //change back to the original address
@@ -249,20 +249,8 @@ contract BaseFeeManagerTest is Test {
     address originalAddr = msg.sender;
     changePrank(sender);
 
-    //transfer the link from sender to recipient
+    //mint the native to the recipient
     native.mint(recipient, amount);
-
-    //change back to the original address
-    changePrank(originalAddr);
-  }
-
-  function transferNativeUnwrapped(uint256 quantity, address recipient, address sender) public {
-    //record the current address and switch to the recipient
-    address originalAddr = msg.sender;
-    changePrank(sender);
-
-    //transfer the asset from sender to recipient
-    payable(recipient).transfer(quantity);
 
     //change back to the original address
     changePrank(originalAddr);

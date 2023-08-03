@@ -33,6 +33,7 @@ contract Verifier_setConfig is BaseTest {
 contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   uint256 internal constant DEFAULT_LINK_MINT_QUANTITY = 100 ether;
   uint256 internal constant DEFAULT_NATIVE_MINT_QUANTITY = 100 ether;
+
   function setUp() public virtual override {
     super.setUp();
 
@@ -64,7 +65,7 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   function testVerifyProxyWithLinkFeeSuccess_gas() public {
     vm.pauseGasMetering();
 
-    bytes memory signedLinkPayload =  _generateEncodedBlobWithFeesAndQuote(
+    bytes memory signedLinkPayload = _generateEncodedBlobWithFeesAndQuote(
       _generateBillingReport(),
       _generateReportContext(),
       _getSigners(FAULT_TOLERANCE + 1),

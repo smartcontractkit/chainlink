@@ -114,9 +114,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     //get the total amount claimable for this recipient
     uint256 claimAmount;
 
-    //loop and claim all the reward-manager in the poolId pot
+    //loop and claim all the rewards in the poolId pot
     for (uint256 i; i < poolIds.length; ++i) {
-      //get the poolId we're claiming for
+      //get the poolId to be claimed
       bytes32 poolId = poolIds[i];
 
       //get the total fees for the pot
@@ -143,7 +143,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       }
     }
 
-    //check if there's any reward-manager to claim in the given poolId
+    //check if there's any rewards to claim in the given poolId
     if (claimAmount > 0) {
       //transfer the reward to the recipient
       IERC20(i_linkAddress).transfer(recipient, claimAmount);
@@ -229,11 +229,11 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       //if the existing weight is 0, the recipient isn't part of this configuration
       if (existingWeight == 0) revert InvalidAddress();
 
-      //if we're updating a recipient, we need to claim their rewards first as they can't claim previous fees at the new weight
+      //if a recipient is updated, the rewards must be claimed first as they can't claim previous fees at the new weight
       _claimRewards(newRewardRecipients[i].addr, poolIds);
 
       unchecked {
-        //keep tally of the weights so we know the expected collective weight
+        //keep tally of the weights so that the expected collective weight is known
         existingTotalWeight += existingWeight;
         //there will never be enough reward recipients for i to overflow
         ++i;

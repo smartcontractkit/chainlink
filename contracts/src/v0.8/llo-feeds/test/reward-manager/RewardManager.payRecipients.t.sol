@@ -7,7 +7,7 @@ import {Common} from "../../../libraries/internal/Common.sol";
 /**
  * @title BaseRewardManagerTest
  * @author Michael Fletcher
- * @notice This contract will test the pay recipients functionality of the RewardManager contract
+ * @notice This contract will test the payRecipients functionality of the RewardManager contract
  */
 contract RewardManagerPayRecipientsTest is BaseRewardManagerTest {
   uint256 internal constant POOL_DEPOSIT_AMOUNT = 10e18;

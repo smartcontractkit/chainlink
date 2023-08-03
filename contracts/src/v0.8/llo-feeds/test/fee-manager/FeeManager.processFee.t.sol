@@ -9,7 +9,7 @@ import "./BaseFeeManager.t.sol";
 /**
  * @title BaseFeeManagerTest
  * @author Michael Fletcher
- * @notice This contract will test the functionality of the fee managers processFee
+ * @notice This contract will test the functionality of the feeManager processFee
  */
 contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   function setUp() public override {
@@ -154,10 +154,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //approve the native to be transferred from the user
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
-    //expect an emit as we don't have enough
+    //expect an emit as there's not enough link
     vm.expectEmit();
 
-    //emit the event we expect to be emitted
+    //emit the event that is expected to be emitted
     emit InsufficientLink(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
 
     //processing the fee will transfer the native from the user to the feeManager

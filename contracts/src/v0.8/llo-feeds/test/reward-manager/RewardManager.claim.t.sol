@@ -29,7 +29,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
 
     //claim funds for each recipient within the pool
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -41,7 +41,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
   }
 
   function test_claimSingleRecipient() public {
-    //get the recipient we're claiming for
+    //get the recipient that is claiming
     Common.AddressAndWeight memory recipient = getPrimaryRecipients()[0];
 
     //claim the individual rewards for this recipient
@@ -85,7 +85,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
   }
 
   function test_claimUnevenAmountRoundsDown() public {
-    //adding 1 to the pool should leave 1 wei worth of dust, which we don't handle due to it being economically infeasible
+    //adding 1 to the pool should leave 1 wei worth of dust, which the contract doesn't handle due to it being economically infeasible
     addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(1));
 
     //expected recipient amount is 1/4 of the pool deposit
@@ -93,7 +93,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
 
     //claim funds for each recipient within the pool
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -108,7 +108,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
   }
 
   function test_claimUnregisteredPoolId() public {
-    //get the recipient we're claiming for
+    //get the recipient that is claiming
     Common.AddressAndWeight memory recipient = getPrimaryRecipients()[0];
 
     //claim the individual rewards for this recipient
@@ -122,7 +122,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
   }
 
   function test_singleRecipientClaimMultipleDeposits() public {
-    //get the recipient we're claiming for
+    //get the recipient that is claiming
     Common.AddressAndWeight memory recipient = getPrimaryRecipients()[0];
 
     //claim the individual rewards for this recipient
@@ -156,7 +156,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
 
     //claim funds for each recipient within the pool
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -174,7 +174,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
 
     //claim funds for each recipient within the pool
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -192,13 +192,13 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
   }
 
   function test_eventIsEmittedUponClaim() public {
-    //get the recipient we're claiming for
+    //get the recipient that is claiming
     Common.AddressAndWeight memory recipient = getPrimaryRecipients()[0];
 
     //expect an emit
     vm.expectEmit();
 
-    //emit the event we expect to be emitted
+    //emit the event that is expected to be emitted
     emit RewardsClaimed(PRIMARY_POOL_ID, recipient.addr, POOL_DEPOSIT_AMOUNT / 4);
 
     //claim the individual rewards for each recipient
@@ -209,7 +209,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
     //record logs to check no events were emitted
     vm.recordLogs();
 
-    //get the recipient we're claiming for
+    //get the recipient that is claiming
     Common.AddressAndWeight memory recipient = getPrimaryRecipients()[0];
 
     //claim the individual rewards for each recipient
@@ -242,7 +242,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
     //claim funds for each recipient within the pool
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -252,7 +252,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
       assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
     }
 
-    //check the pool balance is still equal to DEPOSIT_AMOUNT as we only claimed for one of the pools
+    //check the pool balance is still equal to DEPOSIT_AMOUNT as the test only claims for one of the pools
     assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
   }
 
@@ -297,7 +297,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
     //claim funds for each recipient within the pool
     for (uint256 i = 1; i < getPrimaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -309,7 +309,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
     //claim funds for each recipient within the pool
     for (uint256 i = 1; i < getSecondaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory secondaryRecipient = getSecondaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -380,7 +380,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
   }
 
   function test_claimUnevenAmountRoundsDown() public {
-    //adding an unevent amount of dust to each pool, this should round down to the nearest whole number with 4 remaining in the contract
+    //adding an uneven amount of dust to each pool, this should round down to the nearest whole number with 4 remaining in the contract
     addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(3));
     addFundsToPool(SECONDARY_POOL_ID, USER, getAsset(1));
 
@@ -389,7 +389,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
     //claim funds for each recipient within the pool
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -407,7 +407,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
     //claim funds for each recipient of the secondary pool except the first
     for (uint256 i = 1; i < getSecondaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getSecondaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -422,7 +422,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
   }
 
   function test_singleRecipientClaimMultipleDeposits() public {
-    //get the recipient we're claiming for
+    //get the recipient that is claiming
     Common.AddressAndWeight memory recipient = getSecondaryRecipients()[0];
 
     //claim the individual rewards for this recipient
@@ -459,7 +459,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
     //claim funds for each recipient within the pool
     for (uint256 i; i < getSecondaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getSecondaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -483,7 +483,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
     //claim funds for each recipient within the pool except the first
     for (uint256 i = 1; i < getSecondaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getSecondaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -503,7 +503,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
     //claim all rewards for each recipient in the primary pool
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -516,7 +516,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
     //claim all the rewards again for the first recipient as that address is a member of both pools
     claimRewards(PRIMARY_POOL_ARRAY, getSecondaryRecipients()[0].addr);
 
-    //the balance should still be 1/4 of the deposit amount
+    //check the balance
     assertEq(getAssetBalance(getSecondaryRecipients()[0].addr), expectedRecipientAmount);
   }
 
@@ -578,7 +578,7 @@ contract RewardManagerRecipientClaimDifferentWeightsTest is BaseRewardManagerTes
   function test_allRecipientsClaimingReceiveExpectedAmount() public {
     //loop all the recipients and claim their expected amount
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -626,7 +626,7 @@ contract RewardManagerRecipientClaimUnevenWeightTest is BaseRewardManagerTest {
 
     //loop all the recipients and claim their expected amount
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
 
       //claim the individual rewards for each recipient
@@ -649,7 +649,7 @@ contract RewardManagerRecipientClaimUnevenWeightTest is BaseRewardManagerTest {
 
     //loop all the recipients and claim their expected amount
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
-      //get the recipient we're claiming for
+      //get the recipient that is claiming
       Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
 
       //claim the individual rewards for each recipient

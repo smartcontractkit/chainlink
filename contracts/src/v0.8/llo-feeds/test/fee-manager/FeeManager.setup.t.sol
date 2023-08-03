@@ -9,7 +9,7 @@ import "./BaseFeeManager.t.sol";
 /**
  * @title BaseFeeManagerTest
  * @author Michael Fletcher
- * @notice This contract will test the setup functionality of the fee manager
+ * @notice This contract will test the setup functionality of the feemanager
  */
 contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   function setUp() public override {
@@ -20,7 +20,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //simulate a fee
     mintLink(address(feeManager), DEFAULT_LINK_MINT_QUANTITY);
 
-    //get the balances we're going to use for comparison
+    //get the balances to ne used for comparison
     uint256 contractBalance = getLinkBalance(address(feeManager));
     uint256 adminBalance = getLinkBalance(ADMIN);
 
@@ -46,7 +46,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //issue funds straight to the contract to bypass the lack of fallback function
     issueUnwrappedNative(address(feeManager), DEFAULT_NATIVE_MINT_QUANTITY);
 
-    //get the balances we're going to use for comparison
+    //get the balances to be used for comparison
     uint256 contractBalance = getNativeUnwrappedBalance(address(feeManager));
     uint256 adminBalance = getNativeUnwrappedBalance(ADMIN);
 
@@ -86,7 +86,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //expect an emit
     vm.expectEmit();
 
-    //emit the event we expect to be emitted
+    //emit the event that is expected to be emitted
     emit NativePremiumSet(nativePremium);
 
     //set the premium
@@ -100,7 +100,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //an event should be emitted
     vm.expectEmit();
 
-    //emit the event which we expect to be emitted
+    //emit the event that is expected to be emitted
     emit SubscriberDiscountUpdated(USER, DEFAULT_FEED_1, getNativeAddress(), discount);
 
     //set the premium

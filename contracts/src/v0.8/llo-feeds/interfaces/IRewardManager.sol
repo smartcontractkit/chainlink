@@ -15,7 +15,7 @@ interface IRewardManager is IERC165 {
 
   /**
    * @notice Claims the rewards in a specific pool
-   * @param poolIds array of poolIds to claim reward-manager for
+   * @param poolIds array of poolIds to claim rewards for
    */
   function claimRewards(bytes32[] calldata poolIds) external;
 
@@ -47,7 +47,7 @@ interface IRewardManager is IERC165 {
   function setFeeManager(address newFeeManager) external;
 
   /**
-   * @notice Gets a list of pool ids which have reward-manager for a specific recipient.
+   * @notice Gets a list of pool ids which have reward for a specific recipient.
    * @param recipient address of the recipient to get pool ids for
    */
   function getAvailableRewardPoolIds(address recipient) external view returns (bytes32[] memory);

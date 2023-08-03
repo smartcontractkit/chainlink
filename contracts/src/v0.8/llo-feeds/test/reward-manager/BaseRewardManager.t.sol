@@ -124,7 +124,6 @@ contract BaseRewardManagerTest is Test {
     //array of recipients
     address[] memory recipients = new address[](4);
 
-    //init each recipient with even weights. 2500 = 25% of pool
     recipients[0] = DEFAULT_RECIPIENT_1;
     recipients[1] = DEFAULT_RECIPIENT_2;
     recipients[2] = DEFAULT_RECIPIENT_3;
@@ -133,12 +132,12 @@ contract BaseRewardManagerTest is Test {
     return recipients;
   }
 
-  //override this to test variations of different recipients. changing this function will require existing tests to be updated as constants are hardcoded to be explicit
+  //override this to test variations of different recipients.
   function getSecondaryRecipients() public virtual returns (Common.AddressAndWeight[] memory) {
     //array of recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](4);
 
-    //init each recipient with even weights
+    //init each recipient with even weights. 2500 = 25% of pool
     recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, POOL_SCALAR / 4);
     recipients[1] = Common.AddressAndWeight(DEFAULT_RECIPIENT_5, POOL_SCALAR / 4);
     recipients[2] = Common.AddressAndWeight(DEFAULT_RECIPIENT_6, POOL_SCALAR / 4);
@@ -151,7 +150,6 @@ contract BaseRewardManagerTest is Test {
     //array of recipients
     address[] memory recipients = new address[](4);
 
-    //init each recipient with even weights
     recipients[0] = DEFAULT_RECIPIENT_1;
     recipients[1] = DEFAULT_RECIPIENT_5;
     recipients[2] = DEFAULT_RECIPIENT_6;
@@ -165,7 +163,7 @@ contract BaseRewardManagerTest is Test {
     address originalAddr = msg.sender;
     changePrank(sender);
 
-    //approve the amount we're paying into the pool
+    //approve the amount being paid into the pool
     ERC20Mock(amount.assetAddress).approve(address(rewardManager), amount.amount);
 
     //this represents the verifier adding some funds to the pool
@@ -196,7 +194,7 @@ contract BaseRewardManagerTest is Test {
     address originalAddr = msg.sender;
     changePrank(sender);
 
-    //claim the rewards under this recipient address
+    //claim the rewards
     rewardManager.claimRewards(poolIds);
 
     //change back to the original address
