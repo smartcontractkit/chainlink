@@ -46,9 +46,6 @@ const (
 var (
 	ErrLogReadFailure                = fmt.Errorf("failure reading logs")
 	ErrHeadNotAvailable              = fmt.Errorf("head not available")
-	ErrRegistryCallFailure           = fmt.Errorf("registry chain call failure")
-	ErrBlockKeyNotParsable           = fmt.Errorf("block identifier not parsable")
-	ErrUpkeepKeyNotParsable          = fmt.Errorf("upkeep key not parsable")
 	ErrInitializationFailure         = fmt.Errorf("failed to initialize registry")
 	ErrContextCancelled              = fmt.Errorf("context was cancelled")
 	ErrABINotParsable                = fmt.Errorf("error parsing abi")
@@ -669,9 +666,6 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 				r.lggr.Warnf("failed to pack checkUpkeep data for upkeepId %s at block %d with check data %s: %s", upkeepId, block, hexutil.Encode(key.CheckData), err)
 				results[i] = ocr2keepers.CheckResult{
 					Payload: key,
-					Extension: EVMAutomationResultExtension21{
-						FailureReason: UPKEEP_FAILURE_REASON_PACK_FAILED,
-					},
 				}
 				continue
 			}
@@ -681,9 +675,6 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 				r.lggr.Warnf("failed to pack checkUpkeep data for upkeepId %s at block %d: %s", upkeepId, block, err)
 				results[i] = ocr2keepers.CheckResult{
 					Payload: key,
-					Extension: EVMAutomationResultExtension21{
-						FailureReason: UPKEEP_FAILURE_REASON_PACK_FAILED,
-					},
 				}
 				continue
 			}
@@ -719,9 +710,6 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		index := indices[i]
 		if req.Error != nil {
 			results[index].Payload = keys[index]
-			results[index].Extension = EVMAutomationResultExtension21{
-				FailureReason: UPKEEP_FAILURE_REASON_ERROR_RESULT,
-			}
 			results[index].Retryable = true
 			r.lggr.Warnf("error encountered in check result for upkeepId %s: %s", big.NewInt(0).SetBytes(results[index].Payload.Upkeep.ID), req.Error)
 			continue
@@ -749,15 +737,12 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 
 		block, upkeepId := r.getBlockAndUpkeepId(cr.Payload)
-		ext := cr.Extension.(EVMAutomationResultExtension21)
 		opts := r.buildCallOpts(ctx, block)
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
 		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, cr.PerformData)
 		if err != nil {
 			r.lggr.Warnf("failed to pack simulatePerformUpkeep data for upkeepId %s with perform data %s: %s", upkeepId, hexutil.Encode(cr.PerformData), err)
-			ext.FailureReason = UPKEEP_FAILURE_REASON_PACK_FAILED
-			checkResults[i].Extension = ext
 			continue
 		}
 
@@ -786,10 +771,9 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 	for i, req := range performReqs {
 		if req.Error != nil {
-			r.lggr.Warnf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Payload.Trigger.BlockNumber, new(big.Int).SetBytes(checkResults[i].Payload.Upkeep.ID), req.Error)
-			ext := checkResults[performToKeyIdx[i]].Extension.(EVMAutomationResultExtension21)
-			ext.FailureReason = UPKEEP_FAILURE_REASON_ERROR_RESULT
-			checkResults[performToKeyIdx[i]].Extension = ext
+			checkResults[performToKeyIdx[i]].Retryable = true
+			checkResults[performToKeyIdx[i]].Eligible = false
+			r.lggr.Warnf("failed to simulate perform for upkeepId %s at block %d: %s", new(big.Int).SetBytes(checkResults[i].Payload.Upkeep.ID), checkResults[i].Payload.Trigger.BlockNumber, req.Error)
 			continue
 		}
 		simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])

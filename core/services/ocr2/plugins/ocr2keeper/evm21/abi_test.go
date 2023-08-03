@@ -35,9 +35,7 @@ func TestUnpackCheckResults(t *testing.T) {
 				ID:            upkeepId,
 				Eligible:      false,
 				FailureReason: UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED,
-				GasUsed:       big.NewInt(16924),
 				PerformData:   nil,
-				ExecuteGas:    5000000,
 			},
 		},
 		{
@@ -49,9 +47,7 @@ func TestUnpackCheckResults(t *testing.T) {
 				ID:            upkeepId,
 				Eligible:      false,
 				FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
-				GasUsed:       big.NewInt(30001),
 				PerformData:   []byte{98, 232, 165, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 40, 193, 208, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 83, 116, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 66, 84, 67, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-				ExecuteGas:    5000000,
 			},
 		},
 		{
@@ -59,11 +55,9 @@ func TestUnpackCheckResults(t *testing.T) {
 			Payload: ocr2keepers.NewUpkeepPayload(upkeepId, 0, "19448272", ocr2keepers.NewTrigger(19448272, "0x0", struct{}{}), []byte{}),
 			RawData: "invalid_raw_data",
 			ExpectedResult: EVMAutomationUpkeepResult21{
-				Block:         19448272,
-				ID:            upkeepId,
-				Eligible:      false,
-				FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
-				ExecuteGas:    5000000,
+				Block:    19448272,
+				ID:       upkeepId,
+				Eligible: false,
 			},
 			ExpectedError: fmt.Errorf("failed to decode checkUpkeep result invalid_raw_data: hex string without 0x prefix"),
 		},
@@ -72,11 +66,9 @@ func TestUnpackCheckResults(t *testing.T) {
 			Payload: ocr2keepers.NewUpkeepPayload(upkeepId, 0, "19448272", ocr2keepers.NewTrigger(19448272, "0x0", struct{}{}), []byte{}),
 			RawData: "0x123123",
 			ExpectedResult: EVMAutomationUpkeepResult21{
-				Block:         19448272,
-				ID:            upkeepId,
-				Eligible:      false,
-				FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
-				ExecuteGas:    5000000,
+				Block:    19448272,
+				ID:       upkeepId,
+				Eligible: false,
 			},
 			ExpectedError: fmt.Errorf("failed to unpack checkUpkeep result 0x123123: abi: cannot marshal in to go type: length insufficient 3 require 32"),
 		},
@@ -94,9 +86,13 @@ func TestUnpackCheckResults(t *testing.T) {
 			assert.Equal(t, test.ExpectedResult.Block, uint32(rs.Payload.Trigger.BlockNumber))
 			assert.Equal(t, ocr2keepers.UpkeepIdentifier(test.ExpectedResult.ID.Bytes()), rs.Payload.Upkeep.ID)
 			assert.Equal(t, test.ExpectedResult.Eligible, rs.Eligible)
-			ext, ok := rs.Extension.(EVMAutomationResultExtension21)
-			assert.True(t, ok)
-			assert.Equal(t, test.ExpectedResult.FailureReason, ext.FailureReason)
+			if test.ExpectedResult.FailureReason != 0 {
+				ext, ok := rs.Extension.(EVMAutomationResultExtension21)
+				assert.True(t, ok)
+				assert.Equal(t, test.ExpectedResult.FailureReason, ext.FailureReason)
+			} else {
+				assert.Nil(t, rs.Extension)
+			}
 		})
 	}
 }

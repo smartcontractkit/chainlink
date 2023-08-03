@@ -216,7 +216,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 							BlockNumber: 26046145,
 						},
 					},
-					Extension: EVMAutomationResultExtension21{FailureReason: UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED},
+					Extension: EVMAutomationResultExtension21{FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED},
 				},
 			},
 			hasError: false,

@@ -72,9 +72,9 @@ type AdminOffchainConfig struct {
 }
 
 // feedLookup looks through check upkeep results looking for any that need off chain lookup
-func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult {
+func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult {
 	lookups := map[int]*FeedLookup{}
-	for i, res := range upkeepResults {
+	for i, res := range checkResults {
 		ext := res.Extension.(EVMAutomationResultExtension21)
 		if ext.FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
@@ -89,17 +89,13 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 		}
 
 		if !allowed {
-			ext.FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
-			upkeepResults[i].Extension = ext
 			r.lggr.Warnf("[FeedLookup] upkeepId %s at block %d NOT allowed to use Mercury server", upkeepId, block)
 			continue
 		}
 
-		r.lggr.Infof("[FeedLookup] upkeep %s at block %d decodeFeedLookup performData=%s", upkeepId, block, hexutil.Encode(upkeepResults[i].PerformData))
+		r.lggr.Infof("[FeedLookup] upkeep %s at block %d decodeFeedLookup performData=%s", upkeepId, block, hexutil.Encode(checkResults[i].PerformData))
 		lookup, err := r.decodeFeedLookup(res.PerformData)
 		if err != nil {
-			ext.FailureReason = UPKEEP_FAILURE_REASON_UNPACK_FAILED
-			upkeepResults[i].Extension = ext
 			r.lggr.Warnf("[FeedLookup] upkeep %s at block %d failed to decode: %v", upkeepId, block, err)
 			continue
 		}
@@ -114,23 +110,20 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 	var wg sync.WaitGroup
 	for i, lookup := range lookups {
 		wg.Add(1)
-		go r.doLookup(ctx, &wg, lookup, i, upkeepResults)
+		go r.doLookup(ctx, &wg, lookup, i, checkResults)
 	}
 	wg.Wait()
 
 	// don't surface error to plugin bc FeedLookup process should be self-contained.
-	return upkeepResults
+	return checkResults
 }
 
 func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *FeedLookup, i int, upkeepResults []ocr2keepers.CheckResult) {
 	defer wg.Done()
 
-	ext := upkeepResults[i].Extension.(EVMAutomationResultExtension21)
 	values, retryable, err := r.doMercuryRequest(ctx, lookup)
 	if err != nil {
 		r.lggr.Errorf("[FeedLookup] upkeepId %s at block %d retryable %v: %s", lookup.upkeepId, lookup.block, retryable, err)
-		ext.FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
-		upkeepResults[i].Extension = ext
 		upkeepResults[i].Retryable = retryable
 		return
 	}
