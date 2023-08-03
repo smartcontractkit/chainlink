@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -34,14 +34,14 @@ type RelayerFactory struct {
 
 type EVMFactoryConfig struct {
 	evm.RelayerConfig
-	evmrelayer.CSAETHKeystore
+	evmrelay.CSAETHKeystore
 }
 
-// func (r RelayerFactory) NewEVM(ctx context.Context, cfg evm.GeneralConfig, ks evmrelayer.RelayerKeystore, eb pg.EventBroadcaster, mmon *utils.MailboxMonitor) (map[relay.Identifier]evmrelayer.LoopRelayAdapter, error) {
-func (r RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[relay.Identifier]evmrelayer.LoopRelayAdapter, error) {
+// func (r RelayerFactory) NewEVM(ctx context.Context, cfg evm.GeneralConfig, ks evmrelay.RelayerKeystore, eb pg.EventBroadcaster, mmon *utils.MailboxMonitor) (map[relay.Identifier]evmrelay.LoopRelayAdapter, error) {
+func (r RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[relay.Identifier]evmrelay.LoopRelayAdapter, error) {
 	// TODO impl EVM loop. For now always 'fallback' to an adapter and embedded chainset
 
-	relayers := make(map[relay.Identifier]evmrelayer.LoopRelayAdapter)
+	relayers := make(map[relay.Identifier]evmrelay.LoopRelayAdapter)
 
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
 	ccOpts := evm.ChainRelayExtenderConfig{
@@ -52,7 +52,7 @@ func (r RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (ma
 		RelayerConfig: config.RelayerConfig,
 	}
 
-	evmRelayExtenders, err := evm.NewChainRelayerExtenders(ctx, ccOpts)
+	evmRelayExtenders, err := evmrelay.NewChainRelayerExtenders(ctx, ccOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (r RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (ma
 		relayId := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
 		legacyChains := evm.NewLegacyChains()
 		legacyChains.Put(ext.Chain().ID().String(), ext.Chain())
-		relayer := evmrelayer.NewLoopRelayAdapter(evmrelayer.NewRelayer(ccOpts.DB, legacyChains, r.QConfig, ccOpts.Logger, config.CSAETHKeystore, ccOpts.EventBroadcaster), ext)
+		relayer := evmrelay.NewLoopRelayAdapter(evmrelay.NewRelayer(ccOpts.DB, legacyChains, r.QConfig, ccOpts.Logger, config.CSAETHKeystore, ccOpts.EventBroadcaster), ext)
 		relayers[relayId] = relayer
 
 	}

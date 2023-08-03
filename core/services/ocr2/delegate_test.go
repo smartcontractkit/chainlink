@@ -9,7 +9,6 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -22,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -46,7 +46,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
 	require.True(t, relayerExtenders.Len() > 0)
-	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
 
 	type testCase struct {
 		name                  string

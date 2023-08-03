@@ -20,7 +20,6 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
@@ -40,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -121,8 +121,8 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 		LogBroadcaster: &log.NullBroadcaster{},
 		MailMon:        mailMon,
 	})
-	//legacyChains := evm.NewLegacyChainsFromRelayerExtenders(cc)
-	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(cc)
+	//legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
 	pipelineHelper := cltest.NewJobPipelineV2(t, config.WebServer(), config.JobPipeline(), config.Database(), legacyChains, c.db, kst, nil, nil)
 
 	return &broadcasterHelper{

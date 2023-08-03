@@ -15,6 +15,7 @@ import (
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -141,7 +142,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 					},
 				}
 				chainID := *utils.NewBigI(12)
-				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(nil, evm.ErrNoChains)
+				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(nil, evmrelay.ErrNoChains)
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)

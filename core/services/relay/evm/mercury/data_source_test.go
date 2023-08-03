@@ -23,9 +23,11 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+
+	//	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	//"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -118,7 +120,7 @@ func TestMercury_Observe(t *testing.T) {
 	ds.spec = spec
 
 	h := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-	c := evmtest.NewEthClientMock(t)
+	c := evmclimocks.NewClient(t)
 	ht := &mockHeadTracker{
 		c: c,
 		h: h,
@@ -181,7 +183,7 @@ func TestMercury_Observe(t *testing.T) {
 				h2 := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 				h2.On("LatestChain").Return((*evmtypes.Head)(nil))
 				ht.h = h2
-				c2 := evmtest.NewEthClientMock(t)
+				c2 := evmclimocks.NewClient(t)
 				c2.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("head retrieval failed"))
 				ht.c = c2
 
@@ -317,7 +319,7 @@ func TestMercury_Observe(t *testing.T) {
 				c.AssertExpectations(t)
 			})
 			t.Run("if call fails, returns error for that observation", func(t *testing.T) {
-				c = evmtest.NewEthClientMock(t)
+				c = evmclimocks.NewClient(t)
 				ht.c = c
 				c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("client call failed")).Once()
 

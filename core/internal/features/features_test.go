@@ -42,7 +42,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -66,6 +65,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -235,7 +235,7 @@ observationSource   = """
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
-		legacyChains := app.GetRelayers().LegacyEVMChains() //evm.NewLegacyChainsFromRelayerExtenders(cc)
+		legacyChains := app.GetRelayers().LegacyEVMChains() //evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
 		jobORM := job.NewORM(app.GetSqlxDB(), legacyChains, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
@@ -1376,7 +1376,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
-	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(cc)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
 	// TODO what is the right API here? currently only the relay extender can be started.
 	for _, re := range cc.Slice() {
 		require.NoError(t, re.Start(testutils.Context(t)))

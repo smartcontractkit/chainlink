@@ -50,7 +50,7 @@ func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmr
 
 	require.NoError(t, opts.GeneralConfig.Validate(), "invalid config")
 
-	exts, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
+	exts, err := evmrelayer.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
 	require.Equal(t, exts.Len(), 1)
 	ext := exts.Slice()[0]

@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -79,9 +80,9 @@ func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
 
 // NewChainRelayExtenders returns a simple chain collection with one chain and
 // allows to mock client/config on that chain
-func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) *evm.ChainRelayerExtenders {
+func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) *evmrelay.ChainRelayerExtenders {
 	opts := NewChainRelayExtOpts(t, testopts)
-	cc, err := evm.NewChainRelayerExtenders(testutils.Context(t), opts)
+	cc, err := evmrelay.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
 	return cc
 }

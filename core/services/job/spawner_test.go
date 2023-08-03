@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -31,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -62,7 +62,7 @@ func clearDB(t *testing.T, db *sqlx.DB) {
 }
 
 type relayGetter struct {
-	e evm.EVMChainRelayerExtender
+	e evmrelay.EVMChainRelayerExtender
 	r *evmrelayer.Relayer
 }
 
@@ -97,7 +97,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		Return(nil).Maybe()
 
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
-	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		orm := NewTestORM(t, db, legacyChains, pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db, lggr, config.Database()), keyStore, config.Database())
@@ -281,7 +281,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		lggr := logger.TestLogger(t)
 		relayExtenders := evmtest.NewChainRelayExtenders(t, testopts)
-		legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
 		evmRelayer := evmrelayer.NewRelayer(testopts.DB, legacyChains, testopts.GeneralConfig.Database(), lggr, keyStore, pg.NewNullEventBroadcaster())
 		testRelayGetter := &relayGetter{

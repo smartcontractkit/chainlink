@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -67,7 +68,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 			LogPoller:     lp,
 		},
 	)
-	legacyChains := evm.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	return blockhashstore.NewDelegate(lggr, legacyChains, kst), &testData{
 		ethClient:    ethClient,
 		ethKeyStore:  kst,

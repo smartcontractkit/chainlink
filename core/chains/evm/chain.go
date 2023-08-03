@@ -11,9 +11,12 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/sqlx"
+
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -24,10 +27,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -111,18 +116,6 @@ func (c *LegacyChains) Get(id string) (Chain, error) {
 	return c.ChainsKV.Get(id)
 }
 
-// func NewLegacyChainsFromRelayerExtenders(exts []EVMChainRelayerExtender) *Chains {
-func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *LegacyChains {
-	l := NewLegacyChains()
-	for _, r := range exts.Slice() {
-		l.Put(r.Chain().ID().String(), r.Chain())
-		if r.Default() {
-			l.SetDefault(r.Chain())
-		}
-	}
-	return l
-}
-
 type chain struct {
 	utils.StartStopOnce
 	id              *big.Int
@@ -147,7 +140,39 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("cannot create new chain with ID %s, the chain is disabled", e.ChainID.String())
 }
 
-func newTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtenderConfig) (*chain, error) {
+type GeneralConfig interface {
+	config.AppConfig
+	toml.HasEVMConfigs
+}
+
+type ChainRelayExtenderConfig struct {
+	Logger   logger.Logger
+	DB       *sqlx.DB
+	KeyStore keystore.Eth
+	RelayerConfig
+}
+
+// options for the relayer factory. TODO the dependencies are odd;
+// the factory wants to own the logger and db
+// the factory creates extenders, which need the same and more opts
+type RelayerConfig struct {
+	GeneralConfig GeneralConfig
+
+	EventBroadcaster   pg.EventBroadcaster
+	MailMon            *utils.MailboxMonitor
+	GasEstimator       gas.EvmFeeEstimator
+	OperationalConfigs evmtypes.Configs
+
+	// Gen-functions are useful for dependency injection by tests
+	GenEthClient      func(*big.Int) client.Client
+	GenLogBroadcaster func(*big.Int) log.Broadcaster
+	GenLogPoller      func(*big.Int) logpoller.LogPoller
+	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
+	GenTxManager      func(*big.Int) txmgr.TxManager
+	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
+}
+
+func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtenderConfig) (Chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !chain.IsEnabled() {
@@ -375,4 +400,16 @@ func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr 
 	}
 
 	return evmclient.NewNode(cfg, noNewHeadsThreshold, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Order), nil
+}
+
+func (opts *ChainRelayExtenderConfig) Check() error {
+	if opts.Logger == nil {
+		return errors.New("logger must be non-nil")
+	}
+	if opts.GeneralConfig == nil {
+		return errors.New("config must be non-nil")
+	}
+
+	opts.OperationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.GeneralConfig.EVMConfigs())
+	return nil
 }

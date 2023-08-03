@@ -14,12 +14,12 @@ type LoopRelayAdapter interface {
 }
 type LoopRelayer struct {
 	loop.Relayer
-	x evm.EVMChainRelayerExtender
+	x EVMChainRelayerExtender
 }
 
 var _ loop.Relayer = &LoopRelayer{}
 
-func NewLoopRelayAdapter(r *Relayer, cs evm.EVMChainRelayerExtender) *LoopRelayer {
+func NewLoopRelayAdapter(r *Relayer, cs EVMChainRelayerExtender) *LoopRelayer {
 	ra := relay.NewRelayerAdapter(r, cs)
 	return &LoopRelayer{
 		Relayer: ra,

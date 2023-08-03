@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 
@@ -358,7 +359,7 @@ func (ekc *ETHKeysController) getEthBalance(ctx context.Context, state ethkey.St
 	chainID := state.EVMChainID.ToInt()
 	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
+		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "address", state.Address, "err", err)
 		}
 		return nil
@@ -385,7 +386,7 @@ func (ekc *ETHKeysController) getLinkBalance(ctx context.Context, state ethkey.S
 	chainID := state.EVMChainID.ToInt()
 	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
+		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
 	} else {
@@ -411,7 +412,7 @@ func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddres
 	chainID := state.EVMChainID.ToInt()
 	chain, err := ekc.app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
-		if !errors.Is(errors.Cause(err), evm.ErrNoChains) {
+		if !errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ekc.lggr.Errorw("Failed to get EVM Chain", "chainID", chainID, "err", err)
 		}
 	} else {
