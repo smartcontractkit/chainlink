@@ -752,6 +752,7 @@ jobs:
       - name: Get Results
         id: test-results
         run: |
+          echo "Querying test results"
           echo curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           '[https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
