@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -237,17 +237,17 @@ func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.A
 	activeCoordinator, err := l.routerContract.GetContractById(&bind.CallOpts{
 		Pending: false,
 		Context: ctx,
-	}, donId, false)
+	}, donId)
 	if err != nil {
 		return common.Address{}, common.Address{}, err
 	}
 
-	proposedCoordinator, err := l.routerContract.GetContractById(&bind.CallOpts{
+	proposedCoordinator, err := l.routerContract.GetProposedContractById(&bind.CallOpts{
 		Pending: false,
 		Context: ctx,
-	}, donId, true)
+	}, donId)
 	if err != nil {
-		return common.Address{}, common.Address{}, err
+		return activeCoordinator, l.proposedCoordinator, nil
 	}
 
 	return activeCoordinator, proposedCoordinator, nil
@@ -284,6 +284,9 @@ func filterName(addr common.Address) string {
 }
 
 func (l *logPollerWrapper) registerFilters(coordinatorAddress common.Address) error {
+	if (coordinatorAddress == common.Address{}) {
+		return nil
+	}
 	return l.logPoller.RegisterFilter(
 		logpoller.Filter{
 			Name: filterName(coordinatorAddress),
