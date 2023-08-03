@@ -120,6 +120,8 @@ const (
 
 	FlagCBORMaxSize    uint32 = 1
 	FlagSecretsMaxSize uint32 = 2
+
+	EthSignedMessagePrefix = "\x19Ethereum Signed Message:\n"
 )
 
 type FunctionsListener struct {
@@ -509,7 +511,7 @@ func (l *FunctionsListener) verifyRequestSignature(requestID RequestID, subscrip
 	}
 
 	// If unable to verify the raw signature, try to verify the signature of the prefixed message
-	prefixedJs := fmt.Sprintf("\x19Ethereum Signed Message:\n%d%s", len(js), js)
+	prefixedJs := fmt.Sprintf("%s%d%s", EthSignedMessagePrefix, len(js), js)
 	prefixedHash := crypto.Keccak256Hash([]byte(prefixedJs))
 	sigPublicKey, err = crypto.SigToPub(prefixedHash[:], requestData.RequestSignature)
 	if err == nil {
