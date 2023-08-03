@@ -141,6 +141,7 @@ func (s *ChainRelayerExt) Ready() (err error) {
 var ErrInconsistentChainRelayerExtender = errors.New("inconsistent evm chain relayer extender")
 
 func (s *ChainRelayerExt) ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error) {
+	// TODO BCF-2441: update relayer interface
 	// we need to implement the interface, but passing id doesn't really make sense because there is only
 	// one chain here. check the id here to provide clear error reporting.
 	if s.chain.ID().String() != id {

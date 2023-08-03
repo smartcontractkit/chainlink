@@ -349,12 +349,13 @@ const (
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
 type OCR2OracleSpec struct {
-	ID                                int32           `toml:"-"`
-	ContractID                        string          `toml:"contractID"`
-	FeedID                            *common.Hash    `toml:"feedID"`
-	Relay                             relay.Network   `toml:"relay"`
+	ID         int32         `toml:"-"`
+	ContractID string        `toml:"contractID"`
+	FeedID     *common.Hash  `toml:"feedID"`
+	Relay      relay.Network `toml:"relay"`
+	// TODO BCF-2442 implement ChainID as top level parameter rathe than buried in RelayConfig.
+	ChainID                           string          `toml:"chainID"`
 	RelayConfig                       JSONConfig      `toml:"relayConfig"`
-	chainID                           relay.ChainID   `toml:"chainID"` // TODO implement this. only a placeholder for now
 	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
 	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
 	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
@@ -382,8 +383,8 @@ func (s *OCR2OracleSpec) RelayIdentifier() (relay.Identifier, error) {
 }
 
 func (s *OCR2OracleSpec) GetChainID() (relay.ChainID, error) {
-	if s.chainID != "" {
-		return s.chainID, nil
+	if s.ChainID != "" {
+		return relay.ChainID(s.ChainID), nil
 	}
 	// backward compatible job spec
 	return s.getChainIdFromRelayConfig()
