@@ -126,7 +126,7 @@ func TestEVMAutomationEncoder21_Encode_errors(t *testing.T) {
 		b, err := encoder.Encode(result)
 		assert.Nil(t, b)
 		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "unexpected check result extension struct")
+		assert.Equal(t, err.Error(), "unrecognized CheckResult extension data")
 	})
 
 	t.Run("an invalid upkeep ID causes an error", func(t *testing.T) {
