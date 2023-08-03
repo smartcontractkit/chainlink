@@ -18,7 +18,7 @@ jobs:
         with:
           filters: |
             src:
-              - 'contracts/**/*'
+              - 'contracts/src/v0.8/**/*'
               - '.github/workflows/solidity-foundry.yml'
 
   tests:
