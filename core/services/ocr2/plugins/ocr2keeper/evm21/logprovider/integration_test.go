@@ -56,7 +56,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	n := 10
 
-	ids, addrs, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
+	_, _, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(n))
 
 	go func() {
@@ -97,10 +97,6 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		}()
 		defer logProvider.Close()
 
-		for i, addr := range addrs {
-			id := ids[i]
-			_ = logProvider.RegisterFilter(id, newPlainLogTriggerConfig(addr))
-		}
 		logsAfterRestart, _ := logProvider.GetLogs(ctx)
 		require.GreaterOrEqual(t, len(logsAfterRestart), 0,
 			"logs should have been marked visited")

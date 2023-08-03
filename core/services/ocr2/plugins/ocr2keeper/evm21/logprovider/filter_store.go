@@ -9,7 +9,6 @@ import (
 )
 
 type UpkeepFilterStore interface {
-	InitializeActiveUpkeeps(filters ...upkeepFilter)
 	GetIDs(selector func(upkeepFilter) bool) []*big.Int
 	UpdateFilters(updater func(upkeepFilter, upkeepFilter) upkeepFilter, filters ...upkeepFilter)
 	Has(id *big.Int) bool
@@ -38,23 +37,16 @@ type upkeepFilter struct {
 }
 
 type upkeepFilterStore struct {
-	lock    *sync.RWMutex
+	lock *sync.RWMutex
+	// filters is a map of upkeepID to upkeepFilter
 	filters map[string]upkeepFilter
 }
 
 func NewUpkeepFilterStore() *upkeepFilterStore {
 	return &upkeepFilterStore{
 		lock:    &sync.RWMutex{},
-		filters: map[string]upkeepFilter{},
+		filters: make(map[string]upkeepFilter),
 	}
-}
-
-func (s *upkeepFilterStore) InitializeActiveUpkeeps(filters ...upkeepFilter) {
-	s.lock.Lock()
-	s.filters = make(map[string]upkeepFilter)
-	s.lock.Unlock()
-
-	s.AddActiveUpkeeps(filters...)
 }
 
 func (s *upkeepFilterStore) GetIDs(selector func(upkeepFilter) bool) []*big.Int {
@@ -69,7 +61,7 @@ func (s *upkeepFilterStore) GetIDs(selector func(upkeepFilter) bool) []*big.Int 
 	var ids []*big.Int
 	for _, f := range s.filters {
 		if selector(f) {
-			ids = append(ids, big.NewInt(0).Add(big.NewInt(0), f.upkeepID))
+			ids = append(ids, f.upkeepID)
 		}
 	}
 

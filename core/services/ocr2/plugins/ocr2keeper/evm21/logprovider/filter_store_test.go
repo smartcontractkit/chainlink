@@ -46,7 +46,7 @@ func TestFilterStore_CRUD(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			s := NewUpkeepFilterStore()
-			s.InitializeActiveUpkeeps(tc.initial...)
+			s.AddActiveUpkeeps(tc.initial...)
 			require.Equal(t, len(tc.initial), len(s.GetIDs(nil)))
 			s.AddActiveUpkeeps(tc.toAdd...)
 			require.Equal(t, len(tc.expectedPostAdd), s.Size())
