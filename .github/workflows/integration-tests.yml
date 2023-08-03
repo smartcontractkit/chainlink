@@ -624,6 +624,9 @@ jobs:
       fail-fast: false
       matrix:
         ## DEBUG: Testing what's up
+        # NOTE: If changing this matrix, make sure to update the matrix in the testnet-smoke-tests-notify job to be the same
+        # otherwise reporting will be broken. Getting a single matrix for multiple jobs is a pain
+        # https://github.com/orgs/community/discussions/26284#discussioncomment-3251198
         # testnet: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
         testnet: [OPTIMISM_GOERLI, ARBITRUM_GOERLI]
     name: Live Testnet Smoke Tests ${{ matrix.testnet }}
@@ -654,10 +657,33 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Main Slack Notification
-        id: slack
-        ## DEBUG: Testing what's up
+
+      - name: Collect Metrics
         if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Live Testnet Smoke Tests ${{ matrix.testnet }}
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+        continue-on-error: true
+
+  testnet-smoke-tests-notify:
+    name: Live Testnet Start Slack Thread
+    environment: integration
+    outputs:
+      thread_ts: ${{ steps.slack.outputs.thread_ts }}
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    if: always()
+    runs-on: ubuntu-latest
+    needs: testnet-smoke-tests-matrix
+    steps:
+      - name: Main Slack Notification
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         with:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
@@ -701,23 +727,57 @@ jobs:
             }
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
+
+  testnet-smoke-tests-results:
+    name: Live Testnet Smoke Test Results
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    if: always()
+    runs-on: ubuntu-latest
+    needs: testnet-smoke-tests-notify
+    strategy:
+      fail-fast: false
+      matrix:
+        ## DEBUG: Testing what's up
+        # NOTE: If changing this matrix, make sure to update the matrix in the testnet-smoke-tests-matrix job to be the same
+        # otherwise reporting will be broken. Getting a single matrix for multiple jobs is a pain
+        # https://github.com/orgs/community/discussions/26284#discussioncomment-3251198
+        # testnet: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
+        testnet: [OPTIMISM_GOERLI, ARBITRUM_GOERLI]
+    steps:
+      - name: Get Results
+        id: test-results
+        run: |
+          echo curl \
+          -H "Authorization: Bearer ${{ github.token }}" \
+          '[https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
+          | jq ."jobs" | jq '.[] | select(.name | startswith("My matrix job"))' | ."status"
+
+          echo "status=$(curl \
+          -H "Authorization: Bearer ${{ github.token }}" \
+          '[https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
+          | jq ."jobs" | jq '.[] | select(.name | startswith("My matrix job"))' | ."status") >> $GITHUB_OUTPUT'
+
       - name: Test Details
-        if: always()
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         with:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
           payload: |
             {
-              "thread_ts": "${{ steps.slack.outputs.thread_ts }}",
+              "thread_ts": "${{ needs.testnet-smoke-tests-notify.outputs.thread_ts }}",
               "attachments": [
                 {
-                  "color": "${{ job.status == 'success' && '#2E7D32' || '#C62828' }}",
+                  "color": "${{ steps.test-results.outputs.status == 'success' && '#2E7D32' || '#C62828' }}",
                   "blocks": [
                     {
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "${{ matrix.testnet }} OCR Smoke Test Results ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}",
+                        "text": "${{ matrix.testnet }} OCR Smoke Test Results ${{ steps.test-results.outputs.status == 'success' && ':white_check_mark:' || ':x:'}}",
                         "emoji": true
                       }
                     },
@@ -737,32 +797,5 @@ jobs:
             }
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Live Testnet Smoke Tests ${{ matrix.testnet }}
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
-
-  testnet-smoke-tests-notify:
-    name: Live Testnet Smoke Tests Slack Notification
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    if: always()
-    runs-on: ubuntu-latest
-    needs: testnet-smoke-tests-matrix
-    steps:
-      - name: Collect Matrix Results
-        id: matrix-results
-        run: echo ${{ needs.testnet-smoke-tests-matrix.outputs.matrix }}
 
   ### End Live Testnet Section
