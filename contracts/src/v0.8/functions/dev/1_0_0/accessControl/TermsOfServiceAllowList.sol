@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
-import {HasRouter} from "../HasRouter.sol";
+import {Routable} from "../Routable.sol";
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
 import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
 
@@ -12,7 +12,7 @@ import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/con
 /**
  * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
  */
-contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccessController {
+contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessController {
   using Address for address;
   using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -40,7 +40,7 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
   // |                       Initialization                         |
   // ================================================================
 
-  constructor(address router, bytes memory config) HasRouter(router, config) {}
+  constructor(address router, bytes memory config) Routable(router, config) {}
 
   // ================================================================
   // |                    Configuration methods                     |

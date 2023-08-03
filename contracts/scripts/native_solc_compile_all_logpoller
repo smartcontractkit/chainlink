@@ -3,11 +3,11 @@
 set -e
 
 echo " ┌──────────────────────────────────────────────┐"
-echo " │    Compiling Low Latency Oracle contracts... │"
+echo " │        Compiling LogPoller contracts...      │"
 echo " └──────────────────────────────────────────────┘"
 
-SOLC_VERSION="0.8.16"
-OPTIMIZE_RUNS=15000
+SOLC_VERSION="0.8.19"
+OPTIMIZE_RUNS=1000000
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -25,9 +25,5 @@ compileContract () {
       $ROOT/contracts/src/v0.8/$1
 }
 
-compileContract llo-feeds/Verifier.sol
-compileContract llo-feeds/VerifierProxy.sol
 
-#Test | Mocks
-compileContract llo-feeds/test/mocks/ErroredVerifier.sol
-compileContract llo-feeds/test/mocks/ExposedVerifier.sol
+compileContract tests/LogEmitter.sol
