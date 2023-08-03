@@ -159,9 +159,7 @@ func (s *upkeepFilterStore) RemoveActiveUpkeeps(filters ...upkeepFilter) {
 
 	for _, f := range filters {
 		uid := f.upkeepID.String()
-		if _, ok := s.filters[uid]; ok {
-			delete(s.filters, uid)
-		}
+		delete(s.filters, uid)
 	}
 }
 
