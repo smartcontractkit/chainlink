@@ -23,9 +23,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/node_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -35,9 +35,9 @@ import (
 
 type ClNode struct {
 	EnvComponent
-	API            *client.ChainlinkClient
-	NodeConfigOpts node_config.NodeConfig
-	PostgresDb     *PostgresDb
+	API        *client.ChainlinkClient
+	NodeConfig *chainlink.Config
+	PostgresDb *PostgresDb
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -60,7 +60,7 @@ func WithDbContainerName(name string) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, nodeConf node_config.NodeConfig, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, nodeConfig chainlink.Config, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:3])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
@@ -69,8 +69,8 @@ func NewClNode(networks []string, nodeConf node_config.NodeConfig, opts ...ClNod
 			ContainerName: nodeDefaultCName,
 			Networks:      networks,
 		},
-		NodeConfigOpts: nodeConf,
-		PostgresDb:     pgDb,
+		NodeConfig: &nodeConfig,
+		PostgresDb: pgDb,
 	}
 	for _, opt := range opts {
 		opt(n)
@@ -234,7 +234,7 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	if err != nil {
 		return nil, err
 	}
-	data, err := toml.Marshal(n.NodeConfigOpts)
+	data, err := toml.Marshal(n.NodeConfig)
 	if err != nil {
 		return nil, err
 	}

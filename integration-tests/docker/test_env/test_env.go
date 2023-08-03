@@ -9,7 +9,7 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/node_config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	tc "github.com/testcontainers/testcontainers-go"
 	"go.uber.org/multierr"
 )
@@ -60,7 +60,7 @@ func (m *CLClusterTestEnv) StartMockServer() error {
 }
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
-func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts node_config.NodeConfig, count int) error {
+func (m *CLClusterTestEnv) StartClNodes(nodeConfig chainlink.Config, count int) error {
 	var wg sync.WaitGroup
 	var errs = []error{}
 	var mu sync.Mutex
@@ -76,7 +76,7 @@ func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts node_config.NodeConfig, c
 				nodeContainerName = m.cfg.Nodes[i].NodeContainerName
 				dbContainerName = m.cfg.Nodes[i].DbContainerName
 			}
-			n := NewClNode([]string{m.Network.Name}, nodeConfigOpts,
+			n := NewClNode([]string{m.Network.Name}, nodeConfig,
 				WithNodeContainerName(nodeContainerName),
 				WithDbContainerName(dbContainerName))
 			err := n.StartContainer(m.LogWatch)
