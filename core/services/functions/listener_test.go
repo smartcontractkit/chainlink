@@ -64,10 +64,10 @@ var (
 	ResultBytes                                      = []byte{0xab, 0xcd}
 	ErrorBytes                                       = []byte{0xff, 0x11}
 	Domains                                          = []string{"github.com", "google.com"}
-	EncryptedSecretsUrls []byte                      = []byte{0x11, 0x22}
-	EncryptedSecrets     []byte                      = []byte(`{"TDH2Ctxt":"eyJHcm","SymCtxt":"+yHR","Nonce":"kgjHyT3Jar0M155E"}`)
-	DecryptedSecrets     []byte                      = []byte(`{"0x0":"lhcK"}`)
-	SignedCBORRequestHex string                      = "a666736f75726365782172657475726e2046756e6374696f6e732e656e636f646555696e743235362831296773656372657473421234686c616e6775616765006c636f64654c6f636174696f6e006f736563726574734c6f636174696f6e0170726571756573745369676e617475726558416fb6d10871aa3865b6620dc5f4594d2a9ad9166ba6b1dbc3f508362fd27aa0461babada48979092a11ecadec9c663a2ea99da4e368408b36a3fb414acfefdd2a1c"
+	EncryptedSecretsUrls                             = []byte{0x11, 0x22}
+	EncryptedSecrets                                 = []byte(`{"TDH2Ctxt":"eyJHcm","SymCtxt":"+yHR","Nonce":"kgjHyT3Jar0M155E"}`)
+	DecryptedSecrets                                 = []byte(`{"0x0":"lhcK"}`)
+	SignedCBORRequestHex                             = "a666736f75726365782172657475726e2046756e6374696f6e732e656e636f646555696e743235362831296773656372657473421234686c616e6775616765006c636f64654c6f636174696f6e006f736563726574734c6f636174696f6e0170726571756573745369676e617475726558416fb6d10871aa3865b6620dc5f4594d2a9ad9166ba6b1dbc3f508362fd27aa0461babada48979092a11ecadec9c663a2ea99da4e368408b36a3fb414acfefdd2a1c"
 	SubOwnerAddr         common.Address              = common.HexToAddress("0x2334dE553AB93c69b0ccbe278B6f5E8350Db6204")
 	NonSubOwnerAddr      common.Address              = common.HexToAddress("0x60C9CF55b9de9A956d921A97575108149b758131")
 )

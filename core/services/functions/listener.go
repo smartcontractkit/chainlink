@@ -516,10 +516,8 @@ func (l *FunctionsListener) verifyRequestSignature(requestID RequestID, subscrip
 		recoveredAddr := crypto.PubkeyToAddress(*sigPublicKey)
 		if recoveredAddr == subscriptionOwner {
 			return nil
-		} else {
-			fmt.Println("\n\nrecoveredAddr", recoveredAddr.Hex())
-			return errors.New("invalid signature: signer's address does not match subscription owner")
 		}
+		return errors.New("invalid signature: signer's address does not match subscription owner")
 	}
 
 	return errors.New("invalid signature: unable to recover signer's address")
