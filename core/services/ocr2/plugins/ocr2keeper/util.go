@@ -157,7 +157,7 @@ func EVMDependencies21(
 		return nil, nil, nil, nil, nil, nil, kevm21.BlockSubscriber{}, err
 	}
 
-	hp := kevm21.NewHeadProvider(chain, 128, lggr)
+	hp := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), 128, lggr)
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
@@ -165,7 +165,7 @@ func EVMDependencies21(
 	// TODO: accept a version of the registry contract and use the correct interfaces
 	logTransmitter, err := kevm21.NewTransmitEventProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
-	return keeperProvider, registry, encoder, logTransmitter, registry.LogEventProvider(), kevm21.NewOnchainKeyringV3Wrapper(keyring), hp, err
+	return keeperProvider, registry, encoder, logTransmitter, registry.LogEventProvider(), kevm21.NewOnchainKeyringV3Wrapper(keyring), *hp, err
 }
 
 func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {
