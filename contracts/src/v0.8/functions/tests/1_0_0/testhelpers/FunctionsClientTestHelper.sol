@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
+import {FunctionsRequest} from "../../../dev/1_0_0/libraries/FunctionsRequest.sol";
+import {FunctionsClient} from "../../../dev/1_0_0/FunctionsClient.sol";
 import {ITermsOfServiceAllowList} from "../../../dev/1_0_0/accessControl/interfaces/ITermsOfServiceAllowList.sol";
 import {IFunctionsSubscriptions} from "../../../dev/1_0_0/interfaces/IFunctionsSubscriptions.sol";
 
