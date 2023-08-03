@@ -37,6 +37,15 @@ func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 		MaxReportTotalCallbackGas: uint32(maxTotalReportGas),
 		DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
 		UniqueReports:             true,
+		S4PluginConfig: &functionsConfig.S4ReportingPluginConfig{
+			MaxQueryLengthBytes:       10_000,
+			MaxObservationLengthBytes: 15_000,
+			MaxReportLengthBytes:      15_000,
+			NSnapshotShards:           1,
+			MaxObservationEntries:     100,
+			MaxReportEntries:          100,
+			MaxDeleteExpiredEntries:   100,
+		},
 	}
 
 	// config for oracle contract
