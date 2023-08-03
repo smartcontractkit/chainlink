@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
@@ -31,8 +30,6 @@ const (
 	// contract should be put above
 	UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
 )
-
-var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
 
@@ -128,15 +125,15 @@ func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (Upke
 }
 
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
-func (rp *evmRegistryPackerV2_1) UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error) {
-	var cfg automation_utils_2_1.LogTriggerConfig
+func (rp *evmRegistryPackerV2_1) UnpackLogTriggerConfig(raw []byte) (iregistry21.KeeperRegistryBase21LogTriggerConfig, error) {
+	var cfg iregistry21.KeeperRegistryBase21LogTriggerConfig
 
-	out, err := utilsABI.Methods["_logTriggerConfig"].Inputs.UnpackValues(raw)
+	out, err := rp.abi.Methods["getLogTriggerConfig"].Outputs.UnpackValues(raw)
 	if err != nil {
-		return cfg, fmt.Errorf("%w: unpack _logTriggerConfig return: %s", err, raw)
+		return cfg, fmt.Errorf("%w: unpack getLogTriggerConfig return: %s", err, raw)
 	}
 
-	converted, ok := abi.ConvertType(out[0], new(automation_utils_2_1.LogTriggerConfig)).(*automation_utils_2_1.LogTriggerConfig)
+	converted, ok := abi.ConvertType(out[0], new(iregistry21.KeeperRegistryBase21LogTriggerConfig)).(*iregistry21.KeeperRegistryBase21LogTriggerConfig)
 	if !ok {
 		return cfg, fmt.Errorf("failed to convert type")
 	}

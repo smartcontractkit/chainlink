@@ -64,6 +64,7 @@ type Registry interface {
 	GetUpkeep(opts *bind.CallOpts, id *big.Int) (UpkeepInfo, error)
 	GetState(opts *bind.CallOpts) (iregistry21.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
+	GetActiveUpkeepIDsByType(opts *bind.CallOpts, startIndex *big.Int, endIndex *big.Int, trigger uint8) ([]*big.Int, error)
 	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	CheckCallback(opts *bind.TransactOpts, id *big.Int, values [][]byte, extraData []byte) (*coreTypes.Transaction, error)
@@ -79,25 +80,25 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, *EVMAutomationEncoder21, error) {
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 	packer := NewEvmRegistryPackerV2_1(keeperRegistryABI, utilsABI)
 	logPacker := logprovider.NewLogEventsPacker(utilsABI)
 
 	registry, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
+		return nil, nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 
 	r := &EvmRegistry{
@@ -119,15 +120,15 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
 		},
 		hc:               http.DefaultClient,
-		enc:              EVMAutomationEncoder21{},
+		enc:              &EVMAutomationEncoder21{packer: packer},
 		logEventProvider: logprovider.New(lggr, client.LogPoller(), logPacker, nil), // TODO: pass opts
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
-		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
+		return nil, nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
 	}
 
-	return r, nil
+	return r, r.enc, nil
 }
 
 var upkeepStateEvents = []common.Hash{
@@ -159,9 +160,8 @@ type activeUpkeep struct {
 }
 
 type MercuryConfig struct {
-	cred *models.MercuryCredentials
-	abi  abi.ABI
-	// allowListCache stores the admin address' privilege. in 2.1, this only includes a JSON bytes for allowed to use mercury
+	cred           *models.MercuryCredentials
+	abi            abi.ABI
 	allowListCache *cache.Cache
 }
 
@@ -188,7 +188,7 @@ type EvmRegistry struct {
 	runError      error
 	mercury       *MercuryConfig
 	hc            HttpClient
-	enc           EVMAutomationEncoder21
+	enc           *EVMAutomationEncoder21
 
 	logEventProvider logprovider.LogEventProvider
 }
@@ -494,11 +494,11 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		// passing nil instead of l.TriggerConfig to protect against reorgs,
 		// as we'll fetch the latest config from the contract
-		if err := r.updateTriggerConfig(l.Id, nil); err != nil {
+		if err := r.updateTriggerConfig(l.Id, l.TriggerConfig); err != nil {
 			r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", l.Id.String(), err)
 		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepRegistered:
-		trigger := getUpkeepType(l.Id.Bytes())
+		trigger := getUpkeepType(ocr2keepers.UpkeepIdentifier(l.Id.Bytes()))
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s (trigger=%d) in transaction %s", l.Id.String(), trigger, hash)
 		r.addToActive(l.Id, false)
 		if err := r.updateTriggerConfig(l.Id, nil); err != nil {
@@ -528,7 +528,7 @@ func (r *EvmRegistry) removeFromActive(id *big.Int) {
 	delete(r.active, id.String())
 	r.mu.Unlock()
 
-	trigger := getUpkeepType(id.Bytes())
+	trigger := getUpkeepType(ocr2keepers.UpkeepIdentifier(id.Bytes()))
 	switch trigger {
 	case logTrigger:
 		if err := r.logEventProvider.UnregisterFilter(id); err != nil {
@@ -724,6 +724,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to unpack check result")
 			}
+			r.lggr.Debugf("check result for key %s: %+v", keys[i], results[i])
 		}
 	}
 
@@ -857,7 +858,7 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 			}
 			results[i] = activeUpkeep{ // TODO
 				ID:              ids[i],
-				PerformGasLimit: info.PerformGas,
+				PerformGasLimit: info.ExecuteGas,
 				CheckData:       info.CheckData,
 			}
 		}
@@ -868,10 +869,21 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 
 func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) error {
 	uid := id.String()
-	switch getUpkeepType(id.Bytes()) {
+	switch getUpkeepType(ocr2keepers.UpkeepIdentifier(id.Bytes())) {
 	case logTrigger:
 		if len(cfg) == 0 {
 			fetched, err := r.fetchTriggerConfig(id)
+			ctx, cancel := context.WithTimeout(r.ctx, 10*time.Second)
+			for err != nil {
+				time.Sleep(1 * time.Second) // backoff
+				select {
+				case <-ctx.Done():
+					cancel()
+					return errors.Wrap(err, "failed to fetch log upkeep config")
+				default:
+				}
+				fetched, err = r.fetchTriggerConfig(id)
+			}
 			if err != nil {
 				return errors.Wrap(err, "failed to fetch log upkeep config")
 			}
@@ -903,12 +915,4 @@ func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
 		return nil, err
 	}
 	return cfg, nil
-}
-
-func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
-	block, err := r.client.BlockByNumber(r.ctx, blockNumber)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("%w: failed to get latest block", ErrHeadNotAvailable)
-	}
-	return block.Hash(), nil
 }
