@@ -1,7 +1,12 @@
 package functions
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -47,10 +52,47 @@ type SignedRequestData struct {
 //  "source": string,
 // }
 
-func (l *FunctionsListener) VerifyRequestSignature(requestID RequestID, subscriptionOwner common.Address, requestData *RequestData) error {
-	return l.verifyRequestSignature(requestID, subscriptionOwner, requestData)
-}
+func VerifyRequestSignature(subscriptionOwner common.Address, requestData *RequestData) error {
+	if requestData.RequestSignature == nil {
+		return errors.New("missing signature")
+	}
+	signedRequestData := SignedRequestData{
+		CodeLocation:    requestData.CodeLocation,
+		Language:        requestData.Language,
+		Secrets:         requestData.Secrets,
+		SecretsLocation: requestData.SecretsLocation,
+		Source:          requestData.Source,
+	}
+	js, err := json.Marshal(signedRequestData)
+	if err != nil {
+		return errors.New("unable to marshal request data")
+	}
 
-func (l *FunctionsListener) ParseCBOR(requestId RequestID, cborData []byte, maxSizeBytes uint32) (*RequestData, error) {
-	return l.parseCBOR(requestId, cborData, maxSizeBytes)
+	// Adjust the V component of the signature
+	if requestData.RequestSignature[64] > 1 {
+		requestData.RequestSignature[64] -= 27
+	}
+
+	hash := crypto.Keccak256Hash(js)
+	sigPublicKey, err := crypto.SigToPub(hash[:], requestData.RequestSignature)
+	if err == nil {
+		recoveredAddr := crypto.PubkeyToAddress(*sigPublicKey)
+		if recoveredAddr == subscriptionOwner {
+			return nil
+		}
+	}
+
+	// If unable to verify the raw signature, try to verify the signature of the prefixed message
+	prefixedJs := fmt.Sprintf("%s%d%s", EthSignedMessagePrefix, len(js), js)
+	prefixedHash := crypto.Keccak256Hash([]byte(prefixedJs))
+	sigPublicKey, err = crypto.SigToPub(prefixedHash[:], requestData.RequestSignature)
+	if err == nil {
+		recoveredAddr := crypto.PubkeyToAddress(*sigPublicKey)
+		if recoveredAddr == subscriptionOwner {
+			return nil
+		}
+		return errors.New("invalid signature: signer's address does not match subscription owner")
+	}
+
+	return errors.New("invalid signature: unable to recover signer's address")
 }

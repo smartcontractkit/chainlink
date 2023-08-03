@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	cl_cbor "github.com/smartcontractkit/chainlink/v2/core/cbor"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_oracle"
@@ -475,35 +476,30 @@ func TestFunctionsListener_PruneRequests(t *testing.T) {
 func TestFunctionsListener_RequestSignatureVerification(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
-	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000, false)
-	l := uni.service
 
 	cborBytes, err := hex.DecodeString(SignedCBORRequestHex)
 	require.NoError(t, err)
 
-	reqId := newRequestID()
-	requestData, err := l.ParseCBOR(reqId, cborBytes, 10_000)
+	var requestData functions_service.RequestData
+	err = cl_cbor.ParseDietCBORToStruct(cborBytes, &requestData)
 	require.NoError(t, err)
 
-	err = l.VerifyRequestSignature(reqId, SubOwnerAddr, requestData)
-	assert.NoError(t, err)
+	err = functions_service.VerifyRequestSignature(SubOwnerAddr, &requestData)
+	assert.EqualError(t, err, "invalid signature: signer's address does not match subscription owner")
 }
 
 func TestFunctionsListener_RequestSignatureVerificationFailure(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000, false)
-	l := uni.service
-
 	cborBytes, err := hex.DecodeString(SignedCBORRequestHex)
 	require.NoError(t, err)
 
-	reqId := newRequestID()
-	requestData, err := l.ParseCBOR(reqId, cborBytes, 10_000)
+	var requestData functions_service.RequestData
+	err = cl_cbor.ParseDietCBORToStruct(cborBytes, &requestData)
 	require.NoError(t, err)
 
-	err = l.VerifyRequestSignature(reqId, NonSubOwnerAddr, requestData)
+	err = functions_service.VerifyRequestSignature(NonSubOwnerAddr, &requestData)
 	assert.EqualError(t, err, "invalid signature: signer's address does not match subscription owner")
 }
 

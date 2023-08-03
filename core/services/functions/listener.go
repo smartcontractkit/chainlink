@@ -2,7 +2,6 @@ package functions
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"reflect"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -479,52 +477,6 @@ func (l *FunctionsListener) parseCBOR(requestId RequestID, cborData []byte, maxS
 	return &requestData, nil
 }
 
-func (l *FunctionsListener) verifyRequestSignature(requestID RequestID, subscriptionOwner common.Address, requestData *RequestData) error {
-	if requestData.RequestSignature == nil {
-		return errors.New("missing signature")
-	}
-	signedRequestData := SignedRequestData{
-		CodeLocation:    requestData.CodeLocation,
-		Language:        requestData.Language,
-		Secrets:         requestData.Secrets,
-		SecretsLocation: requestData.SecretsLocation,
-		Source:          requestData.Source,
-	}
-	js, err := json.Marshal(signedRequestData)
-	if err != nil {
-		l.logger.Error("unable to marshal request data during signature validation")
-		return errors.New("unable to marshal request data")
-	}
-
-	// Adjust the V component of the signature
-	if requestData.RequestSignature[64] > 1 {
-		requestData.RequestSignature[64] -= 27
-	}
-
-	hash := crypto.Keccak256Hash(js)
-	sigPublicKey, err := crypto.SigToPub(hash[:], requestData.RequestSignature)
-	if err == nil {
-		recoveredAddr := crypto.PubkeyToAddress(*sigPublicKey)
-		if recoveredAddr == subscriptionOwner {
-			return nil
-		}
-	}
-
-	// If unable to verify the raw signature, try to verify the signature of the prefixed message
-	prefixedJs := fmt.Sprintf("%s%d%s", EthSignedMessagePrefix, len(js), js)
-	prefixedHash := crypto.Keccak256Hash([]byte(prefixedJs))
-	sigPublicKey, err = crypto.SigToPub(prefixedHash[:], requestData.RequestSignature)
-	if err == nil {
-		recoveredAddr := crypto.PubkeyToAddress(*sigPublicKey)
-		if recoveredAddr == subscriptionOwner {
-			return nil
-		}
-		return errors.New("invalid signature: signer's address does not match subscription owner")
-	}
-
-	return errors.New("invalid signature: unable to recover signer's address")
-}
-
 func (l *FunctionsListener) handleRequest(ctx context.Context, requestID RequestID, subscriptionId uint64, subscriptionOwner common.Address, flags RequestFlags, requestData *RequestData) {
 	startTime := time.Now()
 	defer func() {
@@ -535,7 +487,7 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 	l.logger.Infow("processing request", "requestID", requestIDStr)
 
 	if l.pluginConfig.ContractVersion == 1 && l.pluginConfig.EnableRequestSignatureCheck {
-		err := l.verifyRequestSignature(requestID, subscriptionOwner, requestData)
+		err := VerifyRequestSignature(subscriptionOwner, requestData)
 		if err != nil {
 			l.logger.Errorw("invalid request signature", "requestID", requestIDStr, "err", err)
 			l.setError(ctx, requestID, USER_ERROR, []byte(err.Error()))
