@@ -60,7 +60,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	from := accounts[0]
 	to := accounts[1]
 	require.NoError(t, app.GetKeyStore().Cosmos().Add(cosmoskey.Raw(from.PrivateKey.Bytes()).Key()))
-	chain, err := app.GetRelayers().LegacyCosmosChains().Get(chainID.String())
+	chain, err := app.GetRelayers().LegacyCosmosChains().Get(chainID)
 	require.NoError(t, err)
 
 	reader, err := chain.Reader("")

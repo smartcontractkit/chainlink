@@ -67,7 +67,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230802213321-2762707056ce
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230803122712-2557d57f8ea6
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230801204930-f46c3ccc7815
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230612131011-369bfb503592
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230622060316-7ce48476dd7d
