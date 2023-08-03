@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 )
 
@@ -97,12 +97,10 @@ func TestVRFv2Basic(t *testing.T) {
 	//	Key = '...'
 	addr, err := env.CLNodes[0].API.PrimaryEthAddress()
 	require.NoError(t, err)
-	newCfg := env.CLNodes[0].NodeConfigOpts
-	newCfg.VRFv2Opts = &templates.NodeVRFv2ConfigOpts{
-		Key:          addr,
-		PriceMaxGwei: MaxGasPriceGWei,
-	}
-	err = env.CLNodes[0].Restart(newCfg)
+	nodeConfig := node.NewConfig(env.CLNodes[0].NodeConfig,
+		node.WithVRFv2EVMEstimator(addr),
+	)
+	err = env.CLNodes[0].Restart(nodeConfig)
 	require.NoError(t, err)
 
 	// test and assert

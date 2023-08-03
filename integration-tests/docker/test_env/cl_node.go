@@ -43,7 +43,7 @@ type ClNode struct {
 	API        *client.ChainlinkClient
 	NodeConfig *chainlink.Config
 	PostgresDb *PostgresDb
-	lw             *logwatch.LogWatch
+	lw         *logwatch.LogWatch
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -72,7 +72,7 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, nodeConfig chainlink.Config, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:3])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
@@ -81,7 +81,7 @@ func NewClNode(networks []string, nodeConfig chainlink.Config, opts ...ClNodeOpt
 			ContainerName: nodeDefaultCName,
 			Networks:      networks,
 		},
-		NodeConfig: &nodeConfig,
+		NodeConfig: nodeConfig,
 		PostgresDb: pgDb,
 	}
 	for _, opt := range opts {
@@ -91,11 +91,11 @@ func NewClNode(networks []string, nodeConfig chainlink.Config, opts ...ClNodeOpt
 }
 
 // Restart restarts only CL node, DB container is reused
-func (m *ClNode) Restart(opts chainlink.Config) error {
+func (m *ClNode) Restart(cfg *chainlink.Config) error {
 	if err := m.Container.Terminate(context.Background()); err != nil {
 		return err
 	}
-	m.NodeConfig = &opts
+	m.NodeConfig = cfg
 	return m.StartContainer()
 }
 

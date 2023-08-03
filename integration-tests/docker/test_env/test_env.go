@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	tc "github.com/testcontainers/testcontainers-go"
 	"go.uber.org/multierr"
@@ -99,7 +98,7 @@ func (m *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
 }
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
-func (m *CLClusterTestEnv) StartClNodes(nodeConfig chainlink.Config, count int) error {
+func (m *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int) error {
 	var wg sync.WaitGroup
 	var errs = []error{}
 	var mu sync.Mutex
