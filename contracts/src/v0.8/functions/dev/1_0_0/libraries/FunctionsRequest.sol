@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Buffer} from "../../../../vendor/@ensdomains/buffer/0.1.0/Buffer.sol";
 import {CBOR} from "../../../../vendor/solidity-cborutils/v2.0.0/CBOR.sol";
 
 /**
  * @title Library for encoding the input data of a Functions request into CBOR
  */
 library FunctionsRequest {
-  using CBOR for Buffer.buffer;
+  using CBOR for CBOR.CBORBuffer;
 
   uint16 public constant REQUEST_DATA_VERSION = 1;
   uint256 internal constant DEFAULT_BUFFER_SIZE = 256;
@@ -45,44 +44,43 @@ library FunctionsRequest {
    * @return CBOR encoded bytes
    */
   function encodeCBOR(Request memory self) internal pure returns (bytes memory) {
-    CBOR.CBORBuffer memory buffer;
-    Buffer.init(buffer.buf, DEFAULT_BUFFER_SIZE);
+    CBOR.CBORBuffer memory buffer = CBOR.create(DEFAULT_BUFFER_SIZE);
 
-    CBOR.writeString(buffer, "codeLocation");
-    CBOR.writeUInt256(buffer, uint256(self.codeLocation));
+    buffer.writeString("codeLocation");
+    buffer.writeUInt256(uint256(self.codeLocation));
 
-    CBOR.writeString(buffer, "language");
-    CBOR.writeUInt256(buffer, uint256(self.language));
+    buffer.writeString("language");
+    buffer.writeUInt256(uint256(self.language));
 
-    CBOR.writeString(buffer, "source");
-    CBOR.writeString(buffer, self.source);
+    buffer.writeString("source");
+    buffer.writeString(self.source);
 
     if (self.args.length > 0) {
-      CBOR.writeString(buffer, "args");
-      CBOR.startArray(buffer);
+      buffer.writeString("args");
+      buffer.startArray();
       for (uint256 i = 0; i < self.args.length; ++i) {
-        CBOR.writeString(buffer, self.args[i]);
+        buffer.writeString(self.args[i]);
       }
-      CBOR.endSequence(buffer);
+      buffer.endSequence();
     }
 
     if (self.encryptedSecretsReference.length > 0) {
       if (self.secretsLocation == Location.Inline) {
         revert NoInlineSecrets();
       }
-      CBOR.writeString(buffer, "secretsLocation");
-      CBOR.writeUInt256(buffer, uint256(self.secretsLocation));
-      CBOR.writeString(buffer, "secrets");
-      CBOR.writeBytes(buffer, self.encryptedSecretsReference);
+      buffer.writeString("secretsLocation");
+      buffer.writeUInt256(uint256(self.secretsLocation));
+      buffer.writeString("secrets");
+      buffer.writeBytes(self.encryptedSecretsReference);
     }
 
     if (self.bytesArgs.length > 0) {
-      CBOR.writeString(buffer, "bytesArgs");
-      CBOR.startArray(buffer);
+      buffer.writeString("bytesArgs");
+      buffer.startArray();
       for (uint256 i = 0; i < self.bytesArgs.length; ++i) {
-        CBOR.writeBytes(buffer, self.bytesArgs[i]);
+        buffer.writeBytes(self.bytesArgs[i]);
       }
-      CBOR.endSequence(buffer);
+      buffer.endSequence();
     }
 
     return buffer.buf.buf;
