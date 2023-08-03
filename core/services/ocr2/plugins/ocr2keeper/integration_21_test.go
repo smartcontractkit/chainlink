@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/big"
 	"strings"
 	"testing"
@@ -341,14 +340,8 @@ func deployUpkeeps(t *testing.T, backend *backends.SimulatedBackend, carrol, ste
 			"topic3":          "0x",
 		}, logTriggerConfigType)
 		require.NoError(t, err)
-		var err2 error
-		enc := extraDataEncoder()
-		extraData, err2 := enc.Encode([]interface{}{uint8(1), logTriggerConfig, "0x"})
-		if err2 != nil {
-			log.Fatal(err2)
-		}
 
-		registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 1, []byte{}, extraData, []byte{})
+		registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 1, []byte{}, logTriggerConfig, []byte{})
 		require.NoError(t, err)
 		backend.Commit()
 		upkeepID := getUpkeepIdFromTx21(t, registry, registrationTx, backend)
