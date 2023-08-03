@@ -824,7 +824,16 @@ func (d *Delegate) newServicesOCR2Keepers(
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
-	keeperProvider, rgstry, encoder, transmitEventProvider, logProvider, wrappedKey, blockSub, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc, kb)	if err2 != nil {
+
+	credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
+	if err2 != nil {
+		return nil, errors.Wrap(err2, "failed to get mercury credential name")
+	}
+
+	mc := d.cfg.Mercury().Credentials(credName)
+
+	keeperProvider, rgstry, encoder, transmitEventProvider, logProvider, wrappedKey, blockSub, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc, kb)
+	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
 
