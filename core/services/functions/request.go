@@ -42,7 +42,7 @@ type SignedRequestData struct {
 	Source          string `json:"source" cbor:"source"`
 }
 
-// The request signature should sign the keccak256 hash of the following JSON string
+// The request signature should sign the keccak256 hash of the following JSON string (without extra whitespace)
 // with the corresponding Request fields in the order that they appear below:
 // {
 //  "codeLocation": number, (0 for Location.Inline)
