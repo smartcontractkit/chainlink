@@ -34,25 +34,17 @@ contract FunctionsRouterSetup is BaseTest {
     s_termsOfServiceAllowList = new TermsOfServiceAllowList(address(s_functionsRouter), getTermsOfServiceConfig());
   }
 
-  function getRouterConfig() public view returns (bytes memory) {
+  function getRouterConfig() public view returns (IFunctionsRouter.Config memory) {
     uint32[] memory maxCallbackGasLimits = new uint32[](1);
     maxCallbackGasLimits[0] = type(uint32).max;
 
-    // First create the struct to get some type safety
-    IFunctionsRouter.Config memory routerConfig = IFunctionsRouter.Config({
-      maxConsumersPerSubscription: s_maxConsumersPerSubscription,
-      adminFee: s_adminFee,
-      handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
-      maxCallbackGasLimits: maxCallbackGasLimits
-    });
-
     return
-      abi.encode(
-        routerConfig.maxConsumersPerSubscription,
-        routerConfig.adminFee,
-        routerConfig.handleOracleFulfillmentSelector,
-        routerConfig.maxCallbackGasLimits
-      );
+      IFunctionsRouter.Config({
+        maxConsumersPerSubscription: s_maxConsumersPerSubscription,
+        adminFee: s_adminFee,
+        handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
+        maxCallbackGasLimits: maxCallbackGasLimits
+      });
   }
 
   function getCoordinatorConfig() public pure returns (bytes memory) {
