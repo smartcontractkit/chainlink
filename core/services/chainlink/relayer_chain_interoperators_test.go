@@ -37,8 +37,8 @@ import (
 func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 	evmChainID1, evmChainID2 := utils.NewBig(big.NewInt(1)), utils.NewBig(big.NewInt(2))
-	solanaChainID1 := "solana-id-1"
-	starknetChainID1 := "starknet-id-1"
+	solanaChainID1, solanaChainID2 := "solana-id-1", "solana-id-2"
+	starknetChainID1, starknetChainID2 := "starknet-id-1", "starknet-id-2"
 	cosmosChainID1, cosmosChainID2 := "cosmos-id-1", "cosmos-id-2"
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -89,6 +89,15 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8547").URL())),
 				}},
 			},
+			&solana.SolanaConfig{
+				ChainID: &solanaChainID2,
+				Enabled: ptr(true),
+				Chain:   solcfg.Chain{},
+				Nodes: []*solcfg.Node{{
+					Name: ptr("solana chain 2 node 1"),
+					URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8527").URL())),
+				}},
+			},
 		}
 
 		c.Starknet = starknet.StarknetConfigs{
@@ -108,6 +117,17 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					{
 						Name: ptr("starknet chain 1 node 3"),
 						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8549").URL())),
+					},
+				},
+			},
+			&starknet.StarknetConfig{
+				ChainID: &starknetChainID2,
+				Enabled: ptr(true),
+				Chain:   stkcfg.Chain{},
+				Nodes: []*stkcfg.Node{
+					{
+						Name: ptr("starknet chain 2 node 1"),
+						URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:3547").URL())),
 					},
 				},
 			},
@@ -155,16 +175,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		LoopRegistry: plugins.NewLoopRegistry(lggr),
 		GRPCOpts:     loop.GRPCOpts{},
 	}
-	/*
-		evmFactoryConfig := chainlink.EVMFactoryConfig{
-			RelayerConfig: evm.RelayerConfig{
-				GeneralConfig:    cfg,
-				EventBroadcaster: pg.NewNullEventBroadcaster(),
-				MailMon:          &utils.MailboxMonitor{},
-			},
-			CSAETHKeystore: keyStore,
-		}
-	*/
+
 	testctx := testutils.Context(t)
 
 	tests := []struct {
@@ -206,29 +217,31 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
 			},
 		},
-		{name: "1 solana chain with 1 node",
+		{name: "2 solana chain with 2 node",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
 					Keystore:      keyStore.Solana(),
 					SolanaConfigs: cfg.SolanaConfigs()},
 				)},
-			expectedSolanaChainCnt: 1,
-			expectedSolanaNodeCnt:  1,
+			expectedSolanaChainCnt: 2,
+			expectedSolanaNodeCnt:  2,
 			expectedSolanaRelayerIds: []relay.Identifier{
 				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
+				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
 			},
 		},
-		{name: "1 starknet chain with 3 node",
+		{name: "2 starknet chain with 4 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
 					Keystore:        keyStore.StarkNet(),
 					StarknetConfigs: cfg.StarknetConfigs()},
 				),
 			},
-			expectedStarknetChainCnt: 1,
-			expectedStarknetNodeCnt:  3,
+			expectedStarknetChainCnt: 2,
+			expectedStarknetNodeCnt:  4,
 			expectedStarknetRelayerIds: []relay.Identifier{
 				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
+				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
 			},
 		},
 
@@ -281,16 +294,18 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
 			},
 
-			expectedSolanaChainCnt: 1,
-			expectedSolanaNodeCnt:  1,
+			expectedSolanaChainCnt: 2,
+			expectedSolanaNodeCnt:  2,
 			expectedSolanaRelayerIds: []relay.Identifier{
 				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
+				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
 			},
 
-			expectedStarknetChainCnt: 1,
-			expectedStarknetNodeCnt:  3,
+			expectedStarknetChainCnt: 2,
+			expectedStarknetNodeCnt:  4,
 			expectedStarknetRelayerIds: []relay.Identifier{
 				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
+				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
 			},
 
 			expectedCosmosChainCnt: 2,

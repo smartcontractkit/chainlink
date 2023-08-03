@@ -32,7 +32,7 @@ var (
 
 // ChainSetOpts holds options for configuring a ChainSet.
 type ChainSetOpts struct {
-	Config           pg.QConfig //coreconfig.AppConfig
+	Config           pg.QConfig
 	Logger           logger.Logger
 	DB               *sqlx.DB
 	KeyStore         keystore.Cosmos
@@ -152,16 +152,6 @@ type SingleChainSet struct {
 	ID    string
 	chain adapters.Chain
 }
-
-/*
-func (s *SingleChainSet) getChain(ctx context.Context) adapters.Chain {
-	c, err := s.Chain(ctx, s.ID)
-	if err != nil {
-		panic(fmt.Errorf("inconsistent single chain set: %s", err))
-	}
-	return c
-}
-*/
 
 func (s *SingleChainSet) Chain(ctx context.Context, id string) (adapters.Chain, error) {
 	return s.chain, nil
