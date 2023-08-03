@@ -67,10 +67,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			return nil, fmt.Errorf("unexpected check result extension struct")
 		}
 
-		checkBlock, ok := big.NewInt(0).SetString(string(result.Payload.CheckBlock), 10)
-		if !ok {
-			return nil, fmt.Errorf("unexpected check block")
-		}
+		checkBlock := big.NewInt(result.Payload.Trigger.BlockNumber)
 
 		if checkBlock.Cmp(highestCheckBlock) == 1 {
 			highestCheckBlock = checkBlock

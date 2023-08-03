@@ -129,15 +129,6 @@ func TestEVMAutomationEncoder21_Encode_errors(t *testing.T) {
 		assert.Equal(t, err.Error(), "unexpected check result extension struct")
 	})
 
-	t.Run("an invalid check block causes an error", func(t *testing.T) {
-		result := newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "30").String()), 1, 1)
-		result.Payload.CheckBlock = "invalid"
-		b, err := encoder.Encode(result)
-		assert.Nil(t, b)
-		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "unexpected check block")
-	})
-
 	t.Run("an invalid upkeep ID causes an error", func(t *testing.T) {
 		result := newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "30").String()), 1, 1)
 		result.Payload.Upkeep.ID = []byte("invalid")
