@@ -10,9 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/pkg/errors"
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -70,20 +68,13 @@ func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, E
 	return errors.New(e.errMsg)
 }
 
-func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) BatchGetReceipts(
-	ctx context.Context,
-	attempts []txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
-) (txReceipt []TXRECEIPT, txErr []error, err error) {
-	return nil, nil, errors.New(e.errMsg)
-}
-
 func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) BatchSendTransactions(
 	ctx context.Context,
 	updateBroadcastTime func(now time.Time, txIDs []int64) error,
-	attempts []txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
+	attempts []any,
 	bathSize int,
 	lggr logger.Logger,
-) ([]clienttypes.SendTxReturnCode, []error, error) {
+) ([]SendTxReturnCode, []error, error) {
 	return nil, nil, errors.New(e.errMsg)
 }
 
@@ -93,6 +84,17 @@ func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, E
 
 func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendTransaction(ctx context.Context, tx *TX) error {
 	return errors.New(e.errMsg)
+}
+
+func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendEmptyTransaction(
+	ctx context.Context,
+	newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt any, err error),
+	seq SEQ,
+	gasLimit uint32,
+	fee FEE,
+	fromAddress ADDR,
+) (txhash string, err error) {
+	return "", errors.New(e.errMsg)
 }
 
 func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
@@ -106,7 +108,7 @@ func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, E
 func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendTransactionReturnCode(
 	ctx context.Context,
 	tx *TX,
-) (returnCode clienttypes.SendTxReturnCode, err error) {
+) (returnCode SendTxReturnCode, err error) {
 	return returnCode, errors.New(e.errMsg)
 }
 
@@ -215,10 +217,13 @@ func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, E
 }
 
 func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) DeclareOutOfSync() {
+	// no return value
 }
 func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) DeclareInSync() {
+	// no return value
 }
 func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) DeclareUnreachable() {
+	// no return value
 }
 func (e *erroringNode[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) Name() string {
 	return ""

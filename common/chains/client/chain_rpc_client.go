@@ -28,4 +28,5 @@ type ChainRPCClient[
 	ClientChainID(context.Context) (CHAINID, error)
 	Dial(callerCtx context.Context) error
 	DisconnectAll()
+	SetState(state NodeState)
 }

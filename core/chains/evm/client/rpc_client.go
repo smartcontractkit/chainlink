@@ -17,9 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
-	commonclient "github.com/smartcontractkit/chainlink/v2/common/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -27,48 +25,36 @@ import (
 
 type rpcClient struct {
 	utils.StartStopOnce
-	lfcLog              logger.Logger
-	rpcLog              logger.Logger
-	name                string
-	id                  int32
-	chainID             *big.Int
-	nodePoolCfg         config.NodePool
-	noNewHeadsThreshold time.Duration
-	order               int32
+	lfcLog  logger.Logger
+	rpcLog  logger.Logger
+	name    string
+	id      int32
+	chainID *big.Int
 
 	ws   rawclient
 	http *rawclient
 
 	stateMu sync.RWMutex // protects state* fields
-	state   NodeState
-	// Each node is tracking the last received head number and total difficulty
-	stateLatestBlockNumber     int64
-	stateLatestTotalDifficulty *utils.Big
+	state   clienttypes.NodeState
 
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
 	subs []ethereum.Subscription
 
 	// chStopInFlight can be closed to immediately cancel all in-flight requests on
-	// this node. Closing and replacing should be serialized through
-	// stateMu since it can happen on state transitions as well as node Close.
+	// this rpcClient. Closing and replacing should be serialized through
+	// stateMu since it can happen on state transitions as well as rpcClient Close.
 	chStopInFlight chan struct{}
-	// nodeCtx is the node lifetime's context
-	nodeCtx context.Context
-	// cancelNodeCtx cancels nodeCtx when stopping the node
-	cancelNodeCtx context.CancelFunc
+	// rpcClientCtx is the rpcClient lifetime's context
+	rpcClientCtx context.Context
+	// cancelRpcClientCtx cancels rpcClientCtx when stopping the rpcClient
+	cancelRpcClientCtx context.CancelFunc
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
-
-	// nLiveNodes is a passed in function that allows this node to:
-	//  1. see how many live nodes there are in total, so we can prevent the last alive node in a pool from being
-	//  moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
-	//  2. compare against the highest head (by number or difficulty) to ensure we don't fall behind too far.
-	nLiveNodes func() (count int, blockNumber int64, totalDifficulty *utils.Big)
 }
 
-// NewRPCCLient returns a new *rpcClient as multinodeclient.RPCClient
-func NewRPCClient(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, nodeOrder int32) commonclient.ChainRPCClient[
+// NewRPCCLient returns a new *rpcClient as clienttypes.RPCClient
+func NewRPCClient(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int) clienttypes.ChainRPCClient[
 	*big.Int,
 	evmtypes.Nonce,
 	common.Address,
@@ -87,52 +73,26 @@ func NewRPCClient(nodeCfg config.NodePool, noNewHeadsThreshold time.Duration, lg
 	r.name = name
 	r.id = id
 	r.chainID = chainID
-	r.nodePoolCfg = nodeCfg
-	r.noNewHeadsThreshold = noNewHeadsThreshold
 	r.ws.uri = wsuri
-	r.order = nodeOrder
 	if httpuri != nil {
 		r.http = &rawclient{uri: *httpuri}
 	}
 	r.chStopInFlight = make(chan struct{})
-	r.nodeCtx, r.cancelNodeCtx = context.WithCancel(context.Background())
+	r.rpcClientCtx, r.cancelRpcClientCtx = context.WithCancel(context.Background())
 	lggr = lggr.Named("Client").With(
 		"clientTier", "primary",
 		"clientName", name,
 		"client", r.String(),
 		"evmChainID", chainID,
-		"clientOrder", r.order,
 	)
 	r.lfcLog = lggr.Named("Lifecycle")
 	r.rpcLog = lggr.Named("RPC")
-	r.stateLatestBlockNumber = -1
 
 	return r
 }
 
-// makeLiveQueryCtx wraps makeQueryCtx but returns error if node is not NodeStateAlive.
-func (r *rpcClient) makeLiveQueryCtx(parentCtx context.Context) (ctx context.Context, cancel context.CancelFunc, ws rawclient, http *rawclient, err error) {
-	// Need to wrap in mutex because state transition can cancel and replace the
-	// context
-	r.stateMu.RLock()
-	if r.state != NodeStateAlive {
-		err = errors.Errorf("cannot execute RPC call on node with state: %s", r.state)
-		r.stateMu.RUnlock()
-		return
-	}
-	cancelCh := r.chStopInFlight
-	ws = r.ws
-	if r.http != nil {
-		cp := *r.http
-		http = &cp
-	}
-	r.stateMu.RUnlock()
-	ctx, cancel = makeQueryCtx(parentCtx, cancelCh)
-	return
-}
-
 // Not thread-safe
-// Pure dial: does not mutate node "state" field.
+// Pure dial: does not mutate rpcClient "state" field.
 func (r *rpcClient) Dial(callerCtx context.Context) error {
 	ctx, cancel := r.makeQueryCtx(callerCtx)
 	defer cancel()
@@ -184,11 +144,15 @@ func (r *rpcClient) Close() error {
 		r.stateMu.Lock()
 		defer r.stateMu.Unlock()
 
-		r.cancelNodeCtx()
+		r.cancelRpcClientCtx()
 		r.cancelInflightRequests()
-		r.state = NodeStateClosed
+		r.state = clienttypes.NodeStateClosed
 		return nil
 	})
+}
+
+func (r *rpcClient) SetState(state clienttypes.NodeState) {
+	r.state = state
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight
@@ -233,7 +197,7 @@ func (r *rpcClient) logResult(
 	promEVMPoolRPCCallTiming.
 		WithLabelValues(
 			r.chainID.String(),             // chain id
-			r.name,                         // node name
+			r.name,                         // rpcClient name
 			rpcDomain,                      // rpc domain
 			"false",                        // is send only
 			strconv.FormatBool(err == nil), // is successful
@@ -256,14 +220,14 @@ func (r *rpcClient) getRPCDomain() string {
 	return r.ws.uri.Host
 }
 
-// registerSub adds the sub to the node list
+// registerSub adds the sub to the rpcClient list
 func (r *rpcClient) registerSub(sub ethereum.Subscription) {
 	r.stateMu.Lock()
 	defer r.stateMu.Unlock()
 	r.subs = append(r.subs, sub)
 }
 
-// disconnectAll disconnects all clients connected to the node
+// disconnectAll disconnects all clients connected to the rpcClient
 // WARNING: NOT THREAD-SAFE
 // This must be called from within the r.stateMu lock
 func (r *rpcClient) DisconnectAll() {
@@ -317,7 +281,7 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []interface{}) error
 	if err != nil {
 		return err
 	}
-	// Kind of hacky: not sure if this is the best solution.
+	// Not sure if this is the best solution.
 	batch := make([]rpc.BatchElem, len(b))
 	for i, arg := range b {
 		batch[i] = arg.(rpc.BatchElem)
@@ -528,6 +492,18 @@ func (r *rpcClient) SendTransactionReturnCode(ctx context.Context, tx *types.Tra
 func (r *rpcClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
 	// todo: implement if used
 	return errors.New("SimulateTransaction not implemented")
+}
+
+func (r *rpcClient) SendEmptyTransaction(
+	ctx context.Context,
+	newTxAttempt func(nonce evmtypes.Nonce, feeLimit uint32, fee evmtypes.EvmFee, fromAddress common.Address) (attempt any, err error),
+	nonce evmtypes.Nonce,
+	gasLimit uint32,
+	fee evmtypes.EvmFee,
+	fromAddress common.Address,
+) (txhash string, err error) {
+	// todo: implement if used
+	return "", errors.New("SendEmptyTransaction not implemented")
 }
 
 // PendingSequenceAt returns one higher than the highest nonce from both mempool and mined transactions
@@ -1013,23 +989,13 @@ func (r *rpcClient) wrapHTTP(err error) error {
 	return err
 }
 
-func wrap(err error, tp string) error {
-	if err == nil {
-		return nil
-	}
-	if errors.Cause(err).Error() == "context deadline exceeded" {
-		err = errors.Wrap(err, "remote eth node timed out")
-	}
-	return errors.Wrapf(err, "%s call failed", tp)
-}
-
-// makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx but returns error if node is not NodeStateAlive.
+// makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx but returns error if rpcClient is not clienttypes.NodeStateAlive.
 func (r *rpcClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context) (ctx context.Context, cancel context.CancelFunc, ws rawclient, http *rawclient, err error) {
 	// Need to wrap in mutex because state transition can cancel and replace the
 	// context
 	r.stateMu.RLock()
-	if r.state != NodeStateAlive {
-		err = errors.Errorf("cannot execute RPC call on node with state: %s", r.state)
+	if r.state != clienttypes.NodeStateAlive {
+		err = errors.Errorf("cannot execute RPC call on rpcClient with state: %s", r.state)
 		r.stateMu.RUnlock()
 		return
 	}
@@ -1056,19 +1022,8 @@ func (r *rpcClient) getChStopInflight() chan struct{} {
 	return r.chStopInFlight
 }
 
-func (r *rpcClient) getNodeMode() string {
-	if r.http != nil {
-		return "http"
-	}
-	return "websocket"
-}
-
 func (r *rpcClient) Name() string {
 	return r.name
-}
-
-func (r *rpcClient) Order() int32 {
-	return r.order
 }
 
 func Name(r *rpcClient) string {

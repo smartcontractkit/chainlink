@@ -17,23 +17,23 @@ var (
 	promPoolRPCNodeHighestSeenBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pool_rpc_node_highest_seen_block",
 		Help: "The highest seen block for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
+	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeNumSeenBlocks = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_seen_blocks",
 		Help: "The total number of new blocks seen by the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
+	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodePolls = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_polls_total",
 		Help: "The total number of poll checks for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
+	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodePollsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_polls_failed",
 		Help: "The total number of failed poll checks for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
+	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodePollsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_polls_success",
 		Help: "The total number of successful poll checks for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
+	}, []string{"chainID", "nodeName"})
 )
 
 // zombieNodeCheckInterval controls how often to re-check to see if we need to
@@ -292,7 +292,6 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	ch := make(chan HEAD)
 	subCtx, cancel := n.makeQueryCtx(n.nodeCtx)
 	// raw call here to bypass node state checking
-	// TODO: Here is where I changed the functionality
 	sub, err := n.rpcClient.Subscribe(subCtx, ch, "newHeads")
 	cancel()
 	if err != nil {

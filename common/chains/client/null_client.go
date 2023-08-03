@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -53,7 +52,7 @@ func NewNullClient[
 func (n *nullClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendTransactionReturnCode(
 	ctx context.Context,
 	tx *TX,
-) (returnCode clienttypes.SendTxReturnCode, err error) {
+) (returnCode SendTxReturnCode, err error) {
 	return returnCode, nil
 }
 
@@ -210,6 +209,17 @@ func (n *nullClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVE
 	return nil
 }
 
+func (n *nullClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendEmptyTransaction(
+	ctx context.Context,
+	newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt any, err error),
+	seq SEQ,
+	gasLimit uint32,
+	fee FEE,
+	fromAddress ADDR,
+) (txhash string, err error) {
+	return "", nil
+}
+
 func (n *nullClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) BatchCallContext(ctx context.Context, b []any) error {
 	return nil
 }
@@ -230,4 +240,5 @@ func (n *nullClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVE
 	return
 }
 
-func (n *nullClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) report() {}
+func (n *nullClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) report() {
+}

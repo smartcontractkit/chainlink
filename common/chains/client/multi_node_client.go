@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -156,7 +155,7 @@ func NewMultiNodeClient[
 		}
 	}()
 
-	lggr := logger.Named("MultiNodeClient").With("evmChainID", chainID.String())
+	lggr := logger.Named("MultiNodeClient").With("chainID", chainID.String())
 
 	c := &multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]{
 		nodes:               nodes,
@@ -224,7 +223,7 @@ func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, 
 				// client / pool state and prevent certain state transitions that might
 				// otherwise leave no nodes available. It is better to have one
 				// node in a degraded state than no nodes at all.
-				rawNode.nLiveNodes = rawNode.nLiveNodes
+				rawNode.nLiveNodes = client.nLiveNodes
 			}
 			// node will handle its own redialing and automatic recovery
 			if err := ms.Start(ctx, n); err != nil {
@@ -340,11 +339,11 @@ func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, 
 	live := total - dead
 	client.logger.Tracew(fmt.Sprintf("Client state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	if total == dead {
-		rerr := fmt.Errorf("no EVM primary nodes available: 0/%d nodes are alive", total)
+		rerr := fmt.Errorf("no primary nodes available: 0/%d nodes are alive", total)
 		client.logger.Criticalw(rerr.Error(), "nodeStates", nodeStates)
 		client.SvcErrBuffer.Append(rerr)
 	} else if dead > 0 {
-		client.logger.Errorw(fmt.Sprintf("At least one EVM primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+		client.logger.Errorw(fmt.Sprintf("At least one primary node is dead: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	}
 }
 
@@ -451,16 +450,16 @@ func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, 
 	return client.selectNode().PendingSequenceAt(ctx, addr)
 }
 
-// func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendEmptyTransaction(
-// 	ctx context.Context,
-// 	newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE], err error),
-// 	seq SEQ,
-// 	gasLimit uint32,
-// 	fee FEE,
-// 	fromAddress ADDR,
-// ) (txhash string, err error) {
-// 	return client.selectNode().SendEmptyTransaction(ctx, newTxAttempt, seq, gasLimit, fee, fromAddress)
-// }
+func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendEmptyTransaction(
+	ctx context.Context,
+	newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt any, err error),
+	seq SEQ,
+	gasLimit uint32,
+	fee FEE,
+	fromAddress ADDR,
+) (txhash string, err error) {
+	return client.selectNode().SendEmptyTransaction(ctx, newTxAttempt, seq, gasLimit, fee, fromAddress)
+}
 
 func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendTransaction(ctx context.Context, tx *TX) error {
 	main := client.selectNode()
@@ -489,7 +488,7 @@ func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, 
 				defer cancel()
 				err, _ := n.SendTransactionReturnCode(sendCtx, tx)
 				client.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
-				if err == clienttypes.TransactionAlreadyKnown || err == clienttypes.Successful {
+				if err == TransactionAlreadyKnown || err == Successful {
 					// Nonce too low or transaction known errors are expected since
 					// the primary SendTransaction may well have succeeded already
 					return
@@ -505,19 +504,10 @@ func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, 
 	return main.SendTransaction(ctx, tx)
 }
 
-// func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendTransactionReturnCode(
-// 	ctx context.Context,
-// 	TX any,
-// 	attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
-// 	lggr logger.Logger,
-// ) (clienttypes.SendTxReturnCode, error) {
-// 	return client.selectNode().SendTransactionReturnCode(ctx, tx, attempt, lggr)
-// }
-
 func (client *multiNodeClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendTransactionReturnCode(
 	ctx context.Context,
 	tx *TX,
-) (clienttypes.SendTxReturnCode, error) {
+) (SendTxReturnCode, error) {
 	return client.selectNode().SendTransactionReturnCode(ctx, tx)
 }
 

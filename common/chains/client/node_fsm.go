@@ -9,32 +9,31 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// TODO: get rid of "evm" in the following logs
 var (
 	promPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_alive",
-		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateAlive),
-	}, []string{"evmChainID", "nodeName"})
+		Help: transitionString(NodeStateAlive),
+	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToInSync = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_in_sync",
-		Help: fmt.Sprintf("Total number of times node has transitioned from %s to %s", NodeStateOutOfSync, NodeStateAlive),
-	}, []string{"evmChainID", "nodeName"})
+		Help: fmt.Sprintf("%s to %s", transitionString(NodeStateOutOfSync), NodeStateAlive),
+	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToOutOfSync = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_out_of_sync",
-		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateOutOfSync),
-	}, []string{"evmChainID", "nodeName"})
+		Help: transitionString(NodeStateOutOfSync),
+	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToUnreachable = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_unreachable",
-		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateUnreachable),
-	}, []string{"evmChainID", "nodeName"})
+		Help: transitionString(NodeStateUnreachable),
+	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToInvalidChainID = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
-		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateInvalidChainID),
-	}, []string{"evmChainID", "nodeName"})
+		Help: transitionString(NodeStateInvalidChainID),
+	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_unusable",
-		Help: fmt.Sprintf("Total number of times node has transitioned to %s", NodeStateUnusable),
-	}, []string{"evmChainID", "nodeName"})
+		Help: transitionString(NodeStateUnusable),
+	}, []string{"chainID", "nodeName"})
 )
 
 // NodeState represents the current state of the node
@@ -67,6 +66,10 @@ func (n NodeState) String() string {
 // GoString prints a prettier state
 func (n NodeState) GoString() string {
 	return fmt.Sprintf("NodeState%s(%d)", n.String(), n)
+}
+
+func transitionString(state NodeState) string {
+	return fmt.Sprintf("Total number of times node has transitioned to %s", state)
 }
 
 const (
@@ -124,7 +127,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) setState(s NodeState) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	n.state = s
+	n.SetState(s)
 }
 
 // declareXXX methods change the state and pass conrol off the new state
@@ -147,7 +150,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	}
 	switch n.state {
 	case NodeStateDialed, NodeStateInvalidChainID:
-		n.state = NodeStateAlive
+		n.SetState(NodeStateAlive)
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateAlive))
 	}
@@ -174,7 +177,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	}
 	switch n.state {
 	case NodeStateOutOfSync:
-		n.state = NodeStateAlive
+		n.SetState(NodeStateAlive)
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateAlive))
 	}
@@ -201,7 +204,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	switch n.state {
 	case NodeStateAlive:
 		n.disconnectAll()
-		n.state = NodeStateOutOfSync
+		n.SetState(NodeStateOutOfSync)
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateOutOfSync))
 	}
@@ -226,7 +229,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	switch n.state {
 	case NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync, NodeStateInvalidChainID:
 		n.disconnectAll()
-		n.state = NodeStateUnreachable
+		n.SetState(NodeStateUnreachable)
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateUnreachable))
 	}
@@ -251,7 +254,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	switch n.state {
 	case NodeStateDialed, NodeStateOutOfSync:
 		n.disconnectAll()
-		n.state = NodeStateInvalidChainID
+		n.SetState(NodeStateInvalidChainID)
 	default:
 		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateInvalidChainID))
 	}

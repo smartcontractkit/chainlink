@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -31,10 +30,6 @@ type RPCClient[
 	Blocks[BLOCK, BLOCKHASH]
 
 	BatchCallContext(ctx context.Context, b []any) error
-	// BatchGetReceipts(
-	// 	ctx context.Context,
-	// 	attempts []txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
-	// ) (txReceipt []TXRECEIPT, txErr []error, err error)
 	CallContract(
 		ctx context.Context,
 		attempt interface{},
@@ -49,24 +44,18 @@ type RPCClient[
 	HeadByHash(ctx context.Context, hash BLOCKHASH) (head HEAD, err error)
 	LINKBalance(ctx context.Context, accountAddress ADDR, linkAddress ADDR) (*assets.Link, error)
 	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
-	// SendEmptyTransaction(
-	// 	ctx context.Context,
-	// 	newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE], err error),
-	// 	seq SEQ,
-	// 	gasLimit uint32,
-	// 	fee FEE,
-	// 	fromAddress ADDR,
-	// ) (txhash string, err error)
+	SendEmptyTransaction(
+		ctx context.Context,
+		newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt any, err error),
+		seq SEQ,
+		gasLimit uint32,
+		fee FEE,
+		fromAddress ADDR,
+	) (txhash string, err error)
 	SendTransactionReturnCode(
 		ctx context.Context,
 		tx *TX,
-	) (clienttypes.SendTxReturnCode, error)
-	// SendTransactionReturnCode(
-	// 	ctx context.Context,
-	// 	TX any,
-	// 	attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE],
-	// 	lggr logger.Logger,
-	// ) (clienttypes.SendTxReturnCode, error)
+	) (SendTxReturnCode, error)
 	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (SUB, error)
 }
 

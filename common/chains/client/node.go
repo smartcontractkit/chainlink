@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -25,45 +24,45 @@ const queryTimeout = 10 * time.Second
 var errInvalidChainID = errors.New("invalid chain id")
 
 var (
-	promEVMPoolRPCNodeDials = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_dials_total",
+	promPoolRPCNodeDials = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_dials_total",
 		Help: "The total number of dials for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeDialsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_dials_failed",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeDialsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_dials_failed",
 		Help: "The total number of failed dials for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeDialsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_dials_success",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeDialsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_dials_success",
 		Help: "The total number of successful dials for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeVerifies = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_verifies",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeVerifies = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_verifies",
 		Help: "The total number of chain ID verifications for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeVerifiesFailed = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_verifies_failed",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeVerifiesFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_verifies_failed",
 		Help: "The total number of failed chain ID verifications for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeVerifiesSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_verifies_success",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeVerifiesSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_verifies_success",
 		Help: "The total number of successful chain ID verifications for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
+	}, []string{"chainID", "nodeName"})
 
-	promEVMPoolRPCNodeCalls = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_calls_total",
+	promPoolRPCNodeCalls = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_calls_total",
 		Help: "The approximate total number of RPC calls for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeCallsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_calls_failed",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeCallsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_calls_failed",
 		Help: "The approximate total number of failed RPC calls for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCNodeCallsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "evm_pool_rpc_node_calls_success",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeCallsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_calls_success",
 		Help: "The approximate total number of successful RPC calls for the given RPC node",
-	}, []string{"evmChainID", "nodeName"})
-	promEVMPoolRPCCallTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "evm_pool_rpc_node_rpc_call_time",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCCallTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "pool_rpc_node_rpc_call_time",
 		Help: "The duration of an RPC call in nanoseconds",
 		Buckets: []float64{
 			float64(50 * time.Millisecond),
@@ -75,7 +74,7 @@ var (
 			float64(4 * time.Second),
 			float64(8 * time.Second),
 		},
-	}, []string{"evmChainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
+	}, []string{"chainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
 )
 
 type rawclient struct {
@@ -228,9 +227,9 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 }
 
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) String() string {
-	s := fmt.Sprintf("(primary)%s:%s", n.name, n.ws.uri)
+	s := fmt.Sprintf("(primary)%s:%s", n.name, n.ws.uri.String())
 	if n.http != nil {
-		s = s + fmt.Sprintf(":%s", n.http.uri)
+		s = s + fmt.Sprintf(":%s", n.http.uri.String())
 	}
 	return s
 }
@@ -322,9 +321,9 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	ctx, cancel := n.makeQueryCtx(callerCtx)
 	defer cancel()
 
-	promEVMPoolRPCNodeVerifies.WithLabelValues(n.chainID.String(), n.name).Inc()
+	promPoolRPCNodeVerifies.WithLabelValues(n.chainID.String(), n.name).Inc()
 	promFailed := func() {
-		promEVMPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
+		promPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
 	}
 
 	st := n.State()
@@ -364,7 +363,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 		}
 	}
 
-	promEVMPoolRPCNodeVerifiesSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
+	promPoolRPCNodeVerifiesSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
 
 	return nil
 }
@@ -475,16 +474,16 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	return n.rpcClient.PendingSequenceAt(ctx, addr)
 }
 
-// func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendEmptyTransaction(
-// 	ctx context.Context,
-// 	newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt txmgrtypes.TxAttempt[CHAINID, ADDR, TXHASH, BLOCKHASH, SEQ, FEE], err error),
-// 	seq SEQ,
-// 	gasLimit uint32,
-// 	fee FEE,
-// 	fromAddress ADDR,
-// ) (txhash string, err error) {
-// 	return n.rpcClient.SendEmptyTransaction(ctx, newTxAttempt, seq, gasLimit, fee, fromAddress)
-// }
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendEmptyTransaction(
+	ctx context.Context,
+	newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt any, err error),
+	seq SEQ,
+	gasLimit uint32,
+	fee FEE,
+	fromAddress ADDR,
+) (txhash string, err error) {
+	return n.rpcClient.SendEmptyTransaction(ctx, newTxAttempt, seq, gasLimit, fee, fromAddress)
+}
 
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendTransaction(ctx context.Context, tx *TX) error {
 	return n.rpcClient.SendTransaction(ctx, tx)
@@ -493,8 +492,13 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SendTransactionReturnCode(
 	ctx context.Context,
 	tx *TX,
-) (clienttypes.SendTxReturnCode, error) {
+) (SendTxReturnCode, error) {
 	return n.rpcClient.SendTransactionReturnCode(ctx, tx)
+}
+
+func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SetState(state NodeState) {
+	n.state = state
+	n.rpcClient.SetState(state)
 }
 
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) SequenceAt(ctx context.Context, account ADDR, blockNumber *big.Int) (SEQ, error) {

@@ -1036,15 +1036,15 @@ func (n *node) wrapHTTP(err error) error {
 	return err
 }
 
-// func wrap(err error, tp string) error {
-// 	if err == nil {
-// 		return nil
-// 	}
-// 	if errors.Cause(err).Error() == "context deadline exceeded" {
-// 		err = errors.Wrap(err, "remote eth node timed out")
-// 	}
-// 	return errors.Wrapf(err, "%s call failed", tp)
-// }
+func wrap(err error, tp string) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Cause(err).Error() == "context deadline exceeded" {
+		err = errors.Wrap(err, "remote eth node timed out")
+	}
+	return errors.Wrapf(err, "%s call failed", tp)
+}
 
 // makeLiveQueryCtxAndSafeGetClients wraps makeQueryCtx but returns error if node is not NodeStateAlive.
 func (n *node) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context) (ctx context.Context, cancel context.CancelFunc, ws rawclient, http *rawclient, err error) {
