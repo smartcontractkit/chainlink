@@ -33,12 +33,18 @@ contract Verifier_setConfig is BaseTest {
 contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   uint256 internal constant DEFAULT_LINK_MINT_QUANTITY = 100 ether;
   uint256 internal constant DEFAULT_NATIVE_MINT_QUANTITY = 100 ether;
-
-  bytes internal signedLinkPayload;
-  bytes internal signedNativePayload;
-
   function setUp() public virtual override {
     super.setUp();
+
+    //mint some link and eth to warm the storage
+    link.mint(address(rewardManager), DEFAULT_LINK_MINT_QUANTITY);
+    native.mint(address(feeManager), DEFAULT_NATIVE_MINT_QUANTITY);
+
+    //warm the rewardManager
+    link.mint(address(this), DEFAULT_NATIVE_MINT_QUANTITY);
+    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, address(this));
+    (, , bytes32 latestConfigDigest) = s_verifier.latestConfigDetails(FEED_ID);
+    rewardManager.onFeePaid(latestConfigDigest, address(this), Common.Asset(address(link), DEFAULT_REPORT_LINK_FEE));
 
     //mint some tokens to the user
     link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);
@@ -52,28 +58,36 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
     _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
-    signedLinkPayload = _generateEncodedBlobWithFeesAndQuote(
+    changePrank(USER);
+  }
+
+  function testVerifyProxyWithLinkFeeSuccess_gas() public {
+    vm.pauseGasMetering();
+
+    bytes memory signedLinkPayload =  _generateEncodedBlobWithFeesAndQuote(
       _generateBillingReport(),
       _generateReportContext(),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
 
-    signedNativePayload = _generateEncodedBlobWithFeesAndQuote(
+    vm.resumeGasMetering();
+
+    s_verifierProxy.verify(signedLinkPayload);
+  }
+
+  function testVerifyProxyWithNativeFeeSuccess_gas() public {
+    vm.pauseGasMetering();
+
+    bytes memory signedNativePayload = _generateEncodedBlobWithFeesAndQuote(
       _generateBillingReport(),
       _generateReportContext(),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
 
-    changePrank(USER);
-  }
+    vm.resumeGasMetering();
 
-  function testVerifyProxyWithLinkFeeSuccess_gas() public {
-    s_verifierProxy.verify(signedLinkPayload);
-  }
-
-  function testVerifyProxyWithNativeFeeSuccess_gas() public {
     s_verifierProxy.verify(signedNativePayload);
   }
 }
@@ -103,11 +117,24 @@ contract Verifier_verify is BaseTestWithConfiguredVerifierAndFeeManager {
 
   function testVerifySuccess_gas() public {
     changePrank(address(s_verifierProxy));
-    s_verifier.verify(s_signedReport, msg.sender);
+
+    vm.pauseGasMetering();
+
+    bytes memory signedReport = s_signedReport;
+
+    vm.resumeGasMetering();
+
+    s_verifier.verify(signedReport, msg.sender);
   }
 
   function testVerifyProxySuccess_gas() public {
-    s_verifierProxy.verify(s_signedReport);
+    vm.pauseGasMetering();
+
+    bytes memory signedReport = s_signedReport;
+
+    vm.resumeGasMetering();
+
+    s_verifierProxy.verify(signedReport);
   }
 }
 
