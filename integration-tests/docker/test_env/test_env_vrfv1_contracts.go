@@ -10,21 +10,21 @@ var (
 	ErrDeployVRFConsumerV1    = "failed to deploy VRFv1 Consumer contract"
 )
 
-func (m *CLClusterTestEnv) DeployVRFContracts() error {
-	bhs, err := m.Geth.ContractDeployer.DeployBlockhashStore()
+func (te *CLClusterTestEnv) DeployVRFContracts() error {
+	bhs, err := te.Geth.ContractDeployer.DeployBlockhashStore()
 	if err != nil {
 		return errors.Wrap(err, ErrDeployBHSV1)
 	}
-	m.BHSV1 = bhs
-	coordinator, err := m.Geth.ContractDeployer.DeployVRFCoordinator(m.LinkToken.Address(), bhs.Address())
+	te.BHSV1 = bhs
+	coordinator, err := te.Geth.ContractDeployer.DeployVRFCoordinator(te.LinkToken.Address(), bhs.Address())
 	if err != nil {
 		return errors.Wrap(err, ErrDeployVRFCootrinatorV1)
 	}
-	m.CoordinatorV1 = coordinator
-	consumer, err := m.Geth.ContractDeployer.DeployVRFConsumer(m.LinkToken.Address(), coordinator.Address())
+	te.CoordinatorV1 = coordinator
+	consumer, err := te.Geth.ContractDeployer.DeployVRFConsumer(te.LinkToken.Address(), coordinator.Address())
 	if err != nil {
 		return errors.Wrap(err, ErrDeployVRFConsumerV1)
 	}
-	m.ConsumerV1 = consumer
-	return m.Geth.EthClient.WaitForEvents()
+	te.ConsumerV1 = consumer
+	return te.Geth.EthClient.WaitForEvents()
 }

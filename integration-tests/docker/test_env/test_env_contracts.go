@@ -4,24 +4,24 @@ import (
 	"math/big"
 )
 
-func (m *CLClusterTestEnv) WaitForEvents() error {
-	return m.Geth.EthClient.WaitForEvents()
+func (te *CLClusterTestEnv) WaitForEvents() error {
+	return te.Geth.EthClient.WaitForEvents()
 }
 
-func (m *CLClusterTestEnv) DeployLINKToken() error {
-	linkToken, err := m.Geth.ContractDeployer.DeployLinkTokenContract()
+func (te *CLClusterTestEnv) DeployLINKToken() error {
+	linkToken, err := te.Geth.ContractDeployer.DeployLinkTokenContract()
 	if err != nil {
 		return err
 	}
-	m.LinkToken = linkToken
+	te.LinkToken = linkToken
 	return err
 }
 
-func (m *CLClusterTestEnv) DeployMockETHLinkFeed(answer *big.Int) error {
-	mockETHLINKFeed, err := m.Geth.ContractDeployer.DeployMockETHLINKFeed(answer)
+func (te *CLClusterTestEnv) DeployMockETHLinkFeed(answer *big.Int) error {
+	mockETHLINKFeed, err := te.Geth.ContractDeployer.DeployMockETHLINKFeed(answer)
 	if err != nil {
 		return err
 	}
-	m.MockETHLinkFeed = mockETHLINKFeed
+	te.MockETHLinkFeed = mockETHLINKFeed
 	return err
 }

@@ -45,33 +45,33 @@ func VRFV2RegisterProvingKey(
 	return provingKey, nil
 }
 
-func (m *CLClusterTestEnv) DeployVRFV2Contracts() error {
-	bhs, err := m.Geth.ContractDeployer.DeployBlockhashStore()
+func (te *CLClusterTestEnv) DeployVRFV2Contracts() error {
+	bhs, err := te.Geth.ContractDeployer.DeployBlockhashStore()
 	if err != nil {
 		return errors.Wrap(err, ErrDeployBlockHashStore)
 	}
-	m.BHSV2 = bhs
-	coordinator, err := m.Geth.ContractDeployer.DeployVRFCoordinatorV2(m.LinkToken.Address(), bhs.Address(), m.MockETHLinkFeed.Address())
+	te.BHSV2 = bhs
+	coordinator, err := te.Geth.ContractDeployer.DeployVRFCoordinatorV2(te.LinkToken.Address(), bhs.Address(), te.MockETHLinkFeed.Address())
 	if err != nil {
 		return errors.Wrap(err, ErrDeployCoordinator)
 	}
-	m.CoordinatorV2 = coordinator
-	loadTestConsumer, err := m.Geth.ContractDeployer.DeployVRFv2LoadTestConsumer(coordinator.Address())
+	te.CoordinatorV2 = coordinator
+	loadTestConsumer, err := te.Geth.ContractDeployer.DeployVRFv2LoadTestConsumer(coordinator.Address())
 	if err != nil {
 		return errors.Wrap(err, ErrAdvancedConsumer)
 	}
-	m.LoadTestConsumer = loadTestConsumer
-	return m.WaitForEvents()
+	te.LoadTestConsumer = loadTestConsumer
+	return te.WaitForEvents()
 }
 
-func (m *CLClusterTestEnv) FundVRFCoordinatorV2Subscription(subscriptionID uint64, linkFundingAmount *big.Int) error {
+func (te *CLClusterTestEnv) FundVRFCoordinatorV2Subscription(subscriptionID uint64, linkFundingAmount *big.Int) error {
 	encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint64"}]`, subscriptionID)
 	if err != nil {
 		return errors.Wrap(err, ErrABIEncodingFunding)
 	}
-	_, err = m.LinkToken.TransferAndCall(m.CoordinatorV2.Address(), big.NewInt(0).Mul(linkFundingAmount, big.NewInt(1e18)), encodedSubId)
+	_, err = te.LinkToken.TransferAndCall(te.CoordinatorV2.Address(), big.NewInt(0).Mul(linkFundingAmount, big.NewInt(1e18)), encodedSubId)
 	if err != nil {
 		return errors.Wrap(err, ErrSendingLinkToken)
 	}
-	return m.WaitForEvents()
+	return te.WaitForEvents()
 }

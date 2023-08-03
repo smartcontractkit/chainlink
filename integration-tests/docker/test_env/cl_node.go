@@ -91,36 +91,36 @@ func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOp
 }
 
 // Restart restarts only CL node, DB container is reused
-func (m *ClNode) Restart(cfg *chainlink.Config) error {
-	if err := m.Container.Terminate(context.Background()); err != nil {
+func (n *ClNode) Restart(cfg *chainlink.Config) error {
+	if err := n.Container.Terminate(context.Background()); err != nil {
 		return err
 	}
-	m.NodeConfig = cfg
-	return m.StartContainer()
+	n.NodeConfig = cfg
+	return n.StartContainer()
 }
 
-func (m *ClNode) PrimaryETHAddress() (string, error) {
-	return m.API.PrimaryEthAddress()
+func (n *ClNode) PrimaryETHAddress() (string, error) {
+	return n.API.PrimaryEthAddress()
 }
 
-func (m *ClNode) AddBootstrapJob(verifierAddr common.Address, fromBlock uint64, chainId int64,
+func (n *ClNode) AddBootstrapJob(verifierAddr common.Address, fromBlock uint64, chainId int64,
 	feedId [32]byte) (*client.Job, error) {
 	spec := utils.BuildBootstrapSpec(verifierAddr, chainId, fromBlock, feedId)
-	return m.API.MustCreateJob(spec)
+	return n.API.MustCreateJob(spec)
 }
 
-func (m *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64, chainId int64,
+func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64, chainId int64,
 	feedId [32]byte, customAllowedFaults *int, bootstrapUrl string,
 	mercuryServerUrl string, mercuryServerPubKey string,
 	eaUrls []*url.URL) (*client.Job, error) {
 
-	csaKeys, _, err := m.API.ReadCSAKeys()
+	csaKeys, _, err := n.API.ReadCSAKeys()
 	if err != nil {
 		return nil, err
 	}
 	csaPubKey := csaKeys.Data[0].ID
 
-	nodeOCRKeys, err := m.API.MustReadOCR2Keys()
+	nodeOCRKeys, err := n.API.MustReadOCR2Keys()
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func (m *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 
 	bridges := utils.BuildBridges(eaUrls)
 	for _, b := range bridges {
-		err = m.API.MustCreateBridge(&b)
+		err = n.API.MustCreateBridge(&b)
 		if err != nil {
 			return nil, err
 		}
@@ -153,45 +153,45 @@ func (m *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 		csaPubKey, mercuryServerUrl, mercuryServerPubKey, nodeOCRKeyId[0],
 		bootstrapUrl, allowedFaults)
 
-	return m.API.MustCreateJob(spec)
+	return n.API.MustCreateJob(spec)
 }
 
-func (m *ClNode) GetContainerName() string {
-	name, err := m.Container.Name(context.Background())
+func (n *ClNode) GetContainerName() string {
+	name, err := n.Container.Name(context.Background())
 	if err != nil {
 		return ""
 	}
 	return strings.Replace(name, "/", "", -1)
 }
 
-func (m *ClNode) GetPeerUrl() (string, error) {
-	p2pKeys, err := m.API.MustReadP2PKeys()
+func (n *ClNode) GetPeerUrl() (string, error) {
+	p2pKeys, err := n.API.MustReadP2PKeys()
 	if err != nil {
 		return "", err
 	}
 	p2pId := p2pKeys.Data[0].Attributes.PeerID
 
-	return fmt.Sprintf("%s@%s:%d", p2pId, m.GetContainerName(), 6690), nil
+	return fmt.Sprintf("%s@%s:%d", p2pId, n.GetContainerName(), 6690), nil
 }
 
-func (m *ClNode) GetNodeCSAKeys() (*client.CSAKeys, error) {
-	csaKeys, _, err := m.API.ReadCSAKeys()
+func (n *ClNode) GetNodeCSAKeys() (*client.CSAKeys, error) {
+	csaKeys, _, err := n.API.ReadCSAKeys()
 	if err != nil {
 		return nil, err
 	}
 	return csaKeys, err
 }
 
-func (m *ClNode) ChainlinkNodeAddress() (common.Address, error) {
-	addr, err := m.API.PrimaryEthAddress()
+func (n *ClNode) ChainlinkNodeAddress() (common.Address, error) {
+	addr, err := n.API.PrimaryEthAddress()
 	if err != nil {
 		return common.Address{}, err
 	}
 	return common.HexToAddress(addr), nil
 }
 
-func (m *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
-	toAddress, err := m.API.PrimaryEthAddress()
+func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
+	toAddress, err := n.API.PrimaryEthAddress()
 	if err != nil {
 		return err
 	}
@@ -202,20 +202,20 @@ func (m *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
 
-func (m *ClNode) StartContainer() error {
-	err := m.PostgresDb.StartContainer()
+func (n *ClNode) StartContainer() error {
+	err := n.PostgresDb.StartContainer()
 	if err != nil {
 		return err
 	}
 	nodeSecrets, err := templates.NodeSecretsTemplate{
-		PgDbName: m.PostgresDb.DbName,
-		PgHost:   m.PostgresDb.ContainerName,
-		PgPort:   m.PostgresDb.Port,
+		PgDbName: n.PostgresDb.DbName,
+		PgHost:   n.PostgresDb.ContainerName,
+		PgPort:   n.PostgresDb.Port,
 	}.String()
 	if err != nil {
 		return err
 	}
-	cReq, err := m.getContainerRequest(nodeSecrets)
+	cReq, err := n.getContainerRequest(nodeSecrets)
 	if err != nil {
 		return err
 	}
@@ -227,8 +227,8 @@ func (m *ClNode) StartContainer() error {
 	if err != nil {
 		return errors.Wrap(err, ErrStartCLNodeContainer)
 	}
-	if m.lw != nil {
-		if err := m.lw.ConnectContainer(context.Background(), container, "cl-node", true); err != nil {
+	if n.lw != nil {
+		if err := n.lw.ConnectContainer(context.Background(), container, "cl-node", true); err != nil {
 			return err
 		}
 	}
@@ -237,7 +237,7 @@ func (m *ClNode) StartContainer() error {
 		return err
 	}
 
-	log.Info().Str("containerName", m.ContainerName).
+	log.Info().Str("containerName", n.ContainerName).
 		Str("clEndpoint", clEndpoint).
 		Msg("Started Chainlink Node container")
 
@@ -250,19 +250,19 @@ func (m *ClNode) StartContainer() error {
 		return errors.Wrap(err, ErrConnectNodeClient)
 	}
 
-	m.Container = container
-	m.API = clClient
+	n.Container = container
+	n.API = clClient
 
 	return nil
 }
 
-func (m *ClNode) getContainerRequest(secrets string) (
+func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
 		return nil, err
 	}
-	data, err := toml.Marshal(m.NodeConfig)
+	data, err := toml.Marshal(n.NodeConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -315,7 +315,7 @@ func (m *ClNode) getContainerRequest(secrets string) (
 	}
 
 	return &tc.ContainerRequest{
-		Name:         m.ContainerName,
+		Name:         n.ContainerName,
 		Image:        fmt.Sprintf("%s:%s", image, tag),
 		ExposedPorts: []string{"6688/tcp"},
 		Entrypoint: []string{"chainlink",
@@ -325,7 +325,7 @@ func (m *ClNode) getContainerRequest(secrets string) (
 			"-p", adminCredsPath,
 			"-a", apiCredsPath,
 		},
-		Networks: m.Networks,
+		Networks: n.Networks,
 		WaitingFor: tcwait.ForHTTP("/health").
 			WithPort("6688/tcp").
 			WithStartupTimeout(90 * time.Second).

@@ -77,28 +77,28 @@ func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 	}, nil
 }
 
-func (m *CLClusterTestEnv) ParallelTransactions(enabled bool) {
-	m.Geth.EthClient.ParallelTransactions(enabled)
+func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
+	te.Geth.EthClient.ParallelTransactions(enabled)
 }
 
-func (m *CLClusterTestEnv) StartGeth() error {
-	return m.Geth.StartContainer()
+func (te *CLClusterTestEnv) StartGeth() error {
+	return te.Geth.StartContainer()
 }
 
-func (m *CLClusterTestEnv) StartMockServer() error {
-	return m.MockServer.StartContainer()
+func (te *CLClusterTestEnv) StartMockServer() error {
+	return te.MockServer.StartContainer()
 }
 
-func (m *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
+func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
 	clients := make([]*client.ChainlinkClient, 0)
-	for _, c := range m.CLNodes {
+	for _, c := range te.CLNodes {
 		clients = append(clients, c.API)
 	}
 	return clients
 }
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
-func (m *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int) error {
+func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int) error {
 	var wg sync.WaitGroup
 	var errs = []error{}
 	var mu sync.Mutex
@@ -110,14 +110,14 @@ func (m *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int)
 		go func() {
 			defer wg.Done()
 			var nodeContainerName, dbContainerName string
-			if m.Cfg != nil {
-				nodeContainerName = m.Cfg.Nodes[i].NodeContainerName
-				dbContainerName = m.Cfg.Nodes[i].DbContainerName
+			if te.Cfg != nil {
+				nodeContainerName = te.Cfg.Nodes[i].NodeContainerName
+				dbContainerName = te.Cfg.Nodes[i].DbContainerName
 			}
-			n := NewClNode([]string{m.Network.Name}, nodeConfig,
+			n := NewClNode([]string{te.Network.Name}, nodeConfig,
 				WithNodeContainerName(nodeContainerName),
 				WithDbContainerName(dbContainerName),
-				WithLogWatch(m.LogWatch))
+				WithLogWatch(te.LogWatch))
 			err := n.StartContainer()
 			if err != nil {
 				mu.Lock()
@@ -125,7 +125,7 @@ func (m *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int)
 				mu.Unlock()
 			} else {
 				mu.Lock()
-				m.CLNodes = append(m.CLNodes, n)
+				te.CLNodes = append(te.CLNodes, n)
 				mu.Unlock()
 			}
 		}()
@@ -140,9 +140,9 @@ func (m *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int)
 }
 
 // ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes
-func (m *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
+func (te *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 	addresses := make([]common.Address, 0)
-	for _, n := range m.CLNodes {
+	for _, n := range te.CLNodes {
 		primaryAddress, err := n.ChainlinkNodeAddress()
 		if err != nil {
 			return nil, err
@@ -153,18 +153,18 @@ func (m *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 }
 
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
-func (m *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
-	for _, cl := range m.CLNodes {
-		if err := cl.Fund(m.Geth.EthClient, amount); err != nil {
+func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
+	for _, cl := range te.CLNodes {
+		if err := cl.Fund(te.Geth.EthClient, amount); err != nil {
 			return errors.Wrap(err, ErrFundCLNode)
 		}
 	}
-	return m.Geth.EthClient.WaitForEvents()
+	return te.Geth.EthClient.WaitForEvents()
 }
 
-func (m *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
+func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 	var keys []string
-	for _, n := range m.CLNodes {
+	for _, n := range te.CLNodes {
 		csaKeys, err := n.GetNodeCSAKeys()
 		if err != nil {
 			return nil, errors.Wrap(err, ErrGetNodeCSAKeys)
@@ -174,7 +174,7 @@ func (m *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 	return keys, nil
 }
 
-func (m *CLClusterTestEnv) Terminate() error {
+func (te *CLClusterTestEnv) Terminate() error {
 	// TESTCONTAINERS_RYUK_DISABLED=false by defualt so ryuk will remove all
 	// the containers and the network
 	return nil

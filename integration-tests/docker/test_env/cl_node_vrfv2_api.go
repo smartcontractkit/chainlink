@@ -19,8 +19,8 @@ type VRFV2JobInfo struct {
 	KeyHash           [32]byte
 }
 
-func (m *ClNode) CreateVRFv2Job(coordinatorV2 contracts.VRFCoordinatorV2, c *blockchain.EthereumClient) (*VRFV2JobInfo, error) {
-	vrfKey, err := m.API.MustCreateVRFKey()
+func (n *ClNode) CreateVRFv2Job(coordinatorV2 contracts.VRFCoordinatorV2, c *blockchain.EthereumClient) (*VRFV2JobInfo, error) {
+	vrfKey, err := n.API.MustCreateVRFKey()
 	if err != nil {
 		return nil, err
 	}
@@ -33,11 +33,11 @@ func (m *ClNode) CreateVRFv2Job(coordinatorV2 contracts.VRFCoordinatorV2, c *blo
 	if err != nil {
 		return nil, err
 	}
-	nativeTokenPrimaryKeyAddress, err := m.API.PrimaryEthAddress()
+	nativeTokenPrimaryKeyAddress, err := n.API.PrimaryEthAddress()
 	if err != nil {
 		return nil, err
 	}
-	job, err := m.API.MustCreateJob(&client.VRFV2JobSpec{
+	job, err := n.API.MustCreateJob(&client.VRFV2JobSpec{
 		Name:                     fmt.Sprintf("vrf-%s", jobUUID),
 		CoordinatorAddress:       coordinatorV2.Address(),
 		FromAddresses:            []string{nativeTokenPrimaryKeyAddress},
