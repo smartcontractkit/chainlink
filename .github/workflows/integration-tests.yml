@@ -749,4 +749,20 @@ jobs:
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
 
+  testnet-smoke-tests-notify:
+    name: Live Testnet Smoke Tests Slack Notification
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    if: always()
+    runs-on: ubuntu-latest
+    needs: testnet-smoke-tests-matrix
+    steps:
+      - name: Collect Matrix Results
+        id: matrix-results
+        run: echo ${{ needs.testnet-smoke-tests-matrix.outputs.matrix }}
+
   ### End Live Testnet Section
