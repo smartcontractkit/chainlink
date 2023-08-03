@@ -81,7 +81,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // ================================================================
   Config private s_config;
 
-  event ConfigChanged(uint96 adminFee, bytes4 handleOracleFulfillmentSelector, uint32[] maxCallbackGasLimits);
+  event ConfigChanged(Config);
 
   error OnlyCallableByRoute();
 
@@ -140,7 +140,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     uint16 timelockBlocks,
     uint16 maximumTimelockBlocks,
     address linkToken,
-    bytes memory config
+    Config memory config
   ) FunctionsSubscriptions(linkToken) ConfirmedOwner(msg.sender) Pausable() {
     // Set initial value for the number of blocks of the timelock
     s_timelockBlocks = timelockBlocks;
@@ -151,38 +151,19 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     _updateConfig(config);
   }
 
-  // ================================================================
-  // |                          Getters                             |
-  // ================================================================
-
   // @inheritdoc IFunctionsRouter
   function getAllowListId() external pure override returns (bytes32) {
     return ALLOW_LIST_ID;
   }
 
-  // @inheritdoc IFunctionsRouter
-  function getConfig()
-    external
-    view
-    override
-    returns (
-      uint16 maxConsumersPerSubscription,
-      uint96 adminFee,
-      bytes4 handleOracleFulfillmentSelector,
-      uint32[] memory maxCallbackGasLimits
-    )
-  {
-    maxConsumersPerSubscription = s_config.maxConsumersPerSubscription;
-    adminFee = s_config.adminFee;
-    handleOracleFulfillmentSelector = s_config.handleOracleFulfillmentSelector;
-    maxCallbackGasLimits = s_config.maxCallbackGasLimits;
-
-    return (maxConsumersPerSubscription, adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits);
-  }
-
   // ================================================================
   // |                        Configuration                         |
   // ================================================================
+
+  // @inheritdoc IFunctionsRouter
+  function getConfig() external view override returns (Config memory) {
+    return s_config;
+  }
 
   // @inheritdoc IRouterBase
   function proposeConfigUpdateSelf(bytes calldata config) external override onlyOwner {
@@ -199,7 +180,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     if (block.number < proposal.timelockEndBlock) {
       revert TimelockInEffect();
     }
-    _updateConfig(proposal.to);
+    _updateConfig(abi.decode(proposal.to, (Config)));
     emit ConfigUpdated({id: ROUTER_ID, toBytes: proposal.to});
   }
 
@@ -225,20 +206,9 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // @notice Sets the configuration for FunctionsRouter specific state
   // @param config bytes of config data to set the following:
   // - adminFee: fee that will be paid to the Router owner for operating the network
-  function _updateConfig(bytes memory config) internal {
-    (
-      uint16 maxConsumersPerSubscription,
-      uint96 adminFee,
-      bytes4 handleOracleFulfillmentSelector,
-      uint32[] memory maxCallbackGasLimits
-    ) = abi.decode(config, (uint16, uint96, bytes4, uint32[]));
-    s_config = Config({
-      maxConsumersPerSubscription: maxConsumersPerSubscription,
-      adminFee: adminFee,
-      handleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
-      maxCallbackGasLimits: maxCallbackGasLimits
-    });
-    emit ConfigChanged(adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits);
+  function _updateConfig(Config memory config) internal {
+    s_config = config;
+    emit ConfigChanged(config);
   }
 
   // @inheritdoc IFunctionsRouter

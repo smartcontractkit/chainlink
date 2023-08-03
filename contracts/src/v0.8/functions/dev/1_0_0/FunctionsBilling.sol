@@ -192,8 +192,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   // @inheritdoc IFunctionsBilling
   function getAdminFee() public view override returns (uint96) {
-    (, uint96 adminFee, , ) = _getRouter().getConfig();
-    return adminFee;
+    return _getRouter().getConfig().adminFee;
   }
 
   // @inheritdoc IFunctionsBilling
