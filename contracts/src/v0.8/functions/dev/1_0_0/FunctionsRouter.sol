@@ -117,7 +117,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
   }
 
   // ================================================================
-  // |                 Configuration methods                        |
+  // |                        Configuration                         |
   // ================================================================
 
   // @notice Sets the configuration for FunctionsRouter specific state
@@ -139,8 +139,25 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     emit ConfigChanged(adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits);
   }
 
+  // @inheritdoc IFunctionsRouter
+  function isValidCallbackGasLimit(uint64 subscriptionId, uint32 callbackGasLimit) public view {
+    uint8 callbackGasLimitsIndexSelector = uint8(getFlags(subscriptionId)[MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX]);
+    if (callbackGasLimitsIndexSelector >= s_config.maxCallbackGasLimits.length) {
+      revert InvalidGasFlagValue(callbackGasLimitsIndexSelector);
+    }
+    uint32 maxCallbackGasLimit = s_config.maxCallbackGasLimits[callbackGasLimitsIndexSelector];
+    if (callbackGasLimit > maxCallbackGasLimit) {
+      revert GasLimitTooBig(maxCallbackGasLimit);
+    }
+  }
+
+  // Used within FunctionsSubscriptions.sol
+  function _getMaxConsumers() internal view override returns (uint16) {
+    return s_config.maxConsumersPerSubscription;
+  }
+
   // ================================================================
-  // |                      Request methods                         |
+  // |                           Requests                           |
   // ================================================================
 
   // @inheritdoc IFunctionsRouter
@@ -229,6 +246,10 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
 
     return commitment.requestId;
   }
+
+  // ================================================================
+  // |                           Responses                          |
+  // ================================================================
 
   // @inheritdoc IFunctionsRouter
   function fulfill(
@@ -387,22 +408,6 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     }
 
     return CallbackResult({success: success, gasUsed: gasUsed, returnData: returnData});
-  }
-
-  // @inheritdoc IFunctionsRouter
-  function isValidCallbackGasLimit(uint64 subscriptionId, uint32 callbackGasLimit) public view {
-    uint8 callbackGasLimitsIndexSelector = uint8(getFlags(subscriptionId)[MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX]);
-    if (callbackGasLimitsIndexSelector >= s_config.maxCallbackGasLimits.length) {
-      revert InvalidGasFlagValue(callbackGasLimitsIndexSelector);
-    }
-    uint32 maxCallbackGasLimit = s_config.maxCallbackGasLimits[callbackGasLimitsIndexSelector];
-    if (callbackGasLimit > maxCallbackGasLimit) {
-      revert GasLimitTooBig(maxCallbackGasLimit);
-    }
-  }
-
-  function _getMaxConsumers() internal view override returns (uint16) {
-    return s_config.maxConsumersPerSubscription;
   }
 
   // ================================================================

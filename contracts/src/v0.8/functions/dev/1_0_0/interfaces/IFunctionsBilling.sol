@@ -49,6 +49,12 @@ interface IFunctionsBilling {
     );
 
   /**
+   * @notice Return the current conversion from WEI of ETH to LINK from the configured Chainlink data feed
+   * @return weiPerUnitLink - The amount of WEI in one LINK
+   */
+  function getWeiPerUnitLink() external view returns (uint256);
+
+  /**
    * @notice Determine the fee that will be split between Node Operators for servicing a request
    * @param requestData Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
    * @param billing The request's billing configuration

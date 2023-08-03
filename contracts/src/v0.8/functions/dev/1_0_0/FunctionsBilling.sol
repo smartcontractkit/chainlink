@@ -18,6 +18,8 @@ import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   using FunctionsResponse for FunctionsResponse.Commitment;
   using FunctionsResponse for FunctionsResponse.FulfillResult;
+
+  uint32 private constant REASONABLE_GAS_PRICE_CEILING = 1_000_000;
   // ================================================================
   // |                  Request Commitment state                    |
   // ================================================================
@@ -97,13 +99,12 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   }
 
   // ================================================================
-  // |                    Configuration Methods                     |
+  // |                        Configuration                         |
   // ================================================================
-  /**
-   * @notice Sets the configuration of the Chainlink Functions billing registry
-   * @param config bytes of abi.encoded config data to set the following:
-   *  See the content of the Config struct above
-   */
+
+  // @notice Sets the configuration of the Chainlink Functions billing registry
+  // @param config bytes of abi.encoded config data to set the following:
+  //  See the content of the Config struct above
   function _updateConfig(bytes memory config) internal override {
     (
       uint32 maxCallbackGasLimit,
@@ -144,9 +145,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     );
   }
 
-  /**
-   * @inheritdoc IFunctionsBilling
-   */
+  // @inheritdoc IFunctionsBilling
   function getConfig()
     external
     view
@@ -179,11 +178,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   }
 
   // ================================================================
-  // |                 Cost Calculation Methods                     |
+  // |                       Fee Calculation                        |
   // ================================================================
-  /**
-   * @inheritdoc IFunctionsBilling
-   */
+
+  // @inheritdoc IFunctionsBilling
   function getDONFee(
     bytes memory /* requestData */,
     RequestBilling memory /* billing */
@@ -192,15 +190,14 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return s_config.donFee;
   }
 
-  /**
-   * @inheritdoc IFunctionsBilling
-   */
+  // @inheritdoc IFunctionsBilling
   function getAdminFee() public view override returns (uint96) {
     (, uint96 adminFee, , ) = _getRouter().getConfig();
     return adminFee;
   }
 
-  function getFeedData() public view returns (int256) {
+  // @inheritdoc IFunctionsBilling
+  function getWeiPerUnitLink() public view returns (uint256) {
     uint32 feedStalenessSeconds = s_config.feedStalenessSeconds;
     bool staleFallback = feedStalenessSeconds > 0;
     (, int256 weiPerUnitLink, , uint256 timestamp, ) = s_linkToNativeFeed.latestRoundData();
@@ -208,15 +205,17 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     if (staleFallback && feedStalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_config.fallbackNativePerUnitLink;
     }
-    return weiPerUnitLink;
+    if (weiPerUnitLink <= 0) {
+      revert InvalidLinkWeiPrice(weiPerUnitLink);
+    }
+    return uint256(weiPerUnitLink);
   }
 
   // ================================================================
-  // |                  Cost Estimation Methods                     |
+  // |                       Cost Estimation                        |
   // ================================================================
-  /**
-   * @inheritdoc IFunctionsBilling
-   */
+
+  // @inheritdoc IFunctionsBilling
   function estimateCost(
     uint64 subscriptionId,
     bytes calldata data,
@@ -225,52 +224,56 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   ) external view override returns (uint96) {
     // Reasonable ceilings to prevent integer overflows
     _getRouter().isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
-    if (gasPrice > 1_000_000) {
+    if (gasPrice > REASONABLE_GAS_PRICE_CEILING) {
       revert InvalidCalldata();
     }
     uint96 adminFee = getAdminFee();
-    RequestBilling memory billing = RequestBilling(subscriptionId, msg.sender, callbackGasLimit, gasPrice, adminFee);
-    uint96 donFee = getDONFee(data, billing);
+    uint96 donFee = getDONFee(
+      data,
+      RequestBilling({
+        subscriptionId: subscriptionId,
+        client: msg.sender,
+        callbackGasLimit: callbackGasLimit,
+        expectedGasPrice: gasPrice,
+        adminFee: adminFee
+      })
+    );
     return _calculateCostEstimate(callbackGasLimit, gasPrice, donFee, adminFee);
   }
 
-  /**
-   * @notice Uses current price feed data to estimate a cost
-   */
+  // @notice Estimate the cost in Juels of LINK
+  // that will be charged to a subscription to fulfill a Functions request
+  // Gas Price can be overestimated to account for flucuations between request and response time
   function _calculateCostEstimate(
     uint32 callbackGasLimit,
     uint256 gasPrice,
     uint96 donFee,
     uint96 adminFee
   ) internal view returns (uint96) {
-    int256 weiPerUnitLink;
-    weiPerUnitLink = getFeedData();
-    if (weiPerUnitLink <= 0) {
-      revert InvalidLinkWeiPrice(weiPerUnitLink);
-    }
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
+
     uint256 gasPriceWithOverestimation = gasPrice +
       ((gasPrice * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
+    // @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
+
     // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
-    uint256 paymentNoFee = (1e18 * gasPriceWithOverestimation * executionGas) / uint256(weiPerUnitLink);
-    uint256 fee = uint256(donFee) + uint256(adminFee);
-    if (paymentNoFee > (1e27 - fee)) {
-      revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
-    }
-    return uint96(paymentNoFee + fee);
+    uint256 estimatedGasReimbursement = (1e18 * gasPriceWithOverestimation * executionGas) / getWeiPerUnitLink();
+
+    uint256 fees = uint256(donFee) + uint256(adminFee);
+
+    return uint96(estimatedGasReimbursement + fees);
   }
 
   // ================================================================
-  // |                       Billing Methods                        |
+  // |                           Billing                            |
   // ================================================================
-  /**
-   * @notice Initiate the billing process for an Functions request
-   * @dev Only callable by the Functions Router
-   * @param data - Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
-   * @param requestDataVersion - Version number of the structure of the request data
-   * @param billing - Billing configuration for the request
-   * @return commitment - The parameters of the request that must be held consistent at response time
-   */
+
+  // @notice Initiate the billing process for an Functions request
+  // @dev Only callable by the Functions Router
+  // @param data - Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
+  // @param requestDataVersion - Version number of the structure of the request data
+  // @param billing - Billing configuration for the request
+  // @return commitment - The parameters of the request that must be held consistent at response time
   function _startBilling(
     bytes memory data,
     uint16 requestDataVersion,
@@ -291,11 +294,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     );
     IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(_getRouter()));
     (uint96 balance, , uint96 blockedBalance, , , ) = subscriptions.getSubscription(billing.subscriptionId);
-    (, uint64 initiatedRequests, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
-
-    if (balance - blockedBalance < estimatedCost) {
+    if ((balance - blockedBalance) < estimatedCost) {
       revert InsufficientBalance();
     }
+
+    (, uint64 initiatedRequests, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
 
     bytes32 requestId = computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
 
@@ -314,11 +317,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     });
 
     s_requestCommitments[requestId] = keccak256(abi.encode(commitment));
+
+    return commitment;
   }
 
-  /**
-   * @notice Generate a keccak hash request ID
-   */
+  // @notice Generate a keccak hash request ID
   function computeRequestId(
     address don,
     address client,
@@ -328,15 +331,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return keccak256(abi.encode(don, client, subscriptionId, nonce));
   }
 
-  /**
-   * @notice Finalize billing process for an Functions request by sending a callback to the Client contract and then charging the subscription
-   * @param requestId identifier for the request that was generated by the Registry in the beginBilling commitment
-   * @param response response data from DON consensus
-   * @param err error from DON consensus
-   * @return result fulfillment result
-   * @dev Only callable by a node that has been approved on the Coordinator
-   * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
-   */
+  // @notice Finalize billing process for an Functions request by sending a callback to the Client contract and then charging the subscription
+  // @param requestId identifier for the request that was generated by the Registry in the beginBilling commitment
+  // @param response response data from DON consensus
+  // @param err error from DON consensus
+  // @return result fulfillment result
+  // @dev Only callable by a node that has been approved on the Coordinator
+  // @dev simulated offchain to determine if sufficient balance is present to fulfill the request
   function _fulfillAndBill(
     bytes32 requestId,
     bytes memory response,
@@ -345,21 +346,17 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     bytes memory /* offchainMetadata TODO: use in getDonFee() for dynamic billing */
   ) internal returns (FunctionsResponse.FulfillResult) {
     FunctionsResponse.Commitment memory commitment = abi.decode(onchainMetadata, (FunctionsResponse.Commitment));
-    if (s_requestCommitments[requestId] == bytes32(0)) {
-      return FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
-    }
 
     if (s_requestCommitments[requestId] != keccak256(abi.encode(commitment))) {
       return FunctionsResponse.FulfillResult.INVALID_COMMITMENT;
     }
 
-    int256 weiPerUnitLink;
-    weiPerUnitLink = getFeedData();
-    if (weiPerUnitLink <= 0) {
-      revert InvalidLinkWeiPrice(weiPerUnitLink);
+    if (s_requestCommitments[requestId] == bytes32(0)) {
+      return FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
     }
+
     // (1e18 juels/link) * (wei/gas) / (wei/link) = juels per gas
-    uint256 juelsPerGas = (1e18 * tx.gasprice) / uint256(weiPerUnitLink);
+    uint256 juelsPerGas = (1e18 * tx.gasprice) / getWeiPerUnitLink();
     // Gas overhead without callback
     uint96 gasOverheadJuels = uint96(
       juelsPerGas * (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback)
@@ -375,6 +372,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       commitment
     );
 
+    // The router will only pay the DON on successfully processing the fulfillment
+    // In these two fulfillment results the user has been charged
+    // Otherwise, the Coordinator should hold on to the request commitment
     if (
       resultCode == FunctionsResponse.FulfillResult.USER_SUCCESS ||
       resultCode == FunctionsResponse.FulfillResult.USER_ERROR
@@ -391,11 +391,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   }
 
   // ================================================================
-  // |                  Request Timeout Methods                     |
+  // |                       Request Timeout                        |
   // ================================================================
-  /**
-   * @inheritdoc IFunctionsBilling
-   */
+
+  // @inheritdoc IFunctionsBilling
   function deleteCommitment(bytes32 requestId) external override onlyRouter returns (bool) {
     // Ensure that commitment exists
     if (s_requestCommitments[requestId] == bytes32(0)) {
@@ -408,22 +407,20 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   }
 
   // ================================================================
-  // |                   Node Operator methods                      |
+  // |                    Fund withdrawal                           |
   // ================================================================
-  /*
-   * @notice Oracle withdraw LINK earned through fulfilling requests
-   * @notice If amount is 0 the full balance will be withdrawn
-   * @notice Both signing and transmitting wallets will have a balance to withdraw
-   * @param recipient where to send the funds
-   * @param amount amount to withdraw
-   */
+
+  // @notice Oracle withdraw LINK earned through fulfilling requests
+  // @notice If amount is 0 the full balance will be withdrawn
+  // @notice Both signing and transmitting wallets will have a balance to withdraw
+  // @param recipient where to send the funds
+  // @param amount amount to withdraw
   function oracleWithdraw(address recipient, uint96 amount) external {
     _disperseFeePool();
 
     if (amount == 0) {
       amount = s_withdrawableTokens[msg.sender];
-    }
-    if (s_withdrawableTokens[msg.sender] < amount) {
+    } else if (s_withdrawableTokens[msg.sender] < amount) {
       revert InsufficientBalance();
     }
     s_withdrawableTokens[msg.sender] -= amount;
@@ -431,7 +428,15 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     router.oracleWithdraw(recipient, amount);
   }
 
+  // Overriden in FunctionsCoordinator, which has visibility into transmitters
+  function _getTransmitters() internal view virtual returns (address[] memory);
+
+  // DON fees are collected into a pool s_feePool
+  // When OCR configuration changes, or any oracle withdraws, this must be dispersed
   function _disperseFeePool() internal {
+    if (s_feePool == 0) {
+      return;
+    }
     // All transmitters are assumed to also be observers
     // Pay out the DON fee to all transmitters
     address[] memory transmitters = _getTransmitters();
@@ -445,6 +450,4 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     }
     s_feePool -= feePoolShare * uint96(transmitters.length);
   }
-
-  function _getTransmitters() internal view virtual returns (address[] memory);
 }

@@ -12,7 +12,7 @@ interface IFunctionsSubscriptions {
     uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub.
     uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
-    address requestedOwner; // For safely transferring sub ownership.
+    address proposedOwner; // For safely transferring sub ownership.
     // Maintains the list of keys in s_consumers.
     // We do this for 2 reasons:
     // 1. To be able to clean up all keys from s_consumers when canceling a subscription.
