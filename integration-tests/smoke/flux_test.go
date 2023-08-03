@@ -35,14 +35,14 @@ func TestFluxBasic(t *testing.T) {
 	err = env.MockServer.Client.SetValuePath(adapterPath, 1e5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
-	linkToken, err := env.Geth.ContractDeployer.DeployLinkTokenContract()
+	err = env.DeployLINKToken()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	fluxInstance, err := env.Geth.ContractDeployer.DeployFluxAggregatorContract(linkToken.Address(), contracts.DefaultFluxAggregatorOptions())
+	fluxInstance, err := env.Geth.ContractDeployer.DeployFluxAggregatorContract(env.LinkToken.Address(), contracts.DefaultFluxAggregatorOptions())
 	require.NoError(t, err, "Deploying Flux Aggregator Contract shouldn't fail")
-	err = env.Geth.EthClient.WaitForEvents()
+	err = env.WaitForEvents()
 	require.NoError(t, err, "Failed waiting for deployment of flux aggregator contract")
 
-	err = linkToken.Transfer(fluxInstance.Address(), big.NewInt(1e18))
+	err = env.LinkToken.Transfer(fluxInstance.Address(), big.NewInt(1e18))
 	require.NoError(t, err, "Funding Flux Aggregator Contract shouldn't fail")
 	err = env.Geth.EthClient.WaitForEvents()
 	require.NoError(t, err, "Failed waiting for funding of flux aggregator contract")
@@ -50,8 +50,8 @@ func TestFluxBasic(t *testing.T) {
 	err = fluxInstance.UpdateAvailableFunds()
 	require.NoError(t, err, "Updating the available funds on the Flux Aggregator Contract shouldn't fail")
 
-	err = env.FundChainlinkNodes(big.NewFloat(.02))
-	require.NoError(t, err, "Funding chainlink nodes with ETH shouldn't fail")
+	err = env.FundChainlinkNodes(big.NewFloat(1))
+	require.NoError(t, err, "Failed to fund the nodes")
 
 	err = fluxInstance.SetOracles(
 		contracts.FluxAggregatorSetOraclesOptions{

@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 )
@@ -44,7 +43,7 @@ func (m *MockServer) SetExternalAdapterMocks(count int) error {
 		if err != nil {
 			return err
 		}
-		cName, err := m.EnvComponent.Container.Name(context.Background())
+		cName, err := m.Container.Name(context.Background())
 		if err != nil {
 			return err
 		}
@@ -59,7 +58,7 @@ func (m *MockServer) SetExternalAdapterMocks(count int) error {
 	return nil
 }
 
-func (m *MockServer) StartContainer(lw *logwatch.LogWatch) error {
+func (m *MockServer) StartContainer() error {
 	c, err := tc.GenericContainer(context.Background(), tc.GenericContainerRequest{
 		ContainerRequest: m.getContainerRequest(),
 		Started:          true,
@@ -69,11 +68,6 @@ func (m *MockServer) StartContainer(lw *logwatch.LogWatch) error {
 		return errors.Wrapf(err, "cannot start MockServer container")
 	}
 	m.Container = c
-	if lw != nil {
-		if err := lw.ConnectContainer(context.Background(), c, m.ContainerName, true); err != nil {
-			return err
-		}
-	}
 	endpoint, err := c.Endpoint(context.Background(), "http")
 	if err != nil {
 		return err

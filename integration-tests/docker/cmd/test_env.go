@@ -31,7 +31,7 @@ func main() {
 		Use:   "cl-cluster",
 		Short: "Basic CL cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			utils.SetupGlobalLogger()
+			utils.SetupCoreDockerEnvLogger()
 			log.Info().Msg("Starting CL cluster test environment..")
 
 			_, err := test_env.NewCLTestEnvBuilder().

@@ -6,24 +6,49 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/node"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
 	"go.uber.org/multierr"
 )
 
+var (
+	ErrFundCLNode     = "failed to fund CL node"
+	ErrGetNodeCSAKeys = "failed get CL node CSA keys"
+)
+
 type CLClusterTestEnv struct {
-	cfg        *TestEnvConfig
-	Network    *tc.DockerNetwork
-	LogWatch   *logwatch.LogWatch
+	Cfg      *TestEnvConfig
+	Network  *tc.DockerNetwork
+	LogWatch *logwatch.LogWatch
+
+	/* components */
 	CLNodes    []*ClNode
 	Geth       *Geth
 	MockServer *MockServer
+
+	/* common contracts */
+	LinkToken       contracts.LinkToken
+	MockETHLinkFeed contracts.MockETHLINKFeed
+
+	/* VRFv2 */
+	CoordinatorV2    contracts.VRFCoordinatorV2
+	LoadTestConsumer contracts.VRFv2LoadTestConsumer
+	BHSV2            contracts.BlockHashStore
+	/* VRFv1 */
+	CoordinatorV1 contracts.VRFCoordinator
+	ConsumerV1    contracts.VRFConsumer
+	BHSV1         contracts.BlockHashStore
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
+	utils.SetupCoreDockerEnvLogger()
 	network, err := docker.CreateNetwork()
 	if err != nil {
 		return nil, err
@@ -37,6 +62,7 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 }
 
 func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
+	utils.SetupCoreDockerEnvLogger()
 	network, err := docker.CreateNetwork()
 	if err != nil {
 		return nil, err
@@ -44,23 +70,35 @@ func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 	networks := []string{network.Name}
 	log.Info().Interface("Cfg", cfg).Send()
 	return &CLClusterTestEnv{
-		cfg:        cfg,
+		Cfg:        cfg,
 		Network:    network,
 		Geth:       NewGeth(networks, WithContainerName(cfg.Geth.ContainerName)),
 		MockServer: NewMockServer(networks, WithContainerName(cfg.MockServer.ContainerName)),
 	}, nil
 }
 
+func (m *CLClusterTestEnv) ParallelTransactions(enabled bool) {
+	m.Geth.EthClient.ParallelTransactions(enabled)
+}
+
 func (m *CLClusterTestEnv) StartGeth() error {
-	return m.Geth.StartContainer(m.LogWatch)
+	return m.Geth.StartContainer()
 }
 
 func (m *CLClusterTestEnv) StartMockServer() error {
-	return m.MockServer.StartContainer(m.LogWatch)
+	return m.MockServer.StartContainer()
+}
+
+func (m *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
+	clients := make([]*client.ChainlinkClient, 0)
+	for _, c := range m.CLNodes {
+		clients = append(clients, c.API)
+	}
+	return clients
 }
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
-func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts node.NodeConfigOpts, count int) error {
+func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts templates.NodeConfigOpts, count int) error {
 	var wg sync.WaitGroup
 	var errs = []error{}
 	var mu sync.Mutex
@@ -72,14 +110,15 @@ func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts node.NodeConfigOpts, coun
 		go func() {
 			defer wg.Done()
 			var nodeContainerName, dbContainerName string
-			if m.cfg != nil {
-				nodeContainerName = m.cfg.Nodes[i].NodeContainerName
-				dbContainerName = m.cfg.Nodes[i].DbContainerName
+			if m.Cfg != nil {
+				nodeContainerName = m.Cfg.Nodes[i].NodeContainerName
+				dbContainerName = m.Cfg.Nodes[i].DbContainerName
 			}
 			n := NewClNode([]string{m.Network.Name}, nodeConfigOpts,
 				WithNodeContainerName(nodeContainerName),
-				WithDbContainerName(dbContainerName))
-			err := n.StartContainer(m.LogWatch)
+				WithDbContainerName(dbContainerName),
+				WithLogWatch(m.LogWatch))
+			err := n.StartContainer()
 			if err != nil {
 				mu.Lock()
 				errs = append(errs, err)
@@ -100,8 +139,8 @@ func (m *CLClusterTestEnv) StartClNodes(nodeConfigOpts node.NodeConfigOpts, coun
 	return nil
 }
 
-func (m *CLClusterTestEnv) GetDefaultNodeConfigOpts() node.NodeConfigOpts {
-	return node.NodeConfigOpts{
+func (m *CLClusterTestEnv) GetDefaultNodeConfigOpts() templates.NodeConfigOpts {
+	return templates.NodeConfigOpts{
 		EVM: struct {
 			HttpUrl string
 			WsUrl   string
@@ -129,7 +168,7 @@ func (m *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 func (m *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 	for _, cl := range m.CLNodes {
 		if err := cl.Fund(m.Geth.EthClient, amount); err != nil {
-			return err
+			return errors.Wrap(err, ErrFundCLNode)
 		}
 	}
 	return m.Geth.EthClient.WaitForEvents()
@@ -140,7 +179,7 @@ func (m *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 	for _, n := range m.CLNodes {
 		csaKeys, err := n.GetNodeCSAKeys()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, ErrGetNodeCSAKeys)
 		}
 		keys = append(keys, csaKeys.Data[0].ID)
 	}
