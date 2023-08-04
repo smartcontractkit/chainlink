@@ -11,13 +11,13 @@ import (
 )
 
 var (
-	ErrBumpGasExceedsLimit = errors.New("gas bump exceeds limit")
+	ErrBumpFeeExceedsLimit = errors.New("gas bump exceeds limit")
 	ErrBump                = errors.New("gas bump failed")
 	ErrConnectivity        = errors.New("transaction propagation issue: transactions are not being mined")
 )
 
 func IsBumpErr(err error) bool {
-	return err != nil && (errors.Is(err, ErrBumpGasExceedsLimit) || errors.Is(err, ErrBump) || errors.Is(err, ErrConnectivity))
+	return err != nil && (errors.Is(err, ErrBumpFeeExceedsLimit) || errors.Is(err, ErrBump) || errors.Is(err, ErrConnectivity))
 }
 
 // CalculateFee computes the fee price for a transaction.
@@ -47,7 +47,7 @@ func CalculateBumpedFee(
 	bumpedFeePrice = maxFee(lggr, currentfeePrice, bumpedFeePrice, maxFeePrice, "fee price", toChainUnit)
 
 	if bumpedFeePrice.Cmp(maxFeePrice) > 0 {
-		return maxFeePrice, errors.Wrapf(ErrBumpGasExceedsLimit, "bumped fee price of %s would exceed configured max fee price of %s (original price was %s). %s",
+		return maxFeePrice, errors.Wrapf(ErrBumpFeeExceedsLimit, "bumped fee price of %s would exceed configured max fee price of %s (original price was %s). %s",
 			toChainUnit(bumpedFeePrice), toChainUnit(maxFeePrice), toChainUnit(originalfeePrice), label.NodeConnectivityProblemWarning)
 	} else if bumpedFeePrice.Cmp(originalfeePrice) == 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
