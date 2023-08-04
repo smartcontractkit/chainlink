@@ -7,6 +7,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv1"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/stretchr/testify/require"
@@ -27,12 +28,12 @@ func TestVRFBasic(t *testing.T) {
 	require.NoError(t, err)
 	env.ParallelTransactions(true)
 
-	err = env.DeployLINKToken()
+	lt, err := actions.DeployLINKToken(env.Geth.ContractDeployer)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	err = env.DeployVRFContracts()
-	require.NoError(t, err)
+	contracts, err := vrfv1.DeployVRFContracts(env.Geth.ContractDeployer, env.Geth.EthClient, lt)
+	require.NoError(t, err, "Deploying VRF Contracts shouldn't fail")
 
-	err = env.LinkToken.Transfer(env.ConsumerV1.Address(), big.NewInt(2e18))
+	err = lt.Transfer(contracts.Consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Funding consumer contract shouldn't fail")
 	_, err = env.Geth.ContractDeployer.DeployVRFContract()
 	require.NoError(t, err, "Deploying VRF contract shouldn't fail")
@@ -46,13 +47,13 @@ func TestVRFBasic(t *testing.T) {
 		pubKeyCompressed := nodeKey.Data.ID
 		jobUUID := uuid.New()
 		os := &client.VRFTxPipelineSpec{
-			Address: env.CoordinatorV1.Address(),
+			Address: contracts.Coordinator.Address(),
 		}
 		ost, err := os.String()
 		require.NoError(t, err, "Building observation source spec shouldn't fail")
 		job, err := n.API.MustCreateJob(&client.VRFJobSpec{
 			Name:                     fmt.Sprintf("vrf-%s", jobUUID),
-			CoordinatorAddress:       env.CoordinatorV1.Address(),
+			CoordinatorAddress:       contracts.Coordinator.Address(),
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
@@ -64,7 +65,7 @@ func TestVRFBasic(t *testing.T) {
 		require.NoError(t, err, "Getting primary ETH address of chainlink node shouldn't fail")
 		provingKey, err := actions.EncodeOnChainVRFProvingKey(*nodeKey)
 		require.NoError(t, err, "Encoding on-chain VRF Proving key shouldn't fail")
-		err = env.CoordinatorV1.RegisterProvingKey(
+		err = contracts.Coordinator.RegisterProvingKey(
 			big.NewInt(1),
 			oracleAddr,
 			provingKey,
@@ -74,9 +75,9 @@ func TestVRFBasic(t *testing.T) {
 		encodedProvingKeys := make([][2]*big.Int, 0)
 		encodedProvingKeys = append(encodedProvingKeys, provingKey)
 
-		requestHash, err := env.CoordinatorV1.HashOfKey(context.Background(), encodedProvingKeys[0])
+		requestHash, err := contracts.Coordinator.HashOfKey(context.Background(), encodedProvingKeys[0])
 		require.NoError(t, err, "Getting Hash of encoded proving keys shouldn't fail")
-		err = env.ConsumerV1.RequestRandomness(requestHash, big.NewInt(1))
+		err = contracts.Consumer.RequestRandomness(requestHash, big.NewInt(1))
 		require.NoError(t, err, "Requesting randomness shouldn't fail")
 
 		gom := gomega.NewGomegaWithT(t)
@@ -85,7 +86,7 @@ func TestVRFBasic(t *testing.T) {
 			jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Data.ID)
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Job execution shouldn't fail")
 
-			out, err := env.ConsumerV1.RandomnessOutput(context.Background())
+			out, err := contracts.Consumer.RandomnessOutput(context.Background())
 			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Getting the randomness output of the consumer shouldn't fail")
 			// Checks that the job has actually run
 			g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 1),

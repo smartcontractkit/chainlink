@@ -10,7 +10,6 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -32,19 +31,6 @@ type CLClusterTestEnv struct {
 	CLNodes    []*ClNode
 	Geth       *Geth
 	MockServer *MockServer
-
-	/* common contracts */
-	LinkToken       contracts.LinkToken
-	MockETHLinkFeed contracts.MockETHLINKFeed
-
-	/* VRFv2 */
-	CoordinatorV2    contracts.VRFCoordinatorV2
-	LoadTestConsumer contracts.VRFv2LoadTestConsumer
-	BHSV2            contracts.BlockHashStore
-	/* VRFv1 */
-	CoordinatorV1 contracts.VRFCoordinator
-	ConsumerV1    contracts.VRFConsumer
-	BHSV1         contracts.BlockHashStore
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
