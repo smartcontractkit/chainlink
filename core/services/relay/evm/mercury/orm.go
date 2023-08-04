@@ -1,7 +1,11 @@
 package mercury
 
 import (
+	"context"
 	"crypto/sha256"
+	"database/sql"
+	"errors"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
@@ -11,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -29,12 +34,34 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ORM {
 // InsertTransmitRequest inserts one transmit request if the payload does not exist already.
 func (o *ORM) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	err := q.ExecQ(`
+	var wg sync.WaitGroup
+	wg.Add(2)
+	var err1, err2 error
+
+	go func() {
+		defer wg.Done()
+		err1 = q.ExecQ(`
 		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash)
 		VALUES ($1, $2, $3, $4, $5, $6)
 		ON CONFLICT (payload_hash) DO NOTHING
 	`, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:])
-	return err
+	}()
+
+	feedID, err := (&reportcodec.EVMReportCodec{}).FeedIDFromReport(req.Payload) // TODO: Pass codec into struct?
+	if err != nil {
+		return err
+	}
+	go func() {
+		// TODO: Cleanup on job delete?
+		defer wg.Done()
+		err2 = q.ExecQ(`
+		INSERT INTO mercury_latest_reports (feed_id, report, updated_at)
+		VALUES ($1, $2, NOW())
+		ON CONFLICT (feed_id) DO UPDATE SET feed_id=$1, report=$2, updated_at=NOW()
+		`, feedID[:], req.Payload)
+	}()
+	wg.Wait()
+	return errors.Join(err1, err2)
 }
 
 // DeleteTransmitRequest deletes the given transmit requests if they exist.
@@ -112,6 +139,15 @@ func (o *ORM) PruneTransmitRequests(maxSize int, qopts ...pg.QOpt) error {
 			LIMIT $1
 		)
 	`, maxSize)
+}
+
+func (o *ORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
+	q := o.q.WithOpts(qopts...)
+	err = q.GetContext(ctx, &report, `SELECT report FROM mercury_latest_reports WHERE feed_id = $1`, feedID[:])
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return report, err
 }
 
 func hashPayload(payload []byte) []byte {
