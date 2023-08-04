@@ -5,13 +5,13 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/pkg/errors"
+
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/pkg/errors"
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 type erroringNode[

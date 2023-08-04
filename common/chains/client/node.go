@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -18,24 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// TODO: remove this maybe?
 const queryTimeout = 10 * time.Second
 
 var errInvalidChainID = errors.New("invalid chain id")
 
 var (
-	promPoolRPCNodeDials = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_dials_total",
-		Help: "The total number of dials for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeDialsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_dials_failed",
-		Help: "The total number of failed dials for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeDialsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_dials_success",
-		Help: "The total number of successful dials for the given RPC node",
-	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeVerifies = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_verifies",
 		Help: "The total number of chain ID verifications for the given RPC node",
@@ -48,33 +36,6 @@ var (
 		Name: "pool_rpc_node_verifies_success",
 		Help: "The total number of successful chain ID verifications for the given RPC node",
 	}, []string{"chainID", "nodeName"})
-
-	promPoolRPCNodeCalls = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_calls_total",
-		Help: "The approximate total number of RPC calls for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeCallsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_calls_failed",
-		Help: "The approximate total number of failed RPC calls for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeCallsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_calls_success",
-		Help: "The approximate total number of successful RPC calls for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCCallTiming = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "pool_rpc_node_rpc_call_time",
-		Help: "The duration of an RPC call in nanoseconds",
-		Buckets: []float64{
-			float64(50 * time.Millisecond),
-			float64(100 * time.Millisecond),
-			float64(200 * time.Millisecond),
-			float64(500 * time.Millisecond),
-			float64(1 * time.Second),
-			float64(2 * time.Second),
-			float64(4 * time.Second),
-			float64(8 * time.Second),
-		},
-	}, []string{"chainID", "nodeName", "rpcHost", "isSendOnly", "success", "rpcCallName"})
 )
 
 type rawclient struct {
@@ -145,10 +106,6 @@ type node[
 	// Each node is tracking the last received head number and total difficulty
 	stateLatestBlockNumber     int64
 	stateLatestTotalDifficulty *utils.Big
-
-	// Need to track subscriptions because closing the RPC does not (always?)
-	// close the underlying subscription
-	subs []types.Subscription
 
 	// chStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this node. Closing and replacing should be serialized through
@@ -377,37 +334,6 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 // This must be called from within the n.stateMu lock
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) disconnectAll() {
 	n.rpcClient.DisconnectAll()
-}
-
-// unsubscribeAll unsubscribes all subscriptions
-// WARNING: NOT THREAD-SAFE
-// This must be called from within the n.stateMu lock
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) unsubscribeAll() {
-	for _, sub := range n.subs {
-		sub.Unsubscribe()
-	}
-	n.subs = nil
-}
-
-func switching[
-	CHAINID types.ID,
-	SEQ types.Sequence,
-	ADDR types.Hashable,
-	BLOCK any,
-	BLOCKHASH types.Hashable,
-	TX any,
-	TXHASH types.Hashable,
-	EVENT any,
-	EVENTOPS any, // event filter query options
-	TXRECEIPT any,
-	FEE feetypes.Fee,
-	HEAD types.Head[BLOCKHASH],
-	SUB types.Subscription,
-](n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) string {
-	if n.http != nil {
-		return "http"
-	}
-	return "websocket"
 }
 
 func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) Order() int32 {

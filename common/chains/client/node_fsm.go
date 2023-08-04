@@ -30,10 +30,6 @@ var (
 		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
 		Help: transitionString(NodeStateInvalidChainID),
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_unusable",
-		Help: transitionString(NodeStateUnusable),
-	}, []string{"chainID", "nodeName"})
 )
 
 // NodeState represents the current state of the node
@@ -66,10 +62,6 @@ func (n NodeState) String() string {
 // GoString prints a prettier state
 func (n NodeState) GoString() string {
 	return fmt.Sprintf("NodeState%s(%d)", n.String(), n)
-}
-
-func transitionString(state NodeState) string {
-	return fmt.Sprintf("Total number of times node has transitioned to %s", state)
 }
 
 const (
@@ -152,7 +144,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	case NodeStateDialed, NodeStateInvalidChainID:
 		n.SetState(NodeStateAlive)
 	default:
-		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateAlive))
+		panic(transitionFail(n.state, NodeStateAlive))
 	}
 	fn()
 }
@@ -179,7 +171,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	case NodeStateOutOfSync:
 		n.SetState(NodeStateAlive)
 	default:
-		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateAlive))
+		panic(transitionFail(n.state, NodeStateAlive))
 	}
 	fn()
 }
@@ -206,7 +198,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 		n.disconnectAll()
 		n.SetState(NodeStateOutOfSync)
 	default:
-		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateOutOfSync))
+		panic(transitionFail(n.state, NodeStateOutOfSync))
 	}
 	fn()
 }
@@ -231,7 +223,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 		n.disconnectAll()
 		n.SetState(NodeStateUnreachable)
 	default:
-		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateUnreachable))
+		panic(transitionFail(n.state, NodeStateUnreachable))
 	}
 	fn()
 }
@@ -256,7 +248,15 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 		n.disconnectAll()
 		n.SetState(NodeStateInvalidChainID)
 	default:
-		panic(fmt.Sprintf("cannot transition from %#v to %#v", n.state, NodeStateInvalidChainID))
+		panic(transitionFail(n.state, NodeStateInvalidChainID))
 	}
 	fn()
+}
+
+func transitionString(state NodeState) string {
+	return fmt.Sprintf("Total number of times node has transitioned to %s", state)
+}
+
+func transitionFail(from NodeState, to NodeState) string {
+	return fmt.Sprintf("cannot transition from %#v to %#v", from, to)
 }

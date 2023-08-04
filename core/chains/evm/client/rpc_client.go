@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -204,13 +205,6 @@ func (r *rpcClient) logResult(
 			callName,                       // rpc call name
 		).
 		Observe(float64(callDuration))
-}
-
-func switching(r *rpcClient) string {
-	if r.http != nil {
-		return "http"
-	}
-	return "websocket"
 }
 
 func (r *rpcClient) getRPCDomain() string {
@@ -517,12 +511,13 @@ func (r *rpcClient) PendingSequenceAt(ctx context.Context, account common.Addres
 
 	lggr.Debug("RPC call: evmclient.Client#PendingNonceAt")
 	start := time.Now()
+	var n uint64
 	if http != nil {
-		n, err := http.geth.PendingNonceAt(ctx, account)
+		n, err = http.geth.PendingNonceAt(ctx, account)
 		nonce = evmtypes.Nonce(int64(n))
 		err = r.wrapHTTP(err)
 	} else {
-		n, err := ws.geth.PendingNonceAt(ctx, account)
+		n, err = ws.geth.PendingNonceAt(ctx, account)
 		nonce = evmtypes.Nonce(int64(n))
 		err = r.wrapWS(err)
 	}
@@ -548,42 +543,14 @@ func (r *rpcClient) SequenceAt(ctx context.Context, account common.Address, bloc
 
 	lggr.Debug("RPC call: evmclient.Client#NonceAt")
 	start := time.Now()
+	var n uint64
 	if http != nil {
-		n, err := http.geth.NonceAt(ctx, account, blockNumber)
+		n, err = http.geth.NonceAt(ctx, account, blockNumber)
 		nonce = evmtypes.Nonce(int64(n))
 		err = r.wrapHTTP(err)
 	} else {
-		n, err := ws.geth.NonceAt(ctx, account, blockNumber)
+		n, err = ws.geth.NonceAt(ctx, account, blockNumber)
 		nonce = evmtypes.Nonce(int64(n))
-		err = r.wrapWS(err)
-	}
-	duration := time.Since(start)
-
-	r.logResult(lggr, err, duration, r.getRPCDomain(), "NonceAt",
-		"nonce", nonce,
-	)
-
-	return
-}
-
-// NonceAt is a bit of a misnomer. You might expect it to return the highest
-// mined nonce at the given block number, but it actually returns the total
-// transaction count which is the highest mined nonce + 1
-func (r *rpcClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (nonce uint64, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer cancel()
-	lggr := r.newRqLggr().With("account", account, "blockNumber", blockNumber)
-
-	lggr.Debug("RPC call: evmclient.Client#NonceAt")
-	start := time.Now()
-	if http != nil {
-		nonce, err = http.geth.NonceAt(ctx, account, blockNumber)
-		err = r.wrapHTTP(err)
-	} else {
-		nonce, err = ws.geth.NonceAt(ctx, account, blockNumber)
 		err = r.wrapWS(err)
 	}
 	duration := time.Since(start)
