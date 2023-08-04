@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {Common} from "../../libraries/internal/Common.sol";
+import {Common} from "../../libraries/Common.sol";
 import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
 import {IVerifierFeeManager} from "./IVerifierFeeManager.sol";
 

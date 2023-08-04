@@ -5,8 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {FeeManager} from "../../FeeManager.sol";
 import {IFeeManager} from "../../interfaces/IFeeManager.sol";
 import {RewardManager} from "../../RewardManager.sol";
-import {Common} from "../../../libraries/internal/Common.sol";
-import {ERC20Mock} from "../../../shared/vendor/ERC20Mock.sol";
+import {Common} from "../../../libraries/Common.sol";
+import {ERC20Mock} from "foundry-lib/openzeppelin-contracts/contracts/mocks/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/vendor/WERC20Mock.sol";
 
 /**
@@ -73,8 +73,8 @@ contract BaseFeeManagerTest is Test {
   }
 
   function _initializeContracts() internal {
-    link = new ERC20Mock("link", "LINK");
-    native = new WERC20Mock("native", "NATIVE");
+    link = new ERC20Mock();
+    native = new WERC20Mock();
 
     rewardManager = new RewardManager(getLinkAddress());
     feeManager = new FeeManager(getLinkAddress(), getNativeAddress(), PROXY, address(rewardManager));

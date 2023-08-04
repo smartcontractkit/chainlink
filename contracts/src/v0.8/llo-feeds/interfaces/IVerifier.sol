@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {IERC165} from "../../shared/vendor/IERC165.sol";
-import {Common} from "../../libraries/internal/Common.sol";
+import {IERC165} from "foundry-lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol";
+import {Common} from "../../libraries/Common.sol";
 
 interface IVerifier is IERC165 {
   /**

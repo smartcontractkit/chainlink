@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./ERC20.sol";
+import {ERC20} from "foundry-lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
 contract WERC20Mock is ERC20 {
-    constructor(string memory name_, string memory symbol_) ERC20(name_, symbol_) {}
+    constructor() ERC20("WERC20Mock", "WERC") {}
 
     event  Deposit(address indexed dst, uint wad);
     event  Withdrawal(address indexed src, uint wad);

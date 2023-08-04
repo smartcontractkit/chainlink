@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {ConfirmedOwner} from "../ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {IERC165} from "../shared/vendor/IERC165.sol";
-import {Common} from "../libraries/internal/Common.sol";
+import {IERC165} from "foundry-lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol";
+import {Common} from "../libraries/Common.sol";
 
 // OCR2 standard
 uint256 constant MAX_NUM_ORACLES = 31;

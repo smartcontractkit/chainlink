@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {ConfirmedOwner} from "../ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {AccessControllerInterface} from "../interfaces/AccessControllerInterface.sol";
-import {IERC165} from "../shared/vendor/IERC165.sol";
+import {IERC165} from "foundry-lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol";
 import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
-import {Common} from "../libraries/internal/Common.sol";
+import {Common} from "../libraries/Common.sol";
 
 /**
  * The verifier proxy contract is the gateway for all report verification requests
