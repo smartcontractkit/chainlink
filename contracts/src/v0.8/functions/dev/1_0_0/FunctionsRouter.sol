@@ -510,28 +510,31 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // |                            Timelock                          |
   // ================================================================
 
-  // @inheritdoc IRouterBase
-  function proposeTimelockBlocks(uint16 blocks) external override onlyOwner {
-    if (s_timelockBlocks == blocks) {
-      revert InvalidProposal();
-    }
-    if (blocks > s_maximumTimelockBlocks) {
-      revert ProposedTimelockAboveMaximum();
-    }
-    s_timelockProposal = TimeLockProposal({
-      from: s_timelockBlocks,
-      to: blocks,
-      timelockEndBlock: uint64(block.number + s_timelockBlocks)
-    });
-  }
+  // removed in anticipation of using MCM
+  // TODO: fully remove
 
   // @inheritdoc IRouterBase
-  function updateTimelockBlocks() external override onlyOwner {
-    if (block.number < s_timelockProposal.timelockEndBlock) {
-      revert TimelockInEffect();
-    }
-    s_timelockBlocks = s_timelockProposal.to;
-  }
+  // function proposeTimelockBlocks(uint16 blocks) external override onlyOwner {
+  //   if (s_timelockBlocks == blocks) {
+  //     revert InvalidProposal();
+  //   }
+  //   if (blocks > s_maximumTimelockBlocks) {
+  //     revert ProposedTimelockAboveMaximum();
+  //   }
+  //   s_timelockProposal = TimeLockProposal({
+  //     from: s_timelockBlocks,
+  //     to: blocks,
+  //     timelockEndBlock: uint64(block.number + s_timelockBlocks)
+  //   });
+  // }
+
+  // @inheritdoc IRouterBase
+  // function updateTimelockBlocks() external override onlyOwner {
+  //   if (block.number < s_timelockProposal.timelockEndBlock) {
+  //     revert TimelockInEffect();
+  //   }
+  //   s_timelockBlocks = s_timelockProposal.to;
+  // }
 
   // ================================================================
   // |                 Contract Proposal methods                    |

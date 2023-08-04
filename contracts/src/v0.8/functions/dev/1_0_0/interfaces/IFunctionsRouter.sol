@@ -128,17 +128,6 @@ interface IFunctionsRouter {
   // @dev Only callable by owner
   function updateConfig(bytes32 id) external;
 
-  // @notice Propose a change to the amount of blocks of the timelock
-  // (the amount of blocks that are required to pass before a change can be applied)
-  // @dev Only callable by owner
-  function proposeTimelockBlocks(uint16 blocks) external;
-
-  // @notice Apply a proposed change to the amount of blocks required for the timelock
-  // (the amount of blocks that are required to pass before a change can be applied)
-  // @dev Only callable after the timelock blocks proposal has gone through the timelock itself
-  // @dev Only callable by owner
-  function updateTimelockBlocks() external;
-
   // @dev Puts the system into an emergency stopped state.
   // @dev Only callable by owner
   function pause() external;
