@@ -2,11 +2,11 @@
 
 pragma solidity 0.8.16;
 
-import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
+import "../../../automation/interfaces/UpkeepTranscoderInterfaceV2.sol";
 import "../../../interfaces/TypeAndVersionInterface.sol";
 import {KeeperRegistryBase2_1 as R21} from "./KeeperRegistryBase2_1.sol";
 import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";
-import {AutomationRegistryBaseInterface, UpkeepInfo} from "../../../interfaces/automation/2_0/AutomationRegistryInterface2_0.sol";
+import {AutomationRegistryBaseInterface, UpkeepInfo} from "../../../automation/interfaces/2_0/AutomationRegistryInterface2_0.sol";
 
 enum RegistryVersion {
   V12,

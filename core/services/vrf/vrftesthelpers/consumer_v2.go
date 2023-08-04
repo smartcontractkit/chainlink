@@ -25,13 +25,16 @@ var (
 // the example contracts used for the integration tests.
 type VRFConsumerContract interface {
 	CreateSubscriptionAndFund(opts *bind.TransactOpts, fundingJuels *big.Int) (*gethtypes.Transaction, error)
+	CreateSubscriptionAndFundNative(opts *bind.TransactOpts, fundingAmount *big.Int) (*gethtypes.Transaction, error)
 	SSubId(opts *bind.CallOpts) (*big.Int, error)
 	SRequestId(opts *bind.CallOpts) (*big.Int, error)
 	RequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, minReqConfs uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*gethtypes.Transaction, error)
 	SRandomWords(opts *bind.CallOpts, randomwordIdx *big.Int) (*big.Int, error)
 	TopUpSubscription(opts *bind.TransactOpts, amount *big.Int) (*gethtypes.Transaction, error)
+	TopUpSubscriptionNative(opts *bind.TransactOpts, amount *big.Int) (*gethtypes.Transaction, error)
 	SGasAvailable(opts *bind.CallOpts) (*big.Int, error)
 	UpdateSubscription(opts *bind.TransactOpts, consumers []common.Address) (*gethtypes.Transaction, error)
+	SetSubID(opts *bind.TransactOpts, subID *big.Int) (*gethtypes.Transaction, error)
 }
 
 type ConsumerType string
@@ -297,4 +300,31 @@ func (c *vrfConsumerContract) UpdateSubscription(opts *bind.TransactOpts, consum
 		return c.vrfV2PlusConsumer.UpdateSubscription(opts, consumers)
 	}
 	return nil, errors.New("UpdateSubscription is not supported")
+}
+
+func (c *vrfConsumerContract) SetSubID(opts *bind.TransactOpts, subID *big.Int) (*gethtypes.Transaction, error) {
+	if c.consumerType == VRFV2PlusConsumer {
+		return c.vrfV2PlusConsumer.SetSubId(opts, subID)
+	}
+	return nil, errors.New("SetSubID is not supported")
+}
+
+func (c *vrfConsumerContract) CreateSubscriptionAndFundNative(opts *bind.TransactOpts, fundingAmount *big.Int) (*gethtypes.Transaction, error) {
+	if c.consumerType == VRFV2PlusConsumer {
+		// copy object to not mutate original opts
+		o := *opts
+		o.Value = fundingAmount
+		return c.vrfV2PlusConsumer.CreateSubscriptionAndFundNative(&o)
+	}
+	return nil, errors.New("CreateSubscriptionAndFundNative is not supported")
+}
+
+func (c *vrfConsumerContract) TopUpSubscriptionNative(opts *bind.TransactOpts, amount *big.Int) (*gethtypes.Transaction, error) {
+	if c.consumerType == VRFV2PlusConsumer {
+		// copy object to not mutate original opts
+		o := *opts
+		o.Value = amount
+		return c.vrfV2PlusConsumer.TopUpSubscriptionNative(&o)
+	}
+	return nil, errors.New("TopUpSubscriptionNative is not supported")
 }

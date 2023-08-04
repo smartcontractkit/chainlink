@@ -45,6 +45,7 @@ type KeeperBenchmarkTest struct {
 	upkeepIDs               [][]*big.Int
 
 	env              *environment.Environment
+	namespace        string
 	chainlinkNodes   []*client.ChainlinkK8sClient
 	chainClient      blockchain.EVMClient
 	contractDeployer contracts.ContractDeployer
@@ -102,6 +103,7 @@ func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) 
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
 	k.ensureInputValues(t)
 	k.env = env
+	k.namespace = k.env.Cfg.Namespace
 	inputs := k.Inputs
 
 	k.keeperRegistries = make([]contracts.KeeperRegistry, len(inputs.RegistryVersions))
@@ -392,12 +394,12 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 // TearDownVals returns the networks that the test is running on
 func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
 	*testing.T,
-	*environment.Environment,
+	string,
 	[]*client.ChainlinkK8sClient,
 	reportModel.TestReporter,
 	blockchain.EVMClient,
 ) {
-	return t, k.env, k.chainlinkNodes, &k.TestReporter, k.chainClient
+	return t, k.namespace, k.chainlinkNodes, &k.TestReporter, k.chainClient
 }
 
 // ensureValues ensures that all values needed to run the test are present
