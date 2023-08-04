@@ -66,7 +66,7 @@ func (r *relayerAdapter) NewMercuryProvider(ctx context.Context, rargs types.Rel
 }
 
 func (r *relayerAdapter) NewFunctionsProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.FunctionsProvider, error) {
-	return nil, errors.New("not implemented")
+	return r.Relayer.NewFunctionsProvider(rargs, pargs)
 }
 
 func (r *relayerAdapter) Start(ctx context.Context) error {
