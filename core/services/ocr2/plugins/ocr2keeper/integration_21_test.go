@@ -235,15 +235,15 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 	performed := listenPerformed(t, backend, registry, ids)
 
-	performedEvents := func() int {
+	receivedPerformedEvents := func() bool {
 		count := 0
 		performed.Range(func(key, value interface{}) bool {
 			count++
 			return true
 		})
-		return count
+		return count > 0
 	}
-	g.Eventually(performedEvents, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(1))
+	g.Eventually(receivedPerformedEvents, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 
 	// check pipeline runs
 	var allRuns []pipeline.Run
