@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	ErrBumpFeeExceedsLimit = errors.New("gas bump exceeds limit")
-	ErrBump                = errors.New("gas bump failed")
+	ErrBumpFeeExceedsLimit = errors.New("fee bump exceeds limit")
+	ErrBump                = errors.New("fee bump failed")
 	ErrConnectivity        = errors.New("transaction propagation issue: transactions are not being mined")
 )
 
