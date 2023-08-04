@@ -84,7 +84,8 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 
 		id, ok := big.NewInt(0).SetString(string(result.Payload.Upkeep.ID), 10)
 		if !ok {
-			return nil, fmt.Errorf("failed to parse big int from upkeep id: %s", string(result.Payload.Upkeep.ID))
+			// TODO auto 4204: handle properly, this is just for happy path
+			id = big.NewInt(0).SetBytes(result.Payload.Upkeep.ID)
 		}
 		report.UpkeepIds[i] = id
 		report.GasLimits[i] = big.NewInt(0).SetUint64(result.GasAllocated)
