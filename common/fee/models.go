@@ -47,7 +47,7 @@ func CalculateBumpedFee(
 	bumpedFeePrice = maxFee(lggr, currentfeePrice, bumpedFeePrice, maxFeePrice, "fee price", toChainUnit)
 
 	if bumpedFeePrice.Cmp(maxFeePrice) > 0 {
-		return maxFeePrice, errors.Wrapf(ErrBumpFeeExceedsLimit, "bumped fee price of %s would exceed configured max fee price of %s (original price was %s). %s",
+		return maxFeePrice, errors.Wrapf(ErrBumpGasExceedsLimit, "bumped fee price of %s would exceed configured max fee price of %s (original price was %s). %s",
 			toChainUnit(bumpedFeePrice), toChainUnit(maxFeePrice), toChainUnit(originalfeePrice), label.NodeConnectivityProblemWarning)
 	} else if bumpedFeePrice.Cmp(originalfeePrice) == 0 {
 		// NOTE: This really shouldn't happen since we enforce minimums for
