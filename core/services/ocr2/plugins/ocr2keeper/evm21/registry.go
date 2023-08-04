@@ -37,10 +37,12 @@ import (
 )
 
 const (
-	// DefaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
-	DefaultAllowListExpiration = 20 * time.Minute
-	// CleanupInterval decides when the expired items in cache will be deleted.
-	CleanupInterval = 25 * time.Minute
+	// defaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
+	defaultAllowListExpiration = 20 * time.Minute
+	// cleanupInterval decides when the expired items in cache will be deleted.
+	cleanupInterval = 25 * time.Minute
+	// maxLookbackDepth decides the max lag between the latest block and a valid check block number.
+	maxLookbackDepth = 128
 )
 
 var (
@@ -113,7 +115,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		mercury: &MercuryConfig{
 			cred:           mc,
 			abi:            feedLookupCompatibleABI,
-			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
+			allowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		hc:               http.DefaultClient,
 		enc:              EVMAutomationEncoder21{},
@@ -654,6 +656,13 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 
 	for i, key := range keys {
 		block, upkeepId := r.getBlockAndUpkeepId(key)
+		if r.lastPollBlock-block.Int64() > maxLookbackDepth {
+			r.lggr.Warnf("latest block is %d, check block number %d is too old for upkeepId %s", r.lastPollBlock, block, upkeepId)
+			results[i] = ocr2keepers.CheckResult{
+				Payload: key,
+			}
+			continue
+		}
 		opts := r.buildCallOpts(ctx, block)
 
 		var payload []byte
