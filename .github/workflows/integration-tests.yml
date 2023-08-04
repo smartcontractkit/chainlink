@@ -759,13 +759,13 @@ jobs:
           echo "status=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq '.jobs[] | select(.name == "Live Testnet Smoke Tests ${{ matrix.testnet}}").steps[] | select(.name == "Run Tests").conclusion')" >> $GITHUB_OUTPUT
+          | jq -r '.jobs[] | select(.name == "Live Testnet Smoke Tests ${{ matrix.testnet}}").steps[] | select(.name == "Run Tests").conclusion')" >> $GITHUB_OUTPUT
 
           echo "status=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq '.jobs[] | select(.name == "Live Testnet Smoke Tests ${{ matrix.testnet}}").steps[] | select(.name == "Run Tests").conclusion')"
-          echo "${{ needs.testnet-smoke-tests-notify.outputs.thread_ts }}"
+          | jq -r '.jobs[] | select(.name == "Live Testnet Smoke Tests ${{ matrix.testnet}}").steps[] | select(.name == "Run Tests").conclusion')"
+          echo "thread_ts=${{ needs.testnet-smoke-tests-notify.outputs.thread_ts }}"
 
       - name: Test Details
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
