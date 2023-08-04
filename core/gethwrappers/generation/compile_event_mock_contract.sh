@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -euo pipefail
+
 echo "compiling contracts"
 
 CDIR="$(dirname "$0")"
