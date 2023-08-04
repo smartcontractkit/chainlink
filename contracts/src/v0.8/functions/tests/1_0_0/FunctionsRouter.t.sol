@@ -34,12 +34,12 @@ contract FunctionsRouterSetup is BaseTest {
     s_termsOfServiceAllowList = new TermsOfServiceAllowList(address(s_functionsRouter), getTermsOfServiceConfig());
   }
 
-  function getRouterConfig() public view returns (IFunctionsRouter.Config memory) {
+  function getRouterConfig() public view returns (FunctionsRouter.Config memory) {
     uint32[] memory maxCallbackGasLimits = new uint32[](1);
     maxCallbackGasLimits[0] = type(uint32).max;
 
     return
-      IFunctionsRouter.Config({
+      FunctionsRouter.Config({
         maxConsumersPerSubscription: s_maxConsumersPerSubscription,
         adminFee: s_adminFee,
         handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
@@ -47,9 +47,9 @@ contract FunctionsRouterSetup is BaseTest {
       });
   }
 
-  function getCoordinatorConfig() public pure returns (IFunctionsBilling.Config memory) {
+  function getCoordinatorConfig() public pure returns (FunctionsBilling.Config memory) {
     return
-      IFunctionsBilling.Config({
+      FunctionsBilling.Config({
         maxCallbackGasLimit: 5,
         feedStalenessSeconds: 5,
         gasOverheadAfterCallback: 5,
@@ -62,8 +62,8 @@ contract FunctionsRouterSetup is BaseTest {
       });
   }
 
-  function getTermsOfServiceConfig() public pure returns (ITermsOfServiceAllowList.Config memory) {
-    return ITermsOfServiceAllowList.Config({enabled: false, signerPublicKey: address(132)});
+  function getTermsOfServiceConfig() public pure returns (TermsOfServiceAllowList.Config memory) {
+    return TermsOfServiceAllowList.Config({enabled: false, signerPublicKey: address(132)});
   }
 }
 
