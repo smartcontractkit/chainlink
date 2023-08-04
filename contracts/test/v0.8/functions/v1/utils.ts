@@ -58,13 +58,13 @@ export const encodeReport = (
 }
 
 export type FunctionsRouterConfig = {
-  maxConsumers: number
+  maxConsumersPerSubscription: number
   adminFee: number
   handleOracleFulfillmentSelector: string
   maxCallbackGasLimits: number[]
 }
 export const functionsRouterConfig: FunctionsRouterConfig = {
-  maxConsumers: 100,
+  maxConsumersPerSubscription: 100,
   adminFee: 0,
   handleOracleFulfillmentSelector: '0x0ca76175',
   maxCallbackGasLimits: [300_000, 500_000, 1_000_000],
@@ -226,10 +226,10 @@ export function getSetupFactory(): () => {
       0,
       linkEthRate,
     )
-    const routerConfigBytes = ethers.utils.defaultAbiCoder.encode(
-      ['uint16', 'uint96', 'bytes4', 'uint32[]'],
-      [...Object.values(functionsRouterConfig)],
-    )
+    // const routerConfigBytes = ethers.utils.defaultAbiCoder.encode(
+    //   ['uint16', 'uint96', 'bytes4', 'uint32[]'],
+    //   [...Object.values(functionsRouterConfig)],
+    // )
     const startingTimelockBlocks = 0
     const maxTimelockBlocks = 20
     const router = await factories.functionsRouterFactory
@@ -238,7 +238,7 @@ export function getSetupFactory(): () => {
         startingTimelockBlocks,
         maxTimelockBlocks,
         linkToken.address,
-        routerConfigBytes,
+        functionsRouterConfig,
       )
     const coordinatorConfigBytes = ethers.utils.defaultAbiCoder.encode(
       [

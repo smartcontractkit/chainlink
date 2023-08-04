@@ -61,12 +61,20 @@ describe('FunctionsRouter - Base', () => {
 
     it('Owner can update config of the Router', async () => {
       const beforeConfig = await contracts.router.getConfig()
-
       await expect(
         contracts.router.proposeConfigUpdateSelf(
           ethers.utils.defaultAbiCoder.encode(
-            ['uint16', 'uint96', 'bytes4', 'uint32[]'],
-            [2000, 1, 0x0ca76175, [300_000, 500_000]],
+            contracts.router.interface.events[
+              'ConfigChanged((uint16,uint96,bytes4,uint32[]))'
+            ].inputs,
+            [
+              {
+                maxConsumersPerSubscription: 2000,
+                adminFee: 1,
+                handleOracleFulfillmentSelector: 0x0ca76175,
+                maxCallbackGasLimits: [300_000, 500_000],
+              },
+            ],
           ),
         ),
       ).to.emit(contracts.router, 'ConfigProposed')
@@ -117,7 +125,9 @@ describe('FunctionsRouter - Base', () => {
 
     it('returns the config set on the Router', async () => {
       const config = await contracts.router.connect(roles.stranger).getConfig()
-      expect(config[0]).to.equal(functionsRouterConfig.maxConsumers)
+      expect(config[0]).to.equal(
+        functionsRouterConfig.maxConsumersPerSubscription,
+      )
       expect(config[1]).to.equal(functionsRouterConfig.adminFee)
       expect(config[2]).to.equal(
         functionsRouterConfig.handleOracleFulfillmentSelector,
@@ -271,71 +281,73 @@ describe('FunctionsRouter - Base', () => {
     })
   })
 
-  describe('Timelock', () => {
-    it('prevents applying timelock updates', async () => {
-      await contracts.router.proposeTimelockBlocks(5)
-      await contracts.router.updateTimelockBlocks()
-      await contracts.router.proposeTimelockBlocks(6)
-      await expect(contracts.router.updateTimelockBlocks()).to.be.revertedWith(
-        'TimelockInEffect',
-      )
-    })
+  // TODO: disabled in anticipation of MCM
 
-    it('prevents applying config updates', async () => {
-      await contracts.router.proposeTimelockBlocks(5)
-      await contracts.router.updateTimelockBlocks()
+  // describe('Timelock', () => {
+  //   it('prevents applying timelock updates', async () => {
+  //     await contracts.router.proposeTimelockBlocks(5)
+  //     await contracts.router.updateTimelockBlocks()
+  //     await contracts.router.proposeTimelockBlocks(6)
+  //     await expect(contracts.router.updateTimelockBlocks()).to.be.revertedWith(
+  //       'TimelockInEffect',
+  //     )
+  //   })
 
-      await contracts.router.proposeConfigUpdate(
-        ids.routerId,
-        ethers.utils.defaultAbiCoder.encode(
-          ['uint16', 'uint96', 'bytes4', 'uint32[]'],
-          [2000, 1, 0x0ca76175, [300_000, 500_000]],
-        ),
-      )
-      await expect(
-        contracts.router.updateConfig(ids.routerId),
-      ).to.be.revertedWith('TimelockInEffect')
-    })
+  //   it('prevents applying config updates', async () => {
+  //     await contracts.router.proposeTimelockBlocks(5)
+  //     await contracts.router.updateTimelockBlocks()
 
-    it('prevents applying contract updates', async () => {
-      await contracts.router.proposeTimelockBlocks(5)
-      await contracts.router.updateTimelockBlocks()
+  //     await contracts.router.proposeConfigUpdate(
+  //       ids.routerId,
+  //       ethers.utils.defaultAbiCoder.encode(
+  //         ['uint16', 'uint96', 'bytes4', 'uint32[]'],
+  //         [2000, 1, 0x0ca76175, [300_000, 500_000]],
+  //       ),
+  //     )
+  //     await expect(
+  //       contracts.router.updateConfig(ids.routerId),
+  //     ).to.be.revertedWith('TimelockInEffect')
+  //   })
 
-      const coordinator2 = await factories.functionsCoordinatorFactory
-        .connect(roles.defaultAccount)
-        .deploy(
-          contracts.router.address,
-          ethers.utils.defaultAbiCoder.encode(
-            [
-              'uint32',
-              'uint32',
-              'uint32',
-              'uint32',
-              'int256',
-              'uint32',
-              'uint96',
-              'uint16',
-              'uint256',
-            ],
-            [...Object.values(coordinatorConfig)],
-          ),
-          contracts.mockLinkEth.address,
-        )
+  //   it('prevents applying contract updates', async () => {
+  //     await contracts.router.proposeTimelockBlocks(5)
+  //     await contracts.router.updateTimelockBlocks()
 
-      await contracts.router.proposeContractsUpdate(
-        [ids.donId2],
-        [coordinator2.address],
-      )
+  //     const coordinator2 = await factories.functionsCoordinatorFactory
+  //       .connect(roles.defaultAccount)
+  //       .deploy(
+  //         contracts.router.address,
+  //         ethers.utils.defaultAbiCoder.encode(
+  //           [
+  //             'uint32',
+  //             'uint32',
+  //             'uint32',
+  //             'uint32',
+  //             'int256',
+  //             'uint32',
+  //             'uint96',
+  //             'uint16',
+  //             'uint256',
+  //           ],
+  //           [...Object.values(coordinatorConfig)],
+  //         ),
+  //         contracts.mockLinkEth.address,
+  //       )
 
-      await expect(contracts.router.updateContracts()).to.be.revertedWith(
-        'TimelockInEffect',
-      )
-    })
-  })
+  //     await contracts.router.proposeContractsUpdate(
+  //       [ids.donId2],
+  //       [coordinator2.address],
+  //     )
+
+  //     await expect(contracts.router.updateContracts()).to.be.revertedWith(
+  //       'TimelockInEffect',
+  //     )
+  //   })
+  // })
 
   describe('Emergency Pause', () => {
     it('has paused state visible', async () => {
-      const paused = await contracts.router.isPaused()
+      const paused = await contracts.router.paused()
       expect(paused).to.equal(false)
     })
     it('can pause the system', async () => {

@@ -2,7 +2,7 @@
 // A mock for testing code that relies on VRFCoordinatorV2.
 pragma solidity ^0.8.4;
 
-import "../interfaces/LinkTokenInterface.sol";
+import "../shared/interfaces/LinkTokenInterface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
 import "../vrf/VRFConsumerBaseV2.sol";
 
