@@ -663,6 +663,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			// check data will include the log trigger config
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, key.CheckData)
 			if err != nil {
+				// pack error, no retryable
 				r.lggr.Warnf("failed to pack checkUpkeep data for upkeepId %s at block %d with check data %s: %s", upkeepId, block, hexutil.Encode(key.CheckData), err)
 				results[i] = ocr2keepers.CheckResult{
 					Payload: key,
@@ -672,6 +673,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		default:
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId)
 			if err != nil {
+				// pack error, no retryable
 				r.lggr.Warnf("failed to pack checkUpkeep data for upkeepId %s at block %d: %s", upkeepId, block, err)
 				results[i] = ocr2keepers.CheckResult{
 					Payload: key,
@@ -742,6 +744,8 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
 		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, cr.PerformData)
 		if err != nil {
+			// pack error, not retryable
+			checkResults[i].Eligible = false
 			r.lggr.Warnf("failed to pack simulatePerformUpkeep data for upkeepId %s with perform data %s: %s", upkeepId, hexutil.Encode(cr.PerformData), err)
 			continue
 		}
@@ -765,11 +769,13 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 	if len(performReqs) > 0 {
 		if err := r.client.BatchCallContext(ctx, performReqs); err != nil {
+			// most likely RPC error, not retryable
 			return nil, err
 		}
 	}
 
 	for i, req := range performReqs {
+		// fails for a single upkeep, retryable
 		if req.Error != nil {
 			checkResults[performToKeyIdx[i]].Retryable = true
 			checkResults[performToKeyIdx[i]].Eligible = false
@@ -778,11 +784,14 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 		simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
 		if err != nil {
+			// unpack error, no retryable
+			checkResults[performToKeyIdx[i]].Eligible = false
 			r.lggr.Errorf("failed to unpack simulate perform result: %s", err)
 			continue
 		}
 
 		if !simulatePerformSuccess {
+			// simulation fails, not retryable
 			checkResults[performToKeyIdx[i]].Eligible = false
 		}
 	}
