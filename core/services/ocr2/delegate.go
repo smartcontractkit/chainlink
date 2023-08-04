@@ -828,17 +828,23 @@ func (d *Delegate) newServicesOCR2Keepers(
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
-	contractVersion := "v2.0"
-	if jb.KeeperSpec != nil {
-		contractVersion = jb.KeeperSpec.ContractVersion
+	spec := jb.OCR2OracleSpec
+	var cfg ocr2keeper.PluginConfig
+	if err := json.Unmarshal(spec.PluginConfig.Bytes(), &cfg); err != nil {
+		return nil, errors.Wrap(err, "unmarshal ocr2keepers plugin config")
 	}
-	switch contractVersion {
+
+	if err := ocr2keeper.ValidatePluginConfig(cfg); err != nil {
+		return nil, errors.Wrap(err, "ocr2keepers plugin config validation failure")
+	}
+
+	switch cfg.ContractVersion {
 	case "v2.1":
-		return d.newServicesOCR2Keepers21(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesOCR2Keepers21(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	case "v2.0":
-		return d.newServicesOCR2Keepers20(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesOCR2Keepers20(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	default:
-		return d.newServicesOCR2Keepers20(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+		return d.newServicesOCR2Keepers20(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger, cfg, spec)
 	}
 }
 
@@ -851,6 +857,8 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
+	cfg ocr2keeper.PluginConfig,
+	spec *job.OCR2OracleSpec,
 ) ([]job.ServiceCtx, error) {
 	credName, err2 := jb.OCR2OracleSpec.PluginConfig.MercuryCredentialName()
 	if err2 != nil {
@@ -862,18 +870,6 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	keeperProvider, rgstry, encoder, transmitEventProvider, logProvider, wrappedKey, blockSub, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc, kb)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
-	}
-
-	spec := jb.OCR2OracleSpec
-	var cfg ocr2keeper.PluginConfig
-	err2 = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg)
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "unmarshal ocr2keepers plugin config")
-	}
-
-	err2 = ocr2keeper.ValidatePluginConfig(cfg)
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "ocr2keepers plugin config validation failure")
 	}
 
 	// set some defaults
@@ -959,22 +955,12 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	ocrDB *db,
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
+	cfg ocr2keeper.PluginConfig,
+	spec *job.OCR2OracleSpec,
 ) ([]job.ServiceCtx, error) {
 	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, d.chainSet, d.pipelineRunner)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
-	}
-
-	spec := jb.OCR2OracleSpec
-	var cfg ocr2keeper.PluginConfig
-	err2 = json.Unmarshal(spec.PluginConfig.Bytes(), &cfg)
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "unmarshal ocr2keepers plugin config")
-	}
-
-	err2 = ocr2keeper.ValidatePluginConfig(cfg)
-	if err2 != nil {
-		return nil, errors.Wrap(err2, "ocr2keepers plugin config validation failure")
 	}
 
 	w := &logWriter{log: lggr.Named("Automation Dependencies")}

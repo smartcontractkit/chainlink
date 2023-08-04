@@ -467,7 +467,6 @@ type FluxMonitorSpec struct {
 type KeeperSpec struct {
 	ID                       int32               `toml:"-"`
 	ContractAddress          ethkey.EIP55Address `toml:"contractAddress"`
-	ContractVersion          string              `toml:"contractVersion"`
 	MinIncomingConfirmations *uint32             `toml:"minIncomingConfirmations"`
 	FromAddress              ethkey.EIP55Address `toml:"fromAddress"`
 	EVMChainID               *utils.Big          `toml:"evmChainID"`
