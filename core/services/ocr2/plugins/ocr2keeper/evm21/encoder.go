@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -58,10 +59,18 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		PerformDatas: make([][]byte, len(results)),
 	}
 
+	encoded := 0
 	highestCheckBlock := big.NewInt(0)
+
 	for i, result := range results {
+		result := result
+		if err := decodeExtensions(&result); err != nil {
+			return nil, err
+		}
+
 		ext, ok := result.Extension.(EVMAutomationResultExtension21)
 		if !ok {
+			// decodeExtensions should catch this, but in the case it doesn't ...
 			return nil, fmt.Errorf("unexpected check result extension struct")
 		}
 
@@ -84,27 +93,38 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			BlockNum:  uint32(result.Payload.Trigger.BlockNumber),
 			BlockHash: common.HexToHash(result.Payload.Trigger.BlockHash),
 		}
+
 		switch getUpkeepType(id.Bytes()) {
 		case logTrigger:
 			trExt, ok := result.Payload.Trigger.Extension.(logprovider.LogTriggerExtension)
 			if !ok {
+				// decodeExtensions should catch this, but in the case it doesn't ...
 				return nil, fmt.Errorf("unrecognized trigger extension data")
 			}
+
 			hex, err := common.ParseHexOrString(trExt.TxHash)
 			if err != nil {
 				return nil, fmt.Errorf("tx hash parse error: %w", err)
 			}
+
 			triggerW.TxHash = common.BytesToHash(hex[:])
 			triggerW.LogIndex = uint32(trExt.LogIndex)
 		default:
+			// no special handling here for conditional triggers
 		}
+
 		trigger, err := enc.packer.PackTrigger(id, triggerW)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to pack trigger", err)
 		}
+
 		report.Triggers[i] = trigger
 		report.PerformDatas[i] = result.PerformData
+
+		encoded++
 	}
+
+	fmt.Printf("[automation-ocr3|EvmRegistry|Encoder] encoded %d out of %d results\n", encoded, len(results))
 
 	return enc.packer.PackReport(report)
 }
@@ -159,4 +179,68 @@ type UpkeepKeyHelper[T uint32 | int64] struct {
 
 func (kh UpkeepKeyHelper[T]) MakeUpkeepKey(b T, id *big.Int) ocr2keepers.UpkeepKey {
 	return ocr2keepers.UpkeepKey(fmt.Sprintf("%d%s%s", b, separator, id))
+}
+
+func decodeExtensions(result *ocr2keepers.CheckResult) error {
+	if result == nil {
+		return fmt.Errorf("non-nil value expected in decoding")
+	}
+
+	rC := *result
+
+	// decode the trigger extension data if not decoded
+	switch typedExt := rC.Payload.Trigger.Extension.(type) {
+	case logprovider.LogTriggerExtension:
+		// no decoding required
+		break
+	case []byte:
+		switch getUpkeepType(result.Payload.Upkeep.ID) {
+		case logTrigger:
+			var ext logprovider.LogTriggerExtension
+
+			// in the case of a string, the value is probably still json
+			// encoded and coming from a plugin outcome
+			if err := json.Unmarshal(typedExt, &ext); err != nil {
+				return fmt.Errorf("%w: json encoded values do not match LogTriggerExtension struct: %s", err, string(typedExt))
+			}
+
+			result.Payload.Trigger.Extension = ext
+		case conditionTrigger:
+			// no special handling for conditional triggers
+			break
+		default:
+			return fmt.Errorf("unknown upkeep type")
+		}
+	case struct{}, nil:
+		// empty fallback
+		break
+	default:
+		return fmt.Errorf("unrecognized trigger extension data")
+	}
+
+	// decode the result extension data if not decoded
+	switch typedExt := result.Extension.(type) {
+	case EVMAutomationResultExtension21:
+		// no decoding required
+		break
+	case []byte:
+		var ext EVMAutomationResultExtension21
+
+		// in the case of a string, the value is probably still json
+		// encoded and coming from a plugin outcome
+		if err := json.Unmarshal(typedExt, &ext); err != nil {
+			return fmt.Errorf("%w: json encoded values do not match EVMAutomationResultExtension21 struct", err)
+		}
+
+		result.Extension = ext
+	case struct{}, nil:
+		// empty fallback
+		break
+	default:
+		return fmt.Errorf("unrecognized CheckResult extension data")
+	}
+
+	// TODO: decode upkeep config data if not decoded
+
+	return nil
 }

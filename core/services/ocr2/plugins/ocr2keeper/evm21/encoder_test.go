@@ -126,7 +126,7 @@ func TestEVMAutomationEncoder21_Encode_errors(t *testing.T) {
 		b, err := encoder.Encode(result)
 		assert.Nil(t, b)
 		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "unexpected check result extension struct")
+		assert.Equal(t, err.Error(), "unrecognized CheckResult extension data")
 	})
 
 	t.Run("an invalid upkeep ID causes an error", func(t *testing.T) {
@@ -167,6 +167,24 @@ func TestEVMAutomationEncoder21_Encode_errors(t *testing.T) {
 		assert.Nil(t, b)
 		assert.Error(t, err)
 		assert.Equal(t, err.Error(), "unknown trigger type: 5: failed to pack trigger")
+	})
+
+	t.Run("an invalid result extension causes an error", func(t *testing.T) {
+		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(5, "20").String()), 1, 1)
+		result.Extension = struct{}{}
+		b, err := encoder.Encode(result)
+		assert.Nil(t, b)
+		assert.Error(t, err)
+		assert.Equal(t, err.Error(), "unexpected check result extension struct")
+	})
+
+	t.Run("invalid trigger extension causes an error", func(t *testing.T) {
+		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "20").String()), 1, 1)
+		result.Payload.Trigger.Extension = struct{}{}
+		b, err := encoder.Encode(result)
+		assert.Nil(t, b)
+		assert.Error(t, err)
+		assert.Equal(t, err.Error(), "unrecognized trigger extension data")
 	})
 }
 
@@ -317,4 +335,148 @@ func decode(packer *evmRegistryPackerV2_1, raw []byte) ([]ocr2keepers.UpkeepResu
 	}
 
 	return res, nil
+}
+
+func Test_decodeExtensions(t *testing.T) {
+	t.Run("a nil result returns an error", func(t *testing.T) {
+		err := decodeExtensions(nil)
+		assert.Error(t, err)
+		assert.Equal(t, err.Error(), "non-nil value expected in decoding")
+	})
+
+	t.Run("two types of extension do not require decoding", func(t *testing.T) {
+		err := decodeExtensions(&ocr2keepers.CheckResult{
+			Payload: ocr2keepers.UpkeepPayload{
+				Trigger: ocr2keepers.Trigger{
+					Extension: logprovider.LogTriggerExtension{},
+				},
+			},
+			Extension: EVMAutomationResultExtension21{},
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("empty structs do not require decoding", func(t *testing.T) {
+		err := decodeExtensions(&ocr2keepers.CheckResult{
+			Payload: ocr2keepers.UpkeepPayload{
+				Trigger: ocr2keepers.Trigger{
+					Extension: struct{}{},
+				},
+			},
+			Extension: struct{}{},
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("CheckResult extension as json gets decoded", func(t *testing.T) {
+		err := decodeExtensions(&ocr2keepers.CheckResult{
+			Payload: ocr2keepers.UpkeepPayload{
+				Trigger: ocr2keepers.Trigger{
+					Extension: struct{}{},
+				},
+			},
+			Extension: []byte(`{"FastGasWei":1,"LinkNative":2,"FailureReason":3}`),
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("trigger extension as json for logTrigger gets decoded", func(t *testing.T) {
+		err := decodeExtensions(&ocr2keepers.CheckResult{
+			Payload: ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "111").Bytes()),
+				},
+				Trigger: ocr2keepers.Trigger{
+					Extension: []byte(`{"TxHash": "abc", "LogIndex": 123}`),
+				},
+			},
+			Extension: struct{}{},
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("trigger extension as invalid json returns an error for logTrigger", func(t *testing.T) {
+		err := decodeExtensions(&ocr2keepers.CheckResult{
+			Payload: ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "111").Bytes()),
+				},
+				Trigger: ocr2keepers.Trigger{
+					Extension: []byte(`invalid`),
+				},
+			},
+			Extension: struct{}{},
+		})
+		assert.Error(t, err)
+		assert.Equal(t, err.Error(), "invalid character 'i' looking for beginning of value: json encoded values do not match LogTriggerExtension struct: invalid")
+	})
+
+	t.Run("trigger extension for conditionTrigger requires no decoding", func(t *testing.T) {
+		err := decodeExtensions(&ocr2keepers.CheckResult{
+			Payload: ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "111").Bytes()),
+				},
+				Trigger: ocr2keepers.Trigger{
+					Extension: []byte(""),
+				},
+			},
+			Extension: struct{}{},
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("trigger extension for an unknown upkeep type returns an error", func(t *testing.T) {
+		err := decodeExtensions(&ocr2keepers.CheckResult{
+			Payload: ocr2keepers.UpkeepPayload{
+				Upkeep: ocr2keepers.ConfiguredUpkeep{
+					ID: ocr2keepers.UpkeepIdentifier(genUpkeepID(99, "111").Bytes()),
+				},
+				Trigger: ocr2keepers.Trigger{
+					Extension: []byte(""),
+				},
+			},
+			Extension: struct{}{},
+		})
+		assert.Error(t, err)
+		assert.Equal(t, err.Error(), "unknown upkeep type")
+	})
+
+	t.Run("CheckResult extension as invalid json returns an error", func(t *testing.T) {
+		err := decodeExtensions(&ocr2keepers.CheckResult{
+			Payload: ocr2keepers.UpkeepPayload{
+				Trigger: ocr2keepers.Trigger{
+					Extension: struct{}{},
+				},
+			},
+			Extension: []byte(`invalid`),
+		})
+		assert.Error(t, err)
+		assert.Equal(t, err.Error(), "invalid character 'i' looking for beginning of value: json encoded values do not match EVMAutomationResultExtension21 struct")
+	})
+
+	t.Run("unrecognized trigger extension returns an error", func(t *testing.T) {
+		err := decodeExtensions(&ocr2keepers.CheckResult{
+			Payload: ocr2keepers.UpkeepPayload{
+				Trigger: ocr2keepers.Trigger{
+					Extension: "invalid",
+				},
+			},
+		})
+		assert.Error(t, err)
+		assert.Equal(t, err.Error(), "unrecognized trigger extension data")
+	})
+
+	t.Run("unrecognized CheckResult extension returns an error", func(t *testing.T) {
+		err := decodeExtensions(&ocr2keepers.CheckResult{
+			Payload: ocr2keepers.UpkeepPayload{
+				Trigger: ocr2keepers.Trigger{
+					Extension: logprovider.LogTriggerExtension{},
+				},
+			},
+			Extension: "invalid",
+		})
+		assert.Error(t, err)
+		assert.Equal(t, err.Error(), "unrecognized CheckResult extension data")
+	})
 }
