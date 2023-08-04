@@ -322,6 +322,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return nil, errors.Wrap(err, "ServicesForSpec failed to get chainID")
 		}
 		lggr = logger.Sugared(lggr.With("evmChainID", chainID))
+
+		effectiveTransmitterID, err = GetEVMEffectiveTransmitterID(&jb, d.chainSet, chainID, lggr)
+		if err != nil {
+			return nil, errors.Wrap(err, "ServicesForSpec failed to get evm transmitterID")
+		}
 	}
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
 
