@@ -103,12 +103,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   // @inheritdoc IFunctionsBilling
   function getWeiPerUnitLink() public view returns (uint256) {
-    uint32 feedStalenessSeconds = s_config.feedStalenessSeconds;
-    bool staleFallback = feedStalenessSeconds > 0;
+    Config memory config = s_config;
     (, int256 weiPerUnitLink, , uint256 timestamp, ) = s_linkToNativeFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
-    if (staleFallback && feedStalenessSeconds < block.timestamp - timestamp) {
-      weiPerUnitLink = s_config.fallbackNativePerUnitLink;
+    if (config.feedStalenessSeconds < block.timestamp - timestamp && config.feedStalenessSeconds > 0) {
+      return uint256(config.fallbackNativePerUnitLink);
     }
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
@@ -307,6 +306,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
 
   // @inheritdoc IFunctionsBilling
+  // @dev used by FunctionsRouter.sol during timeout of a request
   function deleteCommitment(bytes32 requestId) external override onlyRouter returns (bool) {
     // Ensure that commitment exists
     if (s_requestCommitments[requestId] == bytes32(0)) {
@@ -322,11 +322,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // |                    Fund withdrawal                           |
   // ================================================================
 
-  // @notice Oracle withdraw LINK earned through fulfilling requests
-  // @notice If amount is 0 the full balance will be withdrawn
-  // @notice Both signing and transmitting wallets will have a balance to withdraw
-  // @param recipient where to send the funds
-  // @param amount amount to withdraw
+  // @inheritdoc IFunctionsBilling
   function oracleWithdraw(address recipient, uint96 amount) external {
     _disperseFeePool();
 
@@ -336,8 +332,23 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert InsufficientBalance();
     }
     s_withdrawableTokens[msg.sender] -= amount;
-    IFunctionsSubscriptions router = IFunctionsSubscriptions(address(_getRouter()));
-    router.oracleWithdraw(recipient, amount);
+    IFunctionsSubscriptions(address(_getRouter())).oracleWithdraw(recipient, amount);
+  }
+
+  // @inheritdoc IFunctionsBilling
+  // @dev Only callable by the Coordinator owner
+  function oracleWithdrawAll() external {
+    _onlyOwner();
+    _disperseFeePool();
+
+    address[] memory transmitters = _getTransmitters();
+
+    // Bounded by "maxNumOracles" on OCR2Abstract.sol
+    for (uint256 i = 0; i < transmitters.length; ++i) {
+      uint96 balance = s_withdrawableTokens[msg.sender];
+      s_withdrawableTokens[msg.sender] = 0;
+      IFunctionsSubscriptions(address(_getRouter())).oracleWithdraw(transmitters[i], balance);
+    }
   }
 
   // Overriden in FunctionsCoordinator, which has visibility into transmitters
@@ -362,4 +373,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     }
     s_feePool -= feePoolShare * uint96(transmitters.length);
   }
+
+  // Overriden in FunctionsCoordinator.sol
+  function _onlyOwner() internal view virtual;
 }

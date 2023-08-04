@@ -213,4 +213,9 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       }
     }
   }
+
+  // Used in FunctionsBilling.sol
+  function _onlyOwner() internal view override {
+    _validateOwnership();
+  }
 }

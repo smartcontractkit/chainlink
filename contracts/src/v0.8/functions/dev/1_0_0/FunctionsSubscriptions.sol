@@ -118,14 +118,15 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     // Charge the subscription
     s_subscriptions[subscriptionId].balance -= totalCostJuels;
 
+    // Unblock earmarked funds
+    s_subscriptions[subscriptionId].blockedBalance -= estimatedTotalCostJuels;
+
     // Pay the DON's fees and gas reimbursement
     s_withdrawableTokens[msg.sender] += costWithoutCallbackJuels + callbackGasCostJuels;
 
     // Pay out the administration fee
     s_withdrawableTokens[address(this)] += adminFee;
 
-    // Unblock earmarked funds
-    s_subscriptions[subscriptionId].blockedBalance -= estimatedTotalCostJuels;
     // Increment finished requests
     s_consumers[client][subscriptionId].completedRequests += 1;
 
