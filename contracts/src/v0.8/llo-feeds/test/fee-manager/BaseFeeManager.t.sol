@@ -50,7 +50,7 @@ contract BaseFeeManagerTest is Test {
   //the selector for each error
   bytes4 internal constant INVALID_DISCOUNT_ERROR = bytes4(keccak256("InvalidDiscount()"));
   bytes4 internal constant INVALID_ADDRESS_ERROR = bytes4(keccak256("InvalidAddress()"));
-  bytes4 internal constant INVALID_PREMIUM_ERROR = bytes4(keccak256("InvalidPremium()"));
+  bytes4 internal constant INVALID_PREMIUM_ERROR = bytes4(keccak256("InvalidSurcharge()"));
   bytes4 internal constant EXPIRED_REPORT_ERROR = bytes4(keccak256("ExpiredReport()"));
   bytes4 internal constant INVALID_DEPOSIT_ERROR = bytes4(keccak256("InvalidDeposit()"));
   bytes4 internal constant INVALID_QUOTE_ERROR = bytes4(keccak256("InvalidQuote()"));
@@ -60,7 +60,7 @@ contract BaseFeeManagerTest is Test {
 
   //events emitted
   event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
-  event NativePremiumSet(uint256 newPremium);
+  event NativeSurchargeSet(uint256 newSurcharge);
   event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
   event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
 
@@ -116,13 +116,13 @@ contract BaseFeeManagerTest is Test {
     changePrank(originalAddr);
   }
 
-  function setNativePremium(uint256 premium, address sender) public {
+  function setNativeSurcharge(uint256 surcharge, address sender) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
     changePrank(sender);
 
-    //set the premium
-    feeManager.setNativePremium(premium);
+    //set the surcharge
+    feeManager.setNativeSurcharge(surcharge);
 
     //change back to the original address
     changePrank(originalAddr);
@@ -213,7 +213,7 @@ contract BaseFeeManagerTest is Test {
     address originalAddr = msg.sender;
     changePrank(sender);
 
-    //set the premium
+    //set the surcharge
     feeManager.withdraw(assetAddress, amount);
 
     //change back to the original address

@@ -51,11 +51,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice the index of the address within the quote
   uint256 private constant QUOTE_ADDRESS_INDEX = 0;
 
-  /// @notice the premium fee to be paid if paying in native
-  uint256 public nativePremium;
+  /// @notice the surcharge fee to be paid if paying in native
+  uint256 public nativeSurcharge;
 
-  /// @notice the error thrown if the discount or premium is invalid
-  error InvalidPremium();
+  /// @notice the error thrown if the discount or surcharge is invalid
+  error InvalidSurcharge();
 
   /// @notice the error thrown if the token is invalid
   error InvalidToken();
@@ -82,9 +82,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @param discount Discount to apply, in relation to the PERCENTAGE_SCALAR
   event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
 
-  /// @notice Emitted when updating the native premium
-  /// @param newPremium Premium amount to apply relative to PERCENTAGE_SCALAR
-  event NativePremiumSet(uint256 newPremium);
+  /// @notice Emitted when updating the native surcharge
+  /// @param newSurcharge Surcharge amount to apply relative to PERCENTAGE_SCALAR
+  event NativeSurchargeSet(uint256 newSurcharge);
 
   /// @notice Emits when this contract does not have enough LINK to send to the reward manager when paying in native
   /// @param configDigest Config digest of the report
@@ -191,7 +191,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
         //distributes the fee
         i_rewardManager.onFeePaid(configDigest, subscriber, reward);
       } else {
-        //if the fee is in native wrapped, transfer to this contract in exchange for the equivalent amount of LINK excluding the premium
+        //if the fee is in native wrapped, transfer to this contract in exchange for the equivalent amount of LINK excluding the surcharge
         if (msg.value == 0) {
           IERC20(fee.assetAddress).transferFrom(subscriber, address(this), fee.amount);
         }
@@ -256,7 +256,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       fee.amount = reward.amount;
     } else {
       fee.assetAddress = i_nativeAddress;
-      fee.amount = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + nativePremium), PERCENTAGE_SCALAR);
+      fee.amount = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + nativeSurcharge), PERCENTAGE_SCALAR);
     }
 
     //decode the feedId from the report to calculate the discount being applied
@@ -282,12 +282,12 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IFeeManager
-  function setNativePremium(uint256 premium) external onlyOwner {
-    if (premium > PERCENTAGE_SCALAR) revert InvalidPremium();
+  function setNativeSurcharge(uint256 surcharge) external onlyOwner {
+    if (surcharge > PERCENTAGE_SCALAR) revert InvalidSurcharge();
 
-    nativePremium = premium;
+    nativeSurcharge = surcharge;
 
-    emit NativePremiumSet(premium);
+    emit NativeSurchargeSet(surcharge);
   }
 
   /// @inheritdoc IFeeManager

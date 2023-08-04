@@ -41,10 +41,10 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
   ) external;
 
   /**
-   * @notice Sets the native premium
-   * @param premium premium to be paid if paying in native
+   * @notice Sets the native surcharge
+   * @param surcharge surcharge to be paid if paying in native
    */
-  function setNativePremium(uint256 premium) external;
+  function setNativeSurcharge(uint256 surcharge) external;
 
   /**
    * @notice Adds a subscriber to the fee manager

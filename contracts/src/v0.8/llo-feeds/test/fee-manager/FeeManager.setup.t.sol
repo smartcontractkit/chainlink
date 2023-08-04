@@ -79,22 +79,22 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     withdraw(getLinkAddress(), DEFAULT_LINK_MINT_QUANTITY, USER);
   }
 
-  function test_eventIsEmittedAfterPremiumIsSet() public {
-    //native premium
-    uint256 nativePremium = FEE_SCALAR / 5;
+  function test_eventIsEmittedAfterSurchargeIsSet() public {
+    //native surcharge
+    uint256 nativeSurcharge = FEE_SCALAR / 5;
 
     //expect an emit
     vm.expectEmit();
 
     //emit the event that is expected to be emitted
-    emit NativePremiumSet(nativePremium);
+    emit NativeSurchargeSet(nativeSurcharge);
 
-    //set the premium
-    setNativePremium(nativePremium, ADMIN);
+    //set the surcharge
+    setNativeSurcharge(nativeSurcharge, ADMIN);
   }
 
   function test_subscriberDiscountEventIsEmittedOnUpdate() public {
-    //native premium
+    //native surcharge
     uint256 discount = FEE_SCALAR / 3;
 
     //an event should be emitted
@@ -103,7 +103,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //emit the event that is expected to be emitted
     emit SubscriberDiscountUpdated(USER, DEFAULT_FEED_1, getNativeAddress(), discount);
 
-    //set the premium
+    //set the surcharge
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), discount, ADMIN);
   }
 

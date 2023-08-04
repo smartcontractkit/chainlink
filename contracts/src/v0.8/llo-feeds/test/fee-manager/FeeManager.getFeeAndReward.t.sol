@@ -6,7 +6,6 @@ import {FeeManager} from "../../FeeManager.sol";
 import {IFeeManager} from "../../interfaces/IFeeManager.sol";
 import {Common} from "../../../libraries/internal/Common.sol";
 import "./BaseFeeManager.t.sol";
-import {Math} from "../shared/vendor/Math.sol";
 
 /**
  * @title BaseFeeManagerTest
@@ -91,29 +90,29 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
   }
 
-  function test_premiumIsApplied() public {
-    //native premium
-    uint256 nativePremium = FEE_SCALAR / 5;
+  function test_surchargeIsApplied() public {
+    //native surcharge
+    uint256 nativeSurcharge = FEE_SCALAR / 5;
 
-    //set the premium
-    setNativePremium(nativePremium, ADMIN);
+    //set the surcharge
+    setNativeSurcharge(nativeSurcharge, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
-    //calculate the expected premium
-    uint256 expectedPremium = ((DEFAULT_REPORT_NATIVE_FEE * nativePremium) / FEE_SCALAR);
+    //calculate the expected surcharge
+    uint256 expectedSurcharge = ((DEFAULT_REPORT_NATIVE_FEE * nativeSurcharge) / FEE_SCALAR);
 
-    //expected fee should the base fee offset by the premium and discount
-    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium);
+    //expected fee should the base fee offset by the surcharge and discount
+    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedSurcharge);
   }
 
-  function test_premiumIsNotAppliedForLinkFee() public {
-    //native premium
-    uint256 nativePremium = FEE_SCALAR / 5;
+  function test_surchargeIsNotAppliedForLinkFee() public {
+    //native surcharge
+    uint256 nativeSurcharge = FEE_SCALAR / 5;
 
-    //set the premium
-    setNativePremium(nativePremium, ADMIN);
+    //set the surcharge
+    setNativeSurcharge(nativeSurcharge, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getLinkQuote(), USER);
@@ -122,24 +121,24 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
   }
 
-  function test_premiumIsNoLongerAppliedAfterRemoving() public {
-    //native premium
-    uint256 nativePremium = FEE_SCALAR / 5;
+  function test_surchargeIsNoLongerAppliedAfterRemoving() public {
+    //native surcharge
+    uint256 nativeSurcharge = FEE_SCALAR / 5;
 
-    //set the premium
-    setNativePremium(nativePremium, ADMIN);
+    //set the surcharge
+    setNativeSurcharge(nativeSurcharge, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
-    //calculate the expected premium
-    uint256 expectedPremium = ((DEFAULT_REPORT_NATIVE_FEE * nativePremium) / FEE_SCALAR);
+    //calculate the expected surcharge
+    uint256 expectedSurcharge = ((DEFAULT_REPORT_NATIVE_FEE * nativeSurcharge) / FEE_SCALAR);
 
-    //expected fee should be the base fee offset by the premium and discount
-    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium);
+    //expected fee should be the base fee offset by the surcharge and discount
+    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedSurcharge);
 
-    //remove the premium
-    setNativePremium(0, ADMIN);
+    //remove the surcharge
+    setNativeSurcharge(0, ADMIN);
 
     //get the fee required by the feeManager
     fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -148,56 +147,56 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE);
   }
 
-  function test_feeIsUpdatedAfterNewPremiumIsApplied() public {
-    //native premium
-    uint256 nativePremium = FEE_SCALAR / 5;
+  function test_feeIsUpdatedAfterNewSurchargeIsApplied() public {
+    //native surcharge
+    uint256 nativeSurcharge = FEE_SCALAR / 5;
 
-    //set the premium
-    setNativePremium(nativePremium, ADMIN);
+    //set the surcharge
+    setNativeSurcharge(nativeSurcharge, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
-    //calculate the expected premium
-    uint256 expectedPremium = ((DEFAULT_REPORT_NATIVE_FEE * nativePremium) / FEE_SCALAR);
+    //calculate the expected surcharge
+    uint256 expectedSurcharge = ((DEFAULT_REPORT_NATIVE_FEE * nativeSurcharge) / FEE_SCALAR);
 
-    //expected fee should the base fee offset by the premium and discount
-    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium);
+    //expected fee should the base fee offset by the surcharge and discount
+    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedSurcharge);
 
-    //change the premium
-    setNativePremium(nativePremium, ADMIN);
+    //change the surcharge
+    setNativeSurcharge(nativeSurcharge, ADMIN);
 
     //get the fee required by the feeManager
     fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
-    //calculate the expected premium
-    expectedPremium = ((DEFAULT_REPORT_NATIVE_FEE * nativePremium) / FEE_SCALAR);
+    //calculate the expected surcharge
+    expectedSurcharge = ((DEFAULT_REPORT_NATIVE_FEE * nativeSurcharge) / FEE_SCALAR);
 
-    //expected fee should the base fee offset by the premium and discount
-    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium);
+    //expected fee should the base fee offset by the surcharge and discount
+    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedSurcharge);
   }
 
-  function test_premiumIsAppliedForNativeFeeWithDiscount() public {
-    //native premium
-    uint256 nativePremium = FEE_SCALAR / 5;
+  function test_surchargeIsAppliedForNativeFeeWithDiscount() public {
+    //native surcharge
+    uint256 nativeSurcharge = FEE_SCALAR / 5;
 
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
-    //set the premium
-    setNativePremium(nativePremium, ADMIN);
+    //set the surcharge
+    setNativeSurcharge(nativeSurcharge, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
-    //calculate the expected premium quantity
-    uint256 expectedPremium = ((DEFAULT_REPORT_NATIVE_FEE * nativePremium) / FEE_SCALAR);
+    //calculate the expected surcharge quantity
+    uint256 expectedSurcharge = ((DEFAULT_REPORT_NATIVE_FEE * nativeSurcharge) / FEE_SCALAR);
 
     //calculate the expected discount quantity
-    uint256 expectedDiscount = ((DEFAULT_REPORT_NATIVE_FEE + expectedPremium) / 2);
+    uint256 expectedDiscount = ((DEFAULT_REPORT_NATIVE_FEE + expectedSurcharge) / 2);
 
-    //expected fee should the base fee offset by the premium and discount
-    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium - expectedDiscount);
+    //expected fee should the base fee offset by the surcharge and discount
+    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedSurcharge - expectedDiscount);
   }
 
   function test_emptyQuoteRevertsWithError() public {
@@ -208,9 +207,9 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     getFee(getReportWithFee(DEFAULT_FEED_1), IFeeManager.Quote(address(0)), USER);
   }
 
-  function test_nativePremium100Percent() public {
-    //set the premium
-    setNativePremium(FEE_SCALAR, ADMIN);
+  function test_nativeSurcharge100Percent() public {
+    //set the surcharge
+    setNativeSurcharge(FEE_SCALAR, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -219,9 +218,9 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE * 2);
   }
 
-  function test_nativePremium0Percent() public {
-    //set the premium
-    setNativePremium(0, ADMIN);
+  function test_nativeSurcharge0Percent() public {
+    //set the surcharge
+    setNativeSurcharge(0, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -230,20 +229,20 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE);
   }
 
-  function test_nativePremiumCannotExceed100Percent() public {
-    //should revert if premium is greater than 100%
+  function test_nativeSurchargeCannotExceed100Percent() public {
+    //should revert if surcharge is greater than 100%
     vm.expectRevert(INVALID_PREMIUM_ERROR);
 
-    //set the premium above the max
-    setNativePremium(FEE_SCALAR + 1, ADMIN);
+    //set the surcharge above the max
+    setNativeSurcharge(FEE_SCALAR + 1, ADMIN);
   }
 
-  function test_discountIsAppliedWith100PercentPremium() public {
+  function test_discountIsAppliedWith100PercentSurcharge() public {
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
-    //set the premium
-    setNativePremium(FEE_SCALAR, ADMIN);
+    //set the surcharge
+    setNativeSurcharge(FEE_SCALAR, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -251,7 +250,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //calculate the expected discount quantity
     uint256 expectedDiscount = DEFAULT_REPORT_NATIVE_FEE;
 
-    //fee should be twice the premium minus the discount
+    //fee should be twice the surcharge minus the discount
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE * 2 - expectedDiscount);
   }
 
@@ -323,15 +322,15 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR + 1, ADMIN);
   }
 
-  function test_premiumIsNotAppliedWith100PercentDiscount() public {
-    //native premium
-    uint256 nativePremium = FEE_SCALAR / 5;
+  function test_surchargeIsNotAppliedWith100PercentDiscount() public {
+    //native surcharge
+    uint256 nativeSurcharge = FEE_SCALAR / 5;
 
     //set the subscriber discount to 100%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR, ADMIN);
 
-    //set the premium
-    setNativePremium(nativePremium, ADMIN);
+    //set the surcharge
+    setNativeSurcharge(nativeSurcharge, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
@@ -348,25 +347,25 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR, USER);
   }
 
-  function test_premiumFeeRoundsUpWhenUneven() public {
-    //native premium
-    uint256 nativePremium = FEE_SCALAR / 3;
+  function test_surchargeFeeRoundsUpWhenUneven() public {
+    //native surcharge
+    uint256 nativeSurcharge = FEE_SCALAR / 3;
 
-    //set the premium
-    setNativePremium(nativePremium, ADMIN);
+    //set the surcharge
+    setNativeSurcharge(nativeSurcharge, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
-    //calculate the expected premium quantity
-    uint256 expectedPremium = (DEFAULT_REPORT_NATIVE_FEE * nativePremium) / FEE_SCALAR;
+    //calculate the expected surcharge quantity
+    uint256 expectedSurcharge = (DEFAULT_REPORT_NATIVE_FEE * nativeSurcharge) / FEE_SCALAR;
 
-    //expected fee should the base fee offset by the expected premium
-    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedPremium + 1);
+    //expected fee should the base fee offset by the expected surcharge
+    assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE + expectedSurcharge + 1);
   }
 
   function test_discountFeeRoundsDownWhenUneven() public {
-    //native premium
+    //native surcharge
     uint256 discount = FEE_SCALAR / 3;
 
     //set the subscriber discount to 33.333%
@@ -378,7 +377,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //calculate the expected quantity
     uint256 expectedDiscount = ((DEFAULT_REPORT_NATIVE_FEE * discount) / FEE_SCALAR);
 
-    //expected fee should the base fee offset by the expected premium
+    //expected fee should the base fee offset by the expected surcharge
     assertEq(fee.amount, DEFAULT_REPORT_NATIVE_FEE - expectedDiscount);
   }
 
@@ -434,12 +433,12 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, 0);
   }
 
-  function test_noFeeIsAppliedWhenReportHasZeroFeeAndDiscountAndPremiumIsSet() public {
+  function test_noFeeIsAppliedWhenReportHasZeroFeeAndDiscountAndSurchargeIsSet() public {
     //set the subscriber discount to 50%
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
 
-    //set the premium
-    setNativePremium(FEE_SCALAR / 2, ADMIN);
+    //set the surcharge
+    setNativeSurcharge(FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getFee(
@@ -452,18 +451,18 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, 0);
   }
 
-  function test_nativePremiumEventIsEmittedOnUpdate() public {
-    //native premium
-    uint256 nativePremium = FEE_SCALAR / 3;
+  function test_nativeSurchargeEventIsEmittedOnUpdate() public {
+    //native surcharge
+    uint256 nativeSurcharge = FEE_SCALAR / 3;
 
     //an event should be emitted
     vm.expectEmit();
 
     //emit the event that is expected to be emitted
-    emit NativePremiumSet(nativePremium);
+    emit NativeSurchargeSet(nativeSurcharge);
 
-    //set the premium
-    setNativePremium(nativePremium, ADMIN);
+    //set the surcharge
+    setNativeSurcharge(nativeSurcharge, ADMIN);
   }
 
   function test_getBaseRewardWithLinkQuote() public {
@@ -493,14 +492,14 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
   }
 
-  function test_getRewardWithNativeQuoteAndPremium() public {
-    //set the native premium
-    setNativePremium(FEE_SCALAR / 2, ADMIN);
+  function test_getRewardWithNativeQuoteAndSurcharge() public {
+    //set the native surcharge
+    setNativeSurcharge(FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
     Common.Asset memory fee = getReward(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
-    //the reward should equal the base fee in link regardless of the premium
+    //the reward should equal the base fee in link regardless of the surcharge
     assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
   }
 
@@ -537,9 +536,9 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(fee.amount, (DEFAULT_REPORT_LINK_FEE * 2) / 3);
   }
 
-  function test_getLinkRewardWithNativeQuoteAndPremiumWithLinkDiscount() public {
-    //set the native premium
-    setNativePremium(FEE_SCALAR / 2, ADMIN);
+  function test_getLinkRewardWithNativeQuoteAndSurchargeWithLinkDiscount() public {
+    //set the native surcharge
+    setNativeSurcharge(FEE_SCALAR / 2, ADMIN);
 
     //set the link discount
     setSubscriberDiscount(USER, DEFAULT_FEED_1, getLinkAddress(), FEE_SCALAR / 3, ADMIN);
@@ -547,7 +546,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //get the fee required by the feeManager
     Common.Asset memory fee = getReward(getReportWithFee(DEFAULT_FEED_1), getNativeQuote(), USER);
 
-    //the reward should equal the base fee in link regardless of the premium
+    //the reward should equal the base fee in link regardless of the surcharge
     assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
   }
 
