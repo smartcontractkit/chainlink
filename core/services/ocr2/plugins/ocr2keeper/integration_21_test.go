@@ -30,6 +30,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registrylogica21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
@@ -487,6 +488,9 @@ func deployKeeper21Registry(
 	linkAddr, linkFeedAddr,
 	gasFeedAddr common.Address,
 ) *iregistry21.IKeeperRegistryMaster {
+	automationForwarderLogicAddr, _, _, err := automationForwarderLogic.DeployAutomationForwarderLogic(auth, backend)
+	require.NoError(t, err)
+	backend.Commit()
 	registryLogicBAddr, _, _, err := registrylogicb21.DeployKeeperRegistryLogicB(
 		auth,
 		backend,
@@ -494,6 +498,7 @@ func deployKeeper21Registry(
 		linkAddr,
 		linkFeedAddr,
 		gasFeedAddr,
+		automationForwarderLogicAddr,
 	)
 	require.NoError(t, err)
 	backend.Commit()
