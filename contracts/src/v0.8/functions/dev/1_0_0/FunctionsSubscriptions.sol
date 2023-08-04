@@ -70,6 +70,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   error MustBeSubscriptionOwner();
   error TimeoutNotExceeded();
   error MustBeProposedOwner(address proposedOwner);
+  error TotalBalanceInvariantViolated(uint256 totalBalance, uint256 deductionAttempt); // Should never happen
   event FundsRecovered(address to, uint256 amount);
 
   // ================================================================
@@ -121,9 +122,15 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     uint96 totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels;
 
     // Charge the subscription
+    if (s_subscriptions[subscriptionId].balance < totalCostJuels) {
+      revert InsufficientBalance(s_subscriptions[subscriptionId].balance);
+    }
     s_subscriptions[subscriptionId].balance -= totalCostJuels;
 
     // Unblock earmarked funds
+    if (s_subscriptions[subscriptionId].blockedBalance < estimatedTotalCostJuels) {
+      revert InsufficientBalance(s_subscriptions[subscriptionId].balance);
+    }
     s_subscriptions[subscriptionId].blockedBalance -= estimatedTotalCostJuels;
 
     // Pay the DON's fees and gas reimbursement
@@ -177,6 +184,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     if (currentBalance < amount) {
       revert InsufficientBalance(currentBalance);
     }
+    if (s_totalLinkBalance < amount) {
+      revert TotalBalanceInvariantViolated(s_totalLinkBalance, amount);
+    }
     s_withdrawableTokens[msg.sender] -= amount;
     s_totalLinkBalance -= amount;
     IERC20(i_linkToken).safeTransfer(recipient, amount);
@@ -194,6 +204,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     uint96 currentBalance = s_withdrawableTokens[address(this)];
     if (currentBalance < amount) {
       revert InsufficientBalance(currentBalance);
+    }
+    if (s_totalLinkBalance < amount) {
+      revert TotalBalanceInvariantViolated(s_totalLinkBalance, amount);
     }
     s_withdrawableTokens[address(this)] -= amount;
     s_totalLinkBalance -= amount;
