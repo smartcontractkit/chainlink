@@ -186,8 +186,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       args.offchainConfigVersion,
       args.offchainConfig
     );
-
-    _afterSetConfig(args.f, args.onchainConfig);
   }
 
   function configDigestFromConfigData(
@@ -245,20 +243,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   }
 
   function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal virtual;
-
-  function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal virtual;
-
-  /**
-   * @dev hook to allow additional validation of the report by the extending contract
-   * @param configDigest separation tag for current config (see configDigestFromConfigData)
-   * @param epochAndRound 27 byte padding, 4-byte epoch and 1-byte round
-   * @param report serialized report
-   */
-  function _validateReport(
-    bytes32 configDigest,
-    uint40 epochAndRound,
-    bytes memory report
-  ) internal virtual returns (bool);
 
   /**
    * @dev hook called after the report has been fully validated
@@ -333,10 +317,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       // reportContext[2]: ExtraHash
       bytes32 configDigest = reportContext[0];
       uint32 epochAndRound = uint32(uint256(reportContext[1]));
-
-      if (!_validateReport(configDigest, epochAndRound, report)) {
-        revert ReportInvalid();
-      }
 
       emit Transmitted(configDigest, uint32(epochAndRound >> 8));
 

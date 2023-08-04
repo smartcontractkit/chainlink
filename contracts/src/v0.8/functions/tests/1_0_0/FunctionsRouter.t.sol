@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {IFunctionsRouter} from "../../dev/1_0_0/interfaces/IFunctionsRouter.sol";
+import {IFunctionsBilling} from "../../dev/1_0_0/interfaces/IFunctionsBilling.sol";
+
 import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsRouter} from "../../dev/1_0_0/FunctionsRouter.sol";
-import {IFunctionsRouter} from "../../dev/1_0_0/interfaces/IFunctionsRouter.sol";
 import {FunctionsCoordinator} from "../../dev/1_0_0/FunctionsCoordinator.sol";
 import {FunctionsBilling} from "../../dev/1_0_0/FunctionsBilling.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
@@ -33,29 +35,21 @@ contract FunctionsRouterSetup is BaseTest {
     s_termsOfServiceAllowList = new TermsOfServiceAllowList(address(s_functionsRouter), getTermsOfServiceConfig());
   }
 
-  function getRouterConfig() public view returns (bytes memory) {
+  function getRouterConfig() public view returns (IFunctionsRouter.Config memory) {
     uint32[] memory maxCallbackGasLimits = new uint32[](1);
     maxCallbackGasLimits[0] = type(uint32).max;
 
-    // First create the struct to get some type safety
-    IFunctionsRouter.Config memory routerConfig = IFunctionsRouter.Config({
-      maxConsumersPerSubscription: s_maxConsumersPerSubscription,
-      adminFee: s_adminFee,
-      handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
-      maxCallbackGasLimits: maxCallbackGasLimits
-    });
-
     return
-      abi.encode(
-        routerConfig.maxConsumersPerSubscription,
-        routerConfig.adminFee,
-        routerConfig.handleOracleFulfillmentSelector,
-        routerConfig.maxCallbackGasLimits
-      );
+      IFunctionsRouter.Config({
+        maxConsumersPerSubscription: s_maxConsumersPerSubscription,
+        adminFee: s_adminFee,
+        handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
+        maxCallbackGasLimits: maxCallbackGasLimits
+      });
   }
 
   function getCoordinatorConfig() public pure returns (bytes memory) {
-    FunctionsBilling.Config memory billingConfig = FunctionsBilling.Config({
+    IFunctionsBilling.Config memory billingConfig = IFunctionsBilling.Config({
       maxCallbackGasLimit: 5,
       feedStalenessSeconds: 5,
       gasOverheadAfterCallback: 5,
