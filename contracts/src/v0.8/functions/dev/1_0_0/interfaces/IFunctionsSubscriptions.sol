@@ -70,7 +70,7 @@ interface IFunctionsSubscriptions {
   // @dev Only callable by the Router Owner
   // @param subscriptionId subscription id
   // @dev notably can be called even if there are pending requests, outstanding ones may fail onchain
-  function ownerCancelSubscription(uint64 subscriptionId) external;
+  function ownerCancelSubscriptions(uint64[] calldata subscriptionIds) external;
 
   // @notice Recover link sent with transfer instead of transferAndCall.
   // @dev Only callable by the Router Owner

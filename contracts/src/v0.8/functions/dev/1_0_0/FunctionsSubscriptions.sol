@@ -139,10 +139,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // ================================================================
 
   // @inheritdoc IFunctionsSubscriptions
-  function ownerCancelSubscription(uint64 subscriptionId) external override {
+  function ownerCancelSubscriptions(uint64[] calldata subscriptionIds) external override {
     _onlyRouterOwner();
-    _isValidSubscription(subscriptionId);
-    _cancelSubscriptionHelper(subscriptionId, s_subscriptions[subscriptionId].owner);
+
+    for (uint256 i = 0; i < subscriptionIds.length; ++i) {
+      uint64 subscriptionId = subscriptionIds[i];
+      _isValidSubscription(subscriptionId);
+      _cancelSubscriptionHelper(subscriptionId, s_subscriptions[subscriptionId].owner);
+    }
   }
 
   // @inheritdoc IFunctionsSubscriptions
