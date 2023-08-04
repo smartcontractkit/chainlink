@@ -41,11 +41,6 @@ compileContract 0_0_0 dev/0_0_0/example/FunctionsClientExample.sol
 compileContract 0_0_0 tests/0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol
 compileContract 0_0_0 tests/0_0_0/testhelpers/FunctionsOracleWithInit.sol
 
-# Mocks
-compileContract 0_0_0 ../mocks/FunctionsOracleEventsMock.sol
-compileContract 0_0_0 ../mocks/FunctionsBillingRegistryEventsMock.sol
-
-
 ############################
 # Version 1 (Mainnet Preview)
 ############################
@@ -55,7 +50,7 @@ solc-select install $SOLC_VERSION
 solc-select use $SOLC_VERSION
 export SOLC_VERSION=$SOLC_VERSION
 
-compileContract 1_0_0 dev/1_0_0/Functions.sol
+compileContract 1_0_0 dev/1_0_0/libraries/FunctionsRequest.sol
 compileContract 1_0_0 dev/1_0_0/FunctionsRouter.sol
 compileContract 1_0_0 dev/1_0_0/FunctionsCoordinator.sol
 compileContract 1_0_0 dev/1_0_0/accessControl/TermsOfServiceAllowList.sol

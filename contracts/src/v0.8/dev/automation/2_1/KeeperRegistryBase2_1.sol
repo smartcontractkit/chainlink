@@ -10,11 +10,11 @@ import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/
 import "./interfaces/FeedLookupCompatibleInterface.sol";
 import "./interfaces/ILogAutomation.sol";
 import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";
-import "../../../ConfirmedOwner.sol";
+import "../../../shared/access/ConfirmedOwner.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
-import "../../../interfaces/LinkTokenInterface.sol";
-import "../../../interfaces/automation/KeeperCompatibleInterface.sol";
-import "../../../interfaces/automation/UpkeepTranscoderInterface.sol";
+import "../../../shared/interfaces/LinkTokenInterface.sol";
+import "../../../automation/interfaces/KeeperCompatibleInterface.sol";
+import "../../../automation/interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between

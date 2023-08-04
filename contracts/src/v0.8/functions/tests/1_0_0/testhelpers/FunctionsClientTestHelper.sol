@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {FunctionsClient, Functions} from "../../../dev/1_0_0/FunctionsClient.sol";
 import {ITermsOfServiceAllowList} from "../../../dev/1_0_0/accessControl/interfaces/ITermsOfServiceAllowList.sol";
 import {IFunctionsSubscriptions} from "../../../dev/1_0_0/interfaces/IFunctionsSubscriptions.sol";
 
+import {FunctionsRequest} from "../../../dev/1_0_0/libraries/FunctionsRequest.sol";
+import {FunctionsClient} from "../../../dev/1_0_0/FunctionsClient.sol";
+
 contract FunctionsClientTestHelper is FunctionsClient {
-  using Functions for Functions.Request;
+  using FunctionsRequest for FunctionsRequest.Request;
 
   event SendRequestInvoked(bytes32 requestId, string sourceCode, uint64 subscriptionId);
   event FulfillRequestInvoked(bytes32 requestId, bytes response, bytes err);
@@ -27,7 +29,7 @@ contract FunctionsClientTestHelper is FunctionsClient {
     bytes32 donId,
     uint32 callbackGasLimit
   ) public returns (bytes32 requestId) {
-    Functions.Request memory request;
+    FunctionsRequest.Request memory request;
     request.initializeRequestForInlineJavaScript(sourceCode);
     requestId = _sendRequest(request, subscriptionId, callbackGasLimit, donId);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
@@ -38,14 +40,14 @@ contract FunctionsClientTestHelper is FunctionsClient {
     uint64 subscriptionId,
     bytes32 donId
   ) public returns (bytes32 requestId) {
-    Functions.Request memory request;
+    FunctionsRequest.Request memory request;
     uint32 callbackGasLimit = 20_000;
     request.initializeRequestForInlineJavaScript(sourceCode);
-    bytes memory requestData = Functions.encodeCBOR(request);
-    requestId = s_router.sendRequestToProposed(
+    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    requestId = i_router.sendRequestToProposed(
       subscriptionId,
       requestData,
-      Functions.REQUEST_DATA_VERSION,
+      FunctionsRequest.REQUEST_DATA_VERSION,
       callbackGasLimit,
       donId
     );
@@ -54,13 +56,13 @@ contract FunctionsClientTestHelper is FunctionsClient {
   }
 
   function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external {
-    bytes32 allowListId = s_router.getAllowListId();
-    ITermsOfServiceAllowList allowList = ITermsOfServiceAllowList(s_router.getContractById(allowListId));
+    bytes32 allowListId = i_router.getAllowListId();
+    ITermsOfServiceAllowList allowList = ITermsOfServiceAllowList(i_router.getContractById(allowListId));
     allowList.acceptTermsOfService(acceptor, recipient, r, s, v);
   }
 
   function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external {
-    IFunctionsSubscriptions(address(s_router)).acceptSubscriptionOwnerTransfer(subscriptionId);
+    IFunctionsSubscriptions(address(i_router)).acceptSubscriptionOwnerTransfer(subscriptionId);
   }
 
   function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
@@ -76,7 +78,7 @@ contract FunctionsClientTestHelper is FunctionsClient {
       sendSimpleRequestWithJavaScript("somedata", s_subscriptionId, s_donId, 20_000);
     }
     if (s_doInvalidReentrantOperation) {
-      IFunctionsSubscriptions(address(s_router)).cancelSubscription(s_subscriptionId, msg.sender);
+      IFunctionsSubscriptions(address(i_router)).cancelSubscription(s_subscriptionId, msg.sender);
     }
     emit FulfillRequestInvoked(requestId, response, err);
   }

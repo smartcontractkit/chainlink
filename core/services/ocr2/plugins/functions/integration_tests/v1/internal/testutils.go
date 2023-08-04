@@ -179,19 +179,14 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	require.NoError(t, err)
 	uint80Type, err := abi.NewType("uint80", "uint80", nil)
 	require.NoError(t, err)
-	uint96Type, err := abi.NewType("uint96", "uint96", nil)
-	require.NoError(t, err)
 	uint256Type, err := abi.NewType("uint256", "uint256", nil)
 	require.NoError(t, err)
 	int256Type, err := abi.NewType("int256", "int256", nil)
 	require.NoError(t, err)
-	bytes4Type, err := abi.NewType("bytes4", "bytes4", nil)
 	require.NoError(t, err)
 	boolType, err := abi.NewType("bool", "bool", nil)
 	require.NoError(t, err)
 	addressType, err := abi.NewType("address", "address", nil)
-	require.NoError(t, err)
-	uint32ArrType, err := abi.NewType("uint32[]", "uint32[]", nil)
 	require.NoError(t, err)
 
 	// Deploy LINK token
@@ -203,12 +198,6 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	require.NoError(t, err)
 
 	// Deploy Router contract
-	routerConfigABI := abi.Arguments{
-		{Type: uint16Type},    // maxConsumers
-		{Type: uint96Type},    // adminFee
-		{Type: bytes4Type},    // handleOracleFulfillmentSelector
-		{Type: uint32ArrType}, // maxCallbackGasLimits
-	}
 	var maxConsumers = uint16(100)
 	var adminFee = big.NewInt(0)
 	handleOracleFulfillmentSelectorSlice, err := hex.DecodeString("0ca76175")
@@ -216,11 +205,10 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	var handleOracleFulfillmentSelector [4]byte
 	copy(handleOracleFulfillmentSelector[:], handleOracleFulfillmentSelectorSlice[:4])
 	maxCallbackGasLimits := []uint32{300_000, 500_000, 1_000_000}
-	routerConfig, err := routerConfigABI.Pack(maxConsumers, adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits)
 	require.NoError(t, err)
 	var timelockBlocks = uint16(0)
 	var maximumTimelockBlocks = uint16(10)
-	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b, timelockBlocks, maximumTimelockBlocks, linkAddr, routerConfig)
+	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b, timelockBlocks, maximumTimelockBlocks, linkAddr, functions_router.IFunctionsRouterConfig{maxConsumers, adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits})
 	require.NoError(t, err)
 
 	// Deploy Allow List contract
@@ -428,7 +416,11 @@ func AddBootstrapJob(t *testing.T, app *cltest.TestApplication, contractAddress 
 		[relayConfig]
 		chainID                           = 1337
 		fromBlock                         = 1
-	`, contractAddress))
+		donID                             = "%s"
+		contractVersion                   = 1
+		contractUpdateCheckFrequencySec   = 1
+
+	`, contractAddress, DefaultDONId))
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
@@ -463,7 +455,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		fromBlock = 1
 
 		[pluginConfig]
-		donId = "%s"
+		donID = "%s"
 		contractVersion = 1
 		minIncomingConfirmations = 3
 		requestTimeoutSec = 300
@@ -573,8 +565,7 @@ func CreateFunctionsNodes(
 	}
 
 	bootstrapNode = StartNewNode(t, owner, startingPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
-	// TODO(FUN-696): refactor bootstrap job to support Functions relayers
-	AddBootstrapJob(t, bootstrapNode.App, coordinatorAddress)
+	AddBootstrapJob(t, bootstrapNode.App, routerAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
 	for i := 0; i < nOracleNodes; i++ {

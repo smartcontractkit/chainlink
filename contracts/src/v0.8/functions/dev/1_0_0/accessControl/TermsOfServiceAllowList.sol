@@ -2,9 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
-import {HasRouter} from "../HasRouter.sol";
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
 import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
+
+import {Routable} from "../Routable.sol";
 
 import {Address} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
 import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
@@ -12,12 +13,19 @@ import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/con
 /**
  * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
  */
-contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccessController {
+contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessController {
   using Address for address;
   using EnumerableSet for EnumerableSet.AddressSet;
 
+  // @inheritdoc ITypeAndVersion
+  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
+
   EnumerableSet.AddressSet private s_allowedSenders;
   mapping(address => bool) private s_blockedSenders;
+
+  event AddedAccess(address user);
+  event BlockedAccess(address user);
+  event UnblockedAccess(address user);
 
   error InvalidSignature();
   error InvalidUsage();
@@ -34,13 +42,13 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
 
   Config private s_config;
 
-  event ConfigSet(bool enabled);
+  event ConfigSet(bool enabled, address signerPublicKey);
 
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
 
-  constructor(address router, bytes memory config) HasRouter(router, config) {}
+  constructor(address router, bytes memory config) Routable(router, config) {}
 
   // ================================================================
   // |                    Configuration methods                     |
@@ -55,13 +63,8 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
   function _updateConfig(bytes memory config) internal override {
     (bool enabled, address signerPublicKey) = abi.decode(config, (bool, address));
     s_config = Config({enabled: enabled, signerPublicKey: signerPublicKey});
-    emit ConfigSet(enabled);
+    emit ConfigSet(enabled, signerPublicKey);
   }
-
-  /**
-   * @inheritdoc ITypeAndVersion
-   */
-  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
 
   // ================================================================
   // |                  Terms of Service methods                    |
@@ -100,6 +103,7 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
 
     // Add recipient to the allow list
     s_allowedSenders.add(recipient);
+    emit AddedAccess(recipient);
   }
 
   /**
@@ -139,6 +143,7 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
   function blockSender(address sender) external override onlyRouterOwner {
     s_allowedSenders.remove(sender);
     s_blockedSenders[sender] = true;
+    emit BlockedAccess(sender);
   }
 
   /**
@@ -146,5 +151,6 @@ contract TermsOfServiceAllowList is HasRouter, ITermsOfServiceAllowList, IAccess
    */
   function unblockSender(address sender) external override onlyRouterOwner {
     s_blockedSenders[sender] = false;
+    emit UnblockedAccess(sender);
   }
 }

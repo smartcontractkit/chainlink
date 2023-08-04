@@ -43,6 +43,11 @@ func (p *functionsProvider) LogPollerWrapper() evmRelayTypes.LogPollerWrapper {
 	return p.logPollerWrapper
 }
 
+func (p *functionsProvider) FunctionsEvents() relaytypes.FunctionsEvents {
+	// TODO (FUN-668): implement
+	return nil
+}
+
 func (p *functionsProvider) Start(ctx context.Context) error {
 	return p.StartOnce("FunctionsProvider", func() error {
 		if err := p.configWatcher.Start(ctx); err != nil {
@@ -103,9 +108,14 @@ func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, par
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newFunctionsContractTransmitter(pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
-	if err != nil {
-		return nil, err
+	var contractTransmitter ContractTransmitter
+	if relayConfig.SendingKeys != nil {
+		contractTransmitter, err = newFunctionsContractTransmitter(pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		lggr.Warn("no sending keys configured for functions plugin, not starting contract transmitter")
 	}
 	return &functionsProvider{
 		configWatcher:       configWatcher,

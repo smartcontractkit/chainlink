@@ -2,18 +2,23 @@
 pragma solidity ^0.8.19;
 
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {IFunctionsBilling, FunctionsBilling} from "./FunctionsBilling.sol";
-import {OCR2Base} from "./ocr/OCR2Base.sol";
-import {FulfillResult} from "./interfaces/FulfillResultCodes.sol";
-import {ITypeAndVersion} from "./HasRouter.sol";
-import {IFunctionsRequest} from "./interfaces/IFunctionsRequest.sol";
+import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 
-/**
- * @title Functions Coordinator contract
- * @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
- * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
- */
+import {FunctionsBilling} from "./FunctionsBilling.sol";
+import {OCR2Base} from "./ocr/OCR2Base.sol";
+import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
+
+// @title Functions Coordinator contract
+// @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
+// @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
 contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
+  using FunctionsResponse for FunctionsResponse.Commitment;
+  using FunctionsResponse for FunctionsResponse.FulfillResult;
+
+  // @inheritdoc ITypeAndVersion
+  string public constant override typeAndVersion = "Functions Coordinator v1.0.0";
+
   event OracleRequest(
     bytes32 indexed requestId,
     address indexed requestingContract,
@@ -43,14 +48,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     address linkToNativeFeed
   ) OCR2Base(true) FunctionsBilling(router, config, linkToNativeFeed) {}
 
-  /**
-   * @inheritdoc ITypeAndVersion
-   */
-  string public constant override typeAndVersion = "Functions Coordinator v1.0.0";
-
-  /**
-   * @inheritdoc IFunctionsCoordinator
-   */
+  // @inheritdoc IFunctionsCoordinator
   function getThresholdPublicKey() external view override returns (bytes memory) {
     if (s_thresholdPublicKey.length == 0) {
       revert EmptyPublicKey();
@@ -58,9 +56,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     return s_thresholdPublicKey;
   }
 
-  /**
-   * @inheritdoc IFunctionsCoordinator
-   */
+  // @inheritdoc IFunctionsCoordinator
   function setThresholdPublicKey(bytes calldata thresholdPublicKey) external override onlyOwner {
     if (thresholdPublicKey.length == 0) {
       revert EmptyPublicKey();
@@ -68,9 +64,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     s_thresholdPublicKey = thresholdPublicKey;
   }
 
-  /**
-   * @inheritdoc IFunctionsCoordinator
-   */
+  // @inheritdoc IFunctionsCoordinator
   function getDONPublicKey() external view override returns (bytes memory) {
     if (s_donPublicKey.length == 0) {
       revert EmptyPublicKey();
@@ -78,9 +72,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     return s_donPublicKey;
   }
 
-  /**
-   * @inheritdoc IFunctionsCoordinator
-   */
+  // @inheritdoc IFunctionsCoordinator
   function setDONPublicKey(bytes calldata donPublicKey) external override onlyOwner {
     if (donPublicKey.length == 0) {
       revert EmptyPublicKey();
@@ -88,9 +80,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     s_donPublicKey = donPublicKey;
   }
 
-  /**
-   * @dev check if node is in current transmitter list
-   */
+  // @dev check if node is in current transmitter list
   function _isTransmitter(address node) internal view returns (bool) {
     address[] memory nodes = s_transmitters;
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
@@ -102,9 +92,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     return false;
   }
 
-  /**
-   * @inheritdoc IFunctionsCoordinator
-   */
+  // @inheritdoc IFunctionsCoordinator
   function setNodePublicKey(address node, bytes calldata publicKey) external override {
     // Owner can set anything. Transmitters can set only their own key.
     if (!(msg.sender == owner() || (_isTransmitter(msg.sender) && msg.sender == node))) {
@@ -113,39 +101,34 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     s_nodePublicKeys[node] = publicKey;
   }
 
-  /**
-   * @inheritdoc IFunctionsCoordinator
-   */
+  // @inheritdoc IFunctionsCoordinator
   function deleteNodePublicKey(address node) external override {
     // Owner can delete anything. Others can delete only their own key.
-    if (!(msg.sender == owner() || msg.sender == node)) {
+    if (msg.sender != owner() && msg.sender != node) {
       revert UnauthorizedPublicKeyChange();
     }
     delete s_nodePublicKeys[node];
   }
 
-  /**
-   * @inheritdoc IFunctionsCoordinator
-   */
+  // @inheritdoc IFunctionsCoordinator
   function getAllNodePublicKeys() external view override returns (address[] memory, bytes[] memory) {
     address[] memory nodes = s_transmitters;
     bytes[] memory keys = new bytes[](nodes.length);
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
     for (uint256 i = 0; i < nodes.length; ++i) {
-      if (s_nodePublicKeys[nodes[i]].length == 0) {
+      bytes memory nodePublicKey = s_nodePublicKeys[nodes[i]];
+      if (nodePublicKey.length == 0) {
         revert EmptyPublicKey();
       }
-      keys[i] = s_nodePublicKeys[nodes[i]];
+      keys[i] = nodePublicKey;
     }
     return (nodes, keys);
   }
 
-  /**
-   * @inheritdoc IFunctionsCoordinator
-   */
+  // @inheritdoc IFunctionsCoordinator
   function sendRequest(
     Request calldata request
-  ) external override onlyRouter returns (IFunctionsRequest.Commitment memory commitment) {
+  ) external override onlyRouter returns (FunctionsResponse.Commitment memory commitment) {
     if (request.data.length == 0) {
       revert EmptyRequestData();
     }
@@ -174,27 +157,19 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     );
   }
 
+  // DON fees are pooled together. If the OCR configuration is going to change, these need to be distributed.
   function _beforeSetConfig(uint8 /* _f */, bytes memory /* _onchainConfig */) internal override {
     if (_getTransmitters().length > 0) {
       _disperseFeePool();
     }
   }
 
-  function _afterSetConfig(uint8 /* _f */, bytes memory /* _onchainConfig */) internal override {}
-
-  function _validateReport(
-    bytes32 /* configDigest */,
-    uint40 /* epochAndRound */,
-    bytes memory /* report */
-  ) internal pure override returns (bool) {
-    // validate within _report to save gas
-    return true;
-  }
-
+  // Used by FunctionsBilling.sol
   function _getTransmitters() internal view override returns (address[] memory) {
     return s_transmitters;
   }
 
+  // Report hook called within OCR2Base.sol
   function _report(
     uint256 /*initialGas*/,
     address /*transmitter*/,
@@ -211,6 +186,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       report,
       (bytes32[], bytes[], bytes[], bytes[], bytes[])
     );
+
     if (
       requestIds.length == 0 ||
       requestIds.length != results.length ||
@@ -223,13 +199,23 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
     // Bounded by "MaxRequestBatchSize" on the Job's ReportingPluginConfig
     for (uint256 i = 0; i < requestIds.length; ++i) {
-      FulfillResult result = FulfillResult(
+      FunctionsResponse.FulfillResult result = FunctionsResponse.FulfillResult(
         _fulfillAndBill(requestIds[i], results[i], errors[i], onchainMetadata[i], offchainMetadata[i])
       );
 
-      if (result == FulfillResult.USER_SUCCESS || result == FulfillResult.USER_ERROR) {
+      // Emit on successfully processing the fulfillment
+      // In these two fulfillment results the user has been charged
+      // Otherwise, the DON will re-try
+      if (
+        result == FunctionsResponse.FulfillResult.USER_SUCCESS || result == FunctionsResponse.FulfillResult.USER_ERROR
+      ) {
         emit OracleResponse(requestIds[i], msg.sender);
       }
     }
+  }
+
+  // Used in FunctionsBilling.sol
+  function _onlyOwner() internal view override {
+    _validateOwnership();
   }
 }

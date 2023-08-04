@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -56,7 +56,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 
 func (l *logPollerWrapper) Start(context.Context) error {
 	return l.StartOnce("LogPollerWrapper", func() error {
-		l.lggr.Info("starting LogPollerWrapper")
+		l.lggr.Infow("starting LogPollerWrapper", "routerContract", l.routerContract.Address().Hex(), "contractVersion", l.pluginConfig.ContractVersion)
 		l.mu.Lock()
 		defer l.mu.Unlock()
 		if l.pluginConfig.ContractVersion == 0 {
@@ -66,7 +66,7 @@ func (l *logPollerWrapper) Start(context.Context) error {
 			nextBlock, err := l.logPoller.LatestBlock()
 			l.nextBlock = nextBlock
 			if err != nil {
-				l.lggr.Error("LogPollerWrapper: LatestBlock() failed, starting from 0")
+				l.lggr.Errorw("LogPollerWrapper: LatestBlock() failed, starting from 0", "error", err)
 			} else {
 				l.lggr.Debugw("LogPollerWrapper: LatestBlock() got starting block", "block", nextBlock)
 			}
@@ -186,8 +186,9 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 func (l *logPollerWrapper) SubscribeToUpdates(subscriberName string, subscriber evmRelayTypes.RouteUpdateSubscriber) {
 	if l.pluginConfig.ContractVersion == 0 {
 		// in V0, immediately set contract address to Oracle contract and never update again
-		err := subscriber.UpdateRoutes(l.routerContract.Address(), l.routerContract.Address())
-		l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "error", err)
+		if err := subscriber.UpdateRoutes(l.routerContract.Address(), l.routerContract.Address()); err != nil {
+			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "error", err)
+		}
 	} else if l.pluginConfig.ContractVersion == 1 {
 		l.mu.Lock()
 		defer l.mu.Unlock()
@@ -199,7 +200,7 @@ func (l *logPollerWrapper) checkForRouteUpdates() {
 	defer l.closeWait.Done()
 	freqSec := l.pluginConfig.ContractUpdateCheckFrequencySec
 	if freqSec == 0 {
-		l.lggr.Errorw("ContractUpdateCheckFrequencySec is zero - route update checks disabled")
+		l.lggr.Errorw("LogPollerWrapper: ContractUpdateCheckFrequencySec is zero - route update checks disabled")
 		return
 	}
 
@@ -232,22 +233,22 @@ func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.A
 		return l.routerContract.Address(), l.routerContract.Address(), nil
 	}
 	var donId [32]byte
-	copy(donId[:], []byte(l.pluginConfig.DONId))
+	copy(donId[:], []byte(l.pluginConfig.DONID))
 
 	activeCoordinator, err := l.routerContract.GetContractById(&bind.CallOpts{
 		Pending: false,
 		Context: ctx,
-	}, donId, false)
+	}, donId)
 	if err != nil {
 		return common.Address{}, common.Address{}, err
 	}
 
-	proposedCoordinator, err := l.routerContract.GetContractById(&bind.CallOpts{
+	proposedCoordinator, err := l.routerContract.GetProposedContractById(&bind.CallOpts{
 		Pending: false,
 		Context: ctx,
-	}, donId, true)
+	}, donId)
 	if err != nil {
-		return common.Address{}, common.Address{}, err
+		return activeCoordinator, l.proposedCoordinator, nil
 	}
 
 	return activeCoordinator, proposedCoordinator, nil
@@ -284,6 +285,9 @@ func filterName(addr common.Address) string {
 }
 
 func (l *logPollerWrapper) registerFilters(coordinatorAddress common.Address) error {
+	if (coordinatorAddress == common.Address{}) {
+		return nil
+	}
 	return l.logPoller.RegisterFilter(
 		logpoller.Filter{
 			Name: filterName(coordinatorAddress),
