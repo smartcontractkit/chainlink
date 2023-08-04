@@ -2,7 +2,8 @@
 pragma solidity ^0.8.19;
 
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
-import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
+import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
+import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 
@@ -15,7 +16,7 @@ import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/u
 // @title Functions Subscriptions contract
 // @notice Contract that coordinates payment from users to the nodes of the Decentralized Oracle Network (DON).
 // @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
-abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677ReceiverInterface {
+abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Receiver {
   using SafeERC20 for IERC20;
   using FunctionsResponse for FunctionsResponse.Commitment;
 
