@@ -2,9 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
-import {Routable} from "../Routable.sol";
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
 import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
+
+import {Routable} from "../Routable.sol";
 
 import {Address} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
 import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
@@ -16,8 +17,15 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
   using Address for address;
   using EnumerableSet for EnumerableSet.AddressSet;
 
+  // @inheritdoc ITypeAndVersion
+  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
+
   EnumerableSet.AddressSet private s_allowedSenders;
   mapping(address => bool) private s_blockedSenders;
+
+  event AddedAccess(address user);
+  event BlockedAccess(address user);
+  event UnblockedAccess(address user);
 
   error InvalidSignature();
   error InvalidUsage();
@@ -34,7 +42,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
 
   Config private s_config;
 
-  event ConfigSet(bool enabled);
+  event ConfigSet(bool enabled, address signerPublicKey);
 
   // ================================================================
   // |                       Initialization                         |
@@ -55,13 +63,8 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
   function _updateConfig(bytes memory config) internal override {
     (bool enabled, address signerPublicKey) = abi.decode(config, (bool, address));
     s_config = Config({enabled: enabled, signerPublicKey: signerPublicKey});
-    emit ConfigSet(enabled);
+    emit ConfigSet(enabled, signerPublicKey);
   }
-
-  /**
-   * @inheritdoc ITypeAndVersion
-   */
-  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
 
   // ================================================================
   // |                  Terms of Service methods                    |
@@ -100,6 +103,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
 
     // Add recipient to the allow list
     s_allowedSenders.add(recipient);
+    emit AddedAccess(recipient);
   }
 
   /**
@@ -139,6 +143,7 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
   function blockSender(address sender) external override onlyRouterOwner {
     s_allowedSenders.remove(sender);
     s_blockedSenders[sender] = true;
+    emit BlockedAccess(sender);
   }
 
   /**
@@ -146,5 +151,6 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
    */
   function unblockSender(address sender) external override onlyRouterOwner {
     s_blockedSenders[sender] = false;
+    emit UnblockedAccess(sender);
   }
 }
