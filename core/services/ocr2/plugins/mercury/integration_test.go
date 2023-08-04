@@ -1,35 +1,29 @@
 package mercury_test
 
 import (
-	"context"
 	"crypto/ed25519"
 	"encoding/hex"
-	"errors"
 	"fmt"
-	"io"
 	"math"
 	"math/big"
 	"math/rand"
-	"net"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/shopspring/decimal"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
-	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/credentials"
-	"github.com/smartcontractkit/wsrpc/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -39,35 +33,45 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodec "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v0"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	
 )
 
-type Feed struct {
-	name               string
-	id                 [32]byte
-	baseBenchmarkPrice *big.Int
-	baseBid            *big.Int
-	baseAsk            *big.Int
-}
+func createBridge(t *testing.T, name string, val int, multiplier int64, p *big.Int, pError *atomic.Int64, borm bridges.ORM) (bridgeName string) {
+	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		b, err := io.ReadAll(req.Body)
+		require.NoError(t, err)
+		require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 
-func randomFeedID() [32]byte {
-	return [32]byte(utils.NewHash())
+		r := rand.Int63n(101)
+		if r > pError.Load() {
+			res.WriteHeader(http.StatusOK)
+			val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(val)).Div(decimal.NewFromInt(100))).String()
+			resp := fmt.Sprintf(`{"result": %s}`, val)
+			_, err := res.Write([]byte(resp))
+			require.NoError(t, err)
+		} else {
+			res.WriteHeader(http.StatusInternalServerError)
+			resp := fmt.Sprintf(`{"error": "pError test error"}`)
+			_, err := res.Write([]byte(resp))
+			require.NoError(t, err)
+		}
+	}))
+	t.Cleanup(bridge.Close)
+	u, _ := url.Parse(bridge.URL)
+	bridgeName = fmt.Sprintf("bridge-%s-%d", name, val)
+	require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
+		Name: bridges.BridgeName(bridgeName),
+		URL:  models.WebURL(*u),
+	}))
+
+	return bridgeName
 }
 
 func TestIntegration_Mercury_V0(t *testing.T) {
@@ -167,43 +171,12 @@ func TestIntegration_Mercury_V0(t *testing.T) {
 		addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, feed.name, feed.id)
 	}
 
-	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
-		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
-			b, err := io.ReadAll(req.Body)
-			require.NoError(t, err)
-			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
-
-			r := rand.Int63n(101)
-			if r > pError.Load() {
-				res.WriteHeader(http.StatusOK)
-				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
-				resp := fmt.Sprintf(`{"result": %s}`, val)
-				_, err := res.Write([]byte(resp))
-				require.NoError(t, err)
-			} else {
-				res.WriteHeader(http.StatusInternalServerError)
-				resp := fmt.Sprintf(`{"error": "pError test error"}`)
-				_, err := res.Write([]byte(resp))
-				require.NoError(t, err)
-			}
-		}))
-		t.Cleanup(bridge.Close)
-		u, _ := url.Parse(bridge.URL)
-		bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
-		require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
-			Name: bridges.BridgeName(bridgeName),
-			URL:  models.WebURL(*u),
-		}))
-
-		return bridgeName
-	}
-
 	// Add OCR jobs - one per feed on each node
 	for i, node := range nodes {
 		for j, feed := range feeds {
-			bmBridge := createBridge(fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
-			askBridge := createBridge(fmt.Sprintf("ask-%d", j), i, feed.baseAsk, node.App.BridgeORM())
-			bidBridge := createBridge(fmt.Sprintf("bid-%d", j), i, feed.baseBid, node.App.BridgeORM())
+			bmBridge := createBridge(t, fmt.Sprintf("benchmarkprice-%d", j), i, multiplier, feed.baseBenchmarkPrice, &pError, node.App.BridgeORM())
+			askBridge := createBridge(t, fmt.Sprintf("ask-%d", j), i, multiplier, feed.baseAsk, &pError, node.App.BridgeORM())
+			bidBridge := createBridge(t, fmt.Sprintf("bid-%d", j), i, multiplier, feed.baseBid,&pError, node.App.BridgeORM())
 
 			addMercuryJob(
 				t,
@@ -415,259 +388,10 @@ func TestIntegration_Mercury_V0(t *testing.T) {
 	})
 }
 
-var _ pb.MercuryServer = &mercuryServer{}
-
-type request struct {
-	pk  credentials.StaticSizedPublicKey
-	req *pb.TransmitRequest
-}
-
-type mercuryServer struct {
-	privKey ed25519.PrivateKey
-	reqsCh  chan request
-	t       *testing.T
-}
-
-func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan request) *mercuryServer {
-	return &mercuryServer{privKey, reqsCh, t}
-}
-
-func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, errors.New("could not extract public key")
-	}
-	r := request{p.PublicKey, req}
-	s.reqsCh <- r
-
-	return &pb.TransmitResponse{
-		Code:  1,
-		Error: "",
-	}, nil
-}
-
-func (s *mercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
-	// not implemented in test
-	p, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, errors.New("could not extract public key")
-	}
-	s.t.Logf("mercury server got latest report from %x for feed id 0x%x", p.PublicKey, lrr.FeedId)
-	return nil, nil
-}
-
-func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
-	// Set up the wsrpc server
-	lis, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("[MAIN] failed to listen: %v", err)
-	}
-	serverURL = fmt.Sprintf("%s", lis.Addr().String())
-	s := wsrpc.NewServer(wsrpc.Creds(srv.privKey, pubKeys))
-
-	// Register mercury implementation with the wsrpc server
-	pb.RegisterMercuryServer(s, srv)
-
-	// Start serving
-	go s.Serve(lis)
-	t.Cleanup(s.Stop)
-
-	return
-}
-
-type Node struct {
-	App          chainlink.Application
-	ClientPubKey credentials.StaticSizedPublicKey
-	KeyBundle    ocr2key.KeyBundle
-}
-
-func (node *Node) AddJob(t *testing.T, spec string) {
-	c := node.App.GetConfig()
-	job, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
-	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &job)
-	require.NoError(t, err)
-}
-
-func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
-	job, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
-	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &job)
-	require.NoError(t, err)
-}
-
-func setupNode(
-	t *testing.T,
-	port int64,
-	dbName string,
-	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
-	backend *backends.SimulatedBackend,
-	csaKey csakey.KeyV2,
-) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle) {
-	k := big.NewInt(port) // keys unique to port
-	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
-	rdr := keystest.NewRandReaderFromSeed(port)
-	ocr2kb = ocr2key.MustNewInsecure(rdr, chaintype.EVM)
-
-	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
-
-	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
-		// [JobPipeline]
-		// MaxSuccessfulRuns = 0
-		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
-
-		// [Feature]
-		// UICSAKeys=true
-		// LogPoller = true
-		// FeedsManager = false
-		c.Feature.UICSAKeys = ptr(true)
-		c.Feature.LogPoller = ptr(true)
-		c.Feature.FeedsManager = ptr(false)
-
-		// [OCR]
-		// Enabled = false
-		c.OCR.Enabled = ptr(false)
-
-		// [OCR2]
-		// Enabled = true
-		c.OCR2.Enabled = ptr(true)
-
-		// [P2P]
-		// PeerID = '$PEERID'
-		// TraceLogging = true
-		c.P2P.PeerID = ptr(p2pKey.PeerID())
-		c.P2P.TraceLogging = ptr(true)
-
-		// [P2P.V1]
-		// Enabled = false
-		c.P2P.V1.Enabled = ptr(false)
-
-		// [P2P.V2]
-		// Enabled = true
-		// AnnounceAddresses = ['$EXT_IP:17775']
-		// ListenAddresses = ['0.0.0.0:17775']
-		// DeltaDial = 500ms
-		// DeltaReconcile = 5s
-		c.P2P.V2.Enabled = ptr(true)
-		c.P2P.V2.AnnounceAddresses = &p2paddresses
-		c.P2P.V2.ListenAddresses = &p2paddresses
-		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
-		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
-	})
-
-	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, logger.TestLogger(t).Named(dbName))
-	err := app.Start(testutils.Context(t))
-	require.NoError(t, err)
-
-	t.Cleanup(func() {
-		assert.NoError(t, app.Stop())
-	})
-
-	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb
-}
-
-func ptr[T any](t T) *T { return &t }
-
-func addBootstrapJob(t *testing.T, bootstrapNode Node, chainID *big.Int, verifierAddress common.Address, feedName string, feedID [32]byte) {
-	bootstrapNode.AddBootstrapJob(t, fmt.Sprintf(`
-type                              = "bootstrap"
-relay                             = "evm"
-schemaVersion                     = 1
-name                              = "boot-%s"
-contractID                        = "%s"
-feedID 							  = "0x%x"
-contractConfigTrackerPollInterval = "1s"
-
-[relayConfig]
-chainID = %d
-	`, feedName, verifierAddress, feedID, chainID))
-}
-
-func addMercuryJob(
-	t *testing.T,
-	node Node,
-	i int,
-	verifierAddress common.Address,
-	bootstrapPeerID string,
-	bootstrapNodePort int64,
-	bmBridge,
-	bidBridge,
-	askBridge,
-	serverURL string,
-	serverPubKey,
-	clientPubKey ed25519.PublicKey,
-	feedName string,
-	feedID [32]byte,
-	chainID *big.Int,
-	fromBlock int,
-) {
-	node.AddJob(t, fmt.Sprintf(`
-type = "offchainreporting2"
-schemaVersion = 1
-name = "mercury-%[1]d-%[14]s"
-forwardingAllowed = false
-maxTaskDuration = "1s"
-contractID = "%[2]s"
-feedID = "0x%[11]x"
-contractConfigTrackerPollInterval = "1s"
-ocrKeyBundleID = "%[3]s"
-p2pv2Bootstrappers = [
-  "%[4]s"
-]
-relay = "evm"
-pluginType = "mercury"
-transmitterID = "%[10]x"
-observationSource = """
-	// Benchmark Price
-	price1          [type=bridge name="%[5]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
-	price1_parse    [type=jsonparse path="result"];
-	price1_multiply [type=multiply times=100000000 index=0];
-
-	price1 -> price1_parse -> price1_multiply;
-
-	// Bid
-	bid          [type=bridge name="%[6]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
-	bid_parse    [type=jsonparse path="result"];
-	bid_multiply [type=multiply times=100000000 index=1];
-
-	bid -> bid_parse -> bid_multiply;
-
-	// Ask
-	ask          [type=bridge name="%[7]s" timeout="50ms" requestData="{\\"data\\":{\\"from\\":\\"ETH\\",\\"to\\":\\"USD\\"}}"];
-	ask_parse    [type=jsonparse path="result"];
-	ask_multiply [type=multiply times=100000000 index=2];
-
-	ask -> ask_parse -> ask_multiply;
-"""
-
-[pluginConfig]
-serverURL = "%[8]s"
-serverPubKey = "%[9]x"
-
-[relayConfig]
-chainID = %[12]d
-fromBlock = %[13]d
-		`,
-		i,
-		verifierAddress,
-		node.KeyBundle.ID(),
-		fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort),
-		bmBridge,
-		bidBridge,
-		askBridge,
-		serverURL,
-		serverPubKey,
-		clientPubKey,
-		feedID,
-		chainID,
-		fromBlock,
-		feedName,
-	))
-}
-
-func TestIntegration_Mercury_V1(t *testing.T) {
-	t.Fatal("TODO")
-}
-func TestIntegration_Mercury_V2(t *testing.T) {
-	t.Fatal("TODO")
-}
+// func TestIntegration_Mercury_V1(t *testing.T) {
+// 	t.Parallel()
+// 	// lggr := logger.TestLogger(t)
+// }
+// func TestIntegration_Mercury_V2(t *testing.T) {
+// 	t.Fatal("TODO")
+// }
