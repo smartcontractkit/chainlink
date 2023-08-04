@@ -675,10 +675,11 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 			return nil, err
 		}
 		var payload []byte
+		var b *big.Int
 		switch getUpkeepType(upkeepId.Bytes()) {
 		case logTrigger:
 			triggerExt := key.Trigger.Extension.(logprovider.LogTriggerExtension)
-			b, _, err := r.getTxBlock(common.HexToHash(triggerExt.TxHash))
+			b, _, err = r.getTxBlock(common.HexToHash(triggerExt.TxHash))
 			if err != nil || b == nil {
 				r.lggr.Errorf("failed to get transaction block by hash %s: %s", triggerExt.TxHash, err)
 				return nil, err
