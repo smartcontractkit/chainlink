@@ -39,11 +39,16 @@ interface IFunctionsCoordinator {
   // @param donPublicKey The new public key
   function setDONPublicKey(bytes calldata donPublicKey) external;
 
+  // @notice Sets a per-node secp256k1 public keys used to encrypt secrets for that node
+  // @dev Callable only by contract owner
+  // @param nodes nodes' addresses
+  // @param publicKeys nodes' public keys
+  function setNodePublicKeys(address[] calldata nodes, bytes[] calldata publicKeys) external;
+
   // @notice Sets a per-node secp256k1 public key used to encrypt secrets for that node
-  // @dev Callable only by contract owner and DON members
-  // @param node node's address
+  // @dev Callable only by DON members to set their own key
   // @param publicKey node's public key
-  function setNodePublicKey(address node, bytes calldata publicKey) external;
+  function setNodePublicKey(bytes calldata publicKey) external;
 
   // @notice Deletes node's public key
   // @dev Callable only by contract owner or the node itself

@@ -37,6 +37,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   error InconsistentReportData();
   error EmptyPublicKey();
   error UnauthorizedPublicKeyChange();
+  error InvalidKeyData();
 
   bytes private s_donPublicKey;
   mapping(address signerAddress => bytes publicKey) private s_nodePublicKeys;
@@ -93,12 +94,34 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   }
 
   // @inheritdoc IFunctionsCoordinator
-  function setNodePublicKey(address node, bytes calldata publicKey) external override {
-    // Owner can set anything. Transmitters can set only their own key.
-    if (!(msg.sender == owner() || (_isTransmitter(msg.sender) && msg.sender == node))) {
+  function setNodePublicKeys(address[] calldata nodes, bytes[] calldata publicKeys) external override {
+    if (msg.sender != owner()) {
       revert UnauthorizedPublicKeyChange();
     }
-    s_nodePublicKeys[node] = publicKey;
+
+    if (nodes.length != publicKeys.length) {
+      revert InvalidKeyData();
+    }
+
+    for (uint256 i = 0; i < nodes.length; ++i) {
+      if (publicKeys[i].length == 0) {
+        revert EmptyPublicKey();
+      }
+
+      if (!_isTransmitter(nodes[i])) {
+        revert InvalidKeyData();
+      }
+      
+      s_nodePublicKeys[nodes[i]] = publicKeys[i];
+    }
+  }
+
+  // @inheritdoc IFunctionsCoordinator
+  function setNodePublicKey(bytes calldata publicKey) external override {
+    if (!_isTransmitter(msg.sender)) {
+      revert UnauthorizedPublicKeyChange();
+    }
+    s_nodePublicKeys[msg.sender] = publicKey;
   }
 
   // @inheritdoc IFunctionsCoordinator
