@@ -762,7 +762,7 @@ jobs:
           echo "status=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq '.jobs[] | select(.name == "Live Testnet Smoke Tests ${{ matrix.testnet}}").steps[] | select(.name == "Run Tests").conclusion')" >> $GITHUB_OUTPUT'
+          | jq '.jobs[] | select(.name == "Live Testnet Smoke Tests ${{ matrix.testnet}}").steps[] | select(.name == "Run Tests").conclusion')" >> $GITHUB_OUTPUT
 
       - name: Test Details
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
@@ -790,7 +790,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "OCR ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}"
+                        "text": "OCR ${{ steps.test-results.outputs.status == 'success' && ':white_check_mark:' || ':x:'}}"
                       }
                     }
                   ]
