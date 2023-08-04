@@ -5,12 +5,10 @@ import {IConfigurable} from "./interfaces/IConfigurable.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IOwnableFunctionsRouter} from "./interfaces/IOwnableFunctionsRouter.sol";
 
-/**
- * @title This abstract should be inherited by contracts that will be used
- * as the destinations to a route (id=>contract) on the Router.
- * It provides a Router getter and modifiers
- * and enforces that the Router can update the configuration of this contract
- */
+// @title This abstract should be inherited by contracts that will be used
+// as the destinations to a route (id=>contract) on the Router.
+// It provides a Router getter and modifiers
+// and enforces that the Router can update the configuration of this contract
 abstract contract Routable is ITypeAndVersion, IConfigurable {
   IOwnableFunctionsRouter private immutable i_router;
 
@@ -18,9 +16,7 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
   error OnlyCallableByRouter();
   error OnlyCallableByRouterOwner();
 
-  /**
-   * @dev Initializes the contract.
-   */
+  // @dev Initializes the contract.
   constructor(address router, bytes memory config) {
     if (router == address(0)) {
       revert RouterMustBeSet();
@@ -33,23 +29,17 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
     return i_router;
   }
 
-  /**
-   * @dev Must be implemented by inheriting contract
-   * Use to set configuration state
-   */
+  // @dev Must be implemented by inheriting contract
+  // Use to set configuration state
   function _updateConfig(bytes memory config) internal virtual;
 
-  /**
-   * @inheritdoc IConfigurable
-   * @dev Only callable by the Router
-   */
+  // @inheritdoc IConfigurable
+  // @dev Only callable by the Router
   function updateConfig(bytes memory config) public override onlyRouter {
     _updateConfig(config);
   }
 
-  /**
-   * @notice Reverts if called by anyone other than the router.
-   */
+  // @notice Reverts if called by anyone other than the router.
   modifier onlyRouter() {
     if (msg.sender != address(i_router)) {
       revert OnlyCallableByRouter();
@@ -57,9 +47,7 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
     _;
   }
 
-  /**
-   * @notice Reverts if called by anyone other than the router owner.
-   */
+  // @notice Reverts if called by anyone other than the router owner.
   modifier onlyRouterOwner() {
     if (msg.sender != i_router.owner()) {
       revert OnlyCallableByRouterOwner();
