@@ -233,7 +233,7 @@ func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.A
 		return l.routerContract.Address(), l.routerContract.Address(), nil
 	}
 	var donId [32]byte
-	copy(donId[:], []byte(l.pluginConfig.DONId))
+	copy(donId[:], []byte(l.pluginConfig.DONID))
 
 	activeCoordinator, err := l.routerContract.GetContractById(&bind.CallOpts{
 		Pending: false,
