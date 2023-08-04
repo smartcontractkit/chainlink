@@ -172,7 +172,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
-	// t.Skip()
+	t.Skip() // TODO: Auto-4282, Run this in CI once the tests properly waits instead of timers
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
