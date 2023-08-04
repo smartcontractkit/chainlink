@@ -683,9 +683,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: testnet-smoke-tests-matrix
     steps:
-      - name: Build Links
-        run: |
-
       - name: Main Slack Notification
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         with:
