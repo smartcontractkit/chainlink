@@ -146,6 +146,11 @@ interface AutomationRegistryBaseInterface {
       address[] memory transmitters,
       uint8 f
     );
+
+    function getMinBalanceForUpkeep(uint256 id)
+        external
+        view
+        returns (uint96 minBalance);
 }
 
 /**
