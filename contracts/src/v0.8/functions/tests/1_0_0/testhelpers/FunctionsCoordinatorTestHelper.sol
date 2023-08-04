@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
+import {IFunctionsBilling} from "../../../dev/1_0_0/interfaces/IFunctionsBilling.sol";
+
 import {FunctionsCoordinator} from "../../../dev/1_0_0/FunctionsCoordinator.sol";
 
 contract FunctionsCoordinatorTestHelper is FunctionsCoordinator {
   constructor(
     address router,
-    bytes memory config,
+    IFunctionsBilling.Config memory config,
     address linkToNativeFeed
   ) FunctionsCoordinator(router, config, linkToNativeFeed) {}
 

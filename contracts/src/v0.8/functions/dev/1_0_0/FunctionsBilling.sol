@@ -33,7 +33,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
 
   Config private s_config;
-  event ConfigChanged(Config config);
+  event ConfigUpdated(Config config);
 
   error UnsupportedRequestDataVersion();
   error InsufficientBalance();
@@ -50,7 +50,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
 
   mapping(address transmitter => uint96 balanceJuelsLink) private s_withdrawableTokens;
-  // Pool together DON fees and disperse them on withdrawal
+  // Pool together collected DON fees
+  // Disperse them on withdrawal or change in OCR configuration
   uint96 internal s_feePool;
 
   AggregatorV3Interface private s_linkToNativeFeed;
@@ -58,29 +59,31 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
-  constructor(address router, bytes memory config, address linkToNativeFeed) Routable(router, config) {
+  constructor(address router, Config memory config, address linkToNativeFeed) Routable(router) {
     s_linkToNativeFeed = AggregatorV3Interface(linkToNativeFeed);
+
+    updateConfig(config);
   }
 
   // ================================================================
   // |                        Configuration                         |
   // ================================================================
 
-  // @notice Sets the configuration of the Chainlink Functions billing registry
-  // @param config bytes of abi.encoded config data to set the following:
-  //  See the content of the Config struct above
-  function _updateConfig(bytes memory config) internal override {
-    Config memory _config = abi.decode(config, (Config));
-    if (_config.fallbackNativePerUnitLink <= 0) {
-      revert InvalidLinkWeiPrice(_config.fallbackNativePerUnitLink);
-    }
-    s_config = _config;
-    emit ConfigChanged(_config);
-  }
-
   // @inheritdoc IFunctionsBilling
   function getConfig() external view override returns (Config memory) {
     return s_config;
+  }
+
+  // @inheritdoc IFunctionsBilling
+  function updateConfig(Config memory config) public override {
+    _onlyOwner();
+
+    if (config.fallbackNativePerUnitLink <= 0) {
+      revert InvalidLinkWeiPrice(config.fallbackNativePerUnitLink);
+    }
+
+    s_config = config;
+    emit ConfigUpdated(config);
   }
 
   // ================================================================
@@ -143,7 +146,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
         subscriptionId: subscriptionId,
         client: msg.sender,
         callbackGasLimit: callbackGasLimit,
-        expectedGasPrice: gasPriceGwei,
+        expectedGasPriceGwei: gasPriceGwei,
         adminFee: adminFee
       })
     );
@@ -198,7 +201,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint80 donFee = getDONFee(data, billing);
     uint96 estimatedCost = _calculateCostEstimate(
       billing.callbackGasLimit,
-      billing.expectedGasPrice,
+      billing.expectedGasPriceGwei,
       donFee,
       billing.adminFee
     );
@@ -306,7 +309,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
 
   // @inheritdoc IFunctionsBilling
-  // @dev used by FunctionsRouter.sol during timeout of a request
+  // @dev Only callable by the Router
+  // @dev Used by FunctionsRouter.sol during timeout of a request
   function deleteCommitment(bytes32 requestId) external override onlyRouter returns (bool) {
     // Ensure that commitment exists
     if (s_requestCommitments[requestId] == bytes32(0)) {

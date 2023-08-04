@@ -6,6 +6,19 @@ pragma solidity ^0.8.19;
  */
 
 interface ITermsOfServiceAllowList {
+  struct Config {
+    bool enabled;
+    address signerPublicKey;
+  }
+
+  // @notice Gets the contracts's configuration
+  // @return config
+  function getConfig() external view returns (Config memory);
+
+  // @notice Sets the contracts's configuration
+  // @param config - See the contents of the Config struct in ITermsOfServiceAllowList.Config for more information
+  function updateConfig(Config memory config) external;
+
   /**
    * @notice Return the message data for the proof given to accept the Terms of Service
    * @param acceptor - The wallet address that has accepted the Terms of Service on the UI

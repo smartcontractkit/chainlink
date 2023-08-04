@@ -6,6 +6,7 @@ import {IAccessController} from "../../../../shared/interfaces/IAccessController
 import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
 
 import {Routable} from "../Routable.sol";
+import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
 
 import {Address} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
 import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
@@ -13,7 +14,7 @@ import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/con
 /**
  * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
  */
-contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessController {
+contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController, Routable, ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -34,36 +35,31 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
   // ================================================================
   // |                     Configuration state                      |
   // ================================================================
-
-  struct Config {
-    bool enabled;
-    address signerPublicKey;
-  }
+  event ConfigUpdated(Config config);
 
   Config private s_config;
-
-  event ConfigSet(bool enabled, address signerPublicKey);
 
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
 
-  constructor(address router, bytes memory config) Routable(router, config) {}
+  constructor(address router, Config memory config) Routable(router) ConfirmedOwner(msg.sender) {
+    updateConfig(config);
+  }
 
   // ================================================================
-  // |                    Configuration methods                     |
+  // |                        Configuration                         |
   // ================================================================
 
-  /**
-   * @notice Sets the configuration
-   * @param config bytes of config data to set the following:
-   *  - enabled: boolean representing if the allow list is active, when disabled all usage will be allowed
-   *  - signerPublicKey: public key of the signer of the proof
-   */
-  function _updateConfig(bytes memory config) internal override {
-    (bool enabled, address signerPublicKey) = abi.decode(config, (bool, address));
-    s_config = Config({enabled: enabled, signerPublicKey: signerPublicKey});
-    emit ConfigSet(enabled, signerPublicKey);
+  // @inheritdoc ITermsOfServiceAllowList
+  function getConfig() external view override returns (Config memory) {
+    return s_config;
+  }
+
+  // @inheritdoc ITermsOfServiceAllowList
+  function updateConfig(Config memory config) public override onlyOwner {
+    s_config = config;
+    emit ConfigUpdated(config);
   }
 
   // ================================================================

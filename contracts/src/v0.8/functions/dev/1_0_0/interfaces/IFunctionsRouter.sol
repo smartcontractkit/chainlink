@@ -110,23 +110,10 @@ interface IFunctionsRouter {
   // @dev Only callable by owner
   function updateContracts() external;
 
-  // @notice Proposes new configuration data for the Router contract itself
-  // @dev Only callable by owner
-  function proposeConfigUpdateSelf(bytes calldata config) external;
-
   // @notice Updates configuration data for the Router contract itself
   // @dev Only callable once timelock has passed
   // @dev Only callable by owner
-  function updateConfigSelf() external;
-
-  // @notice Proposes new configuration data for the current (not proposed) contract
-  // @dev Only callable by owner
-  function proposeConfigUpdate(bytes32 id, bytes calldata config) external;
-
-  // @notice Sends new configuration data to the contract along a route route
-  // @dev Only callable once timelock has passed
-  // @dev Only callable by owner
-  function updateConfig(bytes32 id) external;
+  function updateConfig(Config memory config) external;
 
   // @dev Puts the system into an emergency stopped state.
   // @dev Only callable by owner

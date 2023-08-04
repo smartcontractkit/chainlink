@@ -6,7 +6,7 @@ import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "../libraries/FunctionsRequest.sol";
 
 /**
- * @title Chainlink Functions example client contract implementation
+ * @title Chainlink Functions example Client contract implementation
  */
 contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
   using FunctionsRequest for FunctionsRequest.Request;
