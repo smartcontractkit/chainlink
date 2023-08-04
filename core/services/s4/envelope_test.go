@@ -31,6 +31,9 @@ func TestEnvelope(t *testing.T) {
 		privateKey, err := crypto.GenerateKey()
 		assert.NoError(t, err)
 
+		addr := crypto.PubkeyToAddress(privateKey.PublicKey)
+		env.Address = addr.Bytes()
+
 		sig, err := env.Sign(privateKey)
 		assert.NoError(t, err)
 
