@@ -27,20 +27,18 @@ jobs:
 
   prepublish-test:
     needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
     name: Prepublish Test ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
       - name: Run Prepublish test
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         working-directory: contracts
         run: pnpm prepublishOnly
       - name: Collect Metrics
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
@@ -51,6 +49,7 @@ jobs:
 
   native-compile:
     needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
     name: Native Compilation ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
@@ -65,19 +64,15 @@ jobs:
       - name: Install diff-so-fancy
         run: echo "$GITHUB_WORKSPACE/diff-so-fancy" >> $GITHUB_PATH
       - name: Setup NodeJS
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
       - name: Setup Go
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-go
       - name: Run native compile and generate wrappers
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: make wrappers-all
         working-directory: ./contracts
       - name: Verify local solc binaries
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: ./tools/ci/check_solc_hashes
       - name: Check if Go solidity wrappers are updated
         if: ${{ needs.changes.outputs.changes == 'true' }}
@@ -88,7 +83,6 @@ jobs:
         if: ${{ failure() }}
         run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make wrappers-all` command'
       - name: Collect Metrics
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
@@ -102,19 +96,17 @@ jobs:
       run:
         working-directory: contracts
     needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
     name: Lint ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
       - name: Run pnpm lint
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: pnpm lint
       - name: Collect Metrics
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
@@ -128,19 +120,17 @@ jobs:
       run:
         working-directory: contracts
     needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
     name: Prettier Formatting
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Setup NodeJS
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
       - name: Run prettier check
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: pnpm prettier:check
       - name: Collect Metrics
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:

@@ -16,6 +16,8 @@ jobs:
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
         id: changes
         with:
+          # Foundry is only used for Solidity v0.8 contracts, therefore we can ignore
+          # changes to older contracts.
           filters: |
             src:
               - 'contracts/src/v0.8/**/*'
@@ -26,6 +28,7 @@ jobs:
       matrix:
         product: [ vrf, automation, llo, functions, automation-dev, shared ]
     needs: [changes]
+    if: needs.changes.outputs.changes == 'true'
     name: Tests
     # See https://github.com/foundry-rs/foundry/issues/3827
     runs-on: ubuntu-22.04
@@ -40,17 +43,14 @@ jobs:
       # and not native Foundry. This is to make sure the dependencies
       # stay in sync.
       - name: Setup NodeJS
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: nightly
 
       - name: Run Forge build
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: |
           forge --version
           forge build
@@ -60,7 +60,6 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge tests
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: |
           forge test -vvv
         id: test
@@ -69,7 +68,6 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge snapshot
-        if: ${{ needs.changes.outputs.changes == 'true' }}
         run: |
           forge snapshot --check gas-snapshots/${{ matrix.product }}.gas-snapshot
         id: snapshot
