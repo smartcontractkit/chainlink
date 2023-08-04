@@ -4,10 +4,10 @@ pragma solidity ^0.8.15;
 import "../../../vendor/entrypoint/interfaces/IPaymaster.sol";
 import "./SCALibrary.sol";
 import "../../../vendor/entrypoint/core/Helpers.sol";
-import "../../../interfaces/LinkTokenInterface.sol";
+import "../../../shared/interfaces/LinkTokenInterface.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
 import "./SCALibrary.sol";
-import "../../../ConfirmedOwner.sol";
+import "../../../shared/access/ConfirmedOwner.sol";
 
 /// @dev LINK token paymaster implementation.
 /// TODO: more documentation.

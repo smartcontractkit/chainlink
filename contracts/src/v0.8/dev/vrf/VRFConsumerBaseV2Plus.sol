@@ -3,7 +3,7 @@ pragma solidity ^0.8.4;
 
 import "../interfaces/IVRFMigratableCoordinatorV2Plus.sol";
 import "../interfaces/IVRFMigratableConsumerV2Plus.sol";
-import "../../ConfirmedOwner.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 
 /** ****************************************************************************
  * @notice Interface for contracts using VRF randomness

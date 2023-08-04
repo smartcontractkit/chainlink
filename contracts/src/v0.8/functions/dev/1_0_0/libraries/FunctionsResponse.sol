@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-/**
- * @title Library of types that are used during fulfillment of a Functions request
- */
+// @title Library of types that are used during fulfillment of a Functions request
 library FunctionsResponse {
   enum FulfillResult {
     USER_SUCCESS, // 0
