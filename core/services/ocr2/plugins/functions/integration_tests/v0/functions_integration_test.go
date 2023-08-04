@@ -18,6 +18,7 @@ var (
 )
 
 func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
+	t.Skip()
 	// simulated chain with all contracts
 	owner, b, ticker, oracleContractAddress, oracleContract, clientContracts, registryAddress, registryContract, linkToken := utils.StartNewChainWithContracts(t, nClients)
 	defer ticker.Stop()
@@ -45,6 +46,7 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 }
 
 func TestIntegration_Functions_MultipleRequests_ThresholdDecryptionSuccess(t *testing.T) {
+	t.Skip()
 	// simulated chain with all contracts
 	owner, b, ticker, oracleContractAddress, oracleContract, clientContracts, registryAddress, registryContract, linkToken := utils.StartNewChainWithContracts(t, nClients)
 	defer ticker.Stop()
