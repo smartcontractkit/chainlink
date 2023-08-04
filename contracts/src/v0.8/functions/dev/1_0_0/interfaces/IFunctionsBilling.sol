@@ -17,41 +17,6 @@ interface IFunctionsBilling {
     uint96 adminFee;
   }
 
-  struct Config {
-    // Maximum amount of gas that can be given to a request's client callback
-    uint32 maxCallbackGasLimit;
-    // How long before we consider the feed price to be stale
-    // and fallback to fallbackNativePerUnitLink.
-    uint32 feedStalenessSeconds;
-    // Represents the average gas execution cost before the fulfillment callback.
-    // This amount is always billed for every request
-    uint32 gasOverheadBeforeCallback;
-    // Represents the average gas execution cost after the fulfillment callback.
-    // This amount is always billed for every request
-    uint32 gasOverheadAfterCallback;
-    // How many seconds it takes before we consider a request to be timed out
-    uint32 requestTimeoutSeconds;
-    // Additional flat fee (in Juels of LINK) that will be split between Node Operators
-    // Max value is 2^80 - 1 == 1.2m LINK.
-    uint80 donFee;
-    // The highest support request data version supported by the node
-    // All lower versions should also be supported
-    uint16 maxSupportedRequestDataVersion;
-    // Percentage of gas price overestimation to account for changes in gas price between request and response
-    // Held as basis points (one hundredth of 1 percentage point)
-    uint256 fulfillmentGasPriceOverEstimationBP;
-    // fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
-    int256 fallbackNativePerUnitLink;
-  }
-
-  // @notice Gets the Chainlink Coordinator's billing configuration
-  // @return config
-  function getConfig() external view returns (Config memory);
-
-  // @notice Sets the Chainlink Coordinator's billing configuration
-  // @param config - See the contents of the Config struct in IFunctionsBilling.Config for more information
-  function updateConfig(Config memory config) external;
-
   // @notice Return the current conversion from WEI of ETH to LINK from the configured Chainlink data feed
   // @return weiPerUnitLink - The amount of WEI in one LINK
   function getWeiPerUnitLink() external view returns (uint256);

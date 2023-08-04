@@ -35,9 +35,14 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   // ================================================================
   // |                     Configuration state                      |
   // ================================================================
-  event ConfigUpdated(Config config);
+  struct Config {
+    bool enabled;
+    address signerPublicKey;
+  }
 
   Config private s_config;
+
+  event ConfigUpdated(Config config);
 
   // ================================================================
   // |                       Initialization                         |
@@ -51,13 +56,15 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   // |                        Configuration                         |
   // ================================================================
 
-  // @inheritdoc ITermsOfServiceAllowList
-  function getConfig() external view override returns (Config memory) {
+  // @notice Gets the contracts's configuration
+  // @return config
+  function getConfig() external view returns (Config memory) {
     return s_config;
   }
 
-  // @inheritdoc ITermsOfServiceAllowList
-  function updateConfig(Config memory config) public override onlyOwner {
+  // @notice Sets the contracts's configuration
+  // @param config - See the contents of the TermsOfServiceAllowList.Config struct for more information
+  function updateConfig(Config memory config) public onlyOwner {
     s_config = config;
     emit ConfigUpdated(config);
   }

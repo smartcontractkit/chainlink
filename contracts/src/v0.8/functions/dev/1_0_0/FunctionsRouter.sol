@@ -79,6 +79,20 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // ================================================================
   // |                    Configuration state                       |
   // ================================================================
+  struct Config {
+    // Maximum number of consumers which can be added to a single subscription
+    // This bound ensures we are able to loop over all subscription consumers as needed,
+    // without exceeding gas limits.
+    // Should a user require more consumers, they can use multiple subscriptions.
+    uint16 maxConsumersPerSubscription;
+    // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
+    uint96 adminFee;
+    // The function selector that is used when calling back to the Client contract
+    bytes4 handleOracleFulfillmentSelector;
+    // List of max callback gas limits used by flag with GAS_FLAG_INDEX
+    uint32[] maxCallbackGasLimits;
+  }
+
   Config private s_config;
 
   event ConfigUpdated(Config);
@@ -106,6 +120,10 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   error InvalidProposal();
   error IdentifierIsReserved(bytes32 id);
 
+  // ================================================================
+  // |                       Initialization                         |
+  // ================================================================
+
   constructor(
     address linkToken,
     Config memory config
@@ -116,22 +134,19 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     updateConfig(config);
   }
 
-  // @inheritdoc IFunctionsRouter
-  function getAllowListId() external pure override returns (bytes32) {
-    return ALLOW_LIST_ID;
-  }
-
   // ================================================================
   // |                        Configuration                         |
   // ================================================================
 
-  // @inheritdoc IFunctionsRouter
-  function getConfig() external view override returns (Config memory) {
+  // @notice The identifier of the route to retrieve the address of the access control contract
+  // The access control contract controls which accounts can manage subscriptions
+  // @return id - bytes32 id that can be passed to the "getContractById" of the Router
+  function getConfig() external view returns (Config memory) {
     return s_config;
   }
 
-  // @inheritdoc IRouterBase
-  function updateConfig(Config memory config) public override onlyOwner {
+  // @notice The router configuration
+  function updateConfig(Config memory config) public onlyOwner {
     s_config = config;
     emit ConfigUpdated(config);
   }
@@ -146,6 +161,16 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     if (callbackGasLimit > maxCallbackGasLimit) {
       revert GasLimitTooBig(maxCallbackGasLimit);
     }
+  }
+
+  // @inheritdoc IFunctionsRouter
+  function getAdminFee() external view override returns (uint96 adminFee) {
+    return s_config.adminFee;
+  }
+
+  // @inheritdoc IFunctionsRouter
+  function getAllowListId() external pure override returns (bytes32) {
+    return ALLOW_LIST_ID;
   }
 
   // Used within FunctionsSubscriptions.sol
