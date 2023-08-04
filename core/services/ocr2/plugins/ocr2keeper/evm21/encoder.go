@@ -58,15 +58,17 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		PerformDatas: make([][]byte, len(results)),
 	}
 
+	highestCheckBlock := big.NewInt(0)
 	for i, result := range results {
 		ext, ok := result.Extension.(EVMAutomationResultExtension21)
 		if !ok {
 			return nil, fmt.Errorf("unexpected check result extension struct")
 		}
 
-		// only take these values from the first result
-		// TODO: find a new way to get these values
-		if i == 0 {
+		checkBlock := big.NewInt(result.Payload.Trigger.BlockNumber)
+
+		if checkBlock.Cmp(highestCheckBlock) == 1 {
+			highestCheckBlock = checkBlock
 			report.FastGasWei = ext.FastGasWei
 			report.LinkNative = ext.LinkNative
 		}
