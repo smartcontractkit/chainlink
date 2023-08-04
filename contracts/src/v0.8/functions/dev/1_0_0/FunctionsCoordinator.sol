@@ -111,7 +111,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       if (!_isTransmitter(nodes[i])) {
         revert InvalidKeyData();
       }
-      
+
       s_nodePublicKeys[nodes[i]] = publicKeys[i];
     }
   }
