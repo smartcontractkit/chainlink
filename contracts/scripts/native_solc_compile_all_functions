@@ -41,11 +41,6 @@ compileContract 0_0_0 dev/0_0_0/example/FunctionsClientExample.sol
 compileContract 0_0_0 tests/0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol
 compileContract 0_0_0 tests/0_0_0/testhelpers/FunctionsOracleWithInit.sol
 
-# Mocks
-compileContract 0_0_0 ../mocks/FunctionsOracleEventsMock.sol
-compileContract 0_0_0 ../mocks/FunctionsBillingRegistryEventsMock.sol
-
-
 ############################
 # Version 1 (Mainnet Preview)
 ############################
