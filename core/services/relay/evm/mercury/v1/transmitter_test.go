@@ -14,6 +14,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/mocks"
@@ -43,6 +44,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
 
 	t.Run("transmission successfully enqueued", func(t *testing.T) {
 		c := mocks.MockWSRPCClient{
@@ -55,7 +57,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, sampleReport, sampleSigs)
 
 		require.NoError(t, err)
@@ -65,6 +67,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
 
 	t.Run("successful query", func(t *testing.T) {
 		c := mocks.MockWSRPCClient{
@@ -78,7 +81,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
 		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -93,7 +96,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
 		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -106,7 +109,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
 		_, err := mt.LatestTimestamp(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -116,6 +119,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
+	db := pgtest.NewSqlxDB(t)
 
 	t.Run("successful query", func(t *testing.T) {
 		originalPrice := big.NewInt(123456789)
@@ -131,7 +135,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
 		price, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 		require.NoError(t, err)
 
@@ -146,7 +150,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
 		price, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 		require.NoError(t, err)
 
@@ -159,7 +163,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID)
+		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
 		_, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")

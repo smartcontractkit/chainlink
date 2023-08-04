@@ -48,7 +48,7 @@ func DeployVRFV2Contracts(
 
 func CreateVRFV2Jobs(
 	t *testing.T,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	coordinator contracts.VRFCoordinatorV2,
 	c blockchain.EVMClient,
 	minIncomingConfirmations uint16,
@@ -125,14 +125,14 @@ func SetupVRFV2Universe(
 	mockETHLinkFeed contracts.MockETHLINKFeed,
 	contractDeployer contracts.ContractDeployer,
 	chainClient blockchain.EVMClient,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	testNetwork blockchain.EVMNetwork,
 	existingTestEnvironment *environment.Environment,
 	chainlinkNodeFundingAmountEth *big.Float,
 	vrfSubscriptionFundingAmountInLink *big.Int,
 	newEnvNamespacePrefix string,
 	newEnvTTL time.Duration,
-) (VRFV2Contracts, []*client.Chainlink, []VRFV2JobInfo, *environment.Environment) {
+) (VRFV2Contracts, []*client.ChainlinkK8sClient, []VRFV2JobInfo, *environment.Environment) {
 
 	vrfV2Contracts := DeployVRFV2Contracts(
 		t,

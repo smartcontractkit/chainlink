@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../interfaces/LinkTokenInterface.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/VRFCoordinatorV2Interface.sol";
 import "../VRFConsumerBaseV2.sol";
 
@@ -17,10 +17,6 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2(vrfCoordinator) {
     COORDINATOR = VRFCoordinatorV2Interface(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
-  }
-
-  function setKeyHash(bytes32 keyHash) public {
-    s_keyHash = keyHash;
   }
 
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
@@ -47,7 +43,8 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
     }
   }
 
-  function requestRandomness() external returns (uint256) {
-    return COORDINATOR.requestRandomWords(s_keyHash, s_subId, 1, 500000, 1);
+  function requestRandomness(bytes32 keyHash) external returns (uint256) {
+    s_keyHash = keyHash;
+    return COORDINATOR.requestRandomWords(keyHash, s_subId, 1, 500000, 1);
   }
 }

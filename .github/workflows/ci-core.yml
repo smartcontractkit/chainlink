@@ -78,15 +78,10 @@ jobs:
           cache: false
       - name: golangci-lint
         if: needs.init.outputs.on_trigger_lint == 'true'
-        ##
-        # XXX: change this to the official action once multiple --out-format args are supported.
-        # See: https://github.com/golangci/golangci-lint-action/issues/612
-        ##
-        uses: smartcontractkit/golangci-lint-action@54ab6c5f11d66a92d14c3f7cc41ea13f676644bd # feature/multiple-output-formats-backup
+        uses: golangci/golangci-lint-action@639cd343e1d3b897ff35927a75193d57cfcba299 # v3.6.0
         with:
-          version: v1.53.2
+          version: v1.53.3
           only-new-issues: ${{ github.event.schedule == '' }} # show only new issues, unless it's a scheduled run
-          allow-extra-out-format-args: true
           args: --out-format checkstyle:golangci-lint-report.xml
       - name: Print lint report artifact
         if: always()
@@ -100,7 +95,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -129,7 +124,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -160,6 +155,8 @@ jobs:
         uses: ./.github/actions/setup-go
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
+      - name: Setup wasmd
+        uses: ./.github/actions/setup-wasmd
       - name: Setup Postgres
         uses: ./.github/actions/setup-postgres
       - name: Touching core/web/assets/index.html
@@ -176,7 +173,17 @@ jobs:
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
       - name: Run tests
+        id: run-tests
+        env:
+          OUTPUT_FILE: ./output.txt
+          USE_TEE: false
         run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.split.pkgs }}"
+      - name: Print Filtered Test Results
+        if: failure()
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@2bb3869750e6e1c2d936fe7179784908981548a4 # v2.2.4
+        with:
+          results-file: ./output.txt
+          output-file: ./output-short.txt
       - name: Store logs artifacts
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
@@ -184,6 +191,7 @@ jobs:
           name: ${{ matrix.cmd }}_${{ matrix.split.idx }}_logs
           path: |
             ./output.txt
+            ./output-short.txt
             ./race.*
             ./coverage.txt
       - name: Print postgres logs
@@ -193,11 +201,12 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
+          test-results-file: '{"testType":"go","filePath":"./output.txt"}'
         continue-on-error: true
 
   # Satisfy required check for core tests
@@ -219,12 +228,67 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Core Tests (${{ matrix.cmd }})
         continue-on-error: true
+
+  detect-flakey-tests:
+    needs: [core]
+    name: Flakey Test Detection
+    runs-on: ubuntu-latest
+    if: always()
+    env:
+      CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Setup node
+        uses: actions/setup-node@v3
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+        with:
+          prod: "true"
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Setup Postgres
+        uses: ./.github/actions/setup-postgres
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Download Go vendor packages
+        run: go mod download
+      - name: Build binary
+        run: go build -tags test -o chainlink.test .
+      - name: Setup DB
+        run: ./chainlink.test local db preparetest
+      - name: Load test outputs
+        uses: actions/download-artifact@v3
+        with:
+          path: ./artifacts
+      - name: Build flakey test runner
+        run: go build ./tools/flakeytests/cmd/runner
+      - name: Re-run tests
+        env:
+          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: |
+          ./runner \
+            -grafana_auth=$GRAFANA_CLOUD_BASIC_AUTH \
+            -grafana_host=$GRAFANA_CLOUD_HOST \
+            -gh_sha=$GITHUB_SHA \
+            -gh_event_path=$GITHUB_EVENT_PATH \
+            -command=./tools/bin/go_core_tests \
+            `ls -R ./artifacts/go_core_tests*/output-short.txt`
+      - name: Store logs artifacts
+        if: always()
+        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
+        with:
+          name: flakey_test_runner_logs
+          path: |
+            ./output.txt
 
   scan:
     name: SonarQube Scan
@@ -257,7 +321,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -289,7 +353,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
+        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

@@ -14,21 +14,26 @@ const RequestIDLength int = 32
 
 type RequestID [RequestIDLength]byte
 type Request struct {
-	RequestID         RequestID
-	RunID             *int64
-	ReceivedAt        time.Time
-	RequestTxHash     *common.Hash
-	State             RequestState
-	ResultReadyAt     *time.Time
-	Result            []byte
-	ErrorType         *ErrType
-	Error             []byte
-	TransmittedResult []byte
-	TransmittedError  []byte
-	// TODO: add timestamps for other possible states: https://app.shortcut.com/chainlinklabs/story/58428/timestamp-fields-for-all-states-in-ocr2dr-data-model
+	RequestID                  RequestID
+	ReceivedAt                 time.Time
+	RequestTxHash              *common.Hash
+	State                      RequestState
+	ResultReadyAt              *time.Time
+	Result                     []byte
+	ErrorType                  *ErrType
+	Error                      []byte
+	TransmittedResult          []byte
+	TransmittedError           []byte
+	Flags                      []byte
+	AggregationMethod          *AggregationMethod
+	CallbackGasLimit           *uint32
+	CoordinatorContractAddress *common.Address
+	OnchainMetadata            []byte
+	ProcessingMetadata         []byte
 }
 
 type RequestState int8
+type AggregationMethod int8
 
 const (
 	// IN_PROGRESS is the initial state of a request, set right after receiving it in an on-chain event.

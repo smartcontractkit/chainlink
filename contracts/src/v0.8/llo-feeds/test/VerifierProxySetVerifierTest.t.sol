@@ -5,7 +5,7 @@ import {BaseTestWithConfiguredVerifier} from "./BaseVerifierTest.t.sol";
 import {IVerifier} from "../interfaces/IVerifier.sol";
 import {VerifierProxy} from "../VerifierProxy.sol";
 import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
-import {IERC165} from "../../shared/vendor/IERC165.sol";
+import {IERC165} from "../../vendor/IERC165.sol";
 
 contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifier {
   function test_revertsIfNotCorrectVerifier() public {

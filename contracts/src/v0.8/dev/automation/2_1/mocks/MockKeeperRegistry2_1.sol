@@ -4,12 +4,12 @@ pragma solidity 0.8.16;
 import "../interfaces/IAutomationRegistryConsumer.sol";
 
 contract MockKeeperRegistry2_1 is IAutomationRegistryConsumer {
-  uint256 balance;
+  uint96 balance;
   uint96 minBalance;
 
   constructor() {}
 
-  function getBalance(uint256 id) external view override returns (uint256) {
+  function getBalance(uint256 id) external view override returns (uint96) {
     return balance;
   }
 

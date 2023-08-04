@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
@@ -14,9 +15,9 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
@@ -24,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
@@ -48,7 +48,7 @@ func mustNewFilterer(t *testing.T) *offchainaggregator.OffchainAggregatorFiltere
 type contractTrackerUni struct {
 	db      *ocrmocks.OCRContractTrackerDB
 	lb      *logmocks.Broadcaster
-	hb      *htmocks.HeadBroadcaster
+	hb      *commonmocks.HeadBroadcaster[*evmtypes.Head, common.Hash]
 	ec      *evmclimocks.Client
 	tracker *ocr.OCRContractTracker
 }
@@ -80,7 +80,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	}
 	uni.db = ocrmocks.NewOCRContractTrackerDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
-	uni.hb = htmocks.NewHeadBroadcaster(t)
+	uni.hb = commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 	uni.ec = evmtest.NewEthClientMock(t)
 
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
@@ -106,14 +106,6 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 
 func Test_OCRContractTracker_LatestBlockHeight(t *testing.T) {
 	t.Parallel()
-
-	t.Run("on L2 chains, always returns 0", func(t *testing.T) {
-		uni := newContractTrackerUni(t, v2.ChainOptimismMainnet(t))
-		l, err := uni.tracker.LatestBlockHeight(testutils.Context(t))
-		require.NoError(t, err)
-
-		assert.Equal(t, uint64(0), l)
-	})
 
 	t.Run("before first head incoming, looks up on-chain", func(t *testing.T) {
 		uni := newContractTrackerUni(t)
@@ -337,7 +329,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni.lb.On("IsConnected").Return(true).Maybe()
 
 		eventuallyCloseHeadBroadcaster := cltest.NewAwaiter()
-		uni.hb.On("Subscribe", uni.tracker).Return(nil, func() { eventuallyCloseHeadBroadcaster.ItHappened() })
+		uni.hb.On("Subscribe", uni.tracker).Return((*evmtypes.Head)(nil), func() { eventuallyCloseHeadBroadcaster.ItHappened() })
 
 		uni.db.On("LoadLatestRoundRequested").Return(rr, nil)
 

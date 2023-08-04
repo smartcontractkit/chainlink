@@ -787,7 +787,7 @@ func TestORM_SaveInsufficientEthAttempt(t *testing.T) {
 
 		attempt, err := txStore.FindTxAttempt(etx.TxAttempts[0].Hash)
 		require.NoError(t, err)
-		assert.Equal(t, txmgrtypes.TxAttemptInsufficientEth, attempt.State)
+		assert.Equal(t, txmgrtypes.TxAttemptInsufficientFunds, attempt.State)
 	})
 }
 
@@ -889,7 +889,7 @@ func TestORM_SaveInProgressAttempt(t *testing.T) {
 	t.Run("updates old attempt to in_progress when insufficient_eth", func(t *testing.T) {
 		etx := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 23, fromAddress)
 		attempt := etx.TxAttempts[0]
-		require.Equal(t, txmgrtypes.TxAttemptInsufficientEth, attempt.State)
+		require.Equal(t, txmgrtypes.TxAttemptInsufficientFunds, attempt.State)
 		require.NotEqual(t, 0, attempt.ID)
 
 		attempt.BroadcastBeforeBlockNum = nil
@@ -960,7 +960,7 @@ func TestEthConfirmer_FindTxsRequiringResubmissionDueToInsufficientEth(t *testin
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 1, fromAddress)
 	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
 	attempt3_2 := cltest.NewLegacyEthTxAttempt(t, etx3.ID)
-	attempt3_2.State = txmgrtypes.TxAttemptInsufficientEth
+	attempt3_2.State = txmgrtypes.TxAttemptInsufficientFunds
 	attempt3_2.TxFee.Legacy = assets.NewWeiI(100)
 	require.NoError(t, txStore.InsertTxAttempt(&attempt3_2))
 	etx1 := cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, fromAddress)
@@ -1237,7 +1237,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		require.NoError(t, err)
 
 		err = txStore.UpdateTxUnstartedToInProgress(&etx, &attempt)
-		require.ErrorContains(t, err, "eth_tx removed")
+		require.ErrorContains(t, err, "tx removed")
 	})
 
 	db = pgtest.NewSqlxDB(t)

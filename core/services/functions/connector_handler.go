@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
+	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -25,6 +26,7 @@ type functionsConnectorHandler struct {
 	nodeAddress string
 	storage     s4.Storage
 	allowlist   functions.OnchainAllowlist
+	rateLimiter *hc.RateLimiter
 	lggr        logger.Logger
 }
 
@@ -33,14 +35,18 @@ var (
 	_ connector.GatewayConnectorHandler = &functionsConnectorHandler{}
 )
 
-func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, lggr logger.Logger) *functionsConnectorHandler {
+func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, lggr logger.Logger) (*functionsConnectorHandler, error) {
+	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil {
+		return nil, fmt.Errorf("signerKey, storage, allowlist and rateLimiter must be non-nil")
+	}
 	return &functionsConnectorHandler{
 		nodeAddress: nodeAddress,
 		signerKey:   signerKey,
 		storage:     storage,
 		allowlist:   allowlist,
+		rateLimiter: rateLimiter,
 		lggr:        lggr.Named("functionsConnectorHandler"),
-	}
+	}, nil
 }
 
 func (h *functionsConnectorHandler) SetConnector(connector connector.GatewayConnector) {
@@ -56,6 +62,10 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 	fromAddr := ethCommon.HexToAddress(body.Sender)
 	if !h.allowlist.Allow(fromAddr) {
 		h.lggr.Errorw("allowlist prevented the request from this address", "id", gatewayId, "address", fromAddr)
+		return
+	}
+	if !h.rateLimiter.Allow(body.Sender) {
+		h.lggr.Errorw("request rate-limited", "id", gatewayId, "address", fromAddr)
 		return
 	}
 
@@ -119,6 +129,7 @@ func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewa
 			Expiration: request.Expiration,
 			Payload:    request.Payload,
 		}
+		h.lggr.Debugw("handling a secrets_set request", "address", fromAddr, "slotId", request.SlotID, "payloadVersion", request.Version, "expiration", request.Expiration)
 		err = h.storage.Put(ctx, &key, &record, request.Signature)
 		if err == nil {
 			response.Success = true

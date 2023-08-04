@@ -26,8 +26,11 @@ import (
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
@@ -136,18 +139,36 @@ func TestIntegration_Mercury_V0(t *testing.T) {
 	require.NoError(t, err)
 	backend.Commit()
 
+	var logObservers []*observer.ObservedLogs
+	t.Cleanup(func() {
+		var panicLines []string
+		for _, observedLogs := range logObservers {
+			panicLogs := observedLogs.Filter(func(e observer.LoggedEntry) bool {
+				return e.Level >= zapcore.DPanicLevel
+			})
+			for _, log := range panicLogs.All() {
+				line := fmt.Sprintf("%v\t%s\t%s\t%s\t%s", log.Time.Format(time.RFC3339), log.Level.CapitalString(), log.LoggerName, log.Caller.TrimmedPath(), log.Message)
+				panicLines = append(panicLines, line)
+			}
+		}
+		if len(panicLines) > 0 {
+			t.Errorf("Found logs with DPANIC or higher level:\n%s", strings.Join(panicLines, "\n"))
+		}
+	})
+
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(19700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+	logObservers = append(logObservers, observedLogs)
+
+	// Set up n oracles
 	var (
 		oracles []confighelper.OracleIdentityExtra
 		nodes   []Node
 	)
-	// Set up n oracles
-
 	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		}, backend, clientCSAKeys[i])
@@ -165,6 +186,7 @@ func TestIntegration_Mercury_V0(t *testing.T) {
 			},
 			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
 		})
+		logObservers = append(logObservers, observedLogs)
 	}
 
 	for _, feed := range feeds {
@@ -315,7 +337,7 @@ func TestIntegration_Mercury_V0(t *testing.T) {
 
 			seen[feedID][req.pk] = struct{}{}
 			if len(seen[feedID]) == n {
-				t.Logf("all oracles reported for feed %x (0x%x)", feed.name, feed.id)
+				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
 				delete(seen, feedID)
 				if len(seen) == 0 {
 					break // saw all oracles; success!
@@ -378,7 +400,7 @@ func TestIntegration_Mercury_V0(t *testing.T) {
 
 			seen[feedID][req.pk] = struct{}{}
 			if len(seen[feedID]) == n {
-				t.Logf("all oracles reported for feed %x (0x%x)", feed.name, feed.id)
+				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
 				delete(seen, feedID)
 				if len(seen) == 0 {
 					break // saw all oracles; success!

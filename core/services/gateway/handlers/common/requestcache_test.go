@@ -20,7 +20,7 @@ type requestState struct {
 func TestRequestCache_Simple(t *testing.T) {
 	t.Parallel()
 
-	cache := common.NewRequestCache[requestState](time.Hour)
+	cache := common.NewRequestCache[requestState](time.Hour, 1000)
 	callbackCh := make(chan handlers.UserCallbackPayload)
 
 	req := &api.Message{Body: api.MessageBody{MessageId: "aa", Sender: "0x1234"}}
@@ -45,7 +45,7 @@ func TestRequestCache_MultiResponse(t *testing.T) {
 	nResponsesPerRequest := 100
 	maxDelayMillis := 100
 
-	cache := common.NewRequestCache[requestState](time.Hour)
+	cache := common.NewRequestCache[requestState](time.Hour, 1000)
 	chans := make([]chan handlers.UserCallbackPayload, nRequests)
 	reqs := make([]*api.Message, nRequests)
 	for i := 0; i < nRequests; i++ {
@@ -83,7 +83,7 @@ func TestRequestCache_MultiResponse(t *testing.T) {
 func TestRequestCache_Timeout(t *testing.T) {
 	t.Parallel()
 
-	cache := common.NewRequestCache[requestState](time.Millisecond * 10)
+	cache := common.NewRequestCache[requestState](time.Millisecond*10, 1000)
 	callbackCh := make(chan handlers.UserCallbackPayload)
 
 	req := &api.Message{Body: api.MessageBody{MessageId: "aa", Sender: "0x1234"}}
@@ -93,4 +93,21 @@ func TestRequestCache_Timeout(t *testing.T) {
 	finalResp := <-callbackCh
 	require.Equal(t, "aa", finalResp.Msg.Body.MessageId)
 	require.Equal(t, api.RequestTimeoutError, finalResp.ErrCode)
+}
+
+func TestRequestCache_MaxSize(t *testing.T) {
+	t.Parallel()
+
+	cache := common.NewRequestCache[requestState](time.Hour, 2)
+	callbackCh := make(chan handlers.UserCallbackPayload)
+	initialState := &requestState{}
+
+	req := &api.Message{Body: api.MessageBody{MessageId: "aa", Sender: "0x1234"}}
+	require.NoError(t, cache.NewRequest(req, callbackCh, initialState))
+
+	req.Body.MessageId = "bb"
+	require.NoError(t, cache.NewRequest(req, callbackCh, initialState))
+
+	req.Body.MessageId = "cc"
+	require.Error(t, cache.NewRequest(req, callbackCh, initialState))
 }

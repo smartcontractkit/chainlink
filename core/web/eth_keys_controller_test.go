@@ -40,11 +40,11 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
-	// disabled key
-	k0, addr0 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
-	// enabled keys
-	k1, addr1 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), false)
-	k2, addr2 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), false)
+	// enabled key
+	k0, addr0 := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+	// disabled keys
+	k1, addr1 := cltest.MustInsertRandomDisabledKey(t, app.KeyStore.Eth())
+	k2, addr2 := cltest.MustInsertRandomDisabledKey(t, app.KeyStore.Eth())
 	expectedKeys := []ethkey.KeyV2{k0, k1, k2}
 
 	ethClient.On("BalanceAt", mock.Anything, addr0, mock.Anything).Return(big.NewInt(256), nil).Once()
@@ -57,7 +57,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(cltest.APIEmailAdmin)
-	resp, cleanup := client.Get("/v2/keys/eth")
+	resp, cleanup := client.Get("/v2/keys/evm")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -93,7 +93,7 @@ func TestETHKeysController_Index_Errors(t *testing.T) {
 
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
-	_, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
 
 	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(nil, errors.New("fake error")).Once()
 	ethClient.On("LINKBalance", mock.Anything, addr, mock.Anything).Return(nil, errors.New("fake error")).Once()
@@ -130,7 +130,7 @@ func TestETHKeysController_Index_Disabled(t *testing.T) {
 
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
-	_, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -254,7 +254,7 @@ func TestETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
 	// enabled key
-	key, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+	key, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
 
 	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(big.NewInt(1), nil).Once()
 	ethClient.On("LINKBalance", mock.Anything, addr, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
@@ -298,7 +298,7 @@ func TestETHKeysController_ChainSuccess_Disable(t *testing.T) {
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
 	// enabled key
-	key, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+	key, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
 
 	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(big.NewInt(1), nil).Once()
 	ethClient.On("LINKBalance", mock.Anything, addr, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
@@ -342,7 +342,7 @@ func TestETHKeysController_ChainSuccess_Enable(t *testing.T) {
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
 	// disabled key
-	key, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), false)
+	key, addr := cltest.MustInsertRandomDisabledKey(t, app.KeyStore.Eth())
 
 	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(big.NewInt(1), nil).Once()
 	ethClient.On("LINKBalance", mock.Anything, addr, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
@@ -386,7 +386,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
 	// enabled key
-	key, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+	key, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
 
 	ethClient.On("BalanceAt", mock.Anything, addr, mock.Anything).Return(big.NewInt(1), nil).Once()
 	ethClient.On("LINKBalance", mock.Anything, addr, mock.Anything).Return(assets.NewLinkFromJuels(1), nil).Once()
@@ -441,6 +441,74 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	assert.Equal(t, "abandoned", s)
 }
 
+func TestETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	// enabled key
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	nextNonce := 52
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("nextNonce", strconv.Itoa(nextNonce))
+	query.Set("abandon", "invalid")
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
+func TestETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
+	t.Parallel()
+
+	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].NonceAutoSync = ptr(false)
+		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+	})
+	app := cltest.NewApplicationWithConfig(t, cfg, ethClient)
+
+	// enabled key
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+
+	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
+
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
+	query := chainURL.Query()
+
+	nextNonce := 52
+	query.Set("address", addr.Hex())
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	query.Set("nextNonce", strconv.Itoa(nextNonce))
+	query.Set("enabled", "invalid")
+
+	chainURL.RawQuery = query.Encode()
+	resp, cleanup := client.Post(chainURL.String(), nil)
+	defer cleanup()
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+}
+
 func TestETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
 	t.Parallel()
 
@@ -467,8 +535,8 @@ func TestETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
 	defer cleanup()
-	// TODO once cleared, update to http.StatusBadRequest https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
@@ -497,8 +565,8 @@ func TestETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
 	defer cleanup()
-	// TODO once cleared, update to http.StatusNotFound https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
@@ -527,8 +595,8 @@ func TestETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
 	defer cleanup()
-	// TODO once cleared, update to http.StatusBadRequest https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
@@ -544,7 +612,7 @@ func TestETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
 	// enabled key
-	_, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -560,8 +628,8 @@ func TestETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
 	defer cleanup()
-	// TODO once cleared, update to http.StatusNotFound https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 func TestETHKeysController_ChainFailure_InvalidNonce(t *testing.T) {
@@ -577,7 +645,7 @@ func TestETHKeysController_ChainFailure_InvalidNonce(t *testing.T) {
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
 	// enabled key
-	_, addr := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+	_, addr := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -592,8 +660,8 @@ func TestETHKeysController_ChainFailure_InvalidNonce(t *testing.T) {
 	chainURL.RawQuery = query.Encode()
 	resp, cleanup := client.Post(chainURL.String(), nil)
 	defer cleanup()
-	// TODO once cleared, update to http.StatusBadRequest https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestETHKeysController_DeleteSuccess(t *testing.T) {
@@ -607,8 +675,8 @@ func TestETHKeysController_DeleteSuccess(t *testing.T) {
 	require.NoError(t, app.KeyStore.Unlock(cltest.Password))
 
 	// enabled keys
-	key0, addr0 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
-	_, addr1 := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), true)
+	key0, addr0 := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
+	_, addr1 := cltest.MustInsertRandomEnabledKey(t, app.KeyStore.Eth())
 
 	ethClient.On("BalanceAt", mock.Anything, addr0, mock.Anything).Return(big.NewInt(1), nil).Once()
 	ethClient.On("BalanceAt", mock.Anything, addr1, mock.Anything).Return(big.NewInt(1), nil).Once()
@@ -664,8 +732,8 @@ func TestETHKeysController_DeleteFailure_InvalidAddress(t *testing.T) {
 
 	resp, cleanup := client.Delete(chainURL.String())
 	defer cleanup()
-	// TODO once cleared, update to http.StatusBadRequest https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
@@ -686,6 +754,6 @@ func TestETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
 	resp, cleanup := client.Delete(chainURL.String())
 	defer cleanup()
 	t.Log(resp)
-	// TODO once cleared, update to http.StatusNotFound https://smartcontract-it.atlassian.net/browse/BCF-2346
-	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode)
+
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }

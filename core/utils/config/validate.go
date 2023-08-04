@@ -191,3 +191,11 @@ func (u UniqueStrings) isDupe(s string) bool {
 	}
 	return ok
 }
+
+type ErrOverride struct {
+	Name string
+}
+
+func (e ErrOverride) Error() string {
+	return fmt.Sprintf("%s: overrides (duplicate keys or list elements) are not allowed for multiple secrets files", e.Name)
+}

@@ -2,6 +2,7 @@ package ocrbootstrap
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 
@@ -30,6 +31,13 @@ type Delegate struct {
 	lggr              logger.SugaredLogger
 	relayers          map[relay.Network]loop.Relayer
 	isNewlyCreatedJob bool
+}
+
+// Extra fields to enable router proxy contract support. Must match field names of functions' PluginConfig.
+type relayConfigRouterContractFields struct {
+	DONID                           string `json:"donID"`
+	ContractVersion                 uint32 `json:"contractVersion"`
+	ContractUpdateCheckFrequencySec uint32 `json:"contractUpdateCheckFrequencySec"`
 }
 
 // NewDelegateBootstrap creates a new Delegate
@@ -89,17 +97,46 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	}
 	ctx := ctxVals.ContextWithValues(context.Background())
 
-	configProvider, err := relayer.NewConfigProvider(ctx, types.RelayArgs{
-		ExternalJobID: jobSpec.ExternalJobID,
-		JobID:         spec.ID,
-		ContractID:    spec.ContractID,
-		New:           d.isNewlyCreatedJob,
-		RelayConfig:   spec.RelayConfig.Bytes(),
-	})
+	var routerFields relayConfigRouterContractFields
+	if err = json.Unmarshal(spec.RelayConfig.Bytes(), &routerFields); err != nil {
+		return nil, err
+	}
+
+	var configProvider types.ConfigProvider
+	if routerFields.DONID != "" {
+		if routerFields.ContractVersion != 1 || routerFields.ContractUpdateCheckFrequencySec == 0 {
+			return nil, errors.New("invalid router contract config")
+		}
+		configProvider, err = relayer.NewFunctionsProvider(
+			ctx,
+			types.RelayArgs{
+				ExternalJobID: jobSpec.ExternalJobID,
+				JobID:         spec.ID,
+				ContractID:    spec.ContractID,
+				RelayConfig:   spec.RelayConfig.Bytes(),
+				New:           d.isNewlyCreatedJob,
+			},
+			types.PluginArgs{
+				PluginConfig: spec.RelayConfig.Bytes(), // contains all necessary fields for config provider
+			},
+		)
+	} else {
+		configProvider, err = relayer.NewConfigProvider(ctx, types.RelayArgs{
+			ExternalJobID: jobSpec.ExternalJobID,
+			JobID:         spec.ID,
+			ContractID:    spec.ContractID,
+			New:           d.isNewlyCreatedJob,
+			RelayConfig:   spec.RelayConfig.Bytes(),
+		})
+	}
+
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewConfigWatcher'")
 	}
-	lc := validate.ToLocalConfig(d.ocr2Cfg, d.insecureCfg, spec.AsOCR2Spec())
+	lc, err := validate.ToLocalConfig(d.ocr2Cfg, d.insecureCfg, spec.AsOCR2Spec())
+	if err != nil {
+		return nil, err
+	}
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}

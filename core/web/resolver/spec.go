@@ -614,8 +614,12 @@ func (r *OCR2SpecResolver) TransmitterID() *string {
 }
 
 // FeedID resolves the spec's feed ID
-func (r *OCR2SpecResolver) FeedID() string {
-	return r.spec.FeedID.String()
+func (r *OCR2SpecResolver) FeedID() *string {
+	if r.spec.FeedID == nil {
+		return nil
+	}
+	feedID := r.spec.FeedID.String()
+	return &feedID
 }
 
 type VRFSpecResolver struct {
@@ -771,6 +775,15 @@ func (b *BlockhashStoreSpecResolver) CoordinatorV2Address() *string {
 	return &addr
 }
 
+// CoordinatorV2PlusAddress returns the address of the V2Plus Coordinator, if any.
+func (b *BlockhashStoreSpecResolver) CoordinatorV2PlusAddress() *string {
+	if b.spec.CoordinatorV2PlusAddress == nil {
+		return nil
+	}
+	addr := b.spec.CoordinatorV2PlusAddress.String()
+	return &addr
+}
+
 // WaitBlocks returns the job's WaitBlocks param.
 func (b *BlockhashStoreSpecResolver) WaitBlocks() int32 {
 	return b.spec.WaitBlocks
@@ -839,6 +852,15 @@ func (b *BlockHeaderFeederSpecResolver) CoordinatorV2Address() *string {
 		return nil
 	}
 	addr := b.spec.CoordinatorV2Address.String()
+	return &addr
+}
+
+// CoordinatorV2PlusAddress returns the address of the V2 Coordinator Plus, if any.
+func (b *BlockHeaderFeederSpecResolver) CoordinatorV2PlusAddress() *string {
+	if b.spec.CoordinatorV2PlusAddress == nil {
+		return nil
+	}
+	addr := b.spec.CoordinatorV2PlusAddress.String()
 	return &addr
 }
 

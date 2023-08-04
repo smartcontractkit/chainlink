@@ -19,6 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+//go:generate mockery --quiet --name asyncDeleter --output ./mocks/ --case=underscore --structname=AsyncDeleter
+type asyncDeleter interface {
+	AsyncDelete(req *pb.TransmitRequest)
+}
+
 var _ services.ServiceCtx = (*TransmitQueue)(nil)
 
 var transmitQueueLoad = promauto.NewGaugeVec(prometheus.GaugeOpts{
@@ -37,9 +42,10 @@ const promInterval = 6500 * time.Millisecond
 type TransmitQueue struct {
 	utils.StartStopOnce
 
-	cond sync.Cond
-	lggr logger.Logger
-	mu   *sync.RWMutex
+	cond         sync.Cond
+	lggr         logger.Logger
+	asyncDeleter asyncDeleter
+	mu           *sync.RWMutex
 
 	pq     *priorityQueue
 	maxlen int
@@ -62,12 +68,20 @@ type Transmission struct {
 
 // maxlen controls how many items will be stored in the queue
 // 0 means unlimited - be careful, this can cause memory leaks
-func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int) *TransmitQueue {
-	pq := new(priorityQueue)
-	heap.Init(pq) // for completeness
+func NewTransmitQueue(lggr logger.Logger, feedID string, maxlen int, transmissions []*Transmission, asyncDeleter asyncDeleter) *TransmitQueue {
+	pq := priorityQueue(transmissions)
+	heap.Init(&pq) // ensure the heap is ordered
 	mu := new(sync.RWMutex)
 	return &TransmitQueue{
-		utils.StartStopOnce{}, sync.Cond{L: mu}, lggr.Named("TransmitQueue"), mu, pq, maxlen, false, nil,
+		utils.StartStopOnce{},
+		sync.Cond{L: mu},
+		lggr.Named("TransmitQueue"),
+		asyncDeleter,
+		mu,
+		&pq,
+		maxlen,
+		false,
+		nil,
 		transmitQueueLoad.WithLabelValues(feedID, fmt.Sprintf("%d", maxlen)),
 	}
 }
@@ -83,7 +97,10 @@ func (tq *TransmitQueue) Push(req *pb.TransmitRequest, reportCtx ocrtypes.Report
 	if tq.maxlen != 0 && tq.pq.Len() == tq.maxlen {
 		// evict oldest entry to make room
 		tq.lggr.Criticalf("Transmit queue is full; dropping oldest transmission (reached max length of %d)", tq.maxlen)
-		heap.Remove(tq.pq, tq.pq.Len()-1)
+		removed := heap.Remove(tq.pq, tq.pq.Len()-1)
+		if transmission, ok := removed.(*Transmission); ok {
+			tq.asyncDeleter.AsyncDelete(transmission.Req)
+		}
 	}
 
 	heap.Push(tq.pq, &Transmission{req, reportCtx, -1})

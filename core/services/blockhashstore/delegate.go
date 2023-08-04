@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -116,6 +117,21 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		coord, err = NewV2Coordinator(c, lp)
 		if err != nil {
 			return nil, errors.Wrap(err, "building V2 coordinator")
+		}
+		coordinators = append(coordinators, coord)
+	}
+	if jb.BlockhashStoreSpec.CoordinatorV2PlusAddress != nil {
+		var c *v2plus.VRFCoordinatorV2Plus
+		if c, err = v2plus.NewVRFCoordinatorV2Plus(
+			jb.BlockhashStoreSpec.CoordinatorV2PlusAddress.Address(), chain.Client()); err != nil {
+
+			return nil, errors.Wrap(err, "building V2Plus coordinator")
+		}
+
+		var coord *V2PlusCoordinator
+		coord, err = NewV2PlusCoordinator(c, lp)
+		if err != nil {
+			return nil, errors.Wrap(err, "building V2Plus coordinator")
 		}
 		coordinators = append(coordinators, coord)
 	}

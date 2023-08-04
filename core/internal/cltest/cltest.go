@@ -392,14 +392,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	for _, c := range cfg.EVMConfigs() {
 		ids = append(ids, *c.ChainID)
 	}
-	if len(ids) > 0 {
-		o := chainCfgs
-		if o == nil {
-			if err = evm.EnsureChains(db, lggr, cfg.Database(), ids); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
+
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	var chains chainlink.Chains
 	chainId := ethClient.ConfiguredChainID()
@@ -444,11 +437,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
 		}
-		if len(ids) > 0 {
-			if err = solana.EnsureChains(db, solLggr, cfg.Database(), ids); err != nil {
-				t.Fatal(err)
-			}
-		}
 
 		opts := solana.ChainSetOpts{
 			Logger:   solLggr,
@@ -470,11 +458,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
 		}
-		if len(ids) > 0 {
-			if err = starknet.EnsureChains(db, starkLggr, cfg.Database(), ids); err != nil {
-				t.Fatal(err)
-			}
-		}
+
 		if err != nil {
 			lggr.Fatal(err)
 		}

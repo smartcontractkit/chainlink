@@ -7,8 +7,3 @@ INSERT INTO users (email, hashed_password, token_hashed_secret, role, created_at
     '2019-01-01',
     '2019-01-01'
 );
-
-INSERT INTO evm_chains (id, created_at, updated_at) VALUES (0, NOW(), NOW());
-
--- This disabled chain is inserted to avoid foreign key errors for simulated blockchain tests using chain ID 1337
-INSERT INTO evm_chains (id, created_at, updated_at, enabled) VALUES (1337, NOW(), NOW(), false);

@@ -79,7 +79,7 @@ func (r *Reaper[CHAIN_ID]) work() {
 	}
 	err := r.ReapTxes(latestBlockNum)
 	if err != nil {
-		r.log.Error("TxmReaper: unable to reap old eth_txes: ", err)
+		r.log.Error("TxmReaper: unable to reap old txes: ", err)
 	}
 }
 
@@ -99,14 +99,14 @@ func (r *Reaper[CHAIN_ID]) SetLatestBlockNum(latestBlockNum int64) {
 func (r *Reaper[CHAIN_ID]) ReapTxes(headNum int64) error {
 	threshold := r.txConfig.ReaperThreshold()
 	if threshold == 0 {
-		r.log.Debug("TxmReaper: EVM.Transactions.ReaperThreshold  set to 0; skipping ReapTxes")
+		r.log.Debug("TxmReaper: Transactions.ReaperThreshold  set to 0; skipping ReapTxes")
 		return nil
 	}
 	minBlockNumberToKeep := headNum - int64(r.config.FinalityDepth())
 	mark := time.Now()
 	timeThreshold := mark.Add(-threshold)
 
-	r.log.Debugw(fmt.Sprintf("TxmReaper: reaping old eth_txes created before %s", timeThreshold.Format(time.RFC3339)), "ageThreshold", threshold, "timeThreshold", timeThreshold, "minBlockNumberToKeep", minBlockNumberToKeep)
+	r.log.Debugw(fmt.Sprintf("TxmReaper: reaping old txes created before %s", timeThreshold.Format(time.RFC3339)), "ageThreshold", threshold, "timeThreshold", timeThreshold, "minBlockNumberToKeep", minBlockNumberToKeep)
 
 	if err := r.store.ReapTxHistory(minBlockNumberToKeep, timeThreshold, r.chainID); err != nil {
 		return err

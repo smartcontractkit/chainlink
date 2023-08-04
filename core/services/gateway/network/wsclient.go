@@ -64,7 +64,7 @@ func (c *webSocketClient) Connect(ctx context.Context, url *url.URL) (*websocket
 		return nil, err
 	}
 
-	response, err := c.initiator.ChallengeResponse(challenge)
+	response, err := c.initiator.ChallengeResponse(url, challenge)
 	if err != nil {
 		c.lggr.Errorf("WebSocketClient: couldn't generate challenge response", err)
 		c.tryCloseConn(conn)

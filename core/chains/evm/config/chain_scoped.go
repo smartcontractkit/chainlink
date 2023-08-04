@@ -97,6 +97,10 @@ func (e *evmConfig) FinalityDepth() uint32 {
 	return *e.c.FinalityDepth
 }
 
+func (e *evmConfig) FinalityTagEnabled() bool {
+	return *e.c.FinalityTagEnabled
+}
+
 func (e *evmConfig) LogKeepBlocksDepth() uint32 {
 	return *e.c.LogKeepBlocksDepth
 }

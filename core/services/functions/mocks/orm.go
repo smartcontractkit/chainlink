@@ -3,7 +3,6 @@
 package mocks
 
 import (
-	common "github.com/ethereum/go-ethereum/common"
 	functions "github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	mock "github.com/stretchr/testify/mock"
 
@@ -17,20 +16,20 @@ type ORM struct {
 	mock.Mock
 }
 
-// CreateRequest provides a mock function with given fields: requestID, receivedAt, requestTxHash, qopts
-func (_m *ORM) CreateRequest(requestID functions.RequestID, receivedAt time.Time, requestTxHash *common.Hash, qopts ...pg.QOpt) error {
+// CreateRequest provides a mock function with given fields: request, qopts
+func (_m *ORM) CreateRequest(request *functions.Request, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, requestID, receivedAt, requestTxHash)
+	_ca = append(_ca, request)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(functions.RequestID, time.Time, *common.Hash, ...pg.QOpt) error); ok {
-		r0 = rf(requestID, receivedAt, requestTxHash, qopts...)
+	if rf, ok := ret.Get(0).(func(*functions.Request, ...pg.QOpt) error); ok {
+		r0 = rf(request, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -163,20 +162,20 @@ func (_m *ORM) SetConfirmed(requestID functions.RequestID, qopts ...pg.QOpt) err
 	return r0
 }
 
-// SetError provides a mock function with given fields: requestID, runID, errorType, computationError, readyAt, readyForProcessing, qopts
-func (_m *ORM) SetError(requestID functions.RequestID, runID int64, errorType functions.ErrType, computationError []byte, readyAt time.Time, readyForProcessing bool, qopts ...pg.QOpt) error {
+// SetError provides a mock function with given fields: requestID, errorType, computationError, readyAt, readyForProcessing, qopts
+func (_m *ORM) SetError(requestID functions.RequestID, errorType functions.ErrType, computationError []byte, readyAt time.Time, readyForProcessing bool, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, requestID, runID, errorType, computationError, readyAt, readyForProcessing)
+	_ca = append(_ca, requestID, errorType, computationError, readyAt, readyForProcessing)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(functions.RequestID, int64, functions.ErrType, []byte, time.Time, bool, ...pg.QOpt) error); ok {
-		r0 = rf(requestID, runID, errorType, computationError, readyAt, readyForProcessing, qopts...)
+	if rf, ok := ret.Get(0).(func(functions.RequestID, functions.ErrType, []byte, time.Time, bool, ...pg.QOpt) error); ok {
+		r0 = rf(requestID, errorType, computationError, readyAt, readyForProcessing, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -205,20 +204,20 @@ func (_m *ORM) SetFinalized(requestID functions.RequestID, reportedResult []byte
 	return r0
 }
 
-// SetResult provides a mock function with given fields: requestID, runID, computationResult, readyAt, qopts
-func (_m *ORM) SetResult(requestID functions.RequestID, runID int64, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
+// SetResult provides a mock function with given fields: requestID, computationResult, readyAt, qopts
+func (_m *ORM) SetResult(requestID functions.RequestID, computationResult []byte, readyAt time.Time, qopts ...pg.QOpt) error {
 	_va := make([]interface{}, len(qopts))
 	for _i := range qopts {
 		_va[_i] = qopts[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, requestID, runID, computationResult, readyAt)
+	_ca = append(_ca, requestID, computationResult, readyAt)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(functions.RequestID, int64, []byte, time.Time, ...pg.QOpt) error); ok {
-		r0 = rf(requestID, runID, computationResult, readyAt, qopts...)
+	if rf, ok := ret.Get(0).(func(functions.RequestID, []byte, time.Time, ...pg.QOpt) error); ok {
+		r0 = rf(requestID, computationResult, readyAt, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

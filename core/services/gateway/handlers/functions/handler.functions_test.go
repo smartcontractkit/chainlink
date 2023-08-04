@@ -1,22 +1,20 @@
 package functions_test
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
+	gc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers"
 	hc "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
@@ -25,23 +23,7 @@ import (
 	handlers_mocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/mocks"
 )
 
-type node struct {
-	address    string
-	privateKey *ecdsa.PrivateKey
-}
-
-func newNodes(t *testing.T, n int) []node {
-	nodes := make([]node, n)
-	for i := 0; i < n; i++ {
-		privateKey, err := crypto.GenerateKey()
-		require.NoError(t, err)
-		address := strings.ToLower(crypto.PubkeyToAddress(privateKey.PublicKey).Hex())
-		nodes[i] = node{address: address, privateKey: privateKey}
-	}
-	return nodes
-}
-
-func newFunctionsHandlerForATestDON(t *testing.T, nodes []node, requestTimeout time.Duration) (handlers.Handler, *handlers_mocks.DON, *functions_mocks.OnchainAllowlist) {
+func newFunctionsHandlerForATestDON(t *testing.T, nodes []gc.TestNode, requestTimeout time.Duration) (handlers.Handler, *handlers_mocks.DON, *functions_mocks.OnchainAllowlist) {
 	cfg := functions.FunctionsHandlerConfig{}
 	donConfig := &config.DONConfig{
 		Members: []config.NodeConfig{},
@@ -51,17 +33,17 @@ func newFunctionsHandlerForATestDON(t *testing.T, nodes []node, requestTimeout t
 	for id, n := range nodes {
 		donConfig.Members = append(donConfig.Members, config.NodeConfig{
 			Name:    fmt.Sprintf("node_%d", id),
-			Address: n.address,
+			Address: n.Address,
 		})
 	}
 
 	don := handlers_mocks.NewDON(t)
 	allowlist := functions_mocks.NewOnchainAllowlist(t)
-	userRateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerUserRPS: 100.0, PerUserBurst: 100})
+	userRateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
-	nodeRateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerUserRPS: 100.0, PerUserBurst: 100})
+	nodeRateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
-	pendingRequestsCache := hc.NewRequestCache[functions.PendingSecretsRequest](requestTimeout)
+	pendingRequestsCache := hc.NewRequestCache[functions.PendingSecretsRequest](requestTimeout, 1000)
 	handler := functions.NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, userRateLimiter, nodeRateLimiter, logger.TestLogger(t))
 	return handler, don, allowlist
 }
@@ -78,7 +60,7 @@ func newSignedMessage(t *testing.T, id string, method string, donId string, priv
 	return msg
 }
 
-func sendNodeReponses(t *testing.T, handler handlers.Handler, userRequestMsg api.Message, nodes []node, responses []bool) {
+func sendNodeReponses(t *testing.T, handler handlers.Handler, userRequestMsg api.Message, nodes []gc.TestNode, responses []bool) {
 	for id, resp := range responses {
 		nodeResponseMsg := userRequestMsg
 		nodeResponseMsg.Body.Receiver = userRequestMsg.Body.Sender
@@ -87,8 +69,8 @@ func sendNodeReponses(t *testing.T, handler handlers.Handler, userRequestMsg api
 		} else {
 			nodeResponseMsg.Body.Payload = []byte(`{"success":false}`)
 		}
-		require.NoError(t, nodeResponseMsg.Sign(nodes[id].privateKey))
-		_ = handler.HandleNodeMessage(context.Background(), &nodeResponseMsg, nodes[id].address)
+		require.NoError(t, nodeResponseMsg.Sign(nodes[id].PrivateKey))
+		_ = handler.HandleNodeMessage(testutils.Context(t), &nodeResponseMsg, nodes[id].Address)
 	}
 }
 
@@ -102,6 +84,16 @@ func TestFunctionsHandler_Minimal(t *testing.T) {
 	msg := &api.Message{}
 	err = handler.HandleUserMessage(testutils.Context(t), msg, nil)
 	require.Error(t, err)
+}
+
+func TestFunctionsHandler_CleanStartAndClose(t *testing.T) {
+	t.Parallel()
+
+	handler, err := functions.NewFunctionsHandlerFromConfig(json.RawMessage("{}"), &config.DONConfig{}, nil, nil, logger.TestLogger(t))
+	require.NoError(t, err)
+
+	require.NoError(t, handler.Start(testutils.Context(t)))
+	require.NoError(t, handler.Close())
 }
 
 func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
@@ -120,9 +112,9 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			nodes, user := newNodes(t, 4), newNodes(t, 1)[0]
+			nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
 			handler, don, allowlist := newFunctionsHandlerForATestDON(t, nodes, time.Hour*24)
-			userRequestMsg := newSignedMessage(t, "1234", "secrets_set", "don_id", user.privateKey)
+			userRequestMsg := newSignedMessage(t, "1234", "secrets_set", "don_id", user.PrivateKey)
 
 			callbachCh := make(chan handlers.UserCallbackPayload)
 			done := make(chan struct{})
@@ -138,9 +130,9 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 				require.Equal(t, test.expectedNodeMessageCount, len(payload.NodeResponses))
 			}()
 
-			allowlist.On("Allow", common.HexToAddress(user.address)).Return(true, nil)
+			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 			don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-			require.NoError(t, handler.HandleUserMessage(context.Background(), &userRequestMsg, callbachCh))
+			require.NoError(t, handler.HandleUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
 			sendNodeReponses(t, handler, userRequestMsg, nodes, test.nodeResults)
 			<-done
 		})
@@ -150,21 +142,21 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 func TestFunctionsHandler_HandleUserMessage_InvalidMethod(t *testing.T) {
 	t.Parallel()
 
-	nodes, user := newNodes(t, 4), newNodes(t, 1)[0]
+	nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
 	handler, _, allowlist := newFunctionsHandlerForATestDON(t, nodes, time.Hour*24)
-	userRequestMsg := newSignedMessage(t, "1234", "secrets_reveal_all_please", "don_id", user.privateKey)
+	userRequestMsg := newSignedMessage(t, "1234", "secrets_reveal_all_please", "don_id", user.PrivateKey)
 
-	allowlist.On("Allow", common.HexToAddress(user.address)).Return(true, nil)
-	err := handler.HandleUserMessage(context.Background(), &userRequestMsg, make(chan handlers.UserCallbackPayload))
+	allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
+	err := handler.HandleUserMessage(testutils.Context(t), &userRequestMsg, make(chan handlers.UserCallbackPayload))
 	require.Error(t, err)
 }
 
 func TestFunctionsHandler_HandleUserMessage_Timeout(t *testing.T) {
 	t.Parallel()
 
-	nodes, user := newNodes(t, 4), newNodes(t, 1)[0]
+	nodes, user := gc.NewTestNodes(t, 4), gc.NewTestNodes(t, 1)[0]
 	handler, don, allowlist := newFunctionsHandlerForATestDON(t, nodes, time.Millisecond*10)
-	userRequestMsg := newSignedMessage(t, "1234", "secrets_set", "don_id", user.privateKey)
+	userRequestMsg := newSignedMessage(t, "1234", "secrets_set", "don_id", user.PrivateKey)
 
 	callbachCh := make(chan handlers.UserCallbackPayload)
 	done := make(chan struct{})
@@ -176,8 +168,8 @@ func TestFunctionsHandler_HandleUserMessage_Timeout(t *testing.T) {
 		require.Equal(t, userRequestMsg.Body.MessageId, response.Msg.Body.MessageId)
 	}()
 
-	allowlist.On("Allow", common.HexToAddress(user.address)).Return(true, nil)
+	allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
 	don.On("SendToNode", mock.Anything, mock.Anything, mock.Anything).Return(nil)
-	require.NoError(t, handler.HandleUserMessage(context.Background(), &userRequestMsg, callbachCh))
+	require.NoError(t, handler.HandleUserMessage(testutils.Context(t), &userRequestMsg, callbachCh))
 	<-done
 }

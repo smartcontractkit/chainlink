@@ -6,7 +6,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -19,12 +18,11 @@ type EIServiceConfig struct {
 
 // ChainlinkConfig represents the variables needed to connect to a Chainlink node
 type ChainlinkConfig struct {
-	URL        string
-	Email      string
-	Password   string
-	InternalIP string // Can change if the node is restarted. Prefer RemoteURL if possible
-	ChartName  string
-	PodName    string
+	URL         string
+	Email       string
+	Password    string
+	InternalIP  string
+	HTTPTimeout *time.Duration
 }
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice
@@ -851,20 +849,20 @@ p2pPeerID                              = "{{.P2PPeerID}}"`
 // OCRTaskJobSpec represents an OCR job that is given to other nodes, meant to communicate with the bootstrap node,
 // and provide their answers
 type OCRTaskJobSpec struct {
-	Name                     string        `toml:"name"`
-	BlockChainTimeout        time.Duration `toml:"blockchainTimeout"`                      // Optional
-	ContractConfirmations    int           `toml:"contractConfigConfirmations"`            // Optional
-	TrackerPollInterval      time.Duration `toml:"contractConfigTrackerPollInterval"`      // Optional
-	TrackerSubscribeInterval time.Duration `toml:"contractConfigTrackerSubscribeInterval"` // Optional
-	ForwardingAllowed        bool          `toml:"forwardingAllowed"`                      // Optional, by default false
-	ContractAddress          string        `toml:"contractAddress"`                        // Address of the OCR contract
-	P2PBootstrapPeers        []*Chainlink  `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
-	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"`                        // Typically false
-	P2PPeerID                string        `toml:"p2pPeerID"`                              // This node's P2P ID
-	KeyBundleID              string        `toml:"keyBundleID"`                            // ID of this node's OCR key bundle
-	MonitoringEndpoint       string        `toml:"monitoringEndpoint"`                     // Typically "chain.link:4321"
-	TransmitterAddress       string        `toml:"transmitterAddress"`                     // ETH address this node will use to transmit its answer
-	ObservationSource        string        `toml:"observationSource"`                      // List of commands for the Chainlink node
+	Name                     string             `toml:"name"`
+	BlockChainTimeout        time.Duration      `toml:"blockchainTimeout"`                      // Optional
+	ContractConfirmations    int                `toml:"contractConfigConfirmations"`            // Optional
+	TrackerPollInterval      time.Duration      `toml:"contractConfigTrackerPollInterval"`      // Optional
+	TrackerSubscribeInterval time.Duration      `toml:"contractConfigTrackerSubscribeInterval"` // Optional
+	ForwardingAllowed        bool               `toml:"forwardingAllowed"`                      // Optional, by default false
+	ContractAddress          string             `toml:"contractAddress"`                        // Address of the OCR contract
+	P2PBootstrapPeers        []*ChainlinkClient `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
+	IsBootstrapPeer          bool               `toml:"isBootstrapPeer"`                        // Typically false
+	P2PPeerID                string             `toml:"p2pPeerID"`                              // This node's P2P ID
+	KeyBundleID              string             `toml:"keyBundleID"`                            // ID of this node's OCR key bundle
+	MonitoringEndpoint       string             `toml:"monitoringEndpoint"`                     // Typically "chain.link:4321"
+	TransmitterAddress       string             `toml:"transmitterAddress"`                     // ETH address this node will use to transmit its answer
+	ObservationSource        string             `toml:"observationSource"`                      // List of commands for the Chainlink node
 }
 
 // P2PData holds the remote ip and the peer id and port
@@ -976,7 +974,7 @@ func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
 // String representation of the job
 func (o *OCR2TaskJobSpec) String() (string, error) {
 	var feedID string
-	if o.OCR2OracleSpec.FeedID != (common.Hash{}) {
+	if o.OCR2OracleSpec.FeedID != nil {
 		feedID = o.OCR2OracleSpec.FeedID.Hex()
 	}
 	specWrap := struct {
@@ -1291,7 +1289,7 @@ func NewBlankChainlinkProfileResults() *ChainlinkProfileResults {
 }
 
 type CLNodesWithKeys struct {
-	Node       *Chainlink
+	Node       *ChainlinkClient
 	KeysBundle NodeKeysBundle
 }
 
