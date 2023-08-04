@@ -72,7 +72,6 @@ func EVMDependencies20(
 	lggr logger.Logger,
 	set evm.ChainSet,
 	pr pipeline.Runner,
-	mc *models.MercuryCredentials,
 ) (evmrelay.OCR2KeeperProvider, *kevm20.EvmRegistry, Encoder, *kevm20.LogProvider, error) {
 	var err error
 	var chain evm.Chain
