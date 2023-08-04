@@ -3,25 +3,27 @@ pragma solidity ^0.8.19;
 
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
-import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
 
 // @title Functions Subscriptions contract
 // @notice Contract that coordinates payment from users to the nodes of the Decentralized Oracle Network (DON).
 // @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
 abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677ReceiverInterface {
+  using SafeERC20 for IERC20;
   using FunctionsResponse for FunctionsResponse.Commitment;
+
   // ================================================================
-  // |                      Subscription state                      |
+  // |                         Balance state                        |
   // ================================================================
-  // Keep a count of the number of subscriptions so that its possible to
-  // loop through all the current subscriptions via .getSubscription().
-  uint64 private s_currentSubscriptionId;
+  // link token address
+  address internal immutable i_linkToken;
 
   // s_totalLinkBalance tracks the total LINK sent to/from
   // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
@@ -29,8 +31,15 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 private s_totalLinkBalance;
 
-  // link token address
-  SafeERC20 private s_linkToken;
+  // @dev NOP balances are held as a single amount. The breakdown is held by the Coordinator.
+  mapping(address coordinator => uint96 balanceJuelsLink) private s_withdrawableTokens;
+
+  // ================================================================
+  // |                      Subscription state                      |
+  // ================================================================
+  // Keep a count of the number of subscriptions so that its possible to
+  // loop through all the current subscriptions via .getSubscription().
+  uint64 private s_currentSubscriptionId;
 
   mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) internal s_subscriptions;
   mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) internal s_consumers;
@@ -56,9 +65,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
 
-  // @dev NOP balances are held as a single amount. The breakdown is held by the Coordinator.
-  mapping(address coordinator => uint96 balanceJuelsLink) private s_withdrawableTokens;
-
   // ================================================================
   // |                       Request state                          |
   // ================================================================
@@ -76,7 +82,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // |                       Initialization                         |
   // ================================================================
   constructor(address link) {
-    s_linkToken = SafeERC20(link);
+    i_linkToken = link;
   }
 
   // ================================================================
@@ -140,14 +146,14 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // @inheritdoc IFunctionsSubscriptions
   function recoverFunds(address to) external override {
     _onlyRouterOwner();
-    uint256 externalBalance = s_linkToken.balanceOf(address(this));
+    uint256 externalBalance = IERC20(i_linkToken).balanceOf(address(this));
     uint256 internalBalance = uint256(s_totalLinkBalance);
     if (internalBalance > externalBalance) {
       revert BalanceInvariantViolated(internalBalance, externalBalance);
     }
     if (internalBalance < externalBalance) {
       uint256 amount = externalBalance - internalBalance;
-      s_linkToken.transfer(to, amount);
+      IERC20(i_linkToken).safeTransfer(to, amount);
       emit FundsRecovered(to, amount);
     }
     // If the balances are equal, nothing to be done.
@@ -169,7 +175,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     }
     s_withdrawableTokens[msg.sender] -= amount;
     s_totalLinkBalance -= amount;
-    s_linkToken.transfer(recipient, amount);
+    IERC20(i_linkToken).safeTransfer(recipient, amount);
   }
 
   // @notice Owner withdraw LINK earned through admin fees
@@ -187,7 +193,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     s_withdrawableTokens[address(this)] -= amount;
     s_totalLinkBalance -= amount;
 
-    s_linkToken.transfer(recipient, amount);
+    IERC20(i_linkToken).safeTransfer(recipient, amount);
   }
 
   // ================================================================
@@ -197,7 +203,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   // This function is to be invoked when using LINK.transferAndCall
   function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override {
     _whenNotPaused();
-    if (msg.sender != address(s_linkToken)) {
+    if (msg.sender != address(i_linkToken)) {
       revert OnlyCallableFromLink();
     }
     if (data.length != 32) {
@@ -406,9 +412,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     delete s_subscriptions[subscriptionId];
     s_totalLinkBalance -= balance;
 
-    s_linkToken.transfer(to, uint256(balance));
+    IERC20(i_linkToken).safeTransfer(to, uint256(balance));
 
-    SubscriptionCanceled(subscriptionId, to, balance);
+    emit SubscriptionCanceled(subscriptionId, to, balance);
   }
 
   // @inheritdoc IFunctionsSubscriptions
