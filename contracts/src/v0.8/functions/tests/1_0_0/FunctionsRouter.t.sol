@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {IFunctionsRouter} from "../../dev/1_0_0/interfaces/IFunctionsRouter.sol";
+import {IFunctionsBilling} from "../../dev/1_0_0/interfaces/IFunctionsBilling.sol";
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsRouter} from "../../dev/1_0_0/FunctionsRouter.sol";
@@ -48,7 +49,7 @@ contract FunctionsRouterSetup is BaseTest {
   }
 
   function getCoordinatorConfig() public pure returns (bytes memory) {
-    FunctionsBilling.Config memory billingConfig = FunctionsBilling.Config({
+    IFunctionsBilling.Config memory billingConfig = IFunctionsBilling.Config({
       maxCallbackGasLimit: 5,
       feedStalenessSeconds: 5,
       gasOverheadAfterCallback: 5,
