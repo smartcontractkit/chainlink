@@ -335,7 +335,7 @@ describe('FunctionsRouter - Base', () => {
 
   describe('Emergency Pause', () => {
     it('has paused state visible', async () => {
-      const paused = await contracts.router.isPaused()
+      const paused = await contracts.router.paused()
       expect(paused).to.equal(false)
     })
     it('can pause the system', async () => {

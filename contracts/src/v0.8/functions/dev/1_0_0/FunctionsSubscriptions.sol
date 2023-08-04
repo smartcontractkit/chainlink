@@ -5,8 +5,10 @@ import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol"
 import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
 import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
-import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
+
+import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
+
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
 
 /**
@@ -100,10 +102,31 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function getSubscription(uint64 subscriptionId) external view override returns (Subscription memory) {
+  function getSubscription(
+    uint64 subscriptionId
+  )
+    external
+    view
+    override
+    returns (
+      uint96 balance,
+      address owner,
+      uint96 blockedBalance,
+      address requestedOwner,
+      address[] memory consumers,
+      bytes32 flags
+    )
+  {
     _isValidSubscription(subscriptionId);
 
-    return s_subscriptions[subscriptionId];
+    balance = s_subscriptions[subscriptionId].balance;
+    owner = s_subscriptions[subscriptionId].owner;
+    blockedBalance = s_subscriptions[subscriptionId].blockedBalance;
+    requestedOwner = s_subscriptions[subscriptionId].requestedOwner;
+    consumers = s_subscriptions[subscriptionId].consumers;
+    flags = s_subscriptions[subscriptionId].flags;
+
+    return (balance, owner, blockedBalance, requestedOwner, consumers, flags);
   }
 
   /**
@@ -119,7 +142,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   }
 
   // ================================================================
-  // |                      Internal checks                         |
+  // |                  Internal validity checks                    |
   // ================================================================
 
   function _isValidSubscription(uint64 subscriptionId) internal view {
@@ -165,7 +188,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     uint96 callbackGasCostJuels = juelsPerGas * gasUsed;
     uint96 totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels;
 
-    receipt = Receipt(callbackGasCostJuels, totalCostJuels);
+    receipt = Receipt({callbackGasCostJuels: callbackGasCostJuels, totalCostJuels: totalCostJuels});
 
     // Charge the subscription
     s_subscriptions[subscriptionId].balance -= totalCostJuels;
@@ -180,6 +203,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     s_subscriptions[subscriptionId].blockedBalance -= estimatedTotalCostJuels;
     // Increment finished requests
     s_consumers[client][subscriptionId].completedRequests += 1;
+
+    return receipt;
   }
 
   // ================================================================
@@ -243,6 +268,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function oracleWithdraw(address recipient, uint96 amount) external override {
     _whenNotPaused();
+
     if (amount == 0) {
       revert InvalidCalldata();
     }
@@ -288,6 +314,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function createSubscription() external override returns (uint64 subscriptionId) {
     _whenNotPaused();
     _onlySenderThatAcceptedToS();
+
     subscriptionId = ++s_currentSubscriptionId;
     s_subscriptions[subscriptionId] = Subscription({
       balance: 0,
@@ -299,6 +326,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     });
 
     emit SubscriptionCreated(subscriptionId, msg.sender);
+
+    return subscriptionId;
   }
 
   /**
@@ -323,9 +352,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   function acceptSubscriptionOwnerTransfer(uint64 subscriptionId) external override {
     _whenNotPaused();
     _onlySenderThatAcceptedToS();
+
     address previousOwner = s_subscriptions[subscriptionId].owner;
-    address nextOwner = s_subscriptions[subscriptionId].requestedOwner;
-    if (nextOwner != msg.sender) {
+    if (s_subscriptions[subscriptionId].requestedOwner != msg.sender) {
       revert MustBeProposedOwner();
     }
     s_subscriptions[subscriptionId].owner = msg.sender;
@@ -340,6 +369,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
+
     Consumer memory consumerData = s_consumers[consumer][subscriptionId];
     if (!consumerData.allowed) {
       revert InvalidConsumer();
@@ -349,12 +379,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     }
     // Note bounded by config.maxConsumers
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
-    uint256 lastConsumerIndex = consumers.length - 1;
     for (uint256 i = 0; i < consumers.length; ++i) {
       if (consumers[i] == consumer) {
-        address last = consumers[lastConsumerIndex];
         // Storage write to preserve last element
-        s_subscriptions[subscriptionId].consumers[i] = last;
+        s_subscriptions[subscriptionId].consumers[i] = consumers[consumers.length - 1];
         // Storage remove last element
         s_subscriptions[subscriptionId].consumers.pop();
         break;
@@ -371,6 +399,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
+
     // Already maxed, cannot add any more consumers.
     if (s_subscriptions[subscriptionId].consumers.length == _getMaxConsumers()) {
       revert TooManyConsumers();
@@ -393,19 +422,21 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
-    if (_pendingRequestExists(subscriptionId)) {
+
+    if (pendingRequestExists(subscriptionId)) {
       revert PendingRequestExists();
     }
+
     _cancelSubscriptionHelper(subscriptionId, to);
   }
 
   function _cancelSubscriptionHelper(uint64 subscriptionId, address to) private {
-    Subscription memory sub = s_subscriptions[subscriptionId];
-    uint96 balance = sub.balance;
+    Subscription memory subscription = s_subscriptions[subscriptionId];
+    uint96 balance = subscription.balance;
     // Note bounded by config.maxConsumers
     // If no consumers, does nothing.
-    for (uint256 i = 0; i < sub.consumers.length; ++i) {
-      delete s_consumers[sub.consumers[i]][subscriptionId];
+    for (uint256 i = 0; i < subscription.consumers.length; ++i) {
+      delete s_consumers[subscription.consumers[i]][subscriptionId];
     }
     delete s_subscriptions[subscriptionId];
     s_totalBalance -= balance;
@@ -418,11 +449,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   /**
    * @inheritdoc IFunctionsSubscriptions
    */
-  function pendingRequestExists(uint64 subscriptionId) external view override returns (bool) {
-    return _pendingRequestExists(subscriptionId);
-  }
-
-  function _pendingRequestExists(uint64 subscriptionId) internal view returns (bool) {
+  function pendingRequestExists(uint64 subscriptionId) public view override returns (bool) {
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
     // Iterations will not exceed config.maxConsumers
     for (uint256 i = 0; i < consumers.length; ++i) {
@@ -460,9 +487,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
    */
   function timeoutRequests(FunctionsResponse.Commitment[] calldata requestsToTimeoutByCommitment) external override {
     _whenNotPaused();
+
     for (uint256 i = 0; i < requestsToTimeoutByCommitment.length; ++i) {
       FunctionsResponse.Commitment memory request = requestsToTimeoutByCommitment[i];
       bytes32 requestId = request.requestId;
+      uint64 subscriptionId = request.subscriptionId;
 
       // Check that request ID is valid
       if (keccak256(abi.encode(request)) != s_requestCommitments[requestId]) {
@@ -474,11 +503,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
         revert ConsumerRequestsInFlight();
       }
 
-      IFunctionsBilling coordinator = IFunctionsBilling(request.coordinator);
-      coordinator.deleteCommitment(requestId);
+      IFunctionsBilling(request.coordinator).deleteCommitment(requestId);
       // Release blocked balance
-      s_subscriptions[request.subscriptionId].blockedBalance -= request.estimatedTotalCostJuels;
-      s_consumers[request.client][request.subscriptionId].completedRequests += 1;
+      s_subscriptions[subscriptionId].blockedBalance -= request.estimatedTotalCostJuels;
+      s_consumers[request.client][subscriptionId].completedRequests += 1;
       // Delete commitment
       delete s_requestCommitments[requestId];
 
