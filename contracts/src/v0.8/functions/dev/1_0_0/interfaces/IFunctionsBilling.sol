@@ -19,34 +19,37 @@ interface IFunctionsBilling {
     uint96 adminFee;
   }
 
+  struct Config {
+    // Maximum amount of gas that can be given to a request's client callback
+    uint32 maxCallbackGasLimit;
+    // feedStalenessSeconds is how long before we consider the feed price to be stale
+    // and fallback to fallbackNativePerUnitLink.
+    uint32 feedStalenessSeconds;
+    // Represents the average gas execution cost. Used in estimating cost beforehand.
+    uint32 gasOverheadBeforeCallback;
+    // Gas to cover transmitter oracle payment after we calculate the payment.
+    // We make it configurable in case those operations are repriced.
+    uint32 gasOverheadAfterCallback;
+    // how many seconds it takes before we consider a request to be timed out
+    uint32 requestTimeoutSeconds;
+    // additional flat fee (in Juels of LINK) that will be split between Node Operators
+    // Max value is 2^80 - 1 == 1.2m LINK.
+    uint80 donFee;
+    // The highest support request data version supported by the node
+    // All lower versions should also be supported
+    uint16 maxSupportedRequestDataVersion;
+    // Percentage of gas price overestimation to account for changes in gas price between request and response
+    // Held as basis points (one hundredth of 1 percentage point)
+    uint256 fulfillmentGasPriceOverEstimationBP;
+    // fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
+    int256 fallbackNativePerUnitLink;
+  }
+
   /**
    * @notice Gets the configuration of the Chainlink Functions billing registry
-   * @return maxCallbackGasLimit global max for request gas limit
-   * @return feedStalenessSeconds if the eth/link feed is more stale then this, use the fallback price
-   * @return gasOverheadBeforeCallback gas used in doing accounting before completing the gas measurement
-   * @return gasOverheadAfterCallback gas used in doing accounting after completing the gas measurement
-   * @return requestTimeoutSeconds e2e timeout for a request
-   * @return donFee extra fee added to every request
-   * @return maxSupportedRequestDataVersion The highest support request data version supported by the node
-   * @return fulfillmentGasPriceOverEstimationBP Percentage of gas price overestimation to account for changes in gas price between request and response. Held as basis points (one hundredth of 1 percentage point)
-   * @return fallbackNativePerUnitLink fallback native/link price in the case of a stale feed
-   * @return linkPriceFeed address of contract for a conversion price between LINK token and native token
+   * @return config
    */
-  function getConfig()
-    external
-    view
-    returns (
-      uint32 maxCallbackGasLimit,
-      uint32 feedStalenessSeconds,
-      uint32 gasOverheadBeforeCallback,
-      uint32 gasOverheadAfterCallback,
-      uint32 requestTimeoutSeconds,
-      uint80 donFee,
-      uint16 maxSupportedRequestDataVersion,
-      uint256 fulfillmentGasPriceOverEstimationBP,
-      int256 fallbackNativePerUnitLink,
-      address linkPriceFeed
-    );
+  function getConfig() external view returns (Config memory);
 
   /**
    * @notice Return the current conversion from WEI of ETH to LINK from the configured Chainlink data feed

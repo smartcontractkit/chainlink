@@ -32,26 +32,8 @@ interface IFunctionsSubscriptions {
   /**
    * @notice Get details about a subscription.
    * @param subscriptionId - ID of the subscription
-   * @return balance - Common LINK balance that is controlled by the Registry to be used for all consumer requests.
-   * @return owner - Owner can fund/withdraw/cancel the sub.
-   * @return blockedBalance - LINK balance that is reserved to pay for pending consumer requests.
-   * @return requestedOwner - For safely transferring sub ownership.
-   * @return consumers - Client contracts that can use the subscription
-   * @return flags - Per-subscription flags.
    */
-  function getSubscription(
-    uint64 subscriptionId
-  )
-    external
-    view
-    returns (
-      uint96 balance,
-      address owner,
-      uint96 blockedBalance,
-      address requestedOwner,
-      address[] memory consumers,
-      bytes32 flags
-    );
+  function getSubscription(uint64 subscriptionId) external view returns (Subscription memory);
 
   /**
    * @notice Get details about a consumer of a subscription.

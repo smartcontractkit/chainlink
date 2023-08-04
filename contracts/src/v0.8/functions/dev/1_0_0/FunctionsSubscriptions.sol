@@ -236,31 +236,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, ERC677Recei
   }
 
   // @inheritdoc IFunctionsSubscriptions
-  function getSubscription(
-    uint64 subscriptionId
-  )
-    external
-    view
-    override
-    returns (
-      uint96 balance,
-      address owner,
-      uint96 blockedBalance,
-      address proposedOwner,
-      address[] memory consumers,
-      bytes32 flags
-    )
-  {
+  function getSubscription(uint64 subscriptionId) external view override returns (Subscription memory) {
     _isValidSubscription(subscriptionId);
-
-    balance = s_subscriptions[subscriptionId].balance;
-    owner = s_subscriptions[subscriptionId].owner;
-    blockedBalance = s_subscriptions[subscriptionId].blockedBalance;
-    proposedOwner = s_subscriptions[subscriptionId].proposedOwner;
-    consumers = s_subscriptions[subscriptionId].consumers;
-    flags = s_subscriptions[subscriptionId].flags;
-
-    return (balance, owner, blockedBalance, proposedOwner, consumers, flags);
+    return s_subscriptions[subscriptionId];
   }
 
   // @inheritdoc IFunctionsSubscriptions

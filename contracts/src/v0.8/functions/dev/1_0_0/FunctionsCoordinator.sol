@@ -116,10 +116,11 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     bytes[] memory keys = new bytes[](nodes.length);
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
     for (uint256 i = 0; i < nodes.length; ++i) {
-      if (s_nodePublicKeys[nodes[i]].length == 0) {
+      bytes memory nodePublicKey = s_nodePublicKeys[nodes[i]];
+      if (nodePublicKey.length == 0) {
         revert EmptyPublicKey();
       }
-      keys[i] = s_nodePublicKeys[nodes[i]];
+      keys[i] = nodePublicKey;
     }
     return (nodes, keys);
   }

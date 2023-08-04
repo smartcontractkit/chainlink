@@ -32,44 +32,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // |                     Configuration state                      |
   // ================================================================
 
-  struct Config {
-    // Maximum amount of gas that can be given to a request's client callback
-    uint32 maxCallbackGasLimit;
-    // feedStalenessSeconds is how long before we consider the feed price to be stale
-    // and fallback to fallbackNativePerUnitLink.
-    uint32 feedStalenessSeconds;
-    // Represents the average gas execution cost. Used in estimating cost beforehand.
-    uint32 gasOverheadBeforeCallback;
-    // Gas to cover transmitter oracle payment after we calculate the payment.
-    // We make it configurable in case those operations are repriced.
-    uint32 gasOverheadAfterCallback;
-    // how many seconds it takes before we consider a request to be timed out
-    uint32 requestTimeoutSeconds;
-    // additional flat fee (in Juels of LINK) that will be split between Node Operators
-    // Max value is 2^80 - 1 == 1.2m LINK.
-    uint80 donFee;
-    // The highest support request data version supported by the node
-    // All lower versions should also be supported
-    uint16 maxSupportedRequestDataVersion;
-    // Percentage of gas price overestimation to account for changes in gas price between request and response
-    // Held as basis points (one hundredth of 1 percentage point)
-    uint256 fulfillmentGasPriceOverEstimationBP;
-    // fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
-    int256 fallbackNativePerUnitLink;
-  }
-
   Config private s_config;
-  event ConfigChanged(
-    uint32 maxCallbackGasLimit,
-    uint32 feedStalenessSeconds,
-    uint32 gasOverheadBeforeCallback,
-    uint32 gasOverheadAfterCallback,
-    uint32 requestTimeoutSeconds,
-    uint80 donFee,
-    uint16 maxSupportedRequestDataVersion,
-    uint256 fulfillmentGasPriceOverEstimationBP,
-    int256 fallbackNativePerUnitLink
-  );
+  event ConfigChanged(Config config);
 
   error UnsupportedRequestDataVersion();
   error InsufficientBalance();
@@ -106,75 +70,17 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // @param config bytes of abi.encoded config data to set the following:
   //  See the content of the Config struct above
   function _updateConfig(bytes memory config) internal override {
-    (
-      uint32 maxCallbackGasLimit,
-      uint32 feedStalenessSeconds,
-      uint32 gasOverheadBeforeCallback,
-      uint32 gasOverheadAfterCallback,
-      uint32 requestTimeoutSeconds,
-      uint80 donFee,
-      uint16 maxSupportedRequestDataVersion,
-      uint256 fulfillmentGasPriceOverEstimationBP,
-      int256 fallbackNativePerUnitLink
-    ) = abi.decode(config, (uint32, uint32, uint32, uint32, uint32, uint80, uint16, uint256, int256));
-
-    if (fallbackNativePerUnitLink <= 0) {
-      revert InvalidLinkWeiPrice(fallbackNativePerUnitLink);
+    Config memory _config = abi.decode(config, (Config));
+    if (_config.fallbackNativePerUnitLink <= 0) {
+      revert InvalidLinkWeiPrice(_config.fallbackNativePerUnitLink);
     }
-    s_config = Config({
-      maxCallbackGasLimit: maxCallbackGasLimit,
-      feedStalenessSeconds: feedStalenessSeconds,
-      gasOverheadBeforeCallback: gasOverheadBeforeCallback,
-      gasOverheadAfterCallback: gasOverheadAfterCallback,
-      requestTimeoutSeconds: requestTimeoutSeconds,
-      donFee: donFee,
-      maxSupportedRequestDataVersion: maxSupportedRequestDataVersion,
-      fulfillmentGasPriceOverEstimationBP: fulfillmentGasPriceOverEstimationBP,
-      fallbackNativePerUnitLink: fallbackNativePerUnitLink
-    });
-    emit ConfigChanged(
-      maxCallbackGasLimit,
-      feedStalenessSeconds,
-      gasOverheadBeforeCallback,
-      gasOverheadAfterCallback,
-      requestTimeoutSeconds,
-      donFee,
-      maxSupportedRequestDataVersion,
-      fulfillmentGasPriceOverEstimationBP,
-      fallbackNativePerUnitLink
-    );
+    s_config = _config;
+    emit ConfigChanged(_config);
   }
 
   // @inheritdoc IFunctionsBilling
-  function getConfig()
-    external
-    view
-    override
-    returns (
-      uint32 maxCallbackGasLimit,
-      uint32 feedStalenessSeconds,
-      uint32 gasOverheadBeforeCallback,
-      uint32 gasOverheadAfterCallback,
-      uint32 requestTimeoutSeconds,
-      uint80 donFee,
-      uint16 maxSupportedRequestDataVersion,
-      uint256 fulfillmentGasPriceOverEstimationBP,
-      int256 fallbackNativePerUnitLink,
-      address linkPriceFeed
-    )
-  {
-    return (
-      s_config.maxCallbackGasLimit,
-      s_config.feedStalenessSeconds,
-      s_config.gasOverheadBeforeCallback,
-      s_config.gasOverheadAfterCallback,
-      s_config.requestTimeoutSeconds,
-      s_config.donFee,
-      s_config.maxSupportedRequestDataVersion,
-      s_config.fulfillmentGasPriceOverEstimationBP,
-      s_config.fallbackNativePerUnitLink,
-      address(s_linkToNativeFeed)
-    );
+  function getConfig() external view override returns (Config memory) {
+    return s_config;
   }
 
   // ================================================================
@@ -291,13 +197,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       donFee,
       billing.adminFee
     );
-    IFunctionsSubscriptions subscriptions = IFunctionsSubscriptions(address(_getRouter()));
-    (uint96 balance, , uint96 blockedBalance, , , ) = subscriptions.getSubscription(billing.subscriptionId);
-    if ((balance - blockedBalance) < estimatedCost) {
+    IFunctionsSubscriptions router = IFunctionsSubscriptions(address(_getRouter()));
+    IFunctionsSubscriptions.Subscription memory subscription = router.getSubscription(billing.subscriptionId);
+    if ((subscription.balance - subscription.blockedBalance) < estimatedCost) {
       revert InsufficientBalance();
     }
 
-    (, uint64 initiatedRequests, ) = subscriptions.getConsumer(billing.client, billing.subscriptionId);
+    (, uint64 initiatedRequests, ) = router.getConsumer(billing.client, billing.subscriptionId);
 
     bytes32 requestId = computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
 

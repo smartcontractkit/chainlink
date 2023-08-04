@@ -628,7 +628,12 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
 
   // Used within FunctionsSubscriptions.sol
   function _onlySenderThatAcceptedToS() internal view override {
-    if (!IAccessController(getContractById(ALLOW_LIST_ID)).hasAccess(msg.sender, new bytes(0))) {
+    address currentImplementation = s_route[ALLOW_LIST_ID];
+    if (currentImplementation == address(0)) {
+      // If not set, ignore this check
+      return;
+    }
+    if (!IAccessController(currentImplementation).hasAccess(msg.sender, new bytes(0))) {
       revert SenderMustAcceptTermsOfService(msg.sender);
     }
   }
