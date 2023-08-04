@@ -31,8 +31,8 @@ var (
 )
 
 var TermsOfServiceAllowListMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"router\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"config\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"InvalidSignature\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidUsage\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByRouter\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByRouterOwner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RecipientIsBlocked\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RouterMustBeSet\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"enabled\",\"type\":\"bool\"}],\"name\":\"ConfigSet\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"acceptor\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"}],\"name\":\"acceptTermsOfService\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"blockSender\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllAllowedSenders\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"acceptor\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"}],\"name\":\"getMessage\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"hasAccess\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"isBlockedSender\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"unblockSender\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"config\",\"type\":\"bytes\"}],\"name\":\"updateConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x60a06040523480156200001157600080fd5b506040516200118e3803806200118e83398101604081905262000034916200014b565b81816001600160a01b0382166200005e57604051632530e88560e11b815260040160405180910390fd5b6001600160a01b038216608052620000768162000080565b5050505062000279565b6000808280602001905181019062000099919062000236565b6040805180820182528315158082526001600160a01b0384166020928301819052600380546001600160a81b031916610100600160a81b031984161761010090920291909117905591519182529294509092507f22aa8545955b447cb49ea37e67de742e750839c633ded8c9b5b09614843b229f910160405180910390a1505050565b6001600160a01b03811681146200013257600080fd5b50565b634e487b7160e01b600052604160045260246000fd5b600080604083850312156200015f57600080fd5b82516200016c816200011c565b602084810151919350906001600160401b03808211156200018c57600080fd5b818601915086601f830112620001a157600080fd5b815181811115620001b657620001b662000135565b604051601f8201601f19908116603f01168101908382118183101715620001e157620001e162000135565b816040528281528986848701011115620001fa57600080fd5b600093505b828410156200021e5784840186015181850187015292850192620001ff565b60008684830101528096505050505050509250929050565b600080604083850312156200024a57600080fd5b825180151581146200025b57600080fd5b60208401519092506200026e816200011c565b809150509250929050565b608051610eeb620002a3600039600081816103cb0152818161054701526106ad0152610eeb6000f3fe608060405234801561001057600080fd5b50600436106100a35760003560e01c8063817ef62e116100765780638cc6acce1161005b5780638cc6acce14610139578063a39b06e31461014c578063a5e1d61d1461016d57600080fd5b8063817ef62e1461011157806382184c7b1461012657600080fd5b8063181f5a77146100a85780633908c4d4146100c657806347663acb146100db5780636b14daf8146100ee575b600080fd5b6100b0610180565b6040516100bd9190610aa3565b60405180910390f35b6100d96100d4366004610b31565b61019c565b005b6100d96100e9366004610b96565b6103c9565b6101016100fc366004610bb3565b61050a565b60405190151581526020016100bd565b610119610534565b6040516100bd9190610c38565b6100d9610134366004610b96565b610545565b6100d9610147366004610cc1565b610695565b61015f61015a366004610d90565b610710565b6040519081526020016100bd565b61010161017b366004610b96565b61076e565b6040518060600160405280602c8152602001610eb3602c913981565b73ffffffffffffffffffffffffffffffffffffffff841660009081526002602052604090205460ff16156101fc576040517f62b7a34d00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006102088686610710565b6040517f19457468657265756d205369676e6564204d6573736167653a0a3332000000006020820152603c810191909152605c01604080518083037fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe001815282825280516020918201206003546000855291840180845281905260ff8616928401929092526060830187905260808301869052909250610100900473ffffffffffffffffffffffffffffffffffffffff169060019060a0016020604051602081039080840390855afa1580156102e2573d6000803e3d6000fd5b5050506020604051035173ffffffffffffffffffffffffffffffffffffffff1614610339576040517f8baa579f00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b3373ffffffffffffffffffffffffffffffffffffffff861614158061037e57503373ffffffffffffffffffffffffffffffffffffffff87161480159061037e5750333b155b156103b5576040517f381cfcbd00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6103c06000866107af565b50505050505050565b7f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff16638da5cb5b6040518163ffffffff1660e01b81526004016020604051808303816000875af1158015610436573d6000803e3d6000fd5b505050506040513d601f19601f8201168201806040525081019061045a9190610dc9565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146104be576040517fa0f0a44600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff16600090815260026020526040902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00169055565b60035460009060ff1661051f5750600161052d565b61052a6000856107d1565b90505b9392505050565b60606105406000610800565b905090565b7f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff16638da5cb5b6040518163ffffffff1660e01b81526004016020604051808303816000875af11580156105b2573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906105d69190610dc9565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff161461063a576040517fa0f0a44600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b61064560008261080d565b5073ffffffffffffffffffffffffffffffffffffffff16600090815260026020526040902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00166001179055565b3373ffffffffffffffffffffffffffffffffffffffff7f00000000000000000000000000000000000000000000000000000000000000001614610704576040517fc41a5b0900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b61070d8161082f565b50565b6040517fffffffffffffffffffffffffffffffffffffffff000000000000000000000000606084811b8216602084015283901b1660348201526000906048016040516020818303038152906040528051906020012090505b92915050565b60035460009060ff1661078357506000919050565b5073ffffffffffffffffffffffffffffffffffffffff1660009081526002602052604090205460ff1690565b600061052d8373ffffffffffffffffffffffffffffffffffffffff8416610905565b73ffffffffffffffffffffffffffffffffffffffff81166000908152600183016020526040812054151561052d565b6060600061052d83610954565b600061052d8373ffffffffffffffffffffffffffffffffffffffff84166109b0565b600080828060200190518101906108469190610de6565b60408051808201825283151580825273ffffffffffffffffffffffffffffffffffffffff84166020928301819052600380547fffffffffffffffffffffff000000000000000000000000000000000000000000167fffffffffffffffffffffff0000000000000000000000000000000000000000ff84161761010090920291909117905591519182529294509092507f22aa8545955b447cb49ea37e67de742e750839c633ded8c9b5b09614843b229f910160405180910390a1505050565b600081815260018301602052604081205461094c57508154600181810184556000848152602080822090930184905584548482528286019093526040902091909155610768565b506000610768565b6060816000018054806020026020016040519081016040528092919081815260200182805480156109a457602002820191906000526020600020905b815481526020019060010190808311610990575b50505050509050919050565b60008181526001830160205260408120548015610a995760006109d4600183610e1a565b85549091506000906109e890600190610e1a565b9050818114610a4d576000866000018281548110610a0857610a08610e54565b9060005260206000200154905080876000018481548110610a2b57610a2b610e54565b6000918252602080832090910192909255918252600188019052604090208390555b8554869080610a5e57610a5e610e83565b600190038181906000526020600020016000905590558560010160008681526020019081526020016000206000905560019350505050610768565b6000915050610768565b600060208083528351808285015260005b81811015610ad057858101830151858201604001528201610ab4565b5060006040828601015260407fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8301168501019250505092915050565b73ffffffffffffffffffffffffffffffffffffffff8116811461070d57600080fd5b600080600080600060a08688031215610b4957600080fd5b8535610b5481610b0f565b94506020860135610b6481610b0f565b93506040860135925060608601359150608086013560ff81168114610b8857600080fd5b809150509295509295909350565b600060208284031215610ba857600080fd5b813561052d81610b0f565b600080600060408486031215610bc857600080fd5b8335610bd381610b0f565b9250602084013567ffffffffffffffff80821115610bf057600080fd5b818601915086601f830112610c0457600080fd5b813581811115610c1357600080fd5b876020828501011115610c2557600080fd5b6020830194508093505050509250925092565b6020808252825182820181905260009190848201906040850190845b81811015610c8657835173ffffffffffffffffffffffffffffffffffffffff1683529284019291840191600101610c54565b50909695505050505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b600060208284031215610cd357600080fd5b813567ffffffffffffffff80821115610ceb57600080fd5b818401915084601f830112610cff57600080fd5b813581811115610d1157610d11610c92565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0908116603f01168101908382118183101715610d5757610d57610c92565b81604052828152876020848701011115610d7057600080fd5b826020860160208301376000928101602001929092525095945050505050565b60008060408385031215610da357600080fd5b8235610dae81610b0f565b91506020830135610dbe81610b0f565b809150509250929050565b600060208284031215610ddb57600080fd5b815161052d81610b0f565b60008060408385031215610df957600080fd5b82518015158114610e0957600080fd5b6020840151909250610dbe81610b0f565b81810381811115610768577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603160045260246000fdfe46756e6374696f6e73205465726d73206f66205365727669636520416c6c6f77204c6973742076312e302e30a164736f6c6343000813000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"router\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"config\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"InvalidSignature\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidUsage\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByRouter\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"OnlyCallableByRouterOwner\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RecipientIsBlocked\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"RouterMustBeSet\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"}],\"name\":\"AddedAccess\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"}],\"name\":\"BlockedAccess\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bool\",\"name\":\"enabled\",\"type\":\"bool\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"signerPublicKey\",\"type\":\"address\"}],\"name\":\"ConfigSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"}],\"name\":\"UnblockedAccess\",\"type\":\"event\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"acceptor\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"}],\"name\":\"acceptTermsOfService\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"blockSender\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAllAllowedSenders\",\"outputs\":[{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"acceptor\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"}],\"name\":\"getMessage\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"user\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"hasAccess\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"isBlockedSender\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"unblockSender\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"config\",\"type\":\"bytes\"}],\"name\":\"updateConfig\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	Bin: "0x60a06040523480156200001157600080fd5b50604051620012443803806200124483398101604081905262000034916200014e565b81816001600160a01b0382166200005e57604051632530e88560e11b815260040160405180910390fd5b6001600160a01b038216608052620000768162000080565b505050506200027c565b6000808280602001905181019062000099919062000239565b6040805180820182528315158082526001600160a01b0384166020928301819052600380546001600160a81b031916610100600160a81b031984161761010083021790558351918252918101919091529294509092507f232bb132911bf7acb3a5ab4dd8e603080819db6a26b68da198599a7c83e2494c910160405180910390a1505050565b6001600160a01b03811681146200013557600080fd5b50565b634e487b7160e01b600052604160045260246000fd5b600080604083850312156200016257600080fd5b82516200016f816200011f565b602084810151919350906001600160401b03808211156200018f57600080fd5b818601915086601f830112620001a457600080fd5b815181811115620001b957620001b962000138565b604051601f8201601f19908116603f01168101908382118183101715620001e457620001e462000138565b816040528281528986848701011115620001fd57600080fd5b600093505b8284101562000221578484018601518185018701529285019262000202565b60008684830101528096505050505050509250929050565b600080604083850312156200024d57600080fd5b825180151581146200025e57600080fd5b602084015190925062000271816200011f565b809150509250929050565b608051610f9e620002a660003960008181610414015281816105c7015261075d0152610f9e6000f3fe608060405234801561001057600080fd5b50600436106100a35760003560e01c8063817ef62e116100765780638cc6acce1161005b5780638cc6acce14610139578063a39b06e31461014c578063a5e1d61d1461016d57600080fd5b8063817ef62e1461011157806382184c7b1461012657600080fd5b8063181f5a77146100a85780633908c4d4146100c657806347663acb146100db5780636b14daf8146100ee575b600080fd5b6100b0610180565b6040516100bd9190610b56565b60405180910390f35b6100d96100d4366004610be4565b61019c565b005b6100d96100e9366004610c49565b610412565b6101016100fc366004610c66565b61058a565b60405190151581526020016100bd565b6101196105b4565b6040516100bd9190610ceb565b6100d9610134366004610c49565b6105c5565b6100d9610147366004610d74565b610745565b61015f61015a366004610e43565b6107c0565b6040519081526020016100bd565b61010161017b366004610c49565b61081e565b6040518060600160405280602c8152602001610f66602c913981565b73ffffffffffffffffffffffffffffffffffffffff841660009081526002602052604090205460ff16156101fc576040517f62b7a34d00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600061020886866107c0565b6040517f19457468657265756d205369676e6564204d6573736167653a0a3332000000006020820152603c810191909152605c01604080518083037fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe001815282825280516020918201206003546000855291840180845281905260ff8616928401929092526060830187905260808301869052909250610100900473ffffffffffffffffffffffffffffffffffffffff169060019060a0016020604051602081039080840390855afa1580156102e2573d6000803e3d6000fd5b5050506020604051035173ffffffffffffffffffffffffffffffffffffffff1614610339576040517f8baa579f00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b3373ffffffffffffffffffffffffffffffffffffffff861614158061037e57503373ffffffffffffffffffffffffffffffffffffffff87161480159061037e5750333b155b156103b5576040517f381cfcbd00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6103c060008661085f565b5060405173ffffffffffffffffffffffffffffffffffffffff861681527f87286ad1f399c8e82bf0c4ef4fcdc570ea2e1e92176e5c848b6413545b885db49060200160405180910390a1505050505050565b7f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff16638da5cb5b6040518163ffffffff1660e01b81526004016020604051808303816000875af115801561047f573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906104a39190610e7c565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff1614610507576040517fa0f0a44600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff811660008181526002602090815260409182902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016905590519182527f28bbd0761309a99e8fb5e5d02ada0b7b2db2e5357531ff5dbfc205c3f5b6592b91015b60405180910390a150565b60035460009060ff1661059f575060016105ad565b6105aa600085610881565b90505b9392505050565b60606105c060006108b0565b905090565b7f000000000000000000000000000000000000000000000000000000000000000073ffffffffffffffffffffffffffffffffffffffff16638da5cb5b6040518163ffffffff1660e01b81526004016020604051808303816000875af1158015610632573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906106569190610e7c565b73ffffffffffffffffffffffffffffffffffffffff163373ffffffffffffffffffffffffffffffffffffffff16146106ba576040517fa0f0a44600000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6106c56000826108bd565b5073ffffffffffffffffffffffffffffffffffffffff811660008181526002602090815260409182902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016600117905590519182527f337cd0f3f594112b6d830afb510072d3b08556b446514f73b8109162fd1151e1910161057f565b3373ffffffffffffffffffffffffffffffffffffffff7f000000000000000000000000000000000000000000000000000000000000000016146107b4576040517fc41a5b0900000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6107bd816108df565b50565b6040517fffffffffffffffffffffffffffffffffffffffff000000000000000000000000606084811b8216602084015283901b1660348201526000906048016040516020818303038152906040528051906020012090505b92915050565b60035460009060ff1661083357506000919050565b5073ffffffffffffffffffffffffffffffffffffffff1660009081526002602052604090205460ff1690565b60006105ad8373ffffffffffffffffffffffffffffffffffffffff84166109b8565b73ffffffffffffffffffffffffffffffffffffffff8116600090815260018301602052604081205415156105ad565b606060006105ad83610a07565b60006105ad8373ffffffffffffffffffffffffffffffffffffffff8416610a63565b600080828060200190518101906108f69190610e99565b60408051808201825283151580825273ffffffffffffffffffffffffffffffffffffffff84166020928301819052600380547fffffffffffffffffffffff000000000000000000000000000000000000000000167fffffffffffffffffffffff0000000000000000000000000000000000000000ff84161761010083021790558351918252918101919091529294509092507f232bb132911bf7acb3a5ab4dd8e603080819db6a26b68da198599a7c83e2494c910160405180910390a1505050565b60008181526001830160205260408120546109ff57508154600181810184556000848152602080822090930184905584548482528286019093526040902091909155610818565b506000610818565b606081600001805480602002602001604051908101604052809291908181526020018280548015610a5757602002820191906000526020600020905b815481526020019060010190808311610a43575b50505050509050919050565b60008181526001830160205260408120548015610b4c576000610a87600183610ecd565b8554909150600090610a9b90600190610ecd565b9050818114610b00576000866000018281548110610abb57610abb610f07565b9060005260206000200154905080876000018481548110610ade57610ade610f07565b6000918252602080832090910192909255918252600188019052604090208390555b8554869080610b1157610b11610f36565b600190038181906000526020600020016000905590558560010160008681526020019081526020016000206000905560019350505050610818565b6000915050610818565b600060208083528351808285015260005b81811015610b8357858101830151858201604001528201610b67565b5060006040828601015260407fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8301168501019250505092915050565b73ffffffffffffffffffffffffffffffffffffffff811681146107bd57600080fd5b600080600080600060a08688031215610bfc57600080fd5b8535610c0781610bc2565b94506020860135610c1781610bc2565b93506040860135925060608601359150608086013560ff81168114610c3b57600080fd5b809150509295509295909350565b600060208284031215610c5b57600080fd5b81356105ad81610bc2565b600080600060408486031215610c7b57600080fd5b8335610c8681610bc2565b9250602084013567ffffffffffffffff80821115610ca357600080fd5b818601915086601f830112610cb757600080fd5b813581811115610cc657600080fd5b876020828501011115610cd857600080fd5b6020830194508093505050509250925092565b6020808252825182820181905260009190848201906040850190845b81811015610d3957835173ffffffffffffffffffffffffffffffffffffffff1683529284019291840191600101610d07565b50909695505050505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b600060208284031215610d8657600080fd5b813567ffffffffffffffff80821115610d9e57600080fd5b818401915084601f830112610db257600080fd5b813581811115610dc457610dc4610d45565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0908116603f01168101908382118183101715610e0a57610e0a610d45565b81604052828152876020848701011115610e2357600080fd5b826020860160208301376000928101602001929092525095945050505050565b60008060408385031215610e5657600080fd5b8235610e6181610bc2565b91506020830135610e7181610bc2565b809150509250929050565b600060208284031215610e8e57600080fd5b81516105ad81610bc2565b60008060408385031215610eac57600080fd5b82518015158114610ebc57600080fd5b6020840151909250610e7181610bc2565b81810381811115610818577f4e487b7100000000000000000000000000000000000000000000000000000000600052601160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603260045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052603160045260246000fdfe46756e6374696f6e73205465726d73206f66205365727669636520416c6c6f77204c6973742076312e302e30a164736f6c6343000813000a",
 }
 
 var TermsOfServiceAllowListABI = TermsOfServiceAllowListMetaData.ABI
@@ -329,6 +329,240 @@ func (_TermsOfServiceAllowList *TermsOfServiceAllowListTransactorSession) Update
 	return _TermsOfServiceAllowList.Contract.UpdateConfig(&_TermsOfServiceAllowList.TransactOpts, config)
 }
 
+type TermsOfServiceAllowListAddedAccessIterator struct {
+	Event *TermsOfServiceAllowListAddedAccess
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *TermsOfServiceAllowListAddedAccessIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TermsOfServiceAllowListAddedAccess)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(TermsOfServiceAllowListAddedAccess)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *TermsOfServiceAllowListAddedAccessIterator) Error() error {
+	return it.fail
+}
+
+func (it *TermsOfServiceAllowListAddedAccessIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type TermsOfServiceAllowListAddedAccess struct {
+	User common.Address
+	Raw  types.Log
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListFilterer) FilterAddedAccess(opts *bind.FilterOpts) (*TermsOfServiceAllowListAddedAccessIterator, error) {
+
+	logs, sub, err := _TermsOfServiceAllowList.contract.FilterLogs(opts, "AddedAccess")
+	if err != nil {
+		return nil, err
+	}
+	return &TermsOfServiceAllowListAddedAccessIterator{contract: _TermsOfServiceAllowList.contract, event: "AddedAccess", logs: logs, sub: sub}, nil
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListFilterer) WatchAddedAccess(opts *bind.WatchOpts, sink chan<- *TermsOfServiceAllowListAddedAccess) (event.Subscription, error) {
+
+	logs, sub, err := _TermsOfServiceAllowList.contract.WatchLogs(opts, "AddedAccess")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(TermsOfServiceAllowListAddedAccess)
+				if err := _TermsOfServiceAllowList.contract.UnpackLog(event, "AddedAccess", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListFilterer) ParseAddedAccess(log types.Log) (*TermsOfServiceAllowListAddedAccess, error) {
+	event := new(TermsOfServiceAllowListAddedAccess)
+	if err := _TermsOfServiceAllowList.contract.UnpackLog(event, "AddedAccess", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type TermsOfServiceAllowListBlockedAccessIterator struct {
+	Event *TermsOfServiceAllowListBlockedAccess
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *TermsOfServiceAllowListBlockedAccessIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TermsOfServiceAllowListBlockedAccess)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(TermsOfServiceAllowListBlockedAccess)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *TermsOfServiceAllowListBlockedAccessIterator) Error() error {
+	return it.fail
+}
+
+func (it *TermsOfServiceAllowListBlockedAccessIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type TermsOfServiceAllowListBlockedAccess struct {
+	User common.Address
+	Raw  types.Log
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListFilterer) FilterBlockedAccess(opts *bind.FilterOpts) (*TermsOfServiceAllowListBlockedAccessIterator, error) {
+
+	logs, sub, err := _TermsOfServiceAllowList.contract.FilterLogs(opts, "BlockedAccess")
+	if err != nil {
+		return nil, err
+	}
+	return &TermsOfServiceAllowListBlockedAccessIterator{contract: _TermsOfServiceAllowList.contract, event: "BlockedAccess", logs: logs, sub: sub}, nil
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListFilterer) WatchBlockedAccess(opts *bind.WatchOpts, sink chan<- *TermsOfServiceAllowListBlockedAccess) (event.Subscription, error) {
+
+	logs, sub, err := _TermsOfServiceAllowList.contract.WatchLogs(opts, "BlockedAccess")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(TermsOfServiceAllowListBlockedAccess)
+				if err := _TermsOfServiceAllowList.contract.UnpackLog(event, "BlockedAccess", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListFilterer) ParseBlockedAccess(log types.Log) (*TermsOfServiceAllowListBlockedAccess, error) {
+	event := new(TermsOfServiceAllowListBlockedAccess)
+	if err := _TermsOfServiceAllowList.contract.UnpackLog(event, "BlockedAccess", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 type TermsOfServiceAllowListConfigSetIterator struct {
 	Event *TermsOfServiceAllowListConfigSet
 
@@ -390,8 +624,9 @@ func (it *TermsOfServiceAllowListConfigSetIterator) Close() error {
 }
 
 type TermsOfServiceAllowListConfigSet struct {
-	Enabled bool
-	Raw     types.Log
+	Enabled         bool
+	SignerPublicKey common.Address
+	Raw             types.Log
 }
 
 func (_TermsOfServiceAllowList *TermsOfServiceAllowListFilterer) FilterConfigSet(opts *bind.FilterOpts) (*TermsOfServiceAllowListConfigSetIterator, error) {
@@ -446,18 +681,153 @@ func (_TermsOfServiceAllowList *TermsOfServiceAllowListFilterer) ParseConfigSet(
 	return event, nil
 }
 
+type TermsOfServiceAllowListUnblockedAccessIterator struct {
+	Event *TermsOfServiceAllowListUnblockedAccess
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *TermsOfServiceAllowListUnblockedAccessIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(TermsOfServiceAllowListUnblockedAccess)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(TermsOfServiceAllowListUnblockedAccess)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *TermsOfServiceAllowListUnblockedAccessIterator) Error() error {
+	return it.fail
+}
+
+func (it *TermsOfServiceAllowListUnblockedAccessIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type TermsOfServiceAllowListUnblockedAccess struct {
+	User common.Address
+	Raw  types.Log
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListFilterer) FilterUnblockedAccess(opts *bind.FilterOpts) (*TermsOfServiceAllowListUnblockedAccessIterator, error) {
+
+	logs, sub, err := _TermsOfServiceAllowList.contract.FilterLogs(opts, "UnblockedAccess")
+	if err != nil {
+		return nil, err
+	}
+	return &TermsOfServiceAllowListUnblockedAccessIterator{contract: _TermsOfServiceAllowList.contract, event: "UnblockedAccess", logs: logs, sub: sub}, nil
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListFilterer) WatchUnblockedAccess(opts *bind.WatchOpts, sink chan<- *TermsOfServiceAllowListUnblockedAccess) (event.Subscription, error) {
+
+	logs, sub, err := _TermsOfServiceAllowList.contract.WatchLogs(opts, "UnblockedAccess")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(TermsOfServiceAllowListUnblockedAccess)
+				if err := _TermsOfServiceAllowList.contract.UnpackLog(event, "UnblockedAccess", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_TermsOfServiceAllowList *TermsOfServiceAllowListFilterer) ParseUnblockedAccess(log types.Log) (*TermsOfServiceAllowListUnblockedAccess, error) {
+	event := new(TermsOfServiceAllowListUnblockedAccess)
+	if err := _TermsOfServiceAllowList.contract.UnpackLog(event, "UnblockedAccess", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 func (_TermsOfServiceAllowList *TermsOfServiceAllowList) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
+	case _TermsOfServiceAllowList.abi.Events["AddedAccess"].ID:
+		return _TermsOfServiceAllowList.ParseAddedAccess(log)
+	case _TermsOfServiceAllowList.abi.Events["BlockedAccess"].ID:
+		return _TermsOfServiceAllowList.ParseBlockedAccess(log)
 	case _TermsOfServiceAllowList.abi.Events["ConfigSet"].ID:
 		return _TermsOfServiceAllowList.ParseConfigSet(log)
+	case _TermsOfServiceAllowList.abi.Events["UnblockedAccess"].ID:
+		return _TermsOfServiceAllowList.ParseUnblockedAccess(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
 }
 
+func (TermsOfServiceAllowListAddedAccess) Topic() common.Hash {
+	return common.HexToHash("0x87286ad1f399c8e82bf0c4ef4fcdc570ea2e1e92176e5c848b6413545b885db4")
+}
+
+func (TermsOfServiceAllowListBlockedAccess) Topic() common.Hash {
+	return common.HexToHash("0x337cd0f3f594112b6d830afb510072d3b08556b446514f73b8109162fd1151e1")
+}
+
 func (TermsOfServiceAllowListConfigSet) Topic() common.Hash {
-	return common.HexToHash("0x22aa8545955b447cb49ea37e67de742e750839c633ded8c9b5b09614843b229f")
+	return common.HexToHash("0x232bb132911bf7acb3a5ab4dd8e603080819db6a26b68da198599a7c83e2494c")
+}
+
+func (TermsOfServiceAllowListUnblockedAccess) Topic() common.Hash {
+	return common.HexToHash("0x28bbd0761309a99e8fb5e5d02ada0b7b2db2e5357531ff5dbfc205c3f5b6592b")
 }
 
 func (_TermsOfServiceAllowList *TermsOfServiceAllowList) Address() common.Address {
@@ -483,11 +853,29 @@ type TermsOfServiceAllowListInterface interface {
 
 	UpdateConfig(opts *bind.TransactOpts, config []byte) (*types.Transaction, error)
 
+	FilterAddedAccess(opts *bind.FilterOpts) (*TermsOfServiceAllowListAddedAccessIterator, error)
+
+	WatchAddedAccess(opts *bind.WatchOpts, sink chan<- *TermsOfServiceAllowListAddedAccess) (event.Subscription, error)
+
+	ParseAddedAccess(log types.Log) (*TermsOfServiceAllowListAddedAccess, error)
+
+	FilterBlockedAccess(opts *bind.FilterOpts) (*TermsOfServiceAllowListBlockedAccessIterator, error)
+
+	WatchBlockedAccess(opts *bind.WatchOpts, sink chan<- *TermsOfServiceAllowListBlockedAccess) (event.Subscription, error)
+
+	ParseBlockedAccess(log types.Log) (*TermsOfServiceAllowListBlockedAccess, error)
+
 	FilterConfigSet(opts *bind.FilterOpts) (*TermsOfServiceAllowListConfigSetIterator, error)
 
 	WatchConfigSet(opts *bind.WatchOpts, sink chan<- *TermsOfServiceAllowListConfigSet) (event.Subscription, error)
 
 	ParseConfigSet(log types.Log) (*TermsOfServiceAllowListConfigSet, error)
+
+	FilterUnblockedAccess(opts *bind.FilterOpts) (*TermsOfServiceAllowListUnblockedAccessIterator, error)
+
+	WatchUnblockedAccess(opts *bind.WatchOpts, sink chan<- *TermsOfServiceAllowListUnblockedAccess) (event.Subscription, error)
+
+	ParseUnblockedAccess(log types.Log) (*TermsOfServiceAllowListUnblockedAccess, error)
 
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 
