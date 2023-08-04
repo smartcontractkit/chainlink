@@ -348,7 +348,7 @@ var (
 	ScrollTestnet = blockchain.EVMNetwork{
 		Name:                      "Scroll Testnet",
 		ClientImplementation:      blockchain.ScrollClientImplementation,
-		ChainID:                   534351,
+		ChainID:                   534353,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
