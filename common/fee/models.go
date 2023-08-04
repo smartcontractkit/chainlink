@@ -11,13 +11,13 @@ import (
 )
 
 var (
-	ErrBumpFeeExceedsLimit = errors.New("fee bump exceeds limit")
-	ErrBump                = errors.New("fee bump failed")
+	ErrBumpGasExceedsLimit = errors.New("gas bump exceeds limit")
+	ErrBump                = errors.New("gas bump failed")
 	ErrConnectivity        = errors.New("transaction propagation issue: transactions are not being mined")
 )
 
 func IsBumpErr(err error) bool {
-	return err != nil && (errors.Is(err, ErrBumpFeeExceedsLimit) || errors.Is(err, ErrBump) || errors.Is(err, ErrConnectivity))
+	return err != nil && (errors.Is(err, ErrBumpGasExceedsLimit) || errors.Is(err, ErrBump) || errors.Is(err, ErrConnectivity))
 }
 
 // CalculateFee computes the fee price for a transaction.

@@ -80,6 +80,9 @@ func (f *fixedPriceEstimator) BumpLegacyGas(
 		f.config.BumpPercent(),
 		assets.NewWeiString,
 	)
+	if err != nil {
+		return nil, 0, err
+	}
 
 	chainSpecificGasLimit := commonfee.ApplyMultiplier(originalGasLimit, f.config.LimitMultiplier())
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, err
