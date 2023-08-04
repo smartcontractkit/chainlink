@@ -342,7 +342,6 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		name = "ocr2keepers-%d"
 		schemaVersion = 1
 		contractID = "%s"
-		feedID = "%s"
 		contractConfigTrackerPollInterval = "15s"
 		ocrKeyBundleID = "%s"
 		transmitterID = "%s"
@@ -357,7 +356,8 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		maxServiceWorkers = 100
 		cacheEvictionInterval = "1s"
 		mercuryCredentialName = "%s"
-		`, i, registry.Address(), common.HexToHash("0x"), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), MercuryCredName))
+		contractVersion = "v2.1"
+		`, i, registry.Address(), node.KeyBundle.ID(), node.Transmitter, fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort), MercuryCredName))
 	}
 
 	// Setup config on contract
