@@ -7,9 +7,9 @@ import (
 )
 
 var (
-	ErrDeployBHSV1            = "failed to deploy BlockHashStoreV1 contract"
-	ErrDeployVRFCootrinatorV1 = "failed to deploy VRFv1 Coordinator contract"
-	ErrDeployVRFConsumerV1    = "failed to deploy VRFv1 Consumer contract"
+	ErrDeployBHSV1            = "error deploying BlockHashStoreV1 contract"
+	ErrDeployVRFCootrinatorV1 = "error deploying VRFv1 Coordinator contract"
+	ErrDeployVRFConsumerV1    = "error deploying VRFv1 Consumer contract"
 )
 
 type Contracts struct {
