@@ -41,7 +41,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     address requestInitiator,
     bytes data,
     uint16 dataVersion,
-    uint32 callbackGasLimit
+    uint32 callbackGasLimit,
+    uint96 estimatedTotalCostJuels
   );
 
   event RequestProcessed(
@@ -313,7 +314,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       requestInitiator: tx.origin,
       data: data,
       dataVersion: dataVersion,
-      callbackGasLimit: callbackGasLimit
+      callbackGasLimit: callbackGasLimit,
+      estimatedTotalCostJuels: commitment.estimatedTotalCostJuels
     });
 
     return commitment.requestId;
