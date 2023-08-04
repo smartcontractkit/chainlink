@@ -388,7 +388,8 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		t.FailNow()
 	}
 
-	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTestsAutomation(
+	// TODO: Use ocr3confighelper instead
+	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTestsOCR3(
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
 		100*time.Millisecond,  // deltaInitial time.Duration,
@@ -396,7 +397,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		40*time.Millisecond,   // deltaGrace time.Duration,
 		200*time.Millisecond,  // deltaRequestCertifiedCommit time.Duration,
 		30*time.Second,        // deltaStage time.Duration,
-		uint8(50),             // rMax uint8,
+		uint64(50),            // rMax uint8,
 		[]int{1, 1, 1, 1},     // s []int,
 		oracles,               // oracles []OracleIdentityExtra,
 		rawCfg,                // reportingPluginConfig []byte,
