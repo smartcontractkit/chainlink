@@ -404,6 +404,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
+  event DedupKeyAdded(bytes32 indexed dedupKey);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
@@ -844,6 +845,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       s_upkeep[upkeepID].lastPerformedBlockNumber = uint32(_blockNum());
     } else if (upkeepTransmitInfo.triggerType == Trigger.LOG) {
       s_dedupKeys[upkeepTransmitInfo.dedupID] = true;
+      emit DedupKeyAdded(upkeepTransmitInfo.dedupID);
     }
   }
 
