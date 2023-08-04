@@ -18,6 +18,8 @@ derived_price_feed_wrapper: ../../contracts/solc/v0.8.6/DerivedPriceFeed.abi ../
 feed_lookup_compatible_interface: ../../contracts/solc/v0.8.16/FeedLookupCompatibleInterface.abi ../../contracts/solc/v0.8.16/FeedLookupCompatibleInterface.bin 2c5c2cb669a666ab6f14e7fdbd11ea019997e3860f56ccfaf112156e412f1b15
 flags_wrapper: ../../contracts/solc/v0.6/Flags.abi ../../contracts/solc/v0.6/Flags.bin 2034d1b562ca37a63068851915e3703980276e8d5f7db6db8a3351a49d69fc4a
 flux_aggregator_wrapper: ../../contracts/solc/v0.6/FluxAggregator.abi ../../contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
+functions_billing_registry_events_mock: ../../contracts/solc/v0.8.6/FunctionsBillingRegistryEventsMock.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryEventsMock.bin 50deeb883bd9c3729702be335c0388f9d8553bab4be5e26ecacac496a89e2b77
+functions_oracle_events_mock: ../../contracts/solc/v0.8.6/FunctionsOracleEventsMock.abi ../../contracts/solc/v0.8.6/FunctionsOracleEventsMock.bin 3ca70f966f8fe751987f0ccb50bebb6aa5be77e4a9f835d1ae99e0e9bfb7d52c
 gas_wrapper: ../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.abi ../../contracts/solc/v0.8.6/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.bin 4a5dcdac486d18fcd58e3488c15c1710ae76b977556a3f3191bd269a4bc75723
 i_keeper_registry_master_wrapper_2_1: ../../contracts/solc/v0.8.16/IKeeperRegistryMaster.abi ../../contracts/solc/v0.8.16/IKeeperRegistryMaster.bin fb976990e21d6c454245bcd3247d71b2f045a7c5636adaebfe64b7449cb6042e
 i_log_automation: ../../contracts/solc/v0.8.16/ILogAutomation.abi ../../contracts/solc/v0.8.16/ILogAutomation.bin b9bc273ba34750073874397e7681909794d15b31da8a4449c5aafa0bb5ea1dfc
