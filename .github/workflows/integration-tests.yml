@@ -693,7 +693,7 @@ jobs:
               "text": "Live Smoke Tests Complete",
               "attachments": [
                 {
-                  "color": "${{ job.status == 'success' && '#2E7D32' || '#C62828' }}",
+                  "color": "${{ needs.testnet-smoke-tests-matrix.result == 'success' && '#2E7D32' || '#C62828' }}",
                   "blocks": [
                     {
                       "type": "header",
@@ -713,16 +713,6 @@ jobs:
                         "text": "Tag: <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}>\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
                       }
                     },
-                    {
-                      "type": "divider"
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "OCR ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}"
-                      }
-                    }
                   ]
                 }
               ]
