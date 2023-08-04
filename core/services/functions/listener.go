@@ -118,8 +118,6 @@ const (
 
 	FlagCBORMaxSize    uint32 = 1
 	FlagSecretsMaxSize uint32 = 2
-
-	EthSignedMessagePrefix = "\x19Ethereum Signed Message:\n"
 )
 
 type FunctionsListener struct {
