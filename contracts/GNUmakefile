@@ -1,7 +1,7 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
 # profile defined. Adding a product to this list will make it available for
 # snapshotting.
-ALL_FOUNDRY_PRODUCTS = vrf automation llo functions automation-dev
+ALL_FOUNDRY_PRODUCTS = vrf automation llo functions automation-dev shared
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
 # or call the target with `FOUNDRY_PROFILE=product`
