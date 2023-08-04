@@ -9,7 +9,7 @@ import {IConfigurable} from "./interfaces/IConfigurable.sol";
 
 import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
-import {ConfirmedOwner} from "../../../ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
 import {Pausable} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
