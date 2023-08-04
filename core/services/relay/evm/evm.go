@@ -130,7 +130,8 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 }
 
 func (r *Relayer) NewFunctionsProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.FunctionsProvider, error) {
-	// TODO(FUN-668): Not ready yet (doesn't implement FunctionsEvents() properly)
+	// TODO(FUN-668): Not ready yet (doesn't implement FunctionsEvents() properly).
+	// Currently only used by the bootstrap job.
 	return NewFunctionsProvider(r.chainSet, rargs, pargs, r.lggr, r.ks.Eth(), functions.FunctionsPlugin)
 }
 
