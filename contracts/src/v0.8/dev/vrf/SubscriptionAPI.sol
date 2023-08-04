@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../interfaces/LinkTokenInterface.sol";
-import "../../ConfirmedOwner.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/interfaces/IERC677Receiver.sol";
 import "../interfaces/IVRFSubscriptionV2Plus.sol";
 
-abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInterface, IVRFSubscriptionV2Plus {
+abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, IERC677Receiver, IVRFSubscriptionV2Plus {
   /// @dev may not be provided upon construction on some chains due to lack of availability
   LinkTokenInterface public LINK;
   /// @dev may not be provided upon construction on some chains due to lack of availability
