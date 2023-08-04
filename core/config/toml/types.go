@@ -115,8 +115,8 @@ func dbURLPasswordComplexity(err error) string {
 }
 
 type DatabaseSecrets struct {
-	URL                  *models.SecretURL
-	BackupURL            *models.SecretURL
+	URL                  models.MaybeRedactedSecretURL
+	BackupURL            models.MaybeRedactedSecretURL
 	AllowSimplePasswords *bool
 }
 
@@ -146,15 +146,15 @@ func validateDBURL(dbURI url.URL) error {
 }
 
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
-	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
+	if d.URL == nil || (d.URL).String() == "" {
 		err = multierr.Append(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
 	} else if !*d.AllowSimplePasswords {
-		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
+		if verr := validateDBURL(*d.URL.URL()); verr != nil {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
 	if d.BackupURL != nil && !*d.AllowSimplePasswords {
-		if verr := validateDBURL((url.URL)(*d.BackupURL)); verr != nil {
+		if verr := validateDBURL(*d.URL.URL()); verr != nil {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "BackupURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
@@ -229,8 +229,8 @@ func (e *ExplorerSecrets) validateMerge(f *ExplorerSecrets) (err error) {
 }
 
 type Passwords struct {
-	Keystore *models.Secret
-	VRF      *models.Secret
+	Keystore models.MaybeRedactedSecret
+	VRF      models.MaybeRedactedSecret
 }
 
 func (p *Passwords) SetFrom(f *Passwords) (err error) {
@@ -262,7 +262,7 @@ func (p *Passwords) validateMerge(f *Passwords) (err error) {
 }
 
 func (p *Passwords) ValidateConfig() (err error) {
-	if p.Keystore == nil || *p.Keystore == "" {
+	if p.Keystore == nil || p.Keystore.String() == "" {
 		err = multierr.Append(err, configutils.ErrEmpty{Name: "Keystore", Msg: "must be provided and non-empty"})
 	}
 	return err
@@ -1213,9 +1213,9 @@ func (ins *Insecure) setFrom(f *Insecure) {
 }
 
 type MercuryCredentials struct {
-	URL      *models.SecretURL
-	Username *models.Secret
-	Password *models.Secret
+	URL      models.MaybeRedactedSecretURL
+	Username models.MaybeRedactedSecret
+	Password models.MaybeRedactedSecret
 }
 
 type MercurySecrets struct {
