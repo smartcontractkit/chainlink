@@ -683,6 +683,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: testnet-smoke-tests-matrix
     steps:
+      - name: Build Links
+        run: |
+
       - name: Main Slack Notification
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         with:
@@ -756,12 +759,12 @@ jobs:
           echo curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           '[https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq ."jobs" | jq '.[] | select(.name | startswith("My matrix job"))' | ."status"
+          | jq ."jobs" | jq '.[] | select(.name | startswith("Live Testnet Smoke Tests ${{ matrix.testnet}}"))' | ."status"
 
           echo "status=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           '[https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq ."jobs" | jq '.[] | select(.name | startswith("My matrix job"))' | ."status") >> $GITHUB_OUTPUT'
+          | jq ."jobs" | jq '.[] | select(.name | startswith("Live Testnet Smoke Tests ${{ matrix.testnet}}"))' | ."status") >> $GITHUB_OUTPUT'
 
       - name: Test Details
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
