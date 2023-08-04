@@ -690,7 +690,6 @@ jobs:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
           payload: |
             {
-              "text": "Live Smoke Tests Complete",
               "attachments": [
                 {
                   "color": "${{ needs.testnet-smoke-tests-matrix.result == 'success' && '#2E7D32' || '#C62828' }}",
@@ -763,7 +762,6 @@ jobs:
           channel-id: ${{ secrets.QA_SLACK_CHANNEL }}
           payload: |
             {
-              "text": "Live Smoke Test Results ${{ matrix.testnet }} ${{ steps.test-results.outputs.status }}",
               "thread_ts": "${{ needs.testnet-smoke-tests-notify.outputs.thread_ts }}",
               "attachments": [
                 {
