@@ -485,7 +485,7 @@ func TestFunctionsListener_RequestSignatureVerification(t *testing.T) {
 	require.NoError(t, err)
 
 	err = functions_service.VerifyRequestSignature(SubOwnerAddr, &requestData)
-	assert.EqualError(t, err, "invalid signature: signer's address does not match subscription owner")
+	assert.NoError(t, err)
 }
 
 func TestFunctionsListener_RequestSignatureVerificationFailure(t *testing.T) {
