@@ -14,8 +14,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	time "time"
 
 	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -145,6 +143,30 @@ func (_m *EvmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt types
 	}
 
 	return r0
+}
+
+// FindHighestSequence provides a mock function with given fields: fromAddress, chainId
+func (_m *EvmTxStore) FindHighestSequence(fromAddress common.Address, chainId *big.Int) (evmtypes.Nonce, error) {
+	ret := _m.Called(fromAddress, chainId)
+
+	var r0 evmtypes.Nonce
+	var r1 error
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int) (evmtypes.Nonce, error)); ok {
+		return rf(fromAddress, chainId)
+	}
+	if rf, ok := ret.Get(0).(func(common.Address, *big.Int) evmtypes.Nonce); ok {
+		r0 = rf(fromAddress, chainId)
+	} else {
+		r0 = ret.Get(0).(evmtypes.Nonce)
+	}
+
+	if rf, ok := ret.Get(1).(func(common.Address, *big.Int) error); ok {
+		r1 = rf(fromAddress, chainId)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // FindNextUnstartedTransactionFromAddress provides a mock function with given fields: ctx, etx, fromAddress, chainID
@@ -878,41 +900,13 @@ func (_m *EvmTxStore) UpdateBroadcastAts(ctx context.Context, now time.Time, etx
 	return r0
 }
 
-// UpdateKeyNextSequence provides a mock function with given fields: newNextSequence, currentNextSequence, address, chainID, qopts
-func (_m *EvmTxStore) UpdateKeyNextSequence(newNextSequence evmtypes.Nonce, currentNextSequence evmtypes.Nonce, address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, newNextSequence, currentNextSequence, address, chainID)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+// UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: etx, attempt, NewAttemptState, incrementSeqFunc
+func (_m *EvmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], NewAttemptState types.TxAttemptState, incrementSeqFunc func(common.Address) error) error {
+	ret := _m.Called(etx, attempt, NewAttemptState, incrementSeqFunc)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(evmtypes.Nonce, evmtypes.Nonce, common.Address, *big.Int, ...pg.QOpt) error); ok {
-		r0 = rf(newNextSequence, currentNextSequence, address, chainID, qopts...)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: etx, attempt, NewAttemptState, incrNextSequenceCallback, qopts
-func (_m *EvmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], NewAttemptState types.TxAttemptState, incrNextSequenceCallback func(pg.Queryer) error, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, etx, attempt, NewAttemptState, incrNextSequenceCallback)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttemptState, func(pg.Queryer) error, ...pg.QOpt) error); ok {
-		r0 = rf(etx, attempt, NewAttemptState, incrNextSequenceCallback, qopts...)
+	if rf, ok := ret.Get(0).(func(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttemptState, func(common.Address) error) error); ok {
+		r0 = rf(etx, attempt, NewAttemptState, incrementSeqFunc)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -957,6 +957,12 @@ func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockN
 	return
 }
 
+func (o *evmTxStore) FindHighestSequence(fromAddress common.Address, chainId *big.Int) (nonce evmtypes.Nonce, err error) {
+	sql := `SELECT MAX(nonce) FROM evm.txes WHERE from_address = $1 and evm_chain_id = $2`
+	err = o.q.Get(&nonce, sql, fromAddress.String(), chainId.String())
+	return
+}
+
 // FindTxWithIdempotencyKey returns any broadcast ethtx with the given idempotencyKey and chainID
 func (o *evmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID *big.Int) (etx *Tx, err error) {
 	var cancel context.CancelFunc
@@ -1413,11 +1419,8 @@ func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 }
 
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
-// Before it updates both tables though it increments the next nonce from the keystore
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
-func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState, incrNextNonceCallback txmgrtypes.QueryerFunc, qopts ...pg.QOpt) error {
-	qq := o.q.WithOpts(qopts...)
-
+func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState, incrementSeqFunc func(address common.Address) error) error {
 	if etx.BroadcastAt == nil {
 		return errors.New("unconfirmed transaction must have broadcast_at time")
 	}
@@ -1435,10 +1438,7 @@ func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *Tx, attempt TxAtt
 	}
 	etx.State = txmgr.TxUnconfirmed
 	attempt.State = NewAttemptState
-	return qq.Transaction(func(tx pg.Queryer) error {
-		if err := incrNextNonceCallback(tx); err != nil {
-			return pkgerrors.Wrap(err, "SaveEthTxAttempt failed on incrNextNonceCallback")
-		}
+	return o.q.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
 		dbEtx.FromTx(etx)
 		if err := tx.Get(&dbEtx, `UPDATE evm.txes SET state=$1, error=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id = $5 RETURNING *`, dbEtx.State, dbEtx.Error, dbEtx.BroadcastAt, dbEtx.InitialBroadcastAt, dbEtx.ID); err != nil {
@@ -1449,6 +1449,9 @@ func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *Tx, attempt TxAtt
 		dbAttempt.FromTxAttempt(&attempt)
 		if err := tx.Get(&dbAttempt, `UPDATE evm.tx_attempts SET state = $1 WHERE id = $2 RETURNING *`, dbAttempt.State, dbAttempt.ID); err != nil {
 			return pkgerrors.Wrap(err, "SaveEthTxAttempt failed to save eth_tx_attempt")
+		}
+		if err := incrementSeqFunc(etx.FromAddress); err != nil {
+			return pkgerrors.Wrap(err, "IncrementNextSequence failed to increment the next sequence in the broadcaster")
 		}
 		return nil
 	})

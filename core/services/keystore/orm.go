@@ -2,7 +2,6 @@ package keystore
 
 import (
 	"database/sql"
-	"math/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
@@ -12,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 )
@@ -67,30 +65,13 @@ func (orm ksORM) getEncryptedKeyRing() (kr encryptedKeyRing, err error) {
 func (orm ksORM) loadKeyStates() (*keyStates, error) {
 	ks := newKeyStates()
 	var ethkeystates []*ethkey.State
-	if err := orm.q.Select(&ethkeystates, `SELECT id, address, evm_chain_id, next_nonce, disabled, created_at, updated_at FROM evm.key_states`); err != nil {
+	if err := orm.q.Select(&ethkeystates, `SELECT id, address, evm_chain_id, disabled, created_at, updated_at FROM evm.key_states`); err != nil {
 		return ks, errors.Wrap(err, "error loading evm.key_states from DB")
 	}
 	for _, state := range ethkeystates {
 		ks.add(state)
 	}
 	return ks, nil
-}
-
-// getNextNonce returns evm.key_states.next_nonce for the given address
-func (orm ksORM) getNextNonce(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce int64, err error) {
-	q := orm.q.WithOpts(qopts...)
-	err = q.Get(&nonce, "SELECT next_nonce FROM evm.key_states WHERE address = $1 AND evm_chain_id = $2 AND disabled = false", address, chainID.String())
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, errors.Wrapf(sql.ErrNoRows, "key with address %s is not enabled for chain %s", address.Hex(), chainID.String())
-	}
-	return nonce, errors.Wrap(err, "failed to load next nonce")
-}
-
-// incrementNextNonce increments evm.key_states.next_nonce by 1
-func (orm ksORM) incrementNextNonce(address common.Address, chainID *big.Int, currentNonce int64, qopts ...pg.QOpt) (incrementedNonce int64, err error) {
-	q := orm.q.WithOpts(qopts...)
-	err = q.Get(&incrementedNonce, "UPDATE evm.key_states SET next_nonce = next_nonce + 1, updated_at = NOW() WHERE address = $1 AND next_nonce = $2 AND evm_chain_id = $3 AND disabled = false RETURNING next_nonce", address, currentNonce, chainID.String())
-	return incrementedNonce, errors.Wrap(err, "IncrementNextNonce failed to update keys")
 }
 
 // ~~~~~~~~~~~~~~~~~~~~ LEGACY FUNCTIONS FOR V1 MIGRATION ~~~~~~~~~~~~~~~~~~~~

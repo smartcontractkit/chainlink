@@ -27,14 +27,13 @@ type TxStore[
 	// Represents a onchain receipt object that a chain's RPC returns
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
 	// Represents the sequence type for a chain. For example, nonce for EVM.
-	SEQ types.Sequence,
+	SEQ types.Sequence[SEQ],
 	// Represents the chain specific fee type
 	FEE feetypes.Fee,
 ] interface {
 	UnstartedTxQueuePruner
 	TxHistoryReaper[CHAIN_ID]
 	TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	SequenceStore[ADDR, CHAIN_ID, SEQ]
 
 	// methods for saving & retreiving receipts
 	FindReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID CHAIN_ID) (receiptsPlus []ReceiptPlus[R], err error)
@@ -52,13 +51,14 @@ type TransactionStore[
 	CHAIN_ID types.ID,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	SEQ types.Sequence[SEQ],
 	FEE feetypes.Fee,
 ] interface {
 	CountUnconfirmedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (count uint32, err error)
 	CountUnstartedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (count uint32, err error)
 	CreateTransaction(ctx context.Context, txRequest TxRequest[ADDR, TX_HASH], chainID CHAIN_ID) (tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	DeleteInProgressAttempt(ctx context.Context, attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
+	FindHighestSequence(fromAddress ADDR, chainId CHAIN_ID) (SEQ, error)
 	FindTxsRequiringGasBump(ctx context.Context, address ADDR, blockNum, gasBumpThreshold, depth int64, chainID CHAIN_ID) (etxs []*Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	FindTxsRequiringResubmissionDueToInsufficientFunds(ctx context.Context, address ADDR, chainID CHAIN_ID) (etxs []*Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
 	FindTxAttemptsConfirmedMissingReceipt(ctx context.Context, chainID CHAIN_ID) (attempts []TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)
@@ -84,7 +84,7 @@ type TransactionStore[
 	SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], broadcastAt time.Time) error
 	SetBroadcastBeforeBlockNum(ctx context.Context, blockNum int64, chainID CHAIN_ID) error
 	UpdateBroadcastAts(ctx context.Context, now time.Time, etxIDs []int64) error
-	UpdateTxAttemptInProgressToBroadcast(etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], NewAttemptState TxAttemptState, incrNextSequenceCallback QueryerFunc, qopts ...pg.QOpt) error
+	UpdateTxAttemptInProgressToBroadcast(etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], NewAttemptState TxAttemptState, incrementSeqFunc func(address ADDR) error) error
 	UpdateTxsUnconfirmed(ctx context.Context, ids []int64) error
 	UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 	UpdateTxFatalError(ctx context.Context, etx *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
@@ -97,14 +97,6 @@ type TxHistoryReaper[CHAIN_ID types.ID] interface {
 
 type UnstartedTxQueuePruner interface {
 	PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (n int64, err error)
-}
-
-type SequenceStore[
-	ADDR types.Hashable,
-	CHAIN_ID types.ID,
-	SEQ types.Sequence,
-] interface {
-	UpdateKeyNextSequence(newNextSequence, currentNextSequence SEQ, address ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) error
 }
 
 // R is the raw unparsed transaction receipt

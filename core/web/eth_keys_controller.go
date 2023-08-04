@@ -277,14 +277,6 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 		return
 	}
 
-	var nonce int64 = -1
-	if nonceStr := c.Query("nextNonce"); nonceStr != "" {
-		nonce, err = strconv.ParseInt(nonceStr, 10, 64)
-		if err != nil || nonce < 0 {
-			jsonAPIError(c, http.StatusBadRequest, errors.Wrapf(err, "invalid value for nonce: expected 0 or positive int, got: %s", nonceStr))
-			return
-		}
-	}
 	abandon := false
 	if abandonStr := c.Query("abandon"); abandonStr != "" {
 		abandon, err = strconv.ParseBool(abandonStr)
@@ -295,13 +287,9 @@ func (ekc *ETHKeysController) Chain(c *gin.Context) {
 	}
 
 	// Reset the chain
-	if abandon || nonce >= 0 {
+	if abandon {
 		var resetErr error
-		err = chain.TxManager().Reset(func() {
-			if nonce >= 0 {
-				resetErr = kst.Reset(address, chain.ID(), nonce)
-			}
-		}, address, abandon)
+		err = chain.TxManager().Reset(address, abandon)
 		err = multierr.Combine(err, resetErr)
 		if err != nil {
 			if strings.Contains(err.Error(), "key state not found with address") {

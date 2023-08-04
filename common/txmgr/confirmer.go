@@ -109,7 +109,7 @@ type Confirmer[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
+	SEQ types.Sequence[SEQ],
 	FEE feetypes.Fee,
 ] struct {
 	utils.StartStopOnce
@@ -145,7 +145,7 @@ func NewConfirmer[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
+	SEQ types.Sequence[SEQ],
 	FEE feetypes.Fee,
 ](
 	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
@@ -961,7 +961,7 @@ func hasReceiptInLongestChain[
 	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	SEQ types.Sequence[SEQ],
 	FEE feetypes.Fee,
 ](etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head types.Head[BLOCK_HASH]) bool {
 	for {
@@ -1118,7 +1118,7 @@ func observeUntilTxConfirmed[
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence,
+	SEQ types.Sequence[SEQ],
 	FEE feetypes.Fee,
 ](chainID CHAIN_ID, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], receipts []R) {
 	for _, attempt := range attempts {

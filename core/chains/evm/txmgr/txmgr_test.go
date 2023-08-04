@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -648,23 +647,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 	unsub.AwaitOrFail(t, 1*time.Second)
 }
 
-type fnMock struct{ called atomic.Bool }
-
-func (fm *fnMock) Fn() {
-	swapped := fm.called.CompareAndSwap(false, true)
-	if !swapped {
-		panic("func called more than once")
-	}
-}
-
-func (fm *fnMock) AssertNotCalled(t *testing.T) {
-	assert.False(t, fm.called.Load())
-}
-
-func (fm *fnMock) AssertCalled(t *testing.T) {
-	assert.True(t, fm.called.Load())
-}
-
 func TestTxm_Reset(t *testing.T) {
 	t.Parallel()
 
@@ -707,34 +689,22 @@ func TestTxm_Reset(t *testing.T) {
 	}
 
 	t.Run("returns error if not started", func(t *testing.T) {
-		f := new(fnMock)
-
-		err := txm.Reset(f.Fn, addr, false)
+		err := txm.Reset(addr, false)
 		require.Error(t, err)
 		assert.EqualError(t, err, "not started")
-
-		f.AssertNotCalled(t)
 	})
 
 	require.NoError(t, txm.Start(testutils.Context(t)))
 	defer func() { assert.NoError(t, txm.Close()) }()
 
-	t.Run("calls function if started", func(t *testing.T) {
-		f := new(fnMock)
-
-		err := txm.Reset(f.Fn, addr, false)
+	t.Run("returns no error if started", func(t *testing.T) {
+		err := txm.Reset(addr, false)
 		require.NoError(t, err)
-
-		f.AssertCalled(t)
 	})
 
-	t.Run("calls function and deletes relevant evm.txes if abandon=true", func(t *testing.T) {
-		f := new(fnMock)
-
-		err := txm.Reset(f.Fn, addr, true)
+	t.Run("deletes relevant evm.txes if abandon=true", func(t *testing.T) {
+		err := txm.Reset(addr, true)
 		require.NoError(t, err)
-
-		f.AssertCalled(t)
 
 		var s string
 		err = db.Get(&s, `SELECT error FROM evm.txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)

@@ -90,6 +90,7 @@ func TestShell_ListETHKeys(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(13), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -114,6 +115,7 @@ func TestShell_ListETHKeys_Error(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("fake error"))
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -156,7 +158,7 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 	assert.Nil(t, balances[0].LinkBalance)
 	assert.Nil(t, balances[0].MaxGasPriceWei)
 	assert.Equal(t, []string{
-		k.Address.String(), "0", "0", "<nil>", "0", "false",
+		k.Address.String(), "0", "<nil>", "0", "false",
 		balances[0].UpdatedAt.String(), balances[0].CreatedAt.String(), "<nil>",
 	}, balances[0].ToRow())
 }
@@ -167,6 +169,8 @@ func TestShell_CreateETHKey(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
+
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -240,6 +244,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	ethClient := newEthMock(t)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(42), nil)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(assets.NewLinkFromJuels(42), nil)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
@@ -343,6 +348,7 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	t.Cleanup(func() { deleteKeyExportFile(t) })
 
 	ethClient := newEthMock(t)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)

@@ -40,7 +40,7 @@ type Resender[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	SEQ types.Sequence[SEQ],
 	FEE feetypes.Fee,
 ] struct {
 	txStore             txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -63,7 +63,7 @@ func NewResender[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	SEQ types.Sequence[SEQ],
 	FEE feetypes.Fee,
 ](
 	lggr logger.Logger,
@@ -207,7 +207,7 @@ func findOldestUnconfirmedAttempt[
 	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence,
+	SEQ types.Sequence[SEQ],
 	FEE feetypes.Fee,
 ](attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], bool) {
 	var oldestAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
