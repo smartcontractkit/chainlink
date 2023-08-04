@@ -4,7 +4,7 @@ pragma solidity ^0.8.7;
 
 import "../../../../../contracts/src/v0.8/interfaces/VRFCoordinatorV2Interface.sol";
 import "../../../../../contracts/src/v0.8/VRFConsumerBaseV2.sol";
-import "../../../../../contracts/src/v0.8/ConfirmedOwner.sol";
+import "../../../../contracts/src/v0.8/shared/access/ConfirmedOwner.sol";
 
 /**
  * THIS IS AN EXAMPLE CONTRACT THAT USES HARDCODED VALUES FOR CLARITY.

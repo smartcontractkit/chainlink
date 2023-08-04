@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import {FunctionsClient} from "../FunctionsClient.sol";
+import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "../libraries/FunctionsRequest.sol";
-import {ConfirmedOwner} from "../../../../ConfirmedOwner.sol";
 
 /**
  * @title Chainlink Functions example client contract implementation
