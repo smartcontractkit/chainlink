@@ -184,7 +184,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	require.NoError(t, err)
 	var handleOracleFulfillmentSelector [4]byte
 	copy(handleOracleFulfillmentSelector[:], handleOracleFulfillmentSelectorSlice[:4])
-	functionsRouterConfig := functions_router.IFunctionsRouterConfig{
+	functionsRouterConfig := functions_router.FunctionsRouterConfig{
 		MaxConsumersPerSubscription:     uint16(100),
 		AdminFee:                        big.NewInt(0),
 		HandleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
@@ -197,7 +197,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
 	proofSignerPublicKey := crypto.PubkeyToAddress(privateKey.PublicKey)
 	require.NoError(t, err)
-	allowListConfig := functions_allow_list.ITermsOfServiceAllowListConfig{
+	allowListConfig := functions_allow_list.TermsOfServiceAllowListConfig{
 		Enabled:         false, // TODO: true
 		SignerPublicKey: proofSignerPublicKey,
 	}
@@ -205,7 +205,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	require.NoError(t, err)
 
 	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)
-	coordinatorConfig := functions_coordinator.IFunctionsBillingConfig{
+	coordinatorConfig := functions_coordinator.FunctionsBillingConfig{
 		MaxCallbackGasLimit:                 uint32(450_000),
 		FeedStalenessSeconds:                uint32(86_400),
 		GasOverheadBeforeCallback:           uint32(325_000),
