@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "../../interfaces/LinkTokenInterface.sol";
-import "../../interfaces/automation/2_0/AutomationRegistryInterface2_0.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
+import "../interfaces/2_0/AutomationRegistryInterface2_0.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
-import "../../ConfirmedOwner.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/access/ConfirmedOwner.sol";
+import "../../shared/interfaces/IERC677Receiver.sol";
 
 /**
  * @notice Contract to accept requests for upkeep registrations
@@ -17,7 +17,7 @@ import "../../interfaces/ERC677ReceiverInterface.sol";
  * The idea is to have same interface(functions,events) for UI or anyone using this contract irrespective of auto approve being enabled or not.
  * they can just listen to `RegistrationRequested` & `RegistrationApproved` events and know the status on registrations.
  */
-contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, ERC677ReceiverInterface {
+contract KeeperRegistrar2_0 is TypeAndVersionInterface, ConfirmedOwner, IERC677Receiver {
   /**
    * DISABLED: No auto approvals, all new upkeeps should be approved manually.
    * ENABLED_SENDER_ALLOWLIST: Auto approvals for allowed senders subject to max allowed. Manual for rest.

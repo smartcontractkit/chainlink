@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.6;
 
-import "../../interfaces/automation/UpkeepTranscoderInterface.sol";
+import "../../automation/interfaces/UpkeepTranscoderInterface.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import {Upkeep as UpkeepV1} from "../../automation/1_2/KeeperRegistry1_2.sol";
 import {Upkeep as UpkeepV2} from "../../automation/1_3/KeeperRegistryBase1_3.sol";

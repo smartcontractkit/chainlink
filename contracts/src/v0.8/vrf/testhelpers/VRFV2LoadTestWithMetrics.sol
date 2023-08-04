@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../../interfaces/VRFCoordinatorV2Interface.sol";
 import "../VRFConsumerBaseV2.sol";
-import "../../ConfirmedOwner.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 import "../../ChainSpecificUtil.sol";
 
 /**

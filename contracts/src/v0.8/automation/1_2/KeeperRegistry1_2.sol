@@ -6,15 +6,15 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "../KeeperBase.sol";
-import "../../ConfirmedOwner.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
-import "../../interfaces/LinkTokenInterface.sol";
-import "../../interfaces/automation/KeeperCompatibleInterface.sol";
-import "../../interfaces/automation/1_2/KeeperRegistryInterface1_2.sol";
-import "../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
-import "../../interfaces/automation/UpkeepTranscoderInterface.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
+import "../interfaces/KeeperCompatibleInterface.sol";
+import "../interfaces/1_2/KeeperRegistryInterface1_2.sol";
+import "../interfaces/MigratableKeeperRegistryInterface.sol";
+import "../interfaces/UpkeepTranscoderInterface.sol";
+import "../../shared/interfaces/IERC677Receiver.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 
 struct Upkeep {
   uint96 balance;
@@ -38,7 +38,7 @@ contract KeeperRegistry1_2 is
   Pausable,
   KeeperRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
-  ERC677ReceiverInterface
+  IERC677Receiver
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
