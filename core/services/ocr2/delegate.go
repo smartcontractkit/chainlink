@@ -828,7 +828,11 @@ func (d *Delegate) newServicesOCR2Keepers(
 	lc ocrtypes.LocalConfig,
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
-	switch jb.KeeperSpec.ContractVersion {
+	contractVersion := "v2.0"
+	if jb.KeeperSpec != nil {
+		contractVersion = jb.KeeperSpec.ContractVersion
+	}
+	switch contractVersion {
 	case "v2.1":
 		return d.newServicesOCR2Keepers21(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 	case "v2.0":
