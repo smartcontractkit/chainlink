@@ -777,22 +777,26 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 	for i, req := range performReqs {
 		// fails for a single upkeep, retryable
 		if req.Error != nil {
-			checkResults[performToKeyIdx[i]].Retryable = true
-			checkResults[performToKeyIdx[i]].Eligible = false
-			r.lggr.Warnf("failed to simulate perform for upkeepId %s at block %d: %s", new(big.Int).SetBytes(checkResults[i].Payload.Upkeep.ID), checkResults[i].Payload.Trigger.BlockNumber, req.Error)
+			idx := performToKeyIdx[i]
+			checkResults[idx].Retryable = true
+			checkResults[idx].Eligible = false
+			r.lggr.Warnf("failed to simulate perform for upkeepId %s at block %d: %s", new(big.Int).SetBytes(checkResults[idx].Payload.Upkeep.ID), checkResults[idx].Payload.Trigger.BlockNumber, req.Error)
 			continue
 		}
 		simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
 		if err != nil {
 			// unpack error, no retryable
-			checkResults[performToKeyIdx[i]].Eligible = false
-			r.lggr.Errorf("failed to unpack simulate perform result: %s", err)
+			idx := performToKeyIdx[i]
+			checkResults[idx].Eligible = false
+			r.lggr.Warnf("failed to unpack simulate perform result for upkeepId %s at block %d: %s", new(big.Int).SetBytes(checkResults[idx].Payload.Upkeep.ID), checkResults[idx].Payload.Trigger.BlockNumber, err)
 			continue
 		}
 
 		if !simulatePerformSuccess {
+			idx := performToKeyIdx[i]
 			// simulation fails, not retryable
-			checkResults[performToKeyIdx[i]].Eligible = false
+			r.lggr.Warnf("simulation fails for upkeepId %s at block %d: %s", new(big.Int).SetBytes(checkResults[idx].Payload.Upkeep.ID), checkResults[idx].Payload.Trigger.BlockNumber, err)
+			checkResults[idx].Eligible = false
 		}
 	}
 
