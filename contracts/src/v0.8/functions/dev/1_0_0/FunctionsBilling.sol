@@ -116,6 +116,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return uint256(weiPerUnitLink);
   }
 
+  function _getJuelsPerGas(uint256 gasPriceGwei) private view returns (uint256) {
+    // (1e18 juels/link) * (wei/gas) / (wei/link) = juels per gas
+    return (1e18 * gasPriceGwei) / getWeiPerUnitLink();
+  }
+
   // ================================================================
   // |                       Cost Estimation                        |
   // ================================================================
@@ -125,11 +130,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint64 subscriptionId,
     bytes calldata data,
     uint32 callbackGasLimit,
-    uint256 gasPrice
+    uint256 gasPriceGwei
   ) external view override returns (uint96) {
-    // Reasonable ceilings to prevent integer overflows
     _getRouter().isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
-    if (gasPrice > REASONABLE_GAS_PRICE_CEILING) {
+    // Reasonable ceilings to prevent integer overflows
+    if (gasPriceGwei > REASONABLE_GAS_PRICE_CEILING) {
       revert InvalidCalldata();
     }
     uint96 adminFee = getAdminFee();
@@ -139,11 +144,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
         subscriptionId: subscriptionId,
         client: msg.sender,
         callbackGasLimit: callbackGasLimit,
-        expectedGasPrice: gasPrice,
+        expectedGasPrice: gasPriceGwei,
         adminFee: adminFee
       })
     );
-    return _calculateCostEstimate(callbackGasLimit, gasPrice, donFee, adminFee);
+    return _calculateCostEstimate(callbackGasLimit, gasPriceGwei, donFee, adminFee);
   }
 
   // @notice Estimate the cost in Juels of LINK
@@ -151,19 +156,18 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // Gas Price can be overestimated to account for flucuations between request and response time
   function _calculateCostEstimate(
     uint32 callbackGasLimit,
-    uint256 gasPrice,
+    uint256 gasPriceGwei,
     uint96 donFee,
     uint96 adminFee
   ) internal view returns (uint96) {
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
 
-    uint256 gasPriceWithOverestimation = gasPrice +
-      ((gasPrice * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
+    uint256 gasPriceWithOverestimation = gasPriceGwei +
+      ((gasPriceGwei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
     // @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
 
-    // (1e18 juels/link) (wei/gas * gas) / (wei/link) = juels
-    uint256 estimatedGasReimbursement = (1e18 * gasPriceWithOverestimation * executionGas) / getWeiPerUnitLink();
-
+    uint256 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
+    uint256 estimatedGasReimbursement = juelsPerGas * executionGas;
     uint256 fees = uint256(donFee) + uint256(adminFee);
 
     return uint96(estimatedGasReimbursement + fees);
@@ -184,8 +188,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint16 requestDataVersion,
     RequestBilling memory billing
   ) internal returns (FunctionsResponse.Commitment memory commitment) {
+    Config memory config = s_config;
+
     // Nodes should support all past versions of the structure
-    if (requestDataVersion > s_config.maxSupportedRequestDataVersion) {
+    if (requestDataVersion > config.maxSupportedRequestDataVersion) {
       revert UnsupportedRequestDataVersion();
     }
 
@@ -197,15 +203,17 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       donFee,
       billing.adminFee
     );
-    IFunctionsSubscriptions router = IFunctionsSubscriptions(address(_getRouter()));
-    IFunctionsSubscriptions.Subscription memory subscription = router.getSubscription(billing.subscriptionId);
+    IFunctionsSubscriptions routerWithSubscriptions = IFunctionsSubscriptions(address(_getRouter()));
+    IFunctionsSubscriptions.Subscription memory subscription = routerWithSubscriptions.getSubscription(
+      billing.subscriptionId
+    );
     if ((subscription.balance - subscription.blockedBalance) < estimatedCost) {
       revert InsufficientBalance();
     }
 
-    (, uint64 initiatedRequests, ) = router.getConsumer(billing.client, billing.subscriptionId);
+    (, uint64 initiatedRequests, ) = routerWithSubscriptions.getConsumer(billing.client, billing.subscriptionId);
 
-    bytes32 requestId = computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
+    bytes32 requestId = _computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
 
     commitment = FunctionsResponse.Commitment({
       adminFee: billing.adminFee,
@@ -214,11 +222,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       subscriptionId: billing.subscriptionId,
       callbackGasLimit: billing.callbackGasLimit,
       estimatedTotalCostJuels: estimatedCost,
-      timeoutTimestamp: uint40(block.timestamp + s_config.requestTimeoutSeconds),
+      timeoutTimestamp: uint40(block.timestamp + config.requestTimeoutSeconds),
       requestId: requestId,
       donFee: donFee,
-      gasOverheadBeforeCallback: s_config.gasOverheadBeforeCallback,
-      gasOverheadAfterCallback: s_config.gasOverheadAfterCallback
+      gasOverheadBeforeCallback: config.gasOverheadBeforeCallback,
+      gasOverheadAfterCallback: config.gasOverheadAfterCallback
     });
 
     s_requestCommitments[requestId] = keccak256(abi.encode(commitment));
@@ -227,7 +235,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   }
 
   // @notice Generate a keccak hash request ID
-  function computeRequestId(
+  function _computeRequestId(
     address don,
     address client,
     uint64 subscriptionId,
@@ -260,8 +268,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       return FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
     }
 
-    // (1e18 juels/link) * (wei/gas) / (wei/link) = juels per gas
-    uint256 juelsPerGas = (1e18 * tx.gasprice) / getWeiPerUnitLink();
+    uint256 juelsPerGas = _getJuelsPerGas(tx.gasprice);
     // Gas overhead without callback
     uint96 gasOverheadJuels = uint96(
       juelsPerGas * (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback)
