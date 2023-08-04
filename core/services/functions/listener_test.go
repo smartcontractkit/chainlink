@@ -500,7 +500,7 @@ func TestFunctionsListener_RequestSignatureVerificationFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	err = functions_service.VerifyRequestSignature(NonSubOwnerAddr, &requestData)
-	assert.EqualError(t, err, "invalid signature: signer's address does not match subscription owner")
+	assert.EqualError(t, err, "invalid request signature: signer's address does not match subscription owner")
 }
 
 // func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {

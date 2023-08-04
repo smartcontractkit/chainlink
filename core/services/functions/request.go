@@ -2,11 +2,11 @@ package functions
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -68,31 +68,14 @@ func VerifyRequestSignature(subscriptionOwner common.Address, requestData *Reque
 		return errors.New("unable to marshal request data")
 	}
 
-	// Adjust the V component of the signature
-	if requestData.RequestSignature[64] > 1 {
-		requestData.RequestSignature[64] -= 27
+	signerAddr, err := utils.GetSignersEthAddress(js, requestData.RequestSignature)
+	if err != nil {
+		return errors.New("invalid request signature: unable to recover signer's address")
 	}
 
-	hash := crypto.Keccak256Hash(js)
-	sigPublicKey, err := crypto.SigToPub(hash[:], requestData.RequestSignature)
-	if err == nil {
-		recoveredAddr := crypto.PubkeyToAddress(*sigPublicKey)
-		if recoveredAddr == subscriptionOwner {
-			return nil
-		}
+	if signerAddr != subscriptionOwner {
+		return errors.New("invalid request signature: signer's address does not match subscription owner")
 	}
 
-	// If unable to verify the raw signature, try to verify the signature of the prefixed message
-	prefixedJs := fmt.Sprintf("%s%d%s", EthSignedMessagePrefix, len(js), js)
-	prefixedHash := crypto.Keccak256Hash([]byte(prefixedJs))
-	sigPublicKey, err = crypto.SigToPub(prefixedHash[:], requestData.RequestSignature)
-	if err == nil {
-		recoveredAddr := crypto.PubkeyToAddress(*sigPublicKey)
-		if recoveredAddr == subscriptionOwner {
-			return nil
-		}
-		return errors.New("invalid signature: signer's address does not match subscription owner")
-	}
-
-	return errors.New("invalid signature: unable to recover signer's address")
+	return nil
 }
