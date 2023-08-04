@@ -169,10 +169,8 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
 				Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
-					Id: uid,
-					UpkeepTriggerID: [32]byte{
-						1, 2, 3, 4, 5, 6, 7, 8,
-					},
+					Id:      uid,
+					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
 			},
 			ocr2keepers.PerformEvent,
@@ -185,10 +183,8 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
 				Stale: &iregistry21.IKeeperRegistryMasterStaleUpkeepReport{
-					Id: uid,
-					UpkeepTriggerID: [32]byte{
-						1, 2, 3, 4, 5, 6, 7, 8,
-					},
+					Id:      uid,
+					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
 			},
 			ocr2keepers.StaleReportEvent,
@@ -201,10 +197,8 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
 				InsufficientFunds: &iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{
-					Id: uid,
-					UpkeepTriggerID: [32]byte{
-						1, 2, 3, 4, 5, 6, 7, 8,
-					},
+					Id:      uid,
+					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
 			},
 			ocr2keepers.TransmitEventType(3),
@@ -217,10 +211,8 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
 				Reorged: &iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{
-					Id: uid,
-					UpkeepTriggerID: [32]byte{
-						1, 2, 3, 4, 5, 6, 7, 8,
-					},
+					Id:      uid,
+					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
 			},
 			ocr2keepers.TransmitEventType(2),
@@ -241,9 +233,7 @@ func TestTransmitEventLog(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.log.Id() != nil {
 				require.Equal(t, uid.Int64(), tc.log.Id().Int64())
-				require.Equal(t, [32]byte{
-					1, 2, 3, 4, 5, 6, 7, 8,
-				}, tc.log.TriggerID())
+				require.Equal(t, "069d79304de8a5f4505a921893750ab549ec93837c5a99df2fb6fc827834fae7", tc.log.TriggerID())
 			}
 			require.Equal(t, tc.etype, tc.log.TransmitEventType())
 		})
