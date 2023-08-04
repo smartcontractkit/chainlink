@@ -63,7 +63,7 @@ contract FunctionsRouterSetup is BaseTest {
   }
 
   function getTermsOfServiceConfig() public pure returns (ITermsOfServiceAllowList.Config memory) {
-    return ITermsOfServiceAllowList.Config({enabled: false, proofSignerPublicKey: address(132)});
+    return ITermsOfServiceAllowList.Config({enabled: false, signerPublicKey: address(132)});
   }
 }
 
