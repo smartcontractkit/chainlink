@@ -428,7 +428,11 @@ func AddBootstrapJob(t *testing.T, app *cltest.TestApplication, contractAddress 
 		[relayConfig]
 		chainID                           = 1337
 		fromBlock                         = 1
-	`, contractAddress))
+		donID                             = "%s"
+		contractVersion                   = 1
+		contractUpdateCheckFrequencySec   = 1
+
+	`, contractAddress, DefaultDONId))
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &job)
 	require.NoError(t, err)
@@ -463,7 +467,7 @@ func AddOCR2Job(t *testing.T, app *cltest.TestApplication, contractAddress commo
 		fromBlock = 1
 
 		[pluginConfig]
-		donId = "%s"
+		donID = "%s"
 		contractVersion = 1
 		minIncomingConfirmations = 3
 		requestTimeoutSec = 300
@@ -573,8 +577,7 @@ func CreateFunctionsNodes(
 	}
 
 	bootstrapNode = StartNewNode(t, owner, startingPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
-	// TODO(FUN-696): refactor bootstrap job to support Functions relayers
-	AddBootstrapJob(t, bootstrapNode.App, coordinatorAddress)
+	AddBootstrapJob(t, bootstrapNode.App, routerAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
 	for i := 0; i < nOracleNodes; i++ {

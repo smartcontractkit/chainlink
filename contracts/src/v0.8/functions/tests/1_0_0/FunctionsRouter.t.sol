@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {IFunctionsRouter} from "../../dev/1_0_0/interfaces/IFunctionsRouter.sol";
+
 import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsRouter} from "../../dev/1_0_0/FunctionsRouter.sol";
-import {IFunctionsRouter} from "../../dev/1_0_0/interfaces/IFunctionsRouter.sol";
 import {FunctionsCoordinator} from "../../dev/1_0_0/FunctionsCoordinator.sol";
 import {FunctionsBilling} from "../../dev/1_0_0/FunctionsBilling.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
