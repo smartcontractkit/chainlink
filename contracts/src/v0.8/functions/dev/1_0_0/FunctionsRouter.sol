@@ -465,7 +465,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       if iszero(gt(sub(g, div(g, 64)), callbackGasLimit)) {
         revert(0, 0)
       }
-      // call and  whether we succeeded
+      // call and report whether we succeeded
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
       success := call(callbackGasLimit, client, 0, add(encodedCallback, 0x20), mload(encodedCallback), 0, 0)
       gasUsed := sub(g, gas())
