@@ -2,10 +2,12 @@
 pragma solidity ^0.8.19;
 
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {IFunctionsBilling, FunctionsBilling} from "./FunctionsBilling.sol";
+import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+
+import {FunctionsBilling} from "./FunctionsBilling.sol";
 import {OCR2Base} from "./ocr/OCR2Base.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
-import {ITypeAndVersion} from "./Routable.sol";
 
 /**
  * @title Functions Coordinator contract
@@ -15,6 +17,9 @@ import {ITypeAndVersion} from "./Routable.sol";
 contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
   using FunctionsResponse for FunctionsResponse.Commitment;
   using FunctionsResponse for FunctionsResponse.FulfillResult;
+
+  // @inheritdoc ITypeAndVersion
+  string public constant override typeAndVersion = "Functions Coordinator v1.0.0";
 
   event OracleRequest(
     bytes32 indexed requestId,
@@ -44,11 +49,6 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     bytes memory config,
     address linkToNativeFeed
   ) OCR2Base(true) FunctionsBilling(router, config, linkToNativeFeed) {}
-
-  /**
-   * @inheritdoc ITypeAndVersion
-   */
-  string public constant override typeAndVersion = "Functions Coordinator v1.0.0";
 
   /**
    * @inheritdoc IFunctionsCoordinator
@@ -120,7 +120,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
    */
   function deleteNodePublicKey(address node) external override {
     // Owner can delete anything. Others can delete only their own key.
-    if (!(msg.sender == owner() || msg.sender == node)) {
+    if (msg.sender != owner() && msg.sender != node) {
       revert UnauthorizedPublicKeyChange();
     }
     delete s_nodePublicKeys[node];
@@ -176,23 +176,14 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     );
   }
 
+  // DON fees are pooled together. If the OCR configuration is going to change, these need to be distributed.
   function _beforeSetConfig(uint8 /* _f */, bytes memory /* _onchainConfig */) internal override {
     if (_getTransmitters().length > 0) {
       _disperseFeePool();
     }
   }
 
-  function _afterSetConfig(uint8 /* _f */, bytes memory /* _onchainConfig */) internal override {}
-
-  function _validateReport(
-    bytes32 /* configDigest */,
-    uint40 /* epochAndRound */,
-    bytes memory /* report */
-  ) internal pure override returns (bool) {
-    // validate within _report to save gas
-    return true;
-  }
-
+  // Used by FunctionsBilling.sol
   function _getTransmitters() internal view override returns (address[] memory) {
     return s_transmitters;
   }

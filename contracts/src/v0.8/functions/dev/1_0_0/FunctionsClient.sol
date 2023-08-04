@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {FunctionsRequest} from "./libraries/FunctionsRequest.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
+
+import {FunctionsRequest} from "./libraries/FunctionsRequest.sol";
 
 /**
  * @title The Chainlink Functions client contract

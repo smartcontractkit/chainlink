@@ -82,11 +82,6 @@ interface IRouterBase {
   function updateTimelockBlocks() external;
 
   /**
-   * @dev Returns true if the contract is paused, and false otherwise.
-   */
-  function isPaused() external view returns (bool);
-
-  /**
    * @dev Puts the system into an emergency stopped state.
    * @dev Only callable by owner
    */
