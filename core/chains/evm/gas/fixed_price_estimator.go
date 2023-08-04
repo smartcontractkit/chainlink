@@ -58,7 +58,7 @@ func (f *fixedPriceEstimator) Start(context.Context) error {
 }
 
 func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (*assets.Wei, uint32, error) {
-	gasPrice := commonfee.CalculateFee(maxGasPriceWei.ToInt(), f.config.PriceDefault().ToInt(), f.config.PriceMax().ToInt())
+	gasPrice := commonfee.CalculateFee(f.config.PriceDefault().ToInt(), maxGasPriceWei.ToInt(), f.config.PriceMax().ToInt())
 	chainSpecificGasLimit := commonfee.ApplyMultiplier(gasLimit, f.config.LimitMultiplier())
 	return assets.NewWei(gasPrice), chainSpecificGasLimit, nil
 }
