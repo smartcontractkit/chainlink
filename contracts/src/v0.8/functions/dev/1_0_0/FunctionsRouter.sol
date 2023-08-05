@@ -177,7 +177,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   }
 
   // @inheritdoc IFunctionsRouter
-  function setAllowListId(bytes32 allowListId) external override {
+  function setAllowListId(bytes32 allowListId) external override onlyOwner {
     s_allowListId = allowListId;
   }
 

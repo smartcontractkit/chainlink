@@ -68,10 +68,9 @@ contract FunctionsRouterSetup is BaseTest {
   }
 }
 
-contract FunctionsRouter_createSubscription is FunctionsRouterSetup {
-  event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
-
-  function testCreateSubscriptionSuccess() public {
+contract FunctionsSetRoutes is FunctionsRouterSetup {
+  function setUp() public virtual override {
+    FunctionsRouterSetup.setUp();
     s_functionsCoordinator = new FunctionsCoordinator(
       address(s_functionsRouter),
       getCoordinatorConfig(),
@@ -88,7 +87,17 @@ contract FunctionsRouter_createSubscription is FunctionsRouterSetup {
 
     s_functionsRouter.proposeContractsUpdate(proposedContractSetIds, proposedContractSetAddresses);
     s_functionsRouter.updateContracts();
+  }
+}
 
+contract FunctionsRouter_createSubscription is FunctionsSetRoutes {
+  function setUp() public virtual override {
+    FunctionsSetRoutes.setUp();
+  }
+
+  event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
+
+  function testCreateSubscriptionSuccess() public {
     vm.expectEmit();
     emit SubscriptionCreated(1, OWNER);
 

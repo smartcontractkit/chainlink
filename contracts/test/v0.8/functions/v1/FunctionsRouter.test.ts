@@ -1,4 +1,6 @@
 import { expect } from 'chai'
+import { ethers } from 'hardhat'
+import { stringToBytes } from '../../../test-helpers/helpers'
 import {
   getSetupFactory,
   FunctionsContracts,
@@ -50,6 +52,15 @@ describe('Functions Router - Request lifecycle', () => {
           ),
         ),
       )
+    })
+  })
+  describe('Allow List path', () => {
+    it('non-owner is unable to set Allow List ID', async () => {
+      await expect(
+        contracts.router
+          .connect(roles.stranger)
+          .setAllowListId(ethers.utils.hexZeroPad(stringToBytes(''), 32)),
+      ).to.be.revertedWith('Only callable by owner')
     })
   })
 })
