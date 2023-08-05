@@ -3,13 +3,11 @@ pragma solidity ^0.8.19;
 
 import {FunctionsResponse} from "../libraries/FunctionsResponse.sol";
 
-/**
- * @title Chainlink Functions Subscription interface.
- */
+// @title Chainlink Functions Subscription interface.
 interface IFunctionsSubscriptions {
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
-    uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
+    uint96 balance; // Common LINK balance that is controlled by the Router to be used for all consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub.
     uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
     address proposedOwner; // For safely transferring sub ownership.
@@ -30,20 +28,15 @@ interface IFunctionsSubscriptions {
   }
 
   // @notice Get details about a subscription.
-  // @param subscriptionId - ID of the subscription
+  // @param subscriptionId - the ID of the subscription
+  // @return subscription - see IFunctionsSubscriptions.Subscription for more information on the structure
   function getSubscription(uint64 subscriptionId) external view returns (Subscription memory);
 
   // @notice Get details about a consumer of a subscription.
-  // @dev Only callable by a route
-  // @param client - the consumer contract that initiated the request
-  // @param subscriptionId - ID of the subscription
-  // @return allowed - amount of LINK balance of the subscription in juels that is blocked for an in flight request.
-  // @return initiatedRequests - owner of the subscription.
-  // @return completedRequests - list of consumer address which are able to use this subscription.
-  function getConsumer(
-    address client,
-    uint64 subscriptionId
-  ) external view returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests);
+  // @param client - the consumer contract address
+  // @param subscriptionId - the ID of the subscription
+  // @return consumer - see IFunctionsSubscriptions.Consumer for more information on the structure
+  function getConsumer(address client, uint64 subscriptionId) external view returns (Consumer memory);
 
   // @notice Get details about the total amount of LINK within the system
   // @return totalBalance - total Juels of LINK held by the contract
@@ -59,7 +52,6 @@ interface IFunctionsSubscriptions {
   function timeoutRequests(FunctionsResponse.Commitment[] calldata requestsToTimeoutByCommitment) external;
 
   // @notice Oracle withdraw LINK earned through fulfilling requests
-  // @dev Must be called by the Coordinator contract
   // @notice If amount is 0 the full balance will be withdrawn
   // @notice Both signing and transmitting wallets will have a balance to withdraw
   // @param recipient where to send the funds
@@ -82,10 +74,20 @@ interface IFunctionsSubscriptions {
   // @dev You can manage the consumer set dynamically with addConsumer/removeConsumer.
   // @dev Note to fund the subscription, use transferAndCall. For example
   // @dev  LINKTOKEN.transferAndCall(
-  // @dev    address(REGISTRY),
+  // @dev    address(ROUTER),
   // @dev    amount,
   // @dev    abi.encode(subscriptionId));
   function createSubscription() external returns (uint64);
+
+  // @notice Create a new subscription and add a consumer.
+  // @return subscriptionId - A unique subscription id.
+  // @dev You can manage the consumer set dynamically with addConsumer/removeConsumer.
+  // @dev Note to fund the subscription, use transferAndCall. For example
+  // @dev  LINKTOKEN.transferAndCall(
+  // @dev    address(ROUTER),
+  // @dev    amount,
+  // @dev    abi.encode(subscriptionId));
+  function createSubscriptionWithConsumer(address consumer) external returns (uint64 subscriptionId);
 
   // @notice Propose a new owner for a subscription.
   // @dev Only callable by the Subscription's owner
@@ -125,7 +127,8 @@ interface IFunctionsSubscriptions {
   // @dev Used to disable subscription canceling while outstanding request are present.
   function pendingRequestExists(uint64 subscriptionId) external view returns (bool);
 
-  // @notice Set flags for a given subscription.
+  // @notice Set subscription specific flags for a subscription.
+  // Each byte of the flag is used to represent a resource tier that the subscription can utilize.
   // @param subscriptionId - ID of the subscription
   // @param flags - desired flag values
   function setFlags(uint64 subscriptionId, bytes32 flags) external;

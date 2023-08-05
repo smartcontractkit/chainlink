@@ -19,7 +19,7 @@ contract FunctionsRouterSetup is BaseTest {
   TermsOfServiceAllowList internal s_termsOfServiceAllowList;
 
   uint16 internal s_maxConsumersPerSubscription = 100;
-  uint96 internal s_adminFee = 561724823;
+  uint72 internal s_adminFee = 561724823;
   bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
 
   address internal s_linkToken = 0x01BE23585060835E02B77ef475b0Cc51aA1e0709;
@@ -31,7 +31,7 @@ contract FunctionsRouterSetup is BaseTest {
     s_functionsRouter = new FunctionsRouter(s_linkToken, getRouterConfig());
     s_linkEthFeed = new MockV3Aggregator(0, LINK_ETH_RATE);
 
-    s_termsOfServiceAllowList = new TermsOfServiceAllowList(address(s_functionsRouter), getTermsOfServiceConfig());
+    s_termsOfServiceAllowList = new TermsOfServiceAllowList(getTermsOfServiceConfig());
   }
 
   function getRouterConfig() public view returns (FunctionsRouter.Config memory) {
@@ -43,7 +43,8 @@ contract FunctionsRouterSetup is BaseTest {
         maxConsumersPerSubscription: s_maxConsumersPerSubscription,
         adminFee: s_adminFee,
         handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
-        maxCallbackGasLimits: maxCallbackGasLimits
+        maxCallbackGasLimits: maxCallbackGasLimits,
+        gasForCallExactCheck: 5000
       });
   }
 
@@ -67,10 +68,9 @@ contract FunctionsRouterSetup is BaseTest {
   }
 }
 
-contract FunctionsRouter_createSubscription is FunctionsRouterSetup {
-  event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
-
-  function testCreateSubscriptionSuccess() public {
+contract FunctionsSetRoutes is FunctionsRouterSetup {
+  function setUp() public virtual override {
+    FunctionsRouterSetup.setUp();
     s_functionsCoordinator = new FunctionsCoordinator(
       address(s_functionsRouter),
       getCoordinatorConfig(),
@@ -87,7 +87,17 @@ contract FunctionsRouter_createSubscription is FunctionsRouterSetup {
 
     s_functionsRouter.proposeContractsUpdate(proposedContractSetIds, proposedContractSetAddresses);
     s_functionsRouter.updateContracts();
+  }
+}
 
+contract FunctionsRouter_createSubscription is FunctionsSetRoutes {
+  function setUp() public virtual override {
+    FunctionsSetRoutes.setUp();
+  }
+
+  event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
+
+  function testCreateSubscriptionSuccess() public {
     vm.expectEmit();
     emit SubscriptionCreated(1, OWNER);
 

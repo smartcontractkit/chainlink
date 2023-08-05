@@ -14,6 +14,7 @@ import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/u
 import {Pausable} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
 
 contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, ITypeAndVersion, ConfirmedOwner {
+  using FunctionsResponse for FunctionsResponse.RequestMeta;
   using FunctionsResponse for FunctionsResponse.Commitment;
   using FunctionsResponse for FunctionsResponse.FulfillResult;
 
@@ -23,13 +24,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // malicious contracts from returning large amounts of data and causing
   // repeated out-of-gas scenarios.
   uint16 public constant MAX_CALLBACK_RETURN_BYTES = 4 + 4 * 32;
-
-  mapping(bytes32 id => address routableContract) private s_route;
-
-  error RouteNotFound(bytes32 id);
-
-  // Use empty bytes to self-identify, since it does not have an id
-  bytes32 private constant ROUTER_ID = bytes32(0);
+  uint8 private constant MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX = 0;
 
   event RequestStart(
     bytes32 indexed requestId,
@@ -61,6 +56,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     FunctionsResponse.FulfillResult resultCode
   );
 
+  error EmptyRequestData();
   error OnlyCallableFromCoordinator();
   error SenderMustAcceptTermsOfService(address sender);
   error InvalidGasFlagValue(uint8 value);
@@ -72,9 +68,16 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     bytes returnData;
   }
 
+  // ================================================================
+  // |                    Route state                       |
+  // ================================================================
+
+  mapping(bytes32 id => address routableContract) private s_route;
+
+  error RouteNotFound(bytes32 id);
+
   // Identifier for the route to the Terms of Service Allow List
-  bytes32 private constant ALLOW_LIST_ID = keccak256("Functions Terms of Service Allow List");
-  uint8 private constant MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX = 0;
+  bytes32 private s_allowListId;
 
   // ================================================================
   // |                    Configuration state                       |
@@ -86,9 +89,11 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     // Should a user require more consumers, they can use multiple subscriptions.
     uint16 maxConsumersPerSubscription;
     // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
-    uint96 adminFee;
+    uint72 adminFee;
     // The function selector that is used when calling back to the Client contract
     bytes4 handleOracleFulfillmentSelector;
+    // Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
+    uint16 gasForCallExactCheck;
     // List of max callback gas limits used by flag with GAS_FLAG_INDEX
     uint32[] maxCallbackGasLimits;
   }
@@ -128,8 +133,6 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     address linkToken,
     Config memory config
   ) FunctionsSubscriptions(linkToken) ConfirmedOwner(msg.sender) Pausable() {
-    // Set the initial configuration for the Router
-    s_route[ROUTER_ID] = address(this);
     // Set the intial configuration
     updateConfig(config);
   }
@@ -164,13 +167,18 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   }
 
   // @inheritdoc IFunctionsRouter
-  function getAdminFee() external view override returns (uint96 adminFee) {
+  function getAdminFee() external view override returns (uint72 adminFee) {
     return s_config.adminFee;
   }
 
   // @inheritdoc IFunctionsRouter
-  function getAllowListId() external pure override returns (bytes32) {
-    return ALLOW_LIST_ID;
+  function getAllowListId() external view override returns (bytes32) {
+    return s_allowListId;
+  }
+
+  // @inheritdoc IFunctionsRouter
+  function setAllowListId(bytes32 allowListId) external override onlyOwner {
+    s_allowListId = allowListId;
   }
 
   // Used within FunctionsSubscriptions.sol
@@ -215,21 +223,28 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     uint32 callbackGasLimit
   ) private returns (bytes32) {
     _whenNotPaused();
-    _isValidSubscription(subscriptionId);
-    _isValidConsumer(msg.sender, subscriptionId);
+    _isExistingSubscription(subscriptionId);
+    _isAllowedConsumer(msg.sender, subscriptionId);
     isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
 
+    if (data.length == 0) {
+      revert EmptyRequestData();
+    }
+
+    Subscription memory subscription = getSubscription(subscriptionId);
+
     // Forward request to DON
-    FunctionsResponse.Commitment memory commitment = coordinator.sendRequest(
-      IFunctionsCoordinator.Request({
+    FunctionsResponse.Commitment memory commitment = coordinator.startRequest(
+      FunctionsResponse.RequestMeta({
         requestingContract: msg.sender,
-        subscriptionOwner: s_subscriptions[subscriptionId].owner,
         data: data,
         subscriptionId: subscriptionId,
         dataVersion: dataVersion,
         flags: getFlags(subscriptionId),
         callbackGasLimit: callbackGasLimit,
-        adminFee: s_config.adminFee
+        adminFee: s_config.adminFee,
+        consumer: getConsumer(msg.sender, subscriptionId),
+        subscription: subscription
       })
     );
 
@@ -258,7 +273,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       requestId: commitment.requestId,
       donId: donId,
       subscriptionId: subscriptionId,
-      subscriptionOwner: s_subscriptions[subscriptionId].owner,
+      subscriptionOwner: subscription.owner,
       requestingContract: msg.sender,
       requestInitiator: tx.origin,
       data: data,
@@ -312,8 +327,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       uint96 callbackCost = juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit);
       uint96 totalCostJuels = commitment.adminFee + costWithoutCallback + callbackCost;
 
-      // Check that the subscription can still afford
-      if (totalCostJuels > s_subscriptions[commitment.subscriptionId].balance) {
+      // Check that the subscription can still afford to fulfill the request
+      if (totalCostJuels > getSubscription(commitment.subscriptionId).balance) {
         resultCode = FunctionsResponse.FulfillResult.SUBSCRIPTION_BALANCE_INVARIANT_VIOLATION;
         emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
         return (resultCode, 0);
@@ -378,6 +393,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       err
     );
 
+    uint16 gasForCallExactCheck = s_config.gasForCallExactCheck;
+
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid payment.
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
@@ -398,17 +415,16 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       }
 
       let g := gas()
-      // GASFORCALLEXACTCHECK = 5000
       // Compute g -= gasForCallExactCheck and check for underflow
       // The gas actually passed to the callee is _min(gasAmount, 63//64*gas available).
       // We want to ensure that we revert if gasAmount >  63//64*gas available
       // as we do not want to provide them with less, however that check itself costs
       // gas. gasForCallExactCheck ensures we have at least enough gas to be able
       // to revert if gasAmount >  63//64*gas available.
-      if lt(g, 5000) {
+      if lt(g, gasForCallExactCheck) {
         revert(0, 0)
       }
-      g := sub(g, 5000)
+      g := sub(g, gasForCallExactCheck)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
       if iszero(gt(sub(g, div(g, 64)), callbackGasLimit)) {
@@ -494,10 +510,6 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       ) {
         revert InvalidProposal();
       }
-      // Reserved IDs cannot be set
-      if (id == ROUTER_ID) {
-        revert IdentifierIsReserved(id);
-      }
     }
 
     s_proposedContractSet = ContractProposalSet({ids: proposedContractSetIds, to: proposedContractSetAddresses});
@@ -542,9 +554,9 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
 
   // Used within FunctionsSubscriptions.sol
   function _onlySenderThatAcceptedToS() internal view override {
-    address currentImplementation = s_route[ALLOW_LIST_ID];
+    address currentImplementation = s_route[s_allowListId];
     if (currentImplementation == address(0)) {
-      // If not set, ignore this check
+      // If not set, ignore this check, allow all access
       return;
     }
     if (!IAccessController(currentImplementation).hasAccess(msg.sender, new bytes(0))) {
