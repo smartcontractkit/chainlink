@@ -63,7 +63,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   error MustBeSubscriptionOwner();
   error TimeoutNotExceeded();
   error MustBeProposedOwner(address proposedOwner);
-  error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
 
   // ================================================================
@@ -150,9 +149,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlyRouterOwner();
     uint256 externalBalance = IERC20(i_linkToken).balanceOf(address(this));
     uint256 internalBalance = uint256(s_totalLinkBalance);
-    if (internalBalance > externalBalance) {
-      revert BalanceInvariantViolated(internalBalance, externalBalance);
-    }
     if (internalBalance < externalBalance) {
       uint256 amount = externalBalance - internalBalance;
       IERC20(i_linkToken).safeTransfer(to, amount);
