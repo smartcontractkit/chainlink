@@ -5,36 +5,23 @@ import {FunctionsResponse} from "../libraries/FunctionsResponse.sol";
 
 // @title Chainlink Functions Router interface.
 interface IFunctionsRouter {
-  struct Config {
-    // Maximum number of consumers which can be added to a single subscription
-    // This bound ensures we are able to loop over all subscription consumers as needed,
-    // without exceeding gas limits.
-    // Should a user require more consumers, they can use multiple subscriptions.
-    uint16 maxConsumersPerSubscription;
-    // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
-    uint96 adminFee;
-    // The function selector that is used when calling back to the Client contract
-    bytes4 handleOracleFulfillmentSelector;
-    // List of max callback gas limits used by flag with GAS_FLAG_INDEX
-    uint32[] maxCallbackGasLimits;
-  }
-
   // @notice The identifier of the route to retrieve the address of the access control contract
   // The access control contract controls which accounts can manage subscriptions
   // @return id - bytes32 id that can be passed to the "getContractById" of the Router
   function getAllowListId() external pure returns (bytes32);
 
-  // @notice The router configuration
-  function getConfig() external view returns (Config memory);
+  // @notice Get the flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
+  // @return adminFee
+  function getAdminFee() external view returns (uint96 adminFee);
 
-  // @notice Sends a request (encoded as data) using the provided subscriptionId
-  // @param subscriptionId A unique subscription ID allocated by billing system,
+  // @notice Sends a request using the provided subscriptionId
+  // @param subscriptionId - A unique subscription ID allocated by billing system,
   // a client can make requests from different contracts referencing the same subscription
-  // @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
-  // @param dataVersion Gas limit for the fulfillment callback
-  // @param callbackGasLimit Gas limit for the fulfillment callback
-  // @param donId An identifier used to determine which route to send the request along
-  // @return requestId A unique request identifier
+  // @param data - CBOR encoded Chainlink Functions request data, use FunctionsClient API to encode a request
+  // @param dataVersion - Gas limit for the fulfillment callback
+  // @param callbackGasLimit - Gas limit for the fulfillment callback
+  // @param donId - An identifier used to determine which route to send the request along
+  // @return requestId - A unique request identifier
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
@@ -43,14 +30,14 @@ interface IFunctionsRouter {
     bytes32 donId
   ) external returns (bytes32);
 
-  // @notice Sends a request (encoded as data) to the proposed contracts
-  // @param subscriptionId A unique subscription ID allocated by billing system,
+  // @notice Sends a request to the proposed contracts
+  // @param subscriptionId - A unique subscription ID allocated by billing system,
   // a client can make requests from different contracts referencing the same subscription
-  // @param data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
-  // @param dataVersion Gas limit for the fulfillment callback
-  // @param callbackGasLimit Gas limit for the fulfillment callback
-  // @param donId An identifier used to determine which route to send the request along
-  // @return requestId A unique request identifier
+  // @param data - CBOR encoded Chainlink Functions request data, use FunctionsClient API to encode a request
+  // @param dataVersion - Gas limit for the fulfillment callback
+  // @param callbackGasLimit - Gas limit for the fulfillment callback
+  // @param donId - An identifier used to determine which route to send the request along
+  // @return requestId - A unique request identifier
   function sendRequestToProposed(
     uint64 subscriptionId,
     bytes calldata data,
@@ -109,24 +96,6 @@ interface IFunctionsRouter {
   // @dev Only callable once timelock has passed
   // @dev Only callable by owner
   function updateContracts() external;
-
-  // @notice Proposes new configuration data for the Router contract itself
-  // @dev Only callable by owner
-  function proposeConfigUpdateSelf(bytes calldata config) external;
-
-  // @notice Updates configuration data for the Router contract itself
-  // @dev Only callable once timelock has passed
-  // @dev Only callable by owner
-  function updateConfigSelf() external;
-
-  // @notice Proposes new configuration data for the current (not proposed) contract
-  // @dev Only callable by owner
-  function proposeConfigUpdate(bytes32 id, bytes calldata config) external;
-
-  // @notice Sends new configuration data to the contract along a route route
-  // @dev Only callable once timelock has passed
-  // @dev Only callable by owner
-  function updateConfig(bytes32 id) external;
 
   // @dev Puts the system into an emergency stopped state.
   // @dev Only callable by owner

@@ -5,7 +5,6 @@ import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
 import {IAccessController} from "../../../shared/interfaces/IAccessController.sol";
-import {IConfigurable} from "./interfaces/IConfigurable.sol";
 
 import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
@@ -80,30 +79,23 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // ================================================================
   // |                    Configuration state                       |
   // ================================================================
-  Config private s_config;
-
-  event ConfigChanged(Config);
-
-  error OnlyCallableByRoute();
-
-  // ================================================================
-  // |                          Timelock state                      |
-  // ================================================================
-  uint16 private immutable s_maximumTimelockBlocks;
-  uint16 private s_timelockBlocks;
-
-  struct TimeLockProposal {
-    uint16 from;
-    uint16 to;
-    uint64 timelockEndBlock;
+  struct Config {
+    // Maximum number of consumers which can be added to a single subscription
+    // This bound ensures we are able to loop over all subscription consumers as needed,
+    // without exceeding gas limits.
+    // Should a user require more consumers, they can use multiple subscriptions.
+    uint16 maxConsumersPerSubscription;
+    // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
+    uint96 adminFee;
+    // The function selector that is used when calling back to the Client contract
+    bytes4 handleOracleFulfillmentSelector;
+    // List of max callback gas limits used by flag with GAS_FLAG_INDEX
+    uint32[] maxCallbackGasLimits;
   }
 
-  TimeLockProposal private s_timelockProposal;
+  Config private s_config;
 
-  event TimeLockProposed(uint16 from, uint16 to);
-  event TimeLockUpdated(uint16 from, uint16 to);
-  error ProposedTimelockAboveMaximum();
-  error TimelockInEffect();
+  event ConfigUpdated(Config);
 
   // ================================================================
   // |                         Proposal state                       |
@@ -114,102 +106,49 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   struct ContractProposalSet {
     bytes32[] ids;
     address[] to;
-    uint64 timelockEndBlock;
   }
   ContractProposalSet private s_proposedContractSet;
 
   event ContractProposed(
     bytes32 proposedContractSetId,
     address proposedContractSetFromAddress,
-    address proposedContractSetToAddress,
-    uint64 timelockEndBlock
+    address proposedContractSetToAddress
   );
 
   event ContractUpdated(bytes32 id, address from, address to);
 
-  struct ConfigProposal {
-    bytes to;
-    uint64 timelockEndBlock;
-  }
-  mapping(bytes32 id => ConfigProposal) private s_proposedConfig;
-  event ConfigProposed(bytes32 id, bytes toBytes);
-  event ConfigUpdated(bytes32 id, bytes toBytes);
   error InvalidProposal();
   error IdentifierIsReserved(bytes32 id);
 
+  // ================================================================
+  // |                       Initialization                         |
+  // ================================================================
+
   constructor(
-    uint16 timelockBlocks,
-    uint16 maximumTimelockBlocks,
     address linkToken,
     Config memory config
   ) FunctionsSubscriptions(linkToken) ConfirmedOwner(msg.sender) Pausable() {
-    // Set initial value for the number of blocks of the timelock
-    s_timelockBlocks = timelockBlocks;
-    // Set maximum number of blocks that the timelock can be
-    s_maximumTimelockBlocks = maximumTimelockBlocks;
     // Set the initial configuration for the Router
     s_route[ROUTER_ID] = address(this);
-    _updateConfig(config);
-  }
-
-  // @inheritdoc IFunctionsRouter
-  function getAllowListId() external pure override returns (bytes32) {
-    return ALLOW_LIST_ID;
+    // Set the intial configuration
+    updateConfig(config);
   }
 
   // ================================================================
   // |                        Configuration                         |
   // ================================================================
 
-  // @inheritdoc IFunctionsRouter
-  function getConfig() external view override returns (Config memory) {
+  // @notice The identifier of the route to retrieve the address of the access control contract
+  // The access control contract controls which accounts can manage subscriptions
+  // @return id - bytes32 id that can be passed to the "getContractById" of the Router
+  function getConfig() external view returns (Config memory) {
     return s_config;
   }
 
-  // @inheritdoc IRouterBase
-  function proposeConfigUpdateSelf(bytes calldata config) external override onlyOwner {
-    s_proposedConfig[ROUTER_ID] = ConfigProposal({
-      to: config,
-      timelockEndBlock: uint64(block.number + s_timelockBlocks)
-    });
-    emit ConfigProposed({id: ROUTER_ID, toBytes: config});
-  }
-
-  // @inheritdoc IRouterBase
-  function updateConfigSelf() external override onlyOwner {
-    ConfigProposal memory proposal = s_proposedConfig[ROUTER_ID];
-    if (block.number < proposal.timelockEndBlock) {
-      revert TimelockInEffect();
-    }
-    _updateConfig(abi.decode(proposal.to, (Config)));
-    emit ConfigUpdated({id: ROUTER_ID, toBytes: proposal.to});
-  }
-
-  // @inheritdoc IRouterBase
-  function proposeConfigUpdate(bytes32 id, bytes calldata config) external override onlyOwner {
-    s_proposedConfig[id] = ConfigProposal({to: config, timelockEndBlock: uint64(block.number + s_timelockBlocks)});
-    emit ConfigProposed({id: id, toBytes: config});
-  }
-
-  // @inheritdoc IRouterBase
-  function updateConfig(bytes32 id) external override onlyOwner {
-    ConfigProposal memory proposal = s_proposedConfig[id];
-
-    if (block.number < proposal.timelockEndBlock) {
-      revert TimelockInEffect();
-    }
-
-    IConfigurable(getContractById(id)).updateConfig(proposal.to);
-
-    emit ConfigUpdated({id: id, toBytes: proposal.to});
-  }
-
-  // @notice Sets the configuration for FunctionsRouter specific state
-  // @param config bytes of config data to set the following:
-  // - adminFee: fee that will be paid to the Router owner for operating the network
-  function _updateConfig(Config memory config) internal {
+  // @notice The router configuration
+  function updateConfig(Config memory config) public onlyOwner {
     s_config = config;
-    emit ConfigChanged(config);
+    emit ConfigUpdated(config);
   }
 
   // @inheritdoc IFunctionsRouter
@@ -222,6 +161,16 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     if (callbackGasLimit > maxCallbackGasLimit) {
       revert GasLimitTooBig(maxCallbackGasLimit);
     }
+  }
+
+  // @inheritdoc IFunctionsRouter
+  function getAdminFee() external view override returns (uint96 adminFee) {
+    return s_config.adminFee;
+  }
+
+  // @inheritdoc IFunctionsRouter
+  function getAllowListId() external pure override returns (bytes32) {
+    return ALLOW_LIST_ID;
   }
 
   // Used within FunctionsSubscriptions.sol
@@ -509,36 +458,6 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   }
 
   // ================================================================
-  // |                            Timelock                          |
-  // ================================================================
-
-  // removed in anticipation of using MCM
-  // TODO: fully remove
-
-  // @inheritdoc IRouterBase
-  // function proposeTimelockBlocks(uint16 blocks) external override onlyOwner {
-  //   if (s_timelockBlocks == blocks) {
-  //     revert InvalidProposal();
-  //   }
-  //   if (blocks > s_maximumTimelockBlocks) {
-  //     revert ProposedTimelockAboveMaximum();
-  //   }
-  //   s_timelockProposal = TimeLockProposal({
-  //     from: s_timelockBlocks,
-  //     to: blocks,
-  //     timelockEndBlock: uint64(block.number + s_timelockBlocks)
-  //   });
-  // }
-
-  // @inheritdoc IRouterBase
-  // function updateTimelockBlocks() external override onlyOwner {
-  //   if (block.number < s_timelockProposal.timelockEndBlock) {
-  //     revert TimelockInEffect();
-  //   }
-  //   s_timelockBlocks = s_timelockProposal.to;
-  // }
-
-  // ================================================================
   // |                 Contract Proposal methods                    |
   // ================================================================
 
@@ -549,7 +468,6 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     override
     returns (uint256 timelockEndBlock, bytes32[] memory ids, address[] memory to)
   {
-    timelockEndBlock = s_proposedContractSet.timelockEndBlock;
     ids = s_proposedContractSet.ids;
     to = s_proposedContractSet.to;
     return (timelockEndBlock, ids, to);
@@ -560,12 +478,13 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     bytes32[] memory proposedContractSetIds,
     address[] memory proposedContractSetAddresses
   ) external override onlyOwner {
-    // All arrays must be of equal length and not must not exceed the max length
+    // IDs and addresses arrays must be of equal length and must not exceed the max proposal length
     uint256 idsArrayLength = proposedContractSetIds.length;
     if (idsArrayLength != proposedContractSetAddresses.length || idsArrayLength > MAX_PROPOSAL_SET_LENGTH) {
       revert InvalidProposal();
     }
-    // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
+
+    // NOTE: iterations of this loop will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint256 i = 0; i < idsArrayLength; ++i) {
       bytes32 id = proposedContractSetIds[i];
       address proposedContract = proposedContractSetAddresses[i];
@@ -575,36 +494,26 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       ) {
         revert InvalidProposal();
       }
-      // Reserved ids cannot be set
+      // Reserved IDs cannot be set
       if (id == ROUTER_ID) {
         revert IdentifierIsReserved(id);
       }
     }
 
-    uint64 timelockEndBlock = uint64(block.number + s_timelockBlocks);
+    s_proposedContractSet = ContractProposalSet({ids: proposedContractSetIds, to: proposedContractSetAddresses});
 
-    s_proposedContractSet = ContractProposalSet({
-      ids: proposedContractSetIds,
-      to: proposedContractSetAddresses,
-      timelockEndBlock: timelockEndBlock
-    });
-
-    // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
+    // NOTE: iterations of this loop will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint256 i = 0; i < proposedContractSetIds.length; ++i) {
       emit ContractProposed({
         proposedContractSetId: proposedContractSetIds[i],
         proposedContractSetFromAddress: s_route[proposedContractSetIds[i]],
-        proposedContractSetToAddress: proposedContractSetAddresses[i],
-        timelockEndBlock: timelockEndBlock
+        proposedContractSetToAddress: proposedContractSetAddresses[i]
       });
     }
   }
 
   // @inheritdoc IRouterBase
   function updateContracts() external override onlyOwner {
-    if (block.number < s_proposedContractSet.timelockEndBlock) {
-      revert TimelockInEffect();
-    }
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint256 i = 0; i < s_proposedContractSet.ids.length; ++i) {
       bytes32 id = s_proposedContractSet.ids[i];

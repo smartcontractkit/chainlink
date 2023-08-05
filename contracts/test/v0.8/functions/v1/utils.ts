@@ -92,17 +92,18 @@ export const coordinatorConfig: CoordinatorConfig = {
   fulfillmentGasPriceOverEstimationBP: 0,
   fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
 }
-export const accessControlMockPublicKey =
-  '0x32237412cC0321f56422d206e505dB4B3871AF5c'
+export const accessControlMockPublicKey = ethers.utils.getAddress(
+  '0x32237412cC0321f56422d206e505dB4B3871AF5c',
+)
 export const accessControlMockPrivateKey =
   '2e8c8eaff4159e59711b42424c1555af1b78409e12c6f9c69a6a986d75442b20'
 export type AccessControlConfig = {
   enabled: boolean
-  proofSignerPublicKey: string // address
+  signerPublicKey: string // address
 }
 export const accessControlConfig: AccessControlConfig = {
   enabled: true,
-  proofSignerPublicKey: accessControlMockPublicKey,
+  signerPublicKey: accessControlMockPublicKey,
 }
 
 export async function setupRolesAndFactories(): Promise<{
@@ -222,48 +223,24 @@ export function getSetupFactory(): () => {
     const linkToken = await factories.linkTokenFactory
       .connect(roles.defaultAccount)
       .deploy()
+
     const mockLinkEth = await factories.mockAggregatorV3Factory.deploy(
       0,
       linkEthRate,
     )
-    // const routerConfigBytes = ethers.utils.defaultAbiCoder.encode(
-    //   ['uint16', 'uint96', 'bytes4', 'uint32[]'],
-    //   [...Object.values(functionsRouterConfig)],
-    // )
-    const startingTimelockBlocks = 0
-    const maxTimelockBlocks = 20
+
     const router = await factories.functionsRouterFactory
       .connect(roles.defaultAccount)
-      .deploy(
-        startingTimelockBlocks,
-        maxTimelockBlocks,
-        linkToken.address,
-        functionsRouterConfig,
-      )
-    const coordinatorConfigBytes = ethers.utils.defaultAbiCoder.encode(
-      [
-        'uint32',
-        'uint32',
-        'uint32',
-        'uint32',
-        'uint32',
-        'uint80',
-        'uint16',
-        'uint256',
-        'int256',
-      ],
-      [...Object.values(coordinatorConfig)],
-    )
+      .deploy(linkToken.address, functionsRouterConfig)
+
     const coordinator = await factories.functionsCoordinatorFactory
       .connect(roles.defaultAccount)
-      .deploy(router.address, coordinatorConfigBytes, mockLinkEth.address)
-    const accessControlConfigBytes = ethers.utils.defaultAbiCoder.encode(
-      ['bool', 'address'],
-      [...Object.values(accessControlConfig)],
-    )
+      .deploy(router.address, coordinatorConfig, mockLinkEth.address)
+
     const accessControl = await factories.accessControlFactory
       .connect(roles.defaultAccount)
-      .deploy(router.address, accessControlConfigBytes)
+      .deploy(router.address, accessControlConfig)
+
     const client = await factories.clientTestHelperFactory
       .connect(roles.consumer)
       .deploy(router.address)
