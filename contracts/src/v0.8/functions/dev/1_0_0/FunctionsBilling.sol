@@ -48,15 +48,15 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint32 requestTimeoutSeconds;
     // Additional flat fee (in Juels of LINK) that will be split between Node Operators
     // Max value is 2^80 - 1 == 1.2m LINK.
-    uint80 donFee;
+    uint72 donFee;
     // The highest support request data version supported by the node
     // All lower versions should also be supported
     uint16 maxSupportedRequestDataVersion;
     // Percentage of gas price overestimation to account for changes in gas price between request and response
     // Held as basis points (one hundredth of 1 percentage point)
-    uint256 fulfillmentGasPriceOverEstimationBP;
+    uint32 fulfillmentGasPriceOverEstimationBP;
     // fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
-    int256 fallbackNativePerUnitLink;
+    uint224 fallbackNativePerUnitLink;
   }
 
   Config private s_config;
@@ -108,10 +108,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function updateConfig(Config memory config) public {
     _onlyOwner();
 
-    if (config.fallbackNativePerUnitLink <= 0) {
-      revert InvalidLinkWeiPrice(config.fallbackNativePerUnitLink);
-    }
-
     s_config = config;
     emit ConfigUpdated(config);
   }
@@ -124,13 +120,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function getDONFee(
     bytes memory /* requestData */,
     RequestBilling memory /* billing */
-  ) public view override returns (uint80) {
+  ) public view override returns (uint72) {
     // NOTE: Optionally, compute additional fee here
     return s_config.donFee;
   }
 
   // @inheritdoc IFunctionsBilling
-  function getAdminFee() public view override returns (uint96) {
+  function getAdminFee() public view override returns (uint72) {
     return _getRouter().getAdminFee();
   }
 
@@ -140,7 +136,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     (, int256 weiPerUnitLink, , uint256 timestamp, ) = s_linkToNativeFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (config.feedStalenessSeconds < block.timestamp - timestamp && config.feedStalenessSeconds > 0) {
-      return uint256(config.fallbackNativePerUnitLink);
+      return config.fallbackNativePerUnitLink;
     }
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
@@ -169,8 +165,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     if (gasPriceGwei > REASONABLE_GAS_PRICE_CEILING) {
       revert InvalidCalldata();
     }
-    uint96 adminFee = getAdminFee();
-    uint96 donFee = getDONFee(
+    uint72 adminFee = getAdminFee();
+    uint72 donFee = getDONFee(
       data,
       RequestBilling({
         subscriptionId: subscriptionId,
@@ -189,8 +185,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   function _calculateCostEstimate(
     uint32 callbackGasLimit,
     uint256 gasPriceGwei,
-    uint96 donFee,
-    uint96 adminFee
+    uint72 donFee,
+    uint72 adminFee
   ) internal view returns (uint96) {
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
 
@@ -200,7 +196,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
     uint256 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
     uint256 estimatedGasReimbursement = juelsPerGas * executionGas;
-    uint256 fees = uint256(donFee) + uint256(adminFee);
+    uint72 fees = donFee + adminFee;
 
     return uint96(estimatedGasReimbursement + fees);
   }
@@ -228,7 +224,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     }
 
     // Check that subscription can afford the estimated cost
-    uint80 donFee = getDONFee(data, billing);
+    uint72 donFee = getDONFee(data, billing);
     uint96 estimatedCost = _calculateCostEstimate(
       billing.callbackGasLimit,
       billing.expectedGasPriceGwei,

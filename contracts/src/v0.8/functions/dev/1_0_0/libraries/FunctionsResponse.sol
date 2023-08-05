@@ -19,7 +19,7 @@ library FunctionsResponse {
     address client; // ------------┐
     uint64 subscriptionId; //      |
     uint32 callbackGasLimit; // ---┘
-    uint96 estimatedTotalCostJuels; // TODO pack the following
+    uint96 estimatedTotalCostJuels;
     uint40 timeoutTimestamp;
     bytes32 requestId;
     uint80 donFee;

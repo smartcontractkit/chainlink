@@ -14,7 +14,7 @@ interface IFunctionsBilling {
     // the expected gas price used to execute the transaction
     uint256 expectedGasPriceGwei;
     // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
-    uint96 adminFee;
+    uint72 adminFee;
   }
 
   // @notice Return the current conversion from WEI of ETH to LINK from the configured Chainlink data feed
@@ -25,11 +25,11 @@ interface IFunctionsBilling {
   // @param requestData Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
   // @param billing The request's billing configuration
   // @return fee Cost in Juels (1e18) of LINK
-  function getDONFee(bytes memory requestData, RequestBilling memory billing) external view returns (uint80);
+  function getDONFee(bytes memory requestData, RequestBilling memory billing) external view returns (uint72);
 
   // @notice Determine the fee that will be paid to the Router owner for operating the network
   // @return fee Cost in Juels (1e18) of LINK
-  function getAdminFee() external view returns (uint96);
+  function getAdminFee() external view returns (uint72);
 
   // @notice Estimate the total cost that will be charged to a subscription to make a request: transmitter gas re-reimbursement, plus DON fee, plus Registry fee
   // @param subscriptionId An identifier of the billing account

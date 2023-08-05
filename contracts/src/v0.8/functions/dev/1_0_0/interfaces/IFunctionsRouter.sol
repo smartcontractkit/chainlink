@@ -16,7 +16,7 @@ interface IFunctionsRouter {
 
   // @notice Get the flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
   // @return adminFee
-  function getAdminFee() external view returns (uint96 adminFee);
+  function getAdminFee() external view returns (uint72 adminFee);
 
   // @notice Sends a request using the provided subscriptionId
   // @param subscriptionId - A unique subscription ID allocated by billing system,

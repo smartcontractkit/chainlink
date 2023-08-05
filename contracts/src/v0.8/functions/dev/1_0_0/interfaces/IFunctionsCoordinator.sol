@@ -13,7 +13,7 @@ interface IFunctionsCoordinator {
     uint16 dataVersion; // The version of the structure of the CBOR encoded request data
     bytes32 flags; // Per-subscription account flags
     uint32 callbackGasLimit; // The amount of gas that the callback to the consuming contract will be given
-    uint96 adminFee; // Flat fee (in Juels of LINK) that will be paid to the Router Owner for operation of the network
+    uint72 adminFee; // Flat fee (in Juels of LINK) that will be paid to the Router Owner for operation of the network
   }
 
   // @notice Returns the DON's threshold encryption public key used to encrypt secrets

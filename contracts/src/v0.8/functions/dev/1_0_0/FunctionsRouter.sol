@@ -87,7 +87,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     // Should a user require more consumers, they can use multiple subscriptions.
     uint16 maxConsumersPerSubscription;
     // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
-    uint96 adminFee;
+    uint72 adminFee;
     // The function selector that is used when calling back to the Client contract
     bytes4 handleOracleFulfillmentSelector;
     // List of max callback gas limits used by flag with GAS_FLAG_INDEX
@@ -165,7 +165,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   }
 
   // @inheritdoc IFunctionsRouter
-  function getAdminFee() external view override returns (uint96 adminFee) {
+  function getAdminFee() external view override returns (uint72 adminFee) {
     return s_config.adminFee;
   }
 
