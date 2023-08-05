@@ -8,7 +8,11 @@ interface IFunctionsRouter {
   // @notice The identifier of the route to retrieve the address of the access control contract
   // The access control contract controls which accounts can manage subscriptions
   // @return id - bytes32 id that can be passed to the "getContractById" of the Router
-  function getAllowListId() external pure returns (bytes32);
+  function getAllowListId() external view returns (bytes32);
+
+ // @notice Set the identifier of the route to retrieve the address of the access control contract
+  // The access control contract controls which accounts can manage subscriptions
+  function setAllowListId(bytes32 allowListId) external;
 
   // @notice Get the flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
   // @return adminFee

@@ -23,13 +23,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // malicious contracts from returning large amounts of data and causing
   // repeated out-of-gas scenarios.
   uint16 public constant MAX_CALLBACK_RETURN_BYTES = 4 + 4 * 32;
-
-  mapping(bytes32 id => address routableContract) private s_route;
-
-  error RouteNotFound(bytes32 id);
-
-  // Use empty bytes to self-identify, since it does not have an id
-  bytes32 private constant ROUTER_ID = bytes32(0);
+  uint8 private constant MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX = 0;
 
   event RequestStart(
     bytes32 indexed requestId,
@@ -72,9 +66,16 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     bytes returnData;
   }
 
+  // ================================================================
+  // |                    Route state                       |
+  // ================================================================
+
+  mapping(bytes32 id => address routableContract) private s_route;
+
+  error RouteNotFound(bytes32 id);
+
   // Identifier for the route to the Terms of Service Allow List
-  bytes32 private constant ALLOW_LIST_ID = keccak256("Functions Terms of Service Allow List");
-  uint8 private constant MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX = 0;
+  bytes32 private s_allowListId;
 
   // ================================================================
   // |                    Configuration state                       |
@@ -128,8 +129,6 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     address linkToken,
     Config memory config
   ) FunctionsSubscriptions(linkToken) ConfirmedOwner(msg.sender) Pausable() {
-    // Set the initial configuration for the Router
-    s_route[ROUTER_ID] = address(this);
     // Set the intial configuration
     updateConfig(config);
   }
@@ -169,8 +168,13 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   }
 
   // @inheritdoc IFunctionsRouter
-  function getAllowListId() external pure override returns (bytes32) {
-    return ALLOW_LIST_ID;
+  function getAllowListId() external view override returns (bytes32) {
+    return s_allowListId;
+  }
+
+    // @inheritdoc IFunctionsRouter
+  function setAllowListId(bytes32 allowListId) external override {
+    s_allowListId = allowListId;
   }
 
   // Used within FunctionsSubscriptions.sol
@@ -494,10 +498,6 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       ) {
         revert InvalidProposal();
       }
-      // Reserved IDs cannot be set
-      if (id == ROUTER_ID) {
-        revert IdentifierIsReserved(id);
-      }
     }
 
     s_proposedContractSet = ContractProposalSet({ids: proposedContractSetIds, to: proposedContractSetAddresses});
@@ -542,9 +542,9 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
 
   // Used within FunctionsSubscriptions.sol
   function _onlySenderThatAcceptedToS() internal view override {
-    address currentImplementation = s_route[ALLOW_LIST_ID];
+    address currentImplementation = s_route[s_allowListId];
     if (currentImplementation == address(0)) {
-      // If not set, ignore this check
+      // If not set, ignore this check, allow all access
       return;
     }
     if (!IAccessController(currentImplementation).hasAccess(msg.sender, new bytes(0))) {
