@@ -19,7 +19,7 @@ contract FunctionsRouterSetup is BaseTest {
   TermsOfServiceAllowList internal s_termsOfServiceAllowList;
 
   uint16 internal s_maxConsumersPerSubscription = 100;
-  uint96 internal s_adminFee = 561724823;
+  uint72 internal s_adminFee = 561724823;
   bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
 
   address internal s_linkToken = 0x01BE23585060835E02B77ef475b0Cc51aA1e0709;
