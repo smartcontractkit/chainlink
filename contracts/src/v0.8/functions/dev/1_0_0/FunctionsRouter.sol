@@ -92,6 +92,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     bytes4 handleOracleFulfillmentSelector;
     // List of max callback gas limits used by flag with GAS_FLAG_INDEX
     uint32[] maxCallbackGasLimits;
+    // Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
+    uint16 gasForCallExactCheck;
   }
 
   Config private s_config;
@@ -172,7 +174,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     return s_allowListId;
   }
 
-    // @inheritdoc IFunctionsRouter
+  // @inheritdoc IFunctionsRouter
   function setAllowListId(bytes32 allowListId) external override {
     s_allowListId = allowListId;
   }
@@ -219,8 +221,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     uint32 callbackGasLimit
   ) private returns (bytes32) {
     _whenNotPaused();
-    _isValidSubscription(subscriptionId);
-    _isValidConsumer(msg.sender, subscriptionId);
+    _isExistingSubscription(subscriptionId);
+    _isAllowedConsumer(msg.sender, subscriptionId);
     isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
 
     // Forward request to DON
@@ -316,7 +318,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       uint96 callbackCost = juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit);
       uint96 totalCostJuels = commitment.adminFee + costWithoutCallback + callbackCost;
 
-      // Check that the subscription can still afford
+      // Check that the subscription can still afford to fulfill the request
       if (totalCostJuels > s_subscriptions[commitment.subscriptionId].balance) {
         resultCode = FunctionsResponse.FulfillResult.SUBSCRIPTION_BALANCE_INVARIANT_VIOLATION;
         emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
@@ -382,6 +384,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       err
     );
 
+    uint16 gasForCallExactCheck = s_config.gasForCallExactCheck;
+
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid payment.
     // NOTE: that callWithExactGas will revert if we do not have sufficient gas
@@ -402,17 +406,16 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       }
 
       let g := gas()
-      // GASFORCALLEXACTCHECK = 5000
       // Compute g -= gasForCallExactCheck and check for underflow
       // The gas actually passed to the callee is _min(gasAmount, 63//64*gas available).
       // We want to ensure that we revert if gasAmount >  63//64*gas available
       // as we do not want to provide them with less, however that check itself costs
       // gas. gasForCallExactCheck ensures we have at least enough gas to be able
       // to revert if gasAmount >  63//64*gas available.
-      if lt(g, 5000) {
+      if lt(g, gasForCallExactCheck) {
         revert(0, 0)
       }
-      g := sub(g, 5000)
+      g := sub(g, gasForCallExactCheck)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
       if iszero(gt(sub(g, div(g, 64)), callbackGasLimit)) {

@@ -10,7 +10,6 @@ import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
 import {Address} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
 import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
 
-
 // @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
 contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController, ITypeAndVersion, ConfirmedOwner {
   using Address for address;
@@ -71,13 +70,11 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   // |                      Allow methods                           |
   // ================================================================
 
-  
   // @inheritdoc ITermsOfServiceAllowList
   function getMessage(address acceptor, address recipient) public pure override returns (bytes32) {
     return keccak256(abi.encodePacked(acceptor, recipient));
   }
 
-  
   // @inheritdoc ITermsOfServiceAllowList
   function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external override {
     if (s_blockedSenders[recipient]) {
@@ -105,7 +102,6 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     emit AddedAccess(recipient);
   }
 
-  
   // @inheritdoc ITermsOfServiceAllowList
   function getAllAllowedSenders() external view override returns (address[] memory) {
     return s_allowedSenders.values();
@@ -130,7 +126,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     }
     return s_blockedSenders[sender];
   }
-  
+
   // @inheritdoc ITermsOfServiceAllowList
   function blockSender(address sender) external override onlyOwner {
     s_allowedSenders.remove(sender);
@@ -138,7 +134,6 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     emit BlockedAccess(sender);
   }
 
-  
   // @inheritdoc ITermsOfServiceAllowList
   function unblockSender(address sender) external override onlyOwner {
     s_blockedSenders[sender] = false;

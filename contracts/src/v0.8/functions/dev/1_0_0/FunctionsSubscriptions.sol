@@ -54,7 +54,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   event SubscriptionOwnerTransferred(uint64 indexed subscriptionId, address from, address to);
 
   error TooManyConsumers(uint16 maximumConsumers);
-  error InsufficientBalance();
+  error InsufficientBalance(uint96 currentBalanceJuels);
   error InvalidConsumer();
   error ConsumerRequestsInFlight();
   error InvalidSubscription();
@@ -141,7 +141,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // @inheritdoc IFunctionsSubscriptions
   function ownerCancelSubscription(uint64 subscriptionId) external override {
     _onlyRouterOwner();
-    _isValidSubscription(subscriptionId);
+    _isExistingSubscription(subscriptionId);
     _cancelSubscriptionHelper(subscriptionId, s_subscriptions[subscriptionId].owner);
   }
 
@@ -172,8 +172,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     if (amount == 0) {
       revert InvalidCalldata();
     }
-    if (s_withdrawableTokens[msg.sender] < amount) {
-      revert InsufficientBalance();
+    uint96 currentBalance = s_withdrawableTokens[msg.sender];
+    if (currentBalance < amount) {
+      revert InsufficientBalance(currentBalance);
     }
     s_withdrawableTokens[msg.sender] -= amount;
     s_totalLinkBalance -= amount;
@@ -189,8 +190,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     if (amount == 0) {
       amount = s_withdrawableTokens[address(this)];
     }
-    if (s_withdrawableTokens[address(this)] < amount) {
-      revert InsufficientBalance();
+    uint96 currentBalance = s_withdrawableTokens[address(this)];
+    if (currentBalance < amount) {
+      revert InsufficientBalance(currentBalance);
     }
     s_withdrawableTokens[address(this)] -= amount;
     s_totalLinkBalance -= amount;
@@ -203,6 +205,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // ================================================================
 
   // This function is to be invoked when using LINK.transferAndCall
+  // @dev Note to fund the subscription, use transferAndCall. For example
+  // @dev  LINKTOKEN.transferAndCall(
+  // @dev    address(ROUTER),
+  // @dev    amount,
+  // @dev    abi.encode(subscriptionId));
   function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override {
     _whenNotPaused();
     if (msg.sender != address(i_linkToken)) {
@@ -239,29 +246,24 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
   // @inheritdoc IFunctionsSubscriptions
   function getSubscription(uint64 subscriptionId) external view override returns (Subscription memory) {
-    _isValidSubscription(subscriptionId);
+    _isExistingSubscription(subscriptionId);
     return s_subscriptions[subscriptionId];
   }
 
   // @inheritdoc IFunctionsSubscriptions
-  function getConsumer(
-    address client,
-    uint64 subscriptionId
-  ) external view override returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests) {
-    allowed = s_consumers[client][subscriptionId].allowed;
-    initiatedRequests = s_consumers[client][subscriptionId].initiatedRequests;
-    completedRequests = s_consumers[client][subscriptionId].completedRequests;
+  function getConsumer(address client, uint64 subscriptionId) external view override returns (Consumer memory) {
+    return s_consumers[client][subscriptionId];
   }
 
   // Used within this file & FunctionsRouter.sol
-  function _isValidSubscription(uint64 subscriptionId) internal view {
+  function _isExistingSubscription(uint64 subscriptionId) internal view {
     if (s_subscriptions[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
   }
 
   // Used within FunctionsRouter.sol
-  function _isValidConsumer(address client, uint64 subscriptionId) internal view {
+  function _isAllowedConsumer(address client, uint64 subscriptionId) internal view {
     if (!s_consumers[client][subscriptionId].allowed) {
       revert InvalidConsumer();
     }
@@ -318,11 +320,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlySenderThatAcceptedToS();
 
     if (newOwner == address(0) || s_subscriptions[subscriptionId].proposedOwner != newOwner) {
-revert InvalidCalldata();
+      revert InvalidCalldata();
     }
 
-      s_subscriptions[subscriptionId].proposedOwner = newOwner;
-      emit SubscriptionOwnerTransferRequested(subscriptionId, msg.sender, newOwner);
+    s_subscriptions[subscriptionId].proposedOwner = newOwner;
+    emit SubscriptionOwnerTransferRequested(subscriptionId, msg.sender, newOwner);
   }
 
   // @inheritdoc IFunctionsSubscriptions
@@ -439,7 +441,7 @@ revert InvalidCalldata();
   // @inheritdoc IFunctionsSubscriptions
   function setFlags(uint64 subscriptionId, bytes32 flags) external override {
     _onlyRouterOwner();
-    _isValidSubscription(subscriptionId);
+    _isExistingSubscription(subscriptionId);
     s_subscriptions[subscriptionId].flags = flags;
   }
 

@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import {FunctionsResponse} from "../libraries/FunctionsResponse.sol";
 
- // @title Chainlink Functions Subscription interface.
+// @title Chainlink Functions Subscription interface.
 interface IFunctionsSubscriptions {
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
@@ -28,20 +28,15 @@ interface IFunctionsSubscriptions {
   }
 
   // @notice Get details about a subscription.
-  // @param subscriptionId - ID of the subscription
+  // @param subscriptionId - the ID of the subscription
+  // @return subscription - see IFunctionsSubscriptions.Subscription for more information on the structure
   function getSubscription(uint64 subscriptionId) external view returns (Subscription memory);
 
   // @notice Get details about a consumer of a subscription.
-  // @dev Only callable by a route
-  // @param client - the consumer contract that initiated the request
-  // @param subscriptionId - ID of the subscription
-  // @return allowed - amount of LINK balance of the subscription in juels that is blocked for an in flight request.
-  // @return initiatedRequests - owner of the subscription.
-  // @return completedRequests - list of consumer address which are able to use this subscription.
-  function getConsumer(
-    address client,
-    uint64 subscriptionId
-  ) external view returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests);
+  // @param client - the consumer contract address
+  // @param subscriptionId - the ID of the subscription
+  // @return consumer - see IFunctionsSubscriptions.Consumer for more information on the structure
+  function getConsumer(address client, uint64 subscriptionId) external view returns (Consumer memory);
 
   // @notice Get details about the total amount of LINK within the system
   // @return totalBalance - total Juels of LINK held by the contract

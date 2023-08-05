@@ -243,9 +243,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert InsufficientBalance();
     }
 
-    (, uint64 initiatedRequests, ) = routerWithSubscriptions.getConsumer(billing.client, billing.subscriptionId);
+    IFunctionsSubscriptions.Consumer memory consumer = routerWithSubscriptions.getConsumer(billing.client, billing.subscriptionId);
 
-    bytes32 requestId = _computeRequestId(address(this), billing.client, billing.subscriptionId, initiatedRequests + 1);
+    bytes32 requestId = _computeRequestId(address(this), billing.client, billing.subscriptionId, consumer.initiatedRequests + 1);
 
     commitment = FunctionsResponse.Commitment({
       adminFee: billing.adminFee,
@@ -267,6 +267,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   }
 
   // @notice Generate a keccak hash request ID
+  // @dev uses the number of requests that the consumer of a subscription has sent as a nonce
   function _computeRequestId(
     address don,
     address client,
