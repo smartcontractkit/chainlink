@@ -46,5 +46,7 @@ interface IFunctionsCoordinator {
   // @param request The request metadata
   // @dev see the struct for field descriptions
   // @return commitment - The parameters of the request that must be held consistent at response time
-  function startRequest(FunctionsResponse.RequestMeta calldata request) external returns (FunctionsResponse.Commitment memory commitment);
+  function startRequest(
+    FunctionsResponse.RequestMeta calldata request
+  ) external returns (FunctionsResponse.Commitment memory commitment);
 }

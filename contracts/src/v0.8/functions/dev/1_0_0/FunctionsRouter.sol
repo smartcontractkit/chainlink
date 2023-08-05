@@ -231,7 +231,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       revert EmptyRequestData();
     }
 
-Subscription memory subscription = getSubscription(subscriptionId);
+    Subscription memory subscription = getSubscription(subscriptionId);
 
     // Forward request to DON
     FunctionsResponse.Commitment memory commitment = coordinator.startRequest(

@@ -116,9 +116,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
 
   // @inheritdoc IFunctionsBilling
-  function getDONFee(
-    bytes memory /* requestData */
-  ) public view override returns (uint72) {
+  function getDONFee(bytes memory /* requestData */) public view override returns (uint72) {
     // NOTE: Optionally, decode CBOR and compute additional fee here
     return s_config.donFee;
   }
@@ -164,9 +162,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert InvalidCalldata();
     }
     uint72 adminFee = getAdminFee();
-    uint72 donFee = getDONFee(
-      data
-    );
+    uint72 donFee = getDONFee(data);
     return _calculateCostEstimate(callbackGasLimit, gasPriceGwei, donFee, adminFee);
   }
 
@@ -225,7 +221,12 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert InsufficientBalance();
     }
 
-    bytes32 requestId = _computeRequestId(address(this), request.requestingContract, request.subscriptionId, request.consumer.initiatedRequests + 1);
+    bytes32 requestId = _computeRequestId(
+      address(this),
+      request.requestingContract,
+      request.subscriptionId,
+      request.consumer.initiatedRequests + 1
+    );
 
     commitment = FunctionsResponse.Commitment({
       adminFee: request.adminFee,
