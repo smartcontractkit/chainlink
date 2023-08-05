@@ -7,7 +7,7 @@ import {FunctionsResponse} from "../libraries/FunctionsResponse.sol";
 interface IFunctionsSubscriptions {
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
-    uint96 balance; // Common LINK balance that is controlled by the Registry to be used for all consumer requests.
+    uint96 balance; // Common LINK balance that is controlled by the Router to be used for all consumer requests.
     address owner; // Owner can fund/withdraw/cancel the sub.
     uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
     address proposedOwner; // For safely transferring sub ownership.
@@ -80,10 +80,20 @@ interface IFunctionsSubscriptions {
   // @dev You can manage the consumer set dynamically with addConsumer/removeConsumer.
   // @dev Note to fund the subscription, use transferAndCall. For example
   // @dev  LINKTOKEN.transferAndCall(
-  // @dev    address(REGISTRY),
+  // @dev    address(ROUTER),
   // @dev    amount,
   // @dev    abi.encode(subscriptionId));
   function createSubscription() external returns (uint64);
+
+  // @notice Create a new subscription and add a consumer.
+  // @return subscriptionId - A unique subscription id.
+  // @dev You can manage the consumer set dynamically with addConsumer/removeConsumer.
+  // @dev Note to fund the subscription, use transferAndCall. For example
+  // @dev  LINKTOKEN.transferAndCall(
+  // @dev    address(ROUTER),
+  // @dev    amount,
+  // @dev    abi.encode(subscriptionId));
+  function createSubscriptionWithConsumer(address consumer) external returns (uint64 subscriptionId);
 
   // @notice Propose a new owner for a subscription.
   // @dev Only callable by the Subscription's owner

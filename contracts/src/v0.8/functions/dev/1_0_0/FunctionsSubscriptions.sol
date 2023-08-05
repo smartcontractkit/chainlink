@@ -53,7 +53,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   event SubscriptionOwnerTransferRequested(uint64 indexed subscriptionId, address from, address to);
   event SubscriptionOwnerTransferred(uint64 indexed subscriptionId, address from, address to);
 
-  error TooManyConsumers();
+  error TooManyConsumers(uint16 maximumConsumers);
   error InsufficientBalance();
   error InvalidConsumer();
   error ConsumerRequestsInFlight();
@@ -288,17 +288,41 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   }
 
   // @inheritdoc IFunctionsSubscriptions
+  function createSubscriptionWithConsumer(address consumer) external override returns (uint64 subscriptionId) {
+    _whenNotPaused();
+    _onlySenderThatAcceptedToS();
+
+    subscriptionId = ++s_currentSubscriptionId;
+    s_subscriptions[subscriptionId] = Subscription({
+      balance: 0,
+      blockedBalance: 0,
+      owner: msg.sender,
+      proposedOwner: address(0),
+      consumers: new address[](0),
+      flags: bytes32(0)
+    });
+
+    s_subscriptions[subscriptionId].consumers.push(consumer);
+    s_consumers[consumer][subscriptionId].allowed = true;
+
+    emit SubscriptionCreated(subscriptionId, msg.sender);
+    emit SubscriptionConsumerAdded(subscriptionId, consumer);
+
+    return subscriptionId;
+  }
+
+  // @inheritdoc IFunctionsSubscriptions
   function proposeSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external override {
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
 
-    // Proposing to address(0) would never be claimable, so don't need to check.
+    if (newOwner == address(0) || s_subscriptions[subscriptionId].proposedOwner != newOwner) {
+revert InvalidCalldata();
+    }
 
-    if (s_subscriptions[subscriptionId].proposedOwner != newOwner) {
       s_subscriptions[subscriptionId].proposedOwner = newOwner;
       emit SubscriptionOwnerTransferRequested(subscriptionId, msg.sender, newOwner);
-    }
   }
 
   // @inheritdoc IFunctionsSubscriptions
@@ -354,14 +378,16 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlySenderThatAcceptedToS();
 
     // Already maxed, cannot add any more consumers.
-    if (s_subscriptions[subscriptionId].consumers.length == _getMaxConsumers()) {
-      revert TooManyConsumers();
+    uint16 maximumConsumers = _getMaxConsumers();
+    if (s_subscriptions[subscriptionId].consumers.length == maximumConsumers) {
+      revert TooManyConsumers(maximumConsumers);
     }
     if (s_consumers[consumer][subscriptionId].allowed) {
       // Idempotence - do nothing if already added.
       // Ensures uniqueness in s_subscriptions[subscriptionId].consumers.
       return;
     }
+
     s_consumers[consumer][subscriptionId].allowed = true;
     s_subscriptions[subscriptionId].consumers.push(consumer);
 
@@ -384,7 +410,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   function _cancelSubscriptionHelper(uint64 subscriptionId, address to) private {
     Subscription memory subscription = s_subscriptions[subscriptionId];
     uint96 balance = subscription.balance;
-    // Note bounded by config.maxConsumers
+    // NOTE: loop iterations are bounded by config.maxConsumers
     // If no consumers, does nothing.
     for (uint256 i = 0; i < subscription.consumers.length; ++i) {
       delete s_consumers[subscription.consumers[i]][subscriptionId];
@@ -400,7 +426,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // @inheritdoc IFunctionsSubscriptions
   function pendingRequestExists(uint64 subscriptionId) public view override returns (bool) {
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
-    // Iterations will not exceed config.maxConsumers
+    // NOTE: loop iterations are bounded by config.maxConsumers
     for (uint256 i = 0; i < consumers.length; ++i) {
       Consumer memory consumer = s_consumers[consumers[i]][subscriptionId];
       if (consumer.initiatedRequests != consumer.completedRequests) {
