@@ -3,9 +3,7 @@ pragma solidity ^0.8.19;
 
 import {FunctionsResponse} from "../libraries/FunctionsResponse.sol";
 
-/**
- * @title Chainlink Functions Subscription interface.
- */
+ // @title Chainlink Functions Subscription interface.
 interface IFunctionsSubscriptions {
   struct Subscription {
     // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)

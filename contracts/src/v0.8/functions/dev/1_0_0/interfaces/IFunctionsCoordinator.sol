@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import {FunctionsResponse} from "../libraries/FunctionsResponse.sol";
 
-// @title Chainlink Functions Coordinator interface.
+// @title Chainlink Functions DON Coordinator interface.
 interface IFunctionsCoordinator {
   struct Request {
     address requestingContract; // The client contract that is sending the request

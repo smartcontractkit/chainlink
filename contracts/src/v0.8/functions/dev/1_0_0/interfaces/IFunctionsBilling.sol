@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-// @title Chainlink Functions billing subscription registry interface.
+// @title Chainlink Functions DON billing interface.
 interface IFunctionsBilling {
   struct RequestBilling {
     // a unique subscription ID allocated by billing system,
