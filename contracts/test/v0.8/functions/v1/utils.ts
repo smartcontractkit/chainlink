@@ -43,17 +43,28 @@ export const stringToHex = (s: string) => {
   return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(s))
 }
 
-export const encodeReport = (
+export const encodeReport = async (
   requestId: string,
   result: string,
   err: string,
-  onchainMetadata: string,
+  onchainMetadata: any,
   offchainMetadata: string,
 ) => {
+  const functionsResponse = await ethers.getContractFactory(
+    'src/v0.8/functions/dev/1_0_0/FunctionsCoordinator.sol:FunctionsCoordinator',
+  )
+  const onchainMetadataBytes = functionsResponse.interface._abiCoder.encode(
+    [
+      functionsResponse.interface.events[
+        'OracleRequest(bytes32,address,address,uint64,address,bytes,uint16,bytes32,uint64,(uint96,address,address,uint64,uint32,uint96,uint40,bytes32,uint80,uint40,uint40))'
+      ].inputs[9],
+    ],
+    [[...onchainMetadata]],
+  )
   const abi = ethers.utils.defaultAbiCoder
   return abi.encode(
     ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
-    [[requestId], [result], [err], [onchainMetadata], [offchainMetadata]],
+    [[requestId], [result], [err], [onchainMetadataBytes], [offchainMetadata]],
   )
 }
 
@@ -62,12 +73,14 @@ export type FunctionsRouterConfig = {
   adminFee: number
   handleOracleFulfillmentSelector: string
   maxCallbackGasLimits: number[]
+  gasForCallExactCheck: number
 }
 export const functionsRouterConfig: FunctionsRouterConfig = {
   maxConsumersPerSubscription: 100,
   adminFee: 0,
   handleOracleFulfillmentSelector: '0x0ca76175',
   maxCallbackGasLimits: [300_000, 500_000, 1_000_000],
+  gasForCallExactCheck: 5000,
 }
 export type CoordinatorConfig = {
   maxCallbackGasLimit: number
@@ -239,7 +252,7 @@ export function getSetupFactory(): () => {
 
     const accessControl = await factories.accessControlFactory
       .connect(roles.defaultAccount)
-      .deploy(router.address, accessControlConfig)
+      .deploy(accessControlConfig)
 
     const client = await factories.clientTestHelperFactory
       .connect(roles.consumer)

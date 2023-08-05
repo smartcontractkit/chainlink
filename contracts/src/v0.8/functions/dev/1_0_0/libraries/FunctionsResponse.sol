@@ -29,7 +29,7 @@ library FunctionsResponse {
   }
 
   struct Commitment {
-    uint96 adminFee; // -----------┐
+    uint72 adminFee; // -----------┐
     address coordinator; // -------┘
     address client; // ------------┐
     uint64 subscriptionId; //      |
@@ -37,7 +37,7 @@ library FunctionsResponse {
     uint96 estimatedTotalCostJuels;
     uint40 timeoutTimestamp;
     bytes32 requestId;
-    uint80 donFee;
+    uint72 donFee;
     uint40 gasOverheadBeforeCallback;
     uint40 gasOverheadAfterCallback;
   }

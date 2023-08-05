@@ -31,7 +31,7 @@ contract FunctionsRouterSetup is BaseTest {
     s_functionsRouter = new FunctionsRouter(s_linkToken, getRouterConfig());
     s_linkEthFeed = new MockV3Aggregator(0, LINK_ETH_RATE);
 
-    s_termsOfServiceAllowList = new TermsOfServiceAllowList(address(s_functionsRouter), getTermsOfServiceConfig());
+    s_termsOfServiceAllowList = new TermsOfServiceAllowList(getTermsOfServiceConfig());
   }
 
   function getRouterConfig() public view returns (FunctionsRouter.Config memory) {
@@ -43,7 +43,8 @@ contract FunctionsRouterSetup is BaseTest {
         maxConsumersPerSubscription: s_maxConsumersPerSubscription,
         adminFee: s_adminFee,
         handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
-        maxCallbackGasLimits: maxCallbackGasLimits
+        maxCallbackGasLimits: maxCallbackGasLimits,
+        gasForCallExactCheck: 5000
       });
   }
 

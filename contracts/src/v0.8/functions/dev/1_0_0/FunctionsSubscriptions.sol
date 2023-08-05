@@ -315,7 +315,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
 
-    if (newOwner == address(0) || s_subscriptions[subscriptionId].proposedOwner != newOwner) {
+    if (newOwner == address(0) || s_subscriptions[subscriptionId].proposedOwner == newOwner) {
       revert InvalidCalldata();
     }
 

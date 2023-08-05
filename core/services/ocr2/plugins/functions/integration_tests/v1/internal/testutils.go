@@ -189,6 +189,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		AdminFee:                        big.NewInt(0),
 		HandleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
 		MaxCallbackGasLimits:            []uint32{300_000, 500_000, 1_000_000},
+		GasForCallExactCheck:            5000,
 	}
 	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b, linkAddr, functionsRouterConfig)
 	require.NoError(t, err)
@@ -201,7 +202,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		Enabled:         false, // TODO: true
 		SignerPublicKey: proofSignerPublicKey,
 	}
-	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, routerAddress, allowListConfig)
+	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, allowListConfig)
 	require.NoError(t, err)
 
 	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)
@@ -213,7 +214,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		RequestTimeoutSeconds:               uint32(300),
 		DonFee:                              big.NewInt(0),
 		MaxSupportedRequestDataVersion:      uint16(1),
-		FulfillmentGasPriceOverEstimationBP: big.NewInt(6_600),
+		FulfillmentGasPriceOverEstimationBP: uint32(6_600),
 		FallbackNativePerUnitLink:           big.NewInt(5_000_000_000_000_000),
 	}
 	require.NoError(t, err)
