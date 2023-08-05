@@ -24,21 +24,6 @@ abstract contract FunctionsClient is IFunctionsClient {
   }
 
 // @notice Sends a Chainlink Functions request
-// @param request The Functions.Request initialized in memory
-// @param subscriptionId The subscription ID that will be charged to service the request
-// @param callbackGasLimit the amount of gas that will be available for the fulfillment callback
-// @return requestId The generated request ID for this request
-  function _sendRequest(
-    FunctionsRequest.Request memory request,
-    uint64 subscriptionId,
-    uint32 callbackGasLimit,
-    bytes32 donId
-  ) internal returns (bytes32) {
-    return _sendRequestBytes(FunctionsRequest.encodeCBOR(request), subscriptionId, callbackGasLimit, donId);
-  }
-
-
-// @notice Sends a Chainlink Functions request
 // @param data The CBOR encoded bytes data for a Functions request
 // @param subscriptionId The subscription ID that will be charged to service the request
 // @param callbackGasLimit the amount of gas that will be available for the fulfillment callback
