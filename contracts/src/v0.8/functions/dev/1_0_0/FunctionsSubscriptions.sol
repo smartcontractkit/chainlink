@@ -42,8 +42,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // loop through all the current subscriptions via .getSubscription().
   uint64 private s_currentSubscriptionId;
 
-  mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) internal s_subscriptions;
-  mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) internal s_consumers;
+  mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) private s_subscriptions;
+  mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) private s_consumers;
 
   event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
   event SubscriptionFunded(uint64 indexed subscriptionId, uint256 oldBalance, uint256 newBalance);
@@ -56,12 +56,12 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   error TooManyConsumers(uint16 maximumConsumers);
   error InsufficientBalance(uint96 currentBalanceJuels);
   error InvalidConsumer();
-  error ConsumerRequestsInFlight();
+  error CannotRemoveWithPendingRequests();
   error InvalidSubscription();
   error OnlyCallableFromLink();
   error InvalidCalldata();
   error MustBeSubscriptionOwner();
-  error PendingRequestExists();
+  error TimeoutNotExceeded();
   error MustBeProposedOwner(address proposedOwner);
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
@@ -231,7 +231,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   }
 
   // ================================================================
-  // |                   Subscriptions management                   |
+  // |                   Subscription management                   |
   // ================================================================
 
   // @inheritdoc IFunctionsSubscriptions
@@ -245,13 +245,13 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   }
 
   // @inheritdoc IFunctionsSubscriptions
-  function getSubscription(uint64 subscriptionId) external view override returns (Subscription memory) {
+  function getSubscription(uint64 subscriptionId) public view override returns (Subscription memory) {
     _isExistingSubscription(subscriptionId);
     return s_subscriptions[subscriptionId];
   }
 
   // @inheritdoc IFunctionsSubscriptions
-  function getConsumer(address client, uint64 subscriptionId) external view override returns (Consumer memory) {
+  function getConsumer(address client, uint64 subscriptionId) public view override returns (Consumer memory) {
     return s_consumers[client][subscriptionId];
   }
 
@@ -353,7 +353,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
       revert InvalidConsumer();
     }
     if (consumerData.initiatedRequests != consumerData.completedRequests) {
-      revert ConsumerRequestsInFlight();
+      revert CannotRemoveWithPendingRequests();
     }
     // Note bounded by config.maxConsumers
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
@@ -403,7 +403,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlySenderThatAcceptedToS();
 
     if (pendingRequestExists(subscriptionId)) {
-      revert PendingRequestExists();
+      revert CannotRemoveWithPendingRequests();
     }
 
     _cancelSubscriptionHelper(subscriptionId, to);
@@ -470,14 +470,15 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
       // Check that request has exceeded allowed request time
       if (block.timestamp < request.timeoutTimestamp) {
-        revert ConsumerRequestsInFlight();
+        revert TimeoutNotExceeded();
       }
 
+      // Notify the Coordinator that the request should no longer be fulfilled
       IFunctionsBilling(request.coordinator).deleteCommitment(requestId);
-      // Release blocked balance
+      // Release the subscription's balance that had been earmarked for the request
       s_subscriptions[subscriptionId].blockedBalance -= request.estimatedTotalCostJuels;
       s_consumers[request.client][subscriptionId].completedRequests += 1;
-      // Delete commitment
+      // Delete commitment within Router state
       delete s_requestCommitments[requestId];
 
       emit RequestTimedOut(requestId);

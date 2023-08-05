@@ -14,6 +14,7 @@ import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/u
 import {Pausable} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
 
 contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, ITypeAndVersion, ConfirmedOwner {
+  using FunctionsResponse for FunctionsResponse.RequestMeta;
   using FunctionsResponse for FunctionsResponse.Commitment;
   using FunctionsResponse for FunctionsResponse.FulfillResult;
 
@@ -55,6 +56,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     FunctionsResponse.FulfillResult resultCode
   );
 
+  error EmptyRequestData();
   error OnlyCallableFromCoordinator();
   error SenderMustAcceptTermsOfService(address sender);
   error InvalidGasFlagValue(uint8 value);
@@ -225,17 +227,24 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     _isAllowedConsumer(msg.sender, subscriptionId);
     isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
 
+    if (data.length == 0) {
+      revert EmptyRequestData();
+    }
+
+Subscription memory subscription = getSubscription(subscriptionId);
+
     // Forward request to DON
-    FunctionsResponse.Commitment memory commitment = coordinator.sendRequest(
-      IFunctionsCoordinator.Request({
+    FunctionsResponse.Commitment memory commitment = coordinator.startRequest(
+      FunctionsResponse.RequestMeta({
         requestingContract: msg.sender,
-        subscriptionOwner: s_subscriptions[subscriptionId].owner,
         data: data,
         subscriptionId: subscriptionId,
         dataVersion: dataVersion,
         flags: getFlags(subscriptionId),
         callbackGasLimit: callbackGasLimit,
-        adminFee: s_config.adminFee
+        adminFee: s_config.adminFee,
+        consumer: getConsumer(msg.sender, subscriptionId),
+        subscription: subscription
       })
     );
 
@@ -264,7 +273,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       requestId: commitment.requestId,
       donId: donId,
       subscriptionId: subscriptionId,
-      subscriptionOwner: s_subscriptions[subscriptionId].owner,
+      subscriptionOwner: subscription.owner,
       requestingContract: msg.sender,
       requestInitiator: tx.origin,
       data: data,
@@ -319,7 +328,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       uint96 totalCostJuels = commitment.adminFee + costWithoutCallback + callbackCost;
 
       // Check that the subscription can still afford to fulfill the request
-      if (totalCostJuels > s_subscriptions[commitment.subscriptionId].balance) {
+      if (totalCostJuels > getSubscription(commitment.subscriptionId).balance) {
         resultCode = FunctionsResponse.FulfillResult.SUBSCRIPTION_BALANCE_INVARIANT_VIOLATION;
         emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
         return (resultCode, 0);

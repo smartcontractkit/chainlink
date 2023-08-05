@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsSubscriptions} from "./interfaces/IFunctionsSubscriptions.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
-import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 
 import {Routable} from "./Routable.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
@@ -118,10 +116,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   // @inheritdoc IFunctionsBilling
   function getDONFee(
-    bytes memory /* requestData */,
-    RequestBilling memory /* billing */
+    bytes memory /* requestData */
   ) public view override returns (uint72) {
-    // NOTE: Optionally, compute additional fee here
+    // NOTE: Optionally, decode CBOR and compute additional fee here
     return s_config.donFee;
   }
 
@@ -167,14 +164,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     }
     uint72 adminFee = getAdminFee();
     uint72 donFee = getDONFee(
-      data,
-      RequestBilling({
-        subscriptionId: subscriptionId,
-        client: msg.sender,
-        callbackGasLimit: callbackGasLimit,
-        expectedGasPriceGwei: gasPriceGwei,
-        adminFee: adminFee
-      })
+      data
     );
     return _calculateCostEstimate(callbackGasLimit, gasPriceGwei, donFee, adminFee);
   }
@@ -212,44 +202,37 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // @param billing - Billing configuration for the request
   // @return commitment - The parameters of the request that must be held consistent at response time
   function _startBilling(
-    bytes memory data,
-    uint16 requestDataVersion,
-    RequestBilling memory billing
+    FunctionsResponse.RequestMeta memory request
   ) internal returns (FunctionsResponse.Commitment memory commitment) {
     Config memory config = s_config;
 
     // Nodes should support all past versions of the structure
-    if (requestDataVersion > config.maxSupportedRequestDataVersion) {
+    if (request.dataVersion > config.maxSupportedRequestDataVersion) {
       revert UnsupportedRequestDataVersion();
     }
 
-    // Check that subscription can afford the estimated cost
-    uint72 donFee = getDONFee(data, billing);
-    uint96 estimatedCost = _calculateCostEstimate(
-      billing.callbackGasLimit,
-      billing.expectedGasPriceGwei,
+    uint72 donFee = getDONFee(request.data);
+    uint96 estimatedTotalCostJuels = _calculateCostEstimate(
+      request.callbackGasLimit,
+      tx.gasprice,
       donFee,
-      billing.adminFee
+      request.adminFee
     );
-    IFunctionsSubscriptions routerWithSubscriptions = IFunctionsSubscriptions(address(_getRouter()));
-    IFunctionsSubscriptions.Subscription memory subscription = routerWithSubscriptions.getSubscription(
-      billing.subscriptionId
-    );
-    if ((subscription.balance - subscription.blockedBalance) < estimatedCost) {
+
+    // Check that subscription can afford the estimated cost
+    if ((request.subscription.balance - request.subscription.blockedBalance) < estimatedTotalCostJuels) {
       revert InsufficientBalance();
     }
 
-    IFunctionsSubscriptions.Consumer memory consumer = routerWithSubscriptions.getConsumer(billing.client, billing.subscriptionId);
-
-    bytes32 requestId = _computeRequestId(address(this), billing.client, billing.subscriptionId, consumer.initiatedRequests + 1);
+    bytes32 requestId = _computeRequestId(address(this), request.requestingContract, request.subscriptionId, request.consumer.initiatedRequests + 1);
 
     commitment = FunctionsResponse.Commitment({
-      adminFee: billing.adminFee,
+      adminFee: request.adminFee,
       coordinator: address(this),
-      client: billing.client,
-      subscriptionId: billing.subscriptionId,
-      callbackGasLimit: billing.callbackGasLimit,
-      estimatedTotalCostJuels: estimatedCost,
+      client: request.requestingContract,
+      subscriptionId: request.subscriptionId,
+      callbackGasLimit: request.callbackGasLimit,
+      estimatedTotalCostJuels: estimatedTotalCostJuels,
       timeoutTimestamp: uint40(block.timestamp + config.requestTimeoutSeconds),
       requestId: requestId,
       donFee: donFee,

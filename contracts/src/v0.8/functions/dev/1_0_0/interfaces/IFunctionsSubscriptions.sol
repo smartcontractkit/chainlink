@@ -52,7 +52,6 @@ interface IFunctionsSubscriptions {
   function timeoutRequests(FunctionsResponse.Commitment[] calldata requestsToTimeoutByCommitment) external;
 
   // @notice Oracle withdraw LINK earned through fulfilling requests
-  // @dev Must be called by the Coordinator contract
   // @notice If amount is 0 the full balance will be withdrawn
   // @notice Both signing and transmitting wallets will have a balance to withdraw
   // @param recipient where to send the funds
@@ -128,7 +127,8 @@ interface IFunctionsSubscriptions {
   // @dev Used to disable subscription canceling while outstanding request are present.
   function pendingRequestExists(uint64 subscriptionId) external view returns (bool);
 
-  // @notice Set flags for a given subscription.
+  // @notice Set subscription specific flags for a subscription.
+  // Each byte of the flag is used to represent a resource tier that the subscription can utilize.
   // @param subscriptionId - ID of the subscription
   // @param flags - desired flag values
   function setFlags(uint64 subscriptionId, bytes32 flags) external;

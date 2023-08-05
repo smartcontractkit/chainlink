@@ -22,6 +22,7 @@ abstract contract Routable is ITypeAndVersion {
     i_router = IOwnableFunctionsRouter(router);
   }
 
+  // @notice Return the Router
   function _getRouter() internal view returns (IOwnableFunctionsRouter router) {
     return i_router;
   }

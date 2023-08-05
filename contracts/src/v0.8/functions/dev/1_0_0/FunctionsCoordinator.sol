@@ -29,11 +29,10 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     uint16 dataVersion,
     bytes32 flags,
     uint64 callbackGasLimit,
-    bytes commitment
+    FunctionsResponse.Commitment commitment
   );
   event OracleResponse(bytes32 indexed requestId, address transmitter);
 
-  error EmptyRequestData();
   error InconsistentReportData();
   error EmptyPublicKey();
   error UnauthorizedPublicKeyChange();
@@ -126,35 +125,25 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   }
 
   // @inheritdoc IFunctionsCoordinator
-  function sendRequest(
-    Request calldata request
+  function startRequest(
+    FunctionsResponse.RequestMeta calldata request
   ) external override onlyRouter returns (FunctionsResponse.Commitment memory commitment) {
-    if (request.data.length == 0) {
-      revert EmptyRequestData();
-    }
-
-    RequestBilling memory billing = RequestBilling({
-      subscriptionId: request.subscriptionId,
-      client: request.requestingContract,
-      callbackGasLimit: request.callbackGasLimit,
-      expectedGasPriceGwei: tx.gasprice,
-      adminFee: request.adminFee
-    });
-
-    commitment = _startBilling(request.data, request.dataVersion, billing);
+    commitment = _startBilling(request);
 
     emit OracleRequest(
       commitment.requestId,
       request.requestingContract,
       tx.origin,
       request.subscriptionId,
-      request.subscriptionOwner,
+      request.subscription.owner,
       request.data,
       request.dataVersion,
       request.flags,
       request.callbackGasLimit,
-      abi.encode(commitment)
+      commitment
     );
+
+    return commitment;
   }
 
   // DON fees are pooled together. If the OCR configuration is going to change, these need to be distributed.
