@@ -56,7 +56,7 @@ export const encodeReport = async (
   const onchainMetadataBytes = functionsResponse.interface._abiCoder.encode(
     [
       functionsResponse.interface.events[
-        'OracleRequest(bytes32,address,address,uint64,address,bytes,uint16,bytes32,uint64,(uint96,address,address,uint64,uint32,uint96,uint40,bytes32,uint80,uint40,uint40))'
+        'OracleRequest(bytes32,address,address,uint64,address,bytes,uint16,bytes32,uint64,(uint72,address,address,uint64,uint32,uint96,uint40,bytes32,uint72,uint40,uint40))'
       ].inputs[9],
     ],
     [[...onchainMetadata]],
