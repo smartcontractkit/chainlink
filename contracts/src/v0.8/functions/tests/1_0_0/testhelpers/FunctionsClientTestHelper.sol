@@ -32,7 +32,7 @@ contract FunctionsClientTestHelper is FunctionsClient {
     FunctionsRequest.Request memory request;
     request.initializeRequestForInlineJavaScript(sourceCode);
     bytes memory requestData = FunctionsRequest.encodeCBOR(request);
-    requestId = _sendRequestBytes(requestData, subscriptionId, callbackGasLimit, donId);
+    requestId = _sendRequest(requestData, subscriptionId, callbackGasLimit, donId);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 

@@ -117,7 +117,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
   // @inheritdoc IFunctionsBilling
   function getDONFee(bytes memory /* requestData */) public view override returns (uint72) {
-    // NOTE: Optionally, decode CBOR and compute additional fee here
     return s_config.donFee;
   }
 
@@ -183,7 +182,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
     uint256 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
     uint256 estimatedGasReimbursement = juelsPerGas * executionGas;
-    uint72 fees = donFee + adminFee;
+    uint96 fees = donFee + adminFee;
 
     return uint96(estimatedGasReimbursement + fees);
   }
@@ -235,7 +234,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       subscriptionId: request.subscriptionId,
       callbackGasLimit: request.callbackGasLimit,
       estimatedTotalCostJuels: estimatedTotalCostJuels,
-      timeoutTimestamp: uint40(block.timestamp + config.requestTimeoutSeconds),
+      timeoutTimestamp: uint32(block.timestamp + config.requestTimeoutSeconds),
       requestId: requestId,
       donFee: donFee,
       gasOverheadBeforeCallback: config.gasOverheadBeforeCallback,

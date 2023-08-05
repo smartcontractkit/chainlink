@@ -1,6 +1,7 @@
 import { ethers } from 'hardhat'
 import { BigNumber, ContractFactory, Signer, Contract, providers } from 'ethers'
 import { Roles, getUsers } from '../../../test-helpers/setup'
+import { EventFragment } from 'ethers/lib/utils'
 
 export type FunctionsRoles = Roles & {
   subOwner: Signer
@@ -55,9 +56,11 @@ export const encodeReport = async (
   )
   const onchainMetadataBytes = functionsResponse.interface._abiCoder.encode(
     [
-      functionsResponse.interface.events[
-        'OracleRequest(bytes32,address,address,uint64,address,bytes,uint16,bytes32,uint64,(uint72,address,address,uint64,uint32,uint96,uint40,bytes32,uint72,uint40,uint40))'
-      ].inputs[9],
+      getEventInputs(
+        Object.values(functionsResponse.interface.events),
+        'OracleRequest',
+        9,
+      ),
     ],
     [[...onchainMetadata]],
   )
@@ -298,6 +301,20 @@ export function getEventArg(events: any, eventName: string, argIndex: number) {
     }
   }
   return undefined
+}
+
+export function getEventInputs(
+  events: EventFragment[],
+  eventName: string,
+  argIndex: number,
+) {
+  if (Array.isArray(events)) {
+    const event = events.find((e) => e.name.includes(eventName))
+    if (event && Array.isArray(event.inputs) && event.inputs.length > 0) {
+      return event.inputs[argIndex]
+    }
+  }
+  throw 'Not found'
 }
 
 export async function parseOracleRequestEventArgs(

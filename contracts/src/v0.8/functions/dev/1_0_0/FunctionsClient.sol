@@ -27,7 +27,7 @@ abstract contract FunctionsClient is IFunctionsClient {
   // @param subscriptionId The subscription ID that will be charged to service the request
   // @param callbackGasLimit the amount of gas that will be available for the fulfillment callback
   // @return requestId The generated request ID for this request
-  function _sendRequestBytes(
+  function _sendRequest(
     bytes memory data,
     uint64 subscriptionId,
     uint32 callbackGasLimit,

@@ -92,10 +92,10 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     uint72 adminFee;
     // The function selector that is used when calling back to the Client contract
     bytes4 handleOracleFulfillmentSelector;
-    // List of max callback gas limits used by flag with GAS_FLAG_INDEX
-    uint32[] maxCallbackGasLimits;
     // Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
     uint16 gasForCallExactCheck;
+    // List of max callback gas limits used by flag with GAS_FLAG_INDEX
+    uint32[] maxCallbackGasLimits;
   }
 
   Config private s_config;

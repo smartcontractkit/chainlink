@@ -173,7 +173,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 				{Type: uint64Type},  // SubscriptionId
 				{Type: uint32Type},  // CallbackGasLimit
 				{Type: uint96Type},  // EstimatedTotalCostJuels
-				{Type: uint40Type},  // TimeoutTimestamp
+				{Type: uint32Type},  // TimeoutTimestamp
 				{Type: bytes32Type}, // RequestId
 				{Type: uint72Type},  // DonFee
 				{Type: uint40Type},  // GasOverheadBeforeCallback

@@ -35,7 +35,7 @@ library FunctionsResponse {
     uint64 subscriptionId; //      |
     uint32 callbackGasLimit; // ---┘
     uint96 estimatedTotalCostJuels;
-    uint40 timeoutTimestamp;
+    uint32 timeoutTimestamp;
     bytes32 requestId;
     uint72 donFee;
     uint40 gasOverheadBeforeCallback;
