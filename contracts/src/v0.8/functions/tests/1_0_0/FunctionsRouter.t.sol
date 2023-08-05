@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import {IFunctionsRouter} from "../../dev/1_0_0/interfaces/IFunctionsRouter.sol";
 import {IFunctionsBilling} from "../../dev/1_0_0/interfaces/IFunctionsBilling.sol";
+import {ITermsOfServiceAllowList} from "../../dev/1_0_0/accessControl/interfaces/ITermsOfServiceAllowList.sol";
 
 import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsRouter} from "../../dev/1_0_0/FunctionsRouter.sol";
@@ -17,8 +18,6 @@ contract FunctionsRouterSetup is BaseTest {
   MockV3Aggregator internal s_linkEthFeed;
   TermsOfServiceAllowList internal s_termsOfServiceAllowList;
 
-  uint16 internal s_timelockBlocks = 0;
-  uint16 internal s_maximumTimelockBlocks = 20;
   uint16 internal s_maxConsumersPerSubscription = 100;
   uint96 internal s_adminFee = 561724823;
   bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
@@ -29,18 +28,18 @@ contract FunctionsRouterSetup is BaseTest {
 
   function setUp() public virtual override {
     BaseTest.setUp();
-    s_functionsRouter = new FunctionsRouter(s_timelockBlocks, s_maximumTimelockBlocks, s_linkToken, getRouterConfig());
+    s_functionsRouter = new FunctionsRouter(s_linkToken, getRouterConfig());
     s_linkEthFeed = new MockV3Aggregator(0, LINK_ETH_RATE);
 
     s_termsOfServiceAllowList = new TermsOfServiceAllowList(address(s_functionsRouter), getTermsOfServiceConfig());
   }
 
-  function getRouterConfig() public view returns (IFunctionsRouter.Config memory) {
+  function getRouterConfig() public view returns (FunctionsRouter.Config memory) {
     uint32[] memory maxCallbackGasLimits = new uint32[](1);
     maxCallbackGasLimits[0] = type(uint32).max;
 
     return
-      IFunctionsRouter.Config({
+      FunctionsRouter.Config({
         maxConsumersPerSubscription: s_maxConsumersPerSubscription,
         adminFee: s_adminFee,
         handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
@@ -48,37 +47,23 @@ contract FunctionsRouterSetup is BaseTest {
       });
   }
 
-  function getCoordinatorConfig() public pure returns (bytes memory) {
-    IFunctionsBilling.Config memory billingConfig = IFunctionsBilling.Config({
-      maxCallbackGasLimit: 5,
-      feedStalenessSeconds: 5,
-      gasOverheadAfterCallback: 5,
-      gasOverheadBeforeCallback: 5,
-      requestTimeoutSeconds: 1,
-      donFee: 5,
-      maxSupportedRequestDataVersion: 5,
-      fulfillmentGasPriceOverEstimationBP: 5,
-      fallbackNativePerUnitLink: 2874
-    });
-
+  function getCoordinatorConfig() public pure returns (FunctionsBilling.Config memory) {
     return
-      abi.encode(
-        billingConfig.maxCallbackGasLimit,
-        billingConfig.feedStalenessSeconds,
-        billingConfig.gasOverheadBeforeCallback,
-        billingConfig.gasOverheadAfterCallback,
-        billingConfig.requestTimeoutSeconds,
-        billingConfig.donFee,
-        billingConfig.maxSupportedRequestDataVersion,
-        billingConfig.fulfillmentGasPriceOverEstimationBP,
-        billingConfig.fallbackNativePerUnitLink
-      );
+      FunctionsBilling.Config({
+        maxCallbackGasLimit: 5,
+        feedStalenessSeconds: 5,
+        gasOverheadAfterCallback: 5,
+        gasOverheadBeforeCallback: 5,
+        requestTimeoutSeconds: 1,
+        donFee: 5,
+        maxSupportedRequestDataVersion: 5,
+        fulfillmentGasPriceOverEstimationBP: 5,
+        fallbackNativePerUnitLink: 2874
+      });
   }
 
-  function getTermsOfServiceConfig() public pure returns (bytes memory) {
-    bool enabled = false;
-    address proofSignerPublicKey = address(132);
-    return abi.encode(enabled, proofSignerPublicKey);
+  function getTermsOfServiceConfig() public pure returns (TermsOfServiceAllowList.Config memory) {
+    return TermsOfServiceAllowList.Config({enabled: false, signerPublicKey: address(132)});
   }
 }
 

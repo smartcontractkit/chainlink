@@ -3,33 +3,52 @@ import {
   getSetupFactory,
   FunctionsContracts,
   functionsRouterConfig,
+  FunctionsRoles,
 } from './utils'
 
 const setup = getSetupFactory()
 let contracts: FunctionsContracts
+let roles: FunctionsRoles
 
 beforeEach(async () => {
-  ;({ contracts } = setup())
+  ;({ contracts, roles } = setup())
 })
 
 describe('Functions Router - Request lifecycle', () => {
-  describe('Getters', () => {
+  describe('Config', () => {
     it('#typeAndVersion', async () => {
       expect(await contracts.router.typeAndVersion()).to.be.equal(
         'Functions Router v1.0.0',
       )
     })
-    it('#config', async () => {
-      const config = await contracts.router.getConfig()
-      expect(config.maxConsumersPerSubscription).to.be.equal(
-        functionsRouterConfig.maxConsumersPerSubscription,
-      )
-      expect(config.adminFee).to.be.equal(functionsRouterConfig.adminFee)
-      expect(config.handleOracleFulfillmentSelector).to.be.equal(
-        functionsRouterConfig.handleOracleFulfillmentSelector,
-      )
-      expect(config.maxCallbackGasLimits.toString()).to.be.equal(
-        functionsRouterConfig.maxCallbackGasLimits.toString(),
+    it('non-owner is unable to update config', async () => {
+      await expect(
+        contracts.router
+          .connect(roles.stranger)
+          .updateConfig(functionsRouterConfig),
+      ).to.be.revertedWith('Only callable by owner')
+    })
+
+    it('owner can update config', async () => {
+      const beforeConfig = await contracts.router.getConfig()
+      await expect(
+        contracts.router.updateConfig({
+          ...functionsRouterConfig,
+          adminFee: 10,
+        }),
+      ).to.emit(contracts.router, 'ConfigUpdated')
+      const afterConfig = await contracts.router.getConfig()
+      expect(beforeConfig).to.not.equal(afterConfig)
+    })
+
+    it('returns the config set', async () => {
+      const config = await contracts.router.connect(roles.stranger).getConfig()
+      await Promise.all(
+        Object.keys(functionsRouterConfig).map((key) =>
+          expect(config[key]).to.deep.equal(
+            functionsRouterConfig[key as keyof typeof functionsRouterConfig],
+          ),
+        ),
       )
     })
   })

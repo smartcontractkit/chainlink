@@ -6,6 +6,7 @@ import {
   FunctionsRoles,
   acceptTermsOfService,
   accessControlMockPrivateKey,
+  accessControlConfig,
 } from './utils'
 
 const setup = getSetupFactory()
@@ -17,6 +18,40 @@ beforeEach(async () => {
 })
 
 describe('ToS Access Control', () => {
+  describe('Config', () => {
+    it('non-owner is unable to update config', async () => {
+      await expect(
+        contracts.accessControl
+          .connect(roles.stranger)
+          .updateConfig(accessControlConfig),
+      ).to.be.revertedWith('Only callable by owner')
+    })
+
+    it('Owner can update config', async () => {
+      const beforeConfig = await contracts.accessControl.getConfig()
+      await expect(
+        contracts.accessControl.updateConfig({
+          ...accessControlConfig,
+          enabled: false,
+        }),
+      ).to.emit(contracts.accessControl, 'ConfigUpdated')
+      const afterConfig = await contracts.accessControl.getConfig()
+      expect(beforeConfig).to.not.equal(afterConfig)
+    })
+    it('returns the config set', async () => {
+      const config = await contracts.accessControl
+        .connect(roles.stranger)
+        .getConfig()
+      await Promise.all(
+        Object.keys(accessControlConfig).map((key) => {
+          expect(config[key]).to.equal(
+            accessControlConfig[key as keyof typeof accessControlConfig],
+          )
+        }),
+      )
+    })
+  })
+
   describe('Accepting', () => {
     it('can only be done with a valid signature', async () => {
       const message = await contracts.accessControl.getMessage(

@@ -3,18 +3,17 @@ pragma solidity ^0.8.19;
 
 import {FunctionsResponse} from "../libraries/FunctionsResponse.sol";
 
-// @title Chainlink Functions oracle interface.
-
+// @title Chainlink Functions Coordinator interface.
 interface IFunctionsCoordinator {
   struct Request {
     address requestingContract; // The client contract that is sending the request
-    address subscriptionOwner; // The owner of the subscription
-    bytes data; // Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
-    uint64 subscriptionId; // Identifier of the subscription that will be charged for the request
-    uint16 dataVersion; // The version of the structure of the encoded data
-    bytes32 flags; // Per-subscription flags
-    uint32 callbackGasLimit; // The amount of gas that the callback to the consuming contract can utilize
-    uint96 adminFee; // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
+    address subscriptionOwner; // The owner of the billing subscription
+    bytes data; // Encoded Chainlink Functions request data, use FunctionsRequest library to encode a request
+    uint64 subscriptionId; // Identifier of the billing subscription that will be charged for the request
+    uint16 dataVersion; // The version of the structure of the CBOR encoded request data
+    bytes32 flags; // Per-subscription account flags
+    uint32 callbackGasLimit; // The amount of gas that the callback to the consuming contract will be given
+    uint96 adminFee; // Flat fee (in Juels of LINK) that will be paid to the Router Owner for operation of the network
   }
 
   // @notice Returns the DON's threshold encryption public key used to encrypt secrets

@@ -44,7 +44,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
   constructor(
     address router,
-    bytes memory config,
+    Config memory config,
     address linkToNativeFeed
   ) OCR2Base(true) FunctionsBilling(router, config, linkToNativeFeed) {}
 
@@ -133,11 +133,11 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       revert EmptyRequestData();
     }
 
-    RequestBilling memory billing = IFunctionsBilling.RequestBilling({
+    RequestBilling memory billing = RequestBilling({
       subscriptionId: request.subscriptionId,
       client: request.requestingContract,
       callbackGasLimit: request.callbackGasLimit,
-      expectedGasPrice: tx.gasprice,
+      expectedGasPriceGwei: tx.gasprice,
       adminFee: request.adminFee
     });
 
