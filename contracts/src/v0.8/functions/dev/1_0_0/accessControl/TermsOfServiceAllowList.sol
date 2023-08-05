@@ -5,16 +5,13 @@ import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.so
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
 import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
 
-import {Routable} from "../Routable.sol";
 import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
 
 import {Address} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
 import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
 
-/**
- * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
- */
-contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController, Routable, ConfirmedOwner {
+// @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
+contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController, ITypeAndVersion, ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.AddressSet;
 
@@ -48,7 +45,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   // |                       Initialization                         |
   // ================================================================
 
-  constructor(address router, Config memory config) Routable(router) ConfirmedOwner(msg.sender) {
+  constructor(Config memory config) ConfirmedOwner(msg.sender) {
     updateConfig(config);
   }
 
@@ -70,19 +67,15 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   }
 
   // ================================================================
-  // |                  Terms of Service methods                    |
+  // |                      Allow methods                           |
   // ================================================================
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
+  // @inheritdoc ITermsOfServiceAllowList
   function getMessage(address acceptor, address recipient) public pure override returns (bytes32) {
     return keccak256(abi.encodePacked(acceptor, recipient));
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
+  // @inheritdoc ITermsOfServiceAllowList
   function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external override {
     if (s_blockedSenders[recipient]) {
       revert RecipientIsBlocked();
@@ -109,16 +102,12 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     emit AddedAccess(recipient);
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
+  // @inheritdoc ITermsOfServiceAllowList
   function getAllAllowedSenders() external view override returns (address[] memory) {
     return s_allowedSenders.values();
   }
 
-  /**
-   * @inheritdoc IAccessController
-   */
+  // @inheritdoc IAccessController
   function hasAccess(address user, bytes calldata /* data */) external view override returns (bool) {
     if (!s_config.enabled) {
       return true;
@@ -126,9 +115,11 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     return s_allowedSenders.contains(user);
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
+  // ================================================================
+  // |                         Block methods                        |
+  // ================================================================
+
+  // @inheritdoc ITermsOfServiceAllowList
   function isBlockedSender(address sender) external view override returns (bool) {
     if (!s_config.enabled) {
       return false;
@@ -136,23 +127,15 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
     return s_blockedSenders[sender];
   }
 
-  // ================================================================
-  // |                     Owner methods                          |
-  // ================================================================
-
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
-  function blockSender(address sender) external override onlyRouterOwner {
+  // @inheritdoc ITermsOfServiceAllowList
+  function blockSender(address sender) external override onlyOwner {
     s_allowedSenders.remove(sender);
     s_blockedSenders[sender] = true;
     emit BlockedAccess(sender);
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
-  function unblockSender(address sender) external override onlyRouterOwner {
+  // @inheritdoc ITermsOfServiceAllowList
+  function unblockSender(address sender) external override onlyOwner {
     s_blockedSenders[sender] = false;
     emit UnblockedAccess(sender);
   }

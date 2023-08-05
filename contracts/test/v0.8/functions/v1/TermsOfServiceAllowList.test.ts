@@ -139,7 +139,7 @@ describe('ToS Access Control', () => {
         contracts.accessControl
           .connect(roles.stranger)
           .blockSender(roles.subOwnerAddress),
-      ).to.be.revertedWith('OnlyCallableByRouterOwner')
+      ).to.be.revertedWith('Only callable by owner')
     })
     it('removes the ability to re-accept the terms of service', async () => {
       await contracts.accessControl.blockSender(roles.subOwnerAddress)
