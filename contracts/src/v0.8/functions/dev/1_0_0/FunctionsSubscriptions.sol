@@ -43,6 +43,13 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   uint64 private s_currentSubscriptionId;
 
   mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) private s_subscriptions;
+
+  // Maintains the list of keys in s_consumers.
+  // We do this for 2 reasons:
+  // 1. To be able to clean up all keys from s_consumers when canceling a subscription.
+  // 2. To be able to return the list of all consumers in getSubscription.
+  // Note that we need the s_consumers map to be able to directly check if a
+  // consumer is valid without reading all the consumers from storage.
   mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) private s_consumers;
 
   event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
@@ -109,11 +116,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     uint96 juelsPerGas,
     uint96 gasUsed,
     uint96 costWithoutCallbackJuels
-  ) internal returns (Receipt memory receipt) {
+  ) internal returns (Receipt memory) {
     uint96 callbackGasCostJuels = juelsPerGas * gasUsed;
     uint96 totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels;
-
-    receipt = Receipt({callbackGasCostJuels: callbackGasCostJuels, totalCostJuels: totalCostJuels});
 
     // Charge the subscription
     s_subscriptions[subscriptionId].balance -= totalCostJuels;
@@ -130,7 +135,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     // Increment finished requests
     s_consumers[client][subscriptionId].completedRequests += 1;
 
-    return receipt;
+    return Receipt({callbackGasCostJuels: callbackGasCostJuels, totalCostJuels: totalCostJuels});
   }
 
   // ================================================================

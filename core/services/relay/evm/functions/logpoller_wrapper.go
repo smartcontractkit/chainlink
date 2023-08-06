@@ -167,30 +167,30 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 				continue
 			}
 			commitmentABI := abi.Arguments{
-				{Type: uint72Type},  // AdminFee
+				{Type: bytes32Type}, // RequestId
 				{Type: addressType}, // Coordinator
+				{Type: uint96Type},  // EstimatedTotalCostJuels
 				{Type: addressType}, // Client
 				{Type: uint64Type},  // SubscriptionId
 				{Type: uint32Type},  // CallbackGasLimit
-				{Type: uint96Type},  // EstimatedTotalCostJuels
-				{Type: uint32Type},  // TimeoutTimestamp
-				{Type: bytes32Type}, // RequestId
+				{Type: uint72Type},  // AdminFee
 				{Type: uint72Type},  // DonFee
 				{Type: uint40Type},  // GasOverheadBeforeCallback
 				{Type: uint40Type},  // GasOverheadAfterCallback
+				{Type: uint32Type},  // TimeoutTimestamp
 			}
 			commitmentBytes, err := commitmentABI.Pack(
-				oracleRequest.Commitment.AdminFee,
+				oracleRequest.Commitment.RequestId,
 				oracleRequest.Commitment.Coordinator,
+				oracleRequest.Commitment.EstimatedTotalCostJuels,
 				oracleRequest.Commitment.Client,
 				oracleRequest.Commitment.SubscriptionId,
 				oracleRequest.Commitment.CallbackGasLimit,
-				oracleRequest.Commitment.EstimatedTotalCostJuels,
-				oracleRequest.Commitment.TimeoutTimestamp,
-				oracleRequest.Commitment.RequestId,
+				oracleRequest.Commitment.AdminFee,
 				oracleRequest.Commitment.DonFee,
 				oracleRequest.Commitment.GasOverheadBeforeCallback,
 				oracleRequest.Commitment.GasOverheadAfterCallback,
+				oracleRequest.Commitment.TimeoutTimestamp,
 			)
 			if err != nil {
 				l.lggr.Errorw("LatestEvents: failed to pack commitment bytes, skipping", err)

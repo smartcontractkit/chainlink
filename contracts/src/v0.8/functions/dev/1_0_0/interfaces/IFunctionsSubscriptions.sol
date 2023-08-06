@@ -6,25 +6,18 @@ import {FunctionsResponse} from "../libraries/FunctionsResponse.sol";
 // @title Chainlink Functions Subscription interface.
 interface IFunctionsSubscriptions {
   struct Subscription {
-    // There are only 1e9*1e18 = 1e27 juels in existence, so the balance can fit in uint96 (2^96 ~ 7e28)
-    uint96 balance; // Common LINK balance that is controlled by the Router to be used for all consumer requests.
-    address owner; // Owner can fund/withdraw/cancel the sub.
-    uint96 blockedBalance; // LINK balance that is reserved to pay for pending consumer requests.
-    address proposedOwner; // For safely transferring sub ownership.
-    // Maintains the list of keys in s_consumers.
-    // We do this for 2 reasons:
-    // 1. To be able to clean up all keys from s_consumers when canceling a subscription.
-    // 2. To be able to return the list of all consumers in getSubscription.
-    // Note that we need the s_consumers map to be able to directly check if a
-    // consumer is valid without reading all the consumers from storage.
-    address[] consumers; // Client contracts that can use the subscription
-    bytes32 flags; // Per-subscription flags.
+    uint96 balance; // ═════════╗ Common LINK balance that is controlled by the Router to be used for all consumer requests.
+    address owner; // ══════════╝ The owner can fund/withdraw/cancel the subscription.
+    uint96 blockedBalance; // ══╗ LINK balance that is reserved to pay for pending consumer requests.
+    address proposedOwner; // ══╝ For safely transferring sub ownership.
+    address[] consumers; // ════╸ Client contracts that can use the subscription
+    bytes32 flags; // ══════════╸ Per-subscription flags
   }
 
   struct Consumer {
-    bool allowed; // Owner can fund/withdraw/cancel the sub.
-    uint64 initiatedRequests; // The number of requests that have been started
-    uint64 completedRequests; // The number of requests that have successfully completed or timed out
+    bool allowed; // ══════════════╗ Owner can fund/withdraw/cancel the sub.
+    uint64 initiatedRequests; //   ║ The number of requests that have been started
+    uint64 completedRequests; // ══╝ The number of requests that have successfully completed or timed out
   }
 
   // @notice Get details about a subscription.
