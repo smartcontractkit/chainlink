@@ -42,8 +42,8 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // loop through all the current subscriptions via .getSubscription().
   uint64 private s_currentSubscriptionId;
 
-  mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) internal s_subscriptions;
-  mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) internal s_consumers;
+  mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) private s_subscriptions;
+  mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) private s_consumers;
 
   event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
   event SubscriptionFunded(uint64 indexed subscriptionId, uint256 oldBalance, uint256 newBalance);
@@ -53,17 +53,16 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   event SubscriptionOwnerTransferRequested(uint64 indexed subscriptionId, address from, address to);
   event SubscriptionOwnerTransferred(uint64 indexed subscriptionId, address from, address to);
 
-  error TooManyConsumers();
-  error InsufficientBalance();
+  error TooManyConsumers(uint16 maximumConsumers);
+  error InsufficientBalance(uint96 currentBalanceJuels);
   error InvalidConsumer();
-  error ConsumerRequestsInFlight();
+  error CannotRemoveWithPendingRequests();
   error InvalidSubscription();
   error OnlyCallableFromLink();
   error InvalidCalldata();
   error MustBeSubscriptionOwner();
-  error PendingRequestExists();
+  error TimeoutNotExceeded();
   error MustBeProposedOwner(address proposedOwner);
-  error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
 
   // ================================================================
@@ -141,7 +140,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // @inheritdoc IFunctionsSubscriptions
   function ownerCancelSubscription(uint64 subscriptionId) external override {
     _onlyRouterOwner();
-    _isValidSubscription(subscriptionId);
+    _isExistingSubscription(subscriptionId);
     _cancelSubscriptionHelper(subscriptionId, s_subscriptions[subscriptionId].owner);
   }
 
@@ -150,9 +149,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlyRouterOwner();
     uint256 externalBalance = IERC20(i_linkToken).balanceOf(address(this));
     uint256 internalBalance = uint256(s_totalLinkBalance);
-    if (internalBalance > externalBalance) {
-      revert BalanceInvariantViolated(internalBalance, externalBalance);
-    }
     if (internalBalance < externalBalance) {
       uint256 amount = externalBalance - internalBalance;
       IERC20(i_linkToken).safeTransfer(to, amount);
@@ -172,8 +168,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     if (amount == 0) {
       revert InvalidCalldata();
     }
-    if (s_withdrawableTokens[msg.sender] < amount) {
-      revert InsufficientBalance();
+    uint96 currentBalance = s_withdrawableTokens[msg.sender];
+    if (currentBalance < amount) {
+      revert InsufficientBalance(currentBalance);
     }
     s_withdrawableTokens[msg.sender] -= amount;
     s_totalLinkBalance -= amount;
@@ -189,8 +186,9 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     if (amount == 0) {
       amount = s_withdrawableTokens[address(this)];
     }
-    if (s_withdrawableTokens[address(this)] < amount) {
-      revert InsufficientBalance();
+    uint96 currentBalance = s_withdrawableTokens[address(this)];
+    if (currentBalance < amount) {
+      revert InsufficientBalance(currentBalance);
     }
     s_withdrawableTokens[address(this)] -= amount;
     s_totalLinkBalance -= amount;
@@ -203,6 +201,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // ================================================================
 
   // This function is to be invoked when using LINK.transferAndCall
+  // @dev Note to fund the subscription, use transferAndCall. For example
+  // @dev  LINKTOKEN.transferAndCall(
+  // @dev    address(ROUTER),
+  // @dev    amount,
+  // @dev    abi.encode(subscriptionId));
   function onTokenTransfer(address /* sender */, uint256 amount, bytes calldata data) external override {
     _whenNotPaused();
     if (msg.sender != address(i_linkToken)) {
@@ -224,7 +227,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   }
 
   // ================================================================
-  // |                   Subscriptions management                   |
+  // |                   Subscription management                   |
   // ================================================================
 
   // @inheritdoc IFunctionsSubscriptions
@@ -238,30 +241,25 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   }
 
   // @inheritdoc IFunctionsSubscriptions
-  function getSubscription(uint64 subscriptionId) external view override returns (Subscription memory) {
-    _isValidSubscription(subscriptionId);
+  function getSubscription(uint64 subscriptionId) public view override returns (Subscription memory) {
+    _isExistingSubscription(subscriptionId);
     return s_subscriptions[subscriptionId];
   }
 
   // @inheritdoc IFunctionsSubscriptions
-  function getConsumer(
-    address client,
-    uint64 subscriptionId
-  ) external view override returns (bool allowed, uint64 initiatedRequests, uint64 completedRequests) {
-    allowed = s_consumers[client][subscriptionId].allowed;
-    initiatedRequests = s_consumers[client][subscriptionId].initiatedRequests;
-    completedRequests = s_consumers[client][subscriptionId].completedRequests;
+  function getConsumer(address client, uint64 subscriptionId) public view override returns (Consumer memory) {
+    return s_consumers[client][subscriptionId];
   }
 
   // Used within this file & FunctionsRouter.sol
-  function _isValidSubscription(uint64 subscriptionId) internal view {
+  function _isExistingSubscription(uint64 subscriptionId) internal view {
     if (s_subscriptions[subscriptionId].owner == address(0)) {
       revert InvalidSubscription();
     }
   }
 
   // Used within FunctionsRouter.sol
-  function _isValidConsumer(address client, uint64 subscriptionId) internal view {
+  function _isAllowedConsumer(address client, uint64 subscriptionId) internal view {
     if (!s_consumers[client][subscriptionId].allowed) {
       revert InvalidConsumer();
     }
@@ -288,17 +286,41 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   }
 
   // @inheritdoc IFunctionsSubscriptions
+  function createSubscriptionWithConsumer(address consumer) external override returns (uint64 subscriptionId) {
+    _whenNotPaused();
+    _onlySenderThatAcceptedToS();
+
+    subscriptionId = ++s_currentSubscriptionId;
+    s_subscriptions[subscriptionId] = Subscription({
+      balance: 0,
+      blockedBalance: 0,
+      owner: msg.sender,
+      proposedOwner: address(0),
+      consumers: new address[](0),
+      flags: bytes32(0)
+    });
+
+    s_subscriptions[subscriptionId].consumers.push(consumer);
+    s_consumers[consumer][subscriptionId].allowed = true;
+
+    emit SubscriptionCreated(subscriptionId, msg.sender);
+    emit SubscriptionConsumerAdded(subscriptionId, consumer);
+
+    return subscriptionId;
+  }
+
+  // @inheritdoc IFunctionsSubscriptions
   function proposeSubscriptionOwnerTransfer(uint64 subscriptionId, address newOwner) external override {
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
     _onlySenderThatAcceptedToS();
 
-    // Proposing to address(0) would never be claimable, so don't need to check.
-
-    if (s_subscriptions[subscriptionId].proposedOwner != newOwner) {
-      s_subscriptions[subscriptionId].proposedOwner = newOwner;
-      emit SubscriptionOwnerTransferRequested(subscriptionId, msg.sender, newOwner);
+    if (newOwner == address(0) || s_subscriptions[subscriptionId].proposedOwner == newOwner) {
+      revert InvalidCalldata();
     }
+
+    s_subscriptions[subscriptionId].proposedOwner = newOwner;
+    emit SubscriptionOwnerTransferRequested(subscriptionId, msg.sender, newOwner);
   }
 
   // @inheritdoc IFunctionsSubscriptions
@@ -327,7 +349,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
       revert InvalidConsumer();
     }
     if (consumerData.initiatedRequests != consumerData.completedRequests) {
-      revert ConsumerRequestsInFlight();
+      revert CannotRemoveWithPendingRequests();
     }
     // Note bounded by config.maxConsumers
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
@@ -354,14 +376,16 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlySenderThatAcceptedToS();
 
     // Already maxed, cannot add any more consumers.
-    if (s_subscriptions[subscriptionId].consumers.length == _getMaxConsumers()) {
-      revert TooManyConsumers();
+    uint16 maximumConsumers = _getMaxConsumers();
+    if (s_subscriptions[subscriptionId].consumers.length == maximumConsumers) {
+      revert TooManyConsumers(maximumConsumers);
     }
     if (s_consumers[consumer][subscriptionId].allowed) {
       // Idempotence - do nothing if already added.
       // Ensures uniqueness in s_subscriptions[subscriptionId].consumers.
       return;
     }
+
     s_consumers[consumer][subscriptionId].allowed = true;
     s_subscriptions[subscriptionId].consumers.push(consumer);
 
@@ -375,7 +399,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlySenderThatAcceptedToS();
 
     if (pendingRequestExists(subscriptionId)) {
-      revert PendingRequestExists();
+      revert CannotRemoveWithPendingRequests();
     }
 
     _cancelSubscriptionHelper(subscriptionId, to);
@@ -384,7 +408,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   function _cancelSubscriptionHelper(uint64 subscriptionId, address to) private {
     Subscription memory subscription = s_subscriptions[subscriptionId];
     uint96 balance = subscription.balance;
-    // Note bounded by config.maxConsumers
+    // NOTE: loop iterations are bounded by config.maxConsumers
     // If no consumers, does nothing.
     for (uint256 i = 0; i < subscription.consumers.length; ++i) {
       delete s_consumers[subscription.consumers[i]][subscriptionId];
@@ -400,7 +424,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // @inheritdoc IFunctionsSubscriptions
   function pendingRequestExists(uint64 subscriptionId) public view override returns (bool) {
     address[] memory consumers = s_subscriptions[subscriptionId].consumers;
-    // Iterations will not exceed config.maxConsumers
+    // NOTE: loop iterations are bounded by config.maxConsumers
     for (uint256 i = 0; i < consumers.length; ++i) {
       Consumer memory consumer = s_consumers[consumers[i]][subscriptionId];
       if (consumer.initiatedRequests != consumer.completedRequests) {
@@ -413,7 +437,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // @inheritdoc IFunctionsSubscriptions
   function setFlags(uint64 subscriptionId, bytes32 flags) external override {
     _onlyRouterOwner();
-    _isValidSubscription(subscriptionId);
+    _isExistingSubscription(subscriptionId);
     s_subscriptions[subscriptionId].flags = flags;
   }
 
@@ -442,14 +466,15 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
       // Check that request has exceeded allowed request time
       if (block.timestamp < request.timeoutTimestamp) {
-        revert ConsumerRequestsInFlight();
+        revert TimeoutNotExceeded();
       }
 
+      // Notify the Coordinator that the request should no longer be fulfilled
       IFunctionsBilling(request.coordinator).deleteCommitment(requestId);
-      // Release blocked balance
+      // Release the subscription's balance that had been earmarked for the request
       s_subscriptions[subscriptionId].blockedBalance -= request.estimatedTotalCostJuels;
       s_consumers[request.client][subscriptionId].completedRequests += 1;
-      // Delete commitment
+      // Delete commitment within Router state
       delete s_requestCommitments[requestId];
 
       emit RequestTimedOut(requestId);

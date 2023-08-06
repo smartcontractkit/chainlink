@@ -14,7 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -172,23 +171,6 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	b := backends.NewSimulatedBackend(genesisData, gasLimit)
 	b.Commit()
 
-	// Initialize types
-	uint16Type, err := abi.NewType("uint16", "uint16", nil)
-	require.NoError(t, err)
-	uint32Type, err := abi.NewType("uint32", "uint32", nil)
-	require.NoError(t, err)
-	uint80Type, err := abi.NewType("uint80", "uint80", nil)
-	require.NoError(t, err)
-	uint256Type, err := abi.NewType("uint256", "uint256", nil)
-	require.NoError(t, err)
-	int256Type, err := abi.NewType("int256", "int256", nil)
-	require.NoError(t, err)
-	require.NoError(t, err)
-	boolType, err := abi.NewType("bool", "bool", nil)
-	require.NoError(t, err)
-	addressType, err := abi.NewType("address", "address", nil)
-	require.NoError(t, err)
-
 	// Deploy LINK token
 	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(owner, b)
 	require.NoError(t, err)
@@ -198,65 +180,43 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	require.NoError(t, err)
 
 	// Deploy Router contract
-	var maxConsumers = uint16(100)
-	var adminFee = big.NewInt(0)
 	handleOracleFulfillmentSelectorSlice, err := hex.DecodeString("0ca76175")
 	require.NoError(t, err)
 	var handleOracleFulfillmentSelector [4]byte
 	copy(handleOracleFulfillmentSelector[:], handleOracleFulfillmentSelectorSlice[:4])
-	maxCallbackGasLimits := []uint32{300_000, 500_000, 1_000_000}
-	require.NoError(t, err)
-	var timelockBlocks = uint16(0)
-	var maximumTimelockBlocks = uint16(10)
-	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b, timelockBlocks, maximumTimelockBlocks, linkAddr, functions_router.IFunctionsRouterConfig{maxConsumers, adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits})
+	functionsRouterConfig := functions_router.FunctionsRouterConfig{
+		MaxConsumersPerSubscription:     uint16(100),
+		AdminFee:                        big.NewInt(0),
+		HandleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
+		MaxCallbackGasLimits:            []uint32{300_000, 500_000, 1_000_000},
+		GasForCallExactCheck:            5000,
+	}
+	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b, linkAddr, functionsRouterConfig)
 	require.NoError(t, err)
 
 	// Deploy Allow List contract
-	allowListConfigABI := abi.Arguments{
-		{Type: boolType},    // enabled
-		{Type: addressType}, // proofSignerPublicKey
-	}
-	var enabled = false // TODO: true
 	privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
 	proofSignerPublicKey := crypto.PubkeyToAddress(privateKey.PublicKey)
 	require.NoError(t, err)
-	allowListConfig, err := allowListConfigABI.Pack(enabled, proofSignerPublicKey)
-	require.NoError(t, err)
-	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, routerAddress, allowListConfig)
+	allowListConfig := functions_allow_list.TermsOfServiceAllowListConfig{
+		Enabled:         false, // TODO: true
+		SignerPublicKey: proofSignerPublicKey,
+	}
+	allowListAddress, _, allowListContract, err := functions_allow_list.DeployTermsOfServiceAllowList(owner, b, allowListConfig)
 	require.NoError(t, err)
 
-	// Deploy Coordinator contract (matches _updateConfig() in FunctionsBilling.sol)
-	coordinatorConfigABI := abi.Arguments{
-		{Type: uint32Type},  // maxCallbackGasLimit
-		{Type: uint32Type},  // feedStalenessSeconds
-		{Type: uint32Type},  // gasOverheadBeforeCallback
-		{Type: uint32Type},  // gasOverheadAfterCallback
-		{Type: uint32Type},  // requestTimeoutSeconds
-		{Type: uint80Type},  // donFee
-		{Type: uint16Type},  // maxSupportedRequestDataVersion
-		{Type: uint256Type}, // fulfillmentGasPriceOverEstimationBP
-		{Type: int256Type},  // fallbackNativePerUnitLink
+	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)
+	coordinatorConfig := functions_coordinator.FunctionsBillingConfig{
+		MaxCallbackGasLimit:                 uint32(450_000),
+		FeedStalenessSeconds:                uint32(86_400),
+		GasOverheadBeforeCallback:           uint32(325_000),
+		GasOverheadAfterCallback:            uint32(50_000),
+		RequestTimeoutSeconds:               uint32(300),
+		DonFee:                              big.NewInt(0),
+		MaxSupportedRequestDataVersion:      uint16(1),
+		FulfillmentGasPriceOverEstimationBP: uint32(6_600),
+		FallbackNativePerUnitLink:           big.NewInt(5_000_000_000_000_000),
 	}
-	var maxCallbackGasLimit = uint32(450_000)
-	var feedStalenessSeconds = uint32(86_400)
-	var gasOverheadBeforeCallback = uint32(325_000)
-	var gasOverheadAfterCallback = uint32(50_000)
-	var requestTimeoutSeconds = uint32(300)
-	var donFee = big.NewInt(0)
-	var maxSupportedRequestDataVersion = uint16(1)
-	var fulfillmentGasPriceOverEstimationBP = big.NewInt(6_600)
-	var fallbackNativePerUnitLink = big.NewInt(5_000_000_000_000_000)
-	coordinatorConfig, err := coordinatorConfigABI.Pack(
-		maxCallbackGasLimit,
-		feedStalenessSeconds,
-		gasOverheadBeforeCallback,
-		gasOverheadAfterCallback,
-		requestTimeoutSeconds,
-		donFee,
-		maxSupportedRequestDataVersion,
-		fulfillmentGasPriceOverEstimationBP,
-		fallbackNativePerUnitLink,
-	)
 	require.NoError(t, err)
 	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr)
 	require.NoError(t, err)
