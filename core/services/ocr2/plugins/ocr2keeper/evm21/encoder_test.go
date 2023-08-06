@@ -318,7 +318,7 @@ func decode(packer *evmRegistryPackerV2_1, raw []byte) ([]ocr2keepers.UpkeepResu
 	res := make([]ocr2keepers.UpkeepResult, len(report.UpkeepIds))
 
 	for i := 0; i < len(report.UpkeepIds); i++ {
-		trigger, err := packer.UnpackTrigger(report.UpkeepIds[i], report.Triggers[i])
+		trigger, err := core.UnpackTrigger(report.UpkeepIds[i], report.Triggers[i])
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
 		}

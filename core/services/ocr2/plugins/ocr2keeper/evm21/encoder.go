@@ -113,7 +113,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			// no special handling here for conditional triggers
 		}
 
-		trigger, err := enc.packer.PackTrigger(id, triggerW)
+		trigger, err := core.PackTrigger(id, triggerW)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to pack trigger", err)
 		}
@@ -137,7 +137,7 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 	}
 	reportedUpkeeps := make([]ocr2keepers.ReportedUpkeep, len(report.UpkeepIds))
 	for i, upkeepId := range report.UpkeepIds {
-		triggerW, err := enc.packer.UnpackTrigger(upkeepId, report.Triggers[i])
+		triggerW, err := core.UnpackTrigger(upkeepId, report.Triggers[i])
 		if err != nil {
 			// TODO: log error and continue instead?
 			return nil, fmt.Errorf("%w: failed to unpack trigger", err)

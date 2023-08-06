@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 // enum UpkeepFailureReason is defined by https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/dev/automation/2_1/interfaces/AutomationRegistryInterface2_1.sol#L97
@@ -142,75 +141,6 @@ func (rp *evmRegistryPackerV2_1) UnpackLogTriggerConfig(raw []byte) (automation_
 		return cfg, fmt.Errorf("failed to convert type")
 	}
 	return *converted, nil
-}
-
-// PackTrigger packs the trigger into the format expected by the contract,
-// according to the upkeep type of the given id.
-func (rp *evmRegistryPackerV2_1) PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
-	var trigger []byte
-	var err error
-	upkeepType := core.GetUpkeepType(id.Bytes())
-	switch upkeepType {
-	case core.ConditionTrigger:
-		trig := automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger{
-			BlockNum:  trig.BlockNum,
-			BlockHash: trig.BlockHash,
-		}
-		trigger, err = rp.utilsAbi.Pack("_conditionalTrigger", &trig)
-	case core.LogTrigger:
-		logTrig := automation_utils_2_1.KeeperRegistryBase21LogTrigger{
-			BlockNum:  trig.BlockNum,
-			BlockHash: trig.BlockHash,
-			LogIndex:  trig.LogIndex,
-			TxHash:    trig.TxHash,
-		}
-		trigger, err = rp.utilsAbi.Pack("_logTrigger", &logTrig)
-	default:
-		err = fmt.Errorf("unknown trigger type: %d", upkeepType)
-	}
-	if err != nil {
-		return nil, err
-	}
-	return trigger[4:], nil
-}
-
-// UnpackTrigger unpacks the trigger from the given raw data, according to the upkeep type of the given id.
-func (rp *evmRegistryPackerV2_1) UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
-	upkeepType := core.GetUpkeepType(id.Bytes())
-	switch upkeepType {
-	case core.ConditionTrigger:
-		unpacked, err := rp.utilsAbi.Methods["_conditionalTrigger"].Inputs.Unpack(raw)
-		if err != nil {
-			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack conditional trigger", err)
-		}
-		converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)).(*automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)
-		if !ok {
-			return triggerWrapper{}, fmt.Errorf("failed to convert type")
-		}
-		triggerW := triggerWrapper{
-			BlockNum: converted.BlockNum,
-		}
-		copy(triggerW.BlockHash[:], converted.BlockHash[:])
-		return triggerW, nil
-	case core.LogTrigger:
-		unpacked, err := rp.utilsAbi.Methods["_logTrigger"].Inputs.Unpack(raw)
-		if err != nil {
-			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack log trigger", err)
-		}
-		converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21LogTrigger)).(*automation_utils_2_1.KeeperRegistryBase21LogTrigger)
-		if !ok {
-			return triggerWrapper{}, fmt.Errorf("failed to convert type")
-		}
-		triggerW := triggerWrapper{
-			BlockNum: converted.BlockNum,
-			LogIndex: converted.LogIndex,
-		}
-		copy(triggerW.BlockHash[:], converted.BlockHash[:])
-		copy(triggerW.TxHash[:], converted.TxHash[:])
-		return triggerW, nil
-	default:
-		return triggerWrapper{}, fmt.Errorf("unknown trigger type: %d", upkeepType)
-	}
 }
 
 // PackReport packs the report with abi definitions from the contract.

@@ -55,3 +55,48 @@ func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 	}
 	return trigger[4:], nil
 }
+
+// UnpackTrigger unpacks the trigger from the given raw data, according to the upkeep type of the given id.
+func UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
+	// construct utils abi
+	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
+	if err != nil {
+		return triggerWrapper{}, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+	}
+
+	upkeepType := GetUpkeepType(id.Bytes())
+	switch upkeepType {
+	case ConditionTrigger:
+		unpacked, err := utilsABI.Methods["_conditionalTrigger"].Inputs.Unpack(raw)
+		if err != nil {
+			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack conditional trigger", err)
+		}
+		converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)).(*automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger)
+		if !ok {
+			return triggerWrapper{}, fmt.Errorf("failed to convert type")
+		}
+		triggerW := triggerWrapper{
+			BlockNum: converted.BlockNum,
+		}
+		copy(triggerW.BlockHash[:], converted.BlockHash[:])
+		return triggerW, nil
+	case LogTrigger:
+		unpacked, err := utilsABI.Methods["_logTrigger"].Inputs.Unpack(raw)
+		if err != nil {
+			return triggerWrapper{}, fmt.Errorf("%w: failed to unpack log trigger", err)
+		}
+		converted, ok := abi.ConvertType(unpacked[0], new(automation_utils_2_1.KeeperRegistryBase21LogTrigger)).(*automation_utils_2_1.KeeperRegistryBase21LogTrigger)
+		if !ok {
+			return triggerWrapper{}, fmt.Errorf("failed to convert type")
+		}
+		triggerW := triggerWrapper{
+			BlockNum: converted.BlockNum,
+			LogIndex: converted.LogIndex,
+		}
+		copy(triggerW.BlockHash[:], converted.BlockHash[:])
+		copy(triggerW.TxHash[:], converted.TxHash[:])
+		return triggerW, nil
+	default:
+		return triggerWrapper{}, fmt.Errorf("unknown trigger type: %d", upkeepType)
+	}
+}
