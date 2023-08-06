@@ -1,7 +1,6 @@
 package core
 
 import (
-	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -32,8 +31,9 @@ func UpkeepWorkID(id *big.Int, trigger ocr2keepers.Trigger) (string, error) {
 		return "", err
 	}
 
+	// TODO (auto-4314): Ensure it works with conditionals and add unit tests
 	combined := fmt.Sprintf("%s%s", id, extensionBytes)
-	hash := md5.Sum([]byte(combined))
+	hash := crypto.Keccak256([]byte(combined))
 	return hex.EncodeToString(hash[:]), nil
 }
 
