@@ -25,10 +25,7 @@ func TestTriggerID(t *testing.T) {
 		t.Fatalf("Error decoding hex string: %s", err)
 	}
 
-	res, err := UpkeepTriggerID(&upkeepID, triggerBytes)
-	if err != nil {
-		t.Fatalf("Error calculating UpkeepTriggerID: %s", err)
-	}
+	res := UpkeepTriggerID(&upkeepID, triggerBytes)
 
 	expectedResult := "fe466794c97e8b54ca25b696ff3ee448a7d03e4a82a2e45d9d84de62ef4cc260"
 	assert.Equal(t, res, expectedResult, "UpkeepTriggerID mismatch")

@@ -156,7 +156,7 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 			common.BytesToHash(triggerW.BlockHash[:]).Hex(),
 			logExt,
 		)
-		id, _ := core.UpkeepTriggerID(upkeepId, report.Triggers[i])
+		id := core.UpkeepTriggerID(upkeepId, report.Triggers[i])
 		workID, _ := core.UpkeepWorkID(upkeepId, trigger)
 		reportedUpkeeps[i] = ocr2keepers.ReportedUpkeep{
 			ID:          id,

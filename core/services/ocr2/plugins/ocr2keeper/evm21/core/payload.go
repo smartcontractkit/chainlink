@@ -14,7 +14,7 @@ import (
 
 // UpkeepTriggerID returns the identifier using the given upkeepID and trigger.
 // It follows the same logic as the contract, but performs it locally.
-func UpkeepTriggerID(id *big.Int, trigger []byte) (string, error) {
+func UpkeepTriggerID(id *big.Int, trigger []byte) string {
 	idBytes := id.Bytes()
 
 	combined := append(idBytes, trigger...)
@@ -22,7 +22,7 @@ func UpkeepTriggerID(id *big.Int, trigger []byte) (string, error) {
 	triggerIDBytes := crypto.Keccak256(combined)
 	triggerID := hex.EncodeToString(triggerIDBytes)
 
-	return triggerID, nil
+	return triggerID
 }
 
 // UpkeepWorkID returns the identifier using the given upkeepID and trigger extension(tx hash and log index).
@@ -79,7 +79,7 @@ func NewUpkeepPayload(uid *big.Int, tp int, trigger ocr2keepers.Trigger, checkDa
 	}
 
 	// set trigger id based on upkeep id and trigger
-	p.ID, _ = UpkeepTriggerID(uid, triggerBytes)
+	p.ID = UpkeepTriggerID(uid, triggerBytes)
 
 	// end
 	return p, nil
