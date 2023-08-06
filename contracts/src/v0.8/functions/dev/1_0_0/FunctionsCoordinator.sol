@@ -136,7 +136,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       request.requestingContract,
       tx.origin,
       request.subscriptionId,
-      request.subscription.owner,
+      request.subscriptionOwner,
       request.data,
       request.dataVersion,
       request.flags,

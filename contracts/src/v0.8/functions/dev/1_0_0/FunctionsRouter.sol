@@ -63,9 +63,9 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   error GasLimitTooBig(uint32 limit);
 
   struct CallbackResult {
-    bool success;
-    uint256 gasUsed;
-    bytes returnData;
+    bool success; // ══════╸ Whether the callback succeeded or not
+    uint256 gasUsed; // ═══╸ The amount of gas consumed during the callback
+    bytes returnData; // ══╸ The return of the callback function
   }
 
   // ================================================================
@@ -83,19 +83,11 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // |                    Configuration state                       |
   // ================================================================
   struct Config {
-    // Maximum number of consumers which can be added to a single subscription
-    // This bound ensures we are able to loop over all subscription consumers as needed,
-    // without exceeding gas limits.
-    // Should a user require more consumers, they can use multiple subscriptions.
-    uint16 maxConsumersPerSubscription;
-    // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
-    uint72 adminFee;
-    // The function selector that is used when calling back to the Client contract
-    bytes4 handleOracleFulfillmentSelector;
-    // Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
-    uint16 gasForCallExactCheck;
-    // List of max callback gas limits used by flag with GAS_FLAG_INDEX
-    uint32[] maxCallbackGasLimits;
+    uint16 maxConsumersPerSubscription; // ══════╗ Maximum number of consumers which can be added to a single subscription. This bound ensures we are able to loop over all subscription consumers as needed, without exceeding gas limits. Should a user require more consumers, they can use multiple subscriptions.
+    uint72 adminFee; //                          ║ Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
+    bytes4 handleOracleFulfillmentSelector; //   ║ The function selector that is used when calling back to the Client contract
+    uint16 gasForCallExactCheck; // ═════════════╝ Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
+    uint32[] maxCallbackGasLimits; // ═══════════╸ List of max callback gas limits used by flag with GAS_FLAG_INDEX
   }
 
   Config private s_config;
@@ -109,8 +101,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   uint8 private constant MAX_PROPOSAL_SET_LENGTH = 8;
 
   struct ContractProposalSet {
-    bytes32[] ids;
-    address[] to;
+    bytes32[] ids; // ══╸ The IDs that key into the routes that will be modified if the update is applied
+    address[] to; // ═══╸ The address of the contracts that the route will point to if the updated is applied
   }
   ContractProposalSet private s_proposedContractSet;
 
@@ -167,7 +159,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   }
 
   // @inheritdoc IFunctionsRouter
-  function getAdminFee() external view override returns (uint72 adminFee) {
+  function getAdminFee() external view override returns (uint72) {
     return s_config.adminFee;
   }
 
@@ -232,6 +224,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     }
 
     Subscription memory subscription = getSubscription(subscriptionId);
+    Consumer memory consumer = getConsumer(msg.sender, subscriptionId);
 
     // Forward request to DON
     FunctionsResponse.Commitment memory commitment = coordinator.startRequest(
@@ -243,8 +236,10 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
         flags: getFlags(subscriptionId),
         callbackGasLimit: callbackGasLimit,
         adminFee: s_config.adminFee,
-        consumer: getConsumer(msg.sender, subscriptionId),
-        subscription: subscription
+        initiatedRequests: consumer.initiatedRequests,
+        completedRequests: consumer.completedRequests,
+        availableBalance: subscription.balance - subscription.blockedBalance,
+        subscriptionOwner: subscription.owner
       })
     );
 
@@ -478,15 +473,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // ================================================================
 
   // @inheritdoc IRouterBase
-  function getProposedContractSet()
-    external
-    view
-    override
-    returns (uint256 timelockEndBlock, bytes32[] memory ids, address[] memory to)
-  {
-    ids = s_proposedContractSet.ids;
-    to = s_proposedContractSet.to;
-    return (timelockEndBlock, ids, to);
+  function getProposedContractSet() external view override returns (bytes32[] memory, address[] memory) {
+    return (s_proposedContractSet.ids, s_proposedContractSet.to);
   }
 
   // @inheritdoc IRouterBase
