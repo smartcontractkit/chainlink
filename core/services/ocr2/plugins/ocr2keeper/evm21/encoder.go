@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 )
 
 var (
@@ -192,12 +193,12 @@ func decodeExtensions(result *ocr2keepers.CheckResult) error {
 
 	// decode the trigger extension data if not decoded
 	switch typedExt := rC.Payload.Trigger.Extension.(type) {
-	case logprovider.LogTriggerExtension:
+	case core.LogTriggerExtension:
 		// no decoding required
 		break
 	case []byte:
-		switch getUpkeepType(result.Payload.Upkeep.ID) {
-		case logTrigger:
+		switch core.GetUpkeepType(result.Payload.Upkeep.ID) {
+		case core.LogTrigger:
 			var ext logprovider.LogTriggerExtension
 
 			// in the case of a string, the value is probably still json
@@ -207,7 +208,7 @@ func decodeExtensions(result *ocr2keepers.CheckResult) error {
 			}
 
 			result.Payload.Trigger.Extension = ext
-		case conditionTrigger:
+		case core.ConditionTrigger:
 			// no special handling for conditional triggers
 			break
 		default:
