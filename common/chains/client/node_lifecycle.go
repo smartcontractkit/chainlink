@@ -48,7 +48,7 @@ func zombieNodeCheckInterval(noNewHeadsThreshold time.Duration) time.Duration {
 	return utils.WithJitter(interval)
 }
 
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
+func (n *node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	n.stateLatestBlockNumber = blockNumber
@@ -67,7 +67,7 @@ const (
 
 // This handles node lifecycle for the ALIVE state
 // Should only be run ONCE per node, after a successful Dial
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) aliveLoop() {
+func (n *node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) aliveLoop() {
 	defer n.wg.Done()
 
 	{
@@ -217,7 +217,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	}
 }
 
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
+func (n *node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
 	outOfSync, _ = n.syncStatus(num, td)
 	return
 }
@@ -225,7 +225,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 // syncStatus returns outOfSync true if num or td is more than SyncThresold behind the best node.
 // Always returns outOfSync false for SyncThreshold 0.
 // liveNodes is only included when outOfSync is true.
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
+func (n *node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
 	if n.nLiveNodes == nil {
 		return // skip for tests
 	}
@@ -253,7 +253,7 @@ const (
 )
 
 // outOfSyncLoop takes an OutOfSync node and waits until isOutOfSync returns false to go back to live status
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
+func (n *node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
 	defer n.wg.Done()
 
 	{
@@ -335,7 +335,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	}
 }
 
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) unreachableLoop() {
+func (n *node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) unreachableLoop() {
 	defer n.wg.Done()
 
 	{
@@ -391,7 +391,7 @@ func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS,
 	}
 }
 
-func (n *node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) invalidChainIDLoop() {
+func (n *node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) invalidChainIDLoop() {
 	defer n.wg.Done()
 
 	{

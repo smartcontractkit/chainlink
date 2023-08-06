@@ -10,24 +10,23 @@ import (
 )
 
 type RPCClient[
-	CHAINID types.ID,
+	CHAIN_ID types.ID,
 	SEQ types.Sequence,
 	ADDR types.Hashable,
-	BLOCK any,
-	BLOCKHASH types.Hashable,
+	BLOCK_HASH types.Hashable,
 	TX any,
-	TXHASH types.Hashable,
+	TX_HASH types.Hashable,
 	EVENT any,
-	EVENTOPS any, // event filter query options
-	TXRECEIPT any,
+	EVENT_OPS any, // event filter query options
+	TX_RECEIPT any,
 	FEE feetypes.Fee,
-	HEAD types.Head[BLOCKHASH],
+	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
 ] interface {
 	Accounts[ADDR, SEQ]
-	Transactions[TX, TXHASH, TXRECEIPT]
-	Events[EVENT, EVENTOPS]
-	Blocks[BLOCK, BLOCKHASH]
+	Transactions[ADDR, TX, TX_HASH, TX_RECEIPT, SEQ, FEE]
+	Events[EVENT, EVENT_OPS]
+	Blocks[HEAD, BLOCK_HASH]
 
 	BatchCallContext(ctx context.Context, b []any) error
 	CallContract(
@@ -36,14 +35,34 @@ type RPCClient[
 		blockNumber *big.Int,
 	) (rpcErr []byte, extractErr error)
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
-	ChainID() (CHAINID, error)
+	ChainID() (CHAIN_ID, error)
 	CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) ([]byte, error)
-	ConfiguredChainID() CHAINID
-	EstimateGas(ctx context.Context, call any) (gas uint64, err error)
-	HeadByNumber(ctx context.Context, number *big.Int) (head HEAD, err error)
-	HeadByHash(ctx context.Context, hash BLOCKHASH) (head HEAD, err error)
+	ConfiguredChainID() CHAIN_ID
+
+	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (SUB, error)
+}
+
+type Accounts[ADDR types.Hashable, SEQ types.Sequence] interface {
+	BalanceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (*big.Int, error)
+	TokenBalance(ctx context.Context, accountAddress ADDR, tokenAddress ADDR) (*big.Int, error)
+	SequenceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (SEQ, error)
 	LINKBalance(ctx context.Context, accountAddress ADDR, linkAddress ADDR) (*assets.Link, error)
 	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
+	EstimateGas(ctx context.Context, call any) (gas uint64, err error)
+}
+
+type Transactions[
+	ADDR types.Hashable,
+	TX any,
+	TX_HASH types.Hashable,
+	TX_RECEIPT any,
+	SEQ types.Sequence,
+	FEE feetypes.Fee,
+] interface {
+	SendTransaction(ctx context.Context, tx *TX) error
+	SimulateTransaction(ctx context.Context, tx *TX) error
+	TransactionByHash(ctx context.Context, txHash TX_HASH) (*TX, error)
+	TransactionReceipt(ctx context.Context, txHash TX_HASH) (*TX_RECEIPT, error)
 	SendEmptyTransaction(
 		ctx context.Context,
 		newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt any, err error),
@@ -56,28 +75,14 @@ type RPCClient[
 		ctx context.Context,
 		tx *TX,
 	) (SendTxReturnCode, error)
-	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (SUB, error)
 }
 
-type Accounts[ADDR types.Hashable, SEQ types.Sequence] interface {
-	BalanceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (*big.Int, error)
-	TokenBalance(ctx context.Context, accountAddress ADDR, tokenAddress ADDR) (*big.Int, error)
-	SequenceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (SEQ, error)
-}
-
-type Transactions[TX any, TXHASH types.Hashable, TXRECEIPT any] interface {
-	SendTransaction(ctx context.Context, tx *TX) error
-	SimulateTransaction(ctx context.Context, tx *TX) error
-	TransactionByHash(ctx context.Context, txHash TXHASH) (*TX, error)
-	TransactionReceipt(ctx context.Context, txHash TXHASH) (*TXRECEIPT, error)
-}
-
-type Blocks[BLOCK any, BLOCKHASH types.Hashable] interface {
-	BlockByNumber(ctx context.Context, number *big.Int) (*BLOCK, error)
-	BlockByHash(ctx context.Context, hash BLOCKHASH) (*BLOCK, error)
+type Blocks[HEAD types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {
+	BlockByNumber(ctx context.Context, number *big.Int) (HEAD, error)
+	BlockByHash(ctx context.Context, hash BLOCK_HASH) (HEAD, error)
 	LatestBlockHeight(context.Context) (*big.Int, error)
 }
 
-type Events[EVENT any, EVENTOPS any] interface {
-	FilterEvents(ctx context.Context, query EVENTOPS) ([]EVENT, error)
+type Events[EVENT any, EVENT_OPS any] interface {
+	FilterEvents(ctx context.Context, query EVENT_OPS) ([]EVENT, error)
 }

@@ -8,46 +8,44 @@ import (
 )
 
 type roundRobinSelector[
-	CHAINID types.ID,
+	CHAIN_ID types.ID,
 	SEQ types.Sequence,
 	ADDR types.Hashable,
-	BLOCK any,
-	BLOCKHASH types.Hashable,
+	BLOCK_HASH types.Hashable,
 	TX any,
-	TXHASH types.Hashable,
+	TX_HASH types.Hashable,
 	EVENT any,
-	EVENTOPS any, // event filter query options
-	TXRECEIPT any,
+	EVENT_OPS any, // event filter query options
+	TX_RECEIPT any,
 	FEE feetypes.Fee,
-	HEAD types.Head[BLOCKHASH],
+	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
 ] struct {
-	nodes           []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]
+	nodes           []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]
 	roundRobinCount atomic.Uint32
 }
 
 func NewRoundRobinSelector[
-	CHAINID types.ID,
+	CHAIN_ID types.ID,
 	SEQ types.Sequence,
 	ADDR types.Hashable,
-	BLOCK any,
-	BLOCKHASH types.Hashable,
+	BLOCK_HASH types.Hashable,
 	TX any,
-	TXHASH types.Hashable,
+	TX_HASH types.Hashable,
 	EVENT any,
-	EVENTOPS any, // event filter query options
-	TXRECEIPT any,
+	EVENT_OPS any, // event filter query options
+	TX_RECEIPT any,
 	FEE feetypes.Fee,
-	HEAD types.Head[BLOCKHASH],
+	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-](nodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) NodeSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB] {
-	return &roundRobinSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]{
+](nodes []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) NodeSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB] {
+	return &roundRobinSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]{
 		nodes: nodes,
 	}
 }
 
-func (s *roundRobinSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) Select() Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB] {
-	var liveNodes []Node[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]
+func (s *roundRobinSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) Select() Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB] {
+	var liveNodes []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]
 	for _, n := range s.nodes {
 		if n.State() == NodeStateAlive {
 			liveNodes = append(liveNodes, n)
@@ -66,6 +64,6 @@ func (s *roundRobinSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EV
 	return liveNodes[idx]
 }
 
-func (s *roundRobinSelector[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]) Name() string {
+func (s *roundRobinSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) Name() string {
 	return NodeSelectionMode_RoundRobin
 }

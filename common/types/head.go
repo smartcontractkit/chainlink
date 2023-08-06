@@ -27,6 +27,7 @@ type Head[BLOCK_HASH Hashable] interface {
 	// If not in chain, returns the zero hash
 	HashAtHeight(blockNum int64) BLOCK_HASH
 
-	// Returns the total difficulty of the block
+	// Returns the total difficulty of the block. For chains who do not have a concept of block 
+	// difficulty, return 0.
 	BlockDifficulty() *utils.Big
 }

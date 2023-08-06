@@ -8,24 +8,23 @@ import (
 )
 
 type ChainRPCClient[
-	CHAINID types.ID,
+	CHAIN_ID types.ID,
 	SEQ types.Sequence,
 	ADDR types.Hashable,
-	BLOCK any,
-	BLOCKHASH types.Hashable,
+	BLOCK_HASH types.Hashable,
 	TX any,
-	TXHASH types.Hashable,
+	TX_HASH types.Hashable,
 	EVENT any,
-	EVENTOPS any, // event filter query options
-	TXRECEIPT any,
+	EVENT_OPS any, // event filter query options
+	TX_RECEIPT any,
 	FEE feetypes.Fee,
-	HEAD types.Head[BLOCKHASH],
+	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
 ] interface {
-	RPCClient[CHAINID, SEQ, ADDR, BLOCK, BLOCKHASH, TX, TXHASH, EVENT, EVENTOPS, TXRECEIPT, FEE, HEAD, SUB]
+	RPCClient[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]
 
 	Close() error
-	ClientChainID(context.Context) (CHAINID, error)
+	ClientChainID(context.Context) (CHAIN_ID, error)
 	Dial(callerCtx context.Context) error
 	DisconnectAll()
 	SetState(state NodeState)

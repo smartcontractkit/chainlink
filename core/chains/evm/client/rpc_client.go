@@ -59,7 +59,6 @@ func NewRPCClient(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name stri
 	*big.Int,
 	evmtypes.Nonce,
 	common.Address,
-	types.Block,
 	common.Hash,
 	types.Transaction,
 	common.Hash,
@@ -424,7 +423,7 @@ func (r *rpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (header 
 	return
 }
 
-func (r *rpcClient) HeadByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
+func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (head *evmtypes.Head, err error) {
 	hex := ToBlockNumArg(number)
 	err = r.CallContext(ctx, &head, "eth_getBlockByNumber", hex, false)
 	if err != nil {
@@ -438,7 +437,7 @@ func (r *rpcClient) HeadByNumber(ctx context.Context, number *big.Int) (head *ev
 	return
 }
 
-func (r *rpcClient) HeadByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
+func (r *rpcClient) BlockByHash(ctx context.Context, hash common.Hash) (head *evmtypes.Head, err error) {
 	err = r.CallContext(ctx, &head, "eth_getBlockByHash", hash.Hex(), false)
 	if err != nil {
 		return nil, err
@@ -693,58 +692,6 @@ func (r *rpcClient) CallContract(ctx context.Context, msg interface{}, blockNumb
 
 	return
 
-}
-
-func (r *rpcClient) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer cancel()
-	lggr := r.newRqLggr().With("number", number)
-
-	lggr.Debug("RPC call: evmclient.Client#BlockByNumber")
-	start := time.Now()
-	if http != nil {
-		b, err = http.geth.BlockByNumber(ctx, number)
-		err = r.wrapHTTP(err)
-	} else {
-		b, err = ws.geth.BlockByNumber(ctx, number)
-		err = r.wrapWS(err)
-	}
-	duration := time.Since(start)
-
-	r.logResult(lggr, err, duration, r.getRPCDomain(), "BlockByNumber",
-		"block", b,
-	)
-
-	return
-}
-
-func (r *rpcClient) BlockByHash(ctx context.Context, hash common.Hash) (b *types.Block, err error) {
-	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer cancel()
-	lggr := r.newRqLggr().With("hash", hash)
-
-	lggr.Debug("RPC call: evmclient.Client#BlockByHash")
-	start := time.Now()
-	if http != nil {
-		b, err = http.geth.BlockByHash(ctx, hash)
-		err = r.wrapHTTP(err)
-	} else {
-		b, err = ws.geth.BlockByHash(ctx, hash)
-		err = r.wrapWS(err)
-	}
-	duration := time.Since(start)
-
-	r.logResult(lggr, err, duration, r.getRPCDomain(), "BlockByHash",
-		"block", b,
-	)
-
-	return
 }
 
 func (r *rpcClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
