@@ -2,6 +2,7 @@ import { ethers } from 'hardhat'
 import { BigNumber } from 'ethers'
 import {
   accessControlMockPrivateKey,
+  encodeReport,
   FunctionsContracts,
   FunctionsRoles,
   getEventArg,
@@ -14,7 +15,7 @@ const setup = getSetupFactory()
 let contracts: FunctionsContracts
 let roles: FunctionsRoles
 
-const baselineGasUsed = 793891
+const baselineGasUsed = 721271
 let currentGasUsed = 0
 
 beforeEach(async () => {
@@ -94,15 +95,12 @@ describe('Gas Golf', () => {
     const error = stringToBytes('')
     const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
     const offchainMetadata = stringToBytes('')
-    const report = ethers.utils.defaultAbiCoder.encode(
-      ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
-      [
-        [ethers.utils.hexZeroPad(requestId, 32)],
-        [response],
-        [error],
-        [onchainMetadata],
-        [offchainMetadata],
-      ],
+    const report = await encodeReport(
+      ethers.utils.hexZeroPad(requestId, 32),
+      response,
+      error,
+      onchainMetadata,
+      offchainMetadata,
     )
     const fulfillmentTx = await contracts.coordinator.callReport(report)
     const { gasUsed: fulfillmentTxGasUsed } = await fulfillmentTx.wait()

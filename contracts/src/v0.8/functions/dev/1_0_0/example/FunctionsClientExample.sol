@@ -2,11 +2,11 @@
 pragma solidity ^0.8.19;
 
 import {FunctionsClient} from "../FunctionsClient.sol";
+import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "../libraries/FunctionsRequest.sol";
-import {ConfirmedOwner} from "../../../../ConfirmedOwner.sol";
 
 /**
- * @title Chainlink Functions example client contract implementation
+ * @title Chainlink Functions example Client contract implementation
  */
 contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
   using FunctionsRequest for FunctionsRequest.Request;
@@ -41,7 +41,7 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
     req.initializeRequestForInlineJavaScript(source);
     if (encryptedSecretsReferences.length > 0) req.addSecretsReference(encryptedSecretsReferences);
     if (args.length > 0) req.setArgs(args);
-    s_lastRequestId = _sendRequest(req, subscriptionId, MAX_CALLBACK_GAS, jobId);
+    s_lastRequestId = _sendRequest(req.encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, jobId);
   }
 
   /**

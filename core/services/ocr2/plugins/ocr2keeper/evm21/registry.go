@@ -80,26 +80,29 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, *EVMAutomationEncoder21, error) {
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 	packer := NewEvmRegistryPackerV2_1(keeperRegistryABI, utilsABI)
 	logPacker := logprovider.NewLogEventsPacker(utilsABI)
 
 	registry, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
+		return nil, nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
+
+	filterStore := logprovider.NewUpkeepFilterStore()
+	logEventProvider := logprovider.New(lggr, client.LogPoller(), logPacker, filterStore, nil)
 
 	r := &EvmRegistry{
 		ht:       client.HeadTracker(),
@@ -120,15 +123,15 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
 		},
 		hc:               http.DefaultClient,
-		enc:              EVMAutomationEncoder21{},
-		logEventProvider: logprovider.New(lggr, client.LogPoller(), logPacker, nil), // TODO: pass opts
+		enc:              EVMAutomationEncoder21{packer: packer},
+		logEventProvider: logEventProvider,
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
-		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
+		return nil, nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
 	}
 
-	return r, nil
+	return r, &r.enc, nil
 }
 
 var upkeepStateEvents = []common.Hash{
@@ -909,7 +912,8 @@ func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
 func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 	block, err := r.client.BlockByNumber(r.ctx, blockNumber)
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("%w: failed to get latest block", ErrHeadNotAvailable)
+		return [32]byte{}, err
 	}
+
 	return block.Hash(), nil
 }

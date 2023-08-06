@@ -1,22 +1,30 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {RouterBase, ITypeAndVersion} from "./RouterBase.sol";
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
+import {IAccessController} from "../../../shared/interfaces/IAccessController.sol";
+
 import {FunctionsSubscriptions} from "./FunctionsSubscriptions.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
-import {IAccessController} from "../../../shared/interfaces/IAccessController.sol";
-import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
+import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 
-contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions {
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
+import {Pausable} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
+
+contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, ITypeAndVersion, ConfirmedOwner {
+  using FunctionsResponse for FunctionsResponse.RequestMeta;
   using FunctionsResponse for FunctionsResponse.Commitment;
   using FunctionsResponse for FunctionsResponse.FulfillResult;
+
+  string public constant override typeAndVersion = "Functions Router v1.0.0";
 
   // We limit return data to a selector plus 4 words. This is to avoid
   // malicious contracts from returning large amounts of data and causing
   // repeated out-of-gas scenarios.
   uint16 public constant MAX_CALLBACK_RETURN_BYTES = 4 + 4 * 32;
+  uint8 private constant MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX = 0;
 
   event RequestStart(
     bytes32 indexed requestId,
@@ -27,7 +35,8 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     address requestInitiator,
     bytes data,
     uint16 dataVersion,
-    uint32 callbackGasLimit
+    uint32 callbackGasLimit,
+    uint96 estimatedTotalCostJuels
   );
 
   event RequestProcessed(
@@ -47,6 +56,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     FunctionsResponse.FulfillResult resultCode
   );
 
+  error EmptyRequestData();
   error OnlyCallableFromCoordinator();
   error SenderMustAcceptTermsOfService(address sender);
   error InvalidGasFlagValue(uint8 value);
@@ -58,86 +68,129 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes returnData;
   }
 
+  // ================================================================
+  // |                    Route state                       |
+  // ================================================================
+
+  mapping(bytes32 id => address routableContract) private s_route;
+
+  error RouteNotFound(bytes32 id);
+
   // Identifier for the route to the Terms of Service Allow List
-  bytes32 private constant ALLOW_LIST_ID = keccak256("Functions Terms of Service Allow List");
-  uint8 private constant MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX = 0;
+  bytes32 private s_allowListId;
 
   // ================================================================
   // |                    Configuration state                       |
   // ================================================================
-  Config private s_config;
-  event ConfigChanged(uint96 adminFee, bytes4 handleOracleFulfillmentSelector, uint32[] maxCallbackGasLimits);
+  struct Config {
+    // Maximum number of consumers which can be added to a single subscription
+    // This bound ensures we are able to loop over all subscription consumers as needed,
+    // without exceeding gas limits.
+    // Should a user require more consumers, they can use multiple subscriptions.
+    uint16 maxConsumersPerSubscription;
+    // Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
+    uint72 adminFee;
+    // The function selector that is used when calling back to the Client contract
+    bytes4 handleOracleFulfillmentSelector;
+    // Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
+    uint16 gasForCallExactCheck;
+    // List of max callback gas limits used by flag with GAS_FLAG_INDEX
+    uint32[] maxCallbackGasLimits;
+  }
 
-  error OnlyCallableByRoute();
+  Config private s_config;
+
+  event ConfigUpdated(Config);
+
+  // ================================================================
+  // |                         Proposal state                       |
+  // ================================================================
+
+  uint8 private constant MAX_PROPOSAL_SET_LENGTH = 8;
+
+  struct ContractProposalSet {
+    bytes32[] ids;
+    address[] to;
+  }
+  ContractProposalSet private s_proposedContractSet;
+
+  event ContractProposed(
+    bytes32 proposedContractSetId,
+    address proposedContractSetFromAddress,
+    address proposedContractSetToAddress
+  );
+
+  event ContractUpdated(bytes32 id, address from, address to);
+
+  error InvalidProposal();
+  error IdentifierIsReserved(bytes32 id);
 
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
+
   constructor(
-    uint16 timelockBlocks,
-    uint16 maximumTimelockBlocks,
     address linkToken,
-    bytes memory config
-  ) RouterBase(msg.sender, timelockBlocks, maximumTimelockBlocks, config) FunctionsSubscriptions(linkToken) {}
-
-  // ================================================================
-  // |                          Getters                             |
-  // ================================================================
-  /**
-   * @inheritdoc ITypeAndVersion
-   */
-  string public constant override typeAndVersion = "Functions Router v1.0.0";
-
-  /**
-   * @inheritdoc IFunctionsRouter
-   */
-  function getAllowListId() external pure override returns (bytes32) {
-    return ALLOW_LIST_ID;
-  }
-
-  /**
-   * @inheritdoc IFunctionsRouter
-   */
-  function getConfig() external view override returns (uint16, uint96, bytes4, uint32[] memory) {
-    return (
-      s_config.maxConsumersPerSubscription,
-      s_config.adminFee,
-      s_config.handleOracleFulfillmentSelector,
-      s_config.maxCallbackGasLimits
-    );
+    Config memory config
+  ) FunctionsSubscriptions(linkToken) ConfirmedOwner(msg.sender) Pausable() {
+    // Set the intial configuration
+    updateConfig(config);
   }
 
   // ================================================================
-  // |                 Configuration methods                        |
+  // |                        Configuration                         |
   // ================================================================
-  /**
-   * @notice Sets the configuration for FunctionsRouter specific state
-   * @param config bytes of config data to set the following:
-   *  - adminFee: fee that will be paid to the Router owner for operating the network
-   */
-  function _updateConfig(bytes memory config) internal override {
-    (
-      uint16 maxConsumersPerSubscription,
-      uint96 adminFee,
-      bytes4 handleOracleFulfillmentSelector,
-      uint32[] memory maxCallbackGasLimits
-    ) = abi.decode(config, (uint16, uint96, bytes4, uint32[]));
-    s_config = Config({
-      maxConsumersPerSubscription: maxConsumersPerSubscription,
-      adminFee: adminFee,
-      handleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
-      maxCallbackGasLimits: maxCallbackGasLimits
-    });
-    emit ConfigChanged(adminFee, handleOracleFulfillmentSelector, maxCallbackGasLimits);
+
+  // @notice The identifier of the route to retrieve the address of the access control contract
+  // The access control contract controls which accounts can manage subscriptions
+  // @return id - bytes32 id that can be passed to the "getContractById" of the Router
+  function getConfig() external view returns (Config memory) {
+    return s_config;
+  }
+
+  // @notice The router configuration
+  function updateConfig(Config memory config) public onlyOwner {
+    s_config = config;
+    emit ConfigUpdated(config);
+  }
+
+  // @inheritdoc IFunctionsRouter
+  function isValidCallbackGasLimit(uint64 subscriptionId, uint32 callbackGasLimit) public view {
+    uint8 callbackGasLimitsIndexSelector = uint8(getFlags(subscriptionId)[MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX]);
+    if (callbackGasLimitsIndexSelector >= s_config.maxCallbackGasLimits.length) {
+      revert InvalidGasFlagValue(callbackGasLimitsIndexSelector);
+    }
+    uint32 maxCallbackGasLimit = s_config.maxCallbackGasLimits[callbackGasLimitsIndexSelector];
+    if (callbackGasLimit > maxCallbackGasLimit) {
+      revert GasLimitTooBig(maxCallbackGasLimit);
+    }
+  }
+
+  // @inheritdoc IFunctionsRouter
+  function getAdminFee() external view override returns (uint72 adminFee) {
+    return s_config.adminFee;
+  }
+
+  // @inheritdoc IFunctionsRouter
+  function getAllowListId() external view override returns (bytes32) {
+    return s_allowListId;
+  }
+
+  // @inheritdoc IFunctionsRouter
+  function setAllowListId(bytes32 allowListId) external override onlyOwner {
+    s_allowListId = allowListId;
+  }
+
+  // Used within FunctionsSubscriptions.sol
+  function _getMaxConsumers() internal view override returns (uint16) {
+    return s_config.maxConsumersPerSubscription;
   }
 
   // ================================================================
-  // |                      Request methods                         |
+  // |                           Requests                           |
   // ================================================================
 
-  /**
-   * @inheritdoc IFunctionsRouter
-   */
+  // @inheritdoc IFunctionsRouter
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
@@ -149,9 +202,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     return _sendRequest(donId, coordinator, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
-  /**
-   * @inheritdoc IFunctionsRouter
-   */
+  // @inheritdoc IFunctionsRouter
   function sendRequestToProposed(
     uint64 subscriptionId,
     bytes calldata data,
@@ -172,21 +223,28 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint32 callbackGasLimit
   ) private returns (bytes32) {
     _whenNotPaused();
-    _isValidSubscription(subscriptionId);
-    _isValidConsumer(msg.sender, subscriptionId);
+    _isExistingSubscription(subscriptionId);
+    _isAllowedConsumer(msg.sender, subscriptionId);
     isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
 
+    if (data.length == 0) {
+      revert EmptyRequestData();
+    }
+
+    Subscription memory subscription = getSubscription(subscriptionId);
+
     // Forward request to DON
-    FunctionsResponse.Commitment memory commitment = coordinator.sendRequest(
-      IFunctionsCoordinator.Request({
+    FunctionsResponse.Commitment memory commitment = coordinator.startRequest(
+      FunctionsResponse.RequestMeta({
         requestingContract: msg.sender,
-        subscriptionOwner: s_subscriptions[subscriptionId].owner,
         data: data,
         subscriptionId: subscriptionId,
         dataVersion: dataVersion,
         flags: getFlags(subscriptionId),
         callbackGasLimit: callbackGasLimit,
-        adminFee: s_config.adminFee
+        adminFee: s_config.adminFee,
+        consumer: getConsumer(msg.sender, subscriptionId),
+        subscription: subscription
       })
     );
 
@@ -215,20 +273,23 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       requestId: commitment.requestId,
       donId: donId,
       subscriptionId: subscriptionId,
-      subscriptionOwner: s_subscriptions[subscriptionId].owner,
+      subscriptionOwner: subscription.owner,
       requestingContract: msg.sender,
       requestInitiator: tx.origin,
       data: data,
       dataVersion: dataVersion,
-      callbackGasLimit: callbackGasLimit
+      callbackGasLimit: callbackGasLimit,
+      estimatedTotalCostJuels: commitment.estimatedTotalCostJuels
     });
 
     return commitment.requestId;
   }
 
-  /**
-   * @inheritdoc IFunctionsRouter
-   */
+  // ================================================================
+  // |                           Responses                          |
+  // ================================================================
+
+  // @inheritdoc IFunctionsRouter
   function fulfill(
     bytes memory response,
     bytes memory err,
@@ -236,7 +297,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     uint96 costWithoutCallback,
     address transmitter,
     FunctionsResponse.Commitment memory commitment
-  ) external override returns (FunctionsResponse.FulfillResult resultCode, uint96 callbackGasCostJuels) {
+  ) external override returns (FunctionsResponse.FulfillResult resultCode, uint96) {
     _whenNotPaused();
 
     if (msg.sender != commitment.coordinator) {
@@ -246,38 +307,38 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     if (s_requestCommitments[commitment.requestId] == bytes32(0)) {
       resultCode = FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
       emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-      return (resultCode, callbackGasCostJuels);
+      return (resultCode, 0);
     }
 
     if (keccak256(abi.encode(commitment)) != s_requestCommitments[commitment.requestId]) {
       resultCode = FunctionsResponse.FulfillResult.INVALID_COMMITMENT;
       emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-      return (resultCode, callbackGasCostJuels);
+      return (resultCode, 0);
     }
 
     // Check that the transmitter has supplied enough gas for the callback to succeed
     if (gasleft() < commitment.callbackGasLimit + commitment.gasOverheadAfterCallback) {
       resultCode = FunctionsResponse.FulfillResult.INSUFFICIENT_GAS_PROVIDED;
       emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-      return (resultCode, callbackGasCostJuels);
+      return (resultCode, 0);
     }
 
     {
       uint96 callbackCost = juelsPerGas * SafeCast.toUint96(commitment.callbackGasLimit);
       uint96 totalCostJuels = commitment.adminFee + costWithoutCallback + callbackCost;
 
-      // Check that the subscription can still afford
-      if (totalCostJuels > s_subscriptions[commitment.subscriptionId].balance) {
+      // Check that the subscription can still afford to fulfill the request
+      if (totalCostJuels > getSubscription(commitment.subscriptionId).balance) {
         resultCode = FunctionsResponse.FulfillResult.SUBSCRIPTION_BALANCE_INVARIANT_VIOLATION;
         emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-        return (resultCode, callbackGasCostJuels);
+        return (resultCode, 0);
       }
 
       // Check that the cost has not exceeded the quoted cost
       if (totalCostJuels > commitment.estimatedTotalCostJuels) {
         resultCode = FunctionsResponse.FulfillResult.COST_EXCEEDS_COMMITMENT;
         emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-        return (resultCode, callbackGasCostJuels);
+        return (resultCode, 0);
       }
     }
 
@@ -290,6 +351,7 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       commitment.callbackGasLimit,
       commitment.client
     );
+
     resultCode = result.success
       ? FunctionsResponse.FulfillResult.USER_SUCCESS
       : FunctionsResponse.FulfillResult.USER_ERROR;
@@ -323,13 +385,15 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
     bytes memory err,
     uint32 callbackGasLimit,
     address client
-  ) private returns (CallbackResult memory result) {
+  ) private returns (CallbackResult memory) {
     bytes memory encodedCallback = abi.encodeWithSelector(
       s_config.handleOracleFulfillmentSelector,
       requestId,
       response,
       err
     );
+
+    uint16 gasForCallExactCheck = s_config.gasForCallExactCheck;
 
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid payment.
@@ -351,23 +415,22 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       }
 
       let g := gas()
-      // GASFORCALLEXACTCHECK = 5000
       // Compute g -= gasForCallExactCheck and check for underflow
       // The gas actually passed to the callee is _min(gasAmount, 63//64*gas available).
       // We want to ensure that we revert if gasAmount >  63//64*gas available
       // as we do not want to provide them with less, however that check itself costs
       // gas. gasForCallExactCheck ensures we have at least enough gas to be able
       // to revert if gasAmount >  63//64*gas available.
-      if lt(g, 5000) {
+      if lt(g, gasForCallExactCheck) {
         revert(0, 0)
       }
-      g := sub(g, 5000)
+      g := sub(g, gasForCallExactCheck)
       // if g - g//64 <= gasAmount, revert
       // (we subtract g//64 because of EIP-150)
       if iszero(gt(sub(g, div(g, 64)), callbackGasLimit)) {
         revert(0, 0)
       }
-      // call and  whether we succeeded
+      // call and report whether we succeeded
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
       success := call(callbackGasLimit, client, 0, add(encodedCallback, 0x20), mload(encodedCallback), 0, 0)
       gasUsed := sub(g, gas())
@@ -383,41 +446,131 @@ contract FunctionsRouter is RouterBase, IFunctionsRouter, FunctionsSubscriptions
       returndatacopy(add(returnData, 0x20), 0, toCopy)
     }
 
-    result = CallbackResult(success, gasUsed, returnData);
+    return CallbackResult({success: success, gasUsed: gasUsed, returnData: returnData});
   }
 
-  /**
-   * @inheritdoc IFunctionsRouter
-   */
-  function isValidCallbackGasLimit(uint64 subscriptionId, uint32 callbackGasLimit) public view {
-    uint8 index = uint8(getFlags(subscriptionId)[MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX]);
-    if (index >= s_config.maxCallbackGasLimits.length) {
-      revert InvalidGasFlagValue(index);
+  // ================================================================
+  // |                        Route methods                         |
+  // ================================================================
+
+  // @inheritdoc IRouterBase
+  function getContractById(bytes32 id) public view override returns (address) {
+    address currentImplementation = s_route[id];
+    if (currentImplementation == address(0)) {
+      revert RouteNotFound(id);
     }
-    if (callbackGasLimit > s_config.maxCallbackGasLimits[index]) {
-      revert GasLimitTooBig(s_config.maxCallbackGasLimits[index]);
+    return currentImplementation;
+  }
+
+  // @inheritdoc IRouterBase
+  function getProposedContractById(bytes32 id) public view override returns (address) {
+    // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
+    for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
+      if (id == s_proposedContractSet.ids[i]) {
+        return s_proposedContractSet.to[i];
+      }
+    }
+    revert RouteNotFound(id);
+  }
+
+  // ================================================================
+  // |                 Contract Proposal methods                    |
+  // ================================================================
+
+  // @inheritdoc IRouterBase
+  function getProposedContractSet()
+    external
+    view
+    override
+    returns (uint256 timelockEndBlock, bytes32[] memory ids, address[] memory to)
+  {
+    ids = s_proposedContractSet.ids;
+    to = s_proposedContractSet.to;
+    return (timelockEndBlock, ids, to);
+  }
+
+  // @inheritdoc IRouterBase
+  function proposeContractsUpdate(
+    bytes32[] memory proposedContractSetIds,
+    address[] memory proposedContractSetAddresses
+  ) external override onlyOwner {
+    // IDs and addresses arrays must be of equal length and must not exceed the max proposal length
+    uint256 idsArrayLength = proposedContractSetIds.length;
+    if (idsArrayLength != proposedContractSetAddresses.length || idsArrayLength > MAX_PROPOSAL_SET_LENGTH) {
+      revert InvalidProposal();
+    }
+
+    // NOTE: iterations of this loop will not exceed MAX_PROPOSAL_SET_LENGTH
+    for (uint256 i = 0; i < idsArrayLength; ++i) {
+      bytes32 id = proposedContractSetIds[i];
+      address proposedContract = proposedContractSetAddresses[i];
+      if (
+        proposedContract == address(0) || // The Proposed address must be a valid address
+        s_route[id] == proposedContract // The Proposed address must point to a different address than what is currently set
+      ) {
+        revert InvalidProposal();
+      }
+    }
+
+    s_proposedContractSet = ContractProposalSet({ids: proposedContractSetIds, to: proposedContractSetAddresses});
+
+    // NOTE: iterations of this loop will not exceed MAX_PROPOSAL_SET_LENGTH
+    for (uint256 i = 0; i < proposedContractSetIds.length; ++i) {
+      emit ContractProposed({
+        proposedContractSetId: proposedContractSetIds[i],
+        proposedContractSetFromAddress: s_route[proposedContractSetIds[i]],
+        proposedContractSetToAddress: proposedContractSetAddresses[i]
+      });
     }
   }
 
-  function _getMaxConsumers() internal view override returns (uint16) {
-    return s_config.maxConsumersPerSubscription;
+  // @inheritdoc IRouterBase
+  function updateContracts() external override onlyOwner {
+    // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
+    for (uint256 i = 0; i < s_proposedContractSet.ids.length; ++i) {
+      bytes32 id = s_proposedContractSet.ids[i];
+      address to = s_proposedContractSet.to[i];
+      emit ContractUpdated({id: id, from: s_route[id], to: to});
+      s_route[id] = to;
+    }
+
+    delete s_proposedContractSet;
   }
 
   // ================================================================
   // |                           Modifiers                          |
   // ================================================================
+  // Favoring internal functions over actual modifiers to reduce contract size
 
+  // Used within FunctionsSubscriptions.sol
   function _whenNotPaused() internal view override {
     _requireNotPaused();
   }
 
+  // Used within FunctionsSubscriptions.sol
   function _onlyRouterOwner() internal view override {
     _validateOwnership();
   }
 
+  // Used within FunctionsSubscriptions.sol
   function _onlySenderThatAcceptedToS() internal view override {
-    if (!IAccessController(getContractById(ALLOW_LIST_ID)).hasAccess(msg.sender, new bytes(0))) {
+    address currentImplementation = s_route[s_allowListId];
+    if (currentImplementation == address(0)) {
+      // If not set, ignore this check, allow all access
+      return;
+    }
+    if (!IAccessController(currentImplementation).hasAccess(msg.sender, new bytes(0))) {
       revert SenderMustAcceptTermsOfService(msg.sender);
     }
+  }
+
+  // @inheritdoc IRouterBase
+  function pause() external override onlyOwner {
+    _pause();
+  }
+
+  // @inheritdoc IRouterBase
+  function unpause() external override onlyOwner {
+    _unpause();
   }
 }

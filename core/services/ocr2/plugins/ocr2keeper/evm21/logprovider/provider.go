@@ -8,12 +8,14 @@ import (
 	"math/big"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
 	"go.uber.org/multierr"
-	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -34,17 +36,6 @@ var (
 // LogTriggerConfig is an alias for log trigger config.
 type LogTriggerConfig automation_utils_2_1.LogTriggerConfig
 
-// upkeepFilterEntry holds the upkeep filter, rate limiter and last polled block.
-type upkeepFilterEntry struct {
-	id     *big.Int
-	filter logpoller.Filter
-	cfg    LogTriggerConfig
-	// lastPollBlock is the last block number the logs were fetched for this upkeep
-	lastPollBlock int64
-	// blockLimiter is used to limit the number of blocks to fetch logs for an upkeep
-	blockLimiter *rate.Limiter
-}
-
 type LogEventProvider interface {
 	// Start starts the log event provider.
 	Start(ctx context.Context) error
@@ -61,6 +52,7 @@ type LogEventProvider interface {
 type LogEventProviderTest interface {
 	LogEventProvider
 	ReadLogs(ctx context.Context, force bool, ids ...*big.Int) error
+	CurrentPartitionIdx() uint64
 }
 
 var _ keepersflows.PayloadBuilder = &logEventProvider{}
@@ -76,27 +68,29 @@ type logEventProvider struct {
 
 	packer LogDataPacker
 
-	lock   sync.RWMutex
-	active map[string]upkeepFilterEntry
+	lock sync.RWMutex
 
-	buffer *logEventBuffer
+	filterStore UpkeepFilterStore
+	buffer      *logEventBuffer
 
 	opts *LogEventProviderOptions
+
+	currentPartitionIdx uint64
 }
 
-func New(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, opts *LogEventProviderOptions) *logEventProvider {
+func New(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts *LogEventProviderOptions) *logEventProvider {
 	if opts == nil {
 		opts = new(LogEventProviderOptions)
 	}
 	opts.Defaults()
 	return &logEventProvider{
-		packer: packer,
-		lggr:   lggr.Named("KeepersRegistry.LogEventProvider"),
-		buffer: newLogEventBuffer(lggr, opts.LogBufferSize, opts.BufferMaxBlockSize, opts.AllowedLogsPerBlock),
-		poller: poller,
-		lock:   sync.RWMutex{},
-		active: make(map[string]upkeepFilterEntry),
-		opts:   opts,
+		packer:      packer,
+		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
+		buffer:      newLogEventBuffer(lggr, opts.LogBufferSize, opts.BufferMaxBlockSize, opts.AllowedLogsPerBlock),
+		poller:      poller,
+		lock:        sync.RWMutex{},
+		opts:        opts,
+		filterStore: filterStore,
 	}
 }
 
@@ -128,7 +122,6 @@ func (p *logEventProvider) Close() error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	p.active = make(map[string]upkeepFilterEntry)
 	if p.cancel != nil {
 		p.cancel()
 	}
@@ -185,7 +178,7 @@ func (p *logEventProvider) ReadLogs(ctx context.Context, force bool, ids ...*big
 	}
 	entries := p.getEntries(latest, force, ids...)
 
-	err = p.readLogs(ctx, latest, entries...)
+	err = p.readLogs(ctx, latest, entries)
 	p.updateEntriesLastPoll(entries)
 	// p.lggr.Debugw("read logs for entries", "latestBlock", latest, "entries", len(entries), "err", err)
 	if err != nil {
@@ -193,6 +186,10 @@ func (p *logEventProvider) ReadLogs(ctx context.Context, force bool, ids ...*big
 	}
 
 	return nil
+}
+
+func (p *logEventProvider) CurrentPartitionIdx() uint64 {
+	return atomic.LoadUint64(&p.currentPartitionIdx)
 }
 
 // scheduleReadJobs starts a scheduler that pushed ids to readQ for reading logs in the background.
@@ -204,12 +201,13 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 	defer ticker.Stop()
 
 	h := sha256.New()
-	partitionIdx := 0
+
+	partitionIdx := p.CurrentPartitionIdx()
 
 	for {
 		select {
 		case <-ticker.C:
-			ids := p.getPartitionIds(h, partitionIdx)
+			ids := p.getPartitionIds(h, int(partitionIdx))
 			if len(ids) > 0 {
 				maxBatchSize := p.opts.ReadMaxBatchSize
 				for len(ids) > maxBatchSize {
@@ -221,6 +219,7 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 				execute(ids)
 			}
 			partitionIdx++
+			atomic.StoreUint64(&p.currentPartitionIdx, partitionIdx)
 		case <-ctx.Done():
 			return nil
 		}
@@ -249,82 +248,69 @@ func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big
 // getPartitionIds returns the upkeepIDs for the given partition and the number of partitions.
 // Partitioning is done by hashing the upkeepID and taking the modulus of the number of partitions.
 func (p *logEventProvider) getPartitionIds(hashFn hash.Hash, partition int) []*big.Int {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-
-	numOfPartitions := len(p.active) / p.opts.ReadMaxBatchSize
+	numOfPartitions := p.filterStore.Size() / p.opts.ReadMaxBatchSize
 	if numOfPartitions < 1 {
 		numOfPartitions = 1
 	}
 	partition = partition % numOfPartitions
 
-	var ids []*big.Int
-	for _, entry := range p.active {
-		if len(entry.filter.Addresses) == 0 {
-			continue
+	ids := p.filterStore.GetIDs(func(f upkeepFilter) bool {
+		if len(f.addr) == 0 {
+			return false
 		}
-		n, err := hashFn.Write(entry.filter.Addresses[0].Bytes())
+		n, err := hashFn.Write(f.addr)
 		if err != nil || n == 0 {
-			p.lggr.Warnw("failed to hash upkeep address", "err", err, "addr", entry.filter.Addresses[0])
-			continue
+			p.lggr.Warnw("failed to hash upkeep address", "err", err, "addr", hexutil.Encode(f.addr))
+			return false
 		}
 		h := hashFn.Sum(nil)
+		defer hashFn.Reset()
 		// taking only 6 bytes to avoid working with big numbers
 		i := big.NewInt(0).SetBytes(h[len(h)-6:])
-		if int(i.Int64())%numOfPartitions == partition {
-			ids = append(ids, entry.id)
-		}
-		hashFn.Reset()
-	}
+		return int(i.Int64())%numOfPartitions == partition
+	})
 
 	return ids
 }
 
-func (p *logEventProvider) updateEntriesLastPoll(entries []*upkeepFilterEntry) {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
-	for _, entry := range entries {
-		// for successful queries, the last poll block was updated
-		orig, ok := p.active[entry.id.String()]
-		if !ok {
-			continue // entry was removed
+func (p *logEventProvider) updateEntriesLastPoll(entries []upkeepFilter) {
+	p.filterStore.UpdateFilters(func(orig, f upkeepFilter) upkeepFilter {
+		if f.lastPollBlock > orig.lastPollBlock {
+			orig.lastPollBlock = f.lastPollBlock
 		}
-		if entry.lastPollBlock == orig.lastPollBlock {
-			continue
-		}
-		orig.lastPollBlock = entry.lastPollBlock
-		p.active[entry.id.String()] = orig
-	}
+		return orig
+	}, entries...)
 }
 
 // getEntries returns the filters for the given upkeepIDs,
 // returns empty filter for inactive upkeeps.
-func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big.Int) []*upkeepFilterEntry {
-	p.lock.RLock()
-	defer p.lock.RUnlock()
-
-	var filters []*upkeepFilterEntry
-	for _, id := range ids {
-		entry, ok := p.active[id.String()]
-		if !ok { // entry not found, could be inactive upkeep
-			p.lggr.Debugw("upkeep filter not found", "upkeep", id.String())
-			filters = append(filters, &upkeepFilterEntry{id: id})
-			continue
+func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big.Int) []upkeepFilter {
+	var filters []upkeepFilter
+	p.filterStore.RangeFiltersByIDs(func(i int, f upkeepFilter) {
+		if len(f.addr) == 0 { // not found
+			p.lggr.Debugw("upkeep filter not found", "upkeep", f.upkeepID.String())
+			filters = append(filters, f)
+			return
 		}
-		if !force && entry.lastPollBlock > latestBlock {
-			p.lggr.Debugw("already polled latest block", "entry.lastPollBlock", entry.lastPollBlock, "latestBlock", latestBlock, "upkeep", id.String())
-			filters = append(filters, &upkeepFilterEntry{id: id, lastPollBlock: entry.lastPollBlock})
-			continue
+		if !force && f.lastPollBlock > latestBlock {
+			p.lggr.Debugw("already polled latest block", "entry.lastPollBlock", f.lastPollBlock, "latestBlock", latestBlock, "upkeep", f.upkeepID.String())
+			filters = append(filters, upkeepFilter{upkeepID: f.upkeepID})
+			return
 		}
-		// recreating the struct to be thread safe
-		filters = append(filters, &upkeepFilterEntry{
-			id:            id,
-			filter:        p.newLogFilter(id, entry.cfg),
-			lastPollBlock: entry.lastPollBlock,
-			blockLimiter:  entry.blockLimiter,
+		// cloning struct to be thread safe
+		topics := make([]common.Hash, len(f.topics))
+		copy(topics, f.topics)
+		addr := make([]byte, len(f.addr))
+		copy(addr, f.addr)
+		filters = append(filters, upkeepFilter{
+			upkeepID:        f.upkeepID,
+			topics:          topics,
+			addr:            addr,
+			lastPollBlock:   f.lastPollBlock,
+			lastRePollBlock: f.lastRePollBlock,
+			blockLimiter:    f.blockLimiter,
 		})
-	}
+	}, ids...)
 
 	return filters
 }
@@ -334,16 +320,16 @@ func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big
 //
 // TODO: batch entries by contract address and call log poller once per contract address
 // NOTE: the entries are already grouped by contract address
-func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries ...*upkeepFilterEntry) (merr error) {
+func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries []upkeepFilter) (merr error) {
 	// mainLggr := p.lggr.With("latestBlock", latest)
 	logBlocksLookback := p.opts.LogBlocksLookback
 	maxBurst := int(logBlocksLookback*2 + 1)
 
 	for _, entry := range entries {
-		if len(entry.filter.Addresses) == 0 {
+		if len(entry.addr) == 0 {
 			continue
 		}
-		// lggr := mainLggr.With("upkeep", entry.id.String(), "addrs", entry.filter.Addresses, "sigs", entry.filter.EventSigs)
+		// lggr := mainLggr.With("upkeep", entry.upkeepID.String(), "addrs", entry.addr, "sigs", entry.topics)
 		start := entry.lastPollBlock
 		if start == 0 || start < latest-logBlocksLookback {
 			// long range or first time polling,
@@ -353,7 +339,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries .
 		}
 		resv := entry.blockLimiter.ReserveN(time.Now(), int(latest-start))
 		if !resv.OK() {
-			merr = multierr.Append(merr, fmt.Errorf("%s: %s", BlockLimitExceeded, entry.id.String()))
+			merr = multierr.Append(merr, fmt.Errorf("%s: %s", BlockLimitExceeded, entry.upkeepID.String()))
 			continue
 		}
 		start = start - p.opts.LookbackBuffer // adding a buffer to check for reorgs
@@ -361,13 +347,13 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries .
 			start = 0
 		}
 		// lggr = lggr.With("startBlock", start)
-		logs, err := p.poller.LogsWithSigs(start, latest, entry.filter.EventSigs, entry.filter.Addresses[0], pg.WithParentCtx(ctx))
+		logs, err := p.poller.LogsWithSigs(start, latest, entry.topics, common.BytesToAddress(entry.addr), pg.WithParentCtx(ctx))
 		if err != nil {
 			resv.Cancel() // cancels limit reservation as we failed to get logs
 			if ctx.Err() != nil {
 				return multierr.Append(merr, ctx.Err())
 			}
-			merr = multierr.Append(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", entry.id.String(), err))
+			merr = multierr.Append(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", entry.upkeepID.String(), err))
 			continue
 		}
 		// if this limiter's burst was set to the max,
@@ -376,7 +362,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries .
 			resv.Cancel() // cancel the reservation as we are resetting the burst
 			entry.blockLimiter.SetBurst(p.opts.BlockLimitBurst)
 		}
-		added := p.buffer.enqueue(entry.id, logs...)
+		added := p.buffer.enqueue(entry.upkeepID, logs...)
 		// if we added logs or couldn't find, update the last poll block
 		if added > 0 || len(logs) == 0 {
 			entry.lastPollBlock = latest
