@@ -11,7 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 )
 
 var (
@@ -199,7 +198,7 @@ func decodeExtensions(result *ocr2keepers.CheckResult) error {
 	case []byte:
 		switch core.GetUpkeepType(result.Payload.Upkeep.ID) {
 		case core.LogTrigger:
-			var ext logprovider.LogTriggerExtension
+			var ext core.LogTriggerExtension
 
 			// in the case of a string, the value is probably still json
 			// encoded and coming from a plugin outcome

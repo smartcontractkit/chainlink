@@ -147,7 +147,7 @@ func (p *logEventProvider) GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload
 		trig := ocr2keepers.NewTrigger(
 			log.BlockNumber,
 			log.BlockHash.Hex(),
-			LogTriggerExtension{
+			core.LogTriggerExtension{
 				TxHash:   log.TxHash.Hex(),
 				LogIndex: log.LogIndex,
 			},

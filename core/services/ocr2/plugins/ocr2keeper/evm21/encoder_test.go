@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 )
 
 func TestEVMAutomationEncoder21_Encode(t *testing.T) {
@@ -152,7 +151,7 @@ func TestEVMAutomationEncoder21_Encode_errors(t *testing.T) {
 
 	t.Run("a non hex tx (empty) hash causes an error", func(t *testing.T) {
 		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "20").String()), 1, 1)
-		result.Payload.Trigger.Extension = logprovider.LogTriggerExtension{
+		result.Payload.Trigger.Extension = core.LogTriggerExtension{
 			TxHash: "",
 		}
 		b, err := encoder.Encode(result)
@@ -163,7 +162,7 @@ func TestEVMAutomationEncoder21_Encode_errors(t *testing.T) {
 
 	t.Run("an invalid upkeep type causes an error", func(t *testing.T) {
 		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(5, "20").String()), 1, 1)
-		result.Payload.Trigger.Extension = logprovider.LogTriggerExtension{
+		result.Payload.Trigger.Extension = core.LogTriggerExtension{
 			TxHash: "",
 		}
 		b, err := encoder.Encode(result)
@@ -356,7 +355,7 @@ func Test_decodeExtensions(t *testing.T) {
 		err := decodeExtensions(&ocr2keepers.CheckResult{
 			Payload: ocr2keepers.UpkeepPayload{
 				Trigger: ocr2keepers.Trigger{
-					Extension: logprovider.LogTriggerExtension{},
+					Extension: core.LogTriggerExtension{},
 				},
 			},
 			Extension: EVMAutomationResultExtension21{},
@@ -479,7 +478,7 @@ func Test_decodeExtensions(t *testing.T) {
 		err := decodeExtensions(&ocr2keepers.CheckResult{
 			Payload: ocr2keepers.UpkeepPayload{
 				Trigger: ocr2keepers.Trigger{
-					Extension: logprovider.LogTriggerExtension{},
+					Extension: core.LogTriggerExtension{},
 				},
 			},
 			Extension: "invalid",
