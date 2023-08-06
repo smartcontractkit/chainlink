@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 )
 
 func TestEVMAutomationEncoder21_Encode(t *testing.T) {
@@ -38,7 +39,7 @@ func TestEVMAutomationEncoder21_Encode(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "10").String())),
+				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "10").String()), 1, 1),
 			},
 			640,
 			1,
@@ -48,9 +49,21 @@ func TestEVMAutomationEncoder21_Encode(t *testing.T) {
 		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "10").String())),
-				newResult(2, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "20").String())),
-				newResult(3, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "30").String())),
+				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "10").String()), 1, 1),
+				newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "20").String()), 2, 2),
+				newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "30").String()), 3, 3),
+			},
+			1280,
+			3,
+			3,
+			nil,
+		},
+		{
+			"happy flow highest block number first",
+			[]ocr2keepers.CheckResult{
+				newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "30").String()), 1000, 2000),
+				newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "20").String()), 2, 2),
+				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "10").String()), 1, 1),
 			},
 			1280,
 			1000,
@@ -195,16 +208,16 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "10").String())),
+				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "10").String()), 1, 1),
 			},
 			nil,
 		},
 		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
-				newResult(1, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "10").String())),
-				newResult(2, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "20").String())),
-				newResult(3, ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "30").String())),
+				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "10").String()), 1, 1),
+				newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.ConditionTrigger, "20").String()), 1, 1),
+				newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(core.LogTrigger, "30").String()), 1, 1),
 			},
 			nil,
 		},
