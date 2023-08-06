@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -84,7 +83,7 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
 				ocr2keepers.UpkeepIdentifier("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
 			},
-			Triggers: []uint8{uint8(core.LogTrigger)},
+			Triggers: []uint8{uint8(ocr2keepers.LogTrigger)},
 		},
 		{
 			Name:       "get conditional upkeeps",
@@ -93,7 +92,7 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
 				ocr2keepers.UpkeepIdentifier("8"),
 			},
-			Triggers: []uint8{uint8(core.ConditionTrigger)},
+			Triggers: []uint8{uint8(ocr2keepers.ConditionTrigger)},
 		},
 		{
 			Name:       "get multiple types of upkeeps",
@@ -103,7 +102,7 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 				ocr2keepers.UpkeepIdentifier("8"),
 				ocr2keepers.UpkeepIdentifier("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
 			},
-			Triggers: []uint8{uint8(core.LogTrigger), uint8(core.ConditionTrigger)},
+			Triggers: []uint8{uint8(ocr2keepers.LogTrigger), uint8(ocr2keepers.ConditionTrigger)},
 		},
 	}
 

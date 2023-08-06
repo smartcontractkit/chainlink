@@ -95,7 +95,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			BlockHash: common.HexToHash(result.Payload.Trigger.BlockHash),
 		}
 		switch core.GetUpkeepType(id.Bytes()) {
-		case core.LogTrigger:
+		case ocr2keepers.LogTrigger:
 			trExt, ok := result.Payload.Trigger.Extension.(core.LogTriggerExtension)
 			if !ok {
 				// decodeExtensions should catch this, but in the case it doesn't ...
@@ -145,7 +145,7 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 		logExt := core.LogTriggerExtension{}
 
 		switch core.GetUpkeepType(upkeepId.Bytes()) {
-		case core.LogTrigger:
+		case ocr2keepers.LogTrigger:
 			logExt.TxHash = common.BytesToHash(triggerW.TxHash[:]).Hex()
 			logExt.LogIndex = int64(triggerW.LogIndex)
 		default:
@@ -197,7 +197,7 @@ func decodeExtensions(result *ocr2keepers.CheckResult) error {
 		break
 	case []byte:
 		switch core.GetUpkeepType(result.Payload.Upkeep.ID) {
-		case core.LogTrigger:
+		case ocr2keepers.LogTrigger:
 			var ext core.LogTriggerExtension
 
 			// in the case of a string, the value is probably still json
@@ -207,7 +207,7 @@ func decodeExtensions(result *ocr2keepers.CheckResult) error {
 			}
 
 			result.Payload.Trigger.Extension = ext
-		case core.ConditionTrigger:
+		case ocr2keepers.ConditionTrigger:
 			// no special handling for conditional triggers
 			break
 		default:

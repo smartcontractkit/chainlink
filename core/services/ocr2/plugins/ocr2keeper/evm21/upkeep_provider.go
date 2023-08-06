@@ -23,7 +23,7 @@ func NewUpkeepProvider(reg *EvmRegistry) *upkeepProvider {
 }
 
 func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context, blockKey ocr2keepers.BlockKey) ([]ocr2keepers.UpkeepPayload, error) {
-	ids, err := p.reg.GetActiveUpkeepIDsByType(ctx, uint8(core.ConditionTrigger))
+	ids, err := p.reg.GetActiveUpkeepIDsByType(ctx, uint8(ocr2keepers.ConditionTrigger))
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context, blockKey ocr2keep
 	for _, uid := range ids {
 		payload, err := core.NewUpkeepPayload(
 			big.NewInt(0).SetBytes(uid),
-			int(core.ConditionTrigger),
+			int(ocr2keepers.ConditionTrigger),
 			ocr2keepers.NewTrigger(block.Int64(), blockHash.Hex(), struct{}{}),
 			nil,
 		)

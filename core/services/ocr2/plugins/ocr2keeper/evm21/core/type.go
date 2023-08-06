@@ -6,15 +6,6 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
-type UpkeepType uint8
-
-const (
-	ConditionTrigger UpkeepType = iota
-	LogTrigger
-	CronTrigger
-	ReadyTrigger
-)
-
 const (
 	// upkeepTypeStartIndex is the index where the upkeep type bytes start.
 	// for 2.1 we use 11 zeros (reserved bytes for future use)
@@ -28,9 +19,9 @@ const (
 // it follows the same logic as the contract, but performs it locally.
 //
 // TODO: check endianness
-func GetUpkeepType(id ocr2keepers.UpkeepIdentifier) UpkeepType {
+func GetUpkeepType(id ocr2keepers.UpkeepIdentifier) ocr2keepers.UpkeepType {
 	if len(id) < upkeepTypeByteIndex+1 {
-		return ConditionTrigger
+		return ocr2keepers.ConditionTrigger
 	}
 	idx, ok := big.NewInt(0).SetString(string(id), 10)
 	if ok {
@@ -38,9 +29,9 @@ func GetUpkeepType(id ocr2keepers.UpkeepIdentifier) UpkeepType {
 	}
 	for i := upkeepTypeStartIndex; i < upkeepTypeByteIndex; i++ {
 		if id[i] != 0 { // old id
-			return ConditionTrigger
+			return ocr2keepers.ConditionTrigger
 		}
 	}
 	typeByte := id[upkeepTypeByteIndex]
-	return UpkeepType(typeByte)
+	return ocr2keepers.UpkeepType(typeByte)
 }

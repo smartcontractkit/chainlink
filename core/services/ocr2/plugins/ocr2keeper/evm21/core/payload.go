@@ -57,8 +57,8 @@ func NewUpkeepPayload(uid *big.Int, tp int, trigger ocr2keepers.Trigger, checkDa
 		BlockHash: common.HexToHash(trigger.BlockHash),
 	}
 
-	switch UpkeepType(tp) {
-	case LogTrigger:
+	switch ocr2keepers.UpkeepType(tp) {
+	case ocr2keepers.LogTrigger:
 		trExt, ok := trigger.Extension.(LogTriggerExtension)
 		if !ok {
 			return ocr2keepers.UpkeepPayload{}, fmt.Errorf("unrecognized trigger extension data")

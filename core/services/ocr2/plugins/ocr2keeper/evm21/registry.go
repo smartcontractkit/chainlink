@@ -217,7 +217,7 @@ func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...
 		}
 		trigger := core.GetUpkeepType(value.ID.Bytes())
 		for _, t := range triggers {
-			if trigger == core.UpkeepType(t) {
+			if trigger == ocr2keepers.UpkeepType(t) {
 				keys = append(keys, ocr2keepers.UpkeepIdentifier(value.ID.String()))
 				break
 			}
@@ -409,7 +409,7 @@ func (r *EvmRegistry) initialize() error {
 	// register upkeep ids for log triggers
 	for _, id := range ids {
 		switch core.GetUpkeepType(id.Bytes()) {
-		case core.LogTrigger:
+		case ocr2keepers.LogTrigger:
 			if err := r.updateTriggerConfig(id, nil); err != nil {
 				r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", id.String(), err)
 			}
@@ -534,7 +534,7 @@ func (r *EvmRegistry) removeFromActive(id *big.Int) {
 
 	trigger := core.GetUpkeepType(id.Bytes())
 	switch trigger {
-	case core.LogTrigger:
+	case ocr2keepers.LogTrigger:
 		if err := r.logEventProvider.UnregisterFilter(id); err != nil {
 			r.lggr.Warnw("failed to unregister log filter", "upkeepID", id.String())
 		}
@@ -680,7 +680,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, keys []ocr2keepers.Upkee
 		}
 		var payload []byte
 		switch core.GetUpkeepType(upkeepId.Bytes()) {
-		case core.LogTrigger:
+		case ocr2keepers.LogTrigger:
 			// check data will include the log trigger config
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, key.CheckData)
 			if err != nil {
@@ -873,7 +873,7 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) error {
 	uid := id.String()
 	switch core.GetUpkeepType(id.Bytes()) {
-	case core.LogTrigger:
+	case ocr2keepers.LogTrigger:
 		if len(cfg) == 0 {
 			fetched, err := r.fetchTriggerConfig(id)
 			if err != nil {

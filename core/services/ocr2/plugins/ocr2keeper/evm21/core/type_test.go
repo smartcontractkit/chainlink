@@ -14,42 +14,32 @@ func TestGetUpkeepType(t *testing.T) {
 	tests := []struct {
 		name       string
 		upkeepID   ocr2keepers.UpkeepIdentifier
-		upkeepType UpkeepType
+		upkeepType ocr2keepers.UpkeepType
 	}{
 		{
 			"zeroed id",
 			big.NewInt(0).Bytes(),
-			ConditionTrigger,
+			ocr2keepers.ConditionTrigger,
 		},
 		{
 			"old id",
 			[]byte("5820911532554020907796191562093071158274499580927271776163559390280294438608"),
-			ConditionTrigger,
+			ocr2keepers.ConditionTrigger,
 		},
 		{
 			"condition trigger",
-			genUpkeepID(ConditionTrigger, "").Bytes(),
-			ConditionTrigger,
+			genUpkeepID(ocr2keepers.ConditionTrigger, "").Bytes(),
+			ocr2keepers.ConditionTrigger,
 		},
 		{
 			"log trigger string",
-			[]byte(genUpkeepID(LogTrigger, "111").String()),
-			LogTrigger,
+			[]byte(genUpkeepID(ocr2keepers.LogTrigger, "111").String()),
+			ocr2keepers.LogTrigger,
 		},
 		{
 			"log trigger",
-			genUpkeepID(LogTrigger, "111").Bytes(),
-			LogTrigger,
-		},
-		{
-			"cron trigger",
-			genUpkeepID(CronTrigger, "222").Bytes(),
-			CronTrigger,
-		},
-		{
-			"ready trigger",
-			genUpkeepID(ReadyTrigger, "333").Bytes(),
-			ReadyTrigger,
+			genUpkeepID(ocr2keepers.LogTrigger, "111").Bytes(),
+			ocr2keepers.LogTrigger,
 		},
 		{
 			"log trigger id",
@@ -57,7 +47,7 @@ func TestGetUpkeepType(t *testing.T) {
 				id, _ := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
 				return id.Bytes()
 			}(),
-			LogTrigger,
+			ocr2keepers.LogTrigger,
 		},
 	}
 
@@ -68,7 +58,7 @@ func TestGetUpkeepType(t *testing.T) {
 	}
 }
 
-func genUpkeepID(uType UpkeepType, rand string) *big.Int {
+func genUpkeepID(uType ocr2keepers.UpkeepType, rand string) *big.Int {
 	b := append([]byte{1}, common.LeftPadBytes([]byte{uint8(uType)}, 15)...)
 	b = append(b, []byte(rand)...)
 	return big.NewInt(0).SetBytes(b)
