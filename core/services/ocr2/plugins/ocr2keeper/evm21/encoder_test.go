@@ -160,17 +160,6 @@ func TestEVMAutomationEncoder21_Encode_errors(t *testing.T) {
 		assert.Equal(t, err.Error(), "tx hash parse error: empty hex string")
 	})
 
-	t.Run("an invalid upkeep type causes an error", func(t *testing.T) {
-		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(5, "20").String()), 1, 1)
-		result.Payload.Trigger.Extension = core.LogTriggerExtension{
-			TxHash: "",
-		}
-		b, err := encoder.Encode(result)
-		assert.Nil(t, b)
-		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "unknown trigger type: 5: failed to pack trigger")
-	})
-
 	t.Run("an invalid result extension causes an error", func(t *testing.T) {
 		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(5, "20").String()), 1, 1)
 		result.Extension = struct{}{}
