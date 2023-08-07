@@ -8,7 +8,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
 // UpkeepTriggerID returns the identifier using the given upkeepID and trigger.
