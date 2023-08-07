@@ -44,8 +44,11 @@ func NewUpkeepPayload(uid *big.Int, tp int, trigger ocr2keepers.Trigger, checkDa
 		CheckData: checkData,
 	}
 	// set work id based on upkeep id and trigger
-	p.WorkID, _ = UpkeepWorkID(uid, trigger)
-
+	wid, err := UpkeepWorkID(uid, trigger)
+	if err != nil {
+		return ocr2keepers.UpkeepPayload{}, fmt.Errorf("error while generating workID: %w", err)
+	}
+	p.WorkID = wid
 	// manually convert trigger to triggerWrapper
 	triggerW := triggerWrapper{
 		BlockNum:  uint32(trigger.BlockNumber),
