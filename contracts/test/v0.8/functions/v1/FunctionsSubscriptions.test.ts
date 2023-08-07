@@ -558,6 +558,17 @@ describe('Functions Router - Subscriptions', () => {
     })
   })
 
+  describe('#ownerWithdraw', async function () {
+    it('cannot withdraw more than balance', async function () {
+      await expect(
+        contracts.router.oracleWithdraw(
+          randomAddressString(),
+          BigNumber.from('100'),
+        ),
+      ).to.be.revertedWith(`InsufficientBalance`)
+    })
+  })
+
   describe('#flagsSet', async function () {
     it('get flags that were previously set', async function () {
       const flags = ethers.utils.formatBytes32String('arbitrary_byte_values')
