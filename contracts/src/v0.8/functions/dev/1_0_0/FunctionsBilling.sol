@@ -8,6 +8,8 @@ import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {Routable} from "./Routable.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
+
 /**
  * @title Functions Billing contract
  * @notice Contract that calculates payment from users to the nodes of the Decentralized Oracle Network (DON).
@@ -124,9 +126,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return uint256(weiPerUnitLink);
   }
 
-  function _getJuelsPerGas(uint256 gasPriceGwei) private view returns (uint256) {
+  function _getJuelsPerGas(uint256 gasPriceGwei) private view returns (uint96) {
     // (1e18 juels/link) * (wei/gas) / (wei/link) = juels per gas
-    return (1e18 * gasPriceGwei) / getWeiPerUnitLink();
+    // There are only 1e9*1e18 = 1e27 juels in existence, should not exceed uint96 (2^96 ~ 7e28)
+    return SafeCast.toUint96((1e18 * gasPriceGwei) / getWeiPerUnitLink());
   }
 
   // ================================================================
@@ -165,11 +168,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       ((gasPriceGwei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
     // @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
 
-    uint256 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
+    uint96 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
     uint256 estimatedGasReimbursement = juelsPerGas * executionGas;
     uint96 fees = uint96(donFee) + uint96(adminFee);
 
-    return uint96(estimatedGasReimbursement + fees);
+    return SafeCast.toUint96(estimatedGasReimbursement + fees);
   }
 
   // ================================================================
@@ -266,17 +269,16 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       return FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
     }
 
-    uint256 juelsPerGas = _getJuelsPerGas(tx.gasprice);
+    uint96 juelsPerGas = _getJuelsPerGas(tx.gasprice);
     // Gas overhead without callback
-    uint96 gasOverheadJuels = uint96(
-      juelsPerGas * (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback)
-    );
+    uint96 gasOverheadJuels = juelsPerGas *
+      (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback);
 
     // The Functions Router will perform the callback to the client contract
     (FunctionsResponse.FulfillResult resultCode, uint96 callbackCostJuels) = _getRouter().fulfill(
       response,
       err,
-      uint96(juelsPerGas),
+      juelsPerGas,
       gasOverheadJuels + commitment.donFee, // costWithoutFulfillment
       msg.sender,
       commitment
