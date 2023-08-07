@@ -10,7 +10,7 @@ import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
 import {IAuthorizedOriginReceiver} from "./accessControl/interfaces/IAuthorizedOriginReceiver.sol";
 import {ConfirmedOwnerUpgradeable} from "./accessControl/ConfirmedOwnerUpgradeable.sol";
 import {AuthorizedReceiver} from "./accessControl/AuthorizedReceiver.sol";
-import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/SafeCast.sol";
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
 import {PausableUpgradeable} from "../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/security/PausableUpgradeable.sol";
 import {Initializable} from "../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
 

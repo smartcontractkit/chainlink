@@ -502,4 +502,11 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   function getForwarder(uint256 upkeepID) external view returns (IAutomationForwarder) {
     return s_upkeep[upkeepID].forwarder;
   }
+
+  /**
+   * @notice returns the upkeep's forwarder contract
+   */
+  function hasDedupKey(bytes32 dedupKey) external view returns (bool) {
+    return s_dedupKeys[dedupKey];
+  }
 }

@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync"
@@ -216,7 +215,7 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(l.BlockNumber),
 			Confirmations:   latestBlock - l.BlockNumber,
 			TransactionHash: l.TxHash.Hex(),
-			ID:              hex.EncodeToString(triggerID[:]),
+			ID:              triggerID,
 			UpkeepID:        upkeepId,
 		})
 	}
@@ -248,18 +247,18 @@ func (l transmitEventLog) Id() *big.Int {
 	}
 }
 
-func (l transmitEventLog) TriggerID() [32]byte {
+func (l transmitEventLog) TriggerID() string {
 	switch {
 	case l.Performed != nil:
-		return l.Performed.UpkeepTriggerID
+		return UpkeepTriggerID(l.Performed.Id, l.Performed.Trigger)
 	case l.Stale != nil:
-		return l.Stale.UpkeepTriggerID
+		return UpkeepTriggerID(l.Stale.Id, l.Stale.Trigger)
 	case l.Reorged != nil:
-		return l.Reorged.UpkeepTriggerID
+		return UpkeepTriggerID(l.Reorged.Id, l.Reorged.Trigger)
 	case l.InsufficientFunds != nil:
-		return l.InsufficientFunds.UpkeepTriggerID
+		return UpkeepTriggerID(l.InsufficientFunds.Id, l.InsufficientFunds.Trigger)
 	default:
-		return [32]byte{}
+		return ""
 	}
 }
 

@@ -1,6 +1,7 @@
 package functions_test
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	cl_cbor "github.com/smartcontractkit/chainlink/v2/core/cbor"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_oracle"
@@ -66,6 +68,9 @@ var (
 	EncryptedSecretsUrls []byte                      = []byte{0x11, 0x22}
 	EncryptedSecrets     []byte                      = []byte(`{"TDH2Ctxt":"eyJHcm","SymCtxt":"+yHR","Nonce":"kgjHyT3Jar0M155E"}`)
 	DecryptedSecrets     []byte                      = []byte(`{"0x0":"lhcK"}`)
+	SignedCBORRequestHex                             = "a666736f75726365782172657475726e2046756e6374696f6e732e656e636f646555696e743235362831296773656372657473421234686c616e6775616765006c636f64654c6f636174696f6e006f736563726574734c6f636174696f6e0170726571756573745369676e617475726558416fb6d10871aa3865b6620dc5f4594d2a9ad9166ba6b1dbc3f508362fd27aa0461babada48979092a11ecadec9c663a2ea99da4e368408b36a3fb414acfefdd2a1c"
+	SubOwnerAddr         common.Address              = common.HexToAddress("0x2334dE553AB93c69b0ccbe278B6f5E8350Db6204")
+	NonSubOwnerAddr      common.Address              = common.HexToAddress("0x60C9CF55b9de9A956d921A97575108149b758131")
 )
 
 func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySec int, setTiers bool) *FunctionsListenerUniverse {
@@ -466,6 +471,36 @@ func TestFunctionsListener_PruneRequests(t *testing.T) {
 	require.NoError(t, err)
 	<-doneCh
 	uni.service.Close()
+}
+
+func TestFunctionsListener_RequestSignatureVerification(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	cborBytes, err := hex.DecodeString(SignedCBORRequestHex)
+	require.NoError(t, err)
+
+	var requestData functions_service.RequestData
+	err = cl_cbor.ParseDietCBORToStruct(cborBytes, &requestData)
+	require.NoError(t, err)
+
+	err = functions_service.VerifyRequestSignature(SubOwnerAddr, &requestData)
+	assert.NoError(t, err)
+}
+
+func TestFunctionsListener_RequestSignatureVerificationFailure(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	cborBytes, err := hex.DecodeString(SignedCBORRequestHex)
+	require.NoError(t, err)
+
+	var requestData functions_service.RequestData
+	err = cl_cbor.ParseDietCBORToStruct(cborBytes, &requestData)
+	require.NoError(t, err)
+
+	err = functions_service.VerifyRequestSignature(NonSubOwnerAddr, &requestData)
+	assert.EqualError(t, err, "invalid request signature: signer's address does not match subscription owner")
 }
 
 // func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
