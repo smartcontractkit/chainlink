@@ -146,7 +146,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	sendingKeys := []string{key.Address.String()}
 
 	// Create BHS Job and start it
-	_ = vrftesthelpers.CreateAndStartBHSJob(t, sendingKeys, app, cu.BHSContractAddress.String(),
+	bhsJob := vrftesthelpers.CreateAndStartBHSJob(t, sendingKeys, app, cu.BHSContractAddress.String(),
 		cu.RootContractAddress.String(), "", "", "", 0)
 
 	// Ensure log poller is ready and has all logs.

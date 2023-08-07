@@ -515,6 +515,8 @@ func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
 				logger.TestLogger(t),
 				coordinator,
 				&test.bhs,
+				lp,
+				0,
 				test.wait,
 				test.lookback,
 				func(ctx context.Context) (uint64, error) {
