@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
 
@@ -18,6 +19,10 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+)
+
+const (
+	performedBuffer = 32
 )
 
 type UpkeepStateReader interface {
@@ -226,7 +231,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter) error 
 	if err != nil {
 		return fmt.Errorf("could not read logs: %w", err)
 	}
-	logs, err = r.filterPerformed(start, end, f, logs)
+	logs, err = r.filterPerformed(ctx, start, end, f, logs)
 	if err != nil {
 		return fmt.Errorf("failed to filter performed: %w", err)
 	}
@@ -250,8 +255,43 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter) error 
 	return nil
 }
 
-func (r *logRecoverer) filterPerformed(start, end int64, f upkeepFilter, logs []logpoller.Log) ([]logpoller.Log, error) {
-	// TODO: call contract to check if the upkeep was performed
+func UpkeepWorkID(t ocr2keepers.Trigger) string {
+	return fmt.Sprintf("%+v", t)
+}
+
+func (r *logRecoverer) filterPerformed(ctx context.Context, start, end int64, f upkeepFilter, logs []logpoller.Log) ([]logpoller.Log, error) {
+	workIDs := make(map[string]logpoller.Log)
+	for _, log := range logs {
+		trigger := logToTrigger(f.upkeepID, log)
+		workIDs[UpkeepWorkID(trigger)] = log
+	}
+	performedLogs, err := r.poller.LogsWithSigs(
+		start,
+		end+performedBuffer,
+		[]common.Hash{
+			iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
+		},
+		r.registryAddress,
+		pg.WithParentCtx(ctx),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("%w: failed to collect DedupKeyAdded (performed) logs from log poller", err)
+	}
+	for _, log := range performedLogs {
+		topics := log.GetTopics()
+		if len(topics) < 2 {
+			r.lggr.Debugw("unexpected log topics", "topics", topics)
+		}
+		key := hexutil.Encode(topics[1].Bytes())
+		if _, ok := workIDs[key]; ok {
+			delete(workIDs, key)
+		}
+	}
+	logs = make([]logpoller.Log, 0, len(workIDs))
+	for _, log := range workIDs {
+		logs = append(logs, log)
+	}
+
 	return logs, nil
 }
 
@@ -267,6 +307,7 @@ func (r *logRecoverer) filterIneligible(start, end int64, f upkeepFilter, logs [
 	for _, log := range logs {
 		trigger := logToTrigger(f.upkeepID, log)
 		for _, payload := range payloads {
+			// TODO: payload.WorkID
 			if ts, ok := r.visited[payload.ID]; ok && time.Since(ts) < r.opts.TTL {
 				continue // we already visited this log
 			}
