@@ -247,6 +247,7 @@ func TestHeadTracker_CallsHeadTrackableCallbacks(t *testing.T) {
 			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 		)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil)
+	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(cltest.Head(0), nil).Maybe()
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
@@ -958,6 +959,31 @@ func TestHeadTracker_Backfill(t *testing.T) {
 		// Should contain 12, 11, 10, 9
 		assert.Equal(t, 4, int(h.ChainLength()))
 		assert.Equal(t, int64(9), h.EarliestInChain().BlockNumber())
+	})
+
+	t.Run("abandons backfill and returns error when fetching a block by hash fails, indicating a reorg", func(t *testing.T) {
+		db := pgtest.NewSqlxDB(t)
+		cfg := configtest.NewGeneralConfig(t, nil)
+		logger := logger.TestLogger(t)
+		orm := headtracker.NewORM(db, logger, cfg.Database(), cltest.FixtureChainID)
+		ethClient := evmtest.NewEthClientMock(t)
+		ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+		ethClient.On("HeadByHash", mock.Anything, h14.Hash).Return(&h14, nil).Once()
+		ethClient.On("HeadByHash", mock.Anything, h13.Hash).Return(&h13, nil).Once()
+		ethClient.On("HeadByHash", mock.Anything, h12.Hash).Return(nil, errors.New("not found")).Once()
+
+		ht := createHeadTrackerWithNeverSleeper(t, ethClient, cfg, orm)
+
+		err := ht.Backfill(ctx, &h15, 400)
+
+		require.Error(t, err)
+		require.EqualError(t, err, "fetchAndSaveHead failed: not found")
+
+		h := ht.headSaver.Chain(h14.Hash)
+
+		// Should contain 14, 13 (15 was never added). When trying to get the parent of h13 by hash, a reorg happened and backfill exited.
+		assert.Equal(t, 2, int(h.ChainLength()))
+		assert.Equal(t, int64(13), h.EarliestInChain().BlockNumber())
 	})
 }
 
