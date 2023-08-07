@@ -683,6 +683,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: testnet-smoke-tests-matrix
     steps:
+      - name: Debug Result
+        run: echo ${{needs.testnet-smoke-tests-matrix.result}}
       - name: Main Slack Notification
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         id: slack
@@ -698,7 +700,7 @@ jobs:
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "Live Smoke Test Results ${{ job.status == 'success' && ':white_check_mark:' || ':x:'}}",
+                        "text": "Live Smoke Test Results ${{ needs.testnet-smoke-tests-matrix.result == 'success' && ':white_check_mark:' || ':x:'}}",
                         "emoji": true
                       }
                     },
@@ -720,14 +722,13 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 
   testnet-smoke-tests-results:
-    name: Live Testnet Smoke Test Results
+    name: Post Live Testnet Smoke Test Results
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    if: always()
     runs-on: ubuntu-latest
     needs: testnet-smoke-tests-notify
     strategy:
@@ -771,7 +772,7 @@ jobs:
                       "type": "header",
                       "text": {
                         "type": "plain_text",
-                        "text": "${{ matrix.testnet }} OCR Smoke Test Results ${{ steps.test-results.outputs.status == 'success' && ':white_check_mark:' || ':x:'}}",
+                        "text": "${{ matrix.testnet }} Smoke Test Results ${{ steps.test-results.outputs.status == 'success' && ':white_check_mark:' || ':x:'}}",
                         "emoji": true
                       }
                     },
