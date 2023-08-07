@@ -41,6 +41,7 @@ describe('FunctionsTestHelper', () => {
         'addSecretsReference',
         'addTwoArgs',
         'addEmptyArgs',
+        'addSignature',
       ]),
     ).to.equal(true)
   })
@@ -167,6 +168,31 @@ describe('FunctionsTestHelper', () => {
   describe('#addEmptyArgs to revert', () => {
     it('reverts with EmptyArgs() if args param is empty', async () => {
       await expect(ctr.addEmptyArgs()).to.be.revertedWith('EmptyArgs()')
+    })
+  })
+
+  describe('#addSignature', () => {
+    it('emits CBOR encoded request with js source and signature', async () => {
+      const signatureHex = 'aabbccddeeff'
+      const js = 'function run(args, responses) {}'
+      await ctr.initializeRequestForInlineJavaScript(js)
+      await ctr.addSignature('0x' + signatureHex)
+      const tx = await ctr.closeEvent()
+      const [payload] = await parseRequestDataEvent(tx)
+      const decoded = await decodeDietCBOR(payload)
+      assert.deepEqual(
+        {
+          ...decoded,
+          language: decoded.language.toNumber(),
+          codeLocation: decoded.codeLocation.toNumber(),
+        },
+        {
+          language: 0,
+          codeLocation: 0,
+          source: js,
+          requestSignature: Buffer.from(signatureHex, 'hex'),
+        },
+      )
     })
   })
 })

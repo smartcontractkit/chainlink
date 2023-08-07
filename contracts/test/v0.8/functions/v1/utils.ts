@@ -1,6 +1,7 @@
 import { ethers } from 'hardhat'
 import { BigNumber, ContractFactory, Signer, Contract, providers } from 'ethers'
 import { Roles, getUsers } from '../../../test-helpers/setup'
+import { EventFragment } from 'ethers/lib/utils'
 
 export type FunctionsRoles = Roles & {
   subOwner: Signer
@@ -43,27 +44,46 @@ export const stringToHex = (s: string) => {
   return ethers.utils.hexlify(ethers.utils.toUtf8Bytes(s))
 }
 
-export const encodeReport = (
+export const encodeReport = async (
   requestId: string,
   result: string,
   err: string,
+  onchainMetadata: any,
+  offchainMetadata: string,
 ) => {
+  const functionsResponse = await ethers.getContractFactory(
+    'src/v0.8/functions/dev/1_0_0/FunctionsCoordinator.sol:FunctionsCoordinator',
+  )
+  const onchainMetadataBytes = functionsResponse.interface._abiCoder.encode(
+    [
+      getEventInputs(
+        Object.values(functionsResponse.interface.events),
+        'OracleRequest',
+        9,
+      ),
+    ],
+    [[...onchainMetadata]],
+  )
   const abi = ethers.utils.defaultAbiCoder
   return abi.encode(
-    ['bytes32[]', 'bytes[]', 'bytes[]'],
-    [[requestId], [result], [err]],
+    ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
+    [[requestId], [result], [err], [onchainMetadataBytes], [offchainMetadata]],
   )
 }
 
 export type FunctionsRouterConfig = {
+  maxConsumersPerSubscription: number
   adminFee: number
   handleOracleFulfillmentSelector: string
   maxCallbackGasLimits: number[]
+  gasForCallExactCheck: number
 }
 export const functionsRouterConfig: FunctionsRouterConfig = {
+  maxConsumersPerSubscription: 100,
   adminFee: 0,
   handleOracleFulfillmentSelector: '0x0ca76175',
   maxCallbackGasLimits: [300_000, 500_000, 1_000_000],
+  gasForCallExactCheck: 5000,
 }
 export type CoordinatorConfig = {
   maxCallbackGasLimit: number
@@ -88,17 +108,18 @@ export const coordinatorConfig: CoordinatorConfig = {
   fulfillmentGasPriceOverEstimationBP: 0,
   fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
 }
-export const accessControlMockPublicKey =
-  '0x32237412cC0321f56422d206e505dB4B3871AF5c'
+export const accessControlMockPublicKey = ethers.utils.getAddress(
+  '0x32237412cC0321f56422d206e505dB4B3871AF5c',
+)
 export const accessControlMockPrivateKey =
   '2e8c8eaff4159e59711b42424c1555af1b78409e12c6f9c69a6a986d75442b20'
 export type AccessControlConfig = {
   enabled: boolean
-  proofSignerPublicKey: string // address
+  signerPublicKey: string // address
 }
 export const accessControlConfig: AccessControlConfig = {
   enabled: true,
-  proofSignerPublicKey: accessControlMockPublicKey,
+  signerPublicKey: accessControlMockPublicKey,
 }
 
 export async function setupRolesAndFactories(): Promise<{
@@ -123,11 +144,11 @@ export async function setupRolesAndFactories(): Promise<{
     roles.consumer,
   )
   const linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/mocks/MockLinkToken.sol:MockLinkToken',
     roles.defaultAccount,
   )
   const mockAggregatorV3Factory = await ethers.getContractFactory(
-    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     roles.defaultAccount,
   )
   return {
@@ -157,15 +178,16 @@ export async function acceptTermsOfService(
   recipientAddress: string,
 ) {
   const acceptorAddress = await acceptor.getAddress()
-  const messageHash = await accessControl.getMessageHash(
+  const message = await accessControl.getMessage(
     acceptorAddress,
     recipientAddress,
   )
   const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-  const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+  const flatSignature = await wallet.signMessage(ethers.utils.arrayify(message))
+  const { r, s, v } = ethers.utils.splitSignature(flatSignature)
   return accessControl
     .connect(acceptor)
-    .acceptTermsOfService(acceptorAddress, recipientAddress, proof)
+    .acceptTermsOfService(acceptorAddress, recipientAddress, r, s, v)
 }
 
 export async function createSubscription(
@@ -217,48 +239,24 @@ export function getSetupFactory(): () => {
     const linkToken = await factories.linkTokenFactory
       .connect(roles.defaultAccount)
       .deploy()
+
     const mockLinkEth = await factories.mockAggregatorV3Factory.deploy(
       0,
       linkEthRate,
     )
-    const routerConfigBytes = ethers.utils.defaultAbiCoder.encode(
-      ['uint96', 'bytes4', 'uint32[]'],
-      [...Object.values(functionsRouterConfig)],
-    )
-    const startingTimelockBlocks = 0
-    const maxTimelockBlocks = 20
+
     const router = await factories.functionsRouterFactory
       .connect(roles.defaultAccount)
-      .deploy(
-        startingTimelockBlocks,
-        maxTimelockBlocks,
-        linkToken.address,
-        routerConfigBytes,
-      )
-    const coordinatorConfigBytes = ethers.utils.defaultAbiCoder.encode(
-      [
-        'uint32',
-        'uint32',
-        'uint32',
-        'uint32',
-        'uint32',
-        'uint80',
-        'uint16',
-        'uint256',
-        'int256',
-      ],
-      [...Object.values(coordinatorConfig)],
-    )
+      .deploy(linkToken.address, functionsRouterConfig)
+
     const coordinator = await factories.functionsCoordinatorFactory
       .connect(roles.defaultAccount)
-      .deploy(router.address, coordinatorConfigBytes, mockLinkEth.address)
-    const accessControlConfigBytes = ethers.utils.defaultAbiCoder.encode(
-      ['bool', 'address'],
-      [...Object.values(accessControlConfig)],
-    )
+      .deploy(router.address, coordinatorConfig, mockLinkEth.address)
+
     const accessControl = await factories.accessControlFactory
       .connect(roles.defaultAccount)
-      .deploy(router.address, accessControlConfigBytes)
+      .deploy(accessControlConfig)
+
     const client = await factories.clientTestHelperFactory
       .connect(roles.consumer)
       .deploy(router.address)
@@ -303,6 +301,20 @@ export function getEventArg(events: any, eventName: string, argIndex: number) {
     }
   }
   return undefined
+}
+
+export function getEventInputs(
+  events: EventFragment[],
+  eventName: string,
+  argIndex: number,
+) {
+  if (Array.isArray(events)) {
+    const event = events.find((e) => e.name.includes(eventName))
+    if (event && Array.isArray(event.inputs) && event.inputs.length > 0) {
+      return event.inputs[argIndex]
+    }
+  }
+  throw 'Not found'
 }
 
 export async function parseOracleRequestEventArgs(

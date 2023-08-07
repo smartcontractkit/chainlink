@@ -379,20 +379,28 @@ func SetAllAdapterResponsesToTheSameValue(
 // SetAllAdapterResponsesToDifferentValues sets the mock responses in mockserver that are read by chainlink nodes
 // to simulate different adapters. This sets all adapter responses for each node and contract to different responses
 func SetAllAdapterResponsesToDifferentValues(
-	t *testing.T,
 	responses []int,
 	ocrInstances []contracts.OffchainAggregator,
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	mockserver *ctfClient.MockserverClient,
-) {
-	require.Equal(t, len(chainlinkNodes)-1, len(responses),
-		"Amount of answers %d should be equal to the amount of Chainlink nodes - 1 for the bootstrap %d", len(responses), len(chainlinkNodes)-1)
-	for _, ocrInstance := range ocrInstances {
-		for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
-			err := SetAdapterResponse(responses[nodeIndex-1], ocrInstance, chainlinkNodes[nodeIndex], mockserver)
-			require.NoError(t, err)
+) error {
+	if len(responses) != len(ocrInstances)*len(chainlinkNodes) {
+		return fmt.Errorf(
+			"amount of responses %d should be equal to the amount of OCR instances %d times the amount of Chainlink nodes %d",
+			len(responses), len(ocrInstances), len(chainlinkNodes),
+		)
+	}
+	eg := &errgroup.Group{}
+	for _, o := range ocrInstances {
+		ocrInstance := o
+		for ni := 1; ni < len(chainlinkNodes); ni++ {
+			nodeIndex := ni
+			eg.Go(func() error {
+				return SetAdapterResponse(responses[nodeIndex-1], ocrInstance, chainlinkNodes[nodeIndex], mockserver)
+			})
 		}
 	}
+	return eg.Wait()
 }
 
 // BuildNodeContractPairID builds a UUID based on a related pair of a Chainlink node and OCR contract
