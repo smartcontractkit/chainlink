@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -57,7 +58,7 @@ func ptr[T any](v T) *T { return &v }
 
 var allowListPrivateKey = "0xae78c8b502571dba876742437f8bc78b689cf8518356c0921393d89caaf284ce"
 
-func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, coordinatorContract *functions_coordinator.FunctionsCoordinator, oracles []confighelper2.OracleIdentityExtra, batchSize int, functionsPluginConfig *functionsConfig.ReportingPluginConfig) {
+func SetOracleConfig(t *testing.T, b *backends.SimulatedBackend, owner *bind.TransactOpts, coordinatorContract *functions_coordinator.FunctionsCoordinator, oracles []confighelper2.OracleIdentityExtra, batchSize int, functionsPluginConfig *functionsConfig.ReportingPluginConfig) {
 	S := make([]int, len(oracles))
 	for i := 0; i < len(S); i++ {
 		S[i] = 1
@@ -105,11 +106,10 @@ func SetOracleConfig(t *testing.T, owner *bind.TransactOpts, coordinatorContract
 		offchainConfig,
 	)
 	require.NoError(t, err)
-
-	time.Sleep(1000 * time.Millisecond)
+	CommitWithFinality(b)
 }
 
-func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionId uint64) {
+func CreateAndFundSubscriptions(t *testing.T, b *backends.SimulatedBackend, owner *bind.TransactOpts, linkToken *link_token_interface.LinkToken, routerContractAddress common.Address, routerContract *functions_router.FunctionsRouter, clientContracts []deployedClientContract, allowListContract *functions_allow_list.TermsOfServiceAllowList) (subscriptionId uint64) {
 	allowed, err := allowListContract.HasAccess(nilOpts, owner.From, []byte{})
 	require.NoError(t, err)
 	if !allowed {
@@ -143,8 +143,7 @@ func CreateAndFundSubscriptions(t *testing.T, owner *bind.TransactOpts, linkToke
 	amount := big.NewInt(0).Mul(big.NewInt(int64(numContracts)), big.NewInt(2e18)) // 2 LINK per client
 	_, err = linkToken.TransferAndCall(owner, routerContractAddress, amount, data)
 	require.NoError(t, err)
-
-	time.Sleep(1000 * time.Millisecond)
+	b.Commit()
 
 	return subscriptionID
 }
@@ -162,12 +161,18 @@ type deployedClientContract struct {
 	Contract *functions_client_example.FunctionsClientExample
 }
 
-func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *backends.SimulatedBackend, *time.Ticker, common.Address, *functions_coordinator.FunctionsCoordinator, []deployedClientContract, common.Address, *functions_router.FunctionsRouter, *link_token_interface.LinkToken, common.Address, *functions_allow_list.TermsOfServiceAllowList) {
+type Coordinator struct {
+	Address  common.Address
+	Contract *functions_coordinator.FunctionsCoordinator
+}
+
+func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *backends.SimulatedBackend, *time.Ticker, Coordinator, Coordinator, []deployedClientContract, common.Address, *functions_router.FunctionsRouter, *link_token_interface.LinkToken, common.Address, *functions_allow_list.TermsOfServiceAllowList) {
 	owner := testutils.MustNewSimTransactor(t)
+	owner.GasPrice = big.NewInt(int64(DefaultGasPrice))
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
 	genesisData := core.GenesisAlloc{owner.From: {Balance: sb}}
-	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2
+	gasLimit := ethconfig.Defaults.Miner.GasCeil * 2 // 60 M blocks
 	b := backends.NewSimulatedBackend(genesisData, gasLimit)
 	b.Commit()
 
@@ -176,7 +181,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	require.NoError(t, err)
 
 	// Deploy mock LINK/ETH price feed
-	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 0, big.NewInt(5021530000000000))
+	linkEthFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(owner, b, 18, big.NewInt(5_000_000_000_000_000))
 	require.NoError(t, err)
 
 	// Deploy Router contract
@@ -214,11 +219,13 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		RequestTimeoutSeconds:               uint32(300),
 		DonFee:                              big.NewInt(0),
 		MaxSupportedRequestDataVersion:      uint16(1),
-		FulfillmentGasPriceOverEstimationBP: uint32(6_600),
+		FulfillmentGasPriceOverEstimationBP: uint32(1_000),
 		FallbackNativePerUnitLink:           big.NewInt(5_000_000_000_000_000),
 	}
 	require.NoError(t, err)
 	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr)
+	require.NoError(t, err)
+	proposalAddress, _, proposalContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr)
 	require.NoError(t, err)
 
 	// Deploy Client contracts
@@ -243,10 +250,19 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 			b.Commit()
 		}
 	}()
-	return owner, b, ticker, coordinatorAddress, coordinatorContract, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
+
+	active := Coordinator{
+		Contract: coordinatorContract,
+		Address:  coordinatorAddress,
+	}
+	proposed := Coordinator{
+		Contract: proposalContract,
+		Address:  proposalAddress,
+	}
+	return owner, b, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListAddress, allowListContract
 }
 
-func SetupRouterRoutes(t *testing.T, owner *bind.TransactOpts, routerContract *functions_router.FunctionsRouter, coordinatorAddress common.Address, allowListAddress common.Address) {
+func SetupRouterRoutes(t *testing.T, b *backends.SimulatedBackend, owner *bind.TransactOpts, routerContract *functions_router.FunctionsRouter, coordinatorAddress common.Address, proposedCoordinatorAddress common.Address, allowListAddress common.Address) {
 	allowListId, err := routerContract.GetAllowListId(nilOpts)
 	require.NoError(t, err)
 	var donId [32]byte
@@ -256,10 +272,18 @@ func SetupRouterRoutes(t *testing.T, owner *bind.TransactOpts, routerContract *f
 	_, err = routerContract.ProposeContractsUpdate(owner, proposedContractSetIds, proposedContractSetAddresses)
 	require.NoError(t, err)
 
-	time.Sleep(1000 * time.Millisecond)
+	b.Commit()
 
 	_, err = routerContract.UpdateContracts(owner)
 	require.NoError(t, err)
+	b.Commit()
+
+	// prepare next coordinator
+	proposedContractSetIds = []([32]byte){donId}
+	proposedContractSetAddresses = []common.Address{proposedCoordinatorAddress}
+	_, err = routerContract.ProposeContractsUpdate(owner, proposedContractSetIds, proposedContractSetAddresses)
+	require.NoError(t, err)
+	b.Commit()
 }
 
 type Node struct {
@@ -305,7 +329,7 @@ func StartNewNode(
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(maxGas)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
-		c.EVM[0].GasEstimator.PriceDefault = assets.NewWei(big.NewInt(60112956))
+		c.EVM[0].GasEstimator.PriceDefault = assets.NewWei(big.NewInt(int64(DefaultGasPrice)))
 
 		if len(thresholdKeyShare) > 0 {
 			s.Threshold.ThresholdKeyShare = models.NewSecret(thresholdKeyShare)
@@ -505,8 +529,6 @@ func CreateFunctionsNodes(
 	owner *bind.TransactOpts,
 	b *backends.SimulatedBackend,
 	routerAddress common.Address,
-	coordinatorAddress common.Address,
-	startingPort uint16,
 	nOracleNodes int,
 	maxGas int,
 	ocr2Keystores [][]byte,
@@ -524,7 +546,8 @@ func CreateFunctionsNodes(
 		require.Fail(t, "ocr2Keystores and thresholdKeyShares must have the same length")
 	}
 
-	bootstrapNode = StartNewNode(t, owner, startingPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
+	bootstrapPort := getFreePort(t)
+	bootstrapNode = StartNewNode(t, owner, bootstrapPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
 	AddBootstrapJob(t, bootstrapNode.App, routerAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
@@ -541,8 +564,9 @@ func CreateFunctionsNodes(
 		} else {
 			ocr2Keystore = ocr2Keystores[i]
 		}
-		oracleNode := StartNewNode(t, owner, startingPort+1+uint16(i), fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
-			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", startingPort)}},
+		nodePort := getFreePort(t)
+		oracleNode := StartNewNode(t, owner, nodePort, fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
+			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapPort)}},
 		}, ocr2Keystore, thresholdKeyShare)
 		oracleNodes = append(oracleNodes, oracleNode.App)
 		oracleIdentites = append(oracleIdentites, oracleNode.OracleIdentity)
@@ -556,6 +580,18 @@ func CreateFunctionsNodes(
 	return bootstrapNode, oracleNodes, oracleIdentites
 }
 
+// NOTE: This approach is technically incorrect because the returned port
+// can still be taken by the time the caller attempts to bind to it.
+// Unfortunately, we can't specify zero port in P2P.V2.ListenAddresses at the moment.
+func getFreePort(t *testing.T) uint16 {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	require.NoError(t, err)
+	listener, err := net.ListenTCP("tcp", addr)
+	require.NoError(t, err)
+	require.NoError(t, listener.Close())
+	return uint16(listener.Addr().(*net.TCPAddr).Port)
+}
+
 func ClientTestRequests(
 	t *testing.T,
 	owner *bind.TransactOpts,
@@ -567,12 +603,12 @@ func ClientTestRequests(
 	clientContracts []deployedClientContract,
 	requestLenBytes int,
 	expectedSecrets []byte,
+	subscriptionId uint64,
 	timeout time.Duration,
 ) {
 	t.Helper()
 	var donId [32]byte
 	copy(donId[:], []byte(DefaultDONId))
-	subscriptionId := CreateAndFundSubscriptions(t, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
 	// send requests
 	requestSources := make([][]byte, len(clientContracts))
 	rnd := rand.New(rand.NewSource(666))

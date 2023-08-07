@@ -9,11 +9,10 @@ import (
 
 var NodeSecretsTemplate = `
 [Database]
-URL = 'postgresql://postgres:test@{{ .PgHost }}:{{ .PgPort }}/{{ .PgDbName }}?sslmode=disable' # Required
-AllowSimplePasswords = true
+URL = 'postgresql://postgres:{{ .PgPassword }}@{{ .PgHost }}:{{ .PgPort }}/{{ .PgDbName }}?sslmode=disable' # Required
 
 [Password]
-Keystore = '................' # Required
+Keystore = 'mysecretpassword' # Required
 
 [Mercury.Credentials.cred1]
 # URL = 'http://host.docker.internal:3000/reports'
@@ -22,15 +21,17 @@ Username = 'node'
 Password = 'nodepass'
 `
 
-func ExecuteNodeSecretsTemplate(pgDbName, pgHost, pgPort string) (string, error) {
+func ExecuteNodeSecretsTemplate(pgPassowrd, pgDbName, pgHost, pgPort string) (string, error) {
 	data := struct {
-		PgDbName string
-		PgHost   string
-		PgPort   string
+		PgDbName   string
+		PgHost     string
+		PgPort     string
+		PgPassword string
 	}{
-		PgDbName: pgDbName,
-		PgHost:   pgHost,
-		PgPort:   pgPort,
+		PgDbName:   pgDbName,
+		PgHost:     pgHost,
+		PgPort:     pgPort,
+		PgPassword: pgPassowrd,
 	}
 
 	t, err := template.New("node-secrets").Parse(NodeSecretsTemplate)

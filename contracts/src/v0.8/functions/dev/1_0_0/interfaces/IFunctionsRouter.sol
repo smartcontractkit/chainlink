@@ -87,17 +87,15 @@ interface IFunctionsRouter {
   function getProposedContractById(bytes32 id) external view returns (address);
 
   // @notice Return the latest proprosal set
-  // @return timelockEndBlock The block number that the proposal is able to be merged at
   // @return ids The identifiers of the contracts to update
   // @return to The addresses of the contracts that will be updated to
-  function getProposedContractSet() external view returns (uint, bytes32[] memory, address[] memory);
+  function getProposedContractSet() external view returns (bytes32[] memory, address[] memory);
 
   // @notice Proposes one or more updates to the contract routes
   // @dev Only callable by owner
   function proposeContractsUpdate(bytes32[] memory proposalSetIds, address[] memory proposalSetAddresses) external;
 
   // @notice Updates the current contract routes to the proposed contracts
-  // @dev Only callable once timelock has passed
   // @dev Only callable by owner
   function updateContracts() external;
 

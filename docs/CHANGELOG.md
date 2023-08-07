@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-...
+### Changed
+- Simple passwords are no longer allowed for production builds
 
 ## 2.4.0 - UNRELEASED
 ### Fixed

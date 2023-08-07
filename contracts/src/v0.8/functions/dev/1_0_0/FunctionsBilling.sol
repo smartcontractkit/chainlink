@@ -8,6 +8,8 @@ import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {Routable} from "./Routable.sol";
 import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
+import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
+
 /**
  * @title Functions Billing contract
  * @notice Contract that calculates payment from users to the nodes of the Decentralized Oracle Network (DON).
@@ -32,30 +34,15 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // ================================================================
 
   struct Config {
-    // Maximum amount of gas that can be given to a request's client callback
-    uint32 maxCallbackGasLimit;
-    // How long before we consider the feed price to be stale
-    // and fallback to fallbackNativePerUnitLink.
-    uint32 feedStalenessSeconds;
-    // Represents the average gas execution cost before the fulfillment callback.
-    // This amount is always billed for every request
-    uint32 gasOverheadBeforeCallback;
-    // Represents the average gas execution cost after the fulfillment callback.
-    // This amount is always billed for every request
-    uint32 gasOverheadAfterCallback;
-    // How many seconds it takes before we consider a request to be timed out
-    uint32 requestTimeoutSeconds;
-    // Additional flat fee (in Juels of LINK) that will be split between Node Operators
-    // Max value is 2^80 - 1 == 1.2m LINK.
-    uint72 donFee;
-    // The highest support request data version supported by the node
-    // All lower versions should also be supported
-    uint16 maxSupportedRequestDataVersion;
-    // Percentage of gas price overestimation to account for changes in gas price between request and response
-    // Held as basis points (one hundredth of 1 percentage point)
-    uint32 fulfillmentGasPriceOverEstimationBP;
-    // fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
-    uint224 fallbackNativePerUnitLink;
+    uint32 maxCallbackGasLimit; // ══════════════════╗ Maximum amount of gas that can be given to a request's client callback
+    uint32 feedStalenessSeconds; //                  ║ How long before we consider the feed price to be stale and fallback to fallbackNativePerUnitLink.
+    uint32 gasOverheadBeforeCallback; //             ║ Represents the average gas execution cost before the fulfillment callback. This amount is always billed for every request.
+    uint32 gasOverheadAfterCallback; //              ║ Represents the average gas execution cost after the fulfillment callback. This amount is always billed for every request.
+    uint32 requestTimeoutSeconds; //                 ║ How many seconds it takes before we consider a request to be timed out
+    uint72 donFee; //                                ║ Additional flat fee (in Juels of LINK) that will be split between Node Operators. Max value is 2^80 - 1 == 1.2m LINK.
+    uint16 maxSupportedRequestDataVersion; // ═══════╝ The highest support request data version supported by the node. All lower versions should also be supported.
+    uint32 fulfillmentGasPriceOverEstimationBP; // ══╗ Percentage of gas price overestimation to account for changes in gas price between request and response. Held as basis points (one hundredth of 1 percentage point)
+    uint224 fallbackNativePerUnitLink; // ═══════════╝ fallback NATIVE CURRENCY / LINK conversion rate if the data feed is stale
   }
 
   Config private s_config;
@@ -139,9 +126,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return uint256(weiPerUnitLink);
   }
 
-  function _getJuelsPerGas(uint256 gasPriceGwei) private view returns (uint256) {
+  function _getJuelsPerGas(uint256 gasPriceGwei) private view returns (uint96) {
     // (1e18 juels/link) * (wei/gas) / (wei/link) = juels per gas
-    return (1e18 * gasPriceGwei) / getWeiPerUnitLink();
+    // There are only 1e9*1e18 = 1e27 juels in existence, should not exceed uint96 (2^96 ~ 7e28)
+    return SafeCast.toUint96((1e18 * gasPriceGwei) / getWeiPerUnitLink());
   }
 
   // ================================================================
@@ -180,11 +168,11 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       ((gasPriceGwei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
     // @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
 
-    uint256 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
+    uint96 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
     uint256 estimatedGasReimbursement = juelsPerGas * executionGas;
-    uint96 fees = donFee + adminFee;
+    uint96 fees = uint96(donFee) + uint96(adminFee);
 
-    return uint96(estimatedGasReimbursement + fees);
+    return SafeCast.toUint96(estimatedGasReimbursement + fees);
   }
 
   // ================================================================
@@ -216,7 +204,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     );
 
     // Check that subscription can afford the estimated cost
-    if ((request.subscription.balance - request.subscription.blockedBalance) < estimatedTotalCostJuels) {
+    if ((request.availableBalance) < estimatedTotalCostJuels) {
       revert InsufficientBalance();
     }
 
@@ -224,7 +212,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       address(this),
       request.requestingContract,
       request.subscriptionId,
-      request.consumer.initiatedRequests + 1
+      request.initiatedRequests + 1
     );
 
     commitment = FunctionsResponse.Commitment({
@@ -281,17 +269,16 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       return FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
     }
 
-    uint256 juelsPerGas = _getJuelsPerGas(tx.gasprice);
+    uint96 juelsPerGas = _getJuelsPerGas(tx.gasprice);
     // Gas overhead without callback
-    uint96 gasOverheadJuels = uint96(
-      juelsPerGas * (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback)
-    );
+    uint96 gasOverheadJuels = juelsPerGas *
+      (commitment.gasOverheadBeforeCallback + commitment.gasOverheadAfterCallback);
 
     // The Functions Router will perform the callback to the client contract
     (FunctionsResponse.FulfillResult resultCode, uint96 callbackCostJuels) = _getRouter().fulfill(
       response,
       err,
-      uint96(juelsPerGas),
+      juelsPerGas,
       gasOverheadJuels + commitment.donFee, // costWithoutFulfillment
       msg.sender,
       commitment
