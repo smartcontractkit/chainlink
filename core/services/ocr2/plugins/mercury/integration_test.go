@@ -254,17 +254,6 @@ func TestIntegration_Mercury(t *testing.T) {
 	require.NoError(t, err)
 
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTestsMercuryV02(
-<<<<<<< HEAD
-		2*time.Second,  // DeltaProgress
-		20*time.Second, // DeltaResend
-		400*time.Millisecond,
-		100*time.Millisecond, // DeltaRound
-		0,                    // DeltaGrace
-		300*time.Millisecond,
-		1*time.Minute,     // DeltaStage
-		100,               // rMax
-		[]int{len(nodes)}, // S
-=======
 		2*time.Second,        // DeltaProgress
 		20*time.Second,       // DeltaResend
 		400*time.Millisecond, // DeltaInitial
@@ -274,7 +263,6 @@ func TestIntegration_Mercury(t *testing.T) {
 		1*time.Minute,        // DeltaStage
 		100,                  // rMax
 		[]int{len(nodes)},    // S
->>>>>>> develop
 		oracles,
 		[]byte{},             // reportingPluginConfig []byte,
 		250*time.Millisecond, // Max duration observation
