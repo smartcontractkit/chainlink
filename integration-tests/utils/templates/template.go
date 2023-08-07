@@ -10,8 +10,8 @@ var (
 	ErrParsingTemplate = errors.New("failed to parse Go text template")
 )
 
-// MarshallTemplate Helper to marshall templates
-func MarshallTemplate(jobSpec interface{}, name, templateString string) (string, error) {
+// MarshalTemplate Helper to marshal templates
+func MarshalTemplate(jobSpec interface{}, name, templateString string) (string, error) {
 	var buf bytes.Buffer
 	tmpl, err := template.New(name).Parse(templateString)
 	if err != nil {

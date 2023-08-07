@@ -10,13 +10,13 @@ import (
 )
 
 type CLTestEnvBuilder struct {
-	HasLogWatch          bool
-	HasGeth              bool
-	HasMockServer        bool
-	CLNodesCount         int
-	ExternalAdapterCount int
-	CustomNodeCsaKeys    []string
-	DefaultNodeCsaKeys   []string
+	hasLogWatch          bool
+	hasGeth              bool
+	hasMockServer        bool
+	clNodesCount         int
+	externalAdapterCount int
+	customNodeCsaKeys    []string
+	defaultNodeCsaKeys   []string
 
 	/* funding */
 	ETHFunds *big.Float
@@ -24,17 +24,17 @@ type CLTestEnvBuilder struct {
 
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
-		ExternalAdapterCount: 1,
+		externalAdapterCount: 1,
 	}
 }
 
 func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
-	b.HasLogWatch = true
+	b.hasLogWatch = true
 	return b
 }
 
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
-	b.CLNodesCount = clNodesCount
+	b.clNodesCount = clNodesCount
 	return b
 }
 
@@ -44,13 +44,13 @@ func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
 }
 
 func (b *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
-	b.HasGeth = true
+	b.hasGeth = true
 	return b
 }
 
 func (b *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBuilder {
-	b.HasMockServer = true
-	b.ExternalAdapterCount = externalAdapterCount
+	b.hasMockServer = true
+	b.externalAdapterCount = externalAdapterCount
 	return b
 }
 
@@ -69,19 +69,19 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 
 func (b *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 	log.Info().
-		Bool("HasGeth", b.HasGeth).
-		Bool("HasMockServer", b.HasMockServer).
-		Int("ExternalAdapterCount", b.ExternalAdapterCount).
-		Int("CLNodesCount", b.CLNodesCount).
-		Strs("CustomNodeCsaKeys", b.CustomNodeCsaKeys).
-		Strs("DefaultNodeCsaKeys", b.DefaultNodeCsaKeys).
+		Bool("hasGeth", b.hasGeth).
+		Bool("hasMockServer", b.hasMockServer).
+		Int("externalAdapterCount", b.externalAdapterCount).
+		Int("clNodesCount", b.clNodesCount).
+		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
+		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
 		Msg("Building CL cluster test environment..")
 	te, err := NewTestEnvFromCfg(cfg)
 	if err != nil {
 		return te, err
 	}
 
-	if b.HasLogWatch {
+	if b.hasLogWatch {
 		lw, err := logwatch.NewLogWatch(nil, nil)
 		if err != nil {
 			return te, err
@@ -89,18 +89,18 @@ func (b *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTes
 		te.LogWatch = lw
 	}
 
-	if b.HasMockServer {
+	if b.hasMockServer {
 		err := te.StartMockServer()
 		if err != nil {
 			return te, err
 		}
-		err = te.MockServer.SetExternalAdapterMocks(b.ExternalAdapterCount)
+		err = te.MockServer.SetExternalAdapterMocks(b.externalAdapterCount)
 		if err != nil {
 			return te, err
 		}
 	}
 
-	if b.HasGeth {
+	if b.hasGeth {
 		err := te.StartGeth()
 		if err != nil {
 			return te, err
@@ -110,14 +110,14 @@ func (b *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTes
 	var nodeCsaKeys []string
 
 	// Start Chainlink Nodes
-	if b.CLNodesCount > 0 {
+	if b.clNodesCount > 0 {
 		// Create nodes
 		nodeConfig := node.NewConfig(node.BaseConf,
 			node.WithOCR1(),
 			node.WithP2Pv1(),
 			node.WithSimulatedEVM(te.Geth.InternalHttpUrl, te.Geth.InternalWsUrl),
 		)
-		err = te.StartClNodes(nodeConfig, b.CLNodesCount)
+		err = te.StartClNodes(nodeConfig, b.clNodesCount)
 		if err != nil {
 			return te, err
 		}
@@ -126,7 +126,7 @@ func (b *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTes
 		if err != nil {
 			return te, err
 		}
-		b.DefaultNodeCsaKeys = nodeCsaKeys
+		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
 	return te, nil
@@ -134,12 +134,12 @@ func (b *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTes
 
 func (b *CLTestEnvBuilder) buildNewEnv() (*CLClusterTestEnv, error) {
 	log.Info().
-		Bool("HasGeth", b.HasGeth).
-		Bool("HasMockServer", b.HasMockServer).
-		Int("ExternalAdapterCount", b.ExternalAdapterCount).
-		Int("CLNodesCount", b.CLNodesCount).
-		Strs("CustomNodeCsaKeys", b.CustomNodeCsaKeys).
-		Strs("DefaultNodeCsaKeys", b.DefaultNodeCsaKeys).
+		Bool("hasGeth", b.hasGeth).
+		Bool("hasMockServer", b.hasMockServer).
+		Int("externalAdapterCount", b.externalAdapterCount).
+		Int("clNodesCount", b.clNodesCount).
+		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
+		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
 		Msg("Building CL cluster test environment..")
 
 	te, err := NewTestEnv()
@@ -147,7 +147,7 @@ func (b *CLTestEnvBuilder) buildNewEnv() (*CLClusterTestEnv, error) {
 		return te, err
 	}
 
-	if b.HasLogWatch {
+	if b.hasLogWatch {
 		lw, err := logwatch.NewLogWatch(nil, nil)
 		if err != nil {
 			return te, err
@@ -155,18 +155,18 @@ func (b *CLTestEnvBuilder) buildNewEnv() (*CLClusterTestEnv, error) {
 		te.LogWatch = lw
 	}
 
-	if b.HasMockServer {
+	if b.hasMockServer {
 		err := te.StartMockServer()
 		if err != nil {
 			return te, err
 		}
-		err = te.MockServer.SetExternalAdapterMocks(b.ExternalAdapterCount)
+		err = te.MockServer.SetExternalAdapterMocks(b.externalAdapterCount)
 		if err != nil {
 			return te, err
 		}
 	}
 
-	if b.HasGeth {
+	if b.hasGeth {
 		err := te.StartGeth()
 		if err != nil {
 			return te, err
@@ -176,14 +176,14 @@ func (b *CLTestEnvBuilder) buildNewEnv() (*CLClusterTestEnv, error) {
 	var nodeCsaKeys []string
 
 	// Start Chainlink Nodes
-	if b.CLNodesCount > 0 {
+	if b.clNodesCount > 0 {
 		// Create nodes
 		nodeConfig := node.NewConfig(node.BaseConf,
 			node.WithOCR1(),
 			node.WithP2Pv1(),
 			node.WithSimulatedEVM(te.Geth.InternalHttpUrl, te.Geth.InternalWsUrl),
 		)
-		err = te.StartClNodes(nodeConfig, b.CLNodesCount)
+		err = te.StartClNodes(nodeConfig, b.clNodesCount)
 		if err != nil {
 			return te, err
 		}
@@ -192,10 +192,10 @@ func (b *CLTestEnvBuilder) buildNewEnv() (*CLClusterTestEnv, error) {
 		if err != nil {
 			return te, err
 		}
-		b.DefaultNodeCsaKeys = nodeCsaKeys
+		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
-	if b.HasGeth && b.CLNodesCount > 0 && b.ETHFunds != nil {
+	if b.hasGeth && b.clNodesCount > 0 && b.ETHFunds != nil {
 		te.ParallelTransactions(true)
 		defer te.ParallelTransactions(false)
 		if err = te.FundChainlinkNodes(b.ETHFunds); err != nil {

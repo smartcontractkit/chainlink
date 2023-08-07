@@ -41,7 +41,7 @@ func (c GenesisJsonTemplate) String() (string, error) {
 	  }
 	}
   }`
-	return MarshallTemplate(c, uuid.NewString(), tpl)
+	return MarshalTemplate(c, uuid.NewString(), tpl)
 }
 
 var InitGethScript = `
