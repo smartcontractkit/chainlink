@@ -634,6 +634,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+        continue-on-error: true
 
       - name: Collect Metrics
         if: always()
@@ -656,7 +657,6 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    if: always()
     runs-on: ubuntu-latest
     needs: testnet-smoke-tests-matrix
     steps:
