@@ -9,9 +9,19 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	vrfConst "github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/stretchr/testify/require"
+	"strings"
+	"testing"
+	"time"
 )
 
 var (
@@ -144,160 +154,139 @@ func FundVRFCoordinatorV2Subscription(linkToken contracts.LinkToken, coordinator
 	return chainClient.WaitForEvents()
 }
 
-//func SetupVRFV2Universe(
-//	t *testing.T,
-//	linkToken contracts.LinkToken,
-//	mockETHLinkFeed contracts.MockETHLINKFeed,
-//	contractDeployer contracts.ContractDeployer,
-//	chainClient blockchain.EVMClient,
-//	chainlinkNodes []*client.ChainlinkK8sClient,
-//	testNetwork blockchain.EVMNetwork,
-//	existingTestEnvironment *environment.Environment,
-//	chainlinkNodeFundingAmountEth *big.Float,
-//	vrfSubscriptionFundingAmountInLink *big.Int,
-//	newEnvNamespacePrefix string,
-//	newEnvTTL time.Duration,
-//) (VRFV2Contracts, []*client.ChainlinkK8sClient, []VRFV2JobInfo, *environment.Environment) {
-//
-//	vrfV2Contracts, err := DeployVRFV2Contracts(
-//		t,
-//		contractDeployer,
-//		chainClient,
-//		linkToken,
-//		mockETHLinkFeed,
-//	)
-//
-//	err := actions.FundChainlinkNodes(chainlinkNodes, chainClient, chainlinkNodeFundingAmountEth)
-//	require.NoError(t, err)
-//	err = chainClient.WaitForEvents()
-//	require.NoError(t, err)
-//
-//	err = vrfV2Contracts.Coordinator.SetConfig(
-//		uint16(vrfv2_constants.MinimumConfirmations),
-//		vrfv2_constants.MaxGasLimitVRFCoordinatorConfig,
-//		vrfv2_constants.StalenessSeconds,
-//		vrfv2_constants.GasAfterPaymentCalculation,
-//		vrfv2_constants.LinkEthFeedResponse,
-//		vrfv2_constants.VRFCoordinatorV2FeeConfig,
-//	)
-//	require.NoError(t, err)
-//	err = chainClient.WaitForEvents()
-//	require.NoError(t, err)
-//
-//	err = vrfV2Contracts.Coordinator.CreateSubscription()
-//	require.NoError(t, err)
-//	err = chainClient.WaitForEvents()
-//	require.NoError(t, err)
-//
-//	err = vrfV2Contracts.Coordinator.AddConsumer(vrfv2_constants.SubID, vrfV2Contracts.LoadTestConsumer.Address())
-//	require.NoError(t, err, "Error adding a Load Test Consumer to a subscription in VRFCoordinator contract")
-//
-//	FundVRFCoordinatorV2Subscription(
-//		t,
-//		linkToken,
-//		vrfV2Contracts.Coordinator,
-//		chainClient,
-//		vrfv2_constants.SubID,
-//		vrfSubscriptionFundingAmountInLink,
-//	)
-//
-//	vrfV2jobs := CreateVRFV2Jobs(
-//		t,
-//		chainlinkNodes,
-//		vrfV2Contracts.Coordinator,
-//		chainClient,
-//		vrfv2_constants.MinimumConfirmations,
-//	)
-//
-//	nativeTokenPrimaryKeyAddress, err := chainlinkNodes[0].PrimaryEthAddress()
-//	require.NoError(t, err, "Error getting node's primary ETH key")
-//
-//	evmKeySpecificConfigTemplate := `
-//[[EVM.KeySpecific]]
-//Key = '%s'
-//
-//[EVM.KeySpecific.GasEstimator]
-//PriceMax = '%d gwei'
-//`
-//	//todo - make evmKeySpecificConfigTemplate for multiple eth keys
-//	evmKeySpecificConfig := fmt.Sprintf(evmKeySpecificConfigTemplate, nativeTokenPrimaryKeyAddress, vrfv2_constants.MaxGasPriceGWei)
-//	tomlConfigWithUpdates := fmt.Sprintf("%s\n%s", config.BaseVRFV2NetworkDetailTomlConfig, evmKeySpecificConfig)
-//
-//	//todo - this does not show up??
-//	newEnvLabel := "updatedWithRollout=true"
-//	testEnvironmentAfterRedeployment := SetupVRFV2Environment(
-//		t,
-//		testNetwork,
-//		tomlConfigWithUpdates,
-//		existingTestEnvironment.Cfg.Namespace,
-//		newEnvNamespacePrefix,
-//		newEnvLabel,
-//		newEnvTTL,
-//	)
-//
-//	err = testEnvironmentAfterRedeployment.RolloutStatefulSets()
-//	require.NoError(t, err, "Error performing rollout restart for test environment")
-//
-//	err = testEnvironmentAfterRedeployment.Run()
-//	require.NoError(t, err, "Error running test environment")
-//
-//	//need to get node's urls again since port changed after redeployment
-//	chainlinkNodesAfterRedeployment, err := client.ConnectChainlinkNodes(testEnvironmentAfterRedeployment)
-//	require.NoError(t, err)
-//
-//	return vrfV2Contracts, chainlinkNodesAfterRedeployment, vrfV2jobs, testEnvironmentAfterRedeployment
-//}
+func SetupVRFV2Environment(
+	t *testing.T,
+	testNetwork blockchain.EVMNetwork,
+	networkDetailTomlConfig string,
+	existingNamespace string,
+	namespacePrefix string,
+	newEnvLabel string,
+	ttl time.Duration,
+) (testEnvironment *environment.Environment) {
+	gethChartConfig := getGethChartConfig(testNetwork)
 
-//func SetupVRFV2Environment(
-//	t *testing.T,
-//	testNetwork blockchain.EVMNetwork,
-//	networkDetailTomlConfig string,
-//	existingNamespace string,
-//	namespacePrefix string,
-//	newEnvLabel string,
-//	ttl time.Duration,
-//) (testEnvironment *environment.Environment) {
-//	gethChartConfig := getGethChartConfig(testNetwork)
-//
-//	if existingNamespace != "" {
-//		testEnvironment = environment.New(&environment.Config{
-//			Namespace: existingNamespace,
-//			Test:      t,
-//			TTL:       ttl,
-//			Labels:    []string{newEnvLabel},
-//		})
-//	} else {
-//		testEnvironment = environment.New(&environment.Config{
-//			NamespacePrefix: fmt.Sprintf("%s-%s", namespacePrefix, strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-//			Test:            t,
-//			TTL:             ttl,
-//		})
-//	}
-//
-//	cd, err := chainlink.NewDeployment(1, map[string]any{
-//		"toml": client.AddNetworkDetailedConfig("", networkDetailTomlConfig, testNetwork),
-//		//need to restart the node with updated eth key config
-//		"db": map[string]interface{}{
-//			"stateful": "true",
-//		},
-//	})
-//	require.NoError(t, err, "Error creating chainlink deployment")
-//	testEnvironment = testEnvironment.
-//		AddHelm(gethChartConfig).
-//		AddHelmCharts(cd)
-//	err = testEnvironment.Run()
-//	require.NoError(t, err, "Error running test environment")
-//	return testEnvironment
-//}
-//
-//func getGethChartConfig(testNetwork blockchain.EVMNetwork) environment.ConnectedChart {
-//	evmConfig := eth.New(nil)
-//	if !testNetwork.Simulated {
-//		evmConfig = eth.New(&eth.Props{
-//			NetworkName: testNetwork.Name,
-//			Simulated:   testNetwork.Simulated,
-//			WsURLs:      testNetwork.URLs,
-//		})
-//	}
-//	return evmConfig
-//}
+	if existingNamespace != "" {
+		testEnvironment = environment.New(&environment.Config{
+			Namespace: existingNamespace,
+			Test:      t,
+			TTL:       ttl,
+			Labels:    []string{newEnvLabel},
+		})
+	} else {
+		testEnvironment = environment.New(&environment.Config{
+			NamespacePrefix: fmt.Sprintf("%s-%s", namespacePrefix, strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+			Test:            t,
+			TTL:             ttl,
+		})
+	}
+
+	cd, err := chainlink.NewDeployment(1, map[string]any{
+		"toml": client.AddNetworkDetailedConfig("", networkDetailTomlConfig, testNetwork),
+		//need to restart the node with updated eth key config
+		"db": map[string]interface{}{
+			"stateful": "true",
+		},
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
+	testEnvironment = testEnvironment.
+		AddHelm(gethChartConfig).
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
+	require.NoError(t, err, "Error running test environment")
+	return testEnvironment
+}
+
+func getGethChartConfig(testNetwork blockchain.EVMNetwork) environment.ConnectedChart {
+	evmConfig := eth.New(nil)
+	if !testNetwork.Simulated {
+		evmConfig = eth.New(&eth.Props{
+			NetworkName: testNetwork.Name,
+			Simulated:   testNetwork.Simulated,
+			WsURLs:      testNetwork.URLs,
+		})
+	}
+	return evmConfig
+}
+
+/* setup for load tests */
+
+func SetupLocalLoadTestEnv(nodesFunding *big.Float, subFundingLINK *big.Int) (*test_env.CLClusterTestEnv, *VRFV2Contracts, [32]byte, error) {
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithGeth().
+		WithLogWatcher().
+		WithMockServer(1).
+		WithCLNodes(1).
+		WithFunding(nodesFunding).
+		Build()
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	env.ParallelTransactions(true)
+
+	mockFeed, err := actions.DeployMockETHLinkFeed(env.Geth.ContractDeployer, vrfConst.LinkEthFeedResponse)
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	lt, err := actions.DeployLINKToken(env.Geth.ContractDeployer)
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	vrfv2Contracts, err := DeployVRFV2Contracts(env.Geth.ContractDeployer, env.Geth.EthClient, lt, mockFeed)
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	err = env.Geth.EthClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	err = vrfv2Contracts.Coordinator.SetConfig(
+		vrfConst.MinimumConfirmations,
+		vrfConst.MaxGasLimitVRFCoordinatorConfig,
+		vrfConst.StalenessSeconds,
+		vrfConst.GasAfterPaymentCalculation,
+		vrfConst.LinkEthFeedResponse,
+		vrfConst.VRFCoordinatorV2FeeConfig,
+	)
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	err = env.Geth.EthClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	err = vrfv2Contracts.Coordinator.CreateSubscription()
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	err = env.Geth.EthClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	err = vrfv2Contracts.Coordinator.AddConsumer(vrfConst.SubID, vrfv2Contracts.LoadTestConsumer.Address())
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	err = FundVRFCoordinatorV2Subscription(lt, vrfv2Contracts.Coordinator, env.Geth.EthClient, vrfConst.SubID, subFundingLINK)
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	jobs, err := CreateVRFV2Jobs(env.GetAPIs(), vrfv2Contracts.Coordinator, env.Geth.EthClient, vrfConst.MinimumConfirmations)
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	// this part is here because VRFv2 can work with only a specific key
+	// [[EVM.KeySpecific]]
+	//	Key = '...'
+	addr, err := env.CLNodes[0].API.PrimaryEthAddress()
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	nodeConfig := node.NewConfig(env.CLNodes[0].NodeConfig,
+		node.WithVRFv2EVMEstimator(addr),
+	)
+	err = env.CLNodes[0].Restart(nodeConfig)
+	if err != nil {
+		return nil, nil, [32]byte{}, err
+	}
+	return env, vrfv2Contracts, jobs[0].KeyHash, nil
+}
