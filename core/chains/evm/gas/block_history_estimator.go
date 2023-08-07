@@ -261,7 +261,8 @@ func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLim
 			"Using Evm.GasEstimator.PriceDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 		gasPrice = b.eConfig.PriceDefault()
 	}
-	gasPrice, chainSpecificGasLimit = capGasPrice(gasPrice, maxGasPriceWei, b.eConfig.PriceMax(), gasLimit, b.eConfig.LimitMultiplier())
+	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, b.eConfig.PriceMax())
+	chainSpecificGasLimit, err = commonfee.ApplyMultiplier(gasLimit, b.eConfig.LimitMultiplier())
 	return
 }
 
@@ -395,7 +396,10 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 	var feeCap *assets.Wei
 	var tipCap *assets.Wei
 	ok := b.IfStarted(func() {
-		chainSpecificGasLimit = commonfee.ApplyMultiplier(gasLimit, b.eConfig.LimitMultiplier())
+		chainSpecificGasLimit, err = commonfee.ApplyMultiplier(gasLimit, b.eConfig.LimitMultiplier())
+		if err != nil {
+			return
+		}
 		b.priceMu.RLock()
 		defer b.priceMu.RUnlock()
 		tipCap = b.tipCap
