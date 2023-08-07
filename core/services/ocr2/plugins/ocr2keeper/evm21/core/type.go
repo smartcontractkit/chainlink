@@ -20,6 +20,8 @@ const (
 //
 // TODO: check endianness
 func GetUpkeepType(id ocr2keepers.UpkeepIdentifier) ocr2keepers.UpkeepType {
+	// TODO: auto-4319: Ensure consistent definition of string vs bytes for UpkeepID
+	// and ensure bytes are zero padded for small integers
 	if len(id) < upkeepTypeByteIndex+1 {
 		return ocr2keepers.ConditionTrigger
 	}
