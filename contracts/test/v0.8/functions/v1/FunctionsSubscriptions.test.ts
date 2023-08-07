@@ -11,6 +11,7 @@ import {
   ids,
   getEventArg,
   accessControlMockPrivateKey,
+  encodeReport,
 } from './utils'
 import { stringToBytes } from '../../../test-helpers/helpers'
 
@@ -75,7 +76,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.subOwner)
             .addConsumer(subId, randomAddressString()),
-        ).to.be.revertedWith(`TooManyConsumers()`)
+        ).to.be.revertedWith(`TooManyConsumers`)
       })
     })
 
@@ -104,12 +105,12 @@ describe('Functions Router - Subscriptions', () => {
         )
           .to.emit(contracts.router, 'SubscriptionOwnerTransferRequested')
           .withArgs(subId, roles.subOwnerAddress, roles.strangerAddress)
-        // Same request is a noop
+        // Same request reverts
         await expect(
           contracts.router
             .connect(roles.subOwner)
             .proposeSubscriptionOwnerTransfer(subId, roles.strangerAddress),
-        ).to.not.emit(contracts.router, 'SubscriptionOwnerTransferRequested')
+        ).to.be.revertedWith('InvalidCalldata')
       })
     })
 
@@ -213,7 +214,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.subOwner)
             .addConsumer(subId, roles.strangerAddress),
-        ).to.be.revertedWith(`TooManyConsumers()`)
+        ).to.be.revertedWith(`TooManyConsumers`)
         // Same is true if we first create with the maximum
         const consumers: string[] = []
         for (let i = 0; i < 100; i++) {
@@ -229,7 +230,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.subOwner)
             .addConsumer(subId, roles.strangerAddress),
-        ).to.be.revertedWith(`TooManyConsumers()`)
+        ).to.be.revertedWith(`TooManyConsumers`)
       })
       it('owner can update', async function () {
         await expect(
@@ -442,7 +443,7 @@ describe('Functions Router - Subscriptions', () => {
           contracts.router
             .connect(roles.subOwner)
             .cancelSubscription(subId, roles.strangerAddress),
-        ).to.be.revertedWith('PendingRequestExists()')
+        ).to.be.revertedWith('CannotRemoveWithPendingRequests()')
         // However the owner is able to cancel
         // funds go to the sub owner.
         await expect(
@@ -557,6 +558,17 @@ describe('Functions Router - Subscriptions', () => {
     })
   })
 
+  describe('#ownerWithdraw', async function () {
+    it('cannot withdraw more than balance', async function () {
+      await expect(
+        contracts.router.oracleWithdraw(
+          randomAddressString(),
+          BigNumber.from('100'),
+        ),
+      ).to.be.revertedWith(`InsufficientBalance`)
+    })
+  })
+
   describe('#flagsSet', async function () {
     it('get flags that were previously set', async function () {
       const flags = ethers.utils.formatBytes32String('arbitrary_byte_values')
@@ -618,21 +630,17 @@ describe('Functions Router - Subscriptions', () => {
 
       const response = stringToBytes('response')
       const error = stringToBytes('')
-      const abi = ethers.utils.defaultAbiCoder
       const oracleRequestEvent = await contracts.coordinator.queryFilter(
         contracts.coordinator.filters.OracleRequest(),
       )
       const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
       const offchainMetadata = stringToBytes('')
-      const report = abi.encode(
-        ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
-        [
-          [ethers.utils.hexZeroPad(requestId, 32)],
-          [response],
-          [error],
-          [onchainMetadata],
-          [offchainMetadata],
-        ],
+      const report = await encodeReport(
+        ethers.utils.hexZeroPad(requestId, 32),
+        response,
+        error,
+        onchainMetadata,
+        offchainMetadata,
       )
 
       await expect(contracts.coordinator.callReport(report, { gasPrice }))
@@ -706,21 +714,17 @@ describe('Functions Router - Subscriptions', () => {
 
       const response = stringToBytes('response')
       const error = stringToBytes('')
-      const abi = ethers.utils.defaultAbiCoder
       const oracleRequestEvent = await contracts.coordinator.queryFilter(
         contracts.coordinator.filters.OracleRequest(),
       )
       const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
       const offchainMetadata = stringToBytes('')
-      const report = abi.encode(
-        ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
-        [
-          [ethers.utils.hexZeroPad(requestId, 32)],
-          [response],
-          [error],
-          [onchainMetadata],
-          [offchainMetadata],
-        ],
+      const report = await encodeReport(
+        ethers.utils.hexZeroPad(requestId, 32),
+        response,
+        error,
+        onchainMetadata,
+        offchainMetadata,
       )
 
       await expect(contracts.coordinator.callReport(report, { gasPrice }))
@@ -817,21 +821,17 @@ describe('Functions Router - Subscriptions', () => {
 
       const response = stringToBytes('response')
       const error = stringToBytes('')
-      const abi = ethers.utils.defaultAbiCoder
       const oracleRequestEvent = await contracts.coordinator.queryFilter(
         contracts.coordinator.filters.OracleRequest(),
       )
       const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
       const offchainMetadata = stringToBytes('')
-      const report = abi.encode(
-        ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
-        [
-          [ethers.utils.hexZeroPad(requestId, 32)],
-          [response],
-          [error],
-          [onchainMetadata],
-          [offchainMetadata],
-        ],
+      const report = await encodeReport(
+        ethers.utils.hexZeroPad(requestId, 32),
+        response,
+        error,
+        onchainMetadata,
+        offchainMetadata,
       )
 
       await expect(contracts.coordinator.callReport(report, { gasPrice }))
