@@ -14,14 +14,9 @@ import (
 // UpkeepTriggerID returns the identifier using the given upkeepID and trigger.
 // It follows the same logic as the contract, but performs it locally.
 func UpkeepTriggerID(id *big.Int, trigger []byte) string {
-	idBytes := id.Bytes()
-
-	combined := append(idBytes, trigger...)
-
-	triggerIDBytes := crypto.Keccak256(combined)
-	triggerID := hex.EncodeToString(triggerIDBytes)
-
-	return triggerID
+	idBytes := append(id.Bytes(), trigger...)
+	triggerIDBytes := crypto.Keccak256(idBytes)
+	return hex.EncodeToString(triggerIDBytes)
 }
 
 // UpkeepWorkID returns the identifier using the given upkeepID and trigger extension(tx hash and log index).
