@@ -167,7 +167,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
     uint256 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
     uint256 estimatedGasReimbursement = juelsPerGas * executionGas;
-    uint96 fees = donFee + adminFee;
+    uint96 fees = uint96(donFee) + uint96(adminFee);
 
     return uint96(estimatedGasReimbursement + fees);
   }
