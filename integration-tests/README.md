@@ -133,6 +133,23 @@ To configure specific parameters of how the soak tests run (e.g. test length, nu
 
 See the [soak_runner](./soak/soak_runner_test.go) for more info on how the tests are run and configured.
 
+#### Running with custom image
+On each PR navigate to the `integration-tests` job, here you will find the images for both chainlink-tests and core. In your env file you need to replace:
+
+`ENV_JOB_IMAGE="image-location/chainlink-tests:<IMAGE_SHA>"`
+
+`CHAINLINK_IMAGE="public.ecr.aws/chainlink/chainlink"`
+
+`export CHAINLINK_VERSION="<IMAGE_SHA>"`
+
+After all the env vars are exported, run the tests. This will kick off a remote runner that will be in charge of running the tests. Locally the test should pass quickly and a namespace will be displayed in the output e.g
+`INF Creating new namespace Namespace=soak-ocr-goerli-testnet-957b2`
+
+#### Logs and monitoring
+- Pod logs: `kubectl logs -n soak-ocr-goerli-testnet-957b2 -c node -f chainlink-0-1`
+- Remote runner logs: `kubectl logs -n soak-ocr-goerli-testnet-957b2 -f remote-runner-cs2as`
+- Navigate to Grafana chainlink testing insights for all logs
+
 ### Performance
 
 Currently, all performance tests are only run on simulated blockchains.
