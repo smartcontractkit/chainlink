@@ -27,7 +27,7 @@ func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 
 	utils.SetupRouterRoutes(t, b, owner, routerContract, active.Address, proposed.Address, allowListContractAddress)
 
-	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, routerAddress, 39979, nOracleNodes, maxGas, nil, nil)
+	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, routerAddress, nOracleNodes, maxGas, nil, nil)
 
 	pluginConfig := functionsConfig.ReportingPluginConfig{
 		MaxQueryLengthBytes:       10_000,
@@ -54,7 +54,7 @@ func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 
 	utils.SetupRouterRoutes(t, b, owner, routerContract, active.Address, proposed.Address, allowListContractAddress)
 
-	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, routerAddress, 39989, nOracleNodes, maxGas, nil, nil)
+	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, routerAddress, nOracleNodes, maxGas, nil, nil)
 
 	pluginConfig := functionsConfig.ReportingPluginConfig{
 		MaxQueryLengthBytes:       10_000,
