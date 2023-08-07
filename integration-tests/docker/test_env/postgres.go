@@ -37,7 +37,7 @@ func NewPostgresDb(networks []string, opts ...PostgresDbOption) *PostgresDb {
 			Networks:      networks,
 		},
 		User:     "postgres",
-		Password: "test",
+		Password: "mysecretpassword",
 		DbName:   "testdb",
 		Port:     "5432",
 	}
