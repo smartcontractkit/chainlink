@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 
@@ -138,7 +140,7 @@ func setupNode(
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	backend *backends.SimulatedBackend,
 	csaKey csakey.KeyV2,
-) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle) {
+) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(port) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
 	rdr := keystest.NewRandReaderFromSeed(port)
@@ -180,7 +182,7 @@ func setupNode(
 		// [P2P.V2]
 		// Enabled = true
 		// AnnounceAddresses = ['$EXT_IP:17775']
-		// ListenAddresses = ['0.0.0.0:17775']
+		// ListenAddresses = ['127.0.0.1:17775']
 		// DeltaDial = 500ms
 		// DeltaReconcile = 5s
 		c.P2P.V2.Enabled = ptr(true)
@@ -190,7 +192,8 @@ func setupNode(
 		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
 	})
 
-	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, logger.TestLogger(t).Named(dbName))
+	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
 	err := app.Start(testutils.Context(t))
 	require.NoError(t, err)
 
@@ -198,7 +201,7 @@ func setupNode(
 		assert.NoError(t, app.Stop())
 	})
 
-	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb
+	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb, observedLogs
 }
 
 func ptr[T any](t T) *T { return &t }
