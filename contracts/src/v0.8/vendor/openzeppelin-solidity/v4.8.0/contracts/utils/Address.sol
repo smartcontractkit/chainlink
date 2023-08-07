@@ -92,11 +92,7 @@ library Address {
    *
    * _Available since v3.1._
    */
-  function functionCall(
-    address target,
-    bytes memory data,
-    string memory errorMessage
-  ) internal returns (bytes memory) {
+  function functionCall(address target, bytes memory data, string memory errorMessage) internal returns (bytes memory) {
     return functionCallWithValue(target, data, 0, errorMessage);
   }
 
@@ -111,11 +107,7 @@ library Address {
    *
    * _Available since v3.1._
    */
-  function functionCallWithValue(
-    address target,
-    bytes memory data,
-    uint256 value
-  ) internal returns (bytes memory) {
+  function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) {
     return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
   }
 

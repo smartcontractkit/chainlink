@@ -169,6 +169,7 @@ type deployedClientContract struct {
 
 func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, *backends.SimulatedBackend, *time.Ticker, common.Address, *ocr2dr_oracle.OCR2DROracle, []deployedClientContract, common.Address, *ocr2dr_registry.OCR2DRRegistry, *link_token_interface.LinkToken) {
 	owner := testutils.MustNewSimTransactor(t)
+	owner.GasPrice = big.NewInt(int64(DefaultGasPrice))
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
 	genesisData := core.GenesisAlloc{owner.From: {Balance: sb}}
@@ -257,6 +258,8 @@ func StartNewNode(
 		c.EVM[0].LogPollInterval = models.MustNewDuration(1 * time.Second)
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(false)
 		c.EVM[0].GasEstimator.LimitDefault = ptr(maxGas)
+		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+		c.EVM[0].GasEstimator.PriceDefault = assets.NewWei(big.NewInt(int64(DefaultGasPrice)))
 
 		if len(thresholdKeyShare) > 0 {
 			s.Threshold.ThresholdKeyShare = models.NewSecret(thresholdKeyShare)

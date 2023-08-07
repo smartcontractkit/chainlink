@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IConfigurable} from "./interfaces/IConfigurable.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IOwnableFunctionsRouter} from "./interfaces/IOwnableFunctionsRouter.sol";
 
 // @title This abstract should be inherited by contracts that will be used
 // as the destinations to a route (id=>contract) on the Router.
 // It provides a Router getter and modifiers
-// and enforces that the Router can update the configuration of this contract
-abstract contract Routable is ITypeAndVersion, IConfigurable {
+abstract contract Routable is ITypeAndVersion {
   IOwnableFunctionsRouter private immutable i_router;
 
   error RouterMustBeSet();
@@ -17,26 +15,16 @@ abstract contract Routable is ITypeAndVersion, IConfigurable {
   error OnlyCallableByRouterOwner();
 
   // @dev Initializes the contract.
-  constructor(address router, bytes memory config) {
+  constructor(address router) {
     if (router == address(0)) {
       revert RouterMustBeSet();
     }
     i_router = IOwnableFunctionsRouter(router);
-    _updateConfig(config);
   }
 
+  // @notice Return the Router
   function _getRouter() internal view returns (IOwnableFunctionsRouter router) {
     return i_router;
-  }
-
-  // @dev Must be implemented by inheriting contract
-  // Use to set configuration state
-  function _updateConfig(bytes memory config) internal virtual;
-
-  // @inheritdoc IConfigurable
-  // @dev Only callable by the Router
-  function updateConfig(bytes memory config) public override onlyRouter {
-    _updateConfig(config);
   }
 
   // @notice Reverts if called by anyone other than the router.

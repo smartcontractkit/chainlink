@@ -96,7 +96,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
         report.linkNative,
         true
       );
-      upkeepTransmitInfo[i].upkeepTriggerID = _upkeepTriggerID(report.upkeepIds[i], report.triggers[i]);
       (upkeepTransmitInfo[i].earlyChecksPassed, upkeepTransmitInfo[i].dedupID) = _prePerformChecks(
         report.upkeepIds[i],
         report.triggers[i],
@@ -167,7 +166,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
             reimbursement + premium,
             upkeepTransmitInfo[i].gasUsed,
             upkeepTransmitInfo[i].gasOverhead,
-            upkeepTransmitInfo[i].upkeepTriggerID
+            report.triggers[i]
           );
         }
       }
