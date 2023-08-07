@@ -62,7 +62,7 @@ func (g *generalConfig) keystorePassword() string {
 	if g.secrets.Password.Keystore == nil {
 		return ""
 	}
-	return string(*g.secrets.Password.Keystore)
+	return g.secrets.Password.Keystore.String()
 }
 
 func (g *generalConfig) vrfPassword() string {
@@ -71,5 +71,5 @@ func (g *generalConfig) vrfPassword() string {
 	if g.secrets.Password.VRF == nil {
 		return ""
 	}
-	return string(*g.secrets.Password.VRF)
+	return g.secrets.Password.VRF.String()
 }

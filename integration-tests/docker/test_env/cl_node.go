@@ -23,8 +23,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
@@ -40,10 +40,11 @@ var (
 
 type ClNode struct {
 	EnvComponent
-	API        *client.ChainlinkClient
-	NodeConfig *chainlink.Config
-	PostgresDb *PostgresDb
-	lw         *logwatch.LogWatch
+	API               *client.ChainlinkClient
+	NodeConfig        *chainlink.Config
+	NodeSecretsConfig *chainlink.Secrets
+	PostgresDb        *PostgresDb
+	lw                *logwatch.LogWatch
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -207,15 +208,12 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
-	nodeSecrets, err := templates.NodeSecretsTemplate{
-		PgDbName: n.PostgresDb.DbName,
-		PgHost:   n.PostgresDb.ContainerName,
-		PgPort:   n.PostgresDb.Port,
-	}.String()
-	if err != nil {
-		return err
-	}
-	cReq, err := n.getContainerRequest(nodeSecrets)
+	n.NodeSecretsConfig = node.NewSecretsConfig(
+		node.SecretsConf,
+		node.WithDBURL(n.PostgresDb.ContainerName, n.PostgresDb.Port, n.PostgresDb.DbName),
+		node.WithMercurySecrets("cred1", "localhost:1338", "node", "nodepass"),
+	)
+	cReq, err := n.getContainerRequest(n.NodeSecretsConfig)
 	if err != nil {
 		return err
 	}
@@ -256,7 +254,7 @@ func (n *ClNode) StartContainer() error {
 	return nil
 }
 
-func (n *ClNode) getContainerRequest(secrets string) (
+func (n *ClNode) getContainerRequest(secrets *chainlink.Secrets) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
@@ -275,7 +273,11 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	if err != nil {
 		return nil, err
 	}
-	_, err = secretsFile.WriteString(secrets)
+	secData, err := toml.Marshal(secrets)
+	if err != nil {
+		return nil, err
+	}
+	_, err = secretsFile.WriteString(string(secData))
 	if err != nil {
 		return nil, err
 	}
