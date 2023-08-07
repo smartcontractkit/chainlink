@@ -183,7 +183,7 @@ func (n *ClNode) StartContainer(lw *logwatch.LogWatch) error {
 		return err
 	}
 	nodeSecrets, err := templates.ExecuteNodeSecretsTemplate(
-		n.PostgresDb.DbName, n.PostgresDb.ContainerName, n.PostgresDb.Port)
+		n.PostgresDb.Password, n.PostgresDb.DbName, n.PostgresDb.ContainerName, n.PostgresDb.Port)
 	if err != nil {
 		return err
 	}
