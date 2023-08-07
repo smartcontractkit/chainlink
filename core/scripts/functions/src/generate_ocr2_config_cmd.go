@@ -155,6 +155,17 @@ func (g *generateOCR2Config) Run(args []string) {
 	} else {
 		nodes := mustReadNodesList(*nodesFile)
 		nca = mustFetchNodesKeys(*chainID, nodes)[1:] // ignore boot node
+
+		nodePublicKeys, err := json.MarshalIndent(nca, "", " ")
+		if err != nil {
+			panic(err)
+		}
+		filepath := filepath.Join(artefactsDir, ocr2PublicKeysJSON)
+		err = os.WriteFile(filepath, nodePublicKeys, 0600)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Functions OCR2 public keys have been saved to:", filepath)
 	}
 
 	onchainPubKeys := []common.Address{}

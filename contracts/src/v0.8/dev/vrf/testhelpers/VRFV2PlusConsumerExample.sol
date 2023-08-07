@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../../interfaces/LinkTokenInterface.sol";
+import "../../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../VRFConsumerBaseV2Plus.sol";
-import "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../../../ConfirmedOwner.sol";
+import "../../../shared/access/ConfirmedOwner.sol";
 
 /// @notice This contract is used for testing only and should not be used for production.
 contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
@@ -33,17 +32,33 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
     return resp.randomWords[idx];
   }
 
-  function createSubscriptionAndFund(uint96 amount) external {
+  function subscribe() internal returns (uint256) {
     if (s_subId == 0) {
       s_subId = s_vrfCoordinatorApiV1.createSubscription();
       s_vrfCoordinatorApiV1.addConsumer(s_subId, address(this));
     }
+    return s_subId;
+  }
+
+  function createSubscriptionAndFundNative() external payable {
+    subscribe();
+    s_vrfCoordinatorApiV1.fundSubscriptionWithEth{value: msg.value}(s_subId);
+  }
+
+  function createSubscriptionAndFund(uint96 amount) external {
+    subscribe();
     // Approve the link transfer.
     s_linkToken.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_subId));
   }
 
   function topUpSubscription(uint96 amount) external {
+    require(s_subId != 0, "sub not set");
     s_linkToken.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_subId));
+  }
+
+  function topUpSubscriptionNative() external payable {
+    require(s_subId != 0, "sub not set");
+    s_vrfCoordinatorApiV1.fundSubscriptionWithEth{value: msg.value}(s_subId);
   }
 
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {

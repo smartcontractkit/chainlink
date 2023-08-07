@@ -158,9 +158,25 @@ make test_soak_keeper
 
 Soak tests will pull all their network information from the env vars that you can set in the `.env` file. *Reminder to run `source .env` for changes to take effect.*
 
-To configure specific parameters of how the soak tests run (e.g. test length, number of contracts), see the [./soak/tests](./soak/tests/) test specifications.
+To configure specific parameters of how the soak tests run (e.g. test length, number of contracts), adjust the values in your `.env` file, you can use `example.env` as reference
 
-See the [soak_runner](./soak/soak_runner_test.go) for more info on how the tests are run and configured.
+
+#### Running with custom image
+On each PR navigate to the `integration-tests` job, here you will find the images for both chainlink-tests and core. In your env file you need to replace:
+
+`ENV_JOB_IMAGE="image-location/chainlink-tests:<IMAGE_SHA>"`
+
+`CHAINLINK_IMAGE="public.ecr.aws/chainlink/chainlink"`
+
+`export CHAINLINK_VERSION="<IMAGE_SHA>"`
+
+After all the env vars are exported, run the tests. This will kick off a remote runner that will be in charge of running the tests. Locally the test should pass quickly and a namespace will be displayed in the output e.g
+`INF Creating new namespace Namespace=soak-ocr-goerli-testnet-957b2`
+
+#### Logs and monitoring
+- Pod logs: `kubectl logs -n soak-ocr-goerli-testnet-957b2 -c node -f chainlink-0-1`
+- Remote runner logs: `kubectl logs -n soak-ocr-goerli-testnet-957b2 -f remote-runner-cs2as`
+- Navigate to Grafana chainlink testing insights for all logs
 
 ### Performance
 
@@ -172,7 +188,9 @@ make test_perf
 
 ## Common Issues
 
-When upgrading to a new version, it's possible the helm charts have changed. There are a myriad of errors that can result from this, so it's best to just try running `helm repo update` when encountering an error you're unsure of.
+- When upgrading to a new version, it's possible the helm charts have changed. There are a myriad of errors that can result from this, so it's best to just try running `helm repo update` when encountering an error you're unsure of.
+- Docker failing to pull image, make sure you are referencing the correct ECR repo in AWS since develop images are not pushed to the public one.
+  - If tests hang for some time this is usually the case, so make sure to check the logs each time tests are failing to start
 
 </details>
 
