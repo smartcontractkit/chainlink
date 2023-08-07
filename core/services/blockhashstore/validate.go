@@ -10,6 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
+const EmptyAddress = "0x0000000000000000000000000000000000000000"
+
 // ValidatedSpec validates and converts the given toml string to a job.Job.
 func ValidatedSpec(tomlString string) (job.Job, error) {
 	jb := job.Job{
@@ -48,7 +50,7 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	if spec.EVMChainID == nil {
 		return jb, notSet("evmChainID")
 	}
-	if spec.TrustedBlockhashStoreAddress != nil && spec.TrustedBlockhashStoreBatchSize == 0 {
+	if spec.TrustedBlockhashStoreAddress.Hex() != EmptyAddress && spec.TrustedBlockhashStoreBatchSize == 0 {
 		return jb, notSet("trustedBlockhashStoreBatchSize")
 	}
 

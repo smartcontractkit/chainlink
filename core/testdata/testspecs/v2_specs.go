@@ -635,7 +635,7 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 	}
 
 	if params.TrustedBlockhashStoreAddress == "" {
-		params.TrustedBlockhashStoreAddress = "0xeFF41C8725be95e66F6B10489B6bF34b08055853"
+		params.TrustedBlockhashStoreAddress = "0x0000000000000000000000000000000000000000"
 	}
 
 	if params.TrustedBlockhashStoreBatchSize == 0 {

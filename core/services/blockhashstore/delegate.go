@@ -90,7 +90,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	}
 
 	var trustedBHS *trusted_blockhash_store.TrustedBlockhashStore
-	if jb.BlockhashStoreSpec.TrustedBlockhashStoreAddress != nil {
+	if jb.BlockhashStoreSpec.TrustedBlockhashStoreAddress.Hex() != EmptyAddress {
 		trustedBHS, err = trusted_blockhash_store.NewTrustedBlockhashStore(
 			jb.BlockhashStoreSpec.TrustedBlockhashStoreAddress.Address(),
 			chain.Client(),
