@@ -28,7 +28,7 @@ func (s *serviceClient) Start(ctx context.Context) error {
 }
 
 func (s *serviceClient) Close() error {
-	ctx, cancel := s.b.ctx()
+	ctx, cancel := s.b.stopCtx()
 	defer cancel()
 
 	_, err := s.grpc.Close(ctx, &emptypb.Empty{})
@@ -36,7 +36,7 @@ func (s *serviceClient) Close() error {
 }
 
 func (s *serviceClient) Ready() error {
-	ctx, cancel := s.b.ctx()
+	ctx, cancel := s.b.stopCtx()
 	defer cancel()
 	ctx, cancel = context.WithTimeout(ctx, time.Second)
 	defer cancel()
@@ -48,7 +48,7 @@ func (s *serviceClient) Ready() error {
 func (s *serviceClient) Name() string { return s.b.Logger.Name() }
 
 func (s *serviceClient) HealthReport() map[string]error {
-	ctx, cancel := s.b.ctx()
+	ctx, cancel := s.b.stopCtx()
 	defer cancel()
 	ctx, cancel = context.WithTimeout(ctx, time.Second)
 	defer cancel()

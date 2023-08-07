@@ -189,7 +189,7 @@ type relayerClient struct {
 }
 
 func newRelayerClient(b *brokerExt, conn grpc.ClientConnInterface) *relayerClient {
-	b = b.named("ChainRelayerClient")
+	b = b.withName("ChainRelayerClient")
 	return &relayerClient{b, newServiceClient(b, conn), pb.NewRelayerClient(conn)}
 }
 
@@ -209,7 +209,7 @@ func (r *relayerClient) NewConfigProvider(ctx context.Context, rargs types.Relay
 		}
 		return reply.ConfigProviderID, nil, nil
 	})
-	return newConfigProviderClient(r.named("ConfigProviderClient"), cc), nil
+	return newConfigProviderClient(r.withName("ConfigProviderClient"), cc), nil
 }
 
 func (r *relayerClient) NewMedianProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MedianProvider, error) {
@@ -323,7 +323,7 @@ type relayerServer struct {
 }
 
 func newChainRelayerServer(impl Relayer, b *brokerExt) *relayerServer {
-	return &relayerServer{impl: impl, brokerExt: b.named("ChainRelayerServer")}
+	return &relayerServer{impl: impl, brokerExt: b.withName("ChainRelayerServer")}
 }
 
 func (r *relayerServer) NewConfigProvider(ctx context.Context, request *pb.NewConfigProviderRequest) (*pb.NewConfigProviderReply, error) {

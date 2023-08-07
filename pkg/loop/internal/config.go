@@ -43,7 +43,7 @@ type offchainConfigDigesterClient struct {
 }
 
 func (o *offchainConfigDigesterClient) ConfigDigest(config libocr.ContractConfig) (digest libocr.ConfigDigest, err error) {
-	ctx, cancel := o.ctx()
+	ctx, cancel := o.stopCtx()
 	defer cancel()
 
 	var reply *pb.ConfigDigestReply
@@ -62,7 +62,7 @@ func (o *offchainConfigDigesterClient) ConfigDigest(config libocr.ContractConfig
 }
 
 func (o *offchainConfigDigesterClient) ConfigDigestPrefix() (libocr.ConfigDigestPrefix, error) {
-	ctx, cancel := o.ctx()
+	ctx, cancel := o.stopCtx()
 	defer cancel()
 
 	reply, err := o.grpc.ConfigDigestPrefix(ctx, &pb.ConfigDigestPrefixRequest{})

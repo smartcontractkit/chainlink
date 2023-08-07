@@ -60,7 +60,7 @@ func (c *contractTransmitterClient) LatestConfigDigestAndEpoch(ctx context.Conte
 }
 
 func (c *contractTransmitterClient) FromAccount() (libocr.Account, error) {
-	ctx, cancel := c.ctx()
+	ctx, cancel := c.stopCtx()
 	defer cancel()
 
 	reply, err := c.grpc.FromAccount(ctx, &pb.FromAccountRequest{})
