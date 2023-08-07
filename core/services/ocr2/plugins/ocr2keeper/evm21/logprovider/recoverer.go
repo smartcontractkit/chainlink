@@ -255,6 +255,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter) error 
 	return nil
 }
 
+// TODO: remove
 func UpkeepWorkID(t ocr2keepers.Trigger) string {
 	return fmt.Sprintf("%+v", t)
 }
