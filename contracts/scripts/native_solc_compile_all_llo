@@ -21,7 +21,7 @@ ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
 compileContract () {
   solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
       -o $ROOT/contracts/solc/v$SOLC_VERSION \
-      --abi --bin --base-path $ROOT/contracts --allow-paths $ROOT/contracts/src/v0.8\
+      --abi --bin --allow-paths $ROOT/contracts/src/v0.8\
       $ROOT/contracts/src/v0.8/$1
 }
 

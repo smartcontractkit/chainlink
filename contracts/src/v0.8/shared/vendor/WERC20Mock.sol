@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ERC20} from "foundry-lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {ERC20} from "./ERC20.sol";
 
 contract WERC20Mock is ERC20 {
     constructor() ERC20("WERC20Mock", "WERC") {}

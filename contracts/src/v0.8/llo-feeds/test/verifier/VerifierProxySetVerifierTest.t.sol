@@ -5,7 +5,7 @@ import {BaseTestWithConfiguredVerifierAndFeeManager} from "./BaseVerifierTest.t.
 import {IVerifier} from "../../interfaces/IVerifier.sol";
 import {VerifierProxy} from "../../VerifierProxy.sol";
 import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
-import {IERC165} from "foundry-lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol";
+import {IERC165} from "../../../shared/vendor/IERC165.sol";
 import {Common} from "../../../libraries/Common.sol";
 
 contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifierAndFeeManager {

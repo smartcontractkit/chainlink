@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
-import {ERC20Mock} from "foundry-lib/openzeppelin-contracts/contracts/mocks/ERC20Mock.sol";
+import {ERC20Mock} from "../../../shared/vendor/ERC20Mock.sol";
 import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 

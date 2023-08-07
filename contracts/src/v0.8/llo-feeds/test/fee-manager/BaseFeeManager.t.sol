@@ -6,7 +6,7 @@ import {FeeManager} from "../../FeeManager.sol";
 import {IFeeManager} from "../../interfaces/IFeeManager.sol";
 import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/Common.sol";
-import {ERC20Mock} from "foundry-lib/openzeppelin-contracts/contracts/mocks/ERC20Mock.sol";
+import {ERC20Mock} from "../../../shared/vendor/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/vendor/WERC20Mock.sol";
 
 /**

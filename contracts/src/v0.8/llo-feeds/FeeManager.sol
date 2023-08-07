@@ -4,12 +4,12 @@ pragma solidity 0.8.16;
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {IERC165} from "foundry-lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol";
+import {IERC165} from "../shared/vendor/IERC165.sol";
 import {Common} from "../libraries/Common.sol";
 import {IRewardManager} from "./interfaces/IRewardManager.sol";
-import {IWERC20} from "../shared/interfaces/IWERC20.sol";
-import {IERC20} from "foundry-lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol";
-import {Math} from "foundry-lib/openzeppelin-contracts/contracts/utils/math/Math.sol";
+import {IWERC20} from "../shared/vendor/IWERC20.sol";
+import {IERC20} from "../shared/vendor/IERC20.sol";
+import {Math} from "../shared/vendor/Math.sol";
 
 /**
  * @title FeeManager
