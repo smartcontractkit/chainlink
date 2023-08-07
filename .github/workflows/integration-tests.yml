@@ -54,8 +54,6 @@ jobs:
       src: ${{ steps.changes.outputs.src }}
 
   build-chainlink:
-    ## DEBUG: Testing what's up
-    if: false
     environment: integration
     permissions:
       id-token: write
@@ -112,8 +110,6 @@ jobs:
           echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
 
   build-test-image:
-    ## DEBUG: Testing what's up
-    if: false
     environment: integration
     permissions:
       id-token: write
@@ -145,8 +141,6 @@ jobs:
 
   eth-smoke-tests-matrix:
     environment: integration
-    ## DEBUG: Testing what's up
-    if: false
     permissions:
       checks: write
       pull-requests: write
@@ -358,8 +352,6 @@ jobs:
 
   ### Solana Section
   get_solana_sha:
-    ## DEBUG: Testing what's up
-    if: false
     name: Get Solana Sha From Go Mod
     environment: Integration
     runs-on: ubuntu-latest
@@ -588,16 +580,14 @@ jobs:
   ### Start Live Testnet Section
 
   testnet-smoke-tests-matrix: 
-    ## DEBUG: Testing what's up
-    # if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }} ## Only run live tests on new tags and nightly
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }} ## Only run live tests on new tags and nightly
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    ## DEBUG: Testing what's up
-    # needs: [build-chainlink, build-test-image]
+    needs: [build-chainlink, build-test-image]
     env:
       SELECTED_NETWORKS: ${{ matrix.testnet }}
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -606,28 +596,17 @@ jobs:
       EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
       TEST_EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
 
-      # GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
-      # TEST_GOERLI_URLS: ${{ secrets.QA_GOERLI_URLS }}
-      # GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
-      # TEST_GOERLI_HTTP_URLS: ${{ secrets.QA_GOERLI_HTTP_URLS }}
-
-      # OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
       TEST_OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
-      # OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
       TEST_OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
 
-      # ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
       TEST_ARBITRUM_GOERLI_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_URLS }}
-      # ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
       TEST_ARBITRUM_GOERLI_HTTP_URLS: ${{ secrets.QA_ARBITRUM_GOERLI_HTTP_URLS }}
     strategy:
       fail-fast: false
       matrix:
-        ## DEBUG: Testing what's up
         # NOTE: If changing this matrix, make sure to update the matrix in the testnet-smoke-tests-notify job to be the same
         # otherwise reporting will be broken. Getting a single matrix for multiple jobs is a pain
         # https://github.com/orgs/community/discussions/26284#discussioncomment-3251198
-        # testnet: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
         testnet: [OPTIMISM_GOERLI, ARBITRUM_GOERLI]
     name: Live Testnet Smoke Tests ${{ matrix.testnet }}
     runs-on: ubuntu-latest
@@ -647,9 +626,7 @@ jobs:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=1 ./smoke/ocr_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          ## DEBUG: Testing what's up
-          # cl_image_tag: ${{ github.sha }}
-          cl_image_tag: develop
+          cl_image_tag: ${{ github.sha }}
           artifacts_location: ./integration-tests/smoke/logs
           publish_check_name: ${{ matrix.testnet }} OCR Smoke Test Results
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -734,11 +711,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ## DEBUG: Testing what's up
         # NOTE: If changing this matrix, make sure to update the matrix in the testnet-smoke-tests-matrix job to be the same
         # otherwise reporting will be broken. Getting a single matrix for multiple jobs is a pain
         # https://github.com/orgs/community/discussions/26284#discussioncomment-3251198
-        # testnet: [GOERLI, OPTIMISM_GOERLI, ARBITRUM_GOERLI]
         testnet: [OPTIMISM_GOERLI, ARBITRUM_GOERLI]
     steps:
       - name: Get Results
