@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/stretchr/testify/require"
 
@@ -11,9 +12,10 @@ import (
 )
 
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
-	r := NewLogRecoverer(logger.TestLogger(t), nil, nil, NewUpkeepFilterStore(), &RecoveryOptions{
+	r, err := NewLogRecoverer(logger.TestLogger(t), nil, nil, common.HexToAddress("0x1"), NewUpkeepFilterStore(), &RecoveryOptions{
 		Interval: time.Millisecond * 10,
 	})
+	require.NoError(t, err)
 
 	tests := []struct {
 		name    string

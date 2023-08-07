@@ -15,6 +15,7 @@ import (
 	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -64,26 +65,40 @@ type logRecoverer struct {
 	filterStore UpkeepFilterStore
 	visited     map[string]time.Time
 
-	poller       logpoller.LogPoller
-	upkeepStates UpkeepStateReader
+	poller          logpoller.LogPoller
+	upkeepStates    UpkeepStateReader
+	registryAddress common.Address
 }
 
 var _ keepersflows.RecoverableProvider = &logRecoverer{}
 
-func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, upkeepStates UpkeepStateReader, filterStore UpkeepFilterStore, opts *RecoveryOptions) *logRecoverer {
+func NewLogRecoverer(
+	lggr logger.Logger,
+	poller logpoller.LogPoller,
+	upkeepStates UpkeepStateReader,
+	registryAddress common.Address,
+	filterStore UpkeepFilterStore,
+	opts *RecoveryOptions,
+) (*logRecoverer, error) {
 	if opts == nil {
 		opts = new(RecoveryOptions)
 	}
 	opts.defaults()
+
 	return &logRecoverer{
-		lggr:        lggr.Named("LogRecoverer"),
-		opts:        *opts,
-		lock:        &sync.RWMutex{},
-		pending:     make([]ocr2keepers.UpkeepPayload, 0),
-		filterStore: filterStore,
-		visited:     make(map[string]time.Time),
-		poller:      poller,
-	}
+		lggr:            lggr.Named("LogRecoverer"),
+		opts:            *opts,
+		lock:            &sync.RWMutex{},
+		pending:         make([]ocr2keepers.UpkeepPayload, 0),
+		filterStore:     filterStore,
+		visited:         make(map[string]time.Time),
+		poller:          poller,
+		registryAddress: registryAddress,
+	}, nil
+}
+
+func recoveryFilterName(addr common.Address) string {
+	return logpoller.FilterName("KeepersRegistry LogRecoverer", addr)
 }
 
 func (r *logRecoverer) Start(pctx context.Context) error {
@@ -93,6 +108,10 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 	interval := r.opts.Interval
 	gcInterval := r.opts.GCInterval
 	r.lock.Unlock()
+
+	if err := r.registerFilters(ctx); err != nil {
+		return err
+	}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
@@ -140,6 +159,17 @@ func (r *logRecoverer) GetRecoverables() ([]ocr2keepers.UpkeepPayload, error) {
 	}
 
 	return pending, nil
+}
+
+func (r *logRecoverer) registerFilters(ctx context.Context) error {
+	return r.poller.RegisterFilter(logpoller.Filter{
+		Name: recoveryFilterName(r.registryAddress),
+		EventSigs: []common.Hash{
+			// listening to dedup key added event
+			iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
+		},
+		Addresses: []common.Address{r.registryAddress},
+	})
 }
 
 func (r *logRecoverer) clean(ctx context.Context) {
@@ -192,15 +222,15 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 
 func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter) error {
 	start, end := f.lastRePollBlock, f.lastRePollBlock+10
-	logs, err := r.poller.LogsWithSigs(start, end, f.eventSigs, common.BytesToAddress(f.addr), pg.WithParentCtx(ctx))
+	logs, err := r.poller.LogsWithSigs(start, end, f.topics, common.BytesToAddress(f.addr), pg.WithParentCtx(ctx))
 	if err != nil {
 		return fmt.Errorf("could not read logs: %w", err)
 	}
-	logs, err = r.filterPerformed(f, logs)
+	logs, err = r.filterPerformed(start, end, f, logs)
 	if err != nil {
 		return fmt.Errorf("failed to filter performed: %w", err)
 	}
-	logs, err = r.filterIneligible(f, logs)
+	logs, err = r.filterIneligible(start, end, f, logs)
 	if err != nil {
 		return fmt.Errorf("failed to filter ineligible: %w", err)
 	}
@@ -220,12 +250,12 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter) error 
 	return nil
 }
 
-func (r *logRecoverer) filterPerformed(f upkeepFilter, logs []logpoller.Log) ([]logpoller.Log, error) {
+func (r *logRecoverer) filterPerformed(start, end int64, f upkeepFilter, logs []logpoller.Log) ([]logpoller.Log, error) {
 	// TODO: call contract to check if the upkeep was performed
 	return logs, nil
 }
 
-func (r *logRecoverer) filterIneligible(f upkeepFilter, logs []logpoller.Log) ([]logpoller.Log, error) {
+func (r *logRecoverer) filterIneligible(start, end int64, f upkeepFilter, logs []logpoller.Log) ([]logpoller.Log, error) {
 	payloads := make([]ocr2keepers.UpkeepPayload, 0)
 	// TODO uncomment when upkeep states store is ready
 	// payloads, _, err := r.upkeepStates.SelectByWorkID()
