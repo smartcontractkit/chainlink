@@ -1111,7 +1111,7 @@ func setupKeeperTest(
 	testName string,
 ) (
 	chainClient blockchain.EVMClient,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	contractDeployer contracts.ContractDeployer,
 	linkToken contracts.LinkToken,
 	onlyStartRunner bool,

@@ -17,7 +17,7 @@ import (
 
 const (
 	// pollInterval is the maximum amount of time in addition to
-	// EthTxResendAfterThreshold that we will wait before resending an attempt
+	// TxResendAfterThreshold that we will wait before resending an attempt
 	DefaultResenderPollInterval = 5 * time.Second
 
 	// Alert interval for unconfirmed transaction attempts
@@ -27,7 +27,7 @@ const (
 	batchSendTransactionTimeout = 30 * time.Second
 )
 
-// EthResender periodically picks up transactions that have been languishing
+// Resender periodically picks up transactions that have been languishing
 // unconfirmed for a configured amount of time without being sent, and sends
 // their highest priced attempt again. This helps to defend against geth/parity
 // silently dropping txes, or txes being ejected from the mempool.
@@ -77,7 +77,7 @@ func NewResender[
 	if txConfig.ResendAfterThreshold() == 0 {
 		panic("Resender requires a non-zero threshold")
 	}
-	// todo: add context to evmTxStore
+	// todo: add context to txStore https://smartcontract-it.atlassian.net/browse/BCI-1585
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
 		txStore,
@@ -192,7 +192,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) logStuckAttem
 	if time.Since(er.lastAlertTimestamps[fromAddress.String()]) >= unconfirmedTxAlertLogFrequency {
 		oldestAttempt, exists := findOldestUnconfirmedAttempt(attempts)
 		if exists {
-			// Wait at least 2 times the EthTxResendAfterThreshold to log critical with an unconfirmedTxAlertDelay
+			// Wait at least 2 times the TxResendAfterThreshold to log critical with an unconfirmedTxAlertDelay
 			if time.Since(oldestAttempt.CreatedAt) > er.txConfig.ResendAfterThreshold()*2 {
 				er.lastAlertTimestamps[fromAddress.String()] = time.Now()
 				er.logger.Errorw("TxAttempt has been unconfirmed for more than max duration", "maxDuration", er.txConfig.ResendAfterThreshold()*2,

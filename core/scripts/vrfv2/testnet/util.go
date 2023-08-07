@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/rlp"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
@@ -143,82 +142,6 @@ func registerCoordinatorProvingKey(e helpers.Environment, coordinator vrf_coordi
 		fmt.Sprintf("Uncompressed public key: %s,", uncompressed),
 		fmt.Sprintf("Oracle address: %s,", oracleAddress),
 	)
-}
-
-func getRlpHeaders(env helpers.Environment, blockNumbers []*big.Int) (headers [][]byte, err error) {
-	headers = [][]byte{}
-	for _, blockNum := range blockNumbers {
-		// Avalanche block headers are special, handle them by using the avalanche rpc client
-		// rather than the regular go-ethereum ethclient.
-		if helpers.IsAvaxNetwork(env.ChainID) {
-			// Get child block since it's the one that has the parent hash in its header.
-			h, err := env.AvaxEc.HeaderByNumber(
-				context.Background(),
-				new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get header: %+v", err)
-			}
-			// We can still use vanilla go-ethereum rlp.EncodeToBytes, see e.g
-			// https://github.com/ava-labs/coreth/blob/e3ca41bf5295a9a7ca1aeaf29d541fcbb94f79b1/core/types/hashing.go#L49-L57.
-			rlpHeader, err := rlp.EncodeToBytes(h)
-			if err != nil {
-				return nil, fmt.Errorf("failed to encode rlp: %+v", err)
-			}
-
-			// Sanity check - can be un-commented if storeVerifyHeader is failing due to unexpected
-			// blockhash.
-			//bh := crypto.Keccak256Hash(rlpHeader)
-			//fmt.Println("Calculated BH:", bh.String(),
-			//	"fetched BH:", h.Hash(),
-			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)).String())
-
-			headers = append(headers, rlpHeader)
-		} else {
-			// Get child block since it's the one that has the parent hash in its header.
-			h, err := env.Ec.HeaderByNumber(
-				context.Background(),
-				new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
-			)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get header: %+v", err)
-			}
-			rlpHeader, err := rlp.EncodeToBytes(h)
-			if err != nil {
-				return nil, fmt.Errorf("failed to encode rlp: %+v", err)
-			}
-
-			headers = append(headers, rlpHeader)
-		}
-	}
-	return
-}
-
-// binarySearch finds the highest value within the range bottom-top at which the test function is
-// true.
-func binarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.Int {
-	var runs int
-	// While the difference between top and bottom is > 1
-	for new(big.Int).Sub(top, bottom).Cmp(big.NewInt(1)) > 0 {
-		// Calculate midpoint between top and bottom
-		midpoint := new(big.Int).Sub(top, bottom)
-		midpoint.Div(midpoint, big.NewInt(2))
-		midpoint.Add(midpoint, bottom)
-
-		// Check if the midpoint amount is withdrawable
-		if test(midpoint) {
-			bottom = midpoint
-		} else {
-			top = midpoint
-		}
-
-		runs++
-		if runs%10 == 0 {
-			fmt.Printf("Searching... current range %s-%s\n", bottom.String(), top.String())
-		}
-	}
-
-	return bottom
 }
 
 func wrapperDeploy(

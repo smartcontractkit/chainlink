@@ -322,6 +322,8 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 	return name, nil
 }
 
+var ForwardersSupportedPlugins = []OCR2PluginType{Median, DKG, OCR2VRF, OCR2Keeper, OCR2Functions}
+
 // OCR2PluginType defines supported OCR2 plugin types.
 type OCR2PluginType string
 
@@ -363,6 +365,7 @@ type OCR2OracleSpec struct {
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
 	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
+	CaptureAutomationCustomTelemetry  bool            `toml:"captureAutomationCustomTelemetry"`
 }
 
 // GetID is a getter function that returns the ID of the spec.

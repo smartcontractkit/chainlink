@@ -6,6 +6,7 @@ import (
 	"time"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	tmtypes "github.com/cometbft/cometbft/proto/tendermint/types"
 	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -13,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
 	"go.uber.org/zap/zapcore"
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
@@ -61,9 +61,13 @@ func TestTxm(t *testing.T) {
 	require.NoError(t, err)
 	sender2, err := cosmostypes.AccAddressFromBech32(k2.PublicKeyStr())
 	require.NoError(t, err)
-	contract, err := cosmostypes.AccAddressFromBech32("cosmos1z94322r480rhye2atp8z7v0wm37pk36ghzkdnd")
+	k3, err := ks.Cosmos().Create()
 	require.NoError(t, err)
-	contract2, err := cosmostypes.AccAddressFromBech32("cosmos1pe6e59rzm5upts599wl8hrvh95afy859yrcva8")
+	contract, err := cosmostypes.AccAddressFromBech32(k3.PublicKeyStr())
+	require.NoError(t, err)
+	k4, err := ks.Cosmos().Create()
+	require.NoError(t, err)
+	contract2, err := cosmostypes.AccAddressFromBech32(k4.PublicKeyStr())
 	require.NoError(t, err)
 	logCfg := pgtest.NewQConfig(true)
 	chainID := cosmostest.RandomChainID()

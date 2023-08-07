@@ -48,7 +48,7 @@ contract LogUpkeepCounter is ILogAutomation {
     emit Trigger(1, 2, 3);
   }
 
-  function checkLog(Log calldata log) external view override returns (bool, bytes memory) {
+  function checkLog(Log calldata log, bytes memory) external view override returns (bool, bytes memory) {
     require(eligible(), "not eligible");
     if (log.topics[0] == sig1 || log.topics[0] == sig2 || log.topics[0] == sig3 || log.topics[0] == sig4) {
       return (true, abi.encode(log));

@@ -53,6 +53,10 @@ chainlink-dev: operator-ui ## Build a dev build of chainlink binary.
 chainlink-test: operator-ui ## Build a test build of chainlink binary.
 	go build -tags test $(GOFLAGS) .
 
+.PHONY: chainlink-local-start
+chainlink-local-start:
+	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
+
 .PHONY: install-solana
 install-solana: ## Build & install the chainlink-solana binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-solana
@@ -87,12 +91,11 @@ abigen: ## Build & install abigen.
 
 .PHONY: go-solidity-wrappers
 go-solidity-wrappers: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
-	./contracts/scripts/native_solc_compile_all
 	go generate ./core/gethwrappers
 
 .PHONY: go-solidity-wrappers-transmission
 go-solidity-wrappers-transmission: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
-	./contracts/scripts/transmission/native_solc_compile_all_transmission
+	./contracts/scripts/native_solc_compile_all_transmission
 	go generate ./core/gethwrappers/transmission
 
 .PHONY: go-solidity-wrappers-ocr2vrf
@@ -109,7 +112,7 @@ go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts an
 .PHONY: go-solidity-wrappers-functions
 go-solidity-wrappers-functions: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./contracts/scripts/native_solc_compile_all_functions
-	go generate ./core/gethwrappers/go_generate_functions.go
+	go generate ./core/gethwrappers/functions/go_generate.go
 
 .PHONY: go-solidity-wrappers-llo
 go-solidity-wrappers-llo: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.

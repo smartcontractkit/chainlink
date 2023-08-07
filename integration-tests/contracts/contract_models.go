@@ -8,17 +8,15 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 )
 
 type FluxAggregatorOptions struct {
@@ -139,7 +137,7 @@ type OffchainAggregator interface {
 	Address() string
 	Fund(nativeAmount *big.Float) error
 	GetContractData(ctx context.Context) (*OffchainAggregatorData, error)
-	SetConfig(chainlinkNodes []*client.Chainlink, ocrConfig OffChainAggregatorConfig, transmitters []common.Address) error
+	SetConfig(chainlinkNodes []*client.ChainlinkK8sClient, ocrConfig OffChainAggregatorConfig, transmitters []common.Address) error
 	SetPayees([]string, []string) error
 	RequestNewRound() error
 	GetLatestAnswer(ctx context.Context) (*big.Int, error)
@@ -160,6 +158,10 @@ type OffchainAggregatorV2 interface {
 	GetLatestRound(ctx context.Context) (*RoundData, error)
 	GetRound(ctx context.Context, roundID *big.Int) (*RoundData, error)
 	ParseEventAnswerUpdated(log types.Log) (*ocr2aggregator.OCR2AggregatorAnswerUpdated, error)
+}
+
+type KeeperRegistryCheckUpkeepGasUsageWrapper interface {
+	Address() string
 }
 
 type Oracle interface {

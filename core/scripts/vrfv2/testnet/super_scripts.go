@@ -203,7 +203,7 @@ func deployUniverse(e helpers.Environment) {
 	helpers.PanicErr(err)
 	fmt.Printf("Subscription %+v\n", s)
 
-	if len(*registerKeyOracleAddress) > 0 {
+	if len(*registerKeyOracleAddress) > 0 && *oracleFundingAmount > 0 {
 		fmt.Println("\nFunding oracle...")
 		helpers.FundNodes(e, []string{*registerKeyOracleAddress}, big.NewInt(*oracleFundingAmount))
 	}

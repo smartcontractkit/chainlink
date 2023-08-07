@@ -10,18 +10,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
@@ -38,8 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
-
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
@@ -51,6 +49,7 @@ type ContractDeployer interface {
 	DeployLinkTokenContract() (LinkToken, error)
 	LoadLinkToken(address common.Address) (LinkToken, error)
 	DeployOffChainAggregator(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregator, error)
+	LoadOffChainAggregator(address *common.Address) (OffchainAggregator, error)
 	DeployVRFContract() (VRF, error)
 	DeployMockETHLINKFeed(answer *big.Int) (MockETHLINKFeed, error)
 	LoadETHLINKFeed(address common.Address) (MockETHLINKFeed, error)
@@ -91,6 +90,7 @@ type ContractDeployer interface {
 	DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error)
 	DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error)
 	DeployOffchainAggregatorV2(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregatorV2, error)
+	DeployKeeperRegistryCheckUpkeepGasUsageWrapper(keeperRegistryAddr string) (KeeperRegistryCheckUpkeepGasUsageWrapper, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -398,6 +398,24 @@ func (e *EthereumContractDeployer) DeployOffChainAggregator(
 		client:  e.client,
 		ocr:     instance.(*offchainaggregator.OffchainAggregator),
 		address: address,
+	}, err
+}
+
+// LoadOffChainAggregator loads an already deployed offchain aggregator contract
+func (e *EthereumContractDeployer) LoadOffChainAggregator(address *common.Address) (OffchainAggregator, error) {
+	instance, err := e.client.LoadContract("OffChainAggregator", *address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return offchainaggregator.NewOffchainAggregator(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumOffchainAggregator{
+		address: address,
+		client:  e.client,
+		ocr:     instance.(*offchainaggregator.OffchainAggregator),
 	}, err
 }
 
@@ -1036,6 +1054,23 @@ func (e *EthereumContractDeployer) DeployMockAggregatorProxy(aggregatorAddr stri
 		address:             addr,
 		client:              e.client,
 		mockAggregatorProxy: instance.(*mock_aggregator_proxy.MockAggregatorProxy),
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployKeeperRegistryCheckUpkeepGasUsageWrapper(keeperRegistryAddr string) (KeeperRegistryCheckUpkeepGasUsageWrapper, error) {
+	addr, _, instance, err := e.client.DeployContract("KeeperRegistryCheckUpkeepGasUsageWrapper", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return gas_wrapper.DeployKeeperRegistryCheckUpkeepGasUsageWrapper(auth, backend, common.HexToAddress(keeperRegistryAddr))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperRegistryCheckUpkeepGasUsageWrapper{
+		address:         addr,
+		client:          e.client,
+		gasUsageWrapper: instance.(*gas_wrapper.KeeperRegistryCheckUpkeepGasUsageWrapper),
 	}, err
 }
 

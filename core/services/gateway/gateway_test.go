@@ -102,6 +102,16 @@ SomeOtherField = "abcd"
 	require.Error(t, err)
 }
 
+func TestGateway_CleanStartAndClose(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	gateway, err := gateway.NewGatewayFromConfig(parseTOMLConfig(t, buildConfig("")), gateway.NewHandlerFactory(nil, lggr), lggr)
+	require.NoError(t, err)
+	require.NoError(t, gateway.Start(testutils.Context(t)))
+	require.NoError(t, gateway.Close())
+}
+
 func requireJsonRPCResult(t *testing.T, response []byte, expectedId string, expectedResult string) {
 	require.Equal(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s}`, expectedId, expectedResult), string(response))
 }

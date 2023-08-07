@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -12,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -66,7 +68,8 @@ func Test_Queue(t *testing.T) {
 	t.Parallel()
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	testTransmissions := createTestTransmissions(t)
-	transmitQueue := NewTransmitQueue(lggr, "foo feed ID", 7)
+	deleter := mocks.NewAsyncDeleter(t)
+	transmitQueue := NewTransmitQueue(lggr, "foo feed ID", 7, nil, deleter)
 
 	t.Run("successfully add transmissions to transmit queue", func(t *testing.T) {
 		for _, tt := range testTransmissions {
@@ -89,6 +92,11 @@ func Test_Queue(t *testing.T) {
 	})
 
 	t.Run("transmit queue is full and evicts the oldest transmission", func(t *testing.T) {
+		// There is a bug with queue eviction where the evicted transmission is NOT the oldest.
+		// TODO: MERC-1049 Once this bug is fixed, replace the expectation with the one below.
+		//   deleter.On("AsyncDelete", testTransmissions[0].tr).Once()
+		deleter.On("AsyncDelete", mock.Anything).Once()
+
 		// add 5 more transmissions to overflow the queue
 		for i := 0; i < 5; i++ {
 			transmitQueue.Push(testTransmissions[1].tr, testTransmissions[1].ctx)
@@ -97,6 +105,7 @@ func Test_Queue(t *testing.T) {
 		testutils.WaitForLogMessage(t, observedLogs, "Transmit queue is full; dropping oldest transmission (reached max length of 7)")
 		for i := 0; i < 7; i++ {
 			tr := transmitQueue.BlockingPop()
+			// TODO: Should be tr.Req instead of tr.
 			assert.NotEqual(t, tr, testTransmissions[0].tr)
 		}
 	})
@@ -116,5 +125,27 @@ func Test_Queue(t *testing.T) {
 			transmitQueue.Push(testTransmissions[0].tr, testTransmissions[0].ctx)
 		}()
 		wg.Wait()
+	})
+
+	t.Run("initializes transmissions", func(t *testing.T) {
+		transmissions := []*Transmission{
+			{
+				Req: &pb.TransmitRequest{
+					Payload: []byte("new1"),
+				},
+				ReportCtx: ocrtypes.ReportContext{
+					ReportTimestamp: ocrtypes.ReportTimestamp{
+						Epoch:        1,
+						Round:        1,
+						ConfigDigest: ocrtypes.ConfigDigest{},
+					},
+				},
+			},
+		}
+		transmitQueue := NewTransmitQueue(lggr, "foo feed ID", 7, transmissions, deleter)
+
+		transmission := transmitQueue.BlockingPop()
+		assert.Equal(t, transmission.Req.Payload, []byte("new1"))
+		assert.True(t, transmitQueue.IsEmpty())
 	})
 }

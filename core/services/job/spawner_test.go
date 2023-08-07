@@ -273,7 +273,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 		relayers := make(map[relay.Network]loop.Relayer)
-		evmRelayer := evmrelay.NewRelayer(db, cc, lggr, config, keyStore, nil)
+		evmRelayer := evmrelay.NewRelayer(db, cc, lggr, config.Database(), keyStore, nil)
 		relayers[relay.EVM] = relay.NewRelayerAdapter(evmRelayer, cc)
 
 		processConfig := plugins.NewRegistrarConfig(loop.GRPCOpts{}, func(name string) (*plugins.RegisteredLoop, error) { return nil, nil })

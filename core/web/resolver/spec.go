@@ -614,8 +614,12 @@ func (r *OCR2SpecResolver) TransmitterID() *string {
 }
 
 // FeedID resolves the spec's feed ID
-func (r *OCR2SpecResolver) FeedID() string {
-	return r.spec.FeedID.String()
+func (r *OCR2SpecResolver) FeedID() *string {
+	if r.spec.FeedID == nil {
+		return nil
+	}
+	feedID := r.spec.FeedID.String()
+	return &feedID
 }
 
 type VRFSpecResolver struct {

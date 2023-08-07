@@ -35,10 +35,10 @@ library VRFTypes {
   // This is only used for VRF V2Plus.
   struct RequestCommitmentV2Plus {
     uint64 blockNum;
-    uint64 subId;
+    uint256 subId;
     uint32 callbackGasLimit;
     uint32 numWords;
     address sender;
-    bool nativePayment;
+    bytes extraArgs;
   }
 }

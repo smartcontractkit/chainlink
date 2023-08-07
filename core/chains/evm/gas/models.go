@@ -205,6 +205,7 @@ func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, fe
 type Config interface {
 	ChainType() config.ChainType
 	FinalityDepth() uint32
+	FinalityTagEnabled() bool
 }
 
 type GasEstimatorConfig interface {

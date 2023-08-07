@@ -58,7 +58,7 @@ type Core struct {
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
 func (c *Core) SetFrom(f *Core) {
 	if v := f.ExplorerURL; v != nil {
-		c.ExplorerURL = f.ExplorerURL
+		c.ExplorerURL = v
 	}
 	if v := f.InsecureFastScrypt; v != nil {
 		c.InsecureFastScrypt = v
@@ -117,7 +117,7 @@ func dbURLPasswordComplexity(err error) string {
 type DatabaseSecrets struct {
 	URL                  *models.SecretURL
 	BackupURL            *models.SecretURL
-	AllowSimplePasswords bool
+	AllowSimplePasswords *bool
 }
 
 func validateDBURL(dbURI url.URL) error {
@@ -148,16 +148,50 @@ func validateDBURL(dbURI url.URL) error {
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
-	} else if !d.AllowSimplePasswords {
+	} else if !*d.AllowSimplePasswords {
 		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
-	if d.BackupURL != nil && !d.AllowSimplePasswords {
+	if d.BackupURL != nil && !*d.AllowSimplePasswords {
 		if verr := validateDBURL((url.URL)(*d.BackupURL)); verr != nil {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "BackupURL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
 		}
 	}
+	return err
+}
+
+func (d *DatabaseSecrets) SetFrom(f *DatabaseSecrets) (err error) {
+	err = d.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if v := f.AllowSimplePasswords; v != nil {
+		d.AllowSimplePasswords = v
+	}
+	if v := f.BackupURL; v != nil {
+		d.BackupURL = v
+	}
+	if v := f.URL; v != nil {
+		d.URL = v
+	}
+	return nil
+}
+
+func (d *DatabaseSecrets) validateMerge(f *DatabaseSecrets) (err error) {
+	if d.AllowSimplePasswords != nil && f.AllowSimplePasswords != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "AllowSimplePasswords"})
+	}
+
+	if d.BackupURL != nil && f.BackupURL != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "BackupURL"})
+	}
+
+	if d.URL != nil && f.URL != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "URL"})
+	}
+
 	return err
 }
 
@@ -166,9 +200,65 @@ type ExplorerSecrets struct {
 	Secret    *models.Secret
 }
 
+func (e *ExplorerSecrets) SetFrom(f *ExplorerSecrets) (err error) {
+	err = e.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if v := f.AccessKey; v != nil {
+		e.AccessKey = v
+	}
+	if v := f.Secret; v != nil {
+		e.Secret = v
+	}
+
+	return nil
+}
+
+func (e *ExplorerSecrets) validateMerge(f *ExplorerSecrets) (err error) {
+	if e.AccessKey != nil && f.AccessKey != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "AccessKey"})
+	}
+
+	if e.Secret != nil && f.Secret != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "Secret"})
+	}
+
+	return err
+}
+
 type Passwords struct {
 	Keystore *models.Secret
 	VRF      *models.Secret
+}
+
+func (p *Passwords) SetFrom(f *Passwords) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if v := f.Keystore; v != nil {
+		p.Keystore = v
+	}
+	if v := f.VRF; v != nil {
+		p.VRF = v
+	}
+
+	return nil
+}
+
+func (p *Passwords) validateMerge(f *Passwords) (err error) {
+	if p.Keystore != nil && f.Keystore != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "Keystore"})
+	}
+
+	if p.VRF != nil && f.VRF != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "VRF"})
+	}
+
+	return err
 }
 
 func (p *Passwords) ValidateConfig() (err error) {
@@ -182,9 +272,52 @@ type PyroscopeSecrets struct {
 	AuthToken *models.Secret
 }
 
+func (p *PyroscopeSecrets) SetFrom(f *PyroscopeSecrets) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if v := f.AuthToken; v != nil {
+		p.AuthToken = v
+	}
+
+	return nil
+}
+
+func (p *PyroscopeSecrets) validateMerge(f *PyroscopeSecrets) (err error) {
+	if p.AuthToken != nil && f.AuthToken != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "AuthToken"})
+	}
+
+	return err
+}
+
 type PrometheusSecrets struct {
 	AuthToken *models.Secret
 }
+
+func (p *PrometheusSecrets) SetFrom(f *PrometheusSecrets) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if v := f.AuthToken; v != nil {
+		p.AuthToken = v
+	}
+
+	return nil
+}
+
+func (p *PrometheusSecrets) validateMerge(f *PrometheusSecrets) (err error) {
+	if p.AuthToken != nil && f.AuthToken != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "AuthToken"})
+	}
+
+	return err
+}
+
 type Feature struct {
 	FeedsManager *bool
 	LogPoller    *bool
@@ -658,6 +791,7 @@ type OCR2 struct {
 	DatabaseTimeout                    *models.Duration
 	KeyBundleID                        *models.Sha256Hash
 	CaptureEATelemetry                 *bool
+	CaptureAutomationCustomTelemetry   *bool
 	DefaultTransactionQueueDepth       *uint32
 	SimulateTransactions               *bool
 	TraceLogging                       *bool
@@ -690,6 +824,9 @@ func (o *OCR2) setFrom(f *OCR2) {
 	}
 	if v := f.CaptureEATelemetry; v != nil {
 		o.CaptureEATelemetry = v
+	}
+	if v := f.CaptureAutomationCustomTelemetry; v != nil {
+		o.CaptureAutomationCustomTelemetry = v
 	}
 	if v := f.DefaultTransactionQueueDepth; v != nil {
 		o.DefaultTransactionQueueDepth = v
@@ -1085,6 +1222,35 @@ type MercurySecrets struct {
 	Credentials map[string]MercuryCredentials
 }
 
+func (m *MercurySecrets) SetFrom(f *MercurySecrets) (err error) {
+	err = m.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if m.Credentials != nil && f.Credentials != nil {
+		for k, v := range f.Credentials {
+			m.Credentials[k] = v
+		}
+	} else if v := f.Credentials; v != nil {
+		m.Credentials = v
+	}
+
+	return nil
+}
+
+func (m *MercurySecrets) validateMerge(f *MercurySecrets) (err error) {
+	if m.Credentials != nil && f.Credentials != nil {
+		for k := range f.Credentials {
+			if _, exists := m.Credentials[k]; exists {
+				err = multierr.Append(err, configutils.ErrOverride{Name: fmt.Sprintf("Credentials[\"%s\"]", k)})
+			}
+		}
+	}
+
+	return err
+}
+
 func (m *MercurySecrets) ValidateConfig() (err error) {
 	urls := make(map[string]struct{}, len(m.Credentials))
 	for name, creds := range m.Credentials {
@@ -1106,4 +1272,25 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 
 type ThresholdKeyShareSecrets struct {
 	ThresholdKeyShare *models.Secret
+}
+
+func (t *ThresholdKeyShareSecrets) SetFrom(f *ThresholdKeyShareSecrets) (err error) {
+	err = t.validateMerge(f)
+	if err != nil {
+		return err
+	}
+
+	if v := f.ThresholdKeyShare; v != nil {
+		t.ThresholdKeyShare = v
+	}
+
+	return nil
+}
+
+func (t *ThresholdKeyShareSecrets) validateMerge(f *ThresholdKeyShareSecrets) (err error) {
+	if t.ThresholdKeyShare != nil && f.ThresholdKeyShare != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "ThresholdKeyShare"})
+	}
+
+	return err
 }

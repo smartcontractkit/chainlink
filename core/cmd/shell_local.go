@@ -223,6 +223,29 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 					},
 				},
+				{
+					Name:    "delete-chain",
+					Aliases: []string{},
+					Usage:   "Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --type and --id options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
+					Action:  s.CleanupChainTables,
+					Before:  s.validateDB,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:     "id",
+							Usage:    "chain id based on which chain specific table cleanup will be done",
+							Required: true,
+						},
+						cli.StringFlag{
+							Name:     "type",
+							Usage:    "chain type based on which table cleanup will be done, eg. EVM",
+							Required: true,
+						},
+						cli.BoolFlag{
+							Name:  "danger",
+							Usage: "set to true to enable dropping non-test databases",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -896,6 +919,48 @@ func (s *Shell) CreateMigration(c *cli.Context) error {
 
 	if err = migrate.Create(db.DB, c.Args().First(), migrationType); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
+	}
+	return nil
+}
+
+// CleanupChainTables deletes database table rows based on chain type and chain id input.
+func (s *Shell) CleanupChainTables(c *cli.Context) error {
+	cfg := s.Config.Database()
+	parsed := cfg.URL()
+	if parsed.String() == "" {
+		return s.errorOut(errDBURLMissing)
+	}
+
+	dbname := parsed.Path[1:]
+	if !c.Bool("danger") && !strings.HasSuffix(dbname, "_test") {
+		return s.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you really want to delete chain specific data from this database, pass in the --danger option", dbname))
+	}
+
+	db, err := newConnection(cfg)
+	if err != nil {
+		return s.errorOut(errors.Wrap(err, "error connecting to the database"))
+	}
+
+	defer db.Close()
+
+	tablesToDeleteFromQuery := `SELECT table_name FROM information_schema.columns WHERE "column_name"=$1;`
+	// Delete rows from each table based on the chain_id.
+	if strings.EqualFold("EVM", c.String("type")) {
+		var tables []string
+		if err = db.Select(&tables, tablesToDeleteFromQuery, "evm_chain_id"); err != nil {
+			return err
+		}
+		for _, tableName := range tables {
+			query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
+			_, err = db.Exec(query, c.String("id"))
+			if err != nil {
+				fmt.Printf("Error deleting rows from %s: %v\n", tableName, err)
+			} else {
+				fmt.Printf("Rows with chain_id %s deleted from %s.\n", c.String("id"), tableName)
+			}
+		}
+	} else {
+		return s.errorOut(errors.New("unknown chain type"))
 	}
 	return nil
 }

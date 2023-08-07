@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
 import {VerifierProxy} from "../VerifierProxy.sol";
-import {IERC165} from "../../shared/vendor/IERC165.sol";
+import {IERC165} from "../../vendor/IERC165.sol";
 import {IVerifier} from "../interfaces/IVerifier.sol";
 import {ErroredVerifier} from "./mocks/ErroredVerifier.sol";
 import {Verifier} from "../Verifier.sol";

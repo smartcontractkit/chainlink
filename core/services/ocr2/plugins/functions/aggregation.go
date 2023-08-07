@@ -2,6 +2,7 @@ package functions
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"sort"
 
@@ -35,28 +36,59 @@ func Aggregate(aggMethod config.AggregationMethod, observations []*encoding.Proc
 			successful = append(successful, obs)
 		}
 	}
+	resultIsError := len(errored) > len(successful)
+	var toAggregate []*encoding.ProcessedRequest
 	var rawData [][]byte
-	if len(errored) > len(successful) {
+	if resultIsError {
+		toAggregate = errored
 		for _, item := range errored {
 			rawData = append(rawData, item.Error)
 		}
+	} else {
+		toAggregate = successful
+		for _, item := range successful {
+			rawData = append(rawData, item.Result)
+		}
+	}
+	// Metadata (CallbackGasLimit, CoordinatorContract and OnchainMetadata) is aggregated using MODE method
+	finalResult.CallbackGasLimit, finalResult.CoordinatorContract, finalResult.OnchainMetadata = aggregateMetadata(toAggregate)
+	if resultIsError {
 		// Errors are always aggregated using MODE method
 		finalResult.Error = aggregateMode(rawData)
-		return &finalResult, nil
+	} else {
+		switch aggMethod {
+		case config.AggregationMethod_AGGREGATION_MODE:
+			finalResult.Result = aggregateMode(rawData)
+		case config.AggregationMethod_AGGREGATION_MEDIAN:
+			finalResult.Result = aggregateMedian(rawData)
+		default:
+			return nil, fmt.Errorf("unsupported aggregation method: %s", aggMethod)
+		}
 	}
-	for _, item := range successful {
-		rawData = append(rawData, item.Result)
+	return &finalResult, nil
+}
+
+func aggregateMetadata(items []*encoding.ProcessedRequest) (uint32, []byte, []byte) {
+	gasLimitBytes := make([][]byte, len(items))
+	coordinatorContracts := make([][]byte, len(items))
+	onchainMetadata := make([][]byte, len(items))
+	for i, item := range items {
+		gasLimitBytes[i] = make([]byte, 4)
+		binary.BigEndian.PutUint32(gasLimitBytes[i], item.CallbackGasLimit)
+		coordinatorContracts[i] = item.CoordinatorContract
+		if coordinatorContracts[i] == nil {
+			coordinatorContracts[i] = []byte{}
+		}
+		onchainMetadata[i] = item.OnchainMetadata
+		if onchainMetadata[i] == nil {
+			onchainMetadata[i] = []byte{}
+		}
 	}
-	switch aggMethod {
-	case config.AggregationMethod_AGGREGATION_MODE:
-		finalResult.Result = aggregateMode(rawData)
-		return &finalResult, nil
-	case config.AggregationMethod_AGGREGATION_MEDIAN:
-		finalResult.Result = aggregateMedian(rawData)
-		return &finalResult, nil
-	default:
-		return nil, fmt.Errorf("unsupported aggregation method: %s", aggMethod)
-	}
+	aggGasLimitBytes := aggregateMode(gasLimitBytes)
+	aggGasLimitUint32 := binary.BigEndian.Uint32(aggGasLimitBytes)
+	aggCoordinatorContract := aggregateMode(coordinatorContracts)
+	aggOnchainMetadata := aggregateMode(onchainMetadata)
+	return aggGasLimitUint32, aggCoordinatorContract, aggOnchainMetadata
 }
 
 func aggregateMode(items [][]byte) []byte {

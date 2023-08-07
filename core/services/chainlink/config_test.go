@@ -97,7 +97,8 @@ var (
 			{
 				ChainID: utils.NewBigI(1),
 				Chain: evmcfg.Chain{
-					FinalityDepth: ptr[uint32](26),
+					FinalityDepth:      ptr[uint32](26),
+					FinalityTagEnabled: ptr[bool](false),
 				},
 				Nodes: []*evmcfg.Node{
 					{
@@ -347,6 +348,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
+		CaptureAutomationCustomTelemetry:   ptr(false),
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
@@ -446,6 +448,7 @@ func TestConfig_Marshal(t *testing.T) {
 				BlockBackfillSkip:    ptr(true),
 				ChainType:            ptr("Optimism"),
 				FinalityDepth:        ptr[uint32](42),
+				FinalityTagEnabled:   ptr[bool](false),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 
 				GasEstimator: evmcfg.GasEstimator{
@@ -770,6 +773,7 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
+CaptureAutomationCustomTelemetry = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
@@ -848,6 +852,7 @@ BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
 FinalityDepth = 42
+FinalityTagEnabled = false
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
@@ -1172,6 +1177,8 @@ func mustIP(s string) *net.IP {
 }
 
 var (
+	//go:embed testdata/secrets-empty-effective.toml
+	emptyEffectiveSecretsTOML string
 	//go:embed testdata/config-empty-effective.toml
 	emptyEffectiveTOML string
 	//go:embed testdata/config-multi-chain-effective.toml
@@ -1203,7 +1210,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		wantEffective string
 		wantSecrets   string
 	}{
-		{name: "empty", wantEffective: emptyEffectiveTOML},
+		{name: "empty", wantEffective: emptyEffectiveTOML, wantSecrets: emptyEffectiveSecretsTOML},
 		{name: "full", inputSecrets: secretsFullTOML, inputConfig: fullTOML,
 			wantConfig: fullTOML, wantEffective: fullTOML, wantSecrets: secretsFullRedactedTOML},
 		{name: "multi-chain", inputSecrets: secretsMultiTOML, inputConfig: multiChainTOML,
@@ -1213,9 +1220,9 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 			opts := GeneralConfigOpts{
-				SkipEnv:       true,
-				ConfigStrings: []string{tt.inputConfig},
-				SecretsString: tt.inputSecrets,
+				SkipEnv:        true,
+				ConfigStrings:  []string{tt.inputConfig},
+				SecretsStrings: []string{tt.inputSecrets},
 			}
 			c, err := opts.New()
 			require.NoError(t, err)
@@ -1248,8 +1255,8 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
 	opts := GeneralConfigOpts{
-		ConfigStrings: []string{invalidTOML},
-		SecretsString: secretsFullTOML,
+		ConfigStrings:  []string{invalidTOML},
+		SecretsStrings: []string{secretsFullTOML},
 	}
 	_, err := opts.New()
 	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: {")
@@ -1259,8 +1266,8 @@ func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 	invalidTOML := `Dev = false
 Dev = true`
 	opts := GeneralConfigOpts{
-		ConfigStrings: []string{invalidTOML},
-		SecretsString: secretsFullTOML,
+		ConfigStrings:  []string{invalidTOML},
+		SecretsStrings: []string{secretsFullTOML},
 	}
 	_, err := opts.New()
 	assert.EqualError(t, err, "failed to decode config TOML: toml: key Dev is already defined")
@@ -1275,8 +1282,8 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 
 	// Check for two overrides
 	opts := GeneralConfigOpts{
-		ConfigStrings: []string{fullTOML},
-		SecretsString: secretsFullTOML,
+		ConfigStrings:  []string{fullTOML},
+		SecretsStrings: []string{secretsFullTOML},
 	}
 	c, err := opts.New()
 	assert.NoError(t, err)
@@ -1293,7 +1300,9 @@ func TestSecrets_Validate(t *testing.T) {
 		exp  string
 	}{
 		{name: "partial",
-			toml: `Explorer.AccessKey = "access_key"
+			toml: `
+Database.AllowSimplePasswords = true
+Explorer.AccessKey = "access_key"
 Explorer.Secret = "secret"`,
 			exp: `invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
@@ -1302,7 +1311,8 @@ Explorer.Secret = "secret"`,
 		{name: "invalid-urls",
 			toml: `[Database]
 URL = "postgresql://user:passlocalhost:5432/asdf"
-BackupURL = "foo-bar?password=asdf"`,
+BackupURL = "foo-bar?password=asdf"
+AllowSimplePasswords = false`,
 			exp: `invalid secrets: 2 errors:
 	- Database: 2 errors:
 		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 

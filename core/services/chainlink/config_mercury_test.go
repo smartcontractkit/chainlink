@@ -25,7 +25,7 @@ Password = "password2"
 
 func TestMercuryConfig(t *testing.T) {
 	opts := GeneralConfigOpts{
-		SecretsString: secretsMercury,
+		SecretsStrings: []string{secretsMercury},
 	}
 	cfg, err := opts.New()
 	require.NoError(t, err)

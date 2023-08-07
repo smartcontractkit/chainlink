@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -328,7 +329,7 @@ var (
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
-		MinimumConfirmations:      1,
+		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
 	}
 
@@ -353,6 +354,18 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+	}
+
+	BaseMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Base Mainnet",
+		SupportsEIP1559:           true,
+		ClientImplementation:      blockchain.OptimismClientImplementation,
+		ChainID:                   8453,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      0,
+		GasEstimationBuffer:       0,
 	}
 
 	MappedNetworks = map[string]blockchain.EVMNetwork{
@@ -381,6 +394,7 @@ var (
 		"AVALANCHE_FUJI":    AvalancheFuji,
 		"AVALANCHE_MAINNET": AvalancheMainnet,
 		"QUORUM":            Quorum,
+		"BASE_MAINNET":      BaseMainnet,
 	}
 )
 

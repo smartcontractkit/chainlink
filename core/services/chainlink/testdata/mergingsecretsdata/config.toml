@@ -1,0 +1,6 @@
+RootDir = 'set in config file'
+
+[P2P]
+[P2P.V2]
+AnnounceAddresses = ['set in config file']
+ListenAddresses = ['set in config file']
