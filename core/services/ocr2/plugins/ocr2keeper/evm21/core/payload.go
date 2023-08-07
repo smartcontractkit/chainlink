@@ -61,8 +61,8 @@ func NewUpkeepPayload(uid *big.Int, tp int, trigger ocr2keepers.Trigger, checkDa
 		if !ok {
 			return ocr2keepers.UpkeepPayload{}, fmt.Errorf("unrecognized trigger extension data")
 		}
-		hex, err := common.ParseHexOrString(trExt.TxHash)
-		if err != nil {
+		hex, parseErr := common.ParseHexOrString(trExt.TxHash)
+		if parseErr != nil {
 			return ocr2keepers.UpkeepPayload{}, fmt.Errorf("tx hash parse error: %w", err)
 		}
 		triggerW.TxHash = common.BytesToHash(hex[:])
