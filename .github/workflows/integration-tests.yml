@@ -713,7 +713,7 @@ jobs:
                         "type": "mrkdwn",
                         "text": "Tag: <${{ github.server_url }}/${{ github.repository }}/releases/tag/${{ github.ref_name }}|${{ github.ref_name }}>\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Run>"
                       }
-                    },
+                    }
                   ]
                 }
               ]
