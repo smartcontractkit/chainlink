@@ -35,17 +35,10 @@ keeper_registry_wrapper1_3: ../../contracts/solc/v0.8.6/KeeperRegistry1_3.abi ..
 keeper_registry_wrapper2_0: ../../contracts/solc/v0.8.6/KeeperRegistry2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistry2_0.bin c32dea7d5ef66b7c58ddc84ddf69aa44df1b3ae8601fbc271c95be4ff5853056
 keeper_registry_wrapper_2_1: ../../contracts/solc/v0.8.16/KeeperRegistry2_1.abi ../../contracts/solc/v0.8.16/KeeperRegistry2_1.bin 3423537dd5b4c8b42d693a7720053e7dc3ad64fbfab56fb4996c300d2bc26fa0
 keepers_vrf_consumer: ../../contracts/solc/v0.8.6/KeepersVRFConsumer.abi ../../contracts/solc/v0.8.6/KeepersVRFConsumer.bin fa75572e689c9e84705c63e8dbe1b7b8aa1a8fe82d66356c4873d024bb9166e8
-llo_feeds: ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin 3b69ffe9c694e8551b5375c02b9e960adc985e2390566740e7fea70c89e436f1
-llo_feeds_test: ../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../contracts/solc/v0.8.16/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
 log_emitter: ../../contracts/solc/v0.8.19/LogEmitter.abi ../../contracts/solc/v0.8.19/LogEmitter.bin 244ba13730c036de0b02beef4e3d9c9a96946ce353c27f366baecc7f5be5a6fd
 log_triggered_feed_lookup_wrapper: ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.abi ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.bin b16d9cafc51d85c4cd0b32fe0f53e37243b769585c5473c6f0e2c5db7dafc817
 log_upkeep_counter_wrapper: ../../contracts/solc/v0.8.6/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter.bin 13d6543329f89d06cbf3901d7f9ecdc42acc1a84d8c61db291fcbfdbe1138eb1
-mercury_exposed_verifier: ../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../contracts/solc/v0.8.16/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
-mercury_fee_manager: ../../contracts/solc/v0.8.16/FeeManager.abi ../../contracts/solc/v0.8.16/FeeManager.bin cb71e018f67e49d7bc0e194c822204dfd59f79ff42e4fc8fd8ab63f3acd71361
-mercury_reward_manager: ../../contracts/solc/v0.8.16/RewardManager.abi ../../contracts/solc/v0.8.16/RewardManager.bin a6b79d041c7e109cfd71f21a16513c5f1c42526c20a5eefc0929514690ca9d43
 mercury_upkeep_wrapper: ../../contracts/solc/v0.8.16/MercuryUpkeep.abi ../../contracts/solc/v0.8.16/MercuryUpkeep.bin f19fbcaf789578996cf7d5dc3c2adbad33b661c2d8bb71daf1b87b57a0678564
-mercury_verifier: ../../contracts/solc/v0.8.16/Verifier.abi ../../contracts/solc/v0.8.16/Verifier.bin 8518b13062166f7102d031f82a841573ca4d89eb27e96d633503e49302b75b47
-mercury_verifier_proxy: ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin ed0ebd35379a5764d302b0ce9ec4d493e295406fcd5a04883af2380269c58056
 mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy.bin b16c108f3dd384c342ddff5e94da7c0a8d39d1be5e3d8f2cf61ecc7f0e50ff42
 mock_ethlink_aggregator_wrapper: ../../contracts/solc/v0.6/MockETHLINKAggregator.abi ../../contracts/solc/v0.6/MockETHLINKAggregator.bin 1c52c24f797b8482aa12b8251dcea1c072827bd5b3426b822621261944b99ca0
 mock_gas_aggregator_wrapper: ../../contracts/solc/v0.6/MockGASAggregator.abi ../../contracts/solc/v0.6/MockGASAggregator.bin bacbb1ea4dc6beac0db8a13ca5c75e2fd61b903d70feea9b3b1c8b10fe8df4f3

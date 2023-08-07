@@ -127,11 +127,7 @@ package gethwrappers
 //go:generate go generate ./functions
 
 // Mercury
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/Verifier.abi ../../contracts/solc/v0.8.16/Verifier.bin MercuryVerifier mercury_verifier
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin MercuryVerifierProxy mercury_verifier_proxy
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../contracts/solc/v0.8.16/ExposedVerifier.bin MercuryExposedVerifier mercury_exposed_verifier
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/RewardManager.abi ../../contracts/solc/v0.8.16/RewardManager.bin MercuryRewardManager mercury_reward_manager
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/FeeManager.abi ../../contracts/solc/v0.8.16/FeeManager.bin MercuryFeeManager mercury_fee_manager
+//go:generate go generate ./llo-feeds
 
 // Mocks that contain only events and functions to emit them
 // These contracts are used in testing Atlas flows. The contracts contain no logic, only events, structures, and functions to emit them.
