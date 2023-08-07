@@ -130,7 +130,14 @@ func NewMultiNodeClient[
 	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-](logger logger.Logger, selectionMode string, noNewHeadsTreshold time.Duration, nodes []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB], sendonlys []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB], chainID CHAIN_ID, chainType config.ChainType,
+](
+	logger logger.Logger,
+	selectionMode string,
+	noNewHeadsTreshold time.Duration,
+	nodes []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB],
+	sendonlys []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB],
+	chainID CHAIN_ID,
+	chainType config.ChainType,
 ) MultiNodeClient[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB] {
 	nodeSelector := func() NodeSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB] {
 		switch selectionMode {
