@@ -4,6 +4,8 @@ option go_package = "core/services/ocr2/plugins/functions/config";
 
 package functions_config_types;
 
+// WARNING: Any changes to protobufs must also be reflected in Gauntlet which is used to generate the OCR plugin config for production deployments
+
 enum AggregationMethod {
     AGGREGATION_MODE = 0;
     AGGREGATION_MEDIAN = 1;
