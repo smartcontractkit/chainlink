@@ -63,8 +63,6 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   }
 
   function testVerifyProxyWithLinkFeeSuccess_gas() public {
-    vm.pauseGasMetering();
-
     bytes memory signedLinkPayload = _generateEncodedBlobWithFeesAndQuote(
       _generateBillingReport(),
       _generateReportContext(),
@@ -72,22 +70,16 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
       _generateQuote(address(link))
     );
 
-    vm.resumeGasMetering();
-
     s_verifierProxy.verify(signedLinkPayload);
   }
 
   function testVerifyProxyWithNativeFeeSuccess_gas() public {
-    vm.pauseGasMetering();
-
     bytes memory signedNativePayload = _generateEncodedBlobWithFeesAndQuote(
       _generateBillingReport(),
       _generateReportContext(),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
-
-    vm.resumeGasMetering();
 
     s_verifierProxy.verify(signedNativePayload);
   }
@@ -119,23 +111,11 @@ contract Verifier_verify is BaseTestWithConfiguredVerifierAndFeeManager {
   function testVerifySuccess_gas() public {
     changePrank(address(s_verifierProxy));
 
-    vm.pauseGasMetering();
-
-    bytes memory signedReport = s_signedReport;
-
-    vm.resumeGasMetering();
-
-    s_verifier.verify(signedReport, msg.sender);
+    s_verifier.verify(s_signedReport, msg.sender);
   }
 
   function testVerifyProxySuccess_gas() public {
-    vm.pauseGasMetering();
-
-    bytes memory signedReport = s_signedReport;
-
-    vm.resumeGasMetering();
-
-    s_verifierProxy.verify(signedReport);
+    s_verifierProxy.verify(s_signedReport);
   }
 }
 
