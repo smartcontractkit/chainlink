@@ -345,6 +345,28 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	ScrollSepolia = blockchain.EVMNetwork{
+		Name:                      "Scroll Sepolia",
+		ClientImplementation:      blockchain.ScrollClientImplementation,
+		ChainID:                   534351,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
+	ScrollMainnet = blockchain.EVMNetwork{
+		Name:                      "Scroll Sepolia",
+		ClientImplementation:      blockchain.ScrollClientImplementation,
+		ChainID:                   534352,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
 	CeloMainnet = blockchain.EVMNetwork{
 		Name:                      "Celo",
 		ClientImplementation:      blockchain.CeloClientImplementation,
@@ -418,6 +440,8 @@ var (
 		"AVALANCHE_FUJI":    AvalancheFuji,
 		"AVALANCHE_MAINNET": AvalancheMainnet,
 		"QUORUM":            Quorum,
+		"SCROLL_SEPOLIA":    ScrollSepolia,
+		"SCROLL_MAINNET":    ScrollMainnet,
 		"BASE_MAINNET":      BaseMainnet,
 		"BSC_TESTNET":       BSCTestnet,
 		"BSC_MAINNET":       BSCMainnet,
