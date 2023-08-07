@@ -146,7 +146,7 @@ func (f *Feeder) runTrusted(
 	// Note: Golang maps sort items in a range randomly, so although the batch size is used
 	// to limit blocks-per-batch, every block has an equal chance of getting picked up
 	// on each run.
-	var batch map[uint64]struct{}
+	var batch = make(map[uint64]struct{})
 	for blockKey, unfulfilledReqs := range blockToRequests {
 		f.wgStored.Add(1)
 		var unfulfilled = unfulfilledReqs

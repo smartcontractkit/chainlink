@@ -72,10 +72,10 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	if spec.WaitBlocks >= spec.LookbackBlocks {
 		return jb, errors.New(`"waitBlocks" must be less than "lookbackBlocks"`)
 	}
-	if spec.WaitBlocks >= 256 {
+	if spec.TrustedBlockhashStoreAddress.Hex() == EmptyAddress && spec.WaitBlocks >= 256 {
 		return jb, errors.New(`"waitBlocks" must be less than 256`)
 	}
-	if spec.LookbackBlocks >= 256 {
+	if spec.TrustedBlockhashStoreAddress.Hex() == EmptyAddress && spec.LookbackBlocks >= 256 {
 		return jb, errors.New(`"lookbackBlocks" must be less than 256`)
 	}
 
