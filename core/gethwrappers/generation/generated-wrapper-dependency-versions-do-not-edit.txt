@@ -42,8 +42,8 @@ log_triggered_feed_lookup_wrapper: ../../contracts/solc/v0.8.16/LogTriggeredFeed
 log_upkeep_counter_wrapper: ../../contracts/solc/v0.8.6/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter.bin 13d6543329f89d06cbf3901d7f9ecdc42acc1a84d8c61db291fcbfdbe1138eb1
 mercury_exposed_verifier: ../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../contracts/solc/v0.8.16/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
 mercury_upkeep_wrapper: ../../contracts/solc/v0.8.16/MercuryUpkeep.abi ../../contracts/solc/v0.8.16/MercuryUpkeep.bin f19fbcaf789578996cf7d5dc3c2adbad33b661c2d8bb71daf1b87b57a0678564
-mercury_verifier: ../../contracts/solc/v0.8.16/Verifier.abi ../../contracts/solc/v0.8.16/Verifier.bin 24b2db0d5db8e0198bb7eae2ecde65f2596df4bcc7b17d604d25300546c1694e
-mercury_verifier_proxy: ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin 3b69ffe9c694e8551b5375c02b9e960adc985e2390566740e7fea70c89e436f1
+mercury_verifier: ../../contracts/solc/v0.8.16/Verifier.abi ../../contracts/solc/v0.8.16/Verifier.bin 8518b13062166f7102d031f82a841573ca4d89eb27e96d633503e49302b75b47
+mercury_verifier_proxy: ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin ed0ebd35379a5764d302b0ce9ec4d493e295406fcd5a04883af2380269c58056
 mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy.bin b16c108f3dd384c342ddff5e94da7c0a8d39d1be5e3d8f2cf61ecc7f0e50ff42
 mock_ethlink_aggregator_wrapper: ../../contracts/solc/v0.6/MockETHLINKAggregator.abi ../../contracts/solc/v0.6/MockETHLINKAggregator.bin 1c52c24f797b8482aa12b8251dcea1c072827bd5b3426b822621261944b99ca0
 mock_gas_aggregator_wrapper: ../../contracts/solc/v0.6/MockGASAggregator.abi ../../contracts/solc/v0.6/MockGASAggregator.bin bacbb1ea4dc6beac0db8a13ca5c75e2fd61b903d70feea9b3b1c8b10fe8df4f3

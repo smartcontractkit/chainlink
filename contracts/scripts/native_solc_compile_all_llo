@@ -21,12 +21,14 @@ ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
 compileContract () {
   solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
       -o $ROOT/contracts/solc/v$SOLC_VERSION \
-      --abi --bin --allow-paths $ROOT/contracts/src/v0.8\
+      --abi --bin --base-path $ROOT/contracts --allow-paths $ROOT/contracts/src/v0.8\
       $ROOT/contracts/src/v0.8/$1
 }
 
 compileContract llo-feeds/Verifier.sol
 compileContract llo-feeds/VerifierProxy.sol
+compileContract llo-feeds/FeeManager.sol
+compileContract llo-feeds/RewardManager.sol
 
 #Test | Mocks
 compileContract llo-feeds/test/mocks/ErroredVerifier.sol
