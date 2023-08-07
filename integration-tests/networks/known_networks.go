@@ -371,7 +371,7 @@ var (
 	BSCTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
 		Name:                      "BSC Testnet",
 		SupportsEIP1559:           true,
-		ClientImplementation:      blockchain.OptimismClientImplementation,
+		ClientImplementation:      blockchain.BSCClientImplementation,
 		ChainID:                   97,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
