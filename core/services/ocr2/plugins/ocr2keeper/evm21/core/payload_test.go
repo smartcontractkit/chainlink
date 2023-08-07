@@ -47,7 +47,7 @@ func TestWorkID(t *testing.T) {
 		t.Fatalf("Error computing UpkeepWorkID: %s", err)
 	}
 
-	expectedResult := "ec3f663d9e6e4f3d7c7ac81af5b5cfb4"
+	expectedResult := "182244f3e4fa6e9556a17b84718b7ffe19f0d67a811d771bd5479fe16e02bf82"
 	assert.Equal(t, res, expectedResult, "UpkeepWorkID mismatch")
 }
 
