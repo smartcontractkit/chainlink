@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -200,4 +201,14 @@ func WrapperConsumerDeploy(
 	helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	fmt.Printf("VRFV2WrapperConsumerExample address: %s\n", address)
 	return address
+}
+
+func EoaLoadTestConsumerWithMetricsDeploy(e helpers.Environment, consumerCoordinator string) (consumerAddress common.Address) {
+	_, tx, _, err := vrf_load_test_with_metrics.DeployVRFV2LoadTestWithMetrics(
+		e.Owner,
+		e.Ec,
+		common.HexToAddress(consumerCoordinator),
+	)
+	helpers.PanicErr(err)
+	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }

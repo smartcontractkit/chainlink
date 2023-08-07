@@ -36,4 +36,35 @@ simulate     [type=ethcall
               data="$(vrf.output)"]
 decode_log->vrf->estimate_gas->simulate
 """`
+
+	BHSJobFormatted = `type = "blockhashstore"
+schemaVersion = 1
+name = "blockhashstore"
+forwardingAllowed = false
+coordinatorV2Address = "%s"
+waitBlocks = 30
+lookbackBlocks = 200
+blockhashStoreAddress = "%s"
+pollPeriod = "300ms"
+runTimeout = "30s"
+evmChainID = "%d"
+fromAddresses = ["%s"]
+`
+
+	BHFJobFormatted = `type = "blockheaderfeeder"
+schemaVersion = 1
+name = "blockheaderfeeder"
+forwardingAllowed = false
+coordinatorV2Address = "%s"
+waitBlocks = 256
+lookbackBlocks = 1_000
+blockhashStoreAddress = "%s"
+batchBlockhashStoreAddress = "%s"
+pollPeriod = "10s"
+runTimeout = "30s"
+evmChainID = "%d"
+fromAddresses = ["%s"]
+getBlockhashesBatchSize = 50
+storeBlockhashesBatchSize = 10
+`
 )

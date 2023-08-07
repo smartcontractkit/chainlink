@@ -706,13 +706,7 @@ func main() {
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-with-metrics-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
 		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address")
-		_, tx, _, err := vrf_load_test_with_metrics.DeployVRFV2LoadTestWithMetrics(
-			e.Owner,
-			e.Ec,
-			common.HexToAddress(*consumerCoordinator),
-		)
-		helpers.PanicErr(err)
-		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+		scripts.EoaLoadTestConsumerWithMetricsDeploy(e, *consumerCoordinator)
 	case "eoa-create-sub":
 		createSubCmd := flag.NewFlagSet("eoa-create-sub", flag.ExitOnError)
 		coordinatorAddress := createSubCmd.String("coordinator-address", "", "coordinator address")
