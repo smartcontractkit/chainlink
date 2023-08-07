@@ -13,7 +13,7 @@ var SecretsConf = &chainlink.Secrets{
 			AllowSimplePasswords: ptr(true),
 		},
 		Password: toml.Passwords{
-			Keystore: models.NewNonRedactedSecret("................"),
+			Keystore: models.NewSecret("................"),
 		},
 	},
 }
@@ -29,7 +29,7 @@ func NewSecretsConfig(baseConf *chainlink.Secrets, opts ...SecretsConfigOpt) *ch
 
 func WithDBURL(host, port, dbname string) SecretsConfigOpt {
 	return func(c *chainlink.Secrets) {
-		c.Secrets.Database.URL = models.MustNonRedactedSecretURL(
+		c.Secrets.Database.URL = models.MustSecretURL(
 			fmt.Sprintf("postgresql://postgres:test@%s:%s/%s?sslmode=disable", host, port, dbname),
 		)
 	}
@@ -40,9 +40,9 @@ func WithMercurySecrets(credMapKey, url, username, password string) SecretsConfi
 		c.Secrets.Mercury = toml.MercurySecrets{
 			Credentials: map[string]toml.MercuryCredentials{
 				credMapKey: {
-					URL:      models.MustNonRedactedSecretURL(url),
-					Username: models.NewNonRedactedSecret(username),
-					Password: models.NewNonRedactedSecret(password),
+					URL:      models.MustSecretURL(url),
+					Username: models.NewSecret(username),
+					Password: models.NewSecret(password),
 				},
 			},
 		}

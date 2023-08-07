@@ -4,9 +4,15 @@ import (
 	"encoding"
 	"fmt"
 	"net/url"
+	"os"
 )
 
-const redacted = "xxxxx"
+const (
+	// for testing, so we can Marshal secrets as is
+	skipRedactedFlag = "TEST_NO_SECRET_MASK"
+
+	redacted = "xxxxx"
+)
 
 var (
 	_ fmt.Stringer           = (*Secret)(nil)
@@ -24,7 +30,12 @@ func (s Secret) String() string { return redacted }
 
 func (s Secret) GoString() string { return redacted }
 
-func (s Secret) MarshalText() ([]byte, error) { return []byte(redacted), nil }
+func (s Secret) MarshalText() ([]byte, error) {
+	if _, found := os.LookupEnv(skipRedactedFlag); found {
+		return []byte(s), nil
+	}
+	return []byte(redacted), nil
+}
 
 var (
 	_ fmt.Stringer             = (*SecretURL)(nil)
@@ -45,7 +56,13 @@ func (s *SecretURL) GoString() string { return redacted }
 
 func (s *SecretURL) URL() *url.URL { return (*URL)(s).URL() }
 
-func (s *SecretURL) MarshalText() ([]byte, error) { return []byte(redacted), nil }
+func (s *SecretURL) MarshalText() ([]byte, error) {
+	// for testing, so we can Marshal secrets as is
+	if _, found := os.LookupEnv(skipRedactedFlag); found {
+		return []byte((*URL)(s).String()), nil
+	}
+	return []byte(redacted), nil
+}
 
 func (s *SecretURL) UnmarshalText(text []byte) error {
 	if err := (*URL)(s).UnmarshalText(text); err != nil {

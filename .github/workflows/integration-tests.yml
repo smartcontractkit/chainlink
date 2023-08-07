@@ -150,6 +150,7 @@ jobs:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
+      TEST_NO_SECRET_MASK: true
     strategy:
       fail-fast: false
       matrix:

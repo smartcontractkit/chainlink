@@ -13,8 +13,8 @@ func (m *mercuryConfig) Credentials(credName string) *models.MercuryCredentials 
 	if mc, ok := m.s.Credentials[credName]; ok {
 		return &models.MercuryCredentials{
 			URL:      mc.URL.URL().String(),
-			Username: mc.Username.String(),
-			Password: mc.Password.String(),
+			Username: string(*mc.Username),
+			Password: string(*mc.Password),
 		}
 	}
 	return nil
