@@ -210,7 +210,7 @@ func (n *ClNode) StartContainer() error {
 	}
 	n.NodeSecretsConfig = node.NewSecretsConfig(
 		node.SecretsConf,
-		node.WithDBURL(n.PostgresDb.ContainerName, n.PostgresDb.Port, n.PostgresDb.DbName),
+		node.WithDBURL(n.PostgresDb.Password, n.PostgresDb.ContainerName, n.PostgresDb.Port, n.PostgresDb.DbName),
 		node.WithMercurySecrets("cred1", "localhost:1338", "node", "nodepass"),
 	)
 	cReq, err := n.getContainerRequest(n.NodeSecretsConfig)

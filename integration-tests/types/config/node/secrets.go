@@ -27,10 +27,10 @@ func NewSecretsConfig(baseConf *chainlink.Secrets, opts ...SecretsConfigOpt) *ch
 	return baseConf
 }
 
-func WithDBURL(host, port, dbname string) SecretsConfigOpt {
+func WithDBURL(password, host, port, dbname string) SecretsConfigOpt {
 	return func(c *chainlink.Secrets) {
 		c.Secrets.Database.URL = models.MustSecretURL(
-			fmt.Sprintf("postgresql://postgres:test@%s:%s/%s?sslmode=disable", host, port, dbname),
+			fmt.Sprintf("postgresql://postgres:%s@%s:%s/%s?sslmode=disable", password, host, port, dbname),
 		)
 	}
 }
