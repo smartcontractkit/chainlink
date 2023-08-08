@@ -154,60 +154,6 @@ func FundVRFCoordinatorV2Subscription(linkToken contracts.LinkToken, coordinator
 	return chainClient.WaitForEvents()
 }
 
-func SetupVRFV2Environment(
-	t *testing.T,
-	testNetwork blockchain.EVMNetwork,
-	networkDetailTomlConfig string,
-	existingNamespace string,
-	namespacePrefix string,
-	newEnvLabel string,
-	ttl time.Duration,
-) (testEnvironment *environment.Environment) {
-	gethChartConfig := getGethChartConfig(testNetwork)
-
-	if existingNamespace != "" {
-		testEnvironment = environment.New(&environment.Config{
-			Namespace: existingNamespace,
-			Test:      t,
-			TTL:       ttl,
-			Labels:    []string{newEnvLabel},
-		})
-	} else {
-		testEnvironment = environment.New(&environment.Config{
-			NamespacePrefix: fmt.Sprintf("%s-%s", namespacePrefix, strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-			Test:            t,
-			TTL:             ttl,
-		})
-	}
-
-	cd, err := chainlink.NewDeployment(1, map[string]any{
-		"toml": client.AddNetworkDetailedConfig("", networkDetailTomlConfig, testNetwork),
-		//need to restart the node with updated eth key config
-		"db": map[string]interface{}{
-			"stateful": "true",
-		},
-	})
-	require.NoError(t, err, "Error creating chainlink deployment")
-	testEnvironment = testEnvironment.
-		AddHelm(gethChartConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
-	require.NoError(t, err, "Error running test environment")
-	return testEnvironment
-}
-
-func getGethChartConfig(testNetwork blockchain.EVMNetwork) environment.ConnectedChart {
-	evmConfig := eth.New(nil)
-	if !testNetwork.Simulated {
-		evmConfig = eth.New(&eth.Props{
-			NetworkName: testNetwork.Name,
-			Simulated:   testNetwork.Simulated,
-			WsURLs:      testNetwork.URLs,
-		})
-	}
-	return evmConfig
-}
-
 /* setup for load tests */
 
 func SetupLocalLoadTestEnv(nodesFunding *big.Float, subFundingLINK *big.Int) (*test_env.CLClusterTestEnv, *VRFV2Contracts, [32]byte, error) {
