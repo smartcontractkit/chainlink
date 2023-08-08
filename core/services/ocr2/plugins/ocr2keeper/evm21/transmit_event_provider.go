@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -250,13 +251,13 @@ func (l transmitEventLog) Id() *big.Int {
 func (l transmitEventLog) TriggerID() string {
 	switch {
 	case l.Performed != nil:
-		return UpkeepTriggerID(l.Performed.Id, l.Performed.Trigger)
+		return core.UpkeepTriggerID(l.Performed.Id, l.Performed.Trigger)
 	case l.Stale != nil:
-		return UpkeepTriggerID(l.Stale.Id, l.Stale.Trigger)
+		return core.UpkeepTriggerID(l.Stale.Id, l.Stale.Trigger)
 	case l.Reorged != nil:
-		return UpkeepTriggerID(l.Reorged.Id, l.Reorged.Trigger)
+		return core.UpkeepTriggerID(l.Reorged.Id, l.Reorged.Trigger)
 	case l.InsufficientFunds != nil:
-		return UpkeepTriggerID(l.InsufficientFunds.Id, l.InsufficientFunds.Trigger)
+		return core.UpkeepTriggerID(l.InsufficientFunds.Id, l.InsufficientFunds.Trigger)
 	default:
 		return ""
 	}

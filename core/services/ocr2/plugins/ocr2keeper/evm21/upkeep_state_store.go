@@ -1,10 +1,7 @@
 package evm
 
 import (
-	"fmt"
 	"math/big"
-	"strconv"
-	"strings"
 	"sync"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
@@ -63,6 +60,7 @@ func (u *UpkeepStateStore) SelectByUpkeepIDsAndBlockRange(upkeepIds []*big.Int, 
 		if s.block < start || s.block >= end || !uids.Contains(s.upkeepId) {
 			continue
 		}
+
 		pl = append(pl, s.payload)
 		us = append(us, s.state)
 	}
@@ -74,18 +72,10 @@ func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us ocr2k
 	defer u.mu.Unlock()
 
 	upkeepId := big.NewInt(0).SetBytes(pl.Upkeep.ID)
-	arrs := strings.Split(string(pl.CheckBlock), BlockKeySeparator)
-	if len(arrs) != 2 {
-		return fmt.Errorf("check block %s is invalid for upkeep %s", pl.CheckBlock, upkeepId)
-	}
-	block, err := strconv.ParseInt(arrs[0], 10, 64)
-	if err != nil {
-		return err
-	}
 	state := &upkeepState{
 		payload:  &pl,
 		state:    &us,
-		block:    block,
+		block:    pl.Trigger.BlockNumber,
 		upkeepId: upkeepId.String(),
 	}
 
