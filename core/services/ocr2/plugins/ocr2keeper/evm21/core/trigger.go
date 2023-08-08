@@ -16,11 +16,6 @@ type triggerWrapper = automation_utils_2_1.KeeperRegistryBase21LogTrigger
 
 var ErrABINotParsable = fmt.Errorf("error parsing abi")
 
-type LogTriggerExtension struct {
-	TxHash   string
-	LogIndex int64
-}
-
 // according to the upkeep type of the given id.
 func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 	var trigger []byte

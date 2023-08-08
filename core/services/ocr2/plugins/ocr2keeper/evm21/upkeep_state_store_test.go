@@ -4,7 +4,8 @@ import (
 	"math/big"
 	"testing"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	"github.com/ethereum/go-ethereum/common"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -16,18 +17,18 @@ var (
 	upkeepId2 = big.NewInt(200)
 	trigger1  = ocr2keepers.Trigger{
 		BlockNumber: block1,
-		BlockHash:   "0x1231eqwe12eqwd",
-		Extension: core.LogTriggerExtension{
-			LogIndex: 1,
-			TxHash:   "0x1234567890123456789012345678901234567890123456789012345678901234",
+		BlockHash:   common.HexToHash("0x1"),
+		LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+			Index:  1,
+			TxHash: common.HexToHash("0x1"),
 		},
 	}
 	trigger2 = ocr2keepers.Trigger{
 		BlockNumber: block3,
-		BlockHash:   "0x1231eqwe12eqwd",
-		Extension: core.LogTriggerExtension{
-			LogIndex: 1,
-			TxHash:   "0x1234567890123456789012345678901234567890123456789012345678901234",
+		BlockHash:   common.HexToHash("0x1"),
+		LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+			Index:  1,
+			TxHash: common.HexToHash("0x1"),
 		},
 	}
 	payload2, _ = core.NewUpkeepPayload(upkeepId1, conditionalType, trigger1, []byte{})
@@ -45,7 +46,7 @@ const (
 
 func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 	p := ocr2keepers.Performed
-	e := ocr2keepers.Eligible
+	e := ocr2keepers.Ineligible
 
 	tests := []struct {
 		name          string
@@ -69,8 +70,8 @@ func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 				payload4,
 				payload5, // this overrides payload 2 bc they have the same payload ID
 			},
-			states: []ocr2keepers.UpkeepState{ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Eligible},
-			oldIds: []string{payload2.ID, payload3.ID, payload4.ID},
+			states: []ocr2keepers.UpkeepState{ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Ineligible},
+			oldIds: []string{payload2.WorkID, payload3.WorkID, payload4.WorkID},
 			oldIdResult: []upkeepState{
 				{
 					payload: &payload3,
@@ -81,7 +82,7 @@ func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 					state:   &p,
 				},
 			},
-			newIds: []string{payload3.ID, payload4.ID, payload5.ID},
+			newIds: []string{payload3.WorkID, payload4.WorkID, payload5.WorkID},
 			newIdResult: []upkeepState{
 				{
 					payload: &payload3,

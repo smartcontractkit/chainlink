@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	ocr2keepers21 "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
 type Encoder interface {
@@ -36,7 +37,7 @@ type Encoder interface {
 }
 
 type Encoder21 interface {
-	plugin.Encoder
+	ocr2keepers21.Encoder
 }
 
 var (
