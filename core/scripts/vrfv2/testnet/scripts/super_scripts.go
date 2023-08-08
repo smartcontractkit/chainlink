@@ -59,10 +59,10 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	coordinatorAddressString := *deployCmd.String("coordinator-address", "", "address of VRF Coordinator contract")
 	batchCoordinatorAddressString := *deployCmd.String("batch-coordinator-address", "", "address Batch VRF Coordinator contract")
 
-	subscriptionBalanceString := deployCmd.String("subscription-balance", constants.SubscriptionBalanceString, "amount to fund subscription")
+	subscriptionBalanceString := deployCmd.String("subscription-balance", constants.SubscriptionBalanceJuels.String(), "amount to fund subscription")
 
 	// optional flags
-	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", constants.FallbackWeiPerUnitLinkString, "fallback wei/link ratio")
+	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", constants.FallbackWeiPerUnitLink.String(), "fallback wei/link ratio")
 	registerKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
 	vrfPrimaryNodeSendingKeysString := deployCmd.String("vrf-primary-node-sending-keys", "", "VRF Primary Node sending keys")
 	vrfBackupNodeSendingKeysString := deployCmd.String("vrf-backup-node-sending-keys", "", "VRF Backup Node sending keys")

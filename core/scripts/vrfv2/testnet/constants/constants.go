@@ -1,12 +1,15 @@
 package constants
 
-import "github.com/smartcontractkit/chainlink/v2/core/assets"
+import (
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"math/big"
+)
 
 var (
-	SubscriptionBalanceString = "1e19"
+	SubscriptionBalanceJuels = assets.Ether(10).ToInt()
 
 	// optional flags
-	FallbackWeiPerUnitLinkString = "6e16"
+	FallbackWeiPerUnitLink = big.NewInt(6e16)
 
 	MinConfs                        = 3
 	NodeSendingKeyFundingAmountGwei = assets.GWei(0).Int64() //100000000 = 0.1 ETH

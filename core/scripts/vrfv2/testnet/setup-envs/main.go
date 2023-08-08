@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/shopspring/decimal"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/constants"
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/scripts"
@@ -157,8 +156,8 @@ func main() {
 
 	jobSpecs := scripts.VRFV2DeployUniverse(
 		e,
-		decimal.RequireFromString(constants.FallbackWeiPerUnitLinkString).BigInt(),
-		decimal.RequireFromString(constants.SubscriptionBalanceString).BigInt(),
+		constants.FallbackWeiPerUnitLink,
+		constants.SubscriptionBalanceJuels,
 		&nodes[scripts.VRFPrimaryNodeName].VrfKeys[0],
 		*linkAddress,
 		*linkEthAddress,
