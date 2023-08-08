@@ -380,6 +380,18 @@ var (
 		GasEstimationBuffer:       0,
 	}
 
+	BSCMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "BSC Mainnet",
+		SupportsEIP1559:           true,
+		ClientImplementation:      blockchain.BSCClientImplementation,
+		ChainID:                   56,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      3,
+		GasEstimationBuffer:       0,
+	}
+
 	MappedNetworks = map[string]blockchain.EVMNetwork{
 		"SIMULATED":        SimulatedEVM,
 		"SIMULATED_1":      SimulatedEVMNonDev1,
@@ -408,6 +420,7 @@ var (
 		"QUORUM":            Quorum,
 		"BASE_MAINNET":      BaseMainnet,
 		"BSC_TESTNET":       BSCTestnet,
+		"BSC_MAINNET":       BSCMainnet,
 	}
 )
 
