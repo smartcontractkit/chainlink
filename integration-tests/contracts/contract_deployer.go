@@ -114,6 +114,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error
 		return &CeloContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	case *blockchain.QuorumClient:
 		return &QuorumContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+	default:
+		return NewEthereumContractDeployer(clientImpl), nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
