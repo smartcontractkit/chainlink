@@ -26,6 +26,7 @@ var (
 	VRFPrimaryNodeName = "vrf-primary-node"
 	VRFBackupNodeName  = "vrf-backup-node"
 	BHSNodeName        = "bhs-node"
+	BHSBackupNodeName  = "bhs-backup-node"
 	BHFNodeName        = "bhf-node"
 )
 
@@ -37,6 +38,14 @@ type Node struct {
 	SendingKeyFundingAmount     int64
 	VrfKeys                     []string
 	jobSpec                     string
+}
+
+type JobSpecs struct {
+	VRFPrimaryNode string
+	VRFBackupyNode string
+	BHSNode        string
+	BHSBackupNode  string
+	BHFNode        string
 }
 
 func DeployUniverseViaCLI(e helpers.Environment) {
@@ -154,7 +163,7 @@ func VRFV2DeployUniverse(
 	gasAfterPayment *int64,
 	feeConfig vrf_coordinator_v2.VRFCoordinatorV2FeeConfig,
 	nodesMap map[string]Node, //todo - is possible to pass a pointer to the node, so that we read data and also update the data and we dont need to return "nodes"
-) (string, string, string, string) {
+) JobSpecs {
 
 	// Put key in ECDSA format
 	if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
@@ -295,9 +304,21 @@ func VRFV2DeployUniverse(
 	formattedBHSJobSpec := fmt.Sprintf(
 		jobs.BHSJobFormatted,
 		coordinatorAddress, //coordinatorAddress
-		bhsContractAddress, //bhs adreess
+		30,                 //waitBlocks
+		200,                //lookbackBlocks
+		bhsContractAddress, //bhs address
 		e.ChainID,          //chain id
 		strings.Join(nodesMap[BHSNodeName].SendingKeys, "\",\""), //sending addresses
+	)
+
+	formattedBHSBackupJobSpec := fmt.Sprintf(
+		jobs.BHSJobFormatted,
+		coordinatorAddress, //coordinatorAddress
+		100,                //waitBlocks
+		200,                //lookbackBlocks
+		bhsContractAddress, //bhs adreess
+		e.ChainID,          //chain id
+		strings.Join(nodesMap[BHSBackupNodeName].SendingKeys, "\",\""), //sending addresses
 	)
 
 	formattedBHFJobSpec := fmt.Sprintf(
@@ -305,7 +326,8 @@ func VRFV2DeployUniverse(
 		coordinatorAddress, //coordinatorAddress
 		bhsContractAddress, //bhs adreess
 		batchBHSAddress,    //batchBHS
-		strings.Join(nodesMap[BHSNodeName].SendingKeys, "\",\""), //sending addresses
+		e.ChainID,          //chain id
+		strings.Join(nodesMap[BHFNodeName].SendingKeys, "\",\""), //sending addresses
 	)
 
 	fmt.Println(
@@ -320,14 +342,20 @@ func VRFV2DeployUniverse(
 		"\nVRF Subscription Id:", subID,
 		"\nVRF Subscription Balance:", *subscriptionBalance,
 		"\nPossible VRF Request command: ",
-		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations 1 --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash),
+		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, minConfs),
 		"\nRetrieve Request Status: ",
 		fmt.Sprintf("go run . eoa-load-test-read-metrics --consumer-address=%s", consumerAddress),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",
 		formattedVrfPrimaryJobSpec,
 	)
 
-	return formattedVrfPrimaryJobSpec, formattedVrfBackupJobSpec, formattedBHSJobSpec, formattedBHFJobSpec
+	return JobSpecs{
+		VRFPrimaryNode: formattedVrfPrimaryJobSpec,
+		VRFBackupyNode: formattedVrfBackupJobSpec,
+		BHSNode:        formattedBHSJobSpec,
+		BHSBackupNode:  formattedBHSBackupJobSpec,
+		BHFNode:        formattedBHFJobSpec,
+	}
 }
 
 func DeployWrapperUniverse(e helpers.Environment) {

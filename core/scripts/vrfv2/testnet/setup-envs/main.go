@@ -13,13 +13,11 @@ import (
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
+	"github.com/urfave/cli"
+	"io"
 	"math/big"
 	"os"
 	"strings"
-
-	//"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/urfave/cli"
-	"io"
 )
 
 func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Shell, *cli.App) {
@@ -52,14 +50,18 @@ var (
 
 func main() {
 
-	vrfPrimaryNodeURL := flag.String("vrf-primary-node-url", "http://localhost:6610", "remote node URL")
+	vrfPrimaryNodeURL := flag.String("vrf-primary-node-url", "", "remote node URL")
 	vrfBackupNodeURL := flag.String("vrf-backup-node-url", "", "remote node URL")
 	bhsNodeURL := flag.String("bhs-node-url", "", "remote node URL")
-	//bhsBackupNodeURL := flag.String("vrf-bhs-backup-node-url", "http://localhost:6613", "remote node URL")
+	bhsBackupNodeURL := flag.String("bhs-backup-node-url", "", "remote node URL")
 	bhfNodeURL := flag.String("bhf-node-url", "", "remote node URL")
 	nodeSendingKeyFundingAmount := flag.Int64("sending-key-funding-amount", constants.NodeSendingKeyFundingAmountGwei, "remote node URL")
 
-	credsFile := flag.String("creds-file", "/Users/iljapavlovs/Desktop/Chainlink/chainlink/core/scripts/vrfv2/testnet/docker/secrets/apicredentials", "Creds to authenticate to the node")
+	vrfPrimaryCredsFile := flag.String("vrf-primary-creds-file", "", "Creds to authenticate to the node")
+	vrfBackupCredsFile := flag.String("vrf-bk-creds-file", "", "Creds to authenticate to the node")
+	bhsCredsFile := flag.String("bhs-creds-file", "", "Creds to authenticate to the node")
+	bhsBackupCredsFile := flag.String("bhs-bk-creds-file", "", "Creds to authenticate to the node")
+	bhfCredsFile := flag.String("bhf-creds-file", "", "Creds to authenticate to the node")
 
 	numEthKeys := flag.Int("num-eth-keys", 5, "Number of eth keys to create")
 	maxGasPriceGwei := flag.Int("max-gas-price-gwei", -1, "Max gas price gwei of the eth keys")
@@ -74,45 +76,60 @@ func main() {
 
 	e := helpers.SetupEnv(false)
 	flag.Parse()
-	file := *credsFile
 	nodes := make(map[string]scripts.Node)
+
 	if *vrfPrimaryNodeURL != "" {
 		nodes[scripts.VRFPrimaryNodeName] = scripts.Node{
 			URL:                     *vrfPrimaryNodeURL,
 			SendingKeyFundingAmount: *nodeSendingKeyFundingAmount,
+			CredsFile:               *vrfPrimaryCredsFile,
 		}
 	}
-
 	if *vrfBackupNodeURL != "" {
 		nodes[scripts.VRFBackupNodeName] = scripts.Node{
 			URL:                     *vrfBackupNodeURL,
 			SendingKeyFundingAmount: *nodeSendingKeyFundingAmount,
+			CredsFile:               *vrfBackupCredsFile,
 		}
 	}
 	if *bhsNodeURL != "" {
 		nodes[scripts.BHSNodeName] = scripts.Node{
 			URL:                     *bhsNodeURL,
 			SendingKeyFundingAmount: *nodeSendingKeyFundingAmount,
+			CredsFile:               *bhsCredsFile,
 		}
 	}
+	if *bhsBackupNodeURL != "" {
+		nodes[scripts.BHSBackupNodeName] = scripts.Node{
+			URL:                     *bhsBackupNodeURL,
+			SendingKeyFundingAmount: *nodeSendingKeyFundingAmount,
+			CredsFile:               *bhsBackupCredsFile,
+		}
+	}
+
 	if *bhfNodeURL != "" {
 		nodes[scripts.BHFNodeName] = scripts.Node{
 			URL:                     *bhfNodeURL,
 			SendingKeyFundingAmount: *nodeSendingKeyFundingAmount,
+			CredsFile:               *bhfCredsFile,
 		}
 	}
 
 	output := &bytes.Buffer{}
-
 	for key, node := range nodes {
 
-		client, app := connectToNode(&node.URL, output, file)
+		client, app := connectToNode(&node.URL, output, node.CredsFile)
 		ethKeys := createETHKeysIfNeeded(client, app, output, numEthKeys, &node.URL, maxGasPriceGwei)
 		if key == scripts.VRFPrimaryNodeName {
 			vrfKeys := createVRFKeyIfNeeded(client, app, output, numVRFKeys, &node.URL)
 			node.VrfKeys = mapVrfKeysToStringArr(vrfKeys)
-
 			printVRFKeyData(vrfKeys)
+			exportVRFKey(client, app, vrfKeys[0], output)
+		}
+
+		if key == scripts.VRFBackupNodeName {
+			vrfKeys := getVRFKeys(client, app, output)
+			node.VrfKeys = mapVrfKeysToStringArr(vrfKeys)
 		}
 
 		node.SendingKeys = mapEthKeysToStringArr(ethKeys)
@@ -123,11 +140,9 @@ func main() {
 			fmt.Println("\nFunding ", key, " Node's Sending Keys...")
 			helpers.FundNodes(e, node.SendingKeys, big.NewInt(node.SendingKeyFundingAmount))
 		}
-
 	}
-
+	importVRFKeyToNodeIfSet(vrfBackupNodeURL, nodes, output, nodes[scripts.VRFBackupNodeName].CredsFile)
 	fmt.Println()
-
 	feeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
 		FulfillmentFlatFeeLinkPPMTier1: uint32(constants.FlatFeeTier1),
 		FulfillmentFlatFeeLinkPPMTier2: uint32(constants.FlatFeeTier2),
@@ -140,7 +155,7 @@ func main() {
 		ReqsForTier5:                   big.NewInt(constants.ReqsForTier5),
 	}
 
-	vrfv2PrimaryNodeJob, vrfv2BackupNodeJob, bhsNodeJob, bhfNodeJob := scripts.VRFV2DeployUniverse(
+	jobSpecs := scripts.VRFV2DeployUniverse(
 		e,
 		decimal.RequireFromString(constants.FallbackWeiPerUnitLinkString).BigInt(),
 		decimal.RequireFromString(constants.SubscriptionBalanceString).BigInt(),
@@ -160,30 +175,61 @@ func main() {
 	)
 
 	for key, node := range nodes {
-		client, app := connectToNode(&node.URL, output, file)
+		client, app := connectToNode(&node.URL, output, node.CredsFile)
 
 		//GET ALL JOBS
 		jobIDs := getAllJobIDs(client, app, output)
 
 		//DELETE ALL EXISTING JOBS
 		for _, jobID := range jobIDs {
-			deleteJob(jobID, client, app)
+			deleteJob(jobID, client, app, output)
 		}
-		output.Reset()
-
 		//CREATE JOBS
 		switch key {
 		case scripts.VRFPrimaryNodeName:
-			createJob(vrfv2PrimaryNodeJob, client, app, output)
+			createJob(jobSpecs.VRFPrimaryNode, client, app, output)
 		case scripts.VRFBackupNodeName:
-			createJob(vrfv2BackupNodeJob, client, app, output)
+			createJob(jobSpecs.VRFBackupyNode, client, app, output)
 		case scripts.BHSNodeName:
-			createJob(bhsNodeJob, client, app, output)
+			createJob(jobSpecs.BHSNode, client, app, output)
+		case scripts.BHSBackupNodeName:
+			createJob(jobSpecs.BHSBackupNode, client, app, output)
 		case scripts.BHFNodeName:
-			createJob(bhfNodeJob, client, app, output)
+			createJob(jobSpecs.BHFNode, client, app, output)
 		}
-
 	}
+}
+
+func importVRFKeyToNodeIfSet(vrfBackupNodeURL *string, nodes map[string]scripts.Node, output *bytes.Buffer, file string) {
+	if *vrfBackupNodeURL != "" {
+		vrfBackupNode := nodes[scripts.VRFBackupNodeName]
+		vrfPrimaryNode := nodes[scripts.VRFBackupNodeName]
+
+		if len(vrfBackupNode.VrfKeys) == 0 || vrfPrimaryNode.VrfKeys[0] != vrfBackupNode.VrfKeys[0] {
+			client, app := connectToNode(&vrfBackupNode.URL, output, file)
+			importVRFKey(client, app, output)
+
+			vrfKeys := getVRFKeys(client, app, output)
+
+			vrfBackupNode.VrfKeys = mapVrfKeysToStringArr(vrfKeys)
+			if len(vrfBackupNode.VrfKeys) == 0 {
+				panic("VRF Key was not imported to VRF Backup Node")
+			}
+			printVRFKeyData(vrfKeys)
+		}
+	}
+}
+
+func getVRFKeys(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) []presenters.VRFKeyResource {
+	var vrfKeys []presenters.VRFKeyResource
+
+	err := client.ListVRFKeys(&cli.Context{
+		App: app,
+	})
+	helpers.PanicErr(err)
+	helpers.PanicErr(json.Unmarshal(output.Bytes(), &vrfKeys))
+	output.Reset()
+	return vrfKeys
 }
 
 func createJob(jobSpec string, client *clcmd.Shell, app *cli.App, output *bytes.Buffer) {
@@ -200,12 +246,40 @@ func createJob(jobSpec string, client *clcmd.Shell, app *cli.App, output *bytes.
 	output.Reset()
 }
 
-func deleteJob(jobID string, client *clcmd.Shell, app *cli.App) {
+func exportVRFKey(client *clcmd.Shell, app *cli.App, vrfKey presenters.VRFKeyResource, output *bytes.Buffer) {
+	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil {
+		helpers.PanicErr(err)
+	}
+	flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
+	flagSet.String("new-password", "./vrf-key-password.txt", "")
+	flagSet.String("output", "exportedvrf.json", "")
+	err := flagSet.Parse([]string{vrfKey.Compressed})
+	helpers.PanicErr(err)
+	err = client.ExportVRFKey(cli.NewContext(app, flagSet, nil))
+	helpers.PanicErr(err)
+	output.Reset()
+}
+
+func importVRFKey(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) {
+	if err := os.WriteFile("vrf-key-password.txt", []byte("twochains"), 0666); err != nil {
+		helpers.PanicErr(err)
+	}
+	flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
+	flagSet.String("old-password", "./vrf-key-password.txt", "")
+	err := flagSet.Parse([]string{"exportedvrf.json"})
+	helpers.PanicErr(err)
+	err = client.ImportVRFKey(cli.NewContext(app, flagSet, nil))
+	helpers.PanicErr(err)
+	output.Reset()
+}
+
+func deleteJob(jobID string, client *clcmd.Shell, app *cli.App, output *bytes.Buffer) {
 	flagSet := flag.NewFlagSet("blah", flag.ExitOnError)
 	err := flagSet.Parse([]string{jobID})
 	helpers.PanicErr(err)
 	err = client.DeleteJob(cli.NewContext(app, flagSet, nil))
 	helpers.PanicErr(err)
+	output.Reset()
 }
 
 func getAllJobIDs(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) []string {
@@ -252,7 +326,6 @@ func mapVrfKeysToStringArr(vrfKeys []presenters.VRFKeyResource) []string {
 
 func printVRFKeyData(vrfKeys []presenters.VRFKeyResource) {
 	fmt.Println("Number of VRF Keys on the node: ", len(vrfKeys))
-
 	fmt.Println("------------- NODE INFORMATION -------------")
 	for _, vrfKey := range vrfKeys {
 		fmt.Println("-----------VRF Key-----------")
@@ -280,15 +353,10 @@ func connectToNode(nodeURL *string, output *bytes.Buffer, credFile string) (*clc
 
 func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffer, numVRFKeys *int, nodeURL *string) []presenters.VRFKeyResource {
 	var allVRFKeys []presenters.VRFKeyResource
-	var vrfKeys []presenters.VRFKeyResource
 	var newKeys []presenters.VRFKeyResource
 
-	err := client.ListVRFKeys(&cli.Context{
-		App: app,
-	})
-	helpers.PanicErr(err)
+	vrfKeys := getVRFKeys(client, app, output)
 
-	helpers.PanicErr(json.Unmarshal(output.Bytes(), &vrfKeys))
 	switch {
 	case len(vrfKeys) == *numVRFKeys:
 		fmt.Println(checkMarkEmoji, "found", len(vrfKeys), "vrf keys on", nodeURL)
@@ -301,14 +369,8 @@ func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffe
 		toCreate := *numVRFKeys - len(vrfKeys)
 		for i := 0; i < toCreate; i++ {
 			output.Reset()
-			var newKey presenters.VRFKeyResource
-
-			err = client.CreateVRFKey(
-				cli.NewContext(app, flag.NewFlagSet("blah", flag.ExitOnError), nil))
-			helpers.PanicErr(err)
-			helpers.PanicErr(json.Unmarshal(output.Bytes(), &newKey))
+			newKey := createVRFKey(client, app, output)
 			newKeys = append(newKeys, newKey)
-
 			fmt.Println("NEW VRF KEYS:", strings.Join(func() (r []string) {
 				for _, k := range newKeys {
 					r = append(r, k.Uncompressed)
@@ -317,10 +379,7 @@ func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffe
 			}(), ", "))
 		}
 	}
-
-	output.Reset()
 	fmt.Println()
-
 	for _, vrfKey := range vrfKeys {
 		allVRFKeys = append(allVRFKeys, vrfKey)
 	}
@@ -328,6 +387,16 @@ func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffe
 		allVRFKeys = append(allVRFKeys, nk)
 	}
 	return allVRFKeys
+}
+
+func createVRFKey(client *clcmd.Shell, app *cli.App, output *bytes.Buffer) presenters.VRFKeyResource {
+	var newKey presenters.VRFKeyResource
+	err := client.CreateVRFKey(
+		cli.NewContext(app, flag.NewFlagSet("blah", flag.ExitOnError), nil))
+	helpers.PanicErr(err)
+	helpers.PanicErr(json.Unmarshal(output.Bytes(), &newKey))
+	output.Reset()
+	return newKey
 }
 
 func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffer, numEthKeys *int, nodeURL *string, maxGasPriceGwei *int) []presenters.ETHKeyResource {
@@ -339,7 +408,6 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 		App: app,
 	})
 	helpers.PanicErr(err)
-
 	helpers.PanicErr(json.Unmarshal(output.Bytes(), &ethKeys))
 	switch {
 	case len(ethKeys) >= *numEthKeys:
@@ -361,7 +429,6 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 			helpers.PanicErr(json.Unmarshal(output.Bytes(), &newKey))
 			newKeys = append(newKeys, newKey)
 		}
-
 		fmt.Println("NEW ETH KEYS:", strings.Join(func() (r []string) {
 			for _, k := range newKeys {
 				r = append(r, k.Address)
@@ -371,13 +438,11 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 	}
 	output.Reset()
 	fmt.Println()
-
 	for _, ethKey := range ethKeys {
 		allETHKeysNode = append(allETHKeysNode, ethKey)
 	}
 	for _, nk := range newKeys {
 		allETHKeysNode = append(allETHKeysNode, nk)
 	}
-
 	return allETHKeysNode
 }

@@ -1,12 +1,35 @@
-1. go to `core/scripts/vrfv2/testnet/docker` folder and start containers - `docker compose up`
-2. execute from `core/scripts/vrfv2/testnet/setup-envs` folder
+## NOTE:
+* Script will delete all existing jobs on the node!
+* Currently works only with 0 or 1 VRF Keys on the node! Otherwise, will stop execution!
+* Currently possible to fund all nodes with one amount of native tokens
+## Commands:
+1. If using Docker Compose
+   1. create `.env` file in `core/scripts/vrfv2/testnet/docker` (can use `sample.env` file as an example)
+   2. go to `core/scripts/vrfv2/testnet/docker` folder and start containers - `docker compose up`
+2. Populate `./creds/` folder with relevant credentials for the nodes
+3. Ensure that following env variables are set
+```
+export ETH_URL=
+export ETH_CHAIN_ID=
+export ACCOUNT_KEY=
+```
+3. execute from `core/scripts/vrfv2/testnet/setup-envs` folder
 ```
 go run . \
 --vrf-primary-node-url=http://localhost:6610 \
+--vrf-primary-creds-file ./creds/vrf-primary-node.txt \
 --vrf-backup-node-url=http://localhost:6611 \
+--vrf-bk-creds-file ./creds/vrf-backup-node.txt \
 --bhs-node-url=http://localhost:6612 \
+--bhs-creds-file ./creds/bhs-node.txt \
+--bhs-backup-node-url=http://localhost:6613 \
+--bhs-bk-creds-file ./creds/bhs-backup-node.txt \
 --bhf-node-url=http://localhost:6614 \
---creds-file ../docker/secrets/apicredentials 
+--bhf-creds-file ./creds/bhf-node.txt \
+--num-eth-keys 5 \
+--num-vrf-keys 1 \
+--sending-key-funding-amount 100000000000000000
+
 ```
 
 Optional parameters - will not be deployed if specified (NOT WORKING YET)

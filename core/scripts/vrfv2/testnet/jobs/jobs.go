@@ -42,15 +42,14 @@ schemaVersion = 1
 name = "blockhashstore"
 forwardingAllowed = false
 coordinatorV2Address = "%s"
-waitBlocks = 30
-lookbackBlocks = 200
+waitBlocks = %d
+lookbackBlocks = %d
 blockhashStoreAddress = "%s"
-pollPeriod = "300ms"
-runTimeout = "30s"
+pollPeriod = "30s"
+runTimeout = "1m0s"
 evmChainID = "%d"
 fromAddresses = ["%s"]
 `
-
 	BHFJobFormatted = `type = "blockheaderfeeder"
 schemaVersion = 1
 name = "blockheaderfeeder"

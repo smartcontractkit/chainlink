@@ -77,30 +77,30 @@ services:
     depends_on:
       - database
 
-#  chainlink-node-3:
-#    container_name: bhs-backup-node
-#    image: ${NODE_IMAGE_VERSION}
-#    entrypoint:
-#      - /opt/docker-wait-for-others.sh
-#      - database:5432
-#      - --
-#    command: chainlink node -config /opt/config/vrf-primary.toml start -p /run/secrets/node_password -a /run/secrets/apicredentials
-#    volumes:
-#      - ./wait-for-others/docker-wait-for-it.sh:/opt/docker-wait-for-it.sh:ro
-#      - ./wait-for-others/docker-wait-for-others.sh:/opt/docker-wait-for-others.sh:ro
-#      - ./toml-config:/opt/config:ro
-#    environment:
-#      - CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@database:5432/chainlink_3_test?sslmode=disable
-#    platform: "linux/x86_64"
-#    ports:
-#      - "6613:6688"
-#      - "6063:6060"
-#    secrets:
-#      - apicredentials
-#      - keystore
-#      - node_password
-#    depends_on:
-#      - database
+  chainlink-node-3:
+    container_name: bhs-backup-node
+    image: ${NODE_IMAGE_VERSION}
+    entrypoint:
+      - /opt/docker-wait-for-others.sh
+      - database:5432
+      - --
+    command: chainlink node -config /opt/config/base.toml -config /opt/config/rpc-nodes-eth-sepolia.toml -config /opt/config/bhs.toml start -p /run/secrets/node_password -a /run/secrets/apicredentials
+    volumes:
+      - ./wait-for-others/docker-wait-for-it.sh:/opt/docker-wait-for-it.sh:ro
+      - ./wait-for-others/docker-wait-for-others.sh:/opt/docker-wait-for-others.sh:ro
+      - ./toml-config:/opt/config:ro
+    environment:
+      - CL_DATABASE_URL=postgresql://postgres:$CHAINLINK_PGPASSWORD@database:5432/chainlink_3_test?sslmode=disable
+    platform: "linux/x86_64"
+    ports:
+      - "6613:6688"
+      - "6063:6060"
+    secrets:
+      - apicredentials
+      - keystore
+      - node_password
+    depends_on:
+      - database
 
   chainlink-node-4:
     container_name: bhf-node
