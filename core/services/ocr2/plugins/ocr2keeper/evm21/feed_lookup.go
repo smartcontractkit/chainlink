@@ -22,7 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
 const (
@@ -75,12 +75,12 @@ type AdminOffchainConfig struct {
 func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
 	lookups := map[int]*FeedLookup{}
 	for i, res := range upkeepResults {
-		ext := res.Extension.(EVMAutomationResultExtension21)
-		if ext.FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
+		if res.FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
 		}
 
-		block, upkeepId := r.getBlockAndUpkeepId(res.Payload)
+		block := big.NewInt(int64(res.Trigger.BlockNumber))
+		upkeepId := res.UpkeepID
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
@@ -88,15 +88,14 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 			return nil, err
 		}
 
-		allowed, err := r.allowedToUseMercury(opts, upkeepId)
+		allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d failed to time mercury allow list: %v", upkeepId, block, err)
 			continue
 		}
 
 		if !allowed {
-			ext.FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
-			upkeepResults[i].Extension = ext
+			res.FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d NOT allowed to time Mercury server", upkeepId, block)
 			continue
 		}
@@ -107,7 +106,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
 			continue
 		}
-		lookup.upkeepId = upkeepId
+		lookup.upkeepId = upkeepId.BigInt()
 		// the block here is exclusively used to call checkCallback at this block, not to be confused with the block number
 		// in the revert for mercury v0.2, which is denoted by time in the struct bc starting from v0.3, only timestamp will be supported
 		lookup.block = uint64(block.Int64())
@@ -152,28 +151,19 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 		return
 	}
 
-	ext, ok := upkeepResults[i].Extension.(EVMAutomationResultExtension21)
-	if !ok {
-		r.lggr.Errorf("[FeedLookup] upkeep %s block %d unexpected check result extension struct", lookup.upkeepId, lookup.block)
-		return
-	}
-
 	if int(failureReason) == UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED {
-		ext.FailureReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
-		upkeepResults[i].Extension = ext
+		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d mercury callback reverts", lookup.upkeepId, lookup.block)
 		return
 	}
 
 	if !needed {
-		ext.FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
-		upkeepResults[i].Extension = ext
+		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d callback reports upkeep not needed", lookup.upkeepId, lookup.block)
 		return
 	}
 
-	ext.FailureReason = UPKEEP_FAILURE_REASON_NONE
-	upkeepResults[i].Extension = ext
+	upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_NONE
 	upkeepResults[i].Eligible = true
 	upkeepResults[i].PerformData = performData
 	r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %s", lookup.upkeepId, lookup.block, hexutil.Encode(performData))
