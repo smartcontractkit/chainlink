@@ -20,7 +20,6 @@ services:
       - "6059:6060"
     secrets:
       - apicredentials
-      - keystore
       - node_password
     depends_on:
       - database
@@ -45,7 +44,6 @@ services:
       - "6060:6060"
     secrets:
       - apicredentials
-      - keystore
       - node_password
     depends_on:
       - database
@@ -70,7 +68,6 @@ services:
       - "6062:6060"
     secrets:
       - apicredentials
-      - keystore
       - node_password
     depends_on:
       - database
@@ -95,7 +92,6 @@ services:
       - "6063:6060"
     secrets:
       - apicredentials
-      - keystore
       - node_password
     depends_on:
       - database
@@ -120,7 +116,6 @@ services:
       - "6064:6060"
     secrets:
       - apicredentials
-      - keystore
       - node_password
     depends_on:
       - database
@@ -140,8 +135,6 @@ secrets:
     file: ./secrets/password.txt
   apicredentials:
     file: ./secrets/apicredentials
-  keystore:
-    file: ./secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
 
 volumes:
   docker-compose-db:
