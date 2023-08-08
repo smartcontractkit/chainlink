@@ -65,6 +65,8 @@ type RouteUpdateSubscriber interface {
 }
 
 // A LogPoller wrapper that understands router proxy contracts
+//
+//go:generate mockery --quiet --name LogPollerWrapper --output ./mocks/ --case=underscore
 type LogPollerWrapper interface {
 	relaytypes.Service
 	LatestEvents() ([]OracleRequest, []OracleResponse, error)
