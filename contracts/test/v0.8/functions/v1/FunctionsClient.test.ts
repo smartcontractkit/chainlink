@@ -176,23 +176,25 @@ describe('Functions Client', () => {
 
 describe('Faulty Functions Client', () => {
   it('can complete requests with an empty callback', async () => {
-    const faultyClientTestHelperFactory = await ethers.getContractFactory(
-      'src/v0.8/functions/tests/1_0_0/testhelpers/FaultyFunctionsClientTestHelper.sol:FaultyFunctionsClientTestHelper',
-      roles.consumer,
-    )
+    const clientWithEmptyCallbackTestHelperFactory =
+      await ethers.getContractFactory(
+        'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsClientWithEmptyCallback.sol:FunctionsClientWithEmptyCallback',
+        roles.consumer,
+      )
 
-    const faultyClient = await faultyClientTestHelperFactory
-      .connect(roles.consumer)
-      .deploy(contracts.router.address)
+    const clientWithEmptyCallback =
+      await clientWithEmptyCallbackTestHelperFactory
+        .connect(roles.consumer)
+        .deploy(contracts.router.address)
 
     const subscriptionId = await createSubscription(
       roles.subOwner,
-      [faultyClient.address],
+      [clientWithEmptyCallback.address],
       contracts.router,
       contracts.accessControl,
       contracts.linkToken,
     )
-    const tx = await faultyClient.sendSimpleRequestWithJavaScript(
+    const tx = await clientWithEmptyCallback.sendSimpleRequestWithJavaScript(
       'function run(){return response}',
       subscriptionId,
       ids.donId,
@@ -200,7 +202,9 @@ describe('Faulty Functions Client', () => {
     )
     const { events } = await tx.wait()
     const requestId = getEventArg(events, 'RequestSent', 0)
-    await expect(tx).to.emit(faultyClient, 'RequestSent').withArgs(requestId)
+    await expect(tx)
+      .to.emit(clientWithEmptyCallback, 'RequestSent')
+      .withArgs(requestId)
 
     const response = stringToBytes('response')
     const error = stringToBytes('')

@@ -7,7 +7,7 @@ import {IFunctionsSubscriptions} from "../../../dev/1_0_0/interfaces/IFunctionsS
 import {FunctionsRequest} from "../../../dev/1_0_0/libraries/FunctionsRequest.sol";
 import {FunctionsClient} from "../../../dev/1_0_0/FunctionsClient.sol";
 
-contract FaultyFunctionsClientTestHelper is FunctionsClient {
+contract FunctionsClientWithEmptyCallback is FunctionsClient {
   using FunctionsRequest for FunctionsRequest.Request;
 
   event SendRequestInvoked(bytes32 requestId, string sourceCode, uint64 subscriptionId);
