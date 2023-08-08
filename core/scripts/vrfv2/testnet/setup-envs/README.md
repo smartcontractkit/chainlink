@@ -6,26 +6,27 @@
 1. If using Docker Compose
    1. create `.env` file in `core/scripts/vrfv2/testnet/docker` (can use `sample.env` file as an example)
    2. go to `core/scripts/vrfv2/testnet/docker` folder and start containers - `docker compose up`
-2. Populate `./creds/` folder with relevant credentials for the nodes
-3. Ensure that following env variables are set
+2. Update [rpc-nodes.toml](..%2Fdocker%2Ftoml-config%2Frpc-nodes.toml) with relevant RPC nodes
+3. Create files with credentials desirably outside `chainlink` repo (just not to push creds accidentally). Populate the files  with relevant credentials for the nodes
+4. Ensure that following env variables are set
 ```
 export ETH_URL=
 export ETH_CHAIN_ID=
 export ACCOUNT_KEY=
 ```
-3. execute from `core/scripts/vrfv2/testnet/setup-envs` folder
+5. execute from `core/scripts/vrfv2/testnet/setup-envs` folder
 ```
 go run . \
 --vrf-primary-node-url=http://localhost:6610 \
---vrf-primary-creds-file ./creds/vrf-primary-node.txt \
+--vrf-primary-creds-file <path_to_file_with_creds> \
 --vrf-backup-node-url=http://localhost:6611 \
---vrf-bk-creds-file ./creds/vrf-backup-node.txt \
+--vrf-bk-creds-file <path_to_file_with_creds> \
 --bhs-node-url=http://localhost:6612 \
---bhs-creds-file ./creds/bhs-node.txt \
+--bhs-creds-file <path_to_file_with_creds> \
 --bhs-backup-node-url=http://localhost:6613 \
---bhs-bk-creds-file ./creds/bhs-backup-node.txt \
+--bhs-bk-creds-file <path_to_file_with_creds> \
 --bhf-node-url=http://localhost:6614 \
---bhf-creds-file ./creds/bhf-node.txt \
+--bhf-creds-file <path_to_file_with_creds> \
 --num-eth-keys 5 \
 --num-vrf-keys 1 \
 --sending-key-funding-amount 100000000000000000
@@ -34,10 +35,10 @@ go run . \
 
 Optional parameters - will not be deployed if specified (NOT WORKING YET)
 ```
-   --link-address 0x8606681e2295B2C4fD44D08E4E8a4D3180071559 \
-   --link-eth-feed 0xD46fbB21875EBA71aF1b669c25EEe3692e5B9F13 \
-   --bhs-address 0xbD84DbFaC527bd150384B75BA6cD75286F48da28 \
-   --batch-bhs-address 0x126AeF1346A81003B8f1B6FBE8742536B2D22F71 \
-   --coordinator-address 0x24d42DcD17C92d99100dce9D6133A7496e988A79 \
-   --batch-coordinator-address 0xA276bCB4e67d787ce97F8787f2F454A4253Ce0Da 
+   --link-address <address> \
+   --link-eth-feed <address> \
+   --bhs-address <address> \
+   --batch-bhs-address <address> \
+   --coordinator-address <address> \
+   --batch-coordinator-address <address> 
 ```

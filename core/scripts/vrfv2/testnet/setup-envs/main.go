@@ -361,7 +361,7 @@ func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffe
 	case len(vrfKeys) == *numVRFKeys:
 		fmt.Println(checkMarkEmoji, "found", len(vrfKeys), "vrf keys on", nodeURL)
 	case len(vrfKeys) > *numVRFKeys:
-		fmt.Println(checkMarkEmoji, "found", len(vrfKeys), "vrf keys on", nodeURL, " which is more than expected")
+		fmt.Println(xEmoji, "found", len(vrfKeys), "vrf keys on", nodeURL, " which is more than expected")
 		os.Exit(1)
 	default:
 		fmt.Println(xEmoji, "found only", len(vrfKeys), "vrf keys on", nodeURL, ", creating",
@@ -371,13 +371,13 @@ func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffe
 			output.Reset()
 			newKey := createVRFKey(client, app, output)
 			newKeys = append(newKeys, newKey)
-			fmt.Println("NEW VRF KEYS:", strings.Join(func() (r []string) {
-				for _, k := range newKeys {
-					r = append(r, k.Uncompressed)
-				}
-				return
-			}(), ", "))
 		}
+		fmt.Println("NEW VRF KEYS:", strings.Join(func() (r []string) {
+			for _, k := range newKeys {
+				r = append(r, k.Uncompressed)
+			}
+			return
+		}(), ", "))
 	}
 	fmt.Println()
 	for _, vrfKey := range vrfKeys {
