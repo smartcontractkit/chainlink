@@ -22,7 +22,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -298,7 +298,7 @@ func deployUpkeepCounter(
 
 		// creating some dummy upkeepID to register filter
 		upkeepID := ocr2keepers.UpkeepIdentifier(append(common.LeftPadBytes([]byte{1}, 16), upkeepAddr[:16]...))
-		id := big.NewInt(0).SetBytes(upkeepID)
+		id := upkeepID.BigInt()
 		ids = append(ids, id)
 		err = logProvider.RegisterFilter(id, newPlainLogTriggerConfig(upkeepAddr))
 		require.NoError(t, err)

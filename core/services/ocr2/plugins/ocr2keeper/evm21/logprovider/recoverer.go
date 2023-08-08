@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -91,7 +91,7 @@ func (r *logRecoverer) GetRecoverables() ([]ocr2keepers.UpkeepPayload, error) {
 	r.pending = make([]ocr2keepers.UpkeepPayload, 0)
 
 	for _, p := range pending {
-		r.visited[p.ID] = true
+		r.visited[p.WorkID] = true
 	}
 
 	return pending, nil

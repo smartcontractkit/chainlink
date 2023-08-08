@@ -13,8 +13,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -145,13 +145,13 @@ func (p *logEventProvider) GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload
 	for _, l := range logs {
 		log := l.log
 		trig := ocr2keepers.NewTrigger(
-			log.BlockNumber,
-			log.BlockHash.Hex(),
-			core.LogTriggerExtension{
-				TxHash:   log.TxHash.Hex(),
-				LogIndex: log.LogIndex,
-			},
+			ocr2keepers.BlockNumber(log.BlockNumber),
+			log.BlockHash,
 		)
+		trig.LogTriggerExtension = &ocr2keepers.LogTriggerExtenstion{
+			LogTxHash: log.TxHash,
+			Index:     uint32(log.LogIndex),
+		}
 		checkData, err := p.packer.PackLogData(log)
 		if err != nil {
 			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
