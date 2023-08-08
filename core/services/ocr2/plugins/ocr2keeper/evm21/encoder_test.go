@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 func TestEVMAutomationEncoder21_Encode(t *testing.T) {
@@ -38,7 +38,7 @@ func TestEVMAutomationEncoder21_Encode(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "10").String()), 1, 1),
+				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "10").String()), 1, 1),
 			},
 			640,
 			1,
@@ -48,9 +48,9 @@ func TestEVMAutomationEncoder21_Encode(t *testing.T) {
 		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
-				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "10").String()), 1, 1),
-				newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "20").String()), 2, 2),
-				newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "30").String()), 3, 3),
+				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "10").String()), 1, 1),
+				newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "20").String()), 2, 2),
+				newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "30").String()), 3, 3),
 			},
 			1280,
 			3,
@@ -60,9 +60,9 @@ func TestEVMAutomationEncoder21_Encode(t *testing.T) {
 		{
 			"happy flow highest block number first",
 			[]ocr2keepers.CheckResult{
-				newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "30").String()), 1000, 2000),
-				newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "20").String()), 2, 2),
-				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "10").String()), 1, 1),
+				newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "30").String()), 1000, 2000),
+				newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "20").String()), 2, 2),
+				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "10").String()), 1, 1),
 			},
 			1280,
 			1000,
@@ -121,7 +121,7 @@ func TestEVMAutomationEncoder21_Encode_errors(t *testing.T) {
 	}
 
 	t.Run("a non-EVMAutomationResultExtension21 extension causes an error", func(t *testing.T) {
-		result := newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "30").String()), 1, 1)
+		result := newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "30").String()), 1, 1)
 		result.Extension = "invalid"
 		b, err := encoder.Encode(result)
 		assert.Nil(t, b)
@@ -141,7 +141,7 @@ func TestEVMAutomationEncoder21_Encode_errors(t *testing.T) {
 		})*/
 
 	t.Run("a non-LogTriggerExtension extension causes an error", func(t *testing.T) {
-		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "20").String()), 1, 1)
+		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "20").String()), 1, 1)
 		result.Payload.Trigger.Extension = "invalid"
 		b, err := encoder.Encode(result)
 		assert.Nil(t, b)
@@ -150,25 +150,14 @@ func TestEVMAutomationEncoder21_Encode_errors(t *testing.T) {
 	})
 
 	t.Run("a non hex tx (empty) hash causes an error", func(t *testing.T) {
-		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "20").String()), 1, 1)
-		result.Payload.Trigger.Extension = logprovider.LogTriggerExtension{
+		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "20").String()), 1, 1)
+		result.Payload.Trigger.Extension = core.LogTriggerExtension{
 			TxHash: "",
 		}
 		b, err := encoder.Encode(result)
 		assert.Nil(t, b)
 		assert.Error(t, err)
 		assert.Equal(t, err.Error(), "tx hash parse error: empty hex string")
-	})
-
-	t.Run("an invalid upkeep type causes an error", func(t *testing.T) {
-		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(5, "20").String()), 1, 1)
-		result.Payload.Trigger.Extension = logprovider.LogTriggerExtension{
-			TxHash: "",
-		}
-		b, err := encoder.Encode(result)
-		assert.Nil(t, b)
-		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "unknown trigger type: 5: failed to pack trigger")
 	})
 
 	t.Run("an invalid result extension causes an error", func(t *testing.T) {
@@ -181,7 +170,7 @@ func TestEVMAutomationEncoder21_Encode_errors(t *testing.T) {
 	})
 
 	t.Run("invalid trigger extension causes an error", func(t *testing.T) {
-		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "20").String()), 1, 1)
+		result := newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "20").String()), 1, 1)
 		result.Payload.Trigger.Extension = struct{}{}
 		b, err := encoder.Encode(result)
 		assert.Nil(t, b)
@@ -207,16 +196,16 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "10").String()), 1, 1),
+				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "10").String()), 1, 1),
 			},
 			nil,
 		},
 		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
-				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "10").String()), 1, 1),
-				newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "20").String()), 1, 1),
-				newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "30").String()), 1, 1),
+				newResult(1, "1", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "10").String()), 1, 1),
+				newResult(2, "2", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "20").String()), 1, 1),
+				newResult(3, "3", ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "30").String()), 1, 1),
 			},
 			nil,
 		},
@@ -279,25 +268,24 @@ func TestUpkeepKeyHelper_MakeBlockKey(t *testing.T) {
 }
 
 func newResult(block int64, checkBlock ocr2keepers.BlockKey, id ocr2keepers.UpkeepIdentifier, fastGasWei, linkNative int64) ocr2keepers.CheckResult {
-	logExt := logprovider.LogTriggerExtension{}
-	tp := getUpkeepType(id)
-	if tp == logTrigger {
+	logExt := core.LogTriggerExtension{}
+	tp := core.GetUpkeepType(id)
+	if tp == ocr2keepers.LogTrigger {
 		logExt.LogIndex = 1
 		logExt.TxHash = "0x1234567890123456789012345678901234567890123456789012345678901234"
 	}
-	payload := ocr2keepers.UpkeepPayload{
-		Upkeep: ocr2keepers.ConfiguredUpkeep{
-			ID:   id,
-			Type: int(tp),
-		},
-		Trigger: ocr2keepers.Trigger{
+
+	payload, _ := core.NewUpkeepPayload(
+		new(big.Int).SetBytes(id),
+		int(tp),
+		ocr2keepers.Trigger{
 			BlockNumber: block,
 			BlockHash:   hexutil.Encode([]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8}),
 			Extension:   logExt,
 		},
-		CheckBlock: checkBlock,
-	}
-	payload.ID = payload.GenerateID()
+		[]byte{},
+	)
+
 	return ocr2keepers.CheckResult{
 		Payload:      payload,
 		Eligible:     true,
@@ -319,7 +307,7 @@ func decode(packer *evmRegistryPackerV2_1, raw []byte) ([]ocr2keepers.UpkeepResu
 	res := make([]ocr2keepers.UpkeepResult, len(report.UpkeepIds))
 
 	for i := 0; i < len(report.UpkeepIds); i++ {
-		trigger, err := packer.UnpackTrigger(report.UpkeepIds[i], report.Triggers[i])
+		trigger, err := core.UnpackTrigger(report.UpkeepIds[i], report.Triggers[i])
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
 		}
@@ -339,6 +327,12 @@ func decode(packer *evmRegistryPackerV2_1, raw []byte) ([]ocr2keepers.UpkeepResu
 	return res, nil
 }
 
+func genUpkeepID(uType ocr2keepers.UpkeepType, rand string) *big.Int {
+	b := append([]byte{1}, common.LeftPadBytes([]byte{uint8(uType)}, 15)...)
+	b = append(b, []byte(rand)...)
+	return big.NewInt(0).SetBytes(b)
+}
+
 func Test_decodeExtensions(t *testing.T) {
 	t.Run("a nil result returns an error", func(t *testing.T) {
 		err := decodeExtensions(nil)
@@ -350,7 +344,7 @@ func Test_decodeExtensions(t *testing.T) {
 		err := decodeExtensions(&ocr2keepers.CheckResult{
 			Payload: ocr2keepers.UpkeepPayload{
 				Trigger: ocr2keepers.Trigger{
-					Extension: logprovider.LogTriggerExtension{},
+					Extension: core.LogTriggerExtension{},
 				},
 			},
 			Extension: EVMAutomationResultExtension21{},
@@ -386,7 +380,7 @@ func Test_decodeExtensions(t *testing.T) {
 		err := decodeExtensions(&ocr2keepers.CheckResult{
 			Payload: ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "111").Bytes()),
+					ID: ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "111").Bytes()),
 				},
 				Trigger: ocr2keepers.Trigger{
 					Extension: []byte(`{"TxHash": "abc", "LogIndex": 123}`),
@@ -401,7 +395,7 @@ func Test_decodeExtensions(t *testing.T) {
 		err := decodeExtensions(&ocr2keepers.CheckResult{
 			Payload: ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier(genUpkeepID(logTrigger, "111").Bytes()),
+					ID: ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "111").Bytes()),
 				},
 				Trigger: ocr2keepers.Trigger{
 					Extension: []byte(`invalid`),
@@ -417,7 +411,7 @@ func Test_decodeExtensions(t *testing.T) {
 		err := decodeExtensions(&ocr2keepers.CheckResult{
 			Payload: ocr2keepers.UpkeepPayload{
 				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier(genUpkeepID(conditionTrigger, "111").Bytes()),
+					ID: ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "111").Bytes()),
 				},
 				Trigger: ocr2keepers.Trigger{
 					Extension: []byte(""),
@@ -473,7 +467,7 @@ func Test_decodeExtensions(t *testing.T) {
 		err := decodeExtensions(&ocr2keepers.CheckResult{
 			Payload: ocr2keepers.UpkeepPayload{
 				Trigger: ocr2keepers.Trigger{
-					Extension: logprovider.LogTriggerExtension{},
+					Extension: core.LogTriggerExtension{},
 				},
 			},
 			Extension: "invalid",

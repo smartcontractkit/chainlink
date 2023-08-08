@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -50,7 +49,7 @@ func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
 	return g
 }
 
-func (g *Geth) StartContainer(lw *logwatch.LogWatch) error {
+func (g *Geth) StartContainer() error {
 	r, _, _, err := g.getGethContainerRequest(g.Networks)
 	if err != nil {
 		return err
@@ -63,11 +62,6 @@ func (g *Geth) StartContainer(lw *logwatch.LogWatch) error {
 		})
 	if err != nil {
 		return errors.Wrapf(err, "cannot start geth container")
-	}
-	if lw != nil {
-		if err := lw.ConnectContainer(context.Background(), ct, "geth", true); err != nil {
-			return err
-		}
 	}
 	host, err := ct.Host(context.Background())
 	if err != nil {
@@ -82,7 +76,7 @@ func (g *Geth) StartContainer(lw *logwatch.LogWatch) error {
 		return err
 	}
 
-	g.EnvComponent.Container = ct
+	g.Container = ct
 	g.ExternalHttpUrl = fmt.Sprintf("http://%s:%s", host, httpPort.Port())
 	g.InternalHttpUrl = fmt.Sprintf("http://%s:8544", g.ContainerName)
 	g.ExternalWsUrl = fmt.Sprintf("ws://%s:%s", host, wsPort.Port())
@@ -147,7 +141,10 @@ func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 	if err != nil {
 		return nil, ks, &account, err
 	}
-	genesisJsonStr, err := templates.BuildGenesisJson(chainId, account.Address.Hex())
+	genesisJsonStr, err := templates.GenesisJsonTemplate{
+		ChainId:     chainId,
+		AccountAddr: account.Address.Hex(),
+	}.String()
 	if err != nil {
 		return nil, ks, &account, err
 	}
