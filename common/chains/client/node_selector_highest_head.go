@@ -3,45 +3,30 @@ package client
 import (
 	"math"
 
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 type highestHeadNodeSelector[
 	CHAIN_ID types.ID,
-	SEQ types.Sequence,
-	ADDR types.Hashable,
 	BLOCK_HASH types.Hashable,
-	TX any,
-	TX_HASH types.Hashable,
-	EVENT any,
-	EVENT_OPS any, // event filter query options
-	TX_RECEIPT any,
-	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-] []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]
+	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+] []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
 
 func NewHighestHeadNodeSelector[
 	CHAIN_ID types.ID,
-	SEQ types.Sequence,
-	ADDR types.Hashable,
 	BLOCK_HASH types.Hashable,
-	TX any,
-	TX_HASH types.Hashable,
-	EVENT any,
-	EVENT_OPS any, // event filter query options
-	TX_RECEIPT any,
-	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-](nodes []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) NodeSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB] {
-	return highestHeadNodeSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB](nodes)
+	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+](nodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) NodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
+	return highestHeadNodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT](nodes)
 }
 
-func (s highestHeadNodeSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) Select() Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB] {
+func (s highestHeadNodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Select() Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
 	var highestHeadNumber int64 = math.MinInt64
-	var highestHeadNodes []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]
+	var highestHeadNodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
 	for _, n := range s {
 		state, currentHeadNumber, _ := n.StateAndLatest()
 		if state == NodeStateAlive && currentHeadNumber >= highestHeadNumber {
@@ -55,6 +40,6 @@ func (s highestHeadNodeSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EV
 	return firstOrHighestPriority(highestHeadNodes)
 }
 
-func (s highestHeadNodeSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) Name() string {
+func (s highestHeadNodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Name() string {
 	return NodeSelectionMode_HighestHead
 }

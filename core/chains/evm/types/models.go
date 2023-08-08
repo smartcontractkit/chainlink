@@ -75,7 +75,6 @@ func (h *Head) GetParent() commontypes.Head[common.Hash] {
 	return h.Parent
 }
 
-// Return 0 since block difficulty is not relevant for EVM Chains.
 func (h *Head) BlockDifficulty() *utils.Big {
 	return utils.NewBig(big.NewInt(0))
 }

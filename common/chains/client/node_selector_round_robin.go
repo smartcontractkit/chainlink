@@ -3,49 +3,34 @@ package client
 import (
 	"sync/atomic"
 
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 type roundRobinSelector[
 	CHAIN_ID types.ID,
-	SEQ types.Sequence,
-	ADDR types.Hashable,
 	BLOCK_HASH types.Hashable,
-	TX any,
-	TX_HASH types.Hashable,
-	EVENT any,
-	EVENT_OPS any, // event filter query options
-	TX_RECEIPT any,
-	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
+	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] struct {
-	nodes           []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]
+	nodes           []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
 	roundRobinCount atomic.Uint32
 }
 
 func NewRoundRobinSelector[
 	CHAIN_ID types.ID,
-	SEQ types.Sequence,
-	ADDR types.Hashable,
 	BLOCK_HASH types.Hashable,
-	TX any,
-	TX_HASH types.Hashable,
-	EVENT any,
-	EVENT_OPS any, // event filter query options
-	TX_RECEIPT any,
-	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-](nodes []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) NodeSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB] {
-	return &roundRobinSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]{
+	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+](nodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) NodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
+	return &roundRobinSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]{
 		nodes: nodes,
 	}
 }
 
-func (s *roundRobinSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) Select() Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB] {
-	var liveNodes []Node[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]
+func (s *roundRobinSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Select() Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
+	var liveNodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
 	for _, n := range s.nodes {
 		if n.State() == NodeStateAlive {
 			liveNodes = append(liveNodes, n)
@@ -64,6 +49,6 @@ func (s *roundRobinSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT,
 	return liveNodes[idx]
 }
 
-func (s *roundRobinSelector[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) Name() string {
+func (s *roundRobinSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Name() string {
 	return NodeSelectionMode_RoundRobin
 }

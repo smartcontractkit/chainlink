@@ -24,6 +24,29 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+type RPCClient interface {
+	clienttypes.ChainRPCClient[
+		*big.Int,
+		common.Hash,
+		*evmtypes.Head,
+		ethereum.Subscription,
+	]
+	clienttypes.RPCClient[
+		*big.Int,
+		evmtypes.Nonce,
+		common.Address,
+		common.Hash,
+		types.Transaction,
+		common.Hash,
+		types.Log,
+		ethereum.FilterQuery,
+		*evmtypes.Receipt,
+		*assets.Wei,
+		*evmtypes.Head,
+		ethereum.Subscription,
+	]
+}
+
 type rpcClient struct {
 	utils.StartStopOnce
 	lfcLog  logger.Logger
@@ -55,20 +78,7 @@ type rpcClient struct {
 }
 
 // NewRPCCLient returns a new *rpcClient as clienttypes.RPCClient
-func NewRPCClient(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int) clienttypes.ChainRPCClient[
-	*big.Int,
-	evmtypes.Nonce,
-	common.Address,
-	common.Hash,
-	types.Transaction,
-	common.Hash,
-	types.Log,
-	ethereum.FilterQuery,
-	types.Receipt,
-	evmtypes.EvmFee,
-	*evmtypes.Head,
-	ethereum.Subscription,
-] {
+func NewRPCClient(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int) RPCClient {
 	r := new(rpcClient)
 	r.name = name
 	r.id = id
@@ -806,6 +816,11 @@ func (r *rpcClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (l [
 		"log", l,
 	)
 
+	return
+}
+
+func (r *rpcClient) ClientVersion(ctx context.Context) (version string, err error) {
+	err = r.CallContext(ctx, &version, "web3_clientVersion")
 	return
 }
 
