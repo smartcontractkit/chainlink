@@ -3,7 +3,7 @@
 pragma solidity 0.8.6;
 
 import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {Cron, Spec} from "../../libraries/internal/Cron.sol";
+import {Cron, Spec} from "../libraries/internal/Cron.sol";
 
 /**
  * @title The CronUpkeepDelegate contract

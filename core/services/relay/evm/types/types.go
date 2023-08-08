@@ -35,9 +35,9 @@ type ConfigPoller interface {
 	Replay(ctx context.Context, fromBlock int64) error
 }
 
-// TODO(FUN-668): Move chain-agnostic types to Relayer
+// TODO(FUN-668): Migrate this fully into relaytypes.FunctionsProvider
 type FunctionsProvider interface {
-	relaytypes.PluginProvider
+	relaytypes.FunctionsProvider
 	LogPollerWrapper() LogPollerWrapper
 }
 
@@ -53,6 +53,7 @@ type OracleRequest struct {
 	CallbackGasLimit    uint64
 	TxHash              common.Hash
 	CoordinatorContract common.Address
+	OnchainMetadata     []byte
 }
 
 type OracleResponse struct {
@@ -64,6 +65,8 @@ type RouteUpdateSubscriber interface {
 }
 
 // A LogPoller wrapper that understands router proxy contracts
+//
+//go:generate mockery --quiet --name LogPollerWrapper --output ./mocks/ --case=underscore
 type LogPollerWrapper interface {
 	relaytypes.Service
 	LatestEvents() ([]OracleRequest, []OracleResponse, error)

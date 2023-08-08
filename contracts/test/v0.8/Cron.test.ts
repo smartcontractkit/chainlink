@@ -3,7 +3,7 @@ import { ethers } from 'hardhat'
 import { assert, expect } from 'chai'
 import { CronInternalTestHelper } from '../../typechain/CronInternalTestHelper'
 import { CronExternalTestHelper } from '../../typechain/CronExternalTestHelper'
-import { validCrons, invalidCrons } from '../test-helpers/fixtures'
+import { invalidCrons, validCrons } from '../test-helpers/fixtures'
 import { reset, setTimestamp } from '../test-helpers/helpers'
 
 let cron: CronInternalTestHelper | CronExternalTestHelper
@@ -21,7 +21,7 @@ describe('Cron', () => {
     )
     cronInternal = await cronInternalTestHelperFactory.deploy()
     const cronExternalFactory = await ethers.getContractFactory(
-      'src/v0.8/libraries/external/Cron.sol:Cron',
+      'src/v0.8/automation/libraries/external/Cron.sol:Cron',
       admin,
     )
     const cronExternalLib = await cronExternalFactory.deploy()

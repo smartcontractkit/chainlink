@@ -83,7 +83,7 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
 				ocr2keepers.UpkeepIdentifier("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
 			},
-			Triggers: []uint8{uint8(logTrigger)},
+			Triggers: []uint8{uint8(ocr2keepers.LogTrigger)},
 		},
 		{
 			Name:       "get conditional upkeeps",
@@ -92,7 +92,7 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
 				ocr2keepers.UpkeepIdentifier("8"),
 			},
-			Triggers: []uint8{uint8(conditionTrigger)},
+			Triggers: []uint8{uint8(ocr2keepers.ConditionTrigger)},
 		},
 		{
 			Name:       "get multiple types of upkeeps",
@@ -102,7 +102,7 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 				ocr2keepers.UpkeepIdentifier("8"),
 				ocr2keepers.UpkeepIdentifier("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
 			},
-			Triggers: []uint8{uint8(logTrigger), uint8(conditionTrigger)},
+			Triggers: []uint8{uint8(ocr2keepers.LogTrigger), uint8(ocr2keepers.ConditionTrigger)},
 		},
 	}
 

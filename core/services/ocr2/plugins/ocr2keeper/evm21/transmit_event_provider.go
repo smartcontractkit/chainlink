@@ -2,7 +2,6 @@ package evm
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync"
@@ -14,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -216,7 +216,7 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(l.BlockNumber),
 			Confirmations:   latestBlock - l.BlockNumber,
 			TransactionHash: l.TxHash.Hex(),
-			ID:              hex.EncodeToString(triggerID[:]),
+			ID:              triggerID,
 			UpkeepID:        upkeepId,
 		})
 	}
@@ -248,18 +248,18 @@ func (l transmitEventLog) Id() *big.Int {
 	}
 }
 
-func (l transmitEventLog) TriggerID() [32]byte {
+func (l transmitEventLog) TriggerID() string {
 	switch {
 	case l.Performed != nil:
-		return l.Performed.UpkeepTriggerID
+		return core.UpkeepTriggerID(l.Performed.Id, l.Performed.Trigger)
 	case l.Stale != nil:
-		return l.Stale.UpkeepTriggerID
+		return core.UpkeepTriggerID(l.Stale.Id, l.Stale.Trigger)
 	case l.Reorged != nil:
-		return l.Reorged.UpkeepTriggerID
+		return core.UpkeepTriggerID(l.Reorged.Id, l.Reorged.Trigger)
 	case l.InsufficientFunds != nil:
-		return l.InsufficientFunds.UpkeepTriggerID
+		return core.UpkeepTriggerID(l.InsufficientFunds.Id, l.InsufficientFunds.Trigger)
 	default:
-		return [32]byte{}
+		return ""
 	}
 }
 

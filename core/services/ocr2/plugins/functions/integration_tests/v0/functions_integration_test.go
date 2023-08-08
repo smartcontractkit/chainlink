@@ -22,7 +22,7 @@ func TestIntegration_Functions_MultipleRequests_Success(t *testing.T) {
 	owner, b, ticker, oracleContractAddress, oracleContract, clientContracts, registryAddress, registryContract, linkToken := utils.StartNewChainWithContracts(t, nClients)
 	defer ticker.Stop()
 
-	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, oracleContractAddress, 39999, nOracleNodes, maxGas, nil, nil)
+	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, oracleContractAddress, nOracleNodes, maxGas, nil, nil)
 
 	// config for registry contract
 	utils.SetRegistryConfig(t, owner, registryContract, oracleContractAddress)
@@ -49,7 +49,7 @@ func TestIntegration_Functions_MultipleRequests_ThresholdDecryptionSuccess(t *te
 	owner, b, ticker, oracleContractAddress, oracleContract, clientContracts, registryAddress, registryContract, linkToken := utils.StartNewChainWithContracts(t, nClients)
 	defer ticker.Stop()
 
-	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, oracleContractAddress, 49999, nOracleNodes, maxGas, utils.ExportedOcr2Keystores, utils.MockThresholdKeyShares)
+	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, oracleContractAddress, nOracleNodes, maxGas, utils.ExportedOcr2Keystores, utils.MockThresholdKeyShares)
 
 	// config for registry contract
 	utils.SetRegistryConfig(t, owner, registryContract, oracleContractAddress)

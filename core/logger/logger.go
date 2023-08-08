@@ -21,8 +21,22 @@ import (
 // logsFile describes the logs file name
 const logsFile = "chainlink_debug.log"
 
+// Create a standard error writer to avoid test issues around os.Stderr being
+// reassigned when verbose logging is enabled
+type stderrWriter struct{}
+
+func (sw stderrWriter) Write(p []byte) (n int, err error) {
+	return os.Stderr.Write(p)
+}
+func (sw stderrWriter) Close() error {
+	return nil // never close stderr
+}
+func (sw stderrWriter) Sync() error {
+	return os.Stderr.Sync()
+}
+
 func init() {
-	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
+	err := zap.RegisterSink("pretty", prettyConsoleSink(stderrWriter{}))
 	if err != nil {
 		log.Fatalf("failed to register pretty printer %+v", err)
 	}

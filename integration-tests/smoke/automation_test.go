@@ -18,8 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
@@ -785,7 +783,7 @@ func setupAutomationTest(
 	statefulDb bool,
 ) (
 	chainClient blockchain.EVMClient,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	contractDeployer contracts.ContractDeployer,
 	linkToken contracts.LinkToken,
 	registry contracts.KeeperRegistry,
@@ -816,8 +814,6 @@ func setupAutomationTest(
 		NamespacePrefix: fmt.Sprintf("smoke-automation-%s-%s", testName, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 		Test:            t,
 	}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
 		AddHelmCharts(cd)
 	err = testEnvironment.Run()
