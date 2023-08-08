@@ -41,10 +41,6 @@ type Fetcher interface {
 	FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error)
 }
 
-type LatestReportLoader interface {
-	LatestReport(ctx context.Context, feedID [32]byte)
-}
-
 type datasource struct {
 	pipelineRunner Runner
 	jb             job.Job

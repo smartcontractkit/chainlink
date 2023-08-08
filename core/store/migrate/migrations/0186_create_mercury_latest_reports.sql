@@ -5,7 +5,7 @@ CREATE TABLE feed_latest_reports (
   report BYTEA NOT NULL,
   epoch BIGINT NOT NULL,
   round INT NOT NULL,
-  updated_at TIMESTAMPTZ
+  updated_at TIMESTAMPTZ NOT NULL
 );
 
 -- +goose Down
