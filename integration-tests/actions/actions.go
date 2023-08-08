@@ -410,3 +410,19 @@ func UpgradeChainlinkNodeVersions(
 	}
 	return client.ReconnectChainlinkNodes(testEnvironment, nodes)
 }
+
+func DeployLINKToken(cd contracts.ContractDeployer) (contracts.LinkToken, error) {
+	linkToken, err := cd.DeployLinkTokenContract()
+	if err != nil {
+		return nil, err
+	}
+	return linkToken, err
+}
+
+func DeployMockETHLinkFeed(cd contracts.ContractDeployer, answer *big.Int) (contracts.MockETHLINKFeed, error) {
+	mockETHLINKFeed, err := cd.DeployMockETHLINKFeed(answer)
+	if err != nil {
+		return nil, err
+	}
+	return mockETHLINKFeed, err
+}
