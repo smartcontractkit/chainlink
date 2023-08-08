@@ -44,12 +44,12 @@ contract TrustedBlockhashStoreTest is BaseTest {
     uint256 recentBlockNumber = 999;
 
     // Assume that the EVM cannot access the blockhash for block 5.
-    uint256 unreachableBlockNumber = 5;
-    assertEq(blockhash(unreachableBlockNumber), 0);
+    uint256 unreachableBlock = 5;
+    assertEq(blockhash(unreachableBlock), 0);
 
     // Store blockhash from whitelisted address;
     uint256[] memory blockNums = new uint256[](1);
-    blockNums[0] = unreachableBlockNumber;
+    blockNums[0] = unreachableBlock;
     bytes32[] memory blockhashes = new bytes32[](1);
     blockhashes[0] = unreachableBlockhash;
 
@@ -67,6 +67,6 @@ contract TrustedBlockhashStoreTest is BaseTest {
     // Should store unreachable blocks via whitelisted address.
     changePrank(LINK_WHALE);
     bhs.storeTrusted(blockNums, blockhashes, recentBlockNumber, blockhash(recentBlockNumber));
-    assertEq(bhs.getBlockhash(unreachableBlockNumber), unreachableBlockhash);
+    assertEq(bhs.getBlockhash(unreachableBlock), unreachableBlockhash);
   }
 }
