@@ -126,11 +126,11 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
         //get the claimable amount for this recipient, this calculation will never exceed the amount in the pot
         uint256 claimableAmount = totalFeesInPot - totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient];
 
-        //if there's no fees to claim, continue as there's nothing to update
-        if (claimableAmount == 0) continue;
-
         //calculate the recipients share of the fees, which is their weighted share of the difference between the last amount they claimed and the current amount in the pot. This can never be more than the total amount in existence
         uint256 recipientShare = (claimableAmount * rewardRecipientWeights[poolId][recipient]) / PERCENTAGE_SCALAR;
+
+        //if there's no fees to claim, continue as there's nothing to update
+        if (recipientShare == 0) continue;
 
         //keep track of the total amount claimable, this can never be more than the total amount in existence
         claimAmount += recipientShare;
@@ -139,7 +139,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
         totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient] = totalFeesInPot;
 
         //emit event if the recipient has rewards to claim
-        emit RewardsClaimed(poolIds[i], recipient, claimAmount);
+        emit RewardsClaimed(poolIds[i], recipient, recipientShare);
       }
     }
 

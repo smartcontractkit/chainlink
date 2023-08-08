@@ -666,3 +666,48 @@ contract RewardManagerRecipientClaimUnevenWeightTest is BaseRewardManagerTest {
     assertEq(getAssetBalance(address(rewardManager)), 0);
   }
 }
+
+contract RewardManagerNoRecipientSet is BaseRewardManagerTest {
+  uint256 internal constant POOL_DEPOSIT_AMOUNT = 10e18;
+
+  function setUp() public override {
+    //setup contracts
+    super.setUp();
+
+    //add funds to the pool to be split among the recipients once registered
+    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+  }
+
+  function test_claimAllRecipientsAfterRecipientsSet() public {
+    //expected recipient amount is 1/4 of the pool deposit
+    uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
+
+    //try and claim funds for each recipient within the pool
+    for (uint256 i; i < getPrimaryRecipients().length; i++) {
+      //get the recipient that is claiming
+      Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
+
+      //there should be no rewards claimed as the recipient is not registered
+      claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
+
+      //check the recipient received nothing
+      assertEq(getAssetBalance(recipient.addr), 0);
+    }
+
+    //Set the recipients after the rewards have been paid into the pool
+    setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), ADMIN);
+
+    //claim funds for each recipient within the pool
+    for (uint256 i; i < getPrimaryRecipients().length; i++) {
+      //get the recipient that is claiming
+      Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
+
+      //there should be no rewards claimed as the recipient is registered
+      claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
+
+      //check the balance matches the ratio the recipient should have received
+      assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
+    }
+  }
+}
+
