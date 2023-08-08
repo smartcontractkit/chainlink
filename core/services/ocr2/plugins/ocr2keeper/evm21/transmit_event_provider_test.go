@@ -99,7 +99,7 @@ func TestTransmitEventProvider(t *testing.T) {
 
 func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 	provider := &TransmitEventProvider{}
-	id := genUpkeepID(logTrigger, "111")
+	id := genUpkeepID(ocr2keepers.LogTrigger, "111")
 	tests := []struct {
 		name        string
 		performed   []transmitEventLog
@@ -154,7 +154,7 @@ func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 }
 
 func TestTransmitEventLog(t *testing.T) {
-	uid := genUpkeepID(conditionTrigger, "111")
+	uid := genUpkeepID(ocr2keepers.ConditionTrigger, "111")
 
 	tests := []struct {
 		name  string
