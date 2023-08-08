@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
@@ -90,7 +89,6 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 			// TODO: log error and continue instead?
 			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
 		}
-		logExt := core.LogTriggerExtension{}
 		id := &ocr2keepers.UpkeepIdentifier{}
 		id.FromBigInt(upkeepId)
 
@@ -100,8 +98,9 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 		)
 		switch core.GetUpkeepType(*id) {
 		case ocr2keepers.LogTrigger:
-			logExt.TxHash = common.BytesToHash(triggerW.TxHash[:]).Hex()
-			logExt.LogIndex = int64(triggerW.LogIndex)
+			trigger.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{}
+			trigger.LogTriggerExtension.TxHash = triggerW.TxHash
+			trigger.LogTriggerExtension.Index = triggerW.LogIndex
 		default:
 		}
 		workID, _ := core.UpkeepWorkID(upkeepId, trigger)
