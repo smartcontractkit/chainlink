@@ -19,11 +19,14 @@ export function getPackageList(
 ): GetGoPackagesReturn {
   const { numOfSplits } = config;
   const rawPackages = execSync(
-    "go list -json ./... | jq -s '[.[] | {ImportPath, TestGoFiles}]'",
+    "go list -json ./... | jq -s '[.[] | {ImportPath, TestGoFiles, XTestGoFiles}]'",
     { encoding: "utf8" }
   );
   const packages: GoPackageData[] = JSON.parse(rawPackages.trimEnd());
-  const packagePaths = packages.map((item) => item.ImportPath);
+  const filteredData = packages.filter(
+    (item) => (item.TestGoFiles && item.TestGoFiles.length > 0) || (item.XTestGoFiles && item.XTestGoFiles.length > 0)
+  );
+  const packagePaths = filteredData.map((item) => item.ImportPath);
   return handleSplit(packagePaths, numOfSplits);
 }
 
