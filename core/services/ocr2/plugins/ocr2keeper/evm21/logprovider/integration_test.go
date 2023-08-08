@@ -78,7 +78,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	// let it time to poll
 	<-time.After(pollerTimeout)
 
-	logs, _ := logProvider.GetLogs(ctx)
+	logs, _ := logProvider.GetLatestPayloads(ctx)
 	require.NoError(t, logProvider.Close())
 
 	require.GreaterOrEqual(t, len(logs), n, "failed to get all logs")
@@ -97,7 +97,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		}()
 		defer logProvider.Close()
 
-		logsAfterRestart, _ := logProvider.GetLogs(ctx)
+		logsAfterRestart, _ := logProvider.GetLatestPayloads(ctx)
 		require.GreaterOrEqual(t, len(logsAfterRestart), 0,
 			"logs should have been marked visited")
 
@@ -107,7 +107,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 		<-time.After(pollerTimeout)
 
-		logsAfterRestart, _ = logProvider.GetLogs(ctx)
+		logsAfterRestart, _ = logProvider.GetLatestPayloads(ctx)
 		require.NoError(t, logProvider.Close())
 		require.GreaterOrEqual(t, len(logsAfterRestart), n,
 			"failed to get logs after restart")
@@ -173,7 +173,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	// require.GreaterOrEqual(t, atomic.LoadInt32(&limitErrs), int32(1), "didn't got rate limit errors")
 	t.Logf("got %d rate limit errors", atomic.LoadInt32(&limitErrs))
 
-	_, err := logProvider.GetLogs(ctx)
+	_, err := logProvider.GetLatestPayloads(ctx)
 	require.NoError(t, err)
 	require.NoError(t, logProvider.Close())
 
@@ -231,7 +231,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 	<-time.After(pollerTimeout * 2) // let the provider work
 
-	logs, err := logProvider.GetLogs(ctx)
+	logs, err := logProvider.GetLatestPayloads(ctx)
 	require.NoError(t, err)
 	require.NoError(t, logProvider.Close())
 
