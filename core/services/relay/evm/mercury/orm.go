@@ -27,15 +27,21 @@ type ORM interface {
 	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
 }
 
+type ORMCodec interface {
+	FeedIDFromReport(report ocrtypes.Report) (feedID [32]byte, err error)
+}
+
 type orm struct {
-	q pg.Q
+	q     pg.Q
+	codec ORMCodec
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	namedLogger := lggr.Named("MercuryORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{
-		q: q,
+		q:     q,
+		codec: (&reportcodec.EVMReportCodec{}),
 	}
 }
 
@@ -55,18 +61,19 @@ func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.
 	`, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:])
 	}()
 
-	feedID, err := (&reportcodec.EVMReportCodec{}).FeedIDFromReport(req.Payload) // TODO: Pass codec into struct?
+	feedID, err := o.codec.FeedIDFromReport(req.Payload)
 	if err != nil {
 		return err
 	}
 	go func() {
-		// TODO: Cleanup on job delete?
 		defer wg.Done()
 		err2 = q.ExecQ(`
-		INSERT INTO feed_latest_reports (feed_id, report, updated_at)
-		VALUES ($1, $2, NOW())
-		ON CONFLICT (feed_id) DO UPDATE SET feed_id=$1, report=$2, updated_at=NOW()
-		`, feedID[:], req.Payload)
+		INSERT INTO feed_latest_reports (feed_id, report, epoch, round, updated_at)
+		VALUES ($1, $2, $3, $4, NOW())
+		ON CONFLICT (feed_id) DO UPDATE
+		SET feed_id=$1, report=$2, epoch=$3, round=$4, updated_at=NOW()
+		WHERE excluded.epoch > feed_latest_reports.epoch OR (excluded.epoch = feed_latest_reports.epoch AND excluded.round > feed_latest_reports.round)
+		`, feedID[:], req.Payload, reportCtx.Epoch, reportCtx.Round)
 	}()
 	wg.Wait()
 	return errors.Join(err1, err2)

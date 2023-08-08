@@ -19,39 +19,42 @@ func TestORM(t *testing.T) {
 	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
 	feedID := sampleFeedID
 
-	reportContext := ocrtypes.ReportContext{
-		ReportTimestamp: ocrtypes.ReportTimestamp{
-			ConfigDigest: ocrtypes.ConfigDigest{'1'},
-			Epoch:        10,
-			Round:        20,
-		},
-		ExtraHash: [32]byte{'2'},
-	}
-
 	reports := sampleReports
+	reportContexts := make([]ocrtypes.ReportContext, 4)
+	for i := range reportContexts {
+		reportContexts[i] = ocrtypes.ReportContext{
+			ReportTimestamp: ocrtypes.ReportTimestamp{
+				ConfigDigest: ocrtypes.ConfigDigest{'1'},
+				Epoch:        10,
+				Round:        uint8(i),
+			},
+			ExtraHash: [32]byte{'2'},
+		}
+	}
 
 	l, err := orm.LatestReport(testutils.Context(t), feedID)
 	require.NoError(t, err)
 	assert.Nil(t, l)
 
 	// Test insert and get requests.
-	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[0]}, reportContext)
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[0]}, reportContexts[0])
 	require.NoError(t, err)
-	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[1]}, reportContext)
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[1]}, reportContexts[1])
 	require.NoError(t, err)
-	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[2]}, reportContext)
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[2]}, reportContexts[2])
 	require.NoError(t, err)
 
 	transmissions, err := orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
-		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContext},
-		{Req: &pb.TransmitRequest{Payload: reports[1]}, ReportCtx: reportContext},
-		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContext},
+		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContexts[2]},
+		{Req: &pb.TransmitRequest{Payload: reports[1]}, ReportCtx: reportContexts[1]},
+		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]},
 	})
 
 	l, err = orm.LatestReport(testutils.Context(t), feedID)
 	require.NoError(t, err)
+	assert.NotEqual(t, reports[0], l)
 	assert.Equal(t, reports[2], l)
 
 	// Test requests can be deleted.
@@ -61,8 +64,8 @@ func TestORM(t *testing.T) {
 	transmissions, err = orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
-		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContext},
-		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContext},
+		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContexts[2]},
+		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]},
 	})
 
 	l, err = orm.LatestReport(testutils.Context(t), feedID)
@@ -76,8 +79,8 @@ func TestORM(t *testing.T) {
 	transmissions, err = orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
-		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContext},
-		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContext},
+		{Req: &pb.TransmitRequest{Payload: reports[2]}, ReportCtx: reportContexts[2]},
+		{Req: &pb.TransmitRequest{Payload: reports[0]}, ReportCtx: reportContexts[0]},
 	})
 
 	// Test deleting multiple requests.
@@ -96,25 +99,25 @@ func TestORM(t *testing.T) {
 	require.Empty(t, transmissions)
 
 	// More inserts.
-	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[3]}, reportContext)
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[3]}, reportContexts[3])
 	require.NoError(t, err)
 
 	transmissions, err = orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
-		{Req: &pb.TransmitRequest{Payload: reports[3]}, ReportCtx: reportContext},
+		{Req: &pb.TransmitRequest{Payload: reports[3]}, ReportCtx: reportContexts[3]},
 	})
 
 	// Duplicate requests are ignored.
-	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[3]}, reportContext)
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[3]}, reportContexts[3])
 	require.NoError(t, err)
-	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[3]}, reportContext)
+	err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[3]}, reportContexts[3])
 	require.NoError(t, err)
 
 	transmissions, err = orm.GetTransmitRequests()
 	require.NoError(t, err)
 	require.Equal(t, transmissions, []*Transmission{
-		{Req: &pb.TransmitRequest{Payload: reports[3]}, ReportCtx: reportContext},
+		{Req: &pb.TransmitRequest{Payload: reports[3]}, ReportCtx: reportContexts[3]},
 	})
 
 	l, err = orm.LatestReport(testutils.Context(t), feedID)
@@ -185,6 +188,64 @@ func TestORM_PruneTransmitRequests(t *testing.T) {
 	})
 }
 
-func TestORM_LatestReport(t *testing.T) {
-	t.Fatal("test ordering: different epoch/round")
+func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	lggr := logger.TestLogger(t)
+	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
+	feedID := sampleFeedID
+
+	reports := sampleReports
+
+	makeReportContext := func(epoch uint32, round uint8) ocrtypes.ReportContext {
+		return ocrtypes.ReportContext{
+			ReportTimestamp: ocrtypes.ReportTimestamp{
+				ConfigDigest: ocrtypes.ConfigDigest{'1'},
+				Epoch:        epoch,
+				Round:        round,
+			},
+			ExtraHash: [32]byte{'2'},
+		}
+	}
+
+	err := orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[0]}, makeReportContext(
+		0, 0,
+	))
+	require.NoError(t, err)
+
+	l, err := orm.LatestReport(testutils.Context(t), feedID)
+	require.NoError(t, err)
+	assert.Equal(t, reports[0], l)
+
+	t.Run("replaces if epoch and round are larger", func(t *testing.T) {
+		err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[1]}, makeReportContext(1, 1))
+		require.NoError(t, err)
+
+		l, err := orm.LatestReport(testutils.Context(t), feedID)
+		require.NoError(t, err)
+		assert.Equal(t, reports[1], l)
+	})
+	t.Run("replaces if epoch is the same but round is greater", func(t *testing.T) {
+		err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[2]}, makeReportContext(1, 2))
+		require.NoError(t, err)
+
+		l, err := orm.LatestReport(testutils.Context(t), feedID)
+		require.NoError(t, err)
+		assert.Equal(t, reports[2], l)
+	})
+	t.Run("replaces if epoch is larger but round is smaller", func(t *testing.T) {
+		err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[3]}, makeReportContext(2, 1))
+		require.NoError(t, err)
+
+		l, err := orm.LatestReport(testutils.Context(t), feedID)
+		require.NoError(t, err)
+		assert.Equal(t, reports[3], l)
+	})
+	t.Run("does not overwrite if epoch/round is the same", func(t *testing.T) {
+		err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[0]}, makeReportContext(2, 1))
+		require.NoError(t, err)
+
+		l, err := orm.LatestReport(testutils.Context(t), feedID)
+		require.NoError(t, err)
+		assert.Equal(t, reports[3], l)
+	})
 }
