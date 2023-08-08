@@ -33,9 +33,17 @@ contract BaseFeeManagerTest is Test {
   address internal constant USER = address(uint160(uint256(keccak256("USER"))));
   address internal constant PROXY = address(uint160(uint256(keccak256("PROXY"))));
 
+  //version masks
+  bytes32 internal constant V_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000;
+  bytes32 internal constant V0_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000000;
+  bytes32 internal constant V1_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000001;
+  bytes32 internal constant V2_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000002;
+
   //feed ids & config digests
-  bytes32 internal constant DEFAULT_FEED_1 = keccak256("feed_id_1");
-  bytes32 internal constant DEFAULT_FEED_2 = keccak256("feed_id_2");
+  bytes32 internal constant DEFAULT_FEED_V0_1 = keccak256("ETH-USD") & V_MASK | V0_BITMASK;
+  bytes32 internal constant DEFAULT_FEED_V1_1 = keccak256("ETH-USD") & V_MASK | V1_BITMASK;
+  bytes32 internal constant DEFAULT_FEED_V2_1 = keccak256("ETH-USD") & V_MASK | V2_BITMASK;
+  bytes32 internal constant DEFAULT_FEED_V2_2 = keccak256("LINK-USD") & V_MASK | V2_BITMASK;
   bytes32 internal constant DEFAULT_CONFIG_DIGEST = keccak256("DEFAULT_CONFIG_DIGEST");
 
   //report
@@ -151,15 +159,19 @@ contract BaseFeeManagerTest is Test {
     return reward;
   }
 
-  function getDefaultReport(bytes32 feedId) public pure returns (bytes memory) {
-    return abi.encode(feedId, uint32(0), int192(0), int192(0), int192(0), uint64(0), bytes32(0), uint64(0));
-  }
-
-  function getReportNoFeeOrExpiry(bytes32 feedId) public pure returns (bytes memory) {
+  function getV0Report(bytes32 feedId) public pure returns (bytes memory) {
     return abi.encode(feedId, uint32(0), int192(0), int192(0), int192(0), uint64(0), bytes32(0), uint64(0), uint64(0));
   }
 
-  function getReportWithFee(bytes32 feedId) public view returns (bytes memory) {
+  function getV1Report(bytes32 feedId) public view returns (bytes memory) {
+    return abi.encode(feedId, uint32(0), int192(0), uint32(0), uint32(block.timestamp), DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
+  }
+
+  function getV1ReportWithExpiryAndFee(bytes32 feedId, uint256 expiry, uint256 linkFee, uint256 nativeFee) public view returns (bytes memory) {
+    return abi.encode(feedId, uint32(0), int192(0), uint32(0), uint32(expiry), linkFee, nativeFee);
+  }
+
+  function getV2Report(bytes32 feedId) public view returns (bytes memory) {
     return
       abi.encode(
         feedId,
@@ -167,17 +179,14 @@ contract BaseFeeManagerTest is Test {
         int192(0),
         int192(0),
         int192(0),
-        uint64(0),
-        bytes32(0),
-        uint64(0),
-        uint64(0),
+        uint32(0),
+        uint32(block.timestamp),
         uint192(DEFAULT_REPORT_LINK_FEE),
-        uint192(DEFAULT_REPORT_NATIVE_FEE),
-        uint32(block.timestamp)
+        uint192(DEFAULT_REPORT_NATIVE_FEE)
       );
   }
 
-  function getReportWithCustomExpiryAndFee(
+  function getV2ReportWithCustomExpiryAndFee(
     bytes32 feedId,
     uint256 expiry,
     uint256 linkFee,
@@ -190,14 +199,11 @@ contract BaseFeeManagerTest is Test {
         int192(0),
         int192(0),
         int192(0),
-        uint64(0),
-        bytes32(0),
-        uint64(0),
-        uint64(0),
+        uint32(0),
+        uint32(expiry),
         uint192(linkFee),
-        uint192(nativeFee),
-        uint32(expiry)
-      );
+        uint192(nativeFee)
+    );
   }
 
   function getLinkQuote() public view returns (IFeeManager.Quote memory) {

@@ -36,20 +36,13 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice the reward manager address
   IRewardManager private immutable i_rewardManager;
 
-  /// @notice default reports include v02 (including reportTimeStamp)
-  uint16 private constant DEFAULT_REPORT_LENGTH = 32 + 32 + 32 + 32 + 32 + 32 + 32 + 32 + 32;
+  // @notice the mask to apply to get the report version
+  uint256 private constant REPORT_VERSION_MASK = 0x0000000000000000000000000000000000000000000000000000000000000FFFF;
 
-  /// @notice the index of the LINK fee
-  uint16 private constant LINK_FEE_INDEX = DEFAULT_REPORT_LENGTH;
-
-  /// @notice the index of the native fee
-  uint16 private constant NATIVE_FEE_INDEX = DEFAULT_REPORT_LENGTH + 32;
-
-  /// @notice the index of the expires at timestamp
-  uint16 private constant EXPIRES_AT_INDEX = NATIVE_FEE_INDEX + 32;
-
-  /// @notice the index of the address within the quote
-  uint256 private constant QUOTE_ADDRESS_INDEX = 0;
+  // @notice the different report versions
+  uint256 private constant REPORT_V0 = 0x0000;
+  uint256 private constant REPORT_V1 = 0x0001;
+  uint256 private constant REPORT_V2 = 0x0002;
 
   /// @notice the surcharge fee to be paid if paying in native
   uint256 public nativeSurcharge;
@@ -74,6 +67,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @notice thrown if a report has no quote
   error InvalidQuote();
+
+  /// @notice thrown if a report has an invalid version
+  error InvalidReportVersion();
 
   /// @notice Emitted whenever a subscriber's discount is updated
   /// @param subscriber address of the subscriber to update discounts for
@@ -147,10 +143,13 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //decode the report from the payload
     (, bytes memory report) = abi.decode(payload, (bytes32[3], bytes));
 
+    //get the feedId from the report
+    bytes32 feedId = bytes32(report);
+
     //default reports don't need a quote payload, so skip the decoding if the report is a default report
     Quote memory quote;
-    if (report.length > DEFAULT_REPORT_LENGTH) {
-      //decode the quoteBytes, if the bytes are missing the tx will revert
+    if (getReportVersion(feedId) > REPORT_V0) {
+      //all reports greater than v0 should have a quote payload
       (, , , , , bytes memory quoteBytes) = abi.decode(
         payload,
         (bytes32[3], bytes, bytes32[], bytes32[], bytes32, bytes)
@@ -223,8 +222,14 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     Common.Asset memory fee;
     Common.Asset memory reward;
 
-    //any report without a fee does not need to be processed
-    if (report.length <= DEFAULT_REPORT_LENGTH) {
+    //get the feedId from the report
+    bytes32 feedId = bytes32(report);
+
+    //the report needs to be a support version
+    uint256 reportVersion = getReportVersion(feedId);
+
+    //version 0 of the reports don't require quotes, so the fee will be 0
+    if (reportVersion == REPORT_V0) {
       fee.assetAddress = i_nativeAddress;
       reward.assetAddress = i_linkAddress;
       return (fee, reward);
@@ -235,11 +240,23 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       revert InvalidQuote();
     }
 
-    //decode the report fields needed
-    (, , , , , , , , , uint256 linkQuantity, uint256 nativeQuantity, uint256 expiresAt) = abi.decode(
-      report,
-      (bytes32, uint32, int192, int192, int192, uint64, bytes32, uint64, uint64, uint192, uint192, uint32)
-    );
+    //decode the report depending on the version
+    uint256 linkQuantity;
+    uint256 nativeQuantity;
+    uint256 expiresAt;
+    if(reportVersion == REPORT_V1) {
+      (, , , , expiresAt, linkQuantity, nativeQuantity) = abi.decode(
+        report,
+        (bytes32, uint32, int192, uint32, uint32, uint192, uint192)
+      );
+    } else if (reportVersion == REPORT_V2) {
+      (, , , , , , expiresAt, linkQuantity, nativeQuantity) = abi.decode(
+        report,
+        (bytes32, uint32, int192, int192, int192, uint32, uint32, uint192, uint192)
+      );
+    } else {
+      revert InvalidReportVersion();
+    }
 
     //read the timestamp bytes from the report data and verify it has not expired
     if (expiresAt < block.timestamp) {
@@ -259,8 +276,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       fee.amount = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + nativeSurcharge), PERCENTAGE_SCALAR);
     }
 
-    //decode the feedId from the report to calculate the discount being applied
-    bytes32 feedId = bytes32(report);
+    //get the discount being applied
     uint256 discount = subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
 
     //apply the discount to the fee, rounding up
@@ -325,5 +341,13 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   function linkAvailableForPayment() external view returns (uint256) {
     //return the amount of LINK this contact has available to pay rewards
     return IERC20(i_linkAddress).balanceOf(address(this));
+  }
+
+  /**
+   * @notice Gets the current version of the report that is encoded as the last two bytes of the feed
+   * @param feedId feed id to get the report version for
+   */
+  function getReportVersion(bytes32 feedId) internal pure returns (uint256) {
+    return REPORT_VERSION_MASK & uint256(feedId);
   }
 }

@@ -22,9 +22,9 @@ contract VerifierTestWithConfiguredVerifierAndFeeManager is BaseTestWithConfigur
 
 contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeManager {
   function test_verifyWithLink() public {
-    bytes memory signedReport = _generateEncodedBlobWithFeesAndQuote(
-      _generateBillingReport(),
-      _generateReportContext(),
+    bytes memory signedReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(FEED_ID_V2),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
@@ -37,9 +37,9 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
   }
 
   function test_verifyWithNative() public {
-    bytes memory signedReport = _generateEncodedBlobWithFeesAndQuote(
-      _generateBillingReport(),
-      _generateReportContext(),
+    bytes memory signedReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(FEED_ID_V2),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -52,9 +52,9 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
   }
 
   function test_verifyWithNativeUnwrapped() public {
-    bytes memory signedReport = _generateEncodedBlobWithFeesAndQuote(
-      _generateBillingReport(),
-      _generateReportContext(),
+    bytes memory signedReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(FEED_ID_V2),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -66,9 +66,9 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
   }
 
   function test_verifyWithNativeUnwrappedReturnsChange() public {
-    bytes memory signedReport = _generateEncodedBlobWithFeesAndQuote(
-      _generateBillingReport(),
-      _generateReportContext(),
+    bytes memory signedReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(FEED_ID_V2),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );

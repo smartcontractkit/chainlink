@@ -4,7 +4,7 @@ pragma solidity 0.8.16;
 /*
  * @title ByteUtil
  * @author Michael Fletcher
- * @notice Byte utility functions for efficiently parsing and manipulating byte data
+ * @notice Byte utility functions for efficiently parsing and manipulating packed byte data
  */
 library ByteUtil {
   // Error message when an offset is out of bounds

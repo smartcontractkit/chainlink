@@ -34,13 +34,13 @@ contract VerifierDeactivateFeedWithVerifyTest is BaseTestWithMultipleConfiguredD
 
   event ConfigActivated(bytes32 configDigest);
 
-  Report internal s_testReportOne;
+  V0Report internal s_testReportOne;
 
   function setUp() public override {
     BaseTestWithMultipleConfiguredDigests.setUp();
     s_reportContext[0] = s_configDigestOne;
     s_reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
-    s_testReportOne = _createReport(
+    s_testReportOne = _createV0Report(
       FEED_ID,
       uint32(block.timestamp),
       MEDIAN,
@@ -48,7 +48,8 @@ contract VerifierDeactivateFeedWithVerifyTest is BaseTestWithMultipleConfiguredD
       ASK,
       uint64(block.number),
       blockhash(block.number + 3),
-      uint64(block.number + 3)
+      uint64(block.number + 3),
+      uint32(block.timestamp)
     );
 
     s_verifier.deactivateFeed(FEED_ID);

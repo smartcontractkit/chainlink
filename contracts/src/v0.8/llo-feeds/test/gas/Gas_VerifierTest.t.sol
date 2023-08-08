@@ -63,9 +63,9 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   }
 
   function testVerifyProxyWithLinkFeeSuccess_gas() public {
-    bytes memory signedLinkPayload = _generateEncodedBlobWithFeesAndQuote(
-      _generateBillingReport(),
-      _generateReportContext(),
+    bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(FEED_ID_V2),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
@@ -74,9 +74,9 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   }
 
   function testVerifyProxyWithNativeFeeSuccess_gas() public {
-    bytes memory signedNativePayload = _generateEncodedBlobWithFeesAndQuote(
-      _generateBillingReport(),
-      _generateReportContext(),
+    bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(FEED_ID_V2),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -91,7 +91,7 @@ contract Verifier_verify is BaseTestWithConfiguredVerifierAndFeeManager {
 
   function setUp() public override {
     BaseTestWithConfiguredVerifierAndFeeManager.setUp();
-    BaseTest.Report memory s_testReportOne = _createReport(
+    BaseTest.V0Report memory s_testReportOne = _createV0Report(
       FEED_ID,
       OBSERVATIONS_TIMESTAMP,
       MEDIAN,
@@ -99,7 +99,8 @@ contract Verifier_verify is BaseTestWithConfiguredVerifierAndFeeManager {
       ASK,
       BLOCKNUMBER_UPPER_BOUND,
       blockhash(BLOCKNUMBER_UPPER_BOUND),
-      BLOCKNUMBER_LOWER_BOUND
+      BLOCKNUMBER_LOWER_BOUND,
+      uint32(block.timestamp)
     );
     (, , s_configDigest) = s_verifier.latestConfigDetails(FEED_ID);
     bytes32[3] memory reportContext;
@@ -129,7 +130,7 @@ contract Verifier_accessControlledVerify is BaseTestWithConfiguredVerifierAndFee
 
   function setUp() public override {
     BaseTestWithConfiguredVerifierAndFeeManager.setUp();
-    BaseTest.Report memory s_testReportOne = _createReport(
+    BaseTest.V0Report memory s_testReportOne = _createV0Report(
       FEED_ID,
       OBSERVATIONS_TIMESTAMP,
       MEDIAN,
@@ -137,7 +138,8 @@ contract Verifier_accessControlledVerify is BaseTestWithConfiguredVerifierAndFee
       ASK,
       BLOCKNUMBER_UPPER_BOUND,
       blockhash(BLOCKNUMBER_UPPER_BOUND),
-      BLOCKNUMBER_LOWER_BOUND
+      BLOCKNUMBER_LOWER_BOUND,
+      uint32(block.timestamp)
     );
     (, , s_configDigest) = s_verifier.latestConfigDetails(FEED_ID);
     bytes32[3] memory reportContext;

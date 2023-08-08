@@ -12,14 +12,14 @@ contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
 
   event ReportVerified(bytes32 indexed feedId, address requester);
 
-  Report internal s_testReportOne;
+  V0Report internal s_testReportOne;
 
   function setUp() public virtual override {
     BaseTestWithConfiguredVerifierAndFeeManager.setUp();
     (, , bytes32 configDigest) = s_verifier.latestConfigDetails(FEED_ID);
     s_reportContext[0] = configDigest;
     s_reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
-    s_testReportOne = _createReport(
+    s_testReportOne = _createV0Report(
       FEED_ID,
       OBSERVATIONS_TIMESTAMP,
       MEDIAN,
@@ -27,11 +27,12 @@ contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
       ASK,
       BLOCKNUMBER_UPPER_BOUND,
       blockhash(BLOCKNUMBER_UPPER_BOUND),
-      BLOCKNUMBER_LOWER_BOUND
+      BLOCKNUMBER_LOWER_BOUND,
+      uint32(block.timestamp)
     );
   }
 
-  function assertReportsEqual(bytes memory response, Report memory testReport) public {
+  function assertReportsEqual(bytes memory response, V0Report memory testReport) public {
     (
       bytes32 feedId,
       uint32 timestamp,
@@ -161,7 +162,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
   }
 
   function test_revertsIfReportHasUnconfiguredFeedID() public {
-    Report memory report = _createReport(
+    V0Report memory report = _createV0Report(
       FEED_ID_2,
       OBSERVATIONS_TIMESTAMP,
       MEDIAN,
@@ -169,7 +170,8 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
       ASK,
       BLOCKNUMBER_UPPER_BOUND,
       blockhash(BLOCKNUMBER_UPPER_BOUND),
-      BLOCKNUMBER_LOWER_BOUND
+      BLOCKNUMBER_LOWER_BOUND,
+      uint32(block.timestamp)
     );
     bytes memory signedReport = _generateEncodedBlob(report, s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
     vm.expectRevert(abi.encodeWithSelector(Verifier.DigestInactive.selector, FEED_ID_2, s_reportContext[0]));

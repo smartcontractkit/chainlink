@@ -24,9 +24,19 @@ contract BaseTest is Test {
   address internal constant MOCK_VERIFIER_ADDRESS_TWO = address(200);
   address internal constant ACCESS_CONTROLLER_ADDRESS = address(300);
 
-  bytes32 internal constant FEED_ID = keccak256("ETH-USD");
-  bytes32 internal constant FEED_ID_2 = keccak256("LINK-USD");
-  bytes32 internal constant FEED_ID_3 = keccak256("BTC-USD");
+  bytes32 internal constant V_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000;
+  bytes32 internal constant V0_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000000;
+  bytes32 internal constant V1_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000001;
+  bytes32 internal constant V2_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000002;
+
+  //version 0 feeds
+  bytes32 internal constant FEED_ID = keccak256("ETH-USD") & V_MASK | V0_BITMASK;
+  bytes32 internal constant FEED_ID_2 = keccak256("LINK-USD") & V_MASK | V0_BITMASK;
+  bytes32 internal constant FEED_ID_3 = keccak256("BTC-USD") & V_MASK | V0_BITMASK;
+
+  //version 2 feeds
+  bytes32 internal constant FEED_ID_V2 = keccak256("ETH-USD") & V_MASK | V2_BITMASK;
+
   bytes32 internal constant INVALID_FEED = keccak256("INVALID");
   uint32 internal constant OBSERVATIONS_TIMESTAMP = 1000;
   uint64 internal constant BLOCKNUMBER_LOWER_BOUND = 1000;
@@ -53,7 +63,7 @@ contract BaseTest is Test {
     address signerAddress;
   }
 
-  struct Report {
+  struct V0Report {
     // The feed ID the report has data for
     bytes32 feedId;
     // The time the median value was observed on
@@ -70,6 +80,8 @@ contract BaseTest is Test {
     bytes32 upperBlockhash;
     // The lower bound of the block range the median value was observed within
     uint64 blocknumberLowerBound;
+    // The current block timestamp
+    uint64 currentBlockTimestamp;
   }
 
   Signer[MAX_ORACLES] internal s_signers;
@@ -137,7 +149,7 @@ contract BaseTest is Test {
   }
 
   function _generateEncodedBlob(
-    Report memory report,
+    V0Report memory report,
     bytes32[3] memory reportContext,
     Signer[] memory signers
   ) internal pure returns (bytes memory) {
@@ -182,7 +194,7 @@ contract BaseTest is Test {
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
   }
 
-  function _createReport(
+  function _createV0Report(
     bytes32 feedId,
     uint32 observationsTimestamp,
     int192 median,
@@ -190,10 +202,11 @@ contract BaseTest is Test {
     int192 ask,
     uint64 blocknumberUpperBound,
     bytes32 upperBlockhash,
-    uint64 blocknumberLowerBound
-  ) internal pure returns (Report memory) {
+    uint64 blocknumberLowerBound,
+    uint32 currentBlockTimestamp
+  ) internal pure returns (V0Report memory) {
     return
-      Report({
+      V0Report({
         feedId: feedId,
         observationsTimestamp: observationsTimestamp,
         median: median,
@@ -201,7 +214,8 @@ contract BaseTest is Test {
         ask: ask,
         blocknumberUpperBound: blocknumberUpperBound,
         upperBlockhash: upperBlockhash,
-        blocknumberLowerBound: blocknumberLowerBound
+        blocknumberLowerBound: blocknumberLowerBound,
+        currentBlockTimestamp: currentBlockTimestamp
       });
   }
 
@@ -228,41 +242,46 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
   uint256 internal constant DEFAULT_REPORT_LINK_FEE = 1e10;
   uint256 internal constant DEFAULT_REPORT_NATIVE_FEE = 1e12;
 
-  struct BillingReport {
+  struct V2Report {
     // The feed ID the report has data for
     bytes32 feedId;
     // The time the median value was observed on
     uint32 observationsTimestamp;
     // The median value agreed in an OCR round
-    int192 median;
+    int192 benchmarkPrice;
     // The best bid value agreed in an OCR round
     int192 bid;
     // The best ask value agreed in an OCR round
     int192 ask;
-    // The upper bound of the block range the median value was observed within
-    uint64 blocknumberUpperBound;
-    // The blockhash for the upper bound of block range (ensures correct blockchain)
-    bytes32 upperBlockhash;
-    // The lower bound of the block range the median value was observed within
-    uint64 blocknumberLowerBound;
-    // The current block timestamp
-    uint64 currentBlockTimestamp;
+    // The timestamp the report is valid from
+    uint32 validFromTimestamp;
+    // The expiry of the report
+    uint32 expiresAt;
     // The link fee
     uint192 linkFee;
     // The native fee
     uint192 nativeFee;
-    // The expiry of the report
-    uint32 expiresAt;
   }
 
   function setUp() public virtual override {
     BaseTest.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
 
-    // Verifier 1, Feed 1, Config 1
+
     s_verifierProxy.initializeVerifier(address(s_verifier));
     s_verifier.setConfig(
       FEED_ID,
+      _getSignerAddresses(signers),
+      s_offchaintransmitters,
+      FAULT_TOLERANCE,
+      bytes(""),
+      VERIFIER_VERSION,
+      bytes(""),
+      new Common.AddressAndWeight[](0)
+    );
+
+    s_verifier.setConfig(
+      FEED_ID_V2,
       _getSignerAddresses(signers),
       s_offchaintransmitters,
       FAULT_TOLERANCE,
@@ -281,26 +300,23 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     s_verifierProxy.setFeeManager(feeManager);
   }
 
-  function _encodeReport(BillingReport memory report) internal pure returns (bytes memory) {
+  function _encodeReport(V2Report memory report) internal pure returns (bytes memory) {
     return
       abi.encode(
         report.feedId,
         report.observationsTimestamp,
-        report.median,
+        report.benchmarkPrice,
         report.bid,
         report.ask,
-        report.blocknumberUpperBound,
-        report.upperBlockhash,
-        report.blocknumberLowerBound,
-        report.currentBlockTimestamp,
+        report.validFromTimestamp,
+        report.expiresAt,
         report.linkFee,
-        report.nativeFee,
-        report.expiresAt
+        report.nativeFee
       );
   }
 
-  function _generateEncodedBlobWithFeesAndQuote(
-    BillingReport memory report,
+  function _generateEncodedBlobWithQuote(
+    V2Report memory report,
     bytes32[3] memory reportContext,
     Signer[] memory signers,
     bytes memory quote
@@ -319,26 +335,23 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     return abi.encode(billingAddress);
   }
 
-  function _generateBillingReport() internal returns (BillingReport memory) {
+  function _generateV2Report() internal returns (V2Report memory) {
     return
-      BillingReport({
-        feedId: FEED_ID,
+      V2Report({
+        feedId: FEED_ID_V2,
         observationsTimestamp: OBSERVATIONS_TIMESTAMP,
-        median: MEDIAN,
+        benchmarkPrice: MEDIAN,
         bid: BID,
         ask: ASK,
-        blocknumberUpperBound: BLOCKNUMBER_UPPER_BOUND,
-        upperBlockhash: blockhash(BLOCKNUMBER_UPPER_BOUND),
-        blocknumberLowerBound: BLOCKNUMBER_LOWER_BOUND,
-        currentBlockTimestamp: uint64(block.timestamp),
+        validFromTimestamp: uint32(block.timestamp),
+        expiresAt: uint32(block.timestamp),
         linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
-        nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
-        expiresAt: uint32(block.timestamp)
+        nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE)
       });
   }
 
-  function _generateReportContext() internal returns (bytes32[3] memory) {
-    (, , bytes32 latestConfigDigest) = s_verifier.latestConfigDetails(FEED_ID);
+  function _generateReportContext(bytes32 feedId) internal returns (bytes32[3] memory) {
+    (, , bytes32 latestConfigDigest) = s_verifier.latestConfigDetails(feedId);
     bytes32[3] memory reportContext;
     reportContext[0] = latestConfigDigest;
     reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
