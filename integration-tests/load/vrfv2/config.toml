@@ -1,0 +1,25 @@
+# scaling RPS
+[Soak]
+rps = 1
+duration = "10m"
+
+[Load]
+rps_from = 1
+rps_to = 5
+duration = "10m"
+
+# scaling jobs
+[SoakVolume]
+jobs = 5
+pace = "1s"
+duration = "10m"
+
+[LoadVolume]
+jobs_from = 1
+jobs_to = 5
+pace = "1s"
+duration = "10m"
+
+[Common]
+node_funds = 10
+sub_funds = 100

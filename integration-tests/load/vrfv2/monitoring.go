@@ -26,7 +26,7 @@ func MonitorLoadStats(t *testing.T, vrfv2Contracts *vrfv2_actions.VRFV2Contracts
 		}
 		updatedLabels["type"] = LokiTypeLabel
 		updatedLabels["go_test_name"] = t.Name()
-		updatedLabels["gen_name"] = "soak"
+		updatedLabels["gen_name"] = "performance"
 		lc, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
 		if err != nil {
 			log.Error().Err(err).Msg(ErrLokiClient)

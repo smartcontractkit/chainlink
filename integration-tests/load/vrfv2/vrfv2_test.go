@@ -4,13 +4,13 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
-	"math/big"
 	"testing"
-	"time"
 )
 
 func TestVRFV2Load(t *testing.T) {
-	env, vrfv2Contracts, key, err := vrfv2_actions.SetupLocalLoadTestEnv(big.NewFloat(10), big.NewInt(100))
+	cfg, err := ReadConfig()
+	require.NoError(t, err)
+	env, vrfv2Contracts, key, err := vrfv2_actions.SetupLocalLoadTestEnv(cfg.Common.NodeFunds, cfg.Common.SubFunds)
 	require.NoError(t, err)
 
 	labels := map[string]string{
@@ -31,45 +31,43 @@ func TestVRFV2Load(t *testing.T) {
 		T:          t,
 		LoadType:   wasp.VU,
 		GenName:    "job_volume_gun",
-		VU:         NewJobVolumeVU(1*time.Second, 1, env.GetAPIs(), env.Geth.EthClient, vrfv2Contracts),
+		VU:         NewJobVolumeVU(cfg.SoakVolume.Pace.Duration(), 1, env.GetAPIs(), env.Geth.EthClient, vrfv2Contracts),
 		Labels:     labels,
 		LokiConfig: wasp.NewEnvLokiConfig(),
 	}
 
-	t.Run("vrfv2 soak test", func(t *testing.T) {
-		singleFeedConfig.Schedule = wasp.Plain(1, 10*time.Minute)
+	MonitorLoadStats(t, vrfv2Contracts, labels)
 
-		MonitorLoadStats(t, vrfv2Contracts, labels)
+	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
+	t.Run("vrfv2 soak test", func(t *testing.T) {
+		singleFeedConfig.Schedule = wasp.Plain(cfg.Soak.RPS, cfg.Soak.Duration.Duration())
 		_, err := wasp.NewProfile().
 			Add(wasp.NewGenerator(singleFeedConfig)).
 			Run(true)
 		require.NoError(t, err)
 	})
 
-	t.Run("vrfv2 constant volume soak test", func(t *testing.T) {
-		multiFeedConfig.Schedule = wasp.Plain(5, 30*time.Minute)
-
-		MonitorLoadStats(t, vrfv2Contracts, labels)
-		_, err = wasp.NewProfile().
-			Add(wasp.NewGenerator(multiFeedConfig)).
-			Run(true)
-		require.NoError(t, err)
-	})
-
-	t.Run("vrfv2 one feed load test", func(t *testing.T) {
-		singleFeedConfig.Schedule = wasp.Line(10, 50, 5*time.Minute)
-
-		MonitorLoadStats(t, vrfv2Contracts, labels)
+	// what are the limits for one "job", figuring out the best performance params by increasing RPS and varying configuration
+	t.Run("vrfv2 load test", func(t *testing.T) {
+		singleFeedConfig.Schedule = wasp.Line(cfg.Load.RPSFrom, cfg.Load.RPSTo, cfg.Load.Duration.Duration())
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(singleFeedConfig)).
 			Run(true)
 		require.NoError(t, err)
 	})
 
-	t.Run("vrfv2 volume load test", func(t *testing.T) {
-		multiFeedConfig.Schedule = wasp.Line(5, 55, 3*time.Minute)
+	// how many "jobs" of the same type we can run at once at a stable load with optimal configuration?
+	t.Run("vrfv2 volume soak test", func(t *testing.T) {
+		multiFeedConfig.Schedule = wasp.Plain(cfg.SoakVolume.Jobs, cfg.SoakVolume.Duration.Duration())
+		_, err = wasp.NewProfile().
+			Add(wasp.NewGenerator(multiFeedConfig)).
+			Run(true)
+		require.NoError(t, err)
+	})
 
-		MonitorLoadStats(t, vrfv2Contracts, labels)
+	// what are the limits if we add more and more "jobs" of the same type, each "job" have a stable RPS we vary only amount of jobs
+	t.Run("vrfv2 volume load test", func(t *testing.T) {
+		multiFeedConfig.Schedule = wasp.Line(cfg.LoadVolume.JobsFrom, cfg.LoadVolume.JobsTo, cfg.LoadVolume.Duration.Duration())
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(multiFeedConfig)).
 			Run(true)
