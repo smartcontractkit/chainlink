@@ -79,25 +79,25 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, error) {
+func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, *EVMAutomationEncoder21, error) {
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 	packer := NewEvmRegistryPackerV2_1(keeperRegistryABI, utilsABI)
 	logPacker := logprovider.NewLogEventsPacker(utilsABI)
 
 	registry, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
+		return nil, nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
 	}
 
 	filterStore := logprovider.NewUpkeepFilterStore()
@@ -127,10 +127,10 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
-		return nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
+		return nil, nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
 	}
 
-	return r, nil
+	return r, &r.enc, nil
 }
 
 var upkeepStateEvents = []common.Hash{
