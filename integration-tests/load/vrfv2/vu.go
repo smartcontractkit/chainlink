@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-/* JobVolumeVU is a "virtual user" that creates a VRFv2 job and constantly requesting new randomness  */
+/* JobVolumeVU is a "virtual user" that creates a VRFv2 job and constantly requesting new randomness only for this job instance  */
 
 type JobVolumeVU struct {
 	pace                     time.Duration

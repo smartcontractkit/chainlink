@@ -21,7 +21,7 @@ func TestVRFV2Load(t *testing.T) {
 	singleFeedConfig := &wasp.Config{
 		T:          t,
 		LoadType:   wasp.RPS,
-		GenName:    "single_feed_gun",
+		GenName:    "gun",
 		Gun:        SingleFeedGun(vrfv2Contracts, key),
 		Labels:     labels,
 		LokiConfig: wasp.NewEnvLokiConfig(),
@@ -30,7 +30,7 @@ func TestVRFV2Load(t *testing.T) {
 	multiFeedConfig := &wasp.Config{
 		T:          t,
 		LoadType:   wasp.VU,
-		GenName:    "job_volume_gun",
+		GenName:    "vu",
 		VU:         NewJobVolumeVU(cfg.SoakVolume.Pace.Duration(), 1, env.GetAPIs(), env.Geth.EthClient, vrfv2Contracts),
 		Labels:     labels,
 		LokiConfig: wasp.NewEnvLokiConfig(),
@@ -58,16 +58,16 @@ func TestVRFV2Load(t *testing.T) {
 
 	// how many "jobs" of the same type we can run at once at a stable load with optimal configuration?
 	t.Run("vrfv2 volume soak test", func(t *testing.T) {
-		multiFeedConfig.Schedule = wasp.Plain(cfg.SoakVolume.Jobs, cfg.SoakVolume.Duration.Duration())
+		multiFeedConfig.Schedule = wasp.Plain(cfg.SoakVolume.Products, cfg.SoakVolume.Duration.Duration())
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(multiFeedConfig)).
 			Run(true)
 		require.NoError(t, err)
 	})
 
-	// what are the limits if we add more and more "jobs" of the same type, each "job" have a stable RPS we vary only amount of jobs
+	// what are the limits if we add more and more "jobs/products" of the same type, each "job" have a stable RPS we vary only amount of jobs
 	t.Run("vrfv2 volume load test", func(t *testing.T) {
-		multiFeedConfig.Schedule = wasp.Line(cfg.LoadVolume.JobsFrom, cfg.LoadVolume.JobsTo, cfg.LoadVolume.Duration.Duration())
+		multiFeedConfig.Schedule = wasp.Line(cfg.LoadVolume.ProductsFrom, cfg.LoadVolume.ProductsTo, cfg.LoadVolume.Duration.Duration())
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(multiFeedConfig)).
 			Run(true)

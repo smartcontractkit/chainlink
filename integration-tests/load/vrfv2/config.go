@@ -39,7 +39,7 @@ type Soak struct {
 }
 
 type SoakVolume struct {
-	Jobs     int64            `toml:"jobs"`
+	Products int64            `toml:"products"`
 	Pace     *models.Duration `toml:"pace"`
 	Duration *models.Duration `toml:"duration"`
 }
@@ -51,10 +51,10 @@ type Load struct {
 }
 
 type LoadVolume struct {
-	JobsFrom int64            `toml:"jobs_from"`
-	JobsTo   int64            `toml:"jobs_to"`
-	Pace     *models.Duration `toml:"pace"`
-	Duration *models.Duration `toml:"duration"`
+	ProductsFrom int64            `toml:"products_from"`
+	ProductsTo   int64            `toml:"products_to"`
+	Pace         *models.Duration `toml:"pace"`
+	Duration     *models.Duration `toml:"duration"`
 }
 
 func ReadConfig() (*PerformanceConfig, error) {

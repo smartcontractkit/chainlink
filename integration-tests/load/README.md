@@ -4,10 +4,10 @@ This folder container performance e2e tests for different job types, currently i
 - VRFv2
 
 All the tests have 4 groups:
-- one job soak
-- multiple jobs soak
-- one job load
-- multiple jobs load
+- one product soak
+- one product load
+- multiple product instances soak
+- multiple product instances load
 
 ## Usage
 ```
