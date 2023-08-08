@@ -3,6 +3,7 @@ package logprovider
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"hash"
 	"math/big"
@@ -15,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -25,12 +25,12 @@ import (
 )
 
 const (
-	BlockLimitExceeded = "block limit exceeded"
-	logTriggerType     = 1
+	logTriggerType = 1
 )
 
 var (
-	ErrHeadNotAvailable = fmt.Errorf("head not available")
+	ErrHeadNotAvailable   = fmt.Errorf("head not available")
+	ErrBlockLimitExceeded = fmt.Errorf("block limit exceeded")
 )
 
 // LogTriggerConfig is an alias for log trigger config.
@@ -329,46 +329,88 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries [
 		if len(entry.addr) == 0 {
 			continue
 		}
-		// lggr := mainLggr.With("upkeep", entry.upkeepID.String(), "addrs", entry.addr, "sigs", entry.topics)
+
+		// start should either be the last block polled for the entry or the
+		// lookback range in the case this is the first time the entry is polled
 		start := entry.lastPollBlock
 		if start == 0 || start < latest-logBlocksLookback {
 			// long range or first time polling,
 			// using a larger lookback and burst
 			start = latest - logBlocksLookback*2
+
+			// start should not be negative in the special case of an empty or
+			// new blockchain (this is the case for the simulated chain)
+			if start < 0 {
+				start = 0
+			}
+
+			// override the burst limit to the max to allow the long range scan
 			entry.blockLimiter.SetBurst(maxBurst)
 		}
+
+		// apply a reservation for the entry block range
+		// this reservation may be cancelled later in the case of overriding
+		// the block limitation with maxBurst
+		// fmt.Printf("reserving: %d for %s\n", int(latest-start), entry.upkeepID)
 		resv := entry.blockLimiter.ReserveN(time.Now(), int(latest-start))
+		// fmt.Printf("reservation limit for %s: %d\n", entry.upkeepID, resv.DelayFrom(time.Now())/time.Millisecond)
 		if !resv.OK() {
-			merr = multierr.Append(merr, fmt.Errorf("%s: %s", BlockLimitExceeded, entry.upkeepID.String()))
+			// the block range cannot be processed for the event either because
+			// it is above the configured rate or burst limit
+			merr = errors.Join(merr, fmt.Errorf("%w: %s", ErrBlockLimitExceeded, entry.upkeepID.String()))
+
 			continue
 		}
-		start = start - p.opts.LookbackBuffer // adding a buffer to check for reorgs
+
+		// adding a buffer outside the reserved block range to check for reorgs
+		start = start - p.opts.LookbackBuffer
 		if start < 0 {
 			start = 0
 		}
-		// lggr = lggr.With("startBlock", start)
+
 		logs, err := p.poller.LogsWithSigs(start, latest, entry.topics, common.BytesToAddress(entry.addr), pg.WithParentCtx(ctx))
 		if err != nil {
-			resv.Cancel() // cancels limit reservation as we failed to get logs
+			// cancel limit reservation as we failed to get logs
+			resv.Cancel()
+
 			if ctx.Err() != nil {
-				return multierr.Append(merr, ctx.Err())
+				return errors.Join(merr, ctx.Err())
 			}
-			merr = multierr.Append(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", entry.upkeepID.String(), err))
+
+			merr = errors.Join(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", entry.upkeepID.String(), err))
+
+			// continue processing entries as this is not a hard error
 			continue
 		}
-		// if this limiter's burst was set to the max,
-		// we need to reset it
+
+		// if this limiter's burst was set to the max reset it and cancel the
+		// reservation to allow further processing without exceeding the rate
+		// limit
 		if entry.blockLimiter.Burst() == maxBurst {
-			resv.Cancel() // cancel the reservation as we are resetting the burst
+			// cancel the reservation as we are resetting the burst
+			resv.Cancel()
+
 			entry.blockLimiter.SetBurst(p.opts.BlockLimitBurst)
 		}
-		added := p.buffer.enqueue(entry.upkeepID, logs...)
-		// if we added logs or couldn't find, update the last poll block
-		if added > 0 || len(logs) == 0 {
-			entry.lastPollBlock = latest
-		}
-		// if n := len(logs); n > 0 {
-		// 	lggr.Debugw("got logs for upkeep", "logs", n, "added", added)
+
+		// add logs returned from the poller to the queue and return the total
+		// number of unique logs added to the queue
+		// added :=
+		p.buffer.enqueue(entry.upkeepID, logs...)
+
+		// fmt.Printf("added: %d; logs: %d\n", added, len(logs))
+
+		// if no new logs were added or no logs were found, update the last poll block
+		// if added > 0 || len(logs) == 0 {
+		entry.lastPollBlock = latest
+
+		p.filterStore.UpdateFilters(func(original upkeepFilter, updated upkeepFilter) upkeepFilter {
+			original.lastPollBlock = updated.lastPollBlock
+
+			// fmt.Printf("updating %s to %d\n", updated.upkeepID, updated.lastPollBlock)
+
+			return original
+		}, entry)
 		// }
 	}
 
