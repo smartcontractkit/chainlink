@@ -81,7 +81,7 @@ func (f *fixedPriceEstimator) BumpLegacyGas(
 		f.config.PriceMax().ToInt(),
 		f.config.BumpMin().ToInt(),
 		f.config.BumpPercent(),
-		assets.NewWeiString,
+		assets.FormatWei,
 	)
 	if err != nil {
 		return nil, 0, err
