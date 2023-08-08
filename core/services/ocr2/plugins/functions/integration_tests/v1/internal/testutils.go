@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/big"
 	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -528,7 +529,6 @@ func CreateFunctionsNodes(
 	owner *bind.TransactOpts,
 	b *backends.SimulatedBackend,
 	routerAddress common.Address,
-	startingPort uint16,
 	nOracleNodes int,
 	maxGas int,
 	ocr2Keystores [][]byte,
@@ -546,7 +546,8 @@ func CreateFunctionsNodes(
 		require.Fail(t, "ocr2Keystores and thresholdKeyShares must have the same length")
 	}
 
-	bootstrapNode = StartNewNode(t, owner, startingPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
+	bootstrapPort := getFreePort(t)
+	bootstrapNode = StartNewNode(t, owner, bootstrapPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
 	AddBootstrapJob(t, bootstrapNode.App, routerAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
@@ -563,8 +564,9 @@ func CreateFunctionsNodes(
 		} else {
 			ocr2Keystore = ocr2Keystores[i]
 		}
-		oracleNode := StartNewNode(t, owner, startingPort+1+uint16(i), fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
-			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", startingPort)}},
+		nodePort := getFreePort(t)
+		oracleNode := StartNewNode(t, owner, nodePort, fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
+			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapPort)}},
 		}, ocr2Keystore, thresholdKeyShare)
 		oracleNodes = append(oracleNodes, oracleNode.App)
 		oracleIdentites = append(oracleIdentites, oracleNode.OracleIdentity)
@@ -576,6 +578,18 @@ func CreateFunctionsNodes(
 	}
 
 	return bootstrapNode, oracleNodes, oracleIdentites
+}
+
+// NOTE: This approach is technically incorrect because the returned port
+// can still be taken by the time the caller attempts to bind to it.
+// Unfortunately, we can't specify zero port in P2P.V2.ListenAddresses at the moment.
+func getFreePort(t *testing.T) uint16 {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	require.NoError(t, err)
+	listener, err := net.ListenTCP("tcp", addr)
+	require.NoError(t, err)
+	require.NoError(t, listener.Close())
+	return uint16(listener.Addr().(*net.TCPAddr).Port)
 }
 
 func ClientTestRequests(

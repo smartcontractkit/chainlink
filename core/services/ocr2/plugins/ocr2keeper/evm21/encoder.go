@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 var (
@@ -84,7 +84,8 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 
 		id, ok := big.NewInt(0).SetString(string(result.Payload.Upkeep.ID), 10)
 		if !ok {
-			return nil, fmt.Errorf("failed to parse big int from upkeep id: %s", string(result.Payload.Upkeep.ID))
+			// TODO auto 4204: handle properly, this is just for happy path
+			id = big.NewInt(0).SetBytes(result.Payload.Upkeep.ID)
 		}
 		report.UpkeepIds[i] = id
 		report.GasLimits[i] = big.NewInt(0).SetUint64(result.GasAllocated)
@@ -93,10 +94,9 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			BlockNum:  uint32(result.Payload.Trigger.BlockNumber),
 			BlockHash: common.HexToHash(result.Payload.Trigger.BlockHash),
 		}
-
-		switch getUpkeepType(id.Bytes()) {
-		case logTrigger:
-			trExt, ok := result.Payload.Trigger.Extension.(logprovider.LogTriggerExtension)
+		switch core.GetUpkeepType(id.Bytes()) {
+		case ocr2keepers.LogTrigger:
+			trExt, ok := result.Payload.Trigger.Extension.(core.LogTriggerExtension)
 			if !ok {
 				// decodeExtensions should catch this, but in the case it doesn't ...
 				return nil, fmt.Errorf("unrecognized trigger extension data")
@@ -113,7 +113,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 			// no special handling here for conditional triggers
 		}
 
-		trigger, err := enc.packer.PackTrigger(id, triggerW)
+		trigger, err := core.PackTrigger(id, triggerW)
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to pack trigger", err)
 		}
@@ -137,15 +137,15 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 	}
 	reportedUpkeeps := make([]ocr2keepers.ReportedUpkeep, len(report.UpkeepIds))
 	for i, upkeepId := range report.UpkeepIds {
-		triggerW, err := enc.packer.UnpackTrigger(upkeepId, report.Triggers[i])
+		triggerW, err := core.UnpackTrigger(upkeepId, report.Triggers[i])
 		if err != nil {
 			// TODO: log error and continue instead?
 			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
 		}
-		logExt := logprovider.LogTriggerExtension{}
+		logExt := core.LogTriggerExtension{}
 
-		switch getUpkeepType(upkeepId.Bytes()) {
-		case logTrigger:
+		switch core.GetUpkeepType(upkeepId.Bytes()) {
+		case ocr2keepers.LogTrigger:
 			logExt.TxHash = common.BytesToHash(triggerW.TxHash[:]).Hex()
 			logExt.LogIndex = int64(triggerW.LogIndex)
 		default:
@@ -155,9 +155,11 @@ func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpk
 			common.BytesToHash(triggerW.BlockHash[:]).Hex(),
 			logExt,
 		)
-		triggerID := UpkeepTriggerID(upkeepId, report.Triggers[i])
+		id := core.UpkeepTriggerID(upkeepId, report.Triggers[i])
+		workID, _ := core.UpkeepWorkID(upkeepId, trigger)
 		reportedUpkeeps[i] = ocr2keepers.ReportedUpkeep{
-			ID:          triggerID,
+			ID:          id,
+			WorkID:      workID,
 			UpkeepID:    ocr2keepers.UpkeepIdentifier(upkeepId.String()),
 			Trigger:     trigger,
 			PerformData: report.PerformDatas[i],
@@ -190,13 +192,13 @@ func decodeExtensions(result *ocr2keepers.CheckResult) error {
 
 	// decode the trigger extension data if not decoded
 	switch typedExt := rC.Payload.Trigger.Extension.(type) {
-	case logprovider.LogTriggerExtension:
+	case core.LogTriggerExtension:
 		// no decoding required
 		break
 	case []byte:
-		switch getUpkeepType(result.Payload.Upkeep.ID) {
-		case logTrigger:
-			var ext logprovider.LogTriggerExtension
+		switch core.GetUpkeepType(result.Payload.Upkeep.ID) {
+		case ocr2keepers.LogTrigger:
+			var ext core.LogTriggerExtension
 
 			// in the case of a string, the value is probably still json
 			// encoded and coming from a plugin outcome
@@ -205,7 +207,7 @@ func decodeExtensions(result *ocr2keepers.CheckResult) error {
 			}
 
 			result.Payload.Trigger.Extension = ext
-		case conditionTrigger:
+		case ocr2keepers.ConditionTrigger:
 			// no special handling for conditional triggers
 			break
 		default:

@@ -103,8 +103,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 							Type:   0,
 							Config: nil,
 						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
+						CheckData: nil,
 						Trigger: ocr2keepers.Trigger{
 							BlockNumber: 26046145,
 						},
@@ -128,8 +127,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 							Type:   0,
 							Config: nil,
 						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
+						CheckData: nil,
 						Trigger: ocr2keepers.Trigger{
 							BlockNumber: 26046145,
 						},
@@ -151,8 +149,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 							Type:   0,
 							Config: nil,
 						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
+						CheckData: nil,
 						Trigger: ocr2keepers.Trigger{
 							BlockNumber: 26046145,
 						},
@@ -170,8 +167,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 							Type:   0,
 							Config: nil,
 						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
+						CheckData: nil,
 						Trigger: ocr2keepers.Trigger{
 							BlockNumber: 26046145,
 						},
@@ -192,8 +188,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 							Type:   0,
 							Config: nil,
 						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
+						CheckData: nil,
 						Trigger: ocr2keepers.Trigger{
 							BlockNumber: 26046145,
 						},
@@ -211,8 +206,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 							Type:   0,
 							Config: nil,
 						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
+						CheckData: nil,
 						Trigger: ocr2keepers.Trigger{
 							BlockNumber: 26046145,
 						},
