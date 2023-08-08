@@ -65,7 +65,7 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, keystore 
 	chainSet, err := solana.NewChainSet(solana.ChainSetOpts{
 		Logger:   c.Logger,
 		KeyStore: keystore,
-		Configs:  solana.NewConfigs(cfg.Solana),
+		Configs:  solana.NewConfigStater(cfg.Solana),
 	}, cfg.Solana)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)

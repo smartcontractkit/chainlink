@@ -8,7 +8,7 @@ import (
 
 // Configs manages cosmos chains and nodes.
 type Configs interface {
-	chains.ChainConfigs
+	chains.ChainConfig
 	chains.NodeConfigs[string, db.Node]
 }
 

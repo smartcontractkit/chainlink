@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
@@ -37,7 +39,7 @@ func (cs SolanaConfigs) validateKeys() (err error) {
 	// Unique node names
 	names := config.UniqueStrings{}
 	for i, c := range cs {
-		for j, n := range c.Nodes {
+		for j, n := range c.nodes {
 			if names.IsDupe(n.Name) {
 				err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.Name", i, j), *n.Name))
 			}
@@ -47,7 +49,7 @@ func (cs SolanaConfigs) validateKeys() (err error) {
 	// Unique URLs
 	urls := config.UniqueStrings{}
 	for i, c := range cs {
-		for j, n := range c.Nodes {
+		for j, n := range c.nodes {
 			u := (*url.URL)(n.URL)
 			if urls.IsDupeFmt(u) {
 				err = multierr.Append(err, config.NewErrDuplicate(fmt.Sprintf("%d.Nodes.%d.URL", i, j), u.String()))
@@ -74,114 +76,6 @@ func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) (err error) {
 	}
 	return
 }
-
-func (cs SolanaConfigs) Chains(ids ...string) (r []types.ChainStatus, err error) {
-	for _, ch := range cs {
-		if ch == nil {
-			continue
-		}
-		if len(ids) > 0 {
-			var match bool
-			for _, id := range ids {
-				if id == *ch.ChainID {
-					match = true
-					break
-				}
-			}
-			if !match {
-				continue
-			}
-		}
-		ch2 := types.ChainStatus{
-			ID:      *ch.ChainID,
-			Enabled: ch.IsEnabled(),
-		}
-		ch2.Config, err = ch.TOMLString()
-		if err != nil {
-			return
-		}
-		r = append(r, ch2)
-	}
-	return
-}
-
-func (cs SolanaConfigs) Node(name string) (soldb.Node, error) {
-	for i := range cs {
-		for _, n := range cs[i].Nodes {
-			if n.Name != nil && *n.Name == name {
-				return legacySolNode(n, *cs[i].ChainID), nil
-			}
-		}
-	}
-	return soldb.Node{}, chains.ErrNotFound
-}
-
-func (cs SolanaConfigs) nodes(chainID string) (ns SolanaNodes) {
-	for _, c := range cs {
-		if *c.ChainID == chainID {
-			return c.Nodes
-		}
-	}
-	return nil
-}
-
-func (cs SolanaConfigs) Nodes(chainID string) (ns []soldb.Node, err error) {
-	nodes := cs.nodes(chainID)
-	if nodes == nil {
-		err = chains.ErrNotFound
-		return
-	}
-	for _, n := range nodes {
-		if n == nil {
-			continue
-		}
-		ns = append(ns, legacySolNode(n, chainID))
-	}
-	return
-}
-
-func (cs SolanaConfigs) NodeStatus(name string) (types.NodeStatus, error) {
-	for i := range cs {
-		for _, n := range cs[i].Nodes {
-			if n.Name != nil && *n.Name == name {
-				return nodeStatus(n, *cs[i].ChainID)
-			}
-		}
-	}
-	return types.NodeStatus{}, chains.ErrNotFound
-}
-
-func (cs SolanaConfigs) NodeStatuses(chainIDs ...string) (ns []types.NodeStatus, err error) {
-	if len(chainIDs) == 0 {
-		for i := range cs {
-			for _, n := range cs[i].Nodes {
-				if n == nil {
-					continue
-				}
-				n2, err := nodeStatus(n, *cs[i].ChainID)
-				if err != nil {
-					return nil, err
-				}
-				ns = append(ns, n2)
-			}
-		}
-		return
-	}
-	for _, id := range chainIDs {
-		for _, n := range cs.nodes(id) {
-			if n == nil {
-				continue
-			}
-			n2, err := nodeStatus(n, id)
-			if err != nil {
-				return nil, err
-			}
-			ns = append(ns, n2)
-		}
-	}
-	return
-}
-
 func nodeStatus(n *solcfg.Node, chainID string) (types.NodeStatus, error) {
 	var s types.NodeStatus
 	s.ChainID = chainID
@@ -227,11 +121,83 @@ func legacySolNode(n *solcfg.Node, chainID string) soldb.Node {
 	}
 }
 
+func nodeFromLegacy(l soldb.Node) (*solcfg.Node, error) {
+	url, err := utils.ParseURL(l.SolanaURL)
+	if err != nil {
+		return nil, err
+	}
+	return &solcfg.Node{
+		Name: &l.Name,
+		URL:  url,
+	}, nil
+}
+
 type SolanaConfig struct {
 	ChainID *string
 	Enabled *bool
 	solcfg.Chain
-	Nodes SolanaNodes
+	nodes SolanaNodes
+}
+
+func (c *SolanaConfig) ChainStatus() (stat types.ChainStatus, err error) {
+
+	stat = types.ChainStatus{
+		ID:      *c.ChainID,
+		Enabled: c.IsEnabled(),
+	}
+	stat.Config, err = c.TOMLString()
+	if err != nil {
+		return stat, err
+	}
+
+	return stat, nil
+}
+
+func (c *SolanaConfig) Nodes(names ...string) (nodes []soldb.Node, err error) {
+	filter := func(filterFn func(node *solcfg.Node) bool) {
+		for _, n := range c.nodes {
+			if n.Name != nil {
+				if filterFn(n) {
+					nodes = append(nodes, legacySolNode(n, *c.ChainID))
+				}
+			}
+		}
+	}
+	if len(names) == 0 {
+		allNodes := func(ignored *solcfg.Node) bool { return true }
+		filter(allNodes)
+	} else {
+		for _, name := range names {
+			matchName := func(node *solcfg.Node) bool { return name == *node.Name }
+			filter(matchName)
+		}
+	}
+
+	return nodes, nil
+}
+
+func (c SolanaConfig) NodeStatuses(names ...string) ([]types.NodeStatus, error) {
+	legacyNodes, err := c.Nodes(names...)
+	if err != nil {
+		return nil, err
+	}
+	stats := make([]types.NodeStatus, 0)
+	for _, legacyNodes := range legacyNodes {
+		n, err2 := nodeFromLegacy(legacyNodes)
+		if err2 != nil {
+			err = errors.Join(err, err2)
+			continue
+		}
+
+		stat, err2 := nodeStatus(n, *c.ChainID)
+		if err2 != nil {
+			err = errors.Join(err, err2)
+			continue
+		}
+		stats = append(stats, stat)
+	}
+	return stats, err
+
 }
 
 func (c *SolanaConfig) IsEnabled() bool {
@@ -246,7 +212,7 @@ func (c *SolanaConfig) SetFrom(f *SolanaConfig) {
 		c.Enabled = f.Enabled
 	}
 	setFromChain(&c.Chain, &f.Chain)
-	c.Nodes.SetFrom(&f.Nodes)
+	c.nodes.SetFrom(&f.nodes)
 }
 
 func setFromChain(c, f *solcfg.Chain) {
@@ -289,7 +255,7 @@ func (c *SolanaConfig) ValidateConfig() (err error) {
 		err = multierr.Append(err, config.ErrEmpty{Name: "ChainID", Msg: "required for all chains"})
 	}
 
-	if len(c.Nodes) == 0 {
+	if len(c.nodes) == 0 {
 		err = multierr.Append(err, config.ErrMissing{Name: "Nodes", Msg: "must have at least one node"})
 	}
 	return
@@ -369,14 +335,14 @@ func (c *SolanaConfig) FeeBumpPeriod() time.Duration {
 	return c.Chain.FeeBumpPeriod.Duration()
 }
 
-// Configs manages solana chains and nodes.
-type Configs interface {
-	chains.ChainConfigs
-	chains.NodeConfigs[string, soldb.Node]
+// ConfigStater manages solana chains and nodes.
+type ConfigStater interface {
+	chains.ChainConfig
+	chains.NodeConfigs[soldb.Node]
 }
 
-var _ chains.Configs[string, soldb.Node] = (Configs)(nil)
+var _ chains.Statuser[soldb.Node] = (ConfigStater)(nil)
 
-func NewConfigs(cfgs chains.ConfigsV2[string, soldb.Node]) Configs {
+func NewConfigStater(cfgs chains.ConfigsV2[soldb.Node]) ConfigStater {
 	return chains.NewConfigs(cfgs)
 }

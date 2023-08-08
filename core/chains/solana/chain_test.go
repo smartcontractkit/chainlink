@@ -48,7 +48,7 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	testChain := chain{
 		id:          "devnet",
-		nodes:       solORM.Nodes,
+		statuser:    solORM,
 		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
 		lggr:        logger.TestLogger(t),
 		clientCache: map[string]*verifiedCachedClient{},
@@ -213,24 +213,25 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 	assert.Equal(t, testChain.clientCache[mockServer.URL], client1)
 }
 
-var _ Configs = &mockConfigs{}
+var _ ConfigStater = &mockConfigs{}
 
 type mockConfigs struct {
 	nodesForChain []db.Node
 }
 
-func (m *mockConfigs) Nodes(chainID string) (nodes []db.Node, err error) {
-	return m.nodesForChain, nil
-}
-
-func (m *mockConfigs) Chains(offset, limit int, ids ...string) ([]types.ChainStatus, int, error) {
+func (m *mockConfigs) ChainStatus() (types.ChainStatus, error) {
 	panic("unimplemented")
 }
 
-func (m *mockConfigs) Node(s string) (db.Node, error) { panic("unimplemented") }
+func (m *mockConfigs) Nodes(names ...string) ([]db.Node, error) {
+	if len(names) != 0 {
+		panic("expected to list all nodes")
+	}
+	return m.nodesForChain, nil
+}
 
 func (m *mockConfigs) NodeStatus(s string) (types.NodeStatus, error) { panic("unimplemented") }
 
-func (m *mockConfigs) NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
+func (m *mockConfigs) NodeStatusesPaged(offset, limit int) (nodes []types.NodeStatus, count int, err error) {
 	panic("unimplemented")
 }

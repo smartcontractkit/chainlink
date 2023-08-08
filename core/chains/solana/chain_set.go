@@ -13,13 +13,13 @@ import (
 )
 
 // ChainSetOpts holds options for configuring a ChainSet.
-type ChainSetOpts struct {
-	Logger   logger.Logger
-	KeyStore loop.Keystore
-	Configs  Configs
+type ChainServiceOpts struct {
+	Logger            logger.Logger
+	KeyStore          loop.Keystore
+	ChainNodeStatuser ConfigStater
 }
 
-func (o *ChainSetOpts) Validate() (err error) {
+func (o *ChainServiceOpts) Validate() (err error) {
 	required := func(s string) error {
 		return errors.Errorf("%s is required", s)
 	}
@@ -29,27 +29,28 @@ func (o *ChainSetOpts) Validate() (err error) {
 	if o.KeyStore == nil {
 		err = multierr.Append(err, required("KeyStore"))
 	}
-	if o.Configs == nil {
+	if o.ChainNodeStatuser == nil {
 		err = multierr.Append(err, required("Configs"))
 	}
 	return
 }
 
-func (o *ChainSetOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logger.Logger) {
-	return o.Configs, o.Logger
+func (o *ChainServiceOpts) ConfigsAndLogger() (chains.Statuser[db.Node], logger.Logger) {
+	return o.ChainNodeStatuser, o.Logger
 }
 
-func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
+func NewTOMLChain(cfg *SolanaConfig, o ChainServiceOpts) (solana.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
-	c, err := newChain(*cfg.ChainID, cfg, o.KeyStore, o.Configs, o.Logger)
+	c, err := newChain(*cfg.ChainID, cfg, o)
 	if err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 
+/*
 func NewChainSet(opts ChainSetOpts, cfgs SolanaConfigs) (solana.ChainSet, error) {
 	solChains := map[string]solana.Chain{}
 	var err error
@@ -69,3 +70,4 @@ func NewChainSet(opts ChainSetOpts, cfgs SolanaConfigs) (solana.ChainSet, error)
 	}
 	return chains.NewChainSet[db.Node, solana.Chain](solChains, &opts)
 }
+*/

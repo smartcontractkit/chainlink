@@ -65,7 +65,7 @@ func (o *ChainSetOpts) Validate() (err error) {
 	return
 }
 
-func (o *ChainSetOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logger.Logger) {
+func (o *ChainSetOpts) ConfigsAndLogger() (chains.Statuser[string, db.Node], logger.Logger) {
 	return o.Configs, o.Logger
 }
 

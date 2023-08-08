@@ -4,20 +4,20 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
-type ChainConfigs interface {
-	Chains(offset, limit int, ids ...string) ([]types.ChainStatus, int, error)
+type ChainConfig interface {
+	ChainStatus() (types.ChainStatus, error)
 }
 
-type NodeConfigs[I ID, N Node] interface {
-	Node(name string) (N, error)
-	Nodes(chainID I) (nodes []N, err error)
+type NodeConfigs[N Node] interface {
+	//Node(name string) (N, error)
+	Nodes(names ...string) (nodes []N, err error)
 
 	NodeStatus(name string) (types.NodeStatus, error)
-	NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
+	NodeStatusesPaged(offset, limit int) (nodes []types.NodeStatus, count int, err error)
 }
 
-// Configs holds chain and node configurations.
-type Configs[I ID, N Node] interface {
-	ChainConfigs
-	NodeConfigs[I, N]
+// Statuser holds chain and node configurations.
+type Statuser[N Node] interface {
+	ChainConfig
+	NodeConfigs[N]
 }

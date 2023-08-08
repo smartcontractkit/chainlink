@@ -2,12 +2,9 @@ package chains
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -24,31 +21,33 @@ var (
 
 // ChainStatuser is a generic interface for chain configuration.
 type ChainStatuser interface {
-	ChainStatus(ctx context.Context, id string) (types.ChainStatus, error)
-	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
+	ChainStatus(ctx context.Context) (types.ChainStatus, error)
+	// ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
 }
 
 // NodesStatuser is an interface for node configuration and state.
 type NodesStatuser interface {
-	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
+	NodeStatuses(ctx context.Context, offset, limit int) (nodes []types.NodeStatus, count int, err error)
 }
 
 // ChainService is a live, runtime chain instance, with supporting services.
 type ChainService interface {
 	services.ServiceCtx
+	ChainStatus(ctx context.Context) (types.ChainStatus, error)
+	NodeStatuses(ctx context.Context, offset, limit int) (nodes []types.NodeStatus, count int, err error)
 	SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 // ChainSetOpts holds options for configuring a ChainSet via NewChainSet.
 type ChainSetOpts[I ID, N Node] interface {
 	Validate() error
-	ConfigsAndLogger() (Configs[I, N], logger.Logger)
+	ConfigsAndLogger() (Statuser[N], logger.Logger)
 }
 
 type chainSet[N Node, S ChainService] struct {
 	utils.StartStopOnce
 	opts    ChainSetOpts[string, N]
-	configs Configs[string, N]
+	configs Statuser[N]
 	lggr    logger.Logger
 	chains  map[string]S
 }
@@ -85,80 +84,41 @@ func (c *chainSet[N, S]) Chain(ctx context.Context, id string) (s S, err error) 
 }
 
 func (c *chainSet[N, S]) ChainStatus(ctx context.Context, id string) (cfg types.ChainStatus, err error) {
-	var cs []types.ChainStatus
-	cs, _, err = c.configs.Chains(0, -1, id)
-	if err != nil {
-		return
-	}
-	l := len(cs)
-	if l == 0 {
-		err = ErrNotFound
-		return
-	}
-	if l > 1 {
-		err = fmt.Errorf("multiple chains found: %d", len(cs))
-		return
-	}
-	cfg = cs[0]
+	panic("unimplemented")
 	return
 }
 
-func (c *chainSet[N, S]) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
-	return c.configs.Chains(offset, limit)
+func (c *chainSet[N, S]) ChainStatuses(ctx context.Context, offset, limit int) (x []types.ChainStatus, y int, z error) {
+	panic("unimplemented")
+	return
 }
 
 func (c *chainSet[N, S]) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
-	return c.configs.NodeStatusesPaged(offset, limit, chainIDs...)
-}
-
-func (c *chainSet[N, S]) SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error {
-	chain, err := c.Chain(ctx, chainID)
-	if err != nil {
-		return err
-	}
-
-	return chain.SendTx(ctx, from, to, amount, balanceCheck)
-}
-
-func (c *chainSet[N, S]) Start(ctx context.Context) error {
-	return c.StartOnce("ChainSet", func() error {
-		c.lggr.Debug("Starting")
-
-		var ms services.MultiStart
-		for id, ch := range c.chains {
-			if err := ms.Start(ctx, ch); err != nil {
-				return errors.Wrapf(err, "failed to start chain %q", id)
-			}
-		}
-		c.lggr.Info(fmt.Sprintf("Started %d chains", len(c.chains)))
-		return nil
-	})
-}
-
-func (c *chainSet[N, S]) Close() error {
-	return c.StopOnce("ChainSet", func() error {
-		c.lggr.Debug("Stopping")
-
-		return services.MultiCloser(maps.Values(c.chains)).Close()
-	})
-}
-
-func (c *chainSet[N, S]) Ready() (err error) {
-	err = c.StartStopOnce.Ready()
-	for _, c := range c.chains {
-		err = multierr.Combine(err, c.Ready())
-	}
+	panic("unimplemented")
 	return
 }
 
+func (c *chainSet[N, S]) SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error {
+	panic("unimplemented")
+	return nil
+}
+
+func (c *chainSet[N, S]) Start(ctx context.Context) error {
+	panic("unimplemented")
+}
+
+func (c *chainSet[N, S]) Close() error {
+	panic("unimplemented")
+}
+
+func (c *chainSet[N, S]) Ready() (err error) {
+	panic("unimplemented")
+}
+
 func (c *chainSet[N, S]) Name() string {
-	return c.lggr.Name()
+	panic("unimplemented")
 }
 
 func (c *chainSet[N, S]) HealthReport() map[string]error {
-	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
-	for _, c := range c.chains {
-		maps.Copy(report, c.HealthReport())
-	}
-	return report
+	panic("unimplemented")
 }

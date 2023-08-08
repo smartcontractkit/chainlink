@@ -1,86 +1,68 @@
 package chains
 
-import "github.com/smartcontractkit/chainlink-relay/pkg/types"
+import (
+	"context"
 
-type configsV2AsV1[I ID, N Node] struct {
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+)
+
+type configsV2AsV1[N Node] struct {
 	*configChains
-	*configNodes[I, N]
+	*configNodes[N]
 }
 
-type ConfigsV2[I ID, N Node] interface {
-	chainConfigsV2
-	nodeConfigsV2[I, N]
+type ConfigsV2[N Node] interface {
+	//chainConfigsV2
+	ChainStatuser
+	nodeConfigsV2[N]
 }
 
 // NewConfigs returns a [Configs] backed by [ConfigsV2].
-func NewConfigs[I ID, N Node](cfgs ConfigsV2[I, N]) Configs[I, N] {
-	return configsV2AsV1[I, N]{
-		newConfigChains[I](cfgs),
-		newConfigNodes[I, N](cfgs),
+func NewConfigs[N Node](cfgs ConfigsV2[N]) Statuser[N] {
+	return configsV2AsV1[N]{
+		newConfigChains(cfgs),
+		newConfigNodes[N](cfgs),
 	}
 }
 
 // configChains is a generic, immutable Configs for chains.
 type configChains struct {
-	v2 chainConfigsV2
+	x ChainStatuser
 }
 
 type chainConfigsV2 interface {
-	Chains(ids ...string) ([]types.ChainStatus, error)
+	ChainStatus() (types.ChainStatus, error)
+	//Chains(ids ...string) ([]types.ChainStatus, error)
+
 }
 
 // newConfigChains returns a chains backed by chains.
-func newConfigChains[I ID](d chainConfigsV2) *configChains {
-	return &configChains{v2: d}
+func newConfigChains(d ChainStatuser) *configChains {
+	return &configChains{x: d}
 }
 
-func (o *configChains) Chains(offset, limit int, ids ...string) (chains []types.ChainStatus, count int, err error) {
-	chains, err = o.v2.Chains(ids...)
-	if err != nil {
-		return
-	}
-	count = len(chains)
-	if offset < len(chains) {
-		chains = chains[offset:]
-	} else {
-		chains = nil
-	}
-	if limit > 0 && len(chains) > limit {
-		chains = chains[:limit]
-	}
-	return
+func (c *configChains) ChainStatus() (types.ChainStatus, error) {
+	return c.x.ChainStatus(context.Background())
 }
 
-type nodeConfigsV2[I ID, N Node] interface {
-	Node(name string) (N, error)
-	Nodes(chainID I) ([]N, error)
+type nodeConfigsV2[N Node] interface {
+	NodeConfigs[N]
+	/*
+		Nodes(names ...string) (nodes []N, err error)
 
-	NodeStatus(name string) (types.NodeStatus, error)
-	NodeStatuses(chainIDs ...string) (nodes []types.NodeStatus, err error)
+		NodeStatus(name string) (types.NodeStatus, error)
+		NodeStatusesPaged(offset, limit int) (nodes []types.NodeStatus, count int, err error)
+
+		Node(name string) (N, error)
+		NodeStatuses(name ...string) ([]types.NodeStatus, error)
+	*/
 }
 
 // configNodes is a generic Configs for nodes.
-type configNodes[I ID, N Node] struct {
-	nodeConfigsV2[I, N]
+type configNodes[N Node] struct {
+	nodeConfigsV2[N]
 }
 
-func newConfigNodes[I ID, N Node](d nodeConfigsV2[I, N]) *configNodes[I, N] {
-	return &configNodes[I, N]{d}
-}
-
-func (o *configNodes[I, N]) NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
-	nodes, err = o.nodeConfigsV2.NodeStatuses(chainIDs...)
-	if err != nil {
-		return
-	}
-	count = len(nodes)
-	if offset < len(nodes) {
-		nodes = nodes[offset:]
-	} else {
-		nodes = nil
-	}
-	if limit > 0 && len(nodes) > limit {
-		nodes = nodes[:limit]
-	}
-	return
+func newConfigNodes[N Node](d nodeConfigsV2[N]) *configNodes[N] {
+	return &configNodes[N]{d}
 }

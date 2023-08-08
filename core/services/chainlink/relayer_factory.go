@@ -110,7 +110,7 @@ func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCon
 			opts := solana.ChainSetOpts{
 				Logger:   solLggr,
 				KeyStore: signer,
-				Configs:  solana.NewConfigs(singleChainCfg),
+				Configs:  solana.NewConfigStater(singleChainCfg),
 			}
 			chainSet, err := solana.NewChainSet(opts, singleChainCfg)
 			if err != nil {

@@ -17,7 +17,7 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
@@ -41,8 +41,10 @@ type chain struct {
 	cfg            config.Config
 	txm            *txm.Txm
 	balanceMonitor services.ServiceCtx
-	nodes          func(chainID string) (nodes []db.Node, err error)
-	lggr           logger.Logger
+	//TODO any reason that this is not static?
+	//nodes          func() (nodes []db.Node, err error)
+	lggr     logger.Logger
+	statuser ConfigStater
 
 	// tracking node chain id for verification
 	clientCache map[string]*verifiedCachedClient // map URL -> {client, chainId} [mainnet/testnet/devnet/localnet]
@@ -172,20 +174,20 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 	return v.ReaderWriter.GetAccountInfoWithOpts(ctx, addr, opts)
 }
 
-func newChain(id string, cfg config.Config, ks loop.Keystore, cfgs Configs, lggr logger.Logger) (*chain, error) {
-	lggr = logger.With(lggr, "chainID", id, "chainSet", "solana")
+func newChain(id string, cfg config.Config, opts ChainServiceOpts) (*chain, error) {
+	lggr := logger.With(opts.Logger, "chainID", id, "chainSet", "solana")
 	var ch = chain{
 		id:          id,
 		cfg:         cfg,
-		nodes:       cfgs.Nodes,
-		lggr:        logger.Named(lggr, "Chain"),
+		statuser:    opts.ChainNodeStatuser,
+		lggr:        logger.Named(opts.Logger, "Chain"),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
 	tc := func() (client.ReaderWriter, error) {
 		return ch.getClient()
 	}
-	ch.txm = txm.NewTxm(ch.id, tc, cfg, ks, lggr)
-	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
+	ch.txm = txm.NewTxm(ch.id, tc, cfg, opts.KeyStore, lggr)
+	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, opts.KeyStore, ch.Reader)
 	return &ch, nil
 }
 
@@ -213,7 +215,7 @@ func (c *chain) Reader() (client.Reader, error) {
 func (c *chain) getClient() (client.ReaderWriter, error) {
 	var node db.Node
 	var client client.ReaderWriter
-	nodes, err := c.nodes(c.id) // opt: pass static nodes set to constructor
+	nodes, err := c.statuser.Nodes() // opt: pass static nodes set to constructor
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}
@@ -276,6 +278,45 @@ func (c *chain) verifiedClient(node db.Node) (client.ReaderWriter, error) {
 	}
 
 	return cl, nil
+}
+
+func (c *chain) NodeStatuses(ctx context.Context, offset, limit int) (nodes []types.NodeStatus, count int, err error) {
+	type result struct {
+		stats []types.NodeStatus
+		cnt   int
+		err   error
+	}
+	ch := make(chan (result), 1)
+	go func() {
+		stats, cnt, err := c.statuser.NodeStatusesPaged(offset, limit)
+		ch <- result{stats: stats, cnt: cnt, err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, -1, ctx.Err()
+	case r := <-ch:
+		return r.stats, r.cnt, r.err
+	}
+}
+
+func (c *chain) ChainStatus(ctx context.Context) (types.ChainStatus, error) {
+	type result struct {
+		types.ChainStatus
+		error
+	}
+	ch := make(chan (result), 1)
+	go func() {
+		s, err := c.statuser.ChainStatus()
+		ch <- result{ChainStatus: s, error: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return types.ChainStatus{}, ctx.Err()
+	case r := <-ch:
+		return r.ChainStatus, r.error
+	}
 }
 
 func (c *chain) Start(ctx context.Context) error {
