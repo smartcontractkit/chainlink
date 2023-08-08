@@ -44,8 +44,8 @@ type LogEventProvider interface {
 	RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfig) error
 	// UnregisterFilter removes the filter for the given upkeepID.
 	UnregisterFilter(upkeepID *big.Int) error
-	// GetLogs returns the logs in the given range.
-	GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload, error)
+	// GetLatestPayloads returns the logs in the given range.
+	GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error)
 }
 
 type LogEventProviderTest interface {
