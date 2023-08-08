@@ -313,6 +313,10 @@ func TestBlockSubscriber_Start(t *testing.T) {
 			Number: 101,
 			Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
 		},
+		ocr2keepers.BlockKey{
+			Number: 100,
+			Hash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
+		},
 	}, bk1)
 
 	// add 2nd subscriber
@@ -333,6 +337,14 @@ func TestBlockSubscriber_Start(t *testing.T) {
 				Number: 103,
 				Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
 			},
+			ocr2keepers.BlockKey{
+				Number: 101,
+				Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+			},
+			ocr2keepers.BlockKey{
+				Number: 100,
+				Hash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
+			},
 		},
 		bk1,
 	)
@@ -342,6 +354,14 @@ func TestBlockSubscriber_Start(t *testing.T) {
 			ocr2keepers.BlockKey{
 				Number: 103,
 				Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+			},
+			ocr2keepers.BlockKey{
+				Number: 101,
+				Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+			},
+			ocr2keepers.BlockKey{
+				Number: 100,
+				Hash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
 			},
 		},
 		bk2,
