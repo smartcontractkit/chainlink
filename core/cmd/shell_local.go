@@ -31,6 +31,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	pkgcosmosparams "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/params"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -433,6 +434,10 @@ func (s *Shell) runNode(c *cli.Context) error {
 		}
 	}
 	if s.Config.CosmosEnabled() {
+		pkgcosmosparams.InitCosmosSdk(
+			/* bech32Prefix= */ "wasm",
+			/* token= */ "cosm",
+		)
 		err2 := app.GetKeyStore().Cosmos().EnsureKey()
 		if err2 != nil {
 			return errors.Wrap(err2, "failed to ensure cosmos key")
