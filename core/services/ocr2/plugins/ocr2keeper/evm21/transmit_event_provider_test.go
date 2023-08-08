@@ -90,7 +90,7 @@ func TestTransmitEventProvider(t *testing.T) {
 			mp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, nil)
 			mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.logs, nil)
 
-			res, err := provider.Events(ctx)
+			res, err := provider.TransmitEvents(ctx)
 			require.Equal(t, tc.errored, err != nil)
 			require.Len(t, res, tc.resultsLen)
 		})

@@ -23,6 +23,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/config"
+	ocr2keepers21 "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -1247,6 +1248,6 @@ func (l *logWriter) Write(p []byte) (n int, err error) {
 type mockRecoverableProvider struct {
 }
 
-func (_m *mockRecoverableProvider) GetRecoverables() ([]ocr2keepers.UpkeepPayload, error) {
+func (_m *mockRecoverableProvider) GetRecoveryProposals() ([]ocr2keepers21.UpkeepPayload, error) {
 	return nil, nil
 }
