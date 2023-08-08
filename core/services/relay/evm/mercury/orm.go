@@ -19,20 +19,28 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
-type ORM struct {
+type ORM interface {
+	InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error
+	DeleteTransmitRequests(reqs []*pb.TransmitRequest, qopts ...pg.QOpt) error
+	GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error)
+	PruneTransmitRequests(maxSize int, qopts ...pg.QOpt) error
+	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
+}
+
+type orm struct {
 	q pg.Q
 }
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *ORM {
+func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	namedLogger := lggr.Named("MercuryORM")
 	q := pg.NewQ(db, namedLogger, cfg)
-	return &ORM{
+	return &orm{
 		q: q,
 	}
 }
 
 // InsertTransmitRequest inserts one transmit request if the payload does not exist already.
-func (o *ORM) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
+func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -55,7 +63,7 @@ func (o *ORM) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.
 		// TODO: Cleanup on job delete?
 		defer wg.Done()
 		err2 = q.ExecQ(`
-		INSERT INTO mercury_latest_reports (feed_id, report, updated_at)
+		INSERT INTO feed_latest_reports (feed_id, report, updated_at)
 		VALUES ($1, $2, NOW())
 		ON CONFLICT (feed_id) DO UPDATE SET feed_id=$1, report=$2, updated_at=NOW()
 		`, feedID[:], req.Payload)
@@ -65,7 +73,7 @@ func (o *ORM) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.
 }
 
 // DeleteTransmitRequest deletes the given transmit requests if they exist.
-func (o *ORM) DeleteTransmitRequests(reqs []*pb.TransmitRequest, qopts ...pg.QOpt) error {
+func (o *orm) DeleteTransmitRequests(reqs []*pb.TransmitRequest, qopts ...pg.QOpt) error {
 	if len(reqs) == 0 {
 		return nil
 	}
@@ -84,7 +92,7 @@ func (o *ORM) DeleteTransmitRequests(reqs []*pb.TransmitRequest, qopts ...pg.QOp
 }
 
 // GetTransmitRequests returns all transmit requests in chronologically descending order.
-func (o *ORM) GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error) {
+func (o *orm) GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error) {
 	q := o.q.WithOpts(qopts...)
 	// The priority queue uses epoch and round to sort transmissions so order by
 	// the same fields here for optimal insertion into the pq.
@@ -127,7 +135,7 @@ func (o *ORM) GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error) {
 
 // PruneTransmitRequests keeps at most maxSize rows in the table, deleting the
 // oldest transactions.
-func (o *ORM) PruneTransmitRequests(maxSize int, qopts ...pg.QOpt) error {
+func (o *orm) PruneTransmitRequests(maxSize int, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	// Prune the oldest requests by epoch and round.
 	return q.ExecQ(`
@@ -141,9 +149,9 @@ func (o *ORM) PruneTransmitRequests(maxSize int, qopts ...pg.QOpt) error {
 	`, maxSize)
 }
 
-func (o *ORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
+func (o *orm) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
 	q := o.q.WithOpts(qopts...)
-	err = q.GetContext(ctx, &report, `SELECT report FROM mercury_latest_reports WHERE feed_id = $1`, feedID[:])
+	err = q.GetContext(ctx, &report, `SELECT report FROM feed_latest_reports WHERE feed_id = $1`, feedID[:])
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

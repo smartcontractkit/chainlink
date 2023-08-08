@@ -9,13 +9,11 @@ import (
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
@@ -25,7 +23,6 @@ type Config interface {
 }
 
 func NewServices(
-	db *sqlx.DB,
 	jb job.Job,
 	ocr2Provider relaytypes.MercuryProvider,
 	pipelineRunner pipeline.Runner,
@@ -35,8 +32,8 @@ func NewServices(
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 	chainHeadTracker mercury.ChainHeadTracker,
+	orm mercury.DataSourceORM,
 	feedID [32]byte,
-	qcfg pg.QConfig,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
@@ -51,7 +48,6 @@ func NewServices(
 		return nil, err
 	}
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
-	orm := mercury.NewORM(db, lggr, qcfg)
 	ds := mercury.NewDataSource(
 		orm,
 		pipelineRunner,

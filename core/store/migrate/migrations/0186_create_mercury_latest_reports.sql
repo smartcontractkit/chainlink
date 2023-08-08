@@ -1,6 +1,6 @@
 -- +goose Up
 
-CREATE TABLE mercury_latest_reports (
+CREATE TABLE feed_latest_reports (
   feed_id BYTEA PRIMARY KEY CHECK (octet_length(feed_id) = 32),
   report BYTEA NOT NULL,
   updated_at TIMESTAMPTZ
@@ -8,4 +8,4 @@ CREATE TABLE mercury_latest_reports (
 
 -- +goose Down
 
-DROP TABLE mercury_latest_reports;
+DROP TABLE feed_latest_reports;
