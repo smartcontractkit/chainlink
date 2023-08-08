@@ -50,7 +50,7 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	if spec.EVMChainID == nil {
 		return jb, notSet("evmChainID")
 	}
-	if spec.TrustedBlockhashStoreAddress.Hex() != EmptyAddress && spec.TrustedBlockhashStoreBatchSize == 0 {
+	if spec.TrustedBlockhashStoreAddress != nil && spec.TrustedBlockhashStoreAddress.Hex() != EmptyAddress && spec.TrustedBlockhashStoreBatchSize == 0 {
 		return jb, notSet("trustedBlockhashStoreBatchSize")
 	}
 
@@ -72,10 +72,10 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	if spec.WaitBlocks >= spec.LookbackBlocks {
 		return jb, errors.New(`"waitBlocks" must be less than "lookbackBlocks"`)
 	}
-	if spec.TrustedBlockhashStoreAddress.Hex() == EmptyAddress && spec.WaitBlocks >= 256 {
+	if (spec.TrustedBlockhashStoreAddress == nil || spec.TrustedBlockhashStoreAddress.Hex() == EmptyAddress) && spec.WaitBlocks >= 256 {
 		return jb, errors.New(`"waitBlocks" must be less than 256`)
 	}
-	if spec.TrustedBlockhashStoreAddress.Hex() == EmptyAddress && spec.LookbackBlocks >= 256 {
+	if (spec.TrustedBlockhashStoreAddress == nil || spec.TrustedBlockhashStoreAddress.Hex() == EmptyAddress) && spec.LookbackBlocks >= 256 {
 		return jb, errors.New(`"lookbackBlocks" must be less than 256`)
 	}
 
