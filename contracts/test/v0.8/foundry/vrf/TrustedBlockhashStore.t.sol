@@ -4,7 +4,7 @@ import "../BaseTest.t.sol";
 import {TrustedBlockhashStore} from "../../../../src/v0.8/dev/vrf/TrustedBlockhashStore.sol";
 import {console} from "forge-std/console.sol";
 
-contract TrustedBlockhasStoreTest is BaseTest {
+contract TrustedBlockhashStoreTest is BaseTest {
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
   address internal constant LINK_WHALE_2 = 0xe9b2C5A6D9bA93dD354783a9De0a265da7551a20;
   TrustedBlockhashStore bhs;
