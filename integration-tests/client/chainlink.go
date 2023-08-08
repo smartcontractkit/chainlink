@@ -29,6 +29,7 @@ var (
 		"evm":      "eTHKeys",
 		"solana":   "encryptedSolanaKeys",
 		"starknet": "encryptedStarkNetKeys",
+		"cosmos":   "cosmosKeys",
 	}
 )
 
