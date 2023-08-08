@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -213,10 +213,10 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 		triggerID := l.TriggerID()
 		vals = append(vals, ocr2keepers.TransmitEvent{
 			Type:            l.TransmitEventType(),
-			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(l.BlockNumber),
+			TransmitBlock:   ocr2keepers.BlockNumber(l.BlockNumber),
 			Confirmations:   latestBlock - l.BlockNumber,
-			TransactionHash: l.TxHash.Hex(),
-			ID:              triggerID,
+			TransactionHash: l.TxHash,
+			WorkID:          triggerID,
 			UpkeepID:        upkeepId,
 		})
 	}

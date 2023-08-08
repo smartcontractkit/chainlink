@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -125,7 +125,7 @@ func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 				{
 					Type:       ocr2keepers.PerformEvent,
 					UpkeepID:   ocr2keepers.UpkeepIdentifier(id.Bytes()),
-					CheckBlock: ocr2keepers.BlockKey(""), // empty for log triggers
+					CheckBlock: ocr2keepers.BlockNumber(0), // empty for log triggers
 				},
 			},
 			false,
