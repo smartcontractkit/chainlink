@@ -4,22 +4,22 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"math/rand"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
-	"io"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
 
-	"github.com/shopspring/decimal"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -38,12 +38,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
-	reportcodec "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v0"
-	
+	reportcodec "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func createBridge(t *testing.T, name string, val int, multiplier int64, p *big.Int, pError *atomic.Int64, borm bridges.ORM) (bridgeName string) {
@@ -198,7 +197,7 @@ func TestIntegration_Mercury_V0(t *testing.T) {
 		for j, feed := range feeds {
 			bmBridge := createBridge(t, fmt.Sprintf("benchmarkprice-%d", j), i, multiplier, feed.baseBenchmarkPrice, &pError, node.App.BridgeORM())
 			askBridge := createBridge(t, fmt.Sprintf("ask-%d", j), i, multiplier, feed.baseAsk, &pError, node.App.BridgeORM())
-			bidBridge := createBridge(t, fmt.Sprintf("bid-%d", j), i, multiplier, feed.baseBid,&pError, node.App.BridgeORM())
+			bidBridge := createBridge(t, fmt.Sprintf("bid-%d", j), i, multiplier, feed.baseBid, &pError, node.App.BridgeORM())
 
 			addMercuryJob(
 				t,

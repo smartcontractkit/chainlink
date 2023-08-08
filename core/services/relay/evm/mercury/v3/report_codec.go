@@ -1,4 +1,4 @@
-package mercury_v2
+package mercury_v3
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	reportcodec "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
+	reportcodec "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
@@ -30,6 +30,8 @@ func getReportTypes() abi.Arguments {
 		{Name: "feedId", Type: mustNewType("bytes32")},
 		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
 		{Name: "benchmarkPrice", Type: mustNewType("int192")},
+		{Name: "bid", Type: mustNewType("int192")},
+		{Name: "ask", Type: mustNewType("int192")},
 		{Name: "validFromTimestamp", Type: mustNewType("uint32")},
 		{Name: "expiresAt", Type: mustNewType("uint32")},
 		{Name: "linkFee", Type: mustNewType("int192")},
@@ -61,6 +63,14 @@ func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBenchmarkPrice failed")
 	}
+	bid, err := relaymercury.GetConsensusBid(mPaos, f)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetConsensusBid failed")
+	}
+	ask, err := relaymercury.GetConsensusAsk(mPaos, f)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetConsensusAsk failed")
+	}
 
 	linkFee, err := relaymercury.GetConsensusLinkFee(mPaos, f)
 	if err != nil {
@@ -71,7 +81,7 @@ func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation
 		return nil, errors.Wrap(err, "GetConsensusNativeFee failed")
 	}
 
-	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, benchmarkPrice, validFromTimestamp, expiresAt, linkFee, nativeFee)
+	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, benchmarkPrice, bid, ask, validFromTimestamp, expiresAt, linkFee, nativeFee)
 	return ocrtypes.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
 }
 

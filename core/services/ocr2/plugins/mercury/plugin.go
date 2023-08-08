@@ -7,8 +7,9 @@ import (
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
-	relaymercuryv0 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v0"
 	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
+	relaymercuryv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
+	relaymercuryv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -18,8 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
-	mercuryv0 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v0"
 	mercuryv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
+	mercuryv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
+	mercuryv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3"
 )
 
 type Config interface {
@@ -53,8 +55,8 @@ func NewServices(
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
 	switch ocr2Provider.ReportSchemaVersion() {
-	case 0:
-		ds := mercuryv0.NewDataSource(
+	case 1:
+		ds := mercuryv1.NewDataSource(
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
@@ -65,15 +67,15 @@ func NewServices(
 			ocr2Provider.ContractTransmitter(),
 			pluginConfig.InitialBlockNumber.Ptr(),
 		)
-		argsNoPlugin.MercuryPluginFactory = relaymercuryv0.NewFactory(
+		argsNoPlugin.MercuryPluginFactory = relaymercuryv1.NewFactory(
 			ds,
 			lggr,
 			ocr2Provider.OnchainConfigCodec(),
-			ocr2Provider.ReportCodecV0(),
+			ocr2Provider.ReportCodecV1(),
 		)
-	case 1:
+	case 2:
 		feedId := types.FeedID{} // todo: resolve feedId through Relay
-		ds := mercuryv1.NewDataSource(
+		ds := mercuryv2.NewDataSource(
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
@@ -85,11 +87,31 @@ func NewServices(
 			types.FeedID(*pluginConfig.LinkFeedID),
 			types.FeedID(*pluginConfig.NativeFeedID),
 		)
-		argsNoPlugin.MercuryPluginFactory = relaymercuryv1.NewFactory(
+		argsNoPlugin.MercuryPluginFactory = relaymercuryv2.NewFactory(
 			ds,
 			lggr,
 			ocr2Provider.OnchainConfigCodec(),
-			ocr2Provider.ReportCodecV1(),
+			ocr2Provider.ReportCodecV2(),
+		)
+	case 3:
+		feedId := types.FeedID{} // todo: resolve feedId through Relay
+		ds := mercuryv3.NewDataSource(
+			pipelineRunner,
+			jb,
+			*jb.PipelineSpec,
+			feedId,
+			lggr,
+			runResults,
+			chEnhancedTelem,
+			ocr2Provider.ContractTransmitter(),
+			types.FeedID(*pluginConfig.LinkFeedID),
+			types.FeedID(*pluginConfig.NativeFeedID),
+		)
+		argsNoPlugin.MercuryPluginFactory = relaymercuryv3.NewFactory(
+			ds,
+			lggr,
+			ocr2Provider.OnchainConfigCodec(),
+			ocr2Provider.ReportCodecV3(),
 		)
 	default:
 		panic("unknown schema version")
