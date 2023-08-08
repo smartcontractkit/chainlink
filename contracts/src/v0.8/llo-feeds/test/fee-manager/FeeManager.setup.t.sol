@@ -101,10 +101,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectEmit();
 
     //emit the event that is expected to be emitted
-    emit SubscriberDiscountUpdated(USER, DEFAULT_FEED_V2_1, getNativeAddress(), discount);
+    emit SubscriberDiscountUpdated(USER, DEFAULT_FEED_1_V3, getNativeAddress(), discount);
 
     //set the surcharge
-    setSubscriberDiscount(USER, DEFAULT_FEED_V2_1, getNativeAddress(), discount, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getNativeAddress(), discount, ADMIN);
   }
 
   function test_eventIsEmittedUponWithdraw() public {

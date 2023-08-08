@@ -24,18 +24,18 @@ contract BaseTest is Test {
   address internal constant MOCK_VERIFIER_ADDRESS_TWO = address(200);
   address internal constant ACCESS_CONTROLLER_ADDRESS = address(300);
 
-  bytes32 internal constant V_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000;
-  bytes32 internal constant V0_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000000;
-  bytes32 internal constant V1_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000001;
-  bytes32 internal constant V2_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000002;
+  bytes32 internal constant V_MASK =  0x0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+  bytes32 internal constant V1_BITMASK = 0x0001000000000000000000000000000000000000000000000000000000000000;
+  bytes32 internal constant V2_BITMASK = 0x0002000000000000000000000000000000000000000000000000000000000000;
+  bytes32 internal constant V3_BITMASK = 0x0003000000000000000000000000000000000000000000000000000000000000;
 
   //version 0 feeds
-  bytes32 internal constant FEED_ID = keccak256("ETH-USD") & V_MASK | V0_BITMASK;
-  bytes32 internal constant FEED_ID_2 = keccak256("LINK-USD") & V_MASK | V0_BITMASK;
-  bytes32 internal constant FEED_ID_3 = keccak256("BTC-USD") & V_MASK | V0_BITMASK;
+  bytes32 internal constant FEED_ID = keccak256("ETH-USD") & V_MASK | V1_BITMASK;
+  bytes32 internal constant FEED_ID_2 = keccak256("LINK-USD") & V_MASK | V1_BITMASK;
+  bytes32 internal constant FEED_ID_3 = keccak256("BTC-USD") & V_MASK | V1_BITMASK;
 
-  //version 2 feeds
-  bytes32 internal constant FEED_ID_V2 = keccak256("ETH-USD") & V_MASK | V2_BITMASK;
+  //version 3 feeds
+  bytes32 internal constant FEED_ID_V3 = keccak256("ETH-USD") & V_MASK | V3_BITMASK;
 
   bytes32 internal constant INVALID_FEED = keccak256("INVALID");
   uint32 internal constant OBSERVATIONS_TIMESTAMP = 1000;
@@ -281,7 +281,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     );
 
     s_verifier.setConfig(
-      FEED_ID_V2,
+      FEED_ID_V3,
       _getSignerAddresses(signers),
       s_offchaintransmitters,
       FAULT_TOLERANCE,
@@ -338,7 +338,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
   function _generateV2Report() internal returns (V2Report memory) {
     return
       V2Report({
-        feedId: FEED_ID_V2,
+        feedId: FEED_ID_V3,
         observationsTimestamp: OBSERVATIONS_TIMESTAMP,
         benchmarkPrice: MEDIAN,
         bid: BID,

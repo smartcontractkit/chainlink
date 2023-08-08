@@ -34,16 +34,17 @@ contract BaseFeeManagerTest is Test {
   address internal constant PROXY = address(uint160(uint256(keccak256("PROXY"))));
 
   //version masks
-  bytes32 internal constant V_MASK = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0000;
-  bytes32 internal constant V0_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000000;
-  bytes32 internal constant V1_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000001;
-  bytes32 internal constant V2_BITMASK = 0x0000000000000000000000000000000000000000000000000000000000000002;
+  bytes32 internal constant V_MASK = 0x0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+  bytes32 internal constant V1_BITMASK = 0x0001000000000000000000000000000000000000000000000000000000000000;
+  bytes32 internal constant V2_BITMASK = 0x0002000000000000000000000000000000000000000000000000000000000000;
+  bytes32 internal constant V3_BITMASK = 0x0003000000000000000000000000000000000000000000000000000000000000;
 
   //feed ids & config digests
-  bytes32 internal constant DEFAULT_FEED_V0_1 = keccak256("ETH-USD") & V_MASK | V0_BITMASK;
-  bytes32 internal constant DEFAULT_FEED_V1_1 = keccak256("ETH-USD") & V_MASK | V1_BITMASK;
-  bytes32 internal constant DEFAULT_FEED_V2_1 = keccak256("ETH-USD") & V_MASK | V2_BITMASK;
-  bytes32 internal constant DEFAULT_FEED_V2_2 = keccak256("LINK-USD") & V_MASK | V2_BITMASK;
+  bytes32 internal constant DEFAULT_FEED_1_V1 = keccak256("ETH-USD") & V_MASK | V1_BITMASK;
+  bytes32 internal constant DEFAULT_FEED_1_V2 = keccak256("ETH-USD") & V_MASK | V2_BITMASK;
+  bytes32 internal constant DEFAULT_FEED_1_V3 = keccak256("ETH-USD") & V_MASK | V3_BITMASK;
+
+  bytes32 internal constant DEFAULT_FEED_2_V3 = keccak256("LINK-USD") & V_MASK | V3_BITMASK;
   bytes32 internal constant DEFAULT_CONFIG_DIGEST = keccak256("DEFAULT_CONFIG_DIGEST");
 
   //report
@@ -62,6 +63,8 @@ contract BaseFeeManagerTest is Test {
   bytes4 internal constant EXPIRED_REPORT_ERROR = bytes4(keccak256("ExpiredReport()"));
   bytes4 internal constant INVALID_DEPOSIT_ERROR = bytes4(keccak256("InvalidDeposit()"));
   bytes4 internal constant INVALID_QUOTE_ERROR = bytes4(keccak256("InvalidQuote()"));
+  bytes4 internal constant INVALID_REPORT_ERROR = bytes4(keccak256("InvalidReport()"));
+  bytes4 internal constant INVALID_REPORT_VERSION_ERROR = bytes4(keccak256("InvalidReportVersion()"));
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
   bytes internal constant ONLY_CALLABLE_BY_OWNER_OR_PROXY_ERROR = "Only owner or proxy";
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";

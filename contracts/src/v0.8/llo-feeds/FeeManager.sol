@@ -37,12 +37,12 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   IRewardManager private immutable i_rewardManager;
 
   // @notice the mask to apply to get the report version
-  uint256 private constant REPORT_VERSION_MASK = 0x0000000000000000000000000000000000000000000000000000000000000FFFF;
+  bytes32 private constant REPORT_VERSION_MASK = 0xffff000000000000000000000000000000000000000000000000000000000000;
 
   // @notice the different report versions
-  uint256 private constant REPORT_V0 = 0x0000;
-  uint256 private constant REPORT_V1 = 0x0001;
-  uint256 private constant REPORT_V2 = 0x0002;
+  bytes32 private constant REPORT_V1 = 0x0001000000000000000000000000000000000000000000000000000000000000;
+  bytes32 private constant REPORT_V2 = 0x0002000000000000000000000000000000000000000000000000000000000000;
+  bytes32 private constant REPORT_V3 = 0x0003000000000000000000000000000000000000000000000000000000000000;
 
   /// @notice the surcharge fee to be paid if paying in native
   uint256 public nativeSurcharge;
@@ -146,9 +146,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //get the feedId from the report
     bytes32 feedId = bytes32(report);
 
-    //default reports don't need a quote payload, so skip the decoding if the report is a default report
+    //v1 doesn't need a quote payload, so skip the decoding if the report is a v0 report
     Quote memory quote;
-    if (getReportVersion(feedId) > REPORT_V0) {
+    if (getReportVersion(feedId) != REPORT_V1) {
       //all reports greater than v0 should have a quote payload
       (, , , , , bytes memory quoteBytes) = abi.decode(
         payload,
@@ -226,10 +226,10 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 feedId = bytes32(report);
 
     //the report needs to be a support version
-    uint256 reportVersion = getReportVersion(feedId);
+    bytes32 reportVersion = getReportVersion(feedId);
 
-    //version 0 of the reports don't require quotes, so the fee will be 0
-    if (reportVersion == REPORT_V0) {
+    //version 1 of the reports don't require quotes, so the fee will be 0
+    if (reportVersion == REPORT_V1) {
       fee.assetAddress = i_nativeAddress;
       reward.assetAddress = i_linkAddress;
       return (fee, reward);
@@ -244,12 +244,12 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     uint256 linkQuantity;
     uint256 nativeQuantity;
     uint256 expiresAt;
-    if(reportVersion == REPORT_V1) {
+    if(reportVersion == REPORT_V2) {
       (, , , , expiresAt, linkQuantity, nativeQuantity) = abi.decode(
         report,
         (bytes32, uint32, int192, uint32, uint32, uint192, uint192)
       );
-    } else if (reportVersion == REPORT_V2) {
+    } else if (reportVersion == REPORT_V3) {
       (, , , , , , expiresAt, linkQuantity, nativeQuantity) = abi.decode(
         report,
         (bytes32, uint32, int192, int192, int192, uint32, uint32, uint192, uint192)
@@ -347,7 +347,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
    * @notice Gets the current version of the report that is encoded as the last two bytes of the feed
    * @param feedId feed id to get the report version for
    */
-  function getReportVersion(bytes32 feedId) internal pure returns (uint256) {
-    return REPORT_VERSION_MASK & uint256(feedId);
+  function getReportVersion(bytes32 feedId) internal pure returns (bytes32) {
+    return REPORT_VERSION_MASK & feedId;
   }
 }

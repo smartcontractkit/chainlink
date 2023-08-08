@@ -65,7 +65,7 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   function testVerifyProxyWithLinkFeeSuccess_gas() public {
     bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
       _generateV2Report(),
-      _generateReportContext(FEED_ID_V2),
+      _generateReportContext(FEED_ID_V3),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
@@ -76,7 +76,7 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   function testVerifyProxyWithNativeFeeSuccess_gas() public {
     bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
       _generateV2Report(),
-      _generateReportContext(FEED_ID_V2),
+      _generateReportContext(FEED_ID_V3),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
