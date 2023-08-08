@@ -53,9 +53,9 @@ func TestNewUpkeepPayload(t *testing.T) {
 		ocr2keepers.Trigger{
 			BlockNumber: 11,
 			BlockHash:   common.HexToHash("0x11111"),
-			LogTriggerExtension: &ocr2keepers.LogTriggerExtenstion{
-				Index:     1,
-				LogTxHash: common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234"),
+			LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+				Index:  1,
+				TxHash: common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234"),
 			},
 		},
 		[]byte("check-data-111"),

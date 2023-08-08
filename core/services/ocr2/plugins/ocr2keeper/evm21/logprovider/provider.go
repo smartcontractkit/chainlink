@@ -13,7 +13,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"go.uber.org/multierr"
 
@@ -55,8 +54,8 @@ type LogEventProviderTest interface {
 	CurrentPartitionIdx() uint64
 }
 
-var _ keepersflows.PayloadBuilder = &logEventProvider{}
-var _ keepersflows.LogEventProvider = &logEventProvider{}
+var _ ocr2keepers.PayloadBuilder = &logEventProvider{}
+var _ ocr2keepers.LogEventProvider = &logEventProvider{}
 
 // logEventProvider manages log filters for upkeeps and enables to read the log events.
 type logEventProvider struct {
@@ -128,12 +127,12 @@ func (p *logEventProvider) Close() error {
 	return nil
 }
 
-func (p *logEventProvider) BuildPayload(ctx context.Context, proposal ocr2keepers.CoordinatedProposal) (ocr2keepers.UpkeepPayload, error) {
+func (p *logEventProvider) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedProposal) ([]ocr2keepers.UpkeepPayload, error) {
 	// TODO: implement
-	return ocr2keepers.UpkeepPayload{}, nil
+	return []ocr2keepers.UpkeepPayload{}, nil
 }
 
-func (p *logEventProvider) GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latest := p.buffer.latestBlockSeen()
 	diff := latest - p.opts.LogBlocksLookback
 	if diff < 0 {
@@ -148,9 +147,9 @@ func (p *logEventProvider) GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload
 			ocr2keepers.BlockNumber(log.BlockNumber),
 			log.BlockHash,
 		)
-		trig.LogTriggerExtension = &ocr2keepers.LogTriggerExtenstion{
-			LogTxHash: log.TxHash,
-			Index:     uint32(log.LogIndex),
+		trig.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{
+			TxHash: log.TxHash,
+			Index:  uint32(log.LogIndex),
 		}
 		checkData, err := p.packer.PackLogData(log)
 		if err != nil {

@@ -58,7 +58,7 @@ func UpkeepTriggerIDFromPayload(p ocr2keepers.UpkeepPayload) (string, error) {
 	}
 
 	if trigger.LogTriggerExtension != nil {
-		triggerW.TxHash = common.Hash(trigger.LogTriggerExtension.LogTxHash)
+		triggerW.TxHash = common.Hash(trigger.LogTriggerExtension.TxHash)
 		triggerW.LogIndex = trigger.LogTriggerExtension.Index
 	}
 

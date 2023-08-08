@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -31,7 +30,7 @@ type logRecoverer struct {
 	poller logpoller.LogPoller
 }
 
-var _ keepersflows.RecoverableProvider = &logRecoverer{}
+var _ ocr2keepers.RecoverableProvider = &logRecoverer{}
 
 func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, interval time.Duration) *logRecoverer {
 	if interval == 0 {
@@ -79,7 +78,7 @@ func (r *logRecoverer) Close() error {
 	return nil
 }
 
-func (r *logRecoverer) GetRecoverables() ([]ocr2keepers.UpkeepPayload, error) {
+func (r *logRecoverer) GetRecoveryProposals() ([]ocr2keepers.UpkeepPayload, error) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 

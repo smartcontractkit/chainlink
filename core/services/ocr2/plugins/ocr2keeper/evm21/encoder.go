@@ -55,7 +55,7 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 		}
 		switch core.GetUpkeepType(result.UpkeepID) {
 		case ocr2keepers.LogTrigger:
-			triggerW.TxHash = result.Trigger.LogTriggerExtension.LogTxHash
+			triggerW.TxHash = result.Trigger.LogTriggerExtension.TxHash
 			triggerW.LogIndex = result.Trigger.LogTriggerExtension.Index
 		default:
 			// no special handling here for conditional triggers

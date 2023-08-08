@@ -101,11 +101,11 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 }
 
 func newResult(block int64, checkBlock ocr2keepers.BlockNumber, id ocr2keepers.UpkeepIdentifier, fastGasWei, linkNative int64) ocr2keepers.CheckResult {
-	logExt := ocr2keepers.LogTriggerExtenstion{}
+	logExt := ocr2keepers.LogTriggerExtension{}
 	tp := core.GetUpkeepType(id)
 	if tp == ocr2keepers.LogTrigger {
 		logExt.Index = 1
-		logExt.LogTxHash = common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234")
+		logExt.TxHash = common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234")
 	}
 
 	payload, _ := core.NewUpkeepPayload(

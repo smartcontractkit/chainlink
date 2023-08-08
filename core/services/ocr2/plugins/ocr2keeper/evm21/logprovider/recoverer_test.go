@@ -43,7 +43,7 @@ func TestLogRecoverer_GetRecoverables(t *testing.T) {
 			r.pending = tc.pending
 			r.lock.Unlock()
 
-			got, err := r.GetRecoverables()
+			got, err := r.GetRecoveryProposals()
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {
