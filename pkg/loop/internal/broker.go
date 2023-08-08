@@ -91,7 +91,18 @@ func (b *brokerExt) dial(id uint32) (conn *grpc.ClientConn, err error) {
 	return b.broker.DialWithOptions(id, b.DialOpts...)
 }
 
-func (b *brokerExt) serve(name string, register func(*grpc.Server), deps ...resource) (uint32, resource, error) {
+func (b *brokerExt) serveNew(name string, register func(*grpc.Server), deps ...resource) (uint32, resource, error) {
+	var server *grpc.Server
+	if b.NewServer == nil {
+		server = grpc.NewServer()
+	} else {
+		server = b.NewServer(nil)
+	}
+	register(server)
+	return b.serve(name, server, deps...)
+}
+
+func (b *brokerExt) serve(name string, server *grpc.Server, deps ...resource) (uint32, resource, error) {
 	id := b.broker.NextId()
 	b.Logger.Debugf("Serving %s on connection %d", name, id)
 	lis, err := b.broker.Accept(id)
@@ -100,13 +111,6 @@ func (b *brokerExt) serve(name string, register func(*grpc.Server), deps ...reso
 		return 0, resource{}, ErrConnAccept{Name: name, ID: id, Err: err}
 	}
 
-	var server *grpc.Server
-	if b.NewServer == nil {
-		server = grpc.NewServer()
-	} else {
-		server = b.NewServer(nil)
-	}
-	register(server)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {

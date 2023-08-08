@@ -43,7 +43,7 @@ func NewPluginRelayerClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.Cl
 func (p *PluginRelayerClient) NewRelayer(ctx context.Context, config string, keystore Keystore) (Relayer, error) {
 	cc := p.newClientConn("Relayer", func(ctx context.Context) (id uint32, deps resources, err error) {
 		var ksRes resource
-		id, ksRes, err = p.serve("Keystore", func(s *grpc.Server) {
+		id, ksRes, err = p.serveNew("Keystore", func(s *grpc.Server) {
 			pb.RegisterKeystoreServer(s, &keystoreServer{impl: keystore})
 		})
 		if err != nil {
@@ -100,7 +100,7 @@ func (p *pluginRelayerServer) NewRelayer(ctx context.Context, request *pb.NewRel
 
 	const name = "Relayer"
 	rRes := resource{r, name}
-	id, _, err := p.serve(name, func(s *grpc.Server) {
+	id, _, err := p.serveNew(name, func(s *grpc.Server) {
 		pb.RegisterServiceServer(s, &serviceServer{srv: r})
 		pb.RegisterRelayerServer(s, newChainRelayerServer(r, p.brokerExt))
 	}, rRes, ksRes)
@@ -347,7 +347,7 @@ func (r *relayerServer) NewConfigProvider(ctx context.Context, request *pb.NewCo
 	}
 
 	const name = "ConfigProvider"
-	id, _, err := r.serve(name, func(s *grpc.Server) {
+	id, _, err := r.serveNew(name, func(s *grpc.Server) {
 		pb.RegisterServiceServer(s, &serviceServer{srv: cp})
 		pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: cp.OffchainConfigDigester()})
 		pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: cp.ContractConfigTracker()})
@@ -384,7 +384,7 @@ func (r *relayerServer) NewMedianProvider(ctx context.Context, request *pb.NewMe
 	const name = "MedianProvider"
 	providerRes := resource{name: name, Closer: provider}
 
-	id, _, err := r.serve(name, func(s *grpc.Server) {
+	id, _, err := r.serveNew(name, func(s *grpc.Server) {
 		pb.RegisterServiceServer(s, &serviceServer{srv: provider})
 		pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: provider.OffchainConfigDigester()})
 		pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: provider.ContractConfigTracker()})

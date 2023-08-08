@@ -75,13 +75,13 @@ URL = 'https://test.url'
 `}}
 	observation = libocr.Observation([]byte{21: 19})
 	obs         = []libocr.AttributedObservation{{Observation: []byte{21: 19}, Observer: commontypes.OracleID(99)}}
-	pargs       = types.PluginArgs{
+	PluginArgs  = types.PluginArgs{
 		TransmitterID: "testtransmitter",
 		PluginConfig:  []byte{100: 88},
 	}
-	pobs  = []median.ParsedAttributedObservation{{Timestamp: 123, Value: big.NewInt(31), JuelsPerFeeCoin: big.NewInt(54), Observer: commontypes.OracleID(99)}}
-	query = []byte{42: 42}
-	rargs = types.RelayArgs{
+	pobs      = []median.ParsedAttributedObservation{{Timestamp: 123, Value: big.NewInt(31), JuelsPerFeeCoin: big.NewInt(54), Observer: commontypes.OracleID(99)}}
+	query     = []byte{42: 42}
+	RelayArgs = types.RelayArgs{
 		ExternalJobID: uuid.MustParse("1051429b-aa66-11ed-b0d2-5cff35dfbe67"),
 		JobID:         123,
 		ContractID:    "testcontract",

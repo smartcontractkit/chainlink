@@ -1,15 +1,18 @@
 package loop_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/go-plugin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/test"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
 func TestPluginMedian(t *testing.T) {
@@ -17,6 +20,14 @@ func TestPluginMedian(t *testing.T) {
 
 	stopCh := newStopCh(t)
 	testPlugin(t, loop.PluginMedianName, &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, test.TestPluginMedian)
+
+	t.Run("proxy", func(t *testing.T) {
+		testPlugin(t, loop.PluginRelayerName, &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, func(t *testing.T, pr loop.PluginRelayer) {
+			p := newMedianProvider(t, pr)
+			pm := test.PluginMedianTest{MedianProvider: p}
+			testPlugin(t, loop.PluginMedianName, &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, pm.TestPluginMedian)
+		})
+	})
 }
 
 func TestPluginMedianExec(t *testing.T) {
@@ -35,6 +46,13 @@ func TestPluginMedianExec(t *testing.T) {
 	require.NoError(t, err)
 
 	test.TestPluginMedian(t, i.(loop.PluginMedian))
+
+	t.Run("proxy", func(t *testing.T) {
+		pr := newPluginRelayerExec(t, stopCh)
+		p := newMedianProvider(t, pr)
+		pm := test.PluginMedianTest{MedianProvider: p}
+		pm.TestPluginMedian(t, i.(loop.PluginMedian))
+	})
 }
 
 func newStopCh(t *testing.T) <-chan struct{} {
@@ -43,4 +61,17 @@ func newStopCh(t *testing.T) <-chan struct{} {
 		time.AfterFunc(time.Until(d), func() { close(stopCh) })
 	}
 	return stopCh
+}
+
+func newMedianProvider(t *testing.T, pr loop.PluginRelayer) types.MedianProvider {
+	ctx := context.Background()
+	r, err := pr.NewRelayer(ctx, test.ConfigTOML, test.StaticKeystore{})
+	require.NoError(t, err)
+	require.NoError(t, r.Start(ctx))
+	t.Cleanup(func() { assert.NoError(t, r.Close()) })
+	p, err := r.NewMedianProvider(ctx, test.RelayArgs, test.PluginArgs)
+	require.NoError(t, err)
+	require.NoError(t, p.Start(ctx))
+	t.Cleanup(func() { assert.NoError(t, p.Close()) })
+	return p
 }

@@ -22,9 +22,17 @@ import (
 )
 
 func TestPluginMedian(t *testing.T, p internal.PluginMedian) {
+	PluginMedianTest{&StaticMedianProvider{}}.TestPluginMedian(t, p)
+}
+
+type PluginMedianTest struct {
+	types.MedianProvider
+}
+
+func (m PluginMedianTest) TestPluginMedian(t *testing.T, p internal.PluginMedian) {
 	t.Run("PluginMedian", func(t *testing.T) {
 		ctx := utils.Context(t)
-		factory, err := p.NewMedianFactory(ctx, StaticMedianProvider{}, &staticDataSource{value}, &staticDataSource{juelsPerFeeCoin}, &StaticErrorLog{})
+		factory, err := p.NewMedianFactory(ctx, m.MedianProvider, &staticDataSource{value}, &staticDataSource{juelsPerFeeCoin}, &StaticErrorLog{})
 		require.NoError(t, err)
 
 		TestReportingPluginFactory(t, factory)

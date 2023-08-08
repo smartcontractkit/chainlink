@@ -10,6 +10,7 @@ require (
 	github.com/hashicorp/go-plugin v1.4.10
 	github.com/jpillora/backoff v1.0.0
 	github.com/linkedin/goavro/v2 v2.12.0
+	github.com/mwitkow/grpc-proxy v0.0.0-20230212185441-f345521cb9c9
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.15.0
 	github.com/riferrei/srclient v0.5.4
@@ -63,5 +64,10 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
-replace github.com/hashicorp/go-plugin => github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75
+replace (
+	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
+	github.com/hashicorp/go-plugin => github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75
+
+	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
+	github.com/mwitkow/grpc-proxy => github.com/jmank88/grpc-proxy v0.0.0-20230731114312-86ed94c93231
+)

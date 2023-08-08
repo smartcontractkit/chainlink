@@ -70,18 +70,18 @@ func (s staticRelayer) Name() string { panic("unimplemented") }
 func (s staticRelayer) HealthReport() map[string]error { panic("unimplemented") }
 
 func (s staticRelayer) NewConfigProvider(ctx context.Context, r types.RelayArgs) (types.ConfigProvider, error) {
-	if !equalRelayArgs(r, rargs) {
-		return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", rargs, r)
+	if !equalRelayArgs(r, RelayArgs) {
+		return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", RelayArgs, r)
 	}
 	return staticConfigProvider{}, nil
 }
 
 func (s staticRelayer) NewMedianProvider(ctx context.Context, r types.RelayArgs, p types.PluginArgs) (types.MedianProvider, error) {
-	if !equalRelayArgs(r, rargs) {
-		return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", rargs, r)
+	if !equalRelayArgs(r, RelayArgs) {
+		return nil, fmt.Errorf("expected relay args:\n\t%v\nbut got:\n\t%v", RelayArgs, r)
 	}
-	if !reflect.DeepEqual(pargs, p) {
-		return nil, fmt.Errorf("expected plugin args %v but got %v", pargs, p)
+	if !reflect.DeepEqual(PluginArgs, p) {
+		return nil, fmt.Errorf("expected plugin args %v but got %v", PluginArgs, p)
 	}
 	return StaticMedianProvider{}, nil
 }
@@ -168,7 +168,7 @@ func TestRelayer(t *testing.T, relayer internal.Relayer) {
 
 	t.Run("ConfigProvider", func(t *testing.T) {
 		t.Parallel()
-		configProvider, err := relayer.NewConfigProvider(ctx, rargs)
+		configProvider, err := relayer.NewConfigProvider(ctx, RelayArgs)
 		require.NoError(t, err)
 		require.NoError(t, configProvider.Start(ctx))
 		t.Cleanup(func() { assert.NoError(t, configProvider.Close()) })
@@ -201,7 +201,7 @@ func TestRelayer(t *testing.T, relayer internal.Relayer) {
 
 	t.Run("MedianProvider", func(t *testing.T) {
 		t.Parallel()
-		provider, err := relayer.NewMedianProvider(ctx, rargs, pargs)
+		provider, err := relayer.NewMedianProvider(ctx, RelayArgs, PluginArgs)
 		require.NoError(t, err)
 		require.NoError(t, provider.Start(ctx))
 		t.Cleanup(func() { assert.NoError(t, provider.Close()) })

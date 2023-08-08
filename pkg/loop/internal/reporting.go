@@ -106,7 +106,7 @@ func (r *reportingPluginFactoryServer) NewReportingPlugin(ctx context.Context, r
 	}
 
 	const name = "ReportingPlugin"
-	id, _, err := r.serve(name, func(s *grpc.Server) {
+	id, _, err := r.serveNew(name, func(s *grpc.Server) {
 		pb.RegisterReportingPluginServer(s, &reportingPluginServer{impl: rp})
 	}, resource{rp, name})
 	if err != nil {
