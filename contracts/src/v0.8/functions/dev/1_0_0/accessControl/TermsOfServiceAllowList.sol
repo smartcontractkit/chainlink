@@ -2,98 +2,91 @@
 pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
-import {Routable, ITypeAndVersion} from "../Routable.sol";
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
+import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
+
+import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
 
 import {Address} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
 import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
 
-/**
- * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
- */
-contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessController {
+// @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
+contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController, ITypeAndVersion, ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.AddressSet;
+
+  // @inheritdoc ITypeAndVersion
+  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
 
   EnumerableSet.AddressSet private s_allowedSenders;
   mapping(address => bool) private s_blockedSenders;
 
-  error InvalidProof();
+  event AddedAccess(address user);
+  event BlockedAccess(address user);
+  event UnblockedAccess(address user);
+
+  error InvalidSignature();
+  error InvalidUsage();
   error RecipientIsBlocked();
 
   // ================================================================
   // |                     Configuration state                      |
   // ================================================================
-
   struct Config {
-    bool enabled;
-    address proofSignerPublicKey;
+    bool enabled; // ═════════════╗ When enabled, access will be checked against s_allowedSenders. When disabled, all access will be allowed.
+    address signerPublicKey; // ══╝ The key pair that needs to sign the acceptance data
   }
 
   Config private s_config;
 
-  event ConfigSet(bool enabled);
+  event ConfigUpdated(Config config);
 
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
 
-  constructor(address router, bytes memory config) Routable(router, config) {}
-
-  // ================================================================
-  // |                    Configuration methods                     |
-  // ================================================================
-
-  /**
-   * @notice Sets the configuration
-   * @param config bytes of config data to set the following:
-   *  - enabled: boolean representing if the allow list is active, when disabled all usage will be allowed
-   *  - proofSignerPublicKey: public key of the signer of the proof
-   */
-  function _updateConfig(bytes memory config) internal override {
-    (bool enabled, address proofSignerPublicKey) = abi.decode(config, (bool, address));
-    s_config = Config({enabled: enabled, proofSignerPublicKey: proofSignerPublicKey});
-    emit ConfigSet(enabled);
-  }
-
-  /**
-   * @inheritdoc ITypeAndVersion
-   */
-  function typeAndVersion() public pure override returns (string memory) {
-    return "Functions Terms of Service Allow List v1";
+  constructor(Config memory config) ConfirmedOwner(msg.sender) {
+    updateConfig(config);
   }
 
   // ================================================================
-  // |                  Terms of Service methods                    |
+  // |                        Configuration                         |
   // ================================================================
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
-  function getMessageHash(address acceptor, address recipient) public pure override returns (bytes32) {
+  // @notice Gets the contracts's configuration
+  // @return config
+  function getConfig() external view returns (Config memory) {
+    return s_config;
+  }
+
+  // @notice Sets the contracts's configuration
+  // @param config - See the contents of the TermsOfServiceAllowList.Config struct for more information
+  function updateConfig(Config memory config) public onlyOwner {
+    s_config = config;
+    emit ConfigUpdated(config);
+  }
+
+  // ================================================================
+  // |                      Allow methods                           |
+  // ================================================================
+
+  // @inheritdoc ITermsOfServiceAllowList
+  function getMessage(address acceptor, address recipient) public pure override returns (bytes32) {
     return keccak256(abi.encodePacked(acceptor, recipient));
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
-  function getEthSignedMessageHash(bytes32 messageHash) public pure override returns (bytes32) {
-    return keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
-  }
-
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
-  function acceptTermsOfService(address acceptor, address recipient, bytes calldata proof) external override {
+  // @inheritdoc ITermsOfServiceAllowList
+  function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external override {
     if (s_blockedSenders[recipient]) {
       revert RecipientIsBlocked();
     }
 
-    // Validate that the proof is correct and has been signed
-    if (
-      _getSigner(getEthSignedMessageHash(getMessageHash(acceptor, recipient)), proof) != s_config.proofSignerPublicKey
-    ) {
-      revert InvalidProof();
+    // Validate that the signature is correct and the correct data has been signed
+    bytes32 prefixedMessage = keccak256(
+      abi.encodePacked("\x19Ethereum Signed Message:\n32", getMessage(acceptor, recipient))
+    );
+    if (ecrecover(prefixedMessage, v, r, s) != s_config.signerPublicKey) {
+      revert InvalidSignature();
     }
 
     // If contract, validate that msg.sender == recipient
@@ -101,23 +94,20 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
     // If EoA, validate that msg.sender == acceptor == recipient
     // This is to prevent EoAs from accepting for other EoAs
     if (msg.sender != recipient || (msg.sender != acceptor && !msg.sender.isContract())) {
-      revert InvalidProof();
+      revert InvalidUsage();
     }
 
     // Add recipient to the allow list
     s_allowedSenders.add(recipient);
+    emit AddedAccess(recipient);
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
+  // @inheritdoc ITermsOfServiceAllowList
   function getAllAllowedSenders() external view override returns (address[] memory) {
     return s_allowedSenders.values();
   }
 
-  /**
-   * @inheritdoc IAccessController
-   */
+  // @inheritdoc IAccessController
   function hasAccess(address user, bytes calldata /* data */) external view override returns (bool) {
     if (!s_config.enabled) {
       return true;
@@ -125,9 +115,11 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
     return s_allowedSenders.contains(user);
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
+  // ================================================================
+  // |                         Block methods                        |
+  // ================================================================
+
+  // @inheritdoc ITermsOfServiceAllowList
   function isBlockedSender(address sender) external view override returns (bool) {
     if (!s_config.enabled) {
       return false;
@@ -135,55 +127,16 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
     return s_blockedSenders[sender];
   }
 
-  // ================================================================
-  // |                     Owner methods                          |
-  // ================================================================
-
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
-  function blockSender(address sender) external override onlyRouterOwner {
+  // @inheritdoc ITermsOfServiceAllowList
+  function blockSender(address sender) external override onlyOwner {
     s_allowedSenders.remove(sender);
     s_blockedSenders[sender] = true;
+    emit BlockedAccess(sender);
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
-  function unblockSender(address sender) external override onlyRouterOwner {
+  // @inheritdoc ITermsOfServiceAllowList
+  function unblockSender(address sender) external override onlyOwner {
     s_blockedSenders[sender] = false;
-  }
-
-  // ================================================================
-  // |                     Signature checking                       |
-  // ================================================================
-
-  function _getSigner(bytes32 _ethSignedMessageHash, bytes memory signature) private pure returns (address) {
-    bytes32 r;
-    bytes32 s;
-    uint8 v;
-
-    if (signature.length != 65) {
-      revert InvalidProof();
-    }
-    // solhint-disable-next-line no-inline-assembly
-    assembly {
-      /*/
-      First 32 bytes stores the length of the signature
-
-      add(sig, 32) = pointer of sig + 32
-      effectively, skips first 32 bytes of signature
-
-      mload(p) loads next 32 bytes starting at the memory address p into memory
-    */
-      // first 32 bytes, after the length prefix
-      r := mload(add(signature, 32))
-      // second 32 bytes
-      s := mload(add(signature, 64))
-      // final byte (first byte of the next 32 bytes)
-      v := byte(0, mload(add(signature, 96)))
-    }
-
-    return ecrecover(_ethSignedMessageHash, v, r, s);
+    emit UnblockedAccess(sender);
   }
 }

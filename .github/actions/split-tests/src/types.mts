@@ -93,3 +93,20 @@ export interface SolidityConfig {
     slowTests?: string[];
   }[];
 }
+
+export interface GoPackageData {
+  /**
+   * The package path
+   */
+  ImportPath: string;
+  /**
+   * The list of go files asociated with the package
+   */
+  TestGoFiles: string[] | undefined;
+  /**
+   * The list of go files not associated with a specific package
+   * Things like integration tests
+   */
+  XTestGoFiles: string[] | undefined;
+  // there are many other variables in the data but they are not needed yet
+}

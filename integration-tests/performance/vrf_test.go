@@ -62,7 +62,7 @@ func TestVRFBasic(t *testing.T) {
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 
-	profileFunction := func(chainlinkNode *client.Chainlink) {
+	profileFunction := func(chainlinkNode *client.ChainlinkClient) {
 		nodeKey, err := chainlinkNode.MustCreateVRFKey()
 		require.NoError(t, err, "Creating VRF key shouldn't fail")
 		l.Debug().Interface("Key JSON", nodeKey).Msg("Created proving key")

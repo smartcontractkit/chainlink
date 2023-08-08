@@ -6,10 +6,10 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./KeeperRegistryBase1_3.sol";
 import "./KeeperRegistryLogic1_3.sol";
-import {AutomationRegistryExecutableInterface} from "../../interfaces/automation/1_3/AutomationRegistryInterface1_3.sol";
-import "../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
+import {AutomationRegistryExecutableInterface} from "../interfaces/1_3/AutomationRegistryInterface1_3.sol";
+import "../interfaces/MigratableKeeperRegistryInterface.sol";
 import "../../interfaces/TypeAndVersionInterface.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/interfaces/IERC677Receiver.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
@@ -21,7 +21,7 @@ contract KeeperRegistry1_3 is
   TypeAndVersionInterface,
   AutomationRegistryExecutableInterface,
   MigratableKeeperRegistryInterface,
-  ERC677ReceiverInterface
+  IERC677Receiver
 {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;

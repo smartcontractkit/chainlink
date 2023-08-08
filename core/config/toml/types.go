@@ -148,6 +148,8 @@ func validateDBURL(dbURI url.URL) error {
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
+	} else if *d.AllowSimplePasswords && build.IsProd() {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
 	} else if !*d.AllowSimplePasswords {
 		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
@@ -791,6 +793,7 @@ type OCR2 struct {
 	DatabaseTimeout                    *models.Duration
 	KeyBundleID                        *models.Sha256Hash
 	CaptureEATelemetry                 *bool
+	CaptureAutomationCustomTelemetry   *bool
 	DefaultTransactionQueueDepth       *uint32
 	SimulateTransactions               *bool
 	TraceLogging                       *bool
@@ -823,6 +826,9 @@ func (o *OCR2) setFrom(f *OCR2) {
 	}
 	if v := f.CaptureEATelemetry; v != nil {
 		o.CaptureEATelemetry = v
+	}
+	if v := f.CaptureAutomationCustomTelemetry; v != nil {
+		o.CaptureAutomationCustomTelemetry = v
 	}
 	if v := f.DefaultTransactionQueueDepth; v != nil {
 		o.DefaultTransactionQueueDepth = v

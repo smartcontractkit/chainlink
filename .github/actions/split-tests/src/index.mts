@@ -11,6 +11,7 @@ import {
 } from "./types.mjs";
 import {sieveSlowTests} from "./sieve.mjs";
 import {simpleSplit} from "./splitter.mjs";
+import { getPackageList, GetGoPackagesReturn } from "../src/handlers/golang.mjs";
 
 /**
  * Get a JSON formatted config file
@@ -47,19 +48,9 @@ async function main() {
 main();
 
 async function handleGolang(config: GolangConfig) {
-  const {numOfSplits} = config;
-  const rawPackages = await $`go list ./...`;
-  const packages = rawPackages.stdout.trimEnd().split("\n");
-  console.log(`${packages.length} packages to split...`);
-  const packagesBySplit = simpleSplit(packages, [], numOfSplits);
-  const splits: GoSplits = packagesBySplit.map((pkgs, i) => ({
-    idx: `${i + 1}`,
-    id: `${i + 1}/${numOfSplits}`,
-    pkgs: pkgs.join(" "),
-  }));
-  const serializedSplits = JSON.stringify(splits);
-  setOutput("splits", serializedSplits);
-  createSummary(packages, packagesBySplit, splits);
+  const p: GetGoPackagesReturn = getPackageList(config)
+  setOutput("splits", p.serializedSplits);
+  createSummary(p.packages, p.testsBySplit, p.splits);
 }
 
 async function handleSolidity(config: SolidityConfig) {

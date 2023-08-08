@@ -302,7 +302,7 @@ const parseUpkeepPerformedLogs = (receipt: ContractReceipt) => {
       if (
         log.name ==
         registry.interface.events[
-          'UpkeepPerformed(uint256,bool,uint96,uint256,uint256,bytes32)'
+          'UpkeepPerformed(uint256,bool,uint96,uint256,uint256,bytes)'
         ].name
       ) {
         parsedLogs.push(log as unknown as UpkeepPerformedEvent)
@@ -321,7 +321,7 @@ const parseReorgedUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['ReorgedUpkeepReport(uint256,bytes32)'].name
+        registry.interface.events['ReorgedUpkeepReport(uint256,bytes)'].name
       ) {
         parsedLogs.push(log as unknown as ReorgedUpkeepReportEvent)
       }
@@ -339,7 +339,7 @@ const parseStaleUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['StaleUpkeepReport(uint256,bytes32)'].name
+        registry.interface.events['StaleUpkeepReport(uint256,bytes)'].name
       ) {
         parsedLogs.push(log as unknown as StaleUpkeepReportEvent)
       }
@@ -358,7 +358,7 @@ const parseInsufficientFundsUpkeepReportLogs = (receipt: ContractReceipt) => {
       if (
         log.name ==
         registry.interface.events[
-          'InsufficientFundsUpkeepReport(uint256,bytes32)'
+          'InsufficientFundsUpkeepReport(uint256,bytes)'
         ].name
       ) {
         parsedLogs.push(log as unknown as InsufficientFundsUpkeepReportEvent)
@@ -377,7 +377,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
       const log = registry.interface.parseLog(rawLog)
       if (
         log.name ==
-        registry.interface.events['CancelledUpkeepReport(uint256,bytes32)'].name
+        registry.interface.events['CancelledUpkeepReport(uint256,bytes)'].name
       ) {
         parsedLogs.push(log as unknown as CancelledUpkeepReportEvent)
       }
@@ -1192,18 +1192,29 @@ describe('KeeperRegistry2_1', () => {
         }
       })
 
-      it('handles duplicate logTriggerIDs', async () => {
+      it('handles duplicate log triggers', async () => {
+        const txHash = ethers.utils.randomBytes(32)
+        const logIndex = 0
+        const expectedDedupKey = ethers.utils.solidityKeccak256(
+          ['uint256', 'bytes32', 'uint32'],
+          [logUpkeepId, txHash, logIndex],
+        )
+        assert.isFalse(await registry.hasDedupKey(expectedDedupKey))
         const tx = await getTransmitTx(
           registry,
           keeper1,
           [logUpkeepId, logUpkeepId],
-          { txHash: ethers.utils.randomBytes(32), logIndex: 0 }, // will result in the same logTriggerID
+          { txHash, logIndex }, // will result in the same dedup key
         )
         const receipt = await tx.wait()
         const staleUpkeepReport = parseStaleUpkeepReportLogs(receipt)
         const upkeepPerformedLogs = parseUpkeepPerformedLogs(receipt)
         assert.equal(staleUpkeepReport.length, 1)
         assert.equal(upkeepPerformedLogs.length, 1)
+        assert.isTrue(await registry.hasDedupKey(expectedDedupKey))
+        await expect(tx)
+          .to.emit(registry, 'DedupKeyAdded')
+          .withArgs(expectedDedupKey)
       })
 
       it('returns early when check block number is less than last perform (block)', async () => {
@@ -1788,24 +1799,18 @@ describe('KeeperRegistry2_1', () => {
 
             const id = upkeepPerformedLog.args.id
             const success = upkeepPerformedLog.args.success
-            const triggerID = upkeepPerformedLog.args.upkeepTriggerID
+            const trigger = upkeepPerformedLog.args.trigger
             const gasUsed = upkeepPerformedLog.args.gasUsed
             const gasOverhead = upkeepPerformedLog.args.gasOverhead
             const totalPayment = upkeepPerformedLog.args.totalPayment
             assert.equal(id.toString(), upkeepId.toString())
             assert.equal(success, true)
             assert.equal(
-              triggerID,
-              ethers.utils.keccak256(
-                ethers.utils.concat([
-                  ethers.utils.defaultAbiCoder.encode(['uint256'], [upkeepId]),
-                  encodeBlockTrigger({
-                    blockNum: checkBlock.number,
-                    blockHash: checkBlock.hash,
-                  }),
-                ]),
-              ),
-              'incorrect calculation of triggerID',
+              trigger,
+              encodeBlockTrigger({
+                blockNum: checkBlock.number,
+                blockHash: checkBlock.hash,
+              }),
             )
             assert.isTrue(gasUsed.gt(BigNumber.from('0')))
             assert.isTrue(gasOverhead.gt(BigNumber.from('0')))
