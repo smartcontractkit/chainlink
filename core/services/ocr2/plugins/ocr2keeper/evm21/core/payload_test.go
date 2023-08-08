@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/stretchr/testify/assert"
@@ -27,19 +28,14 @@ func TestTriggerID(t *testing.T) {
 
 	res := UpkeepTriggerID(&upkeepID, triggerBytes)
 
-	expectedResult := "fe466794c97e8b54ca25b696ff3ee448a7d03e4a82a2e45d9d84de62ef4cc260"
-	assert.Equal(t, res, expectedResult, "UpkeepTriggerID mismatch")
+	assert.Equal(t, "fe466794c97e8b54ca25b696ff3ee448a7d03e4a82a2e45d9d84de62ef4cc260", res, "UpkeepTriggerID mismatch")
 }
 
 func TestWorkID(t *testing.T) {
 	id := big.NewInt(12345)
 	trigger := ocr2keepers.Trigger{
 		BlockNumber: 123,
-		BlockHash:   "0xabcdef",
-		Extension: map[string]interface{}{
-			"txHash":   "0xdeadbeef",
-			"logIndex": "123",
-		},
+		BlockHash:   common.HexToHash("0xabcdef"),
 	}
 
 	res, err := UpkeepWorkID(id, trigger)
@@ -47,28 +43,25 @@ func TestWorkID(t *testing.T) {
 		t.Fatalf("Error computing UpkeepWorkID: %s", err)
 	}
 
-	expectedResult := "182244f3e4fa6e9556a17b84718b7ffe19f0d67a811d771bd5479fe16e02bf82"
-	assert.Equal(t, res, expectedResult, "UpkeepWorkID mismatch")
+	assert.Equal(t, "6fddaeddb48a3d7a21ef8c22fbd214192dba02f674dc0128ca474aeff038c7c3", res, "UpkeepWorkID mismatch")
 }
 
 func TestNewUpkeepPayload(t *testing.T) {
-	logExt := LogTriggerExtension{
-		LogIndex: 1,
-		TxHash:   "0x1234567890123456789012345678901234567890123456789012345678901234",
-	}
-
 	payload, err := NewUpkeepPayload(
 		big.NewInt(111),
 		1,
 		ocr2keepers.Trigger{
 			BlockNumber: 11,
-			BlockHash:   "0x11111",
-			Extension:   logExt,
+			BlockHash:   common.HexToHash("0x11111"),
+			LogTriggerExtension: &ocr2keepers.LogTriggerExtenstion{
+				Index:     1,
+				LogTxHash: common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234"),
+			},
 		},
 		[]byte("check-data-111"),
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, "151b4fd0c9f8d97307938fb7d64d6efbc821891a0eb9ae2708ccfe98e1706b40", payload.ID)
+	assert.Equal(t, "42e165594d25cdc74d80b2e38cbb0e9857ee6c6a607dfbec1983348087d34593", payload.WorkID)
 }

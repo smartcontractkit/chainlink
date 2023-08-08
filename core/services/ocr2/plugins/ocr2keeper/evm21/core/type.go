@@ -1,6 +1,8 @@
 package core
 
 import (
+	"math/big"
+
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
@@ -23,4 +25,10 @@ func GetUpkeepType(id ocr2keepers.UpkeepIdentifier) ocr2keepers.UpkeepType {
 	}
 	typeByte := id[upkeepTypeByteIndex]
 	return ocr2keepers.UpkeepType(typeByte)
+}
+
+func getUpkeepTypeFromBigInt(id *big.Int) ocr2keepers.UpkeepType {
+	uid := &ocr2keepers.UpkeepIdentifier{}
+	uid.FromBigInt(id)
+	return GetUpkeepType(*uid)
 }
