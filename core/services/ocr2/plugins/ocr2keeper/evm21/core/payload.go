@@ -22,7 +22,7 @@ func UpkeepTriggerID(id *big.Int, trigger []byte) string {
 func UpkeepWorkID(id *big.Int, trigger ocr2keepers.Trigger) (string, error) {
 	var triggerExtBytes []byte
 	if trigger.LogTriggerExtension != nil {
-		triggerExtBytes = append(triggerExtBytes, trigger.LogTriggerExtension.LogIdentifier()...)
+		triggerExtBytes = trigger.LogTriggerExtension.LogIdentifier()
 	}
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	uid.FromBigInt(id)
