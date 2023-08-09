@@ -216,7 +216,7 @@ func (f *Feeder) runTrusted(
 			f.lggr.Errorw("Failed to get blocks range",
 				"err", err,
 				"blocks", batch)
-			errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
+			errs = multierr.Append(errs, errors.Wrap(err, "log poller get blocks range"))
 			return errs
 		}
 
