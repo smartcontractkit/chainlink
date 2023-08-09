@@ -331,7 +331,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 				},
 			},
 			big.NewInt(1),
-			big.NewInt(0).SetBytes([]byte("10")),
+			big.NewInt(10),
 		},
 		{
 			"empty trigger",
@@ -339,7 +339,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 				UpkeepID: upkeepIDFromInt("10"),
 			},
 			big.NewInt(0),
-			big.NewInt(0).SetBytes([]byte("10")),
+			big.NewInt(10),
 		},
 		{
 			"empty payload",
@@ -353,7 +353,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			block, upkeep := r.getBlockAndUpkeepId(tc.input.UpkeepID, tc.input.Trigger)
 			assert.Equal(t, tc.wantBlock, block)
-			assert.Equal(t, tc.wantUpkeep, upkeep)
+			assert.Equal(t, tc.wantUpkeep.String(), upkeep.String())
 		})
 	}
 }
