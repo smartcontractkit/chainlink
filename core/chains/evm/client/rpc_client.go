@@ -25,7 +25,7 @@ import (
 )
 
 type RPCClient interface {
-	clienttypes.ChainRPCClient[
+	clienttypes.NodeClientAPI[
 		*big.Int,
 		common.Hash,
 		*evmtypes.Head,
@@ -493,7 +493,7 @@ func (r *rpcClient) SendTransactionReturnCode(ctx context.Context, tx *types.Tra
 }
 
 func (r *rpcClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
-	// todo: implement if used
+	// Not Implemented
 	return errors.New("SimulateTransaction not implemented")
 }
 
@@ -505,7 +505,7 @@ func (r *rpcClient) SendEmptyTransaction(
 	fee evmtypes.EvmFee,
 	fromAddress common.Address,
 ) (txhash string, err error) {
-	// todo: implement if used
+	// Not Implemented
 	return "", errors.New("SendEmptyTransaction not implemented")
 }
 

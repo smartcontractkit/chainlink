@@ -24,15 +24,15 @@ var (
 	promPoolRPCNodeVerifies = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_verifies",
 		Help: "The total number of chain ID verifications for the given RPC node",
-	}, []string{"chainID", "nodeName"})
+	}, []string{"chainFamily", "chainID", "nodeName"})
 	promPoolRPCNodeVerifiesFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_verifies_failed",
 		Help: "The total number of failed chain ID verifications for the given RPC node",
-	}, []string{"chainID", "nodeName"})
+	}, []string{"chainFamily", "chainID", "nodeName"})
 	promPoolRPCNodeVerifiesSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_verifies_success",
 		Help: "The total number of successful chain ID verifications for the given RPC node",
-	}, []string{"chainID", "nodeName"})
+	}, []string{"chainFamily", "chainID", "nodeName"})
 )
 
 type rawclient struct {
@@ -44,7 +44,7 @@ type Node[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] interface {
 	// State returns NodeState
 	State() NodeState
@@ -65,17 +65,17 @@ type node[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] struct {
 	utils.StartStopOnce
 	lfcLog              logger.Logger
-	rpcLog              logger.Logger
 	name                string
 	id                  int32
 	chainID             CHAIN_ID
 	nodePoolCfg         types.NodePool
 	noNewHeadsThreshold time.Duration
 	order               int32
+	chainFamily         string
 
 	ws   rawclient
 	http *rawclient
@@ -111,7 +111,7 @@ func NewNode[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ](
 	nodeCfg types.NodePool,
 	noNewHeadsThreshold time.Duration,
@@ -123,6 +123,7 @@ func NewNode[
 	chainID CHAIN_ID,
 	nodeOrder int32,
 	rpcClient RPC_CLIENT,
+	chainFamily string,
 ) Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
 	n := new(node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT])
 	n.name = name
@@ -145,9 +146,9 @@ func NewNode[
 		"nodeOrder", n.order,
 	)
 	n.lfcLog = lggr.Named("Lifecycle")
-	n.rpcLog = lggr.Named("RPC")
 	n.stateLatestBlockNumber = -1
 	n.rpcClient = rpcClient
+	n.chainFamily = chainFamily
 	return n
 }
 
@@ -250,9 +251,9 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) verify(callerCtx con
 	ctx, cancel := n.makeQueryCtx(callerCtx)
 	defer cancel()
 
-	promPoolRPCNodeVerifies.WithLabelValues(n.chainID.String(), n.name).Inc()
+	promPoolRPCNodeVerifies.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
 	promFailed := func() {
-		promPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
+		promPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
 	}
 
 	st := n.State()
@@ -292,7 +293,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) verify(callerCtx con
 		}
 	}
 
-	promPoolRPCNodeVerifiesSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
+	promPoolRPCNodeVerifiesSuccess.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
 
 	return nil
 }
@@ -315,4 +316,8 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Order() int32 {
 func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) SetState(state NodeState) {
 	n.state = state
 	n.rpcClient.SetState(state)
+}
+
+func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) ChainFamily() string {
+	return n.chainFamily
 }

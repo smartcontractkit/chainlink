@@ -46,7 +46,7 @@ func (c *chainClient) NewClient(
 	chainType config.ChainType,
 ) *chainClient {
 	multiNodeClient := clienttypes.NewMultiNodeClient[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient](
-		logger, selectionMode, noNewHeadsThreshold, nodes, sendonlys, chainID, chainType,
+		logger, selectionMode, noNewHeadsThreshold, nodes, sendonlys, chainID, "EVM",
 	)
 
 	lggr := logger.Named("Client").With("chainID", chainID.String())

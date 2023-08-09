@@ -11,7 +11,7 @@ type roundRobinSelector[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] struct {
 	nodes           []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
 	roundRobinCount atomic.Uint32
@@ -22,7 +22,7 @@ func NewRoundRobinSelector[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ](nodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) NodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
 	return &roundRobinSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]{
 		nodes: nodes,

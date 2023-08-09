@@ -14,7 +14,7 @@ type erroringNode[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] struct {
 	errMsg string
 }

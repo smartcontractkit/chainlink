@@ -13,7 +13,7 @@ type priorityLevelNodeSelector[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] struct {
 	nodes           []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
 	roundRobinCount []atomic.Uint32
@@ -24,7 +24,7 @@ type nodeWithPriority[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] struct {
 	node     Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
 	priority int32
@@ -35,7 +35,7 @@ func NewPriorityLevelNodeSelector[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ](nodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) NodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
 	return &priorityLevelNodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]{
 		nodes:           nodes,
@@ -85,7 +85,7 @@ func removeLowerTiers[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ](nodes []nodeWithPriority[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) []nodeWithPriority[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
 	sort.SliceStable(nodes, func(i, j int) bool {
 		return nodes[i].priority > nodes[j].priority
@@ -109,7 +109,7 @@ func nrOfPriorityTiers[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ](nodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) int32 {
 	highestPriority := int32(0)
 	for _, n := range nodes {
@@ -127,7 +127,7 @@ func firstOrHighestPriority[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ](nodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
 	hp := int32(math.MaxInt32)
 	var node Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]

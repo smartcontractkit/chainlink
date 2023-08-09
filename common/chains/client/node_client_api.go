@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
-type ChainRPCClient[
+type NodeClientAPI[
 	CHAIN_ID types.ID,
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],

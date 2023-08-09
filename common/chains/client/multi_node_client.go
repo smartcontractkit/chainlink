@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -23,7 +22,7 @@ var (
 	PromMultiNodeClientRPCNodeStates = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "client_rpc_node_states",
 		Help: "The number of RPC nodes currently in the given state for the given chain",
-	}, []string{"chainId", "state"})
+	}, []string{"chainFamily", "chainId", "state"})
 )
 
 const (
@@ -38,7 +37,7 @@ type NodeSelector[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] interface {
 	// Select returns a Node, or nil if none can be selected.
 	// Implementation must be thread-safe.
@@ -52,17 +51,16 @@ type MultiNodeClient[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] interface {
-	// RPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
 	Dial(context.Context) error
 	Close() error
 	NodeStates() map[string]string
-	// BatchCallContextAll(ctx context.Context, b []any) error
+	SelectNode() Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
+
 	runLoop()
 	nLiveNodes() (int, int64, *utils.Big)
 	report()
-	SelectNode() Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
 }
 
 func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
@@ -74,7 +72,7 @@ type multiNodeClient[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] struct {
 	utils.StartStopOnce
 	nodes               []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
@@ -84,6 +82,7 @@ type multiNodeClient[
 	selectionMode       string
 	noNewHeadsThreshold time.Duration
 	nodeSelector        NodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
+	chainFamily         string
 
 	activeMu   sync.RWMutex
 	activeNode Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
@@ -97,7 +96,7 @@ func NewMultiNodeClient[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT ChainRPCClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ](
 	logger logger.Logger,
 	selectionMode string,
@@ -105,7 +104,7 @@ func NewMultiNodeClient[
 	nodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT],
 	sendonlys []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT],
 	chainID CHAIN_ID,
-	chainType config.ChainType,
+	chainFamily string,
 ) MultiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
 	nodeSelector := func() NodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
 		switch selectionMode {
@@ -133,6 +132,7 @@ func NewMultiNodeClient[
 		noNewHeadsThreshold: noNewHeadsThreshold,
 		nodeSelector:        nodeSelector,
 		chStop:              make(chan struct{}),
+		chainFamily:         chainFamily,
 	}
 
 	c.logger.Debugf("The MultiNodeClient is configured to use NodeSelectionMode: %s", selectionMode)
@@ -295,7 +295,7 @@ func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) report() 
 	}
 	for _, state := range allNodeStates {
 		count := counts[state]
-		PromMultiNodeClientRPCNodeStates.WithLabelValues(c.chainID.String(), state.String()).Set(float64(count))
+		PromMultiNodeClientRPCNodeStates.WithLabelValues(c.chainFamily, c.chainID.String(), state.String()).Set(float64(count))
 	}
 
 	live := total - dead

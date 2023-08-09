@@ -470,6 +470,9 @@ func NewSendErrorReturnCode(err error, lggr logger.Logger, tx *types.Transaction
 // priced. Ideally in the future we wouldn't need an entire new function for this.
 func NewSendOnlyErrorReturnCode(err error, lggr logger.Logger, tx *types.Transaction, fromAddress common.Address, isL2 bool) (clienttypes.SendTxReturnCode, error) {
 	sendError := NewSendError(err)
+	if sendError == nil {
+		return clienttypes.Successful, err
+	}
 	if sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() {
 		// Nonce too low indicated that a transaction at this nonce was confirmed already.
 		// Mark it as TransactionAlreadyKnown.

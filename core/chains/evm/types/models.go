@@ -64,6 +64,7 @@ func (h *Head) BlockNumber() int64 {
 func (h *Head) BlockHash() common.Hash {
 	return h.Hash
 }
+
 func (h *Head) GetParentHash() common.Hash {
 	return h.ParentHash
 }
