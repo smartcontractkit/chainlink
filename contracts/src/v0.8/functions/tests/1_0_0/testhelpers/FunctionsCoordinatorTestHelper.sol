@@ -2,19 +2,14 @@
 pragma solidity ^0.8.6;
 
 import {FunctionsCoordinator} from "../../../dev/1_0_0/FunctionsCoordinator.sol";
+import {FunctionsBilling} from "../../../dev/1_0_0/FunctionsBilling.sol";
 
 contract FunctionsCoordinatorTestHelper is FunctionsCoordinator {
   constructor(
     address router,
-    bytes memory config,
+    FunctionsBilling.Config memory config,
     address linkToNativeFeed
   ) FunctionsCoordinator(router, config, linkToNativeFeed) {}
-
-  function callValidateReport(bytes calldata report) external pure returns (bool isValid) {
-    bytes32 configDigest;
-    uint40 epochAndRound;
-    isValid = _validateReport(configDigest, epochAndRound, report);
-  }
 
   function callReport(bytes calldata report) external {
     address[MAX_NUM_ORACLES] memory signers;

@@ -5,13 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -56,7 +57,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 
 func (l *logPollerWrapper) Start(context.Context) error {
 	return l.StartOnce("LogPollerWrapper", func() error {
-		l.lggr.Info("starting LogPollerWrapper")
+		l.lggr.Infow("starting LogPollerWrapper", "routerContract", l.routerContract.Address().Hex(), "contractVersion", l.pluginConfig.ContractVersion)
 		l.mu.Lock()
 		defer l.mu.Unlock()
 		if l.pluginConfig.ContractVersion == 0 {
@@ -66,7 +67,7 @@ func (l *logPollerWrapper) Start(context.Context) error {
 			nextBlock, err := l.logPoller.LatestBlock()
 			l.nextBlock = nextBlock
 			if err != nil {
-				l.lggr.Error("LogPollerWrapper: LatestBlock() failed, starting from 0")
+				l.lggr.Errorw("LogPollerWrapper: LatestBlock() failed, starting from 0", "error", err)
 			} else {
 				l.lggr.Debugw("LogPollerWrapper: LatestBlock() got starting block", "block", nextBlock)
 			}
@@ -150,6 +151,51 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 				l.lggr.Errorw("LatestEvents: failed to parse a request log, skipping")
 				continue
 			}
+
+			uint32Type, errType1 := abi.NewType("uint32", "uint32", nil)
+			uint40Type, errType2 := abi.NewType("uint40", "uint40", nil)
+			uint64Type, errType3 := abi.NewType("uint64", "uint64", nil)
+			uint72Type, errType4 := abi.NewType("uint72", "uint72", nil)
+			uint96Type, errType5 := abi.NewType("uint96", "uint96", nil)
+			addressType, errType6 := abi.NewType("address", "address", nil)
+			bytes32Type, errType7 := abi.NewType("bytes32", "bytes32", nil)
+
+			if errType1 != nil || errType2 != nil || errType3 != nil || errType4 != nil || errType5 != nil || errType6 != nil || errType7 != nil {
+				l.lggr.Errorw("LatestEvents: failed to initialize types", "errType1", errType1,
+					"errType2", errType2, "errType3", errType3, "errType4", errType4, "errType5", errType5, "errType6", errType6, "errType7", errType7,
+				)
+				continue
+			}
+			commitmentABI := abi.Arguments{
+				{Type: bytes32Type}, // RequestId
+				{Type: addressType}, // Coordinator
+				{Type: uint96Type},  // EstimatedTotalCostJuels
+				{Type: addressType}, // Client
+				{Type: uint64Type},  // SubscriptionId
+				{Type: uint32Type},  // CallbackGasLimit
+				{Type: uint72Type},  // AdminFee
+				{Type: uint72Type},  // DonFee
+				{Type: uint40Type},  // GasOverheadBeforeCallback
+				{Type: uint40Type},  // GasOverheadAfterCallback
+				{Type: uint32Type},  // TimeoutTimestamp
+			}
+			commitmentBytes, err := commitmentABI.Pack(
+				oracleRequest.Commitment.RequestId,
+				oracleRequest.Commitment.Coordinator,
+				oracleRequest.Commitment.EstimatedTotalCostJuels,
+				oracleRequest.Commitment.Client,
+				oracleRequest.Commitment.SubscriptionId,
+				oracleRequest.Commitment.CallbackGasLimit,
+				oracleRequest.Commitment.AdminFee,
+				oracleRequest.Commitment.DonFee,
+				oracleRequest.Commitment.GasOverheadBeforeCallback,
+				oracleRequest.Commitment.GasOverheadAfterCallback,
+				oracleRequest.Commitment.TimeoutTimestamp,
+			)
+			if err != nil {
+				l.lggr.Errorw("LatestEvents: failed to pack commitment bytes, skipping", err)
+			}
+
 			resultsReq = append(resultsReq, evmRelayTypes.OracleRequest{
 				RequestId:           oracleRequest.RequestId,
 				RequestingContract:  oracleRequest.RequestingContract,
@@ -161,7 +207,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 				Flags:               oracleRequest.Flags,
 				CallbackGasLimit:    oracleRequest.CallbackGasLimit,
 				TxHash:              oracleRequest.Raw.TxHash,
-				OnchainMetadata:     oracleRequest.Commitment,
+				OnchainMetadata:     commitmentBytes,
 				CoordinatorContract: coordinator,
 			})
 		}
@@ -186,8 +232,9 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 func (l *logPollerWrapper) SubscribeToUpdates(subscriberName string, subscriber evmRelayTypes.RouteUpdateSubscriber) {
 	if l.pluginConfig.ContractVersion == 0 {
 		// in V0, immediately set contract address to Oracle contract and never update again
-		err := subscriber.UpdateRoutes(l.routerContract.Address(), l.routerContract.Address())
-		l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "error", err)
+		if err := subscriber.UpdateRoutes(l.routerContract.Address(), l.routerContract.Address()); err != nil {
+			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "error", err)
+		}
 	} else if l.pluginConfig.ContractVersion == 1 {
 		l.mu.Lock()
 		defer l.mu.Unlock()
@@ -199,7 +246,7 @@ func (l *logPollerWrapper) checkForRouteUpdates() {
 	defer l.closeWait.Done()
 	freqSec := l.pluginConfig.ContractUpdateCheckFrequencySec
 	if freqSec == 0 {
-		l.lggr.Errorw("ContractUpdateCheckFrequencySec is zero - route update checks disabled")
+		l.lggr.Errorw("LogPollerWrapper: ContractUpdateCheckFrequencySec is zero - route update checks disabled")
 		return
 	}
 
@@ -232,22 +279,22 @@ func (l *logPollerWrapper) getCurrentCoordinators(ctx context.Context) (common.A
 		return l.routerContract.Address(), l.routerContract.Address(), nil
 	}
 	var donId [32]byte
-	copy(donId[:], []byte(l.pluginConfig.DONId))
+	copy(donId[:], []byte(l.pluginConfig.DONID))
 
 	activeCoordinator, err := l.routerContract.GetContractById(&bind.CallOpts{
 		Pending: false,
 		Context: ctx,
-	}, donId, false)
+	}, donId)
 	if err != nil {
 		return common.Address{}, common.Address{}, err
 	}
 
-	proposedCoordinator, err := l.routerContract.GetContractById(&bind.CallOpts{
+	proposedCoordinator, err := l.routerContract.GetProposedContractById(&bind.CallOpts{
 		Pending: false,
 		Context: ctx,
-	}, donId, true)
+	}, donId)
 	if err != nil {
-		return common.Address{}, common.Address{}, err
+		return activeCoordinator, l.proposedCoordinator, nil
 	}
 
 	return activeCoordinator, proposedCoordinator, nil
@@ -284,6 +331,9 @@ func filterName(addr common.Address) string {
 }
 
 func (l *logPollerWrapper) registerFilters(coordinatorAddress common.Address) error {
+	if (coordinatorAddress == common.Address{}) {
+		return nil
+	}
 	return l.logPoller.RegisterFilter(
 		logpoller.Filter{
 			Name: filterName(coordinatorAddress),
