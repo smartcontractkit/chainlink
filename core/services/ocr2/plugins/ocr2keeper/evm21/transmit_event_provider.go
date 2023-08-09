@@ -122,7 +122,7 @@ func (c *TransmitEventProvider) HealthReport() map[string]error {
 	return map[string]error{c.Name(): c.sync.Healthy()}
 }
 
-func (c *TransmitEventProvider) TransmitEvents(ctx context.Context) ([]ocr2keepers.TransmitEvent, error) {
+func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.TransmitEvent, error) {
 	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)

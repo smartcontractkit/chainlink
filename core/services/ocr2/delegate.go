@@ -1248,6 +1248,6 @@ func (l *logWriter) Write(p []byte) (n int, err error) {
 type mockRecoverableProvider struct {
 }
 
-func (_m *mockRecoverableProvider) GetRecoveryProposals() ([]ocr2keepers21types.UpkeepPayload, error) {
+func (_m *mockRecoverableProvider) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers21types.UpkeepPayload, error) {
 	return nil, nil
 }

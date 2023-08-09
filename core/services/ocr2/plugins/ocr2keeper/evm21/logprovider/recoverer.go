@@ -78,7 +78,7 @@ func (r *logRecoverer) Close() error {
 	return nil
 }
 
-func (r *logRecoverer) GetRecoveryProposals() ([]ocr2keepers.UpkeepPayload, error) {
+func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
