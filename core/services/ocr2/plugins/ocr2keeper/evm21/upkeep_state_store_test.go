@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -9,23 +8,32 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 var (
 	upkeepId1 = big.NewInt(100)
 	upkeepId2 = big.NewInt(200)
 	trigger1  = ocr2keepers.Trigger{
-		BlockNumber: 95,
+		BlockNumber: block1,
 		BlockHash:   "0x1231eqwe12eqwd",
+		Extension: core.LogTriggerExtension{
+			LogIndex: 1,
+			TxHash:   "0x1234567890123456789012345678901234567890123456789012345678901234",
+		},
 	}
 	trigger2 = ocr2keepers.Trigger{
-		BlockNumber: 125,
+		BlockNumber: block3,
 		BlockHash:   "0x1231eqwe12eqwd",
+		Extension: core.LogTriggerExtension{
+			LogIndex: 1,
+			TxHash:   "0x1234567890123456789012345678901234567890123456789012345678901234",
+		},
 	}
-	payload2 = ocr2keepers.NewUpkeepPayload(upkeepId1, conditionalType, blockKey2, trigger1, []byte{})
-	payload3 = ocr2keepers.NewUpkeepPayload(upkeepId2, logTriggerType, blockKey2, trigger1, []byte{})
-	payload4 = ocr2keepers.NewUpkeepPayload(upkeepId1, logTriggerType, blockKey1, trigger2, []byte{})
-	payload5 = ocr2keepers.NewUpkeepPayload(upkeepId1, logTriggerType, blockKey3, trigger1, []byte{})
+	payload2, _ = core.NewUpkeepPayload(upkeepId1, conditionalType, trigger1, []byte{})
+	payload3, _ = core.NewUpkeepPayload(upkeepId2, logTriggerType, trigger1, []byte{})
+	payload4, _ = core.NewUpkeepPayload(upkeepId1, logTriggerType, trigger2, []byte{})
+	payload5, _ = core.NewUpkeepPayload(upkeepId1, logTriggerType, trigger1, []byte{})
 )
 
 const (
@@ -33,39 +41,7 @@ const (
 	logTriggerType  = 1
 	block1          = 111
 	block3          = 113
-	blockKey1       = "111|0x123123132132"
-	blockKey2       = "112|0x565456465465"
-	blockKey3       = "113|0x111423246546"
-	invalidBlockKey = "2220x565456465465"
 )
-
-func TestUpkeepStateStore_InvalidBlockKey(t *testing.T) {
-	tests := []struct {
-		name          string
-		payloads      []ocr2keepers.UpkeepPayload
-		states        []ocr2keepers.UpkeepState
-		expectedError error
-	}{
-		{
-			name: "failed to split invalid block key",
-			payloads: []ocr2keepers.UpkeepPayload{
-				ocr2keepers.NewUpkeepPayload(upkeepId2, logTriggerType, invalidBlockKey, trigger1, []byte{}),
-			},
-			states:        []ocr2keepers.UpkeepState{ocr2keepers.Performed},
-			expectedError: fmt.Errorf("check block %s is invalid for upkeep %s", invalidBlockKey, upkeepId2),
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			store := NewUpkeepStateStore(logger.TestLogger(t))
-			for i, p := range tc.payloads {
-				err := store.SetUpkeepState(p, tc.states[i])
-				require.Equal(t, err, tc.expectedError)
-			}
-		})
-	}
-}
 
 func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 	p := ocr2keepers.Performed
