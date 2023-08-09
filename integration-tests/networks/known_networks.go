@@ -357,7 +357,7 @@ var (
 	}
 
 	ScrollMainnet = blockchain.EVMNetwork{
-		Name:                      "Scroll Sepolia",
+		Name:                      "Scroll Mainnet",
 		ClientImplementation:      blockchain.ScrollClientImplementation,
 		ChainID:                   534352,
 		Simulated:                 false,
