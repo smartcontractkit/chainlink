@@ -20,11 +20,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_billing_registry_events_mock"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
@@ -789,7 +789,7 @@ func (o *EthereumOffchainAggregator) SetConfig(
 			return err
 		}
 		if len(ocrKeys.Data) == 0 {
-			return fmt.Errorf("no OCR keys found for node %s", node.ChartName)
+			return fmt.Errorf("no OCR keys found for node %v", node)
 		}
 		primaryOCRKey := ocrKeys.Data[0]
 		if err != nil {

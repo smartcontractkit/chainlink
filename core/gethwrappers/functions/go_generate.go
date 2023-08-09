@@ -11,9 +11,6 @@ package gethwrappers
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsOracleWithInit.abi ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsOracleWithInit.bin OCR2DROracle ocr2dr_oracle
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsBillingRegistryWithInit.abi ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsBillingRegistryWithInit.bin OCR2DRRegistry ocr2dr_registry
 
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsOracleEventsMock.abi ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsOracleEventsMock.bin FunctionsOracleEventsMock functions_oracle_events_mock
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsBillingRegistryEventsMock.abi ../../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsBillingRegistryEventsMock.bin FunctionsBillingRegistryEventsMock functions_billing_registry_events_mock
-
 // Version 1 (Mainnet Preview)
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsRequest.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsRequest.bin Functions functions
 //go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsClient.abi ../../../contracts/solc/v0.8.19/functions/1_0_0/FunctionsClient.bin FunctionsClient functions_client

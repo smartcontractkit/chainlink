@@ -1,24 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../interfaces/LinkTokenInterface.sol";
+import "../shared/interfaces/LinkTokenInterface.sol";
 import "../interfaces/BlockhashStoreInterface.sol";
 import "../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
 import "../interfaces/TypeAndVersionInterface.sol";
-import "../interfaces/ERC677ReceiverInterface.sol";
+import "../shared/interfaces/IERC677Receiver.sol";
 import "./VRF.sol";
-import "../ConfirmedOwner.sol";
+import "../shared/access/ConfirmedOwner.sol";
 import "./VRFConsumerBaseV2.sol";
 import "../ChainSpecificUtil.sol";
 
-contract VRFCoordinatorV2 is
-  VRF,
-  ConfirmedOwner,
-  TypeAndVersionInterface,
-  VRFCoordinatorV2Interface,
-  ERC677ReceiverInterface
-{
+contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCoordinatorV2Interface, IERC677Receiver {
   LinkTokenInterface public immutable LINK;
   AggregatorV3Interface public immutable LINK_ETH_FEED;
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;

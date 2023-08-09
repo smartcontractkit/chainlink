@@ -52,6 +52,8 @@ type PluginConfig struct {
 	// workers or slower RPC responses will cause this queue to build up.
 	// Adding new items to the queue will block if the queue becomes full.
 	ServiceQueueLength int `json:"serviceQueueLength"`
+	// ContractVersion is the contract version
+	ContractVersion string `json:"contractVersion"`
 }
 
 func ValidatePluginConfig(cfg PluginConfig) error {

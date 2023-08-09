@@ -16,11 +16,11 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_billing_registry_events_mock"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
@@ -114,6 +114,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error
 		return &CeloContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	case *blockchain.QuorumClient:
 		return &QuorumContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+	case *blockchain.BSCClient:
+		return &BSCContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -157,6 +159,10 @@ type CeloContractDeployer struct {
 }
 
 type QuorumContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type BSCContractDeployer struct {
 	*EthereumContractDeployer
 }
 

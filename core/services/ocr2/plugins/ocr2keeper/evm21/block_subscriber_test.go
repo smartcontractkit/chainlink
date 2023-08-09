@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -183,9 +183,18 @@ func TestBlockSubscriber_BuildHistory(t *testing.T) {
 			},
 			Block: 100,
 			ExpectedHistory: ocr2keepers.BlockHistory{
-				"100|0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba",
-				"98|0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0",
-				"97|0xa7ac5bbc905b81f3a2ad9fb8ef1fe45f4a95768df456736952e4ec6c21296abe",
+				ocr2keepers.BlockKey{
+					Number: 100,
+					Hash:   common.HexToHash("0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba"),
+				},
+				ocr2keepers.BlockKey{
+					Number: 98,
+					Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+				},
+				ocr2keepers.BlockKey{
+					Number: 97,
+					Hash:   common.HexToHash("0xa7ac5bbc905b81f3a2ad9fb8ef1fe45f4a95768df456736952e4ec6c21296abe"),
+				},
 			},
 		},
 	}
@@ -331,15 +340,24 @@ func TestBlockSubscriber_Start(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 	bk1 := <-c1
-	assert.Equal(
-		t,
-		ocr2keepers.BlockHistory{
-			"101|0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0",
-			"100|0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b",
-			"99|0x9bc2b51e147f9cad05f1614b7f1d8181cb24c544cbcf841f3155e54e752a3b44",
-			"98|0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0",
+	assert.Equal(t, ocr2keepers.BlockHistory{
+		ocr2keepers.BlockKey{
+			Number: 101,
+			Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
 		},
-		bk1)
+		ocr2keepers.BlockKey{
+			Number: 100,
+			Hash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
+		},
+		ocr2keepers.BlockKey{
+			Number: 99,
+			Hash:   common.HexToHash("0x9bc2b51e147f9cad05f1614b7f1d8181cb24c544cbcf841f3155e54e752a3b44"),
+		},
+		ocr2keepers.BlockKey{
+			Number: 98,
+			Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+		},
+	}, bk1)
 
 	// add 2nd subscriber
 	subId2, c2, err := bs.Subscribe()
@@ -375,10 +393,22 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	bk1 = <-c1
 	assert.Equal(t,
 		ocr2keepers.BlockHistory{
-			"102|0x9ac1ebc307554cf1bcfcc2a49462278e89d6878d613a33df38a64d0aeac971b5",
-			"101|0x41b5842b8847dcf834e39556d2ac51cc7d960a7de9471ec504673d0038fd6c8e",
-			"100|0x8a876b62d252e63e16cf3487db3486c0a7c0a8e06bc3792a3b116c5ca480503f",
-			"99|0x70c03acc4ddbfb253ba41a25dc13fb21b25da8b63bcd1aa7fb55713d33a36c71",
+			ocr2keepers.BlockKey{
+				Number: 102,
+				Hash:   common.HexToHash("0x9ac1ebc307554cf1bcfcc2a49462278e89d6878d613a33df38a64d0aeac971b5"),
+			},
+			ocr2keepers.BlockKey{
+				Number: 101,
+				Hash:   common.HexToHash("0x41b5842b8847dcf834e39556d2ac51cc7d960a7de9471ec504673d0038fd6c8e"),
+			},
+			ocr2keepers.BlockKey{
+				Number: 100,
+				Hash:   common.HexToHash("0x8a876b62d252e63e16cf3487db3486c0a7c0a8e06bc3792a3b116c5ca480503f"),
+			},
+			ocr2keepers.BlockKey{
+				Number: 99,
+				Hash:   common.HexToHash("0x70c03acc4ddbfb253ba41a25dc13fb21b25da8b63bcd1aa7fb55713d33a36c71"),
+			},
 		},
 		bk1,
 	)
@@ -386,10 +416,22 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	bk2 := <-c2
 	assert.Equal(t,
 		ocr2keepers.BlockHistory{
-			"102|0x9ac1ebc307554cf1bcfcc2a49462278e89d6878d613a33df38a64d0aeac971b5",
-			"101|0x41b5842b8847dcf834e39556d2ac51cc7d960a7de9471ec504673d0038fd6c8e",
-			"100|0x8a876b62d252e63e16cf3487db3486c0a7c0a8e06bc3792a3b116c5ca480503f",
-			"99|0x70c03acc4ddbfb253ba41a25dc13fb21b25da8b63bcd1aa7fb55713d33a36c71",
+			ocr2keepers.BlockKey{
+				Number: 102,
+				Hash:   common.HexToHash("0x9ac1ebc307554cf1bcfcc2a49462278e89d6878d613a33df38a64d0aeac971b5"),
+			},
+			ocr2keepers.BlockKey{
+				Number: 101,
+				Hash:   common.HexToHash("0x41b5842b8847dcf834e39556d2ac51cc7d960a7de9471ec504673d0038fd6c8e"),
+			},
+			ocr2keepers.BlockKey{
+				Number: 100,
+				Hash:   common.HexToHash("0x8a876b62d252e63e16cf3487db3486c0a7c0a8e06bc3792a3b116c5ca480503f"),
+			},
+			ocr2keepers.BlockKey{
+				Number: 99,
+				Hash:   common.HexToHash("0x70c03acc4ddbfb253ba41a25dc13fb21b25da8b63bcd1aa7fb55713d33a36c71"),
+			},
 		},
 		bk2,
 	)
