@@ -236,6 +236,18 @@ type FunctionsBillingRegistryEventsMock interface {
 	BillingEnd(requestId [32]byte, subscriptionId uint64, signerPayment *big.Int, transmitterPayment *big.Int, totalCost *big.Int, success bool) error
 }
 
+type StakingEventsMock interface {
+	Address() string
+	PoolSizeIncreased(maxPoolSize *big.Int) error
+	MaxCommunityStakeAmountIncreased(maxStakeAmount *big.Int) error
+	MaxOperatorStakeAmountIncreased(maxStakeAmount *big.Int) error
+	RewardInitialized(rate *big.Int, available *big.Int, startTimestamp *big.Int, endTimestamp *big.Int) error
+}
+
+type OffchainAggregatorEventsMock interface {
+	Address() string
+}
+
 type MockAggregatorProxy interface {
 	Address() string
 	UpdateAggregator(aggregator common.Address) error

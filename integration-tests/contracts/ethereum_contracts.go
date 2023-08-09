@@ -325,6 +325,76 @@ func (f *EthereumFunctionsBillingRegistryEventsMock) BillingEnd(requestId [32]by
 	return f.client.ProcessTransaction(tx)
 }
 
+// EthereumStakingEventsMock represents the basic events mock contract
+type EthereumStakingEventsMock struct {
+	client     blockchain.EVMClient
+	eventsMock *eth_contracts.StakingEventsMock
+	address    *common.Address
+}
+
+func (f *EthereumStakingEventsMock) Address() string {
+	return f.address.Hex()
+}
+
+func (f *EthereumStakingEventsMock) MaxCommunityStakeAmountIncreased(maxStakeAmount *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitMaxCommunityStakeAmountIncreased(opts, maxStakeAmount)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStakingEventsMock) PoolSizeIncreased(maxPoolSize *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitPoolSizeIncreased(opts, maxPoolSize)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStakingEventsMock) MaxOperatorStakeAmountIncreased(maxStakeAmount *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitMaxOperatorStakeAmountIncreased(opts, maxStakeAmount)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStakingEventsMock) RewardInitialized(rate *big.Int, available *big.Int, startTimestamp *big.Int, endTimestamp *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitRewardInitialized(opts, rate, available, startTimestamp, endTimestamp)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+// EthereumOffchainAggregatorEventsMock represents the basic events mock contract
+type EthereumOffchainAggregatorEventsMock struct {
+	client     blockchain.EVMClient
+	eventsMock *eth_contracts.OffchainAggregatorEventsMock
+	address    *common.Address
+}
+
+func (f *EthereumOffchainAggregatorEventsMock) Address() string {
+	return f.address.Hex()
+}
+
 // EthereumFluxAggregator represents the basic flux aggregation contract
 type EthereumFluxAggregator struct {
 	client         blockchain.EVMClient
