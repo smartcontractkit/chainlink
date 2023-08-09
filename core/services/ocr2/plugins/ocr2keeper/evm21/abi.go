@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -49,7 +49,7 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV
 	return &evmRegistryPackerV2_1{abi: abi, utilsAbi: utilsAbi}
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
+func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
 	var result ocr2keepers.CheckResult
 
 	b, err := hexutil.Decode(raw)
@@ -63,21 +63,21 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(key ocr2keepers.UpkeepPayload
 	}
 
 	result = ocr2keepers.CheckResult{
-		Eligible:     *abi.ConvertType(out[0], new(bool)).(*bool),
-		Retryable:    false,
-		GasAllocated: uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
-		Payload:      key,
-	}
-	ext := EVMAutomationResultExtension21{
+		Eligible:      *abi.ConvertType(out[0], new(bool)).(*bool),
+		Retryable:     false,
+		GasAllocated:  uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
+		UpkeepID:      p.UpkeepID,
+		Trigger:       p.Trigger,
+		WorkID:        p.WorkID,
 		FastGasWei:    *abi.ConvertType(out[5], new(*big.Int)).(**big.Int),
 		LinkNative:    *abi.ConvertType(out[6], new(*big.Int)).(**big.Int),
 		FailureReason: *abi.ConvertType(out[2], new(uint8)).(*uint8),
 	}
-	result.Extension = ext
+
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
-	if ext.FailureReason == UPKEEP_FAILURE_REASON_NONE || (ext.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
+	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || (result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
 		result.PerformData = rawPerformData
 	}
 
