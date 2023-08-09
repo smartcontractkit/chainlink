@@ -501,9 +501,9 @@ func (txm *Txm) GetMsgs(ids ...int64) (adapters.Msgs, error) {
 // GasPrice returns the gas price from the estimator in uatom.
 func (txm *Txm) GasPrice() (sdk.DecCoin, error) {
 	prices := txm.gpe.GasPrices()
-	gasPrice, ok := prices["uatom"]
+	gasPrice, ok := prices["ucosm"]
 	if !ok {
-		return sdk.DecCoin{}, errors.New("unexpected empty uatom price")
+		return sdk.DecCoin{}, errors.New("unexpected empty ucosm price")
 	}
 	return gasPrice, nil
 }
