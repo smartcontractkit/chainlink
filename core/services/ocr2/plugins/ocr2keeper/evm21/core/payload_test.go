@@ -1,7 +1,6 @@
 package core
 
 import (
-	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -10,55 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 )
-
-func TestTriggerID(t *testing.T) {
-	tests := []struct {
-		name         string
-		upkeepID     string
-		triggerBytes []byte
-		expected     string
-	}{
-		{
-			name:     "happy flow",
-			upkeepID: "82566255084862886500628610724995377215109748679571001950554849251333329872882",
-			triggerBytes: func() []byte {
-				x, _ := hex.DecodeString("deadbeef")
-				return x
-			}(),
-			expected: "fe466794c97e8b54ca25b696ff3ee448a7d03e4a82a2e45d9d84de62ef4cc260",
-		},
-		{
-			name:         "empty trigger",
-			upkeepID:     "82566255084862886500628610724995377215109748679571001950554849251333329872882",
-			triggerBytes: []byte{},
-			expected:     "3b603b1d478017c18901163a6512b4b24c2616fc55654e7fb2a40baf69d44570",
-		},
-		{
-			name:     "empty upkeepID",
-			upkeepID: "0",
-			triggerBytes: func() []byte {
-				x, _ := hex.DecodeString("deadbeef")
-				return x
-			}(),
-			expected: "d4fd4e189132273036449fc9e11198c739161b4c0116a9a2dccdfa1c492006f1",
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			// Convert the string to a big.Int
-			var upkeepID big.Int
-			_, success := upkeepID.SetString(tc.upkeepID, 10)
-			if !success {
-				t.Fatal("Invalid big integer value")
-			}
-
-			res := UpkeepTriggerID(&upkeepID, tc.triggerBytes)
-
-			assert.Equal(t, tc.expected, res, "UpkeepTriggerID mismatch")
-		})
-	}
-}
 
 func TestWorkID(t *testing.T) {
 	tests := []struct {

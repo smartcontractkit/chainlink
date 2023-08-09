@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
@@ -13,14 +12,6 @@ import (
 var (
 	ErrInvalidUpkeepID = fmt.Errorf("invalid upkeepID")
 )
-
-// UpkeepTriggerID returns the identifier using the given upkeepID and trigger.
-// It follows the same logic as the contract, but performs it locally.
-func UpkeepTriggerID(id *big.Int, trigger []byte) string {
-	idBytes := append(id.Bytes(), trigger...)
-	triggerIDBytes := crypto.Keccak256(idBytes)
-	return hex.EncodeToString(triggerIDBytes)
-}
 
 // UpkeepWorkID returns the identifier using the given upkeepID and trigger extension(tx hash and log index).
 func UpkeepWorkID(id *big.Int, trigger ocr2keepers.Trigger) (string, error) {
@@ -61,27 +52,4 @@ func NewUpkeepPayload(id *big.Int, tp int, trigger ocr2keepers.Trigger, checkDat
 	p.WorkID = wid
 
 	return p, nil
-}
-
-func UpkeepTriggerIDFromPayload(p ocr2keepers.UpkeepPayload) (string, error) {
-	trigger := p.Trigger
-	// manually convert trigger to triggerWrapper
-	triggerW := triggerWrapper{
-		BlockNum:  uint32(trigger.BlockNumber),
-		BlockHash: common.Hash(trigger.BlockHash),
-	}
-
-	if trigger.LogTriggerExtension != nil {
-		triggerW.TxHash = common.Hash(trigger.LogTriggerExtension.TxHash)
-		triggerW.LogIndex = trigger.LogTriggerExtension.Index
-	}
-
-	// get trigger in bytes
-	uid := p.UpkeepID.BigInt()
-	triggerBytes, err := PackTrigger(uid, triggerW)
-	if err != nil {
-		return "", fmt.Errorf("%w: failed to pack trigger", err)
-	}
-
-	return UpkeepTriggerID(uid, triggerBytes), nil
 }
