@@ -6,8 +6,8 @@ import {FeeManager} from "../../FeeManager.sol";
 import {IFeeManager} from "../../interfaces/IFeeManager.sol";
 import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/Common.sol";
-import {ERC20Mock} from "../../../shared/vendor/ERC20Mock.sol";
-import {WERC20Mock} from "../../../shared/vendor/WERC20Mock.sol";
+import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
+import {WERC20Mock} from "../../../shared/mocks/WERC20Mock.sol";
 
 /**
  * @title BaseFeeManagerTest
@@ -84,7 +84,7 @@ contract BaseFeeManagerTest is Test {
   }
 
   function _initializeContracts() internal {
-    link = new ERC20Mock();
+    link = new ERC20Mock("LINK", "LINK", ADMIN, 0);
     native = new WERC20Mock();
 
     rewardManager = new RewardManager(getLinkAddress());
