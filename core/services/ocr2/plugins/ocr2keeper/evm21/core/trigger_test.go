@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -60,16 +61,17 @@ func TestPackUnpackTrigger(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			id, ok := big.NewInt(0).SetString(hexutil.Encode(tc.id)[2:], 16)
-			assert.True(t, ok)
+			var idBytes [32]byte
+			copy(idBytes[:], tc.id)
+			id := ocr2keepers.UpkeepIdentifier(idBytes)
 
-			encoded, err := PackTrigger(id, tc.trigger)
+			encoded, err := PackTrigger(id.BigInt(), tc.trigger)
 			if tc.err != nil {
 				assert.EqualError(t, err, tc.err.Error())
 			} else {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.encoded, encoded)
-				decoded, err := UnpackTrigger(id, encoded)
+				decoded, err := UnpackTrigger(id.BigInt(), encoded)
 				assert.NoError(t, err)
 				assert.Equal(t, tc.trigger.BlockNum, decoded.BlockNum)
 			}
@@ -83,10 +85,11 @@ func TestPackUnpackTrigger(t *testing.T) {
 
 	t.Run("unpacking unknown type", func(t *testing.T) {
 		uid := append([]byte{1}, common.LeftPadBytes([]byte{8}, 15)...)
-		id, ok := big.NewInt(0).SetString(hexutil.Encode(uid)[2:], 16)
-		assert.True(t, ok)
+		var idBytes [32]byte
+		copy(idBytes[:], uid)
+		id := ocr2keepers.UpkeepIdentifier(idBytes)
 		decoded, _ := hexutil.Decode("0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
-		_, err := UnpackTrigger(id, decoded)
+		_, err := UnpackTrigger(id.BigInt(), decoded)
 		assert.EqualError(t, err, "unknown trigger type: 8")
 	})
 }

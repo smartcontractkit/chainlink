@@ -43,7 +43,7 @@ func TestWorkID(t *testing.T) {
 		t.Fatalf("Error computing UpkeepWorkID: %s", err)
 	}
 
-	assert.Equal(t, "6fddaeddb48a3d7a21ef8c22fbd214192dba02f674dc0128ca474aeff038c7c3", res, "UpkeepWorkID mismatch")
+	assert.Equal(t, "e546b0a52c2879744f6def0fb483d581dc6d205de83af8440456804dd8b62380", res, "UpkeepWorkID mismatch")
 }
 
 func TestNewUpkeepPayload(t *testing.T) {
@@ -63,5 +63,5 @@ func TestNewUpkeepPayload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, "42e165594d25cdc74d80b2e38cbb0e9857ee6c6a607dfbec1983348087d34593", payload.WorkID)
+	assert.Equal(t, "bb2f1932cc8c36831ec53dfe4ee9e94d1a174289295da5883caa8afd6f2bd1aa", payload.WorkID)
 }
