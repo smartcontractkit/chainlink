@@ -217,7 +217,22 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 		if !ok {
 			return nil, core.ErrInvalidUpkeepID
 		}
-		workID, err := core.UpkeepWorkIDFromTriggerBytes(id, l.Trigger())
+		triggerW, err := core.UnpackTrigger(id, l.Trigger())
+		if err != nil {
+			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
+		}
+		trigger := ocr2keepers.NewTrigger(
+			ocr2keepers.BlockNumber(triggerW.BlockNum),
+			triggerW.BlockHash,
+		)
+		switch core.GetUpkeepType(*upkeepId) {
+		case ocr2keepers.LogTrigger:
+			trigger.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{}
+			trigger.LogTriggerExtension.TxHash = triggerW.TxHash
+			trigger.LogTriggerExtension.Index = triggerW.LogIndex
+		default:
+		}
+		workID, err := core.UpkeepWorkID(id, trigger)
 		if err != nil {
 			return nil, err
 		}

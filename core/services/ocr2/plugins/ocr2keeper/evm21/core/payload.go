@@ -19,17 +19,13 @@ func UpkeepWorkID(id *big.Int, trigger ocr2keepers.Trigger) (string, error) {
 	if trigger.LogTriggerExtension != nil {
 		triggerExtBytes = trigger.LogTriggerExtension.LogIdentifier()
 	}
-	return UpkeepWorkIDFromTriggerBytes(id, triggerExtBytes)
-}
-
-func UpkeepWorkIDFromTriggerBytes(id *big.Int, triggerBytes []byte) (string, error) {
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	ok := uid.FromBigInt(id)
 	if !ok {
 		return "", ErrInvalidUpkeepID
 	}
 	// TODO (auto-4314): Ensure it works with conditionals and add unit tests
-	hash := crypto.Keccak256(append(uid[:], triggerBytes...))
+	hash := crypto.Keccak256(append(uid[:], triggerExtBytes...))
 	return hex.EncodeToString(hash[:]), nil
 }
 

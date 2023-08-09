@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -117,6 +118,10 @@ func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 					},
 					Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
 						Id: id.BigInt(),
+						Trigger: func() []byte {
+							b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000001111111000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+							return b
+						}(),
 					},
 				},
 			},
