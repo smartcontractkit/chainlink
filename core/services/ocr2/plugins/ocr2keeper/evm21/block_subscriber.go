@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	// CleanUpInterval is the interval for cleaning up block maps
-	CleanUpInterval = 15 * time.Minute
-	// ChannelSize represents the channel size for head broadcaster
-	ChannelSize = 20
+	// cleanUpInterval is the interval for cleaning up block maps
+	cleanUpInterval = 15 * time.Minute
+	// channelSize represents the channel size for head broadcaster
+	channelSize = 20
 )
 
 type blockKey struct {
@@ -58,7 +58,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, bloc
 	return &BlockSubscriber{
 		hb:               hb,
 		lp:               lp,
-		headC:            make(chan *evmtypes.Head, ChannelSize),
+		headC:            make(chan *evmtypes.Head, channelSize),
 		subscribers:      map[int]chan ocr2keepers.BlockHistory{},
 		blocks:           map[int64]string{},
 		blockHistorySize: blockHistorySize,
@@ -181,7 +181,7 @@ func (hw *BlockSubscriber) Start(_ context.Context) error {
 		// clean up block maps
 		{
 			go func(ctx context.Context) {
-				ticker := time.NewTicker(CleanUpInterval)
+				ticker := time.NewTicker(cleanUpInterval)
 				for {
 					select {
 					case <-ticker.C:
@@ -217,7 +217,7 @@ func (hw *BlockSubscriber) Subscribe() (int, chan ocr2keepers.BlockHistory, erro
 
 	hw.maxSubId++
 	subId := hw.maxSubId
-	newC := make(chan ocr2keepers.BlockHistory, ChannelSize)
+	newC := make(chan ocr2keepers.BlockHistory, channelSize)
 	hw.subscribers[subId] = newC
 	hw.lggr.Infof("new subscriber %d", subId)
 
