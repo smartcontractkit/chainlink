@@ -19,7 +19,7 @@ import {Math} from "../shared/vendor/Math.sol";
  */
 contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
-  mapping(address => mapping(bytes32 => mapping(address => uint256))) public subscriberDiscounts;
+  mapping(address => mapping(bytes32 => mapping(address => uint256))) public s_subscriberDiscounts;
 
   /// @notice the total discount that can be applied to a fee, 1e18 = 100% discount
   uint256 private constant PERCENTAGE_SCALAR = 1e18;
@@ -45,7 +45,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   bytes32 private constant REPORT_V3 = 0x0003000000000000000000000000000000000000000000000000000000000000;
 
   /// @notice the surcharge fee to be paid if paying in native
-  uint256 public nativeSurcharge;
+  uint256 public s_nativeSurcharge;
 
   /// @notice the error thrown if the discount or surcharge is invalid
   error InvalidSurcharge();
@@ -80,7 +80,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @notice Emitted when updating the native surcharge
   /// @param newSurcharge Surcharge amount to apply relative to PERCENTAGE_SCALAR
-  event NativeSurchargeSet(uint256 newSurcharge);
+  event NativeSurchargeUpdated(uint256 newSurcharge);
 
   /// @notice Emits when this contract does not have enough LINK to send to the reward manager when paying in native
   /// @param configDigest Config digest of the report
@@ -244,7 +244,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     uint256 linkQuantity;
     uint256 nativeQuantity;
     uint256 expiresAt;
-    if(reportVersion == REPORT_V2) {
+    if (reportVersion == REPORT_V2) {
       (, , , , expiresAt, linkQuantity, nativeQuantity) = abi.decode(
         report,
         (bytes32, uint32, int192, uint32, uint32, uint192, uint192)
@@ -273,11 +273,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       fee.amount = reward.amount;
     } else {
       fee.assetAddress = i_nativeAddress;
-      fee.amount = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + nativeSurcharge), PERCENTAGE_SCALAR);
+      fee.amount = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + s_nativeSurcharge), PERCENTAGE_SCALAR);
     }
 
     //get the discount being applied
-    uint256 discount = subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
+    uint256 discount = s_subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
 
     //apply the discount to the fee, rounding up
     fee.amount = fee.amount - ((fee.amount * discount) / PERCENTAGE_SCALAR);
@@ -301,9 +301,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   function setNativeSurcharge(uint256 surcharge) external onlyOwner {
     if (surcharge > PERCENTAGE_SCALAR) revert InvalidSurcharge();
 
-    nativeSurcharge = surcharge;
+    s_nativeSurcharge = surcharge;
 
-    emit NativeSurchargeSet(surcharge);
+    emit NativeSurchargeUpdated(surcharge);
   }
 
   /// @inheritdoc IFeeManager
@@ -318,7 +318,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //make sure the token is either LINK or native
     if (token != i_linkAddress && token != i_nativeAddress) revert InvalidAddress();
 
-    subscriberDiscounts[subscriber][feedId][token] = discount;
+    s_subscriberDiscounts[subscriber][feedId][token] = discount;
 
     emit SubscriberDiscountUpdated(subscriber, feedId, token, discount);
   }

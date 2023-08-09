@@ -24,18 +24,18 @@ contract BaseTest is Test {
   address internal constant MOCK_VERIFIER_ADDRESS_TWO = address(200);
   address internal constant ACCESS_CONTROLLER_ADDRESS = address(300);
 
-  bytes32 internal constant V_MASK =  0x0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+  bytes32 internal constant V_MASK = 0x0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
   bytes32 internal constant V1_BITMASK = 0x0001000000000000000000000000000000000000000000000000000000000000;
   bytes32 internal constant V2_BITMASK = 0x0002000000000000000000000000000000000000000000000000000000000000;
   bytes32 internal constant V3_BITMASK = 0x0003000000000000000000000000000000000000000000000000000000000000;
 
   //version 0 feeds
-  bytes32 internal constant FEED_ID = keccak256("ETH-USD") & V_MASK | V1_BITMASK;
-  bytes32 internal constant FEED_ID_2 = keccak256("LINK-USD") & V_MASK | V1_BITMASK;
-  bytes32 internal constant FEED_ID_3 = keccak256("BTC-USD") & V_MASK | V1_BITMASK;
+  bytes32 internal constant FEED_ID = (keccak256("ETH-USD") & V_MASK) | V1_BITMASK;
+  bytes32 internal constant FEED_ID_2 = (keccak256("LINK-USD") & V_MASK) | V1_BITMASK;
+  bytes32 internal constant FEED_ID_3 = (keccak256("BTC-USD") & V_MASK) | V1_BITMASK;
 
   //version 3 feeds
-  bytes32 internal constant FEED_ID_V3 = keccak256("ETH-USD") & V_MASK | V3_BITMASK;
+  bytes32 internal constant FEED_ID_V3 = (keccak256("ETH-USD") & V_MASK) | V3_BITMASK;
 
   bytes32 internal constant INVALID_FEED = keccak256("INVALID");
   uint32 internal constant OBSERVATIONS_TIMESTAMP = 1000;
@@ -266,7 +266,6 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
   function setUp() public virtual override {
     BaseTest.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
-
 
     s_verifierProxy.initializeVerifier(address(s_verifier));
     s_verifier.setConfig(

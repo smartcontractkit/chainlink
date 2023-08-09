@@ -710,4 +710,3 @@ contract RewardManagerNoRecipientSet is BaseRewardManagerTest {
     }
   }
 }
-

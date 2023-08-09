@@ -15,20 +15,20 @@ import {Common} from "../libraries/Common.sol";
  * @notice This contract will be used to reward any configured recipients within a pool. Recipients will receive a share of their pool relative to their configured weight.
  */
 contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterface {
-  // @dev The mapping of total fees collected for a particular pot: totalRewardRecipientFees[poolId]
-  mapping(bytes32 => uint256) public totalRewardRecipientFees;
+  // @dev The mapping of total fees collected for a particular pot: s_totalRewardRecipientFees[poolId]
+  mapping(bytes32 => uint256) public s_totalRewardRecipientFees;
 
-  // @dev The mapping of fee balances for each pot last time the recipient claimed: totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient]
-  mapping(bytes32 => mapping(address => uint256)) private totalRewardRecipientFeesLastClaimedAmounts;
+  // @dev The mapping of fee balances for each pot last time the recipient claimed: s_totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient]
+  mapping(bytes32 => mapping(address => uint256)) private s_totalRewardRecipientFeesLastClaimedAmounts;
 
-  // @dev The mapping of RewardRecipient weights for a particular poolId: rewardRecipientWeights[poolId][rewardRecipient].
-  mapping(bytes32 => mapping(address => uint256)) public rewardRecipientWeights;
+  // @dev The mapping of RewardRecipient weights for a particular poolId: s_rewardRecipientWeights[poolId][rewardRecipient].
+  mapping(bytes32 => mapping(address => uint256)) public s_rewardRecipientWeights;
 
   // @dev Keep track of the reward recipient weights that have been set to prevent duplicates
-  mapping(bytes32 => bool) private rewardRecipientWeightsSet;
+  mapping(bytes32 => bool) private s_rewardRecipientWeightsSet;
 
   // @dev Store a list of pool ids that have been registered, to make off chain lookups easier
-  bytes32[] public registeredPoolIds;
+  bytes32[] public s_registeredPoolIds;
 
   // @dev The address for the LINK contract
   address private immutable i_linkAddress;
@@ -83,7 +83,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   modifier onlyOwnerOrRecipientInPool(bytes32 poolId) {
-    if (msg.sender != owner() && rewardRecipientWeights[poolId][msg.sender] == 0) revert Unauthorized();
+    if (msg.sender != owner() && s_rewardRecipientWeights[poolId][msg.sender] == 0) revert Unauthorized();
     _;
   }
 
@@ -97,7 +97,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     //update the total fees collected for this pot
     unchecked {
       //the total amount for any ERC20 asset cannot exceed 2^256 - 1
-      totalRewardRecipientFees[poolId] += fee.amount;
+      s_totalRewardRecipientFees[poolId] += fee.amount;
     }
 
     //transfer the fee to this contract
@@ -120,14 +120,14 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       bytes32 poolId = poolIds[i];
 
       //get the total fees for the pot
-      uint256 totalFeesInPot = totalRewardRecipientFees[poolId];
+      uint256 totalFeesInPot = s_totalRewardRecipientFees[poolId];
 
       unchecked {
         //get the claimable amount for this recipient, this calculation will never exceed the amount in the pot
-        uint256 claimableAmount = totalFeesInPot - totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient];
+        uint256 claimableAmount = totalFeesInPot - s_totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient];
 
         //calculate the recipients share of the fees, which is their weighted share of the difference between the last amount they claimed and the current amount in the pot. This can never be more than the total amount in existence
-        uint256 recipientShare = (claimableAmount * rewardRecipientWeights[poolId][recipient]) / PERCENTAGE_SCALAR;
+        uint256 recipientShare = (claimableAmount * s_rewardRecipientWeights[poolId][recipient]) / PERCENTAGE_SCALAR;
 
         //if there's no fees to claim, continue as there's nothing to update
         if (recipientShare == 0) continue;
@@ -136,7 +136,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
         claimAmount += recipientShare;
 
         //set the current total amount of fees in the pot as it's used to calculate future claims
-        totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient] = totalFeesInPot;
+        s_totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient] = totalFeesInPot;
 
         //emit event if the recipient has rewards to claim
         emit RewardsClaimed(poolIds[i], recipient, recipientShare);
@@ -161,13 +161,13 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     if (rewardRecipientAndWeights.length == 0) revert InvalidAddress();
 
     //check that the weights have not been previously set
-    if (rewardRecipientWeightsSet[poolId]) revert InvalidPoolId();
+    if (s_rewardRecipientWeightsSet[poolId]) revert InvalidPoolId();
 
     //keep track of the registered poolIds to make off chain lookups easier
-    registeredPoolIds.push(poolId);
+    s_registeredPoolIds.push(poolId);
 
     //keep track of which pools have had their reward recipients set
-    rewardRecipientWeightsSet[poolId] = true;
+    s_rewardRecipientWeightsSet[poolId] = true;
 
     //set the reward recipients, this will only be called once and contain the full set of RewardRecipients with a total weight of 100%
     _setRewardRecipientWeights(poolId, rewardRecipientAndWeights, PERCENTAGE_SCALAR);
@@ -194,7 +194,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       if (recipientWeight == 0) revert InvalidWeights();
 
       //save/overwrite the weight for the reward recipient
-      rewardRecipientWeights[poolId][recipientAddress] = recipientWeight;
+      s_rewardRecipientWeights[poolId][recipientAddress] = recipientWeight;
 
       unchecked {
         //keep track of the cumulative weight, this cannot overflow as the total weight is restricted at 1e18
@@ -224,7 +224,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       //get the address
       address recipientAddress = newRewardRecipients[i].addr;
       //get the existing weight
-      uint256 existingWeight = rewardRecipientWeights[poolId][recipientAddress];
+      uint256 existingWeight = s_rewardRecipientWeights[poolId][recipientAddress];
 
       //if the existing weight is 0, the recipient isn't part of this configuration
       if (existingWeight == 0) revert InvalidAddress();
@@ -274,7 +274,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   /// @inheritdoc IRewardManager
   function getAvailableRewardPoolIds(address recipient) external view returns (bytes32[] memory) {
     //get the length of the pool ids which we will loop through and potentially return
-    uint256 registeredPoolIdsLength = registeredPoolIds.length;
+    uint256 registeredPoolIdsLength = s_registeredPoolIds.length;
 
     //create a new array with the maximum amount of potential pool ids
     bytes32[] memory claimablePoolIds = new bytes32[](registeredPoolIdsLength);
@@ -284,11 +284,11 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     //loop all the pool ids, and check if the recipient has a registered weight and a claimable amount
     for (uint256 i; i < registeredPoolIdsLength; ) {
       //get the poolId
-      bytes32 poolId = registeredPoolIds[i];
+      bytes32 poolId = s_registeredPoolIds[i];
       //if the recipient has a weight, they are a recipient of this poolId
-      if (rewardRecipientWeights[poolId][recipient] > 0) {
+      if (s_rewardRecipientWeights[poolId][recipient] > 0) {
         //if the recipient has any LINK, then add the poolId to the array
-        if (totalRewardRecipientFees[poolId] > 0) {
+        if (s_totalRewardRecipientFees[poolId] > 0) {
           claimablePoolIds[poolIdArrayIndex] = poolId;
           unchecked {
             //there will never be enough pool ids for i to overflow

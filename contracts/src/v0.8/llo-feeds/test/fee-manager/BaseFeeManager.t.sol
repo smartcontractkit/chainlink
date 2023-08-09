@@ -40,11 +40,11 @@ contract BaseFeeManagerTest is Test {
   bytes32 internal constant V3_BITMASK = 0x0003000000000000000000000000000000000000000000000000000000000000;
 
   //feed ids & config digests
-  bytes32 internal constant DEFAULT_FEED_1_V1 = keccak256("ETH-USD") & V_MASK | V1_BITMASK;
-  bytes32 internal constant DEFAULT_FEED_1_V2 = keccak256("ETH-USD") & V_MASK | V2_BITMASK;
-  bytes32 internal constant DEFAULT_FEED_1_V3 = keccak256("ETH-USD") & V_MASK | V3_BITMASK;
+  bytes32 internal constant DEFAULT_FEED_1_V1 = (keccak256("ETH-USD") & V_MASK) | V1_BITMASK;
+  bytes32 internal constant DEFAULT_FEED_1_V2 = (keccak256("ETH-USD") & V_MASK) | V2_BITMASK;
+  bytes32 internal constant DEFAULT_FEED_1_V3 = (keccak256("ETH-USD") & V_MASK) | V3_BITMASK;
 
-  bytes32 internal constant DEFAULT_FEED_2_V3 = keccak256("LINK-USD") & V_MASK | V3_BITMASK;
+  bytes32 internal constant DEFAULT_FEED_2_V3 = (keccak256("LINK-USD") & V_MASK) | V3_BITMASK;
   bytes32 internal constant DEFAULT_CONFIG_DIGEST = keccak256("DEFAULT_CONFIG_DIGEST");
 
   //report
@@ -71,7 +71,7 @@ contract BaseFeeManagerTest is Test {
 
   //events emitted
   event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
-  event NativeSurchargeSet(uint256 newSurcharge);
+  event NativeSurchargeUpdated(uint256 newSurcharge);
   event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
   event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
 
@@ -167,10 +167,24 @@ contract BaseFeeManagerTest is Test {
   }
 
   function getV1Report(bytes32 feedId) public view returns (bytes memory) {
-    return abi.encode(feedId, uint32(0), int192(0), uint32(0), uint32(block.timestamp), DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
+    return
+      abi.encode(
+        feedId,
+        uint32(0),
+        int192(0),
+        uint32(0),
+        uint32(block.timestamp),
+        DEFAULT_REPORT_LINK_FEE,
+        DEFAULT_REPORT_NATIVE_FEE
+      );
   }
 
-  function getV1ReportWithExpiryAndFee(bytes32 feedId, uint256 expiry, uint256 linkFee, uint256 nativeFee) public view returns (bytes memory) {
+  function getV1ReportWithExpiryAndFee(
+    bytes32 feedId,
+    uint256 expiry,
+    uint256 linkFee,
+    uint256 nativeFee
+  ) public view returns (bytes memory) {
     return abi.encode(feedId, uint32(0), int192(0), uint32(0), uint32(expiry), linkFee, nativeFee);
   }
 
@@ -206,7 +220,7 @@ contract BaseFeeManagerTest is Test {
         uint32(expiry),
         uint192(linkFee),
         uint192(nativeFee)
-    );
+      );
   }
 
   function getLinkQuote() public view returns (IFeeManager.Quote memory) {

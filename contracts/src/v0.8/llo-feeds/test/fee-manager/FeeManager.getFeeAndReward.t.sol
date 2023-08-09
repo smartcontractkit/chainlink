@@ -459,7 +459,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectEmit();
 
     //emit the event that is expected to be emitted
-    emit NativeSurchargeSet(nativeSurcharge);
+    emit NativeSurchargeUpdated(nativeSurcharge);
 
     //set the surcharge
     setNativeSurcharge(nativeSurcharge, ADMIN);

@@ -259,7 +259,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE);
 
     //check funds have been paid to the reward manager
-    assertEq(rewardManager.totalRewardRecipientFees(DEFAULT_CONFIG_DIGEST), DEFAULT_REPORT_LINK_FEE);
+    assertEq(rewardManager.s_totalRewardRecipientFees(DEFAULT_CONFIG_DIGEST), DEFAULT_REPORT_LINK_FEE);
   }
 
   function test_V1PayloadVerifies() public {
@@ -327,5 +327,4 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //processing the fee will not withdraw anything as there is no fee to collect
     processFee(payload, USER, 0, ADMIN);
   }
-
 }
