@@ -24,18 +24,6 @@ const (
 	channelSize = 20
 )
 
-type blockKey struct {
-	block int64
-	hash  string
-}
-
-func (bk *blockKey) getBlockKey() ocr2keepers.BlockKey {
-	return ocr2keepers.BlockKey{
-		Number: ocr2keepers.BlockNumber(bk.block),
-		Hash:   common.HexToHash(bk.hash),
-	}
-}
-
 type BlockSubscriber struct {
 	sync             utils.StartStopOnce
 	mu               sync.RWMutex
@@ -97,19 +85,19 @@ func (hw *BlockSubscriber) initializeBlocks(blocks []uint64) error {
 }
 
 func (hw *BlockSubscriber) buildHistory(block int64) ocr2keepers.BlockHistory {
-	var keys []blockKey
+	var keys []ocr2keepers.BlockKey
 	// populate keys slice in block DES order
 	for i := int64(0); i < hw.blockHistorySize; i++ {
 		if h, ok := hw.blocks[block-i]; ok {
-			keys = append(keys, blockKey{
-				block: block - i,
-				hash:  h,
+			keys = append(keys, ocr2keepers.BlockKey{
+				Number: ocr2keepers.BlockNumber(block - i),
+				Hash:   common.HexToHash(h),
 			})
 		} else {
 			hw.lggr.Infof("block %d is missing", block-i)
 		}
 	}
-	return getBlockHistory(keys)
+	return keys
 }
 
 func (hw *BlockSubscriber) cleanup() {
@@ -247,12 +235,4 @@ func (w *headWrapper) OnNewLongestChain(_ context.Context, head *evmtypes.Head) 
 	if head != nil {
 		w.headC <- head
 	}
-}
-
-func getBlockHistory(keys []blockKey) ocr2keepers.BlockHistory {
-	var blockKeys []ocr2keepers.BlockKey
-	for _, k := range keys {
-		blockKeys = append(blockKeys, k.getBlockKey())
-	}
-	return blockKeys
 }
