@@ -356,7 +356,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member triggerType the type of trigger
    * @member gasUsed gasUsed by this upkeep in perform
    * @member gasOverhead gasOverhead for this upkeep
-   * @member upkeepTriggerID unique ID used to identify an upkeep/trigger combo
    * @member dedupID unique ID used to dedup an upkeep/trigger combo
    */
   struct UpkeepTransmitInfo {
@@ -367,7 +366,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     Trigger triggerType;
     uint256 gasUsed;
     uint256 gasOverhead;
-    bytes32 upkeepTriggerID;
     bytes32 dedupID;
   }
 
@@ -405,18 +403,19 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
-  event CancelledUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
+  event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
+  event DedupKeyAdded(bytes32 indexed dedupKey);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
-  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
+  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
   event OwnerFundsWithdrawn(uint96 amount);
   event Paused(address account);
   event PayeesUpdated(address[] transmitters, address[] payees);
   event PayeeshipTransferRequested(address indexed transmitter, address indexed from, address indexed to);
   event PayeeshipTransferred(address indexed transmitter, address indexed from, address indexed to);
   event PaymentWithdrawn(address indexed transmitter, uint256 indexed amount, address indexed to, address payee);
-  event ReorgedUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
-  event StaleUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
+  event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
+  event StaleUpkeepReport(uint256 indexed id, bytes trigger);
   event UpkeepAdminTransferred(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepAdminTransferRequested(uint256 indexed id, address indexed from, address indexed to);
   event UpkeepCanceled(uint256 indexed id, uint64 indexed atBlockHeight);
@@ -431,7 +430,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 totalPayment,
     uint256 gasUsed,
     uint256 gasOverhead,
-    bytes32 upkeepTriggerID
+    bytes trigger
   );
   event UpkeepPrivilegeConfigSet(uint256 indexed id, bytes privilegeConfig);
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
@@ -746,16 +745,14 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     if (transmitInfo.upkeep.maxValidBlocknumber <= _blockNum()) {
       // Can happen when an upkeep got cancelled after report was generated.
       // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
-      emit CancelledUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      emit CancelledUpkeepReport(upkeepId, rawTrigger);
       return (false, dedupID);
     }
-
     if (transmitInfo.upkeep.balance < transmitInfo.maxLinkPayment) {
-      // Can happen due to flucutations in gas / link prices
-      emit InsufficientFundsUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      // Can happen due to fluctuations in gas / link prices
+      emit InsufficientFundsUpkeepReport(upkeepId, rawTrigger);
       return (false, dedupID);
     }
-
     return (true, dedupID);
   }
 
@@ -770,7 +767,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     ConditionalTrigger memory trigger = abi.decode(rawTrigger, (ConditionalTrigger));
     if (trigger.blockNum < transmitInfo.upkeep.lastPerformedBlockNumber) {
       // Can happen when another report performed this upkeep after this report was generated
-      emit StaleUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      emit StaleUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
     if (
@@ -783,7 +780,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       // 2. blockHash at trigger block number was same as trigger time. This is an optional check which is
       // applied if DON sends non empty trigger.blockHash. Note: It only works for last 256 blocks on chain
       // when it is sent
-      emit ReorgedUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return false;
     }
     return true;
@@ -801,11 +798,11 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       trigger.blockNum >= _blockNum()
     ) {
       // Reorg protection is same as conditional trigger upkeeps
-      emit ReorgedUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      emit ReorgedUpkeepReport(upkeepId, rawTrigger);
       return (false, dedupID);
     }
     if (s_dedupKeys[dedupID]) {
-      emit StaleUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      emit StaleUpkeepReport(upkeepId, rawTrigger);
       return (false, dedupID);
     }
     return (true, dedupID);
@@ -848,6 +845,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       s_upkeep[upkeepID].lastPerformedBlockNumber = uint32(_blockNum());
     } else if (upkeepTransmitInfo.triggerType == Trigger.LOG) {
       s_dedupKeys[upkeepTransmitInfo.dedupID] = true;
+      emit DedupKeyAdded(upkeepTransmitInfo.dedupID);
     }
   }
 
@@ -944,16 +942,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     } else {
       return blockhash(n);
     }
-  }
-
-  /**
-   * @dev returns a unique identifier for an upkeep/trigger combo
-   * @param upkeepID the upkeep id
-   * @param trigger the raw trigger bytes
-   * @return upkeepTriggerID the unique identifier for the upkeep/trigger combo
-   */
-  function _upkeepTriggerID(uint256 upkeepID, bytes memory trigger) internal pure returns (bytes32 upkeepTriggerID) {
-    return keccak256(abi.encodePacked(upkeepID, trigger));
   }
 
   /**

@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -10,6 +11,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
 	"github.com/smartcontractkit/sqlx"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -81,6 +84,40 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 		configWatcher:       cfgWatcher,
 		contractTransmitter: contractTransmitter,
 	}, nil
+}
+
+type ocr3keeperProviderContractTransmitter struct {
+	contractTransmitter ocrtypes.ContractTransmitter
+}
+
+var _ ocr3types.ContractTransmitter[plugin.AutomationReportInfo] = &ocr3keeperProviderContractTransmitter{}
+
+func NewKeepersOCR3ContractTransmitter(ocr2ContractTransmitter ocrtypes.ContractTransmitter) *ocr3keeperProviderContractTransmitter {
+	return &ocr3keeperProviderContractTransmitter{ocr2ContractTransmitter}
+}
+
+func (t *ocr3keeperProviderContractTransmitter) Transmit(
+	ctx context.Context,
+	digest ocrtypes.ConfigDigest,
+	seqNr uint64,
+	reportWithInfo ocr3types.ReportWithInfo[plugin.AutomationReportInfo],
+	aoss []ocrtypes.AttributedOnchainSignature,
+) error {
+	return t.contractTransmitter.Transmit(
+		ctx,
+		ocrtypes.ReportContext{
+			ReportTimestamp: ocrtypes.ReportTimestamp{
+				ConfigDigest: digest,
+				Epoch:        uint32(seqNr),
+			},
+		},
+		reportWithInfo.Report,
+		aoss,
+	)
+}
+
+func (t *ocr3keeperProviderContractTransmitter) FromAccount() (ocrtypes.Account, error) {
+	return t.contractTransmitter.FromAccount()
 }
 
 type ocr2keeperProvider struct {

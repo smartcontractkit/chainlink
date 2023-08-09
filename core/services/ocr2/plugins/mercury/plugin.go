@@ -38,6 +38,8 @@ func NewServices(
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 	chainHeadTracker mercury.ChainHeadTracker,
+	orm mercury.DataSourceORM,
+	feedID [32]byte,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
@@ -54,9 +56,12 @@ func NewServices(
 	}
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
-	switch ocr2Provider.ReportSchemaVersion() {
+	version := 1
+
+	switch version {
 	case 1:
 		ds := mercuryv1.NewDataSource(
+			orm,
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
@@ -66,6 +71,7 @@ func NewServices(
 			chainHeadTracker,
 			ocr2Provider.ContractTransmitter(),
 			pluginConfig.InitialBlockNumber.Ptr(),
+			feedID,
 		)
 		argsNoPlugin.MercuryPluginFactory = relaymercuryv1.NewFactory(
 			ds,

@@ -22,7 +22,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -56,7 +56,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	n := 10
 
-	ids, addrs, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
+	_, _, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(n))
 
 	go func() {
@@ -78,7 +78,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	// let it time to poll
 	<-time.After(pollerTimeout)
 
-	logs, _ := logProvider.GetLogs(ctx)
+	logs, _ := logProvider.GetLatestPayloads(ctx)
 	require.NoError(t, logProvider.Close())
 
 	require.GreaterOrEqual(t, len(logs), n, "failed to get all logs")
@@ -97,11 +97,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		}()
 		defer logProvider.Close()
 
-		for i, addr := range addrs {
-			id := ids[i]
-			require.NoError(t, logProvider.RegisterFilter(id, newPlainLogTriggerConfig(addr)))
-		}
-		logsAfterRestart, _ := logProvider.GetLogs(ctx)
+		logsAfterRestart, _ := logProvider.GetLatestPayloads(ctx)
 		require.GreaterOrEqual(t, len(logsAfterRestart), 0,
 			"logs should have been marked visited")
 
@@ -111,7 +107,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 		<-time.After(pollerTimeout)
 
-		logsAfterRestart, _ = logProvider.GetLogs(ctx)
+		logsAfterRestart, _ = logProvider.GetLatestPayloads(ctx)
 		require.NoError(t, logProvider.Close())
 		require.GreaterOrEqual(t, len(logsAfterRestart), n,
 			"failed to get logs after restart")
@@ -177,7 +173,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	// require.GreaterOrEqual(t, atomic.LoadInt32(&limitErrs), int32(1), "didn't got rate limit errors")
 	t.Logf("got %d rate limit errors", atomic.LoadInt32(&limitErrs))
 
-	_, err := logProvider.GetLogs(ctx)
+	_, err := logProvider.GetLatestPayloads(ctx)
 	require.NoError(t, err)
 	require.NoError(t, logProvider.Close())
 
@@ -235,7 +231,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 	<-time.After(pollerTimeout * 2) // let the provider work
 
-	logs, err := logProvider.GetLogs(ctx)
+	logs, err := logProvider.GetLatestPayloads(ctx)
 	require.NoError(t, err)
 	require.NoError(t, logProvider.Close())
 
@@ -302,7 +298,7 @@ func deployUpkeepCounter(
 
 		// creating some dummy upkeepID to register filter
 		upkeepID := ocr2keepers.UpkeepIdentifier(append(common.LeftPadBytes([]byte{1}, 16), upkeepAddr[:16]...))
-		id := big.NewInt(0).SetBytes(upkeepID)
+		id := upkeepID.BigInt()
 		ids = append(ids, id)
 		err = logProvider.RegisterFilter(id, newPlainLogTriggerConfig(upkeepAddr))
 		require.NoError(t, err)
@@ -328,7 +324,7 @@ func setupLogProvider(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBack
 	lggr := logger.TestLogger(t)
 	logDataABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 	require.NoError(t, err)
-	logProvider := logprovider.New(lggr, lp, logprovider.NewLogEventsPacker(logDataABI), opts)
+	logProvider := logprovider.New(lggr, lp, logprovider.NewLogEventsPacker(logDataABI), logprovider.NewUpkeepFilterStore(), opts)
 
 	return logProvider, lp, ethClient
 }

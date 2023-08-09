@@ -25,7 +25,6 @@ type mercuryProvider struct {
 	reportCodecV1 relaymercuryv1.ReportCodec
 	reportCodecV2 relaymercuryv2.ReportCodec
 	reportCodecV3 relaymercuryv3.ReportCodec
-	schemaVersion uint32
 	logger        logger.Logger
 
 	ms services.MultiStart
@@ -37,7 +36,6 @@ func NewMercuryProvider(
 	reportCodecV1 relaymercuryv1.ReportCodec,
 	reportCodecV2 relaymercuryv2.ReportCodec,
 	reportCodecV3 relaymercuryv3.ReportCodec,
-	schemaVersion uint32,
 	lggr logger.Logger,
 ) *mercuryProvider {
 	return &mercuryProvider{
@@ -46,7 +44,6 @@ func NewMercuryProvider(
 		reportCodecV1,
 		reportCodecV2,
 		reportCodecV3,
-		schemaVersion,
 		lggr,
 		services.MultiStart{},
 	}
@@ -97,10 +94,6 @@ func (p *mercuryProvider) ReportCodecV2() relaymercuryv2.ReportCodec {
 
 func (p *mercuryProvider) ReportCodecV3() relaymercuryv3.ReportCodec {
 	return p.reportCodecV3
-}
-
-func (p *mercuryProvider) ReportSchemaVersion() uint32 {
-	return p.schemaVersion
 }
 
 func (p *mercuryProvider) ContractTransmitter() relaymercury.Transmitter {
