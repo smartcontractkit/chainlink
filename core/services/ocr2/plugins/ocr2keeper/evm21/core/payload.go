@@ -10,6 +10,10 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
+var (
+	ErrInvalidUpkeepID = fmt.Errorf("invalid upkeepID")
+)
+
 // UpkeepTriggerID returns the identifier using the given upkeepID and trigger.
 // It follows the same logic as the contract, but performs it locally.
 func UpkeepTriggerID(id *big.Int, trigger []byte) string {
@@ -25,7 +29,10 @@ func UpkeepWorkID(id *big.Int, trigger ocr2keepers.Trigger) (string, error) {
 		triggerExtBytes = trigger.LogTriggerExtension.LogIdentifier()
 	}
 	uid := &ocr2keepers.UpkeepIdentifier{}
-	uid.FromBigInt(id)
+	ok := uid.FromBigInt(id)
+	if !ok {
+		return "", ErrInvalidUpkeepID
+	}
 	// TODO (auto-4314): Ensure it works with conditionals and add unit tests
 	hash := crypto.Keccak256(append(uid[:], triggerExtBytes...))
 	return hex.EncodeToString(hash[:]), nil
@@ -33,7 +40,10 @@ func UpkeepWorkID(id *big.Int, trigger ocr2keepers.Trigger) (string, error) {
 
 func NewUpkeepPayload(id *big.Int, tp int, trigger ocr2keepers.Trigger, checkData []byte) (ocr2keepers.UpkeepPayload, error) {
 	uid := &ocr2keepers.UpkeepIdentifier{}
-	uid.FromBigInt(id)
+	ok := uid.FromBigInt(id)
+	if !ok {
+		return ocr2keepers.UpkeepPayload{}, ErrInvalidUpkeepID
+	}
 	p := ocr2keepers.UpkeepPayload{
 		UpkeepID:  *uid,
 		Trigger:   trigger,

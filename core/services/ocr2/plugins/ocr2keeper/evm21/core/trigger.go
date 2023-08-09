@@ -28,7 +28,10 @@ func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 	}
 
 	// pack trigger based on upkeep type
-	upkeepType := getUpkeepTypeFromBigInt(id)
+	upkeepType, ok := getUpkeepTypeFromBigInt(id)
+	if !ok {
+		return nil, ErrInvalidUpkeepID
+	}
 	switch upkeepType {
 	case ocr2keepers.ConditionTrigger:
 		trig := automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger{
@@ -61,7 +64,10 @@ func UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
 		return triggerWrapper{}, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 
-	upkeepType := getUpkeepTypeFromBigInt(id)
+	upkeepType, ok := getUpkeepTypeFromBigInt(id)
+	if !ok {
+		return triggerWrapper{}, ErrInvalidUpkeepID
+	}
 	switch upkeepType {
 	case ocr2keepers.ConditionTrigger:
 		unpacked, err := utilsABI.Methods["_conditionalTrigger"].Inputs.Unpack(raw)

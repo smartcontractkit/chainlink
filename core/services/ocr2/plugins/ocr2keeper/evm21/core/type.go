@@ -27,8 +27,8 @@ func GetUpkeepType(id ocr2keepers.UpkeepIdentifier) ocr2keepers.UpkeepType {
 	return ocr2keepers.UpkeepType(typeByte)
 }
 
-func getUpkeepTypeFromBigInt(id *big.Int) ocr2keepers.UpkeepType {
+func getUpkeepTypeFromBigInt(id *big.Int) (ocr2keepers.UpkeepType, bool) {
 	uid := &ocr2keepers.UpkeepIdentifier{}
-	uid.FromBigInt(id)
-	return GetUpkeepType(*uid)
+	ok := uid.FromBigInt(id)
+	return GetUpkeepType(*uid), ok
 }
