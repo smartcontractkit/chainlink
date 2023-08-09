@@ -24,7 +24,8 @@ const (
 
 var (
 	// OneLINK representation of a single LINK token
-	OneLINK           = big.NewFloat(1e18)
+	OneLINK = big.NewFloat(1e18)
+
 	mapKeyTypeToChain = map[string]string{
 		"evm":      "eTHKeys",
 		"solana":   "encryptedSolanaKeys",
