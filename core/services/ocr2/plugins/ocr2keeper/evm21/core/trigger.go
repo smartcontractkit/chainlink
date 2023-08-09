@@ -7,7 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 )
@@ -15,11 +15,6 @@ import (
 type triggerWrapper = automation_utils_2_1.KeeperRegistryBase21LogTrigger
 
 var ErrABINotParsable = fmt.Errorf("error parsing abi")
-
-type LogTriggerExtension struct {
-	TxHash   string
-	LogIndex int64
-}
 
 // according to the upkeep type of the given id.
 func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
@@ -33,7 +28,10 @@ func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 	}
 
 	// pack trigger based on upkeep type
-	upkeepType := GetUpkeepType(id.Bytes())
+	upkeepType, ok := getUpkeepTypeFromBigInt(id)
+	if !ok {
+		return nil, ErrInvalidUpkeepID
+	}
 	switch upkeepType {
 	case ocr2keepers.ConditionTrigger:
 		trig := automation_utils_2_1.KeeperRegistryBase21ConditionalTrigger{
@@ -66,7 +64,10 @@ func UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
 		return triggerWrapper{}, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
 
-	upkeepType := GetUpkeepType(id.Bytes())
+	upkeepType, ok := getUpkeepTypeFromBigInt(id)
+	if !ok {
+		return triggerWrapper{}, ErrInvalidUpkeepID
+	}
 	switch upkeepType {
 	case ocr2keepers.ConditionTrigger:
 		unpacked, err := utilsABI.Methods["_conditionalTrigger"].Inputs.Unpack(raw)

@@ -239,15 +239,19 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
-
+	ip, err := container.ContainerIP(context.Background())
+	if err != nil {
+		return err
+	}
 	log.Info().Str("containerName", n.ContainerName).
 		Str("clEndpoint", clEndpoint).
+		Str("clInternalIP", ip).
 		Msg("Started Chainlink Node container")
-
 	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
-		URL:      clEndpoint,
-		Email:    "local@local.com",
-		Password: "localdevpassword",
+		URL:        clEndpoint,
+		Email:      "local@local.com",
+		Password:   "localdevpassword",
+		InternalIP: ip,
 	})
 	if err != nil {
 		return errors.Wrap(err, ErrConnectNodeClient)
