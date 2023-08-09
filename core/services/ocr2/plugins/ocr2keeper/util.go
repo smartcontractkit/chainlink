@@ -7,9 +7,9 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
 	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
 	"github.com/smartcontractkit/ocr2keepers/pkg/runner"
+	ocr2keepers20coordinator "github.com/smartcontractkit/ocr2keepers/pkg/v2/coordinator"
 	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
 	"github.com/smartcontractkit/sqlx"
 
@@ -28,12 +28,12 @@ import (
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-type Encoder interface {
+type Encoder20 interface {
 	ocr2keepers.Encoder
-	coordinator.Encoder
+	ocr2keepers20coordinator.Encoder
 	polling.Encoder
 	runner.Encoder
-	coordinator.Encoder
+	ocr2keepers20coordinator.Encoder
 }
 
 type Encoder21 interface {
@@ -73,7 +73,7 @@ func EVMDependencies20(
 	lggr logger.Logger,
 	set evm.ChainSet,
 	pr pipeline.Runner,
-) (evmrelay.OCR2KeeperProvider, *kevm20.EvmRegistry, Encoder, *kevm20.LogProvider, error) {
+) (evmrelay.OCR2KeeperProvider, *kevm20.EvmRegistry, Encoder20, *kevm20.LogProvider, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
