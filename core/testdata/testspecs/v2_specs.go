@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -635,7 +636,7 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 	}
 
 	if params.TrustedBlockhashStoreAddress == "" {
-		params.TrustedBlockhashStoreAddress = "0x0000000000000000000000000000000000000000"
+		params.TrustedBlockhashStoreAddress = utils.ZeroAddress.Hex()
 	}
 
 	if params.TrustedBlockhashStoreBatchSize == 0 {

@@ -8,9 +8,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const EmptyAddress = "0x0000000000000000000000000000000000000000"
+var EmptyAddress = utils.ZeroAddress.Hex()
 
 // ValidatedSpec validates and converts the given toml string to a job.Job.
 func ValidatedSpec(tomlString string) (job.Job, error) {
