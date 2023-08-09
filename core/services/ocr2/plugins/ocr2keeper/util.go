@@ -8,8 +8,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
-	"github.com/smartcontractkit/ocr2keepers/pkg/runner"
 	ocr2keepers20coordinator "github.com/smartcontractkit/ocr2keepers/pkg/v2/coordinator"
+	ocr2keepers20runner "github.com/smartcontractkit/ocr2keepers/pkg/v2/runner"
 	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
 	"github.com/smartcontractkit/sqlx"
 
@@ -32,7 +32,7 @@ type Encoder20 interface {
 	ocr2keepers.Encoder
 	ocr2keepers20coordinator.Encoder
 	polling.Encoder
-	runner.Encoder
+	ocr2keepers20runner.Encoder
 	ocr2keepers20coordinator.Encoder
 }
 
