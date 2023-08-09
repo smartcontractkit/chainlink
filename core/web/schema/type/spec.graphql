@@ -127,7 +127,7 @@ type BlockhashStoreSpec {
     lookbackBlocks: Int!
     blockhashStoreAddress: String!
     trustedBlockhashStoreAddress: String
-    trustedBlockhashStoreBatchSize: Int
+    trustedBlockhashStoreBatchSize: Int!
     pollPeriod: String!
     runTimeout: String!
     evmChainID: String
