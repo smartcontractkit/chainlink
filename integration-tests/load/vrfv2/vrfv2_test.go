@@ -47,7 +47,7 @@ func TestVRFV2Load(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	// what are the limits for one "job", figuring out the best performance params by increasing RPS and varying configuration
+	// what are the limits for one "job", figuring out the max/optimal performance params by increasing RPS and varying configuration
 	t.Run("vrfv2 load test", func(t *testing.T) {
 		singleFeedConfig.Schedule = wasp.Line(cfg.Load.RPSFrom, cfg.Load.RPSTo, cfg.Load.Duration.Duration())
 		_, err = wasp.NewProfile().
