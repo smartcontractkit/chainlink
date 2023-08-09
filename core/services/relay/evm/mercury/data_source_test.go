@@ -157,12 +157,12 @@ func TestMercury_Observe(t *testing.T) {
 		})
 		t.Run("if querying latest report fails", func(t *testing.T) {
 			orm.report = nil
-			orm.err = errors.New("something exploded!")
+			orm.err = errors.New("something exploded")
 
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
 
-			assert.EqualError(t, obs.MaxFinalizedBlockNumber.Err, "something exploded!")
+			assert.EqualError(t, obs.MaxFinalizedBlockNumber.Err, "something exploded")
 			assert.Zero(t, obs.MaxFinalizedBlockNumber.Val)
 		})
 

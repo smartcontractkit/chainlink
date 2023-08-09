@@ -220,7 +220,7 @@ func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 		err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[1]}, makeReportContext(1, 1))
 		require.NoError(t, err)
 
-		l, err := orm.LatestReport(testutils.Context(t), feedID)
+		l, err = orm.LatestReport(testutils.Context(t), feedID)
 		require.NoError(t, err)
 		assert.Equal(t, reports[1], l)
 	})
@@ -228,7 +228,7 @@ func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 		err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[2]}, makeReportContext(1, 2))
 		require.NoError(t, err)
 
-		l, err := orm.LatestReport(testutils.Context(t), feedID)
+		l, err = orm.LatestReport(testutils.Context(t), feedID)
 		require.NoError(t, err)
 		assert.Equal(t, reports[2], l)
 	})
@@ -236,7 +236,7 @@ func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 		err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[3]}, makeReportContext(2, 1))
 		require.NoError(t, err)
 
-		l, err := orm.LatestReport(testutils.Context(t), feedID)
+		l, err = orm.LatestReport(testutils.Context(t), feedID)
 		require.NoError(t, err)
 		assert.Equal(t, reports[3], l)
 	})
@@ -244,7 +244,7 @@ func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 		err = orm.InsertTransmitRequest(&pb.TransmitRequest{Payload: reports[0]}, makeReportContext(2, 1))
 		require.NoError(t, err)
 
-		l, err := orm.LatestReport(testutils.Context(t), feedID)
+		l, err = orm.LatestReport(testutils.Context(t), feedID)
 		require.NoError(t, err)
 		assert.Equal(t, reports[3], l)
 	})
