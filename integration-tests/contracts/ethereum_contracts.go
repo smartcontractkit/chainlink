@@ -789,7 +789,7 @@ func (o *EthereumOffchainAggregator) SetConfig(
 			return err
 		}
 		if len(ocrKeys.Data) == 0 {
-			return fmt.Errorf("no OCR keys found for node %s", node.ChartName)
+			return fmt.Errorf("no OCR keys found for node %v", node)
 		}
 		primaryOCRKey := ocrKeys.Data[0]
 		if err != nil {

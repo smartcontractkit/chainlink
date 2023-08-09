@@ -3,7 +3,8 @@ on:
   merge_group:
   pull_request:
   schedule:
-    - cron: "0 0 * * *"
+    # - cron: "0 0 * * *"
+    - cron: "0 * * * *" # every hour while we debug for flakes
   push:
     tags:
       - "*"

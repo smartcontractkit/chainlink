@@ -9,20 +9,21 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
-	"github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
-	"github.com/smartcontractkit/ocr2keepers/pkg/runner"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-	"github.com/smartcontractkit/ocr2keepers/pkg/config"
+	ocr2keepers20 "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepersconfig "github.com/smartcontractkit/ocr2keepers/pkg/config"
+	ocr2keepers20coordinator "github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
+	ocr2keepers20polling "github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
+	ocr2keepers20runner "github.com/smartcontractkit/ocr2keepers/pkg/runner"
+	ocr2keepers21 "github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
+	ocr2keepers21types "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -60,6 +61,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
+	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -71,6 +73,7 @@ type Delegate struct {
 	db                    *sqlx.DB
 	jobORM                job.ORM
 	bridgeORM             bridges.ORM
+	mercuryORM            evmmercury.ORM
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
@@ -179,6 +182,7 @@ func NewDelegate(
 	db *sqlx.DB,
 	jobORM job.ORM,
 	bridgeORM bridges.ORM,
+	mercuryORM evmmercury.ORM,
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
@@ -197,6 +201,7 @@ func NewDelegate(
 		db:                    db,
 		jobORM:                jobORM,
 		bridgeORM:             bridgeORM,
+		mercuryORM:            mercuryORM,
 		pipelineRunner:        pipelineRunner,
 		peerWrapper:           peerWrapper,
 		monitoringEndpointGen: monitoringEndpointGen,
@@ -520,7 +525,8 @@ func (d *Delegate) newServicesMercury(
 	}
 
 	chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
-	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain)
+
+	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, d.mercuryORM, *spec.FeedID)
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
@@ -874,11 +880,11 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	}
 
 	// set some defaults
-	conf := config.ReportingFactoryConfig{
-		CacheExpiration:       config.DefaultCacheExpiration,
-		CacheEvictionInterval: config.DefaultCacheClearInterval,
-		MaxServiceWorkers:     config.DefaultMaxServiceWorkers,
-		ServiceQueueLength:    config.DefaultServiceQueueLength,
+	conf := ocr2keepersconfig.ReportingFactoryConfig{
+		CacheExpiration:       ocr2keepersconfig.DefaultCacheExpiration,
+		CacheEvictionInterval: ocr2keepersconfig.DefaultCacheClearInterval,
+		MaxServiceWorkers:     ocr2keepersconfig.DefaultMaxServiceWorkers,
+		ServiceQueueLength:    ocr2keepersconfig.DefaultServiceQueueLength,
 	}
 
 	// override if set in config
@@ -898,7 +904,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		conf.ServiceQueueLength = cfg.ServiceQueueLength
 	}
 
-	dConf := plugin.DelegateConfig{
+	dConf := ocr2keepers21.DelegateConfig{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          evmrelay.NewKeepersOCR3ContractTransmitter(keeperProvider.ContractTransmitter()),
@@ -923,7 +929,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		UpkeepTypeGetter:             ocr2keeper21core.GetUpkeepType,
 	}
 
-	pluginService, err := plugin.NewDelegate(dConf)
+	pluginService, err := ocr2keepers21.NewDelegate(dConf)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
 	}
@@ -968,11 +974,11 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	w := &logWriter{log: lggr.Named("Automation Dependencies")}
 
 	// set some defaults
-	conf := config.ReportingFactoryConfig{
-		CacheExpiration:       config.DefaultCacheExpiration,
-		CacheEvictionInterval: config.DefaultCacheClearInterval,
-		MaxServiceWorkers:     config.DefaultMaxServiceWorkers,
-		ServiceQueueLength:    config.DefaultServiceQueueLength,
+	conf := ocr2keepersconfig.ReportingFactoryConfig{
+		CacheExpiration:       ocr2keepersconfig.DefaultCacheExpiration,
+		CacheEvictionInterval: ocr2keepersconfig.DefaultCacheClearInterval,
+		MaxServiceWorkers:     ocr2keepersconfig.DefaultMaxServiceWorkers,
+		ServiceQueueLength:    ocr2keepersconfig.DefaultServiceQueueLength,
 	}
 
 	// override if set in config
@@ -992,7 +998,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		conf.ServiceQueueLength = cfg.ServiceQueueLength
 	}
 
-	runr, err2 := runner.NewRunner(
+	runr, err2 := ocr2keepers20runner.NewRunner(
 		log.New(w, "[automation-plugin-runner] ", log.Lshortfile),
 		rgstry,
 		encoder,
@@ -1005,7 +1011,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, errors.Wrap(err2, "failed to create automation pipeline runner")
 	}
 
-	condObs := &polling.PollingObserverFactory{
+	condObs := &ocr2keepers20polling.PollingObserverFactory{
 		Logger:  log.New(w, "[automation-plugin-conditional-observer] ", log.Lshortfile),
 		Source:  rgstry,
 		Heads:   rgstry,
@@ -1013,14 +1019,14 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		Encoder: encoder,
 	}
 
-	coord := &coordinator.CoordinatorFactory{
+	coord := &ocr2keepers20coordinator.CoordinatorFactory{
 		Logger:     log.New(w, "[automation-plugin-coordinator] ", log.Lshortfile),
 		Encoder:    encoder,
 		Logs:       logProvider,
 		CacheClean: conf.CacheEvictionInterval,
 	}
 
-	dConf := ocr2keepers.DelegateConfig{
+	dConf := ocr2keepers20.DelegateConfig{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
 		ContractTransmitter:          keeperProvider.ContractTransmitter(),
@@ -1043,7 +1049,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		ServiceQueueLength:    cfg.ServiceQueueLength,
 	}
 
-	pluginService, err := ocr2keepers.NewDelegate(dConf)
+	pluginService, err := ocr2keepers20.NewDelegate(dConf)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not create new keepers ocr2 delegate")
 	}
@@ -1247,6 +1253,6 @@ func (l *logWriter) Write(p []byte) (n int, err error) {
 type mockRecoverableProvider struct {
 }
 
-func (_m *mockRecoverableProvider) GetRecoverables() ([]ocr2keepers.UpkeepPayload, error) {
+func (_m *mockRecoverableProvider) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers21types.UpkeepPayload, error) {
 	return nil, nil
 }

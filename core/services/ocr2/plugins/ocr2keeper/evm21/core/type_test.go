@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -13,7 +13,7 @@ import (
 func TestGetUpkeepType(t *testing.T) {
 	tests := []struct {
 		name       string
-		upkeepID   ocr2keepers.UpkeepIdentifier
+		upkeepID   []byte
 		upkeepType ocr2keepers.UpkeepType
 	}{
 		{
@@ -32,18 +32,13 @@ func TestGetUpkeepType(t *testing.T) {
 			ocr2keepers.ConditionTrigger,
 		},
 		{
-			"log trigger string",
-			[]byte(genUpkeepID(ocr2keepers.LogTrigger, "111").String()),
-			ocr2keepers.LogTrigger,
-		},
-		{
 			"log trigger",
 			genUpkeepID(ocr2keepers.LogTrigger, "111").Bytes(),
 			ocr2keepers.LogTrigger,
 		},
 		{
 			"log trigger id",
-			func() ocr2keepers.UpkeepIdentifier {
+			func() []byte {
 				id, _ := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
 				return id.Bytes()
 			}(),
@@ -53,7 +48,9 @@ func TestGetUpkeepType(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.upkeepType, GetUpkeepType(tc.upkeepID))
+			uid := ocr2keepers.UpkeepIdentifier{}
+			copy(uid[:], tc.upkeepID)
+			assert.Equal(t, tc.upkeepType, GetUpkeepType(uid))
 		})
 	}
 }

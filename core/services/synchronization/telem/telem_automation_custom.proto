@@ -8,11 +8,13 @@ message BlockNumber {
     uint64 timestamp = 1;
     uint64 block_number = 2;
     string block_hash = 3;
+    bytes config_digest = 4;
 }
 
 message NodeVersion {
     uint64 timestamp = 1;
     string node_version = 2;
+    bytes config_digest = 3;
 }
 
 message AutomationTelemWrapper{

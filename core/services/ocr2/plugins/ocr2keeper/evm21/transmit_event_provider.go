@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -17,6 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+var _ ocr2keepers.TransmitEventProvider = &TransmitEventProvider{}
 
 type TransmitEventProvider struct {
 	sync     utils.StartStopOnce
@@ -120,7 +122,7 @@ func (c *TransmitEventProvider) HealthReport() map[string]error {
 	return map[string]error{c.Name(): c.sync.Healthy()}
 }
 
-func (c *TransmitEventProvider) Events(ctx context.Context) ([]ocr2keepers.TransmitEvent, error) {
+func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.TransmitEvent, error) {
 	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
@@ -209,15 +211,38 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 	vals := []ocr2keepers.TransmitEvent{}
 
 	for _, l := range logs {
-		upkeepId := ocr2keepers.UpkeepIdentifier(l.Id().Bytes())
-		triggerID := l.TriggerID()
+		id := l.Id()
+		upkeepId := &ocr2keepers.UpkeepIdentifier{}
+		ok := upkeepId.FromBigInt(id)
+		if !ok {
+			return nil, core.ErrInvalidUpkeepID
+		}
+		triggerW, err := core.UnpackTrigger(id, l.Trigger())
+		if err != nil {
+			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
+		}
+		trigger := ocr2keepers.NewTrigger(
+			ocr2keepers.BlockNumber(triggerW.BlockNum),
+			triggerW.BlockHash,
+		)
+		switch core.GetUpkeepType(*upkeepId) {
+		case ocr2keepers.LogTrigger:
+			trigger.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{}
+			trigger.LogTriggerExtension.TxHash = triggerW.TxHash
+			trigger.LogTriggerExtension.Index = triggerW.LogIndex
+		default:
+		}
+		workID, err := core.UpkeepWorkID(id, trigger)
+		if err != nil {
+			return nil, err
+		}
 		vals = append(vals, ocr2keepers.TransmitEvent{
 			Type:            l.TransmitEventType(),
-			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(l.BlockNumber),
+			TransmitBlock:   ocr2keepers.BlockNumber(l.BlockNumber),
 			Confirmations:   latestBlock - l.BlockNumber,
-			TransactionHash: l.TxHash.Hex(),
-			ID:              triggerID,
-			UpkeepID:        upkeepId,
+			TransactionHash: l.TxHash,
+			WorkID:          workID,
+			UpkeepID:        *upkeepId,
 		})
 	}
 
@@ -248,18 +273,18 @@ func (l transmitEventLog) Id() *big.Int {
 	}
 }
 
-func (l transmitEventLog) TriggerID() string {
+func (l transmitEventLog) Trigger() []byte {
 	switch {
 	case l.Performed != nil:
-		return core.UpkeepTriggerID(l.Performed.Id, l.Performed.Trigger)
+		return l.Performed.Trigger
 	case l.Stale != nil:
-		return core.UpkeepTriggerID(l.Stale.Id, l.Stale.Trigger)
+		return l.Stale.Trigger
 	case l.Reorged != nil:
-		return core.UpkeepTriggerID(l.Reorged.Id, l.Reorged.Trigger)
+		return l.Reorged.Trigger
 	case l.InsufficientFunds != nil:
-		return core.UpkeepTriggerID(l.InsufficientFunds.Id, l.InsufficientFunds.Trigger)
+		return l.InsufficientFunds.Trigger
 	default:
-		return ""
+		return []byte{}
 	}
 }
 
@@ -270,12 +295,11 @@ func (l transmitEventLog) TransmitEventType() ocr2keepers.TransmitEventType {
 	case l.Stale != nil:
 		return ocr2keepers.StaleReportEvent
 	case l.Reorged != nil:
-		// TODO: use reorged event type
-		return ocr2keepers.TransmitEventType(2)
+		return ocr2keepers.ReorgReportEvent
 	case l.InsufficientFunds != nil:
-		// TODO: use insufficient funds event type
-		return ocr2keepers.TransmitEventType(3)
+		return ocr2keepers.InsufficientFundsReportEvent
 	default:
+		// TODO: use unknown type
 		return ocr2keepers.TransmitEventType(0)
 	}
 }
