@@ -11,6 +11,8 @@ import {RewardManager} from "../../RewardManager.sol";
  * @notice This contract will test the core functionality of the RewardManager contract
  */
 contract RewardManagerSetupTest is BaseRewardManagerTest {
+  uint256 internal constant POOL_DEPOSIT_AMOUNT = 10e18;
+
   function setUp() public override {
     //setup contracts
     super.setUp();
@@ -33,5 +35,17 @@ contract RewardManagerSetupTest is BaseRewardManagerTest {
 
     //set the verifier proxy
     setFeeManager(USER, ADMIN);
+  }
+
+  function test_eventEmittedUponFeEPaid() public {
+    //create pool and add funds
+    createPrimaryPool();
+
+    //event is emitted when funds are added
+    vm.expectEmit();
+
+    emit FeePaid(PRIMARY_POOL_ID, USER, POOL_DEPOSIT_AMOUNT);
+
+    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
   }
 }

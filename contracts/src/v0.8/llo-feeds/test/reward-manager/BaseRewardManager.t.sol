@@ -69,6 +69,7 @@ contract BaseRewardManagerTest is Test {
   event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);
   event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint256 quantity);
   event FeeManagerUpdated(address newProxyAddress);
+  event FeePaid(bytes32 poolId, address payee, uint256 quantity);
 
   function setUp() public virtual {
     //change to admin user

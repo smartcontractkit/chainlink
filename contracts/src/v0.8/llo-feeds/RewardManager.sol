@@ -55,6 +55,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);
   event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint256 quantity);
   event FeeManagerUpdated(address newFeeManagerAddress);
+  event FeePaid(bytes32 poolId, address payee, uint256 quantity);
 
   /**
    * @notice Constructor
@@ -102,6 +103,8 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
     //transfer the fee to this contract
     IERC20(i_linkAddress).transferFrom(payee, address(this), fee.amount);
+
+    emit FeePaid(poolId, payee, fee.amount);
   }
 
   /// @inheritdoc IRewardManager
