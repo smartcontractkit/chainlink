@@ -20,9 +20,9 @@ func TestUnpackCheckResults(t *testing.T) {
 	uid, _ := new(big.Int).SetString("1843548457736589226156809205796175506139185429616502850435279853710366065936", 10)
 	upkeepId := ocr2keepers.UpkeepIdentifier{}
 	upkeepId.FromBigInt(uid)
-	payload1, _ := core.NewUpkeepPayload(uid, 0, ocr2keepers.NewTrigger(19447615, common.HexToHash("0x0")), []byte{})
+	payload1, _ := core.NewUpkeepPayload(uid, ocr2keepers.NewTrigger(19447615, common.HexToHash("0x0")), []byte{})
 
-	payload2, _ := core.NewUpkeepPayload(uid, 0, ocr2keepers.NewTrigger(19448272, common.HexToHash("0x0")), []byte{})
+	payload2, _ := core.NewUpkeepPayload(uid, ocr2keepers.NewTrigger(19448272, common.HexToHash("0x0")), []byte{})
 
 	tests := []struct {
 		Name           string

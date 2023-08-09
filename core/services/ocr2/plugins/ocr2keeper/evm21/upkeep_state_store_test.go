@@ -31,10 +31,10 @@ var (
 			TxHash: common.HexToHash("0x1"),
 		},
 	}
-	payload2, _ = core.NewUpkeepPayload(upkeepId1, int(ocr2keepers.ConditionTrigger), trigger1, []byte{})
-	payload3, _ = core.NewUpkeepPayload(upkeepId2, int(ocr2keepers.LogTrigger), trigger1, []byte{})
-	payload4, _ = core.NewUpkeepPayload(upkeepId1, int(ocr2keepers.LogTrigger), trigger2, []byte{})
-	payload5, _ = core.NewUpkeepPayload(upkeepId1, int(ocr2keepers.LogTrigger), trigger1, []byte{})
+	payload2, _ = core.NewUpkeepPayload(upkeepId1, trigger1, []byte{})
+	payload3, _ = core.NewUpkeepPayload(upkeepId2, trigger1, []byte{})
+	payload4, _ = core.NewUpkeepPayload(upkeepId1, trigger2, []byte{})
+	payload5, _ = core.NewUpkeepPayload(upkeepId1, trigger1, []byte{})
 )
 
 const (

@@ -45,7 +45,6 @@ func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context) ([]ocr2keepers.Up
 	for _, uid := range ids {
 		payload, err := core.NewUpkeepPayload(
 			uid.BigInt(),
-			int(ocr2keepers.ConditionTrigger),
 			ocr2keepers.NewTrigger(ocr2keepers.BlockNumber(block.Int64()), blockHash),
 			nil,
 		)

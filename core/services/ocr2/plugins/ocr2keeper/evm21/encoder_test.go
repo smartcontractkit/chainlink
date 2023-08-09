@@ -117,7 +117,6 @@ func newResult(block int64, checkBlock ocr2keepers.BlockNumber, id ocr2keepers.U
 
 	payload, _ := core.NewUpkeepPayload(
 		id.BigInt(),
-		int(tp),
 		trig,
 		[]byte{},
 	)

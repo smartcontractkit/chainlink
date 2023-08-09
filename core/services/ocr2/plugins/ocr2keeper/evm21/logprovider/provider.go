@@ -157,7 +157,7 @@ func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.Upk
 			continue
 		}
 
-		payload, err := core.NewUpkeepPayload(l.id, logTriggerType, trig, checkData)
+		payload, err := core.NewUpkeepPayload(l.id, trig, checkData)
 		if err != nil {
 			// skip invalid payloads
 			continue

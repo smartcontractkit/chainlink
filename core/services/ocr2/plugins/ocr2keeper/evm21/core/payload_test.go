@@ -121,7 +121,6 @@ func TestNewUpkeepPayload(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			payload, err := NewUpkeepPayload(
 				tc.upkeepID,
-				int(tc.upkeepType),
 				tc.trigger,
 				tc.check,
 			)

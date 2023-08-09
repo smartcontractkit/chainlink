@@ -33,7 +33,7 @@ func UpkeepWorkIDFromTriggerBytes(id *big.Int, triggerBytes []byte) (string, err
 	return hex.EncodeToString(hash[:]), nil
 }
 
-func NewUpkeepPayload(id *big.Int, tp int, trigger ocr2keepers.Trigger, checkData []byte) (ocr2keepers.UpkeepPayload, error) {
+func NewUpkeepPayload(id *big.Int, trigger ocr2keepers.Trigger, checkData []byte) (ocr2keepers.UpkeepPayload, error) {
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	ok := uid.FromBigInt(id)
 	if !ok {
