@@ -233,7 +233,7 @@ func TestTransmitEventLog(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.log.Id() != nil {
 				require.Equal(t, uid.BigInt().Int64(), tc.log.Id().Int64())
-				require.Equal(t, "0756461a22a76364eb9845719a8a89b10b5080d5c403e5f38935f2fb3422b84f", tc.log.TriggerID())
+				require.Equal(t, []byte{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8}, tc.log.Trigger())
 			}
 			require.Equal(t, tc.etype, tc.log.TransmitEventType())
 		})

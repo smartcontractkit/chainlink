@@ -211,15 +211,23 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 	vals := []ocr2keepers.TransmitEvent{}
 
 	for _, l := range logs {
-		upkeepId := ocr2keepers.UpkeepIdentifier(l.Id().Bytes())
-		triggerID := l.TriggerID()
+		id := l.Id()
+		upkeepId := &ocr2keepers.UpkeepIdentifier{}
+		ok := upkeepId.FromBigInt(id)
+		if !ok {
+			return nil, core.ErrInvalidUpkeepID
+		}
+		workID, err := core.UpkeepWorkIDFromTriggerBytes(id, l.Trigger())
+		if err != nil {
+			return nil, err
+		}
 		vals = append(vals, ocr2keepers.TransmitEvent{
 			Type:            l.TransmitEventType(),
 			TransmitBlock:   ocr2keepers.BlockNumber(l.BlockNumber),
 			Confirmations:   latestBlock - l.BlockNumber,
 			TransactionHash: l.TxHash,
-			WorkID:          triggerID,
-			UpkeepID:        upkeepId,
+			WorkID:          workID,
+			UpkeepID:        *upkeepId,
 		})
 	}
 
@@ -250,18 +258,18 @@ func (l transmitEventLog) Id() *big.Int {
 	}
 }
 
-func (l transmitEventLog) TriggerID() string {
+func (l transmitEventLog) Trigger() []byte {
 	switch {
 	case l.Performed != nil:
-		return core.UpkeepTriggerID(l.Performed.Id, l.Performed.Trigger)
+		return l.Performed.Trigger
 	case l.Stale != nil:
-		return core.UpkeepTriggerID(l.Stale.Id, l.Stale.Trigger)
+		return l.Stale.Trigger
 	case l.Reorged != nil:
-		return core.UpkeepTriggerID(l.Reorged.Id, l.Reorged.Trigger)
+		return l.Reorged.Trigger
 	case l.InsufficientFunds != nil:
-		return core.UpkeepTriggerID(l.InsufficientFunds.Id, l.InsufficientFunds.Trigger)
+		return l.InsufficientFunds.Trigger
 	default:
-		return ""
+		return []byte{}
 	}
 }
 
@@ -272,12 +280,11 @@ func (l transmitEventLog) TransmitEventType() ocr2keepers.TransmitEventType {
 	case l.Stale != nil:
 		return ocr2keepers.StaleReportEvent
 	case l.Reorged != nil:
-		// TODO: use reorged event type
-		return ocr2keepers.TransmitEventType(2)
+		return ocr2keepers.ReorgReportEvent
 	case l.InsufficientFunds != nil:
-		// TODO: use insufficient funds event type
-		return ocr2keepers.TransmitEventType(3)
+		return ocr2keepers.InsufficientFundsReportEvent
 	default:
+		// TODO: use unknown type
 		return ocr2keepers.TransmitEventType(0)
 	}
 }
