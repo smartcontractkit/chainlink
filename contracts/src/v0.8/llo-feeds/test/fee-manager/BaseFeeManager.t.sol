@@ -64,9 +64,9 @@ contract BaseFeeManagerTest is Test {
   bytes4 internal constant INVALID_DEPOSIT_ERROR = bytes4(keccak256("InvalidDeposit()"));
   bytes4 internal constant INVALID_QUOTE_ERROR = bytes4(keccak256("InvalidQuote()"));
   bytes4 internal constant INVALID_REPORT_ERROR = bytes4(keccak256("InvalidReport()"));
+  bytes4 internal constant UNAUTHORIZED_ERROR = bytes4(keccak256("Unauthorized()"));
   bytes4 internal constant INVALID_REPORT_VERSION_ERROR = bytes4(keccak256("InvalidReportVersion()"));
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
-  bytes internal constant ONLY_CALLABLE_BY_OWNER_OR_PROXY_ERROR = "Only owner or proxy";
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
 
   //events emitted

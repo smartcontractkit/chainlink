@@ -20,7 +20,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
     createPrimaryPool();
 
     //add funds to the pool to be split among the recipients
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
   }
 
   function test_claimAllRecipients() public {
@@ -38,6 +38,34 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
       //check the balance matches the ratio the recipient should have received
       assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
     }
+  }
+
+  function test_claimRewardsWithDuplicateDoesNotPayoutTwice() public {
+    //add funds to a different pool to ensure they're not claimed
+    addFundsToPool(SECONDARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
+
+    //expected recipient amount is 1/4 of the pool deposit
+    uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
+
+    //create an array containing duplicate poolIds
+    bytes32[] memory poolIds = new bytes32[](2);
+    poolIds[0] = PRIMARY_POOL_ID;
+    poolIds[1] = PRIMARY_POOL_ID;
+
+    //claim funds for each recipient within the pool
+    for (uint256 i; i < getPrimaryRecipients().length; i++) {
+      //get the recipient that is claiming
+      Common.AddressAndWeight memory recipient = getPrimaryRecipients()[i];
+
+      //claim the individual rewards for each recipient
+      claimRewards(poolIds, recipient.addr);
+
+      //check the balance matches the ratio the recipient should have received
+      assertEq(getAssetBalance(recipient.addr), expectedRecipientAmount);
+    }
+
+    //the pool should still have the remaining
+    assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
   }
 
   function test_claimSingleRecipient() public {
@@ -86,7 +114,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
 
   function test_claimUnevenAmountRoundsDown() public {
     //adding 1 to the pool should leave 1 wei worth of dust, which the contract doesn't handle due to it being economically infeasible
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(1));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(1), FEE_MANAGER);
 
     //expected recipient amount is 1/4 of the pool deposit
     uint256 expectedRecipientAmount = POOL_DEPOSIT_AMOUNT / 4;
@@ -138,7 +166,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
     assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT - expectedRecipientAmount);
 
     //add funds to the pool to be split among the recipients
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
 
     //claim the individual rewards for this recipient
     claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
@@ -170,7 +198,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
     assertEq(getAssetBalance(address(rewardManager)), 0);
 
     //add funds to the pool to be split among the recipients
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
 
     //claim funds for each recipient within the pool
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
@@ -232,8 +260,8 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
     createSecondaryPool();
 
     //add funds to each of the pools to be split among the recipients
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-    addFundsToPool(SECONDARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
+    addFundsToPool(SECONDARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
   }
 
   function test_claimAllRecipientsSinglePool() public {
@@ -381,8 +409,8 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
   function test_claimUnevenAmountRoundsDown() public {
     //adding an uneven amount of dust to each pool, this should round down to the nearest whole number with 4 remaining in the contract
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(3));
-    addFundsToPool(SECONDARY_POOL_ID, USER, getAsset(1));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(3), FEE_MANAGER);
+    addFundsToPool(SECONDARY_POOL_ID, getAsset(1), FEE_MANAGER);
 
     //the recipient should have received 1/4 of the deposit amount for each pool
     uint256 recipientExpectedAmount = POOL_DEPOSIT_AMOUNT / 4;
@@ -438,7 +466,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
     assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT * 2 - expectedRecipientAmount);
 
     //add funds to the pool to be split among the recipients
-    addFundsToPool(SECONDARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(SECONDARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
 
     //claim the individual rewards for this recipient
     claimRewards(SECONDARY_POOL_ARRAY, recipient.addr);
@@ -473,7 +501,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
     assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
 
     //add funds to the pool to be split among the recipients
-    addFundsToPool(SECONDARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(SECONDARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
 
     //special case to handle the first recipient of each pool as they're the same address
     claimRewards(SECONDARY_POOL_ARRAY, getSecondaryRecipients()[0].addr);
@@ -540,7 +568,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
   function test_getRewardsAvailableToRecipientInNoPools() public {
     //get index 0 as this recipient is in both default pools
-    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(USER);
+    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(FEE_MANAGER);
 
     //check the recipient is in neither pool
     assertEq(poolIds[0], ZERO_POOL_ID);
@@ -559,7 +587,7 @@ contract RewardManagerRecipientClaimDifferentWeightsTest is BaseRewardManagerTes
     createPrimaryPool();
 
     //add funds to the pool to be split among the recipients
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
   }
 
   function getPrimaryRecipients() public virtual override returns (Common.AddressAndWeight[] memory) {
@@ -622,7 +650,7 @@ contract RewardManagerRecipientClaimUnevenWeightTest is BaseRewardManagerTest {
     uint256 smallDeposit = 1e8;
 
     //add a smaller amount of funds to the pool
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(smallDeposit));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(smallDeposit), FEE_MANAGER);
 
     //loop all the recipients and claim their expected amount
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
@@ -645,7 +673,7 @@ contract RewardManagerRecipientClaimUnevenWeightTest is BaseRewardManagerTest {
 
   function test_allRecipientsClaimingReceiveExpectedAmount() public {
     //add funds to the pool to be split among the recipients
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
 
     //loop all the recipients and claim their expected amount
     for (uint256 i; i < getPrimaryRecipients().length; i++) {
@@ -675,7 +703,7 @@ contract RewardManagerNoRecipientSet is BaseRewardManagerTest {
     super.setUp();
 
     //add funds to the pool to be split among the recipients once registered
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
   }
 
   function test_claimAllRecipientsAfterRecipientsSet() public {

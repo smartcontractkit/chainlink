@@ -26,26 +26,34 @@ contract RewardManagerSetupTest is BaseRewardManagerTest {
     new RewardManager(address(0));
   }
 
-  function test_eventEmittedUponProxyUpdate() public {
+  function test_eventEmittedUponFeeManagerUpdate() public {
     //expect the event to be emitted
     vm.expectEmit();
 
     //emit the event that is expected to be emitted
-    emit FeeManagerUpdated(USER);
+    emit FeeManagerUpdated(FEE_MANAGER);
 
     //set the verifier proxy
-    setFeeManager(USER, ADMIN);
+    setFeeManager(FEE_MANAGER, ADMIN);
   }
 
-  function test_eventEmittedUponFeEPaid() public {
+  function test_eventEmittedUponFeePaid() public {
     //create pool and add funds
     createPrimaryPool();
 
     //event is emitted when funds are added
     vm.expectEmit();
 
-    emit FeePaid(PRIMARY_POOL_ID, USER, POOL_DEPOSIT_AMOUNT);
+    emit FeePaid(PRIMARY_POOL_ID, FEE_MANAGER, POOL_DEPOSIT_AMOUNT);
 
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
+  }
+
+  function test_setFeeManagerZeroAddress() public {
+    //should revert if the contract is a zero address
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+
+    //set the verifier proxy
+    setFeeManager(address(0), ADMIN);
   }
 }

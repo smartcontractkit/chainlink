@@ -21,7 +21,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getLinkAddress()));
 
     //should revert as the user is not the owner
-    vm.expectRevert(ONLY_CALLABLE_BY_OWNER_OR_PROXY_ERROR);
+    vm.expectRevert(UNAUTHORIZED_ERROR);
 
     //process the fee
     processFee(payload, USER, 0, USER);

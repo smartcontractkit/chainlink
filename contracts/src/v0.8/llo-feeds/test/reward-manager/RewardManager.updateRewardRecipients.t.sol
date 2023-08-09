@@ -21,7 +21,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     createPrimaryPool();
 
     //add funds to the pool to be split among the recipients
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
   }
 
   function test_onlyAdminCanUpdateRecipients() public {
@@ -29,7 +29,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     vm.expectRevert(ONLY_CALLABLE_BY_OWNER_ERROR);
 
     //updating a recipient should force the funds to be paid out
-    updateRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), USER);
+    updateRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), FEE_MANAGER);
   }
 
   function test_updateAllRecipientsWithSameAddressAndWeight() public {
@@ -300,7 +300,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     assertEq(getAssetBalance(address(rewardManager)), 0);
 
     //add more funds to the pool to check new distribution
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
 
     //loop each user and claim the rewards
     for (uint256 i; i < recipients.length; i++) {
@@ -349,7 +349,7 @@ contract RewardManagerUpdateRewardRecipientsTest is BaseRewardManagerTest {
     assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT / 2);
 
     //add more funds to the pool to check new distribution
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
 
     //loop each user and claim the rewards
     for (uint256 i; i < recipients.length; i++) {
@@ -404,8 +404,8 @@ contract RewardManagerUpdateRewardRecipientsMultiplePoolsTest is BaseRewardManag
     createSecondaryPool();
 
     //add funds to the pool to be split among the recipients
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
-    addFundsToPool(SECONDARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
+    addFundsToPool(SECONDARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
   }
 
   function getSecondaryRecipients() public override returns (Common.AddressAndWeight[] memory) {
@@ -437,7 +437,7 @@ contract RewardManagerUpdateRewardRecipientsMultiplePoolsTest is BaseRewardManag
     assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
 
     //add more funds to the pool to check new distribution
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
 
     //claim the rewards for the updated recipients manually
     claimRewards(PRIMARY_POOL_ARRAY, recipients[0].addr);

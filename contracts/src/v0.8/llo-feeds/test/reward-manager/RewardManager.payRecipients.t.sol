@@ -20,7 +20,7 @@ contract RewardManagerPayRecipientsTest is BaseRewardManagerTest {
     createPrimaryPool();
 
     //add funds to the pool to be split among the recipients
-    addFundsToPool(PRIMARY_POOL_ID, USER, getAsset(POOL_DEPOSIT_AMOUNT));
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
   }
 
   function test_payAllRecipients() public {
@@ -152,7 +152,7 @@ contract RewardManagerPayRecipientsTest is BaseRewardManagerTest {
     vm.expectRevert(UNAUTHORIZED_ERROR_SELECTOR);
 
     //pay all the recipients in the pool
-    payRecipients(PRIMARY_POOL_ID, getPrimaryRecipientAddresses(), USER);
+    payRecipients(PRIMARY_POOL_ID, getPrimaryRecipientAddresses(), FEE_MANAGER);
   }
 
   function test_payAllRecipientsFromRecipientInPool() public {
@@ -175,4 +175,18 @@ contract RewardManagerPayRecipientsTest is BaseRewardManagerTest {
     //pool should still contain the full balance
     assertEq(getAssetBalance(address(rewardManager)), POOL_DEPOSIT_AMOUNT);
   }
+
+  function test_addFundsToPoolAsOwner() public {
+    //add funds to the pool
+    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
+  }
+
+  function test_addFundsToPoolAsNonOwnerOrFeeManager() public {
+    //should revert if the caller isn't an admin or recipient within the pool
+    vm.expectRevert(UNAUTHORIZED_ERROR_SELECTOR);
+
+    //add funds to the pool
+    rewardManager.onFeePaid(PRIMARY_POOL_ID, USER, POOL_DEPOSIT_AMOUNT);
+  }
+
 }

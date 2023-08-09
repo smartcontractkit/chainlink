@@ -22,8 +22,10 @@ contract BaseRewardManagerTest is Test {
   address internal constant INVALID_ADDRESS = address(0);
   //contract owner
   address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
-  //user to represent verifier contract
-  address internal constant USER = address(uint160(uint256(keccak256("PROXY"))));
+  //address to represent verifier contract
+  address internal constant FEE_MANAGER = address(uint160(uint256(keccak256("FEE_MANAGER"))));
+  //a general user
+  address internal constant USER = address(uint160(uint256(keccak256("USER"))));
 
   //default recipients configured in reward manager
   address internal constant DEFAULT_RECIPIENT_1 = address(uint160(uint256(keccak256("DEFAULT_RECIPIENT_1"))));
@@ -90,13 +92,15 @@ contract BaseRewardManagerTest is Test {
     unsupported.mint(ADMIN, DEFAULT_MINT_QUANTITY);
 
     //mint some tokens to the user
-    asset.mint(USER, DEFAULT_MINT_QUANTITY);
-    unsupported.mint(USER, DEFAULT_MINT_QUANTITY);
+    asset.mint(FEE_MANAGER, DEFAULT_MINT_QUANTITY);
+    unsupported.mint(FEE_MANAGER, DEFAULT_MINT_QUANTITY);
   }
 
   function _initializeRewardManager() internal {
     //create the contract
     rewardManager = new RewardManager(address(asset));
+
+    rewardManager.setFeeManager(FEE_MANAGER);
   }
 
   function createPrimaryPool() public {
@@ -159,7 +163,7 @@ contract BaseRewardManagerTest is Test {
     return recipients;
   }
 
-  function addFundsToPool(bytes32 poolId, address sender, Common.Asset memory amount) public {
+  function addFundsToPool(bytes32 poolId, Common.Asset memory amount, address sender) public {
     //record the current address and switch to the sender
     address originalAddr = msg.sender;
     changePrank(sender);
@@ -168,7 +172,7 @@ contract BaseRewardManagerTest is Test {
     ERC20Mock(amount.assetAddress).approve(address(rewardManager), amount.amount);
 
     //this represents the verifier adding some funds to the pool
-    rewardManager.onFeePaid(poolId, sender, amount);
+    rewardManager.onFeePaid(poolId, sender, amount.amount);
 
     //change back to the original address
     changePrank(originalAddr);
@@ -178,16 +182,8 @@ contract BaseRewardManagerTest is Test {
     return Common.Asset(address(asset), quantity);
   }
 
-  function getUnsupportedAsset(uint256 quantity) public view returns (Common.Asset memory) {
-    return Common.Asset(address(unsupported), quantity);
-  }
-
   function getAssetBalance(address addr) public view returns (uint256) {
     return asset.balanceOf(addr);
-  }
-
-  function getUnsupportedBalance(address addr) public view returns (uint256) {
-    return unsupported.balanceOf(addr);
   }
 
   function claimRewards(bytes32[] memory poolIds, address sender) public {

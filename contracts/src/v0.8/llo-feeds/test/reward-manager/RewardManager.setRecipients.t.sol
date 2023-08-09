@@ -103,7 +103,7 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
     setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), ADMIN);
   }
 
-  function test_setRewardRecipientFromNonOwnerOrProxyAddress() public {
+  function test_setRewardRecipientFromNonOwnerOrFeeManagerAddress() public {
     //should revert if the sender is not the owner or proxy
     vm.expectRevert(UNAUTHORIZED_ERROR_SELECTOR);
 
@@ -113,18 +113,10 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
 
   function test_setRewardRecipientFromManagerAddress() public {
     //update the proxy address
-    setFeeManager(USER, ADMIN);
+    setFeeManager(FEE_MANAGER, ADMIN);
 
     //set the recipients
-    setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), USER);
-  }
-
-  function test_onlyConfiguredAddressCanPayIntoPool() public {
-    //should revert if the unconfigured address tries to pay into the pool
-    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
-
-    //try and add funds to the pool from an unconfigured address
-    rewardManager.onFeePaid(PRIMARY_POOL_ID, msg.sender, getUnsupportedAsset(1));
+    setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), FEE_MANAGER);
   }
 
   function test_eventIsEmittedUponSetRecipients() public {
@@ -136,5 +128,25 @@ contract RewardManagerSetRecipientsTest is BaseRewardManagerTest {
 
     //set the recipients
     setRewardRecipients(PRIMARY_POOL_ID, getPrimaryRecipients(), ADMIN);
+  }
+
+  function test_setRecipientContainsDuplicateRecipients() public {
+    //create a new array to hold the existing recipients
+    Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](getPrimaryRecipients().length * 2);
+
+    //add all the existing recipients
+    for (uint256 i; i < getPrimaryRecipients().length; i++) {
+      recipients[i] = getPrimaryRecipients()[i];
+    }
+    //add all the existing recipients again
+    for (uint256 i; i < getPrimaryRecipients().length; i++) {
+      recipients[i + getPrimaryRecipients().length] = getPrimaryRecipients()[i];
+    }
+
+    //should revert as the list contains a duplicate
+    vm.expectRevert(INVALID_ADDRESS_ERROR_SELECTOR);
+
+    //set the recipients
+    setRewardRecipients(PRIMARY_POOL_ID, recipients, ADMIN);
   }
 }

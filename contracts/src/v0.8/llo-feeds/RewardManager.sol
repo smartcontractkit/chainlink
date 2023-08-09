@@ -37,7 +37,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   uint256 private constant PERCENTAGE_SCALAR = 1e18;
 
   // The fee manager address
-  address private s_feeManagerAddress;
+  address public s_feeManagerAddress;
 
   // @notice Thrown whenever the RewardRecipient weights are invalid
   error InvalidWeights();
@@ -89,22 +89,17 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IRewardManager
-  function onFeePaid(bytes32 poolId, address payee, Common.Asset calldata fee) external override {
-    //this pool only handles LINK fees
-    if (fee.assetAddress != i_linkAddress) {
-      revert InvalidAddress();
-    }
-
+  function onFeePaid(bytes32 poolId, address payee, uint256 amount) external onlyOwnerOrFeeManager override {
     //update the total fees collected for this pot
     unchecked {
       //the total amount for any ERC20 asset cannot exceed 2^256 - 1
-      s_totalRewardRecipientFees[poolId] += fee.amount;
+      s_totalRewardRecipientFees[poolId] += amount;
     }
 
     //transfer the fee to this contract
-    IERC20(i_linkAddress).transferFrom(payee, address(this), fee.amount);
+    IERC20(i_linkAddress).transferFrom(payee, address(this), amount);
 
-    emit FeePaid(poolId, payee, fee.amount);
+    emit FeePaid(poolId, payee, amount);
   }
 
   /// @inheritdoc IRewardManager
@@ -183,6 +178,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     Common.AddressAndWeight[] calldata rewardRecipientAndWeights,
     uint256 expectedWeight
   ) internal {
+    //we can't update the weights if it contains duplicates
+    if (Common.hasDuplicateAddresses(rewardRecipientAndWeights)) revert InvalidAddress();
+
     //loop all the reward recipients and validate the weight and address
     uint256 totalWeight;
     for (uint256 i; i < rewardRecipientAndWeights.length; ++i) {
@@ -214,9 +212,6 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     bytes32 poolId,
     Common.AddressAndWeight[] calldata newRewardRecipients
   ) external override onlyOwner {
-    //it's more efficient to check for duplicates separately as opposed to handling them in the loop below
-    if (Common.hasDuplicateAddresses(newRewardRecipients)) revert InvalidAddress();
-
     //create an array of poolIds to pass to _claimRewards if required
     bytes32[] memory poolIds = new bytes32[](1);
     poolIds[0] = poolId;
@@ -269,6 +264,8 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
   /// @inheritdoc IRewardManager
   function setFeeManager(address newFeeManagerAddress) external onlyOwner {
+    if(newFeeManagerAddress == address(0)) revert InvalidAddress();
+
     s_feeManagerAddress = newFeeManagerAddress;
 
     emit FeeManagerUpdated(newFeeManagerAddress);

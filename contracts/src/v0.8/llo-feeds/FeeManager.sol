@@ -71,6 +71,10 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice thrown if a report has an invalid version
   error InvalidReportVersion();
 
+  // @notice Thrown when the caller is not authorized
+  error Unauthorized();
+
+
   /// @notice Emitted whenever a subscriber's discount is updated
   /// @param subscriber address of the subscriber to update discounts for
   /// @param feedId Feed ID for the discount
@@ -122,7 +126,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   modifier onlyOwnerOrProxy() {
-    require(msg.sender == owner() || msg.sender == i_proxyAddress, "Only owner or proxy");
+    if(msg.sender != owner() && msg.sender != i_proxyAddress) revert Unauthorized();
     _;
   }
 
@@ -149,7 +153,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //v1 doesn't need a quote payload, so skip the decoding if the report is a v0 report
     Quote memory quote;
     if (getReportVersion(feedId) != REPORT_V1) {
-      //all reports greater than v0 should have a quote payload
+      //all reports greater than v1 should have a quote payload
       (, , , , , bytes memory quoteBytes) = abi.decode(
         payload,
         (bytes32[3], bytes, bytes32[], bytes32[], bytes32, bytes)
@@ -188,7 +192,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       //if the fee is in LINK, transfer directly from the subscriber to the reward manager
       if (fee.assetAddress == i_linkAddress) {
         //distributes the fee
-        i_rewardManager.onFeePaid(configDigest, subscriber, reward);
+        i_rewardManager.onFeePaid(configDigest, subscriber, reward.amount);
       } else {
         //if the fee is in native wrapped, transfer to this contract in exchange for the equivalent amount of LINK excluding the surcharge
         if (msg.value == 0) {
@@ -202,7 +206,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
           emit InsufficientLink(configDigest, reward.amount, fee.amount);
         } else {
           //bill the payee and distribute the fee using the config digest as the key
-          i_rewardManager.onFeePaid(configDigest, address(this), reward);
+          i_rewardManager.onFeePaid(configDigest, address(this), reward.amount);
         }
       }
     }

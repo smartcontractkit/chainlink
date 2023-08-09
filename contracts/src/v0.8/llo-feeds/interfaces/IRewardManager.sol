@@ -9,9 +9,9 @@ interface IRewardManager is IERC165 {
    * @notice Record the fee received for a particular pool
    * @param poolId poolId of the report being verified
    * @param payee the user the funds should be deposited from
-   * @param fee struct with the asset address and amount forwarded to the FeeManager
+   * @param amount the amount to be paid into the pool
    */
-  function onFeePaid(bytes32 poolId, address payee, Common.Asset calldata fee) external;
+  function onFeePaid(bytes32 poolId, address payee, uint256 amount) external;
 
   /**
    * @notice Claims the rewards in a specific pool

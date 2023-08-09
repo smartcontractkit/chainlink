@@ -297,6 +297,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     feeManager = new FeeManager(address(link), address(native), address(s_verifierProxy), address(rewardManager));
 
     s_verifierProxy.setFeeManager(feeManager);
+    rewardManager.setFeeManager(address(feeManager));
   }
 
   function _encodeReport(V2Report memory report) internal pure returns (bytes memory) {

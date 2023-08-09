@@ -45,7 +45,6 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
     link.mint(address(this), DEFAULT_NATIVE_MINT_QUANTITY);
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, address(this));
     (, , bytes32 latestConfigDigest) = s_verifier.latestConfigDetails(FEED_ID);
-    rewardManager.onFeePaid(latestConfigDigest, address(this), Common.Asset(address(link), DEFAULT_REPORT_LINK_FEE));
 
     //mint some tokens to the user
     link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);
@@ -58,6 +57,9 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
     //approve funds prior to test
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
     _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+
+    changePrank(address(feeManager));
+    rewardManager.onFeePaid(latestConfigDigest, address(this), DEFAULT_REPORT_LINK_FEE);
 
     changePrank(USER);
   }
