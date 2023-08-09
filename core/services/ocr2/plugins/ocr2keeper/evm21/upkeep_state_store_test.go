@@ -27,7 +27,7 @@ var (
 		BlockNumber: block3,
 		BlockHash:   common.HexToHash("0x1"),
 		LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-			Index:  1,
+			Index:  2, // a different BlockNumber isn't enough to generate a unique work ID, so we change the index here to generate a separate work ID
 			TxHash: common.HexToHash("0x1"),
 		},
 	}
