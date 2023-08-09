@@ -23,10 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-const (
-	logTriggerType = 1
-)
-
 var (
 	ErrHeadNotAvailable   = fmt.Errorf("head not available")
 	ErrBlockLimitExceeded = fmt.Errorf("block limit exceeded")
