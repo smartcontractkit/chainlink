@@ -35,7 +35,7 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, 1, genUpkeepID(logTriggerType, "123"), 1, 1),
+				newResult(1, 1, genUpkeepID(ocr2keepers.LogTrigger, "123"), 1, 1),
 			},
 			704,
 			1,
@@ -132,16 +132,4 @@ func newResult(block int64, checkBlock ocr2keepers.BlockNumber, id ocr2keepers.U
 		FastGasWei:   big.NewInt(fastGasWei),
 		LinkNative:   big.NewInt(linkNative),
 	}
-}
-
-func genUpkeepID(uType ocr2keepers.UpkeepType, rand string) ocr2keepers.UpkeepIdentifier {
-	b := append([]byte{1}, common.LeftPadBytes([]byte{uint8(uType)}, 15)...)
-	b = append(b, []byte(rand)...)
-	b = common.RightPadBytes(b, 32-len(b))
-	if len(b) > 32 {
-		b = b[:32]
-	}
-	var id [32]byte
-	copy(id[:], b)
-	return ocr2keepers.UpkeepIdentifier(id)
 }

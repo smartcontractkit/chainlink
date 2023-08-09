@@ -31,17 +31,15 @@ var (
 			TxHash: common.HexToHash("0x1"),
 		},
 	}
-	payload2, _ = core.NewUpkeepPayload(upkeepId1, conditionalType, trigger1, []byte{})
-	payload3, _ = core.NewUpkeepPayload(upkeepId2, logTriggerType, trigger1, []byte{})
-	payload4, _ = core.NewUpkeepPayload(upkeepId1, logTriggerType, trigger2, []byte{})
-	payload5, _ = core.NewUpkeepPayload(upkeepId1, logTriggerType, trigger1, []byte{})
+	payload2, _ = core.NewUpkeepPayload(upkeepId1, int(ocr2keepers.ConditionTrigger), trigger1, []byte{})
+	payload3, _ = core.NewUpkeepPayload(upkeepId2, int(ocr2keepers.LogTrigger), trigger1, []byte{})
+	payload4, _ = core.NewUpkeepPayload(upkeepId1, int(ocr2keepers.LogTrigger), trigger2, []byte{})
+	payload5, _ = core.NewUpkeepPayload(upkeepId1, int(ocr2keepers.LogTrigger), trigger1, []byte{})
 )
 
 const (
-	conditionalType = 0
-	logTriggerType  = 1
-	block1          = 111
-	block3          = 113
+	block1 = 111
+	block3 = 113
 )
 
 func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {

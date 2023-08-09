@@ -17,13 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func upkeepIDFromInt(id string) ocr2keepers.UpkeepIdentifier {
-	uid := &ocr2keepers.UpkeepIdentifier{}
-	idInt, _ := big.NewInt(0).SetString(id, 10)
-	uid.FromBigInt(idInt)
-	return *uid
-}
-
 func TestGetActiveUpkeepIDs(t *testing.T) {
 	tests := []struct {
 		Name         string
