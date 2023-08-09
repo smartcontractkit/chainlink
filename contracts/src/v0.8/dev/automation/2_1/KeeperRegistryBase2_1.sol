@@ -749,7 +749,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       return (false, dedupID);
     }
     if (transmitInfo.upkeep.balance < transmitInfo.maxLinkPayment) {
-      // Can happen due to flucutations in gas / link prices
+      // Can happen due to fluctuations in gas / link prices
       emit InsufficientFundsUpkeepReport(upkeepId, rawTrigger);
       return (false, dedupID);
     }
