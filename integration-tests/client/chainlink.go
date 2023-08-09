@@ -27,8 +27,8 @@ var (
 	OneLINK           = big.NewFloat(1e18)
 	mapKeyTypeToChain = map[string]string{
 		"evm":      "eTHKeys",
-		"solana":   "encryptedStarkNetKeys",
-		"starknet": "encryptedSolanaKeys",
+		"solana":   "encryptedSolanaKeys",
+		"starknet": "encryptedStarkNetKeys",
 	}
 )
 

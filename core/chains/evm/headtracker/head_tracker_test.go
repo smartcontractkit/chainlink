@@ -322,7 +322,7 @@ func TestHeadTracker_ResubscribeOnSubscriptionError(t *testing.T) {
 			func(ctx context.Context, ch chan<- *evmtypes.Head) error { return nil },
 		)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(0), nil).Once()
-	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(cltest.Head(0), nil).Once()
+	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(cltest.Head(0), nil).Maybe()
 
 	checker := &cltest.MockHeadTrackable{}
 	ht := createHeadTrackerWithChecker(t, ethClient, config.EVM(), config.EVM().HeadTracker(), orm, checker)
@@ -510,7 +510,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingEnabled(t *testing.T)
 	latestHeadByHash := make(map[gethCommon.Hash]*evmtypes.Head)
 	latestHeadByHashMu := new(sync.Mutex)
 
-	fnCall := ethClient.On("HeadByHash", mock.Anything, mock.Anything)
+	fnCall := ethClient.On("HeadByHash", mock.Anything, mock.Anything).Maybe()
 	fnCall.RunFn = func(args mock.Arguments) {
 		latestHeadByHashMu.Lock()
 		defer latestHeadByHashMu.Unlock()
@@ -666,7 +666,7 @@ func TestHeadTracker_SwitchesToLongestChainWithHeadSamplingDisabled(t *testing.T
 	latestHeadByHash := make(map[gethCommon.Hash]*evmtypes.Head)
 	latestHeadByHashMu := new(sync.Mutex)
 
-	fnCall := ethClient.On("HeadByHash", mock.Anything, mock.Anything)
+	fnCall := ethClient.On("HeadByHash", mock.Anything, mock.Anything).Maybe()
 	fnCall.RunFn = func(args mock.Arguments) {
 		latestHeadByHashMu.Lock()
 		defer latestHeadByHashMu.Unlock()
