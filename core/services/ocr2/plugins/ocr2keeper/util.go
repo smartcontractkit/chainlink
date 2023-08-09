@@ -15,6 +15,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	ocr2keepers21 "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -22,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	kevm20 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm20"
 	kevm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -36,7 +37,7 @@ type Encoder interface {
 }
 
 type Encoder21 interface {
-	plugin.Encoder
+	ocr2keepers21.Encoder
 }
 
 var (
@@ -127,7 +128,7 @@ func EVMDependencies21(
 	pr pipeline.Runner,
 	mc *models.MercuryCredentials,
 	keyring ocrtypes.OnchainKeyring,
-) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder21, *kevm21.TransmitEventProvider, logprovider.LogEventProvider, ocr3types.OnchainKeyring[plugin.AutomationReportInfo], *kevm21.BlockSubscriber, error) {
+) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder21, *kevm21.TransmitEventProvider, ocr2keepers21.LogEventProvider, ocr3types.OnchainKeyring[plugin.AutomationReportInfo], *kevm21.BlockSubscriber, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider

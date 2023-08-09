@@ -8,11 +8,12 @@ import (
 	"testing"
 
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	clientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
@@ -26,8 +27,9 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 		active: map[string]activeUpkeep{},
 		client: c,
 	}
+	var lp logpoller.LogPoller
 
-	p := NewUpkeepProvider(r)
+	p := NewUpkeepProvider(r, lp)
 
 	tests := []struct {
 		name        string
@@ -56,13 +58,10 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 			coreTypes.Header{Number: big.NewInt(1)},
 			[]ocr2keepers.UpkeepPayload{
 				{
-					Upkeep: ocr2keepers.ConfiguredUpkeep{
-						ID: ocr2keepers.UpkeepIdentifier(big.NewInt(1).String()),
-					},
-				}, {
-					Upkeep: ocr2keepers.ConfiguredUpkeep{
-						ID: ocr2keepers.UpkeepIdentifier(big.NewInt(2).String()),
-					},
+					UpkeepID: upkeepIDFromInt("10"),
+				},
+				{
+					UpkeepID: upkeepIDFromInt("15"),
 				},
 			},
 			false,
@@ -78,16 +77,16 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 			r.active = tc.active
 			r.mu.Unlock()
 
-			got, err := p.GetActiveUpkeeps(ctx, BlockKeyHelper[int64]{}.MakeBlockKey(b.Number().Int64()))
+			got, err := p.GetActiveUpkeeps(ctx)
 			require.NoError(t, err)
 			require.Len(t, got, len(tc.want))
 			sort.Slice(got, func(i, j int) bool {
-				return bytes.Compare(got[i].Upkeep.ID, got[j].Upkeep.ID) < 0
+				return bytes.Compare(got[i].UpkeepID[:], got[j].UpkeepID[:]) < 0
 			})
 			for i, payload := range got {
 				expected := tc.want[i]
 				// require.Equal(t, expected.ID, payload.ID) // TODO: uncomment once we change to workID
-				require.Equal(t, expected.Upkeep.ID, payload.Upkeep.ID)
+				require.Equal(t, expected.UpkeepID, payload.UpkeepID)
 				require.Equal(t, b.Number().Int64(), payload.Trigger.BlockNumber)
 			}
 		})
