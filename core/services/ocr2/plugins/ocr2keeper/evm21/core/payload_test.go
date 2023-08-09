@@ -12,56 +12,176 @@ import (
 )
 
 func TestTriggerID(t *testing.T) {
-	upkeepIDStr := "82566255084862886500628610724995377215109748679571001950554849251333329872882"
-	// Convert the string to a big.Int
-	var upkeepID big.Int
-	_, success := upkeepID.SetString(upkeepIDStr, 10)
-	if !success {
-		t.Fatal("Invalid big integer value")
+	tests := []struct {
+		name         string
+		upkeepID     string
+		triggerBytes []byte
+		expected     string
+	}{
+		{
+			name:     "happy flow",
+			upkeepID: "82566255084862886500628610724995377215109748679571001950554849251333329872882",
+			triggerBytes: func() []byte {
+				x, _ := hex.DecodeString("deadbeef")
+				return x
+			}(),
+			expected: "fe466794c97e8b54ca25b696ff3ee448a7d03e4a82a2e45d9d84de62ef4cc260",
+		},
+		{
+			name:         "empty trigger",
+			upkeepID:     "82566255084862886500628610724995377215109748679571001950554849251333329872882",
+			triggerBytes: []byte{},
+			expected:     "3b603b1d478017c18901163a6512b4b24c2616fc55654e7fb2a40baf69d44570",
+		},
+		{
+			name:     "empty upkeepID",
+			upkeepID: "0",
+			triggerBytes: func() []byte {
+				x, _ := hex.DecodeString("deadbeef")
+				return x
+			}(),
+			expected: "d4fd4e189132273036449fc9e11198c739161b4c0116a9a2dccdfa1c492006f1",
+		},
 	}
 
-	triggerStr := "deadbeef"
-	triggerBytes, err := hex.DecodeString(triggerStr)
-	if err != nil {
-		t.Fatalf("Error decoding hex string: %s", err)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Convert the string to a big.Int
+			var upkeepID big.Int
+			_, success := upkeepID.SetString(tc.upkeepID, 10)
+			if !success {
+				t.Fatal("Invalid big integer value")
+			}
+
+			res := UpkeepTriggerID(&upkeepID, tc.triggerBytes)
+
+			assert.Equal(t, tc.expected, res, "UpkeepTriggerID mismatch")
+		})
 	}
-
-	res := UpkeepTriggerID(&upkeepID, triggerBytes)
-
-	assert.Equal(t, "fe466794c97e8b54ca25b696ff3ee448a7d03e4a82a2e45d9d84de62ef4cc260", res, "UpkeepTriggerID mismatch")
 }
 
 func TestWorkID(t *testing.T) {
-	id := big.NewInt(12345)
-	trigger := ocr2keepers.Trigger{
-		BlockNumber: 123,
-		BlockHash:   common.HexToHash("0xabcdef"),
+	tests := []struct {
+		name     string
+		upkeepID string
+		trigger  ocr2keepers.Trigger
+		expected string
+		errored  bool
+	}{
+		{
+			name:     "happy flow no extension",
+			upkeepID: "12345",
+			trigger: ocr2keepers.Trigger{
+				BlockNumber: 123,
+				BlockHash:   common.HexToHash("0xabcdef"),
+			},
+			expected: "e546b0a52c2879744f6def0fb483d581dc6d205de83af8440456804dd8b62380",
+		},
+		{
+			name:     "empty trigger",
+			upkeepID: "12345",
+			trigger:  ocr2keepers.Trigger{},
+			// same as with no extension
+			expected: "e546b0a52c2879744f6def0fb483d581dc6d205de83af8440456804dd8b62380",
+		},
+		{
+			name:     "happy flow with extension",
+			upkeepID: genUpkeepID(ocr2keepers.LogTrigger, "12345").String(),
+			trigger: ocr2keepers.Trigger{
+				BlockNumber: 123,
+				BlockHash:   common.HexToHash("0xabcdef"),
+				LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+					Index:  1,
+					TxHash: common.HexToHash("0x12345"),
+				},
+			},
+			expected: "91ace35299de40860e17d31adbc64bee48f437362cedd3b69ccf749a2f38d8e5",
+		},
+		{
+			name:     "empty upkeepID",
+			upkeepID: "0",
+			trigger: ocr2keepers.Trigger{
+				BlockNumber: 123,
+				BlockHash:   common.HexToHash("0xabcdef"),
+			},
+			expected: "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+		},
 	}
 
-	res, err := UpkeepWorkID(id, trigger)
-	if err != nil {
-		t.Fatalf("Error computing UpkeepWorkID: %s", err)
-	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// Convert the string to a big.Int
+			var upkeepID big.Int
+			_, success := upkeepID.SetString(tc.upkeepID, 10)
+			if !success {
+				t.Fatal("Invalid big integer value")
+			}
 
-	assert.Equal(t, "e546b0a52c2879744f6def0fb483d581dc6d205de83af8440456804dd8b62380", res, "UpkeepWorkID mismatch")
+			res, err := UpkeepWorkID(&upkeepID, tc.trigger)
+			if tc.errored {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			assert.Equal(t, tc.expected, res, "UpkeepWorkID mismatch")
+		})
+	}
 }
 
 func TestNewUpkeepPayload(t *testing.T) {
-	payload, err := NewUpkeepPayload(
-		big.NewInt(111),
-		1,
-		ocr2keepers.Trigger{
-			BlockNumber: 11,
-			BlockHash:   common.HexToHash("0x11111"),
-			LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-				Index:  1,
-				TxHash: common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234"),
+	tests := []struct {
+		name       string
+		upkeepID   *big.Int
+		upkeepType ocr2keepers.UpkeepType
+		trigger    ocr2keepers.Trigger
+		check      []byte
+		errored    bool
+		workID     string
+	}{
+		{
+			name:       "happy flow no extension",
+			upkeepID:   big.NewInt(111),
+			upkeepType: ocr2keepers.ConditionTrigger,
+			trigger: ocr2keepers.Trigger{
+				BlockNumber: 11,
+				BlockHash:   common.HexToHash("0x11111"),
 			},
+			check:  []byte("check-data-111"),
+			workID: "39f2babe526038520877fc7c33d81accf578af4a06c5fa6b0d038cae36e12711",
 		},
-		[]byte("check-data-111"),
-	)
-	if err != nil {
-		t.Fatal(err)
+		{
+			name:       "happy flow with extension",
+			upkeepID:   big.NewInt(111),
+			upkeepType: ocr2keepers.LogTrigger,
+			trigger: ocr2keepers.Trigger{
+				BlockNumber: 11,
+				BlockHash:   common.HexToHash("0x11111"),
+				LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+					Index:  1,
+					TxHash: common.HexToHash("0x11111"),
+				},
+			},
+			check:  []byte("check-data-111"),
+			workID: "9fd4d46e09ad25e831fdee664dbaa3b68c37034303234bf70001e3577af43a4f",
+		},
 	}
-	assert.Equal(t, "bb2f1932cc8c36831ec53dfe4ee9e94d1a174289295da5883caa8afd6f2bd1aa", payload.WorkID)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			payload, err := NewUpkeepPayload(
+				tc.upkeepID,
+				int(tc.upkeepType),
+				tc.trigger,
+				tc.check,
+			)
+			if tc.errored {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+
+			assert.Equal(t, tc.workID, payload.WorkID)
+		})
+	}
 }
