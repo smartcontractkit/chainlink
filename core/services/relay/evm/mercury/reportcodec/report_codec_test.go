@@ -165,7 +165,7 @@ func Test_ReportCodec_FeedIDFromReport(t *testing.T) {
 		f, err := r.FeedIDFromReport(report)
 		require.NoError(t, err)
 
-		assert.Equal(t, feedID, f)
+		assert.Equal(t, feedID[:], f[:])
 	})
 	t.Run("FeedIDFromReport returns error if report is invalid", func(t *testing.T) {
 		report := []byte{1}
