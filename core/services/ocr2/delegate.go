@@ -136,6 +136,7 @@ func (d *delegateConfig) OCR2() ocr2Config {
 type ocr2Config interface {
 	BlockchainTimeout() time.Duration
 	CaptureEATelemetry() bool
+	CaptureAutomationCustomTelemetry() bool
 	ContractConfirmations() uint16
 	ContractPollInterval() time.Duration
 	ContractTransmitterTransmitTimeout() time.Duration
@@ -960,6 +961,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	cfg ocr2keeper.PluginConfig,
 	spec *job.OCR2OracleSpec,
 ) ([]job.ServiceCtx, error) {
+	d.lggr.Warnf("d.cfg.OCR2().CaptureAutomationCustomTelemetry()=%v", d.cfg.OCR2().CaptureAutomationCustomTelemetry())
 	d.lggr.Warnf("CaptureAutomationCustomTelemetry=%s", jb.OCR2OracleSpec.CaptureAutomationCustomTelemetry)
 	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, d.chainSet, d.pipelineRunner)
 	if err2 != nil {
