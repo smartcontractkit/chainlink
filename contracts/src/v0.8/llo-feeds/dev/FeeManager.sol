@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
-import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
-import {Common} from "../libraries/Common.sol";
+import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
+import {Common} from "../../libraries/Common.sol";
 import {IRewardManager} from "./interfaces/IRewardManager.sol";
-import {IWERC20} from "../shared/interfaces/IWERC20.sol";
-import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC20.sol";
-import {Math} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/Math.sol";
+import {IWERC20} from "../../shared/interfaces/IWERC20.sol";
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC20.sol";
+import {Math} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/Math.sol";
 
 /**
  * @title FeeManager
