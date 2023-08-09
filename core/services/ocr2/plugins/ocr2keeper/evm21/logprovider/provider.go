@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"hash"
 	"math/big"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,12 +45,6 @@ type LogEventProvider interface {
 	UnregisterFilter(upkeepID *big.Int) error
 	// GetLatestPayloads returns the logs in the given range.
 	GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error)
-}
-
-type LogEventProviderTest interface {
-	LogEventProvider
-	ReadLogs(ctx context.Context, force bool, ids ...*big.Int) error
-	CurrentPartitionIdx() uint64
 }
 
 var _ ocr2keepers.PayloadBuilder = &logEventProvider{}
@@ -201,28 +194,34 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 
 	h := sha256.New()
 
-	partitionIdx := p.CurrentPartitionIdx()
-
 	for {
 		select {
 		case <-ticker.C:
-			ids := p.getPartitionIds(h, int(partitionIdx))
-			if len(ids) > 0 {
-				maxBatchSize := p.opts.ReadMaxBatchSize
-				for len(ids) > maxBatchSize {
-					batch := ids[:maxBatchSize]
-					execute(batch)
-					ids = ids[maxBatchSize:]
-					runtime.Gosched()
-				}
-				execute(ids)
-			}
-			partitionIdx++
-			atomic.StoreUint64(&p.currentPartitionIdx, partitionIdx)
+			p.BatchJobs(h, execute)
 		case <-ctx.Done():
 			return nil
 		}
 	}
+}
+
+func (p *logEventProvider) BatchJobs(h hash.Hash, execute func([]*big.Int)) {
+	partitionIdx := p.CurrentPartitionIdx()
+	ids := p.getPartitionIds(h, int(partitionIdx))
+
+	if len(ids) > 0 {
+		maxBatchSize := p.opts.ReadMaxBatchSize
+
+		for len(ids) > maxBatchSize {
+			batch := ids[:maxBatchSize]
+			ids = ids[maxBatchSize:]
+
+			execute(batch)
+		}
+
+		execute(ids)
+	}
+
+	atomic.StoreUint64(&p.currentPartitionIdx, partitionIdx+1)
 }
 
 // startReader starts a reader that reads logs from the ids coming from readQ.

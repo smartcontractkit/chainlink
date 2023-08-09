@@ -2,7 +2,9 @@ package logprovider_test
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
+	"hash"
 	"math/big"
 	"strings"
 	"sync"
@@ -17,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/stretchr/testify/require"
+	"github.com/test-go/testify/assert"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/time/rate"
 
@@ -182,61 +185,83 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
-	t.Skip()
-
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 
 	backend, stopMining, accounts := setupBackend(t)
 	defer stopMining()
-	carrol := accounts[2]
+	userContractAccount := accounts[2]
 
 	db := setupDB(t)
 	defer db.Close()
 
-	logProvider, lp, ethClient := setupLogProvider(t, db, backend, &logprovider.LogEventProviderOptions{
-		ReadInterval: time.Second / 4,
-	})
+	logProvider, lp, ethClient := setupLogProvider(
+		t,
+		db,
+		backend,
+		&logprovider.LogEventProviderOptions{})
 
-	n := 10
-	pollerTimeout := time.Second * 2
+	numberOfUserContracts := 10
 
-	_, _, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
+	_, _, contracts := deployUpkeepCounter(
+		t,
+		numberOfUserContracts,
+		backend,
+		userContractAccount,
+		logProvider)
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
 	rounds := 8
 	for i := 0; i < rounds; i++ {
-		poll(backend.Commit())
-		triggerEvents(ctx, t, backend, carrol, n, poll, contracts...)
-		poll(backend.Commit())
+		// add some block padding around events
+		_ = backend.Commit()
+
+		triggerEvents(
+			ctx,
+			t,
+			backend,
+			userContractAccount,
+			numberOfUserContracts,
+			poll,
+			contracts...)
+
+		_ = backend.Commit()
 	}
 
-	<-time.After(pollerTimeout) // let the log poller work
+	// more block padding to test backfill
+	for i := 0; i < numberOfUserContracts*rounds; i++ {
+		_ = backend.Commit()
+	}
 
-	go func() {
-		if err := logProvider.Start(ctx); err != nil {
-			t.Logf("error starting log provider: %s", err)
-			t.Fail()
-		}
-	}()
-	defer logProvider.Close()
+	// have the poller collect logs
+	poll(backend.Commit())
 
-	go func(dummyPolls int) {
-		for i := 0; i < dummyPolls; i++ {
-			poll(backend.Commit())
-			time.Sleep(20 * time.Millisecond)
-		}
-	}(n * rounds)
+	h := sha256.New()
 
-	<-time.After(pollerTimeout * 2) // let the provider work
+	// run ReadLogs over all ids to do initial backfill
+	logProvider.BatchJobs(h, func(ids []*big.Int) {
+		// ReadLogs is the same function the reader is calling
+		assert.NoError(t, logProvider.ReadLogs(ctx, true, ids...))
+	})
+
+	// add some more blocks for padding
+	for i := 0; i < numberOfUserContracts*rounds; i++ {
+		_ = backend.Commit()
+	}
+
+	poll(backend.Commit())
+
+	// run ReadLogs again over newly created blocks to simulate another tick in
+	// the scheduled jobs
+	logProvider.BatchJobs(h, func(ids []*big.Int) {
+		// ReadLogs is the same function the reader is calling
+		assert.NoError(t, logProvider.ReadLogs(ctx, true, ids...))
+	})
 
 	logs, err := logProvider.GetLatestPayloads(ctx)
-	require.NoError(t, err)
-	require.NoError(t, logProvider.Close())
-
-	expected := 0 // TODO: fix test (might be caused by timeouts) and change to n
-	require.GreaterOrEqual(t, len(logs), expected, "failed to backfill logs")
+	require.NoError(t, err, "GetLogs should not return an error")
+	require.GreaterOrEqual(t, len(logs), numberOfUserContracts, "logs returned from GetLogs should be greater than or equal to %d", numberOfUserContracts)
 }
 
 func pollFn(ctx context.Context, t *testing.T, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) func(blockHash common.Hash) {
@@ -314,7 +339,14 @@ func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerC
 	}
 }
 
-func setupLogProvider(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBackend, opts *logprovider.LogEventProviderOptions) (logprovider.LogEventProviderTest, logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
+type LogEventProviderTest interface {
+	logprovider.LogEventProvider
+	ReadLogs(ctx context.Context, force bool, ids ...*big.Int) error
+	BatchJobs(h hash.Hash, execute func([]*big.Int))
+	CurrentPartitionIdx() uint64
+}
+
+func setupLogProvider(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBackend, opts *logprovider.LogEventProviderOptions) (LogEventProviderTest, logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
 	ethClient := evmclient.NewSimulatedBackendClient(t, backend, big.NewInt(1337))
 	pollerLggr := logger.TestLogger(t)
 	pollerLggr.SetLogLevel(zapcore.WarnLevel)
