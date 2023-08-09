@@ -3,6 +3,7 @@ package blockhashstore
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -12,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+var trustedTimeout = 1 * time.Second
 
 // NewFeeder creates a new Feeder instance.
 func NewFeeder(
@@ -55,6 +58,8 @@ type Feeder struct {
 	lastRunBlock uint64
 	wgStored     sync.WaitGroup
 	batchLock    sync.Mutex
+	storedLock   sync.RWMutex
+	errsLock     sync.Mutex
 }
 
 // Run the feeder.
@@ -156,24 +161,33 @@ func (f *Feeder) runTrusted(
 			if len(unfulfilled) == 0 {
 				return
 			}
+			f.storedLock.RLock()
 			if _, ok := f.stored[block]; ok {
 				// Already stored
+				f.storedLock.RUnlock()
 				return
 			}
+			f.storedLock.RUnlock()
 
 			// Do not store a block if it has been marked as stored; otherwise, store it even
 			// if the RPC call errors, as to be conservative.
-			stored, err := f.bhs.IsStored(ctx, block)
+			timeoutCtx, cancel := context.WithTimeout(ctx, trustedTimeout)
+			defer cancel()
+			stored, err := f.bhs.IsStored(timeoutCtx, block)
 			if err != nil {
 				f.lggr.Errorw("Failed to check if block is already stored, attempting to store anyway",
 					"err", err,
 					"block", block)
+				f.errsLock.Lock()
 				errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
+				f.errsLock.Unlock()
 			} else if stored {
 				f.lggr.Infow("Blockhash already stored",
 					"block", block, "latestBlock", latestBlock,
 					"unfulfilledReqIDs", LimitReqIDs(unfulfilled, 50))
+				f.storedLock.Lock()
 				f.stored[block] = struct{}{}
+				f.storedLock.Unlock()
 				return
 			}
 
