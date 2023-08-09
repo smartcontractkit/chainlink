@@ -109,6 +109,7 @@ func SetupEnv(overrideNonce bool) Environment {
 	// Explicitly set gas price to ensure non-eip 1559
 	gp, err := ec.SuggestGasPrice(context.Background())
 	PanicErr(err)
+	fmt.Println("Suggested Gas Price:", gp)
 	owner.GasPrice = gp
 	gasLimit, set := os.LookupEnv("GAS_LIMIT")
 	if set {
@@ -127,9 +128,9 @@ func SetupEnv(overrideNonce bool) Environment {
 		PanicErr(err)
 
 		owner.Nonce = big.NewInt(int64(nonce))
-		owner.GasPrice = gp.Mul(gp, big.NewInt(2))
 	}
-
+	owner.GasPrice = gp.Mul(gp, big.NewInt(2))
+	fmt.Println("Modified Gas Price that will be set:", owner.GasPrice)
 	// the execution environment for the scripts
 	return Environment{
 		Owner:   owner,
@@ -334,43 +335,52 @@ func ParseHexSlice(arg string) (ret [][]byte) {
 }
 
 func FundNodes(e Environment, transmitters []string, fundingAmount *big.Int) {
+	for _, transmitter := range transmitters {
+		FundNode(e, transmitter, fundingAmount)
+	}
+}
+
+func FundNode(e Environment, address string, fundingAmount *big.Int) {
 	block, err := e.Ec.BlockNumber(context.Background())
 	PanicErr(err)
 
 	nonce, err := e.Ec.NonceAt(context.Background(), e.Owner.From, big.NewInt(int64(block)))
 	PanicErr(err)
+	// Special case for Arbitrum since gas estimation there is different.
 
-	for i := 0; i < len(transmitters); i++ {
-		// Special case for Arbitrum since gas estimation there is different.
-		var gasLimit uint64
-		if IsArbitrumChainID(e.ChainID) {
-			to := common.HexToAddress(transmitters[i])
-			estimated, err := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
-				From:  e.Owner.From,
-				To:    &to,
-				Value: fundingAmount,
-			})
-			PanicErr(err)
-			gasLimit = estimated
-		} else {
-			gasLimit = uint64(21_000)
-		}
-
-		tx := types.NewTransaction(
-			nonce+uint64(i),
-			common.HexToAddress(transmitters[i]),
-			fundingAmount,
-			gasLimit,
-			e.Owner.GasPrice,
-			nil,
-		)
-		signedTx, err := e.Owner.Signer(e.Owner.From, tx)
+	var gasLimit uint64
+	if IsArbitrumChainID(e.ChainID) {
+		to := common.HexToAddress(address)
+		estimated, err := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
+			From:  e.Owner.From,
+			To:    &to,
+			Value: fundingAmount,
+		})
 		PanicErr(err)
-		err = e.Ec.SendTransaction(context.Background(), signedTx)
-		PanicErr(err)
-
-		fmt.Printf("Sending to %s: %s\n", transmitters[i], ExplorerLink(e.ChainID, signedTx.Hash()))
+		gasLimit = estimated
+	} else {
+		gasLimit = uint64(21_000)
 	}
+	toAddress := common.HexToAddress(address)
+
+	tx := types.NewTx(
+		&types.LegacyTx{
+			Nonce:    nonce,
+			GasPrice: e.Owner.GasPrice,
+			Gas:      gasLimit,
+			To:       &toAddress,
+			Value:    fundingAmount,
+			Data:     nil,
+		})
+
+	signedTx, err := e.Owner.Signer(e.Owner.From, tx)
+	PanicErr(err)
+	err = e.Ec.SendTransaction(context.Background(), signedTx)
+	PanicErr(err)
+	fmt.Printf("Sending to %s: %s\n", address, ExplorerLink(e.ChainID, signedTx.Hash()))
+	PanicErr(err)
+	_, err = bind.WaitMined(context.Background(), e.Ec, signedTx)
+	PanicErr(err)
 }
 
 // binarySearch finds the highest value within the range bottom-top at which the test function is

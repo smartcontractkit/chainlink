@@ -33,11 +33,16 @@ var (
 type Node struct {
 	URL                         string
 	CredsFile                   string
-	SendingKeys                 []string
+	SendingKeys                 []SendingKey
 	NumberOfSendingKeysToCreate int
-	SendingKeyFundingAmount     int64
+	SendingKeyFundingAmount     big.Int
 	VrfKeys                     []string
 	jobSpec                     string
+}
+
+type SendingKey struct {
+	Address    string
+	BalanceEth big.Int
 }
 
 type JobSpecs struct {
@@ -46,6 +51,24 @@ type JobSpecs struct {
 	BHSNode        string
 	BHSBackupNode  string
 	BHFNode        string
+}
+
+type ContractAddresses struct {
+	LinkAddress             string
+	LinkEthAddress          string
+	BhsContractAddress      common.Address
+	BatchBHSAddress         common.Address
+	CoordinatorAddress      common.Address
+	BatchCoordinatorAddress common.Address
+}
+
+type CoordinatorConfig struct {
+	MinConfs               *int
+	MaxGasLimit            *int64
+	StalenessSeconds       *int64
+	GasAfterPayment        *int64
+	FallbackWeiPerUnitLink *big.Int
+	FeeConfig              vrf_coordinator_v2.VRFCoordinatorV2FeeConfig
 }
 
 func DeployUniverseViaCLI(e helpers.Environment) {
@@ -59,7 +82,9 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	coordinatorAddressString := *deployCmd.String("coordinator-address", "", "address of VRF Coordinator contract")
 	batchCoordinatorAddressString := *deployCmd.String("batch-coordinator-address", "", "address Batch VRF Coordinator contract")
 
-	subscriptionBalanceString := deployCmd.String("subscription-balance", constants.SubscriptionBalanceJuels.String(), "amount to fund subscription")
+	subscriptionBalanceJuelsString := deployCmd.String("subscription-balance", constants.SubscriptionBalanceJuels.String(), "amount to fund subscription")
+
+	batchFulfillmentEnabled := deployCmd.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "amount to fund subscription")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", constants.FallbackWeiPerUnitLink.String(), "fallback wei/link ratio")
@@ -67,6 +92,8 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	vrfPrimaryNodeSendingKeysString := deployCmd.String("vrf-primary-node-sending-keys", "", "VRF Primary Node sending keys")
 	vrfBackupNodeSendingKeysString := deployCmd.String("vrf-backup-node-sending-keys", "", "VRF Backup Node sending keys")
 	bhsNodeSendingKeysString := deployCmd.String("bhs-node-sending-keys", "", "BHS Node sending keys")
+	bhsBackupNodeSendingKeysString := deployCmd.String("bhs-backup-node-sending-keys", "", "BHS Node sending keys")
+
 	bhfNodeSendingKeysString := deployCmd.String("bhf-node-sending-keys", "", "BHF Node sending keys")
 	minConfs := deployCmd.Int("min-confs", constants.MinConfs, "min confs")
 	maxGasLimit := deployCmd.Int64("max-gas-limit", constants.MaxGasLimit, "max gas limit")
@@ -87,7 +114,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	)
 
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()
-	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
+	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
 
 	feeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
 		FulfillmentFlatFeeLinkPPMTier1: uint32(*flatFeeTier1),
@@ -104,21 +131,28 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	vrfPrimaryNodeSendingKeys := strings.Split(*vrfPrimaryNodeSendingKeysString, ",")
 	vrfBackupNodeSendingKeys := strings.Split(*vrfBackupNodeSendingKeysString, ",")
 	bhsNodeSendingKeys := strings.Split(*bhsNodeSendingKeysString, ",")
+	bhsBackupNodeSendingKeys := strings.Split(*bhsBackupNodeSendingKeysString, ",")
 	bhfNodeSendingKeys := strings.Split(*bhfNodeSendingKeysString, ",")
 
-	nodes := make(map[string]Node)
+	nodesMap := make(map[string]Node)
 
-	nodes[VRFPrimaryNodeName] = Node{
-		SendingKeys: vrfPrimaryNodeSendingKeys,
+	nodesMap[VRFPrimaryNodeName] = Node{
+		SendingKeys: mapToSendingKeyArr(vrfPrimaryNodeSendingKeys),
 	}
-	nodes[VRFBackupNodeName] = Node{
-		SendingKeys: vrfBackupNodeSendingKeys,
+	nodesMap[VRFBackupNodeName] = Node{
+		SendingKeys: mapToSendingKeyArr(vrfBackupNodeSendingKeys),
 	}
-	nodes[BHSNodeName] = Node{
-		SendingKeys: bhsNodeSendingKeys,
+
+	nodesMap[BHSNodeName] = Node{
+		SendingKeys: mapToSendingKeyArr(bhsNodeSendingKeys),
 	}
-	nodes[BHFNodeName] = Node{
-		SendingKeys: bhfNodeSendingKeys,
+
+	nodesMap[BHSBackupNodeName] = Node{
+		SendingKeys: mapToSendingKeyArr(bhsBackupNodeSendingKeys),
+	}
+
+	nodesMap[BHFNodeName] = Node{
+		SendingKeys: mapToSendingKeyArr(bhfNodeSendingKeys),
 	}
 
 	bhsContractAddress := common.HexToAddress(bhsContractAddressString)
@@ -126,43 +160,52 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	coordinatorAddress := common.HexToAddress(coordinatorAddressString)
 	batchCoordinatorAddress := common.HexToAddress(batchCoordinatorAddressString)
 
+	contractAddresses := ContractAddresses{
+		LinkAddress:             linkAddress,
+		LinkEthAddress:          linkEthAddress,
+		BhsContractAddress:      bhsContractAddress,
+		BatchBHSAddress:         batchBHSAddress,
+		CoordinatorAddress:      coordinatorAddress,
+		BatchCoordinatorAddress: batchCoordinatorAddress,
+	}
+
+	coordinatorConfig := CoordinatorConfig{
+		MinConfs:               minConfs,
+		MaxGasLimit:            maxGasLimit,
+		StalenessSeconds:       stalenessSeconds,
+		GasAfterPayment:        gasAfterPayment,
+		FallbackWeiPerUnitLink: fallbackWeiPerUnitLink,
+		FeeConfig:              feeConfig,
+	}
+
 	VRFV2DeployUniverse(
 		e,
-		fallbackWeiPerUnitLink,
-		subscriptionBalance,
+		subscriptionBalanceJuels,
 		registerKeyUncompressedPubKey,
-		linkAddress,
-		linkEthAddress,
-		bhsContractAddress,
-		batchBHSAddress,
-		coordinatorAddress,
-		batchCoordinatorAddress,
-		minConfs,
-		maxGasLimit,
-		stalenessSeconds,
-		gasAfterPayment,
-		feeConfig,
-		nodes,
+		contractAddresses,
+		coordinatorConfig,
+		*batchFulfillmentEnabled,
+		nodesMap,
 	)
+}
+
+func mapToSendingKeyArr(nodeSendingKeys []string) []SendingKey {
+	var sendingKeys []SendingKey
+
+	for _, key := range nodeSendingKeys {
+		sendingKeys = append(sendingKeys, SendingKey{Address: key})
+	}
+	return sendingKeys
 }
 
 func VRFV2DeployUniverse(
 	e helpers.Environment,
-	fallbackWeiPerUnitLink *big.Int,
-	subscriptionBalance *big.Int,
+	subscriptionBalanceJuels *big.Int,
 	registerKeyUncompressedPubKey *string,
-	linkAddress string,
-	linkEthAddress string,
-	bhsContractAddress common.Address,
-	batchBHSAddress common.Address,
-	coordinatorAddress common.Address,
-	batchCoordinatorAddress common.Address,
-	minConfs *int,
-	maxGasLimit *int64,
-	stalenessSeconds *int64,
-	gasAfterPayment *int64,
-	feeConfig vrf_coordinator_v2.VRFCoordinatorV2FeeConfig,
-	nodesMap map[string]Node, //todo - is possible to pass a pointer to the node, so that we read data and also update the data and we dont need to return "nodes"
+	contractAddresses ContractAddresses,
+	coordinatorConfig CoordinatorConfig,
+	batchFulfillmentEnabled bool,
+	nodesMap map[string]Node,
 ) JobSpecs {
 
 	// Put key in ECDSA format
@@ -188,49 +231,49 @@ func VRFV2DeployUniverse(
 	keyHash, err := newPK.Hash()
 	helpers.PanicErr(err)
 
-	if len(linkAddress) == 0 {
+	if len(contractAddresses.LinkAddress) == 0 {
 		fmt.Println("\nDeploying LINK Token...")
-		linkAddress = helpers.DeployLinkToken(e).String()
+		contractAddresses.LinkAddress = helpers.DeployLinkToken(e).String()
 	}
 
-	if len(linkEthAddress) == 0 {
+	if len(contractAddresses.LinkEthAddress) == 0 {
 		fmt.Println("\nDeploying LINK/ETH Feed...")
-		linkEthAddress = helpers.DeployLinkEthFeed(e, linkAddress, fallbackWeiPerUnitLink).String()
+		contractAddresses.LinkEthAddress = helpers.DeployLinkEthFeed(e, contractAddresses.LinkAddress, coordinatorConfig.FallbackWeiPerUnitLink).String()
 	}
 
-	if bhsContractAddress.String() == "0x0000000000000000000000000000000000000000" {
+	if contractAddresses.BhsContractAddress.String() == "0x0000000000000000000000000000000000000000" {
 		fmt.Println("\nDeploying BHS...")
-		bhsContractAddress = DeployBHS(e)
+		contractAddresses.BhsContractAddress = DeployBHS(e)
 	}
 
-	if batchBHSAddress.String() == "0x0000000000000000000000000000000000000000" {
+	if contractAddresses.BatchBHSAddress.String() == "0x0000000000000000000000000000000000000000" {
 		fmt.Println("\nDeploying Batch BHS...")
-		batchBHSAddress = DeployBatchBHS(e, bhsContractAddress)
+		contractAddresses.BatchBHSAddress = DeployBatchBHS(e, contractAddresses.BhsContractAddress)
 	}
 
-	if coordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
+	if contractAddresses.CoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
 		fmt.Println("\nDeploying Coordinator...")
-		coordinatorAddress = DeployCoordinator(e, linkAddress, bhsContractAddress.String(), linkEthAddress)
+		contractAddresses.CoordinatorAddress = DeployCoordinator(e, contractAddresses.LinkAddress, contractAddresses.BhsContractAddress.String(), contractAddresses.LinkEthAddress)
 	}
 
-	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, e.Ec)
+	coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(contractAddresses.CoordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
-	if batchCoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
+	if contractAddresses.BatchCoordinatorAddress.String() == "0x0000000000000000000000000000000000000000" {
 		fmt.Println("\nDeploying Batch Coordinator...")
-		batchCoordinatorAddress = deployBatchCoordinatorV2(e, coordinatorAddress)
+		contractAddresses.BatchCoordinatorAddress = deployBatchCoordinatorV2(e, contractAddresses.CoordinatorAddress)
 	}
 
 	fmt.Println("\nSetting Coordinator Config...")
 	SetCoordinatorConfig(
 		e,
 		*coordinator,
-		uint16(*minConfs),
-		uint32(*maxGasLimit),
-		uint32(*stalenessSeconds),
-		uint32(*gasAfterPayment),
-		fallbackWeiPerUnitLink,
-		feeConfig,
+		uint16(*coordinatorConfig.MinConfs),
+		uint32(*coordinatorConfig.MaxGasLimit),
+		uint32(*coordinatorConfig.StalenessSeconds),
+		uint32(*coordinatorConfig.GasAfterPayment),
+		coordinatorConfig.FallbackWeiPerUnitLink,
+		coordinatorConfig.FeeConfig,
 	)
 
 	fmt.Println("\nConfig set, getting current config from deployed contract...")
@@ -252,7 +295,7 @@ func VRFV2DeployUniverse(
 	}
 
 	fmt.Println("\nDeploying consumer...")
-	consumerAddress := EoaLoadTestConsumerWithMetricsDeploy(e, coordinatorAddress.String())
+	consumerAddress := EoaLoadTestConsumerWithMetricsDeploy(e, contractAddresses.CoordinatorAddress.String())
 
 	fmt.Println("\nAdding subscription...")
 	EoaCreateSub(e, *coordinator)
@@ -261,9 +304,9 @@ func VRFV2DeployUniverse(
 	fmt.Println("\nAdding consumer to subscription...")
 	EoaAddConsumerToSub(e, *coordinator, subID, consumerAddress.String())
 
-	if subscriptionBalance.Cmp(big.NewInt(0)) > 0 {
-		fmt.Println("\nFunding subscription with", subscriptionBalance, "juels...")
-		EoaFundSubscription(e, *coordinator, linkAddress, subscriptionBalance, subID)
+	if subscriptionBalanceJuels.Cmp(big.NewInt(0)) > 0 {
+		fmt.Println("\nFunding subscription with", subscriptionBalanceJuels, "juels...")
+		EoaFundSubscription(e, *coordinator, contractAddresses.LinkAddress, subscriptionBalanceJuels, subID)
 	} else {
 		fmt.Println("Subscription", subID, "NOT getting funded. You must fund the subscription in order to use it!")
 	}
@@ -275,74 +318,76 @@ func VRFV2DeployUniverse(
 
 	formattedVrfPrimaryJobSpec := fmt.Sprintf(
 		jobs.VRFJobFormatted,
-		coordinatorAddress,      //coordinatorAddress
-		batchCoordinatorAddress, //batchCoordinatorAddress
-		false,                   //batchFulfillmentEnabled
-		compressedPkHex,         //publicKey
-		*minConfs,               //minIncomingConfirmations
-		e.ChainID,               //evmChainID
-		strings.Join(nodesMap[VRFPrimaryNodeName].SendingKeys, "\",\""), //fromAddresses
-		coordinatorAddress,
-		coordinatorAddress,
-		coordinatorAddress,
+		contractAddresses.CoordinatorAddress,      //coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress, //batchCoordinatorAddress
+		batchFulfillmentEnabled,                   //batchFulfillmentEnabled
+		compressedPkHex,                           //publicKey
+		*coordinatorConfig.MinConfs,               //minIncomingConfirmations
+		e.ChainID,                                 //evmChainID
+		strings.Join(mapToAddressArr(nodesMap[VRFPrimaryNodeName].SendingKeys), "\",\""), //fromAddresses
+		contractAddresses.CoordinatorAddress,
+		nodesMap[VRFPrimaryNodeName].SendingKeys[0].Address,
+		contractAddresses.CoordinatorAddress,
+		contractAddresses.CoordinatorAddress,
 	)
 
 	formattedVrfBackupJobSpec := fmt.Sprintf(
 		jobs.VRFJobFormatted,
-		coordinatorAddress,      //coordinatorAddress
-		batchCoordinatorAddress, //batchCoordinatorAddress
-		false,                   //batchFulfillmentEnabled
-		compressedPkHex,         //publicKey
-		100,                     //minIncomingConfirmations
-		e.ChainID,               //evmChainID
-		strings.Join(nodesMap[VRFBackupNodeName].SendingKeys, "\",\""), //fromAddresses
-		coordinatorAddress,
-		coordinatorAddress,
-		coordinatorAddress,
+		contractAddresses.CoordinatorAddress,      //coordinatorAddress
+		contractAddresses.BatchCoordinatorAddress, //batchCoordinatorAddress
+		batchFulfillmentEnabled,                   //batchFulfillmentEnabled
+		compressedPkHex,                           //publicKey
+		100,                                       //minIncomingConfirmations
+		e.ChainID,                                 //evmChainID
+		strings.Join(mapToAddressArr(nodesMap[VRFBackupNodeName].SendingKeys), "\",\""), //fromAddresses
+		contractAddresses.CoordinatorAddress,
+		nodesMap[VRFPrimaryNodeName].SendingKeys[0],
+		contractAddresses.CoordinatorAddress,
+		contractAddresses.CoordinatorAddress,
 	)
 
 	formattedBHSJobSpec := fmt.Sprintf(
 		jobs.BHSJobFormatted,
-		coordinatorAddress, //coordinatorAddress
-		30,                 //waitBlocks
-		200,                //lookbackBlocks
-		bhsContractAddress, //bhs address
-		e.ChainID,          //chain id
-		strings.Join(nodesMap[BHSNodeName].SendingKeys, "\",\""), //sending addresses
+		contractAddresses.CoordinatorAddress, //coordinatorAddress
+		30,                                   //waitBlocks
+		200,                                  //lookbackBlocks
+		contractAddresses.BhsContractAddress, //bhs address
+		e.ChainID,                            //chain id
+		strings.Join(mapToAddressArr(nodesMap[BHSNodeName].SendingKeys), "\",\""), //sending addresses
 	)
 
 	formattedBHSBackupJobSpec := fmt.Sprintf(
 		jobs.BHSJobFormatted,
-		coordinatorAddress, //coordinatorAddress
-		100,                //waitBlocks
-		200,                //lookbackBlocks
-		bhsContractAddress, //bhs adreess
-		e.ChainID,          //chain id
-		strings.Join(nodesMap[BHSBackupNodeName].SendingKeys, "\",\""), //sending addresses
+		contractAddresses.CoordinatorAddress, //coordinatorAddress
+		100,                                  //waitBlocks
+		200,                                  //lookbackBlocks
+		contractAddresses.BhsContractAddress, //bhs adreess
+		e.ChainID,                            //chain id
+		strings.Join(mapToAddressArr(nodesMap[BHSBackupNodeName].SendingKeys), "\",\""), //sending addresses
 	)
 
 	formattedBHFJobSpec := fmt.Sprintf(
 		jobs.BHFJobFormatted,
-		coordinatorAddress, //coordinatorAddress
-		bhsContractAddress, //bhs adreess
-		batchBHSAddress,    //batchBHS
-		e.ChainID,          //chain id
-		strings.Join(nodesMap[BHFNodeName].SendingKeys, "\",\""), //sending addresses
+		contractAddresses.CoordinatorAddress, //coordinatorAddress
+		contractAddresses.BhsContractAddress, //bhs adreess
+		contractAddresses.BatchBHSAddress,    //batchBHS
+		e.ChainID,                            //chain id
+		strings.Join(mapToAddressArr(nodesMap[BHFNodeName].SendingKeys), "\",\""), //sending addresses
 	)
 
 	fmt.Println(
 		"\nDeployment complete.",
-		"\nLINK Token contract address:", linkAddress,
-		"\nLINK/ETH Feed contract address:", linkEthAddress,
-		"\nBlockhash Store contract address:", bhsContractAddress,
-		"\nBatch Blockhash Store contract address:", batchBHSAddress,
-		"\nVRF Coordinator Address:", coordinatorAddress,
-		"\nBatch VRF Coordinator Address:", batchCoordinatorAddress,
+		"\nLINK Token contract address:", contractAddresses.LinkAddress,
+		"\nLINK/ETH Feed contract address:", contractAddresses.LinkEthAddress,
+		"\nBlockhash Store contract address:", contractAddresses.BhsContractAddress,
+		"\nBatch Blockhash Store contract address:", contractAddresses.BatchBHSAddress,
+		"\nVRF Coordinator Address:", contractAddresses.CoordinatorAddress,
+		"\nBatch VRF Coordinator Address:", contractAddresses.BatchCoordinatorAddress,
 		"\nVRF Consumer Address:", consumerAddress,
 		"\nVRF Subscription Id:", subID,
-		"\nVRF Subscription Balance:", *subscriptionBalance,
+		"\nVRF Subscription Balance:", *subscriptionBalanceJuels,
 		"\nPossible VRF Request command: ",
-		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, *minConfs),
+		fmt.Sprintf("go run . eoa-load-test-request-with-metrics --consumer-address=%s --sub-id=%d --key-hash=%s --request-confirmations %d --requests 1 --runs 1 --cb-gas-limit 1_000_000", consumerAddress, subID, keyHash, *coordinatorConfig.MinConfs),
 		"\nRetrieve Request Status: ",
 		fmt.Sprintf("go run . eoa-load-test-read-metrics --consumer-address=%s", consumerAddress),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",
@@ -356,6 +401,14 @@ func VRFV2DeployUniverse(
 		BHSBackupNode:  formattedBHSBackupJobSpec,
 		BHFNode:        formattedBHFJobSpec,
 	}
+}
+
+func mapToAddressArr(sendingKeys []SendingKey) []string {
+	var sendingKeysString []string
+	for _, sendingKey := range sendingKeys {
+		sendingKeysString = append(sendingKeysString, sendingKey.Address)
+	}
+	return sendingKeysString
 }
 
 func DeployWrapperUniverse(e helpers.Environment) {
