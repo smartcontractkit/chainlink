@@ -65,6 +65,11 @@ install_gotestfmt:
 build_test_image:
 	./scripts/buildTestImage $(tag) $(base_tag) "$(suite)" $(push)
 
+#Build a chainlink docker image for local testing and push to k3d registry
+.PHONY: build_push_docker_image
+build_push_docker_image:
+	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../ ; docker push localhost:5000/chainlink:develop
+
 ## Test Runner
 .PHONY: run
 run: # Need to set network first in case it's unset. Doesn't matter for the runner
