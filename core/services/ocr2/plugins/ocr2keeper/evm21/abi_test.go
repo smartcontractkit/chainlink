@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"fmt"
 	"math/big"
 	"strings"
 	"testing"
@@ -29,6 +30,7 @@ func TestUnpackCheckResults(t *testing.T) {
 		Payload        ocr2keepers.UpkeepPayload
 		RawData        string
 		ExpectedResult ocr2keepers.CheckResult
+		ExpectedError  error
 	}{
 		{
 			Name:    "upkeep not needed",
@@ -36,11 +38,9 @@ func TestUnpackCheckResults(t *testing.T) {
 			RawData: "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000421c000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000c8caf37f3b3890000000000000000000000000000000000000000000000000000000000000000",
 			ExpectedResult: ocr2keepers.CheckResult{
 				UpkeepID:      upkeepId,
-				Eligible:      false,
 				FailureReason: UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED,
-				PerformData:   nil,
-				FastGasWei:    big.NewInt(1000000000),
-				LinkNative:    big.NewInt(3532383906411401),
+				Trigger:       payload1.Trigger,
+				WorkID:        payload1.WorkID,
 			},
 		},
 		{
@@ -49,12 +49,37 @@ func TestUnpackCheckResults(t *testing.T) {
 			RawData: "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000007531000000000000000000000000000000000000000000000000000000003b9aca00000000000000000000000000000000000000000000000000000c8caf37f3b3890000000000000000000000000000000000000000000000000000000000000300000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000008914039bf676e20aad43a5642485e666575ed0d927a4b5679745e947e7d125ee2687c10000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000024462e8a50d00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000001c0000000000000000000000000000000000000000000000000000000000128c1d000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000009666565644944537472000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000184554482d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000000000184254432d5553442d415242495452554d2d544553544e45540000000000000000000000000000000000000000000000000000000000000000000000000000000b626c6f636b4e756d6265720000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000014000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000000000000000000000",
 			ExpectedResult: ocr2keepers.CheckResult{
 				UpkeepID:      upkeepId,
-				Eligible:      false,
+				Trigger:       payload2.Trigger,
+				WorkID:        payload2.WorkID,
 				FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 				PerformData:   []byte{98, 232, 165, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 40, 193, 208, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 68, 83, 116, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 24, 66, 84, 67, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 				FastGasWei:    big.NewInt(1000000000),
 				LinkNative:    big.NewInt(3532383906411401),
 			},
+		},
+		{
+			Name:    "decode failed",
+			Payload: payload2,
+			RawData: "invalid_raw_data",
+			ExpectedResult: ocr2keepers.CheckResult{
+				UpkeepID:      upkeepId,
+				FailureReason: UPKEEP_FAILURE_REASON_DECODE_RESULT_FAILED,
+				Trigger:       payload2.Trigger,
+				WorkID:        payload2.WorkID,
+			},
+			ExpectedError: fmt.Errorf("upkeepId %s failed to decode checkUpkeep result invalid_raw_data: hex string without 0x prefix", payload2.UpkeepID.String()),
+		},
+		{
+			Name:    "unpack failed",
+			Payload: payload2,
+			RawData: "0x123123",
+			ExpectedResult: ocr2keepers.CheckResult{
+				UpkeepID:      upkeepId,
+				FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
+				Trigger:       payload2.Trigger,
+				WorkID:        payload2.WorkID,
+			},
+			ExpectedError: fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result 0x123123: abi: cannot marshal in to go type: length insufficient 3 require 32", payload2.UpkeepID.String()),
 		},
 	}
 	for _, test := range tests {
@@ -62,9 +87,15 @@ func TestUnpackCheckResults(t *testing.T) {
 			packer, err := newPacker()
 			assert.NoError(t, err)
 			rs, err := packer.UnpackCheckResult(test.Payload, test.RawData)
-			assert.Nil(t, err)
+			if test.ExpectedError != nil {
+				assert.Equal(t, test.ExpectedError.Error(), err.Error())
+			} else {
+				assert.Nil(t, err)
+			}
 			assert.Equal(t, test.ExpectedResult.UpkeepID, rs.UpkeepID)
 			assert.Equal(t, test.ExpectedResult.Eligible, rs.Eligible)
+			assert.Equal(t, test.ExpectedResult.Trigger, rs.Trigger)
+			assert.Equal(t, test.ExpectedResult.WorkID, rs.WorkID)
 			assert.Equal(t, test.ExpectedResult.FailureReason, rs.FailureReason)
 		})
 	}

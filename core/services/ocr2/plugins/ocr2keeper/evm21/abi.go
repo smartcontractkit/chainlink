@@ -30,6 +30,8 @@ const (
 	// Start of offchain failure types. All onchain failure reasons from
 	// contract should be put above
 	UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
+	UPKEEP_FAILURE_REASON_DECODE_RESULT_FAILED
+	UPKEEP_FAILURE_REASON_UNPACK_FAILED
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -50,19 +52,29 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
-	var result ocr2keepers.CheckResult
-
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return result, err
+		result := ocr2keepers.CheckResult{
+			FailureReason: UPKEEP_FAILURE_REASON_DECODE_RESULT_FAILED,
+			UpkeepID:      p.UpkeepID,
+			Trigger:       p.Trigger,
+			WorkID:        p.WorkID,
+		}
+		return result, fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
 
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return result, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
+		result := ocr2keepers.CheckResult{
+			FailureReason: UPKEEP_FAILURE_REASON_UNPACK_FAILED,
+			UpkeepID:      p.UpkeepID,
+			Trigger:       p.Trigger,
+			WorkID:        p.WorkID,
+		}
+		return result, fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
 
-	result = ocr2keepers.CheckResult{
+	result := ocr2keepers.CheckResult{
 		Eligible:      *abi.ConvertType(out[0], new(bool)).(*bool),
 		Retryable:     false,
 		GasAllocated:  uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
