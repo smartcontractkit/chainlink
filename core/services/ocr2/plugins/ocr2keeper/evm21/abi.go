@@ -30,6 +30,7 @@ const (
 	// Start of offchain failure types. All onchain failure reasons from
 	// contract should be put above
 	UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
+	UPKEEP_FAILURE_REASON_BLOCK_TOO_OLD
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)

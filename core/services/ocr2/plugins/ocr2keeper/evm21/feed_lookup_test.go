@@ -67,7 +67,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 				Password: "FakeClientKey",
 			},
 			abi:            feedLookupCompatibleABI,
-			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
+			allowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		hc: mockHttpClient,
 	}

@@ -38,18 +38,17 @@ import (
 )
 
 const (
-	// DefaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
-	DefaultAllowListExpiration = 20 * time.Minute
-	// CleanupInterval decides when the expired items in cache will be deleted.
-	CleanupInterval = 25 * time.Minute
+	// defaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
+	defaultAllowListExpiration = 20 * time.Minute
+	// cleanupInterval decides when the expired items in cache will be deleted.
+	cleanupInterval = 25 * time.Minute
+	// maxLookbackDepth decides the max lag between the latest block and a valid check block number.
+	maxLookbackDepth = 128
 )
 
 var (
 	ErrLogReadFailure                = fmt.Errorf("failure reading logs")
 	ErrHeadNotAvailable              = fmt.Errorf("head not available")
-	ErrRegistryCallFailure           = fmt.Errorf("registry chain call failure")
-	ErrBlockKeyNotParsable           = fmt.Errorf("block identifier not parsable")
-	ErrUpkeepKeyNotParsable          = fmt.Errorf("upkeep key not parsable")
 	ErrInitializationFailure         = fmt.Errorf("failed to initialize registry")
 	ErrContextCancelled              = fmt.Errorf("context was cancelled")
 	ErrABINotParsable                = fmt.Errorf("error parsing abi")
@@ -119,7 +118,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		mercury: &MercuryConfig{
 			cred:           mc,
 			abi:            feedLookupCompatibleABI,
-			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
+			allowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		hc:               http.DefaultClient,
 		enc:              EVMAutomationEncoder21{packer: packer},
@@ -661,6 +660,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 	}
 }
 
+// getBlockAndUpkeepId retrieves check block number from trigger and upkeep id
 func (r *EvmRegistry) getBlockAndUpkeepId(upkeepID ocr2keepers.UpkeepIdentifier, trigger ocr2keepers.Trigger) (*big.Int, *big.Int) {
 	block := new(big.Int).SetInt64(int64(trigger.BlockNumber))
 	return block, upkeepID.BigInt()
@@ -673,10 +673,21 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		checkResults = make([]*string, len(payloads))
 		blocks       = make([]*big.Int, len(payloads))
 		upkeepIds    = make([]*big.Int, len(payloads))
+		results      = make([]ocr2keepers.CheckResult, len(payloads))
 	)
 
 	for i, p := range payloads {
 		block, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
+		if r.lastPollBlock-block.Int64() > maxLookbackDepth {
+			r.lggr.Warnf("latest block is %d, check block number %d is too old for upkeepId %s", r.lastPollBlock, block, upkeepId)
+			results[i] = ocr2keepers.CheckResult{
+				FailureReason: UPKEEP_FAILURE_REASON_BLOCK_TOO_OLD,
+				UpkeepID:      p.UpkeepID,
+				Trigger:       p.Trigger,
+				WorkID:        p.WorkID,
+			}
+			continue
+		}
 		blocks[i] = block
 		upkeepIds[i] = upkeepId
 
@@ -721,10 +732,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		return nil, err
 	}
 
-	var (
-		multiErr error
-		results  = make([]ocr2keepers.CheckResult, len(payloads))
-	)
+	var multiErr error
 
 	for i, req := range checkReqs {
 		if req.Error != nil {
