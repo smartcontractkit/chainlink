@@ -35,9 +35,9 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, 1, ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "10").Bytes()), 1, 1),
+				newResult(1, 1, genUpkeepID(logTriggerType, "123"), 1, 1),
 			},
-			640,
+			704,
 			1,
 			1,
 			nil,
@@ -45,9 +45,9 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
-				newResult(1, 1, ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "10").Bytes()), 1, 1),
-				newResult(2, 2, ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "20").Bytes()), 2, 2),
-				newResult(3, 3, ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "30").Bytes()), 3, 3),
+				newResult(1, 1, genUpkeepID(ocr2keepers.LogTrigger, "10"), 1, 1),
+				newResult(1, 1, genUpkeepID(ocr2keepers.ConditionTrigger, "20"), 1, 1),
+				newResult(1, 1, genUpkeepID(ocr2keepers.ConditionTrigger, "30"), 1, 1),
 			},
 			1280,
 			3,
@@ -57,9 +57,9 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 		{
 			"happy flow highest block number first",
 			[]ocr2keepers.CheckResult{
-				newResult(3, 3, ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "30").Bytes()), 1000, 2000),
-				newResult(2, 2, ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.LogTrigger, "20").Bytes()), 2, 2),
-				newResult(1, 1, ocr2keepers.UpkeepIdentifier(genUpkeepID(ocr2keepers.ConditionTrigger, "10").Bytes()), 1, 1),
+				newResult(1, 1, genUpkeepID(ocr2keepers.ConditionTrigger, "30"), 1, 1),
+				newResult(1, 1, genUpkeepID(ocr2keepers.ConditionTrigger, "20"), 1, 1),
+				newResult(1, 1, genUpkeepID(ocr2keepers.LogTrigger, "10"), 1, 1),
 			},
 			1280,
 			1000,
@@ -101,21 +101,24 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 }
 
 func newResult(block int64, checkBlock ocr2keepers.BlockNumber, id ocr2keepers.UpkeepIdentifier, fastGasWei, linkNative int64) ocr2keepers.CheckResult {
-	logExt := ocr2keepers.LogTriggerExtension{}
 	tp := core.GetUpkeepType(id)
+
+	trig := ocr2keepers.Trigger{
+		BlockNumber: ocr2keepers.BlockNumber(block),
+		BlockHash:   [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
+	}
+
 	if tp == ocr2keepers.LogTrigger {
-		logExt.Index = 1
-		logExt.TxHash = common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234")
+		trig.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{
+			Index:  1,
+			TxHash: common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234"),
+		}
 	}
 
 	payload, _ := core.NewUpkeepPayload(
 		id.BigInt(),
 		int(tp),
-		ocr2keepers.Trigger{
-			BlockNumber:         ocr2keepers.BlockNumber(block),
-			BlockHash:           [32]byte{1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8},
-			LogTriggerExtension: &logExt,
-		},
+		trig,
 		[]byte{},
 	)
 
@@ -131,8 +134,14 @@ func newResult(block int64, checkBlock ocr2keepers.BlockNumber, id ocr2keepers.U
 	}
 }
 
-func genUpkeepID(uType ocr2keepers.UpkeepType, rand string) *big.Int {
+func genUpkeepID(uType ocr2keepers.UpkeepType, rand string) ocr2keepers.UpkeepIdentifier {
 	b := append([]byte{1}, common.LeftPadBytes([]byte{uint8(uType)}, 15)...)
 	b = append(b, []byte(rand)...)
-	return big.NewInt(0).SetBytes(b)
+	b = common.RightPadBytes(b, 32-len(b))
+	if len(b) > 32 {
+		b = b[:32]
+	}
+	var id [32]byte
+	copy(id[:], b)
+	return ocr2keepers.UpkeepIdentifier(id)
 }
