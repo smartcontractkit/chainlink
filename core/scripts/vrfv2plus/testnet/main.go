@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -1150,6 +1151,30 @@ func main() {
 		_ = helpers.CalculateLatestBlockHeader(e, *blockNumber)
 	case "wrapper-universe-deploy":
 		deployWrapperUniverse(e)
+	case "request-random-words":
+		cmd := flag.NewFlagSet("request-random-words", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "address of vrf coordinator")
+		keyHashStr := cmd.String("key-hash", "", "key hash of vrf coordinator")
+		subId := cmd.String("sub-id", "", "sub id of vrf coordinator")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "key-hash", "sub-id")
+		subID := parseSubID(*subId)
+		coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
+		args, err := extraargs.ExtraArgsV1(true)
+		helpers.PanicErr(err)
+		kh := hexutil.MustDecode(*keyHashStr)
+		var keyHash [32]byte
+		copy(keyHash[:], kh)
+		tx, err := coordinator.RequestRandomWords(e.Owner, vrf_coordinator_v2plus.VRFV2PlusClientRandomWordsRequest{
+			KeyHash:              keyHash,
+			SubId:                subID,
+			RequestConfirmations: 10,
+			CallbackGasLimit:     50_000,
+			NumWords:             1,
+			ExtraArgs:            args,
+		})
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "requesting random words from", *coordinatorAddress, "with sub id", *subId)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
