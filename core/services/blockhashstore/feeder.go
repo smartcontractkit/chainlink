@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-var trustedTimeout = 1 * time.Second
+const trustedTimeout = 1 * time.Second
 
 // NewFeeder creates a new Feeder instance.
 func NewFeeder(
