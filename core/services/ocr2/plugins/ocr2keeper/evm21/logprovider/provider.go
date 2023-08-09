@@ -321,7 +321,6 @@ func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big
 // TODO: batch entries by contract address and call log poller once per contract address
 // NOTE: the entries are already grouped by contract address
 func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries []upkeepFilter) (merr error) {
-	// mainLggr := p.lggr.With("latestBlock", latest)
 	logBlocksLookback := p.opts.LogBlocksLookback
 	maxBurst := int(logBlocksLookback*2 + 1)
 
@@ -338,22 +337,20 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries [
 			// using a larger lookback and burst
 			start = latest - logBlocksLookback*2
 
-			// start should not be negative in the special case of an empty or
-			// new blockchain (this is the case for the simulated chain)
-			if start < 0 {
-				start = 0
-			}
-
 			// override the burst limit to the max to allow the long range scan
 			entry.blockLimiter.SetBurst(maxBurst)
+		}
+
+		// start should not be negative in the special case of an empty or
+		// new blockchain (this is the case for the simulated chain)
+		if start < 0 {
+			start = 0
 		}
 
 		// apply a reservation for the entry block range
 		// this reservation may be cancelled later in the case of overriding
 		// the block limitation with maxBurst
-		// fmt.Printf("reserving: %d for %s\n", int(latest-start), entry.upkeepID)
 		resv := entry.blockLimiter.ReserveN(time.Now(), int(latest-start))
-		// fmt.Printf("reservation limit for %s: %d\n", entry.upkeepID, resv.DelayFrom(time.Now())/time.Millisecond)
 		if !resv.OK() {
 			// the block range cannot be processed for the event either because
 			// it is above the configured rate or burst limit
@@ -395,23 +392,9 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries [
 
 		// add logs returned from the poller to the queue and return the total
 		// number of unique logs added to the queue
-		// added :=
 		p.buffer.enqueue(entry.upkeepID, logs...)
 
-		// fmt.Printf("added: %d; logs: %d\n", added, len(logs))
-
-		// if no new logs were added or no logs were found, update the last poll block
-		// if added > 0 || len(logs) == 0 {
 		entry.lastPollBlock = latest
-
-		p.filterStore.UpdateFilters(func(original upkeepFilter, updated upkeepFilter) upkeepFilter {
-			original.lastPollBlock = updated.lastPollBlock
-
-			// fmt.Printf("updating %s to %d\n", updated.upkeepID, updated.lastPollBlock)
-
-			return original
-		}, entry)
-		// }
 	}
 
 	return merr

@@ -321,8 +321,10 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			// BlockRateLimit is set low to ensure the test does not exceed the
 			// rate limit
 			BlockRateLimit: rate.Every(50 * time.Millisecond),
-			// BlockLimitBurst is just set to a non-zero value
-			BlockLimitBurst:   5,
+			// BlockLimitBurst is set low to ensure the test exceeds the burst limit
+			BlockLimitBurst: 5,
+			// LogBlocksLookback is set low to reduce the number of blocks required
+			// to reset the block limiter to maxBurst
 			LogBlocksLookback: 50,
 		}
 
@@ -384,6 +386,8 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			assert.True(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
 		}
 
+		// progress the chain by the same number of blocks as the lookback limit
+		// to trigger the useage of maxBurst
 		for i := 0; i < 50; i++ {
 			_ = backend.Commit()
 		}
