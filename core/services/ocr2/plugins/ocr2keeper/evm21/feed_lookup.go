@@ -74,7 +74,8 @@ type AdminOffchainConfig struct {
 // feedLookup looks through check upkeep results looking for any that need off chain lookup
 func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
 	lookups := map[int]*FeedLookup{}
-	for i, res := range upkeepResults {
+	for i := range upkeepResults {
+		res := &upkeepResults[i]
 		if res.FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
 		}
