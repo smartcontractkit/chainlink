@@ -26,7 +26,6 @@ import (
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithLogWatcher().
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodeConfig(node.NewConfig(node.BaseConf,
