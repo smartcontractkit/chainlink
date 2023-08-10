@@ -263,9 +263,11 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
 		}
 		sessionReaper = ldapauth.NewLDAPServerStateSync(db, cfg.Database(), cfg.WebServer().LDAP(), globalLogger)
-	default:
+	case string(sessions.LocalAuth):
 		sessionsORM = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 		sessionReaper = localauth.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger)
+	default:
+		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, string(sessions.LocalAuth), string(sessions.LDAPAuth))
 	}
 
 	var (
