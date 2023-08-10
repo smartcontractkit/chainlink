@@ -17,6 +17,9 @@ const (
 // ErrUserSessionExpired defines the error triggered when the user session has expired
 var ErrUserSessionExpired = errors.New("session missing or expired, please login again")
 
+// ErrNotSupported defines the error where interface functionality doesn't align with a Read Only LDAP server
+var ErrNotSupported = errors.New("functionality not supported with read only LDAP server")
+
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
 
 // UserManager interface abstracts the required application calls to a user management backend

@@ -27,6 +27,7 @@ This is implemented through the interface `LocalAdmin*`` functions.
 */
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"strings"
 
@@ -42,10 +43,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
-
-// ErrNotSupported defines the error where interface functionality doesn't align with a Read Only LDAP server
-var ErrNotSupported = errors.New("functionality not supported with read only LDAP server")
 
 // implements sessions.UserManager interface
 type ldapAuthenticator struct {
@@ -142,6 +141,10 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	if err != nil {
 		l.lggr.Errorf("Error searching users in LDAP query: %v", err)
 		return foundUser, errors.New("Error searching users in LDAP directory")
+	}
+
+	if len(result.Entries) == 0 {
+		return foundUser, errors.New("No users found with provided email")
 	}
 
 	// Populate found user by email and role based on matched group names
@@ -351,7 +354,7 @@ func (l *ldapAuthenticator) AuthorizedUserWithSession(sessionID string) (session
 
 // DeleteUser is not supported for read only LDAP
 func (l *ldapAuthenticator) DeleteUser(email string) error {
-	return ErrNotSupported
+	return sessions.ErrNotSupported
 }
 
 // DeleteUserSession removes an ldapSession table entry by ID
@@ -378,12 +381,14 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 	}
 	defer conn.Close()
 
+	var returnErr error
+
 	// Attempt to LDAP Bind with user provided credentials
 	escapedEmail := ldap.EscapeFilter(strings.ToLower(sr.Email))
 	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDn(), l.config.BaseDn())
 	if err := conn.Bind(searchBaseDN, sr.Password); err != nil {
 		l.lggr.Infof("Error binding user authentication request in LDAP Bind: %v", err)
-		return "", errors.New("Unable to log in with LDAP server. Check credentials")
+		returnErr = errors.New("Unable to log in with LDAP server. Check credentials")
 	}
 
 	// Bind was successful meaning user and credentials are present in LDAP directory
@@ -392,7 +397,17 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 	foundUser, err := l.FindUser(escapedEmail)
 	if err != nil {
 		l.lggr.Infof("Successful user login, but error querying for user groups: user: %s, error %v", escapedEmail, err)
-		return "", errors.New("Log in successful, but no assigned groups to assume role")
+		returnErr = errors.New("Log in successful, but no assigned groups to assume role")
+	}
+
+	if returnErr != nil {
+		// Unable to log in against LDAP server, attempt fallback local auth with credentials, case of local CLI Admin account
+		foundUser, returnErr = l.localLoginFallback(sr)
+	}
+
+	// If err is still populate, return
+	if returnErr != nil {
+		return "", returnErr
 	}
 
 	l.lggr.Infof("Successful LDAP login request for user %s - %s", sr.Email, foundUser.Role)
@@ -424,17 +439,17 @@ func (l *ldapAuthenticator) ClearNonCurrentSessions(sessionID string) error {
 
 // CreateUser is not supported for read only LDAP
 func (l *ldapAuthenticator) CreateUser(user *sessions.User) error {
-	return ErrNotSupported
+	return sessions.ErrNotSupported
 }
 
 // UpdateRole is not supported for read only LDAP
 func (l *ldapAuthenticator) UpdateRole(email, newRole string) (sessions.User, error) {
-	return sessions.User{}, ErrNotSupported
+	return sessions.User{}, sessions.ErrNotSupported
 }
 
 // SetPassword is not supported for read only LDAP
 func (l *ldapAuthenticator) SetPassword(user *sessions.User, newPassword string) error {
-	return ErrNotSupported
+	return sessions.ErrNotSupported
 }
 
 // TestPassword tests if an LDAP login bind can be performed with provided credentials, returns nil if success
@@ -511,7 +526,7 @@ func (l *ldapAuthenticator) DeleteAuthToken(user *sessions.User) error {
 
 // SaveWebAuthn is not supported for read only LDAP
 func (l *ldapAuthenticator) SaveWebAuthn(token *sessions.WebAuthn) error {
-	return ErrNotSupported
+	return sessions.ErrNotSupported
 }
 
 // Sessions returns all sessions limited by the parameters.
@@ -529,6 +544,28 @@ func (l *ldapAuthenticator) FindExternalInitiator(eia *auth.Token) (*bridges.Ext
 	exi := &bridges.ExternalInitiator{}
 	err := l.q.Get(exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
 	return exi, err
+}
+
+// localLoginFallback tests the credentials provided against the 'local' authentication method
+// This covers the case of local CLI API calls requiring local login separate from the LDAP server
+func (l *ldapAuthenticator) localLoginFallback(sr sessions.SessionRequest) (sessions.User, error) {
+	var user sessions.User
+	sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
+	err := l.q.Get(&user, sql, sr.Email)
+	if err != nil {
+		return user, err
+	}
+	if !constantTimeEmailCompare(strings.ToLower(sr.Email), strings.ToLower(user.Email)) {
+		l.auditLogger.Audit(audit.AuthLoginFailedEmail, map[string]interface{}{"email": sr.Email})
+		return user, errors.New("Invalid email")
+	}
+
+	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
+		l.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]interface{}{"email": sr.Email})
+		return user, errors.New("Invalid password")
+	}
+
+	return user, nil
 }
 
 // LocalAdminListUsers lists all local database users
@@ -655,4 +692,15 @@ func (l *ldapAuthenticator) groupSearchResultsToUserRole(ldapGroups []*ldap.Entr
 	}
 	// No role group found, error
 	return sessions.UserRoleView, errors.New("User present in directory, but matching no role groups assigned")
+}
+
+const constantTimeEmailLength = 256
+
+func constantTimeEmailCompare(left, right string) bool {
+	length := mathutil.Max(constantTimeEmailLength, len(left), len(right))
+	leftBytes := make([]byte, length)
+	rightBytes := make([]byte, length)
+	copy(leftBytes, left)
+	copy(rightBytes, right)
+	return subtle.ConstantTimeCompare(leftBytes, rightBytes) == 1
 }
