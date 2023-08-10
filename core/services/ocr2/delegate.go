@@ -140,7 +140,6 @@ func (d *delegateConfig) OCR2() ocr2Config {
 type ocr2Config interface {
 	BlockchainTimeout() time.Duration
 	CaptureEATelemetry() bool
-	CaptureAutomationCustomTelemetry() bool
 	ContractConfirmations() uint16
 	ContractPollInterval() time.Duration
 	ContractTransmitterTransmitTimeout() time.Duration
@@ -1067,36 +1066,14 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		d.cfg.JobPipeline().MaxSuccessfulRuns(),
 	)
 
-	automationServices := []job.ServiceCtx{
+	return []job.ServiceCtx{
 		job.NewServiceAdapter(runr),
 		runResultSaver,
 		keeperProvider,
 		rgstry,
 		logProvider,
 		pluginService,
-	}
-
-	if d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
-		chainID, err2 := spec.RelayConfig.EVMChainID()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "ChainID did not get")
-		}
-		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "ErrNoChainFromSpec")
-		}
-
-		hb := chain.HeadBroadcaster()
-		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
-		customTelemService := ocr2keeper.NewAutomationCustomTelemetryService(
-			endpoint,
-			hb,
-			lggr,
-		)
-		automationServices = append(automationServices, customTelemService)
-	}
-
-	return automationServices, nil
+	}, nil
 }
 
 func (d *Delegate) newServicesOCR2Functions(
