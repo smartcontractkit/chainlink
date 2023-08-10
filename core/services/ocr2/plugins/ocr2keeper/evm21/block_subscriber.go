@@ -21,7 +21,7 @@ const (
 	// cleanUpInterval is the interval for cleaning up block maps
 	cleanUpInterval = 15 * time.Minute
 	// channelSize represents the channel size for head broadcaster
-	channelSize = 20
+	channelSize = 100
 )
 
 type BlockSubscriber struct {
