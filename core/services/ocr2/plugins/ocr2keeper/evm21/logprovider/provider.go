@@ -232,6 +232,9 @@ func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big
 		select {
 		case batch := <-readQ:
 			if err := p.ReadLogs(ctx, true, batch...); err != nil {
+				if ctx.Err() != nil {
+					return
+				}
 				lggr.Warnw("failed to read logs", "err", err)
 			}
 		case <-ctx.Done():
@@ -352,7 +355,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries [
 			resv.Cancel()
 			// exit if the context was canceled
 			if ctx.Err() != nil {
-				return errors.Join(merr, ctx.Err())
+				return merr
 			}
 
 			merr = errors.Join(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", entry.upkeepID.String(), err))
