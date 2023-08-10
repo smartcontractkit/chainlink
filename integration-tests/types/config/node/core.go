@@ -93,6 +93,29 @@ func WithP2Pv2() NodeConfigOpt {
 	}
 }
 
+func SetDefaultSimulatedGeth(cfg *chainlink.Config, ws, http string) {
+	if cfg.EVM == nil {
+		cfg.EVM = evmcfg.EVMConfigs{
+			{
+				ChainID: utils.NewBig(big.NewInt(1337)),
+				Chain: evmcfg.Chain{
+					AutoCreateKey:      ptr(true),
+					FinalityDepth:      ptr[uint32](1),
+					MinContractPayment: assets.NewLinkFromJuels(0),
+				},
+				Nodes: []*evmcfg.Node{
+					{
+						Name:     ptr("1337_primary_local_0"),
+						WSURL:    mustURL(ws),
+						HTTPURL:  mustURL(http),
+						SendOnly: ptr(false),
+					},
+				},
+			},
+		}
+	}
+}
+
 func WithSimulatedEVM(httpUrl, wsUrl string) NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.EVM = evmcfg.EVMConfigs{
