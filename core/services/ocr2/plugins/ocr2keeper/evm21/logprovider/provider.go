@@ -311,50 +311,36 @@ func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big
 }
 
 // readLogs calls log poller to get the logs for the given upkeep entries.
-// we use p.opts.LookbackBuffer to check for reorgs based logs.
 //
 // TODO: batch entries by contract address and call log poller once per contract address
 // NOTE: the entries are already grouped by contract address
 func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries []upkeepFilter) (merr error) {
-	logBlocksLookback := p.opts.LogBlocksLookback
-	maxBurst := int(logBlocksLookback*2 + 1)
+	lookbackBlocks := p.opts.LogBlocksLookback
+	if latest < lookbackBlocks {
+		// special case of an empty or new blockchain (e.g. simulated chain)
+		lookbackBlocks = latest
+	}
+	// maxBurst will be used to increase the burst limit to allow a long range scan
+	maxBurst := int(lookbackBlocks + 1)
 
 	for _, entry := range entries {
 		if len(entry.addr) == 0 {
 			continue
 		}
-
 		// start should either be the last block polled for the entry or the
 		// lookback range in the case this is the first time the entry is polled
 		start := entry.lastPollBlock
-		if start == 0 || start < latest-logBlocksLookback {
-			// long range or first time polling,
-			// using a larger lookback and burst
-			start = latest - logBlocksLookback*2
-
-			// override the burst limit to the max to allow the long range scan
+		if start == 0 || start < latest-lookbackBlocks {
+			start = latest - lookbackBlocks
 			entry.blockLimiter.SetBurst(maxBurst)
 		}
 
-		// start should not be negative in the special case of an empty or
-		// new blockchain (this is the case for the simulated chain)
-		if start < 0 {
-			start = 0
-		}
-
-		// apply a reservation for the entry block range
-		// this reservation may be cancelled later in the case of overriding
-		// the block limitation with maxBurst
 		resv := entry.blockLimiter.ReserveN(time.Now(), int(latest-start))
 		if !resv.OK() {
-			// the block range cannot be processed for the event either because
-			// it is above the configured rate or burst limit
 			merr = errors.Join(merr, fmt.Errorf("%w: %s", ErrBlockLimitExceeded, entry.upkeepID.String()))
-
 			continue
 		}
-
-		// adding a buffer outside the reserved block range to check for reorgs
+		// adding a buffer to check for reorged logs.
 		start = start - p.opts.LookbackBuffer
 		if start < 0 {
 			start = 0
@@ -364,29 +350,22 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries [
 		if err != nil {
 			// cancel limit reservation as we failed to get logs
 			resv.Cancel()
-
+			// exit if the context was canceled
 			if ctx.Err() != nil {
 				return errors.Join(merr, ctx.Err())
 			}
 
 			merr = errors.Join(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", entry.upkeepID.String(), err))
 
-			// continue processing entries as this is not a hard error
 			continue
 		}
-
-		// if this limiter's burst was set to the max reset it and cancel the
-		// reservation to allow further processing without exceeding the rate
-		// limit
+		// if this limiter's burst was set to the max ->
+		// reset it and cancel the reservation to allow further processing
 		if entry.blockLimiter.Burst() == maxBurst {
-			// cancel the reservation as we are resetting the burst
 			resv.Cancel()
-
 			entry.blockLimiter.SetBurst(p.opts.BlockLimitBurst)
 		}
 
-		// add logs returned from the poller to the queue and return the total
-		// number of unique logs added to the queue
 		p.buffer.enqueue(entry.upkeepID, logs...)
 
 		entry.lastPollBlock = latest
