@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/scripts"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner_test_consumer"
 	"log"
 	"math/big"
 	"os"
@@ -707,6 +708,17 @@ func main() {
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
 		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address")
 		scripts.EoaLoadTestConsumerWithMetricsDeploy(e, *consumerCoordinator)
+	case "eoa-vrf-owner-test-consumer-deploy":
+		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-vrf-owner-test-consumer-deploy", flag.ExitOnError)
+		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
+		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address")
+		_, tx, _, err := vrf_owner_test_consumer.DeployVRFV2OwnerTestConsumer(
+			e.Owner,
+			e.Ec,
+			common.HexToAddress(*consumerCoordinator),
+		)
+		helpers.PanicErr(err)
+		helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-create-sub":
 		createSubCmd := flag.NewFlagSet("eoa-create-sub", flag.ExitOnError)
 		coordinatorAddress := createSubCmd.String("coordinator-address", "", "coordinator address")
@@ -824,6 +836,76 @@ func main() {
 		for i, tx := range txes {
 			helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("load test %d", i+1))
 		}
+	case "eoa-vrf-owner-test-request":
+		request := flag.NewFlagSet("eoa-eoa-vrf-owner-test-request", flag.ExitOnError)
+		consumerAddress := request.String("consumer-address", "", "consumer address")
+		subID := request.Uint64("sub-id", 0, "subscription ID")
+		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
+		keyHash := request.String("key-hash", "", "key hash")
+		cbGasLimit := request.Uint("cb-gas-limit", 100_000, "request callback gas limit")
+		numWords := request.Uint("num-words", 1, "num words to request")
+		requests := request.Uint("requests", 10, "number of randomness requests to make per run")
+		runs := request.Uint("runs", 1, "number of runs to do. total randomness requests will be (requests * runs).")
+		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
+		keyHashBytes := common.HexToHash(*keyHash)
+		consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
+			common.HexToAddress(*consumerAddress),
+			e.Ec)
+		helpers.PanicErr(err)
+		var txes []*types.Transaction
+		for i := 0; i < int(*runs); i++ {
+			tx, err := consumer.RequestRandomWords(
+				e.Owner,
+				*subID,
+				uint16(*requestConfirmations),
+				keyHashBytes,
+				uint32(*cbGasLimit),
+				uint32(*numWords),
+				uint16(*requests),
+			)
+			helpers.PanicErr(err)
+			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
+			txes = append(txes, tx)
+		}
+		fmt.Println("Total number of requests sent:", (*requests)*(*runs))
+		fmt.Println("fetching receipts for all transactions")
+		for i, tx := range txes {
+			helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("load test %d", i+1))
+		}
+	case "eoa-vrf-owner-test-read-metrics":
+		request := flag.NewFlagSet("eoa-load-test-read-metrics", flag.ExitOnError)
+		consumerAddress := request.String("consumer-address", "", "consumer address")
+		helpers.ParseArgs(request, os.Args[2:], "consumer-address")
+		consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
+			common.HexToAddress(*consumerAddress),
+			e.Ec)
+		helpers.PanicErr(err)
+		responseCount, err := consumer.SResponseCount(nil)
+		helpers.PanicErr(err)
+		fmt.Println("Response Count: ", responseCount)
+		requestCount, err := consumer.SRequestCount(nil)
+		helpers.PanicErr(err)
+		fmt.Println("Request Count: ", requestCount)
+		averageFulfillmentInMillions, err := consumer.SAverageFulfillmentInMillions(nil)
+		helpers.PanicErr(err)
+		fmt.Println("Average Fulfillment In Millions: ", averageFulfillmentInMillions)
+		slowestFulfillment, err := consumer.SSlowestFulfillment(nil)
+		helpers.PanicErr(err)
+		fmt.Println("Slowest Fulfillment: ", slowestFulfillment)
+		fastestFulfillment, err := consumer.SFastestFulfillment(nil)
+		helpers.PanicErr(err)
+		fmt.Println("Fastest Fulfillment: ", fastestFulfillment)
+	case "eoa-vrf-owner-test-reset-metrics":
+		request := flag.NewFlagSet("eoa-vrf-owner-test-reset-metrics", flag.ExitOnError)
+		consumerAddress := request.String("consumer-address", "", "consumer address")
+		helpers.ParseArgs(request, os.Args[2:], "consumer-address")
+		consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
+			common.HexToAddress(*consumerAddress),
+			e.Ec)
+		helpers.PanicErr(err)
+		_, err = consumer.Reset(e.Owner)
+		helpers.PanicErr(err)
+		fmt.Println("Load Test Consumer With Metrics was reset ")
 	case "eoa-load-test-request-with-metrics":
 		request := flag.NewFlagSet("eoa-load-test-request-with-metrics", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")
