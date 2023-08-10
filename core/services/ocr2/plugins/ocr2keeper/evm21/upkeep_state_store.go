@@ -32,8 +32,7 @@ type UpkeepStateStore struct {
 	lggr      logger.Logger
 }
 
-// NewUpkeepStateStore creates a new state store. This is an initial version of this store. More improvements to come:
-// TODO: AUTO-4027
+// NewUpkeepStateStore creates a new state store
 func NewUpkeepStateStore(lggr logger.Logger) *UpkeepStateStore {
 	return &UpkeepStateStore{
 		states:    []*upkeepState{},
