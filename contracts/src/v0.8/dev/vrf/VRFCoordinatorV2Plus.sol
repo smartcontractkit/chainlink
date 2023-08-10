@@ -40,7 +40,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     uint32 callbackGasLimit;
     uint32 numWords;
     address sender;
-    bytes extraArgs;
+    bytes extraArgs; // part of the struct but not encoded along with everything else to save gas
   }
   mapping(bytes32 => address) /* keyHash */ /* oracle */ public s_provingKeys;
   bytes32[] public s_provingKeyHashes;
@@ -261,14 +261,14 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     if (req.numWords > MAX_NUM_WORDS) {
       revert NumWordsTooBig(req.numWords, MAX_NUM_WORDS);
     }
+    // _fromBytes will check if the extraArgs are well formed and if not will revert
+    _fromBytes(req.extraArgs);
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
     uint64 nonce = currentNonce + 1;
     (uint256 requestId, uint256 preSeed) = computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
 
-    VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
-    bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
     s_requestCommitments[requestId] = keccak256(
       abi.encode(
         requestId,
@@ -276,8 +276,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         req.subId,
         req.callbackGasLimit,
         req.numWords,
-        msg.sender,
-        extraArgsBytes
+        msg.sender
       )
     );
     emit RandomWordsRequested(
@@ -288,7 +287,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       req.requestConfirmations,
       req.callbackGasLimit,
       req.numWords,
-      extraArgsBytes,
+      req.extraArgs,
       msg.sender
     );
     s_consumers[msg.sender][req.subId] = nonce;
@@ -363,7 +362,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     }
     if (
       commitment !=
-      keccak256(abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender, rc.extraArgs))
+      keccak256(abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender))
     ) {
       revert IncorrectCommitment();
     }
