@@ -255,6 +255,12 @@ func TestIntegration_Mercury(t *testing.T) {
 	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(c)
 	require.NoError(t, err)
 
+	reportingPluginConfig, err := json.Marshal(relaymercury.OffchainConfig{
+		ExpirationWindow: 1,
+		BaseUSDFeeCents:  100,
+	})
+	require.NoError(t, err)
+
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTestsMercuryV02(
 		2*time.Second,        // DeltaProgress
 		20*time.Second,       // DeltaResend
@@ -266,15 +272,11 @@ func TestIntegration_Mercury(t *testing.T) {
 		100,                  // rMax
 		[]int{len(nodes)},    // S
 		oracles,
-		[]byte{},             // reportingPluginConfig []byte,
-		250*time.Millisecond, // Max duration observation
-		int(f),               // f
+		reportingPluginConfig, // reportingPluginConfig []byte,
+		250*time.Millisecond,  // Max duration observation
+		int(f),                // f
 		onchainConfig,
 	)
-	offchainConfig, _ = json.Marshal(relaymercury.OffchainConfig{
-		ExpirationWindow: 1,
-		BaseUSDFeeCents:  100,
-	})
 
 	require.NoError(t, err)
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
