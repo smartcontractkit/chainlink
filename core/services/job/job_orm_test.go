@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
