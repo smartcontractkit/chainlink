@@ -7,7 +7,6 @@ import "../../shared/access/ConfirmedOwner.sol";
 import "../../ChainSpecificUtil.sol";
 import "../../shared/interfaces/LinkTokenInterface.sol";
 
-
 contract VRFV2OwnerTestConsumer is VRFConsumerBaseV2, ConfirmedOwner {
   VRFCoordinatorV2Interface public COORDINATOR;
   uint64 public subId;
@@ -103,16 +102,16 @@ contract VRFV2OwnerTestConsumer is VRFConsumerBaseV2, ConfirmedOwner {
   function getRequestStatus(
     uint256 _requestId
   )
-  external
-  view
-  returns (
-    bool fulfilled,
-    uint256[] memory randomWords,
-    uint requestTimestamp,
-    uint fulfilmentTimestamp,
-    uint256 requestBlockNumber,
-    uint256 fulfilmentBlockNumber
-  )
+    external
+    view
+    returns (
+      bool fulfilled,
+      uint256[] memory randomWords,
+      uint requestTimestamp,
+      uint fulfilmentTimestamp,
+      uint256 requestBlockNumber,
+      uint256 fulfilmentBlockNumber
+    )
   {
     RequestStatus memory request = s_requests[_requestId];
     return (
