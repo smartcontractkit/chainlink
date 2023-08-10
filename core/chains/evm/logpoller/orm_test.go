@@ -1022,6 +1022,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 		events              []common.Hash
 		addrs               []common.Address
 		confs               int
+		fromBlock           int64
 		expectedBlockNumber int64
 	}{
 		{
@@ -1029,6 +1030,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 			events:              []common.Hash{event2},
 			addrs:               []common.Address{address1},
 			confs:               0,
+			fromBlock:           0,
 			expectedBlockNumber: 0,
 		},
 		{
@@ -1036,6 +1038,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 			events:              []common.Hash{event2},
 			addrs:               []common.Address{address2},
 			confs:               5,
+			fromBlock:           0,
 			expectedBlockNumber: 0,
 		},
 		{
@@ -1043,6 +1046,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 			events:              []common.Hash{event1},
 			addrs:               []common.Address{address1},
 			confs:               0,
+			fromBlock:           0,
 			expectedBlockNumber: 1,
 		},
 		{
@@ -1050,6 +1054,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 			events:              []common.Hash{event1, event2},
 			addrs:               []common.Address{address1, address2},
 			confs:               0,
+			fromBlock:           0,
 			expectedBlockNumber: 3,
 		},
 		{
@@ -1057,12 +1062,29 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 			events:              []common.Hash{event2},
 			addrs:               []common.Address{address2},
 			confs:               1,
+			fromBlock:           0,
 			expectedBlockNumber: 2,
+		},
+		{
+			name:                "returns 0 if from block is not matching",
+			events:              []common.Hash{event1, event2},
+			addrs:               []common.Address{address1, address2},
+			confs:               0,
+			fromBlock:           3,
+			expectedBlockNumber: 0,
+		},
+		{
+			name:                "picks max block from two events when from block is lower",
+			events:              []common.Hash{event1, event2},
+			addrs:               []common.Address{address1, address2},
+			confs:               0,
+			fromBlock:           2,
+			expectedBlockNumber: 3,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			blockNumber, err := th.ORM.SelectLatestBlockNumberEventSigsAddrsWithConfs(0, tt.events, tt.addrs, tt.confs)
+			blockNumber, err := th.ORM.SelectLatestBlockNumberEventSigsAddrsWithConfs(tt.fromBlock, tt.events, tt.addrs, tt.confs)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedBlockNumber, blockNumber)
 		})
