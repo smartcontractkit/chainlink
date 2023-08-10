@@ -127,21 +127,17 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		func(blockHash common.Hash),
 		logprovider.LogEventProviderTest,
 		[]*big.Int,
-		[]deferableFunc,
+		func(),
 	) {
 		ctx, cancel := context.WithCancel(testutils.Context(t))
 		backend, stopMining, accounts := setupBackend(t)
 		userContractAccount := accounts[2]
 		db := setupDB(t)
 
-		deferables := []deferableFunc{
-			func() {
-				cancel()
-			},
-			stopMining,
-			func() {
-				_ = db.Close()
-			},
+		deferFunc := func() {
+			cancel()
+			stopMining()
+			_ = db.Close()
 		}
 
 		logProvider, _, lp, ethClient := setupLogProvider(t, db, backend, opts)
@@ -188,13 +184,13 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 
 		require.NoError(t, logProvider.ReadLogs(ctx, true, ids...))
 
-		return ctx, backend, poll, logProvider, ids, deferables
+		return ctx, backend, poll, logProvider, ids, deferFunc
 	}
 
 	// polling for logs at approximately the same rate as a chain produces
 	// blocks should not encounter rate limits
 	t.Run("should allow constant polls within the rate and burst limit", func(t *testing.T) {
-		ctx, backend, poll, logProvider, ids, defers := setupTest(t, &logprovider.LogEventProviderOptions{
+		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogEventProviderOptions{
 			// BlockRateLimit is set low to ensure the test does not exceed the
 			// rate limit
 			BlockRateLimit: rate.Every(50 * time.Millisecond),
@@ -202,11 +198,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			BlockLimitBurst: 5,
 		})
 
-		defer func() {
-			for _, f := range defers {
-				f()
-			}
-		}()
+		defer deferFunc()
 
 		// set the wait time between reads higher than the rate limit
 		readWait := 50 * time.Millisecond
@@ -235,7 +227,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	})
 
 	t.Run("should produce a rate limit error for over burst limit", func(t *testing.T) {
-		ctx, backend, poll, logProvider, ids, defers := setupTest(t, &logprovider.LogEventProviderOptions{
+		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogEventProviderOptions{
 			// BlockRateLimit is set low to ensure the test does not exceed the
 			// rate limit
 			BlockRateLimit: rate.Every(50 * time.Millisecond),
@@ -243,11 +235,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			BlockLimitBurst: 5,
 		})
 
-		defer func() {
-			for _, f := range defers {
-				f()
-			}
-		}()
+		defer deferFunc()
 
 		// set the wait time between reads higher than the rate limit
 		readWait := 50 * time.Millisecond
@@ -278,7 +266,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	})
 
 	t.Run("should allow polling after lookback number of blocks have passed", func(t *testing.T) {
-		ctx, backend, poll, logProvider, ids, defers := setupTest(t, &logprovider.LogEventProviderOptions{
+		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogEventProviderOptions{
 			// BlockRateLimit is set low to ensure the test does not exceed the
 			// rate limit
 			BlockRateLimit: rate.Every(50 * time.Millisecond),
@@ -289,11 +277,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			LogBlocksLookback: 50,
 		})
 
-		defer func() {
-			for _, f := range defers {
-				f()
-			}
-		}()
+		defer deferFunc()
 
 		// simulate a burst in unpolled blocks
 		for i := 0; i < 20; i++ {
@@ -334,8 +318,6 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
-	// t.Skip()
-
 	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*30)
 	defer cancel()
 
