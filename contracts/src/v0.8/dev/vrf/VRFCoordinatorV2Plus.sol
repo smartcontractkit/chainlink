@@ -203,86 +203,6 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     return abi.decode(extraArgs[4:], (VRFV2PlusClient.ExtraArgsV1));
   }
 
-  function validateSubscription(uint256 subId) internal {
-    // Input validation using the subscription storage.
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
-      revert InvalidSubscription();
-    }
-  }
-
-  function validateConsumer(address sender, uint256 subId) internal returns (uint64) {
-    // Its important to ensure that the consumer is in fact who they say they
-    // are, otherwise they could use someone else's subscription balance.
-    // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[sender][subId];
-    if (currentNonce == 0) {
-      revert InvalidConsumer(subId, sender);
-    }
-    return currentNonce;
-  }
-
-  function validateInputs(uint16 requestConfirmations, uint32 callbackGasLimit, uint32 numWords) internal {
-    if (
-      requestConfirmations < s_config.minimumRequestConfirmations ||
-      requestConfirmations > MAX_REQUEST_CONFIRMATIONS
-    ) {
-      revert InvalidRequestConfirmations(
-        requestConfirmations,
-        s_config.minimumRequestConfirmations,
-        MAX_REQUEST_CONFIRMATIONS
-      );
-    }
-    // No lower bound on the requested gas limit. A user could request 0
-    // and they would simply be billed for the proof verification and wouldn't be
-    // able to do anything with the random value.
-    if (callbackGasLimit > s_config.maxGasLimit) {
-      revert GasLimitTooBig(callbackGasLimit, s_config.maxGasLimit);
-    }
-    if (numWords > MAX_NUM_WORDS) {
-      revert NumWordsTooBig(numWords, MAX_NUM_WORDS);
-    }
-  }
-
-  function storeRequestCommitment(
-    VRFV2PlusClient.RandomWordsRequest calldata req,
-    uint256 requestId,
-    address sender
-  ) internal returns (bytes memory) {
-    VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
-    bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
-    s_requestCommitments[requestId] = keccak256(
-      abi.encode(
-        requestId,
-        ChainSpecificUtil.getBlockNumber(),
-        req.subId,
-        req.callbackGasLimit,
-        req.numWords,
-        sender,
-        extraArgsBytes
-      )
-    );
-    return extraArgsBytes;
-  }
-
-  function emitRandomWordsRequestedLog(
-    VRFV2PlusClient.RandomWordsRequest calldata req,
-    uint256 requestId,
-    uint256 preSeed,
-    address sender,
-    bytes memory extraArgsBytes) internal {
-    emit RandomWordsRequested(
-      req.keyHash,
-      requestId,
-      preSeed,
-      req.subId,
-      req.requestConfirmations,
-      req.callbackGasLimit,
-      req.numWords,
-      extraArgsBytes,
-      sender
-    );
-  }
-
   /**
    * @notice Request a set of random words.
    * @param req - a struct containing following fiels for randomness request:
@@ -311,22 +231,67 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
    */
   function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external nonReentrant returns (uint256) {
     // Input validation using the subscription storage.
-    validateSubscription(req.subId);
+    if (s_subscriptionConfigs[req.subId].owner == address(0)) {
+      revert InvalidSubscription();
+    }
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = validateConsumer(msg.sender, req.subId);
+    uint64 currentNonce = s_consumers[msg.sender][req.subId];
+    if (currentNonce == 0) {
+      revert InvalidConsumer(req.subId, msg.sender);
+    }
     // Input validation using the config storage word.
-    validateInputs(req.requestConfirmations, req.callbackGasLimit, req.numWords);
+    if (
+      req.requestConfirmations < s_config.minimumRequestConfirmations ||
+      req.requestConfirmations > MAX_REQUEST_CONFIRMATIONS
+    ) {
+      revert InvalidRequestConfirmations(
+        req.requestConfirmations,
+        s_config.minimumRequestConfirmations,
+        MAX_REQUEST_CONFIRMATIONS
+      );
+    }
+    // No lower bound on the requested gas limit. A user could request 0
+    // and they would simply be billed for the proof verification and wouldn't be
+    // able to do anything with the random value.
+    if (req.callbackGasLimit > s_config.maxGasLimit) {
+      revert GasLimitTooBig(req.callbackGasLimit, s_config.maxGasLimit);
+    }
+    if (req.numWords > MAX_NUM_WORDS) {
+      revert NumWordsTooBig(req.numWords, MAX_NUM_WORDS);
+    }
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
     uint64 nonce = currentNonce + 1;
     (uint256 requestId, uint256 preSeed) = computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
 
-    bytes memory extraArgsBytes = storeRequestCommitment(req, requestId, msg.sender);
-    emitRandomWordsRequestedLog(req, requestId, preSeed, msg.sender, extraArgsBytes);
-    updateConsumerNonce(msg.sender, req.subId, nonce);
+    VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
+    bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
+    s_requestCommitments[requestId] = keccak256(
+      abi.encode(
+        requestId,
+        ChainSpecificUtil.getBlockNumber(),
+        req.subId,
+        req.callbackGasLimit,
+        req.numWords,
+        msg.sender,
+        extraArgsBytes
+      )
+    );
+    emit RandomWordsRequested(
+      req.keyHash,
+      requestId,
+      preSeed,
+      req.subId,
+      req.requestConfirmations,
+      req.callbackGasLimit,
+      req.numWords,
+      extraArgsBytes,
+      msg.sender
+    );
+    s_consumers[msg.sender][req.subId] = nonce;
 
     return requestId;
   }

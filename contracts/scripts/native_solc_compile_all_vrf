@@ -13,7 +13,7 @@ SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
 ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
 python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
 
-solc-select install $SOLC_VERSION
+#solc-select install $SOLC_VERSION
 solc-select use $SOLC_VERSION
 export SOLC_VERSION=$SOLC_VERSION
 
@@ -81,4 +81,3 @@ compileContract vrf/testhelpers/VRFOwnerlessConsumerExample.sol
 compileContract vrf/testhelpers/VRFLoadTestOwnerlessConsumer.sol
 compileContract vrf/testhelpers/VRFLoadTestExternalSubOwner.sol
 compileContract vrf/testhelpers/VRFV2LoadTestWithMetrics.sol
-
