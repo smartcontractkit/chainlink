@@ -38,6 +38,7 @@ import (
 var (
 	ErrNoSuchKeyBundle      = errors.New("no such key bundle exists")
 	ErrNoSuchTransmitterKey = errors.New("no such transmitter key exists")
+	ErrNoSuchSendingKey     = errors.New("no such sending key exists")
 	ErrNoSuchPublicKey      = errors.New("no such public key exists")
 )
 
@@ -258,7 +259,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 			if !sendingKeysDefined {
 				if err = validateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
-					return err
+					return errors.Wrap(ErrNoSuchTransmitterKey, err.Error())
 				}
 			}
 
@@ -457,29 +458,29 @@ func validateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key s
 	if spec.PluginType == Mercury {
 		_, err := keyStore.CSA().Get(key)
 		if err != nil {
-			return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", key)
+			return errors.Errorf("no CSA key matching: %q", key)
 		}
 	} else {
 		switch spec.Relay {
 		case relay.EVM:
 			_, err := keyStore.Eth().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", key)
+				return errors.Errorf("no EVM key matching: %q", key)
 			}
 		case relay.Cosmos:
 			_, err := keyStore.Cosmos().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", key)
+				return errors.Errorf("no Cosmos key matching %q", key)
 			}
 		case relay.Solana:
 			_, err := keyStore.Solana().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", key)
+				return errors.Errorf("no Solana key matching: %q", key)
 			}
 		case relay.StarkNet:
 			_, err := keyStore.StarkNet().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", key)
+				return errors.Errorf("no Starknet key matching %q", key)
 			}
 		}
 	}
@@ -495,7 +496,7 @@ func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
 
 		for _, sendingKey := range sendingKeys {
 			if err = validateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
-				return false, err
+				return false, errors.Wrap(ErrNoSuchSendingKey, err.Error())
 			}
 		}
 
