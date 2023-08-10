@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -1150,6 +1151,39 @@ func main() {
 		_ = helpers.CalculateLatestBlockHeader(e, *blockNumber)
 	case "wrapper-universe-deploy":
 		deployWrapperUniverse(e)
+	case "add-eoa-consumer":
+		cmd := flag.NewFlagSet("add-eoa-consumer", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "address of VRF V2 coordinator")
+		subID := cmd.String("sub-id", "", "Subscription ID")
+		consumerAddress := cmd.String("consumer-address", "", "address of consumer")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id", "consumer-address")
+		coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
+		eoaAddConsumerToSub(e, *coordinator, parseSubID(*subID), *consumerAddress)
+	case "request-random-words":
+		coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(common.HexToAddress("0x9A97f14403C585724f284732159001E39c2ED63c"), e.Ec)
+		helpers.PanicErr(err)
+		args, err := extraargs.ExtraArgsV1(true)
+		helpers.PanicErr(err)
+		kh := hexutil.MustDecode("0x642ec3f119da91bc0b061c485623fec89b348409c97fb50d9ad17afd8b4b4e14")
+		var keyHash [32]byte
+		copy(keyHash[:], kh)
+		fmt.Println("KeyHash: ", hexutil.Encode(kh))
+		tx, err := coordinator.RequestRandomWords(e.Owner, vrf_coordinator_v2plus.VRFV2PlusClientRandomWordsRequest{
+			KeyHash:              keyHash,
+			SubId:                decimal.RequireFromString("18876582731524538404555098579011444629625417667131660933681252770455375944032").BigInt(),
+			RequestConfirmations: 10,
+			CallbackGasLimit:     60_000,
+			NumWords:             1,
+			ExtraArgs:            args,
+		})
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	case "keccak256":
+		abiEncoded, err := utils.ABIEncode(`[{ "type": "uint256" }]`, decimal.RequireFromString("95112638379630849851318982974468370182294432049651967147939419985739488129571").BigInt())
+		helpers.PanicErr(err)
+		fmt.Println(
+			hexutil.Encode(crypto.Keccak256(abiEncoded)))
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

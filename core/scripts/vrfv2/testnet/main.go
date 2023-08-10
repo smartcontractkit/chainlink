@@ -6,15 +6,17 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/scripts"
 	"log"
 	"math/big"
 	"os"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/scripts"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -1250,7 +1252,33 @@ func main() {
 		_ = helpers.CalculateLatestBlockHeader(e, *blockNumber)
 	case "wrapper-universe-deploy":
 		scripts.DeployWrapperUniverse(e)
+	case "add-eoa-consumer":
+		cmd := flag.NewFlagSet("add-eoa-consumer", flag.ExitOnError)
+		coordinatorAddress := cmd.String("coordinator-address", "", "address of VRF V2 coordinator")
+		subID := cmd.String("sub-id", "", "Subscription ID")
+		consumerAddress := cmd.String("consumer-address", "", "address of consumer")
+		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "sub-id", "consumer-address")
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
+		scripts.EoaAddConsumerToSub(e, *coordinator, parseSubID(*subID), *consumerAddress)
+	case "request-random-words":
+		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress("0x79eE5e84fD0B324C9147952b82698Ac59F7Bc244"), e.Ec)
+		helpers.PanicErr(err)
+		kh := hexutil.MustDecode("0x642ec3f119da91bc0b061c485623fec89b348409c97fb50d9ad17afd8b4b4e14")
+		var keyHash [32]byte
+		copy(keyHash[:], kh)
+		tx, err := coordinator.RequestRandomWords(e.Owner, keyHash, 1, 10, 60_000, 1)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}
+}
+
+func parseSubID(subID string) uint64 {
+	parsedSubID, ok := new(big.Int).SetString(subID, 10)
+	if !ok {
+		helpers.PanicErr(fmt.Errorf("sub ID %s cannot be parsed", subID))
+	}
+	return parsedSubID.Uint64()
 }

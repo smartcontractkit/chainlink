@@ -16,9 +16,9 @@ contract ExposedVRFCoordinatorV2Plus is VRFCoordinatorV2Plus {
     return computeRequestId(keyHash, sender, subId, nonce);
   }
 
-  function isTargetRegisteredExternal(address target) external view returns (bool) {
-    return isTargetRegistered(target);
-  }
+//  function isTargetRegisteredExternal(address target) external view returns (bool) {
+//    return isTargetRegistered(target);
+//  }
 
   function getRandomnessFromProofExternal(
     Proof calldata proof,

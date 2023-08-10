@@ -38,7 +38,7 @@ type CoordinatorV2_X interface {
 	Version() vrfcommon.Version
 	RegisterProvingKey(opts *bind.TransactOpts, oracle common.Address, publicProvingKey [2]*big.Int) (*types.Transaction, error)
 	FilterSubscriptionCreated(opts *bind.FilterOpts, subID []*big.Int) (SubscriptionCreatedIterator, error)
-	FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subID []*big.Int, sender []common.Address) (RandomWordsRequestedIterator, error)
+	FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte) (RandomWordsRequestedIterator, error)
 	FilterRandomWordsFulfilled(opts *bind.FilterOpts, requestID []*big.Int, subID []*big.Int) (RandomWordsFulfilledIterator, error)
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 	RemoveConsumer(opts *bind.TransactOpts, subID *big.Int, consumer common.Address) (*types.Transaction, error)
@@ -134,8 +134,8 @@ func (c *coordinatorV2) FilterSubscriptionCreated(opts *bind.FilterOpts, subID [
 	return NewV2SubscriptionCreatedIterator(it), nil
 }
 
-func (c *coordinatorV2) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subID []*big.Int, sender []common.Address) (RandomWordsRequestedIterator, error) {
-	it, err := c.coordinator.FilterRandomWordsRequested(opts, keyHash, toV2SubIDs(subID), sender)
+func (c *coordinatorV2) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte) (RandomWordsRequestedIterator, error) {
+	it, err := c.coordinator.FilterRandomWordsRequested(opts, keyHash, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -272,8 +272,8 @@ func (c *coordinatorV2Plus) FilterSubscriptionCreated(opts *bind.FilterOpts, sub
 	return NewV2PlusSubscriptionCreatedIterator(it), nil
 }
 
-func (c *coordinatorV2Plus) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte, subID []*big.Int, sender []common.Address) (RandomWordsRequestedIterator, error) {
-	it, err := c.coordinator.FilterRandomWordsRequested(opts, keyHash, subID, sender)
+func (c *coordinatorV2Plus) FilterRandomWordsRequested(opts *bind.FilterOpts, keyHash [][32]byte) (RandomWordsRequestedIterator, error) {
+	it, err := c.coordinator.FilterRandomWordsRequested(opts, keyHash)
 	if err != nil {
 		return nil, err
 	}
@@ -305,7 +305,8 @@ func (c *coordinatorV2Plus) GetCommitment(opts *bind.CallOpts, requestID *big.In
 }
 
 func (c *coordinatorV2Plus) Migrate(opts *bind.TransactOpts, subID *big.Int, newCoordinator common.Address) (*types.Transaction, error) {
-	return c.coordinator.Migrate(opts, subID, newCoordinator)
+	// return c.coordinator.Migrate(opts, subID, newCoordinator)
+	return nil, nil
 }
 
 func (c *coordinatorV2Plus) FundSubscriptionWithEth(opts *bind.TransactOpts, subID *big.Int, amount *big.Int) (*types.Transaction, error) {

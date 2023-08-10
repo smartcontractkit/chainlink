@@ -340,27 +340,27 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     return (s_config.minimumRequestConfirmations, s_config.maxGasLimit, s_provingKeyHashes);
   }
 
-  /**
-   * @inheritdoc VRFCoordinatorV2Interface
-   */
-  function requestRandomWords(
-    bytes32 keyHash,
-    uint64 subId,
-    uint16 requestConfirmations,
-    uint32 callbackGasLimit,
-    uint32 numWords
-  ) external override nonReentrant returns (uint256) {
+  function validateSubscription(uint64 subId) internal view {
     // Input validation using the subscription storage.
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
+  }
+
+  function validateConsumer(address sender, uint64 subId) internal view returns (uint64) {
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
-    uint64 currentNonce = s_consumers[msg.sender][subId];
+    uint64 currentNonce = s_consumers[sender][subId];
     if (currentNonce == 0) {
-      revert InvalidConsumer(subId, msg.sender);
+      revert InvalidConsumer(subId, sender);
     }
+    return currentNonce;
+  }
+
+  function validateInputs(uint16 requestConfirmations,
+    uint32 callbackGasLimit,
+    uint32 numWords) internal view {
     // Input validation using the config storage word.
     if (
       requestConfirmations < s_config.minimumRequestConfirmations || requestConfirmations > MAX_REQUEST_CONFIRMATIONS
@@ -380,15 +380,37 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     if (numWords > MAX_NUM_WORDS) {
       revert NumWordsTooBig(numWords, MAX_NUM_WORDS);
     }
-    // Note we do not check whether the keyHash is valid to save gas.
-    // The consequence for users is that they can send requests
-    // for invalid keyHashes which will simply not be fulfilled.
-    uint64 nonce = currentNonce + 1;
-    (uint256 requestId, uint256 preSeed) = computeRequestId(keyHash, msg.sender, subId, nonce);
+  }
 
+  function storeRequestCommitment(
+    uint256 requestId,
+    address sender,
+    uint64 subId,
+    uint32 callbackGasLimit,
+    uint32 numWords
+  ) internal {
     s_requestCommitments[requestId] = keccak256(
-      abi.encode(requestId, ChainSpecificUtil.getBlockNumber(), subId, callbackGasLimit, numWords, msg.sender)
+      abi.encode(
+        requestId,
+        ChainSpecificUtil.getBlockNumber(),
+        subId,
+        callbackGasLimit,
+        numWords,
+        sender
+      )
     );
+  }
+
+  function emitRandomWordsRequestedLog(
+    uint256 requestId,
+    uint256 preSeed,
+    address sender,
+    bytes32 keyHash,
+    uint64 subId,
+    uint16 requestConfirmations,
+    uint32 callbackGasLimit,
+    uint32 numWords
+    ) internal {
     emit RandomWordsRequested(
       keyHash,
       requestId,
@@ -397,11 +419,42 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
       requestConfirmations,
       callbackGasLimit,
       numWords,
-      msg.sender
+      sender
     );
-    s_consumers[msg.sender][subId] = nonce;
+  }
+
+  /**
+   * @inheritdoc VRFCoordinatorV2Interface
+   */
+  function requestRandomWords(
+    bytes32 keyHash,
+    uint64 subId,
+    uint16 requestConfirmations,
+    uint32 callbackGasLimit,
+    uint32 numWords
+  ) external override nonReentrant returns (uint256) {
+    validateSubscription(subId);
+    // Its important to ensure that the consumer is in fact who they say they
+    // are, otherwise they could use someone else's subscription balance.
+    // A nonce of 0 indicates consumer is not allocated to the sub.
+    uint64 currentNonce = validateConsumer(msg.sender, subId);
+    // Input validation using the config storage word.
+    validateInputs(requestConfirmations, callbackGasLimit, numWords);
+    // Note we do not check whether the keyHash is valid to save gas.
+    // The consequence for users is that they can send requests
+    // for invalid keyHashes which will simply not be fulfilled.
+    uint64 nonce = currentNonce + 1;
+    (uint256 requestId, uint256 preSeed) = computeRequestId(keyHash, msg.sender, subId, nonce);
+
+    storeRequestCommitment(requestId, msg.sender, subId, callbackGasLimit, numWords);
+    emitRandomWordsRequestedLog(requestId, preSeed, msg.sender, keyHash, subId, requestConfirmations, callbackGasLimit, numWords);
+    updateConsumerNonce(msg.sender, subId, nonce);
 
     return requestId;
+  }
+
+  function updateConsumerNonce(address consumer, uint64 subId, uint64 nonce) internal {
+    s_consumers[consumer][subId] = nonce;
   }
 
   /**

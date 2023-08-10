@@ -55,7 +55,7 @@ compileContract vrf/VRFOwner.sol
 
 # VRF V2Plus
 compileContract dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol
-compileContractAltOpts dev/vrf/VRFCoordinatorV2Plus.sol 1000
+compileContractAltOpts dev/vrf/VRFCoordinatorV2Plus.sol 7810
 compileContract dev/vrf/BatchVRFCoordinatorV2Plus.sol
 compileContract dev/vrf/VRFV2PlusWrapper.sol
 compileContract dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
@@ -81,4 +81,3 @@ compileContract vrf/testhelpers/VRFOwnerlessConsumerExample.sol
 compileContract vrf/testhelpers/VRFLoadTestOwnerlessConsumer.sol
 compileContract vrf/testhelpers/VRFLoadTestExternalSubOwner.sol
 compileContract vrf/testhelpers/VRFV2LoadTestWithMetrics.sol
-

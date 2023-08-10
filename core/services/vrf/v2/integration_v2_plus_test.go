@@ -139,9 +139,9 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	require.NoError(t, err)
 	backend.Commit()
 
-	_, err = coordinatorContract.RegisterMigratableCoordinator(neil, migrationTestCoordinatorAddress)
-	require.NoError(t, err)
-	backend.Commit()
+	// _, err = coordinatorContract.RegisterMigratableCoordinator(neil, migrationTestCoordinatorAddress)
+	// require.NoError(t, err)
+	// backend.Commit()
 
 	// Deploy batch VRF V2 coordinator
 	batchCoordinatorAddress, _, batchCoordinatorContract, err :=
