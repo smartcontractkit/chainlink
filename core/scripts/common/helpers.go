@@ -109,7 +109,7 @@ func SetupEnv(overrideNonce bool) Environment {
 	// Explicitly set gas price to ensure non-eip 1559
 	gp, err := ec.SuggestGasPrice(context.Background())
 	PanicErr(err)
-	fmt.Println("Suggested Gas Price:", gp)
+	fmt.Println("Suggested Gas Price:", gp, "wei")
 	owner.GasPrice = gp
 	gasLimit, set := os.LookupEnv("GAS_LIMIT")
 	if set {
