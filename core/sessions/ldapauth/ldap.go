@@ -70,8 +70,21 @@ func NewLDAPAuthenticator(
 		return nil, errors.New("LDAP Authentication driver requires TLS when running in Production mode")
 	}
 
+	// Ensure all RBAC role mappings to LDAP Groups are defined, and required fields populated, or error on startup
+	if ldapCfg.AdminUserGroupCn() == "" || ldapCfg.EditUserGroupCn() == "" ||
+		ldapCfg.RunUserGroupCn() == "" || ldapCfg.ReadUserGroupCn() == "" {
+		return nil, errors.New("LDAP Group mapping from server group name for all local RBAC role required. Set group names for `_UserGroupCn` fields")
+	}
+	if ldapCfg.ServerAddress() == "" {
+		return nil, errors.New("LDAP ServerAddress config required")
+	}
+	if ldapCfg.ReadOnlyUserLogin() == "" {
+		return nil, errors.New("LDAP ReadOnlyUserLogin config required")
+	}
+
 	ldapAuth := ldapAuthenticator{
 		q:           pg.NewQ(db, namedLogger, pgCfg),
+		config:      ldapCfg,
 		lggr:        lggr.Named("LDAPUserManager"),
 		auditLogger: auditLogger,
 	}

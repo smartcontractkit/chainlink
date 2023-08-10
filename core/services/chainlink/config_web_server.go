@@ -98,6 +98,7 @@ func (m *mfaConfig) RPOrigin() string {
 
 type webServerConfig struct {
 	c       toml.WebServer
+	s       toml.WebServerSecrets
 	rootDir func() string
 }
 
@@ -114,7 +115,7 @@ func (w *webServerConfig) MFA() config.MFA {
 }
 
 func (w *webServerConfig) LDAP() config.LDAP {
-	return &ldapConfig{c: w.c.LDAP}
+	return &ldapConfig{c: w.c.LDAP, s: w.s.LDAP}
 }
 
 func (w *webServerConfig) AuthenticationMethod() string {
@@ -178,22 +179,35 @@ func (w *webServerConfig) ListenIP() net.IP {
 }
 
 type ldapConfig struct {
-	c v2.WebServerLDAP
+	c toml.WebServerLDAP
+	s toml.WebServerLDAPSecrets
 }
 
 func (l *ldapConfig) ServerAddress() string {
-	return *l.c.ServerAddress
+	if l.s.ServerAddress == nil {
+		return ""
+	}
+	return *l.s.ServerAddress
 }
 
 func (l *ldapConfig) ReadOnlyUserLogin() string {
-	return *l.c.ReadOnlyUserLogin
+	if l.s.ReadOnlyUserLogin == nil {
+		return ""
+	}
+	return *l.s.ReadOnlyUserLogin
 }
 
 func (l *ldapConfig) ReadOnlyUserPass() string {
-	return *l.c.ReadOnlyUserPass
+	if l.s.ReadOnlyUserPass == nil {
+		return ""
+	}
+	return *l.s.ReadOnlyUserPass
 }
 
 func (l *ldapConfig) ServerTLS() bool {
+	if l.c.ServerTLS == nil {
+		return false
+	}
 	return *l.c.ServerTLS
 }
 
@@ -210,49 +224,85 @@ func (l *ldapConfig) UserAPITokenDuration() time.Duration {
 }
 
 func (l *ldapConfig) BaseUserAttr() string {
+	if l.c.BaseUserAttr == nil {
+		return ""
+	}
 	return *l.c.BaseUserAttr
 }
 
 func (l *ldapConfig) BaseDn() string {
+	if l.c.BaseDn == nil {
+		return ""
+	}
 	return *l.c.BaseDn
 }
 
 func (l *ldapConfig) UsersDn() string {
+	if l.c.UsersDn == nil {
+		return ""
+	}
 	return *l.c.UsersDn
 }
 
 func (l *ldapConfig) GroupsDn() string {
+	if l.c.GroupsDn == nil {
+		return ""
+	}
 	return *l.c.GroupsDn
 }
 
 func (l *ldapConfig) ActiveAttribute() string {
+	if l.c.ActiveAttribute == nil {
+		return ""
+	}
 	return *l.c.ActiveAttribute
 }
 
 func (l *ldapConfig) ActiveAttributeAllowedValue() string {
+	if l.c.ActiveAttributeAllowedValue == nil {
+		return ""
+	}
 	return *l.c.ActiveAttributeAllowedValue
 }
 
 func (l *ldapConfig) AdminUserGroupCn() string {
+	if l.c.AdminUserGroupCn == nil {
+		return ""
+	}
 	return *l.c.AdminUserGroupCn
 }
 
 func (l *ldapConfig) EditUserGroupCn() string {
+	if l.c.EditUserGroupCn == nil {
+		return ""
+	}
 	return *l.c.EditUserGroupCn
 }
 
 func (l *ldapConfig) RunUserGroupCn() string {
+	if l.c.RunUserGroupCn == nil {
+		return ""
+	}
 	return *l.c.RunUserGroupCn
 }
 
 func (l *ldapConfig) ReadUserGroupCn() string {
+	if l.c.ReadUserGroupCn == nil {
+		return ""
+	}
 	return *l.c.ReadUserGroupCn
 }
 
 func (l *ldapConfig) UserApiTokenEnabled() bool {
+	if l.c.UserApiTokenEnabled == nil {
+		return false
+	}
 	return *l.c.UserApiTokenEnabled
 }
 
 func (l *ldapConfig) UpstreamSyncInterval() models.Duration {
+	if l.c.UpstreamSyncInterval == nil {
+		return models.Duration{}
+	}
 	return *l.c.UpstreamSyncInterval
 }

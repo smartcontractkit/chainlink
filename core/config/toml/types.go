@@ -101,6 +101,7 @@ func (c *Core) ValidateConfig() (err error) {
 type Secrets struct {
 	Database   DatabaseSecrets          `toml:",omitempty"`
 	Password   Passwords                `toml:",omitempty"`
+	WebServer  WebServerSecrets         `toml:",omitempty"`
 	Pyroscope  PyroscopeSecrets         `toml:",omitempty"`
 	Prometheus PrometheusSecrets        `toml:",omitempty"`
 	Mercury    MercurySecrets           `toml:",omitempty"`
@@ -652,6 +653,7 @@ func (w *WebServer) setFrom(f *WebServer) {
 	w.MFA.setFrom(&f.MFA)
 	w.RateLimit.setFrom(&f.RateLimit)
 	w.TLS.setFrom(&f.TLS)
+	w.LDAP.setFrom(&f.LDAP)
 }
 
 type WebServerMFA struct {
@@ -721,9 +723,6 @@ func (w *WebServerTLS) setFrom(f *WebServerTLS) {
 }
 
 type WebServerLDAP struct {
-	ServerAddress               *string
-	ReadOnlyUserLogin           *string
-	ReadOnlyUserPass            *string
 	ServerTLS                   *bool
 	SessionTimeout              *models.Duration
 	QueryTimeout                *models.Duration
@@ -743,15 +742,6 @@ type WebServerLDAP struct {
 }
 
 func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
-	if v := f.ServerAddress; v != nil {
-		w.ServerAddress = v
-	}
-	if v := f.ReadOnlyUserLogin; v != nil {
-		w.ReadOnlyUserLogin = v
-	}
-	if v := f.ReadOnlyUserPass; v != nil {
-		w.ReadOnlyUserPass = v
-	}
 	if v := f.ServerTLS; v != nil {
 		w.ServerTLS = v
 	}
@@ -800,6 +790,16 @@ func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 	if v := f.UpstreamSyncInterval; v != nil {
 		w.UpstreamSyncInterval = v
 	}
+}
+
+type WebServerLDAPSecrets struct {
+	ServerAddress     *string
+	ReadOnlyUserLogin *string
+	ReadOnlyUserPass  *string
+}
+
+type WebServerSecrets struct {
+	LDAP WebServerLDAPSecrets
 }
 
 type JobPipeline struct {
