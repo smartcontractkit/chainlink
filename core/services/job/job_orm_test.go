@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -16,6 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
