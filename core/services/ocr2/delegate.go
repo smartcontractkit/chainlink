@@ -1093,6 +1093,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 			endpoint,
 			hb,
 			lggr,
+			cd,
 			rgstry.Registry,
 		)
 
