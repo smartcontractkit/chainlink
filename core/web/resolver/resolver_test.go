@@ -27,7 +27,7 @@ import (
 	pipelineMocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
 	webhookmocks "github.com/smartcontractkit/chainlink/v2/core/services/webhook/mocks"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
-	sessionsMocks "github.com/smartcontractkit/chainlink/v2/core/sessions/mocks"
+	sessionsMocks "github.com/smartcontractkit/chainlink/v2/core/sessions/localauth/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 	"github.com/smartcontractkit/chainlink/v2/core/web/schema"

@@ -230,25 +230,25 @@ func (l *ldapConfig) BaseUserAttr() string {
 	return *l.c.BaseUserAttr
 }
 
-func (l *ldapConfig) BaseDn() string {
-	if l.c.BaseDn == nil {
+func (l *ldapConfig) BaseDN() string {
+	if l.c.BaseDN == nil {
 		return ""
 	}
-	return *l.c.BaseDn
+	return *l.c.BaseDN
 }
 
-func (l *ldapConfig) UsersDn() string {
-	if l.c.UsersDn == nil {
+func (l *ldapConfig) UsersDN() string {
+	if l.c.UsersDN == nil {
 		return ""
 	}
-	return *l.c.UsersDn
+	return *l.c.UsersDN
 }
 
-func (l *ldapConfig) GroupsDn() string {
-	if l.c.GroupsDn == nil {
+func (l *ldapConfig) GroupsDN() string {
+	if l.c.GroupsDN == nil {
 		return ""
 	}
-	return *l.c.GroupsDn
+	return *l.c.GroupsDN
 }
 
 func (l *ldapConfig) ActiveAttribute() string {
@@ -265,32 +265,32 @@ func (l *ldapConfig) ActiveAttributeAllowedValue() string {
 	return *l.c.ActiveAttributeAllowedValue
 }
 
-func (l *ldapConfig) AdminUserGroupCn() string {
-	if l.c.AdminUserGroupCn == nil {
+func (l *ldapConfig) AdminUserGroupCN() string {
+	if l.c.AdminUserGroupCN == nil {
 		return ""
 	}
-	return *l.c.AdminUserGroupCn
+	return *l.c.AdminUserGroupCN
 }
 
-func (l *ldapConfig) EditUserGroupCn() string {
-	if l.c.EditUserGroupCn == nil {
+func (l *ldapConfig) EditUserGroupCN() string {
+	if l.c.EditUserGroupCN == nil {
 		return ""
 	}
-	return *l.c.EditUserGroupCn
+	return *l.c.EditUserGroupCN
 }
 
-func (l *ldapConfig) RunUserGroupCn() string {
-	if l.c.RunUserGroupCn == nil {
+func (l *ldapConfig) RunUserGroupCN() string {
+	if l.c.RunUserGroupCN == nil {
 		return ""
 	}
-	return *l.c.RunUserGroupCn
+	return *l.c.RunUserGroupCN
 }
 
-func (l *ldapConfig) ReadUserGroupCn() string {
-	if l.c.ReadUserGroupCn == nil {
+func (l *ldapConfig) ReadUserGroupCN() string {
+	if l.c.ReadUserGroupCN == nil {
 		return ""
 	}
-	return *l.c.ReadUserGroupCn
+	return *l.c.ReadUserGroupCN
 }
 
 func (l *ldapConfig) UserApiTokenEnabled() bool {

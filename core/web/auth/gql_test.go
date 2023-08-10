@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
-	"github.com/smartcontractkit/chainlink/v2/core/sessions/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 )
 

@@ -40,15 +40,15 @@ type LDAP interface {
 	SessionTimeout() models.Duration
 	QueryTimeout() time.Duration
 	BaseUserAttr() string
-	BaseDn() string
-	UsersDn() string
-	GroupsDn() string
+	BaseDN() string
+	UsersDN() string
+	GroupsDN() string
 	ActiveAttribute() string
 	ActiveAttributeAllowedValue() string
-	AdminUserGroupCn() string
-	EditUserGroupCn() string
-	RunUserGroupCn() string
-	ReadUserGroupCn() string
+	AdminUserGroupCN() string
+	EditUserGroupCN() string
+	RunUserGroupCN() string
+	ReadUserGroupCN() string
 	UserApiTokenEnabled() bool
 	UserAPITokenDuration() time.Duration
 	UpstreamSyncInterval() models.Duration

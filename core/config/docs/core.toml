@@ -161,8 +161,8 @@ MaxAgeDays = 0 # Default
 MaxBackups = 1 # Default
 
 [WebServer]
-# Authentication mechanism defines which pluggable auth interface to use for user login and role assumption. Options include 'local' and 'ldap'. See docs for more details
-AuthenticationMethod = 'local'
+# AuthenticationMethod defines which pluggable auth interface to use for user login and role assumption. Options include 'local' and 'ldap'. See docs for more details
+AuthenticationMethod = 'local' # Default
 # AllowOrigins controls the URLs Chainlink nodes emit in the `Allow-Origins` header of its API responses. The setting can be a comma-separated list with no spaces. You might experience CORS issues if this is not set correctly.
 #
 # You should set this to the external URL that you use to access the Chainlink UI.
@@ -193,9 +193,9 @@ StartTimeout = '15s' # Default
 # ListenIP specifies the IP to bind the HTTP server to
 ListenIP = '0.0.0.0' # Default
 
-[WebServer.LDAP]
 # Optional LDAP config if WebServer.AuthenticationMethod is set to 'ldap'
 # LDAP queries are all parameterized to support custom LDAP 'dn', 'cn', and attributes 
+[WebServer.LDAP]
 # ServerTLS defines the option to require the secure ldaps
 ServerTLS = true # Default
 # SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
@@ -204,24 +204,24 @@ SessionTimeout = '15m0s' # Default
 QueryTimeout = '2m0s' # Default
 # BaseUserAttr defines the base attribute used to populate LDAP queries such as "uid=$", default is example
 BaseUserAttr = 'uid' # Default
-# BaseDn defines the base LDAP 'dn' search filter to apply to every LDAP query, replace example,com with the appropriate LDAP server's structure
-BaseDn = 'dc=custom,dc=example,dc=com'
-# UsersDn defines the 'dn' query to use when querying for the 'users' 'ou' group
-UsersDn = 'ou=users' # Default
-# GroupsDn defines the 'dn' query to use when querying for the 'groups' 'ou' group
-GroupsDn = 'ou=groups' # Default
+# BaseDN defines the base LDAP 'dn' search filter to apply to every LDAP query, replace example,com with the appropriate LDAP server's structure
+BaseDN = 'dc=custom,dc=example,dc=com' # Example
+# UsersDN defines the 'dn' query to use when querying for the 'users' 'ou' group
+UsersDN = 'ou=users' # Default
+# GroupsDN defines the 'dn' query to use when querying for the 'groups' 'ou' group
+GroupsDN = 'ou=groups' # Default
 # ActiveAttribute is an optional user field to check truthiness for if a user is valid/active 
 ActiveAttribute = 'organizationalStatus' # Default
 # ActiveAttributeAllowedValue is the value to check against for the above optional user attribute
 ActiveAttributeAllowedValue = 'ACTIVE' # Default
-# AdminUserGroupCn is the LDAP 'cn' of the LDAP group that maps the core node's 'Admin' role
-AdminUserGroupCn = 'NodeAdmins' # Default
-# EditUserGroupCn is the LDAP 'cn' of the LDAP group that maps the core node's 'Edit' role
-EditUserGroupCn = 'NodeEditors' # Default
-# RunUserGroupCn is the LDAP 'cn' of the LDAP group that maps the core node's 'Run' role
-RunUserGroupCn = 'NodeRunners' # Default
-# ReadUserGroupCn is the LDAP 'cn' of the LDAP group that maps the core node's 'Read' role
-ReadUserGroupCn = 'NodeReadOnly' # Default
+# AdminUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Admin' role
+AdminUserGroupCN = 'NodeAdmins' # Default
+# EditUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Edit' role
+EditUserGroupCN = 'NodeEditors' # Default
+# RunUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Run' role
+RunUserGroupCN = 'NodeRunners' # Default
+# ReadUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Read' role
+ReadUserGroupCN = 'NodeReadOnly' # Default
 # UserApiTokenEnabled enables the users to issue API tokens with the same access of their role
 UserApiTokenEnabled = false # Default
 # UserAPITokenDuration is the duration of time an API token is active for before expiring

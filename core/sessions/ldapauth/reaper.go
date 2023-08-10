@@ -58,29 +58,29 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 		ldSync.lggr.Errorf("Failed to Dial LDAP Server", err)
 	}
 	// Root level root user auth with credentials provided from config
-	bindStr := ldSync.config.BaseUserAttr() + "=" + ldSync.config.ReadOnlyUserLogin() + "," + ldSync.config.BaseDn()
+	bindStr := ldSync.config.BaseUserAttr() + "=" + ldSync.config.ReadOnlyUserLogin() + "," + ldSync.config.BaseDN()
 	if err := conn.Bind(bindStr, ldSync.config.ReadOnlyUserPass()); err != nil {
 		ldSync.lggr.Errorf("Unable to login as initial root LDAP user", err)
 	}
 	defer conn.Close()
 
 	// Query for list of uniqueMember IDs present in Admin group
-	adminUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.AdminUserGroupCn(), sessions.UserRoleAdmin)
+	adminUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.AdminUserGroupCN(), sessions.UserRoleAdmin)
 	if err != nil {
 		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	editUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.EditUserGroupCn(), sessions.UserRoleEdit)
+	editUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.EditUserGroupCN(), sessions.UserRoleEdit)
 	if err != nil {
 		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	runUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.RunUserGroupCn(), sessions.UserRoleRun)
+	runUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.RunUserGroupCN(), sessions.UserRoleRun)
 	if err != nil {
 		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	readUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.ReadUserGroupCn(), sessions.UserRoleView)
+	readUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.ReadUserGroupCN(), sessions.UserRoleView)
 	if err != nil {
 		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 	}
@@ -134,7 +134,7 @@ func (ldSync *LDAPServerStateSyncer) deleteStaleSessions(before time.Time) error
 func (l *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn *ldap.Conn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
 	users := []sessions.User{}
 	// Prepare and query the GroupsDN for the specified group name
-	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDn(), l.config.BaseDn())
+	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDN(), l.config.BaseDN())
 	filterQuery := fmt.Sprintf("(&(cn=%s))", groupNameCN)
 	searchRequest := ldap.NewSearchRequest(
 		searchBaseDN,

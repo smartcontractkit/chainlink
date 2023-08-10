@@ -727,15 +727,15 @@ type WebServerLDAP struct {
 	SessionTimeout              *models.Duration
 	QueryTimeout                *models.Duration
 	BaseUserAttr                *string
-	BaseDn                      *string
-	UsersDn                     *string
-	GroupsDn                    *string
+	BaseDN                      *string
+	UsersDN                     *string
+	GroupsDN                    *string
 	ActiveAttribute             *string
 	ActiveAttributeAllowedValue *string
-	AdminUserGroupCn            *string
-	EditUserGroupCn             *string
-	RunUserGroupCn              *string
-	ReadUserGroupCn             *string
+	AdminUserGroupCN            *string
+	EditUserGroupCN             *string
+	RunUserGroupCN              *string
+	ReadUserGroupCN             *string
 	UserApiTokenEnabled         *bool
 	UserAPITokenDuration        *models.Duration
 	UpstreamSyncInterval        *models.Duration
@@ -757,14 +757,14 @@ func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 	if v := f.BaseUserAttr; v != nil {
 		w.BaseUserAttr = v
 	}
-	if v := f.BaseDn; v != nil {
-		w.BaseDn = v
+	if v := f.BaseDN; v != nil {
+		w.BaseDN = v
 	}
-	if v := f.UsersDn; v != nil {
-		w.UsersDn = v
+	if v := f.UsersDN; v != nil {
+		w.UsersDN = v
 	}
-	if v := f.GroupsDn; v != nil {
-		w.GroupsDn = v
+	if v := f.GroupsDN; v != nil {
+		w.GroupsDN = v
 	}
 	if v := f.ActiveAttribute; v != nil {
 		w.ActiveAttribute = v
@@ -772,17 +772,17 @@ func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 	if v := f.ActiveAttributeAllowedValue; v != nil {
 		w.ActiveAttributeAllowedValue = v
 	}
-	if v := f.AdminUserGroupCn; v != nil {
-		w.AdminUserGroupCn = v
+	if v := f.AdminUserGroupCN; v != nil {
+		w.AdminUserGroupCN = v
 	}
-	if v := f.EditUserGroupCn; v != nil {
-		w.EditUserGroupCn = v
+	if v := f.EditUserGroupCN; v != nil {
+		w.EditUserGroupCN = v
 	}
-	if v := f.RunUserGroupCn; v != nil {
-		w.RunUserGroupCn = v
+	if v := f.RunUserGroupCN; v != nil {
+		w.RunUserGroupCN = v
 	}
-	if v := f.ReadUserGroupCn; v != nil {
-		w.ReadUserGroupCn = v
+	if v := f.ReadUserGroupCN; v != nil {
+		w.ReadUserGroupCN = v
 	}
 	if v := f.UserApiTokenEnabled; v != nil {
 		w.UserApiTokenEnabled = v

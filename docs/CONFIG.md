@@ -459,6 +459,7 @@ MaxBackups determines the maximum number of old log files to retain. Keeping thi
 ## WebServer
 ```toml
 [WebServer]
+AuthenticationMethod = 'local' # Default
 AllowOrigins = 'http://localhost:3000,http://localhost:6688' # Default
 BridgeCacheTTL = '0s' # Default
 BridgeResponseURL = 'https://my-chainlink-node.example.com:6688' # Example
@@ -472,6 +473,12 @@ StartTimeout = '15s' # Default
 ListenIP = '0.0.0.0' # Default
 ```
 
+
+### AuthenticationMethod
+```toml
+AuthenticationMethod = 'local' # Default
+```
+AuthenticationMethod defines which pluggable auth interface to use for user login and role assumption. Options include 'local' and 'ldap'. See docs for more details
 
 ### AllowOrigins
 ```toml
@@ -545,6 +552,125 @@ StartTimeout defines the maximum amount of time the node will wait for a server 
 ListenIP = '0.0.0.0' # Default
 ```
 ListenIP specifies the IP to bind the HTTP server to
+
+## WebServer.LDAP
+```toml
+[WebServer.LDAP]
+ServerTLS = true # Default
+SessionTimeout = '15m0s' # Default
+QueryTimeout = '2m0s' # Default
+BaseUserAttr = 'uid' # Default
+BaseDN = 'dc=custom,dc=example,dc=com' # Example
+UsersDN = 'ou=users' # Default
+GroupsDN = 'ou=groups' # Default
+ActiveAttribute = 'organizationalStatus' # Default
+ActiveAttributeAllowedValue = 'ACTIVE' # Default
+AdminUserGroupCN = 'NodeAdmins' # Default
+EditUserGroupCN = 'NodeEditors' # Default
+RunUserGroupCN = 'NodeRunners' # Default
+ReadUserGroupCN = 'NodeReadOnly' # Default
+UserApiTokenEnabled = false # Default
+UserAPITokenDuration = '240h0m0s' # Default
+UpstreamSyncInterval = '2m0s' # Default
+```
+Optional LDAP config if WebServer.AuthenticationMethod is set to 'ldap'
+LDAP queries are all parameterized to support custom LDAP 'dn', 'cn', and attributes
+
+### ServerTLS
+```toml
+ServerTLS = true # Default
+```
+ServerTLS defines the option to require the secure ldaps
+
+### SessionTimeout
+```toml
+SessionTimeout = '15m0s' # Default
+```
+SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
+
+### QueryTimeout
+```toml
+QueryTimeout = '2m0s' # Default
+```
+QueryTimeout defines how long queries should wait before timing out, defined in seconds
+
+### BaseUserAttr
+```toml
+BaseUserAttr = 'uid' # Default
+```
+BaseUserAttr defines the base attribute used to populate LDAP queries such as "uid=$", default is example
+
+### BaseDN
+```toml
+BaseDN = 'dc=custom,dc=example,dc=com' # Example
+```
+BaseDN defines the base LDAP 'dn' search filter to apply to every LDAP query, replace example,com with the appropriate LDAP server's structure
+
+### UsersDN
+```toml
+UsersDN = 'ou=users' # Default
+```
+UsersDN defines the 'dn' query to use when querying for the 'users' 'ou' group
+
+### GroupsDN
+```toml
+GroupsDN = 'ou=groups' # Default
+```
+GroupsDN defines the 'dn' query to use when querying for the 'groups' 'ou' group
+
+### ActiveAttribute
+```toml
+ActiveAttribute = 'organizationalStatus' # Default
+```
+ActiveAttribute is an optional user field to check truthiness for if a user is valid/active
+
+### ActiveAttributeAllowedValue
+```toml
+ActiveAttributeAllowedValue = 'ACTIVE' # Default
+```
+ActiveAttributeAllowedValue is the value to check against for the above optional user attribute
+
+### AdminUserGroupCN
+```toml
+AdminUserGroupCN = 'NodeAdmins' # Default
+```
+AdminUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Admin' role
+
+### EditUserGroupCN
+```toml
+EditUserGroupCN = 'NodeEditors' # Default
+```
+EditUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Edit' role
+
+### RunUserGroupCN
+```toml
+RunUserGroupCN = 'NodeRunners' # Default
+```
+RunUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Run' role
+
+### ReadUserGroupCN
+```toml
+ReadUserGroupCN = 'NodeReadOnly' # Default
+```
+ReadUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Read' role
+
+### UserApiTokenEnabled
+```toml
+UserApiTokenEnabled = false # Default
+```
+UserApiTokenEnabled enables the users to issue API tokens with the same access of their role
+
+### UserAPITokenDuration
+```toml
+UserAPITokenDuration = '240h0m0s' # Default
+```
+UserAPITokenDuration is the duration of time an API token is active for before expiring
+
+### UpstreamSyncInterval
+```toml
+UpstreamSyncInterval = '2m0s' # Default
+```
+UpstreamSyncInterval is the interval at which the background sync task validates that sessions stored in the local ldap tables are still valid with the upstream state of the ldap server
 
 ## WebServer.RateLimit
 ```toml

@@ -70,9 +70,9 @@ func NewLDAPAuthenticator(
 	}
 
 	// Ensure all RBAC role mappings to LDAP Groups are defined, and required fields populated, or error on startup
-	if ldapCfg.AdminUserGroupCn() == "" || ldapCfg.EditUserGroupCn() == "" ||
-		ldapCfg.RunUserGroupCn() == "" || ldapCfg.ReadUserGroupCn() == "" {
-		return nil, errors.New("LDAP Group mapping from server group name for all local RBAC role required. Set group names for `_UserGroupCn` fields")
+	if ldapCfg.AdminUserGroupCN() == "" || ldapCfg.EditUserGroupCN() == "" ||
+		ldapCfg.RunUserGroupCN() == "" || ldapCfg.ReadUserGroupCN() == "" {
+		return nil, errors.New("LDAP Group mapping from server group name for all local RBAC role required. Set group names for `_UserGroupCN` fields")
 	}
 	if ldapCfg.ServerAddress() == "" {
 		return nil, errors.New("LDAP ServerAddress config required")
@@ -128,8 +128,8 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	// List query user groups using the provided email, on success is a list of group the uniquemember belongs to
 	// data is readily available
 	escapedEmail := ldap.EscapeFilter(email)
-	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDn(), l.config.BaseDn())
-	filterQuery := fmt.Sprintf("(&(uniquemember=%s=%s,%s,%s))", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDn(), l.config.BaseDn())
+	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDN(), l.config.BaseDN())
+	filterQuery := fmt.Sprintf("(&(uniquemember=%s=%s,%s,%s))", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
 	searchRequest := ldap.NewSearchRequest(
 		searchBaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases,
@@ -224,25 +224,25 @@ func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 	defer conn.Close()
 
 	// Query for list of uniqueMember IDs present in Admin group
-	adminUsers, err := l.ldapGroupMembersListToUser(conn, l.config.AdminUserGroupCn(), sessions.UserRoleAdmin)
+	adminUsers, err := l.ldapGroupMembersListToUser(conn, l.config.AdminUserGroupCN(), sessions.UserRoleAdmin)
 	if err != nil {
 		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 		return users, errors.New("Unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	editUsers, err := l.ldapGroupMembersListToUser(conn, l.config.EditUserGroupCn(), sessions.UserRoleEdit)
+	editUsers, err := l.ldapGroupMembersListToUser(conn, l.config.EditUserGroupCN(), sessions.UserRoleEdit)
 	if err != nil {
 		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 		return users, errors.New("Unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	runUsers, err := l.ldapGroupMembersListToUser(conn, l.config.RunUserGroupCn(), sessions.UserRoleRun)
+	runUsers, err := l.ldapGroupMembersListToUser(conn, l.config.RunUserGroupCN(), sessions.UserRoleRun)
 	if err != nil {
 		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 		return users, errors.New("Unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	readUsers, err := l.ldapGroupMembersListToUser(conn, l.config.ReadUserGroupCn(), sessions.UserRoleView)
+	readUsers, err := l.ldapGroupMembersListToUser(conn, l.config.ReadUserGroupCN(), sessions.UserRoleView)
 	if err != nil {
 		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 		return users, errors.New("Unable to list group users")
@@ -295,7 +295,7 @@ func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 func (l *ldapAuthenticator) ldapGroupMembersListToUser(conn *ldap.Conn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
 	users := []sessions.User{}
 	// Prepare and query the GroupsDN for the specified group name
-	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDn(), l.config.BaseDn())
+	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDN(), l.config.BaseDN())
 	filterQuery := fmt.Sprintf("(&(cn=%s))", groupNameCN)
 	searchRequest := ldap.NewSearchRequest(
 		searchBaseDN,
@@ -396,7 +396,7 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 
 	// Attempt to LDAP Bind with user provided credentials
 	escapedEmail := ldap.EscapeFilter(strings.ToLower(sr.Email))
-	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDn(), l.config.BaseDn())
+	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
 	if err := conn.Bind(searchBaseDN, sr.Password); err != nil {
 		l.lggr.Infof("Error binding user authentication request in LDAP Bind: %v", err)
 		returnErr = errors.New("Unable to log in with LDAP server. Check credentials")
@@ -473,7 +473,7 @@ func (l *ldapAuthenticator) TestPassword(email string, password string) error {
 	defer conn.Close()
 	// Attempt to LDAP Bind with user provided credentials
 	escapedEmail := ldap.EscapeFilter(strings.ToLower(email))
-	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDn(), l.config.BaseDn())
+	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
 	if err := conn.Bind(searchBaseDN, password); err != nil {
 		l.lggr.Infof("Error binding user authentication request in TestPassword call LDAP Bind: %v", err)
 		return errors.New("Invalid credentials")
@@ -613,7 +613,7 @@ func (l *ldapAuthenticator) dialAndConnect() (*ldap.Conn, error) {
 		return nil, errors.Wrap(err, "Failed to Dial LDAP Server")
 	}
 	// Root level root user auth with credentials provided from config
-	bindStr := l.config.BaseUserAttr() + "=" + l.config.ReadOnlyUserLogin() + "," + l.config.BaseDn()
+	bindStr := l.config.BaseUserAttr() + "=" + l.config.ReadOnlyUserLogin() + "," + l.config.BaseDN()
 	if err := conn.Bind(bindStr, l.config.ReadOnlyUserPass()); err != nil {
 		return nil, errors.Wrap(err, "Unable to login as initial root LDAP user")
 	}
@@ -645,9 +645,9 @@ func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error)
 	orQuery := ""
 	for _, email := range emails {
 		escapedEmail := ldap.EscapeFilter(email)
-		orQuery += fmt.Sprintf("(uniquemember=%s=%s,%s,%s)", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDn(), l.config.BaseDn())
+		orQuery += fmt.Sprintf("(uniquemember=%s=%s,%s,%s)", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
 	}
-	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDn(), l.config.BaseDn())
+	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDN(), l.config.BaseDN())
 	filterQuery := fmt.Sprintf("(|%s)", orQuery)
 	searchRequest := ldap.NewSearchRequest(
 		searchBaseDN,
@@ -685,25 +685,25 @@ func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error)
 func (l *ldapAuthenticator) groupSearchResultsToUserRole(ldapGroups []*ldap.Entry) (sessions.UserRole, error) {
 	// If defined Admin group name is present in groups search result, return UserRoleAdmin
 	for _, group := range ldapGroups {
-		if group.GetAttributeValue("cn") == l.config.AdminUserGroupCn() {
+		if group.GetAttributeValue("cn") == l.config.AdminUserGroupCN() {
 			return sessions.UserRoleAdmin, nil
 		}
 	}
 	// Check edit role
 	for _, group := range ldapGroups {
-		if group.GetAttributeValue("cn") == l.config.EditUserGroupCn() {
+		if group.GetAttributeValue("cn") == l.config.EditUserGroupCN() {
 			return sessions.UserRoleEdit, nil
 		}
 	}
 	// Check run role
 	for _, group := range ldapGroups {
-		if group.GetAttributeValue("cn") == l.config.RunUserGroupCn() {
+		if group.GetAttributeValue("cn") == l.config.RunUserGroupCN() {
 			return sessions.UserRoleRun, nil
 		}
 	}
 	// Check view role
 	for _, group := range ldapGroups {
-		if group.GetAttributeValue("cn") == l.config.ReadUserGroupCn() {
+		if group.GetAttributeValue("cn") == l.config.ReadUserGroupCN() {
 			return sessions.UserRoleView, nil
 		}
 	}
