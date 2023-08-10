@@ -242,6 +242,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
+			if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil && jb.OCR2OracleSpec.TransmitterID.Valid {
+				return errors.New("sending keys and transmitter ID can't both be defined")
+			}
+
 			// checks if they are present and if they are valid
 			sendingKeysDefined, err := areSendingKeysDefined(jb, o.keyStore)
 			if err != nil {
@@ -250,10 +254,6 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 			if !sendingKeysDefined && !jb.OCR2OracleSpec.TransmitterID.Valid {
 				return errors.New("neither sending keys nor transmitter ID is defined")
-			}
-
-			if sendingKeysDefined && jb.OCR2OracleSpec.TransmitterID.Valid {
-				return errors.New("sending keys and transmitter ID can't both be defined")
 			}
 
 			if !sendingKeysDefined {
