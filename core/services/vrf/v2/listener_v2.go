@@ -54,9 +54,6 @@ var (
 	batchCoordinatorV2ABI                    = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 	batchCoordinatorV2PlusABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusABI)
 	vrfOwnerABI                              = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
-	// RandomWordsRequestedV2PlusABI is the ABI of the RandomWordsRequested event
-	// for V2Plus.
-	RandomWordsRequestedV2PlusABI = coordinatorV2PlusABI.Events["RandomWordsRequested"].Sig
 )
 
 const (
