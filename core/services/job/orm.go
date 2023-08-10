@@ -38,6 +38,7 @@ import (
 var (
 	ErrNoSuchKeyBundle      = errors.New("no such key bundle exists")
 	ErrNoSuchTransmitterKey = errors.New("no such transmitter key exists")
+	ErrNoSuchSendingKey     = errors.New("no such sending key exists")
 	ErrNoSuchPublicKey      = errors.New("no such public key exists")
 )
 
@@ -242,6 +243,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
+			if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil && jb.OCR2OracleSpec.TransmitterID.Valid {
+				return errors.New("sending keys and transmitter ID can't both be defined")
+			}
+
 			// checks if they are present and if they are valid
 			sendingKeysDefined, err := areSendingKeysDefined(jb, o.keyStore)
 			if err != nil {
@@ -252,13 +257,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.New("neither sending keys nor transmitter ID is defined")
 			}
 
-			if sendingKeysDefined && jb.OCR2OracleSpec.TransmitterID.Valid {
-				return errors.New("sending keys and transmitter ID can't both be defined")
-			}
-
 			if !sendingKeysDefined {
-				if err = validateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
-					return err
+				if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
+					return errors.Wrap(ErrNoSuchTransmitterKey, err.Error())
 				}
 			}
 
@@ -452,34 +453,34 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	return o.findJob(jb, "id", jobID, qopts...)
 }
 
-// validateKeyStoreMatch confirms that the key has a valid match in the keystore
-func validateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
+// ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
+func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
 	if spec.PluginType == Mercury {
 		_, err := keyStore.CSA().Get(key)
 		if err != nil {
-			return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", key)
+			return errors.Errorf("no CSA key matching: %q", key)
 		}
 	} else {
 		switch spec.Relay {
 		case relay.EVM:
 			_, err := keyStore.Eth().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", key)
+				return errors.Errorf("no EVM key matching: %q", key)
 			}
 		case relay.Cosmos:
 			_, err := keyStore.Cosmos().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", key)
+				return errors.Errorf("no Cosmos key matching: %q", key)
 			}
 		case relay.Solana:
 			_, err := keyStore.Solana().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", key)
+				return errors.Errorf("no Solana key matching: %q", key)
 			}
 		case relay.StarkNet:
 			_, err := keyStore.StarkNet().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", key)
+				return errors.Errorf("no Starknet key matching: %q", key)
 			}
 		}
 	}
@@ -494,8 +495,8 @@ func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
 		}
 
 		for _, sendingKey := range sendingKeys {
-			if err = validateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
-				return false, err
+			if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
+				return false, errors.Wrap(ErrNoSuchSendingKey, err.Error())
 			}
 		}
 

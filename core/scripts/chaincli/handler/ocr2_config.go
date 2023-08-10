@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/olekukonko/tablewriter"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocr2config "github.com/smartcontractkit/ocr2keepers/pkg/config"
+	ocr2keepers20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 )
@@ -112,7 +112,7 @@ func printConfigValues(config *confighelper.PublicConfig) {
 	data = append(data, []string{"MaxDurationShouldTransmitAcceptedReport", config.MaxDurationShouldTransmitAcceptedReport.String()})
 	data = append(data, []string{"F", fmt.Sprintf("%v", config.F)})
 
-	if offConf, err := ocr2config.DecodeOffchainConfig(config.ReportingPluginConfig); err == nil {
+	if offConf, err := ocr2keepers20config.DecodeOffchainConfig(config.ReportingPluginConfig); err == nil {
 		data = append(data, []string{"", ""})
 		data = append(data, []string{"TargetProbability", offConf.TargetProbability})
 		data = append(data, []string{"GasLimitPerReport", fmt.Sprintf("%d", offConf.GasLimitPerReport)})
