@@ -25,7 +25,7 @@ jobs:
         run: ./operator_ui/check.sh
 
       - name: Assume role capable of dispatching action
-        uses: aws-actions/configure-aws-credentials@ea7b857d8a33dc2fb4ef5a724500044281b49a5e # v1.6.0
+        uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355 # v2.2.0
         with:
           role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_AUTO_PR_TOKEN_ISSUER_ROLE_ARN }}
           role-duration-seconds: ${{ secrets.aws-role-duration-seconds }}
