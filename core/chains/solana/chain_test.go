@@ -13,9 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -44,72 +43,70 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	solORM := &mockConfigs{}
-	lggr := logger.TestLogger(t)
-	testChain := chain{
-		id:          "devnet",
-		statuser:    solORM,
-		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
-		lggr:        logger.TestLogger(t),
-		clientCache: map[string]*verifiedCachedClient{},
+	testChainID := "devnet"
+	cfg := &SolanaConfig{
+		ChainID: &testChainID,
+	}
+	cfg.Chain.SetDefaults()
+	cfg.nodes = SolanaNodes{
+		{
+			Name: &testChainID,
+			URL:  utils.MustParseURL(mockServer.URL + "/1"),
+		},
+		{
+			Name: &testChainID,
+			URL:  utils.MustParseURL(mockServer.URL + "/2"),
+		},
 	}
 
-	// random nodes (happy path, all valid)
-	solORM.nodesForChain = []db.Node{
-		{
-			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/1",
-		},
-		{
-			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/2",
-		},
+	testChain := chain{
+		id:          testChainID,
+		cfg:         cfg,
+		lggr:        logger.TestLogger(t),
+		clientCache: map[string]*verifiedCachedClient{},
 	}
 	_, err := testChain.getClient()
 	assert.NoError(t, err)
 
 	// random nodes (happy path, 1 valid + multiple invalid)
-	solORM.nodesForChain = []db.Node{
+	cfg.nodes = SolanaNodes{
 		{
-			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/1",
+			Name: &testChainID,
+			URL:  utils.MustParseURL(mockServer.URL + "/1"),
 		},
 		{
-			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/mismatch/1",
+			Name: &testChainID,
+			URL:  utils.MustParseURL(mockServer.URL + "/mismatch/1"),
 		},
 		{
-			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/mismatch/2",
+			Name: &testChainID,
+			URL:  utils.MustParseURL(mockServer.URL + "/mismatch/2"),
 		},
 		{
-			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/mismatch/3",
-		},
-		{
-			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/mismatch/4",
+			Name: &testChainID,
+			URL:  utils.MustParseURL(mockServer.URL + "/mismatch/3"),
 		},
 	}
 	_, err = testChain.getClient()
 	assert.NoError(t, err)
 
 	// empty nodes response
-	solORM.nodesForChain = nil
+	cfg.nodes = SolanaNodes{}
 	_, err = testChain.getClient()
 	assert.Error(t, err)
 
 	// no valid nodes to select from
-	solORM.nodesForChain = []db.Node{
+	cfg.nodes = SolanaNodes{
 		{
-			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/mismatch/1",
+			Name: &testChainID,
+			URL:  utils.MustParseURL(mockServer.URL + "/mismatch/1"),
 		},
 		{
-			SolanaChainID: "devnet",
-			SolanaURL:     mockServer.URL + "/mismatch/2",
+			Name: &testChainID,
+			URL:  utils.MustParseURL(mockServer.URL + "/mismatch/2"),
 		},
 	}
+
 	_, err = testChain.getClient()
 	assert.NoError(t, err)
 }
@@ -139,16 +136,23 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	lggr := logger.TestLogger(t)
+	testChainID := "devnet"
+	cfg := &SolanaConfig{
+		ChainID: &testChainID,
+	}
+	cfg.Chain.SetDefaults()
+	cfg.nodes = SolanaNodes{
+		//	{URL: utils.MustParseURL(mockServer.URL)},
+	}
 	testChain := chain{
-		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
+		cfg:         cfg,
 		lggr:        logger.TestLogger(t),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
 	node := db.Node{SolanaURL: mockServer.URL}
 
 	// happy path
-	testChain.id = "devnet"
+	testChain.id = testChainID
 	_, err := testChain.verifiedClient(node)
 	assert.NoError(t, err)
 
@@ -177,10 +181,17 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	lggr := logger.TestLogger(t)
+	testChainID := "devnet"
+	cfg := &SolanaConfig{
+		ChainID: &testChainID,
+	}
+	cfg.Chain.SetDefaults()
+	cfg.nodes = SolanaNodes{
+		//	{URL: utils.MustParseURL(mockServer.URL)},
+	}
 	testChain := chain{
-		id:          "devnet",
-		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
+		id:          testChainID,
+		cfg:         cfg,
 		lggr:        logger.TestLogger(t),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
@@ -211,27 +222,4 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 	// check if pointers are all the same
 	assert.Equal(t, testChain.clientCache[mockServer.URL], client0)
 	assert.Equal(t, testChain.clientCache[mockServer.URL], client1)
-}
-
-var _ ConfigStater = &mockConfigs{}
-
-type mockConfigs struct {
-	nodesForChain []db.Node
-}
-
-func (m *mockConfigs) ChainStatus() (types.ChainStatus, error) {
-	panic("unimplemented")
-}
-
-func (m *mockConfigs) Nodes(names ...string) ([]db.Node, error) {
-	if len(names) != 0 {
-		panic("expected to list all nodes")
-	}
-	return m.nodesForChain, nil
-}
-
-func (m *mockConfigs) NodeStatus(s string) (types.NodeStatus, error) { panic("unimplemented") }
-
-func (m *mockConfigs) NodeStatusesPaged(offset, limit int) (nodes []types.NodeStatus, count int, err error) {
-	panic("unimplemented")
 }

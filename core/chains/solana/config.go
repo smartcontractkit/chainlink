@@ -139,6 +139,8 @@ type SolanaConfig struct {
 	nodes SolanaNodes
 }
 
+var _ ConfigStater = &SolanaConfig{}
+
 func (c *SolanaConfig) ChainStatus() (stat types.ChainStatus, err error) {
 
 	stat = types.ChainStatus{
@@ -154,6 +156,7 @@ func (c *SolanaConfig) ChainStatus() (stat types.ChainStatus, err error) {
 }
 
 func (c *SolanaConfig) Nodes(names ...string) (nodes []soldb.Node, err error) {
+	nodes = make([]soldb.Node, 0)
 	filter := func(filterFn func(node *solcfg.Node) bool) {
 		for _, n := range c.nodes {
 			if n.Name != nil {
@@ -176,7 +179,7 @@ func (c *SolanaConfig) Nodes(names ...string) (nodes []soldb.Node, err error) {
 	return nodes, nil
 }
 
-func (c SolanaConfig) NodeStatuses(names ...string) ([]types.NodeStatus, error) {
+func (c *SolanaConfig) NodeStatuses(names ...string) ([]types.NodeStatus, error) {
 	legacyNodes, err := c.Nodes(names...)
 	if err != nil {
 		return nil, err
@@ -197,7 +200,42 @@ func (c SolanaConfig) NodeStatuses(names ...string) ([]types.NodeStatus, error) 
 		stats = append(stats, stat)
 	}
 	return stats, err
+}
 
+func (c *SolanaConfig) NodeStatus(name string) (types.NodeStatus, error) {
+	stat, err := c.NodeStatuses(name)
+	if err != nil {
+		return types.NodeStatus{}, err
+	}
+	if len(stat) == 0 {
+		return types.NodeStatus{}, fmt.Errorf("node not found")
+	}
+	return stat[0], nil
+}
+
+func (c *SolanaConfig) NodeStatusesPaged(offset, limit int) ([]types.NodeStatus, int, error) {
+	var (
+		empty []types.NodeStatus
+		count int
+	)
+
+	stats, err := c.NodeStatuses()
+	if err != nil {
+		return empty, count, err
+	}
+	count = len(stats)
+
+	if offset > count {
+		return empty, count, fmt.Errorf("offset out of bound %d > %d", offset, count)
+	}
+	if limit <= 0 {
+		return stats[offset:], count, nil
+	}
+	end := offset + limit
+	if end > count {
+		end = count
+	}
+	return stats[offset:end], count, nil
 }
 
 func (c *SolanaConfig) IsEnabled() bool {

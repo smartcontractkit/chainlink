@@ -88,12 +88,12 @@ func (c ChainID) Int64() (int64, error) {
 type RelayerExt interface {
 	services.ServiceCtx
 
-	ChainStatus(ctx context.Context, id string) (types.ChainStatus, error)
-	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
+	ChainStatus(ctx context.Context) (types.ChainStatus, error)
+	//ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
 
-	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
+	NodeStatuses(ctx context.Context, offset, limit int) (nodes []types.NodeStatus, count int, err error)
 
-	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
+	SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 var _ loop.Relayer = (*relayerAdapter)(nil)

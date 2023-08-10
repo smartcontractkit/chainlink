@@ -38,13 +38,12 @@ var _ solana.Chain = (*chain)(nil)
 type chain struct {
 	utils.StartStopOnce
 	id             string
-	cfg            config.Config
+	cfg            *SolanaConfig //config.Config
 	txm            *txm.Txm
 	balanceMonitor services.ServiceCtx
 	//TODO any reason that this is not static?
 	//nodes          func() (nodes []db.Node, err error)
-	lggr     logger.Logger
-	statuser ConfigStater
+	lggr logger.Logger
 
 	// tracking node chain id for verification
 	clientCache map[string]*verifiedCachedClient // map URL -> {client, chainId} [mainnet/testnet/devnet/localnet]
@@ -174,12 +173,14 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 	return v.ReaderWriter.GetAccountInfoWithOpts(ctx, addr, opts)
 }
 
-func newChain(id string, cfg config.Config, opts ChainServiceOpts) (*chain, error) {
+// func newChain(id string, cfg config.Config, opts ChainOpts) (*chain, error) {
+func newChain(id string, cfg *SolanaConfig, opts ChainOpts) (*chain, error) {
+
 	lggr := logger.With(opts.Logger, "chainID", id, "chainSet", "solana")
 	var ch = chain{
-		id:          id,
-		cfg:         cfg,
-		statuser:    opts.ChainNodeStatuser,
+		id:  id,
+		cfg: cfg,
+
 		lggr:        logger.Named(opts.Logger, "Chain"),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
@@ -215,7 +216,7 @@ func (c *chain) Reader() (client.Reader, error) {
 func (c *chain) getClient() (client.ReaderWriter, error) {
 	var node db.Node
 	var client client.ReaderWriter
-	nodes, err := c.statuser.Nodes() // opt: pass static nodes set to constructor
+	nodes, err := c.cfg.Nodes() // opt: pass static nodes set to constructor
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}
@@ -288,7 +289,7 @@ func (c *chain) NodeStatuses(ctx context.Context, offset, limit int) (nodes []ty
 	}
 	ch := make(chan (result), 1)
 	go func() {
-		stats, cnt, err := c.statuser.NodeStatusesPaged(offset, limit)
+		stats, cnt, err := c.cfg.NodeStatusesPaged(offset, limit)
 		ch <- result{stats: stats, cnt: cnt, err: err}
 	}()
 
@@ -307,7 +308,7 @@ func (c *chain) ChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	}
 	ch := make(chan (result), 1)
 	go func() {
-		s, err := c.statuser.ChainStatus()
+		s, err := c.cfg.ChainStatus()
 		ch <- result{ChainStatus: s, error: err}
 	}()
 

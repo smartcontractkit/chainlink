@@ -79,19 +79,21 @@ func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCon
 		solLggr = r.Logger.Named("Solana")
 		signer  = &keystore.SolanaSigner{Solana: ks}
 	)
-
+	// TODO is this needed here or is it already validated?
+	err := chainCfgs.ValidateConfig()
+	if err != nil {
+		return nil, err
+	}
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
 		relayId := relay.Identifier{Network: relay.Solana, ChainID: relay.ChainID(*chainCfg.ChainID)}
 		// all the lower level APIs expect chainsets. create a single valued set per id
-		singleChainCfg := solana.SolanaConfigs{chainCfg}
+		//singleChainCfg := solana.SolanaConfigs{chainCfg}
 
 		if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
 
 			// setup the solana relayer to be a LOOP
-			tomls, err := toml.Marshal(struct {
-				Solana solana.SolanaConfigs
-			}{Solana: singleChainCfg})
+			chainTOML, err := toml.Marshal(chainCfg)
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
 			}
@@ -103,16 +105,16 @@ func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCon
 			if err != nil {
 				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
 			}
-			solanaRelayers[relayId] = loop.NewRelayerService(solLggr, r.GRPCOpts, solCmdFn, string(tomls), signer)
+			solanaRelayers[relayId] = loop.NewRelayerService(solLggr, r.GRPCOpts, solCmdFn, string(chainTOML), signer)
 
 		} else {
 			// fallback to embedded chainset
-			opts := solana.ChainSetOpts{
+			opts := solana.ChainOpts{
 				Logger:   solLggr,
 				KeyStore: signer,
-				Configs:  solana.NewConfigStater(singleChainCfg),
+				//	ChainNodeStatuser: solana.NewConfigStater(chainCfg),
 			}
-			chainSet, err := solana.NewChainSet(opts, singleChainCfg)
+			chainSet, err := solana.NewChain(chainCfg, opts)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load Solana chainset: %w", err)
 			}
