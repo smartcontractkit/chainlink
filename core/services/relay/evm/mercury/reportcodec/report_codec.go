@@ -100,6 +100,13 @@ func (r *EVMReportCodec) MaxReportLength(n int) (int, error) {
 	return maxReportLength, nil
 }
 
+func (r *EVMReportCodec) FeedIDFromReport(report ocrtypes.Report) (feedID [32]byte, err error) {
+	if n := copy(feedID[:], report); n != 32 {
+		return feedID, errors.Errorf("invalid length for report: %d", len(report))
+	}
+	return feedID, nil
+}
+
 func (r *EVMReportCodec) CurrentBlockNumFromReport(report ocrtypes.Report) (int64, error) {
 	reportElems := map[string]interface{}{}
 	if err := ReportTypes.UnpackIntoMap(reportElems, report); err != nil {

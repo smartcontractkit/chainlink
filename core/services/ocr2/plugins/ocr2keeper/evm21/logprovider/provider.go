@@ -13,13 +13,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -44,8 +44,8 @@ type LogEventProvider interface {
 	RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfig) error
 	// UnregisterFilter removes the filter for the given upkeepID.
 	UnregisterFilter(upkeepID *big.Int) error
-	// GetLogs returns the logs in the given range.
-	GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload, error)
+	// GetLatestPayloads returns the logs in the given range.
+	GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error)
 }
 
 type LogEventProviderTest interface {
@@ -54,8 +54,8 @@ type LogEventProviderTest interface {
 	CurrentPartitionIdx() uint64
 }
 
-var _ keepersflows.PayloadBuilder = &logEventProvider{}
-var _ keepersflows.LogEventProvider = &logEventProvider{}
+var _ ocr2keepers.PayloadBuilder = &logEventProvider{}
+var _ ocr2keepers.LogEventProvider = &logEventProvider{}
 
 // logEventProvider manages log filters for upkeeps and enables to read the log events.
 type logEventProvider struct {
@@ -127,12 +127,12 @@ func (p *logEventProvider) Close() error {
 	return nil
 }
 
-func (p *logEventProvider) BuildPayload(ctx context.Context, proposal ocr2keepers.CoordinatedProposal) (ocr2keepers.UpkeepPayload, error) {
+func (p *logEventProvider) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedProposal) ([]ocr2keepers.UpkeepPayload, error) {
 	// TODO: implement
-	return ocr2keepers.UpkeepPayload{}, nil
+	return []ocr2keepers.UpkeepPayload{}, nil
 }
 
-func (p *logEventProvider) GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latest := p.buffer.latestBlockSeen()
 	diff := latest - p.opts.LogBlocksLookback
 	if diff < 0 {
@@ -144,19 +144,25 @@ func (p *logEventProvider) GetLogs(context.Context) ([]ocr2keepers.UpkeepPayload
 	for _, l := range logs {
 		log := l.log
 		trig := ocr2keepers.NewTrigger(
-			log.BlockNumber,
-			log.BlockHash.Hex(),
-			LogTriggerExtension{
-				TxHash:   log.TxHash.Hex(),
-				LogIndex: log.LogIndex,
-			},
+			ocr2keepers.BlockNumber(log.BlockNumber),
+			log.BlockHash,
 		)
+		trig.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{
+			TxHash: log.TxHash,
+			Index:  uint32(log.LogIndex),
+		}
 		checkData, err := p.packer.PackLogData(log)
 		if err != nil {
 			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
 			continue
 		}
-		payload := ocr2keepers.NewUpkeepPayload(l.id, logTriggerType, ocr2keepers.BlockKey(fmt.Sprintf("%d", log.BlockNumber)), trig, checkData)
+
+		payload, err := core.NewUpkeepPayload(l.id, trig, checkData)
+		if err != nil {
+			// skip invalid payloads
+			continue
+		}
+
 		payloads = append(payloads, payload)
 	}
 

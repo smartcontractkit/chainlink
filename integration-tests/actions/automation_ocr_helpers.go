@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/ocr2keepers/pkg/config"
+	ocr2keepers20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -52,7 +52,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 		return contracts.OCRv2Config{}, err
 	}
 
-	offC, err := json.Marshal(config.OffchainConfig{
+	offC, err := json.Marshal(ocr2keepers20config.OffchainConfig{
 		TargetProbability:    "0.999",
 		TargetInRounds:       1,
 		PerformLockoutWindow: 3600000, // Intentionally set to be higher than in prod for testing purpose

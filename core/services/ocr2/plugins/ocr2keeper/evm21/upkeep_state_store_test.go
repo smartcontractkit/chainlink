@@ -1,75 +1,50 @@
 package evm
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	"github.com/ethereum/go-ethereum/common"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 var (
 	upkeepId1 = big.NewInt(100)
 	upkeepId2 = big.NewInt(200)
 	trigger1  = ocr2keepers.Trigger{
-		BlockNumber: 95,
-		BlockHash:   "0x1231eqwe12eqwd",
+		BlockNumber: block1,
+		BlockHash:   common.HexToHash("0x1"),
+		LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+			Index:  1,
+			TxHash: common.HexToHash("0x1"),
+		},
 	}
 	trigger2 = ocr2keepers.Trigger{
-		BlockNumber: 125,
-		BlockHash:   "0x1231eqwe12eqwd",
+		BlockNumber: block3,
+		BlockHash:   common.HexToHash("0x1"),
+		LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+			Index:  2, // a different BlockNumber isn't enough to generate a unique work ID, so we change the index here to generate a separate work ID
+			TxHash: common.HexToHash("0x1"),
+		},
 	}
-	payload2 = ocr2keepers.NewUpkeepPayload(upkeepId1, conditionalType, blockKey2, trigger1, []byte{})
-	payload3 = ocr2keepers.NewUpkeepPayload(upkeepId2, logTriggerType, blockKey2, trigger1, []byte{})
-	payload4 = ocr2keepers.NewUpkeepPayload(upkeepId1, logTriggerType, blockKey1, trigger2, []byte{})
-	payload5 = ocr2keepers.NewUpkeepPayload(upkeepId1, logTriggerType, blockKey3, trigger1, []byte{})
+	payload2, _ = core.NewUpkeepPayload(upkeepId1, trigger1, []byte{})
+	payload3, _ = core.NewUpkeepPayload(upkeepId2, trigger1, []byte{})
+	payload4, _ = core.NewUpkeepPayload(upkeepId1, trigger2, []byte{})
+	payload5, _ = core.NewUpkeepPayload(upkeepId1, trigger1, []byte{})
 )
 
 const (
-	conditionalType = 0
-	logTriggerType  = 1
-	block1          = 111
-	block3          = 113
-	blockKey1       = "111|0x123123132132"
-	blockKey2       = "112|0x565456465465"
-	blockKey3       = "113|0x111423246546"
-	invalidBlockKey = "2220x565456465465"
+	block1 = 111
+	block3 = 113
 )
-
-func TestUpkeepStateStore_InvalidBlockKey(t *testing.T) {
-	tests := []struct {
-		name          string
-		payloads      []ocr2keepers.UpkeepPayload
-		states        []ocr2keepers.UpkeepState
-		expectedError error
-	}{
-		{
-			name: "failed to split invalid block key",
-			payloads: []ocr2keepers.UpkeepPayload{
-				ocr2keepers.NewUpkeepPayload(upkeepId2, logTriggerType, invalidBlockKey, trigger1, []byte{}),
-			},
-			states:        []ocr2keepers.UpkeepState{ocr2keepers.Performed},
-			expectedError: fmt.Errorf("check block %s is invalid for upkeep %s", invalidBlockKey, upkeepId2),
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			store := NewUpkeepStateStore(logger.TestLogger(t))
-			for i, p := range tc.payloads {
-				err := store.SetUpkeepState(p, tc.states[i])
-				require.Equal(t, err, tc.expectedError)
-			}
-		})
-	}
-}
 
 func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 	p := ocr2keepers.Performed
-	e := ocr2keepers.Eligible
+	e := ocr2keepers.Ineligible
 
 	tests := []struct {
 		name          string
@@ -93,8 +68,8 @@ func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 				payload4,
 				payload5, // this overrides payload 2 bc they have the same payload ID
 			},
-			states: []ocr2keepers.UpkeepState{ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Eligible},
-			oldIds: []string{payload2.ID, payload3.ID, payload4.ID},
+			states: []ocr2keepers.UpkeepState{ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Ineligible},
+			oldIds: []string{payload2.WorkID, payload3.WorkID, payload4.WorkID},
 			oldIdResult: []upkeepState{
 				{
 					payload: &payload3,
@@ -105,7 +80,7 @@ func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
 					state:   &p,
 				},
 			},
-			newIds: []string{payload3.ID, payload4.ID, payload5.ID},
+			newIds: []string{payload3.WorkID, payload4.WorkID, payload5.WorkID},
 			newIdResult: []upkeepState{
 				{
 					payload: &payload3,

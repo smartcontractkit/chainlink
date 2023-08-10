@@ -7,7 +7,8 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -90,7 +91,7 @@ func TestTransmitEventProvider(t *testing.T) {
 			mp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, nil)
 			mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.logs, nil)
 
-			res, err := provider.Events(ctx)
+			res, err := provider.GetLatestEvents(ctx)
 			require.Equal(t, tc.errored, err != nil)
 			require.Len(t, res, tc.resultsLen)
 		})
@@ -99,7 +100,7 @@ func TestTransmitEventProvider(t *testing.T) {
 
 func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 	provider := &TransmitEventProvider{}
-	id := genUpkeepID(logTrigger, "111")
+	id := genUpkeepID(ocr2keepers.LogTrigger, "1111111111111111")
 	tests := []struct {
 		name        string
 		performed   []transmitEventLog
@@ -116,7 +117,11 @@ func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 						BlockHash:   common.HexToHash("0x0102030405060708010203040506070801020304050607080102030405060708"),
 					},
 					Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
-						Id: id,
+						Id: id.BigInt(),
+						Trigger: func() []byte {
+							b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000001111111000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+							return b
+						}(),
 					},
 				},
 			},
@@ -124,8 +129,8 @@ func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 			[]ocr2keepers.TransmitEvent{
 				{
 					Type:       ocr2keepers.PerformEvent,
-					UpkeepID:   ocr2keepers.UpkeepIdentifier(id.Bytes()),
-					CheckBlock: ocr2keepers.BlockKey(""), // empty for log triggers
+					UpkeepID:   id,
+					CheckBlock: ocr2keepers.BlockNumber(0), // empty for log triggers
 				},
 			},
 			false,
@@ -154,7 +159,7 @@ func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 }
 
 func TestTransmitEventLog(t *testing.T) {
-	uid := genUpkeepID(conditionTrigger, "111")
+	uid := genUpkeepID(ocr2keepers.ConditionTrigger, "111")
 
 	tests := []struct {
 		name  string
@@ -169,7 +174,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
 				Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
-					Id:      uid,
+					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
 			},
@@ -183,7 +188,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
 				Stale: &iregistry21.IKeeperRegistryMasterStaleUpkeepReport{
-					Id:      uid,
+					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
 			},
@@ -197,7 +202,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
 				InsufficientFunds: &iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{
-					Id:      uid,
+					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
 			},
@@ -211,7 +216,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
 				Reorged: &iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{
-					Id:      uid,
+					Id:      uid.BigInt(),
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
 			},
@@ -232,8 +237,8 @@ func TestTransmitEventLog(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			if tc.log.Id() != nil {
-				require.Equal(t, uid.Int64(), tc.log.Id().Int64())
-				require.Equal(t, "069d79304de8a5f4505a921893750ab549ec93837c5a99df2fb6fc827834fae7", tc.log.TriggerID())
+				require.Equal(t, uid.BigInt().Int64(), tc.log.Id().Int64())
+				require.Equal(t, []byte{0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8}, tc.log.Trigger())
 			}
 			require.Equal(t, tc.etype, tc.log.TransmitEventType())
 		})
