@@ -724,7 +724,7 @@ type WebServerLDAP struct {
 	ServerAddress               *string
 	ReadOnlyUserLogin           *string
 	ReadOnlyUserPass            *string
-	ServerTls                   *bool
+	ServerTLS                   *bool
 	SessionTimeout              *models.Duration
 	QueryTimeout                *models.Duration
 	BaseUserAttr                *string
@@ -752,8 +752,8 @@ func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 	if v := f.ReadOnlyUserPass; v != nil {
 		w.ReadOnlyUserPass = v
 	}
-	if v := f.ServerTls; v != nil {
-		w.ServerTls = v
+	if v := f.ServerTLS; v != nil {
+		w.ServerTLS = v
 	}
 	if v := f.SessionTimeout; v != nil {
 		w.SessionTimeout = v

@@ -193,8 +193,8 @@ func (l *ldapConfig) ReadOnlyUserPass() string {
 	return *l.c.ReadOnlyUserPass
 }
 
-func (l *ldapConfig) ServerTls() bool {
-	return *l.c.ServerTls
+func (l *ldapConfig) ServerTLS() bool {
+	return *l.c.ServerTLS
 }
 
 func (r *ldapConfig) SessionTimeout() models.Duration {

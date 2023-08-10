@@ -195,8 +195,8 @@ ListenIP = '0.0.0.0' # Default
 
 [WebServer.LDAP]
 # Optional LDAP config if WebServer.AuthenticationMethod is set to 'ldap'
-# ServerTls defines the option to require the secure ldaps
-ServerTls = true # Default
+# ServerTLS defines the option to require the secure ldaps
+ServerTLS = true # Default
 # SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
 SessionTimeout = '15m0s' # Default
 # QueryTimeout defines how long queries should wait before timing out, defined in seconds

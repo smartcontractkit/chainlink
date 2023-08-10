@@ -36,7 +36,7 @@ type LDAP interface {
 	ServerAddress() string
 	ReadOnlyUserLogin() string
 	ReadOnlyUserPass() string
-	ServerTls() bool
+	ServerTLS() bool
 	SessionTimeout() models.Duration
 	QueryTimeout() time.Duration
 	BaseUserAttr() string

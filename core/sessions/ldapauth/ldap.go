@@ -66,7 +66,7 @@ func NewLDAPAuthenticator(
 	namedLogger := lggr.Named("LDAPUserManager")
 
 	// If not chainlink dev and not tls, error
-	if !dev && !ldapCfg.ServerTls() {
+	if !dev && !ldapCfg.ServerTLS() {
 		return nil, errors.New("LDAP Authentication driver requires TLS when running in Production mode")
 	}
 
@@ -85,9 +85,6 @@ func NewLDAPAuthenticator(
 		return nil, errors.Errorf("Unable to establish connection to LDAP server with provided URL and credentials: %v", err)
 	}
 	conn.Close()
-
-	// TODO(Andrew): how long cache, and how long sync upstream
-	// define util sleeper worker
 
 	// Store LDAP connection config for auth/new connection per request instead of persisted connection with reconnect
 	return &ldapAuth, nil
@@ -152,6 +149,10 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 
 // FindUserByAPIToken retrieves a possible stored user and role from the ldap_user_api_tokens table store
 func (l *ldapAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User, error) {
+	if !l.config.UserApiTokenEnabled() {
+		return sessions.User{}, errors.New("API token is not enabled ")
+	}
+
 	var foundUser sessions.User
 	err := l.q.Transaction(func(tx pg.Queryer) error {
 		// Query the ldap user API token table for given token, user role and email are cached so
@@ -455,6 +456,10 @@ func (l *ldapAuthenticator) CreateAndSetAuthToken(user *sessions.User) (*auth.To
 
 // SetAuthToken updates the user to use the given Authentication Token.
 func (l *ldapAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token) error {
+	if !l.config.UserApiTokenEnabled() {
+		return errors.New("API token is not enabled ")
+	}
+
 	salt := utils.NewSecret(utils.DefaultSecretSize)
 	hashedSecret, err := auth.HashedSecret(token, salt)
 	if err != nil {
