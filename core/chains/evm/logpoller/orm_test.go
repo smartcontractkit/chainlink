@@ -1062,7 +1062,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			blockNumber, err := th.ORM.SelectLatestBlockNumberEventSigsAddrsWithConfs(tt.events, tt.addrs, tt.confs)
+			blockNumber, err := th.ORM.SelectLatestBlockNumberEventSigsAddrsWithConfs(0, tt.events, tt.addrs, tt.confs)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedBlockNumber, blockNumber)
 		})
