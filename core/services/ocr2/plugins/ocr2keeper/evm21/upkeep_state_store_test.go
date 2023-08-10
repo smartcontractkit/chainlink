@@ -1,134 +1,137 @@
 package evm
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
-var (
-	upkeepId1 = big.NewInt(100)
-	upkeepId2 = big.NewInt(200)
-	trigger1  = ocr2keepers.Trigger{
-		BlockNumber: block1,
-		BlockHash:   common.HexToHash("0x1"),
-		LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-			Index:  1,
-			TxHash: common.HexToHash("0x1"),
-		},
-	}
-	trigger2 = ocr2keepers.Trigger{
-		BlockNumber: block3,
-		BlockHash:   common.HexToHash("0x1"),
-		LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-			Index:  2, // a different BlockNumber isn't enough to generate a unique work ID, so we change the index here to generate a separate work ID
-			TxHash: common.HexToHash("0x1"),
-		},
-	}
-	payload2, _ = core.NewUpkeepPayload(upkeepId1, trigger1, []byte{})
-	payload3, _ = core.NewUpkeepPayload(upkeepId2, trigger1, []byte{})
-	payload4, _ = core.NewUpkeepPayload(upkeepId1, trigger2, []byte{})
-	payload5, _ = core.NewUpkeepPayload(upkeepId1, trigger1, []byte{})
-)
-
-const (
-	block1 = 111
-	block3 = 113
-)
-
-func TestUpkeepStateStore_OverrideUpkeepStates(t *testing.T) {
-	p := ocr2keepers.Performed
-	e := ocr2keepers.Ineligible
-
-	tests := []struct {
-		name          string
-		payloads      []ocr2keepers.UpkeepPayload
-		states        []ocr2keepers.UpkeepState
-		expectedError error
-		oldIds        []string
-		oldIdResult   []upkeepState
-		newIds        []string
-		newIdResult   []upkeepState
-		upkeepIds     []*big.Int
-		endBlock      int64
-		startBlock    int64
-		result        []upkeepState
-	}{
+func TestUpkeepStateStore_SelectByWorkIDs(t *testing.T) {
+	workIDs := []string{"a", "b", "c", "d"}
+	inserts := []ocr2keepers.CheckResult{
 		{
-			name: "overrides existing upkeep states",
-			payloads: []ocr2keepers.UpkeepPayload{
-				payload2,
-				payload3,
-				payload4,
-				payload5, // this overrides payload 2 bc they have the same payload ID
+			UpkeepID: createUpkeepIDForTest(1),
+			WorkID:   workIDs[0],
+			Eligible: false,
+			Trigger: ocr2keepers.Trigger{
+				BlockNumber: ocr2keepers.BlockNumber(1),
 			},
-			states: []ocr2keepers.UpkeepState{ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Performed, ocr2keepers.Ineligible},
-			oldIds: []string{payload2.WorkID, payload3.WorkID, payload4.WorkID},
-			oldIdResult: []upkeepState{
-				{
-					payload: &payload3,
-					state:   &p,
-				},
-				{
-					payload: &payload4,
-					state:   &p,
-				},
+		},
+		{
+			UpkeepID: createUpkeepIDForTest(2),
+			WorkID:   workIDs[1],
+			Eligible: false,
+			Trigger: ocr2keepers.Trigger{
+				BlockNumber: ocr2keepers.BlockNumber(2),
 			},
-			newIds: []string{payload3.WorkID, payload4.WorkID, payload5.WorkID},
-			newIdResult: []upkeepState{
-				{
-					payload: &payload3,
-					state:   &p,
-				},
-				{
-					payload: &payload4,
-					state:   &p,
-				},
-				{
-					payload: &payload5,
-					state:   &e,
-				},
-			},
-
-			upkeepIds:  []*big.Int{upkeepId1},
-			endBlock:   block3 + 1,
-			startBlock: block1,
-			result: []upkeepState{
-				{
-					payload: &payload5,
-					state:   &e,
-				},
-				{
-					payload: &payload4,
-					state:   &p,
-				},
+		},
+		{
+			UpkeepID: createUpkeepIDForTest(3),
+			WorkID:   workIDs[2],
+			Eligible: false,
+			Trigger: ocr2keepers.Trigger{
+				BlockNumber: ocr2keepers.BlockNumber(3),
 			},
 		},
 	}
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			store := NewUpkeepStateStore(logger.TestLogger(t))
-			for i, p := range tc.payloads {
-				err := store.SetUpkeepState(p, tc.states[i])
-				require.Equal(t, err, tc.expectedError)
-			}
-
-			pl, us, err := store.SelectByUpkeepIDsAndBlockRange(tc.upkeepIds, tc.startBlock, tc.endBlock)
-			require.Nil(t, err)
-			require.Equal(t, len(tc.result), len(pl))
-			require.Equal(t, len(tc.result), len(us))
-			for j, r := range tc.result {
-				require.Equal(t, r.payload, pl[j])
-				require.Equal(t, r.state, us[j])
-			}
-
-		})
+	expected := map[string]ocr2keepers.UpkeepState{
+		workIDs[0]: ocr2keepers.Ineligible,
+		workIDs[1]: ocr2keepers.Ineligible,
+		workIDs[2]: ocr2keepers.Ineligible,
 	}
+
+	store := NewUpkeepStateStore(logger.TestLogger(t))
+
+	for _, insert := range inserts {
+		assert.NoError(t, store.SetUpkeepState(context.Background(), insert, ocr2keepers.Performed), "storing states should not produce an error")
+	}
+
+	states, err := store.SelectByWorkIDs(workIDs...)
+	assert.NoError(t, err, "no error expected from selecting states")
+
+	assert.Equal(t, expected, states, "upkeep state values should match expected")
+}
+
+func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
+	t.Run("should not save state for upkeep eligible", func(t *testing.T) {
+		uid := &ocr2keepers.UpkeepIdentifier{}
+		_ = uid.FromBigInt(big.NewInt(1))
+
+		store := NewUpkeepStateStore(logger.TestLogger(t))
+
+		assert.NoError(t, store.SetUpkeepState(context.Background(), ocr2keepers.CheckResult{
+			UpkeepID: *uid,
+			WorkID:   "test",
+			Eligible: true,
+		}, ocr2keepers.Ineligible), "setting state should not return an error")
+
+		assert.Len(t, store.states, 0, "should not add to upkeep states")
+	})
+
+	t.Run("should insert new state when ineligible and state does not exist in store and ignore state input", func(t *testing.T) {
+		uid := &ocr2keepers.UpkeepIdentifier{}
+		_ = uid.FromBigInt(big.NewInt(1))
+
+		store := NewUpkeepStateStore(logger.TestLogger(t))
+		input := ocr2keepers.CheckResult{
+			UpkeepID: *uid,
+			WorkID:   "test",
+			Trigger: ocr2keepers.Trigger{
+				BlockNumber: ocr2keepers.BlockNumber(1),
+			},
+			Eligible: false,
+		}
+
+		assert.NoError(t, store.SetUpkeepState(context.Background(), input, ocr2keepers.Performed))
+
+		require.Len(t, store.states, 1, "should add to upkeep states")
+
+		assert.Equal(t, ocr2keepers.Ineligible, store.states[0].state, "stored state should be ineligible")
+		assert.Equal(t, input.UpkeepID, store.states[0].upkeepID, "stored upkeepID should match input")
+		assert.Equal(t, input.WorkID, store.states[0].workID, "stored workID should match input")
+		assert.Equal(t, uint64(input.Trigger.BlockNumber), store.states[0].block, "stored block should match input")
+	})
+
+	// when eligible and state exists in store, override state, ignore state input
+	t.Run("should override block when ineligible and state exists in store and ignore state input", func(t *testing.T) {
+		store := NewUpkeepStateStore(logger.TestLogger(t))
+		input := ocr2keepers.CheckResult{
+			UpkeepID: createUpkeepIDForTest(1),
+			WorkID:   "test",
+			Trigger: ocr2keepers.Trigger{
+				BlockNumber: ocr2keepers.BlockNumber(1),
+			},
+			Eligible: false,
+		}
+
+		assert.NoError(t, store.SetUpkeepState(context.Background(), input, ocr2keepers.Performed), "setting state should not return an error")
+
+		require.Len(t, store.states, 1, "should add to upkeep states")
+
+		// update the block number for the input to indicate a state data change
+		input.Trigger.BlockNumber = ocr2keepers.BlockNumber(5)
+
+		assert.NoError(t, store.SetUpkeepState(context.Background(), input, ocr2keepers.Performed), "setting state should not return an error")
+
+		require.Len(t, store.states, 1, "should update existing upkeep state")
+
+		assert.Equal(t, ocr2keepers.Ineligible, store.states[0].state, "stored state should be ineligible")
+		assert.Equal(t, input.UpkeepID, store.states[0].upkeepID, "stored upkeepID should match input")
+		assert.Equal(t, input.WorkID, store.states[0].workID, "stored workID should match input")
+		assert.Equal(t, uint64(input.Trigger.BlockNumber), store.states[0].block, "stored block should match input")
+	})
+}
+
+func createUpkeepIDForTest(v int64) ocr2keepers.UpkeepIdentifier {
+	uid := &ocr2keepers.UpkeepIdentifier{}
+	_ = uid.FromBigInt(big.NewInt(v))
+
+	return *uid
 }
