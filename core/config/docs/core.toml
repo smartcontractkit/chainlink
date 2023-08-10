@@ -195,6 +195,7 @@ ListenIP = '0.0.0.0' # Default
 
 [WebServer.LDAP]
 # Optional LDAP config if WebServer.AuthenticationMethod is set to 'ldap'
+# LDAP queries are all parameterized to support custom LDAP 'dn', 'cn', and attributes 
 # ServerTLS defines the option to require the secure ldaps
 ServerTLS = true # Default
 # SessionTimeout determines the amount of idle time to elapse before session cookies expire. This signs out GUI users from their sessions.
@@ -203,11 +204,11 @@ SessionTimeout = '15m0s' # Default
 QueryTimeout = '2m0s' # Default
 # BaseUserAttr defines the base attribute used to populate LDAP queries such as "uid=$", default is example
 BaseUserAttr = 'uid' # Default
-# BaseDn defines the base dn search filter to apply to every LDAP query, default is example
+# BaseDn defines the base LDAP 'dn' search filter to apply to every LDAP query, replace example,com with the appropriate LDAP server's structure
 BaseDn = 'dc=custom,dc=example,dc=com'
-# UsersDn defines the dn base of queries that need to return 'users' structured attributes 
+# UsersDn defines the 'dn' query to use when querying for the 'users' 'ou' group
 UsersDn = 'ou=users' # Default
-# GroupsDn defines the dn base of queries that need to return 'groups' structured attributes 
+# GroupsDn defines the 'dn' query to use when querying for the 'groups' 'ou' group
 GroupsDn = 'ou=groups' # Default
 # ActiveAttribute is an optional user field to check truthiness for if a user is valid/active 
 ActiveAttribute = 'organizationalStatus' # Default
