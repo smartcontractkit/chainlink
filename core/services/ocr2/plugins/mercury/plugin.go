@@ -21,6 +21,7 @@ import (
 	mercuryv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
 	mercuryv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3"
+	decoder "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/encoding"
 )
 
 type Config interface {
@@ -55,7 +56,10 @@ func NewServices(
 	}
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
-	version := 1
+	version, err := decoder.DecodeSchemaVersionFromFeedId(feedID)
+	if err != nil {
+		return nil, errors.WithStack(err)
+	}
 
 	switch version {
 	case 1:
@@ -79,12 +83,11 @@ func NewServices(
 			ocr2Provider.ReportCodecV1(),
 		)
 	case 2:
-		feedId := types.FeedID{} // todo: resolve feedId through Relay
 		ds := mercuryv2.NewDataSource(
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
-			feedId,
+			feedID,
 			lggr,
 			runResults,
 			chEnhancedTelem,
@@ -99,12 +102,11 @@ func NewServices(
 			ocr2Provider.ReportCodecV2(),
 		)
 	case 3:
-		feedId := types.FeedID{} // todo: resolve feedId through Relay
 		ds := mercuryv3.NewDataSource(
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
-			feedId,
+			feedID,
 			lggr,
 			runResults,
 			chEnhancedTelem,

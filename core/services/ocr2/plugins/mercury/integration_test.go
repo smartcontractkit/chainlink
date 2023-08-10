@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"encoding/binary"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -72,7 +73,9 @@ type Feed struct {
 }
 
 func randomFeedID() [32]byte {
-	return [32]byte(utils.NewHash())
+	id := [32]byte(utils.NewHash())
+	binary.BigEndian.PutUint16(id[:2], 1)
+	return id
 }
 
 func TestIntegration_Mercury(t *testing.T) {
