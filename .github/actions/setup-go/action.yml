@@ -36,7 +36,7 @@ runs:
           echo "gobuildcache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
 
       - uses: actions/cache@v3
-        if: ${{ inputs.cache-go-modules }}
+        if: ${{ inputs.cache-go-modules == 'true' }}
         name: Cache Go Modules
         with:
           path: |
