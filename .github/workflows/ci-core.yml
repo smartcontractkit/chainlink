@@ -153,6 +153,8 @@ jobs:
           prod: "true"
       - name: Setup Go
         uses: ./.github/actions/setup-go
+        with:
+          cache-go-modules: ${{ matrix.split.id == '1' }}
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
       - name: Setup wasmd
