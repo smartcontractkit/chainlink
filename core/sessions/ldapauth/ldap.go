@@ -108,9 +108,12 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	foundUser := sessions.User{}
 
 	// First query for user "is active" property if defined
-	err := l.validateUsersActive([]string{email})
+	usersActive, err := l.validateUsersActive([]string{email})
 	if err != nil {
 		return foundUser, errors.New("Error running query to validate user")
+	}
+	if usersActive[0] == false {
+		return foundUser, errors.New("User not active")
 	}
 
 	// Establish ephemeral connection
@@ -271,13 +274,21 @@ func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 	for _, user := range dedupedUsers {
 		emails = append(emails, user.Email)
 	}
-	err = l.validateUsersActive(emails)
+	activeUsers, err := l.validateUsersActive(emails)
 	if err != nil {
 		l.lggr.Errorf("Error validating supplied user list: ", err)
 		return users, errors.New("Error validating supplied user list")
 	}
 
-	return users, nil
+	// Filter non active users
+	returnUsers := []sessions.User{}
+	for i, active := range activeUsers {
+		if active {
+			returnUsers = append(returnUsers, dedupedUsers[i])
+		}
+	}
+
+	return returnUsers, nil
 }
 
 // ldapGroupMembersListToUser queries the LDAP server given a conn for a list of uniqueMember who are part of the parameterized group
@@ -610,18 +621,23 @@ func (l *ldapAuthenticator) dialAndConnect() (*ldap.Conn, error) {
 }
 
 // validateUsersActive performs an additional LDAP server query for the supplied email, checking the
-// return user data for an 'active' property defined optionally in the config
-func (l *ldapAuthenticator) validateUsersActive(emails []string) error {
+// return user data for an 'active' property defined optionally in the config. Returns same length bool array
+func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error) {
+	validUsers := make([]bool, len(emails))
 	// If active attribute to check is not defined in config, skip
 	if l.config.ActiveAttribute() != "" {
-		return nil
+		// fill with valids
+		for i, _ := range emails {
+			validUsers[i] = true
+		}
+		return validUsers, nil
 	}
 
 	// Establish ephemeral connection
 	conn, err := l.dialAndConnect()
 	if err != nil {
 		l.lggr.Errorf("Error in LDAP dial: ", err)
-		return errors.New("Unable to establish connection to LDAP server with provided URL and credentials")
+		return validUsers, errors.New("Unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
 
@@ -645,22 +661,23 @@ func (l *ldapAuthenticator) validateUsersActive(emails []string) error {
 	results, err := conn.Search(searchRequest)
 	if err != nil {
 		l.lggr.Errorf("Error searching user in LDAP query: %v", err)
-		return errors.New("Error searching users in LDAP directory")
+		return validUsers, errors.New("Error searching users in LDAP directory")
 	}
 
-	// Expect one search result
-	if len(results.Entries) != 1 {
-		return errors.New("Expected one result from user email query")
+	// Ensure user response entries
+	if len(results.Entries) == 0 {
+		return validUsers, errors.New("No users matching email query")
 	}
 
 	// Pull expected ActiveAttribute value from list of string possible values
-	attributeValues := results.Entries[0].GetAttributeValue(l.config.ActiveAttribute())
-	if attributeValues != l.config.ActiveAttributeAllowedValue() {
-		return errors.New("User is not active, config ActiveAttribute does not match expected ActiveAttributeAllowedValue")
+	// and set return bool array with Active truthiness value
+	for i, result := range results.Entries {
+		attributeValues := result.GetAttributeValue(l.config.ActiveAttribute())
+		if attributeValues == l.config.ActiveAttributeAllowedValue() {
+			validUsers[i] = true
+		}
 	}
-
-	// All checks passed
-	return nil
+	return validUsers, nil
 }
 
 // groupSearchResultsToUserRole takes a list of LDAP group search result entries and returns the associated
