@@ -296,10 +296,6 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     return requestId;
   }
 
-  function updateConsumerNonce(address consumer, uint256 subId, uint64 nonce) internal {
-    s_consumers[consumer][subId] = nonce;
-  }
-
   function computeRequestId(
     bytes32 keyHash,
     address sender,
