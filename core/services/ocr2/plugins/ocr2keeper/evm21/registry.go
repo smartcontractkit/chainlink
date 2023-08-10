@@ -683,34 +683,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 
 	for i, p := range payloads {
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
-		// verify check block number is not too old
-		if r.bs.latestBlock-block.Int64() > validCheckBlockRange {
-			r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock, block, upkeepId)
-			results[i] = ocr2keepers.CheckResult{
-				FailureReason: UPKEEP_FAILURE_REASON_CHECK_BLOCK_TOO_OLD,
-				UpkeepID:      p.UpkeepID,
-				Trigger:       p.Trigger,
-				WorkID:        p.WorkID,
-				FastGasWei:    big.NewInt(0),
-				LinkNative:    big.NewInt(0),
-			}
-			continue
-		}
-		h, ok := r.bs.blocks[block.Int64()]
-		if !ok || checkHash.Hex() != h {
-			if !ok {
-				r.lggr.Warnf("check block %s does not exist in block subscriber for upkeepId %s", block, upkeepId)
-			} else {
-				r.lggr.Warnf("check block %s hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", block, h, checkHash.Hex(), upkeepId)
-			}
-			results[i] = ocr2keepers.CheckResult{
-				FailureReason: UPKEEP_FAILURE_REASON_CHECK_BLOCK_INVALID,
-				UpkeepID:      p.UpkeepID,
-				Trigger:       p.Trigger,
-				WorkID:        p.WorkID,
-				FastGasWei:    big.NewInt(0),
-				LinkNative:    big.NewInt(0),
-			}
+		if !r.verifyCheckBlock(block, upkeepId, checkHash, p, i, results) {
 			continue
 		}
 
@@ -726,51 +699,8 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		uid.FromBigInt(upkeepId)
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
-			logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
-			logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
-			// if log block number is populated, check log block number and block hash
-			if logBlockNumber != 0 {
-				h, ok = r.bs.blocks[logBlockNumber]
-				if !ok {
-					r.lggr.Warnf("log block %d does not exist in block subscriber for upkeepId %s", logBlockNumber, upkeepId)
-					results[i] = ocr2keepers.CheckResult{
-						FailureReason: UPKEEP_FAILURE_REASON_LOG_BLOCK_NO_LONGER_EXISTS,
-						UpkeepID:      p.UpkeepID,
-						Trigger:       p.Trigger,
-						WorkID:        p.WorkID,
-						FastGasWei:    big.NewInt(0),
-						LinkNative:    big.NewInt(0),
-					}
-					continue
-				}
-				if h != logBlockHash.Hex() {
-					r.lggr.Warnf("log block %d hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", logBlockNumber, h, logBlockHash.Hex(), upkeepId)
-					results[i] = ocr2keepers.CheckResult{
-						FailureReason: UPKEEP_FAILURE_REASON_LOG_BLOCK_INVALID,
-						UpkeepID:      p.UpkeepID,
-						Trigger:       p.Trigger,
-						WorkID:        p.WorkID,
-						FastGasWei:    big.NewInt(0),
-						LinkNative:    big.NewInt(0),
-					}
-					continue
-				}
-			} else {
-				// use txHash to verify the log is still on the chain
-				var bn *big.Int
-				bn, _, err = r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
-				if err != nil || bn != nil {
-					r.lggr.Warnf("cannot get tx block for txHash %s for upkeepId %s", string(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
-					results[i] = ocr2keepers.CheckResult{
-						FailureReason: UPKEEP_FAILURE_REASON_TX_HASH_NO_LONGER_EXISTS,
-						UpkeepID:      p.UpkeepID,
-						Trigger:       p.Trigger,
-						WorkID:        p.WorkID,
-						FastGasWei:    big.NewInt(0),
-						LinkNative:    big.NewInt(0),
-					}
-					continue
-				}
+			if !r.verifyLogBlock(upkeepId, p, i, results) {
+				continue
 			}
 
 			// check data will include the log trigger config
@@ -1015,4 +945,66 @@ func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, err
 	}
 
 	return txr.BlockNumber, txr.BlockHash, nil
+}
+
+func (r *EvmRegistry) getCheckResult(p ocr2keepers.UpkeepPayload, failureReason uint8) ocr2keepers.CheckResult {
+	return ocr2keepers.CheckResult{
+		FailureReason: failureReason,
+		UpkeepID:      p.UpkeepID,
+		Trigger:       p.Trigger,
+		WorkID:        p.WorkID,
+		FastGasWei:    big.NewInt(0),
+		LinkNative:    big.NewInt(0),
+	}
+}
+
+// verifyCheckBlock checks that the check block and hash are valid
+func (r *EvmRegistry) verifyCheckBlock(checkBlock, upkeepId *big.Int, checkHash common.Hash, p ocr2keepers.UpkeepPayload, i int, results []ocr2keepers.CheckResult) bool {
+	// verify check block number is not too old
+	if r.bs.latestBlock-checkBlock.Int64() > validCheckBlockRange {
+		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock, checkBlock, upkeepId)
+		results[i] = r.getCheckResult(p, UPKEEP_FAILURE_REASON_CHECK_BLOCK_TOO_OLD)
+		return false
+	}
+	// verify check block number and hash are valid
+	h, ok := r.bs.blocks[checkBlock.Int64()]
+	if !ok || checkHash.Hex() != h {
+		if !ok {
+			r.lggr.Warnf("check block %s does not exist in block subscriber for upkeepId %s", checkBlock, upkeepId)
+		} else {
+			r.lggr.Warnf("check block %s hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", checkBlock, h, checkHash.Hex(), upkeepId)
+		}
+		results[i] = r.getCheckResult(p, UPKEEP_FAILURE_REASON_CHECK_BLOCK_INVALID)
+		return false
+	}
+
+	return true
+}
+
+func (r *EvmRegistry) verifyLogBlock(upkeepId *big.Int, p ocr2keepers.UpkeepPayload, i int, results []ocr2keepers.CheckResult) bool {
+	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
+	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
+	// if log block number is populated, check log block number and block hash
+	if logBlockNumber != 0 {
+		h, ok := r.bs.blocks[logBlockNumber]
+		if !ok {
+			r.lggr.Warnf("log block %d does not exist in block subscriber for upkeepId %s", logBlockNumber, upkeepId)
+			results[i] = r.getCheckResult(p, UPKEEP_FAILURE_REASON_LOG_BLOCK_NO_LONGER_EXISTS)
+			return false
+		}
+		if h != logBlockHash.Hex() {
+			r.lggr.Warnf("log block %d hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", logBlockNumber, h, logBlockHash.Hex(), upkeepId)
+			results[i] = r.getCheckResult(p, UPKEEP_FAILURE_REASON_LOG_BLOCK_INVALID)
+			return false
+		}
+	} else {
+		// use txHash to verify the log is still on the chain
+		bn, _, err := r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
+		if err != nil || bn != nil {
+			r.lggr.Warnf("cannot get tx block for txHash %s for upkeepId %s", string(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
+			results[i] = r.getCheckResult(p, UPKEEP_FAILURE_REASON_TX_HASH_NO_LONGER_EXISTS)
+			return false
+		}
+	}
+	return true
 }
