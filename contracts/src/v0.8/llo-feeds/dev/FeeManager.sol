@@ -74,7 +74,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   // @notice Thrown when the caller is not authorized
   error Unauthorized();
 
-
   /// @notice Emitted whenever a subscriber's discount is updated
   /// @param subscriber address of the subscriber to update discounts for
   /// @param feedId Feed ID for the discount
@@ -126,7 +125,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   modifier onlyOwnerOrProxy() {
-    if(msg.sender != owner() && msg.sender != i_proxyAddress) revert Unauthorized();
+    if (msg.sender != owner() && msg.sender != i_proxyAddress) revert Unauthorized();
     _;
   }
 
@@ -150,7 +149,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //get the feedId from the report
     bytes32 feedId = bytes32(report);
 
-    //v1 doesn't need a quote payload, so skip the decoding if the report is a v0 report
+    //v2 doesn't need a quote payload, so skip the decoding if the report is a v1 report
     Quote memory quote;
     if (getReportVersion(feedId) != REPORT_V1) {
       //all reports greater than v1 should have a quote payload
@@ -170,7 +169,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     uint256 change;
 
     //wrap the amount required to pay the fee
-    if (msg.value > 0) {
+    if (msg.value != 0) {
       //quote must be in native with enough to cover the fee
       if (fee.assetAddress != i_nativeAddress) revert InvalidDeposit();
       if (fee.amount > msg.value) revert InvalidDeposit();
@@ -188,7 +187,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 configDigest = bytes32(payload);
 
     //some users might not be billed
-    if (fee.amount > 0) {
+    if (fee.amount != 0) {
       //if the fee is in LINK, transfer directly from the subscriber to the reward manager
       if (fee.assetAddress == i_linkAddress) {
         //distributes the fee
@@ -212,7 +211,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     // a refund may be needed if the payee has paid in excess of the fee
-    if (change > 0) {
+    if (change != 0) {
       payable(subscriber).transfer(change);
     }
   }

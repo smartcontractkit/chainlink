@@ -89,7 +89,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IRewardManager
-  function onFeePaid(bytes32 poolId, address payee, uint256 amount) external onlyOwnerOrFeeManager override {
+  function onFeePaid(bytes32 poolId, address payee, uint256 amount) external override onlyOwnerOrFeeManager {
     //update the total fees collected for this pot
     unchecked {
       //the total amount for any ERC20 asset cannot exceed 2^256 - 1
@@ -142,7 +142,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     //check if there's any rewards to claim in the given poolId
-    if (claimAmount > 0) {
+    if (claimAmount != 0) {
       //transfer the reward to the recipient
       IERC20(i_linkAddress).transfer(recipient, claimAmount);
     }
@@ -264,7 +264,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
   /// @inheritdoc IRewardManager
   function setFeeManager(address newFeeManagerAddress) external onlyOwner {
-    if(newFeeManagerAddress == address(0)) revert InvalidAddress();
+    if (newFeeManagerAddress == address(0)) revert InvalidAddress();
 
     s_feeManagerAddress = newFeeManagerAddress;
 
@@ -286,9 +286,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       //get the poolId
       bytes32 poolId = s_registeredPoolIds[i];
       //if the recipient has a weight, they are a recipient of this poolId
-      if (s_rewardRecipientWeights[poolId][recipient] > 0) {
+      if (s_rewardRecipientWeights[poolId][recipient] != 0) {
         //if the recipient has any LINK, then add the poolId to the array
-        if (s_totalRewardRecipientFees[poolId] > 0) {
+        if (s_totalRewardRecipientFees[poolId] != 0) {
           claimablePoolIds[poolIdArrayIndex] = poolId;
           unchecked {
             //there will never be enough pool ids for i to overflow

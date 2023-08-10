@@ -188,5 +188,4 @@ contract RewardManagerPayRecipientsTest is BaseRewardManagerTest {
     //add funds to the pool
     rewardManager.onFeePaid(PRIMARY_POOL_ID, USER, POOL_DEPOSIT_AMOUNT);
   }
-
 }

@@ -4,6 +4,7 @@ pragma solidity 0.8.16;
 import {BaseRewardManagerTest} from "./BaseRewardManager.t.sol";
 import {Common} from "../../../libraries/Common.sol";
 import {RewardManager} from "../../dev/RewardManager.sol";
+import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
 
 /**
  * @title BaseRewardManagerTest
@@ -41,12 +42,18 @@ contract RewardManagerSetupTest is BaseRewardManagerTest {
     //create pool and add funds
     createPrimaryPool();
 
+    //change to the feeManager who is the one who will be paying the fees
+    changePrank(FEE_MANAGER);
+
+    //approve the amount being paid into the pool
+    ERC20Mock(getAsset(POOL_DEPOSIT_AMOUNT).assetAddress).approve(address(rewardManager), POOL_DEPOSIT_AMOUNT);
+
     //event is emitted when funds are added
     vm.expectEmit();
-
     emit FeePaid(PRIMARY_POOL_ID, FEE_MANAGER, POOL_DEPOSIT_AMOUNT);
 
-    addFundsToPool(PRIMARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
+    //this represents the verifier adding some funds to the pool
+    rewardManager.onFeePaid(PRIMARY_POOL_ID, FEE_MANAGER, POOL_DEPOSIT_AMOUNT);
   }
 
   function test_setFeeManagerZeroAddress() public {

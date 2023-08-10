@@ -40,7 +40,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
     }
   }
 
-  function test_claimRewardsWithDuplicateDoesNotPayoutTwice() public {
+  function test_claimRewardsWithDuplicatPoolIdsDoesNotPayoutTwice() public {
     //add funds to a different pool to ensure they're not claimed
     addFundsToPool(SECONDARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
 

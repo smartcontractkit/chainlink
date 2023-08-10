@@ -231,7 +231,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_nativeSurchargeCannotExceed100Percent() public {
     //should revert if surcharge is greater than 100%
-    vm.expectRevert(INVALID_PREMIUM_ERROR);
+    vm.expectRevert(INVALID_SURCHARGE_ERROR);
 
     //set the surcharge above the max
     setNativeSurcharge(FEE_SCALAR + 1, ADMIN);

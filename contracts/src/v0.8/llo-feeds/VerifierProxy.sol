@@ -185,7 +185,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
 
   /// @inheritdoc IVerifierProxy
   function setFeeManager(IVerifierFeeManager feeManager) external onlyOwner {
-    if(address(feeManager) == address(0)) revert ZeroAddress();
+    if (address(feeManager) == address(0)) revert ZeroAddress();
 
     address oldFeeManager = address(s_feeManager);
     s_feeManager = IVerifierFeeManager(feeManager);

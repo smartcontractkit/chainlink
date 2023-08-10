@@ -57,15 +57,14 @@ contract BaseFeeManagerTest is Test {
   address internal constant NATIVE_WITHDRAW_ADDRESS = address(0);
 
   //the selector for each error
-  bytes4 internal constant INVALID_DISCOUNT_ERROR = bytes4(keccak256("InvalidDiscount()"));
-  bytes4 internal constant INVALID_ADDRESS_ERROR = bytes4(keccak256("InvalidAddress()"));
-  bytes4 internal constant INVALID_PREMIUM_ERROR = bytes4(keccak256("InvalidSurcharge()"));
-  bytes4 internal constant EXPIRED_REPORT_ERROR = bytes4(keccak256("ExpiredReport()"));
-  bytes4 internal constant INVALID_DEPOSIT_ERROR = bytes4(keccak256("InvalidDeposit()"));
-  bytes4 internal constant INVALID_QUOTE_ERROR = bytes4(keccak256("InvalidQuote()"));
-  bytes4 internal constant INVALID_REPORT_ERROR = bytes4(keccak256("InvalidReport()"));
-  bytes4 internal constant UNAUTHORIZED_ERROR = bytes4(keccak256("Unauthorized()"));
-  bytes4 internal constant INVALID_REPORT_VERSION_ERROR = bytes4(keccak256("InvalidReportVersion()"));
+  bytes4 internal immutable INVALID_DISCOUNT_ERROR = FeeManager.InvalidDiscount.selector;
+  bytes4 internal immutable INVALID_ADDRESS_ERROR = FeeManager.InvalidAddress.selector;
+  bytes4 internal immutable INVALID_SURCHARGE_ERROR = FeeManager.InvalidSurcharge.selector;
+  bytes4 internal immutable EXPIRED_REPORT_ERROR = FeeManager.ExpiredReport.selector;
+  bytes4 internal immutable INVALID_DEPOSIT_ERROR = FeeManager.InvalidDeposit.selector;
+  bytes4 internal immutable INVALID_QUOTE_ERROR = FeeManager.InvalidQuote.selector;
+  bytes4 internal immutable UNAUTHORIZED_ERROR = FeeManager.Unauthorized.selector;
+  bytes4 internal immutable INVALID_REPORT_VERSION_ERROR = FeeManager.InvalidReportVersion.selector;
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
 

@@ -61,10 +61,10 @@ contract BaseRewardManagerTest is Test {
   uint256 internal constant TEN_PERCENT = POOL_SCALAR / 10;
 
   //the selector for each error
-  bytes4 internal constant UNAUTHORIZED_ERROR_SELECTOR = bytes4(keccak256("Unauthorized()"));
-  bytes4 internal constant INVALID_ADDRESS_ERROR_SELECTOR = bytes4(keccak256("InvalidAddress()"));
-  bytes4 internal constant INVALID_WEIGHT_ERROR_SELECTOR = bytes4(keccak256("InvalidWeights()"));
-  bytes4 internal constant INVALID_POOL_ID_ERROR_SELECTOR = bytes4(keccak256("InvalidPoolId()"));
+  bytes4 internal immutable UNAUTHORIZED_ERROR_SELECTOR = RewardManager.Unauthorized.selector;
+  bytes4 internal immutable INVALID_ADDRESS_ERROR_SELECTOR = RewardManager.InvalidAddress.selector;
+  bytes4 internal immutable INVALID_WEIGHT_ERROR_SELECTOR = RewardManager.InvalidWeights.selector;
+  bytes4 internal immutable INVALID_POOL_ID_ERROR_SELECTOR = RewardManager.InvalidPoolId.selector;
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
 
   // Events emitted within the reward manager
