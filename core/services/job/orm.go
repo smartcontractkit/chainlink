@@ -258,7 +258,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 
 			if !sendingKeysDefined {
-				if err = validateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
+				if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
 					return errors.Wrap(ErrNoSuchTransmitterKey, err.Error())
 				}
 			}
@@ -453,8 +453,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	return o.findJob(jb, "id", jobID, qopts...)
 }
 
-// validateKeyStoreMatch confirms that the key has a valid match in the keystore
-func validateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
+// ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
+func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
 	if spec.PluginType == Mercury {
 		_, err := keyStore.CSA().Get(key)
 		if err != nil {
@@ -470,7 +470,7 @@ func validateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key s
 		case relay.Cosmos:
 			_, err := keyStore.Cosmos().Get(key)
 			if err != nil {
-				return errors.Errorf("no Cosmos key matching %q", key)
+				return errors.Errorf("no Cosmos key matching: %q", key)
 			}
 		case relay.Solana:
 			_, err := keyStore.Solana().Get(key)
@@ -480,7 +480,7 @@ func validateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key s
 		case relay.StarkNet:
 			_, err := keyStore.StarkNet().Get(key)
 			if err != nil {
-				return errors.Errorf("no Starknet key matching %q", key)
+				return errors.Errorf("no Starknet key matching: %q", key)
 			}
 		}
 	}
@@ -495,7 +495,7 @@ func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
 		}
 
 		for _, sendingKey := range sendingKeys {
-			if err = validateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
+			if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
 				return false, errors.Wrap(ErrNoSuchSendingKey, err.Error())
 			}
 		}

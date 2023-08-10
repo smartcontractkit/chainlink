@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"testing"
 	"time"
 
@@ -839,6 +840,71 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("transmitterID that doesn't have a match in key store")
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = nil
 		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"transmitterID that doesn't have a match in key store\": no such transmitter key exists", jobORM.CreateJob(&jb).Error())
+	})
+}
+
+func TestORM_ValidateKeyStoreMatch(t *testing.T) {
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
+
+	keyStore := cltest.NewKeyStore(t, pgtest.NewSqlxDB(t), config.Database())
+	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
+
+	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	require.NoError(t, err)
+
+	t.Run("test ETH key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.EVM
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no EVM key matching: \"bad key\"")
+
+		_, evmKey := cltest.MustInsertRandomKey(t, keyStore.Eth())
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, evmKey.String())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Cosmos key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.Cosmos
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
+
+		cosmosKey, err := keyStore.Cosmos().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, cosmosKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Solana key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.Solana
+
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Solana key matching: \"bad key\"")
+
+		solanaKey, err := keyStore.Solana().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, solanaKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Starknet key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.StarkNet
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Starknet key matching: \"bad key\"")
+
+		starkNetKey, err := keyStore.StarkNet().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, starkNetKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Mercury ETH key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.PluginType = job.Mercury
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no CSA key matching: \"bad key\"")
+
+		csaKey, err := keyStore.CSA().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, csaKey.ID())
+		require.NoError(t, err)
 	})
 }
 
