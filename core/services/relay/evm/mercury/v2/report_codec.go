@@ -3,6 +3,7 @@ package mercury_v2
 import (
 	"fmt"
 	"math"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
@@ -35,6 +36,16 @@ func getReportTypes() abi.Arguments {
 		{Name: "linkFee", Type: mustNewType("int192")},
 		{Name: "nativeFee", Type: mustNewType("int192")},
 	})
+}
+
+type Report struct {
+	FeedId                [32]byte
+	ObservationsTimestamp uint32
+	BenchmarkPrice        *big.Int
+	ValidFromTimestamp    uint32
+	ExpiresAt             uint32
+	LinkFee               *big.Int
+	NativeFee             *big.Int
 }
 
 var _ reportcodec.ReportCodec = &ReportCodec{}
@@ -87,7 +98,7 @@ func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (ui
 
 	timestampIface, ok := reportElems["observationsTimestamp"]
 	if !ok {
-		return 0, errors.Errorf("unpacked report has no 'timestamp' field")
+		return 0, errors.Errorf("unpacked report has no 'observationTimestamp' field")
 	}
 
 	timestamp, ok := timestampIface.(uint32)
@@ -100,4 +111,84 @@ func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (ui
 	}
 
 	return timestamp, nil
+}
+
+func (r *ReportCodec) Decode(report ocrtypes.Report) (*Report, error) {
+	reportElements := map[string]interface{}{}
+	if err := ReportTypes.UnpackIntoMap(reportElements, report); err != nil {
+		return nil, errors.Errorf("error during unpack: %v", err)
+	}
+
+	feedIdInterface, ok := reportElements["feedId"]
+	if !ok {
+		return nil, errors.Errorf("unpacked report has no 'feedId'")
+	}
+	feedID, ok := feedIdInterface.([32]byte)
+	if !ok {
+		return nil, errors.Errorf("cannot cast feedId to [32]byte, type is %T", feedID)
+	}
+
+	observationsTimestampInterface, ok := reportElements["observationsTimestamp"]
+	if !ok {
+		return nil, errors.Errorf("unpacked report has no 'observationsTimestamp'")
+	}
+	observationsTimestamp, ok := observationsTimestampInterface.(uint32)
+	if !ok {
+		return nil, errors.Errorf("cannot cast observationsTimestamp to uint32, type is %T", observationsTimestamp)
+	}
+
+	benchmarkPriceInterface, ok := reportElements["benchmarkPrice"]
+	if !ok {
+		return nil, errors.Errorf("unpacked report has no 'benchmarkPrice'")
+	}
+	benchmarkPrice, ok := benchmarkPriceInterface.(*big.Int)
+	if !ok {
+		return nil, errors.Errorf("cannot cast benchmark price to *big.Int, type is %T", benchmarkPrice)
+	}
+
+	validFromTimestampInterface, ok := reportElements["validFromTimestamp"]
+	if !ok {
+		return nil, errors.Errorf("unpacked report has no 'validFromTimestamp'")
+	}
+	validFromTimestamp, ok := validFromTimestampInterface.(uint32)
+	if !ok {
+		return nil, errors.Errorf("cannot cast validFromTimestamp to uint32, type is %T", validFromTimestamp)
+	}
+
+	expiresAtInterface, ok := reportElements["expiresAt"]
+	if !ok {
+		return nil, errors.Errorf("unpacked report has no 'expiresAt'")
+	}
+	expiresAt, ok := expiresAtInterface.(uint32)
+	if !ok {
+		return nil, errors.Errorf("cannot cast expiresAt to uint32, type is %T", expiresAt)
+	}
+
+	linkFeeInterface, ok := reportElements["linkFee"]
+	if !ok {
+		return nil, errors.Errorf("unpacked report has no 'linkFee'")
+	}
+	linkFee, ok := linkFeeInterface.(*big.Int)
+	if !ok {
+		return nil, errors.Errorf("cannot cast linkFee to *big.Int, type is %T", linkFee)
+	}
+
+	nativeFeeInterface, ok := reportElements["nativeFee"]
+	if !ok {
+		return nil, errors.Errorf("unpacked report has no 'nativeFee'")
+	}
+	nativeFee, ok := nativeFeeInterface.(*big.Int)
+	if !ok {
+		return nil, errors.Errorf("cannot cast nativeFee to *big.Int, type is %T", nativeFee)
+	}
+
+	return &Report{
+		FeedId:                feedID,
+		ObservationsTimestamp: observationsTimestamp,
+		BenchmarkPrice:        benchmarkPrice,
+		ValidFromTimestamp:    validFromTimestamp,
+		ExpiresAt:             expiresAt,
+		LinkFee:               linkFee,
+		NativeFee:             nativeFee,
+	}, nil
 }

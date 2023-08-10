@@ -7,9 +7,9 @@ import (
 	"errors"
 	"sync"
 
-	pkgerrors "github.com/pkg/errors"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
