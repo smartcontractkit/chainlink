@@ -757,7 +757,8 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 				}
 			} else {
 				// use txHash to verify the log is still on the chain
-				bn, _, err := r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
+				var bn *big.Int
+				bn, _, err = r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
 				if err != nil || bn != nil {
 					r.lggr.Warnf("cannot get tx block for txHash %s for upkeepId %s", string(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 					results[i] = ocr2keepers.CheckResult{
