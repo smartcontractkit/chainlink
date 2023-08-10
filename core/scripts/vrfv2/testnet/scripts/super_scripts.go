@@ -83,18 +83,15 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	batchCoordinatorAddressString := *deployCmd.String("batch-coordinator-address", "", "address Batch VRF Coordinator contract")
 
 	subscriptionBalanceJuelsString := deployCmd.String("subscription-balance", constants.SubscriptionBalanceJuels.String(), "amount to fund subscription")
+	nodeSendingKeyFundingAmount := deployCmd.Int64("sending-key-funding-amount", constants.NodeSendingKeyFundingAmountGwei, "CL node sending key funding amount")
 
-	batchFulfillmentEnabled := deployCmd.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "amount to fund subscription")
+	batchFulfillmentEnabled := deployCmd.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether send randomness fulfillments in batches inside one tx from CL node")
 
 	// optional flags
 	fallbackWeiPerUnitLinkString := deployCmd.String("fallback-wei-per-unit-link", constants.FallbackWeiPerUnitLink.String(), "fallback wei/link ratio")
 	registerKeyUncompressedPubKey := deployCmd.String("uncompressed-pub-key", "", "uncompressed public key")
 	vrfPrimaryNodeSendingKeysString := deployCmd.String("vrf-primary-node-sending-keys", "", "VRF Primary Node sending keys")
-	vrfBackupNodeSendingKeysString := deployCmd.String("vrf-backup-node-sending-keys", "", "VRF Backup Node sending keys")
-	bhsNodeSendingKeysString := deployCmd.String("bhs-node-sending-keys", "", "BHS Node sending keys")
-	bhsBackupNodeSendingKeysString := deployCmd.String("bhs-backup-node-sending-keys", "", "BHS Node sending keys")
 
-	bhfNodeSendingKeysString := deployCmd.String("bhf-node-sending-keys", "", "BHF Node sending keys")
 	minConfs := deployCmd.Int("min-confs", constants.MinConfs, "min confs")
 	maxGasLimit := deployCmd.Int64("max-gas-limit", constants.MaxGasLimit, "max gas limit")
 	stalenessSeconds := deployCmd.Int64("staleness-seconds", constants.StalenessSeconds, "staleness in seconds")
@@ -129,30 +126,12 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	}
 
 	vrfPrimaryNodeSendingKeys := strings.Split(*vrfPrimaryNodeSendingKeysString, ",")
-	vrfBackupNodeSendingKeys := strings.Split(*vrfBackupNodeSendingKeysString, ",")
-	bhsNodeSendingKeys := strings.Split(*bhsNodeSendingKeysString, ",")
-	bhsBackupNodeSendingKeys := strings.Split(*bhsBackupNodeSendingKeysString, ",")
-	bhfNodeSendingKeys := strings.Split(*bhfNodeSendingKeysString, ",")
 
 	nodesMap := make(map[string]Node)
 
 	nodesMap[VRFPrimaryNodeName] = Node{
-		SendingKeys: mapToSendingKeyArr(vrfPrimaryNodeSendingKeys),
-	}
-	nodesMap[VRFBackupNodeName] = Node{
-		SendingKeys: mapToSendingKeyArr(vrfBackupNodeSendingKeys),
-	}
-
-	nodesMap[BHSNodeName] = Node{
-		SendingKeys: mapToSendingKeyArr(bhsNodeSendingKeys),
-	}
-
-	nodesMap[BHSBackupNodeName] = Node{
-		SendingKeys: mapToSendingKeyArr(bhsBackupNodeSendingKeys),
-	}
-
-	nodesMap[BHFNodeName] = Node{
-		SendingKeys: mapToSendingKeyArr(bhfNodeSendingKeys),
+		SendingKeys:             mapToSendingKeyArr(vrfPrimaryNodeSendingKeys),
+		SendingKeyFundingAmount: *big.NewInt(*nodeSendingKeyFundingAmount),
 	}
 
 	bhsContractAddress := common.HexToAddress(bhsContractAddressString)
@@ -187,6 +166,12 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 		*batchFulfillmentEnabled,
 		nodesMap,
 	)
+
+	vrfPrimaryNode := nodesMap[VRFPrimaryNodeName]
+	fmt.Println("Funding node's sending keys...")
+	for _, sendingKey := range vrfPrimaryNode.SendingKeys {
+		helpers.FundNode(e, sendingKey.Address, &vrfPrimaryNode.SendingKeyFundingAmount)
+	}
 }
 
 func mapToSendingKeyArr(nodeSendingKeys []string) []SendingKey {
