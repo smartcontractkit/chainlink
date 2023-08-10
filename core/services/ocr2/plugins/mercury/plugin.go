@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	mercuryv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
 	mercuryv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
@@ -37,8 +36,8 @@ func NewServices(
 	argsNoPlugin libocr2.MercuryOracleArgs,
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
-	chainHeadTracker mercury.ChainHeadTracker,
-	orm mercury.DataSourceORM,
+	chainHeadTracker types.ChainHeadTracker,
+	orm types.DataSourceORM,
 	feedID [32]byte,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {

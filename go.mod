@@ -386,4 +386,6 @@ replace (
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/jmank88/grpc-proxy v0.0.0-20230731114312-86ed94c93231
 
+	github.com/smartcontractkit/chainlink-relay => /Users/sam/code/smartcontractkit/chainlink-relay
+
 )

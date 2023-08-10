@@ -28,8 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -84,7 +84,7 @@ func (m *mockTask) TaskRetries() uint32                { return 0 }
 func (m *mockTask) TaskMinBackoff() time.Duration      { return 0 }
 func (m *mockTask) TaskMaxBackoff() time.Duration      { return 0 }
 
-var _ mercury.ChainHeadTracker = &mockHeadTracker{}
+var _ types.ChainHeadTracker = &mockHeadTracker{}
 
 type mockHeadTracker struct {
 	c evmclient.Client
