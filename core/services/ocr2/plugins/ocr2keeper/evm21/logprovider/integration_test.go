@@ -116,31 +116,32 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
-	// rate limit tests
-	// - should allow constant polls within the rate and burst limit
-	// - should produce a rate limit error for over burst limit
-	// - should allow polling after delay
+	type deferableFunc func()
 
-	// polling for logs against at approximately the same rate as a chain
-	// produces blocks should not encounter rate limits
-	t.Run("should allow constant polls within the rate and burst limit", func(t *testing.T) {
+	setupTest := func(
+		t *testing.T,
+		opts *logprovider.LogEventProviderOptions,
+	) (
+		context.Context,
+		*backends.SimulatedBackend,
+		func(blockHash common.Hash),
+		logprovider.LogEventProviderTest,
+		[]*big.Int,
+		[]deferableFunc,
+	) {
 		ctx, cancel := context.WithCancel(testutils.Context(t))
-		defer cancel()
-
 		backend, stopMining, accounts := setupBackend(t)
-		defer stopMining()
-
 		userContractAccount := accounts[2]
-
 		db := setupDB(t)
-		defer db.Close()
 
-		opts := &logprovider.LogEventProviderOptions{
-			// BlockRateLimit is set low to ensure the test does not exceed the
-			// rate limit
-			BlockRateLimit: rate.Every(50 * time.Millisecond),
-			// BlockLimitBurst is just set to a non-zero value
-			BlockLimitBurst: 5,
+		deferables := []deferableFunc{
+			func() {
+				cancel()
+			},
+			stopMining,
+			func() {
+				_ = db.Close()
+			},
 		}
 
 		logProvider, _, lp, ethClient := setupLogProvider(t, db, backend, opts)
@@ -186,6 +187,26 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		}
 
 		require.NoError(t, logProvider.ReadLogs(ctx, true, ids...))
+
+		return ctx, backend, poll, logProvider, ids, deferables
+	}
+
+	// polling for logs at approximately the same rate as a chain produces
+	// blocks should not encounter rate limits
+	t.Run("should allow constant polls within the rate and burst limit", func(t *testing.T) {
+		ctx, backend, poll, logProvider, ids, defers := setupTest(t, &logprovider.LogEventProviderOptions{
+			// BlockRateLimit is set low to ensure the test does not exceed the
+			// rate limit
+			BlockRateLimit: rate.Every(50 * time.Millisecond),
+			// BlockLimitBurst is just set to a non-zero value
+			BlockLimitBurst: 5,
+		})
+
+		defer func() {
+			for _, f := range defers {
+				f()
+			}
+		}()
 
 		// set the wait time between reads higher than the rate limit
 		readWait := 50 * time.Millisecond
@@ -214,68 +235,19 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	})
 
 	t.Run("should produce a rate limit error for over burst limit", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(testutils.Context(t))
-		defer cancel()
-
-		backend, stopMining, accounts := setupBackend(t)
-		defer stopMining()
-
-		userContractAccount := accounts[2]
-
-		db := setupDB(t)
-		defer db.Close()
-
-		opts := &logprovider.LogEventProviderOptions{
+		ctx, backend, poll, logProvider, ids, defers := setupTest(t, &logprovider.LogEventProviderOptions{
 			// BlockRateLimit is set low to ensure the test does not exceed the
 			// rate limit
 			BlockRateLimit: rate.Every(50 * time.Millisecond),
 			// BlockLimitBurst is just set to a non-zero value
 			BlockLimitBurst: 5,
-		}
+		})
 
-		logProvider, _, lp, ethClient := setupLogProvider(t, db, backend, opts)
-
-		rounds := 5
-		numberOfUserContracts := 10
-		poll := pollFn(ctx, t, lp, ethClient)
-
-		// deployUpkeepCounter creates 'n' blocks and 'n' contracts
-		ids, _, contracts := deployUpkeepCounter(
-			t,
-			numberOfUserContracts,
-			backend,
-			userContractAccount,
-			logProvider)
-
-		// have log poller save logs for current blocks
-		lp.PollAndSaveLogs(ctx, int64(numberOfUserContracts))
-
-		for i := 0; i < rounds; i++ {
-			triggerEvents(
-				ctx,
-				t,
-				backend,
-				userContractAccount,
-				numberOfUserContracts,
-				poll,
-				contracts...)
-
-			for dummyBlocks := 0; dummyBlocks < numberOfUserContracts; dummyBlocks++ {
-				_ = backend.Commit()
+		defer func() {
+			for _, f := range defers {
+				f()
 			}
-
-			poll(backend.Commit())
-		}
-
-		{
-			// total block history at this point should be 566
-			var minimumBlockCount int64 = 500
-			latestBlock, _ := lp.LatestBlock()
-
-			assert.GreaterOrEqual(t, latestBlock, minimumBlockCount, "to ensure the integrety of the test, the minimum block count before the test should be %d but got %d", minimumBlockCount, latestBlock)
-		}
-
-		require.NoError(t, logProvider.ReadLogs(ctx, true, ids...))
+		}()
 
 		// set the wait time between reads higher than the rate limit
 		readWait := 50 * time.Millisecond
@@ -285,10 +257,9 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			<-timer.C
 
 			// advance 4 blocks for every read
-			poll(backend.Commit())
-			poll(backend.Commit())
-			poll(backend.Commit())
-			poll(backend.Commit())
+			for x := 0; x < 4; x++ {
+				poll(backend.Commit())
+			}
 
 			err := logProvider.ReadLogs(ctx, true, ids...)
 			if err != nil {
@@ -307,18 +278,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	})
 
 	t.Run("should allow polling after lookback number of blocks have passed", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(testutils.Context(t))
-		defer cancel()
-
-		backend, stopMining, accounts := setupBackend(t)
-		defer stopMining()
-
-		userContractAccount := accounts[2]
-
-		db := setupDB(t)
-		defer db.Close()
-
-		opts := &logprovider.LogEventProviderOptions{
+		ctx, backend, poll, logProvider, ids, defers := setupTest(t, &logprovider.LogEventProviderOptions{
 			// BlockRateLimit is set low to ensure the test does not exceed the
 			// rate limit
 			BlockRateLimit: rate.Every(50 * time.Millisecond),
@@ -327,51 +287,13 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			// LogBlocksLookback is set low to reduce the number of blocks required
 			// to reset the block limiter to maxBurst
 			LogBlocksLookback: 50,
-		}
+		})
 
-		logProvider, _, lp, ethClient := setupLogProvider(t, db, backend, opts)
-
-		rounds := 5
-		numberOfUserContracts := 10
-		poll := pollFn(ctx, t, lp, ethClient)
-
-		// deployUpkeepCounter creates 'n' blocks and 'n' contracts
-		ids, _, contracts := deployUpkeepCounter(
-			t,
-			numberOfUserContracts,
-			backend,
-			userContractAccount,
-			logProvider)
-
-		// have log poller save logs for current blocks
-		lp.PollAndSaveLogs(ctx, int64(numberOfUserContracts))
-
-		for i := 0; i < rounds; i++ {
-			triggerEvents(
-				ctx,
-				t,
-				backend,
-				userContractAccount,
-				numberOfUserContracts,
-				poll,
-				contracts...)
-
-			for dummyBlocks := 0; dummyBlocks < numberOfUserContracts; dummyBlocks++ {
-				_ = backend.Commit()
+		defer func() {
+			for _, f := range defers {
+				f()
 			}
-
-			poll(backend.Commit())
-		}
-
-		{
-			// total block history at this point should be 566
-			var minimumBlockCount int64 = 500
-			latestBlock, _ := lp.LatestBlock()
-
-			assert.GreaterOrEqual(t, latestBlock, minimumBlockCount, "to ensure the integrety of the test, the minimum block count before the test should be %d but got %d", minimumBlockCount, latestBlock)
-		}
-
-		require.NoError(t, logProvider.ReadLogs(ctx, true, ids...))
+		}()
 
 		// simulate a burst in unpolled blocks
 		for i := 0; i < 20; i++ {
@@ -388,7 +310,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		}
 
 		// progress the chain by the same number of blocks as the lookback limit
-		// to trigger the useage of maxBurst
+		// to trigger the usage of maxBurst
 		for i := 0; i < 50; i++ {
 			_ = backend.Commit()
 		}
@@ -463,12 +385,10 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	}()
 	defer logProvider.Close()
 
-	lpTest := logProvider.(logprovider.LogEventProviderTest)
-
 	t.Log("waiting for log provider to do some backfilling")
 	for ctx.Err() == nil {
-		currentPartition := lpTest.CurrentPartitionIdx()
-		if currentPartition > 2 {
+		currentPartition := logProvider.CurrentPartitionIdx()
+		if currentPartition >= 2 {
 			break
 		}
 	}
