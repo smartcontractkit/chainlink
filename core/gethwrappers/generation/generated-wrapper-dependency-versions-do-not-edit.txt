@@ -61,6 +61,7 @@ solidity_vrf_v08_verifier_wrapper: ../../contracts/solc/v0.8.6/VRFTestHelper.abi
 solidity_vrf_verifier_wrapper: ../../contracts/solc/v0.6/VRFTestHelper.abi ../../contracts/solc/v0.6/VRFTestHelper.bin 44c2b67d8d2990ab580453deb29d63508c6147a3dc49908a1db563bef06e6474
 solidity_vrf_wrapper: ../../contracts/solc/v0.6/VRF.abi ../../contracts/solc/v0.6/VRF.bin 04ede5b83c06ba5b76ef99c081c72928007d8a7aaefcf21449a46a07cbd4bfc2
 test_api_consumer_wrapper: ../../contracts/solc/v0.6/TestAPIConsumer.abi ../../contracts/solc/v0.6/TestAPIConsumer.bin ed10893cb18894c18e275302329c955f14ea2de37ee044f84aa1e067ac5ea71e
+trusted_blockhash_store: ../../contracts/solc/v0.8.6/TrustedBlockhashStore.abi ../../contracts/solc/v0.8.6/TrustedBlockhashStore.bin a85d2899892aa9fd73fc99852ccba52c3983375113580673e6c5d655bfa79909
 type_and_version_interface_wrapper: ../../contracts/solc/v0.8.6/TypeAndVersionInterface.abi ../../contracts/solc/v0.8.6/TypeAndVersionInterface.bin bc9c3a6e73e3ebd5b58754df0deeb3b33f4bb404d5709bb904aed51d32f4b45e
 upkeep_counter_wrapper: ../../contracts/solc/v0.7/UpkeepCounter.abi ../../contracts/solc/v0.7/UpkeepCounter.bin 901961ebf18906febc1c350f02da85c7ea1c2a68da70cfd94efa27c837a48663
 upkeep_perform_counter_restrictive_wrapper: ../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.abi ../../contracts/solc/v0.7/UpkeepPerformCounterRestrictive.bin 8975a058fba528e16d8414dc6f13946d17a145fcbc66cf25a32449b6fe1ce878
