@@ -4,6 +4,12 @@ inputs:
   only-modules:
     description: Set to 'true' to only cache modules
     default: 'false'
+  cache-go-modules:
+    description: |
+      Option to cache go modules
+      In matrix jobs the caching will fail in all but the first one to complete and
+      in doing so it will waste time in the pipeline
+    default: 'true'
   cache-version: 
     description: Set this to cache bust
     default: "1"
@@ -30,6 +36,7 @@ runs:
           echo "gobuildcache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
 
       - uses: actions/cache@v3
+        if: ${{ inputs.cache-go-modules == 'true' }}
         name: Cache Go Modules
         with:
           path: |
