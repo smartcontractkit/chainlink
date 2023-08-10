@@ -4,7 +4,7 @@ import (
 	"math/big"
 	"sync"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	mapset "github.com/deckarep/golang-set/v2"
 
@@ -71,27 +71,27 @@ func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us ocr2k
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	upkeepId := big.NewInt(0).SetBytes(pl.Upkeep.ID)
+	upkeepId := pl.UpkeepID.BigInt()
 	state := &upkeepState{
 		payload:  &pl,
 		state:    &us,
-		block:    pl.Trigger.BlockNumber,
+		block:    int64(pl.Trigger.BlockNumber),
 		upkeepId: upkeepId.String(),
 	}
 
-	s, ok := u.statesByID[pl.ID]
+	s, ok := u.statesByID[pl.WorkID]
 	if ok {
 		s.payload = state.payload
 		s.state = state.state
 		s.block = state.block
 		s.upkeepId = state.upkeepId
-		u.statesByID[pl.ID] = s
-		u.lggr.Infof("upkeep %s is overridden, payload ID is %s, block is %d", s.upkeepId, s.payload.ID, s.block)
+		u.statesByID[pl.WorkID] = s
+		u.lggr.Infof("upkeep %s is overridden, payload ID is %s, block is %d", s.upkeepId, s.payload.WorkID, s.block)
 		return nil
 	}
 
-	u.statesByID[pl.ID] = state
+	u.statesByID[pl.WorkID] = state
 	u.states = append(u.states, state)
-	u.lggr.Infof("added new state with upkeep %s payload ID %s block %d", state.upkeepId, state.payload.ID, state.block)
+	u.lggr.Infof("added new state with upkeep %s payload ID %s block %d", state.upkeepId, state.payload.WorkID, state.block)
 	return nil
 }
