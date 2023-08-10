@@ -214,13 +214,13 @@ GroupsDn = 'ou=groups' # Default
 ActiveAttribute = 'organizationalStatus' # Default
 # ActiveAttributeAllowedValue is the value to check against for the above optional user attribute
 ActiveAttributeAllowedValue = 'ACTIVE' # Default
-# AdminUserGroupCn is the name of the LDAP group that maps the core node's 'Admin' role
+# AdminUserGroupCn is the LDAP 'cn' of the LDAP group that maps the core node's 'Admin' role
 AdminUserGroupCn = 'NodeAdmins' # Default
-# EditUserGroupCn is the name of the LDAP group that maps the core node's 'Edit' role
+# EditUserGroupCn is the LDAP 'cn' of the LDAP group that maps the core node's 'Edit' role
 EditUserGroupCn = 'NodeEditors' # Default
-# RunUserGroupCn is the name of the LDAP group that maps the core node's 'Run' role
+# RunUserGroupCn is the LDAP 'cn' of the LDAP group that maps the core node's 'Run' role
 RunUserGroupCn = 'NodeRunners' # Default
-# ReadUserGroupCn is the name of the LDAP group that maps the core node's 'Read' role
+# ReadUserGroupCn is the LDAP 'cn' of the LDAP group that maps the core node's 'Read' role
 ReadUserGroupCn = 'NodeReadOnly' # Default
 # UserApiTokenEnabled enables the users to issue API tokens with the same access of their role
 UserApiTokenEnabled = false # Default
