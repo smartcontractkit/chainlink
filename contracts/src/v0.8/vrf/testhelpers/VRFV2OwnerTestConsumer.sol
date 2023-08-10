@@ -5,14 +5,12 @@ import "../../interfaces/VRFCoordinatorV2Interface.sol";
 import "../VRFConsumerBaseV2.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 import "../../ChainSpecificUtil.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
 
-/**
- * @title The VRFLoadTestExternalSubOwner contract.
- * @notice Allows making many VRF V2 randomness requests in a single transaction for load testing.
- */
+
 contract VRFV2OwnerTestConsumer is VRFConsumerBaseV2, ConfirmedOwner {
-  VRFCoordinatorV2Interface public immutable COORDINATOR;
-
+  VRFCoordinatorV2Interface public COORDINATOR;
+  uint64 public subId;
   uint256 public s_responseCount;
   uint256 public s_requestCount;
   uint256 public s_averageFulfillmentInMillions = 0; // in millions for better precision
@@ -34,6 +32,10 @@ contract VRFV2OwnerTestConsumer is VRFConsumerBaseV2, ConfirmedOwner {
 
   constructor(address _vrfCoordinator) VRFConsumerBaseV2(_vrfCoordinator) ConfirmedOwner(msg.sender) {
     COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
+    // create a subscription, address(this) will be the owner
+    subId = COORDINATOR.createSubscription();
+    // add address(this) as a consumer on the subscription
+    COORDINATOR.addConsumer(subId, address(this));
   }
 
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
@@ -58,7 +60,6 @@ contract VRFV2OwnerTestConsumer is VRFConsumerBaseV2, ConfirmedOwner {
   }
 
   function requestRandomWords(
-    uint64 _subId,
     uint16 _requestConfirmations,
     bytes32 _keyHash,
     uint32 _callbackGasLimit,
@@ -68,7 +69,7 @@ contract VRFV2OwnerTestConsumer is VRFConsumerBaseV2, ConfirmedOwner {
     for (uint16 i = 0; i < _requestCount; i++) {
       uint256 requestId = COORDINATOR.requestRandomWords(
         _keyHash,
-        _subId,
+        subId,
         _requestConfirmations,
         _callbackGasLimit,
         _numWords
@@ -87,8 +88,8 @@ contract VRFV2OwnerTestConsumer is VRFConsumerBaseV2, ConfirmedOwner {
       requestHeights[requestId] = requestBlockNumber;
     }
 
-    COORDINATOR.removeConsumer(_subId, address(this));
-    COORDINATOR.cancelSubscription(_subId, msg.sender);
+    COORDINATOR.removeConsumer(subId, address(this));
+    COORDINATOR.cancelSubscription(subId, msg.sender);
   }
 
   function reset() external {

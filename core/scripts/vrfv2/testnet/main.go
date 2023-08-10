@@ -839,15 +839,15 @@ func main() {
 	case "eoa-vrf-owner-test-request":
 		request := flag.NewFlagSet("eoa-eoa-vrf-owner-test-request", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")
-		subID := request.Uint64("sub-id", 0, "subscription ID")
 		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
 		keyHash := request.String("key-hash", "", "key hash")
 		cbGasLimit := request.Uint("cb-gas-limit", 100_000, "request callback gas limit")
 		numWords := request.Uint("num-words", 1, "num words to request")
 		requests := request.Uint("requests", 10, "number of randomness requests to make per run")
 		runs := request.Uint("runs", 1, "number of runs to do. total randomness requests will be (requests * runs).")
-		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
+		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "key-hash")
 		keyHashBytes := common.HexToHash(*keyHash)
+
 		consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
 			common.HexToAddress(*consumerAddress),
 			e.Ec)
@@ -856,7 +856,6 @@ func main() {
 		for i := 0; i < int(*runs); i++ {
 			tx, err := consumer.RequestRandomWords(
 				e.Owner,
-				*subID,
 				uint16(*requestConfirmations),
 				keyHashBytes,
 				uint32(*cbGasLimit),
