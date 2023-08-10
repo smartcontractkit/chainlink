@@ -218,27 +218,27 @@ func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 	defer conn.Close()
 
 	// Query for list of uniqueMember IDs present in Admin group
-	adminUsers, err := l.LDAPGroupMembersListToUser(conn, l.config.AdminUserGroupCn(), sessions.UserRoleAdmin)
+	adminUsers, err := l.ldapGroupMembersListToUser(conn, l.config.AdminUserGroupCn(), sessions.UserRoleAdmin)
 	if err != nil {
-		l.lggr.Errorf("Error in LDAPGroupMembersListToUser: ", err)
+		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 		return users, errors.New("Unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	editUsers, err := l.LDAPGroupMembersListToUser(conn, l.config.EditUserGroupCn(), sessions.UserRoleEdit)
+	editUsers, err := l.ldapGroupMembersListToUser(conn, l.config.EditUserGroupCn(), sessions.UserRoleEdit)
 	if err != nil {
-		l.lggr.Errorf("Error in LDAPGroupMembersListToUser: ", err)
+		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 		return users, errors.New("Unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	runUsers, err := l.LDAPGroupMembersListToUser(conn, l.config.RunUserGroupCn(), sessions.UserRoleRun)
+	runUsers, err := l.ldapGroupMembersListToUser(conn, l.config.RunUserGroupCn(), sessions.UserRoleRun)
 	if err != nil {
-		l.lggr.Errorf("Error in LDAPGroupMembersListToUser: ", err)
+		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 		return users, errors.New("Unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	readUsers, err := l.LDAPGroupMembersListToUser(conn, l.config.ReadUserGroupCn(), sessions.UserRoleView)
+	readUsers, err := l.ldapGroupMembersListToUser(conn, l.config.ReadUserGroupCn(), sessions.UserRoleView)
 	if err != nil {
-		l.lggr.Errorf("Error in LDAPGroupMembersListToUser: ", err)
+		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 		return users, errors.New("Unable to list group users")
 	}
 
@@ -277,8 +277,8 @@ func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 	return users, nil
 }
 
-// LDAPGroupMembersListToUser queries the LDAP server given a conn for a list of uniqueMember who are part of the parameterized group
-func (l *ldapAuthenticator) LDAPGroupMembersListToUser(conn *ldap.Conn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
+// ldapGroupMembersListToUser queries the LDAP server given a conn for a list of uniqueMember who are part of the parameterized group
+func (l *ldapAuthenticator) ldapGroupMembersListToUser(conn *ldap.Conn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
 	users := []sessions.User{}
 	// Prepare and query the GroupsDN for the specified group name
 	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDn(), l.config.BaseDn())

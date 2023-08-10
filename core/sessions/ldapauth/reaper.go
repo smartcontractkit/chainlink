@@ -65,24 +65,24 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 	defer conn.Close()
 
 	// Query for list of uniqueMember IDs present in Admin group
-	adminUsers, err := ldSync.LDAPGroupMembersListToUser(conn, ldSync.config.AdminUserGroupCn(), sessions.UserRoleAdmin)
+	adminUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.AdminUserGroupCn(), sessions.UserRoleAdmin)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in LDAPGroupMembersListToUser: ", err)
+		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	editUsers, err := ldSync.LDAPGroupMembersListToUser(conn, ldSync.config.EditUserGroupCn(), sessions.UserRoleEdit)
+	editUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.EditUserGroupCn(), sessions.UserRoleEdit)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in LDAPGroupMembersListToUser: ", err)
+		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	runUsers, err := ldSync.LDAPGroupMembersListToUser(conn, ldSync.config.RunUserGroupCn(), sessions.UserRoleRun)
+	runUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.RunUserGroupCn(), sessions.UserRoleRun)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in LDAPGroupMembersListToUser: ", err)
+		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 	}
 	// Query for list of uniqueMember IDs present in Edit group
-	readUsers, err := ldSync.LDAPGroupMembersListToUser(conn, ldSync.config.ReadUserGroupCn(), sessions.UserRoleView)
+	readUsers, err := ldSync.ldapGroupMembersListToUser(conn, ldSync.config.ReadUserGroupCn(), sessions.UserRoleView)
 	if err != nil {
-		ldSync.lggr.Errorf("Error in LDAPGroupMembersListToUser: ", err)
+		ldSync.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
 	}
 
 	users = append(users, adminUsers...)
@@ -130,8 +130,8 @@ func (ldSync *LDAPServerStateSyncer) deleteStaleSessions(before time.Time) error
 	return err
 }
 
-// LDAPGroupMembersListToUser queries the LDAP server given a conn for a list of uniqueMember who are part of the parameterized group
-func (l *LDAPServerStateSyncer) LDAPGroupMembersListToUser(conn *ldap.Conn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
+// ldapGroupMembersListToUser queries the LDAP server given a conn for a list of uniqueMember who are part of the parameterized group
+func (l *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn *ldap.Conn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
 	users := []sessions.User{}
 	// Prepare and query the GroupsDN for the specified group name
 	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDn(), l.config.BaseDn())
