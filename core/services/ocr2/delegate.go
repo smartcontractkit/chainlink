@@ -146,6 +146,7 @@ type ocr2Config interface {
 	DatabaseTimeout() time.Duration
 	KeyBundleID() (string, error)
 	TraceLogging() bool
+	CaptureAutomationCustomTelemetry() bool
 }
 
 type insecureConfig interface {
@@ -1066,14 +1067,39 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		d.cfg.JobPipeline().MaxSuccessfulRuns(),
 	)
 
-	return []job.ServiceCtx{
+	automationServices := []job.ServiceCtx{
 		job.NewServiceAdapter(runr),
 		runResultSaver,
 		keeperProvider,
 		rgstry,
 		logProvider,
 		pluginService,
-	}, nil
+	}
+
+	if d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
+		chainID, err2 := spec.RelayConfig.EVMChainID()
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "ChainID did not get")
+		}
+		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
+		if err2 != nil {
+			return nil, errors.Wrap(err2, "ErrNoChainFromSpec")
+		}
+
+		hb := chain.HeadBroadcaster()
+		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
+		cd := rgstry.ConfigDigest
+		customTelemService := ocr2keeper.NewAutomationCustomTelemetryService(
+			endpoint,
+			hb,
+			lggr,
+			rgstry.Registry,
+		)
+
+		automationServices = append(automationServices, customTelemService)
+	}
+
+	return automationServices, nil
 }
 
 func (d *Delegate) newServicesOCR2Functions(

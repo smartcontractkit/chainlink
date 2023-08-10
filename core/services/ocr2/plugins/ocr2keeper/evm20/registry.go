@@ -64,6 +64,8 @@ type Registry interface {
 	GetState(opts *bind.CallOpts) (keeper_registry_wrapper2_0.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
+	// copy KeeperRegistryCaller version
+	LatestConfigDetails(opts *bind.CallOpts) (keeper_registry_wrapper2_0.LatestConfigDetails, error)
 }
 
 type LatestBlockGetter interface {
@@ -92,7 +94,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, lggr logger.Lo
 		addr:     addr,
 		client:   client.Client(),
 		txHashes: make(map[string]bool),
-		registry: registry,
+		Registry: registry,
 		abi:      keeperRegistryABI,
 		active:   make(map[string]activeUpkeep),
 		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
@@ -140,7 +142,7 @@ type EvmRegistry struct {
 	poller        logpoller.LogPoller
 	addr          common.Address
 	client        client.Client
-	registry      Registry
+	Registry      Registry
 	abi           abi.ABI
 	packer        *evmRegistryPackerV2_0
 	chLog         chan logpoller.Log
@@ -155,6 +157,7 @@ type EvmRegistry struct {
 	runState      int
 	runError      error
 	enc           EVMAutomationEncoder20
+	ConfigDigest  [32]byte
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a
@@ -404,7 +407,7 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	r.txHashes[hash] = true
 
 	rawLog := l.ToGethLog()
-	abilog, err := r.registry.ParseLog(rawLog)
+	abilog, err := r.Registry.ParseLog(rawLog)
 	if err != nil {
 		return err
 	}
@@ -473,7 +476,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 		return nil, err
 	}
 
-	state, err := r.registry.GetState(opts)
+	state, err := r.Registry.GetState(opts)
 	if err != nil {
 		n := "latest"
 		if opts.BlockNumber != nil {
@@ -496,7 +499,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 			maxCount = ActiveUpkeepIDBatchSize
 		}
 
-		batchIDs, err := r.registry.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
+		batchIDs, err := r.Registry.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to get active upkeep IDs from index %d to %d (both inclusive)", err, startIndex, startIndex+maxCount-1)
 		}

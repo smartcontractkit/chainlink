@@ -4,11 +4,13 @@ import (
 	"context"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"google.golang.org/protobuf/proto"
 
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -27,26 +29,55 @@ type AutomationCustomTelemetryService struct {
 	unsubscribe        func()
 	chDone             chan struct{}
 	lggr               logger.Logger
+	configDigest       [32]byte
+	latestConfigDigest latestConfigDigest
+}
+
+type latestConfigDigest interface {
+	LatestConfigDetails(opts *bind.CallOpts) (keeper_registry_wrapper2_0.LatestConfigDetails, error)
 }
 
 // NewAutomationCustomTelemetryService creates a telemetry service for new blocks and node version
-func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster, lggr logger.Logger) *AutomationCustomTelemetryService {
+func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster, lggr logger.Logger, cd [32]byte, latestcd latestConfigDigest) *AutomationCustomTelemetryService {
 	return &AutomationCustomTelemetryService{
 		monitoringEndpoint: me,
 		headBroadcaster:    hb,
 		headCh:             make(chan blockKey, customTelemChanSize),
 		chDone:             make(chan struct{}),
 		lggr:               lggr.Named("Automation Custom Telem"),
+		//HERE initailize
+		configDigest:       cd,
+		latestConfigDigest: latestcd,
 	}
 }
 
 // Start starts Custom Telemetry Service, sends 1 NodeVersion message to endpoint at start and sends new BlockNumber messages
-func (e *AutomationCustomTelemetryService) Start(context.Context) error {
+func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 	return e.StartOnce("AutomationCustomTelemetryService", func() error {
 		e.lggr.Infof("Starting: Custom Telemetry Service")
+		// build call Opts
+		go func() {
+			ticker := time.NewTicker(1 * time.Minute)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					callOpt := &bind.CallOpts{Context: ctx, BlockNumber: nil}
+					newConfigDetails, cdErr := e.latestConfigDigest.LatestConfigDetails(callOpt)
+					e.lggr.Errorf("Error occurred while getting newestConfigDetails  %v", cdErr)
+					newConfigDigest := newConfigDetails.ConfigDigest
+					if newConfigDigest != e.configDigest {
+						e.configDigest = newConfigDigest
+					}
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
 		vMsg := &telem.NodeVersion{
-			Timestamp:   uint64(time.Now().UTC().UnixMilli()),
-			NodeVersion: static.Version,
+			Timestamp:    uint64(time.Now().UTC().UnixMilli()),
+			NodeVersion:  static.Version,
+			ConfigDigest: e.configDigest[:],
 		}
 		wrappedVMsg := &telem.AutomationTelemWrapper{
 			Msg: &telem.AutomationTelemWrapper_NodeVersion{
@@ -67,9 +98,10 @@ func (e *AutomationCustomTelemetryService) Start(context.Context) error {
 				select {
 				case blockInfo := <-e.headCh:
 					blockNumMsg := &telem.BlockNumber{
-						Timestamp:   uint64(time.Now().UTC().UnixMilli()),
-						BlockNumber: uint64(blockInfo.block),
-						BlockHash:   blockInfo.hash,
+						Timestamp:    uint64(time.Now().UTC().UnixMilli()),
+						BlockNumber:  uint64(blockInfo.block),
+						BlockHash:    blockInfo.hash,
+						ConfigDigest: e.configDigest[:],
 					}
 					wrappedBlockNumMsg := &telem.AutomationTelemWrapper{
 						Msg: &telem.AutomationTelemWrapper_BlockNumber{
