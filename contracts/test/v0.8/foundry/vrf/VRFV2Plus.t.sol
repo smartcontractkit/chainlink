@@ -11,6 +11,8 @@ import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers
 import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
 import {VmSafe} from "forge-std/Vm.sol";
+import {VRFCoordinatorV2} from "../../../../src/v0.8/vrf/VRFCoordinatorV2.sol";
+import {VRFExternalSubOwnerExample} from "../../../../src/v0.8/vrf/testhelpers/VRFExternalSubOwnerExample.sol";
 
 /*
  * USAGE INSTRUCTIONS:
@@ -30,12 +32,27 @@ contract VRFV2Plus is BaseTest {
 
   BlockhashStore s_bhs;
   ExposedVRFCoordinatorV2Plus s_testCoordinator;
+  VRFCoordinatorV2 s_testCoordinator_v2;
+  VRFExternalSubOwnerExample s_testConsumer_v2;
   VRFV2PlusConsumerExample s_testConsumer;
   MockLinkToken s_linkToken;
   MockV3Aggregator s_linkEthFeed;
 
   VRFCoordinatorV2Plus.FeeConfig basicFeeConfig =
     VRFCoordinatorV2Plus.FeeConfig({fulfillmentFlatFeeLinkPPM: 0, fulfillmentFlatFeeEthPPM: 0});
+
+  VRFCoordinatorV2.FeeConfig v2feeconfig =
+    VRFCoordinatorV2.FeeConfig({
+      fulfillmentFlatFeeLinkPPMTier1: 0,
+      fulfillmentFlatFeeLinkPPMTier2: 0,
+      fulfillmentFlatFeeLinkPPMTier3: 0,
+      fulfillmentFlatFeeLinkPPMTier4: 0,
+      fulfillmentFlatFeeLinkPPMTier5: 0,
+      reqsForTier2: 0,
+      reqsForTier3: 0,
+      reqsForTier4: 0,
+      reqsForTier5: 0
+    });
 
   // VRF KeyV2 generated from a node; not sensitive information.
   // The secret key used to generate this key is: 10.
@@ -82,10 +99,23 @@ contract VRFV2Plus is BaseTest {
 
     // Configure the coordinator.
     s_testCoordinator.setLINKAndLINKETHFeed(address(s_linkToken), address(s_linkEthFeed));
+    s_testCoordinator_v2 = new VRFCoordinatorV2(address(s_linkToken), address(s_bhs), address(s_linkEthFeed));
+    s_testConsumer_v2 = new VRFExternalSubOwnerExample(address(s_testCoordinator_v2), address(s_linkToken));
   }
 
   function setConfig(VRFCoordinatorV2Plus.FeeConfig memory feeConfig) internal {
     s_testCoordinator.setConfig(
+      0, // minRequestConfirmations
+      2_500_000, // maxGasLimit
+      1, // stalenessSeconds
+      50_000, // gasAfterPaymentCalculation
+      50000000000000000, // fallbackWeiPerUnitLink
+      feeConfig
+    );
+  }
+
+  function setConfigV2(VRFCoordinatorV2.FeeConfig memory feeConfig) internal {
+    s_testCoordinator_v2.setConfig(
       0, // minRequestConfirmations
       2_500_000, // maxGasLimit
       1, // stalenessSeconds
@@ -126,6 +156,7 @@ contract VRFV2Plus is BaseTest {
   function registerProvingKey() public {
     uint256[2] memory uncompressedKeyParts = this.getProvingKeyParts(vrfUncompressedPublicKey);
     s_testCoordinator.registerProvingKey(LINK_WHALE, uncompressedKeyParts);
+    s_testCoordinator_v2.registerProvingKey(LINK_WHALE, uncompressedKeyParts);
   }
 
   // note: Call this function via this.getProvingKeyParts to be able to pass memory as calldata and
@@ -159,6 +190,17 @@ contract VRFV2Plus is BaseTest {
     uint96 payment,
     bytes extraArgs,
     bool success
+  );
+
+  event RandomWordsRequested(
+    bytes32 indexed keyHash,
+    uint256 requestId,
+    uint256 preSeed,
+    uint64 indexed subId,
+    uint16 minimumRequestConfirmations,
+    uint32 callbackGasLimit,
+    uint32 numWords,
+    address indexed sender
   );
 
   function testRequestAndFulfillRandomWordsNative() public {
@@ -402,5 +444,163 @@ contract VRFV2Plus is BaseTest {
     // note: delta is doubled from the native test to account for more variance due to the link/eth ratio
     (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
     assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 280_000, 20_000);
+  }
+
+  function testRequestAndFulfillRandomWordsLINKVRFV2() public {
+    uint32 requestBlock = 20;
+    vm.roll(requestBlock);
+    s_linkToken.transfer(address(s_testConsumer), 10 ether);
+    s_testConsumer.createSubscriptionAndFund(10 ether);
+    uint256 subId = s_testConsumer.s_subId();
+
+    uint64 v2SubId = s_testCoordinator_v2.createSubscription();
+    s_linkToken.transferAndCall(address(s_testCoordinator_v2), 10 ether, abi.encode(v2SubId));
+    s_testCoordinator_v2.addConsumer(v2SubId, address(s_testConsumer_v2));
+
+    // Apply basic configs to contract.
+    setConfig(basicFeeConfig);
+    setConfigV2(v2feeconfig);
+    registerProvingKey();
+
+    // Request random words.
+    vm.expectEmit(true, true, false, true);
+    (uint256 requestId, uint256 preSeed) = s_testCoordinator.computeRequestIdExternal(
+      vrfKeyHash,
+      address(s_testConsumer),
+      subId,
+      2
+    );
+    emit RandomWordsRequested(
+      vrfKeyHash,
+      requestId,
+      preSeed,
+      subId,
+      0, // minConfirmations
+      1_000_000, // callbackGasLimit
+      1, // numWords
+      VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false})), // nativePayment, // nativePayment
+      address(s_testConsumer) // requester
+    );
+    console.log("V3 REQUEST-------");
+    s_testConsumer.requestRandomWords{gas: 1_000_000}(1_000_000, 0, 1, vrfKeyHash, false);
+    (bool fulfilled, , ) = s_testConsumer.s_requests(requestId);
+    assertEq(fulfilled, false);
+
+    vm.expectEmit(true, true, false, true);
+    emit RandomWordsRequested(
+      vrfKeyHash,
+      15467769867012887269395446947746894681565111207636795341295795181304152627422,
+      52524272549771428292668091960876966784344180723741817806867639252735654767985,
+      v2SubId,
+      0,
+      1_000_000,
+      1,
+      address(s_testConsumer_v2)
+    );
+    console.log("V2 REQUEST-------");
+    console.log(address(s_testConsumer_v2));
+    s_testConsumer_v2.requestRandomWords{gas: 1_000_000}(v2SubId, 1_000_000, 0, 1, vrfKeyHash);
+
+    // Uncomment these console logs to see info about the request:
+    // console.log("requestId: ", requestId);
+    // console.log("preSeed: ", preSeed);
+    // console.log("sender: ", address(s_testConsumer));
+
+    // Move on to the next block.
+    // Store the previous block's blockhash, and assert that it is as expected.
+    vm.roll(requestBlock + 1);
+    s_bhs.store(requestBlock);
+    assertEq(hex"ce6d7b5282bd9a3661ae061feed1dbda4e52ab073b1f9285be6e155d9c38d4ec", s_bhs.getBlockhash(requestBlock));
+
+    // Fulfill the request.
+    // Proof generated via the generate-proof-v2-plus script command. Example usage:
+    /*
+        go run . generate-proof-v2-plus \
+        -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
+        -pre-seed 14817911724325909152780695848148728017190840227899344848185245004944693487904 \
+        -block-hash 0xce6d7b5282bd9a3661ae061feed1dbda4e52ab073b1f9285be6e155d9c38d4ec \
+        -block-num 20 \
+        -sender 0x90A8820424CC8a819d14cBdE54D12fD3fbFa9bb2
+        */
+    {
+      VRF.Proof memory proof = VRF.Proof({
+        pk: [
+          72488970228380509287422715226575535698893157273063074627791787432852706183111,
+          62070622898698443831883535403436258712770888294397026493185421712108624767191
+        ],
+        gamma: [
+          33866404953216897461413961842321788789902210776565180957857448351149268461878,
+          115311460432520855364215812517921508651759645277579047898967111537639679255245
+        ],
+        c: 98175725525459014587207855195868784126328401309203602128167819356654355538256,
+        s: 78212468144318845248263931834872020573314019987337100119712622816610913379348,
+        seed: 14817911724325909152780695848148728017190840227899344848185245004944693487904,
+        uWitness: 0xA98F604595c018ca3A897a89A93335C4D9736200,
+        cGammaWitness: [
+          89663557576172659880527012694290366148297911460143038889658956042430644586923,
+          29419553942575420255373719124720052624389851192491471135797878382964991183413
+        ],
+        sHashWitness: [
+          108049980454753981965039838334334363963059423646097861676439703242702207924520,
+          30630879728902862732102533191211056668896962900771600171010644651087695869520
+        ],
+        zInv: 20922890987701239032692501385659950984080522095093996771712575172616647361477
+      });
+      VRFCoordinatorV2Plus.RequestCommitment memory rc = VRFCoordinatorV2Plus.RequestCommitment({
+        blockNum: requestBlock,
+        subId: subId,
+        callbackGasLimit: 1000000,
+        numWords: 1,
+        sender: address(s_testConsumer),
+        extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}))
+      });
+      console.log("V3 FULFILLMENT-------");
+      s_testCoordinator.fulfillRandomWords{gas: 1_500_000}(proof, rc);
+    }
+
+    {
+      // Fulfill the request.
+      // Proof generated via the generate-proof-v2-plus script command. Example usage:
+      /*
+        go run . generate-proof-v2 \
+        -key-hash 0x9f2353bde94264dbc3d554a94cceba2d7d2b4fdce4304d3e09a1fea9fbeb1528 \
+        -pre-seed 52524272549771428292668091960876966784344180723741817806867639252735654767985 \
+        -block-hash 0xce6d7b5282bd9a3661ae061feed1dbda4e52ab073b1f9285be6e155d9c38d4ec \
+        -block-num 20 \
+        -sender 0xBcB7373677850DB356360aC3c10E5F6B3862da6B
+        */
+      VRF.Proof memory proof = VRF.Proof({
+        pk: [
+          72488970228380509287422715226575535698893157273063074627791787432852706183111,
+          62070622898698443831883535403436258712770888294397026493185421712108624767191
+        ],
+        gamma: [
+          76991759313326476947080333284337970854887187471355634357547204611533275218384,
+          109195181890336572135998550420617215189793883451296195712174034624332376831092
+        ],
+        c: 39892509205506098768439224316694103540578820672496775200897003605708684253729,
+        s: 26575599970840841434024149644024509070447982406408313914807554600202389464982,
+        seed: 52524272549771428292668091960876966784344180723741817806867639252735654767985,
+        uWitness: 0x4479EA428d6Eeb20882f9dF35C488E40266a03E1,
+        cGammaWitness: [
+          30704410227066052325198118964427992798890932804668771063501939897321354068235,
+          102636755983592893992252129193723671738337803335526383475999173626335684384260
+        ],
+        sHashWitness: [
+          24579047417197959217013595801514430097757030921262960987042404103424675877504,
+          110968451336124060415825013530466831373426945057580227064543638063589653266187
+        ],
+        zInv: 37415670891346704100091805646999110788812388451589671965168592718126520064291
+      });
+      VRFCoordinatorV2.RequestCommitment memory rcV2 = VRFCoordinatorV2.RequestCommitment({
+        blockNum: requestBlock,
+        subId: v2SubId,
+        callbackGasLimit: 1000000,
+        numWords: 1,
+        sender: address(s_testConsumer_v2)
+      });
+      console.log("V2 FULFILLMENT-------");
+      s_testCoordinator_v2.fulfillRandomWords{gas: 1_500_000}(proof, rcV2);
+    }
   }
 }

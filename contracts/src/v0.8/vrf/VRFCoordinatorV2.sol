@@ -11,6 +11,7 @@ import "./VRF.sol";
 import "../shared/access/ConfirmedOwner.sol";
 import "./VRFConsumerBaseV2.sol";
 import "../ChainSpecificUtil.sol";
+import "forge-std/console.sol";
 
 contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCoordinatorV2Interface, IERC677Receiver {
   LinkTokenInterface public immutable LINK;
@@ -350,10 +351,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     uint32 callbackGasLimit,
     uint32 numWords
   ) external override nonReentrant returns (uint256) {
-    // Input validation using the subscription storage.
-    if (s_subscriptionConfigs[subId].owner == address(0)) {
-      revert InvalidSubscription();
-    }
+    uint256 lastGasLeft = gasleft();
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
@@ -361,6 +359,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     if (currentNonce == 0) {
       revert InvalidConsumer(subId, msg.sender);
     }
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     // Input validation using the config storage word.
     if (
       requestConfirmations < s_config.minimumRequestConfirmations || requestConfirmations > MAX_REQUEST_CONFIRMATIONS
@@ -371,6 +371,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
         MAX_REQUEST_CONFIRMATIONS
       );
     }
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     // No lower bound on the requested gas limit. A user could request 0
     // and they would simply be billed for the proof verification and wouldn't be
     // able to do anything with the random value.
@@ -380,15 +382,23 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     if (numWords > MAX_NUM_WORDS) {
       revert NumWordsTooBig(numWords, MAX_NUM_WORDS);
     }
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     // Note we do not check whether the keyHash is valid to save gas.
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
     uint64 nonce = currentNonce + 1;
     (uint256 requestId, uint256 preSeed) = computeRequestId(keyHash, msg.sender, subId, nonce);
-
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+    //  where extraArgs is made
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     s_requestCommitments[requestId] = keccak256(
       abi.encode(requestId, ChainSpecificUtil.getBlockNumber(), subId, callbackGasLimit, numWords, msg.sender)
     );
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     emit RandomWordsRequested(
       keyHash,
       requestId,
@@ -399,8 +409,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
       numWords,
       msg.sender
     );
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
     s_consumers[msg.sender][subId] = nonce;
 
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     return requestId;
   }
 
@@ -521,17 +537,27 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
   function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
+    uint256 lastGasLeft = gasleft();
+    console.log(lastGasLeft);
     uint256 startGas = gasleft();
     (bytes32 keyHash, uint256 requestId, uint256 randomness) = getRandomnessFromProof(proof, rc);
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
 
     uint256[] memory randomWords = new uint256[](rc.numWords);
     for (uint256 i = 0; i < rc.numWords; i++) {
       randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
     }
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
 
     delete s_requestCommitments[requestId];
     VRFConsumerBaseV2 v;
     bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, requestId, randomWords);
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid oracle payment.
     // Do not allow any non-view/non-pure coordinator functions to be called
@@ -542,9 +568,15 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
     s_config.reentrancyLock = false;
 
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
     // Increment the req count for fee tier selection.
     uint64 reqCount = s_subscriptions[rc.subId].reqCount;
     s_subscriptions[rc.subId].reqCount += 1;
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
 
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
@@ -558,13 +590,38 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
       getFeeTier(reqCount),
       tx.gasprice
     );
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
     if (s_subscriptions[rc.subId].balance < payment) {
       revert InsufficientBalance();
     }
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
     s_subscriptions[rc.subId].balance -= payment;
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
     s_withdrawableTokens[s_provingKeys[keyHash]] += payment;
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
+    // argsToBytes goes here
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
     // Include payment in the event for tracking costs.
     emit RandomWordsFulfilled(requestId, randomness, payment, success);
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
     return payment;
   }
 

@@ -11,6 +11,8 @@ import "./SubscriptionAPI.sol";
 import "./libraries/VRFV2PlusClient.sol";
 import "../interfaces/IVRFCoordinatorV2PlusMigration.sol";
 
+import "forge-std/console.sol";
+
 contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   /// @dev should always be available
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
@@ -230,10 +232,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
    * a request to a response in fulfillRandomWords.
    */
   function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external nonReentrant returns (uint256) {
-    // Input validation using the subscription storage.
-    if (s_subscriptionConfigs[req.subId].owner == address(0)) {
-      revert InvalidSubscription();
-    }
+    uint256 lastGasLeft = gasleft();
     // Its important to ensure that the consumer is in fact who they say they
     // are, otherwise they could use someone else's subscription balance.
     // A nonce of 0 indicates consumer is not allocated to the sub.
@@ -241,6 +240,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     if (currentNonce == 0) {
       revert InvalidConsumer(req.subId, msg.sender);
     }
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     // Input validation using the config storage word.
     if (
       req.requestConfirmations < s_config.minimumRequestConfirmations ||
@@ -252,6 +253,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         MAX_REQUEST_CONFIRMATIONS
       );
     }
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     // No lower bound on the requested gas limit. A user could request 0
     // and they would simply be billed for the proof verification and wouldn't be
     // able to do anything with the random value.
@@ -261,14 +264,23 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     if (req.numWords > MAX_NUM_WORDS) {
       revert NumWordsTooBig(req.numWords, MAX_NUM_WORDS);
     }
-    // Note we do not check whether the keyHash is valid to save gas.
-    // The consequence for users is that they can send requests
-    // for invalid keyHashes which will simply not be fulfilled.
-    uint64 nonce = currentNonce + 1;
-    (uint256 requestId, uint256 preSeed) = computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
-
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+    uint256 requestId;
+    uint256 preSeed;
+    {
+      // Note we do not check whether the keyHash is valid to save gas.
+      // The consequence for users is that they can send requests
+      // for invalid keyHashes which will simply not be fulfilled.
+      uint64 nonce = currentNonce + 1;
+      (requestId, preSeed) = computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
+    }
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
     bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     s_requestCommitments[requestId] = keccak256(
       abi.encode(
         requestId,
@@ -280,6 +292,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         extraArgsBytes
       )
     );
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     emit RandomWordsRequested(
       req.keyHash,
       requestId,
@@ -291,8 +305,17 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       extraArgsBytes,
       msg.sender
     );
-    s_consumers[msg.sender][req.subId] = nonce;
 
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
+    {
+      uint64 nonce = currentNonce + 1;
+      s_consumers[msg.sender][req.subId] = nonce;
+    }
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
     return requestId;
   }
 
@@ -393,17 +416,27 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     Proof calldata proof,
     RequestCommitment calldata rc
   ) external nonReentrant returns (uint96) {
+    uint256 lastGasLeft = gasleft();
+    console.log(lastGasLeft);
     uint256 startGas = gasleft();
     Output memory output = getRandomnessFromProof(proof, rc);
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
 
     uint256[] memory randomWords = new uint256[](rc.numWords);
     for (uint256 i = 0; i < rc.numWords; i++) {
       randomWords[i] = uint256(keccak256(abi.encode(output.randomness, i)));
     }
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
 
     delete s_requestCommitments[output.requestId];
     VRFConsumerBaseV2Plus v;
     bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, output.requestId, randomWords);
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid oracle payment.
     // Do not allow any non-view/non-pure coordinator functions to be called
@@ -414,9 +447,15 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
     s_config.reentrancyLock = false;
 
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
     // Increment the req count for the subscription.
     uint64 reqCount = s_subscriptions[rc.subId].reqCount;
     s_subscriptions[rc.subId].reqCount = reqCount + 1;
+
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
 
     // stack too deep error
     {
@@ -430,6 +469,10 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         tx.gasprice,
         nativePayment
       );
+
+      console.log(lastGasLeft - gasleft());
+      lastGasLeft = gasleft();
+
       if (nativePayment) {
         if (s_subscriptions[rc.subId].ethBalance < payment) {
           revert InsufficientBalance();
@@ -440,16 +483,33 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         if (s_subscriptions[rc.subId].balance < payment) {
           revert InsufficientBalance();
         }
+
+        console.log(lastGasLeft - gasleft());
+        lastGasLeft = gasleft();
+
         s_subscriptions[rc.subId].balance -= payment;
+
+        console.log(lastGasLeft - gasleft());
+        lastGasLeft = gasleft();
+
         s_withdrawableTokens[s_provingKeys[output.keyHash]] += payment;
       }
+
+      console.log(lastGasLeft - gasleft());
+      lastGasLeft = gasleft();
 
       bytes memory extraArgs = VRFV2PlusClient._argsToBytes(
         VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment})
       );
+
+      console.log(lastGasLeft - gasleft());
+      lastGasLeft = gasleft();
       // Include payment in the event for tracking costs.
       // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);
       emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, extraArgs, success);
+
+      console.log(lastGasLeft - gasleft());
+      lastGasLeft = gasleft();
 
       return payment;
     }
