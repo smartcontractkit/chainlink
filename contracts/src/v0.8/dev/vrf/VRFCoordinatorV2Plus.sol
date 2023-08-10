@@ -361,8 +361,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       revert NoCorrespondingRequest();
     }
     if (
-      commitment !=
-      keccak256(abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender))
+      commitment != keccak256(abi.encode(requestId, rc.blockNum, rc.subId, rc.callbackGasLimit, rc.numWords, rc.sender))
     ) {
       revert IncorrectCommitment();
     }
