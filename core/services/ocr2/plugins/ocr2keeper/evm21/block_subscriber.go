@@ -38,11 +38,13 @@ type BlockSubscriber struct {
 	maxSubId         int
 	lastClearedBlock int64
 	lastSentBlock    int64
+	latestBlock      int64
 	blockHistorySize int64
+	initialBlockSize int64
 	lggr             logger.Logger
 }
 
-func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, blockHistorySize int64, lggr logger.Logger) *BlockSubscriber {
+func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, blockHistorySize int64, initialBlockSize int64, lggr logger.Logger) *BlockSubscriber {
 	return &BlockSubscriber{
 		hb:               hb,
 		lp:               lp,
@@ -50,6 +52,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, bloc
 		subscribers:      map[int]chan ocr2keepers.BlockHistory{},
 		blocks:           map[int64]string{},
 		blockHistorySize: blockHistorySize,
+		initialBlockSize: initialBlockSize,
 		lggr:             lggr.Named("BlockSubscriber"),
 	}
 }
@@ -62,7 +65,7 @@ func (hw *BlockSubscriber) getBlockRange() ([]uint64, error) {
 	hw.lggr.Infof("latest block from log poller is %d", h)
 
 	var blocks []uint64
-	for i := hw.blockHistorySize - 1; i >= 0; i-- {
+	for i := hw.initialBlockSize - 1; i >= 0; i-- {
 		blocks = append(blocks, uint64(h-i))
 	}
 	return blocks, nil
@@ -104,11 +107,11 @@ func (hw *BlockSubscriber) cleanup() {
 	hw.mu.Lock()
 	defer hw.mu.Unlock()
 
-	hw.lggr.Infof("start clearing blocks from %d to %d", hw.lastClearedBlock+1, hw.lastSentBlock-hw.blockHistorySize)
-	for i := hw.lastClearedBlock + 1; i <= hw.lastSentBlock-hw.blockHistorySize; i++ {
+	hw.lggr.Infof("start clearing blocks from %d to %d", hw.lastClearedBlock+1, hw.lastSentBlock-hw.initialBlockSize)
+	for i := hw.lastClearedBlock + 1; i <= hw.lastSentBlock-hw.initialBlockSize; i++ {
 		delete(hw.blocks, i)
 	}
-	hw.lastClearedBlock = hw.lastSentBlock - hw.blockHistorySize
+	hw.lastClearedBlock = hw.lastSentBlock - hw.initialBlockSize
 	hw.lggr.Infof("lastClearedBlock is set to %d", hw.lastClearedBlock)
 }
 
@@ -119,7 +122,7 @@ func (hw *BlockSubscriber) Start(_ context.Context) error {
 		defer hw.mu.Unlock()
 		hw.ctx, hw.cancel = context.WithCancel(context.Background())
 
-		// initialize the blocks map with the recent blockHistorySize blocks
+		// initialize the blocks map with the recent initialBlockSize blocks
 		blocks, err := hw.getBlockRange()
 		if err != nil {
 			hw.lggr.Errorf("failed to get block range", err)
@@ -150,6 +153,7 @@ func (hw *BlockSubscriber) Start(_ context.Context) error {
 
 						history := hw.buildHistory(h.Number)
 
+						hw.latestBlock = h.Number
 						hw.lastSentBlock = h.Number
 						hw.lggr.Infof("lastSentBlock is %d", hw.lastSentBlock)
 						// send history to all subscribers

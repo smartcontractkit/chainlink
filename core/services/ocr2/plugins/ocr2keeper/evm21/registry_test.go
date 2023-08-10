@@ -344,7 +344,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			block, upkeep := r.getBlockAndUpkeepId(tc.input.UpkeepID, tc.input.Trigger)
+			block, _, upkeep := r.getBlockAndUpkeepId(tc.input.UpkeepID, tc.input.Trigger)
 			assert.Equal(t, tc.wantBlock, block)
 			assert.Equal(t, tc.wantUpkeep.String(), upkeep.String())
 		})
