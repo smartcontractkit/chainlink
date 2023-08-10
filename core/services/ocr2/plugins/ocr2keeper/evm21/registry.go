@@ -1001,7 +1001,7 @@ func (r *EvmRegistry) verifyLogBlock(upkeepId *big.Int, p ocr2keepers.UpkeepPayl
 		// use txHash to verify the log is still on the chain
 		bn, _, err := r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
 		if err != nil || bn != nil {
-			r.lggr.Warnf("cannot get tx block for txHash %s for upkeepId %s", string(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
+			r.lggr.Warnf("cannot get tx block for txHash %s for upkeepId %s", common.Hash(p.Trigger.LogTriggerExtension.TxHash).Hex(), upkeepId)
 			results[i] = r.getCheckResult(p, UPKEEP_FAILURE_REASON_TX_HASH_NO_LONGER_EXISTS)
 			return false
 		}
