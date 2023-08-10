@@ -242,10 +242,17 @@ type StakingEventsMock interface {
 	MaxCommunityStakeAmountIncreased(maxStakeAmount *big.Int) error
 	MaxOperatorStakeAmountIncreased(maxStakeAmount *big.Int) error
 	RewardInitialized(rate *big.Int, available *big.Int, startTimestamp *big.Int, endTimestamp *big.Int) error
+	AlertRaised(alerter common.Address, roundId *big.Int, rewardAmount *big.Int) error
+	Staked(staker common.Address, newStake *big.Int, totalStake *big.Int) error
+	OperatorAdded(operator common.Address) error
+	OperatorRemoved(operator common.Address, amount *big.Int) error
+	FeedOperatorsSet(feedOperators []common.Address) error
 }
 
 type OffchainAggregatorEventsMock interface {
 	Address() string
+	ConfigSet(previousConfigBlockNumber uint32, configCount uint64, signers []common.Address, transmitters []common.Address, threshold uint8, encodedConfigVersion uint64, encoded []byte) error
+	NewTransmission(aggregatorRoundId uint32, answer *big.Int, transmitter common.Address, observations []*big.Int, observers []byte, rawReportContext [32]byte) error
 }
 
 type MockAggregatorProxy interface {
