@@ -81,4 +81,6 @@ compileContract vrf/testhelpers/VRFOwnerlessConsumerExample.sol
 compileContract vrf/testhelpers/VRFLoadTestOwnerlessConsumer.sol
 compileContract vrf/testhelpers/VRFLoadTestExternalSubOwner.sol
 compileContract vrf/testhelpers/VRFV2LoadTestWithMetrics.sol
+compileContract vrf/testhelpers/VRFV2OwnerTestConsumer.sol
+
 
