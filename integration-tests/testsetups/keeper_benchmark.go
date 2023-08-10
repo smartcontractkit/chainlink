@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
@@ -240,7 +241,7 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 
 		// Send keeper jobs to registry and chainlink nodes
 		if inputs.RegistryVersions[rIndex] == ethereum.RegistryVersion_2_0 {
-			actions.CreateOCRKeeperJobs(t, k.chainlinkNodes, k.keeperRegistries[rIndex].Address(), k.chainClient.GetChainID().Int64(), txKeyId)
+			actions.CreateOCRKeeperJobs(t, k.chainlinkNodes, k.keeperRegistries[rIndex].Address(), k.chainClient.GetChainID().Int64(), txKeyId, ethereum.RegistryVersion_2_0)
 			err = k.keeperRegistries[rIndex].SetConfig(*inputs.KeeperRegistrySettings, ocrConfig)
 			require.NoError(t, err, "Registry config should be be set successfully")
 			// Give time for OCR nodes to bootstrap
