@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -16,7 +15,6 @@ var (
 )
 
 type EVMAutomationEncoder21 struct {
-	encoding.BasicEncoder
 	packer *evmRegistryPackerV2_1
 }
 
