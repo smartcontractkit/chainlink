@@ -468,7 +468,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	t.Log("waiting for log provider to do some backfilling")
 	for ctx.Err() == nil {
 		currentPartition := lpTest.CurrentPartitionIdx()
-		if currentPartition >= 2 {
+		if currentPartition > 2 {
 			break
 		}
 	}
