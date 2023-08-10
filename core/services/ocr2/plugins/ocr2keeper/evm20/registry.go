@@ -64,7 +64,6 @@ type Registry interface {
 	GetState(opts *bind.CallOpts) (keeper_registry_wrapper2_0.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
-	// copy KeeperRegistryCaller version
 	LatestConfigDetails(opts *bind.CallOpts) (keeper_registry_wrapper2_0.LatestConfigDetails, error)
 }
 
@@ -157,7 +156,6 @@ type EvmRegistry struct {
 	runState      int
 	runError      error
 	enc           EVMAutomationEncoder20
-	ConfigDigest  [32]byte
 }
 
 // GetActiveUpkeepKeys uses the latest head and map of all active upkeeps to build a

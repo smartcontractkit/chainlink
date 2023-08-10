@@ -30,23 +30,22 @@ type AutomationCustomTelemetryService struct {
 	chDone             chan struct{}
 	lggr               logger.Logger
 	configDigest       [32]byte
-	latestConfigDigest latestConfigDigest
+	latestConfigDigest latestConfigDigestGetter
 }
 
-type latestConfigDigest interface {
+type latestConfigDigestGetter interface {
 	LatestConfigDetails(opts *bind.CallOpts) (keeper_registry_wrapper2_0.LatestConfigDetails, error)
 }
 
 // NewAutomationCustomTelemetryService creates a telemetry service for new blocks and node version
-func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster, lggr logger.Logger, cd [32]byte, latestcd latestConfigDigest) *AutomationCustomTelemetryService {
+func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster,
+	lggr logger.Logger, latestcd latestConfigDigestGetter) *AutomationCustomTelemetryService {
 	return &AutomationCustomTelemetryService{
 		monitoringEndpoint: me,
 		headBroadcaster:    hb,
 		headCh:             make(chan blockKey, customTelemChanSize),
 		chDone:             make(chan struct{}),
 		lggr:               lggr.Named("Automation Custom Telem"),
-		//HERE initailize
-		configDigest:       cd,
 		latestConfigDigest: latestcd,
 	}
 }
@@ -55,16 +54,25 @@ func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb h
 func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 	return e.StartOnce("AutomationCustomTelemetryService", func() error {
 		e.lggr.Infof("Starting: Custom Telemetry Service")
-		// build call Opts
+		callOpt := &bind.CallOpts{Context: ctx}
+		configDetails, cdErr0 := e.latestConfigDigest.LatestConfigDetails(callOpt)
+		if cdErr0 != nil {
+			e.lggr.Errorf("Error occurred while getting newestConfigDetails for initialization %v", cdErr0)
+		} else {
+			e.configDigest = configDetails.ConfigDigest
+		}
 		go func() {
 			ticker := time.NewTicker(1 * time.Minute)
 			defer ticker.Stop()
 			for {
 				select {
 				case <-ticker.C:
-					callOpt := &bind.CallOpts{Context: ctx, BlockNumber: nil}
+					callOpt := &bind.CallOpts{Context: ctx}
 					newConfigDetails, cdErr := e.latestConfigDigest.LatestConfigDetails(callOpt)
-					e.lggr.Errorf("Error occurred while getting newestConfigDetails  %v", cdErr)
+					if cdErr != nil {
+						e.lggr.Errorf("Error occurred while getting newestConfigDetails  %v", cdErr)
+						continue
+					}
 					newConfigDigest := newConfigDetails.ConfigDigest
 					if newConfigDigest != e.configDigest {
 						e.configDigest = newConfigDigest
@@ -93,7 +101,7 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 		}
 		_, e.unsubscribe = e.headBroadcaster.Subscribe(&headWrapper{e.headCh})
 		go func() {
-			e.lggr.Infof("Started: Custom Telemetry Service")
+			e.lggr.Infof("Started: Sending BlockNumber Messages")
 			for {
 				select {
 				case blockInfo := <-e.headCh:

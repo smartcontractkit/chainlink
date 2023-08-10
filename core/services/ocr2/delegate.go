@@ -1088,12 +1088,10 @@ func (d *Delegate) newServicesOCR2Keepers20(
 
 		hb := chain.HeadBroadcaster()
 		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
-		cd := rgstry.ConfigDigest
 		customTelemService := ocr2keeper.NewAutomationCustomTelemetryService(
 			endpoint,
 			hb,
 			lggr,
-			cd,
 			rgstry.Registry,
 		)
 
