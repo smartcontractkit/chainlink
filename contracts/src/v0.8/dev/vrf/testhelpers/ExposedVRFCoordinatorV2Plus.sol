@@ -23,7 +23,7 @@ contract ExposedVRFCoordinatorV2Plus is VRFCoordinatorV2Plus {
   function getRandomnessFromProofExternal(
     Proof calldata proof,
     RequestCommitment calldata rc
-  ) external view returns (Output memory) {
+  ) external view returns (bytes32 keyHash, uint256 requestId, uint256 randomness) {
     return getRandomnessFromProof(proof, rc);
   }
 }
