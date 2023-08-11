@@ -72,7 +72,7 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 			Eligible: true,
 		}, ocr2keepers.Ineligible), "setting state should not return an error")
 
-		assert.Len(t, store.states, 0, "should not add to upkeep states")
+		assert.Len(t, store.workIDIdx, 0, "should not add to upkeep states")
 	})
 
 	t.Run("should insert new state when ineligible and state does not exist in store and ignore state input", func(t *testing.T) {
@@ -91,12 +91,12 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 
 		assert.NoError(t, store.SetUpkeepState(context.Background(), input, ocr2keepers.Performed))
 
-		require.Len(t, store.states, 1, "should add to upkeep states")
+		require.Len(t, store.workIDIdx, 1, "should add to upkeep states")
 
-		assert.Equal(t, ocr2keepers.Ineligible, store.states[0].state, "stored state should be ineligible")
-		assert.Equal(t, input.UpkeepID, store.states[0].upkeepID, "stored upkeepID should match input")
-		assert.Equal(t, input.WorkID, store.states[0].workID, "stored workID should match input")
-		assert.Equal(t, uint64(input.Trigger.BlockNumber), store.states[0].block, "stored block should match input")
+		assert.Equal(t, ocr2keepers.Ineligible, store.workIDIdx["test"].state, "stored state should be ineligible")
+		assert.Equal(t, input.UpkeepID, store.workIDIdx["test"].upkeepID, "stored upkeepID should match input")
+		assert.Equal(t, input.WorkID, store.workIDIdx["test"].workID, "stored workID should match input")
+		assert.Equal(t, uint64(input.Trigger.BlockNumber), store.workIDIdx["test"].block, "stored block should match input")
 	})
 
 	// when eligible and state exists in store, override state, ignore state input
@@ -113,19 +113,19 @@ func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
 
 		assert.NoError(t, store.SetUpkeepState(context.Background(), input, ocr2keepers.Performed), "setting state should not return an error")
 
-		require.Len(t, store.states, 1, "should add to upkeep states")
+		require.Len(t, store.workIDIdx, 1, "should add to upkeep states")
 
 		// update the block number for the input to indicate a state data change
 		input.Trigger.BlockNumber = ocr2keepers.BlockNumber(5)
 
 		assert.NoError(t, store.SetUpkeepState(context.Background(), input, ocr2keepers.Performed), "setting state should not return an error")
 
-		require.Len(t, store.states, 1, "should update existing upkeep state")
+		require.Len(t, store.workIDIdx, 1, "should update existing upkeep state")
 
-		assert.Equal(t, ocr2keepers.Ineligible, store.states[0].state, "stored state should be ineligible")
-		assert.Equal(t, input.UpkeepID, store.states[0].upkeepID, "stored upkeepID should match input")
-		assert.Equal(t, input.WorkID, store.states[0].workID, "stored workID should match input")
-		assert.Equal(t, uint64(input.Trigger.BlockNumber), store.states[0].block, "stored block should match input")
+		assert.Equal(t, ocr2keepers.Ineligible, store.workIDIdx["test"].state, "stored state should be ineligible")
+		assert.Equal(t, input.UpkeepID, store.workIDIdx["test"].upkeepID, "stored upkeepID should match input")
+		assert.Equal(t, input.WorkID, store.workIDIdx["test"].workID, "stored workID should match input")
+		assert.Equal(t, uint64(input.Trigger.BlockNumber), store.workIDIdx["test"].block, "stored block should match input")
 	})
 }
 

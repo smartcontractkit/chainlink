@@ -28,14 +28,12 @@ var (
 type UpkeepStateStore struct {
 	mu        sync.RWMutex
 	workIDIdx map[string]*upkeepState
-	states    []*upkeepState
 	lggr      logger.Logger
 }
 
 // NewUpkeepStateStore creates a new state store
 func NewUpkeepStateStore(lggr logger.Logger) *UpkeepStateStore {
 	return &UpkeepStateStore{
-		states:    []*upkeepState{},
 		workIDIdx: map[string]*upkeepState{},
 		lggr:      lggr.Named("UpkeepStateStore"),
 	}
@@ -83,7 +81,6 @@ func (u *UpkeepStateStore) SetUpkeepState(_ context.Context, result ocr2keepers.
 			u.mu.Lock()
 
 			u.workIDIdx[result.WorkID] = storedState
-			u.states = append(u.states, storedState)
 
 			u.mu.Unlock()
 
