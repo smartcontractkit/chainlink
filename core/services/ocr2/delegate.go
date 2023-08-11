@@ -293,7 +293,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 
 	for _, filter := range filters {
 		d.lggr.Debugf("Unregistering %s filter", filter)
-		err = lp.UnregisterFilter(filter, q)
+		err = lp.UnregisterFilter(filter, pg.WithQueryer(q))
 		if err != nil {
 			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
 		}
