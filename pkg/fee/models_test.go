@@ -19,12 +19,12 @@ func TestCalculateFee(t *testing.T) {
 
 	t.Run("CalculateFee returns UserSpecifiedMaxFeePrice when it's lower than DefaultPrice and MaxFeePriceConfigured", func(t *testing.T) {
 		cfg := newMockFeeEstimatorConfig(&mockFeeEstimatorConfig{
-			UserSpecifiedMaxFeePrice: big.NewInt(1000000),
+			UserSpecifiedMaxFeePrice: big.NewInt(30),
 			DefaultPrice:             big.NewInt(42),
 			MultiplierLimit:          1.1,
 			MaxFeePriceConfigured:    big.NewInt(35),
 		})
-		assert.Equal(t, big.NewInt(30), CalculateFee(big.NewInt(30), cfg.DefaultPrice, cfg.MaxFeePriceConfigured))
+		assert.Equal(t, big.NewInt(30), CalculateFee(cfg.UserSpecifiedMaxFeePrice, cfg.DefaultPrice, cfg.MaxFeePriceConfigured))
 	})
 
 	t.Run("CalculateFee returns global maximum price", func(t *testing.T) {
