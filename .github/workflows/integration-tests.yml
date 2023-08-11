@@ -581,7 +581,8 @@ jobs:
   ### Start Live Testnet Section
 
   testnet-smoke-tests-matrix: 
-    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }} ## Only run live tests on new tags and nightly
+    if: always() #DEBUG: Remove
+    # if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }} ## Only run live tests on new tags and nightly
     environment: integration
     permissions:
       checks: write
@@ -650,7 +651,8 @@ jobs:
 
   testnet-smoke-tests-notify:
     name: Live Testnet Start Slack Thread
-    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }} ## Only run live tests on new tags and nightly
+    if: always() #DEBUG: remove
+    # if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }} ## Only run live tests on new tags and nightly
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -723,17 +725,20 @@ jobs:
         run: |
           echo "Querying test results"
 
+          test_data=$(curl \
+          -H "Authorization: Bearer ${{ github.token }}" \
+          'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
+          | jq -r '.jobs[] | select(.name == "Live Testnet Smoke Tests ${{ matrix.testnet}}")')
+
+          echo "test_data=$test_data"
+
+          echo "status=$(echo $test_data | jq -r '.steps[] | select(.name == "Run Tests").conclusion')" >> $GITHUB_OUTPUT
+          echo "link=$(echo $test_data | jq -r '.html_url')" >> $GITHUB_OUTPUT
+
           echo "status=$(curl \
           -H "Authorization: Bearer ${{ github.token }}" \
           'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
           | jq -r '.jobs[] | select(.name == "Live Testnet Smoke Tests ${{ matrix.testnet}}").steps[] | select(.name == "Run Tests").conclusion')" >> $GITHUB_OUTPUT
-
-          echo "status=$(curl \
-          -H "Authorization: Bearer ${{ github.token }}" \
-          'https://api.github.com/repos/${{github.repository}}/actions/runs/${{ github.run_id }}/jobs' \
-          | jq -r '.jobs[] | select(.name == "Live Testnet Smoke Tests ${{ matrix.testnet}}").steps[] | select(.name == "Run Tests").conclusion')"
-          echo "thread_ts=${{ needs.testnet-smoke-tests-notify.outputs.thread_ts }}"
-
       - name: Test Details
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         with:
@@ -760,7 +765,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "OCR ${{ steps.test-results.outputs.status == 'success' && ':white_check_mark:' || ':x:'}}"
+                        "text": "[Run](${{steps.test-results.outputs.link}})"
                       }
                     }
                   ]
