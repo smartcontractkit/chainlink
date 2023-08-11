@@ -808,6 +808,10 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 	}
 
+	for i, cr := range checkResults {
+		r.lggr.Infof("index %d upkeepId %s workId %s eligible %t ineligibleReason %d pipelineState %d linkNative %s fastGas %s GasAllocated %d retryable %t performData %s", i, cr.UpkeepID.String(), cr.WorkID, cr.Eligible, cr.IneligibilityReason, cr.PipelineExecutionState, cr.LinkNative, cr.FastGasWei, cr.GasAllocated, cr.Retryable, hexutil.Encode(cr.PerformData))
+	}
+
 	return checkResults, multiErr
 }
 
