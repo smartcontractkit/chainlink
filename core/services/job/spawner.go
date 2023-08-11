@@ -36,7 +36,7 @@ type (
 		// StartService starts services for the given job spec.
 		// NOTE: Prefer to use CreateJob, this is only publicly exposed for use in tests
 		// to start a job that was previously manually inserted into DB
-		StartService(ctx context.Context, spec Job) error
+		StartService(ctx context.Context, spec Job, qopts ...pg.QOpt) error
 	}
 
 	spawner struct {
@@ -176,7 +176,7 @@ func (js *spawner) stopService(jobID int32) {
 	delete(js.activeJobs, jobID)
 }
 
-func (js *spawner) StartService(ctx context.Context, jb Job) error {
+func (js *spawner) StartService(ctx context.Context, jb Job, qopts ...pg.QOpt) error {
 	js.activeJobsMu.Lock()
 	defer js.activeJobsMu.Unlock()
 
@@ -199,7 +199,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		jb.PipelineSpec.GasLimit = &jb.GasLimit.Uint32
 	}
 
-	srvs, err := delegate.ServicesForSpec(jb)
+	srvs, err := delegate.ServicesForSpec(jb, qopts...)
 	if err != nil {
 		js.lggr.Errorw("Error creating services for job", "jobID", jb.ID, "err", err)
 		cctx, cancel := js.chStop.NewCtx()
@@ -250,7 +250,7 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 	js.lggr.Infow("Created job", "type", jb.Type, "jobID", jb.ID)
 
 	delegate.BeforeJobCreated(*jb)
-	err = js.StartService(pctx, *jb)
+	err = js.StartService(pctx, *jb, pg.WithQueryer(q.Queryer))
 	if err != nil {
 		js.lggr.Errorw("Error starting job services", "type", jb.Type, "jobID", jb.ID, "err", err)
 	} else {

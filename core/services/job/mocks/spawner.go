@@ -147,7 +147,7 @@ func (_m *Spawner) Start(_a0 context.Context) error {
 }
 
 // StartService provides a mock function with given fields: ctx, spec
-func (_m *Spawner) StartService(ctx context.Context, spec job.Job) error {
+func (_m *Spawner) StartService(ctx context.Context, spec job.Job, qopts ...pg.QOpt) error {
 	ret := _m.Called(ctx, spec)
 
 	var r0 error
