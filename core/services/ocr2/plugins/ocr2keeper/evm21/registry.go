@@ -634,6 +634,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayload, chResult chan checkResult) {
 	upkeepResults, err := r.checkUpkeeps(ctx, keys)
 	if err != nil {
+		r.lggr.Errorf("error in check upkeeps: %s", err.Error())
 		chResult <- checkResult{
 			err: err,
 		}
@@ -642,6 +643,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 
 	upkeepResults, err = r.feedLookup(ctx, upkeepResults)
 	if err != nil {
+		r.lggr.Errorf("error in feed lookup: %s", err.Error())
 		chResult <- checkResult{
 			err: err,
 		}
@@ -650,6 +652,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
+		r.lggr.Errorf("error in simulate upkeeps: %s", err.Error())
 		chResult <- checkResult{
 			err: err,
 		}
@@ -728,7 +731,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 
 	for i, req := range checkReqs {
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %s with message '%s' in check", payloads[i], req.Error)
+			r.lggr.Debugf("error encountered for key %s with message '%s' in check", payloads[i].UpkeepID.String(), req.Error.Error())
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
 			var err error
@@ -737,6 +740,9 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 				return nil, errors.Wrap(err, "failed to unpack check result")
 			}
 		}
+	}
+	if multiErr != nil {
+		r.lggr.Warnf("check multiErr=", multiErr.Error())
 	}
 
 	return results, multiErr
@@ -794,7 +800,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 	var multiErr error
 	for i, req := range performReqs {
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Trigger.BlockNumber, checkResults[i].UpkeepID.BigInt(), req.Error)
+			r.lggr.Debugf("error encountered for %s with message '%s' in simulate perform", checkResults[i].UpkeepID.String(), req.Error.Error())
 			multierr.AppendInto(&multiErr, req.Error)
 		} else {
 			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
@@ -810,6 +816,10 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 	for i, cr := range checkResults {
 		r.lggr.Infof("index %d upkeepId %s workId %s eligible %t ineligibleReason %d pipelineState %d linkNative %s fastGas %s GasAllocated %d retryable %t performData %s", i, cr.UpkeepID.String(), cr.WorkID, cr.Eligible, cr.IneligibilityReason, cr.PipelineExecutionState, cr.LinkNative, cr.FastGasWei, cr.GasAllocated, cr.Retryable, hexutil.Encode(cr.PerformData))
+	}
+
+	if multiErr != nil {
+		r.lggr.Warnf("simulate multiErr=", multiErr.Error())
 	}
 
 	return checkResults, multiErr
