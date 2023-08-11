@@ -63,21 +63,21 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, 
 	}
 
 	result = ocr2keepers.CheckResult{
-		Eligible:      *abi.ConvertType(out[0], new(bool)).(*bool),
-		Retryable:     false,
-		GasAllocated:  uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
-		UpkeepID:      p.UpkeepID,
-		Trigger:       p.Trigger,
-		WorkID:        p.WorkID,
-		FastGasWei:    *abi.ConvertType(out[5], new(*big.Int)).(**big.Int),
-		LinkNative:    *abi.ConvertType(out[6], new(*big.Int)).(**big.Int),
-		FailureReason: *abi.ConvertType(out[2], new(uint8)).(*uint8),
+		Eligible:            *abi.ConvertType(out[0], new(bool)).(*bool),
+		Retryable:           false,
+		GasAllocated:        uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
+		UpkeepID:            p.UpkeepID,
+		Trigger:             p.Trigger,
+		WorkID:              p.WorkID,
+		FastGasWei:          *abi.ConvertType(out[5], new(*big.Int)).(**big.Int),
+		LinkNative:          *abi.ConvertType(out[6], new(*big.Int)).(**big.Int),
+		IneligibilityReason: *abi.ConvertType(out[2], new(uint8)).(*uint8),
 	}
 
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
-	if result.FailureReason == UPKEEP_FAILURE_REASON_NONE || (result.FailureReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
+	if result.IneligibilityReason == UPKEEP_FAILURE_REASON_NONE || (result.IneligibilityReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
 		result.PerformData = rawPerformData
 	}
 

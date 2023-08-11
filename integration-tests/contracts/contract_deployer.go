@@ -94,6 +94,8 @@ type ContractDeployer interface {
 	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
 	DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error)
 	DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error)
+	DeployStakingEventsMock() (StakingEventsMock, error)
+	DeployOffchainAggregatorEventsMock() (OffchainAggregatorEventsMock, error)
 	DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error)
 	DeployOffchainAggregatorV2(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregatorV2, error)
 	DeployKeeperRegistryCheckUpkeepGasUsageWrapper(keeperRegistryAddr string) (KeeperRegistryCheckUpkeepGasUsageWrapper, error)
@@ -296,6 +298,40 @@ func (e *EthereumContractDeployer) DeployFunctionsBillingRegistryEventsMock() (F
 	return &EthereumFunctionsBillingRegistryEventsMock{
 		client:     e.client,
 		eventsMock: instance.(*functions_billing_registry_events_mock.FunctionsBillingRegistryEventsMock),
+		address:    address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployStakingEventsMock() (StakingEventsMock, error) {
+	address, _, instance, err := e.client.DeployContract("StakingEventsMock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return eth_contracts.DeployStakingEventsMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumStakingEventsMock{
+		client:     e.client,
+		eventsMock: instance.(*eth_contracts.StakingEventsMock),
+		address:    address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployOffchainAggregatorEventsMock() (OffchainAggregatorEventsMock, error) {
+	address, _, instance, err := e.client.DeployContract("OffchainAggregatorEventsMock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return eth_contracts.DeployOffchainAggregatorEventsMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumOffchainAggregatorEventsMock{
+		client:     e.client,
+		eventsMock: instance.(*eth_contracts.OffchainAggregatorEventsMock),
 		address:    address,
 	}, nil
 }

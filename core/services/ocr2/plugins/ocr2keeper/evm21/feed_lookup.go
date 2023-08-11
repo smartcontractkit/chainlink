@@ -76,7 +76,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 	lookups := map[int]*FeedLookup{}
 	for i := range upkeepResults {
 		res := &upkeepResults[i]
-		if res.FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
+		if res.IneligibilityReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
 		}
 
@@ -96,7 +96,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 		}
 
 		if !allowed {
-			res.FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
+			res.IneligibilityReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d NOT allowed to time Mercury server", upkeepId, block)
 			continue
 		}
@@ -153,18 +153,18 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 	}
 
 	if int(failureReason) == UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED {
-		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
+		upkeepResults[i].IneligibilityReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d mercury callback reverts", lookup.upkeepId, lookup.block)
 		return
 	}
 
 	if !needed {
-		upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
+		upkeepResults[i].IneligibilityReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d callback reports upkeep not needed", lookup.upkeepId, lookup.block)
 		return
 	}
 
-	upkeepResults[i].FailureReason = UPKEEP_FAILURE_REASON_NONE
+	upkeepResults[i].IneligibilityReason = UPKEEP_FAILURE_REASON_NONE
 	upkeepResults[i].Eligible = true
 	upkeepResults[i].PerformData = performData
 	r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %s", lookup.upkeepId, lookup.block, hexutil.Encode(performData))
