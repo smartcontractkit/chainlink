@@ -1092,7 +1092,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		rAddr := ethkey.MustEIP55Address(spec.ContractID).Address()
 		registry, rErr := keeper_registry_wrapper2_0.NewKeeperRegistry(rAddr, chain.Client())
 		if rErr != nil {
-			return nil, errors.Wrap(rErr, "Error creating new Registry Wrapper for customTelemService.")
+			return nil, errors.Wrap(rErr, "error creating new Registry Wrapper for customTelemService")
 		}
 		customTelemService := ocr2keeper.NewAutomationCustomTelemetryService(
 			endpoint,
