@@ -1,7 +1,7 @@
 [profile.default]
 auto_detect_solc = true
 optimizer = true
-optimizer_runs = 1_000_000
+optimizer_runs = 10_000 
 
 src = 'src/v0.8'
 test = 'test/v0.8/foundry'
@@ -22,7 +22,7 @@ src = 'src/v0.8/functions'
 test = 'src/v0.8/functions/tests'
 
 [profile.vrf]
-optimizer_runs = 1000
+optimizer_runs = 1500
 src = 'src/v0.8/vrf'
 test = 'test/v0.8/foundry/vrf' # skips tests for no VRF foundry tests
 solc_version = '0.8.6'
