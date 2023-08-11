@@ -113,7 +113,7 @@ func (jc *JobsController) Create(c *gin.Context) {
 	defer cancel()
 	err = jc.App.AddJobV2(ctx, &jb)
 	if err != nil {
-		if errors.Is(errors.Cause(err), job.ErrNoSuchKeyBundle) || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Is(errors.Cause(err), job.ErrNoSuchTransmitterKey) {
+		if errors.Is(errors.Cause(err), job.ErrNoSuchKeyBundle) || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Is(errors.Cause(err), job.ErrNoSuchTransmitterKey) || errors.Is(errors.Cause(err), job.ErrNoSuchSendingKey) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}
@@ -201,7 +201,7 @@ func (jc *JobsController) Update(c *gin.Context) {
 
 	err = jc.App.AddJobV2(ctx, &jb)
 	if err != nil {
-		if errors.Is(errors.Cause(err), job.ErrNoSuchKeyBundle) || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Is(errors.Cause(err), job.ErrNoSuchTransmitterKey) {
+		if errors.Is(errors.Cause(err), job.ErrNoSuchKeyBundle) || errors.As(err, &keystore.KeyNotFoundError{}) || errors.Is(errors.Cause(err), job.ErrNoSuchTransmitterKey) || errors.Is(errors.Cause(err), job.ErrNoSuchSendingKey) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
 		}

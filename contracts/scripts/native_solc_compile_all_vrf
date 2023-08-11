@@ -67,6 +67,7 @@ compileContract dev/vrf/testhelpers/VRFV2PlusRevertingExample.sol
 compileContract dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
 compileContract dev/vrf/libraries/VRFV2PlusClient.sol
 compileContract dev/vrf/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
+compileContract dev/vrf/TrustedBlockhashStore.sol
 
 # VRF V2 Wrapper
 compileContract vrf/VRFV2Wrapper.sol
@@ -81,4 +82,4 @@ compileContract vrf/testhelpers/VRFOwnerlessConsumerExample.sol
 compileContract vrf/testhelpers/VRFLoadTestOwnerlessConsumer.sol
 compileContract vrf/testhelpers/VRFLoadTestExternalSubOwner.sol
 compileContract vrf/testhelpers/VRFV2LoadTestWithMetrics.sol
-
+compileContract vrf/testhelpers/VRFV2OwnerTestConsumer.sol
