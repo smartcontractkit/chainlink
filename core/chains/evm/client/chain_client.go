@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -17,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type chainClient struct {
+type ChainClient struct {
 	utils.StartStopOnce
 	nodes     []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient]
 	sendonlys []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient]
@@ -36,7 +37,7 @@ type chainClient struct {
 	wg        sync.WaitGroup
 }
 
-func (c *chainClient) NewClient(
+func (c *ChainClient) NewClient(
 	logger logger.Logger,
 	selectionMode string,
 	noNewHeadsThreshold time.Duration,
@@ -44,14 +45,14 @@ func (c *chainClient) NewClient(
 	sendonlys []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient],
 	chainID *big.Int,
 	chainType config.ChainType,
-) *chainClient {
+) *ChainClient {
 	multiNodeClient := clienttypes.NewMultiNodeClient[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient](
 		logger, selectionMode, noNewHeadsThreshold, nodes, sendonlys, chainID, "EVM",
 	)
 
 	lggr := logger.Named("Client").With("chainID", chainID.String())
 
-	client := &chainClient{
+	client := &ChainClient{
 		nodes:           nodes,
 		sendonlys:       sendonlys,
 		multiNodeClient: multiNodeClient,
@@ -62,15 +63,22 @@ func (c *chainClient) NewClient(
 	return client
 }
 
-func (c *chainClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
+func (c *ChainClient) Dial(ctx context.Context) error {
+	if err := c.multiNodeClient.Dial(ctx); err != nil {
+		return errors.Wrap(err, "failed to dial multiNodeClient")
+	}
+	return nil
+}
+
+func (c *ChainClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().BalanceAt(ctx, account, blockNumber)
 }
 
-func (c *chainClient) BatchCallContext(ctx context.Context, b []any) error {
+func (c *ChainClient) BatchCallContext(ctx context.Context, b []any) error {
 	return c.multiNodeClient.SelectNode().RPCClient().BatchCallContext(ctx, b)
 }
 
-func (c *chainClient) BatchCallContextAll(ctx context.Context, b []any) error {
+func (c *ChainClient) BatchCallContextAll(ctx context.Context, b []any) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
@@ -99,23 +107,27 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []any) error {
 	return main.RPCClient().BatchCallContext(ctx, b)
 }
 
-func (c *chainClient) ChainType() config.ChainType {
+func (c *ChainClient) ChainType() config.ChainType {
 	return c.chainType
 }
 
-func (c *chainClient) BlockByHash(ctx context.Context, hash common.Hash) (*evmtypes.Head, error) {
+func (c *ChainClient) Close() {
+	c.multiNodeClient.Close()
+}
+
+func (c *ChainClient) BlockByHash(ctx context.Context, hash common.Hash) (*evmtypes.Head, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().BlockByHash(ctx, hash)
 }
 
-func (c *chainClient) BlockByNumber(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
+func (c *ChainClient) BlockByNumber(ctx context.Context, number *big.Int) (*evmtypes.Head, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().BlockByNumber(ctx, number)
 }
 
-func (c *chainClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
+func (c *ChainClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	return c.multiNodeClient.SelectNode().RPCClient().CallContext(ctx, result, method, args...)
 }
 
-func (c *chainClient) CallContract(
+func (c *ChainClient) CallContract(
 	ctx context.Context,
 	attempt interface{},
 	blockNumber *big.Int,
@@ -123,43 +135,43 @@ func (c *chainClient) CallContract(
 	return c.multiNodeClient.SelectNode().RPCClient().CallContract(ctx, attempt, blockNumber)
 }
 
-func (c *chainClient) ChainID() (*big.Int, error) {
+func (c *ChainClient) ChainID() (*big.Int, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().ChainID()
 }
 
-func (c *chainClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
+func (c *ChainClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().CodeAt(ctx, account, blockNumber)
 }
 
-func (c *chainClient) ConfiguredChainID() *big.Int {
+func (c *ChainClient) ConfiguredChainID() *big.Int {
 	return c.multiNodeClient.SelectNode().RPCClient().ConfiguredChainID()
 }
 
-func (c *chainClient) EstimateGas(ctx context.Context, call any) (gas uint64, err error) {
+func (c *ChainClient) EstimateGas(ctx context.Context, call any) (gas uint64, err error) {
 	return c.multiNodeClient.SelectNode().RPCClient().EstimateGas(ctx, call)
 }
 
-func (c *chainClient) FilterEvents(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+func (c *ChainClient) FilterEvents(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().FilterEvents(ctx, query)
 }
 
-func (c *chainClient) IsL2() bool {
+func (c *ChainClient) IsL2() bool {
 	return c.ChainType().IsL2()
 }
 
-func (c *chainClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
+func (c *ChainClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().LatestBlockHeight(ctx)
 }
 
-func (c *chainClient) LINKBalance(ctx context.Context, accountAddress common.Address, linkAddress common.Address) (*assets.Link, error) {
+func (c *ChainClient) LINKBalance(ctx context.Context, accountAddress common.Address, linkAddress common.Address) (*assets.Link, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().LINKBalance(ctx, accountAddress, linkAddress)
 }
 
-func (c *chainClient) PendingSequenceAt(ctx context.Context, addr common.Address) (evmtypes.Nonce, error) {
+func (c *ChainClient) PendingSequenceAt(ctx context.Context, addr common.Address) (evmtypes.Nonce, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().PendingSequenceAt(ctx, addr)
 }
 
-func (c *chainClient) SendEmptyTransaction(
+func (c *ChainClient) SendEmptyTransaction(
 	ctx context.Context,
 	newTxAttempt func(seq evmtypes.Nonce, feeLimit uint32, fee *assets.Wei, fromAddress common.Address) (attempt any, err error),
 	seq evmtypes.Nonce,
@@ -170,7 +182,7 @@ func (c *chainClient) SendEmptyTransaction(
 	return c.multiNodeClient.SelectNode().RPCClient().SendEmptyTransaction(ctx, newTxAttempt, seq, gasLimit, fee, fromAddress)
 }
 
-func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+func (c *ChainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	main := c.multiNodeClient.SelectNode()
 	var all []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient]
 	all = append(all, c.nodes...)
@@ -211,33 +223,33 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 	return main.RPCClient().SendTransaction(ctx, tx)
 }
 
-func (c *chainClient) SendTransactionReturnCode(
+func (c *ChainClient) SendTransactionReturnCode(
 	ctx context.Context,
 	tx *types.Transaction,
 ) (clienttypes.SendTxReturnCode, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().SendTransactionReturnCode(ctx, tx)
 }
 
-func (c *chainClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
+func (c *ChainClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().SequenceAt(ctx, account, blockNumber)
 }
 
-func (c *chainClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
+func (c *ChainClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
 	return c.multiNodeClient.SelectNode().RPCClient().SimulateTransaction(ctx, tx)
 }
 
-func (c *chainClient) Subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
+func (c *ChainClient) Subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().Subscribe(ctx, channel, args)
 }
 
-func (c *chainClient) TokenBalance(ctx context.Context, account common.Address, tokenAddr common.Address) (*big.Int, error) {
+func (c *ChainClient) TokenBalance(ctx context.Context, account common.Address, tokenAddr common.Address) (*big.Int, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().TokenBalance(ctx, account, tokenAddr)
 }
 
-func (c *chainClient) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+func (c *ChainClient) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().TransactionByHash(ctx, txHash)
 }
 
-func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*evmtypes.Receipt, error) {
+func (c *ChainClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*evmtypes.Receipt, error) {
 	return c.multiNodeClient.SelectNode().RPCClient().TransactionReceipt(ctx, txHash)
 }

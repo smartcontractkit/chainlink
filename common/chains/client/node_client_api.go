@@ -19,4 +19,5 @@ type NodeClientAPI[
 	SetState(state NodeState)
 	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (SUB, error)
 	ClientVersion(context.Context) (string, error)
+	GetServiceURIs() (http string, ws string)
 }

@@ -49,7 +49,6 @@ type RPCClient interface {
 
 type rpcClient struct {
 	utils.StartStopOnce
-	lfcLog  logger.Logger
 	rpcLog  logger.Logger
 	name    string
 	id      int32
@@ -95,7 +94,6 @@ func NewRPCClient(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name stri
 		"client", r.String(),
 		"evmChainID", chainID,
 	)
-	r.lfcLog = lggr.Named("Lifecycle")
 	r.rpcLog = lggr.Named("RPC")
 
 	return r
@@ -108,7 +106,7 @@ func (r *rpcClient) Dial(callerCtx context.Context) error {
 	defer cancel()
 
 	promEVMPoolRPCNodeDials.WithLabelValues(r.chainID.String(), r.name).Inc()
-	lggr := r.lfcLog.With("wsuri", r.ws.uri.Redacted())
+	lggr := r.rpcLog.With("wsuri", r.ws.uri.Redacted())
 	if r.http != nil {
 		lggr = lggr.With("httpuri", r.http.uri.Redacted())
 	}
@@ -249,6 +247,14 @@ func (r *rpcClient) unsubscribeAll() {
 		sub.Unsubscribe()
 	}
 	r.subs = nil
+}
+
+func (r *rpcClient) GetServiceURIs() (http string, ws string) {
+	if r.http != nil {
+		http = r.http.uri.String()
+	}
+	ws = r.ws.uri.String()
+	return
 }
 
 // RPC wrappers
@@ -923,11 +929,6 @@ func (r *rpcClient) makeLiveQueryCtxAndSafeGetClients(parentCtx context.Context)
 	// Need to wrap in mutex because state transition can cancel and replace the
 	// context
 	r.stateMu.RLock()
-	if r.state != clienttypes.NodeStateAlive {
-		err = errors.Errorf("cannot execute RPC call on rpcClient with state: %s", r.state)
-		r.stateMu.RUnlock()
-		return
-	}
 	cancelCh := r.chStopInFlight
 	ws = r.ws
 	if r.http != nil {

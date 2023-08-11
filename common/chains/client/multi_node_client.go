@@ -22,7 +22,7 @@ var (
 	PromMultiNodeClientRPCNodeStates = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "client_rpc_node_states",
 		Help: "The number of RPC nodes currently in the given state for the given chain",
-	}, []string{"chainFamily", "chainId", "state"})
+	}, []string{"network", "chainId", "state"})
 )
 
 const (
