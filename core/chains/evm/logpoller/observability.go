@@ -88,7 +88,7 @@ func (o *ObservedLogPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, ev
 
 func (o *ObservedLogPoller) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
 	return withObservedQuery(o, "LatestBlockByEventSigsAddrsWithConfs", func() (int64, error) {
-		return o.LogPoller.LatestBlockByEventSigsAddrsWithConfs(0, eventSigs, addresses, confs, qopts...)
+		return o.LogPoller.LatestBlockByEventSigsAddrsWithConfs(fromBlock, eventSigs, addresses, confs, qopts...)
 	})
 }
 
