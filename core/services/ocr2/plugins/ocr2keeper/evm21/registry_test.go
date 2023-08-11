@@ -12,8 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -344,9 +346,289 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			block, upkeep := r.getBlockAndUpkeepId(tc.input.UpkeepID, tc.input.Trigger)
+			block, _, upkeep := r.getBlockAndUpkeepId(tc.input.UpkeepID, tc.input.Trigger)
 			assert.Equal(t, tc.wantBlock, block)
 			assert.Equal(t, tc.wantUpkeep.String(), upkeep.String())
+		})
+	}
+}
+
+func TestRegistry_VerifyCheckBlock(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	upkeepId := ocr2keepers.UpkeepIdentifier{}
+	upkeepId.FromBigInt(big.NewInt(12345))
+	tests := []struct {
+		name            string
+		checkBlock      *big.Int
+		latestBlock     *big.Int
+		upkeepId        *big.Int
+		checkHash       common.Hash
+		payload         ocr2keepers.UpkeepPayload
+		i               int
+		results         []ocr2keepers.CheckResult
+		expectedResults []ocr2keepers.CheckResult
+		blocks          map[int64]string
+		valid           bool
+	}{
+		{
+			name:        "check block number too told",
+			checkBlock:  big.NewInt(500),
+			latestBlock: big.NewInt(800),
+			upkeepId:    big.NewInt(12345),
+			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
+			payload: ocr2keepers.UpkeepPayload{
+				UpkeepID: upkeepId,
+				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
+				WorkID:   "work",
+			},
+			i:       0,
+			results: make([]ocr2keepers.CheckResult, 1),
+			expectedResults: []ocr2keepers.CheckResult{
+				{
+					FailureReason: UPKEEP_FAILURE_REASON_CHECK_BLOCK_TOO_OLD,
+					UpkeepID:      upkeepId,
+					Trigger:       ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
+					FastGasWei:    big.NewInt(0),
+					LinkNative:    big.NewInt(0),
+					WorkID:        "work",
+				},
+			},
+		},
+		{
+			name:        "check block number invalid",
+			checkBlock:  big.NewInt(500),
+			latestBlock: big.NewInt(560),
+			upkeepId:    big.NewInt(12345),
+			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
+			payload: ocr2keepers.UpkeepPayload{
+				UpkeepID: upkeepId,
+				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
+				WorkID:   "work",
+			},
+			i:       1,
+			results: make([]ocr2keepers.CheckResult, 2),
+			expectedResults: []ocr2keepers.CheckResult{
+				{},
+				{
+					FailureReason: UPKEEP_FAILURE_REASON_CHECK_BLOCK_INVALID,
+					UpkeepID:      upkeepId,
+					Trigger:       ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
+					FastGasWei:    big.NewInt(0),
+					LinkNative:    big.NewInt(0),
+					WorkID:        "work",
+				},
+			},
+		},
+		{
+			name:        "check block hash does not match",
+			checkBlock:  big.NewInt(500),
+			latestBlock: big.NewInt(560),
+			upkeepId:    big.NewInt(12345),
+			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
+			payload: ocr2keepers.UpkeepPayload{
+				UpkeepID: upkeepId,
+				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
+				WorkID:   "work",
+			},
+			i:       1,
+			results: make([]ocr2keepers.CheckResult, 2),
+			expectedResults: []ocr2keepers.CheckResult{
+				{},
+				{
+					FailureReason: UPKEEP_FAILURE_REASON_CHECK_BLOCK_INVALID,
+					UpkeepID:      upkeepId,
+					Trigger:       ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
+					FastGasWei:    big.NewInt(0),
+					LinkNative:    big.NewInt(0),
+					WorkID:        "work",
+				},
+			},
+			blocks: map[int64]string{
+				500: "0xa518faeadcc423338c62572da84dda35fe44b34f521ce88f6081b703b250cca4",
+			},
+		},
+		{
+			name:        "check block is valid",
+			checkBlock:  big.NewInt(500),
+			latestBlock: big.NewInt(560),
+			upkeepId:    big.NewInt(12345),
+			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
+			payload: ocr2keepers.UpkeepPayload{
+				UpkeepID: upkeepId,
+				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
+				WorkID:   "work",
+			},
+			i:       0,
+			results: make([]ocr2keepers.CheckResult, 1),
+			expectedResults: []ocr2keepers.CheckResult{
+				{},
+			},
+			blocks: map[int64]string{
+				500: "0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83",
+			},
+			valid: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			bs := &BlockSubscriber{
+				latestBlock: tc.latestBlock.Int64(),
+				blocks:      tc.blocks,
+			}
+			e := &EvmRegistry{
+				lggr: lggr,
+				bs:   bs,
+			}
+
+			valid := e.verifyCheckBlock(tc.checkBlock, tc.upkeepId, tc.checkHash, tc.payload, tc.i, tc.results)
+			assert.Equal(t, tc.valid, valid)
+			assert.Equal(t, tc.expectedResults, tc.results)
+		})
+	}
+}
+
+func TestRegistry_VerifyLogExists(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	upkeepId := ocr2keepers.UpkeepIdentifier{}
+	upkeepId.FromBigInt(big.NewInt(12345))
+
+	extension := &ocr2keepers.LogTriggerExtension{
+		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
+		Index:       0,
+		BlockHash:   common.HexToHash("0x3df0e926f3e21ec1195ffe007a2899214905eb02e768aa89ce0b94accd7f3d71"),
+		BlockNumber: 500,
+	}
+	extension1 := &ocr2keepers.LogTriggerExtension{
+		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
+		Index:       0,
+		BlockHash:   common.HexToHash("0x3df0e926f3e21ec1195ffe007a2899214905eb02e768aa89ce0b94accd7f3d71"),
+		BlockNumber: 0,
+	}
+
+	tests := []struct {
+		name            string
+		upkeepId        *big.Int
+		payload         ocr2keepers.UpkeepPayload
+		i               int
+		results         []ocr2keepers.CheckResult
+		expectedResults []ocr2keepers.CheckResult
+		blocks          map[int64]string
+		makeEthCall     bool
+		valid           bool
+	}{
+		{
+			name:     "log block number no longer exists",
+			upkeepId: big.NewInt(12345),
+			payload: ocr2keepers.UpkeepPayload{
+				UpkeepID: upkeepId,
+				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
+				WorkID:   "work",
+			},
+			i:       0,
+			results: make([]ocr2keepers.CheckResult, 1),
+			expectedResults: []ocr2keepers.CheckResult{
+				{
+					FailureReason: UPKEEP_FAILURE_REASON_LOG_BLOCK_NO_LONGER_EXISTS,
+					UpkeepID:      upkeepId,
+					Trigger:       ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
+					FastGasWei:    big.NewInt(0),
+					LinkNative:    big.NewInt(0),
+					WorkID:        "work",
+				},
+			},
+		},
+		{
+			name:     "log block not valid",
+			upkeepId: big.NewInt(12345),
+			payload: ocr2keepers.UpkeepPayload{
+				UpkeepID: upkeepId,
+				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
+				WorkID:   "work",
+			},
+			i:       1,
+			results: make([]ocr2keepers.CheckResult, 2),
+			expectedResults: []ocr2keepers.CheckResult{
+				{},
+				{
+					FailureReason: UPKEEP_FAILURE_REASON_LOG_BLOCK_INVALID,
+					UpkeepID:      upkeepId,
+					Trigger:       ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
+					FastGasWei:    big.NewInt(0),
+					LinkNative:    big.NewInt(0),
+					WorkID:        "work",
+				},
+			},
+			blocks: map[int64]string{
+				500: "0xb2173b4b75f23f56b7b2b6b2cc5fa9ed1079b9d1655b12b40fdb4dbf59006419",
+			},
+		},
+		{
+			name:     "tx hash no longer exists",
+			upkeepId: big.NewInt(12345),
+			payload: ocr2keepers.UpkeepPayload{
+				UpkeepID: upkeepId,
+				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension1),
+				WorkID:   "work",
+			},
+			i:       1,
+			results: make([]ocr2keepers.CheckResult, 2),
+			expectedResults: []ocr2keepers.CheckResult{
+				{},
+				{
+					FailureReason: UPKEEP_FAILURE_REASON_TX_HASH_NO_LONGER_EXISTS,
+					UpkeepID:      upkeepId,
+					Trigger:       ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension1),
+					FastGasWei:    big.NewInt(0),
+					LinkNative:    big.NewInt(0),
+					WorkID:        "work",
+				},
+			},
+			blocks: map[int64]string{
+				500: "0xa518faeadcc423338c62572da84dda35fe44b34f521ce88f6081b703b250cca4",
+			},
+			makeEthCall: true,
+		},
+		{
+			name:     "log block is valid",
+			upkeepId: big.NewInt(12345),
+			payload: ocr2keepers.UpkeepPayload{
+				UpkeepID: upkeepId,
+				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
+				WorkID:   "work",
+			},
+			i:       0,
+			results: make([]ocr2keepers.CheckResult, 1),
+			expectedResults: []ocr2keepers.CheckResult{
+				{},
+			},
+			blocks: map[int64]string{
+				500: "0x3df0e926f3e21ec1195ffe007a2899214905eb02e768aa89ce0b94accd7f3d71",
+			},
+			valid: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			bs := &BlockSubscriber{
+				blocks: tc.blocks,
+			}
+			e := &EvmRegistry{
+				lggr: lggr,
+				bs:   bs,
+			}
+
+			if tc.makeEthCall {
+				client := new(evmClientMocks.Client)
+				client.On("TransactionReceipt", mock.Anything, common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
+					Return(nil, fmt.Errorf("error"))
+				e.client = client
+			}
+
+			valid := e.verifyLogExists(tc.upkeepId, tc.payload, tc.i, tc.results)
+			assert.Equal(t, tc.valid, valid)
+			assert.Equal(t, tc.expectedResults, tc.results)
 		})
 	}
 }
