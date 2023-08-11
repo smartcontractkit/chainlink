@@ -528,7 +528,6 @@ func (o *OCRSoakTest) observeOCREvents() error {
 	o.filterQuery = geth.FilterQuery{
 		Addresses: ocrAddresses,
 		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
-		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 	}
 
 	// Convert struct to JSON
