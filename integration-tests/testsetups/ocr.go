@@ -536,7 +536,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 	if err != nil {
 		fmt.Println(err)
 	} else {
-		fmt.Println(string(jsonData))
+		o.log.Info().Str("Address", string(jsonData)).Msg("Filter Query")
 	}
 
 	eventLogs := make(chan types.Log)
@@ -569,7 +569,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 					Msg("Answer Updated Event")
 			case err = <-eventSub.Err():
 				for err != nil {
-					o.log.Trace().
+					o.log.Info().
 						Err(err).
 						Interface("Query", o.filterQuery).
 						Msg("Error while subscribed to OCR Logs. Resubscribing")
