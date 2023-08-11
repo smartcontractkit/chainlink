@@ -35,8 +35,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier_proxy"
+	token "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -101,11 +104,27 @@ func TestIntegration_Mercury(t *testing.T) {
 	t.Cleanup(stopMining)
 
 	// Deploy config contract
-	verifierProxyAddr, _, verifierProxy, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
+	linkTokenAddress, _, linkToken, err := token.DeployLinkToken(steve, backend)
 	require.NoError(t, err)
-	verifierAddress, _, verifier, err := mercury_verifier.DeployMercuryVerifier(steve, backend, verifierProxyAddr)
+	_, err = linkToken.Transfer(steve, steve.From, big.NewInt(1000))
+	require.NoError(t, err)
+	nativeTokenAddress, _, nativeToken, err := token.DeployLinkToken(steve, backend)
+	require.NoError(t, err)
+	_, err = nativeToken.Transfer(steve, steve.From, big.NewInt(1000))
+	require.NoError(t, err)
+	verifierProxyAddr, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
+	require.NoError(t, err)
+	verifierAddress, _, verifier, err := verifier.DeployVerifier(steve, backend, verifierProxyAddr)
 	require.NoError(t, err)
 	_, err = verifierProxy.InitializeVerifier(steve, verifierAddress)
+	require.NoError(t, err)
+	rewardManagerAddr, _, rewardManager, err := reward_manager.DeployRewardManager(steve, backend, linkTokenAddress)
+	require.NoError(t, err)
+	feeManagerAddr, _, _, err := fee_manager.DeployFeeManager(steve, backend, linkTokenAddress, nativeTokenAddress, verifierProxyAddr, rewardManagerAddr)
+	require.NoError(t, err)
+	_, err = verifierProxy.SetFeeManager(steve, feeManagerAddr)
+	require.NoError(t, err)
+	_, err = rewardManager.SetFeeManager(steve, feeManagerAddr)
 	require.NoError(t, err)
 	backend.Commit()
 
