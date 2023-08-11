@@ -606,10 +606,10 @@ type WebServer struct {
 	StartTimeout            *models.Duration
 	ListenIP                *net.IP
 
+	LDAP      WebServerLDAP      `toml:",omitempty"`
 	MFA       WebServerMFA       `toml:",omitempty"`
 	RateLimit WebServerRateLimit `toml:",omitempty"`
 	TLS       WebServerTLS       `toml:",omitempty"`
-	LDAP      WebServerLDAP      `toml:",omitempty"`
 }
 
 func (w *WebServer) setFrom(f *WebServer) {
@@ -650,10 +650,10 @@ func (w *WebServer) setFrom(f *WebServer) {
 		w.HTTPMaxSize = v
 	}
 
+	w.LDAP.setFrom(&f.LDAP)
 	w.MFA.setFrom(&f.MFA)
 	w.RateLimit.setFrom(&f.RateLimit)
 	w.TLS.setFrom(&f.TLS)
-	w.LDAP.setFrom(&f.LDAP)
 }
 
 type WebServerMFA struct {
@@ -787,19 +787,39 @@ func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 	if v := f.UserApiTokenEnabled; v != nil {
 		w.UserApiTokenEnabled = v
 	}
+	if v := f.UserAPITokenDuration; v != nil {
+		w.UserAPITokenDuration = v
+	}
 	if v := f.UpstreamSyncInterval; v != nil {
 		w.UpstreamSyncInterval = v
 	}
 }
 
 type WebServerLDAPSecrets struct {
-	ServerAddress     *string
-	ReadOnlyUserLogin *string
-	ReadOnlyUserPass  *string
+	ServerAddress     *models.Secret
+	ReadOnlyUserLogin *models.Secret
+	ReadOnlyUserPass  *models.Secret
+}
+
+func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
+	if v := f.ServerAddress; v != nil {
+		w.ServerAddress = v
+	}
+	if v := f.ReadOnlyUserLogin; v != nil {
+		w.ReadOnlyUserLogin = v
+	}
+	if v := f.ReadOnlyUserPass; v != nil {
+		w.ReadOnlyUserPass = v
+	}
 }
 
 type WebServerSecrets struct {
-	LDAP WebServerLDAPSecrets
+	LDAP WebServerLDAPSecrets `toml:",omitempty"`
+}
+
+func (w *WebServerSecrets) SetFrom(f *WebServerSecrets) error {
+	w.LDAP.setFrom(&f.LDAP)
+	return nil
 }
 
 type JobPipeline struct {

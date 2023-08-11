@@ -187,21 +187,21 @@ func (l *ldapConfig) ServerAddress() string {
 	if l.s.ServerAddress == nil {
 		return ""
 	}
-	return *l.s.ServerAddress
+	return string(*l.s.ServerAddress)
 }
 
 func (l *ldapConfig) ReadOnlyUserLogin() string {
 	if l.s.ReadOnlyUserLogin == nil {
 		return ""
 	}
-	return *l.s.ReadOnlyUserLogin
+	return string(*l.s.ReadOnlyUserLogin)
 }
 
 func (l *ldapConfig) ReadOnlyUserPass() string {
 	if l.s.ReadOnlyUserPass == nil {
 		return ""
 	}
-	return *l.s.ReadOnlyUserPass
+	return string(*l.s.ReadOnlyUserPass)
 }
 
 func (l *ldapConfig) ServerTLS() bool {

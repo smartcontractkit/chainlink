@@ -308,6 +308,7 @@ func TestConfig_Marshal(t *testing.T) {
 		},
 	}
 	full.WebServer = toml.WebServer{
+		AuthenticationMethod:    ptr("local"),
 		AllowOrigins:            ptr("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
 		BridgeCacheTTL:          models.MustNewDuration(10 * time.Second),
@@ -322,6 +323,24 @@ func TestConfig_Marshal(t *testing.T) {
 		MFA: toml.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
+		},
+		LDAP: toml.WebServerLDAP{
+			ServerTLS:                   ptr(true),
+			SessionTimeout:              models.MustNewDuration(15 * time.Minute),
+			QueryTimeout:                models.MustNewDuration(2 * time.Minute),
+			BaseUserAttr:                ptr("uid'"),
+			BaseDN:                      ptr("dc=custom,dc=example,dc=com'"),
+			UsersDN:                     ptr("ou=users'"),
+			GroupsDN:                    ptr("ou=groups'"),
+			ActiveAttribute:             ptr("organizationalStatus'"),
+			ActiveAttributeAllowedValue: ptr("ACTIVE'"),
+			AdminUserGroupCN:            ptr("NodeAdmins'"),
+			EditUserGroupCN:             ptr("NodeEditors'"),
+			RunUserGroupCN:              ptr("NodeRunners'"),
+			ReadUserGroupCN:             ptr("NodeReadOnly'"),
+			UserApiTokenEnabled:         ptr(false),
+			UserAPITokenDuration:        models.MustNewDuration(240 * time.Hour),
+			UpstreamSyncInterval:        models.MustNewDuration(2 * time.Minute),
 		},
 		RateLimit: toml.WebServerRateLimit{
 			Authenticated:         ptr[int64](42),
