@@ -68,6 +68,15 @@ func NewObservedLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod ti
 	}
 }
 
+func NewTestObservedLogPoller(lp LogPoller) *ObservedLogPoller {
+	return &ObservedLogPoller{
+		LogPoller:     lp,
+		queryDuration: lpQueryDuration,
+		datasetSize:   lpQueryDataSets,
+		chainId:       "test",
+	}
+}
+
 func (o *ObservedLogPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQueryAndResults(o, "LogsCreatedAfter", func() ([]Log, error) {
 		return o.LogPoller.LogsCreatedAfter(eventSig, address, after, confs, qopts...)
