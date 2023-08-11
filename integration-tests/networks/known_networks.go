@@ -440,7 +440,7 @@ var (
 
 	PolygonZkEvm = blockchain.EVMNetwork{
 		Name:                      "Polygon zkEVM",
-		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ClientImplementation:      blockchain.PolygonZkEvmClientImplementation,
 		ChainID:                   1442,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
