@@ -62,7 +62,7 @@ type (
 		// job. In case a given job type relies upon well-defined startup/shutdown
 		// ordering for services, they are started in the order they are given
 		// and stopped in reverse order.
-		ServicesForSpec(spec Job) ([]ServiceCtx, error)
+		ServicesForSpec(spec Job, qopts ...pg.QOpt) ([]ServiceCtx, error)
 		AfterJobCreated(spec Job)
 		BeforeJobDeleted(spec Job)
 		// OnDeleteJob will be called from within DELETE db transaction.  Any db
@@ -368,7 +368,7 @@ func (n *NullDelegate) JobType() Type {
 }
 
 // ServicesForSpec does no-op.
-func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
+func (n *NullDelegate) ServicesForSpec(spec Job, qopts ...pg.QOpt) (s []ServiceCtx, err error) {
 	return
 }
 
