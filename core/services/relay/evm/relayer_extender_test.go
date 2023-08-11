@@ -59,4 +59,31 @@ func TestChainRelayExtenders(t *testing.T) {
 
 	assert.Error(t, relayExtendersInstances[0].Chain().Ready())
 	assert.Error(t, relayExtendersInstances[1].Chain().Ready())
+
+	// test extender methods on single instance
+	relayExt := relayExtendersInstances[0]
+	s, err := relayExt.ChainStatus(testutils.Context(t), "not a chain")
+	assert.Error(t, err)
+	assert.Empty(t, s)
+	// the 0-th extender corresponds to the test fixture default chain
+	s, err = relayExt.ChainStatus(testutils.Context(t), cltest.FixtureChainID.String())
+	assert.NotEmpty(t, s)
+	assert.NoError(t, err)
+
+	stats, cnt, err := relayExt.ChainStatuses(testutils.Context(t), 0, 0)
+	assert.NoError(t, err)
+	assert.Len(t, stats, 1)
+	assert.Equal(t, 1, cnt)
+
+	// test error conditions for NodeStatuses
+	nstats, cnt, err := relayExt.NodeStatuses(testutils.Context(t), 0, 0, cltest.FixtureChainID.String(), "error, only one chain supported")
+	assert.Error(t, err)
+	assert.Nil(t, nstats)
+	assert.Equal(t, -1, cnt)
+
+	nstats, cnt, err = relayExt.NodeStatuses(testutils.Context(t), 0, 0, "not the chain id")
+	assert.Error(t, err)
+	assert.Nil(t, nstats)
+	assert.Equal(t, -1, cnt)
+
 }

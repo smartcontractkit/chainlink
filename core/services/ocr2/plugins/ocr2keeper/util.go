@@ -122,25 +122,7 @@ func EVMDependencies21(
 	var encoder *kevm21.EVMAutomationEncoder21
 
 	oSpec := spec.OCR2OracleSpec
-	/*
-		// get the chain from the config
-		relayID, err2 := spec.OCR2OracleSpec.RelayIdentifier()
-		if err2 != nil {
-			return nil, nil, nil, nil, nil, nil, nil, err2
-		}
-		if relayID.Network != relay.EVM {
-			return nil, nil, nil, nil, fmt.Errorf("expected EVM relayer got %s", relayID.Network)
-		}
-		evmChainID, err2 := relayID.ChainID.Int64()
-		if err != nil {
-			return nil, nil, nil, nil, fmt.Errorf("chainID %q is not EVM compatible: %w", relayID.ChainID, err2)
-		}
 
-		chain, err2 = set.Get(big.NewInt(evmChainID))
-		if err2 != nil {
-			return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
-		}
-	*/
 	// the provider will be returned as a dependency
 	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, err

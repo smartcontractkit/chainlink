@@ -92,11 +92,7 @@ func (c *ChainRelayerExtenders) Len() int {
 // implements OneChain
 type ChainRelayerExt struct {
 	chain evmchain.Chain
-	// TODO remove this altogether. chainset is an implementation detail
-	// that enables use to reuse config logic but the notion of a chainset is
-	// confusing and unneeded in our desired end state where there is 1:1
-	// relayer:chain
-	// TODO add ticket to track
+	// TODO remove this altogether. BFC-2440
 	cs        *chainSet
 	isDefault bool
 }
@@ -115,7 +111,6 @@ var ErrCorruptEVMChain = errors.New("corrupt evm chain")
 
 func (s *ChainRelayerExt) Start(ctx context.Context) error {
 	if len(s.cs.chains) > 1 {
-		// perhaps better as a panic?
 		err := fmt.Errorf("%w: internal error more than one chain (%d)", ErrCorruptEVMChain, len(s.cs.chains))
 		panic(err)
 	}
@@ -362,43 +357,6 @@ func (cll *chainSet) SendTx(ctx context.Context, chainID, from, to string, amoun
 	return chain.SendTx(ctx, from, to, amount, balanceCheck)
 }
 
-/*
-type GeneralConfig interface {
-	config.AppConfig
-	toml.HasEVMConfigs
-}
-
-type ChainRelayExtenderConfig struct {
-	Logger   logger.Logger
-	DB       *sqlx.DB
-	KeyStore keystore.Eth
-	RelayerConfig
-}
-
-// options for the relayer factory. TODO the dependencies are odd;
-// the factory wants to own the logger and db
-// the factory creates extenders, which need the same and more opts
-type RelayerConfig struct {
-	GeneralConfig GeneralConfig
-
-	EventBroadcaster   pg.EventBroadcaster
-	MailMon            *utils.MailboxMonitor
-	GasEstimator       gas.EvmFeeEstimator
-	operationalConfigs evmtypes.Configs
-
-	// Gen-functions are useful for dependency injection by tests
-	GenEthClient      func(*big.Int) client.Client
-	GenLogBroadcaster func(*big.Int) log.Broadcaster
-	GenLogPoller      func(*big.Int) logpoller.LogPoller
-	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
-	GenTxManager      func(*big.Int) txmgr.TxManager
-	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
-}
-*/
-
-// NewTOMLChainSet returns a new ChainSet from TOML configuration.
-// func NewTOMLChainSet(ctx context.Context, opts ChainSetOpts) (ChainSet, error) {
-
 func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExtenderConfig) (*ChainRelayerExtenders, error) {
 	if err := opts.Check(); err != nil {
 		return nil, err
@@ -423,7 +381,6 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 	var err error
 	for i := range enabled {
 
-		//	for i := range enabled {
 		cid := enabled[i].ChainID.String()
 		privOpts := evmchain.ChainRelayExtenderConfig{
 			Logger:        opts.Logger.Named(cid),
@@ -431,9 +388,7 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 			DB:            opts.DB,
 			KeyStore:      opts.KeyStore,
 		}
-		// TODO is there any chance this cast can fail?
 		cll := newChainSet(privOpts)
-		//cll.defaultID = defaultChainID
 
 		cll.logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := evmchain.NewTOMLChain(ctx, enabled[i], privOpts)
@@ -464,17 +419,3 @@ func newChainSet(opts evmchain.ChainRelayExtenderConfig) *chainSet {
 		opts:          opts,
 	}
 }
-
-/*
-func (opts *ChainRelayExtenderConfig) check() error {
-	if opts.Logger == nil {
-		return errors.New("logger must be non-nil")
-	}
-	if opts.GeneralConfig == nil {
-		return errors.New("config must be non-nil")
-	}
-
-	opts.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.GeneralConfig.EVMConfigs())
-	return nil
-}
-*/

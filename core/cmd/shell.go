@@ -149,11 +149,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
-		RelayerConfig: evm.RelayerConfig{
-			GeneralConfig:    cfg,
-			EventBroadcaster: eventBroadcaster,
-			MailMon:          mailMon,
-		},
+		RelayerConfig:  evm.RelayerConfig{GeneralConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon},
 		CSAETHKeystore: keyStore,
 	}
 	// evm always enabled for backward compatibility
