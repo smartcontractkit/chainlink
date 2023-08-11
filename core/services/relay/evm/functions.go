@@ -108,9 +108,14 @@ func NewFunctionsProvider(legacyChains evm.LegacyChainContainer, rargs relaytype
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newFunctionsContractTransmitter(pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
-	if err != nil {
-		return nil, err
+	var contractTransmitter ContractTransmitter
+	if relayConfig.SendingKeys != nil {
+		contractTransmitter, err = newFunctionsContractTransmitter(pluginConfig.ContractVersion, rargs, pargs.TransmitterID, configWatcher, ethKeystore, logPollerWrapper, lggr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		lggr.Warn("no sending keys configured for functions plugin, not starting contract transmitter")
 	}
 	return &functionsProvider{
 		configWatcher:       configWatcher,

@@ -256,8 +256,10 @@ func TestIntegration_Mercury(t *testing.T) {
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTestsMercuryV02(
 		2*time.Second,        // DeltaProgress
 		20*time.Second,       // DeltaResend
+		400*time.Millisecond, // DeltaInitial
 		100*time.Millisecond, // DeltaRound
 		0,                    // DeltaGrace
+		300*time.Millisecond, // DeltaCertifiedCommitRequest
 		1*time.Minute,        // DeltaStage
 		100,                  // rMax
 		[]int{len(nodes)},    // S
@@ -298,6 +300,7 @@ func TestIntegration_Mercury(t *testing.T) {
 			onchainConfig,
 			offchainConfigVersion,
 			offchainConfig,
+			nil,
 		)
 		require.NoError(t, err)
 		backend.Commit()

@@ -2,22 +2,28 @@
 pragma solidity ^0.8.19;
 
 import {ITermsOfServiceAllowList} from "./interfaces/ITermsOfServiceAllowList.sol";
-import {Routable} from "../Routable.sol";
 import {IAccessController} from "../../../../shared/interfaces/IAccessController.sol";
 import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol";
+
+import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
 
 import {Address} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/Address.sol";
 import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
 
-/**
- * @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
- */
-contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessController {
+// @notice A contract to handle access control of subscription management dependent on signing a Terms of Service
+contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController, ITypeAndVersion, ConfirmedOwner {
   using Address for address;
   using EnumerableSet for EnumerableSet.AddressSet;
 
+  // @inheritdoc ITypeAndVersion
+  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
+
   EnumerableSet.AddressSet private s_allowedSenders;
   mapping(address => bool) private s_blockedSenders;
+
+  event AddedAccess(address user);
+  event BlockedAccess(address user);
+  event UnblockedAccess(address user);
 
   error InvalidSignature();
   error InvalidUsage();
@@ -26,57 +32,50 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
   // ================================================================
   // |                     Configuration state                      |
   // ================================================================
-
   struct Config {
-    bool enabled;
-    address signerPublicKey;
+    bool enabled; // ═════════════╗ When enabled, access will be checked against s_allowedSenders. When disabled, all access will be allowed.
+    address signerPublicKey; // ══╝ The key pair that needs to sign the acceptance data
   }
 
   Config private s_config;
 
-  event ConfigSet(bool enabled);
+  event ConfigUpdated(Config config);
 
   // ================================================================
   // |                       Initialization                         |
   // ================================================================
 
-  constructor(address router, bytes memory config) Routable(router, config) {}
-
-  // ================================================================
-  // |                    Configuration methods                     |
-  // ================================================================
-
-  /**
-   * @notice Sets the configuration
-   * @param config bytes of config data to set the following:
-   *  - enabled: boolean representing if the allow list is active, when disabled all usage will be allowed
-   *  - signerPublicKey: public key of the signer of the proof
-   */
-  function _updateConfig(bytes memory config) internal override {
-    (bool enabled, address signerPublicKey) = abi.decode(config, (bool, address));
-    s_config = Config({enabled: enabled, signerPublicKey: signerPublicKey});
-    emit ConfigSet(enabled);
+  constructor(Config memory config) ConfirmedOwner(msg.sender) {
+    updateConfig(config);
   }
 
-  /**
-   * @inheritdoc ITypeAndVersion
-   */
-  string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
-
   // ================================================================
-  // |                  Terms of Service methods                    |
+  // |                        Configuration                         |
   // ================================================================
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
+  // @notice Gets the contracts's configuration
+  // @return config
+  function getConfig() external view returns (Config memory) {
+    return s_config;
+  }
+
+  // @notice Sets the contracts's configuration
+  // @param config - See the contents of the TermsOfServiceAllowList.Config struct for more information
+  function updateConfig(Config memory config) public onlyOwner {
+    s_config = config;
+    emit ConfigUpdated(config);
+  }
+
+  // ================================================================
+  // |                      Allow methods                           |
+  // ================================================================
+
+  // @inheritdoc ITermsOfServiceAllowList
   function getMessage(address acceptor, address recipient) public pure override returns (bytes32) {
     return keccak256(abi.encodePacked(acceptor, recipient));
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
+  // @inheritdoc ITermsOfServiceAllowList
   function acceptTermsOfService(address acceptor, address recipient, bytes32 r, bytes32 s, uint8 v) external override {
     if (s_blockedSenders[recipient]) {
       revert RecipientIsBlocked();
@@ -100,18 +99,15 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
 
     // Add recipient to the allow list
     s_allowedSenders.add(recipient);
+    emit AddedAccess(recipient);
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
+  // @inheritdoc ITermsOfServiceAllowList
   function getAllAllowedSenders() external view override returns (address[] memory) {
     return s_allowedSenders.values();
   }
 
-  /**
-   * @inheritdoc IAccessController
-   */
+  // @inheritdoc IAccessController
   function hasAccess(address user, bytes calldata /* data */) external view override returns (bool) {
     if (!s_config.enabled) {
       return true;
@@ -119,9 +115,11 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
     return s_allowedSenders.contains(user);
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
+  // ================================================================
+  // |                         Block methods                        |
+  // ================================================================
+
+  // @inheritdoc ITermsOfServiceAllowList
   function isBlockedSender(address sender) external view override returns (bool) {
     if (!s_config.enabled) {
       return false;
@@ -129,22 +127,16 @@ contract TermsOfServiceAllowList is Routable, ITermsOfServiceAllowList, IAccessC
     return s_blockedSenders[sender];
   }
 
-  // ================================================================
-  // |                     Owner methods                          |
-  // ================================================================
-
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
-  function blockSender(address sender) external override onlyRouterOwner {
+  // @inheritdoc ITermsOfServiceAllowList
+  function blockSender(address sender) external override onlyOwner {
     s_allowedSenders.remove(sender);
     s_blockedSenders[sender] = true;
+    emit BlockedAccess(sender);
   }
 
-  /**
-   * @inheritdoc ITermsOfServiceAllowList
-   */
-  function unblockSender(address sender) external override onlyRouterOwner {
+  // @inheritdoc ITermsOfServiceAllowList
+  function unblockSender(address sender) external override onlyOwner {
     s_blockedSenders[sender] = false;
+    emit UnblockedAccess(sender);
   }
 }

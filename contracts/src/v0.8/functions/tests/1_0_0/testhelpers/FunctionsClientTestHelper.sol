@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {FunctionsRequest} from "../../../dev/1_0_0/libraries/FunctionsRequest.sol";
-import {FunctionsClient} from "../../../dev/1_0_0/FunctionsClient.sol";
 import {ITermsOfServiceAllowList} from "../../../dev/1_0_0/accessControl/interfaces/ITermsOfServiceAllowList.sol";
 import {IFunctionsSubscriptions} from "../../../dev/1_0_0/interfaces/IFunctionsSubscriptions.sol";
+
+import {FunctionsRequest} from "../../../dev/1_0_0/libraries/FunctionsRequest.sol";
+import {FunctionsClient} from "../../../dev/1_0_0/FunctionsClient.sol";
 
 contract FunctionsClientTestHelper is FunctionsClient {
   using FunctionsRequest for FunctionsRequest.Request;
@@ -30,7 +31,8 @@ contract FunctionsClientTestHelper is FunctionsClient {
   ) public returns (bytes32 requestId) {
     FunctionsRequest.Request memory request;
     request.initializeRequestForInlineJavaScript(sourceCode);
-    requestId = _sendRequest(request, subscriptionId, callbackGasLimit, donId);
+    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    requestId = _sendRequest(requestData, subscriptionId, callbackGasLimit, donId);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 

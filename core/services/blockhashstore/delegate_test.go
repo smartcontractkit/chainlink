@@ -58,6 +58,8 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	sendingKey, _ := cltest.MustAddRandomKeyToKeystore(t, kst)
 	lp := &mocklp.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("LatestBlock", mock.Anything, mock.Anything).Return(int64(0), nil)
+
 	relayExtenders := evmtest.NewChainRelayExtenders(
 		t,
 		evmtest.TestChainOpts{
@@ -162,8 +164,6 @@ func TestDelegate_StartStop(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, services, 1)
 
-	blocks := cltest.NewBlocks(t, 1)
-	testData.ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(blocks.Head(0), nil)
 	err = services[0].Start(testutils.Context(t))
 	require.NoError(t, err)
 

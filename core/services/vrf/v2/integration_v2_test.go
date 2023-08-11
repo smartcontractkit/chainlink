@@ -1297,6 +1297,46 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	)
 }
 
+func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)
+	testMultipleConsumersNeedTrustedBHS(
+		t,
+		ownerKey,
+		uni,
+		uni.vrfConsumers,
+		uni.consumerContracts,
+		uni.consumerContractAddresses,
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress,
+		vrfcommon.V2Plus,
+		false,
+		false,
+	)
+}
+
+func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore_AfterDelay(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)
+	testMultipleConsumersNeedTrustedBHS(
+		t,
+		ownerKey,
+		uni,
+		uni.vrfConsumers,
+		uni.consumerContracts,
+		uni.consumerContractAddresses,
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress,
+		vrfcommon.V2Plus,
+		false,
+		true,
+	)
+}
+
 func TestVRFV2Integration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)

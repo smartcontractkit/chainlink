@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/trusted_blockhash_store"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -88,6 +89,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Wrap(err, "building BHS")
 	}
 
+	var trustedBHS *trusted_blockhash_store.TrustedBlockhashStore
+	if jb.BlockhashStoreSpec.TrustedBlockhashStoreAddress != nil && jb.BlockhashStoreSpec.TrustedBlockhashStoreAddress.Hex() != EmptyAddress {
+		trustedBHS, err = trusted_blockhash_store.NewTrustedBlockhashStore(
+			jb.BlockhashStoreSpec.TrustedBlockhashStoreAddress.Address(),
+			chain.Client(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "building trusted BHS")
+		}
+	}
+
 	lp := chain.LogPoller()
 	var coordinators []Coordinator
 	if jb.BlockhashStoreSpec.CoordinatorV1Address != nil {
@@ -136,7 +148,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		coordinators = append(coordinators, coord)
 	}
 
-	bpBHS, err := NewBulletproofBHS(chain.Config().EVM().GasEstimator(), chain.Config().Database(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
+	bpBHS, err := NewBulletproofBHS(
+		chain.Config().EVM().GasEstimator(),
+		chain.Config().Database(),
+		fromAddresses,
+		chain.TxManager(),
+		bhs,
+		trustedBHS,
+		chain.ID(),
+		d.ks,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
@@ -146,14 +167,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		log,
 		NewMultiCoordinator(coordinators...),
 		bpBHS,
+		lp,
+		jb.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize,
 		int(jb.BlockhashStoreSpec.WaitBlocks),
 		int(jb.BlockhashStoreSpec.LookbackBlocks),
 		func(ctx context.Context) (uint64, error) {
-			head, err := chain.Client().HeadByNumber(ctx, nil)
+			head, err := lp.LatestBlock(pg.WithParentCtx(ctx))
 			if err != nil {
 				return 0, errors.Wrap(err, "getting chain head")
 			}
-			return uint64(head.Number), nil
+			return uint64(head), nil
 		})
 
 	return []job.ServiceCtx{&service{

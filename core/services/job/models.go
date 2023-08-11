@@ -583,6 +583,12 @@ type BlockhashStoreSpec struct {
 	// into.
 	BlockhashStoreAddress ethkey.EIP55Address `toml:"blockhashStoreAddress"`
 
+	// BatchBlockhashStoreAddress is the address of the trusted BlockhashStore contract to store blockhashes
+	TrustedBlockhashStoreAddress *ethkey.EIP55Address `toml:"trustedBlockhashStoreAddress"`
+
+	// BatchBlockhashStoreBatchSize is the number of blockhashes to store in a single batch
+	TrustedBlockhashStoreBatchSize int32 `toml:"trustedBlockhashStoreBatchSize"`
+
 	// PollPeriod defines how often recent blocks should be scanned for blockhash storage.
 	PollPeriod time.Duration `toml:"pollPeriod"`
 

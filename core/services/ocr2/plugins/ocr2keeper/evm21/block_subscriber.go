@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -32,7 +32,10 @@ type BlockKey struct {
 }
 
 func (bk *BlockKey) getBlockKey() ocr2keepers.BlockKey {
-	return ocr2keepers.BlockKey(fmt.Sprintf("%d%s%s", bk.block, BlockKeySeparator, bk.hash.Hex()))
+	return ocr2keepers.BlockKey{
+		Number: ocr2keepers.BlockNumber(bk.block),
+		Hash:   bk.hash,
+	}
 }
 
 type BlockSubscriber struct {

@@ -10,6 +10,7 @@ import {
   createSubscription,
   getEventArg,
   parseOracleRequestEventArgs,
+  encodeReport,
 } from './utils'
 
 const setup = getSetupFactory()
@@ -153,28 +154,74 @@ describe('Functions Client', () => {
 
       const response = stringToBytes('response')
       const error = stringToBytes('')
-      const abi = ethers.utils.defaultAbiCoder
       const oracleRequestEvent = await contracts.coordinator.queryFilter(
         contracts.coordinator.filters.OracleRequest(),
       )
       const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
-      const offchainMetadata = stringToBytes('')
-      const report = abi.encode(
-        ['bytes32[]', 'bytes[]', 'bytes[]', 'bytes[]', 'bytes[]'],
-        [
-          [ethers.utils.hexZeroPad(requestId, 32)],
-          [response],
-          [error],
-          [onchainMetadata],
-          [offchainMetadata],
-        ],
+      const report = await encodeReport(
+        ethers.utils.hexZeroPad(requestId, 32),
+        response,
+        error,
+        onchainMetadata,
+        stringToBytes(''),
       )
-
       await expect(contracts.coordinator.callReport(report))
         .to.emit(contracts.coordinator, 'OracleResponse')
         .withArgs(requestId, await roles.defaultAccount.getAddress())
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
     })
+  })
+})
+
+describe('Faulty Functions Client', () => {
+  it('can complete requests with an empty callback', async () => {
+    const clientWithEmptyCallbackTestHelperFactory =
+      await ethers.getContractFactory(
+        'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsClientWithEmptyCallback.sol:FunctionsClientWithEmptyCallback',
+        roles.consumer,
+      )
+
+    const clientWithEmptyCallback =
+      await clientWithEmptyCallbackTestHelperFactory
+        .connect(roles.consumer)
+        .deploy(contracts.router.address)
+
+    const subscriptionId = await createSubscription(
+      roles.subOwner,
+      [clientWithEmptyCallback.address],
+      contracts.router,
+      contracts.accessControl,
+      contracts.linkToken,
+    )
+    const tx = await clientWithEmptyCallback.sendSimpleRequestWithJavaScript(
+      'function run(){return response}',
+      subscriptionId,
+      ids.donId,
+      20_000,
+    )
+    const { events } = await tx.wait()
+    const requestId = getEventArg(events, 'RequestSent', 0)
+    await expect(tx)
+      .to.emit(clientWithEmptyCallback, 'RequestSent')
+      .withArgs(requestId)
+
+    const response = stringToBytes('response')
+    const error = stringToBytes('')
+    const oracleRequestEvent = await contracts.coordinator.queryFilter(
+      contracts.coordinator.filters.OracleRequest(),
+    )
+    const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
+    const report = await encodeReport(
+      ethers.utils.hexZeroPad(requestId, 32),
+      response,
+      error,
+      onchainMetadata,
+      stringToBytes(''),
+    )
+    await expect(contracts.coordinator.callReport(report))
+      .to.emit(contracts.coordinator, 'OracleResponse')
+      .withArgs(requestId, await roles.defaultAccount.getAddress())
+      .to.emit(contracts.router, 'RequestProcessed')
   })
 })

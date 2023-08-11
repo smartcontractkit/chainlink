@@ -1,107 +1,92 @@
 package evm
 
 import (
-	"fmt"
-	"math/big"
-	"strconv"
-	"strings"
+	"context"
 	"sync"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-
-	mapset "github.com/deckarep/golang-set/v2"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-const BlockKeySeparator = "|"
-
 type upkeepState struct {
-	payload  *ocr2keepers.UpkeepPayload
-	state    *ocr2keepers.UpkeepState
-	block    int64
-	upkeepId string
+	upkeepID ocr2keepers.UpkeepIdentifier
+	workID   string
+	state    ocr2keepers.UpkeepState
+	block    uint64
 }
 
 type UpkeepStateReader interface {
-	// SelectByUpkeepIDsAndBlockRange retrieves upkeep states for provided upkeep ids and block range, the result is currently not in particular order
-	SelectByUpkeepIDsAndBlockRange(upkeepIds []*big.Int, start, end int64) ([]*ocr2keepers.UpkeepPayload, []*ocr2keepers.UpkeepState, error)
+	SelectByWorkIDs(workIDs ...string) (map[string]ocr2keepers.UpkeepState, error)
 }
 
-type UpkeepStateUpdater interface {
-	SetUpkeepState(ocr2keepers.UpkeepPayload, ocr2keepers.UpkeepState) error
-}
+var (
+	_ ocr2keepers.UpkeepStateUpdater = &UpkeepStateStore{}
+	_ UpkeepStateReader              = &UpkeepStateStore{}
+)
 
 type UpkeepStateStore struct {
-	mu         sync.RWMutex
-	statesByID map[string]*upkeepState
-	states     []*upkeepState
-	lggr       logger.Logger
+	mu        sync.RWMutex
+	workIDIdx map[string]*upkeepState
+	lggr      logger.Logger
 }
 
-// NewUpkeepStateStore creates a new state store. This is an initial version of this store. More improvements to come:
-// TODO: AUTO-4027
+// NewUpkeepStateStore creates a new state store
 func NewUpkeepStateStore(lggr logger.Logger) *UpkeepStateStore {
 	return &UpkeepStateStore{
-		statesByID: map[string]*upkeepState{},
-		lggr:       lggr.Named("UpkeepStateStore"),
+		workIDIdx: map[string]*upkeepState{},
+		lggr:      lggr.Named("UpkeepStateStore"),
 	}
 }
 
-func (u *UpkeepStateStore) SelectByUpkeepIDsAndBlockRange(upkeepIds []*big.Int, start, end int64) ([]*ocr2keepers.UpkeepPayload, []*ocr2keepers.UpkeepState, error) {
+// SelectByWorkIDs returns all saved state values for the provided ids
+func (u *UpkeepStateStore) SelectByWorkIDs(workIDs ...string) (map[string]ocr2keepers.UpkeepState, error) {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
-	var pl []*ocr2keepers.UpkeepPayload
-	var us []*ocr2keepers.UpkeepState
 
-	uids := mapset.NewSet[string]()
-	for _, uid := range upkeepIds {
-		uids.Add(uid.String())
-	}
+	states := make(map[string]ocr2keepers.UpkeepState)
 
-	for _, s := range u.states {
-		if s.block < start || s.block >= end || !uids.Contains(s.upkeepId) {
-			continue
+	for _, workID := range workIDs {
+		if state, ok := u.workIDIdx[workID]; ok {
+			states[workID] = state.state
 		}
-		pl = append(pl, s.payload)
-		us = append(us, s.state)
 	}
-	return pl, us, nil
+
+	return states, nil
 }
 
-func (u *UpkeepStateStore) SetUpkeepState(pl ocr2keepers.UpkeepPayload, us ocr2keepers.UpkeepState) error {
-	u.mu.Lock()
-	defer u.mu.Unlock()
+// SetUpkeepState applies the provided state to the data store for the provided
+// check result. If an item already exists in the data store, the state and
+// block are updated. Otherwise, the new state is added.
+func (u *UpkeepStateStore) SetUpkeepState(_ context.Context, result ocr2keepers.CheckResult, _ ocr2keepers.UpkeepState) error {
+	// only if the result is ineligible is the upkeep state updated
+	if !result.Eligible {
+		if existing, ok := u.workIDIdx[result.WorkID]; ok {
+			u.mu.Lock()
 
-	upkeepId := big.NewInt(0).SetBytes(pl.Upkeep.ID)
-	arrs := strings.Split(string(pl.CheckBlock), BlockKeySeparator)
-	if len(arrs) != 2 {
-		return fmt.Errorf("check block %s is invalid for upkeep %s", pl.CheckBlock, upkeepId)
-	}
-	block, err := strconv.ParseInt(arrs[0], 10, 64)
-	if err != nil {
-		return err
-	}
-	state := &upkeepState{
-		payload:  &pl,
-		state:    &us,
-		block:    block,
-		upkeepId: upkeepId.String(),
+			existing.state = ocr2keepers.Ineligible
+			existing.block = uint64(result.Trigger.BlockNumber)
+
+			u.mu.Unlock()
+
+			u.lggr.Infof("upkeep %s is overridden, workID is %s, block is %d", existing.upkeepID, existing.workID, existing.block)
+		} else {
+			storedState := &upkeepState{
+				upkeepID: result.UpkeepID,
+				workID:   result.WorkID,
+				state:    ocr2keepers.Ineligible,
+				block:    uint64(result.Trigger.BlockNumber),
+			}
+
+			u.mu.Lock()
+
+			u.workIDIdx[result.WorkID] = storedState
+
+			u.mu.Unlock()
+
+			u.lggr.Infof("added new state with upkeep %s payload ID %s block %d", storedState.upkeepID, storedState.workID, storedState.block)
+		}
 	}
 
-	s, ok := u.statesByID[pl.ID]
-	if ok {
-		s.payload = state.payload
-		s.state = state.state
-		s.block = state.block
-		s.upkeepId = state.upkeepId
-		u.statesByID[pl.ID] = s
-		u.lggr.Infof("upkeep %s is overridden, payload ID is %s, block is %d", s.upkeepId, s.payload.ID, s.block)
-		return nil
-	}
-
-	u.statesByID[pl.ID] = state
-	u.states = append(u.states, state)
-	u.lggr.Infof("added new state with upkeep %s payload ID %s block %d", state.upkeepId, state.payload.ID, state.block)
 	return nil
 }

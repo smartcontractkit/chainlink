@@ -5,14 +5,14 @@ import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
 import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
-import "../../../interfaces/ERC677ReceiverInterface.sol";
-import "../../../OCR2Abstract.sol";
+import "../../../shared/interfaces/IERC677Receiver.sol";
+import "../../../shared/ocr2/OCR2Abstract.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ERC677ReceiverInterface {
+contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IERC677Receiver {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
   using EnumerableSet for EnumerableSet.AddressSet;
@@ -96,7 +96,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
         report.linkNative,
         true
       );
-      upkeepTransmitInfo[i].upkeepTriggerID = _upkeepTriggerID(report.upkeepIds[i], report.triggers[i]);
       (upkeepTransmitInfo[i].earlyChecksPassed, upkeepTransmitInfo[i].dedupID) = _prePerformChecks(
         report.upkeepIds[i],
         report.triggers[i],
@@ -167,7 +166,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
             reimbursement + premium,
             upkeepTransmitInfo[i].gasUsed,
             upkeepTransmitInfo[i].gasOverhead,
-            upkeepTransmitInfo[i].upkeepTriggerID
+            report.triggers[i]
           );
         }
       }

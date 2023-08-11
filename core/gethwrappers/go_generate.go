@@ -69,6 +69,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFLoadTestOwnerlessConsumer.abi ../../contracts/solc/v0.8.6/VRFLoadTestOwnerlessConsumer.bin VRFLoadTestOwnerlessConsumer vrf_load_test_ownerless_consumer
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFLoadTestExternalSubOwner.abi ../../contracts/solc/v0.8.6/VRFLoadTestExternalSubOwner.bin VRFLoadTestExternalSubOwner vrf_load_test_external_sub_owner
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2LoadTestWithMetrics.abi ../../contracts/solc/v0.8.6/VRFV2LoadTestWithMetrics.bin VRFV2LoadTestWithMetrics vrf_load_test_with_metrics
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2OwnerTestConsumer.abi ../../contracts/solc/v0.8.6/VRFV2OwnerTestConsumer.bin VRFV2OwnerTestConsumer vrf_owner_test_consumer
 
 //go:generate go run ./generation/generate_link/wrap_link.go
 
@@ -127,13 +128,20 @@ package gethwrappers
 //go:generate go generate ./functions
 
 // Mercury
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/Verifier.abi ../../contracts/solc/v0.8.16/Verifier.bin MercuryVerifier mercury_verifier
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin MercuryVerifierProxy mercury_verifier_proxy
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../contracts/solc/v0.8.16/ExposedVerifier.bin MercuryExposedVerifier mercury_exposed_verifier
+//go:generate go generate ./llo-feeds
 
 // Mocks that contain only events and functions to emit them
+// These contracts are used in testing Atlas flows. The contracts contain no logic, only events, structures, and functions to emit them.
+// The flow is as follows:
+// 1. Compile all non events mock contracts.
+// 2. Generate events mock .sol files based on ABI of compiled contracts.
+// 3. Compile events mock contracts. ./generation/compile_event_mock_contract.sh calls contracts/scripts/native_solc_compile_all_events_mock to compile events mock contracts.
+// 4. Generate wrappers for events mock contracts.
 //go:generate go run ./generation/generate_events_mock/create_events_mock_contract.go ../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsOracle.abi ../../contracts/src/v0.8/mocks/FunctionsOracleEventsMock.sol FunctionsOracleEventsMock
 //go:generate go run ./generation/generate_events_mock/create_events_mock_contract.go ../../contracts/solc/v0.8.6/functions/0_0_0/FunctionsBillingRegistry.abi ../../contracts/src/v0.8/mocks/FunctionsBillingRegistryEventsMock.sol FunctionsBillingRegistryEventsMock
+//go:generate ./generation/compile_event_mock_contract.sh
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsOracleEventsMock.abi ../../contracts/solc/v0.8.6/FunctionsOracleEventsMock.bin FunctionsOracleEventsMock functions_oracle_events_mock
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsBillingRegistryEventsMock.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryEventsMock.bin FunctionsBillingRegistryEventsMock functions_billing_registry_events_mock
 
 // Transmission
 //go:generate go generate ./transmission
