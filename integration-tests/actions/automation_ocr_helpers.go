@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/ocr2keepers/pkg/config"
+	ocr2keepers20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -52,7 +52,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 		return contracts.OCRv2Config{}, err
 	}
 
-	offC, err := json.Marshal(config.OffchainConfig{
+	offC, err := json.Marshal(ocr2keepers20config.OffchainConfig{
 		TargetProbability:    "0.999",
 		TargetInRounds:       1,
 		PerformLockoutWindow: 3600000, // Intentionally set to be higher than in prod for testing purpose
@@ -123,12 +123,22 @@ func CreateOCRKeeperJobs(
 	registryAddr string,
 	chainID int64,
 	keyIndex int,
+	registryVersion ethereum.KeeperRegistryVersion,
 ) {
 	l := utils.GetTestLogger(t)
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
+
+	var contractVersion string
+	if registryVersion == ethereum.RegistryVersion_2_1 {
+		contractVersion = "v2.1"
+	} else if registryVersion == ethereum.RegistryVersion_2_0 {
+		contractVersion = "v2.0"
+	} else {
+		require.FailNow(t, "v2.0 and v2.1 are the only supported versions")
+	}
 
 	bootstrapSpec := &client.OCR2TaskJobSpec{
 		Name:    "ocr2 bootstrap node " + registryAddr,
@@ -170,6 +180,7 @@ func CreateOCRKeeperJobs(
 				},
 				PluginConfig: map[string]interface{}{
 					"mercuryCredentialName": "\"cred1\"",
+					"contractVersion":       "\"" + contractVersion + "\"",
 				},
 				ContractConfigTrackerPollInterval: *models.NewInterval(time.Second * 15),
 				ContractID:                        registryAddr,                                      // registryAddr
