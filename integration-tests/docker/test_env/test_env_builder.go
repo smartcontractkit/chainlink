@@ -3,11 +3,12 @@ package test_env
 import (
 	"os"
 
+	"math/big"
+
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"math/big"
 )
 
 type CLTestEnvBuilder struct {
@@ -99,15 +100,14 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 	}
 
 	if b.hasLogWatch {
-		lw, err := logwatch.NewLogWatch(nil, nil)
+		te.LogWatch, err = logwatch.NewLogWatch(nil, nil)
 		if err != nil {
 			return te, err
 		}
-		te.LogWatch = lw
 	}
 
 	if b.hasMockServer {
-		err := te.StartMockServer()
+		err = te.StartMockServer()
 		if err != nil {
 			return te, err
 		}
@@ -118,7 +118,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 	}
 
 	if b.hasGeth {
-		err := te.StartGeth()
+		err = te.StartGeth()
 		if err != nil {
 			return te, err
 		}
