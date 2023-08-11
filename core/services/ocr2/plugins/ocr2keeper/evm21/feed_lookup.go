@@ -72,10 +72,10 @@ type AdminOffchainConfig struct {
 }
 
 // feedLookup looks through check upkeep results looking for any that need off chain lookup
-func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
+func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult {
 	lookups := map[int]*FeedLookup{}
-	for i := range upkeepResults {
-		res := &upkeepResults[i]
+	for i := range checkResults {
+		res := &checkResults[i]
 		if res.FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
 		}
@@ -83,15 +83,12 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 		block := big.NewInt(int64(res.Trigger.BlockNumber))
 		upkeepId := res.UpkeepID
 
-		opts, err := r.buildCallOpts(ctx, block)
-		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d buildCallOpts: %v", upkeepId, block, err)
-			return nil, err
-		}
+		opts := r.buildCallOpts(ctx, block)
 
 		allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
 		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d failed to time mercury allow list: %v", upkeepId, block, err)
+			checkResults[i].FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
+			r.lggr.Warnf("[FeedLookup] upkeep %s block %d failed to time mercury allow list: %v", upkeepId, block, err)
 			continue
 		}
 
@@ -101,7 +98,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 			continue
 		}
 
-		r.lggr.Infof("[FeedLookup] upkeep %s block %d decodeFeedLookup performData=%s", upkeepId, block, hexutil.Encode(upkeepResults[i].PerformData))
+		r.lggr.Infof("[FeedLookup] upkeep %s block %d decodeFeedLookup performData=%s", upkeepId, block, hexutil.Encode(checkResults[i].PerformData))
 		lookup, err := r.decodeFeedLookup(res.PerformData)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
@@ -118,12 +115,12 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 	var wg sync.WaitGroup
 	for i, lookup := range lookups {
 		wg.Add(1)
-		go r.doLookup(ctx, &wg, lookup, i, upkeepResults)
+		go r.doLookup(ctx, &wg, lookup, i, checkResults)
 	}
 	wg.Wait()
 
 	// don't surface error to plugin bc FeedLookup process should be self-contained.
-	return upkeepResults, nil
+	return checkResults
 }
 
 func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *FeedLookup, i int, upkeepResults []ocr2keepers.CheckResult) {

@@ -31,7 +31,9 @@ const (
 	// contract should be put above
 	UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
 	UPKEEP_FAILURE_REASON_DECODE_RESULT_FAILED
+	UPKEEP_FAILURE_REASON_PACK_FAILED
 	UPKEEP_FAILURE_REASON_UNPACK_FAILED
+	UPKEEP_FAILURE_REASON_CHECK_UPKEEP_ERROR
 	UPKEEP_FAILURE_REASON_CHECK_BLOCK_TOO_OLD
 	UPKEEP_FAILURE_REASON_CHECK_BLOCK_INVALID
 	UPKEEP_FAILURE_REASON_LOG_BLOCK_NO_LONGER_EXISTS
@@ -64,6 +66,8 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, 
 			UpkeepID:      p.UpkeepID,
 			Trigger:       p.Trigger,
 			WorkID:        p.WorkID,
+			FastGasWei:    big.NewInt(0),
+			LinkNative:    big.NewInt(0),
 		}
 		return result, fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
@@ -75,6 +79,8 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, 
 			UpkeepID:      p.UpkeepID,
 			Trigger:       p.Trigger,
 			WorkID:        p.WorkID,
+			FastGasWei:    big.NewInt(0),
+			LinkNative:    big.NewInt(0),
 		}
 		return result, fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
