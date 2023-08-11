@@ -5,16 +5,17 @@ import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {IERC165} from "../vendor/IERC165.sol";
+import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
+import {Common} from "../libraries/Common.sol";
 
 // OCR2 standard
 uint256 constant MAX_NUM_ORACLES = 31;
 
 /*
  * The verifier contract is used to verify offchain reports signed
- * by DONs.  A report consists of a price, block number and feed Id.  It
+ * by DONs. A report consists of a price, block number and feed Id. It
  * represents the observed price of an asset at a specified block number for
- * a feed.  The verifier contract is used to verify that such reports have
+ * a feed. The verifier contract is used to verify that such reports have
  * been signed by the correct signers.
  **/
 contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
@@ -148,9 +149,11 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   /// @param ssLength The number of s signature components
   error MismatchedSignatures(uint256 rsLength, uint256 ssLength);
 
-  /// @notice This error is thrown whenever a report has a duplicate
-  /// signature
+  /// @notice This error is thrown whenever setting a config with duplicate signatures
   error NonUniqueSignatures();
+
+  /// @notice This error is thrown whenever a report fails to verify due to bad or duplicate signatures
+  error BadVerification();
 
   /// @notice This error is thrown whenever the admin tries to deactivate
   /// the latest config digest
@@ -178,6 +181,13 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     i_verifierProxyAddr = verifierProxyAddr;
   }
 
+  modifier checkConfigValid(uint256 numSigners, uint256 f) {
+    if (f == 0) revert FaultToleranceMustBePositive();
+    if (numSigners > MAX_NUM_ORACLES) revert ExcessSigners(numSigners, MAX_NUM_ORACLES);
+    if (numSigners <= 3 * f) revert InsufficientSigners(numSigners, 3 * f + 1);
+    _;
+  }
+
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) external pure override returns (bool isVerifier) {
     return interfaceId == this.verify.selector;
@@ -185,7 +195,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "Verifier 1.0.0";
+    return "Verifier 1.1.0";
   }
 
   /// @inheritdoc IVerifier
@@ -223,6 +233,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     _verifySignatures(hashedReport, reportContext, rs, ss, rawVs, s_config);
     emit ReportVerified(feedId, sender);
+
     return reportData;
   }
 
@@ -285,13 +296,83 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     for (uint256 i; i < numSigners; ++i) {
       signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
       o = s_config.oracles[signerAddress];
-      if (o.role != Role.Signer) revert AccessForbidden();
+      if (o.role != Role.Signer) revert BadVerification();
       unchecked {
         signedCount += 1 << (8 * o.index);
       }
     }
 
-    if (signedCount & ORACLE_MASK != signedCount) revert NonUniqueSignatures();
+    if (signedCount & ORACLE_MASK != signedCount) revert BadVerification();
+  }
+
+  /// @inheritdoc IVerifier
+  function setConfig(
+    bytes32 feedId,
+    address[] memory signers,
+    bytes32[] memory offchainTransmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig,
+    Common.AddressAndWeight[] memory recipientAddressesAndWeights
+  ) external override checkConfigValid(signers.length, f) onlyOwner {
+    VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
+
+    // Increment the number of times a config has been set first
+    feedVerifierState.configCount++;
+
+    bytes32 configDigest = _configDigestFromConfigData(
+      feedId,
+      feedVerifierState.configCount,
+      signers,
+      offchainTransmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+
+    feedVerifierState.s_verificationDataConfigs[configDigest].f = f;
+    feedVerifierState.s_verificationDataConfigs[configDigest].isActive = true;
+    for (uint8 i; i < signers.length; ++i) {
+      address signerAddr = signers[i];
+      if (signerAddr == address(0)) revert ZeroAddress();
+
+      // All signer roles are unset by default for a new config digest.
+      // Here the contract checks to see if a signer's address has already
+      // been set to ensure that the group of signer addresses that will
+      // sign reports with the config digest are unique.
+      bool isSignerAlreadySet = feedVerifierState.s_verificationDataConfigs[configDigest].oracles[signerAddr].role !=
+        Role.Unset;
+      if (isSignerAlreadySet) revert NonUniqueSignatures();
+      feedVerifierState.s_verificationDataConfigs[configDigest].oracles[signerAddr] = Signer({
+        role: Role.Signer,
+        index: i
+      });
+    }
+
+    IVerifierProxy(i_verifierProxyAddr).setVerifier(
+      feedVerifierState.latestConfigDigest,
+      configDigest,
+      recipientAddressesAndWeights
+    );
+
+    emit ConfigSet(
+      feedId,
+      feedVerifierState.latestConfigBlockNumber,
+      configDigest,
+      feedVerifierState.configCount,
+      signers,
+      offchainTransmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig
+    );
+
+    feedVerifierState.latestEpoch = 0;
+    feedVerifierState.latestConfigBlockNumber = uint32(block.number);
+    feedVerifierState.latestConfigDigest = configDigest;
   }
 
   /// @notice Generates the config digest from config data
@@ -335,24 +416,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
   }
 
-  /// @notice Deactivates the configuration for a config digest
-  /// @param feedId Feed ID to deactivate config for
-  /// @param configDigest The config digest to deactivate
-  /// @dev This function can be called by the contract admin to deactivate an incorrect configuration.
-  function deactivateConfig(bytes32 feedId, bytes32 configDigest) external onlyOwner {
-    VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
-
-    if (configDigest == bytes32("")) revert DigestEmpty();
-    if (feedVerifierState.s_verificationDataConfigs[configDigest].f == 0) revert DigestNotSet(feedId, configDigest);
-    if (configDigest == feedVerifierState.latestConfigDigest) revert CannotDeactivateLatestConfig(feedId, configDigest);
-    feedVerifierState.s_verificationDataConfigs[configDigest].isActive = false;
-    emit ConfigDeactivated(feedId, configDigest);
-  }
-
-  /// @notice Activates the configuration for a config digest
-  /// @param feedId Feed ID to activate config for
-  /// @param configDigest The config digest to activate
-  /// @dev This function can be called by the contract admin to activate a configuration.
+  /// @inheritdoc IVerifier
   function activateConfig(bytes32 feedId, bytes32 configDigest) external onlyOwner {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
@@ -362,9 +426,20 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     emit ConfigActivated(feedId, configDigest);
   }
 
-  /// @notice Activates the given feed
-  /// @param feedId Feed ID to activated
-  /// @dev This function can be called by the contract admin to activate a feed
+  /// @inheritdoc IVerifier
+  function deactivateConfig(bytes32 feedId, bytes32 configDigest) external onlyOwner {
+    VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
+
+    if (configDigest == bytes32("")) revert DigestEmpty();
+    if (feedVerifierState.s_verificationDataConfigs[configDigest].f == 0) revert DigestNotSet(feedId, configDigest);
+    if (configDigest == feedVerifierState.latestConfigDigest) {
+      revert CannotDeactivateLatestConfig(feedId, configDigest);
+    }
+    feedVerifierState.s_verificationDataConfigs[configDigest].isActive = false;
+    emit ConfigDeactivated(feedId, configDigest);
+  }
+
+  /// @inheritdoc IVerifier
   function activateFeed(bytes32 feedId) external onlyOwner {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
@@ -373,9 +448,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     emit FeedActivated(feedId);
   }
 
-  /// @notice Deactivates the given feed
-  /// @param feedId Feed ID to deactivated
-  /// @dev This function can be called by the contract admin to deactivate a feed
+  /// @inheritdoc IVerifier
   function deactivateFeed(bytes32 feedId) external onlyOwner {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
@@ -384,82 +457,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     emit FeedDeactivated(feedId);
   }
 
-  //***************************//
-  // Repurposed OCR2 Functions //
-  //***************************//
-
-  // Reverts transaction if config args are invalid
-  modifier checkConfigValid(uint256 numSigners, uint256 f) {
-    if (f == 0) revert FaultToleranceMustBePositive();
-    if (numSigners > MAX_NUM_ORACLES) revert ExcessSigners(numSigners, MAX_NUM_ORACLES);
-    if (numSigners <= 3 * f) revert InsufficientSigners(numSigners, 3 * f + 1);
-    _;
-  }
-
-  function setConfig(
-    bytes32 feedId,
-    address[] memory signers,
-    bytes32[] memory offchainTransmitters,
-    uint8 f,
-    bytes memory onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig
-  ) external override checkConfigValid(signers.length, f) onlyOwner {
-    VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
-
-    // Increment the number of times a config has been set first
-    feedVerifierState.configCount++;
-
-    bytes32 configDigest = _configDigestFromConfigData(
-      feedId,
-      feedVerifierState.configCount,
-      signers,
-      offchainTransmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
-
-    feedVerifierState.s_verificationDataConfigs[configDigest].f = f;
-    feedVerifierState.s_verificationDataConfigs[configDigest].isActive = true;
-    for (uint8 i; i < signers.length; ++i) {
-      address signerAddr = signers[i];
-      if (signerAddr == address(0)) revert ZeroAddress();
-
-      // All signer roles are unset by default for a new config digest.
-      // Here the contract checks to see if a signer's address has already
-      // been set to ensure that the group of signer addresses that will
-      // sign reports with the config digest are unique.
-      bool isSignerAlreadySet = feedVerifierState.s_verificationDataConfigs[configDigest].oracles[signerAddr].role !=
-        Role.Unset;
-      if (isSignerAlreadySet) revert NonUniqueSignatures();
-      feedVerifierState.s_verificationDataConfigs[configDigest].oracles[signerAddr] = Signer({
-        role: Role.Signer,
-        index: i
-      });
-    }
-
-    IVerifierProxy(i_verifierProxyAddr).setVerifier(feedVerifierState.latestConfigDigest, configDigest);
-
-    emit ConfigSet(
-      feedId,
-      feedVerifierState.latestConfigBlockNumber,
-      configDigest,
-      feedVerifierState.configCount,
-      signers,
-      offchainTransmitters,
-      f,
-      onchainConfig,
-      offchainConfigVersion,
-      offchainConfig
-    );
-
-    feedVerifierState.latestEpoch = 0;
-    feedVerifierState.latestConfigBlockNumber = uint32(block.number);
-    feedVerifierState.latestConfigDigest = configDigest;
-  }
-
+  /// @inheritdoc IVerifier
   function latestConfigDigestAndEpoch(
     bytes32 feedId
   ) external view override returns (bool scanLogs, bytes32 configDigest, uint32 epoch) {
@@ -467,6 +465,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     return (false, feedVerifierState.latestConfigDigest, feedVerifierState.latestEpoch);
   }
 
+  /// @inheritdoc IVerifier
   function latestConfigDetails(
     bytes32 feedId
   ) external view override returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest) {

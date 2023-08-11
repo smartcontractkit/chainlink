@@ -2,8 +2,8 @@
 pragma solidity 0.8.16;
 
 import {BaseTest} from "./BaseVerifierTest.t.sol";
-import {Verifier} from "../Verifier.sol";
-import {VerifierProxy} from "../VerifierProxy.sol";
+import {Verifier} from "../../Verifier.sol";
+import {VerifierProxy} from "../../VerifierProxy.sol";
 
 contract VerifierConstructorTest is BaseTest {
   function test_revertsIfInitializedWithEmptyVerifierProxy() public {
@@ -26,7 +26,7 @@ contract VerifierConstructorTest is BaseTest {
     assertEq(configDigestTwo, EMPTY_BYTES);
 
     string memory typeAndVersion = s_verifier.typeAndVersion();
-    assertEq(typeAndVersion, "Verifier 1.0.0");
+    assertEq(typeAndVersion, "Verifier 1.1.0");
   }
 }
 
