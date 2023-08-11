@@ -15,11 +15,11 @@ require (
 	github.com/manyminds/api2go v0.0.0-20171030193247-e7b693844a6f
 	github.com/montanaflynn/stats v0.7.1
 	github.com/olekukonko/tablewriter v0.0.5
-	github.com/pelletier/go-toml/v2 v2.0.8
+	github.com/pelletier/go-toml/v2 v2.0.9
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829
-	github.com/smartcontractkit/ocr2keepers v0.7.7
+	github.com/smartcontractkit/ocr2keepers v0.7.8
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/spf13/cobra v1.6.1
@@ -27,7 +27,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/umbracle/ethgo v0.1.3
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722
-	github.com/urfave/cli v1.22.13
+	github.com/urfave/cli v1.22.14
 	go.dedis.ch/kyber/v3 v3.1.0
 )
 
