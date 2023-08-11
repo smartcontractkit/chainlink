@@ -1377,7 +1377,6 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
-	// TODO what is the right API here? currently only the relay extender can be started.
 	for _, re := range cc.Slice() {
 		require.NoError(t, re.Start(testutils.Context(t)))
 	}

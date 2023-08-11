@@ -37,8 +37,7 @@ type EVMFactoryConfig struct {
 	evmrelay.CSAETHKeystore
 }
 
-// func (r RelayerFactory) NewEVM(ctx context.Context, cfg evm.GeneralConfig, ks evmrelay.RelayerKeystore, eb pg.EventBroadcaster, mmon *utils.MailboxMonitor) (map[relay.Identifier]evmrelay.LoopRelayAdapter, error) {
-func (r RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[relay.Identifier]evmrelay.LoopRelayAdapter, error) {
+func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[relay.Identifier]evmrelay.LoopRelayAdapter, error) {
 	// TODO impl EVM loop. For now always 'fallback' to an adapter and embedded chainset
 
 	relayers := make(map[relay.Identifier]evmrelay.LoopRelayAdapter)
@@ -73,7 +72,7 @@ type SolanaFactoryConfig struct {
 	solana.SolanaConfigs
 }
 
-func (r RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaConfigs) (map[relay.Identifier]loop.Relayer, error) {
+func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaConfigs) (map[relay.Identifier]loop.Relayer, error) {
 	solanaRelayers := make(map[relay.Identifier]loop.Relayer)
 	var (
 		solLggr = r.Logger.Named("Solana")
@@ -127,7 +126,7 @@ type StarkNetFactoryConfig struct {
 	starknet.StarknetConfigs
 }
 
-func (r RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (map[relay.Identifier]loop.Relayer, error) {
+func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (map[relay.Identifier]loop.Relayer, error) {
 	starknetRelayers := make(map[relay.Identifier]loop.Relayer)
 
 	var (
@@ -184,7 +183,7 @@ type CosmosFactoryConfig struct {
 	EventBroadcaster pg.EventBroadcaster
 }
 
-func (r RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.Identifier]cosmos.LoopRelayerChainer, error) {
+func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.Identifier]cosmos.LoopRelayerChainer, error) {
 	relayers := make(map[relay.Identifier]cosmos.LoopRelayerChainer)
 
 	var lggr = r.Logger.Named("Cosmos")
@@ -196,7 +195,7 @@ func (r RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfi
 		// TODO: Cosmos LOOPp impl. For now, use relayer adapter
 
 		opts := cosmos.ChainSetOpts{
-			Config:           r.QConfig,
+			QueryConfig:      r.QConfig,
 			Logger:           lggr.Named(relayId.ChainID.String()),
 			DB:               r.DB,
 			KeyStore:         config.Keystore,

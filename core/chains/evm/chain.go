@@ -38,9 +38,8 @@ import (
 
 //go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
-	//services.ServiceCtx
-
 	types.ChainService
+
 	ID() *big.Int
 	Client() evmclient.Client
 	Config() evmconfig.ChainScopedConfig
@@ -52,8 +51,6 @@ type Chain interface {
 	BalanceMonitor() monitor.BalanceMonitor
 	LogPoller() logpoller.LogPoller
 	GasEstimator() gas.EvmFeeEstimator
-
-	//SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 var (
@@ -104,11 +101,8 @@ func (c *LegacyChains) Default() (Chain, error) {
 // eth keys are represented as multiple types in the code base;
 // *big.Int, string, and int64. this lead to special 'default' handling
 // of nil big.Int and empty string.
-// TODO: nil handling was baked into Get, but empty string was in pipeline code.
 //
-//	double check that empty string handling is ok here
-//
-// TODO unify the type system
+// TODO BCF-2507 unify the type system
 func (c *LegacyChains) Get(id string) (Chain, error) {
 	if id == nilBigInt.String() || id == emptyString {
 		return c.Default()
@@ -140,6 +134,7 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("cannot create new chain with ID %s, the chain is disabled", e.ChainID.String())
 }
 
+// TODO BCF-2509 what is this and does it need the entire app config?
 type GeneralConfig interface {
 	config.AppConfig
 	toml.HasEVMConfigs
@@ -152,7 +147,8 @@ type ChainRelayExtenderConfig struct {
 	RelayerConfig
 }
 
-// options for the relayer factory. TODO the dependencies are odd;
+// options for the relayer factory.
+// TODO BCF-2508 clean up configuration of chain and relayer after BCF-2440
 // the factory wants to own the logger and db
 // the factory creates extenders, which need the same and more opts
 type RelayerConfig struct {

@@ -370,7 +370,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
 
-	//evmChainSet := app.GetRelayers().LegacyEVMChains()
 	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
 
 	// By passing in a function we can be lazy trying to look up a default
@@ -588,9 +587,6 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 	address := gethCommon.BytesToAddress(addressBytes)
 
-	//hack. default to simulated id until figure out how to
-	// plumb ctx in tests
-	//	chainID := big.NewInt(1337)
 	var chainID *big.Int
 	if chainIDStr != "" {
 		var ok bool
@@ -612,6 +608,9 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
+	// TODO: BCF-2511 once the dust settles on BCF-2440/1 evaluate how the
+	// [loop.Relayer] interface needs to be extended to support programming similar to
+	// this pattern but in a chain-agnostic way
 	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		return s.errorOut(err)

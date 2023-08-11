@@ -160,6 +160,7 @@ func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFa
 	}
 }
 
+// Get a [loop.Relayer] by id
 func (rs *CoreRelayerChainInteroperators) Get(id relay.Identifier) (loop.Relayer, error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
@@ -211,9 +212,6 @@ func (rs *CoreRelayerChainInteroperators) Put(id relay.Identifier, lr loop.Relay
 	return rs.putOne(id, lr)
 }
 
-// TODO maybe make Relayer[U,V] where u,v are the chain specific types and then make this generic
-// Relayer[U evm.LoopAdapter, Vcosmos.LoopAdapter]
-// (rs Relayer[U,V] putBatch(map[](loop.relayer|U|V))
 func (rs *CoreRelayerChainInteroperators) putBatch(b map[relay.Identifier]loop.Relayer) (err error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
@@ -226,12 +224,16 @@ func (rs *CoreRelayerChainInteroperators) putBatch(b map[relay.Identifier]loop.R
 	return err
 }
 
+// LegacyEVMChains returns a container with all the evm chains
+// TODO BCF-2511
 func (rs *CoreRelayerChainInteroperators) LegacyEVMChains() evm.LegacyChainContainer {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.legacyChains.EVMChains
 }
 
+// LegacyCosmosChains returns a container with all the cosmos chains
+// TODO BCF-2511
 func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() cosmos.LegacyChainContainer {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
@@ -240,6 +242,7 @@ func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() cosmos.LegacyChai
 
 // ChainStatus gets [types.ChainStatus] relayID must be string representation of [relayer.Identifier], which ensures unique identification
 // amongst the multiple relayer:chain pairs wrapped in the interoperators
+// TODO: BCF-2440/1 this signature can be changed to id relay.Identifier which is a much better API
 func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, relayerID string) (types.ChainStatus, error) {
 	relayID := new(relay.Identifier)
 	err := relayID.UnmarshalString(relayerID)
@@ -296,6 +299,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 
 // ids must be a string representation of relay.Identifier
 // ids are a filter; if none are specificied, all are returned.
+// TODO: BCF-2440/1 this signature can be changed to id relay.Identifier which is a much better API
 func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...string) (nodes []types.NodeStatus, count int, err error) {
 	var (
 		totalErr error

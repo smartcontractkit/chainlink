@@ -32,7 +32,7 @@ var (
 
 // ChainSetOpts holds options for configuring a ChainSet.
 type ChainSetOpts struct {
-	Config           pg.QConfig
+	QueryConfig      pg.QConfig
 	Logger           logger.Logger
 	DB               *sqlx.DB
 	KeyStore         keystore.Cosmos
@@ -44,7 +44,7 @@ func (o *ChainSetOpts) Validate() (err error) {
 	required := func(s string) error {
 		return fmt.Errorf("%s is required", s)
 	}
-	if o.Config == nil {
+	if o.QueryConfig == nil {
 		err = multierr.Append(err, required("Config"))
 	}
 	if o.Logger == nil {
@@ -73,7 +73,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, fmt.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
-	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.Configs, o.Logger)
+	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.QueryConfig, o.EventBroadcaster, o.Configs, o.Logger)
 	if err != nil {
 		return nil, err
 	}

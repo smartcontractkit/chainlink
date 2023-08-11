@@ -298,19 +298,6 @@ func (r *JSONConfig) Scan(value interface{}) error {
 	return json.Unmarshal(b, &r)
 }
 
-/*
-	func (r JSONConfig) EVMChainID() (int64, error) {
-		i, ok := r["chainID"]
-		if !ok {
-			return -1, fmt.Errorf("%w: chainID must be provided in relay config", ErrNoChainFromSpec)
-		}
-		f, ok := i.(float64)
-		if !ok {
-			return -1, fmt.Errorf("expected float64 chain id but got: %T", i)
-		}
-		return int64(f), nil
-	}
-*/
 func (r JSONConfig) MercuryCredentialName() (string, error) {
 	url, ok := r["mercuryCredentialName"]
 	if !ok {

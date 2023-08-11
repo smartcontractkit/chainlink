@@ -124,7 +124,7 @@ type NodePool interface {
 	SyncThreshold() uint32
 }
 
-// TODO does the chainscopedconfig really need the entire app config??
+// TODO BCF-2509 does the chainscopedconfig really need the entire app config?
 //
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {

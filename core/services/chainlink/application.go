@@ -3,6 +3,7 @@ package chainlink
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"math/big"
 	"net/http"
 	"sync"
@@ -72,10 +73,7 @@ type Application interface {
 	GetWebAuthnConfiguration() sessions.WebAuthnConfiguration
 
 	GetExternalInitiatorManager() webhook.ExternalInitiatorManager
-	//GetChains() Chains
 	GetRelayers() RelayerChainInteroperators
-	// this is in the interface until products are
-
 	GetLoopRegistry() *plugins.LoopRegistry
 
 	// V2 Jobs (TOML specified)
@@ -270,12 +268,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	promReporter := promreporter.NewPromReporter(db.DB, globalLogger)
 	srvcs = append(srvcs, promReporter)
 
-	// EVM relayers are used all over the place. TODO, make the signatures generic. for now, get the subset of EVM relayers
-	// to pass as needed
+	// EVM chains are used all over the place. This will need to change for fully EVM extraction
+	// TODO: BCF-2510, BCF-2511
 
 	legacyEVMChains := relayerChainInterops.LegacyEVMChains()
 	if legacyEVMChains == nil {
-		panic("no legacy evm chains")
+		return nil, fmt.Errorf("no evm chains found")
 	}
 
 	var (
