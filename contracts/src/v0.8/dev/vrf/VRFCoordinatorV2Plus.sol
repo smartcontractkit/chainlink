@@ -63,7 +63,6 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     uint256 outputSeed,
     uint256 indexed subID,
     uint96 payment,
-    bytes extraArgs,
     bool success
   );
 
@@ -348,7 +347,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
 
   function getRandomnessFromProof(
     Proof calldata proof,
-    RequestCommitment calldata rc
+    RequestCommitment memory rc
   ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     // Only registered proving keys are permitted.
@@ -444,12 +443,9 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         s_withdrawableTokens[s_provingKeys[output.keyHash]] += payment;
       }
 
-      bytes memory extraArgs = VRFV2PlusClient._argsToBytes(
-        VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment})
-      );
       // Include payment in the event for tracking costs.
       // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);
-      emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, extraArgs, success);
+      emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, success);
 
       return payment;
     }
