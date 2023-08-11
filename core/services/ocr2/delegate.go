@@ -17,11 +17,12 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	ocr2keepers20 "github.com/smartcontractkit/ocr2keepers/pkg"
-	ocr2keepersconfig "github.com/smartcontractkit/ocr2keepers/pkg/config"
-	ocr2keepers20coordinator "github.com/smartcontractkit/ocr2keepers/pkg/coordinator"
-	ocr2keepers20polling "github.com/smartcontractkit/ocr2keepers/pkg/observer/polling"
-	ocr2keepers20runner "github.com/smartcontractkit/ocr2keepers/pkg/runner"
+	ocr2keepers20 "github.com/smartcontractkit/ocr2keepers/pkg/v2"
+	ocr2keepers20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
+	ocr2keepers20coordinator "github.com/smartcontractkit/ocr2keepers/pkg/v2/coordinator"
+	ocr2keepers20polling "github.com/smartcontractkit/ocr2keepers/pkg/v2/observer/polling"
+	ocr2keepers20runner "github.com/smartcontractkit/ocr2keepers/pkg/v2/runner"
+	ocr2keepers21config "github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
 	ocr2keepers21types "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
@@ -880,11 +881,11 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	}
 
 	// set some defaults
-	conf := ocr2keepersconfig.ReportingFactoryConfig{
-		CacheExpiration:       ocr2keepersconfig.DefaultCacheExpiration,
-		CacheEvictionInterval: ocr2keepersconfig.DefaultCacheClearInterval,
-		MaxServiceWorkers:     ocr2keepersconfig.DefaultMaxServiceWorkers,
-		ServiceQueueLength:    ocr2keepersconfig.DefaultServiceQueueLength,
+	conf := ocr2keepers21config.ReportingFactoryConfig{
+		CacheExpiration:       ocr2keepers21config.DefaultCacheExpiration,
+		CacheEvictionInterval: ocr2keepers21config.DefaultCacheClearInterval,
+		MaxServiceWorkers:     ocr2keepers21config.DefaultMaxServiceWorkers,
+		ServiceQueueLength:    ocr2keepers21config.DefaultServiceQueueLength,
 	}
 
 	// override if set in config
@@ -974,11 +975,11 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	w := &logWriter{log: lggr.Named("Automation Dependencies")}
 
 	// set some defaults
-	conf := ocr2keepersconfig.ReportingFactoryConfig{
-		CacheExpiration:       ocr2keepersconfig.DefaultCacheExpiration,
-		CacheEvictionInterval: ocr2keepersconfig.DefaultCacheClearInterval,
-		MaxServiceWorkers:     ocr2keepersconfig.DefaultMaxServiceWorkers,
-		ServiceQueueLength:    ocr2keepersconfig.DefaultServiceQueueLength,
+	conf := ocr2keepers20config.ReportingFactoryConfig{
+		CacheExpiration:       ocr2keepers20config.DefaultCacheExpiration,
+		CacheEvictionInterval: ocr2keepers20config.DefaultCacheClearInterval,
+		MaxServiceWorkers:     ocr2keepers20config.DefaultMaxServiceWorkers,
+		ServiceQueueLength:    ocr2keepers20config.DefaultServiceQueueLength,
 	}
 
 	// override if set in config

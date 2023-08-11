@@ -281,6 +281,7 @@ func TestIntegration_Mercury(t *testing.T) {
 			onchainConfig,
 			offchainConfigVersion,
 			offchainConfig,
+			nil,
 		)
 		require.NoError(t, err)
 		backend.Commit()

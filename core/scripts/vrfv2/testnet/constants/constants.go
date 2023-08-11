@@ -9,8 +9,8 @@ var (
 	SubscriptionBalanceJuels = assets.Ether(10).ToInt()
 
 	// optional flags
-	FallbackWeiPerUnitLink = big.NewInt(6e16)
-
+	FallbackWeiPerUnitLink          = big.NewInt(6e16)
+	BatchFulfillmentEnabled         = true
 	MinConfs                        = 3
 	NodeSendingKeyFundingAmountGwei = assets.GWei(0).Int64() //100000000 = 0.1 ETH
 	MaxGasLimit                     = int64(2.5e6)
