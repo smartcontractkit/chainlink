@@ -2,16 +2,15 @@
 pragma solidity 0.8.16;
 
 import {BaseTest} from "./BaseVerifierTest.t.sol";
-import {IVerifier} from "../interfaces/IVerifier.sol";
-import {VerifierProxy} from "..//VerifierProxy.sol";
-import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
+import {IVerifier} from "../../interfaces/IVerifier.sol";
+import {VerifierProxy} from "../../VerifierProxy.sol";
+import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
 
 contract VerifierProxyInitializeVerifierTest is BaseTest {
   bytes32 latestDigest;
 
   function setUp() public override {
     BaseTest.setUp();
-    Signer[] memory signers = _getSigners(MAX_ORACLES);
   }
 
   function test_revertsIfNotOwner() public {

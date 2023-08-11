@@ -2,8 +2,9 @@
 pragma solidity 0.8.16;
 
 import {BaseTest, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
-import {Verifier} from "../Verifier.sol";
-import {VerifierProxy} from "../VerifierProxy.sol";
+import {Verifier} from "../../Verifier.sol";
+import {VerifierProxy} from "../../VerifierProxy.sol";
+import {Common} from "../../../libraries/Common.sol";
 
 contract VerifierSetConfigTest is BaseTest {
   function setUp() public virtual override {
@@ -22,7 +23,8 @@ contract VerifierSetConfigTest is BaseTest {
       FAULT_TOLERANCE,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
   }
 
@@ -36,7 +38,8 @@ contract VerifierSetConfigTest is BaseTest {
       FAULT_TOLERANCE,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
   }
 
@@ -50,7 +53,8 @@ contract VerifierSetConfigTest is BaseTest {
       0,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
   }
 
@@ -69,7 +73,8 @@ contract VerifierSetConfigTest is BaseTest {
       FAULT_TOLERANCE,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
   }
 
@@ -85,7 +90,8 @@ contract VerifierSetConfigTest is BaseTest {
       FAULT_TOLERANCE,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
   }
 
@@ -101,7 +107,8 @@ contract VerifierSetConfigTest is BaseTest {
       FAULT_TOLERANCE,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
   }
 
@@ -116,7 +123,8 @@ contract VerifierSetConfigTest is BaseTest {
       FAULT_TOLERANCE,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
 
     bytes32 expectedConfigDigest = _configDigestFromConfigData(
@@ -154,7 +162,8 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
       4,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
 
     (, , bytes32 configDigest) = s_verifier.latestConfigDetails(FEED_ID);
@@ -172,7 +181,8 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
       4,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
 
     (, , bytes32 configDigest) = s_verifier.latestConfigDetails(FEED_ID_2);
@@ -186,7 +196,8 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
       4,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
 
     (, , bytes32 configDigest2) = s_verifier_2.latestConfigDetails(FEED_ID_3);
@@ -206,7 +217,8 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
       4,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
 
     bytes32 expectedConfigDigest = _configDigestFromConfigData(

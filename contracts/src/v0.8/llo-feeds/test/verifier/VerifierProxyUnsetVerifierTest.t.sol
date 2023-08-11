@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {BaseTest, BaseTestWithConfiguredVerifier} from "./BaseVerifierTest.t.sol";
-import {IVerifier} from "../interfaces/IVerifier.sol";
-import {VerifierProxy} from "../VerifierProxy.sol";
+import {BaseTest, BaseTestWithConfiguredVerifierAndFeeManager} from "./BaseVerifierTest.t.sol";
+import {IVerifier} from "../../interfaces/IVerifier.sol";
+import {VerifierProxy} from "../../VerifierProxy.sol";
 
 contract VerifierProxyUnsetVerifierTest is BaseTest {
   function test_revertsIfNotAdmin() public {
@@ -19,13 +19,13 @@ contract VerifierProxyUnsetVerifierTest is BaseTest {
   }
 }
 
-contract VerifierProxyUnsetVerifierWithPreviouslySetVerifierTest is BaseTestWithConfiguredVerifier {
+contract VerifierProxyUnsetVerifierWithPreviouslySetVerifierTest is BaseTestWithConfiguredVerifierAndFeeManager {
   bytes32 internal s_configDigest;
 
   event VerifierUnset(bytes32 configDigest, address verifierAddr);
 
   function setUp() public override {
-    BaseTestWithConfiguredVerifier.setUp();
+    BaseTestWithConfiguredVerifierAndFeeManager.setUp();
     (, , s_configDigest) = s_verifier.latestConfigDetails(FEED_ID);
   }
 

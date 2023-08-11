@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {BaseTestWithConfiguredVerifier, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
-import {Verifier} from "../Verifier.sol";
-import {VerifierProxy} from "../VerifierProxy.sol";
+import {BaseTestWithConfiguredVerifierAndFeeManager, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
+import {Verifier} from "../../Verifier.sol";
+import {VerifierProxy} from "../../VerifierProxy.sol";
 
-contract VerifierActivateConfigTest is BaseTestWithConfiguredVerifier {
+contract VerifierActivateConfigTest is BaseTestWithConfiguredVerifierAndFeeManager {
   function test_revertsIfNotOwner() public {
     vm.expectRevert("Only callable by owner");
 
@@ -29,13 +29,13 @@ contract VerifierActivateConfigWithDeactivatedConfigTest is BaseTestWithMultiple
 
   event ConfigActivated(bytes32 configDigest);
 
-  Report internal s_testReportOne;
+  V0Report internal s_testReportOne;
 
   function setUp() public override {
     BaseTestWithMultipleConfiguredDigests.setUp();
     s_reportContext[0] = s_configDigestTwo;
     s_reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
-    s_testReportOne = _createReport(
+    s_testReportOne = _createV0Report(
       FEED_ID,
       uint32(block.timestamp),
       MEDIAN,
@@ -43,7 +43,8 @@ contract VerifierActivateConfigWithDeactivatedConfigTest is BaseTestWithMultiple
       ASK,
       uint64(block.number),
       blockhash(block.number + 3),
-      uint64(block.number + 3)
+      uint64(block.number + 3),
+      uint32(block.timestamp)
     );
 
     s_verifier.deactivateConfig(FEED_ID, s_configDigestTwo);
