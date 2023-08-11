@@ -85,7 +85,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						P2PPeerID:   peerID,
 						KeyBundleID: keyBundleID,
 					},
-					OCR2Config: feeds.OCR2Config{
+					OCR2Config: feeds.OCR2ConfigModel{
 						Enabled:     true,
 						P2PPeerID:   peerID,
 						KeyBundleID: keyBundleID,
@@ -111,7 +111,7 @@ func Test_CreateFeedsManagerChainConfig(t *testing.T) {
 						P2PPeerID:   peerID,
 						KeyBundleID: keyBundleID,
 					},
-					OCR2Config: feeds.OCR2Config{
+					OCR2Config: feeds.OCR2ConfigModel{
 						Enabled:     true,
 						P2PPeerID:   peerID,
 						KeyBundleID: keyBundleID,
@@ -328,7 +328,7 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						P2PPeerID:   null.StringFrom(peerID.String),
 						KeyBundleID: null.StringFrom(keyBundleID.String),
 					},
-					OCR2Config: feeds.OCR2Config{
+					OCR2Config: feeds.OCR2ConfigModel{
 						Enabled:     true,
 						P2PPeerID:   peerID,
 						KeyBundleID: keyBundleID,
@@ -352,7 +352,7 @@ func Test_UpdateFeedsManagerChainConfig(t *testing.T) {
 						P2PPeerID:   null.StringFrom(peerID.String),
 						KeyBundleID: null.StringFrom(keyBundleID.String),
 					},
-					OCR2Config: feeds.OCR2Config{
+					OCR2Config: feeds.OCR2ConfigModel{
 						Enabled:     true,
 						P2PPeerID:   peerID,
 						KeyBundleID: keyBundleID,

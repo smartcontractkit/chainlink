@@ -1,5 +1,5 @@
 package config
 
 type Prometheus interface {
-	PrometheusAuthToken() string
+	AuthToken() string
 }

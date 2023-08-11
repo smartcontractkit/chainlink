@@ -9,10 +9,11 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/adapters"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -67,7 +68,7 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
-	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config, o.EventBroadcaster, o.Configs, o.Logger)
+	c, err := newChain(*cfg.ChainID, cfg, o.DB, o.KeyStore, o.Config.Database(), o.EventBroadcaster, o.Configs, o.Logger)
 	if err != nil {
 		return nil, err
 	}

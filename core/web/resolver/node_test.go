@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -54,7 +54,7 @@ func TestResolver_Nodes(t *testing.T) {
 					},
 				}, 1, nil)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
+				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 			},
 			query: query,
 			result: `
@@ -106,6 +106,7 @@ func Test_NodeQuery(t *testing.T) {
 					name
 					wsURL
 					httpURL
+					order
 				}
 				... on NotFoundError {
 					message
@@ -123,10 +124,11 @@ func Test_NodeQuery(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
-				f.Mocks.evmORM.PutChains(v2.EVMConfig{Nodes: []*v2.Node{{
+				f.Mocks.evmORM.PutChains(toml.EVMConfig{Nodes: []*toml.Node{{
 					Name:    &name,
 					WSURL:   models.MustParseURL("ws://some-url"),
 					HTTPURL: models.MustParseURL("http://some-url"),
+					Order:   ptr(int32(11)),
 				}}})
 			},
 			query: query,
@@ -135,7 +137,8 @@ func Test_NodeQuery(t *testing.T) {
 				"node": {
 					"name": "node-name",
 					"wsURL": "ws://some-url",
-					"httpURL": "http://some-url"
+					"httpURL": "http://some-url",
+					"order": 11
 				}
 			}`,
 		},
@@ -158,3 +161,5 @@ func Test_NodeQuery(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func ptr[T any](t T) *T { return &t }

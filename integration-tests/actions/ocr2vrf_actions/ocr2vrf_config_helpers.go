@@ -19,8 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	"github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -33,8 +33,8 @@ import (
 // CreateOCR2VRFJobs bootstraps the first node and to the other nodes sends ocr jobs
 func CreateOCR2VRFJobs(
 	t *testing.T,
-	bootstrapNode *client.Chainlink,
-	nonBootstrapNodes []*client.Chainlink,
+	bootstrapNode *client.ChainlinkK8sClient,
+	nonBootstrapNodes []*client.ChainlinkK8sClient,
 	OCR2VRFPluginConfig *OCR2VRFPluginConfig,
 	chainID int64,
 	keyIndex int,
@@ -48,7 +48,7 @@ func CreateOCR2VRFJobs(
 
 func createNonBootstrapJobs(
 	t *testing.T,
-	nonBootstrapNodes []*client.Chainlink,
+	nonBootstrapNodes []*client.ChainlinkK8sClient,
 	OCR2VRFPluginConfig *OCR2VRFPluginConfig,
 	chainID int64,
 	keyIndex int,
@@ -95,7 +95,7 @@ func createNonBootstrapJobs(
 	}
 }
 
-func createBootstrapJob(t *testing.T, bootstrapNode *client.Chainlink, dkgAddress string, chainID int64) string {
+func createBootstrapJob(t *testing.T, bootstrapNode *client.ChainlinkK8sClient, dkgAddress string, chainID int64) string {
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID

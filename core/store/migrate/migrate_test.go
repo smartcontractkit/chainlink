@@ -65,7 +65,7 @@ func TestMigrate_0100_BootstrapConfigs(t *testing.T) {
 	err := goose.UpTo(db.DB, migrationDir, 99)
 	require.NoError(t, err)
 
-	pipelineORM := pipeline.NewORM(db, lggr, cfg)
+	pipelineORM := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	pipelineID, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)
 	require.NoError(t, err)
 	pipelineID2, err := pipelineORM.CreateSpec(pipeline.Pipeline{}, 0)

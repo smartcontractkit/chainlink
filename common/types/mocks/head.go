@@ -86,6 +86,20 @@ func (_m *Head[BLOCK_HASH]) GetParent() types.Head[BLOCK_HASH] {
 	return r0
 }
 
+// GetParentHash provides a mock function with given fields:
+func (_m *Head[BLOCK_HASH]) GetParentHash() BLOCK_HASH {
+	ret := _m.Called()
+
+	var r0 BLOCK_HASH
+	if rf, ok := ret.Get(0).(func() BLOCK_HASH); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(BLOCK_HASH)
+	}
+
+	return r0
+}
+
 // HashAtHeight provides a mock function with given fields: blockNum
 func (_m *Head[BLOCK_HASH]) HashAtHeight(blockNum int64) BLOCK_HASH {
 	ret := _m.Called(blockNum)

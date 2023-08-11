@@ -1,7 +1,6 @@
 package main
 
 import (
-	"embed"
 	"os"
 	"testing"
 
@@ -12,9 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/tools/txtar"
 )
-
-//go:embed testdata/**
-var testFs embed.FS
 
 func TestMain(m *testing.M) {
 	os.Exit(testscript.RunMain(m, map[string]func() int{

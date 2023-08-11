@@ -43,6 +43,6 @@ func (ps EVMChainPresenters) RenderTable(rt RendererTable) error {
 	return nil
 }
 
-func EVMChainClient(client *Client) ChainClient {
-	return newChainClient[EVMChainPresenters](client, "evm")
+func EVMChainClient(s *Shell) ChainClient {
+	return newChainClient[EVMChainPresenters](s, "evm")
 }

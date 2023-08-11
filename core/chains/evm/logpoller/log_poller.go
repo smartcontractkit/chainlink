@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -41,12 +42,15 @@ type LogPoller interface {
 	// General querying
 	Logs(start, end int64, eventSig common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
 	LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]Log, error)
+	LogsCreatedAfter(eventSig common.Hash, address common.Address, time time.Time, confs int, qopts ...pg.QOpt) ([]Log, error)
 	LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error)
 	LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error)
+	LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error)
 
 	// Content based querying
 	IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error)
+	IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
 	IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error)
@@ -118,7 +122,7 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
-		lggr:              lggr,
+		lggr:              lggr.Named("LogPoller"),
 		replayStart:       make(chan int64),
 		replayComplete:    make(chan error),
 		pollPeriod:        pollPeriod,
@@ -307,6 +311,7 @@ func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQ
 // is already in progress, the replay will continue and ErrReplayInProgress will be returned.  If the client needs a
 // guarantee that the replay is complete before proceeding, it should either avoid cancelling or retry until nil is returned
 func (lp *logPoller) Replay(ctx context.Context, fromBlock int64) error {
+	lp.lggr.Debugf("Replaying from block %d", fromBlock)
 	latest, err := lp.ec.HeadByNumber(ctx, nil)
 	if err != nil {
 		return err
@@ -439,7 +444,8 @@ func (lp *logPoller) run() {
 					if err = loadFilters(); err != nil {
 						lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
 					}
-				} else {
+				}
+				if err == nil {
 					// Serially process replay requests.
 					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
 					lp.PollAndSaveLogs(lp.ctx, fromBlock)
@@ -479,7 +485,7 @@ func (lp *logPoller) run() {
 				// Only safe thing to do is to start at the first finalized block.
 				latest, err := lp.ec.HeadByNumber(lp.ctx, nil)
 				if err != nil {
-					lp.lggr.Warnw("unable to get latest for first poll", "err", err)
+					lp.lggr.Warnw("Unable to get latest for first poll", "err", err)
 					continue
 				}
 				latestNum := latest.Number
@@ -487,7 +493,7 @@ func (lp *logPoller) run() {
 				// Could conceivably support this but not worth the effort.
 				// Need finality depth + 1, no block 0.
 				if latestNum <= lp.finalityDepth {
-					lp.lggr.Warnw("insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestNum, "finality", lp.finalityDepth)
+					lp.lggr.Warnw("Insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestNum, "finality", lp.finalityDepth)
 					continue
 				}
 				// Starting at the first finalized block. We do not backfill the first finalized block.
@@ -509,14 +515,14 @@ func (lp *logPoller) run() {
 
 			backupLogPollTick = time.After(utils.WithJitter(backupPollerBlockDelay * lp.pollPeriod))
 			if !filtersLoaded {
-				lp.lggr.Warnw("backup log poller ran before filters loaded, skipping")
+				lp.lggr.Warnw("Backup log poller ran before filters loaded, skipping")
 				continue
 			}
 			lp.BackupPollAndSaveLogs(lp.ctx, backupPollerBlockDelay)
 		case <-blockPruneTick:
 			blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 1000))
 			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
-				lp.lggr.Errorw("unable to prune old blocks", "err", err)
+				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
 			}
 		case <-logPruneTick:
 			logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 2401)) // = 7^5 avoids common factors with 1000
@@ -621,17 +627,33 @@ func (lp *logPoller) blocksFromLogs(ctx context.Context, logs []types.Log) (bloc
 	return lp.GetBlocksRange(ctx, numbers)
 }
 
+const jsonRpcLimitExceeded = -32005 // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1474.md
+
 // backfill will query FilterLogs in batches for logs in the
 // block range [start, end] and save them to the db.
 // Retries until ctx cancelled. Will return an error if cancelled
 // or if there is an error backfilling.
 func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
-	for from := start; from <= end; from += lp.backfillBatchSize {
-		to := mathutil.Min(from+lp.backfillBatchSize-1, end)
+	batchSize := lp.backfillBatchSize
+	for from := start; from <= end; from += batchSize {
+		to := mathutil.Min(from+batchSize-1, end)
 		gethLogs, err := lp.ec.FilterLogs(ctx, lp.Filter(big.NewInt(from), big.NewInt(to), nil))
 		if err != nil {
-			lp.lggr.Warnw("Unable query for logs, retrying", "err", err, "from", from, "to", to)
-			return err
+			var rpcErr client.JsonError
+			if errors.As(err, &rpcErr) {
+				if rpcErr.Code != jsonRpcLimitExceeded {
+					lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
+					return err
+				}
+			}
+			if batchSize == 1 {
+				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may run in a degraded state unless LogBackfillBatchSize is increased", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
+				return err
+			}
+			batchSize /= 2
+			lp.lggr.Warnw("Too many log results, halving block range batch size.  Consider increasing LogBackfillBatchSize if this happens frequently", "err", err, "from", from, "to", to, "newBatchSize", batchSize, "LogBackfillBatchSize", lp.backfillBatchSize)
+			from -= batchSize // counteract +=batchSize on next loop iteration, so starting block does not change
+			continue
 		}
 		if len(gethLogs) == 0 {
 			continue
@@ -910,6 +932,10 @@ func (lp *logPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, add
 	return lp.orm.SelectLogsWithSigsByBlockRangeFilter(start, end, address, eventSigs, qopts...)
 }
 
+func (lp *logPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectLogsCreatedAfter(eventSig[:], address, after, confs, qopts...)
+}
+
 // IndexedLogs finds all the logs that have a topic value in topicValues at index topicIndex.
 func (lp *logPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectIndexedLogs(address, eventSig, topicIndex, topicValues, confs, qopts...)
@@ -918,6 +944,10 @@ func (lp *logPoller) IndexedLogs(eventSig common.Hash, address common.Address, t
 // IndexedLogsByBlockRange finds all the logs that have a topic value in topicValues at index topicIndex within the block range
 func (lp *logPoller) IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectIndexedLogsByBlockRangeFilter(start, end, address, eventSig, topicIndex, topicValues, qopts...)
+}
+
+func (lp *logPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectIndexedLogsCreatedAfter(address, eventSig, topicIndex, topicValues, after, confs, qopts...)
 }
 
 // LogsDataWordGreaterThan note index is 0 based.
@@ -962,6 +992,10 @@ func (lp *logPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address 
 
 func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectLatestLogEventSigsAddrsWithConfs(fromBlock, addresses, eventSigs, confs, qopts...)
+}
+
+func (lp *logPoller) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+	return lp.orm.SelectLatestBlockNumberEventSigsAddrsWithConfs(fromBlock, eventSigs, addresses, confs, qopts...)
 }
 
 // GetBlocksRange tries to get the specified block numbers from the log pollers
@@ -1043,7 +1077,7 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	}
 
 	if len(remainingBlocks) > 0 {
-		lp.lggr.Debugw("falling back to RPC for blocks not found in log poller blocks table",
+		lp.lggr.Debugw("Falling back to RPC for blocks not found in log poller blocks table",
 			"remainingBlocks", remainingBlocks)
 	}
 

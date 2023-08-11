@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -18,6 +19,7 @@ var (
 	_ Coordinator = MultiCoordinator{}
 	_ Coordinator = &V1Coordinator{}
 	_ Coordinator = &V2Coordinator{}
+	_ Coordinator = &V2PlusCoordinator{}
 )
 
 // MultiCoordinator combines the data from multiple coordinators.
@@ -234,6 +236,97 @@ func (v *V2Coordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]E
 			continue // malformed log should not break flow
 		}
 		request, ok := requestLog.(*v2.VRFCoordinatorV2RandomWordsFulfilled)
+		if !ok {
+			continue // malformed log should not break flow
+		}
+		fuls = append(fuls, Event{ID: request.RequestId.String(), Block: request.Raw.BlockNumber})
+	}
+	return fuls, nil
+}
+
+// V2PlusCoordinator fetches request and fulfillment logs from a VRF V2Plus coordinator contract.
+type V2PlusCoordinator struct {
+	c  v2plus.VRFCoordinatorV2PlusInterface
+	lp logpoller.LogPoller
+}
+
+// NewV2Coordinator creates a new V2Coordinator from the given contract.
+func NewV2PlusCoordinator(c v2plus.VRFCoordinatorV2PlusInterface, lp logpoller.LogPoller) (*V2PlusCoordinator, error) {
+	err := lp.RegisterFilter(logpoller.Filter{
+		Name: logpoller.FilterName("VRFv2PlusCoordinatorFeeder", c.Address()),
+		EventSigs: []common.Hash{
+			v2plus.VRFCoordinatorV2PlusRandomWordsRequested{}.Topic(),
+			v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{}.Topic(),
+		}, Addresses: []common.Address{c.Address()},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &V2PlusCoordinator{c, lp}, err
+}
+
+// Requests satisfies the Coordinator interface.
+func (v *V2PlusCoordinator) Requests(
+	ctx context.Context,
+	fromBlock uint64,
+	toBlock uint64,
+) ([]Event, error) {
+	logs, err := v.lp.LogsWithSigs(
+		int64(fromBlock),
+		int64(toBlock),
+		[]common.Hash{
+			v2plus.VRFCoordinatorV2PlusRandomWordsRequested{}.Topic(),
+		},
+		v.c.Address(),
+		pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, errors.Wrap(err, "filter v2 requests")
+	}
+
+	var reqs []Event
+	for _, l := range logs {
+		requestLog, err := v.c.ParseLog(l.ToGethLog())
+		if err != nil {
+			continue // malformed log should not break flow
+		}
+		request, ok := requestLog.(*v2plus.VRFCoordinatorV2PlusRandomWordsRequested)
+		if !ok {
+			continue // malformed log should not break flow
+		}
+		reqs = append(reqs, Event{ID: request.RequestId.String(), Block: request.Raw.BlockNumber})
+	}
+
+	return reqs, nil
+}
+
+// Fulfillments satisfies the Coordinator interface.
+func (v *V2PlusCoordinator) Fulfillments(ctx context.Context, fromBlock uint64) ([]Event, error) {
+	toBlock, err := v.lp.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, errors.Wrap(err, "fetching latest block")
+	}
+
+	logs, err := v.lp.LogsWithSigs(
+		int64(fromBlock),
+		int64(toBlock),
+		[]common.Hash{
+			v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{}.Topic(),
+		},
+		v.c.Address(),
+		pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, errors.Wrap(err, "filter v2 fulfillments")
+	}
+
+	var fuls []Event
+	for _, l := range logs {
+		requestLog, err := v.c.ParseLog(l.ToGethLog())
+		if err != nil {
+			continue // malformed log should not break flow
+		}
+		request, ok := requestLog.(*v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled)
 		if !ok {
 			continue // malformed log should not break flow
 		}

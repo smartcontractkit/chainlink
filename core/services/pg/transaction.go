@@ -8,10 +8,13 @@ import (
 
 	"github.com/getsentry/sentry-go"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
+	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type TxOptions struct {
@@ -94,7 +97,7 @@ func sqlxTransactionQ(ctx context.Context, db TxBeginner, lggr logger.Logger, fn
 	defer func() {
 		if p := recover(); p != nil {
 			sentry.CurrentHub().Recover(p)
-			sentry.Flush(logger.SentryFlushDeadline)
+			sentry.Flush(corelogger.SentryFlushDeadline)
 
 			// A panic occurred, rollback and repanic
 			lggr.Errorf("Panic in transaction, rolling back: %s", p)

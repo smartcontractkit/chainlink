@@ -1,8 +1,8 @@
-pragma solidity 0.8.15;
+pragma solidity 0.8.16;
 
-import "../interfaces/automation/AutomationCompatibleInterface.sol";
-import "../dev/interfaces/automation/MercuryLookupCompatibleInterface.sol";
-import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import "../automation/interfaces/AutomationCompatibleInterface.sol";
+import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import {ArbSys} from "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 //interface IVerifierProxy {
 //  /**
@@ -14,7 +14,7 @@ import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/Ar
 //  function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
 //}
 
-contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatibleInterface {
+contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInterface {
   event MercuryPerformEvent(
     address indexed origin,
     address indexed sender,
@@ -33,26 +33,41 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
   uint256 public initialBlock;
   uint256 public counter;
   string[] public feeds;
-  string public feedLabel;
-  string public queryLabel;
-  bool public immutable integrationTest;
+  string public feedParamKey;
+  string public timeParamKey;
+  bool public immutable useL1BlockNumber;
+  bool public shouldRevertCallback;
+  bool public callbackReturnBool;
 
-  constructor(uint256 _testRange, uint256 _interval, bool _integrationTest) {
+  constructor(uint256 _testRange, uint256 _interval, bool _useL1BlockNumber) {
     testRange = _testRange;
     interval = _interval;
     previousPerformBlock = 0;
     initialBlock = 0;
     counter = 0;
-    feedLabel = "feedIDStr"; // or feedIDHex
-    feeds = ["ETH-USD-ARBITRUM-TESTNET", "BTC-USD-ARBITRUM-TESTNET"];
-    queryLabel = "blockNumber"; // timestamp not supported yet
-    integrationTest = _integrationTest;
+    feedParamKey = "feedIDHex"; // feedIDStr is deprecated
+    feeds = [
+      "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+      "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
+    ];
+    timeParamKey = "blockNumber"; // timestamp not supported yet
+    useL1BlockNumber = _useL1BlockNumber;
+    callbackReturnBool = true;
   }
 
-  function mercuryCallback(bytes[] memory values, bytes memory extraData) external pure returns (bool, bytes memory) {
+  function setShouldRevertCallback(bool value) public {
+    shouldRevertCallback = value;
+  }
+
+  function setCallbackReturnBool(bool value) public {
+    callbackReturnBool = value;
+  }
+
+  function checkCallback(bytes[] memory values, bytes memory extraData) external view returns (bool, bytes memory) {
+    require(!shouldRevertCallback, "shouldRevertCallback is true");
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
-    return (true, performData);
+    return (callbackReturnBool, performData);
   }
 
   function checkUpkeep(bytes calldata data) external view returns (bool, bytes memory) {
@@ -60,19 +75,19 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
       return (false, data);
     }
     uint256 blockNumber;
-    if (integrationTest) {
+    if (useL1BlockNumber) {
       blockNumber = block.number;
     } else {
       blockNumber = ARB_SYS.arbBlockNumber();
     }
-    // encode ARB_SYS as extraData to verify that it is provided to mercuryCallback correctly.
+    // encode ARB_SYS as extraData to verify that it is provided to checkCallback correctly.
     // in reality, this can be any data or empty
-    revert MercuryLookup(feedLabel, feeds, queryLabel, blockNumber, abi.encodePacked(address(ARB_SYS)));
+    revert FeedLookup(feedParamKey, feeds, timeParamKey, blockNumber, abi.encodePacked(address(ARB_SYS)));
   }
 
   function performUpkeep(bytes calldata performData) external {
     uint256 blockNumber;
-    if (integrationTest) {
+    if (useL1BlockNumber) {
       blockNumber = block.number;
     } else {
       blockNumber = ARB_SYS.arbBlockNumber();
@@ -94,7 +109,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, MercuryLookupCompatible
     }
 
     uint256 blockNumber;
-    if (integrationTest) {
+    if (useL1BlockNumber) {
       blockNumber = block.number;
     } else {
       blockNumber = ARB_SYS.arbBlockNumber();

@@ -55,6 +55,6 @@ func (ps DKGEncryptKeyPresenters) RenderTable(rt RendererTable) error {
 	return utils.JustError(rt.Write([]byte("\n")))
 }
 
-func NewDKGEncryptKeysClient(c *Client) KeysClient {
-	return newKeysClient[dkgsignkey.Key, DKGEncryptKeyPresenter, DKGEncryptKeyPresenters]("DKGEncrypt", c)
+func NewDKGEncryptKeysClient(s *Shell) KeysClient {
+	return newKeysClient[dkgsignkey.Key, DKGEncryptKeyPresenter, DKGEncryptKeyPresenters]("DKGEncrypt", s)
 }

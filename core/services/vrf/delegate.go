@@ -20,11 +20,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
+	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -36,19 +41,6 @@ type Delegate struct {
 	cc      evm.ChainSet
 	lggr    logger.Logger
 	mailMon *utils.MailboxMonitor
-}
-
-type GethKeyStore interface {
-	GetRoundRobinAddress(chainID *big.Int, addresses ...common.Address) (common.Address, error)
-}
-
-//go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore
-type Config interface {
-	EvmFinalityDepth() uint32
-	EvmGasLimitDefault() uint32
-	EvmGasLimitVRFJobType() *uint32
-	KeySpecificMaxGasPriceWei(addr common.Address) *assets.Wei
-	MinIncomingConfirmations() uint32
 }
 
 func NewDelegate(
@@ -102,6 +94,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
+	coordinatorV2Plus, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
+	if err != nil {
+		return nil, err
+	}
 
 	// If the batch coordinator address is not provided, we will fall back to non-batched
 	var batchCoordinatorV2 *batch_vrf_coordinator_v2.BatchVRFCoordinatorV2
@@ -113,6 +109,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 
+	var vrfOwner *vrf_owner.VRFOwner
+	if jb.VRFSpec.VRFOwnerAddress != nil {
+		vrfOwner, err = vrf_owner.NewVRFOwner(
+			jb.VRFSpec.VRFOwnerAddress.Address(), chain.Client(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "create vrf owner wrapper")
+		}
+	}
+
 	l := d.lggr.With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
@@ -120,18 +126,66 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	)
 	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
+	lV2Plus := l.Named("VRFListenerV2Plus")
 
 	for _, task := range pl.Tasks {
+		if _, ok := task.(*pipeline.VRFTaskV2Plus); ok {
+			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+				return nil, err
+			}
+
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
+				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
+			}
+
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
+				return nil, err
+			}
+			if vrfOwner != nil {
+				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
+			}
+			linkEthFeedAddress, err := coordinatorV2Plus.LINKETHFEED(nil)
+			if err != nil {
+				return nil, errors.Wrap(err, "LINKETHFEED")
+			}
+			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
+			if err != nil {
+				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
+			}
+
+			return []job.ServiceCtx{v2.New(
+				chain.Config().EVM(),
+				chain.Config().EVM().GasEstimator(),
+				lV2Plus,
+				chain.Client(),
+				chain.ID(),
+				chain.LogBroadcaster(),
+				d.q,
+				v2.NewCoordinatorV2Plus(coordinatorV2Plus),
+				batchCoordinatorV2,
+				vrfOwner,
+				aggregator,
+				chain.TxManager(),
+				d.pr,
+				d.ks.Eth(),
+				jb,
+				d.mailMon,
+				utils.NewHighCapacityMailbox[log.Broadcast](),
+				func() {},
+				GetStartingResponseCountsV2(d.q, lV2Plus, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
+				chain.HeadBroadcaster(),
+				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
+		}
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
 			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
 				return nil, err
 			}
 
-			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config()) {
+			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
 				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
-			if err := CheckFromAddressMaxGasPrices(jb, chain.Config()); err != nil {
+			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
 				return nil, err
 			}
 
@@ -143,16 +197,21 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			if err != nil {
 				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
 			}
+			if vrfOwner == nil {
+				lV2.Infow("Running without VRFOwnerAddress set on the spec")
+			}
 
-			return []job.ServiceCtx{newListenerV2(
-				chain.Config(),
+			return []job.ServiceCtx{v2.New(
+				chain.Config().EVM(),
+				chain.Config().EVM().GasEstimator(),
 				lV2,
 				chain.Client(),
 				chain.ID(),
 				chain.LogBroadcaster(),
 				d.q,
-				coordinatorV2,
+				v2.NewCoordinatorV2(coordinatorV2),
 				batchCoordinatorV2,
+				vrfOwner,
 				aggregator,
 				chain.TxManager(),
 				d.pr,
@@ -161,33 +220,34 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.mailMon,
 				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
-				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
+				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
 				chain.HeadBroadcaster(),
-				newLogDeduper(int(chain.Config().EvmFinalityDepth())))}, nil
+				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTask); ok {
-			return []job.ServiceCtx{&listenerV1{
-				cfg:             chain.Config(),
-				l:               logger.Sugared(lV1),
-				headBroadcaster: chain.HeadBroadcaster(),
-				logBroadcaster:  chain.LogBroadcaster(),
-				q:               d.q,
-				txm:             chain.TxManager(),
-				coordinator:     coordinator,
-				pipelineRunner:  d.pr,
-				gethks:          d.ks.Eth(),
-				job:             jb,
-				mailMon:         d.mailMon,
+			return []job.ServiceCtx{&v1.Listener{
+				Cfg:             chain.Config().EVM(),
+				FeeCfg:          chain.Config().EVM().GasEstimator(),
+				L:               logger.Sugared(lV1),
+				HeadBroadcaster: chain.HeadBroadcaster(),
+				LogBroadcaster:  chain.LogBroadcaster(),
+				Q:               d.q,
+				Txm:             chain.TxManager(),
+				Coordinator:     coordinator,
+				PipelineRunner:  d.pr,
+				GethKs:          d.ks.Eth(),
+				Job:             jb,
+				MailMon:         d.mailMon,
 				// Note the mailbox size effectively sets a limit on how many logs we can replay
 				// in the event of a VRF outage.
-				reqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
-				chStop:             make(chan struct{}),
-				waitOnStop:         make(chan struct{}),
-				newHead:            make(chan struct{}, 1),
-				respCount:          GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EvmFinalityDepth()),
-				blockNumberToReqID: pairing.New(),
-				reqAdded:           func() {},
-				deduper:            newLogDeduper(int(chain.Config().EvmFinalityDepth())),
+				ReqLogs:            utils.NewHighCapacityMailbox[log.Broadcast](),
+				ChStop:             make(chan struct{}),
+				WaitOnStop:         make(chan struct{}),
+				NewHead:            make(chan struct{}, 1),
+				ResponseCount:      GetStartingResponseCountsV1(d.q, lV1, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
+				BlockNumberToReqID: pairing.New(),
+				ReqAdded:           func() {},
+				Deduper:            vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())),
 			}}, nil
 		}
 	}
@@ -208,10 +268,10 @@ func CheckFromAddressesExist(jb job.Job, gethks keystore.Eth) (err error) {
 // matches what is set for the  provided from addresses.
 // If they don't match, this is a configuration error. An error is returned with all the keys that do
 // not match the provided gas lane price.
-func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
+func CheckFromAddressMaxGasPrices(jb job.Job, keySpecificMaxGas keySpecificMaxGasFn) (err error) {
 	if jb.VRFSpec.GasLanePrice != nil {
 		for _, a := range jb.VRFSpec.FromAddresses {
-			if keySpecific := cfg.KeySpecificMaxGasPriceWei(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
+			if keySpecific := keySpecificMaxGas(a.Address()); !keySpecific.Equal(jb.VRFSpec.GasLanePrice) {
 				err = multierr.Append(err,
 					fmt.Errorf(
 						"key-specific max gas price of from address %s (%s) does not match gasLanePriceGWei (%s) specified in job spec",
@@ -222,14 +282,16 @@ func CheckFromAddressMaxGasPrices(jb job.Job, cfg Config) (err error) {
 	return
 }
 
+type keySpecificMaxGasFn func(common.Address) *assets.Wei
+
 // FromAddressMaxGasPricesAllEqual returns true if and only if all the specified from
 // addresses in the fromAddresses field of the VRF v2 job have the same key-specific max
 // gas price.
-func FromAddressMaxGasPricesAllEqual(jb job.Job, cfg Config) (allEqual bool) {
+func FromAddressMaxGasPricesAllEqual(jb job.Job, keySpecificMaxGasPriceWei keySpecificMaxGasFn) (allEqual bool) {
 	allEqual = true
 	for i := range jb.VRFSpec.FromAddresses {
-		allEqual = allEqual && cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[i].Address()).Equal(
-			cfg.KeySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
+		allEqual = allEqual && keySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[i].Address()).Equal(
+			keySpecificMaxGasPriceWei(jb.VRFSpec.FromAddresses[0].Address()),
 		)
 	}
 	return

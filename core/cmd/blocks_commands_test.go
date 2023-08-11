@@ -21,7 +21,7 @@ func Test_ReplayFromBlock(t *testing.T) {
 		c.EVM[0].Enabled = ptr(true)
 	})
 
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 
 	set := flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.ReplayFromBlock, set, "")

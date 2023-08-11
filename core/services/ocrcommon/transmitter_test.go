@@ -27,7 +27,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 
@@ -45,13 +45,13 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.EvmTransmitCheckerSpec{},
+		txmgr.TransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", txmgr.EvmNewTx{
+	txm.On("CreateTransaction", txmgr.TxRequest{
 		FromAddress:      fromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
@@ -59,7 +59,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
+	}, mock.Anything).Return(txmgr.Tx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
 
@@ -68,7 +68,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -87,13 +87,13 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.EvmTransmitCheckerSpec{},
+		txmgr.TransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", txmgr.EvmNewTx{
+	txm.On("CreateTransaction", txmgr.TxRequest{
 		FromAddress:      fromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
@@ -101,8 +101,8 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
-	txm.On("CreateTransaction", txmgr.EvmNewTx{
+	}, mock.Anything).Return(txmgr.Tx{}, nil).Once()
+	txm.On("CreateTransaction", txmgr.TxRequest{
 		FromAddress:      fromAddress2,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
@@ -110,7 +110,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
+	}, mock.Anything).Return(txmgr.Tx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
@@ -120,7 +120,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	fromAddress := common.Address{}
 
@@ -138,7 +138,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.EvmTransmitCheckerSpec{},
+		txmgr.TransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
@@ -151,7 +151,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
@@ -168,7 +168,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.EvmTransmitCheckerSpec{},
+		txmgr.TransmitCheckerSpec{},
 		chainID,
 		nil,
 	)

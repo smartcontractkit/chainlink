@@ -85,19 +85,19 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, nil)
 	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, db, cfg)
+	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	lggr := logger.TestLogger(t)
 
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
 	// for the foreign key constraint of the stats record
-	pipelineORM := pipeline.NewORM(db, lggr, cfg)
-	bridgeORM := bridges.NewORM(db, lggr, cfg)
+	pipelineORM := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	bridgeORM := bridges.NewORM(db, lggr, cfg.Database())
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db, KeyStore: keyStore.Eth()})
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, cfg)
-	orm := newORM(t, db, cfg, nil)
+	jobORM := job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
+	orm := newORM(t, db, cfg.Database(), nil)
 
 	address := testutils.NewAddress()
 	var roundID uint32 = 1
@@ -175,7 +175,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 
 	var (
 		txm = txmmocks.NewMockEvmTxManager(t)
-		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.EvmTransmitCheckerSpec{})
+		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = testutils.NewAddress()
@@ -183,14 +183,14 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint32(21000)
 	)
 
-	txm.On("CreateTransaction", txmgr.EvmNewTx{
+	txm.On("CreateTransaction", txmgr.TxRequest{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,
 		FeeLimit:       gasLimit,
 		Meta:           nil,
 		Strategy:       strategy,
-	}).Return(txmgr.EvmTx{}, nil).Once()
+	}).Return(txmgr.Tx{}, nil).Once()
 
 	require.NoError(t, orm.CreateEthTransaction(from, to, payload, gasLimit))
 }

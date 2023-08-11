@@ -17,11 +17,11 @@ type roundRobinKeystore interface {
 }
 
 type txManager interface {
-	CreateTransaction(newTx txmgr.EvmNewTx, qopts ...pg.QOpt) (tx txmgr.EvmTx, err error)
+	CreateTransaction(txRequest txmgr.TxRequest, qopts ...pg.QOpt) (tx txmgr.Tx, err error)
 }
 
 type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.EthTxMeta) error
+	CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress() common.Address
 }
 
@@ -31,7 +31,7 @@ type transmitter struct {
 	gasLimit                    uint32
 	effectiveTransmitterAddress common.Address
 	strategy                    types.TxStrategy
-	checker                     txmgr.EvmTransmitCheckerSpec
+	checker                     txmgr.TransmitCheckerSpec
 	chainID                     *big.Int
 	keystore                    roundRobinKeystore
 }
@@ -43,7 +43,7 @@ func NewTransmitter(
 	gasLimit uint32,
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
-	checker txmgr.EvmTransmitCheckerSpec,
+	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
 	keystore roundRobinKeystore,
 ) (Transmitter, error) {
@@ -65,14 +65,14 @@ func NewTransmitter(
 	}, nil
 }
 
-func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.EthTxMeta) error {
+func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
 
 	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(t.chainID, t.fromAddresses...)
 	if err != nil {
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
-	_, err = t.txm.CreateTransaction(txmgr.EvmNewTx{
+	_, err = t.txm.CreateTransaction(txmgr.TxRequest{
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,

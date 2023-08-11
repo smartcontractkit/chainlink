@@ -6,15 +6,16 @@ import (
 )
 
 type AutoPprof interface {
-	AutoPprofBlockProfileRate() int
-	AutoPprofCPUProfileRate() int
-	AutoPprofGatherDuration() models.Duration
-	AutoPprofGatherTraceDuration() models.Duration
-	AutoPprofGoroutineThreshold() int
-	AutoPprofMaxProfileSize() utils.FileSize
-	AutoPprofMemProfileRate() int
-	AutoPprofMemThreshold() utils.FileSize
-	AutoPprofMutexProfileFraction() int
-	AutoPprofPollInterval() models.Duration
-	AutoPprofProfileRoot() string
+	BlockProfileRate() int
+	CPUProfileRate() int
+	Enabled() bool
+	GatherDuration() models.Duration
+	GatherTraceDuration() models.Duration
+	GoroutineThreshold() int
+	MaxProfileSize() utils.FileSize
+	MemProfileRate() int
+	MemThreshold() utils.FileSize
+	MutexProfileFraction() int
+	PollInterval() models.Duration
+	ProfileRoot() string
 }

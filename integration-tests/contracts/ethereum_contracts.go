@@ -7,17 +7,25 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
@@ -26,14 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -48,7 +48,11 @@ func (e *EthereumOracle) Address() string {
 }
 
 func (e *EthereumOracle) Fund(ethAmount *big.Float) error {
-	return e.client.Fund(e.address.Hex(), ethAmount)
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return e.client.Fund(e.address.Hex(), ethAmount, gasEstimates)
 }
 
 // SetFulfillmentPermission sets fulfillment permission for particular address
@@ -84,7 +88,11 @@ func (e *EthereumAPIConsumer) RoundID(ctx context.Context) (*big.Int, error) {
 }
 
 func (e *EthereumAPIConsumer) Fund(ethAmount *big.Float) error {
-	return e.client.Fund(e.address.Hex(), ethAmount)
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return e.client.Fund(e.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (e *EthereumAPIConsumer) Data(ctx context.Context) (*big.Int, error) {
@@ -132,7 +140,11 @@ func (f *EthereumStaking) Address() string {
 
 // Fund sends specified currencies to the contract
 func (f *EthereumStaking) Fund(ethAmount *big.Float) error {
-	return f.client.Fund(f.address.Hex(), ethAmount)
+	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return f.client.Fund(f.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (f *EthereumStaking) AddOperators(operators []common.Address) error {
@@ -313,6 +325,160 @@ func (f *EthereumFunctionsBillingRegistryEventsMock) BillingEnd(requestId [32]by
 	return f.client.ProcessTransaction(tx)
 }
 
+// EthereumStakingEventsMock represents the basic events mock contract
+type EthereumStakingEventsMock struct {
+	client     blockchain.EVMClient
+	eventsMock *eth_contracts.StakingEventsMock
+	address    *common.Address
+}
+
+func (f *EthereumStakingEventsMock) Address() string {
+	return f.address.Hex()
+}
+
+func (f *EthereumStakingEventsMock) MaxCommunityStakeAmountIncreased(maxStakeAmount *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitMaxCommunityStakeAmountIncreased(opts, maxStakeAmount)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStakingEventsMock) PoolSizeIncreased(maxPoolSize *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitPoolSizeIncreased(opts, maxPoolSize)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStakingEventsMock) MaxOperatorStakeAmountIncreased(maxStakeAmount *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitMaxOperatorStakeAmountIncreased(opts, maxStakeAmount)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStakingEventsMock) RewardInitialized(rate *big.Int, available *big.Int, startTimestamp *big.Int, endTimestamp *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitRewardInitialized(opts, rate, available, startTimestamp, endTimestamp)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStakingEventsMock) AlertRaised(alerter common.Address, roundId *big.Int, rewardAmount *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitAlertRaised(opts, alerter, roundId, rewardAmount)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStakingEventsMock) Staked(staker common.Address, newStake *big.Int, totalStake *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitStaked(opts, staker, newStake, totalStake)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStakingEventsMock) OperatorAdded(operator common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitOperatorAdded(opts, operator)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStakingEventsMock) OperatorRemoved(operator common.Address, amount *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitOperatorRemoved(opts, operator, amount)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumStakingEventsMock) FeedOperatorsSet(feedOperators []common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitFeedOperatorsSet(opts, feedOperators)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+// EthereumOffchainAggregatorEventsMock represents the basic events mock contract
+type EthereumOffchainAggregatorEventsMock struct {
+	client     blockchain.EVMClient
+	eventsMock *eth_contracts.OffchainAggregatorEventsMock
+	address    *common.Address
+}
+
+func (f *EthereumOffchainAggregatorEventsMock) Address() string {
+	return f.address.Hex()
+}
+
+func (f *EthereumOffchainAggregatorEventsMock) ConfigSet(previousConfigBlockNumber uint32, configCount uint64, signers []common.Address, transmitters []common.Address, threshold uint8, encodedConfigVersion uint64, encoded []byte) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitConfigSet(opts, previousConfigBlockNumber, configCount, signers, transmitters, threshold, encodedConfigVersion, encoded)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumOffchainAggregatorEventsMock) NewTransmission(aggregatorRoundId uint32, answer *big.Int, transmitter common.Address, observations []*big.Int, observers []byte, rawReportContext [32]byte) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitNewTransmission(opts, aggregatorRoundId, answer, transmitter, observations, observers, rawReportContext)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
 // EthereumFluxAggregator represents the basic flux aggregation contract
 type EthereumFluxAggregator struct {
 	client         blockchain.EVMClient
@@ -326,7 +492,11 @@ func (f *EthereumFluxAggregator) Address() string {
 
 // Fund sends specified currencies to the contract
 func (f *EthereumFluxAggregator) Fund(ethAmount *big.Float) error {
-	return f.client.Fund(f.address.Hex(), ethAmount)
+	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return f.client.Fund(f.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (f *EthereumFluxAggregator) UpdateAvailableFunds() error {
@@ -609,7 +779,11 @@ type EthereumLinkToken struct {
 
 // Fund the LINK Token contract with ETH to distribute the token
 func (l *EthereumLinkToken) Fund(ethAmount *big.Float) error {
-	return l.client.Fund(l.address.Hex(), ethAmount)
+	gasEstimates, err := l.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return l.client.Fund(l.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (l *EthereumLinkToken) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
@@ -692,18 +866,6 @@ func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []b
 	return tx, l.client.ProcessTransaction(tx)
 }
 
-// LoadExistingLinkToken loads an EthereumLinkToken with a specific address
-func (l *EthereumLinkToken) LoadExistingLinkToken(address string, client blockchain.EVMClient) error {
-	l.address = common.HexToAddress(address)
-	instance, err := link_token_interface.NewLinkToken(l.address, client.(*blockchain.EthereumClient).Client)
-	if err != nil {
-		return err
-	}
-	l.client = client
-	l.instance = instance
-	return nil
-}
-
 // EthereumOffchainAggregator represents the offchain aggregation contract
 type EthereumOffchainAggregator struct {
 	client  blockchain.EVMClient
@@ -713,7 +875,11 @@ type EthereumOffchainAggregator struct {
 
 // Fund sends specified currencies to the contract
 func (o *EthereumOffchainAggregator) Fund(ethAmount *big.Float) error {
-	return o.client.Fund(o.address.Hex(), ethAmount)
+	gasEstimates, err := o.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return o.client.Fund(o.address.Hex(), ethAmount, gasEstimates)
 }
 
 // GetContractData retrieves basic data for the offchain aggregator contract
@@ -765,7 +931,7 @@ func (o *EthereumOffchainAggregator) SetPayees(
 
 // SetConfig sets the payees and the offchain reporting protocol configuration
 func (o *EthereumOffchainAggregator) SetConfig(
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	ocrConfig OffChainAggregatorConfig,
 	transmitters []common.Address,
 ) error {
@@ -777,7 +943,7 @@ func (o *EthereumOffchainAggregator) SetConfig(
 			return err
 		}
 		if len(ocrKeys.Data) == 0 {
-			return fmt.Errorf("no OCR keys found for node %s", node.Config.ChartName)
+			return fmt.Errorf("no OCR keys found for node %v", node)
 		}
 		primaryOCRKey := ocrKeys.Data[0]
 		if err != nil {
@@ -993,14 +1159,13 @@ func (o *RunlogRoundConfirmer) Wait() error {
 
 // OffchainAggregatorRoundConfirmer is a header subscription that awaits for a certain OCR round to be completed
 type OffchainAggregatorRoundConfirmer struct {
-	ocrInstance        OffchainAggregator
-	roundID            *big.Int
-	doneChan           chan struct{}
-	context            context.Context
-	cancel             context.CancelFunc
-	optionalTestReport *testreporters.OCRSoakTestReport
-	blocksSinceAnswer  uint
-	complete           bool
+	ocrInstance       OffchainAggregator
+	roundID           *big.Int
+	doneChan          chan struct{}
+	context           context.Context
+	cancel            context.CancelFunc
+	blocksSinceAnswer uint
+	complete          bool
 }
 
 // NewOffchainAggregatorRoundConfirmer provides a new instance of a OffchainAggregatorRoundConfirmer
@@ -1008,17 +1173,15 @@ func NewOffchainAggregatorRoundConfirmer(
 	contract OffchainAggregator,
 	roundID *big.Int,
 	timeout time.Duration,
-	optionalTestReport *testreporters.OCRSoakTestReport,
 ) *OffchainAggregatorRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &OffchainAggregatorRoundConfirmer{
-		ocrInstance:        contract,
-		roundID:            roundID,
-		doneChan:           make(chan struct{}),
-		context:            ctx,
-		cancel:             ctxCancel,
-		optionalTestReport: optionalTestReport,
-		complete:           false,
+		ocrInstance: contract,
+		roundID:     roundID,
+		doneChan:    make(chan struct{}),
+		context:     ctx,
+		cancel:      ctxCancel,
+		complete:    false,
 	}
 }
 
@@ -1070,14 +1233,13 @@ func (o *OffchainAggregatorRoundConfirmer) Complete() bool {
 
 // OffchainAggregatorRoundConfirmer is a header subscription that awaits for a certain OCR round to be completed
 type OffchainAggregatorV2RoundConfirmer struct {
-	ocrInstance        OffchainAggregatorV2
-	roundID            *big.Int
-	doneChan           chan struct{}
-	context            context.Context
-	cancel             context.CancelFunc
-	optionalTestReport *testreporters.OCRSoakTestReport
-	blocksSinceAnswer  uint
-	complete           bool
+	ocrInstance       OffchainAggregatorV2
+	roundID           *big.Int
+	doneChan          chan struct{}
+	context           context.Context
+	cancel            context.CancelFunc
+	blocksSinceAnswer uint
+	complete          bool
 }
 
 // NewOffchainAggregatorRoundConfirmer provides a new instance of a OffchainAggregatorRoundConfirmer
@@ -1085,17 +1247,15 @@ func NewOffchainAggregatorV2RoundConfirmer(
 	contract OffchainAggregatorV2,
 	roundID *big.Int,
 	timeout time.Duration,
-	optionalTestReport *testreporters.OCRSoakTestReport,
 ) *OffchainAggregatorV2RoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &OffchainAggregatorV2RoundConfirmer{
-		ocrInstance:        contract,
-		roundID:            roundID,
-		doneChan:           make(chan struct{}),
-		context:            ctx,
-		cancel:             ctxCancel,
-		optionalTestReport: optionalTestReport,
-		complete:           false,
+		ocrInstance: contract,
+		roundID:     roundID,
+		doneChan:    make(chan struct{}),
+		context:     ctx,
+		cancel:      ctxCancel,
+		complete:    false,
 	}
 }
 
@@ -1374,7 +1534,11 @@ func (e *EthereumOffchainAggregatorV2) Address() string {
 }
 
 func (e *EthereumOffchainAggregatorV2) Fund(nativeAmount *big.Float) error {
-	return e.client.Fund(e.address.Hex(), nativeAmount)
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return e.client.Fund(e.address.Hex(), nativeAmount, gasEstimates)
 }
 
 func (e *EthereumOffchainAggregatorV2) RequestNewRound() error {
@@ -1502,4 +1666,15 @@ func (e *EthereumOffchainAggregatorV2) GetConfig(ctx context.Context) ([32]byte,
 
 func (e *EthereumOffchainAggregatorV2) ParseEventAnswerUpdated(log types.Log) (*ocr2aggregator.OCR2AggregatorAnswerUpdated, error) {
 	return e.contract.ParseAnswerUpdated(log)
+}
+
+// EthereumKeeperRegistryCheckUpkeepGasUsageWrapper represents a gas wrapper for keeper registry
+type EthereumKeeperRegistryCheckUpkeepGasUsageWrapper struct {
+	address         *common.Address
+	client          blockchain.EVMClient
+	gasUsageWrapper *gas_wrapper.KeeperRegistryCheckUpkeepGasUsageWrapper
+}
+
+func (e *EthereumKeeperRegistryCheckUpkeepGasUsageWrapper) Address() string {
+	return e.address.Hex()
 }

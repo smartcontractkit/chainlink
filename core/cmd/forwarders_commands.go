@@ -19,17 +19,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func initFowardersSubCmds(client *Client) []cli.Command {
+func initFowardersSubCmds(s *Shell) []cli.Command {
 	return []cli.Command{
 		{
 			Name:   "list",
 			Usage:  "List all stored forwarders addresses",
-			Action: client.ListForwarders,
+			Action: s.ListForwarders,
 		},
 		{
 			Name:   "track",
 			Usage:  "Track a new forwarder",
-			Action: client.TrackForwarder,
+			Action: s.TrackForwarder,
 			Flags: []cli.Flag{
 				cli.Int64Flag{
 					Name:  "evm-chain-id, evmChainID, c",
@@ -44,7 +44,7 @@ func initFowardersSubCmds(client *Client) []cli.Command {
 		{
 			Name:   "delete",
 			Usage:  "Delete a forwarder address",
-			Action: client.DeleteForwarder,
+			Action: s.DeleteForwarder,
 		},
 	}
 }
@@ -93,22 +93,22 @@ func (ps EVMForwarderPresenters) RenderTable(rt RendererTable) error {
 }
 
 // ListForwarders list all forwarder addresses tracked by node
-func (cli *Client) ListForwarders(c *cli.Context) (err error) {
-	return cli.getPage("/v2/nodes/evm/forwarders", c.Int("page"), &EVMForwarderPresenters{})
+func (s *Shell) ListForwarders(c *cli.Context) (err error) {
+	return s.getPage("/v2/nodes/evm/forwarders", c.Int("page"), &EVMForwarderPresenters{})
 }
 
 // DeleteForwarder deletes forwarder address from node db by id.
-func (cli *Client) DeleteForwarder(c *cli.Context) (err error) {
+func (s *Shell) DeleteForwarder(c *cli.Context) (err error) {
 	if !c.Args().Present() {
-		return cli.errorOut(errors.New("must pass the forwarder id to be archived"))
+		return s.errorOut(errors.New("must pass the forwarder id to be archived"))
 	}
-	resp, err := cli.HTTP.Delete("/v2/nodes/evm/forwarders/" + c.Args().First())
+	resp, err := s.HTTP.Delete("/v2/nodes/evm/forwarders/" + c.Args().First())
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
-	_, err = cli.parseResponse(resp)
+	_, err = s.parseResponse(resp)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	fmt.Printf("Forwarder %v Deleted\n", c.Args().First())
@@ -116,13 +116,13 @@ func (cli *Client) DeleteForwarder(c *cli.Context) (err error) {
 }
 
 // TrackForwarder tracks forwarder address in db.
-func (cli *Client) TrackForwarder(c *cli.Context) (err error) {
+func (s *Shell) TrackForwarder(c *cli.Context) (err error) {
 	addressHex := c.String("address")
 	chainIDStr := c.String("evm-chain-id")
 
 	addressBytes, err := hexutil.Decode(addressHex)
 	if err != nil {
-		return cli.errorOut(errors.Wrap(err, "could not decode address"))
+		return s.errorOut(errors.Wrap(err, "could not decode address"))
 	}
 	address := gethCommon.BytesToAddress(addressBytes)
 
@@ -131,7 +131,7 @@ func (cli *Client) TrackForwarder(c *cli.Context) (err error) {
 		var ok bool
 		chainID, ok = big.NewInt(0).SetString(chainIDStr, 10)
 		if !ok {
-			return cli.errorOut(errors.Wrap(err, "invalid evm-chain-id"))
+			return s.errorOut(errors.Wrap(err, "invalid evm-chain-id"))
 		}
 	}
 
@@ -140,12 +140,12 @@ func (cli *Client) TrackForwarder(c *cli.Context) (err error) {
 		Address:    address,
 	})
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
-	resp, err := cli.HTTP.Post("/v2/nodes/evm/forwarders/track", bytes.NewReader(request))
+	resp, err := s.HTTP.Post("/v2/nodes/evm/forwarders/track", bytes.NewReader(request))
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -157,12 +157,12 @@ func (cli *Client) TrackForwarder(c *cli.Context) (err error) {
 		body, rerr := io.ReadAll(resp.Body)
 		if err != nil {
 			err = multierr.Append(err, rerr)
-			return cli.errorOut(err)
+			return s.errorOut(err)
 		}
 		fmt.Printf("Response: '%v', Status: %d\n", string(body), resp.StatusCode)
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
-	err = cli.renderAPIResponse(resp, &EVMForwarderPresenter{}, "Forwarder created")
+	err = s.renderAPIResponse(resp, &EVMForwarderPresenter{}, "Forwarder created")
 	return err
 }

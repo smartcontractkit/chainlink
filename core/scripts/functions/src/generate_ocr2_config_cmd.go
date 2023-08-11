@@ -13,8 +13,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
@@ -25,6 +25,25 @@ type TopLevelConfigSource struct {
 	OracleConfig OracleConfigSource
 }
 
+type ThresholdOffchainConfig struct {
+	MaxQueryLengthBytes       uint32
+	MaxObservationLengthBytes uint32
+	MaxReportLengthBytes      uint32
+	RequestCountLimit         uint32
+	RequestTotalBytesLimit    uint32
+	RequireLocalRequestCheck  bool
+}
+
+type S4ReportingPluginConfig struct {
+	MaxQueryLengthBytes       uint32
+	MaxObservationLengthBytes uint32
+	MaxReportLengthBytes      uint32
+	NSnapshotShards           uint32
+	MaxObservationEntries     uint32
+	MaxReportEntries          uint32
+	MaxDeleteExpiredEntries   uint32
+}
+
 type OracleConfigSource struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
@@ -32,6 +51,9 @@ type OracleConfigSource struct {
 	MaxRequestBatchSize       uint32
 	DefaultAggregationMethod  int32
 	UniqueReports             bool
+	ThresholdOffchainConfig   ThresholdOffchainConfig
+	S4ReportingPluginConfig   S4ReportingPluginConfig
+	MaxReportTotalCallbackGas uint32
 
 	DeltaProgressMillis  uint32
 	DeltaResendMillis    uint32
@@ -133,6 +155,17 @@ func (g *generateOCR2Config) Run(args []string) {
 	} else {
 		nodes := mustReadNodesList(*nodesFile)
 		nca = mustFetchNodesKeys(*chainID, nodes)[1:] // ignore boot node
+
+		nodePublicKeys, err := json.MarshalIndent(nca, "", " ")
+		if err != nil {
+			panic(err)
+		}
+		filepath := filepath.Join(artefactsDir, ocr2PublicKeysJSON)
+		err = os.WriteFile(filepath, nodePublicKeys, 0600)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Functions OCR2 public keys have been saved to:", filepath)
 	}
 
 	onchainPubKeys := []common.Address{}
@@ -191,6 +224,24 @@ func (g *generateOCR2Config) Run(args []string) {
 			MaxRequestBatchSize:       cfg.MaxRequestBatchSize,
 			DefaultAggregationMethod:  config.AggregationMethod(cfg.DefaultAggregationMethod),
 			UniqueReports:             cfg.UniqueReports,
+			ThresholdPluginConfig: &config.ThresholdReportingPluginConfig{
+				MaxQueryLengthBytes:       cfg.ThresholdOffchainConfig.MaxQueryLengthBytes,
+				MaxObservationLengthBytes: cfg.ThresholdOffchainConfig.MaxObservationLengthBytes,
+				MaxReportLengthBytes:      cfg.ThresholdOffchainConfig.MaxReportLengthBytes,
+				RequestCountLimit:         cfg.ThresholdOffchainConfig.RequestCountLimit,
+				RequestTotalBytesLimit:    cfg.ThresholdOffchainConfig.RequestTotalBytesLimit,
+				RequireLocalRequestCheck:  cfg.ThresholdOffchainConfig.RequireLocalRequestCheck,
+			},
+			S4PluginConfig: &config.S4ReportingPluginConfig{
+				MaxQueryLengthBytes:       cfg.S4ReportingPluginConfig.MaxQueryLengthBytes,
+				MaxObservationLengthBytes: cfg.S4ReportingPluginConfig.MaxObservationLengthBytes,
+				MaxReportLengthBytes:      cfg.S4ReportingPluginConfig.MaxReportLengthBytes,
+				NSnapshotShards:           cfg.S4ReportingPluginConfig.NSnapshotShards,
+				MaxObservationEntries:     cfg.S4ReportingPluginConfig.MaxObservationEntries,
+				MaxReportEntries:          cfg.S4ReportingPluginConfig.MaxReportEntries,
+				MaxDeleteExpiredEntries:   cfg.S4ReportingPluginConfig.MaxDeleteExpiredEntries,
+			},
+			MaxReportTotalCallbackGas: cfg.MaxReportTotalCallbackGas,
 		},
 	})
 	if err != nil {

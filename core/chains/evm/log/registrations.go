@@ -427,7 +427,7 @@ func (r *handler) sendLog(log types.Log, latestHead evmtypes.Head,
 			// Create unconsumed broadcast
 			if err := bc.CreateBroadcast(log.BlockHash, log.BlockNumber, log.Index, jobID); err != nil {
 				logger.Errorw("Could not create broadcast log", "blockNumber", log.BlockNumber,
-					"blockHash", log.BlockHash, "address", log.Address, "jobID", jobID, "error", err)
+					"blockHash", log.BlockHash, "address", log.Address, "jobID", jobID, "err", err)
 				continue
 			}
 		}

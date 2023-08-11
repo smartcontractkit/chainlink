@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,18 +19,22 @@ import (
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/libs/rand"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -39,12 +44,11 @@ func logRuntime(t *testing.T, start time.Time) {
 }
 
 func TestPopulateLoadedDB(t *testing.T) {
-	t.Skip("only for local load testing and query analysis")
+	t.Skip("Only for local load testing and query analysis")
 	lggr := logger.TestLogger(t)
 	_, db := heavyweight.FullTestDBV2(t, "logs_scale", nil)
 	chainID := big.NewInt(137)
-	_, err := db.Exec(`INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`, utils.NewBig(chainID))
-	require.NoError(t, err)
+
 	o := logpoller.NewORM(big.NewInt(137), db, lggr, pgtest.NewQConfig(true))
 	event1 := EmitterABI.Events["Log1"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
@@ -118,8 +122,6 @@ func TestLogPoller_Integration(t *testing.T) {
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Addresses, 1)
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Topics, 1)
 
-	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
-	require.NoError(t, th.LogPoller.Start(testutils.Context(t)))
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Addresses, 1)
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Topics, 1)
 
@@ -131,15 +133,27 @@ func TestLogPoller_Integration(t *testing.T) {
 		require.NoError(t, err1)
 		th.Client.Commit()
 	}
-	// The poller starts on a new chain at latest-finality (5 in this case),
-	// replay to ensure we get all the logs.
-	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 1))
+	// Calling Start() after RegisterFilter() simulates a node restart after job creation, should reload Filter from db.
+	require.NoError(t, th.LogPoller.Start(testutils.Context(t)))
 
-	// We should immediately have all those Log1 logs.
-	logs, err := th.LogPoller.Logs(2, 7, EmitterABI.Events["Log1"].ID, th.EmitterAddress1,
+	// The poller starts on a new chain at latest-finality (5 in this case),
+	// Replaying from block 4 should guarantee we have block 4 immediately.  (We will also get
+	// block 3 once the backup poller runs, since it always starts 100 blocks behind.)
+	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
+
+	// We should immediately have at least logs 4-7
+	logs, err := th.LogPoller.Logs(4, 7, EmitterABI.Events["Log1"].ID, th.EmitterAddress1,
 		pg.WithParentCtx(testutils.Context(t)))
 	require.NoError(t, err)
-	assert.Equal(t, 5, len(logs))
+	require.Equal(t, 4, len(logs))
+
+	// Once the backup poller runs we should also have the log from block 3
+	testutils.AssertEventually(t, func() bool {
+		logs, err := th.LogPoller.Logs(3, 3, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+		require.NoError(t, err)
+		return len(logs) == 1
+	})
+
 	// Now let's update the Filter and replay to get Log2 logs.
 	err = th.LogPoller.RegisterFilter(logpoller.Filter{
 		"Emitter - log2", []common.Hash{EmitterABI.Events["Log2"].ID},
@@ -149,6 +163,12 @@ func TestLogPoller_Integration(t *testing.T) {
 	// Replay an invalid block should error
 	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 0))
 	assert.Error(t, th.LogPoller.Replay(testutils.Context(t), 20))
+
+	// Still shouldn't have any Log2 logs yet
+	logs, err = th.LogPoller.Logs(2, 7, EmitterABI.Events["Log2"].ID, th.EmitterAddress1)
+	require.NoError(t, err)
+	require.Len(t, logs, 0)
+
 	// Replay only from block 4, so we should see logs in block 4,5,6,7 (4 logs)
 	require.NoError(t, th.LogPoller.Replay(testutils.Context(t), 4))
 
@@ -400,8 +420,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 	finalityDepth := 5
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_blocks_evm_chain_id_fkey DEFERRED`)))
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_logs_evm_chain_id_fkey DEFERRED`)))
+
 	owner := testutils.MustNewSimTransactor(t)
 	owner.GasPrice = big.NewInt(10e9)
 	p.Property("synchronized with geth", prop.ForAll(func(mineOrReorg []uint64) bool {
@@ -948,5 +967,152 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	assert.Contains(t, logMsgs, "SQL ERROR")
 	assert.Contains(t, logMsgs, "Failed loading filters in main logpoller loop, retrying later")
 	assert.Contains(t, logMsgs, "Error executing replay, could not get fromBlock")
-	assert.Contains(t, logMsgs, "backup log poller ran before filters loaded, skipping")
+	assert.Contains(t, logMsgs, "Backup log poller ran before filters loaded, skipping")
+}
+
+func TestNotifyAfterInsert(t *testing.T) {
+	t.Parallel()
+
+	// Use a non-transactional db for this test because notify events
+	// are not delivered until the transaction is committed.
+	var dbURL string
+	_, sqlxDB := heavyweight.FullTestDBV2(t, "notify_after_insert_log", func(c *chainlink.Config, s *chainlink.Secrets) {
+		dbURL = s.Database.URL.URL().String()
+	})
+
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+	chainID := big.NewInt(1337)
+	o := logpoller.NewORM(chainID, sqlxDB, lggr, pgtest.NewQConfig(true))
+
+	listener := pq.NewListener(dbURL, time.Second, time.Second, nil)
+	err := listener.Listen(pg.ChannelInsertOnEVMLogs)
+	require.NoError(t, err)
+
+	log := logpoller.Log{
+		EvmChainId:     utils.NewBig(chainID),
+		LogIndex:       10,
+		BlockHash:      testutils.Random32Byte(),
+		BlockNumber:    100,
+		BlockTimestamp: time.Now(),
+		Topics: pq.ByteaArray{
+			testutils.NewAddress().Bytes(),
+			testutils.NewAddress().Bytes(),
+		},
+		EventSig:  testutils.Random32Byte(),
+		Address:   testutils.NewAddress(),
+		TxHash:    testutils.Random32Byte(),
+		Data:      []byte("test_data"),
+		CreatedAt: time.Now(),
+	}
+
+	err = o.InsertLogs([]logpoller.Log{log})
+	require.NoError(t, err)
+
+	testutils.AssertEventually(t, func() bool {
+		select {
+		case event := <-listener.Notify:
+			expectedPayload := fmt.Sprintf(
+				"%s:%s,%s",
+				hexutil.Encode(log.Address.Bytes())[2:], // strip the leading 0x
+				hexutil.Encode(log.Topics[0])[2:],
+				hexutil.Encode(log.Topics[1])[2:],
+			)
+			require.Equal(t, event.Extra, expectedPayload)
+			return true
+		default:
+			return false
+		}
+	})
+}
+
+type getLogErrData struct {
+	From  string
+	To    string
+	Limit int
+}
+
+func TestTooManyLogResults(t *testing.T) {
+	ctx := testutils.Context(t)
+	ec := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	lp := logpoller.NewLogPoller(o, ec, lggr, 1*time.Hour, 2, 20, 10, 1000)
+	expected := []int64{10, 5, 2, 1}
+
+	clientErr := client.JsonError{
+		Code:    -32005,
+		Data:    getLogErrData{"0x100E698", "0x100E6D4", 10000},
+		Message: "query returned more than 10000 results. Try with this block range [0x100E698, 0x100E6D4].",
+	}
+
+	call1 := ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
+		if blockNumber == nil {
+			return &evmtypes.Head{Number: 300}, nil // Simulate currentBlock = 300
+		}
+		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
+	})
+
+	call2 := ec.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
+		if fq.BlockHash != nil {
+			return []types.Log{}, nil // succeed when single block requested
+		}
+		from := fq.FromBlock.Uint64()
+		to := fq.ToBlock.Uint64()
+		if to-from >= 4 {
+			return []types.Log{}, &clientErr // return "too many results" error if block range spans 4 or more blocks
+		}
+		return logs, err
+	})
+
+	addr := testutils.NewAddress()
+	err := lp.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{addr}, 0})
+	require.NoError(t, err)
+	lp.PollAndSaveLogs(ctx, 5)
+	block, err2 := o.SelectLatestBlock()
+	require.NoError(t, err2)
+	assert.Equal(t, int64(298), block.BlockNumber)
+
+	logs := obs.FilterLevelExact(zapcore.WarnLevel).FilterMessageSnippet("halving block range batch size").FilterFieldKey("newBatchSize").All()
+	// Should have tried again 3 times--first reducing batch size to 10, then 5, then 2
+	require.Len(t, logs, 3)
+	for i, s := range expected[:3] {
+		assert.Equal(t, s, logs[i].ContextMap()["newBatchSize"])
+	}
+
+	obs.TakeAll()
+	call1.Unset()
+	call2.Unset()
+
+	// Now jump to block 500, but return error no matter how small the block range gets.
+	//  Should exit the loop with a critical error instead of hanging.
+	call1.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
+		if blockNumber == nil {
+			return &evmtypes.Head{Number: 500}, nil // Simulate currentBlock = 300
+		}
+		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
+	})
+	call2.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
+		if fq.BlockHash != nil {
+			return []types.Log{}, nil // succeed when single block requested
+		}
+		return []types.Log{}, &clientErr // return "too many results" error if block range spans 4 or more blocks
+
+		return logs, err
+	})
+
+	lp.PollAndSaveLogs(ctx, 298)
+	block, err2 = o.SelectLatestBlock()
+	require.NoError(t, err2)
+	assert.Equal(t, int64(298), block.BlockNumber)
+	warns := obs.FilterMessageSnippet("halving block range").FilterLevelExact(zapcore.WarnLevel).All()
+	crit := obs.FilterMessageSnippet("failed to retrieve logs").FilterLevelExact(zapcore.DPanicLevel).All()
+	require.Len(t, warns, 4)
+	for i, s := range expected {
+		assert.Equal(t, s, warns[i].ContextMap()["newBatchSize"])
+	}
+
+	require.Len(t, crit, 1)
+	assert.Contains(t, crit[0].Message, "Too many log results in a single block")
 }

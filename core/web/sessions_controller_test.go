@@ -88,7 +88,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
-	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
 	mustInsertSession(t, q, &staleSession)
 
 	body := fmt.Sprintf(`{"email":"%s","password":"%s"}`, cltest.APIEmailAdmin, cltest.Password)
@@ -117,7 +117,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	correctSession := sessions.NewSession()
-	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
 	mustInsertSession(t, q, &correctSession)
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
@@ -155,7 +155,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	app := cltest.NewApplicationEVMDisabled(t)
-	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig())
+	q := pg.NewQ(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	correctSession := sessions.NewSession()

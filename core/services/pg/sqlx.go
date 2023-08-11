@@ -9,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 type Queryer interface {

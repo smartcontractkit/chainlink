@@ -7,26 +7,15 @@ import (
 	"sync"
 	"time"
 
+	decryptionPlugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
-type CiphertextId = []byte
-
+//go:generate mockery --quiet --name Decryptor --output ./mocks/ --case=underscore
 type Decryptor interface {
-	Decrypt(ctx context.Context, ciphertextId CiphertextId, ciphertext []byte) ([]byte, error)
-}
-
-// This interface will be replaced by the Threshold Decryption Plugin when it is ready
-type DecryptionQueuingService interface {
-	GetRequests(requestCountLimit int, totalBytesLimit int) []DecryptionRequest
-	GetCiphertext(ciphertextId CiphertextId) ([]byte, error)
-	ReturnResult(ciphertextId CiphertextId, plaintext []byte)
-}
-
-type DecryptionRequest struct {
-	ciphertextId CiphertextId
-	ciphertext   []byte
+	Decrypt(ctx context.Context, ciphertextId decryptionPlugin.CiphertextId, ciphertext []byte) ([]byte, error)
 }
 
 type pendingRequest struct {
@@ -42,8 +31,9 @@ type completedRequest struct {
 type decryptionQueue struct {
 	maxQueueLength                int
 	maxCiphertextBytes            int
+	maxCiphertextIdLen            int
 	completedRequestsCacheTimeout time.Duration
-	pendingRequestQueue           []CiphertextId
+	pendingRequestQueue           []decryptionPlugin.CiphertextId
 	pendingRequests               map[string]pendingRequest
 	completedRequests             map[string]completedRequest
 	mu                            sync.RWMutex
@@ -51,17 +41,18 @@ type decryptionQueue struct {
 }
 
 var (
-	_ Decryptor                = &decryptionQueue{}
-	_ DecryptionQueuingService = &decryptionQueue{}
-	_ job.ServiceCtx           = &decryptionQueue{}
+	_ Decryptor                                 = &decryptionQueue{}
+	_ decryptionPlugin.DecryptionQueuingService = &decryptionQueue{}
+	_ job.ServiceCtx                            = &decryptionQueue{}
 )
 
-func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, completedRequestsCacheTimeout time.Duration, lggr logger.Logger) *decryptionQueue {
+func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, maxCiphertextIdLen int, completedRequestsCacheTimeout time.Duration, lggr logger.Logger) *decryptionQueue {
 	dq := decryptionQueue{
 		maxQueueLength,
 		maxCiphertextBytes,
+		maxCiphertextIdLen,
 		completedRequestsCacheTimeout,
-		[]CiphertextId{},
+		[]decryptionPlugin.CiphertextId{},
 		make(map[string]pendingRequest),
 		make(map[string]completedRequest),
 		sync.RWMutex{},
@@ -70,9 +61,21 @@ func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, completedReq
 	return &dq
 }
 
-func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId CiphertextId, ciphertext []byte) ([]byte, error) {
+func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId decryptionPlugin.CiphertextId, ciphertext []byte) ([]byte, error) {
+	if len(ciphertextId) > dq.maxCiphertextIdLen {
+		return nil, errors.New("ciphertextId too large")
+	}
+
+	if len(ciphertextId) == 0 {
+		return nil, errors.New("ciphertextId is empty")
+	}
+
 	if len(ciphertext) > dq.maxCiphertextBytes {
 		return nil, errors.New("ciphertext too large")
+	}
+
+	if len(ciphertext) == 0 {
+		return nil, errors.New("ciphertext is empty")
 	}
 
 	chPlaintext, err := dq.getResult(ciphertextId, ciphertext)
@@ -94,7 +97,7 @@ func (dq *decryptionQueue) Decrypt(ctx context.Context, ciphertextId CiphertextI
 	}
 }
 
-func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byte) (<-chan []byte, error) {
+func (dq *decryptionQueue) getResult(ciphertextId decryptionPlugin.CiphertextId, ciphertext []byte) (<-chan []byte, error) {
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
@@ -102,7 +105,7 @@ func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byt
 
 	req, ok := dq.completedRequests[string(ciphertextId)]
 	if ok {
-		dq.lggr.Debugf("ciphertextId %s was already decrypted by the DON", ciphertextId)
+		dq.lggr.Debugf("ciphertextId %s was already decrypted by the DON", string(ciphertextId))
 		chPlaintext <- req.plaintext
 		req.timer.Stop()
 		delete(dq.completedRequests, string(ciphertextId))
@@ -123,16 +126,16 @@ func (dq *decryptionQueue) getResult(ciphertextId CiphertextId, ciphertext []byt
 		chPlaintext,
 		ciphertext,
 	}
-	dq.lggr.Debugf("ciphertextId %s added to pendingRequestQueue")
+	dq.lggr.Debugf("ciphertextId %s added to pendingRequestQueue", string(ciphertextId))
 
 	return chPlaintext, nil
 }
 
-func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit int) []DecryptionRequest {
+func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit int) []decryptionPlugin.DecryptionRequest {
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
-	requests := make([]DecryptionRequest, 0, requestCountLimit)
+	requests := make([]decryptionPlugin.DecryptionRequest, 0, requestCountLimit)
 	totalBytes := 0
 	indicesToRemove := make(map[int]struct{})
 
@@ -145,14 +148,14 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 		pendingRequest, exists := dq.pendingRequests[string(requestId)]
 
 		if !exists {
-			dq.lggr.Debugf("pending decryption request for ciphertextId %s expired", requestId)
+			dq.lggr.Debugf("pending decryption request for ciphertextId %s expired", string(requestId))
 			indicesToRemove[i] = struct{}{}
 			continue
 		}
 
-		requestToAdd := DecryptionRequest{
-			requestId,
-			pendingRequest.ciphertext,
+		requestToAdd := decryptionPlugin.DecryptionRequest{
+			CiphertextId: requestId,
+			Ciphertext:   pendingRequest.ciphertext,
 		}
 
 		requestTotalLen := len(requestId) + len(pendingRequest.ciphertext)
@@ -168,7 +171,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 
 	dq.pendingRequestQueue = removeMultipleIndices(dq.pendingRequestQueue, indicesToRemove)
 
-	dq.lggr.Debug("returing %d of %d total requests awaiting decryption", requestCountLimit, len(dq.pendingRequestQueue))
+	dq.lggr.Debugf("returning first %d of %d total requests awaiting decryption", len(requests), len(dq.pendingRequestQueue))
 
 	return requests
 }
@@ -185,7 +188,7 @@ func removeMultipleIndices[T any](data []T, indicesToRemove map[int]struct{}) []
 	return filtered
 }
 
-func (dq *decryptionQueue) GetCiphertext(ciphertextId CiphertextId) ([]byte, error) {
+func (dq *decryptionQueue) GetCiphertext(ciphertextId decryptionPlugin.CiphertextId) ([]byte, error) {
 	dq.mu.RLock()
 	defer dq.mu.RUnlock()
 
@@ -197,26 +200,26 @@ func (dq *decryptionQueue) GetCiphertext(ciphertextId CiphertextId) ([]byte, err
 	return req.ciphertext, nil
 }
 
-func (dq *decryptionQueue) ReturnResult(ciphertextId CiphertextId, plaintext []byte) {
+func (dq *decryptionQueue) SetResult(ciphertextId decryptionPlugin.CiphertextId, plaintext []byte, err error) {
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if ok {
-		dq.lggr.Debugf("responding with result for pending decryption request ciphertextId %s", ciphertextId)
+		dq.lggr.Debugf("responding with result for pending decryption request ciphertextId %s", string(ciphertextId))
 		req.chPlaintext <- plaintext
 		close(req.chPlaintext)
 		delete(dq.pendingRequests, string(ciphertextId))
 	} else {
 		// Cache plaintext result in completedRequests map for cacheTimeoutMs to account for delayed Decrypt() calls
 		timer := time.AfterFunc(dq.completedRequestsCacheTimeout, func() {
-			dq.lggr.Debugf("expired decryption result for ciphertextId %s from completedRequests cache", ciphertextId)
+			dq.lggr.Debugf("expired decryption result for ciphertextId %s from completedRequests cache", string(ciphertextId))
 			dq.mu.Lock()
 			delete(dq.completedRequests, string(ciphertextId))
 			dq.mu.Unlock()
 		})
 
-		dq.lggr.Debugf("adding decryption result for ciphertextId %s to completedRequests cache", ciphertextId)
+		dq.lggr.Debugf("adding decryption result for ciphertextId %s to completedRequests cache", string(ciphertextId))
 		dq.completedRequests[string(ciphertextId)] = completedRequest{
 			plaintext,
 			timer,

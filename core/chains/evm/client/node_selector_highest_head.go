@@ -11,19 +11,19 @@ func NewHighestHeadNodeSelector(nodes []Node) NodeSelector {
 }
 
 func (s highestHeadNodeSelector) Select() Node {
-	var node Node
-	// NodeNoNewHeadsThreshold may not be enabled, in this case all nodes have latestReceivedBlockNumber == -1
 	var highestHeadNumber int64 = math.MinInt64
-
+	var highestHeadNodes []Node
 	for _, n := range s {
-		state, latestReceivedBlockNumber, _ := n.StateAndLatest()
-		if state == NodeStateAlive && latestReceivedBlockNumber > highestHeadNumber {
-			node = n
-			highestHeadNumber = latestReceivedBlockNumber
+		state, currentHeadNumber, _ := n.StateAndLatest()
+		if state == NodeStateAlive && currentHeadNumber >= highestHeadNumber {
+			if highestHeadNumber < currentHeadNumber {
+				highestHeadNumber = currentHeadNumber
+				highestHeadNodes = nil
+			}
+			highestHeadNodes = append(highestHeadNodes, n)
 		}
 	}
-
-	return node
+	return firstOrHighestPriority(highestHeadNodes)
 }
 
 func (s highestHeadNodeSelector) Name() string {

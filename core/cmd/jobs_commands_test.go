@@ -293,13 +293,13 @@ func TestJob_ToRows(t *testing.T) {
 	}, job.ToRows())
 }
 
-func TestClient_ListFindJobs(t *testing.T) {
+func TestShell_ListFindJobs(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 	})
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
@@ -319,13 +319,13 @@ func TestClient_ListFindJobs(t *testing.T) {
 	assert.Equal(t, createOutput.ID, jobs[0].ID)
 }
 
-func TestClient_ShowJob(t *testing.T) {
+func TestShell_ShowJob(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
 	})
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)
@@ -349,7 +349,7 @@ func TestClient_ShowJob(t *testing.T) {
 	assert.Equal(t, createOutput.ID, job.ID)
 }
 
-func TestClient_CreateJobV2(t *testing.T) {
+func TestShell_CreateJobV2(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -364,7 +364,7 @@ func TestClient_CreateJobV2(t *testing.T) {
 	}, func(opts *startOptions) {
 		opts.FlagsAndDeps = append(opts.FlagsAndDeps, cltest.DefaultP2PKey)
 	})
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	requireJobsCount(t, app.JobORM(), 0)
 
@@ -384,7 +384,7 @@ func TestClient_CreateJobV2(t *testing.T) {
 	assert.Equal(t, "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15", output.OffChainReportingSpec.ContractAddress.String())
 }
 
-func TestClient_DeleteJob(t *testing.T) {
+func TestShell_DeleteJob(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -394,7 +394,7 @@ func TestClient_DeleteJob(t *testing.T) {
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 	})
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	// Create the job
 	fs := flag.NewFlagSet("", flag.ExitOnError)

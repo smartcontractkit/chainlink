@@ -2,23 +2,18 @@ package contracts
 
 import (
 	"errors"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
-
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // ContractLoader is an interface for abstracting the contract loading methods across network implementations
 type ContractLoader interface {
 	LoadOperatorContract(address common.Address) (Operator, error)
 	LoadAuthorizedForwarder(address common.Address) (AuthorizedForwarder, error)
-	LoadKeeperConsumerBenchmark(address common.Address) (KeeperConsumerBenchmark, error)
-	LoadUpkeepResetter(address common.Address) (UpkeepResetter, error)
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
@@ -110,41 +105,5 @@ func (e *EthereumContractLoader) LoadAuthorizedForwarder(address common.Address)
 		address:             address,
 		client:              e.client,
 		authorizedForwarder: instance.(*authorized_forwarder.AuthorizedForwarder),
-	}, err
-}
-
-// LoadKeeperConsumerBenchmark returns deployed on given address Keeper Consumer Contract
-func (e *EthereumContractLoader) LoadKeeperConsumerBenchmark(address common.Address) (KeeperConsumerBenchmark, error) {
-	instance, err := e.client.LoadContract("KeeperConsumerBenchmark", address, func(
-		address common.Address,
-		backend bind.ContractBackend,
-	) (interface{}, error) {
-		return eth_contracts.NewKeeperConsumerBenchmark(address, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumKeeperConsumerBenchmark{
-		address:  &address,
-		client:   e.client,
-		consumer: instance.(*eth_contracts.KeeperConsumerBenchmark),
-	}, err
-}
-
-// LoadUpkeepResetter returns deployed on given address Upkeep Resetter
-func (e *EthereumContractLoader) LoadUpkeepResetter(address common.Address) (UpkeepResetter, error) {
-	instance, err := e.client.LoadContract("KeeperConsumerBenchmark", address, func(
-		address common.Address,
-		backend bind.ContractBackend,
-	) (interface{}, error) {
-		return eth_contracts.NewUpkeepResetter(address, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumUpkeepResetter{
-		address:  &address,
-		client:   e.client,
-		consumer: instance.(*eth_contracts.UpkeepResetter),
 	}, err
 }

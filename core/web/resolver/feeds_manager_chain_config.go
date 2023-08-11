@@ -96,7 +96,7 @@ func (r *OCR1JobConfigResolver) KeyBundleID() *string {
 }
 
 type OCR2JobConfigResolver struct {
-	cfg feeds.OCR2Config
+	cfg feeds.OCR2ConfigModel
 }
 
 func (r *OCR2JobConfigResolver) Enabled() bool {

@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/slices"
 
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -132,11 +132,11 @@ func (*l2SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee
 	return
 }
 
-func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...txmgrtypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
+func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	chainSpecificGasLimit = l2GasLimit
 
 	ok := o.IfStarted(func() {
-		if slices.Contains(opts, txmgrtypes.OptForceRefetch) {
+		if slices.Contains(opts, feetypes.OptForceRefetch) {
 			ch := make(chan struct{})
 			select {
 			case o.chForceRefetch <- ch:
@@ -168,7 +168,7 @@ func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, 
 	} else if err != nil {
 		return
 	}
-	// For L2 chains (e.g. Optimism), submitting a transaction that is not priced high enough will cause the call to fail, so if the cap is lower than the RPC suggested gas price, this transaction cannot succeed
+	// For L2 chains, submitting a transaction that is not priced high enough will cause the call to fail, so if the cap is lower than the RPC suggested gas price, this transaction cannot succeed
 	if gasPrice != nil && gasPrice.Cmp(maxGasPriceWei) > 0 {
 		return nil, 0, errors.Errorf("estimated gas price: %s is greater than the maximum gas price configured: %s", gasPrice.String(), maxGasPriceWei.String())
 	}

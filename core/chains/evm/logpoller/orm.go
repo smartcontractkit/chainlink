@@ -223,6 +223,24 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 	return logs, nil
 }
 
+// SelectLogsCreatedAfter finds logs created after some timestamp.
+func (o *ORM) SelectLogsCreatedAfter(eventSig []byte, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&logs, `
+		SELECT * FROM evm_logs 
+			WHERE evm_chain_id = $1 
+			AND address = $2 
+			AND event_sig = $3 	
+			AND created_at > $4
+			AND (block_number + $5) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			ORDER BY created_at ASC`, utils.NewBig(o.chainID), address, eventSig, after, confs)
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
 // SelectLogsWithSigsByBlockRangeFilter finds the logs in the given block range with the given event signatures
 // emitted from the given address.
 func (o *ORM) SelectLogsWithSigsByBlockRangeFilter(start, end int64, address common.Address, eventSigs []common.Hash, qopts ...pg.QOpt) (logs []Log, err error) {
@@ -279,15 +297,8 @@ func (o *ORM) GetBlocksRange(start uint64, end uint64, qopts ...pg.QOpt) ([]LogP
 // SelectLatestLogEventSigsAddrsWithConfs finds the latest log by (address, event) combination that matches a list of Addresses and list of events
 func (o *ORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses []common.Address, eventSigs []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
-
-	var sigs [][]byte
-	for _, sig := range eventSigs {
-		sigs = append(sigs, sig.Bytes())
-	}
-	var addrs [][]byte
-	for _, addr := range addresses {
-		addrs = append(addrs, addr.Bytes())
-	}
+	sigs := concatBytes(eventSigs)
+	addrs := concatBytes(addresses)
 
 	q := o.q.WithOpts(qopts...)
 	err := q.Select(&logs, `
@@ -297,15 +308,36 @@ func (o *ORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses 
 				    event_sig = ANY($2) AND
 					address = ANY($3) AND
 		   			block_number > $4 AND
-					(block_number + $5) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+					block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $5
 			GROUP BY event_sig, address
 		)
 		ORDER BY block_number ASC
-	`, o.chainID.Int64(), pq.ByteaArray(sigs), pq.ByteaArray(addrs), fromBlock, confs)
+	`, o.chainID.Int64(), sigs, addrs, fromBlock, confs)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to execute query")
 	}
 	return logs, nil
+}
+
+// SelectLatestBlockNumberEventSigsAddrsWithConfs finds the latest block number that matches a list of Addresses and list of events. It returns 0 if there is no matching block
+func (o *ORM) SelectLatestBlockNumberEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+	var blockNumber int64
+	sigs := concatBytes(eventSigs)
+	addrs := concatBytes(addresses)
+
+	q := o.q.WithOpts(qopts...)
+	err := q.Get(&blockNumber, `
+			SELECT COALESCE(MAX(block_number), 0) FROM evm_logs 
+				WHERE evm_chain_id = $1 AND
+				    event_sig = ANY($2) AND
+					address = ANY($3) AND
+					block_number > $4 AND
+					block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $5`,
+		o.chainID.Int64(), sigs, addrs, fromBlock, confs)
+	if err != nil {
+		return 0, err
+	}
+	return blockNumber, nil
 }
 
 func (o *ORM) SelectDataWordRange(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
@@ -317,7 +349,7 @@ func (o *ORM) SelectDataWordRange(address common.Address, eventSig common.Hash, 
 			AND address = $2 AND event_sig = $3
 			AND substring(data from 32*$4+1 for 32) >= $5
 			AND substring(data from 32*$4+1 for 32) <= $6
-			AND (block_number + $7) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $7
 			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), wordIndex, wordValueMin.Bytes(), wordValueMax.Bytes(), confs)
 	if err != nil {
 		return nil, err
@@ -333,7 +365,7 @@ func (o *ORM) SelectDataWordGreaterThan(address common.Address, eventSig common.
 			WHERE evm_logs.evm_chain_id = $1
 			AND address = $2 AND event_sig = $3
 			AND substring(data from 32*$4+1 for 32) >= $5
-			AND (block_number + $6) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $6
 			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), wordIndex, wordValueMin.Bytes(), confs)
 	if err != nil {
 		return nil, err
@@ -353,7 +385,7 @@ func (o *ORM) SelectIndexLogsTopicGreaterThan(address common.Address, eventSig c
 			WHERE evm_logs.evm_chain_id = $1
 			AND address = $2 AND event_sig = $3
 			AND topics[$4] >= $5
-			AND (block_number + $6) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $6
 			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValueMin.Bytes(), confs)
 	if err != nil {
 		return nil, err
@@ -374,7 +406,7 @@ func (o *ORM) SelectIndexLogsTopicRange(address common.Address, eventSig common.
 			AND address = $2 AND event_sig = $3
 			AND topics[$4] >= $5
 			AND topics[$4] <= $6
-			AND (block_number + $7) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $7
 			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValueMin.Bytes(), topicValueMax.Bytes(), confs)
 	if err != nil {
 		return nil, err
@@ -389,18 +421,15 @@ func (o *ORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, to
 
 	q := o.q.WithOpts(qopts...)
 	var logs []Log
-	var topicValuesBytes [][]byte
-	for _, topicValue := range topicValues {
-		topicValuesBytes = append(topicValuesBytes, topicValue.Bytes())
-	}
+	topicValuesBytes := concatBytes(topicValues)
 	// Add 1 since postgresql arrays are 1-indexed.
 	err := q.Select(&logs, `
 		SELECT * FROM evm_logs 
 			WHERE evm_logs.evm_chain_id = $1
 			AND address = $2 AND event_sig = $3
 			AND topics[$4] = ANY($5)
-			AND (block_number + $6) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
-			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, pq.ByteaArray(topicValuesBytes), confs)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $6
+			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValuesBytes, confs)
 	if err != nil {
 		return nil, err
 	}
@@ -414,17 +443,14 @@ func (o *ORM) SelectIndexedLogsByBlockRangeFilter(start, end int64, address comm
 	}
 
 	var logs []Log
-	var topicValuesBytes [][]byte
-	for _, topicValue := range topicValues {
-		topicValuesBytes = append(topicValuesBytes, topicValue.Bytes())
-	}
+	topicValuesBytes := concatBytes(topicValues)
 	q := o.q.WithOpts(qopts...)
 	err := q.Select(&logs, `
 		SELECT * FROM evm_logs 
 			WHERE evm_logs.block_number >= $1 AND evm_logs.block_number <= $2 AND evm_logs.evm_chain_id = $3 
 			AND address = $4 AND event_sig = $5
 			AND topics[$6] = ANY($7)
-			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, start, end, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, pq.ByteaArray(topicValuesBytes))
+			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, start, end, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValuesBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -437,6 +463,25 @@ func validateTopicIndex(index int) error {
 		return errors.Errorf("invalid index for topic: %d", index)
 	}
 	return nil
+}
+
+func (o *ORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	q := o.q.WithOpts(qopts...)
+	var logs []Log
+	topicValuesBytes := concatBytes(topicValues)
+	// Add 1 since postgresql arrays are 1-indexed.
+	err := q.Select(&logs, `
+		SELECT * FROM evm_logs 
+			WHERE evm_logs.evm_chain_id = $1
+			AND address = $2 AND event_sig = $3
+			AND topics[$4] = ANY($5)
+			AND created_at > $6
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $7
+			ORDER BY created_at ASC`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValuesBytes, after, confs)
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
 }
 
 // SelectIndexedLogsWithSigsExcluding query's for logs that have signature A and exclude logs that have a corresponding signature B, matching is done based on the topic index both logs should be inside the block range and have the minimum number of confirmations
@@ -455,7 +500,7 @@ func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIn
 		AND    address = $2
 		AND    event_sig = $3
 		AND block_number BETWEEN $6 AND $7
-		AND (block_number + $8) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+		AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $8
 		
 		EXCEPT
 		
@@ -468,7 +513,7 @@ func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIn
 		AND        a.event_sig = $3
 		AND        b.event_sig = $4
 	    AND 	   b.block_number BETWEEN $6 AND $7
-		AND (b.block_number + $8) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+		AND		   b.block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $8
 
 		ORDER BY block_number,log_index ASC
 			`, utils.NewBig(o.chainID), address, sigA.Bytes(), sigB.Bytes(), topicIndex+1, startBlock, endBlock, confs)
@@ -477,4 +522,16 @@ func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIn
 	}
 	return logs, nil
 
+}
+
+type bytesProducer interface {
+	Bytes() []byte
+}
+
+func concatBytes[T bytesProducer](byteSlice []T) pq.ByteaArray {
+	var output [][]byte
+	for _, b := range byteSlice {
+		output = append(output, b.Bytes())
+	}
+	return output
 }

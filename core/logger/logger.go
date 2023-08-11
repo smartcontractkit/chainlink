@@ -12,6 +12,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -19,8 +21,22 @@ import (
 // logsFile describes the logs file name
 const logsFile = "chainlink_debug.log"
 
+// Create a standard error writer to avoid test issues around os.Stderr being
+// reassigned when verbose logging is enabled
+type stderrWriter struct{}
+
+func (sw stderrWriter) Write(p []byte) (n int, err error) {
+	return os.Stderr.Write(p)
+}
+func (sw stderrWriter) Close() error {
+	return nil // never close stderr
+}
+func (sw stderrWriter) Sync() error {
+	return os.Stderr.Sync()
+}
+
 func init() {
-	err := zap.RegisterSink("pretty", prettyConsoleSink(os.Stderr))
+	err := zap.RegisterSink("pretty", prettyConsoleSink(stderrWriter{}))
 	if err != nil {
 		log.Fatalf("failed to register pretty printer %+v", err)
 	}
@@ -32,6 +48,8 @@ func init() {
 		InitColor(false)
 	}
 }
+
+var _ relaylogger.Logger = (Logger)(nil)
 
 //go:generate mockery --quiet --name Logger --output . --filename logger_mock_test.go --inpackage --case=underscore
 
@@ -134,8 +152,7 @@ func verShaNameStatic() string {
 // Tests should use TestLogger.
 func NewLogger() (Logger, func() error) {
 	var c Config
-	l, closeLogger := c.New()
-	return l.With("version", verShaNameStatic()), closeLogger
+	return c.New()
 }
 
 type Config struct {
@@ -180,7 +197,9 @@ func (c *Config) New() (Logger, func() error) {
 	}
 
 	l = newSentryLogger(l)
-	return newPrometheusLogger(l), closeLogger
+	l = newPrometheusLogger(l)
+	l = l.With("version", verShaNameStatic())
+	return l, closeLogger
 }
 
 // DebugLogsToDisk returns whether debug logs should be stored in disk

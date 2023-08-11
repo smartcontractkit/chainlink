@@ -8,16 +8,15 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	clipkg "github.com/urfave/cli"
 	"go.uber.org/multierr"
 )
 
-func initBlocksSubCmds(client *Client) []cli.Command {
+func initBlocksSubCmds(s *Shell) []cli.Command {
 	return []cli.Command{
 		{
 			Name:   "replay",
 			Usage:  "Replays block data from the given number",
-			Action: client.ReplayFromBlock,
+			Action: s.ReplayFromBlock,
 			Flags: []cli.Flag{
 				cli.IntFlag{
 					Name:     "block-number",
@@ -39,10 +38,10 @@ func initBlocksSubCmds(client *Client) []cli.Command {
 }
 
 // ReplayFromBlock replays chain data from the given block number until the most recent
-func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
+func (s *Shell) ReplayFromBlock(c *cli.Context) (err error) {
 	blockNumber := c.Int64("block-number")
 	if blockNumber <= 0 {
-		return cli.errorOut(errors.New("Must pass a positive value in '--block-number' parameter"))
+		return s.errorOut(errors.New("Must pass a positive value in '--block-number' parameter"))
 	}
 
 	v := url.Values{}
@@ -53,14 +52,14 @@ func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 	}
 
 	buf := bytes.NewBufferString("{}")
-	resp, err := cli.HTTP.Post(
+	resp, err := s.HTTP.Post(
 		fmt.Sprintf(
 			"/v2/replay_from_block/%v?%s",
 			blockNumber,
 			v.Encode(),
 		), buf)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	defer func() {
@@ -69,9 +68,9 @@ func (cli *Client) ReplayFromBlock(c *clipkg.Context) (err error) {
 		}
 	}()
 
-	_, err = cli.parseResponse(resp)
+	_, err = s.parseResponse(resp)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	fmt.Println("Replay started")
 	return nil

@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"errors"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -98,10 +97,4 @@ func repeat(f func(args ...interface{}), c int) {
 	for ; c > 0; c-- {
 		f()
 	}
-}
-
-type errorCloser struct{}
-
-func (c errorCloser) Close() error {
-	return errors.New("error")
 }

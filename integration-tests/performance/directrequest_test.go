@@ -20,10 +20,10 @@ import (
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 
 	"github.com/google/uuid"
@@ -87,8 +87,8 @@ func TestDirectRequestPerformance(t *testing.T) {
 	})
 	require.NoError(t, err, "Creating direct_request job shouldn't fail")
 
-	profileFunction := func(chainlinkNode *client.Chainlink) {
-		if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1] {
+	profileFunction := func(chainlinkNode *client.ChainlinkClient) {
+		if chainlinkNode != chainlinkNodes[len(chainlinkNodes)-1].ChainlinkClient {
 			// Not the last node, hence not all nodes started profiling yet.
 			return
 		}
@@ -139,6 +139,10 @@ func setupDirectRequestTest(t *testing.T) (testEnvironment *environment.Environm
 	}
 	baseTOML := `[WebServer]
 HTTPWriteTimout = '300s'`
+	cd, err := chainlink.NewDeployment(1, map[string]interface{}{
+		"toml": client.AddNetworksConfig(baseTOML, network),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("performance-cron-%s", strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
 		Test:            t,
@@ -146,10 +150,8 @@ HTTPWriteTimout = '300s'`
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelm(chainlink.New(0, map[string]interface{}{
-			"toml": client.AddNetworksConfig(baseTOML, network),
-		}))
-	err := testEnvironment.Run()
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error launching test environment")
 	return testEnvironment
 }

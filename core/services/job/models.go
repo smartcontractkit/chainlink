@@ -28,18 +28,20 @@ import (
 )
 
 const (
-	Cron               Type = (Type)(pipeline.CronJobType)
-	DirectRequest      Type = (Type)(pipeline.DirectRequestJobType)
-	FluxMonitor        Type = (Type)(pipeline.FluxMonitorJobType)
-	OffchainReporting  Type = (Type)(pipeline.OffchainReportingJobType)
-	OffchainReporting2 Type = (Type)(pipeline.OffchainReporting2JobType)
-	Keeper             Type = (Type)(pipeline.KeeperJobType)
-	VRF                Type = (Type)(pipeline.VRFJobType)
-	BlockhashStore     Type = (Type)(pipeline.BlockhashStoreJobType)
-	BlockHeaderFeeder  Type = (Type)(pipeline.BlockHeaderFeederJobType)
-	Webhook            Type = (Type)(pipeline.WebhookJobType)
-	Bootstrap          Type = (Type)(pipeline.BootstrapJobType)
-	Gateway            Type = (Type)(pipeline.GatewayJobType)
+	Cron                    Type = (Type)(pipeline.CronJobType)
+	DirectRequest           Type = (Type)(pipeline.DirectRequestJobType)
+	FluxMonitor             Type = (Type)(pipeline.FluxMonitorJobType)
+	OffchainReporting       Type = (Type)(pipeline.OffchainReportingJobType)
+	OffchainReporting2      Type = (Type)(pipeline.OffchainReporting2JobType)
+	Keeper                  Type = (Type)(pipeline.KeeperJobType)
+	VRF                     Type = (Type)(pipeline.VRFJobType)
+	BlockhashStore          Type = (Type)(pipeline.BlockhashStoreJobType)
+	BlockHeaderFeeder       Type = (Type)(pipeline.BlockHeaderFeederJobType)
+	LegacyGasStationServer  Type = (Type)(pipeline.LegacyGasStationServerJobType)
+	LegacyGasStationSidecar Type = (Type)(pipeline.LegacyGasStationSidecarJobType)
+	Webhook                 Type = (Type)(pipeline.WebhookJobType)
+	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
+	Gateway                 Type = (Type)(pipeline.GatewayJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -63,87 +65,97 @@ func (t Type) SchemaVersion() uint32 {
 
 var (
 	requiresPipelineSpec = map[Type]bool{
-		Cron:               true,
-		DirectRequest:      true,
-		FluxMonitor:        true,
-		OffchainReporting:  false, // bootstrap jobs do not require it
-		OffchainReporting2: false, // bootstrap jobs do not require it
-		Keeper:             false, // observationSource is injected in the upkeep executor
-		VRF:                true,
-		Webhook:            true,
-		BlockhashStore:     false,
-		BlockHeaderFeeder:  false,
-		Bootstrap:          false,
-		Gateway:            false,
+		Cron:                    true,
+		DirectRequest:           true,
+		FluxMonitor:             true,
+		OffchainReporting:       false, // bootstrap jobs do not require it
+		OffchainReporting2:      false, // bootstrap jobs do not require it
+		Keeper:                  false, // observationSource is injected in the upkeep executor
+		VRF:                     true,
+		Webhook:                 true,
+		BlockhashStore:          false,
+		BlockHeaderFeeder:       false,
+		LegacyGasStationServer:  false,
+		LegacyGasStationSidecar: false,
+		Bootstrap:               false,
+		Gateway:                 false,
 	}
 	supportsAsync = map[Type]bool{
-		Cron:               true,
-		DirectRequest:      true,
-		FluxMonitor:        false,
-		OffchainReporting:  false,
-		OffchainReporting2: false,
-		Keeper:             true,
-		VRF:                true,
-		Webhook:            true,
-		BlockhashStore:     false,
-		BlockHeaderFeeder:  false,
-		Bootstrap:          false,
-		Gateway:            false,
+		Cron:                    true,
+		DirectRequest:           true,
+		FluxMonitor:             false,
+		OffchainReporting:       false,
+		OffchainReporting2:      false,
+		Keeper:                  true,
+		VRF:                     true,
+		Webhook:                 true,
+		BlockhashStore:          false,
+		BlockHeaderFeeder:       false,
+		LegacyGasStationServer:  false,
+		LegacyGasStationSidecar: false,
+		Bootstrap:               false,
+		Gateway:                 false,
 	}
 	schemaVersions = map[Type]uint32{
-		Cron:               1,
-		DirectRequest:      1,
-		FluxMonitor:        1,
-		OffchainReporting:  1,
-		OffchainReporting2: 1,
-		Keeper:             1,
-		VRF:                1,
-		Webhook:            1,
-		BlockhashStore:     1,
-		BlockHeaderFeeder:  1,
-		Bootstrap:          1,
-		Gateway:            1,
+		Cron:                    1,
+		DirectRequest:           1,
+		FluxMonitor:             1,
+		OffchainReporting:       1,
+		OffchainReporting2:      1,
+		Keeper:                  1,
+		VRF:                     1,
+		Webhook:                 1,
+		BlockhashStore:          1,
+		BlockHeaderFeeder:       1,
+		LegacyGasStationServer:  1,
+		LegacyGasStationSidecar: 1,
+		Bootstrap:               1,
+		Gateway:                 1,
 	}
 )
 
 type Job struct {
-	ID                      int32     `toml:"-"`
-	ExternalJobID           uuid.UUID `toml:"externalJobID"`
-	OCROracleSpecID         *int32
-	OCROracleSpec           *OCROracleSpec
-	OCR2OracleSpecID        *int32
-	OCR2OracleSpec          *OCR2OracleSpec
-	CronSpecID              *int32
-	CronSpec                *CronSpec
-	DirectRequestSpecID     *int32
-	DirectRequestSpec       *DirectRequestSpec
-	FluxMonitorSpecID       *int32
-	FluxMonitorSpec         *FluxMonitorSpec
-	KeeperSpecID            *int32
-	KeeperSpec              *KeeperSpec
-	VRFSpecID               *int32
-	VRFSpec                 *VRFSpec
-	WebhookSpecID           *int32
-	WebhookSpec             *WebhookSpec
-	BlockhashStoreSpecID    *int32
-	BlockhashStoreSpec      *BlockhashStoreSpec
-	BlockHeaderFeederSpecID *int32
-	BlockHeaderFeederSpec   *BlockHeaderFeederSpec
-	BootstrapSpec           *BootstrapSpec
-	BootstrapSpecID         *int32
-	GatewaySpec             *GatewaySpec
-	GatewaySpecID           *int32
-	PipelineSpecID          int32
-	PipelineSpec            *pipeline.Spec
-	JobSpecErrors           []SpecError
-	Type                    Type
-	SchemaVersion           uint32
-	GasLimit                clnull.Uint32 `toml:"gasLimit"`
-	ForwardingAllowed       bool          `toml:"forwardingAllowed"`
-	Name                    null.String
-	MaxTaskDuration         models.Interval
-	Pipeline                pipeline.Pipeline `toml:"observationSource"`
-	CreatedAt               time.Time
+	ID                            int32     `toml:"-"`
+	ExternalJobID                 uuid.UUID `toml:"externalJobID"`
+	OCROracleSpecID               *int32
+	OCROracleSpec                 *OCROracleSpec
+	OCR2OracleSpecID              *int32
+	OCR2OracleSpec                *OCR2OracleSpec
+	CronSpecID                    *int32
+	CronSpec                      *CronSpec
+	DirectRequestSpecID           *int32
+	DirectRequestSpec             *DirectRequestSpec
+	FluxMonitorSpecID             *int32
+	FluxMonitorSpec               *FluxMonitorSpec
+	KeeperSpecID                  *int32
+	KeeperSpec                    *KeeperSpec
+	VRFSpecID                     *int32
+	VRFSpec                       *VRFSpec
+	WebhookSpecID                 *int32
+	WebhookSpec                   *WebhookSpec
+	BlockhashStoreSpecID          *int32
+	BlockhashStoreSpec            *BlockhashStoreSpec
+	BlockHeaderFeederSpecID       *int32
+	BlockHeaderFeederSpec         *BlockHeaderFeederSpec
+	LegacyGasStationServerSpecID  *int32
+	LegacyGasStationServerSpec    *LegacyGasStationServerSpec
+	LegacyGasStationSidecarSpecID *int32
+	LegacyGasStationSidecarSpec   *LegacyGasStationSidecarSpec
+	BootstrapSpec                 *BootstrapSpec
+	BootstrapSpecID               *int32
+	GatewaySpec                   *GatewaySpec
+	GatewaySpecID                 *int32
+	PipelineSpecID                int32
+	PipelineSpec                  *pipeline.Spec
+	JobSpecErrors                 []SpecError
+	Type                          Type
+	SchemaVersion                 uint32
+	GasLimit                      clnull.Uint32 `toml:"gasLimit"`
+	ForwardingAllowed             bool          `toml:"forwardingAllowed"`
+	Name                          null.String
+	MaxTaskDuration               models.Interval
+	Pipeline                      pipeline.Pipeline `toml:"observationSource"`
+	CreatedAt                     time.Time
 }
 
 func ExternalJobIDEncodeStringToTopic(id uuid.UUID) common.Hash {
@@ -310,6 +322,8 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 	return name, nil
 }
 
+var ForwardersSupportedPlugins = []OCR2PluginType{Median, DKG, OCR2VRF, OCR2Keeper, OCR2Functions}
+
 // OCR2PluginType defines supported OCR2 plugin types.
 type OCR2PluginType string
 
@@ -336,7 +350,7 @@ const (
 type OCR2OracleSpec struct {
 	ID                                int32           `toml:"-"`
 	ContractID                        string          `toml:"contractID"`
-	FeedID                            common.Hash     `toml:"feedID"`
+	FeedID                            *common.Hash    `toml:"feedID"`
 	Relay                             relay.Network   `toml:"relay"`
 	RelayConfig                       JSONConfig      `toml:"relayConfig"`
 	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
@@ -351,6 +365,7 @@ type OCR2OracleSpec struct {
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
 	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
+	CaptureAutomationCustomTelemetry  bool            `toml:"captureAutomationCustomTelemetry"`
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -473,6 +488,11 @@ type VRFSpec struct {
 	// fulfillment.
 	BatchFulfillmentGasMultiplier tomlutils.Float64 `toml:"batchFulfillmentGasMultiplier"`
 
+	// VRFOwnerAddress is the address of the VRFOwner address to use.
+	//
+	// V2 only.
+	VRFOwnerAddress *ethkey.EIP55Address `toml:"vrfOwnerAddress"`
+
 	CoordinatorAddress       ethkey.EIP55Address   `toml:"coordinatorAddress"`
 	PublicKey                secp256k1.PublicKey   `toml:"publicKey"`
 	MinIncomingConfirmations uint32                `toml:"minIncomingConfirmations"`
@@ -519,6 +539,10 @@ type BlockhashStoreSpec struct {
 	// no V2 coordinator will be watched.
 	CoordinatorV2Address *ethkey.EIP55Address `toml:"coordinatorV2Address"`
 
+	// CoordinatorV2PlusAddress is the VRF V2Plus coordinator to watch for unfulfilled requests. If empty,
+	// no V2Plus coordinator will be watched.
+	CoordinatorV2PlusAddress *ethkey.EIP55Address `toml:"coordinatorV2PlusAddress"`
+
 	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
 	LookbackBlocks int32 `toml:"lookbackBlocks"`
 
@@ -528,6 +552,12 @@ type BlockhashStoreSpec struct {
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
 	// into.
 	BlockhashStoreAddress ethkey.EIP55Address `toml:"blockhashStoreAddress"`
+
+	// BatchBlockhashStoreAddress is the address of the trusted BlockhashStore contract to store blockhashes
+	TrustedBlockhashStoreAddress *ethkey.EIP55Address `toml:"trustedBlockhashStoreAddress"`
+
+	// BatchBlockhashStoreBatchSize is the number of blockhashes to store in a single batch
+	TrustedBlockhashStoreBatchSize int32 `toml:"trustedBlockhashStoreBatchSize"`
 
 	// PollPeriod defines how often recent blocks should be scanned for blockhash storage.
 	PollPeriod time.Duration `toml:"pollPeriod"`
@@ -560,6 +590,10 @@ type BlockHeaderFeederSpec struct {
 	// no V2 coordinator will be watched.
 	CoordinatorV2Address *ethkey.EIP55Address `toml:"coordinatorV2Address"`
 
+	// CoordinatorV2PlusAddress is the VRF V2Plus coordinator to watch for unfulfilled requests. If empty,
+	// no V2Plus coordinator will be watched.
+	CoordinatorV2PlusAddress *ethkey.EIP55Address `toml:"coordinatorV2PlusAddress"`
+
 	// LookbackBlocks defines the maximum age of blocks whose hashes should be stored.
 	LookbackBlocks int32 `toml:"lookbackBlocks"`
 
@@ -591,6 +625,64 @@ type BlockHeaderFeederSpec struct {
 
 	// StoreBlockhashesBatchSize is the RPC call batch size for storing blockhashes
 	StoreBlockhashesBatchSize uint16 `toml:"storeBlockhashesBatchSize"`
+
+	// CreatedAt is the time this job was created.
+	CreatedAt time.Time `toml:"-"`
+
+	// UpdatedAt is the time this job was last updated.
+	UpdatedAt time.Time `toml:"-"`
+}
+
+// LegacyGasStationServerSpec defines the job spec for the legacy gas station server.
+type LegacyGasStationServerSpec struct {
+	ID int32
+
+	// ForwarderAddress is the address of EIP2771 forwarder that verifies signature
+	// and forwards requests to target contracts
+	ForwarderAddress ethkey.EIP55Address `toml:"forwarderAddress"`
+
+	// EVMChainID defines the chain ID from which the meta-transaction request originates.
+	EVMChainID *utils.Big `toml:"evmChainID"`
+
+	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param.
+	// This selector is equivalent to (source) chainID specified in SendTransaction request
+	CCIPChainSelector *utils.Big `toml:"ccipChainSelector"`
+
+	// FromAddress is the sender address that should be used to send meta-transactions
+	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
+
+	// CreatedAt is the time this job was created.
+	CreatedAt time.Time `toml:"-"`
+
+	// UpdatedAt is the time this job was last updated.
+	UpdatedAt time.Time `toml:"-"`
+}
+
+// LegacyGasStationSidecarSpec defines the job spec for the legacy gas station sidecar.
+type LegacyGasStationSidecarSpec struct {
+	ID int32
+
+	// ForwarderAddress is the address of EIP2771 forwarder that verifies signature
+	// and forwards requests to target contracts
+	ForwarderAddress ethkey.EIP55Address `toml:"forwarderAddress"`
+
+	// OffRampAddress is the address of CCIP OffRamp for the given chainID
+	OffRampAddress ethkey.EIP55Address `toml:"offRampAddress"`
+
+	// LookbackBlocks defines the maximum number of blocks to search for on-chain events.
+	LookbackBlocks int32 `toml:"lookbackBlocks"`
+
+	// PollPeriod defines how frequently legacy gas station sidecar runs.
+	PollPeriod time.Duration `toml:"pollPeriod"`
+
+	// RunTimeout defines the timeout for a single run of the legacy gas station sidecar.
+	RunTimeout time.Duration `toml:"runTimeout"`
+
+	// EVMChainID defines the chain ID for the on-chain events tracked by sidecar
+	EVMChainID *utils.Big `toml:"evmChainID"`
+
+	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param
+	CCIPChainSelector *utils.Big `toml:"ccipChainSelector"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`

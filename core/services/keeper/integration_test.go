@@ -248,7 +248,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 				c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 			})
 			scopedConfig := evmtest.NewChainScopedConfig(t, config)
-			korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig)
+			korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
 
 			app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 			require.NoError(t, app.Start(testutils.Context(t)))
@@ -407,12 +407,12 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			c.EVM[0].Transactions.ForwardersEnabled = ptr(true)   // Enable Operator Forwarder flow
 		})
 		scopedConfig := evmtest.NewChainScopedConfig(t, config)
-		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig)
+		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
 
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))
 
-		forwarderORM := forwarders.NewORM(db, logger.TestLogger(t), config)
+		forwarderORM := forwarders.NewORM(db, logger.TestLogger(t), config.Database())
 		chainID := utils.Big(*backend.ConfiguredChainID())
 		_, err = forwarderORM.CreateForwarder(fwdrAddress, chainID)
 		require.NoError(t, err)
@@ -550,7 +550,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 		})
 		scopedConfig := evmtest.NewChainScopedConfig(t, config)
-		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig)
+		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
 
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend.Backend(), nodeKey)
 		require.NoError(t, app.Start(testutils.Context(t)))

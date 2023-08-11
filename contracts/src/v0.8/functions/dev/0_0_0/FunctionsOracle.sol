@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {IFunctionsOracle, IFunctionsBillingRegistry} from "../interfaces/IFunctionsOracle.sol";
+import {IFunctionsOracle, IFunctionsBillingRegistry} from "./interfaces/IFunctionsOracle.sol";
 import {OCR2BaseUpgradeable} from "./ocr/OCR2BaseUpgradeable.sol";
 import {AuthorizedOriginReceiverUpgradeable} from "./accessControl/AuthorizedOriginReceiverUpgradeable.sol";
-import {Initializable} from "../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
+import {Initializable} from "../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Oracle contract
@@ -35,6 +35,8 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
   bytes private s_donPublicKey;
   IFunctionsBillingRegistry private s_registry;
   mapping(address => bytes) private s_nodePublicKeys;
+
+  bytes private s_thresholdPublicKey;
 
   /**
    * @dev Initializes the contract.
@@ -67,6 +69,23 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
       revert EmptyBillingRegistry();
     }
     s_registry = IFunctionsBillingRegistry(registryAddress);
+  }
+
+  /**
+   * @inheritdoc IFunctionsOracle
+   */
+  function getThresholdPublicKey() external view override returns (bytes memory) {
+    return s_thresholdPublicKey;
+  }
+
+  /**
+   * @inheritdoc IFunctionsOracle
+   */
+  function setThresholdPublicKey(bytes calldata thresholdPublicKey) external override onlyOwner {
+    if (thresholdPublicKey.length == 0) {
+      revert EmptyPublicKey();
+    }
+    s_thresholdPublicKey = thresholdPublicKey;
   }
 
   /**
@@ -236,15 +255,17 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
       returns (IFunctionsBillingRegistry.FulfillResult result) {
         if (result == IFunctionsBillingRegistry.FulfillResult.USER_SUCCESS) {
           emit OracleResponse(requestIds[i]);
+          emit ResponseTransmitted(requestIds[i], transmitter);
         } else if (result == IFunctionsBillingRegistry.FulfillResult.USER_ERROR) {
           emit UserCallbackError(requestIds[i], "error in callback");
+          emit ResponseTransmitted(requestIds[i], transmitter);
         } else if (result == IFunctionsBillingRegistry.FulfillResult.INVALID_REQUEST_ID) {
           emit InvalidRequestID(requestIds[i]);
         }
       } catch (bytes memory reason) {
         emit UserCallbackRawError(requestIds[i], reason);
+        emit ResponseTransmitted(requestIds[i], transmitter);
       }
-      emit ResponseTransmitted(requestIds[i], transmitter);
     }
   }
 
@@ -267,5 +288,5 @@ contract FunctionsOracle is Initializable, IFunctionsOracle, OCR2BaseUpgradeable
    * variables without shifting down storage in the inheritance chain.
    * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
    */
-  uint256[49] private __gap;
+  uint256[48] private __gap;
 }

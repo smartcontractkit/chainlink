@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../interfaces/LinkTokenInterface.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/VRFCoordinatorV2Interface.sol";
 import "../VRFConsumerBaseV2.sol";
 
@@ -19,7 +19,7 @@ contract VRFV2RevertingExample is VRFConsumerBaseV2 {
     LINKTOKEN = LinkTokenInterface(link);
   }
 
-  function fulfillRandomWords(uint256, uint256[] memory) internal override {
+  function fulfillRandomWords(uint256, uint256[] memory) internal pure override {
     revert();
   }
 

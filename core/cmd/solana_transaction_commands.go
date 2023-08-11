@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func initSolanaTxSubCmd(client *Client) cli.Command {
+func initSolanaTxSubCmd(s *Shell) cli.Command {
 	return cli.Command{
 		Name:  "solana",
 		Usage: "Commands for handling Solana transactions",
@@ -23,7 +23,7 @@ func initSolanaTxSubCmd(client *Client) cli.Command {
 			{
 				Name:   "create",
 				Usage:  "Send <amount> lamports from node Solana account <fromAddress> to destination <toAddress>.",
-				Action: client.SolanaSendSol,
+				Action: s.SolanaSendSol,
 				Flags: []cli.Flag{
 					cli.BoolFlag{
 						Name:  "force",
@@ -59,20 +59,20 @@ func (p *SolanaMsgPresenter) RenderTable(rt RendererTable) error {
 }
 
 // SolanaSendSol transfers sol from the node's account to a specified address.
-func (cli *Client) SolanaSendSol(c *cli.Context) (err error) {
+func (s *Shell) SolanaSendSol(c *cli.Context) (err error) {
 	if c.NArg() < 3 {
-		return cli.errorOut(errors.New("three arguments expected: amount, fromAddress and toAddress"))
+		return s.errorOut(errors.New("three arguments expected: amount, fromAddress and toAddress"))
 	}
 
 	amount, err := strconv.ParseUint(c.Args().Get(0), 10, 64)
 	if err != nil {
-		return cli.errorOut(fmt.Errorf("invalid amount: %w", err))
+		return s.errorOut(fmt.Errorf("invalid amount: %w", err))
 	}
 
 	unparsedFromAddress := c.Args().Get(1)
 	fromAddress, err := solanaGo.PublicKeyFromBase58(unparsedFromAddress)
 	if err != nil {
-		return cli.errorOut(multierr.Combine(
+		return s.errorOut(multierr.Combine(
 			errors.Errorf("while parsing withdrawal source address %v",
 				unparsedFromAddress), err))
 	}
@@ -80,14 +80,14 @@ func (cli *Client) SolanaSendSol(c *cli.Context) (err error) {
 	unparsedDestinationAddress := c.Args().Get(2)
 	destinationAddress, err := solanaGo.PublicKeyFromBase58(unparsedDestinationAddress)
 	if err != nil {
-		return cli.errorOut(multierr.Combine(
+		return s.errorOut(multierr.Combine(
 			errors.Errorf("while parsing withdrawal destination address %v",
 				unparsedDestinationAddress), err))
 	}
 
 	chainID := c.String("id")
 	if chainID == "" {
-		return cli.errorOut(errors.New("missing id"))
+		return s.errorOut(errors.New("missing id"))
 	}
 
 	request := solana.SendRequest{
@@ -100,14 +100,14 @@ func (cli *Client) SolanaSendSol(c *cli.Context) (err error) {
 
 	requestData, err := json.Marshal(request)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 
 	buf := bytes.NewBuffer(requestData)
 
-	resp, err := cli.HTTP.Post("/v2/transfers/solana", buf)
+	resp, err := s.HTTP.Post("/v2/transfers/solana", buf)
 	if err != nil {
-		return cli.errorOut(err)
+		return s.errorOut(err)
 	}
 	defer func() {
 		if cerr := resp.Body.Close(); cerr != nil {
@@ -115,6 +115,6 @@ func (cli *Client) SolanaSendSol(c *cli.Context) (err error) {
 		}
 	}()
 
-	err = cli.renderAPIResponse(resp, &SolanaMsgPresenter{})
+	err = s.renderAPIResponse(resp, &SolanaMsgPresenter{})
 	return err
 }

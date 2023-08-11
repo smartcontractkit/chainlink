@@ -52,8 +52,8 @@ func TestResolver_ConfigV2(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				opts := chainlink.GeneralConfigOpts{
-					ConfigStrings: []string{configFull},
-					SecretsString: "",
+					ConfigStrings:  []string{configFull},
+					SecretsStrings: []string{},
 				}
 				cfg, err := opts.New()
 				require.NoError(t, err)
@@ -67,8 +67,8 @@ func TestResolver_ConfigV2(t *testing.T) {
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				opts := chainlink.GeneralConfigOpts{
-					ConfigStrings: []string{configMulti},
-					SecretsString: "",
+					ConfigStrings:  []string{configMulti},
+					SecretsStrings: []string{},
 				}
 				cfg, err := opts.New()
 				require.NoError(t, err)

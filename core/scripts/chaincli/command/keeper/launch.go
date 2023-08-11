@@ -26,6 +26,11 @@ var launchAndTestCmd = &cobra.Command{
 			log.Fatal("failed to get withdraw flag: ", err)
 		}
 
+		bootstrap, err := cmd.Flags().GetBool("bootstrap")
+		if err != nil {
+			log.Fatal("failed to get bootstrap flag: ", err)
+		}
+
 		printLogs, err := cmd.Flags().GetBool("export-logs")
 		if err != nil {
 			log.Fatal("failed to get export-logs flag: ", err)
@@ -36,12 +41,13 @@ var launchAndTestCmd = &cobra.Command{
 			log.Fatal("failed to get force flag: ", err)
 		}
 
-		hdlr.LaunchAndTest(cmd.Context(), withdraw, printLogs, force)
+		hdlr.LaunchAndTest(cmd.Context(), withdraw, printLogs, force, bootstrap)
 	},
 }
 
 func init() {
 	launchAndTestCmd.Flags().BoolP("withdraw", "w", true, "Specify if funds should be withdrawn and upkeeps should be canceled")
+	launchAndTestCmd.Flags().BoolP("bootstrap", "b", true, "Specify if launching bootstrap node is required. Default listen ports(5688, 8000) are used, if you need to use custom ports, please use bootstrap command")
 	launchAndTestCmd.Flags().BoolP("export-logs", "l", false, "Specify if container logs should be exported to ./")
 	launchAndTestCmd.Flags().BoolP("force", "f", false, "Specify if existing containers should be forcefully removed ./")
 }

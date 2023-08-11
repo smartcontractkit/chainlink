@@ -19,7 +19,7 @@ func newRandChainID() *utils.Big {
 	return utils.NewBig(testutils.NewRandomEVMChainID())
 }
 
-func TestClient_IndexEVMChains(t *testing.T) {
+func TestShell_IndexEVMChains(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -27,7 +27,7 @@ func TestClient_IndexEVMChains(t *testing.T) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
 	})
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	require.Nil(t, cmd.EVMChainClient(client).IndexChains(cltest.EmptyCLIContext()))
 	chains := *r.Renders[0].(*cmd.EVMChainPresenters)

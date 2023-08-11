@@ -14,6 +14,7 @@ import (
 func TestValidate(t *testing.T) {
 	v1Coordinator := ethkey.EIP55Address("0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139")
 	v2Coordinator := ethkey.EIP55Address("0x2be990eE17832b59E0086534c5ea2459Aa75E38F")
+	v2PlusCoordinator := ethkey.EIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
 	fromAddresses := []ethkey.EIP55Address{("0x469aA2CD13e037DC5236320783dCfd0e641c0559")}
 
 	var tests = []struct {
@@ -28,6 +29,7 @@ type = "blockheaderfeeder"
 name = "valid-test"
 coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+coordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
 lookbackBlocks = 2000
 waitBlocks = 500
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
@@ -47,6 +49,8 @@ storeBlockhashesBatchSize = 10
 					os.BlockHeaderFeederSpec.CoordinatorV1Address)
 				require.Equal(t, &v2Coordinator,
 					os.BlockHeaderFeederSpec.CoordinatorV2Address)
+				require.Equal(t, &v2PlusCoordinator,
+					os.BlockHeaderFeederSpec.CoordinatorV2PlusAddress)
 				require.Equal(t, int32(2000), os.BlockHeaderFeederSpec.LookbackBlocks)
 				require.Equal(t, int32(500), os.BlockHeaderFeederSpec.WaitBlocks)
 				require.Equal(t, ethkey.EIP55Address("0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"),
@@ -128,7 +132,7 @@ getBlockhashesBatchSize = 20
 storeBlockhashesBatchSize = 10
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Equal(t, err.Error(), `at least one of "coordinatorV1Address" and "coordinatorV2Address" must be set`)
+				require.Equal(t, err.Error(), `at least one of "coordinatorV1Address", "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`)
 			},
 		},
 		{

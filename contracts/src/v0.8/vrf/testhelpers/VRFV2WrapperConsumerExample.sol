@@ -2,7 +2,7 @@
 pragma solidity ^0.8.6;
 
 import "../VRFV2WrapperConsumerBase.sol";
-import "../../ConfirmedOwner.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 
 contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner {
   event WrappedRequestFulfilled(uint256 requestId, uint256[] randomWords, uint256 payment);
@@ -45,5 +45,11 @@ contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner
     require(s_requests[_requestId].paid > 0, "request not found");
     RequestStatus memory request = s_requests[_requestId];
     return (request.paid, request.fulfilled, request.randomWords);
+  }
+
+  /// @notice withdrawLink withdraws the amount specified in amount to the owner
+  /// @param amount the amount to withdraw, in juels
+  function withdrawLink(uint256 amount) external onlyOwner {
+    LINK.transfer(owner(), amount);
   }
 }

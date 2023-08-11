@@ -63,10 +63,11 @@ type BridgeTask struct {
 	CacheTTL          string `json:"cacheTTL"`
 	Headers           string `json:"headers"`
 
-	specId     int32
-	orm        bridges.ORM
-	config     Config
-	httpClient *http.Client
+	specId       int32
+	orm          bridges.ORM
+	config       Config
+	bridgeConfig BridgeConfig
+	httpClient   *http.Client
 }
 
 var _ Task = (*BridgeTask)(nil)
@@ -96,7 +97,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 		errors.Wrap(ResolveParam(&name, From(NonemptyString(t.Name))), "name"),
 		errors.Wrap(ResolveParam(&requestData, From(VarExpr(t.RequestData, vars), JSONWithVarExprs(t.RequestData, vars, false), nil)), "requestData"),
 		errors.Wrap(ResolveParam(&includeInputAtKey, From(t.IncludeInputAtKey)), "includeInputAtKey"),
-		errors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.config.BridgeCacheTTL().Seconds())), "cacheTTL"),
+		errors.Wrap(ResolveParam(&cacheTTL, From(ValidDurationInSeconds(t.CacheTTL), t.bridgeConfig.BridgeCacheTTL().Seconds())), "cacheTTL"),
 		errors.Wrap(ResolveParam(&reqHeaders, From(NonemptyString(t.Headers), "[]")), "reqHeaders"),
 	)
 	if err != nil {
@@ -134,7 +135,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	}
 
 	if t.Async == "true" {
-		responseURL := t.config.BridgeResponseURL()
+		responseURL := t.bridgeConfig.BridgeResponseURL()
 		if responseURL != nil && *responseURL != *zeroURL {
 			responseURL.Path = path.Join(responseURL.Path, "/v2/resume/", t.uuid.String())
 		}
@@ -149,7 +150,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}
-	lggr.Debugw("Bridge task: sending request",
+	lggr.Tracew("Bridge task: sending request",
 		"requestData", string(requestDataJSON),
 		"url", url.String(),
 	)
@@ -224,7 +225,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	promHTTPFetchTime.WithLabelValues(t.DotID()).Set(float64(elapsed))
 	promHTTPResponseBodySize.WithLabelValues(t.DotID()).Set(float64(len(responseBytes)))
 
-	lggr.Debugw("Bridge task: fetched answer",
+	lggr.Tracew("Bridge task: fetched answer",
 		"answer", result.Value,
 		"url", url.String(),
 		"dotID", t.DotID(),

@@ -16,7 +16,7 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
 COPY . /usr/local/bin/
 # Copy native libs if cgo is enabled
-# COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
+COPY ./tmp/linux_${TARGETARCH}/libs /usr/local/bin/libs
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \

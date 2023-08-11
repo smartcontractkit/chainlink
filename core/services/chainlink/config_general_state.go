@@ -4,7 +4,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/zap/zapcore"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -18,11 +18,7 @@ func (g *generalConfig) AppID() uuid.UUID {
 	return g.c.AppID
 }
 
-func (g *generalConfig) DefaultLogLevel() zapcore.Level {
-	return g.logLevelDefault
-}
-
-func (g *generalConfig) LogLevel() (ll zapcore.Level) {
+func (g *generalConfig) logLevel() (ll zapcore.Level) {
 	g.logMu.RLock()
 	ll = zapcore.Level(*g.c.Log.Level)
 	g.logMu.RUnlock()
@@ -31,12 +27,12 @@ func (g *generalConfig) LogLevel() (ll zapcore.Level) {
 
 func (g *generalConfig) SetLogLevel(lvl zapcore.Level) error {
 	g.logMu.Lock()
-	g.c.Log.Level = (*v2.LogLevel)(&lvl)
+	g.c.Log.Level = (*toml.LogLevel)(&lvl)
 	g.logMu.Unlock()
 	return nil
 }
 
-func (g *generalConfig) LogSQL() (sql bool) {
+func (g *generalConfig) logSQL() (sql bool) {
 	g.logMu.RLock()
 	sql = *g.c.Database.LogQueries
 	g.logMu.RUnlock()
@@ -60,7 +56,7 @@ func (g *generalConfig) SetPasswords(keystore, vrf *string) {
 	}
 }
 
-func (g *generalConfig) KeystorePassword() string {
+func (g *generalConfig) keystorePassword() string {
 	g.passwordMu.RLock()
 	defer g.passwordMu.RUnlock()
 	if g.secrets.Password.Keystore == nil {
@@ -69,7 +65,7 @@ func (g *generalConfig) KeystorePassword() string {
 	return string(*g.secrets.Password.Keystore)
 }
 
-func (g *generalConfig) VRFPassword() string {
+func (g *generalConfig) vrfPassword() string {
 	g.passwordMu.RLock()
 	defer g.passwordMu.RUnlock()
 	if g.secrets.Password.VRF == nil {

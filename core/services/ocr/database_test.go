@@ -25,7 +25,7 @@ func Test_DB_ReadWriteState(t *testing.T) {
 
 	configDigest := cltest.MakeConfigDigest(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
 
@@ -115,7 +115,7 @@ func Test_DB_ReadWriteConfig(t *testing.T) {
 		EncodedConfigVersion: uint64(987654),
 		Encoded:              []byte{1, 2, 3, 4, 5},
 	}
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)
 	transmitterAddress := key.Address
@@ -188,7 +188,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	sqlDB := db
 	cfg := configtest.NewTestGeneralConfig(t)
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg).Eth()
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	key, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	spec := cltest.MustInsertOffchainreportingOracleSpec(t, db, key.EIP55Address)

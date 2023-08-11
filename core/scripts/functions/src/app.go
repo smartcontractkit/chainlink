@@ -10,8 +10,8 @@ import (
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
 )
 
-func newApp(n *node, writer io.Writer) (*clcmd.Client, *cli.App) {
-	client := &clcmd.Client{
+func newApp(n *node, writer io.Writer) (*clcmd.Shell, *cli.App) {
+	client := &clcmd.Shell{
 		Renderer:                       clcmd.RendererJSON{Writer: writer},
 		AppFactory:                     clcmd.ChainlinkAppFactory{},
 		KeyStoreAuthenticator:          clcmd.TerminalKeyStoreAuthenticator{Prompter: n},

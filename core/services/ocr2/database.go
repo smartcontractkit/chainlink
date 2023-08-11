@@ -9,7 +9,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	ocrcommon "github.com/smartcontractkit/libocr/commontypes"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -19,6 +19,7 @@ import (
 type db struct {
 	q            pg.Q
 	oracleSpecID int32
+	pluginID     int32
 	lggr         logger.SugaredLogger
 }
 
@@ -27,12 +28,13 @@ var (
 )
 
 // NewDB returns a new DB scoped to this oracleSpecID
-func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, lggr logger.Logger, cfg pg.QConfig) *db {
+func NewDB(sqlxDB *sqlx.DB, oracleSpecID int32, pluginID int32, lggr logger.Logger, cfg pg.QConfig) *db {
 	namedLogger := lggr.Named("OCR2.DB")
 
 	return &db{
 		q:            pg.NewQ(sqlxDB, namedLogger, cfg),
 		oracleSpecID: oracleSpecID,
+		pluginID:     pluginID,
 		lggr:         logger.Sugared(lggr),
 	}
 }
@@ -115,7 +117,7 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 		offchain_config_version,
 		offchain_config
 	FROM ocr2_contract_configs
-	WHERE ocr2_oracle_spec_id = $1
+	WHERE ocr2_oracle_spec_id = $1 AND plugin_id = $2
 	LIMIT 1`
 
 	c = new(ocrtypes.ContractConfig)
@@ -124,7 +126,7 @@ func (d *db) ReadConfig(ctx context.Context) (c *ocrtypes.ContractConfig, err er
 	signers := [][]byte{}
 	transmitters := [][]byte{}
 
-	err = d.q.QueryRowx(stmt, d.oracleSpecID).Scan(
+	err = d.q.QueryRowx(stmt, d.oracleSpecID, d.pluginID).Scan(
 		&digest,
 		&c.ConfigCount,
 		(*pq.ByteaArray)(&signers),
@@ -165,6 +167,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 	stmt := `
 	INSERT INTO ocr2_contract_configs (
 		ocr2_oracle_spec_id,
+		plugin_id,
 		config_digest,
 		config_count,
 		signers,
@@ -176,8 +179,8 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 		created_at,
 		updated_at
 	)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
-	ON CONFLICT (ocr2_oracle_spec_id) DO UPDATE SET
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW(), NOW())
+	ON CONFLICT (ocr2_oracle_spec_id, plugin_id) DO UPDATE SET
 		config_digest = EXCLUDED.config_digest,
 		config_count = EXCLUDED.config_count,
 		signers = EXCLUDED.signers,
@@ -190,6 +193,7 @@ func (d *db) WriteConfig(ctx context.Context, c ocrtypes.ContractConfig) error {
 	`
 	_, err := d.q.ExecContext(ctx, stmt,
 		d.oracleSpecID,
+		d.pluginID,
 		c.ConfigDigest,
 		c.ConfigCount,
 		pq.ByteaArray(signers),
@@ -338,6 +342,35 @@ WHERE ocr2_oracle_spec_id = $1 AND time < $2
 `, d.oracleSpecID, t)
 
 	err = errors.Wrap(err, "DeletePendingTransmissionsOlderThan failed")
+
+	return
+}
+
+func (d *db) ReadProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string) (value []byte, err error) {
+	err = d.q.GetContext(ctx, &value, `
+SELECT value FROM ocr_protocol_states
+WHERE config_digest = $1 AND key = $2;
+`, configDigest, key)
+
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+
+	err = errors.Wrapf(err, "ReadProtocolState failed for job %d", d.oracleSpecID)
+
+	return
+}
+
+func (d *db) WriteProtocolState(ctx context.Context, configDigest ocrtypes.ConfigDigest, key string, value []byte) (err error) {
+	if value == nil {
+		_, err = d.q.ExecContext(ctx, `DELETE FROM ocr_protocol_states WHERE config_digest = $1 AND key = $2;`, configDigest, key)
+	} else {
+		_, err = d.q.ExecContext(ctx, `
+INSERT INTO ocr_protocol_states (config_digest, key, value) VALUES ($1, $2, $3)
+ON CONFLICT (config_digest, key) DO UPDATE SET value = $3;`, configDigest, key, value)
+	}
+
+	err = errors.Wrapf(err, "WriteProtocolState failed for job %d", d.oracleSpecID)
 
 	return
 }

@@ -232,9 +232,9 @@ observationSource   = """
 
 		_ = cltest.CreateJobRunViaExternalInitiatorV2(t, app, jobUUID, *eia, cltest.MustJSONMarshal(t, eiRequest))
 
-		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg)
-		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChains().EVM, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg)
+		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
+		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChains().EVM, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -823,7 +823,7 @@ func setupForwarderEnabledNode(
 	b.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config)
+	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
 	chainID := utils.Big(*b.Blockchain().Config().ChainID)
 	_, err = forwarderORM.CreateForwarder(forwarder, chainID)
 	require.NoError(t, err)
@@ -1319,7 +1319,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 
 	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
 
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})
@@ -1374,6 +1374,11 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
+	// HeadTracker backfill
+	ethClient.On("HeadByHash", mock.Anything, h40.Hash).Return(&h40, nil).Maybe()
+	ethClient.On("HeadByHash", mock.Anything, h41.Hash).Return(&h41, nil).Maybe()
+	ethClient.On("HeadByHash", mock.Anything, h42.Hash).Return(&h42, nil).Maybe()
+
 	require.NoError(t, cc.Start(testutils.Context(t)))
 	var newHeads evmtest.RawSub[*evmtypes.Head]
 	select {
@@ -1388,7 +1393,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint32(500000), gasLimit)
 	assert.Equal(t, "41.5 gwei", gasPrice.Legacy.String())
-	assert.Equal(t, initialDefaultGasPrice, chain.Config().EvmGasPriceDefault().Int64()) // unchanged
+	assert.Equal(t, initialDefaultGasPrice, chain.Config().EVM().GasEstimator().PriceDefault().Int64()) // unchanged
 
 	// BlockHistoryEstimator new blocks
 	ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
@@ -1398,12 +1403,10 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		elems[0].Result = &b43
 	})
 
-	// HeadTracker backfill
-	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(42)).Return(&h42, nil)
-	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(41)).Return(&h41, nil)
-
 	// Simulate one new head and check the gas price got updated
-	newHeads.TrySend(cltest.Head(43))
+	h43 := cltest.Head(43)
+	h43.ParentHash = h42.Hash
+	newHeads.TrySend(h43)
 
 	gomega.NewWithT(t).Eventually(func() string {
 		gasPrice, _, err := estimator.GetFee(testutils.Context(t), nil, 500000, maxGasPrice)

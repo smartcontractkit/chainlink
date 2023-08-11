@@ -3,19 +3,21 @@ package evm_test
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/common"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	offchain_aggregator_wrapper "github.com/smartcontractkit/chainlink/v2/core/internal/gethwrappers2/generated/offchainaggregator"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -43,7 +45,7 @@ func mustNewFilterer(t *testing.T, address gethCommon.Address) *ocr2aggregator.O
 type contractTrackerUni struct {
 	db                  *mocks.RequestRoundDB
 	lb                  *logmocks.Broadcaster
-	hb                  *htmocks.HeadBroadcaster
+	hb                  *commonmocks.HeadBroadcaster[*evmtypes.Head, common.Hash]
 	ec                  *evmclimocks.Client
 	requestRoundTracker *evm.RequestRoundTracker
 }
@@ -75,7 +77,7 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 	}
 	uni.db = mocks.NewRequestRoundDB(t)
 	uni.lb = logmocks.NewBroadcaster(t)
-	uni.hb = htmocks.NewHeadBroadcaster(t)
+	uni.hb = commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 	uni.ec = evmclimocks.NewClient(t)
 
 	db := pgtest.NewSqlxDB(t)
@@ -89,7 +91,8 @@ func newContractTrackerUni(t *testing.T, opts ...interface{}) (uni contractTrack
 		lggr,
 		db,
 		uni.db,
-		chain,
+		chain.EVM(),
+		chain.Database(),
 	)
 
 	return uni

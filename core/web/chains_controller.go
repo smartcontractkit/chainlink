@@ -56,7 +56,7 @@ func (cc *chainsController[R]) Index(c *gin.Context, size, page, offset int) {
 		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
 		return
 	}
-	chains, count, err := cc.chainSet.ChainStatuses(nil, offset, size)
+	chains, count, err := cc.chainSet.ChainStatuses(c, offset, size)
 
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
@@ -76,7 +76,7 @@ func (cc *chainsController[R]) Show(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
 		return
 	}
-	chain, err := cc.chainSet.ChainStatus(nil, c.Param("ID"))
+	chain, err := cc.chainSet.ChainStatus(c, c.Param("ID"))
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

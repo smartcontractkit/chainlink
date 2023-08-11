@@ -1,24 +1,26 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
 import "./KeeperRegistryBase2_1.sol";
-import "./KeeperRegistryLogicA2_1.sol";
+import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
-import {AutomationRegistryExecutableInterface, UpkeepInfo} from "./interfaces/AutomationRegistryInterface2_1.sol";
-import "../../../interfaces/ERC677ReceiverInterface.sol";
-import "../../../OCR2Abstract.sol";
+import "../../../shared/interfaces/IERC677Receiver.sol";
+import "../../../shared/ocr2/OCR2Abstract.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
  * contracts. Clients must support the Upkeep interface.
  */
-contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ERC677ReceiverInterface {
+contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IERC677Receiver {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   /**
    * @notice versions:
+   * - KeeperRegistry 2.1.0: introduces support for log, cron, and ready triggers
+                           : removes the need for "wrapped perform data"
    * - KeeperRegistry 2.0.2: pass revert bytes as performData when target contract reverts
    *                       : fixes issue with arbitrum block number
    *                       : does an early return in case of stale report instead of revert
@@ -38,16 +40,17 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   string public constant override typeAndVersion = "KeeperRegistry 2.1.0";
 
   /**
-   * @param logicA the address of the first logic contract
+   * @param logicA the address of the first logic contract, but cast as logicB in order to call logicB functions
    */
   constructor(
-    KeeperRegistryLogicA2_1 logicA
+    KeeperRegistryLogicB2_1 logicA
   )
     KeeperRegistryBase2_1(
       logicA.getMode(),
       logicA.getLinkAddress(),
       logicA.getLinkNativeFeedAddress(),
-      logicA.getFastGasFeedAddress()
+      logicA.getFastGasFeedAddress(),
+      logicA.getAutomationForwarderLogic()
     )
     Chainable(address(logicA))
   {}
@@ -55,23 +58,6 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
   ////////
   // ACTIONS
   ////////
-
-  /**
-   * @dev This struct is used to maintain run time information about an upkeep in transmit function
-   * @member upkeep the upkeep struct
-   * @member earlyChecksPassed whether the upkeep passed early checks before perform
-   * @member paymentParams the paymentParams for this upkeep
-   * @member performSuccess whether the perform was successful
-   * @member gasUsed gasUsed by this upkeep in perform
-   */
-  struct UpkeepTransmitInfo {
-    Upkeep upkeep;
-    bool earlyChecksPassed;
-    uint96 maxLinkPayment;
-    bool performSuccess;
-    uint256 gasUsed;
-    uint256 gasOverhead;
-  }
 
   /**
    * @inheritdoc OCR2Abstract
@@ -89,62 +75,55 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     if (hotVars.paused) revert RegistryPaused();
     if (!s_transmitters[msg.sender].active) revert OnlyActiveTransmitters();
 
+    // Verify signatures
+    if (s_latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
+    if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
+    _verifyReportSignature(reportContext, rawReport, rs, ss, rawVs);
+
     Report memory report = _decodeReport(rawReport);
     UpkeepTransmitInfo[] memory upkeepTransmitInfo = new UpkeepTransmitInfo[](report.upkeepIds.length);
     uint16 numUpkeepsPassedChecks;
 
     for (uint256 i = 0; i < report.upkeepIds.length; i++) {
       upkeepTransmitInfo[i].upkeep = s_upkeep[report.upkeepIds[i]];
-
+      upkeepTransmitInfo[i].triggerType = _getTriggerType(report.upkeepIds[i]);
       upkeepTransmitInfo[i].maxLinkPayment = _getMaxLinkPayment(
         hotVars,
-        upkeepTransmitInfo[i].upkeep.executeGas,
-        uint32(report.wrappedPerformDatas[i].performData.length),
+        upkeepTransmitInfo[i].triggerType,
+        uint32(report.gasLimits[i]),
+        uint32(report.performDatas[i].length),
         report.fastGasWei,
         report.linkNative,
         true
       );
-      upkeepTransmitInfo[i].earlyChecksPassed = _prePerformChecks(
+      (upkeepTransmitInfo[i].earlyChecksPassed, upkeepTransmitInfo[i].dedupID) = _prePerformChecks(
         report.upkeepIds[i],
-        report.wrappedPerformDatas[i],
-        upkeepTransmitInfo[i].upkeep,
-        upkeepTransmitInfo[i].maxLinkPayment
+        report.triggers[i],
+        upkeepTransmitInfo[i]
       );
 
       if (upkeepTransmitInfo[i].earlyChecksPassed) {
         numUpkeepsPassedChecks += 1;
+      } else {
+        continue;
       }
+
+      // Actually perform the target upkeep
+      (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed) = _performUpkeep(
+        upkeepTransmitInfo[i].upkeep.forwarder,
+        report.gasLimits[i],
+        report.performDatas[i]
+      );
+
+      // Deduct that gasUsed by upkeep from our running counter
+      gasOverhead -= upkeepTransmitInfo[i].gasUsed;
+
+      // Store last perform block number / deduping key for upkeep
+      _updateTriggerMarker(report.upkeepIds[i], upkeepTransmitInfo[i]);
     }
     // No upkeeps to be performed in this report
     if (numUpkeepsPassedChecks == 0) {
       return;
-    }
-
-    // Verify signatures
-    if (s_latestConfigDigest != reportContext[0]) revert ConfigDigestMismatch();
-    if (rs.length != hotVars.f + 1 || rs.length != ss.length) revert IncorrectNumberOfSignatures();
-    _verifyReportSignature(reportContext, rawReport, rs, ss, rawVs);
-
-    // Actually perform upkeeps
-    for (uint256 i = 0; i < report.upkeepIds.length; i++) {
-      if (upkeepTransmitInfo[i].earlyChecksPassed) {
-        // Check if this upkeep was already performed in this report
-        if (s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber == uint32(_blockNum())) {
-          revert InvalidReport();
-        }
-
-        // Actually perform the target upkeep
-        (upkeepTransmitInfo[i].performSuccess, upkeepTransmitInfo[i].gasUsed) = _performUpkeep(
-          upkeepTransmitInfo[i].upkeep,
-          report.wrappedPerformDatas[i].performData
-        );
-
-        // Deduct that gasUsed by upkeep from our running counter
-        gasOverhead -= upkeepTransmitInfo[i].gasUsed;
-
-        // Store last perform block number for upkeep
-        s_upkeep[report.upkeepIds[i]].lastPerformBlockNumber = uint32(_blockNum());
-      }
     }
 
     // This is the overall gas overhead that will be split across performed upkeeps
@@ -165,7 +144,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
         if (upkeepTransmitInfo[i].earlyChecksPassed) {
           upkeepTransmitInfo[i].gasOverhead = _getCappedGasOverhead(
             gasOverhead,
-            uint32(report.wrappedPerformDatas[i].performData.length),
+            upkeepTransmitInfo[i].triggerType,
+            uint32(report.performDatas[i].length),
             hotVars.f
           );
 
@@ -183,10 +163,10 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
           emit UpkeepPerformed(
             report.upkeepIds[i],
             upkeepTransmitInfo[i].performSuccess,
-            report.wrappedPerformDatas[i].checkBlockNumber,
+            reimbursement + premium,
             upkeepTransmitInfo[i].gasUsed,
             upkeepTransmitInfo[i].gasOverhead,
-            reimbursement + premium
+            report.triggers[i]
           );
         }
       }
@@ -202,48 +182,21 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     }
   }
 
-  function registerUpkeep(
-    address target,
-    uint32 gasLimit,
-    address admin,
-    bytes calldata checkData,
-    bytes calldata offchainConfig
-  ) external returns (uint256 id, address forwarderAddress) {
-    if (msg.sender != owner() && msg.sender != s_storage.registrar) revert OnlyCallableByOwnerOrRegistrar();
-    id = uint256(keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce)));
-    AutomationForwarder forwarder = new AutomationForwarder(id, target);
-    _createUpkeep(id, target, gasLimit, admin, 0, checkData, false, offchainConfig, forwarder);
-    s_storage.nonce++;
-    s_upkeepOffchainConfig[id] = offchainConfig;
-    emit UpkeepRegistered(id, gasLimit, admin);
-    emit UpkeepOffchainConfigSet(id, offchainConfig);
-    return (id, address(forwarder));
-  }
-
-  function addFunds(uint256 id, uint96 amount) external {
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-
-    s_upkeep[id].balance = upkeep.balance + amount;
-    s_expectedLinkBalance = s_expectedLinkBalance + amount;
-    i_link.transferFrom(msg.sender, address(this), amount);
-    emit FundsAdded(id, msg.sender, amount);
-  }
-
   /**
-   * @notice simulates the upkeep with the perform data returned from
-   * checkUpkeep
+   * @notice simulates the upkeep with the perform data returned from checkUpkeep
    * @param id identifier of the upkeep to execute the data with.
    * @param performData calldata parameter to be passed to the target upkeep.
+   * @return success whether the call reverted or not
+   * @return gasUsed the amount of gas the target contract consumed
    */
   function simulatePerformUpkeep(
     uint256 id,
     bytes calldata performData
   ) external cannotExecute returns (bool success, uint256 gasUsed) {
     if (s_hotVars.paused) revert RegistryPaused();
-
     Upkeep memory upkeep = s_upkeep[id];
-    return _performUpkeep(upkeep, performData);
+    (success, gasUsed) = _performUpkeep(upkeep.forwarder, upkeep.performGas, performData);
+    return (success, gasUsed);
   }
 
   /**
@@ -257,10 +210,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     if (data.length != 32) revert InvalidDataLength();
     uint256 id = abi.decode(data, (uint256));
     if (s_upkeep[id].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-
     s_upkeep[id].balance = s_upkeep[id].balance + uint96(amount);
     s_expectedLinkBalance = s_expectedLinkBalance + amount;
-
     emit FundsAdded(id, sender, uint96(amount));
   }
 
@@ -270,15 +221,34 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
 
   /**
    * @inheritdoc OCR2Abstract
+   * @dev prefer the type-safe version of setConfig (below) whenever possible
    */
   function setConfig(
     address[] memory signers,
     address[] memory transmitters,
     uint8 f,
-    bytes memory onchainConfig,
+    bytes memory onchainConfigBytes,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
-  ) external override onlyOwner {
+  ) external override {
+    setConfigTypeSafe(
+      signers,
+      transmitters,
+      f,
+      abi.decode(onchainConfigBytes, (OnchainConfig)),
+      offchainConfigVersion,
+      offchainConfig
+    );
+  }
+
+  function setConfigTypeSafe(
+    address[] memory signers,
+    address[] memory transmitters,
+    uint8 f,
+    OnchainConfig memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig
+  ) public onlyOwner {
     if (signers.length > maxNumOracles) revert TooManyOracles();
     if (f == 0) revert IncorrectNumberOfFaultyOracles();
     if (signers.length != transmitters.length || signers.length <= 3 * f) revert IncorrectNumberOfSigners();
@@ -316,6 +286,8 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
         if (transmitter.active) revert RepeatedTransmitter();
         transmitter.active = true;
         transmitter.index = uint8(i);
+        // new transmitters start afresh from current totalPremium
+        // some spare change of premium from previous pool will be forfeited
         transmitter.lastCollected = totalPremium;
         s_transmitters[temp] = transmitter;
       }
@@ -323,44 +295,40 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     s_signersList = signers;
     s_transmittersList = transmitters;
 
-    // Set the onchain config
-    OnchainConfig memory onchainConfigStruct = abi.decode(onchainConfig, (OnchainConfig));
-    if (onchainConfigStruct.maxPerformGas < s_storage.maxPerformGas) revert GasLimitCanOnlyIncrease();
-    if (onchainConfigStruct.maxCheckDataSize < s_storage.maxCheckDataSize) revert MaxCheckDataSizeCanOnlyIncrease();
-    if (onchainConfigStruct.maxPerformDataSize < s_storage.maxPerformDataSize)
-      revert MaxPerformDataSizeCanOnlyIncrease();
-
     s_hotVars = HotVars({
       f: f,
-      paymentPremiumPPB: onchainConfigStruct.paymentPremiumPPB,
-      flatFeeMicroLink: onchainConfigStruct.flatFeeMicroLink,
-      stalenessSeconds: onchainConfigStruct.stalenessSeconds,
-      gasCeilingMultiplier: onchainConfigStruct.gasCeilingMultiplier,
-      paused: false,
-      reentrancyGuard: false,
+      paymentPremiumPPB: onchainConfig.paymentPremiumPPB,
+      flatFeeMicroLink: onchainConfig.flatFeeMicroLink,
+      stalenessSeconds: onchainConfig.stalenessSeconds,
+      gasCeilingMultiplier: onchainConfig.gasCeilingMultiplier,
+      paused: s_hotVars.paused,
+      reentrancyGuard: s_hotVars.reentrancyGuard,
       totalPremium: totalPremium,
-      latestEpoch: 0
+      latestEpoch: 0 // DON restarts epoch
     });
 
     s_storage = Storage({
-      checkGasLimit: onchainConfigStruct.checkGasLimit,
-      minUpkeepSpend: onchainConfigStruct.minUpkeepSpend,
-      maxPerformGas: onchainConfigStruct.maxPerformGas,
-      transcoder: onchainConfigStruct.transcoder,
-      registrar: onchainConfigStruct.registrar,
-      maxCheckDataSize: onchainConfigStruct.maxCheckDataSize,
-      maxPerformDataSize: onchainConfigStruct.maxPerformDataSize,
+      checkGasLimit: onchainConfig.checkGasLimit,
+      minUpkeepSpend: onchainConfig.minUpkeepSpend,
+      maxPerformGas: onchainConfig.maxPerformGas,
+      transcoder: onchainConfig.transcoder,
+      maxCheckDataSize: onchainConfig.maxCheckDataSize,
+      maxPerformDataSize: onchainConfig.maxPerformDataSize,
+      maxRevertDataSize: onchainConfig.maxRevertDataSize,
+      upkeepPrivilegeManager: onchainConfig.upkeepPrivilegeManager,
       nonce: s_storage.nonce,
       configCount: s_storage.configCount,
       latestConfigBlockNumber: s_storage.latestConfigBlockNumber,
       ownerLinkBalance: s_storage.ownerLinkBalance
     });
-    s_fallbackGasPrice = onchainConfigStruct.fallbackGasPrice;
-    s_fallbackLinkPrice = onchainConfigStruct.fallbackLinkPrice;
+    s_fallbackGasPrice = onchainConfig.fallbackGasPrice;
+    s_fallbackLinkPrice = onchainConfig.fallbackLinkPrice;
 
     uint32 previousConfigBlockNumber = s_storage.latestConfigBlockNumber;
     s_storage.latestConfigBlockNumber = uint32(_blockNum());
     s_storage.configCount += 1;
+
+    bytes memory onchainConfigBytes = abi.encode(onchainConfig);
 
     s_latestConfigDigest = _configDigestFromConfigData(
       block.chainid,
@@ -369,10 +337,18 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       signers,
       transmitters,
       f,
-      onchainConfig,
+      onchainConfigBytes,
       offchainConfigVersion,
       offchainConfig
     );
+
+    for (uint256 idx = 0; idx < s_registrars.length(); idx++) {
+      s_registrars.remove(s_registrars.at(idx));
+    }
+
+    for (uint256 idx = 0; idx < onchainConfig.registrars.length; idx++) {
+      s_registrars.add(onchainConfig.registrars[idx]);
+    }
 
     emit ConfigSet(
       previousConfigBlockNumber,
@@ -381,7 +357,7 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
       signers,
       transmitters,
       f,
-      onchainConfig,
+      onchainConfigBytes,
       offchainConfigVersion,
       offchainConfig
     );
@@ -413,157 +389,5 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, ER
     returns (bool scanLogs, bytes32 configDigest, uint32 epoch)
   {
     return (false, s_latestConfigDigest, s_hotVars.latestEpoch);
-  }
-
-  ////////
-  // INTERNAL FUNCTIONS
-  ////////
-
-  /**
-   * @dev _decodeReport decodes a serialized report into a Report struct
-   */
-  function _decodeReport(bytes memory rawReport) internal pure returns (Report memory) {
-    (
-      uint256 fastGasWei,
-      uint256 linkNative,
-      uint256[] memory upkeepIds,
-      PerformDataWrapper[] memory wrappedPerformDatas
-    ) = abi.decode(rawReport, (uint256, uint256, uint256[], PerformDataWrapper[]));
-    if (upkeepIds.length != wrappedPerformDatas.length) revert InvalidReport();
-
-    return
-      Report({
-        fastGasWei: fastGasWei,
-        linkNative: linkNative,
-        upkeepIds: upkeepIds,
-        wrappedPerformDatas: wrappedPerformDatas
-      });
-  }
-
-  /**
-   * @dev Does some early sanity checks before actually performing an upkeep
-   */
-  function _prePerformChecks(
-    uint256 upkeepId,
-    PerformDataWrapper memory wrappedPerformData,
-    Upkeep memory upkeep,
-    uint96 maxLinkPayment
-  ) internal returns (bool) {
-    if (wrappedPerformData.checkBlockNumber < upkeep.lastPerformBlockNumber) {
-      // Can happen when another report performed this upkeep after this report was generated
-      emit StaleUpkeepReport(upkeepId);
-      return false;
-    }
-
-    if (_blockHash(wrappedPerformData.checkBlockNumber) != wrappedPerformData.checkBlockhash) {
-      // Can happen when the block on which report was generated got reorged
-      // We will also revert if checkBlockNumber is older than 256 blocks. In this case we rely on a new transmission
-      // with the latest checkBlockNumber
-      emit ReorgedUpkeepReport(upkeepId);
-      return false;
-    }
-
-    if (upkeep.maxValidBlocknumber <= _blockNum()) {
-      // Can happen when an upkeep got cancelled after report was generated.
-      // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
-      emit CancelledUpkeepReport(upkeepId);
-      return false;
-    }
-
-    if (upkeep.balance < maxLinkPayment) {
-      // Can happen due to flucutations in gas / link prices
-      emit InsufficientFundsUpkeepReport(upkeepId);
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * @dev Verify signatures attached to report
-   */
-  function _verifyReportSignature(
-    bytes32[3] calldata reportContext,
-    bytes calldata report,
-    bytes32[] calldata rs,
-    bytes32[] calldata ss,
-    bytes32 rawVs
-  ) internal view {
-    bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
-    // i-th byte counts number of sigs made by i-th signer
-    uint256 signedCount = 0;
-
-    Signer memory signer;
-    address signerAddress;
-    for (uint256 i = 0; i < rs.length; i++) {
-      signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
-      signer = s_signers[signerAddress];
-      if (!signer.active) revert OnlyActiveSigners();
-      unchecked {
-        signedCount += 1 << (8 * signer.index);
-      }
-    }
-
-    if (signedCount & ORACLE_MASK != signedCount) revert DuplicateSigners();
-  }
-
-  /**
-   * @dev calls the Upkeep target with the performData param passed in by the
-   * transmitter and the exact gas required by the Upkeep
-   */
-  function _performUpkeep(
-    Upkeep memory upkeep,
-    bytes memory performData
-  ) private nonReentrant returns (bool success, uint256 gasUsed) {
-    gasUsed = gasleft();
-    bytes memory callData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
-    success = upkeep.forwarder.forward(upkeep.executeGas, callData);
-    gasUsed = gasUsed - gasleft();
-    return (success, gasUsed);
-  }
-
-  /**
-   * @dev does postPerform payment processing for an upkeep. Deducts upkeep's balance and increases
-   * amount spent.
-   */
-  function _postPerformPayment(
-    HotVars memory hotVars,
-    uint256 upkeepId,
-    UpkeepTransmitInfo memory upkeepTransmitInfo,
-    uint256 fastGasWei,
-    uint256 linkNative,
-    uint16 numBatchedUpkeeps
-  ) internal returns (uint96 gasReimbursement, uint96 premium) {
-    (gasReimbursement, premium) = _calculatePaymentAmount(
-      hotVars,
-      upkeepTransmitInfo.gasUsed,
-      upkeepTransmitInfo.gasOverhead,
-      fastGasWei,
-      linkNative,
-      numBatchedUpkeeps,
-      true
-    );
-
-    uint96 payment = gasReimbursement + premium;
-    s_upkeep[upkeepId].balance -= payment;
-    s_upkeep[upkeepId].amountSpent += payment;
-
-    return (gasReimbursement, premium);
-  }
-
-  /**
-   * @dev Caps the gas overhead by the constant overhead used within initial payment checks in order to
-   * prevent a revert in payment processing.
-   */
-  function _getCappedGasOverhead(
-    uint256 calculatedGasOverhead,
-    uint32 performDataLength,
-    uint8 f
-  ) private pure returns (uint256 cappedGasOverhead) {
-    cappedGasOverhead = _getMaxGasOverhead(performDataLength, f);
-    if (calculatedGasOverhead < cappedGasOverhead) {
-      return calculatedGasOverhead;
-    }
-    return cappedGasOverhead;
   }
 }

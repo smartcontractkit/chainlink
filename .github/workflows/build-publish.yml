@@ -10,7 +10,20 @@ on:
       - 'release/**'
 
 jobs:
+  checks:
+    name: 'Checks'
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+      - name: Check for VERSION file bump on tags
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: ./.github/actions/version-file-bump
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
   build-sign-publish-chainlink:
+    needs: [checks]
     if: ${{ ! startsWith(github.ref_name, 'release/') }}
     runs-on: ubuntu-20.04
     environment: build-publish
@@ -19,7 +32,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
 
       - name: Build, sign and publish chainlink image
         uses: ./.github/actions/build-sign-publish-chainlink
@@ -37,7 +50,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        uses: smartcontractkit/push-gha-metrics-action@6f41029bc7f0d0db5827f6804a2322e2a89e3b32
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

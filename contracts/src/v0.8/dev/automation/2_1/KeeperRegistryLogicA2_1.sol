@@ -1,27 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
 import "./KeeperRegistryBase2_1.sol";
 import "./KeeperRegistryLogicB2_1.sol";
 import "./Chainable.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
-import "../../../interfaces/automation/UpkeepTranscoderInterfaceV2.sol";
-
-// TODO - we can probably combine these interfaces
-import "../../../interfaces/automation/MigratableKeeperRegistryInterface.sol";
-import "../../../interfaces/automation/MigratableKeeperRegistryInterfaceV2.sol";
+import "../../../automation/interfaces/UpkeepTranscoderInterfaceV2.sol";
+import "../../../automation/interfaces/MigratableKeeperRegistryInterfaceV2.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
  */
-contract KeeperRegistryLogicA2_1 is
-  KeeperRegistryBase2_1,
-  Chainable,
-  MigratableKeeperRegistryInterface,
-  MigratableKeeperRegistryInterfaceV2
-{
+contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   using Address for address;
   using EnumerableSet for EnumerableSet.UintSet;
+  using EnumerableSet for EnumerableSet.AddressSet;
 
   /**
    * @param logicB the address of the second logic contract
@@ -33,75 +26,256 @@ contract KeeperRegistryLogicA2_1 is
       logicB.getMode(),
       logicB.getLinkAddress(),
       logicB.getLinkNativeFeedAddress(),
-      logicB.getFastGasFeedAddress()
+      logicB.getFastGasFeedAddress(),
+      logicB.getAutomationForwarderLogic()
     )
     Chainable(address(logicB))
   {}
 
-  UpkeepFormat public constant override upkeepTranscoderVersion = UPKEEP_TRANSCODER_VERSION_BASE;
-
-  uint8 public constant override upkeepVersion = UPKEEP_VERSION_BASE;
-
+  /**
+   * @notice called by the automation DON to check if work is needed
+   * @param id the upkeep ID to check for work needed
+   * @param triggerData extra contextual data about the trigger (not used in all code paths)
+   * @dev this one of the core functions called in the hot path
+   * @dev there is a 2nd checkUpkeep function (below) that is being maintained for backwards compatibility
+   * @dev there is an incongruency on what gets returned during failure modes
+   * ex sometimes we include price data, sometimes we omit it depending on the failure
+   */
   function checkUpkeep(
-    uint256 id
+    uint256 id,
+    bytes memory triggerData
   )
-    external
+    public
     cannotExecute
     returns (
       bool upkeepNeeded,
       bytes memory performData,
       UpkeepFailureReason upkeepFailureReason,
       uint256 gasUsed,
+      uint256 gasLimit,
       uint256 fastGasWei,
       uint256 linkNative
     )
   {
+    Trigger triggerType = _getTriggerType(id);
     HotVars memory hotVars = s_hotVars;
     Upkeep memory upkeep = s_upkeep[id];
+
+    if (hotVars.paused) return (false, bytes(""), UpkeepFailureReason.REGISTRY_PAUSED, 0, upkeep.performGas, 0, 0);
     if (upkeep.maxValidBlocknumber != UINT32_MAX)
-      return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, gasUsed, 0, 0);
-    if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, gasUsed, 0, 0);
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_CANCELLED, 0, upkeep.performGas, 0, 0);
+    if (upkeep.paused) return (false, bytes(""), UpkeepFailureReason.UPKEEP_PAUSED, 0, upkeep.performGas, 0, 0);
 
     (fastGasWei, linkNative) = _getFeedData(hotVars);
     uint96 maxLinkPayment = _getMaxLinkPayment(
       hotVars,
-      upkeep.executeGas,
+      triggerType,
+      upkeep.performGas,
       s_storage.maxPerformDataSize,
       fastGasWei,
       linkNative,
       false
     );
-    if (upkeep.balance < maxLinkPayment)
-      return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, gasUsed, fastGasWei, linkNative);
+    if (upkeep.balance < maxLinkPayment) {
+      return (false, bytes(""), UpkeepFailureReason.INSUFFICIENT_BALANCE, 0, upkeep.performGas, 0, 0);
+    }
+
+    bytes memory callData = _checkPayload(id, triggerType, triggerData);
 
     gasUsed = gasleft();
-    bytes memory callData = abi.encodeWithSelector(CHECK_SELECTOR, s_checkData[id]);
-    (bool success, bytes memory result) = upkeep.target.call{gas: s_storage.checkGasLimit}(callData);
+    (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(callData);
     gasUsed = gasUsed - gasleft();
 
     if (!success) {
-      upkeepFailureReason = UpkeepFailureReason.TARGET_CHECK_REVERTED;
-    } else {
-      (upkeepNeeded, result) = abi.decode(result, (bool, bytes));
-      if (!upkeepNeeded)
-        return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed, fastGasWei, linkNative);
-      if (result.length > s_storage.maxPerformDataSize)
-        return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed, fastGasWei, linkNative);
+      // User's target check reverted. We capture the revert data here and pass it within performData
+      if (result.length > s_storage.maxRevertDataSize) {
+        return (
+          false,
+          bytes(""),
+          UpkeepFailureReason.REVERT_DATA_EXCEEDS_LIMIT,
+          gasUsed,
+          upkeep.performGas,
+          fastGasWei,
+          linkNative
+        );
+      }
+      return (
+        upkeepNeeded,
+        result,
+        UpkeepFailureReason.TARGET_CHECK_REVERTED,
+        gasUsed,
+        upkeep.performGas,
+        fastGasWei,
+        linkNative
+      );
     }
 
-    performData = abi.encode(
-      PerformDataWrapper({
-        checkBlockNumber: uint32(_blockNum() - 1),
-        checkBlockhash: _blockHash(_blockNum() - 1),
-        performData: result
-      })
-    );
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    if (!upkeepNeeded)
+      return (
+        false,
+        bytes(""),
+        UpkeepFailureReason.UPKEEP_NOT_NEEDED,
+        gasUsed,
+        upkeep.performGas,
+        fastGasWei,
+        linkNative
+      );
 
-    return (success, performData, upkeepFailureReason, gasUsed, fastGasWei, linkNative);
+    if (performData.length > s_storage.maxPerformDataSize)
+      return (
+        false,
+        bytes(""),
+        UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT,
+        gasUsed,
+        upkeep.performGas,
+        fastGasWei,
+        linkNative
+      );
+
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed, upkeep.performGas, fastGasWei, linkNative);
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @notice see other checkUpkeep function for description
+   * @dev this function may be deprecated in a future version of chainlink automation
+   */
+  function checkUpkeep(
+    uint256 id
+  )
+    external
+    returns (
+      bool upkeepNeeded,
+      bytes memory performData,
+      UpkeepFailureReason upkeepFailureReason,
+      uint256 gasUsed,
+      uint256 gasLimit,
+      uint256 fastGasWei,
+      uint256 linkNative
+    )
+  {
+    return checkUpkeep(id, bytes(""));
+  }
+
+  /**
+   * @dev checkCallback is used specifically for automation feed lookups (see FeedLookupCompatibleInterface.sol)
+   * @param id the upkeepID to execute a callback for
+   * @param values the values returned from the feed lookup
+   * @param extraData the user-provided extra context data
+   */
+  function checkCallback(
+    uint256 id,
+    bytes[] memory values,
+    bytes calldata extraData
+  )
+    external
+    cannotExecute
+    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
+  {
+    bytes memory payload = abi.encodeWithSelector(CHECK_CALLBACK_SELECTOR, values, extraData);
+    return executeCallback(id, payload);
+  }
+
+  /**
+   * @notice this is a generic callback executor that forwards a call to a user's contract with the configured
+   * gas limit
+   * @param id the upkeepID to execute a callback for
+   * @param payload the data (including function selector) to call on the upkeep target contract
+   */
+  function executeCallback(
+    uint256 id,
+    bytes memory payload
+  )
+    public
+    cannotExecute
+    returns (bool upkeepNeeded, bytes memory performData, UpkeepFailureReason upkeepFailureReason, uint256 gasUsed)
+  {
+    Upkeep memory upkeep = s_upkeep[id];
+    gasUsed = gasleft();
+    (bool success, bytes memory result) = upkeep.forwarder.getTarget().call{gas: s_storage.checkGasLimit}(payload);
+    gasUsed = gasUsed - gasleft();
+    if (!success) {
+      return (false, bytes(""), UpkeepFailureReason.CALLBACK_REVERTED, gasUsed);
+    }
+    (upkeepNeeded, performData) = abi.decode(result, (bool, bytes));
+    if (!upkeepNeeded) {
+      return (false, bytes(""), UpkeepFailureReason.UPKEEP_NOT_NEEDED, gasUsed);
+    }
+    if (performData.length > s_storage.maxPerformDataSize) {
+      return (false, bytes(""), UpkeepFailureReason.PERFORM_DATA_EXCEEDS_LIMIT, gasUsed);
+    }
+    return (upkeepNeeded, performData, upkeepFailureReason, gasUsed);
+  }
+
+  /**
+   * @notice adds a new upkeep
+   * @param target address to perform upkeep on
+   * @param gasLimit amount of gas to provide the target contract when
+   * performing upkeep
+   * @param admin address to cancel upkeep and withdraw remaining funds
+   * @param triggerType the trigger for the upkeep
+   * @param checkData data passed to the contract when checking for upkeep
+   * @param triggerConfig the config for the trigger
+   * @param offchainConfig arbitrary offchain config for the upkeep
+   */
+  function registerUpkeep(
+    address target,
+    uint32 gasLimit,
+    address admin,
+    Trigger triggerType,
+    bytes calldata checkData,
+    bytes memory triggerConfig,
+    bytes memory offchainConfig
+  ) public returns (uint256 id) {
+    if (msg.sender != owner() && !s_registrars.contains(msg.sender)) revert OnlyCallableByOwnerOrRegistrar();
+    if (!target.isContract()) revert NotAContract();
+    id = _createID(triggerType);
+    IAutomationForwarder forwarder = IAutomationForwarder(
+      address(new AutomationForwarder(target, address(this), i_automationForwarderLogic))
+    );
+    _createUpkeep(
+      id,
+      Upkeep({
+        performGas: gasLimit,
+        balance: 0,
+        maxValidBlocknumber: UINT32_MAX,
+        lastPerformedBlockNumber: 0,
+        amountSpent: 0,
+        paused: false,
+        forwarder: forwarder
+      }),
+      admin,
+      checkData,
+      triggerConfig,
+      offchainConfig
+    );
+    s_storage.nonce++;
+    emit UpkeepRegistered(id, gasLimit, admin);
+    emit UpkeepCheckDataSet(id, checkData);
+    emit UpkeepTriggerConfigSet(id, triggerConfig);
+    emit UpkeepOffchainConfigSet(id, offchainConfig);
+    return (id);
+  }
+
+  /**
+   * @notice this function registers a conditional upkeep, using a backwards compatible function signature
+   * @dev this function is backwards compatible with versions <=2.0, but may be removed in a future version
+   */
+  function registerUpkeep(
+    address target,
+    uint32 gasLimit,
+    address admin,
+    bytes calldata checkData,
+    bytes calldata offchainConfig
+  ) external returns (uint256 id) {
+    return registerUpkeep(target, gasLimit, admin, Trigger.CONDITION, checkData, bytes(""), offchainConfig);
+  }
+
+  /**
+   * @notice cancels an upkeep
+   * @param id the upkeepID to cancel
+   * @dev if a user cancels an upkeep, their funds are locked for CANCELLATION_DELAY blocks to
+   * allow any pending performUpkeep txs time to get confirmed
    */
   function cancelUpkeep(uint256 id) external {
     Upkeep memory upkeep = s_upkeep[id];
@@ -135,153 +309,28 @@ contract KeeperRegistryLogicA2_1 is
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @notice adds fund to an upkeep
+   * @param id the upkeepID
+   * @param amount the amount of LINK to fund, in jules (jules = "wei" of LINK)
    */
-  function withdrawFunds(uint256 id, address to) external nonReentrant {
-    if (to == ZERO_ADDRESS) revert InvalidRecipient();
-    Upkeep memory upkeep = s_upkeep[id];
-    if (s_upkeepAdmin[id] != msg.sender) revert OnlyCallableByAdmin();
-    if (upkeep.maxValidBlocknumber > _blockNum()) revert UpkeepNotCanceled();
-
-    uint96 amountToWithdraw = s_upkeep[id].balance;
-    s_expectedLinkBalance = s_expectedLinkBalance - amountToWithdraw;
-    s_upkeep[id].balance = 0;
-    i_link.transfer(to, amountToWithdraw);
-    emit FundsWithdrawn(id, amountToWithdraw, to);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function setUpkeepGasLimit(uint256 id, uint32 gasLimit) external {
-    if (gasLimit < PERFORM_GAS_MIN || gasLimit > s_storage.maxPerformGas) revert GasLimitOutsideRange();
-    _requireAdminAndNotCancelled(id);
-    s_upkeep[id].executeGas = gasLimit;
-
-    emit UpkeepGasLimitSet(id, gasLimit);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function setUpkeepOffchainConfig(uint256 id, bytes calldata config) external {
-    _requireAdminAndNotCancelled(id);
-
-    s_upkeepOffchainConfig[id] = config;
-
-    emit UpkeepOffchainConfigSet(id, config);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function withdrawPayment(address from, address to) external {
-    if (to == ZERO_ADDRESS) revert InvalidRecipient();
-    if (s_transmitterPayees[from] != msg.sender) revert OnlyCallableByPayee();
-
-    uint96 balance = _updateTransmitterBalanceFromPool(from, s_hotVars.totalPremium, uint96(s_transmittersList.length));
-    s_transmitters[from].balance = 0;
-    s_expectedLinkBalance = s_expectedLinkBalance - balance;
-
-    i_link.transfer(to, balance);
-
-    emit PaymentWithdrawn(from, balance, to, msg.sender);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function transferPayeeship(address transmitter, address proposed) external {
-    if (s_transmitterPayees[transmitter] != msg.sender) revert OnlyCallableByPayee();
-    if (proposed == msg.sender) revert ValueNotChanged();
-
-    if (s_proposedPayee[transmitter] != proposed) {
-      s_proposedPayee[transmitter] = proposed;
-      emit PayeeshipTransferRequested(transmitter, msg.sender, proposed);
-    }
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function acceptPayeeship(address transmitter) external {
-    if (s_proposedPayee[transmitter] != msg.sender) revert OnlyCallableByProposedPayee();
-    address past = s_transmitterPayees[transmitter];
-    s_transmitterPayees[transmitter] = msg.sender;
-    s_proposedPayee[transmitter] = ZERO_ADDRESS;
-
-    emit PayeeshipTransferred(transmitter, past, msg.sender);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function transferUpkeepAdmin(uint256 id, address proposed) external {
-    _requireAdminAndNotCancelled(id);
-    if (proposed == msg.sender) revert ValueNotChanged();
-    if (proposed == ZERO_ADDRESS) revert InvalidRecipient();
-
-    if (s_proposedAdmin[id] != proposed) {
-      s_proposedAdmin[id] = proposed;
-      emit UpkeepAdminTransferRequested(id, msg.sender, proposed);
-    }
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function acceptUpkeepAdmin(uint256 id) external {
+  function addFunds(uint256 id, uint96 amount) external {
     Upkeep memory upkeep = s_upkeep[id];
     if (upkeep.maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
-    if (s_proposedAdmin[id] != msg.sender) revert OnlyCallableByProposedAdmin();
-    address past = s_upkeepAdmin[id];
-    s_upkeepAdmin[id] = msg.sender;
-    s_proposedAdmin[id] = ZERO_ADDRESS;
-
-    emit UpkeepAdminTransferred(id, past, msg.sender);
+    s_upkeep[id].balance = upkeep.balance + amount;
+    s_expectedLinkBalance = s_expectedLinkBalance + amount;
+    i_link.transferFrom(msg.sender, address(this), amount);
+    emit FundsAdded(id, msg.sender, amount);
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @notice migrates upkeeps from one registry to another
+   * @param ids the upkeepIDs to migrate
+   * @param destination the destination registry address
+   * @dev a transcoder must be set in order to enable migration
+   * @dev migration permissions must be set on *both* sending and receiving registries
+   * @dev only an upkeep admin can migrate their upkeeps
    */
-  function pauseUpkeep(uint256 id) external {
-    _requireAdminAndNotCancelled(id);
-    Upkeep memory upkeep = s_upkeep[id];
-    if (upkeep.paused) revert OnlyUnpausedUpkeep();
-    s_upkeep[id].paused = true;
-    s_upkeepIDs.remove(id);
-    emit UpkeepPaused(id);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function unpauseUpkeep(uint256 id) external {
-    _requireAdminAndNotCancelled(id);
-    Upkeep memory upkeep = s_upkeep[id];
-    if (!upkeep.paused) revert OnlyPausedUpkeep();
-    s_upkeep[id].paused = false;
-    s_upkeepIDs.add(id);
-    emit UpkeepUnpaused(id);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function updateCheckData(uint256 id, bytes calldata newCheckData) external {
-    _requireAdminAndNotCancelled(id);
-    if (newCheckData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
-    s_checkData[id] = newCheckData;
-    emit UpkeepCheckDataUpdated(id, newCheckData);
-  }
-
-  /**
-   * @dev Called through KeeperRegistry main contract
-   */
-  function migrateUpkeeps(
-    uint256[] calldata ids,
-    address destination
-  ) external override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2) {
+  function migrateUpkeeps(uint256[] calldata ids, address destination) external {
     if (
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.OUTGOING &&
       s_peerRegistryMigrationPermission[destination] != MigrationPermission.BIDIRECTIONAL
@@ -291,28 +340,41 @@ contract KeeperRegistryLogicA2_1 is
     uint256 id;
     Upkeep memory upkeep;
     uint256 totalBalanceRemaining;
-    bytes[] memory checkDatas = new bytes[](ids.length);
     address[] memory admins = new address[](ids.length);
     Upkeep[] memory upkeeps = new Upkeep[](ids.length);
+    bytes[] memory checkDatas = new bytes[](ids.length);
+    bytes[] memory triggerConfigs = new bytes[](ids.length);
     bytes[] memory offchainConfigs = new bytes[](ids.length);
     for (uint256 idx = 0; idx < ids.length; idx++) {
       id = ids[idx];
       upkeep = s_upkeep[id];
       _requireAdminAndNotCancelled(id);
+      upkeep.forwarder.updateRegistry(destination);
       upkeeps[idx] = upkeep;
-      checkDatas[idx] = s_checkData[id];
       admins[idx] = s_upkeepAdmin[id];
+      checkDatas[idx] = s_checkData[id];
+      triggerConfigs[idx] = s_upkeepTriggerConfig[id];
       offchainConfigs[idx] = s_upkeepOffchainConfig[id];
       totalBalanceRemaining = totalBalanceRemaining + upkeep.balance;
       delete s_upkeep[id];
       delete s_checkData[id];
+      delete s_upkeepTriggerConfig[id];
+      delete s_upkeepOffchainConfig[id];
       // nullify existing proposed admin change if an upkeep is being migrated
       delete s_proposedAdmin[id];
       s_upkeepIDs.remove(id);
       emit UpkeepMigrated(id, upkeep.balance, destination);
     }
     s_expectedLinkBalance = s_expectedLinkBalance - totalBalanceRemaining;
-    bytes memory encodedUpkeeps = abi.encode(ids, upkeeps, checkDatas, admins, offchainConfigs);
+    bytes memory encodedUpkeeps = abi.encode(
+      ids,
+      upkeeps,
+      new address[](ids.length),
+      admins,
+      checkDatas,
+      triggerConfigs,
+      offchainConfigs
+    );
     MigratableKeeperRegistryInterfaceV2(destination).receiveUpkeeps(
       UpkeepTranscoderInterfaceV2(s_storage.transcoder).transcodeUpkeeps(
         UPKEEP_VERSION_BASE,
@@ -324,11 +386,11 @@ contract KeeperRegistryLogicA2_1 is
   }
 
   /**
-   * @dev Called through KeeperRegistry main contract
+   * @notice received upkeeps migrated from another registry
+   * @param encodedUpkeeps the raw upkeep data to import
+   * @dev this function is never called direcly, it is only called by another registry's migrate function
    */
-  function receiveUpkeeps(
-    bytes calldata encodedUpkeeps
-  ) external override(MigratableKeeperRegistryInterface, MigratableKeeperRegistryInterfaceV2) {
+  function receiveUpkeeps(bytes calldata encodedUpkeeps) external {
     if (
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.INCOMING &&
       s_peerRegistryMigrationPermission[msg.sender] != MigrationPermission.BIDIRECTIONAL
@@ -336,35 +398,38 @@ contract KeeperRegistryLogicA2_1 is
     (
       uint256[] memory ids,
       Upkeep[] memory upkeeps,
-      bytes[] memory checkDatas,
+      address[] memory targets,
       address[] memory upkeepAdmins,
+      bytes[] memory checkDatas,
+      bytes[] memory triggerConfigs,
       bytes[] memory offchainConfigs
-    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], bytes[], address[], bytes[]));
-    // TODO - we should be creating the forwarder in the transcoder, not here
+    ) = abi.decode(encodedUpkeeps, (uint256[], Upkeep[], address[], address[], bytes[], bytes[], bytes[]));
     for (uint256 idx = 0; idx < ids.length; idx++) {
-      if (address(upkeeps[idx].forwarder) == address(0)) {
-        upkeeps[idx].forwarder = new AutomationForwarder(ids[idx], upkeeps[idx].target);
+      if (address(upkeeps[idx].forwarder) == ZERO_ADDRESS) {
+        upkeeps[idx].forwarder = IAutomationForwarder(
+          address(new AutomationForwarder(targets[idx], address(this), i_automationForwarderLogic))
+        );
       }
       _createUpkeep(
         ids[idx],
-        upkeeps[idx].target,
-        upkeeps[idx].executeGas,
+        upkeeps[idx],
         upkeepAdmins[idx],
-        upkeeps[idx].balance,
         checkDatas[idx],
-        upkeeps[idx].paused,
-        offchainConfigs[idx],
-        upkeeps[idx].forwarder
+        triggerConfigs[idx],
+        offchainConfigs[idx]
       );
       emit UpkeepReceived(ids[idx], upkeeps[idx].balance, msg.sender);
     }
   }
 
   /**
-   * @dev ensures the upkeep is not cancelled and the caller is the upkeep admin
+   * @notice sets the upkeep trigger config
+   * @param id the upkeepID to change the trigger for
+   * @param triggerConfig the new triggerconfig
    */
-  function _requireAdminAndNotCancelled(uint256 upkeepId) internal view {
-    if (msg.sender != s_upkeepAdmin[upkeepId]) revert OnlyCallableByAdmin();
-    if (s_upkeep[upkeepId].maxValidBlocknumber != UINT32_MAX) revert UpkeepCancelled();
+  function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
+    _requireAdminAndNotCancelled(id);
+    s_upkeepTriggerConfig[id] = triggerConfig;
+    emit UpkeepTriggerConfigSet(id, triggerConfig);
   }
 }

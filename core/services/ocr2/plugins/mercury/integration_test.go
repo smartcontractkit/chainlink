@@ -25,15 +25,18 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
-	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/smartcontractkit/wsrpc/peer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
@@ -132,18 +135,36 @@ func TestIntegration_Mercury(t *testing.T) {
 	require.NoError(t, err)
 	backend.Commit()
 
+	var logObservers []*observer.ObservedLogs
+	t.Cleanup(func() {
+		var panicLines []string
+		for _, observedLogs := range logObservers {
+			panicLogs := observedLogs.Filter(func(e observer.LoggedEntry) bool {
+				return e.Level >= zapcore.DPanicLevel
+			})
+			for _, log := range panicLogs.All() {
+				line := fmt.Sprintf("%v\t%s\t%s\t%s\t%s", log.Time.Format(time.RFC3339), log.Level.CapitalString(), log.LoggerName, log.Caller.TrimmedPath(), log.Message)
+				panicLines = append(panicLines, line)
+			}
+		}
+		if len(panicLines) > 0 {
+			t.Errorf("Found logs with DPANIC or higher level:\n%s", strings.Join(panicLines, "\n"))
+		}
+	})
+
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(19700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+	logObservers = append(logObservers, observedLogs)
+
+	// Set up n oracles
 	var (
 		oracles []confighelper.OracleIdentityExtra
 		nodes   []Node
 	)
-	// Set up n oracles
-
 	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		}, backend, clientCSAKeys[i])
@@ -161,6 +182,7 @@ func TestIntegration_Mercury(t *testing.T) {
 			},
 			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
 		})
+		logObservers = append(logObservers, observedLogs)
 	}
 
 	for _, feed := range feeds {
@@ -231,22 +253,19 @@ func TestIntegration_Mercury(t *testing.T) {
 	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(c)
 	require.NoError(t, err)
 
-	require.NoError(t, err)
-	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTestsMercuryV02(
 		2*time.Second,        // DeltaProgress
 		20*time.Second,       // DeltaResend
+		400*time.Millisecond, // DeltaInitial
 		100*time.Millisecond, // DeltaRound
 		0,                    // DeltaGrace
+		300*time.Millisecond, // DeltaCertifiedCommitRequest
 		1*time.Minute,        // DeltaStage
 		100,                  // rMax
 		[]int{len(nodes)},    // S
 		oracles,
 		[]byte{},             // reportingPluginConfig []byte,
-		0,                    // Max duration query
 		250*time.Millisecond, // Max duration observation
-		250*time.Millisecond, // MaxDurationReport
-		250*time.Millisecond, // MaxDurationShouldAcceptFinalizedReport
-		250*time.Millisecond, // MaxDurationShouldTransmitAcceptedReport
 		int(f),               // f
 		onchainConfig,
 	)
@@ -281,6 +300,7 @@ func TestIntegration_Mercury(t *testing.T) {
 			onchainConfig,
 			offchainConfigVersion,
 			offchainConfig,
+			nil,
 		)
 		require.NoError(t, err)
 		backend.Commit()
@@ -289,127 +309,135 @@ func TestIntegration_Mercury(t *testing.T) {
 	// Bury it with finality depth
 	ch, err := bootstrapNode.App.GetChains().EVM.Get(testutils.SimulatedChainID)
 	require.NoError(t, err)
-	finalityDepth := ch.Config().EvmFinalityDepth()
+	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
 		backend.Commit()
 	}
 
-	// Expect at least one report per feed from each oracle
-	seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
-	for i := range feeds {
-		// feedID will be deleted when all n oracles have reported
-		seen[feeds[i].id] = make(map[credentials.StaticSizedPublicKey]struct{}, n)
-	}
-
-	for req := range reqs {
-		v := make(map[string]interface{})
-		err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
-		require.NoError(t, err)
-		report, exists := v["report"]
-		if !exists {
-			t.Fatalf("expected payload %#v to contain 'report'", v)
-		}
-		reportElems := make(map[string]interface{})
-		err = reportcodec.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
-		require.NoError(t, err)
-
-		feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
-		feed, exists := feedM[feedID]
-		require.True(t, exists)
-
-		if _, exists := seen[feedID]; !exists {
-			continue // already saw all oracles for this feed
+	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
+		// Expect at least one report per feed from each oracle
+		seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+		for i := range feeds {
+			// feedID will be deleted when all n oracles have reported
+			seen[feeds[i].id] = make(map[credentials.StaticSizedPublicKey]struct{}, n)
 		}
 
-		num, err := (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(ocr2types.Report(report.([]byte)))
-		require.NoError(t, err)
-		currentBlock, err := backend.BlockByNumber(testutils.Context(t), nil)
-		require.NoError(t, err)
+		for req := range reqs {
+			v := make(map[string]interface{})
+			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+			require.NoError(t, err)
+			report, exists := v["report"]
+			if !exists {
+				t.Fatalf("expected payload %#v to contain 'report'", v)
+			}
+			reportElems := make(map[string]interface{})
+			err = reportcodec.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
+			require.NoError(t, err)
 
-		assert.GreaterOrEqual(t, currentBlock.Number().Int64(), num)
+			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feed, exists := feedM[feedID]
+			require.True(t, exists)
 
-		expectedBm := feed.baseBenchmarkPrice
-		expectedBid := feed.baseBid
-		expectedAsk := feed.baseAsk
+			if _, exists := seen[feedID]; !exists {
+				continue // already saw all oracles for this feed
+			}
 
-		assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
-		assert.InDelta(t, expectedBm.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)
-		assert.InDelta(t, expectedBid.Int64(), reportElems["bid"].(*big.Int).Int64(), 5000000)
-		assert.InDelta(t, expectedAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
-		assert.GreaterOrEqual(t, int(currentBlock.Number().Int64()), int(reportElems["currentBlockNum"].(uint64)))
-		assert.NotEqual(t, common.Hash{}, common.Hash(reportElems["currentBlockHash"].([32]uint8)))
-		assert.GreaterOrEqual(t, currentBlock.Time(), reportElems["currentBlockTimestamp"].(uint64))
-		assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
+			num, err := (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(ocr2types.Report(report.([]byte)))
+			require.NoError(t, err)
+			currentBlock, err := backend.BlockByNumber(testutils.Context(t), nil)
+			require.NoError(t, err)
 
-		t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
+			assert.GreaterOrEqual(t, currentBlock.Number().Int64(), num)
 
-		seen[feedID][req.pk] = struct{}{}
-		if len(seen[feedID]) == n {
-			t.Logf("all oracles reported for feed %x (0x%x)", feed.name, feed.id)
-			delete(seen, feedID)
-			if len(seen) == 0 {
-				break // saw all oracles; success!
+			expectedBm := feed.baseBenchmarkPrice
+			expectedBid := feed.baseBid
+			expectedAsk := feed.baseAsk
+
+			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
+			assert.InDelta(t, expectedBm.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)
+			assert.InDelta(t, expectedBid.Int64(), reportElems["bid"].(*big.Int).Int64(), 5000000)
+			assert.InDelta(t, expectedAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
+			assert.GreaterOrEqual(t, int(currentBlock.Number().Int64()), int(reportElems["currentBlockNum"].(uint64)))
+			assert.GreaterOrEqual(t, currentBlock.Time(), reportElems["currentBlockTimestamp"].(uint64))
+			assert.NotEqual(t, common.Hash{}, common.Hash(reportElems["currentBlockHash"].([32]uint8)))
+			assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
+			assert.Less(t, int64(0), int64(reportElems["validFromBlockNum"].(uint64)))
+
+			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
+
+			seen[feedID][req.pk] = struct{}{}
+			if len(seen[feedID]) == n {
+				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
+				delete(seen, feedID)
+				if len(seen) == 0 {
+					break // saw all oracles; success!
+				}
 			}
 		}
-	}
+	})
 
-	pError.Store(20) // 20% chance of EA error
-	for i := range feeds {
-		// feedID will be deleted when all n oracles have reported
-		seen[feeds[i].id] = make(map[credentials.StaticSizedPublicKey]struct{}, n)
-	}
+	t.Run("receives at least one report per feed from each oracle when EAs are at 80% reliability", func(t *testing.T) {
+		pError.Store(20) // 20% chance of EA error
 
-	for req := range reqs {
-		v := make(map[string]interface{})
-		err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
-		require.NoError(t, err)
-		report, exists := v["report"]
-		if !exists {
-			t.Fatalf("expected payload %#v to contain 'report'", v)
-		}
-		reportElems := make(map[string]interface{})
-		err = reportcodec.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
-		require.NoError(t, err)
-
-		feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
-		feed, exists := feedM[feedID]
-		require.True(t, exists)
-
-		if _, exists := seen[feedID]; !exists {
-			continue // already saw all oracles for this feed
+		// Expect at least one report per feed from each oracle
+		seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+		for i := range feeds {
+			// feedID will be deleted when all n oracles have reported
+			seen[feeds[i].id] = make(map[credentials.StaticSizedPublicKey]struct{}, n)
 		}
 
-		num, err := (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(ocr2types.Report(report.([]byte)))
-		require.NoError(t, err)
-		currentBlock, err := backend.BlockByNumber(testutils.Context(t), nil)
-		require.NoError(t, err)
+		for req := range reqs {
+			v := make(map[string]interface{})
+			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+			require.NoError(t, err)
+			report, exists := v["report"]
+			if !exists {
+				t.Fatalf("expected payload %#v to contain 'report'", v)
+			}
+			reportElems := make(map[string]interface{})
+			err = reportcodec.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
+			require.NoError(t, err)
 
-		assert.GreaterOrEqual(t, currentBlock.Number().Int64(), num)
+			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feed, exists := feedM[feedID]
+			require.True(t, exists)
 
-		expectedBm := feed.baseBenchmarkPrice
-		expectedBid := feed.baseBid
-		expectedAsk := feed.baseAsk
+			if _, exists := seen[feedID]; !exists {
+				continue // already saw all oracles for this feed
+			}
 
-		assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
-		assert.InDelta(t, expectedBm.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)
-		assert.InDelta(t, expectedBid.Int64(), reportElems["bid"].(*big.Int).Int64(), 5000000)
-		assert.InDelta(t, expectedAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
-		assert.GreaterOrEqual(t, int(currentBlock.Number().Int64()), int(reportElems["currentBlockNum"].(uint64)))
-		assert.NotEqual(t, common.Hash{}, common.Hash(reportElems["currentBlockHash"].([32]uint8)))
-		assert.GreaterOrEqual(t, currentBlock.Time(), reportElems["currentBlockTimestamp"].(uint64))
-		assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
+			num, err := (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(ocr2types.Report(report.([]byte)))
+			require.NoError(t, err)
+			currentBlock, err := backend.BlockByNumber(testutils.Context(t), nil)
+			require.NoError(t, err)
 
-		t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
+			assert.GreaterOrEqual(t, currentBlock.Number().Int64(), num)
 
-		seen[feedID][req.pk] = struct{}{}
-		if len(seen[feedID]) == n {
-			t.Logf("all oracles reported for feed %x (0x%x)", feed.name, feed.id)
-			delete(seen, feedID)
-			if len(seen) == 0 {
-				break // saw all oracles; success!
+			expectedBm := feed.baseBenchmarkPrice
+			expectedBid := feed.baseBid
+			expectedAsk := feed.baseAsk
+
+			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
+			assert.InDelta(t, expectedBm.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)
+			assert.InDelta(t, expectedBid.Int64(), reportElems["bid"].(*big.Int).Int64(), 5000000)
+			assert.InDelta(t, expectedAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
+			assert.GreaterOrEqual(t, int(currentBlock.Number().Int64()), int(reportElems["currentBlockNum"].(uint64)))
+			assert.GreaterOrEqual(t, currentBlock.Time(), reportElems["currentBlockTimestamp"].(uint64))
+			assert.NotEqual(t, common.Hash{}, common.Hash(reportElems["currentBlockHash"].([32]uint8)))
+			assert.LessOrEqual(t, int(reportElems["validFromBlockNum"].(uint64)), int(reportElems["currentBlockNum"].(uint64)))
+
+			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
+
+			seen[feedID][req.pk] = struct{}{}
+			if len(seen[feedID]) == n {
+				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
+				delete(seen, feedID)
+				if len(seen) == 0 {
+					break // saw all oracles; success!
+				}
 			}
 		}
-	}
+	})
 }
 
 var _ pb.MercuryServer = &mercuryServer{}
@@ -479,7 +507,8 @@ type Node struct {
 }
 
 func (node *Node) AddJob(t *testing.T, spec string) {
-	job, err := validate.ValidatedOracleSpecToml(node.App.GetConfig(), spec)
+	c := node.App.GetConfig()
+	job, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
 	require.NoError(t, err)
 	err = node.App.AddJobV2(context.Background(), &job)
 	require.NoError(t, err)
@@ -499,7 +528,7 @@ func setupNode(
 	p2pV2Bootstrappers []commontypes.BootstrapperLocator,
 	backend *backends.SimulatedBackend,
 	csaKey csakey.KeyV2,
-) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle) {
+) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(port) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
 	rdr := keystest.NewRandReaderFromSeed(port)
@@ -541,7 +570,7 @@ func setupNode(
 		// [P2P.V2]
 		// Enabled = true
 		// AnnounceAddresses = ['$EXT_IP:17775']
-		// ListenAddresses = ['0.0.0.0:17775']
+		// ListenAddresses = ['127.0.0.1:17775']
 		// DeltaDial = 500ms
 		// DeltaReconcile = 5s
 		c.P2P.V2.Enabled = ptr(true)
@@ -551,7 +580,8 @@ func setupNode(
 		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
 	})
 
-	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, logger.TestLogger(t).Named(dbName))
+	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
 	err := app.Start(testutils.Context(t))
 	require.NoError(t, err)
 
@@ -559,7 +589,7 @@ func setupNode(
 		assert.NoError(t, app.Stop())
 	})
 
-	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb
+	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb, observedLogs
 }
 
 func ptr[T any](t T) *T { return &t }

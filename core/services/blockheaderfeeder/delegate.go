@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	v2plus "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -58,14 +59,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			"getting chain ID %d: %w", jb.BlockHeaderFeederSpec.EVMChainID.ToInt(), err)
 	}
 
-	if !chain.Config().FeatureLogPoller() {
+	if !chain.Config().Feature().LogPoller() {
 		return nil, errors.New("log poller must be enabled to run blockheaderfeeder")
 	}
 
-	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(chain.Config().EvmFinalityDepth()) {
+	if jb.BlockHeaderFeederSpec.LookbackBlocks < int32(chain.Config().EVM().FinalityDepth()) {
 		return nil, fmt.Errorf(
 			"lookbackBlocks must be greater than or equal to chain's finality depth (%d), currently %d",
-			chain.Config().EvmFinalityDepth(), jb.BlockHeaderFeederSpec.LookbackBlocks)
+			chain.Config().EVM().FinalityDepth(), jb.BlockHeaderFeederSpec.LookbackBlocks)
 	}
 
 	keys, err := d.ks.EnabledKeysForChain(chain.ID())
@@ -122,14 +123,28 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 		coordinators = append(coordinators, coord)
 	}
+	if jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress != nil {
+		var c *v2plus.VRFCoordinatorV2Plus
+		if c, err = v2plus.NewVRFCoordinatorV2Plus(
+			jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress.Address(), chain.Client()); err != nil {
 
-	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
+			return nil, errors.Wrap(err, "building V2 plus coordinator")
+		}
+		var coord *blockhashstore.V2PlusCoordinator
+		coord, err = blockhashstore.NewV2PlusCoordinator(c, lp)
+		if err != nil {
+			return nil, errors.Wrap(err, "building V2 plus coordinator")
+		}
+		coordinators = append(coordinators, coord)
+	}
+
+	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config().EVM().GasEstimator(), chain.Config().Database(), fromAddresses, chain.TxManager(), bhs, nil, chain.ID(), d.ks)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
 
 	batchBHS, err := blockhashstore.NewBatchBHS(
-		chain.Config(),
+		chain.Config().EVM().GasEstimator(),
 		fromAddresses,
 		chain.TxManager(),
 		batchBlockhashStore,
@@ -247,7 +262,7 @@ func (s *service) runFeeder() {
 		s.logger.Debugw("BlockHeaderFeeder run completed successfully")
 	} else {
 		s.logger.Errorw("BlockHeaderFeeder run was at least partially unsuccessful",
-			"error", err)
+			"err", err)
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 )
 
 type httpClientConfig interface {
-	DatabaseURL() url.URL
+	URL() url.URL // DatabaseURL
 }
 
 // NewRestrictedHTTPClient returns a secure HTTP Client (queries to certain
@@ -58,23 +58,23 @@ func (h *HTTPRequest) SendRequest() (responseBody []byte, statusCode int, header
 
 	r, err := h.Client.Do(h.Request)
 	if err != nil {
-		h.Logger.Warnw("http adapter got error", "error", err)
+		h.Logger.Tracew("http adapter got error", "err", err)
 		return nil, 0, nil, err
 	}
 	defer logger.Sugared(h.Logger).ErrorIfFn(r.Body.Close, "Error closing SendRequest response body")
 
 	statusCode = r.StatusCode
 	elapsed := time.Since(start)
-	h.Logger.Debugw(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+	h.Logger.Tracew(fmt.Sprintf("http adapter got %v in %s", statusCode, elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
 
 	source := http.MaxBytesReader(nil, r.Body, h.Config.SizeLimit)
 	bytes, err := io.ReadAll(source)
 	if err != nil {
-		h.Logger.Errorw("http adapter error reading body", "error", err)
+		h.Logger.Errorw("http adapter error reading body", "err", err)
 		return nil, statusCode, nil, err
 	}
 	elapsed = time.Since(start)
-	h.Logger.Debugw(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
+	h.Logger.Tracew(fmt.Sprintf("http adapter finished after %s", elapsed), "statusCode", statusCode, "timeElapsedSeconds", elapsed)
 
 	responseBody = bytes
 

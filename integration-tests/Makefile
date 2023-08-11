@@ -43,6 +43,7 @@ endif
 	asdf plugin-add golang || true
 	asdf plugin-add k3d || true
 	asdf plugin-add helm || true
+	asdf plugin-add kubectl || true
 	asdf install
 endif
 # Now install the helm charts that are needed (should be os agnostic)
@@ -63,6 +64,16 @@ install_gotestfmt:
 .PHONY: build_test_image
 build_test_image:
 	./scripts/buildTestImage $(tag) $(base_tag) "$(suite)" $(push)
+
+#Build a chainlink docker image for local testing and push to k3d registry
+.PHONY: build_push_docker_image
+build_push_docker_image:
+	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../ ; docker push localhost:5000/chainlink:develop
+
+## Test Runner
+.PHONY: run
+run: # Need to set network first in case it's unset. Doesn't matter for the runner
+	SELECTED_NETWORKS="SIMULATED" go run .
 
 ## All commands will use 16 threads to run tests in parallel. To change this, use -test.parallel n
 

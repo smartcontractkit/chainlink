@@ -165,7 +165,7 @@ func (js *spawner) stopService(jobID int32) {
 		service := aj.services[i]
 		err := service.Close()
 		if err != nil {
-			js.lggr.Criticalw("Error stopping job service", "jobID", jobID, "error", err, "subservice", i, "serviceType", reflect.TypeOf(service))
+			js.lggr.Criticalw("Error stopping job service", "jobID", jobID, "err", err, "subservice", i, "serviceType", reflect.TypeOf(service))
 			js.SvcErrBuffer.Append(pkgerrors.Wrap(err, "error stopping job service"))
 		} else {
 			js.lggr.Debugw("Stopped job service", "jobID", jobID, "subservice", i, "serviceType", fmt.Sprintf("%T", service))
@@ -201,7 +201,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 
 	srvs, err := delegate.ServicesForSpec(jb)
 	if err != nil {
-		js.lggr.Errorw("Error creating services for job", "jobID", jb.ID, "error", err)
+		js.lggr.Errorw("Error creating services for job", "jobID", jb.ID, "err", err)
 		cctx, cancel := js.chStop.NewCtx()
 		defer cancel()
 		js.orm.TryRecordError(jb.ID, err.Error(), pg.WithParentCtx(cctx))
@@ -215,7 +215,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 	for _, srv := range srvs {
 		err = ms.Start(ctx, srv)
 		if err != nil {
-			js.lggr.Critical("Error starting service for job", "jobID", jb.ID, "error", err)
+			js.lggr.Critical("Error starting service for job", "jobID", jb.ID, "err", err)
 			return err
 		}
 		aj.services = append(aj.services, srv)
@@ -244,7 +244,7 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 
 	err = js.orm.CreateJob(jb, pg.WithQueryer(q.Queryer), pg.WithParentCtx(ctx))
 	if err != nil {
-		js.lggr.Errorw("Error creating job", "type", jb.Type, "error", err)
+		js.lggr.Errorw("Error creating job", "type", jb.Type, "err", err)
 		return
 	}
 	js.lggr.Infow("Created job", "type", jb.Type, "jobID", jb.ID)
@@ -252,7 +252,7 @@ func (js *spawner) CreateJob(jb *Job, qopts ...pg.QOpt) (err error) {
 	delegate.BeforeJobCreated(*jb)
 	err = js.StartService(pctx, *jb)
 	if err != nil {
-		js.lggr.Errorw("Error starting job services", "type", jb.Type, "jobID", jb.ID, "error", err)
+		js.lggr.Errorw("Error starting job services", "type", jb.Type, "jobID", jb.ID, "err", err)
 	} else {
 		js.lggr.Infow("Started job services", "type", jb.Type, "jobID", jb.ID)
 	}
@@ -310,7 +310,7 @@ func (js *spawner) DeleteJob(jobID int32, qopts ...pg.QOpt) error {
 	err := q.Transaction(func(tx pg.Queryer) error {
 		err := js.orm.DeleteJob(jobID, pg.WithQueryer(tx))
 		if err != nil {
-			js.lggr.Errorw("Error deleting job", "jobID", jobID, "error", err)
+			js.lggr.Errorw("Error deleting job", "jobID", jobID, "err", err)
 			return err
 		}
 		// This comes after calling orm.DeleteJob(), so that any non-db side effects inside it only get executed if

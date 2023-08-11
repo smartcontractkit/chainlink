@@ -47,7 +47,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 		require.Equal(t, `{"result":"12345"}`, string(bs))
 	})
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
 
 	// Add the job
 	var uuid uuid.UUID
@@ -99,7 +99,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	// Setup the bridges
 	mockServer := cltest.NewHTTPMockServer(t, 200, "POST", `{"data":{"result":"123.45"}}`)
 
-	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig())
+	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
 
 	mockServer = cltest.NewHTTPMockServerWithRequest(t, 200, `{}`, func(r *http.Request) {
 		defer r.Body.Close()
@@ -108,7 +108,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		require.Equal(t, `{"result":"12345"}`, string(bs))
 	})
 
-	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig())
+	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
 
 	// Add the job
 	var uuid uuid.UUID

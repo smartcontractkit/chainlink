@@ -36,7 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -216,7 +216,7 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 			return nil, err
 		}
 
-		params.OCR2Config = feeds.OCR2Config{
+		params.OCR2Config = feeds.OCR2ConfigModel{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
@@ -343,7 +343,7 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 			return nil, err
 		}
 
-		params.OCR2Config = feeds.OCR2Config{
+		params.OCR2Config = feeds.OCR2ConfigModel{
 			Enabled:     args.Input.OCR2Enabled,
 			IsBootstrap: *args.Input.OCR2IsBootstrap,
 			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
@@ -1012,24 +1012,24 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	switch jbt {
 	case job.OffchainReporting:
 		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
-		if !config.FeatureOffchainReporting() {
+		if !config.OCR().Enabled() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
 	case job.OffchainReporting2:
-		jb, err = validate.ValidatedOracleSpecToml(r.App.GetConfig(), args.Input.TOML)
-		if !config.FeatureOffchainReporting2() {
+		jb, err = validate.ValidatedOracleSpecToml(r.App.GetConfig().OCR2(), r.App.GetConfig().Insecure(), args.Input.TOML)
+		if !config.OCR2().Enabled() {
 			return nil, errors.New("The Offchain Reporting 2 feature is disabled by configuration")
 		}
 	case job.DirectRequest:
 		jb, err = directrequest.ValidatedDirectRequestSpec(args.Input.TOML)
 	case job.FluxMonitor:
-		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config, args.Input.TOML)
+		jb, err = fluxmonitorv2.ValidatedFluxMonitorSpec(config.JobPipeline(), args.Input.TOML)
 	case job.Keeper:
 		jb, err = keeper.ValidatedKeeperSpec(args.Input.TOML)
 	case job.Cron:
 		jb, err = cron.ValidatedCronSpec(args.Input.TOML)
 	case job.VRF:
-		jb, err = vrf.ValidatedVRFSpec(args.Input.TOML)
+		jb, err = vrfcommon.ValidatedVRFSpec(args.Input.TOML)
 	case job.Webhook:
 		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:

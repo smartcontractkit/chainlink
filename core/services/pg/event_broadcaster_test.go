@@ -18,7 +18,7 @@ import (
 func TestEventBroadcaster(t *testing.T) {
 	config, _ := heavyweight.FullTestDBNoFixturesV2(t, "event_broadcaster", nil)
 
-	eventBroadcaster := cltest.NewEventBroadcaster(t, config.DatabaseURL())
+	eventBroadcaster := cltest.NewEventBroadcaster(t, config.Database().URL())
 	require.NoError(t, eventBroadcaster.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, eventBroadcaster.Close()) })
 
@@ -218,5 +218,23 @@ func TestEventBroadcaster(t *testing.T) {
 		}()
 
 		wg.Wait()
+	})
+
+	t.Run("closes events channel on subscription close", func(t *testing.T) {
+		sub, err := eventBroadcaster.Subscribe("foo", "")
+		require.NoError(t, err)
+
+		chEvents := sub.Events()
+
+		sub.Close()
+
+		select {
+		case _, ok := <-chEvents:
+			if ok {
+				t.Fatal("expected chEvents to be closed")
+			}
+		default:
+			t.Fatal("expected chEvents to not block")
+		}
 	})
 }

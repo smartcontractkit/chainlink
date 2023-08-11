@@ -7,6 +7,7 @@ import 'hardhat-abi-exporter'
 import 'hardhat-contract-sizer'
 import 'hardhat-gas-reporter'
 import 'solidity-coverage'
+import 'hardhat-ignore-warnings'
 import { subtask } from 'hardhat/config'
 import { TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS } from 'hardhat/builtin-tasks/task-names'
 
@@ -31,7 +32,7 @@ subtask(TASK_COMPILE_SOLIDITY_GET_SOURCE_PATHS).setAction(
 /**
  * @type import('hardhat/config').HardhatUserConfig
  */
-export default {
+let config = {
   abiExporter: {
     path: './abi',
   },
@@ -46,7 +47,14 @@ export default {
     target: 'ethers-v5',
   },
   networks: {
-    hardhat: {},
+    env: {
+      url: process.env.NODE_HTTP_URL || '',
+    },
+    hardhat: {
+      allowUnlimitedContractSize: Boolean(
+        process.env.ALLOW_UNLIMITED_CONTRACT_SIZE,
+      ),
+    },
   },
   solidity: {
     compilers: [
@@ -78,6 +86,10 @@ export default {
         version: '0.8.16',
         settings: COMPILER_SETTINGS,
       },
+      {
+        version: '0.8.19',
+        settings: COMPILER_SETTINGS,
+      },
     ],
     overrides: {
       'src/v0.8/vrf/VRFCoordinatorV2.sol': {
@@ -104,6 +116,20 @@ export default {
     forbidOnly: Boolean(process.env.CI),
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS ? true : false,
+    enabled: Boolean(process.env.REPORT_GAS),
   },
+  warnings: !process.env.HIDE_WARNINGS,
 }
+
+if (process.env.NETWORK_NAME && process.env.EXPLORER_API_KEY) {
+  config = {
+    ...config,
+    etherscan: {
+      apiKey: {
+        [process.env.NETWORK_NAME]: process.env.EXPLORER_API_KEY,
+      },
+    },
+  }
+}
+
+export default config

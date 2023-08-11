@@ -1,21 +1,25 @@
 package functions_test
 
 import (
+	"encoding/hex"
 	"encoding/json"
-	"errors"
+	"fmt"
+	"math/big"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	cl_cbor "github.com/smartcontractkit/chainlink/v2/core/cbor"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/ocr2dr_oracle"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -26,11 +30,13 @@ import (
 	functions_service "github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	functions_mocks "github.com/smartcontractkit/chainlink/v2/core/services/functions/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	job_mocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	threshold_mocks "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	pipeline_mocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	evmrelay_mocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types/mocks"
+	s4_mocks "github.com/smartcontractkit/chainlink/v2/core/services/s4/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	sync_mocks "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
@@ -40,39 +46,66 @@ import (
 )
 
 type FunctionsListenerUniverse struct {
-	runner         *pipeline_mocks.Runner
-	service        *functions_service.FunctionsListener
-	jobORM         *job_mocks.ORM
-	pluginORM      *functions_mocks.ORM
-	logBroadcaster *log_mocks.Broadcaster
-	ingressClient  *sync_mocks.TelemetryIngressClient
+	service          *functions_service.FunctionsListener
+	bridgeAccessor   *functions_mocks.BridgeAccessor
+	eaClient         *functions_mocks.ExternalAdapterClient
+	pluginORM        *functions_mocks.ORM
+	logBroadcaster   *log_mocks.Broadcaster
+	ingressClient    *sync_mocks.TelemetryIngressClient
+	decryptor        *threshold_mocks.Decryptor
+	logPollerWrapper *evmrelay_mocks.LogPollerWrapper
+	contractVersion  uint32
 }
 
 func ptr[T any](t T) *T { return &t }
 
-func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListenerUniverse {
+var (
+	RequestID            functions_service.RequestID = newRequestID()
+	RequestIDStr                                     = fmt.Sprintf("0x%x", [32]byte(RequestID))
+	SubscriptionOwner    common.Address              = common.BigToAddress(big.NewInt(42069))
+	SubscriptionID                                   = uint64(5)
+	ResultBytes                                      = []byte{0xab, 0xcd}
+	ErrorBytes                                       = []byte{0xff, 0x11}
+	Domains                                          = []string{"github.com", "google.com"}
+	EncryptedSecretsUrls []byte                      = []byte{0x11, 0x22}
+	EncryptedSecrets     []byte                      = []byte(`{"TDH2Ctxt":"eyJHcm","SymCtxt":"+yHR","Nonce":"kgjHyT3Jar0M155E"}`)
+	DecryptedSecrets     []byte                      = []byte(`{"0x0":"lhcK"}`)
+	SignedCBORRequestHex                             = "a666736f75726365782172657475726e2046756e6374696f6e732e656e636f646555696e743235362831296773656372657473421234686c616e6775616765006c636f64654c6f636174696f6e006f736563726574734c6f636174696f6e0170726571756573745369676e617475726558416fb6d10871aa3865b6620dc5f4594d2a9ad9166ba6b1dbc3f508362fd27aa0461babada48979092a11ecadec9c663a2ea99da4e368408b36a3fb414acfefdd2a1c"
+	SubOwnerAddr         common.Address              = common.HexToAddress("0x2334dE553AB93c69b0ccbe278B6f5E8350Db6204")
+	NonSubOwnerAddr      common.Address              = common.HexToAddress("0x60C9CF55b9de9A956d921A97575108149b758131")
+)
+
+func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySec int, setTiers bool, version uint32) *FunctionsListenerUniverse {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)
 	})
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	broadcaster := log_mocks.NewBroadcaster(t)
-	runner := pipeline_mocks.NewRunner(t)
 	broadcaster.On("AddDependents", 1)
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
 	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, KeyStore: kst.Eth(), LogBroadcaster: broadcaster, MailMon: mailMon})
 	chain := cc.Chains()[0]
 	lggr := logger.TestLogger(t)
 
-	jobORM := job_mocks.NewORM(t)
 	pluginORM := functions_mocks.NewORM(t)
 	jsonConfig := job.JSONConfig{
 		"requestTimeoutSec":               timeoutSec,
 		"requestTimeoutCheckFrequencySec": 1,
 		"requestTimeoutBatchLookupSize":   1,
 		"listenerEventHandlerTimeoutSec":  1,
+		"pruneCheckFrequencySec":          pruneFrequencySec,
+		"decryptionQueueConfig": map[string]interface{}{
+			"decryptRequestTimeoutSec": 100,
+		},
+		"contractVersion":                    version,
+		"listenerEventsCheckFrequencyMillis": 100, // only applicable to v1
+	}
+	if setTiers {
+		jsonConfig["maxRequestSizesList"] = []uint32{10, 100, 1_000}
+		jsonConfig["maxSecretsSizesList"] = []uint32{10, 100, 200}
 	}
 	jb := job.Job{
 		Type:          job.OffchainReporting2,
@@ -83,32 +116,40 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int) *FunctionsListen
 			PluginConfig: jsonConfig,
 		},
 	}
+	eaClient := functions_mocks.NewExternalAdapterClient(t)
+	bridgeAccessor := functions_mocks.NewBridgeAccessor(t)
+	decryptor := threshold_mocks.NewDecryptor(t)
 
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	require.NoError(t, err)
 
-	oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(common.HexToAddress("0xa"), chain.Client())
-	require.NoError(t, err)
+	contractAddress := "0xa"
 
 	ingressClient := sync_mocks.NewTelemetryIngressClient(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.FunctionsRequests)
+	monEndpoint := ingressAgent.GenMonitoringEndpoint(contractAddress, synchronization.FunctionsRequests)
 
-	functionsListener := functions_service.NewFunctionsListener(oracleContract, jb, runner, jobORM, pluginORM, pluginConfig, broadcaster, lggr, mailMon, monEndpoint)
+	s4Storage := s4_mocks.NewStorage(t)
+	client := chain.Client()
+	logPollerWrapper := evmrelay_mocks.NewLogPollerWrapper(t)
+	functionsListener := functions_service.NewFunctionsListener(jb, client, contractAddress, bridgeAccessor, pluginORM, pluginConfig, s4Storage, broadcaster, lggr, mailMon, monEndpoint, decryptor, logPollerWrapper)
 
 	return &FunctionsListenerUniverse{
-		runner:         runner,
-		service:        functionsListener,
-		jobORM:         jobORM,
-		pluginORM:      pluginORM,
-		logBroadcaster: broadcaster,
-		ingressClient:  ingressClient,
+		service:          functionsListener,
+		bridgeAccessor:   bridgeAccessor,
+		eaClient:         eaClient,
+		pluginORM:        pluginORM,
+		logBroadcaster:   broadcaster,
+		ingressClient:    ingressClient,
+		decryptor:        decryptor,
+		logPollerWrapper: logPollerWrapper,
+		contractVersion:  pluginConfig.ContractVersion,
 	}
 }
 
-func PrepareAndStartFunctionsListener(t *testing.T, cbor []byte, expectPipelineRun bool) (*FunctionsListenerUniverse, *log_mocks.Broadcast, cltest.Awaiter) {
-	uni := NewFunctionsListenerUniverse(t, 0)
+func PrepareAndStartFunctionsListener(t *testing.T, cbor []byte) (*FunctionsListenerUniverse, *log_mocks.Broadcast, chan struct{}) {
+	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000, false, 0)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 
 	err := uni.service.Start(testutils.Context(t))
@@ -120,66 +161,128 @@ func PrepareAndStartFunctionsListener(t *testing.T, cbor []byte, expectPipelineR
 		RequestId:          RequestID,
 		RequestingContract: common.Address{},
 		RequestInitiator:   common.Address{},
-		SubscriptionId:     0,
-		SubscriptionOwner:  common.Address{},
+		SubscriptionId:     uint64(SubscriptionID),
+		SubscriptionOwner:  SubscriptionOwner,
 		Data:               cbor,
 	}
 	log.On("DecodedLog").Return(&logOracleRequest)
 	log.On("String").Return("")
-
-	if !expectPipelineRun {
-		return uni, log, nil
-	}
-
-	runBeganAwaiter := cltest.NewAwaiter()
-	uni.runner.On("Run", mock.Anything, mock.AnythingOfType("*pipeline.Run"), mock.Anything, mock.Anything, mock.Anything).
-		Return(false, nil).
-		Run(func(args mock.Arguments) {
-			runBeganAwaiter.ItHappened()
-		}).Once()
-
-	return uni, log, runBeganAwaiter
+	return uni, log, make(chan struct{})
 }
-
-var RequestID functions_service.RequestID = newRequestID()
-
-const (
-	CorrectResultData string = "\"0x1234\""
-	CorrectErrorData  string = "\"0x424144\""
-	EmptyData         string = "\"\""
-)
 
 func TestFunctionsListener_HandleOracleRequestSuccess(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, []byte{}, true)
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, []byte{})
 
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(CorrectResultData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseDomainsTaskName, mock.Anything).Return([]byte{}, nil)
-	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
+	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
 
 	uni.service.HandleLog(log)
-
-	runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
+	<-doneCh
 	uni.service.Close()
 }
 
-func TestFunctionsListener_reportSourceCodeDomains(t *testing.T) {
+func TestFunctionsListener_ThresholdDecryptedSecrets(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, []byte{}, true)
+	reqData := &struct {
+		SecretsLocation int    `cbor:"secretsLocation"`
+		Secrets         []byte `cbor:"secrets"`
+	}{
+		SecretsLocation: 1,
+		Secrets:         EncryptedSecretsUrls,
+	}
+	cborBytes, err := cbor.Marshal(reqData)
+	require.NoError(t, err)
+	// Remove first byte (map header) to make it "diet" CBOR
+	cborBytes = cborBytes[1:]
 
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, cborBytes)
+
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(CorrectResultData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(EmptyData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseDomainsTaskName, mock.Anything).Return([]byte(`["github.com","google.com"]`), nil)
-	uni.pluginORM.On("SetResult", RequestID, mock.Anything, []byte{0x12, 0x34}, mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.eaClient.On("FetchEncryptedSecrets", mock.Anything, mock.Anything, RequestIDStr, mock.Anything, mock.Anything).Return(EncryptedSecrets, nil, nil)
+	uni.decryptor.On("Decrypt", mock.Anything, []byte(RequestIDStr), EncryptedSecrets).Return(DecryptedSecrets, nil)
+	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, string(DecryptedSecrets), mock.Anything).Return(ResultBytes, nil, nil, nil)
+	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
+
+	uni.service.HandleLog(log)
+	<-doneCh
+	uni.service.Close()
+}
+
+func TestFunctionsListener_ThresholdDecryptedSecretsFailure(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	reqData := &struct {
+		SecretsLocation int    `cbor:"secretsLocation"`
+		Secrets         []byte `cbor:"secrets"`
+	}{
+		SecretsLocation: 1,
+		Secrets:         EncryptedSecretsUrls,
+	}
+	cborBytes, err := cbor.Marshal(reqData)
+	require.NoError(t, err)
+	// Remove first byte (map header) to make it "diet" CBOR
+	cborBytes = cborBytes[1:]
+
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, cborBytes)
+
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.eaClient.On("FetchEncryptedSecrets", mock.Anything, mock.Anything, RequestIDStr, mock.Anything, mock.Anything).Return(EncryptedSecrets, nil, nil)
+	uni.decryptor.On("Decrypt", mock.Anything, []byte(RequestIDStr), EncryptedSecrets).Return(nil, errors.New("threshold decryption error"))
+	uni.pluginORM.On("SetError", RequestID, functions_service.USER_ERROR, []byte("threshold decryption of secrets failed"), mock.Anything, true, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
+
+	uni.service.HandleLog(log)
+	<-doneCh
+	uni.service.Close()
+}
+
+func TestFunctionsListener_HandleOracleRequestDuplicateMarkLogConsumed(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, []byte{})
+
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(functions_service.ErrDuplicateRequestID)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
+
+	uni.service.HandleLog(log)
+	<-doneCh
+	uni.service.Close()
+}
+
+func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, []byte{})
+
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, Domains, nil)
+	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
 
 	var sentMessage []byte
 	uni.ingressClient.On("Send", mock.Anything).Return().Run(func(args mock.Arguments) {
@@ -187,8 +290,7 @@ func TestFunctionsListener_reportSourceCodeDomains(t *testing.T) {
 	})
 
 	uni.service.HandleLog(log)
-
-	runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
+	<-doneCh
 	uni.service.Close()
 
 	assert.NotEmpty(t, sentMessage)
@@ -196,26 +298,26 @@ func TestFunctionsListener_reportSourceCodeDomains(t *testing.T) {
 	var req telem.FunctionsRequest
 	err := proto.Unmarshal(sentMessage, &req)
 	assert.NoError(t, err)
-	assert.Equal(t, "0x"+RequestID.String(), req.RequestId)
-	assert.EqualValues(t, []string{"github.com", "google.com"}, req.Domains)
+	assert.Equal(t, RequestIDStr, req.RequestId)
+	assert.EqualValues(t, Domains, req.Domains)
 }
 
 func TestFunctionsListener_HandleOracleRequestComputationError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, runBeganAwaiter := PrepareAndStartFunctionsListener(t, []byte{}, true)
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, []byte{})
 
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseResultTaskName, mock.Anything).Return([]byte(EmptyData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseErrorTaskName, mock.Anything).Return([]byte(CorrectErrorData), nil)
-	uni.jobORM.On("FindTaskResultByRunIDAndTaskName", mock.Anything, functions_service.ParseDomainsTaskName, mock.Anything).Return([]byte{}, nil)
-	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("BAD"), mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(nil, ErrorBytes, nil, nil)
+	uni.pluginORM.On("SetError", RequestID, functions_service.USER_ERROR, ErrorBytes, mock.Anything, true, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
 
 	uni.service.HandleLog(log)
-
-	runBeganAwaiter.AwaitOrFail(t, 5*time.Second)
+	<-doneCh
 	uni.service.Close()
 }
 
@@ -223,17 +325,88 @@ func TestFunctionsListener_HandleOracleRequestCBORParsingError(t *testing.T) {
 	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	uni, log, _ := PrepareAndStartFunctionsListener(t, []byte("invalid cbor"), false)
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, []byte("invalid cbor"))
 
-	done := make(chan bool)
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
 	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
-	uni.pluginORM.On("SetError", RequestID, mock.Anything, functions_service.USER_ERROR, []byte("CBOR parsing error"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		done <- true
+	uni.pluginORM.On("SetError", RequestID, functions_service.USER_ERROR, []byte("CBOR parsing error"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		close(doneCh)
 	})
 
 	uni.service.HandleLog(log)
-	<-done
+	<-doneCh
+	uni.service.Close()
+}
+
+func TestFunctionsListener_HandleOracleRequestCBORParsingErrorInvalidFieldType(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	incomingData := &struct {
+		Source       string `cbor:"source"`
+		CodeLocation string `cbor:"codeLocation"` // incorrect type
+	}{
+		Source:       "abcd",
+		CodeLocation: "inline",
+	}
+	cborBytes, err := cbor.Marshal(incomingData)
+	require.NoError(t, err)
+	// Remove first byte (map header) to make it "diet" CBOR
+	cborBytes = cborBytes[1:]
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, cborBytes)
+
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("SetError", RequestID, functions_service.USER_ERROR, []byte("CBOR parsing error"), mock.Anything, mock.Anything, mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		close(doneCh)
+	})
+
+	uni.service.HandleLog(log)
+	<-doneCh
+	uni.service.Close()
+}
+
+func TestFunctionsListener_HandleOracleRequestCBORParsingCorrect(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	incomingData := &struct {
+		Source             string   `cbor:"source"`
+		Language           int      `cbor:"language"`
+		Secrets            []byte   `cbor:"secrets"`
+		Args               []string `cbor:"args"`
+		ExtraUnwantedParam string   `cbor:"extraUnwantedParam"`
+		// missing CodeLocation and SecretsLocation
+	}{
+		Source:             "abcd",
+		Language:           3,
+		Secrets:            []byte{0xaa, 0xbb},
+		Args:               []string{"a", "b"},
+		ExtraUnwantedParam: "spam",
+	}
+	cborBytes, err := cbor.Marshal(incomingData)
+	require.NoError(t, err)
+	// Remove first byte (map header) to make it "diet" CBOR
+	cborBytes = cborBytes[1:]
+
+	uni, log, doneCh := PrepareAndStartFunctionsListener(t, cborBytes)
+
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
+	uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		reqData := args.Get(7).(*functions_service.RequestData)
+		assert.Equal(t, incomingData.Source, reqData.Source)
+		assert.Equal(t, incomingData.Language, reqData.Language)
+		assert.Equal(t, incomingData.Secrets, reqData.Secrets)
+		assert.Equal(t, incomingData.Args, reqData.Args)
+	}).Return(ResultBytes, nil, nil, nil)
+	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
+
+	uni.service.HandleLog(log)
+	<-doneCh
 	uni.service.Close()
 }
 
@@ -242,17 +415,16 @@ func TestFunctionsListener_RequestTimeout(t *testing.T) {
 	t.Parallel()
 
 	reqId := newRequestID()
-	done := make(chan bool)
-	uni := NewFunctionsListenerUniverse(t, 1)
+	doneCh := make(chan bool)
+	uni := NewFunctionsListenerUniverse(t, 1, 1_000_000, false, 0)
 	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
 	uni.pluginORM.On("TimeoutExpiredResults", mock.Anything, uint32(1), mock.Anything).Return([]functions_service.RequestID{reqId}, nil).Run(func(args mock.Arguments) {
-		done <- true
+		doneCh <- true
 	})
 
 	err := uni.service.Start(testutils.Context(t))
 	require.NoError(t, err)
-	<-done
-
+	<-doneCh
 	uni.service.Close()
 }
 
@@ -262,13 +434,13 @@ func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 
 	var ormCallExited sync.WaitGroup
 	ormCallExited.Add(1)
-	uni, log, _ := PrepareAndStartFunctionsListener(t, []byte{}, false)
-	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+	uni, log, _ := PrepareAndStartFunctionsListener(t, []byte{})
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 		var queryerWrapper pg.Q
-		args.Get(3).(pg.QOpt)(&queryerWrapper)
+		args.Get(1).(pg.QOpt)(&queryerWrapper)
 		<-queryerWrapper.ParentCtx.Done()
 		ormCallExited.Done()
-	}).Return(errors.New("timeout!"))
+	}).Return(errors.New("timeout"))
 
 	uni.service.HandleLog(log)
 
@@ -276,40 +448,154 @@ func TestFunctionsListener_ORMDoesNotFreezeHandlersForever(t *testing.T) {
 	uni.service.Close()
 }
 
-func TestFunctionsListener_ExtractRawBytes(t *testing.T) {
+func TestFunctionsListener_PruneRequests(t *testing.T) {
+	testutils.SkipShortDB(t)
 	t.Parallel()
 
-	res, err := functions_service.ExtractRawBytes([]byte("\"\""))
+	doneCh := make(chan bool)
+	uni := NewFunctionsListenerUniverse(t, 0, 1, false, 0)
+	uni.logBroadcaster.On("Register", mock.Anything, mock.Anything).Return(func() {})
+	uni.pluginORM.On("PruneOldestRequests", functions_service.DefaultPruneMaxStoredRequests, functions_service.DefaultPruneBatchSize, mock.Anything).Return(uint32(0), uint32(0), nil).Run(func(args mock.Arguments) {
+		doneCh <- true
+	})
+
+	err := uni.service.Start(testutils.Context(t))
 	require.NoError(t, err)
-	require.Equal(t, []byte{}, res)
+	<-doneCh
+	uni.service.Close()
+}
 
-	res, err = functions_service.ExtractRawBytes([]byte("\"0xabcd\""))
+func TestFunctionsListener_RequestSignatureVerification(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	cborBytes, err := hex.DecodeString(SignedCBORRequestHex)
 	require.NoError(t, err)
-	require.Equal(t, []byte{0xab, 0xcd}, res)
 
-	res, err = functions_service.ExtractRawBytes([]byte("\"0x0\""))
+	var requestData functions_service.RequestData
+	err = cl_cbor.ParseDietCBORToStruct(cborBytes, &requestData)
 	require.NoError(t, err)
-	require.Equal(t, []byte{0x0}, res)
 
-	res, err = functions_service.ExtractRawBytes([]byte("\"0x00\""))
+	err = functions_service.VerifyRequestSignature(SubOwnerAddr, &requestData)
+	assert.NoError(t, err)
+}
+
+func TestFunctionsListener_RequestSignatureVerificationFailure(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	cborBytes, err := hex.DecodeString(SignedCBORRequestHex)
 	require.NoError(t, err)
-	require.Equal(t, []byte{0x0}, res)
 
-	_, err = functions_service.ExtractRawBytes([]byte(""))
-	require.Error(t, err)
+	var requestData functions_service.RequestData
+	err = cl_cbor.ParseDietCBORToStruct(cborBytes, &requestData)
+	require.NoError(t, err)
 
-	_, err = functions_service.ExtractRawBytes([]byte("0xab"))
-	require.Error(t, err)
+	err = functions_service.VerifyRequestSignature(NonSubOwnerAddr, &requestData)
+	assert.EqualError(t, err, "invalid request signature: signer's address does not match subscription owner")
+}
 
-	_, err = functions_service.ExtractRawBytes([]byte("\"0x\""))
-	require.Error(t, err)
+func getFlags(requestSizeTier int, secretSizeTier int) [32]byte {
+	var flags [32]byte
+	flags[1] = byte(requestSizeTier)
+	flags[2] = byte(secretSizeTier)
+	return flags
+}
 
-	_, err = functions_service.ExtractRawBytes([]byte("\"0xabc\""))
-	require.Error(t, err)
+func TestFunctionsListener_HandleOracleRequestV1_Success(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
 
-	_, err = functions_service.ExtractRawBytes([]byte("\"0xqwer\""))
-	require.Error(t, err)
+	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000, true, 1)
+	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	doneCh := make(chan struct{})
 
-	_, err = functions_service.ExtractRawBytes([]byte("null"))
-	require.ErrorContains(t, err, "null value")
+	request := types.OracleRequest{
+		RequestId:         RequestID,
+		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionOwner: SubscriptionOwner,
+		Flags:             getFlags(1, 0), // tier no 1 of request size, allows up to 100 bytes
+		Data:              make([]byte, 12),
+	}
+
+	uni.logPollerWrapper.On("LatestEvents").Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents").Return(nil, nil, nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
+	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
+
+	<-doneCh
+	uni.service.Close()
+}
+
+func TestFunctionsListener_HandleOracleRequestV1_ThresholdDecryptedSecrets(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	reqData := &struct {
+		SecretsLocation int    `cbor:"secretsLocation"`
+		Secrets         []byte `cbor:"secrets"`
+	}{
+		SecretsLocation: 1,
+		Secrets:         EncryptedSecretsUrls,
+	}
+	cborBytes, err := cbor.Marshal(reqData)
+	require.NoError(t, err)
+	// Remove first byte (map header) to make it "diet" CBOR
+	cborBytes = cborBytes[1:]
+	request := types.OracleRequest{
+		RequestId:         RequestID,
+		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionOwner: SubscriptionOwner,
+		Flags:             getFlags(1, 1), // tiers no 1 of request size and secrets size, allow up to 100 bytes
+		Data:              cborBytes,
+	}
+
+	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000, true, 1)
+	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	doneCh := make(chan struct{})
+
+	uni.logPollerWrapper.On("LatestEvents").Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents").Return(nil, nil, nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
+	uni.bridgeAccessor.On("NewExternalAdapterClient").Return(uni.eaClient, nil)
+	uni.eaClient.On("FetchEncryptedSecrets", mock.Anything, mock.Anything, RequestIDStr, mock.Anything, mock.Anything).Return(EncryptedSecrets, nil, nil)
+	uni.decryptor.On("Decrypt", mock.Anything, []byte(RequestIDStr), EncryptedSecrets).Return(DecryptedSecrets, nil)
+	uni.eaClient.On("RunComputation", mock.Anything, RequestIDStr, mock.Anything, SubscriptionOwner.Hex(), SubscriptionID, mock.Anything, mock.Anything, mock.Anything).Return(ResultBytes, nil, nil, nil)
+	uni.pluginORM.On("SetResult", RequestID, ResultBytes, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
+
+	<-doneCh
+	uni.service.Close()
+}
+
+func TestFunctionsListener_HandleOracleRequestV1_CBORTooBig(t *testing.T) {
+	testutils.SkipShortDB(t)
+	t.Parallel()
+
+	uni := NewFunctionsListenerUniverse(t, 0, 1_000_000, true, 1)
+	require.NoError(t, uni.service.Start(testutils.Context(t)))
+	doneCh := make(chan struct{})
+
+	request := types.OracleRequest{
+		RequestId:         RequestID,
+		SubscriptionId:    uint64(SubscriptionID),
+		SubscriptionOwner: SubscriptionOwner,
+		Flags:             getFlags(0, 0), // tier no 0 of request size, allows only for max 10 bytes
+		Data:              make([]byte, 20),
+	}
+
+	uni.logPollerWrapper.On("LatestEvents").Return([]types.OracleRequest{request}, nil, nil).Once()
+	uni.logPollerWrapper.On("LatestEvents").Return(nil, nil, nil)
+	uni.pluginORM.On("CreateRequest", mock.Anything, mock.Anything).Return(nil)
+	uni.pluginORM.On("SetError", RequestID, functions_service.USER_ERROR, []byte("request too big (max 10 bytes)"), mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		close(doneCh)
+	}).Return(nil)
+
+	<-doneCh
+	uni.service.Close()
 }

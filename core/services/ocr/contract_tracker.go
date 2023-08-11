@@ -106,6 +106,7 @@ func NewOCRContractTracker(
 	db *sqlx.DB,
 	ocrDB OCRContractTrackerDB,
 	cfg ocrcommon.Config,
+	q pg.QConfig,
 	headBroadcaster httypes.HeadBroadcaster,
 	mailMon *utils.MailboxMonitor,
 ) (o *OCRContractTracker) {
@@ -119,7 +120,7 @@ func NewOCRContractTracker(
 		jobID:                jobID,
 		logger:               logger,
 		ocrDB:                ocrDB,
-		q:                    pg.NewQ(db, logger, cfg),
+		q:                    pg.NewQ(db, logger, q),
 		blockTranslator:      ocrcommon.NewBlockTranslator(cfg, ethClient, logger),
 		cfg:                  cfg,
 		mailMon:              mailMon,
@@ -233,7 +234,7 @@ func (t *OCRContractTracker) processLogs() {
 func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	was, err := t.logBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
-		t.logger.Errorw("could not determine if log was already consumed", "error", err)
+		t.logger.Errorw("could not determine if log was already consumed", "err", err)
 		return
 	} else if was {
 		return
@@ -243,14 +244,14 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	if raw.Address != t.contract.Address() {
 		t.logger.Errorf("log address of 0x%x does not match configured contract address of 0x%x", raw.Address, t.contract.Address())
 		if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-			t.logger.Errorw("failed to mark log consumed", "error", err2)
+			t.logger.Errorw("failed to mark log consumed", "err", err2)
 		}
 		return
 	}
 	topics := raw.Topics
 	if len(topics) == 0 {
 		if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-			t.logger.Errorw("failed to mark log consumed", "error", err2)
+			t.logger.Errorw("failed to mark log consumed", "err", err2)
 		}
 		return
 	}
@@ -263,7 +264,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		if err != nil {
 			t.logger.Errorw("could not parse config set", "err", err)
 			if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-				t.logger.Errorw("failed to mark log consumed", "error", err2)
+				t.logger.Errorw("failed to mark log consumed", "err", err2)
 			}
 			return
 		}
@@ -280,7 +281,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 		if err != nil {
 			t.logger.Errorw("could not parse round requested", "err", err)
 			if err2 := t.logBroadcaster.MarkConsumed(lb); err2 != nil {
-				t.logger.Errorw("failed to mark log consumed", "error", err2)
+				t.logger.Errorw("failed to mark log consumed", "err", err2)
 			}
 			return
 		}
@@ -308,7 +309,7 @@ func (t *OCRContractTracker) HandleLog(lb log.Broadcast) {
 	}
 	if !consumed {
 		if err := t.logBroadcaster.MarkConsumed(lb); err != nil {
-			t.logger.Errorw("failed to mark log consumed", "error", err)
+			t.logger.Errorw("failed to mark log consumed", "err", err)
 		}
 	}
 }
@@ -387,7 +388,7 @@ func (t *OCRContractTracker) ConfigFromLogs(ctx context.Context, changedInBlock 
 // LatestBlockHeight queries the eth node for the most recent header
 func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight uint64, err error) {
 	switch t.cfg.ChainType() {
-	case config.ChainMetis, config.ChainOptimism:
+	case config.ChainMetis:
 		// We skip confirmation checking anyway on these L2s so there's no need to
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway

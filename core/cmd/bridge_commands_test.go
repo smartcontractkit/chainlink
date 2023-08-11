@@ -61,11 +61,11 @@ func TestBridgePresenter_RenderTable(t *testing.T) {
 	assert.NotContains(t, output, outgoingToken)
 }
 
-func TestClient_IndexBridges(t *testing.T) {
+func TestShell_IndexBridges(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	bt1 := &bridges.BridgeType{
 		Name:          bridges.MustParseBridgeName("cliindexbridges1"),
@@ -97,11 +97,11 @@ func TestClient_IndexBridges(t *testing.T) {
 	assert.Equal(t, bt2.Confirmations, p.Confirmations)
 }
 
-func TestClient_ShowBridge(t *testing.T) {
+func TestShell_ShowBridge(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	bt := &bridges.BridgeType{
 		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("showbridge")),
@@ -125,11 +125,11 @@ func TestClient_ShowBridge(t *testing.T) {
 	assert.Equal(t, bt.Confirmations, p.Confirmations)
 }
 
-func TestClient_CreateBridge(t *testing.T) {
+func TestShell_CreateBridge(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 
 	tests := []struct {
 		name    string
@@ -162,11 +162,11 @@ func TestClient_CreateBridge(t *testing.T) {
 	}
 }
 
-func TestClient_RemoveBridge(t *testing.T) {
+func TestShell_RemoveBridge(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, nil)
-	client, r := app.NewClientAndRenderer()
+	client, r := app.NewShellAndRenderer()
 
 	bt := &bridges.BridgeType{
 		Name:          bridges.MustParseBridgeName(testutils.RandomizeName("removebridge")),

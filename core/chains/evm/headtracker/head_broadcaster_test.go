@@ -10,7 +10,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	commonhtrk "github.com/smartcontractkit/chainlink/v2/common/headtracker"
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -49,7 +50,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	logger := logger.TestLogger(t)
 
-	sub := evmclimocks.NewSubscription(t)
+	sub := commonmocks.NewSubscription(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	chchHeaders := make(chan chan<- *evmtypes.Head, 1)
@@ -58,7 +59,8 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 			chchHeaders <- args.Get(1).(chan<- *evmtypes.Head)
 		}).
 		Return(sub, nil)
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil).Once()
+	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(cltest.Head(1), nil)
 
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)
@@ -67,10 +69,10 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker2 := &cltest.MockHeadTrackable{}
 
 	hb := headtracker.NewHeadBroadcaster(logger)
-	orm := headtracker.NewORM(db, logger, cfg, *ethClient.ConfiguredChainID())
-	hs := headtracker.NewHeadSaver(logger, orm, evmCfg)
+	orm := headtracker.NewORM(db, logger, cfg.Database(), *ethClient.ConfiguredChainID())
+	hs := headtracker.NewHeadSaver(logger, orm, evmCfg.EVM(), evmCfg.EVM().HeadTracker())
 	mailMon := utils.NewMailboxMonitor(t.Name())
-	ht := headtracker.NewHeadTracker(logger, ethClient, headtracker.NewWrappedConfig(evmCfg), hb, hs, mailMon)
+	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg.EVM(), evmCfg.EVM().HeadTracker(), hb, hs, mailMon)
 	var ms services.MultiStart
 	require.NoError(t, ms.Start(testutils.Context(t), mailMon, hb, ht))
 	t.Cleanup(func() { require.NoError(t, services.CloseAll(mailMon, hb, ht)) })
@@ -151,8 +153,8 @@ func TestHeadBroadcaster_TrackableCallbackTimeout(t *testing.T) {
 
 	slowAwaiter := cltest.NewAwaiter()
 	fastAwaiter := cltest.NewAwaiter()
-	slow := &sleepySubscriber{awaiter: slowAwaiter, delay: headtracker.TrackableCallbackTimeout * 2}
-	fast := &sleepySubscriber{awaiter: fastAwaiter, delay: headtracker.TrackableCallbackTimeout / 2}
+	slow := &sleepySubscriber{awaiter: slowAwaiter, delay: commonhtrk.TrackableCallbackTimeout * 2}
+	fast := &sleepySubscriber{awaiter: fastAwaiter, delay: commonhtrk.TrackableCallbackTimeout / 2}
 	_, unsubscribe1 := broadcaster.Subscribe(slow)
 	_, unsubscribe2 := broadcaster.Subscribe(fast)
 

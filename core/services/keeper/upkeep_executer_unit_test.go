@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -15,48 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type registryGasCheckMock struct {
-	mock.Mock
+type registry struct {
+	pgo  uint32
+	mpds uint32
 }
 
-func (_m *registryGasCheckMock) KeeperRegistryCheckGasOverhead() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-func (_m *registryGasCheckMock) KeeperRegistryPerformGasOverhead() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
-
-func (_m *registryGasCheckMock) KeeperRegistryMaxPerformDataSize() uint32 {
-	ret := _m.Called()
-
-	var r0 uint32
-	if rf, ok := ret.Get(0).(func() uint32); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint32)
-	}
-
-	return r0
-}
+func (r *registry) CheckGasOverhead() uint32   { return uint32(0) }
+func (r *registry) PerformGasOverhead() uint32 { return r.pgo }
+func (r *registry) MaxPerformDataSize() uint32 { return r.mpds }
 
 func TestBuildJobSpec(t *testing.T) {
 	from := ethkey.EIP55Address(testutils.NewAddress().Hex())
@@ -83,13 +48,12 @@ func TestBuildJobSpec(t *testing.T) {
 	gasTipCap := assets.NewWeiI(48)
 	gasFeeCap := assets.NewWeiI(72)
 
-	m := &registryGasCheckMock{}
-	m.Mock.Test(t)
+	r := &registry{
+		pgo:  uint32(9),
+		mpds: uint32(1000),
+	}
 
-	m.On("KeeperRegistryPerformGasOverhead").Return(uint32(9)).Times(1)
-	m.On("KeeperRegistryMaxPerformDataSize").Return(uint32(1000)).Times(1)
-
-	spec := buildJobSpec(jb, jb.KeeperSpec.FromAddress.Address(), upkeep, m, gasPrice, gasTipCap, gasFeeCap, chainID)
+	spec := buildJobSpec(jb, jb.KeeperSpec.FromAddress.Address(), upkeep, r, gasPrice, gasTipCap, gasFeeCap, chainID)
 
 	expected := map[string]interface{}{
 		"jobSpec": map[string]interface{}{

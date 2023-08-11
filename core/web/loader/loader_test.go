@@ -13,7 +13,7 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -36,9 +36,9 @@ func TestLoader_Chains(t *testing.T) {
 	ctx := InjectDataloader(testutils.Context(t), app)
 
 	one := utils.NewBigI(1)
-	chain := v2.EVMConfig{ChainID: one, Chain: v2.Defaults(one)}
+	chain := toml.EVMConfig{ChainID: one, Chain: toml.Defaults(one)}
 	two := utils.NewBigI(2)
-	chain2 := v2.EVMConfig{ChainID: two, Chain: v2.Defaults(two)}
+	chain2 := toml.EVMConfig{ChainID: two, Chain: toml.Defaults(two)}
 	evmORM := evmtest.NewTestConfigs(&chain, &chain2)
 	app.On("EVMORM").Return(evmORM)
 
@@ -278,22 +278,22 @@ func TestLoader_JobsByExternalJobIDs(t *testing.T) {
 func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	t.Parallel()
 
-	txStore := evmtxmgrmocks.NewMockEvmTxStore(t)
+	txStore := evmtxmgrmocks.NewEvmTxStore(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
 	ethTxIDs := []int64{1, 2, 3}
 
-	attempt1 := txmgr.EvmTxAttempt{
+	attempt1 := txmgr.TxAttempt{
 		ID:   int64(1),
 		TxID: ethTxIDs[0],
 	}
-	attempt2 := txmgr.EvmTxAttempt{
+	attempt2 := txmgr.TxAttempt{
 		ID:   int64(1),
 		TxID: ethTxIDs[1],
 	}
 
-	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.EvmTxAttempt{
+	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxIDs[2], ethTxIDs[1], ethTxIDs[0]}).Return([]txmgr.TxAttempt{
 		attempt1, attempt2,
 	}, nil)
 	app.On("TxmStorageService").Return(txStore)
@@ -304,9 +304,9 @@ func TestLoader_EthTransactionsAttempts(t *testing.T) {
 	found := batcher.loadByEthTransactionIDs(ctx, keys)
 
 	require.Len(t, found, 3)
-	assert.Equal(t, []txmgr.EvmTxAttempt{}, found[0].Data)
-	assert.Equal(t, []txmgr.EvmTxAttempt{attempt2}, found[1].Data)
-	assert.Equal(t, []txmgr.EvmTxAttempt{attempt1}, found[2].Data)
+	assert.Equal(t, []txmgr.TxAttempt{}, found[0].Data)
+	assert.Equal(t, []txmgr.TxAttempt{attempt2}, found[1].Data)
+	assert.Equal(t, []txmgr.TxAttempt{attempt1}, found[2].Data)
 }
 
 func TestLoader_SpecErrorsByJobID(t *testing.T) {
@@ -363,26 +363,26 @@ func TestLoader_SpecErrorsByJobID(t *testing.T) {
 func TestLoader_loadByEthTransactionID(t *testing.T) {
 	t.Parallel()
 
-	txStore := evmtxmgrmocks.NewMockEvmTxStore(t)
+	txStore := evmtxmgrmocks.NewEvmTxStore(t)
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
 	ethTxID := int64(3)
 	ethTxHash := utils.NewHash()
 
-	receipt := txmgr.EvmReceipt{
+	receipt := txmgr.Receipt{
 		ID:     int64(1),
 		TxHash: ethTxHash,
 	}
 
-	attempt1 := txmgr.EvmTxAttempt{
+	attempt1 := txmgr.TxAttempt{
 		ID:       int64(1),
 		TxID:     ethTxID,
 		Hash:     ethTxHash,
-		Receipts: []txmgr.EvmReceipt{receipt},
+		Receipts: []txmgr.ChainReceipt{txmgr.DbReceiptToEvmReceipt(&receipt)},
 	}
 
-	txStore.On("FindEthTxAttemptConfirmedByEthTxIDs", []int64{ethTxID}).Return([]txmgr.EvmTxAttempt{
+	txStore.On("FindTxAttemptConfirmedByTxIDs", []int64{ethTxID}).Return([]txmgr.TxAttempt{
 		attempt1,
 	}, nil)
 
@@ -394,5 +394,5 @@ func TestLoader_loadByEthTransactionID(t *testing.T) {
 	found := batcher.loadByEthTransactionIDs(ctx, keys)
 
 	require.Len(t, found, 1)
-	assert.Equal(t, []txmgr.EvmTxAttempt{attempt1}, found[0].Data)
+	assert.Equal(t, []txmgr.TxAttempt{attempt1}, found[0].Data)
 }

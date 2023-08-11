@@ -46,9 +46,16 @@ func TestJob(t *testing.T) {
 	v2CoordAddress, err := ethkey.NewEIP55Address("0x2C409DD6D4eBDdA190B5174Cc19616DD13884262")
 	require.NoError(t, err)
 
+	v2PlusCoordAddress, err := ethkey.NewEIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
+	require.NoError(t, err)
+
 	// Used in blockheaderfeeder test
 	batchBHSAddress, err := ethkey.NewEIP55Address("0xF6bB415b033D19EFf24A872a4785c6e1C4426103")
 	require.NoError(t, err)
+
+	trustedBlockhashStoreAddress, err := ethkey.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
+	require.NoError(t, err)
+	trustedBlockhashStoreBatchSize := int32(20)
 
 	var specGasLimit uint32 = 1000
 
@@ -469,16 +476,19 @@ func TestJob(t *testing.T) {
 			job: job.Job{
 				ID: 1,
 				BlockhashStoreSpec: &job.BlockhashStoreSpec{
-					ID:                    1,
-					CoordinatorV1Address:  &v1CoordAddress,
-					CoordinatorV2Address:  &v2CoordAddress,
-					WaitBlocks:            123,
-					LookbackBlocks:        223,
-					BlockhashStoreAddress: contractAddress,
-					PollPeriod:            25 * time.Second,
-					RunTimeout:            10 * time.Second,
-					EVMChainID:            utils.NewBigI(4),
-					FromAddresses:         []ethkey.EIP55Address{fromAddress},
+					ID:                             1,
+					CoordinatorV1Address:           &v1CoordAddress,
+					CoordinatorV2Address:           &v2CoordAddress,
+					CoordinatorV2PlusAddress:       &v2PlusCoordAddress,
+					WaitBlocks:                     123,
+					LookbackBlocks:                 223,
+					BlockhashStoreAddress:          contractAddress,
+					PollPeriod:                     25 * time.Second,
+					RunTimeout:                     10 * time.Second,
+					EVMChainID:                     utils.NewBigI(4),
+					FromAddresses:                  []ethkey.EIP55Address{fromAddress},
+					TrustedBlockhashStoreAddress:   &trustedBlockhashStoreAddress,
+					TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,
 				},
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
@@ -513,9 +523,12 @@ func TestJob(t *testing.T) {
 						"blockhashStoreSpec": {
 							"coordinatorV1Address": "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
 							"coordinatorV2Address": "0x2C409DD6D4eBDdA190B5174Cc19616DD13884262",
+							"coordinatorV2PlusAddress": "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b",
 							"waitBlocks": 123,
 							"lookbackBlocks": 223,
 							"blockhashStoreAddress": "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
+							"trustedBlockhashStoreAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
+							"trustedBlockhashStoreBatchSize": 20,
 							"pollPeriod": 25000000000,
 							"runTimeout": 10000000000,
 							"evmChainID": "4",
@@ -544,6 +557,7 @@ func TestJob(t *testing.T) {
 					ID:                         1,
 					CoordinatorV1Address:       &v1CoordAddress,
 					CoordinatorV2Address:       &v2CoordAddress,
+					CoordinatorV2PlusAddress:   &v2PlusCoordAddress,
 					WaitBlocks:                 123,
 					LookbackBlocks:             223,
 					BlockhashStoreAddress:      contractAddress,
@@ -589,6 +603,7 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": {
 							"coordinatorV1Address": "0x16988483b46e695f6c8D58e6e1461DC703e008e1",
 							"coordinatorV2Address": "0x2C409DD6D4eBDdA190B5174Cc19616DD13884262",
+							"coordinatorV2PlusAddress": "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b",
 							"waitBlocks": 123,
 							"lookbackBlocks": 223,
 							"blockhashStoreAddress": "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",

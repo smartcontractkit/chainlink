@@ -26,13 +26,13 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	kst := cltest.NewKeyStore(t, db, cfg)
+	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
 	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
 	chain, err := chainSet.Get(&cltest.FixtureChainID)
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 	require.NoError(t, ks.Unlock("blah"))
 	k1, err := ks.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)
@@ -45,22 +45,24 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	store, err := blockhash_store.NewBlockhashStore(bhsAddress, chain.Client())
 	require.NoError(t, err)
 	bhs, err := blockhashstore.NewBulletproofBHS(
-		chain.Config(),
+		chain.Config().EVM().GasEstimator(),
+		chain.Config().Database(),
 		fromAddresses,
 		txm,
 		store,
+		nil,
 		&cltest.FixtureChainID,
 		ks.Eth(),
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmNewTx) bool {
+	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 		return tx.FromAddress.String() == k1.Address.String()
-	}), mock.Anything).Once().Return(txmgr.EvmTx{}, nil)
+	}), mock.Anything).Once().Return(txmgr.Tx{}, nil)
 
-	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.EvmNewTx) bool {
+	txm.On("CreateTransaction", mock.MatchedBy(func(tx txmgr.TxRequest) bool {
 		return tx.FromAddress.String() == k2.Address.String()
-	}), mock.Anything).Once().Return(txmgr.EvmTx{}, nil)
+	}), mock.Anything).Once().Return(txmgr.Tx{}, nil)
 
 	// store 2 blocks
 	err = bhs.Store(context.Background(), 1)

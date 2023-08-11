@@ -1,9 +1,8 @@
 package web
 
 import (
-	starkkey "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/keys"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 

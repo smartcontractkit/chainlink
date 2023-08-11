@@ -54,7 +54,7 @@ type mocks struct {
 	ethClient   *evmClientMocks.Client
 	eIMgr       *webhookmocks.ExternalInitiatorManager
 	balM        *evmORMMocks.BalanceMonitor
-	txmStore    *evmtxmgrmocks.MockEvmTxStore
+	txmStore    *evmtxmgrmocks.EvmTxStore
 	auditLogger *audit.AuditLoggerService
 }
 
@@ -112,7 +112,7 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		ethClient:   evmClientMocks.NewClient(t),
 		eIMgr:       webhookmocks.NewExternalInitiatorManager(t),
 		balM:        evmORMMocks.NewBalanceMonitor(t),
-		txmStore:    evmtxmgrmocks.NewMockEvmTxStore(t),
+		txmStore:    evmtxmgrmocks.NewEvmTxStore(t),
 		auditLogger: &audit.AuditLoggerService{},
 	}
 

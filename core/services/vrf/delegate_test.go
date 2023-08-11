@@ -34,6 +34,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	vrf_mocks "github.com/smartcontractkit/chainlink/v2/core/services/vrf/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
+	v1 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -70,14 +73,14 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
-	prm := pipeline.NewORM(db, lggr, cfg)
-	btORM := bridges.NewORM(db, lggr, cfg)
+	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	btORM := bridges.NewORM(db, lggr, cfg.Database())
 	txm := txmmocks.NewMockEvmTxManager(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg)
+	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg.Database())
 	t.Cleanup(func() { jrm.Close() })
-	pr := pipeline.NewRunner(prm, btORM, cfg, cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
+	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(testutils.Password))
 	k, err := ks.Eth().Create(testutils.FixtureChainID)
 	require.NoError(t, err)
@@ -134,7 +137,7 @@ func waitForChannel(t *testing.T, c chan struct{}, timeout time.Duration, errMsg
 	}
 }
 
-func setup(t *testing.T) (vrfUniverse, *vrf.ListenerV1, job.Job) {
+func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
 	vuni := buildVrfUni(t, db, cfg)
@@ -148,17 +151,17 @@ func setup(t *testing.T) (vrfUniverse, *vrf.ListenerV1, job.Job) {
 		vuni.prm,
 		vuni.cc,
 		logger.TestLogger(t),
-		cfg,
+		cfg.Database(),
 		mailMon)
 	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
-	jb, err := vrf.ValidatedVRFSpec(vs.Toml())
+	jb, err := vrfcommon.ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
 	require.NoError(t, err)
 	vl, err := vd.ServicesForSpec(jb)
 	require.NoError(t, err)
 	require.Len(t, vl, 1)
-	listener := vl[0].(*vrf.ListenerV1)
+	listener := vl[0].(*v1.Listener)
 	// Start the listenerV1
 	go func() {
 		listener.RunLogListener([]func(){}, 6)
@@ -201,7 +204,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 		),
 		// JobID is indexed, thats why it lives in the Topics.
 		Topics: []common.Hash{
-			vrf.VRFRandomnessRequestLogTopic(),
+			solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 			jb.ExternalIDEncodeStringToTopic(), // jobID
 		},
 		BlockNumber: 10,
@@ -248,7 +251,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					[]byte{}),
 				// JobID is indexed, thats why it lives in the Topics.
 				Topics: []common.Hash{
-					vrf.VRFRandomnessRequestLogTopic(),
+					solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 					jb.ExternalIDEncodeStringToTopic(), // jobID STRING
 				},
 				TxHash:      txHash,
@@ -269,7 +272,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 					reqID2.Bytes()},                          // requestID
 					[]byte{}),
 				Topics: []common.Hash{
-					vrf.VRFRandomnessRequestLogTopic(),
+					solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 					jb.ExternalIDEncodeBytesToTopic(), // jobID BYTES
 				},
 				TxHash:      txHash,
@@ -300,15 +303,15 @@ func TestDelegate_ValidLog(t *testing.T) {
 		// Ensure we queue up a valid eth transaction
 		// Linked to requestID
 		vuni.txm.On("CreateTransaction",
-			mock.MatchedBy(func(newTx txmgr.EvmNewTx) bool {
-				meta := newTx.Meta
-				return newTx.FromAddress == vuni.submitter &&
-					newTx.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
-					newTx.FeeLimit == uint32(500000) &&
+			mock.MatchedBy(func(txRequest txmgr.TxRequest) bool {
+				meta := txRequest.Meta
+				return txRequest.FromAddress == vuni.submitter &&
+					txRequest.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
+					txRequest.FeeLimit == uint32(500000) &&
 					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
 					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
 			}),
-		).Once().Return(txmgr.EvmTx{}, nil)
+		).Once().Return(txmgr.Tx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
@@ -376,7 +379,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 			utils.NewHash().Bytes()...), // requestID
 		// JobID is indexed, that's why it lives in the Topics.
 		Topics: []common.Hash{
-			vrf.VRFRandomnessRequestLogTopic(),
+			solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 			jb.ExternalIDEncodeBytesToTopic(), // jobID
 		},
 		Address:     common.Address{},
@@ -441,7 +444,7 @@ func TestFulfilledCheck(t *testing.T) {
 				[]byte{}),
 			// JobID is indexed, that's why it lives in the Topics.
 			Topics: []common.Hash{
-				vrf.VRFRandomnessRequestLogTopic(),
+				solidity_cross_tests.VRFRandomnessRequestLogTopic(),
 				jb.ExternalIDEncodeBytesToTopic(), // jobID STRING
 			},
 			//TxHash:      utils.NewHash().Bytes(),
@@ -491,11 +494,11 @@ submit_tx  [type=ethtx to="%s"
 decode_log->vrf->encode_tx->submit_tx
 """
 `
-		jb, err := vrf.ValidatedVRFSpec(spec)
+		jb, err := vrfcommon.ValidatedVRFSpec(spec)
 		require.NoError(tt, err)
 
-		cfg := vrf_mocks.NewConfig(t)
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		cfg := vrf_mocks.NewFeeConfig(t)
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.PriceMaxKey))
 	})
 
 	t.Run("returns nil error on valid gas lane <=> key specific gas price setting", func(tt *testing.T) {
@@ -504,13 +507,13 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := vrf_mocks.NewConfig(t)
+		cfg := vrf_mocks.NewFeeConfig(t)
 		for _, a := range fromAddresses {
-			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
+			cfg.On("PriceMaxKey", common.HexToAddress(a)).Return(assets.GWei(100)).Once()
 		}
 		defer cfg.AssertExpectations(tt)
 
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
@@ -522,7 +525,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		require.NoError(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.PriceMaxKey))
 	})
 
 	t.Run("returns error on invalid setting", func(tt *testing.T) {
@@ -531,14 +534,14 @@ decode_log->vrf->encode_tx->submit_tx
 			fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
 		}
 
-		cfg := vrf_mocks.NewConfig(t)
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
+		cfg := vrf_mocks.NewFeeConfig(t)
+		cfg.On("PriceMaxKey", common.HexToAddress(fromAddresses[0])).Return(assets.GWei(100)).Once()
+		cfg.On("PriceMaxKey", common.HexToAddress(fromAddresses[1])).Return(assets.GWei(100)).Once()
 		// last from address has wrong key-specific max gas price
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[2])).Return(assets.GWei(50)).Once()
+		cfg.On("PriceMaxKey", common.HexToAddress(fromAddresses[2])).Return(assets.GWei(50)).Once()
 		defer cfg.AssertExpectations(tt)
 
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
@@ -550,7 +553,7 @@ decode_log->vrf->encode_tx->submit_tx
 			Toml())
 		require.NoError(t, err)
 
-		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg))
+		require.Error(tt, vrf.CheckFromAddressMaxGasPrices(jb, cfg.PriceMaxKey))
 	})
 }
 
@@ -559,7 +562,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -568,7 +571,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 			assert.NoError(t, err)
 			fromAddresses = append(fromAddresses, k.Address.Hex())
 		}
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
@@ -587,7 +590,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg)
+		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -598,7 +601,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		}
 		// add an address that isn't in the keystore
 		fromAddresses = append(fromAddresses, testutils.NewAddress().Hex())
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
 			testspecs.VRFSpecParams{
 				RequestedConfsDelay: 10,
 				FromAddresses:       fromAddresses,
@@ -622,7 +625,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 			"0xD94E6AD557277c6E3e163cefF90F52AB51A95143",
 		}
 
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 			RequestedConfsDelay: 10,
 			FromAddresses:       fromAddresses,
 			ChunkSize:           25,
@@ -632,13 +635,13 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}).Toml())
 		require.NoError(tt, err)
 
-		cfg := vrf_mocks.NewConfig(t)
+		cfg := vrf_mocks.NewFeeConfig(t)
 		for _, a := range fromAddresses {
-			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+			cfg.On("PriceMaxKey", common.HexToAddress(a)).Return(assets.GWei(100))
 		}
 		defer cfg.AssertExpectations(tt)
 
-		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+		assert.True(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.PriceMaxKey))
 	})
 
 	t.Run("one max gas price not equal to others", func(tt *testing.T) {
@@ -649,7 +652,7 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 			"0x86E7c45Bf013Bf1Df3C22c14d5fd6fc3051AC569",
 		}
 
-		jb, err := vrf.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
 			RequestedConfsDelay: 10,
 			FromAddresses:       fromAddresses,
 			ChunkSize:           25,
@@ -659,14 +662,48 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 		}).Toml())
 		require.NoError(tt, err)
 
-		cfg := vrf_mocks.NewConfig(t)
+		cfg := vrf_mocks.NewFeeConfig(t)
 		for _, a := range fromAddresses[:3] {
-			cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(a)).Return(assets.GWei(100))
+			cfg.On("PriceMaxKey", common.HexToAddress(a)).Return(assets.GWei(100))
 		}
-		cfg.On("KeySpecificMaxGasPriceWei", common.HexToAddress(fromAddresses[len(fromAddresses)-1])).
+		cfg.On("PriceMaxKey", common.HexToAddress(fromAddresses[len(fromAddresses)-1])).
 			Return(assets.GWei(200)) // doesn't match the rest
 		defer cfg.AssertExpectations(tt)
 
-		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg))
+		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.PriceMaxKey))
 	})
+}
+
+func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	vuni := buildVrfUni(t, db, cfg)
+
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+
+	vd := vrf.NewDelegate(
+		db,
+		vuni.ks,
+		vuni.pr,
+		vuni.prm,
+		vuni.cc,
+		logger.TestLogger(t),
+		cfg.Database(),
+		mailMon)
+	chain, err := vuni.cc.Get(testutils.FixtureChainID)
+	require.NoError(t, err)
+	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		VRFVersion:    vrfcommon.V2Plus,
+		PublicKey:     vuni.vrfkey.PublicKey.String(),
+		FromAddresses: []string{string(vuni.submitter.Hex())},
+		GasLanePrice:  chain.Config().EVM().GasEstimator().PriceMax(),
+	})
+	toml := "vrfOwnerAddress=\"0xF62fEFb54a0af9D32CDF0Db21C52710844c7eddb\"\n" + vs.Toml()
+	jb, err := vrfcommon.ValidatedVRFSpec(toml)
+	require.NoError(t, err)
+	err = vuni.jrm.CreateJob(&jb)
+	require.NoError(t, err)
+	_, err = vd.ServicesForSpec(jb)
+	require.Error(t, err)
+	require.Equal(t, "VRF Owner is not supported for VRF V2 Plus", err.Error())
 }

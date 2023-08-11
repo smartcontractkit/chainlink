@@ -10,28 +10,31 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type FunctionsReportingPluginFactory struct {
-	Logger    commontypes.Logger
-	PluginORM functions.ORM
-	JobID     uuid.UUID
+	Logger          commontypes.Logger
+	PluginORM       functions.ORM
+	JobID           uuid.UUID
+	ContractVersion uint32
 }
 
 var _ types.ReportingPluginFactory = (*FunctionsReportingPluginFactory)(nil)
 
 type functionsReporting struct {
-	logger         commontypes.Logger
-	pluginORM      functions.ORM
-	jobID          uuid.UUID
-	reportCodec    *ReportCodec
-	genericConfig  *types.ReportingPluginConfig
-	specificConfig *config.ReportingPluginConfigWrapper
+	logger          commontypes.Logger
+	pluginORM       functions.ORM
+	jobID           uuid.UUID
+	reportCodec     encoding.ReportCodec
+	genericConfig   *types.ReportingPluginConfig
+	specificConfig  *config.ReportingPluginConfigWrapper
+	contractVersion uint32
 }
 
 var _ types.ReportingPlugin = &functionsReporting{}
@@ -87,7 +90,7 @@ func (f FunctionsReportingPluginFactory) NewReportingPlugin(rpConfig types.Repor
 		})
 		return nil, types.ReportingPluginInfo{}, err
 	}
-	codec, err := NewReportCodec()
+	codec, err := encoding.NewReportCodec(f.ContractVersion)
 	if err != nil {
 		f.Logger.Error("unable to create a report codec object", commontypes.LogFields{})
 		return nil, types.ReportingPluginInfo{}, err
@@ -102,12 +105,13 @@ func (f FunctionsReportingPluginFactory) NewReportingPlugin(rpConfig types.Repor
 		},
 	}
 	plugin := functionsReporting{
-		logger:         f.Logger,
-		pluginORM:      f.PluginORM,
-		jobID:          f.JobID,
-		reportCodec:    codec,
-		genericConfig:  &rpConfig,
-		specificConfig: pluginConfig,
+		logger:          f.Logger,
+		pluginORM:       f.PluginORM,
+		jobID:           f.JobID,
+		reportCodec:     codec,
+		genericConfig:   &rpConfig,
+		specificConfig:  pluginConfig,
+		contractVersion: f.ContractVersion,
 	}
 	promReportingPlugins.WithLabelValues(f.JobID.String()).Inc()
 	return &plugin, info, nil
@@ -126,13 +130,17 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 		return nil, err
 	}
 
-	queryProto := Query{}
+	queryProto := encoding.Query{}
 	var idStrs []string
 	for _, result := range results {
 		result := result
 		queryProto.RequestIDs = append(queryProto.RequestIDs, result.RequestID[:])
 		idStrs = append(idStrs, formatRequestId(result.RequestID[:]))
 	}
+	// The ID batch built in Query can exceed maxReportTotalCallbackGas. This is done
+	// on purpose as some requests may (repeatedly) fail aggregation and we don't want
+	// them to block processing of other requests. Final total callback gas limit
+	// is enforced in the Report() phase.
 	r.logger.Debug("FunctionsReporting Query end", commontypes.LogFields{
 		"epoch":      ts.Epoch,
 		"round":      ts.Round,
@@ -152,17 +160,17 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 		"oracleID": r.genericConfig.OracleID,
 	})
 
-	queryProto := &Query{}
+	queryProto := &encoding.Query{}
 	err := proto.Unmarshal(query, queryProto)
 	if err != nil {
 		return nil, err
 	}
 
-	observationProto := Observation{}
+	observationProto := encoding.Observation{}
 	processedIds := make(map[[32]byte]bool)
 	var idStrs []string
 	for _, id := range queryProto.RequestIDs {
-		id, err := sliceToByte32(id)
+		id, err := encoding.SliceToByte32(id)
 		if err != nil {
 			r.logger.Error("FunctionsReporting Observation invalid ID", commontypes.LogFields{
 				"requestID": formatRequestId(id[:]),
@@ -187,10 +195,21 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 		}
 		// NOTE: ignoring TIMED_OUT requests, which potentially had ready results
 		if localResult.State == functions.RESULT_READY {
-			resultProto := ProcessedRequest{
-				RequestID: localResult.RequestID[:],
-				Result:    localResult.Result,
-				Error:     localResult.Error,
+			resultProto := encoding.ProcessedRequest{
+				RequestID:       localResult.RequestID[:],
+				Result:          localResult.Result,
+				Error:           localResult.Error,
+				OnchainMetadata: localResult.OnchainMetadata,
+			}
+			if r.contractVersion == 1 {
+				if localResult.CallbackGasLimit == nil || localResult.CoordinatorContractAddress == nil {
+					r.logger.Error("FunctionsReporting Observation missing required v1 fields", commontypes.LogFields{
+						"requestID": formatRequestId(id[:]),
+					})
+					continue
+				}
+				resultProto.CallbackGasLimit = *localResult.CallbackGasLimit
+				resultProto.CoordinatorContract = localResult.CoordinatorContractAddress[:]
 			}
 			observationProto.ProcessedRequests = append(observationProto.ProcessedRequests, &resultProto)
 			idStrs = append(idStrs, formatRequestId(localResult.RequestID[:]))
@@ -217,7 +236,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		"nObservations": len(obs),
 	})
 
-	queryProto := &Query{}
+	queryProto := &encoding.Query{}
 	err := proto.Unmarshal(query, queryProto)
 	if err != nil {
 		r.logger.Error("FunctionsReporting Report: unable to decode query!",
@@ -225,7 +244,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		return false, nil, err
 	}
 
-	reqIdToObservationList := make(map[string][]*ProcessedRequest)
+	reqIdToObservationList := make(map[string][]*encoding.ProcessedRequest)
 	var uniqueQueryIds []string
 	for _, id := range queryProto.RequestIDs {
 		reqId := formatRequestId(id)
@@ -236,11 +255,11 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 			continue
 		}
 		uniqueQueryIds = append(uniqueQueryIds, reqId)
-		reqIdToObservationList[reqId] = []*ProcessedRequest{}
+		reqIdToObservationList[reqId] = []*encoding.ProcessedRequest{}
 	}
 
 	for _, ob := range obs {
-		observationProto := &Observation{}
+		observationProto := &encoding.Observation{}
 		err = proto.Unmarshal(ob.Observation, observationProto)
 		if err != nil {
 			r.logger.Error("FunctionsReporting Report: unable to decode observation!",
@@ -266,8 +285,9 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 	}
 
 	defaultAggMethod := r.specificConfig.Config.GetDefaultAggregationMethod()
-	var allAggregated []*ProcessedRequest
+	var allAggregated []*encoding.ProcessedRequest
 	var allIdStrs []string
+	var totalCallbackGas uint32
 	for _, reqId := range uniqueQueryIds {
 		observations := reqIdToObservationList[reqId]
 		if !CanAggregate(r.genericConfig.N, r.genericConfig.F, observations) {
@@ -292,6 +312,18 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 			})
 			continue
 		}
+		if totalCallbackGas+aggregated.CallbackGasLimit > r.specificConfig.Config.GetMaxReportTotalCallbackGas() {
+			r.logger.Warn("FunctionsReporting Report: total callback gas limit exceeded", commontypes.LogFields{
+				"epoch":                ts.Epoch,
+				"round":                ts.Round,
+				"requestID":            reqId,
+				"requestCallbackGas":   aggregated.CallbackGasLimit,
+				"totalCallbackGas":     totalCallbackGas,
+				"maxReportCallbackGas": r.specificConfig.Config.GetMaxReportTotalCallbackGas(),
+			})
+			continue
+		}
+		totalCallbackGas += aggregated.CallbackGasLimit
 		r.logger.Debug("FunctionsReporting Report: aggregated successfully", commontypes.LogFields{
 			"epoch":         ts.Epoch,
 			"round":         ts.Round,
@@ -309,6 +341,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		"nAggregatedRequests": len(allAggregated),
 		"reporting":           len(allAggregated) > 0,
 		"requestIDs":          allIdStrs,
+		"totalCallbackGas":    totalCallbackGas,
 	})
 	if len(allAggregated) == 0 {
 		return false, nil, nil
@@ -342,7 +375,7 @@ func (r *functionsReporting) ShouldAcceptFinalizedReport(ctx context.Context, ts
 	for _, item := range decoded {
 		reqIdStr := formatRequestId(item.RequestID)
 		allIds = append(allIds, reqIdStr)
-		id, err := sliceToByte32(item.RequestID)
+		id, err := encoding.SliceToByte32(item.RequestID)
 		if err != nil {
 			r.logger.Error("FunctionsReporting ShouldAcceptFinalizedReport: invalid ID", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			continue
@@ -395,7 +428,7 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 	for _, item := range decoded {
 		reqIdStr := formatRequestId(item.RequestID)
 		allIds = append(allIds, reqIdStr)
-		id, err := sliceToByte32(item.RequestID)
+		id, err := encoding.SliceToByte32(item.RequestID)
 		if err != nil {
 			r.logger.Error("FunctionsReporting ShouldAcceptFinalizedReport: invalid ID", commontypes.LogFields{"requestID": reqIdStr, "err": err})
 			continue
@@ -406,12 +439,12 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
-		if request.State == functions.TIMED_OUT || request.State == functions.CONFIRMED {
-			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request is not FINALIZED any more. Not transmitting.",
-				commontypes.LogFields{
-					"requestID": reqIdStr,
-					"state":     request.State.String(),
-				})
+		if request.State == functions.CONFIRMED {
+			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request already CONFIRMED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr})
+			continue
+		}
+		if request.State == functions.TIMED_OUT {
+			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request already TIMED_OUT. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr})
 			continue
 		}
 		if request.State == functions.IN_PROGRESS || request.State == functions.RESULT_READY {

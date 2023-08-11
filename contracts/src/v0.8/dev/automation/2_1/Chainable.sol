@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
 /**
  * @title Chainable - the contract size limit nullifier
@@ -10,7 +10,7 @@ contract Chainable {
   /**
    * @dev addresses of the next contract in the chain **have to be immutable/constant** or the system won't work
    */
-  address public immutable i_next;
+  address private immutable i_next;
 
   /**
    * @param next the address of the next contract in the chain

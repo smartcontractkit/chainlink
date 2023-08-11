@@ -412,6 +412,20 @@ func (_m *Node) NonceAt(ctx context.Context, account common.Address, blockNumber
 	return r0, r1
 }
 
+// Order provides a mock function with given fields:
+func (_m *Node) Order() int32 {
+	ret := _m.Called()
+
+	var r0 int32
+	if rf, ok := ret.Get(0).(func() int32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int32)
+	}
+
+	return r0
+}
+
 // PendingCodeAt provides a mock function with given fields: ctx, account
 func (_m *Node) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
 	ret := _m.Called(ctx, account)

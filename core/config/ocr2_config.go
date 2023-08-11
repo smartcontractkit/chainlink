@@ -4,19 +4,21 @@ import (
 	"time"
 )
 
-// OCR2Config is a subset of global config relevant to OCR v2.
-type OCR2Config interface {
+// OCR2 is a subset of global config relevant to OCR v2.
+type OCR2 interface {
+	Enabled() bool
 	// OCR2 config, can override in jobs, all chains
-	OCR2ContractConfirmations() uint16
-	OCR2ContractTransmitterTransmitTimeout() time.Duration
-	OCR2BlockchainTimeout() time.Duration
-	OCR2DatabaseTimeout() time.Duration
-	OCR2ContractPollInterval() time.Duration
-	OCR2ContractSubscribeInterval() time.Duration
-	OCR2KeyBundleID() (string, error)
+	ContractConfirmations() uint16
+	ContractTransmitterTransmitTimeout() time.Duration
+	BlockchainTimeout() time.Duration
+	DatabaseTimeout() time.Duration
+	ContractPollInterval() time.Duration
+	ContractSubscribeInterval() time.Duration
+	KeyBundleID() (string, error)
 	// OCR2 config, cannot override in jobs
-	OCR2TraceLogging() bool
-	OCR2CaptureEATelemetry() bool
-	OCR2DefaultTransactionQueueDepth() uint32
-	OCR2SimulateTransactions() bool
+	TraceLogging() bool
+	CaptureEATelemetry() bool
+	DefaultTransactionQueueDepth() uint32
+	SimulateTransactions() bool
+	CaptureAutomationCustomTelemetry() bool
 }

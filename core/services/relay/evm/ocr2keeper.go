@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -9,12 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/smartcontractkit/libocr/offchainreporting2/chains/evmutil"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
 	"github.com/smartcontractkit/sqlx"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -71,7 +74,7 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 		return nil, err
 	}
 
-	gasLimit := cfgWatcher.chain.Config().OCR2AutomationGasLimit()
+	gasLimit := cfgWatcher.chain.Config().EVM().OCR2().Automation().GasLimit()
 	contractTransmitter, err := newPipelineContractTransmitter(r.lggr, rargs, pargs.TransmitterID, &gasLimit, cfgWatcher, r.spec, r.pr)
 	if err != nil {
 		return nil, err
@@ -81,6 +84,40 @@ func (r *ocr2keeperRelayer) NewOCR2KeeperProvider(rargs relaytypes.RelayArgs, pa
 		configWatcher:       cfgWatcher,
 		contractTransmitter: contractTransmitter,
 	}, nil
+}
+
+type ocr3keeperProviderContractTransmitter struct {
+	contractTransmitter ocrtypes.ContractTransmitter
+}
+
+var _ ocr3types.ContractTransmitter[plugin.AutomationReportInfo] = &ocr3keeperProviderContractTransmitter{}
+
+func NewKeepersOCR3ContractTransmitter(ocr2ContractTransmitter ocrtypes.ContractTransmitter) *ocr3keeperProviderContractTransmitter {
+	return &ocr3keeperProviderContractTransmitter{ocr2ContractTransmitter}
+}
+
+func (t *ocr3keeperProviderContractTransmitter) Transmit(
+	ctx context.Context,
+	digest ocrtypes.ConfigDigest,
+	seqNr uint64,
+	reportWithInfo ocr3types.ReportWithInfo[plugin.AutomationReportInfo],
+	aoss []ocrtypes.AttributedOnchainSignature,
+) error {
+	return t.contractTransmitter.Transmit(
+		ctx,
+		ocrtypes.ReportContext{
+			ReportTimestamp: ocrtypes.ReportTimestamp{
+				ConfigDigest: digest,
+				Epoch:        uint32(seqNr),
+			},
+		},
+		reportWithInfo.Report,
+		aoss,
+	)
+}
+
+func (t *ocr3keeperProviderContractTransmitter) FromAccount() (ocrtypes.Account, error) {
+	return t.contractTransmitter.FromAccount()
 }
 
 type ocr2keeperProvider struct {
@@ -118,7 +155,7 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, rargs rela
 	}
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
-		ChainID:         chain.Config().ChainID().Uint64(),
+		ChainID:         chain.Config().EVM().ChainID().Uint64(),
 		ContractAddress: contractAddress,
 	}
 

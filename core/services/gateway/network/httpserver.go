@@ -17,10 +17,14 @@ import (
 type HttpServer interface {
 	job.ServiceCtx
 
-	// Not thread-safe. Should be done once before calling Start().
+	// Not thread-safe. Should be called once, before Start() is called.
 	SetHTTPRequestHandler(handler HTTPRequestHandler)
+
+	// Not thread-safe. Can be called after Start() returns.
+	GetPort() int
 }
 
+//go:generate mockery --quiet --name HTTPRequestHandler --output ./mocks/ --case=underscore
 type HTTPRequestHandler interface {
 	ProcessRequest(ctx context.Context, rawRequest []byte) (rawResponse []byte, httpStatusCode int)
 }
@@ -36,11 +40,13 @@ type HTTPServerConfig struct {
 	ReadTimeoutMillis    uint32
 	WriteTimeoutMillis   uint32
 	RequestTimeoutMillis uint32
+	MaxRequestBytes      int64
 }
 
 type httpServer struct {
 	utils.StartStopOnce
 	config            *HTTPServerConfig
+	listener          net.Listener
 	server            *http.Server
 	handler           HTTPRequestHandler
 	doneCh            chan struct{}
@@ -70,7 +76,8 @@ func NewHttpServer(config *HTTPServerConfig, lggr logger.Logger) HttpServer {
 }
 
 func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
-	rawMessage, err := io.ReadAll(r.Body)
+	source := http.MaxBytesReader(nil, r.Body, s.config.MaxRequestBytes)
+	rawMessage, err := io.ReadAll(source)
 	if err != nil {
 		s.lggr.Error("error reading request", err)
 		w.WriteHeader(http.StatusBadRequest)
@@ -97,11 +104,14 @@ func (s *httpServer) SetHTTPRequestHandler(handler HTTPRequestHandler) {
 	s.handler = handler
 }
 
+func (s *httpServer) GetPort() int {
+	return s.listener.Addr().(*net.TCPAddr).Port
+}
+
 func (s *httpServer) Start(ctx context.Context) error {
 	return s.StartOnce("GatewayHTTPServer", func() error {
 		s.lggr.Info("starting gateway HTTP server")
-		s.runServer()
-		return nil
+		return s.runServer()
 	})
 }
 
@@ -115,20 +125,26 @@ func (s *httpServer) Close() error {
 	})
 }
 
-func (s *httpServer) runServer() {
+func (s *httpServer) runServer() (err error) {
+	s.listener, err = net.Listen("tcp", s.server.Addr)
+	if err != nil {
+		return
+	}
 	tlsEnabled := s.config.TLSEnabled
+
 	go func() {
 		if tlsEnabled {
-			err := s.server.ListenAndServeTLS(s.config.TLSCertPath, s.config.TLSKeyPath)
+			err := s.server.ServeTLS(s.listener, s.config.TLSCertPath, s.config.TLSKeyPath)
 			if err != http.ErrServerClosed {
 				s.lggr.Error("gateway server closed with error:", err)
 			}
 		} else {
-			err := s.server.ListenAndServe()
+			err := s.server.Serve(s.listener)
 			if err != http.ErrServerClosed {
 				s.lggr.Error("gateway server closed with error:", err)
 			}
 		}
 		s.doneCh <- struct{}{}
 	}()
+	return
 }

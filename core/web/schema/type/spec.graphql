@@ -91,7 +91,7 @@ type OCR2Spec {
     transmitterID: String
     pluginType: String!
     pluginConfig: Map!
-    feedID: String!
+    feedID: String
 }
 
 type VRFSpec {
@@ -112,6 +112,7 @@ type VRFSpec {
     backoffInitialDelay: String!
     backoffMaxDelay: String!
     gasLanePrice: String
+    vrfOwnerAddress: String
 }
 
 type WebhookSpec {
@@ -121,9 +122,12 @@ type WebhookSpec {
 type BlockhashStoreSpec {
     coordinatorV1Address: String
     coordinatorV2Address: String
+    coordinatorV2PlusAddress: String
     waitBlocks: Int!
     lookbackBlocks: Int!
     blockhashStoreAddress: String!
+    trustedBlockhashStoreAddress: String
+    trustedBlockhashStoreBatchSize: Int!
     pollPeriod: String!
     runTimeout: String!
     evmChainID: String
@@ -134,6 +138,7 @@ type BlockhashStoreSpec {
 type BlockHeaderFeederSpec {
     coordinatorV1Address: String
     coordinatorV2Address: String
+    coordinatorV2PlusAddress: String
     waitBlocks: Int!
     lookbackBlocks: Int!
     blockhashStoreAddress: String!

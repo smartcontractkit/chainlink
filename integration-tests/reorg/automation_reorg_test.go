@@ -9,22 +9,21 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	networks "github.com/smartcontractkit/chainlink/integration-tests"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 var (
@@ -39,12 +38,8 @@ Enabled = true
 Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]`
-	simulatedEVMNonDevTOML = `
-[[EVM]]
-ChainID = 1337
-MinContractPayment = '0'
-Enabled = true
-FinalityDepth = 50
+	networkTOML = `Enabled = true
+FinalityDepth = 200
 LogPollInterval = '1s'
 
 [EVM.HeadTracker]
@@ -53,14 +48,9 @@ HistoryDepth = 400
 [EVM.GasEstimator]
 Mode = 'FixedPrice'
 LimitDefault = 5_000_000`
-	networkTOML = `FinalityDepth = 200
-
-[EVM.HeadTracker]
-HistoryDepth = 400`
 	activeEVMNetwork          = networks.SelectedNetwork
 	defaultAutomationSettings = map[string]interface{}{
-		"toml":     client.AddNetworkDetailedConfig(baseTOML+simulatedEVMNonDevTOML, networkTOML, activeEVMNetwork),
-		"replicas": "6",
+		"toml": client.AddNetworkDetailedConfig(baseTOML, networkTOML, activeEVMNetwork),
 		"db": map[string]interface{}{
 			"stateful": false,
 			"capacity": "1Gi",
@@ -113,6 +103,7 @@ const (
 	defaultLinkFunds      = int64(9e18)
 	numberOfUpkeeps       = 2
 	automationReorgBlocks = 50
+	numberOfNodes         = 6
 )
 
 /*
@@ -132,20 +123,28 @@ const (
  * normal pace after the event.
  */
 func TestAutomationReorg(t *testing.T) {
+	l := utils.GetTestLogger(t)
 	network := networks.SelectedNetwork
 
+	cd, err := chainlink.NewDeployment(numberOfNodes, defaultAutomationSettings)
+	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment := environment.
 		New(&environment.Config{
 			NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
-			TTL:             time.Hour * 1}).
+			TTL:             time.Hour * 1,
+			Test:            t}).
 		AddHelm(reorg.New(defaultReorgEthereumSettings)).
-		AddHelm(chainlink.New(0, defaultAutomationSettings)).
 		AddChart(blockscout.New(&blockscout.Props{
 			Name:    "geth-blockscout",
 			WsURL:   activeEVMNetwork.URL,
-			HttpURL: activeEVMNetwork.HTTPURLs[0]}))
-	err := testEnvironment.Run()
+			HttpURL: activeEVMNetwork.HTTPURLs[0]})).
+		AddHelmCharts(cd)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error setting up test environment")
+
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
 
 	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
 	require.NoError(t, err, "Error connecting to blockchain")
@@ -179,7 +178,7 @@ func TestAutomationReorg(t *testing.T) {
 		chainClient,
 	)
 
-	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
+	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, ethereum.RegistryVersion_2_0)
 	nodesWithoutBootstrap := chainlinkNodes[1:]
 	ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
 	require.NoError(t, err, "OCR2 config should be built successfully")
@@ -199,7 +198,7 @@ func TestAutomationReorg(t *testing.T) {
 		defaultUpkeepGasLimit,
 	)
 
-	log.Info().Msg("Waiting for all upkeeps to be performed")
+	l.Info().Msg("Waiting for all upkeeps to be performed")
 
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
@@ -208,13 +207,13 @@ func TestAutomationReorg(t *testing.T) {
 			counter, err := consumers[i].Counter(context.Background())
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			expect := 5
-			log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+			l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 		}
 	}, "7m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~3m for performing each upkeep 5 times, ~3m buffer
 
-	log.Info().Msg("All upkeeps performed under happy path. Starting reorg")
+	l.Info().Msg("All upkeeps performed under happy path. Starting reorg")
 
 	rc, err := NewReorgController(
 		&ReorgConfig{
@@ -231,7 +230,7 @@ func TestAutomationReorg(t *testing.T) {
 	rc.ReOrg(automationReorgBlocks)
 	rc.WaitReorgStarted()
 
-	log.Info().Msg("Reorg started. Expecting chain to become unstable and upkeeps to still getting performed")
+	l.Info().Msg("Reorg started. Expecting chain to become unstable and upkeeps to still getting performed")
 
 	gom.Eventually(func(g gomega.Gomega) {
 		// Check if the upkeeps are performing multiple times by analyzing their counters and checking they reach 10
@@ -239,23 +238,23 @@ func TestAutomationReorg(t *testing.T) {
 			counter, err := consumers[i].Counter(context.Background())
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			expect := 10
-			log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+			l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 		}
 	}, "5m", "1s").Should(gomega.Succeed())
 
-	log.Info().Msg("Upkeep performed during unstable chain, waiting for reorg to finish")
+	l.Info().Msg("Upkeep performed during unstable chain, waiting for reorg to finish")
 	rc.WaitDepthReached()
 
-	log.Info().Msg("Reorg finished, chain should be stable now. Expecting upkeeps to keep getting performed")
+	l.Info().Msg("Reorg finished, chain should be stable now. Expecting upkeeps to keep getting performed")
 	gom.Eventually(func(g gomega.Gomega) {
 		// Check if the upkeeps are performing multiple times by analyzing their counters and checking they reach 20
 		for i := 0; i < len(upkeepIDs); i++ {
 			counter, err := consumers[i].Counter(context.Background())
 			require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
 			expect := 20
-			log.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
+			l.Info().Int64("Upkeeps Performed", counter.Int64()).Int("Upkeep ID", i).Msg("Number of upkeeps performed")
 			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 				"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 		}

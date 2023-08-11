@@ -19,9 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
-func TestClient_CreateUser(t *testing.T) {
+func TestShell_CreateUser(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 	client.PasswordPrompter = cltest.MockPasswordPrompter{
 		Password: cltest.Password,
 	}
@@ -58,9 +58,9 @@ func TestClient_CreateUser(t *testing.T) {
 	}
 }
 
-func TestClient_ChangeRole(t *testing.T) {
+func TestShell_ChangeRole(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.SessionORM().CreateUser(&user))
 
@@ -97,9 +97,9 @@ func TestClient_ChangeRole(t *testing.T) {
 	}
 }
 
-func TestClient_DeleteUser(t *testing.T) {
+func TestShell_DeleteUser(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.SessionORM().CreateUser(&user))
 
@@ -131,9 +131,9 @@ func TestClient_DeleteUser(t *testing.T) {
 	}
 }
 
-func TestClient_ListUsers(t *testing.T) {
+func TestShell_ListUsers(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
-	client, _ := app.NewClientAndRenderer()
+	client, _ := app.NewShellAndRenderer()
 	user := cltest.MustRandomUser(t)
 	require.NoError(t, app.SessionORM().CreateUser(&user))
 

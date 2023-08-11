@@ -5,11 +5,12 @@ import (
 )
 
 type ConnectorConfig struct {
-	NodeAddress              string
-	DonId                    string
-	Gateways                 []ConnectorGatewayConfig
-	WsClientConfig           network.WebSocketClientConfig
-	MinHandshakeChallengeLen int
+	NodeAddress               string
+	DonId                     string
+	Gateways                  []ConnectorGatewayConfig
+	WsClientConfig            network.WebSocketClientConfig
+	AuthMinChallengeLen       int
+	AuthTimestampToleranceSec uint32
 }
 
 type ConnectorGatewayConfig struct {

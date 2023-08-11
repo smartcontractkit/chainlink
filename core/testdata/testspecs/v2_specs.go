@@ -9,7 +9,9 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -240,7 +242,9 @@ type VRFSpecParams struct {
 	JobID                         string
 	Name                          string
 	CoordinatorAddress            string
+	VRFVersion                    vrfcommon.Version
 	BatchCoordinatorAddress       string
+	VRFOwnerAddress               string
 	BatchFulfillmentEnabled       bool
 	BatchFulfillmentGasMultiplier float64
 	MinIncomingConfirmations      int
@@ -274,6 +278,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.Name != "" {
 		name = params.Name
 	}
+	vrfVersion := vrfcommon.V2
+	if params.VRFVersion != "" {
+		vrfVersion = params.VRFVersion
+	}
 	coordinatorAddress := "0xABA5eDc1a551E55b1A570c0e1f1055e5BE11eca7"
 	if params.CoordinatorAddress != "" {
 		coordinatorAddress = params.CoordinatorAddress
@@ -282,7 +290,10 @@ func GenerateVRFSpec(params VRFSpecParams) VRFSpec {
 	if params.BatchCoordinatorAddress != "" {
 		batchCoordinatorAddress = params.BatchCoordinatorAddress
 	}
-
+	vrfOwnerAddress := "0x5383C25DA15b1253463626243215495a3718beE4"
+	if params.VRFOwnerAddress != "" && vrfVersion == vrfcommon.V2 {
+		vrfOwnerAddress = params.VRFOwnerAddress
+	}
 	batchFulfillmentGasMultiplier := 1.0
 	if params.BatchFulfillmentGasMultiplier >= 1.0 {
 		batchFulfillmentGasMultiplier = params.BatchFulfillmentGasMultiplier
@@ -353,6 +364,31 @@ simulate [type=ethcall
 decode_log->vrf->estimate_gas->simulate
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
+	if vrfVersion == vrfcommon.V2Plus {
+		observationSource = fmt.Sprintf(`
+decode_log              [type=ethabidecodelog
+                         abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint256 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bytes extraArgs,address indexed sender)"
+                         data="$(jobRun.logData)"
+                         topics="$(jobRun.logTopics)"]
+generate_proof          [type=vrfv2plus
+                         publicKey="$(jobSpec.publicKey)"
+                         requestBlockHash="$(jobRun.logBlockHash)"
+                         requestBlockNumber="$(jobRun.logBlockNumber)"
+                         topics="$(jobRun.logTopics)"]
+estimate_gas            [type=estimategaslimit
+                         to="%s"
+                         multiplier="1.1"
+                         data="$(generate_proof.output)"]
+simulate_fulfillment    [type=ethcall
+                         to="%s"
+		                 gas="$(estimate_gas)"
+		                 gasPrice="$(jobSpec.maxGasPrice)"
+		                 extractRevertReason=true
+		                 contract="%s"
+		                 data="$(generate_proof.output)"]
+decode_log->generate_proof->estimate_gas->simulate_fulfillment
+`, coordinatorAddress, coordinatorAddress, coordinatorAddress)
+	}
 	if params.ObservationSource != "" {
 		observationSource = params.ObservationSource
 	}
@@ -389,6 +425,9 @@ observationSource = """
 		}
 		toml = toml + "\n" + fmt.Sprintf(`fromAddresses = [%s]`, strings.Join(addresses, ", "))
 	}
+	if vrfVersion == vrfcommon.V2 {
+		toml = toml + "\n" + fmt.Sprintf(`vrfOwnerAddress = "%s"`, vrfOwnerAddress)
+	}
 
 	return VRFSpec{VRFSpecParams: VRFSpecParams{
 		JobID:                    jobID,
@@ -404,6 +443,8 @@ observationSource = """
 		ChunkSize:                chunkSize,
 		BackoffInitialDelay:      params.BackoffInitialDelay,
 		BackoffMaxDelay:          params.BackoffMaxDelay,
+		VRFOwnerAddress:          vrfOwnerAddress,
+		VRFVersion:               vrfVersion,
 	}, toml: toml}
 }
 
@@ -545,17 +586,20 @@ ds -> ds_parse -> ds_multiply;
 
 // BlockhashStoreSpecParams defines params for building a blockhash store job spec.
 type BlockhashStoreSpecParams struct {
-	JobID                 string
-	Name                  string
-	CoordinatorV1Address  string
-	CoordinatorV2Address  string
-	WaitBlocks            int
-	LookbackBlocks        int
-	BlockhashStoreAddress string
-	PollPeriod            time.Duration
-	RunTimeout            time.Duration
-	EVMChainID            int64
-	FromAddresses         []string
+	JobID                          string
+	Name                           string
+	CoordinatorV1Address           string
+	CoordinatorV2Address           string
+	CoordinatorV2PlusAddress       string
+	WaitBlocks                     int
+	LookbackBlocks                 int
+	BlockhashStoreAddress          string
+	TrustedBlockhashStoreAddress   string
+	TrustedBlockhashStoreBatchSize int32
+	PollPeriod                     time.Duration
+	RunTimeout                     time.Duration
+	EVMChainID                     int64
+	FromAddresses                  []string
 }
 
 // BlockhashStoreSpec defines a blockhash store job spec.
@@ -585,6 +629,18 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 
 	if params.CoordinatorV2Address == "" {
 		params.CoordinatorV2Address = "0x2498e651Ae17C2d98417C4826F0816Ac6366A95E"
+	}
+
+	if params.CoordinatorV2PlusAddress == "" {
+		params.CoordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
+	}
+
+	if params.TrustedBlockhashStoreAddress == "" {
+		params.TrustedBlockhashStoreAddress = utils.ZeroAddress.Hex()
+	}
+
+	if params.TrustedBlockhashStoreBatchSize == 0 {
+		params.TrustedBlockhashStoreBatchSize = 20
 	}
 
 	if params.WaitBlocks == 0 {
@@ -624,17 +680,20 @@ schemaVersion = 1
 name = "%s"
 coordinatorV1Address = "%s"
 coordinatorV2Address = "%s"
+coordinatorV2PlusAddress = "%s"
 waitBlocks = %d
 lookbackBlocks = %d
 blockhashStoreAddress = "%s"
+trustedBlockhashStoreAddress = "%s"
+trustedBlockhashStoreBatchSize = %d
 pollPeriod = "%s"
 runTimeout = "%s"
 evmChainID = "%d"
 fromAddresses = %s
 `
 	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
-		params.CoordinatorV2Address, params.WaitBlocks, params.LookbackBlocks,
-		params.BlockhashStoreAddress, params.PollPeriod.String(), params.RunTimeout.String(),
+		params.CoordinatorV2Address, params.CoordinatorV2PlusAddress, params.WaitBlocks, params.LookbackBlocks,
+		params.BlockhashStoreAddress, params.TrustedBlockhashStoreAddress, params.TrustedBlockhashStoreBatchSize, params.PollPeriod.String(), params.RunTimeout.String(),
 		params.EVMChainID, formattedFromAddresses)
 
 	return BlockhashStoreSpec{BlockhashStoreSpecParams: params, toml: toml}
@@ -646,6 +705,7 @@ type BlockHeaderFeederSpecParams struct {
 	Name                       string
 	CoordinatorV1Address       string
 	CoordinatorV2Address       string
+	CoordinatorV2PlusAddress   string
 	WaitBlocks                 int
 	LookbackBlocks             int
 	BlockhashStoreAddress      string
@@ -685,6 +745,10 @@ func GenerateBlockHeaderFeederSpec(params BlockHeaderFeederSpecParams) BlockHead
 
 	if params.CoordinatorV2Address == "" {
 		params.CoordinatorV2Address = "0x2d7F888fE0dD469bd81A12f77e6291508f714d4B"
+	}
+
+	if params.CoordinatorV2PlusAddress == "" {
+		params.CoordinatorV2PlusAddress = "0x2d7F888fE0dD469bd81A12f77e6291508f714d4B"
 	}
 
 	if params.WaitBlocks == 0 {
@@ -736,6 +800,7 @@ schemaVersion = 1
 name = "%s"
 coordinatorV1Address = "%s"
 coordinatorV2Address = "%s"
+coordinatorV2PlusAddress = "%s"
 waitBlocks = %d
 lookbackBlocks = %d
 blockhashStoreAddress = "%s"
@@ -748,7 +813,7 @@ getBlockhashesBatchSize = %d
 storeBlockhashesBatchSize = %d
 `
 	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
-		params.CoordinatorV2Address, params.WaitBlocks, params.LookbackBlocks,
+		params.CoordinatorV2Address, params.CoordinatorV2PlusAddress, params.WaitBlocks, params.LookbackBlocks,
 		params.BlockhashStoreAddress, params.BatchBlockhashStoreAddress, params.PollPeriod.String(),
 		params.RunTimeout.String(), params.EVMChainID, formattedFromAddresses, params.GetBlockhashesBatchSize,
 		params.StoreBlockhashesBatchSize)

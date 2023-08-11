@@ -8,11 +8,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 // ConfigSet Common to all OCR2 evm based contracts: https://github.com/smartcontractkit/libocr/blob/master/contract2/dev/OCR2Abstract.sol
@@ -80,8 +81,7 @@ func configPollerFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR2ConfigPoller", addr.String())
 }
 
-// NewConfigPoller creates a new ConfigPoller
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (ConfigPoller, error) {
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address) (evmRelayTypes.ConfigPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(addr), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{addr}})
 	if err != nil {
 		return nil, err
@@ -95,6 +95,14 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 	}
 
 	return cp, nil
+}
+
+// Start noop method
+func (cp *configPoller) Start() {}
+
+// Close noop method
+func (cp *configPoller) Close() error {
+	return nil
 }
 
 // Notify noop method

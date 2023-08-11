@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
@@ -90,15 +90,22 @@ type ConfigPoller struct {
 	destChainLogPoller logpoller.LogPoller
 	addr               common.Address
 	feedId             common.Hash
+	notifyCh           chan struct{}
+	subscription       pg.Subscription
 }
 
-func FilterName(addr common.Address) string {
-	return logpoller.FilterName("OCR2 Mercury ConfigPoller", addr.String())
+func FilterName(addr common.Address, feedID common.Hash) string {
+	return logpoller.FilterName("OCR3 Mercury ConfigPoller", addr.String(), feedID.Hex())
 }
 
 // NewConfigPoller creates a new Mercury ConfigPoller
-func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash) (*ConfigPoller, error) {
-	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: FilterName(addr), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
+func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, addr common.Address, feedId common.Hash, eventBroadcaster pg.EventBroadcaster) (*ConfigPoller, error) {
+	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: FilterName(addr, feedId), EventSigs: []common.Hash{FeedScopedConfigSet}, Addresses: []common.Address{addr}})
+	if err != nil {
+		return nil, err
+	}
+
+	subscription, err := eventBroadcaster.Subscribe(pg.ChannelInsertOnEVMLogs, "")
 	if err != nil {
 		return nil, err
 	}
@@ -108,25 +115,38 @@ func NewConfigPoller(lggr logger.Logger, destChainPoller logpoller.LogPoller, ad
 		destChainLogPoller: destChainPoller,
 		addr:               addr,
 		feedId:             feedId,
+		notifyCh:           make(chan struct{}, 1),
+		subscription:       subscription,
 	}
 
 	return cp, nil
 }
 
-// Notify noop method
-// TODO: implement this, see: https://smartcontract-it.atlassian.net/browse/MERC-302
-func (lp *ConfigPoller) Notify() <-chan struct{} {
+// Start the subscription to Postgres' notify events.
+func (cp *ConfigPoller) Start() {
+	go cp.startLogSubscription()
+}
+
+// Close the subscription to Postgres' notify events.
+func (cp *ConfigPoller) Close() error {
+	cp.subscription.Close()
 	return nil
 }
 
+// Notify abstracts the logpoller.LogPoller Notify() implementation
+func (cp *ConfigPoller) Notify() <-chan struct{} {
+	return cp.notifyCh
+}
+
 // Replay abstracts the logpoller.LogPoller Replay() implementation
-func (lp *ConfigPoller) Replay(ctx context.Context, fromBlock int64) error {
-	return lp.destChainLogPoller.Replay(ctx, fromBlock)
+func (cp *ConfigPoller) Replay(ctx context.Context, fromBlock int64) error {
+	return cp.destChainLogPoller.Replay(ctx, fromBlock)
 }
 
 // LatestConfigDetails returns the latest config details from the logs
-func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
-	logs, err := lp.destChainLogPoller.IndexedLogs(FeedScopedConfigSet, lp.addr, feedIdTopicIndex, []common.Hash{lp.feedId}, 1, pg.WithParentCtx(ctx))
+func (cp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
+	cp.lggr.Debugw("LatestConfigDetails", "eventSig", FeedScopedConfigSet, "addr", cp.addr, "topicIndex", feedIdTopicIndex, "feedID", cp.feedId)
+	logs, err := cp.destChainLogPoller.IndexedLogs(FeedScopedConfigSet, cp.addr, feedIdTopicIndex, []common.Hash{cp.feedId}, 1, pg.WithParentCtx(ctx))
 	if err != nil {
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
@@ -142,8 +162,8 @@ func (lp *ConfigPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 }
 
 // LatestConfig returns the latest config from the logs on a certain block
-func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
-	lgs, err := lp.destChainLogPoller.IndexedLogsByBlockRange(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, lp.addr, feedIdTopicIndex, []common.Hash{lp.feedId}, pg.WithParentCtx(ctx))
+func (cp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64) (ocrtypes.ContractConfig, error) {
+	lgs, err := cp.destChainLogPoller.IndexedLogsByBlockRange(int64(changedInBlock), int64(changedInBlock), FeedScopedConfigSet, cp.addr, feedIdTopicIndex, []common.Hash{cp.feedId}, pg.WithParentCtx(ctx))
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
@@ -154,13 +174,13 @@ func (lp *ConfigPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if err != nil {
 		return ocrtypes.ContractConfig{}, err
 	}
-	lp.lggr.Infow("LatestConfig", "latestConfig", latestConfigSet)
+	cp.lggr.Infow("LatestConfig", "latestConfig", latestConfigSet)
 	return latestConfigSet.ContractConfig, nil
 }
 
 // LatestBlockHeight returns the latest block height from the logs
-func (lp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
-	latest, err := lp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
+func (cp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint64, err error) {
+	latest, err := cp.destChainLogPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return 0, nil
@@ -168,4 +188,35 @@ func (lp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 		return 0, err
 	}
 	return uint64(latest), nil
+}
+
+func (cp *ConfigPoller) startLogSubscription() {
+	feedIdPgHex := cp.feedId.Hex()[2:] // trim the leading 0x to make it comparable to pg's hex encoding.
+	for {
+		event, ok := <-cp.subscription.Events()
+		if !ok {
+			cp.lggr.Debug("eventBroadcaster subscription closed, exiting notify loop")
+			return
+		}
+
+		// Event payload should look like: "<address>:<topicVal1>,<topicVal2>"
+		addressTopicValues := strings.Split(event.Payload, ":")
+		if len(addressTopicValues) < 2 {
+			cp.lggr.Warnf("invalid event from %s channel: %s", pg.ChannelInsertOnEVMLogs, event.Payload)
+			continue
+		}
+
+		topicValues := strings.Split(addressTopicValues[1], ",")
+		if len(topicValues) <= feedIdTopicIndex {
+			continue
+		}
+		if topicValues[feedIdTopicIndex] != feedIdPgHex {
+			continue
+		}
+
+		select {
+		case cp.notifyCh <- struct{}{}:
+		default:
+		}
+	}
 }
