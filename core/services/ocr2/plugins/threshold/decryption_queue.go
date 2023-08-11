@@ -171,7 +171,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 
 	dq.pendingRequestQueue = removeMultipleIndices(dq.pendingRequestQueue, indicesToRemove)
 
-	dq.lggr.Debugf("returning first %d of %d total requests awaiting decryption", requestCountLimit, len(dq.pendingRequestQueue))
+	dq.lggr.Debugf("returning first %d of %d total requests awaiting decryption", len(requests), len(dq.pendingRequestQueue))
 
 	return requests
 }
@@ -200,7 +200,7 @@ func (dq *decryptionQueue) GetCiphertext(ciphertextId decryptionPlugin.Ciphertex
 	return req.ciphertext, nil
 }
 
-func (dq *decryptionQueue) SetResult(ciphertextId decryptionPlugin.CiphertextId, plaintext []byte) {
+func (dq *decryptionQueue) SetResult(ciphertextId decryptionPlugin.CiphertextId, plaintext []byte, err error) {
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 

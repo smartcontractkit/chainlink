@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -274,8 +274,10 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 }
 
 func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upkeepFilter) {
-	id := ocr2keepers.UpkeepIdentifier(append(common.LeftPadBytes([]byte{1}, 16), []byte(fmt.Sprintf("%d", i))...))
-	uid := big.NewInt(0).SetBytes(id)
+	idBytes := append(common.LeftPadBytes([]byte{1}, 16), []byte(fmt.Sprintf("%d", i))...)
+	id := ocr2keepers.UpkeepIdentifier{}
+	copy(id[:], idBytes)
+	uid := id.BigInt()
 	for len(args) < 2 {
 		args = append(args, "0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d")
 	}
@@ -286,12 +288,12 @@ func newEntry(p *logEventProvider, i int, args ...string) (LogTriggerConfig, upk
 		Topic0:          common.HexToHash(topic0),
 	}
 	filter := p.newLogFilter(uid, cfg)
-	eventSigs := make([]common.Hash, len(filter.EventSigs))
-	copy(eventSigs, filter.EventSigs)
+	topics := make([]common.Hash, len(filter.EventSigs))
+	copy(topics, filter.EventSigs)
 	f := upkeepFilter{
 		upkeepID:     uid,
 		addr:         filter.Addresses[0].Bytes(),
-		topics:       eventSigs,
+		topics:       topics,
 		blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
 	}
 	return cfg, f

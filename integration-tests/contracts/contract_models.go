@@ -138,6 +138,7 @@ type OffchainAggregator interface {
 	Fund(nativeAmount *big.Float) error
 	GetContractData(ctx context.Context) (*OffchainAggregatorData, error)
 	SetConfig(chainlinkNodes []*client.ChainlinkK8sClient, ocrConfig OffChainAggregatorConfig, transmitters []common.Address) error
+	SetConfigLocal(chainlinkNodes []*client.ChainlinkClient, ocrConfig OffChainAggregatorConfig, transmitters []common.Address) error
 	SetPayees([]string, []string) error
 	RequestNewRound() error
 	GetLatestAnswer(ctx context.Context) (*big.Int, error)
