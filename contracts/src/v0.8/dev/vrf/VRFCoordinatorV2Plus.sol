@@ -395,6 +395,59 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
   }
 
+  function calculateRandomWords(uint256 randomness, uint32 numWords) internal pure returns (uint256[] memory) {
+    uint256[] memory randomWords = new uint256[](numWords);
+    for (uint256 i = 0; i < numWords; i++) {
+      randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
+    }
+    return randomWords;
+  }
+
+  function deleteCommitment(uint256 requestId) internal {
+    delete s_requestCommitments[requestId];
+  }
+
+  function callCallback(uint256 requestId, uint256[] memory randomWords, uint32 callbackGasLimit, address sender) internal returns (bool success) {
+    VRFConsumerBaseV2Plus v;
+    bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, requestId, randomWords);
+    // Call with explicitly the amount of callback gas requested
+    // Important to not let them exhaust the gas budget and avoid oracle payment.
+    // Do not allow any non-view/non-pure coordinator functions to be called
+    // during the consumers callback code via reentrancyLock.
+    // Note that callWithExactGas will revert if we do not have sufficient gas
+    // to give the callee their requested amount.
+    s_config.reentrancyLock = true;
+    success = callWithExactGas(callbackGasLimit, sender, resp);
+    s_config.reentrancyLock = false;
+  }
+
+  function incrementReqCount(uint256 subId) internal {
+    // Increment the req count for the subscription.
+    s_subscriptions[subId].reqCount++;
+  }
+
+  function billSubscriber(uint256 subId, bytes32 keyHash, uint96 payment, bool nativePayment) internal {
+    if (nativePayment) {
+      if (s_subscriptions[subId].ethBalance < payment) {
+        revert InsufficientBalance();
+      }
+      s_subscriptions[subId].ethBalance -= payment;
+      s_withdrawableEth[s_provingKeys[keyHash]] += payment;
+    } else {
+      if (s_subscriptions[subId].balance < payment) {
+        revert InsufficientBalance();
+      }
+      s_subscriptions[subId].balance -= payment;
+      s_withdrawableTokens[s_provingKeys[keyHash]] += payment;
+    }
+  }
+
+  function emitRandomWordsFulfilled(uint256 requestId, uint256 randomness, uint256 subId, uint96 payment, bool success, bytes memory extraArgs) internal {
+    // Include payment in the event for tracking costs.
+    // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);
+    emit RandomWordsFulfilled(requestId, randomness, subId, payment, extraArgs, success);
+  }
+
   /*
    * @notice Fulfill a randomness request
    * @param proof contains the proof and randomness
@@ -409,27 +462,12 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     uint256 startGas = gasleft();
     (bytes32 keyHash, uint256 requestId, uint256 randomness) = getRandomnessFromProof(proof, rc);
 
-    uint256[] memory randomWords = new uint256[](rc.numWords);
-    for (uint256 i = 0; i < rc.numWords; i++) {
-      randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
-    }
+    uint256[] memory randomWords = calculateRandomWords(randomness, rc.numWords);
 
-    delete s_requestCommitments[requestId];
-    VRFConsumerBaseV2Plus v;
-    bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, requestId, randomWords);
-    // Call with explicitly the amount of callback gas requested
-    // Important to not let them exhaust the gas budget and avoid oracle payment.
-    // Do not allow any non-view/non-pure coordinator functions to be called
-    // during the consumers callback code via reentrancyLock.
-    // Note that callWithExactGas will revert if we do not have sufficient gas
-    // to give the callee their requested amount.
-    s_config.reentrancyLock = true;
-    bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
-    s_config.reentrancyLock = false;
+    deleteCommitment(requestId);
+    bool success = callCallback(requestId, randomWords, rc.callbackGasLimit, rc.sender);
 
-    // Increment the req count for the subscription.
-    uint64 reqCount = s_subscriptions[rc.subId].reqCount;
-    s_subscriptions[rc.subId].reqCount = reqCount + 1;
+    incrementReqCount(rc.subId);
 
     // stack too deep error
     {
@@ -443,26 +481,12 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         tx.gasprice,
         nativePayment
       );
-      if (nativePayment) {
-        if (s_subscriptions[rc.subId].ethBalance < payment) {
-          revert InsufficientBalance();
-        }
-        s_subscriptions[rc.subId].ethBalance -= payment;
-        s_withdrawableEth[s_provingKeys[keyHash]] += payment;
-      } else {
-        if (s_subscriptions[rc.subId].balance < payment) {
-          revert InsufficientBalance();
-        }
-        s_subscriptions[rc.subId].balance -= payment;
-        s_withdrawableTokens[s_provingKeys[keyHash]] += payment;
-      }
+      billSubscriber(rc.subId, keyHash, payment, nativePayment);
 
       bytes memory extraArgs = VRFV2PlusClient._argsToBytes(
         VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment})
       );
-      // Include payment in the event for tracking costs.
-      // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);
-      emit RandomWordsFulfilled(requestId, randomness, rc.subId, payment, extraArgs, success);
+      emitRandomWordsFulfilled(requestId, randomness, rc.subId, payment, success, extraArgs);
 
       return payment;
     }
