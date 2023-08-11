@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -385,12 +386,13 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 			results: make([]ocr2keepers.CheckResult, 1),
 			expectedResults: []ocr2keepers.CheckResult{
 				{
-					FailureReason: UPKEEP_FAILURE_REASON_CHECK_BLOCK_TOO_OLD,
-					UpkeepID:      upkeepId,
-					Trigger:       ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
-					FastGasWei:    big.NewInt(0),
-					LinkNative:    big.NewInt(0),
-					WorkID:        "work",
+					PipelineExecutionState: CheckBlockTooOld,
+					IneligibilityReason:    UpkeepFailureReasonNone,
+					UpkeepID:               upkeepId,
+					Trigger:                ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
+					FastGasWei:             big.NewInt(0),
+					LinkNative:             big.NewInt(0),
+					WorkID:                 "work",
 				},
 			},
 		},
@@ -410,12 +412,13 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 			expectedResults: []ocr2keepers.CheckResult{
 				{},
 				{
-					FailureReason: UPKEEP_FAILURE_REASON_CHECK_BLOCK_INVALID,
-					UpkeepID:      upkeepId,
-					Trigger:       ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
-					FastGasWei:    big.NewInt(0),
-					LinkNative:    big.NewInt(0),
-					WorkID:        "work",
+					PipelineExecutionState: CheckBlockInvalid,
+					IneligibilityReason:    UpkeepFailureReasonNone,
+					UpkeepID:               upkeepId,
+					Trigger:                ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
+					FastGasWei:             big.NewInt(0),
+					LinkNative:             big.NewInt(0),
+					WorkID:                 "work",
 				},
 			},
 		},
@@ -435,12 +438,13 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 			expectedResults: []ocr2keepers.CheckResult{
 				{},
 				{
-					FailureReason: UPKEEP_FAILURE_REASON_CHECK_BLOCK_INVALID,
-					UpkeepID:      upkeepId,
-					Trigger:       ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
-					FastGasWei:    big.NewInt(0),
-					LinkNative:    big.NewInt(0),
-					WorkID:        "work",
+					PipelineExecutionState: CheckBlockInvalid,
+					IneligibilityReason:    UpkeepFailureReasonNone,
+					UpkeepID:               upkeepId,
+					Trigger:                ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
+					FastGasWei:             big.NewInt(0),
+					LinkNative:             big.NewInt(0),
+					WorkID:                 "work",
 				},
 			},
 			blocks: map[int64]string{
@@ -472,8 +476,10 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			lb := atomic.Int64{}
+			lb.Store(tc.latestBlock.Int64())
 			bs := &BlockSubscriber{
-				latestBlock: tc.latestBlock.Int64(),
+				latestBlock: &lb,
 				blocks:      tc.blocks,
 			}
 			e := &EvmRegistry{
@@ -529,12 +535,13 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			results: make([]ocr2keepers.CheckResult, 1),
 			expectedResults: []ocr2keepers.CheckResult{
 				{
-					FailureReason: UPKEEP_FAILURE_REASON_LOG_BLOCK_NO_LONGER_EXISTS,
-					UpkeepID:      upkeepId,
-					Trigger:       ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
-					FastGasWei:    big.NewInt(0),
-					LinkNative:    big.NewInt(0),
-					WorkID:        "work",
+					PipelineExecutionState: NoPipelineError,
+					IneligibilityReason:    UpkeepFailureReasonLogBlockNoLongerExists,
+					UpkeepID:               upkeepId,
+					Trigger:                ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
+					FastGasWei:             big.NewInt(0),
+					LinkNative:             big.NewInt(0),
+					WorkID:                 "work",
 				},
 			},
 		},
@@ -551,12 +558,13 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			expectedResults: []ocr2keepers.CheckResult{
 				{},
 				{
-					FailureReason: UPKEEP_FAILURE_REASON_LOG_BLOCK_INVALID,
-					UpkeepID:      upkeepId,
-					Trigger:       ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
-					FastGasWei:    big.NewInt(0),
-					LinkNative:    big.NewInt(0),
-					WorkID:        "work",
+					PipelineExecutionState: NoPipelineError,
+					IneligibilityReason:    UpkeepFailureReasonLogBlockInvalid,
+					UpkeepID:               upkeepId,
+					Trigger:                ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
+					FastGasWei:             big.NewInt(0),
+					LinkNative:             big.NewInt(0),
+					WorkID:                 "work",
 				},
 			},
 			blocks: map[int64]string{
@@ -576,12 +584,13 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			expectedResults: []ocr2keepers.CheckResult{
 				{},
 				{
-					FailureReason: UPKEEP_FAILURE_REASON_TX_HASH_NO_LONGER_EXISTS,
-					UpkeepID:      upkeepId,
-					Trigger:       ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension1),
-					FastGasWei:    big.NewInt(0),
-					LinkNative:    big.NewInt(0),
-					WorkID:        "work",
+					PipelineExecutionState: NoPipelineError,
+					IneligibilityReason:    UpkeepFailureReasonTxHashNoLongerExists,
+					UpkeepID:               upkeepId,
+					Trigger:                ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension1),
+					FastGasWei:             big.NewInt(0),
+					LinkNative:             big.NewInt(0),
+					WorkID:                 "work",
 				},
 			},
 			blocks: map[int64]string{

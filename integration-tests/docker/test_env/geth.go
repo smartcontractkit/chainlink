@@ -178,8 +178,9 @@ func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 		Image:        "ethereum/client-go:stable",
 		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
 		Networks:     networks,
-		WaitingFor: tcwait.ForLog("Commit new sealing work").
-			WithStartupTimeout(999 * time.Second).
+		WaitingFor: tcwait.ForHTTP("/").
+			WithPort("8544/tcp").
+			WithStartupTimeout(120 * time.Second).
 			WithPollInterval(1 * time.Second),
 		Entrypoint: []string{"sh", "./root/init.sh",
 			"--dev",

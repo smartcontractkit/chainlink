@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -91,7 +92,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 			lp := new(mocks.LogPoller)
 			lp.On("LatestBlock", mock.Anything).Return(tc.LatestBlock, tc.LatestBlockErr)
 			bs := NewBlockSubscriber(hb, lp, blockHistorySize, intializeBlockSize, lggr)
-			blocks, err := bs.getBlockRange()
+			blocks, err := bs.getBlockRange(testutils.Context(t))
 
 			if tc.LatestBlockErr != nil {
 				assert.Equal(t, tc.LatestBlockErr.Error(), err.Error())

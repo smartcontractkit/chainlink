@@ -947,34 +947,35 @@ func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, err
 	return txr.BlockNumber, txr.BlockHash, nil
 }
 
-func (r *EvmRegistry) getCheckResult(p ocr2keepers.UpkeepPayload, failureReason uint8) ocr2keepers.CheckResult {
+func (r *EvmRegistry) getCheckResult(p ocr2keepers.UpkeepPayload, reason, state uint8) ocr2keepers.CheckResult {
 	return ocr2keepers.CheckResult{
-		FailureReason: failureReason,
-		UpkeepID:      p.UpkeepID,
-		Trigger:       p.Trigger,
-		WorkID:        p.WorkID,
-		FastGasWei:    big.NewInt(0),
-		LinkNative:    big.NewInt(0),
+		IneligibilityReason:    reason,
+		PipelineExecutionState: state,
+		UpkeepID:               p.UpkeepID,
+		Trigger:                p.Trigger,
+		WorkID:                 p.WorkID,
+		FastGasWei:             big.NewInt(0),
+		LinkNative:             big.NewInt(0),
 	}
 }
 
 // verifyCheckBlock checks that the check block and hash are valid
 func (r *EvmRegistry) verifyCheckBlock(checkBlock, upkeepId *big.Int, checkHash common.Hash, p ocr2keepers.UpkeepPayload, i int, results []ocr2keepers.CheckResult) bool {
 	// verify check block number is not too old
-	if r.bs.latestBlock-checkBlock.Int64() > validCheckBlockRange {
-		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock, checkBlock, upkeepId)
-		results[i] = r.getCheckResult(p, UPKEEP_FAILURE_REASON_CHECK_BLOCK_TOO_OLD)
+	if r.bs.latestBlock.Load()-checkBlock.Int64() > validCheckBlockRange {
+		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
+		results[i] = r.getCheckResult(p, UpkeepFailureReasonNone, CheckBlockTooOld)
 		return false
 	}
 	// verify check block number and hash are valid
-	h, ok := r.bs.blocks[checkBlock.Int64()]
+	h, ok := r.bs.queryBlocksMap(checkBlock.Int64())
 	if !ok || checkHash.Hex() != h {
 		if !ok {
 			r.lggr.Warnf("check block %s does not exist in block subscriber for upkeepId %s", checkBlock, upkeepId)
 		} else {
 			r.lggr.Warnf("check block %s hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", checkBlock, h, checkHash.Hex(), upkeepId)
 		}
-		results[i] = r.getCheckResult(p, UPKEEP_FAILURE_REASON_CHECK_BLOCK_INVALID)
+		results[i] = r.getCheckResult(p, UpkeepFailureReasonNone, CheckBlockInvalid)
 		return false
 	}
 
@@ -987,15 +988,15 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
 	// if log block number is populated, check log block number and block hash
 	if logBlockNumber != 0 {
-		h, ok := r.bs.blocks[logBlockNumber]
+		h, ok := r.bs.queryBlocksMap(logBlockNumber)
 		if !ok {
 			r.lggr.Warnf("log block %d does not exist in block subscriber for upkeepId %s", logBlockNumber, upkeepId)
-			results[i] = r.getCheckResult(p, UPKEEP_FAILURE_REASON_LOG_BLOCK_NO_LONGER_EXISTS)
+			results[i] = r.getCheckResult(p, UpkeepFailureReasonLogBlockNoLongerExists, NoPipelineError)
 			return false
 		}
 		if h != logBlockHash.Hex() {
 			r.lggr.Warnf("log block %d hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", logBlockNumber, h, logBlockHash.Hex(), upkeepId)
-			results[i] = r.getCheckResult(p, UPKEEP_FAILURE_REASON_LOG_BLOCK_INVALID)
+			results[i] = r.getCheckResult(p, UpkeepFailureReasonLogBlockInvalid, NoPipelineError)
 			return false
 		}
 	} else {
@@ -1003,7 +1004,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 		bn, _, err := r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
 		if err != nil || bn != nil {
 			r.lggr.Warnf("cannot get tx block for txHash %s for upkeepId %s", common.Hash(p.Trigger.LogTriggerExtension.TxHash).Hex(), upkeepId)
-			results[i] = r.getCheckResult(p, UPKEEP_FAILURE_REASON_TX_HASH_NO_LONGER_EXISTS)
+			results[i] = r.getCheckResult(p, UpkeepFailureReasonTxHashNoLongerExists, NoPipelineError)
 			return false
 		}
 	}
