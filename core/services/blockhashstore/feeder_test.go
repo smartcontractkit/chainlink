@@ -920,7 +920,6 @@ func newRandomnessFulfilledLogV2Plus(
 	nonIndexedData, err := unindexed.Pack(
 		e.OutputSeed,
 		e.Payment,
-		e.ExtraArgs,
 		e.Success,
 	)
 	require.NoError(t, err)
