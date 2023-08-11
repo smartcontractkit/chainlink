@@ -2,13 +2,19 @@
 pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
-import {VerifierProxy} from "../VerifierProxy.sol";
-import {IERC165} from "../../vendor/IERC165.sol";
-import {IVerifier} from "../interfaces/IVerifier.sol";
-import {ErroredVerifier} from "./mocks/ErroredVerifier.sol";
-import {Verifier} from "../Verifier.sol";
+import {VerifierProxy} from "../../VerifierProxy.sol";
+import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
+import {IVerifier} from "../../interfaces/IVerifier.sol";
+import {ErroredVerifier} from "../mocks/ErroredVerifier.sol";
+import {Verifier} from "../../Verifier.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
+import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
+import {FeeManager} from "../../dev/FeeManager.sol";
+import {Common} from "../../../libraries/Common.sol";
+import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
+import {WERC20Mock} from "../../../shared/mocks/WERC20Mock.sol";
+import {FeeManager} from "../../dev/FeeManager.sol";
+import {RewardManager} from "../../dev/RewardManager.sol";
 
 contract BaseTest is Test {
   uint256 internal constant MAX_ORACLES = 31;
@@ -18,9 +24,19 @@ contract BaseTest is Test {
   address internal constant MOCK_VERIFIER_ADDRESS_TWO = address(200);
   address internal constant ACCESS_CONTROLLER_ADDRESS = address(300);
 
-  bytes32 internal constant FEED_ID = keccak256("ETH-USD");
-  bytes32 internal constant FEED_ID_2 = keccak256("LINK-USD");
-  bytes32 internal constant FEED_ID_3 = keccak256("BTC-USD");
+  bytes32 internal constant V_MASK = 0x0000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff;
+  bytes32 internal constant V1_BITMASK = 0x0001000000000000000000000000000000000000000000000000000000000000;
+  bytes32 internal constant V2_BITMASK = 0x0002000000000000000000000000000000000000000000000000000000000000;
+  bytes32 internal constant V3_BITMASK = 0x0003000000000000000000000000000000000000000000000000000000000000;
+
+  //version 0 feeds
+  bytes32 internal constant FEED_ID = (keccak256("ETH-USD") & V_MASK) | V1_BITMASK;
+  bytes32 internal constant FEED_ID_2 = (keccak256("LINK-USD") & V_MASK) | V1_BITMASK;
+  bytes32 internal constant FEED_ID_3 = (keccak256("BTC-USD") & V_MASK) | V1_BITMASK;
+
+  //version 3 feeds
+  bytes32 internal constant FEED_ID_V3 = (keccak256("ETH-USD") & V_MASK) | V3_BITMASK;
+
   bytes32 internal constant INVALID_FEED = keccak256("INVALID");
   uint32 internal constant OBSERVATIONS_TIMESTAMP = 1000;
   uint64 internal constant BLOCKNUMBER_LOWER_BOUND = 1000;
@@ -47,7 +63,7 @@ contract BaseTest is Test {
     address signerAddress;
   }
 
-  struct Report {
+  struct V0Report {
     // The feed ID the report has data for
     bytes32 feedId;
     // The time the median value was observed on
@@ -64,6 +80,8 @@ contract BaseTest is Test {
     bytes32 upperBlockhash;
     // The lower bound of the block range the median value was observed within
     uint64 blocknumberLowerBound;
+    // The current block timestamp
+    uint64 currentBlockTimestamp;
   }
 
   Signer[MAX_ORACLES] internal s_signers;
@@ -111,7 +129,7 @@ contract BaseTest is Test {
   }
 
   function _generateSignerSignatures(
-    Report memory report,
+    bytes memory report,
     bytes32[3] memory reportContext,
     Signer[] memory signers
   ) internal pure returns (bytes32[] memory rawRs, bytes32[] memory rawSs, bytes32 rawVs) {
@@ -119,7 +137,7 @@ contract BaseTest is Test {
     bytes32[] memory ss = new bytes32[](signers.length);
     bytes memory vs = new bytes(signers.length);
 
-    bytes32 hash = keccak256(abi.encodePacked(keccak256(abi.encode(report)), reportContext));
+    bytes32 hash = keccak256(abi.encodePacked(keccak256(report), reportContext));
 
     for (uint256 i = 0; i < signers.length; i++) {
       (uint8 v, bytes32 r, bytes32 s) = vm.sign(signers[i].mockPrivateKey, hash);
@@ -131,16 +149,17 @@ contract BaseTest is Test {
   }
 
   function _generateEncodedBlob(
-    Report memory report,
+    V0Report memory report,
     bytes32[3] memory reportContext,
     Signer[] memory signers
   ) internal pure returns (bytes memory) {
+    bytes memory reportBytes = abi.encode(report);
     (bytes32[] memory rs, bytes32[] memory ss, bytes32 rawVs) = _generateSignerSignatures(
-      report,
+      reportBytes,
       reportContext,
       signers
     );
-    return abi.encode(reportContext, abi.encode(report), rs, ss, rawVs);
+    return abi.encode(reportContext, reportBytes, rs, ss, rawVs);
   }
 
   function _configDigestFromConfigData(
@@ -175,7 +194,7 @@ contract BaseTest is Test {
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
   }
 
-  function _createReport(
+  function _createV0Report(
     bytes32 feedId,
     uint32 observationsTimestamp,
     int192 median,
@@ -183,10 +202,11 @@ contract BaseTest is Test {
     int192 ask,
     uint64 blocknumberUpperBound,
     bytes32 upperBlockhash,
-    uint64 blocknumberLowerBound
-  ) internal pure returns (Report memory) {
+    uint64 blocknumberLowerBound,
+    uint32 currentBlockTimestamp
+  ) internal pure returns (V0Report memory) {
     return
-      Report({
+      V0Report({
         feedId: feedId,
         observationsTimestamp: observationsTimestamp,
         median: median,
@@ -194,7 +214,8 @@ contract BaseTest is Test {
         ask: ask,
         blocknumberUpperBound: blocknumberUpperBound,
         upperBlockhash: upperBlockhash,
-        blocknumberLowerBound: blocknumberLowerBound
+        blocknumberLowerBound: blocknumberLowerBound,
+        currentBlockTimestamp: currentBlockTimestamp
       });
   }
 
@@ -212,12 +233,40 @@ contract BaseTest is Test {
   }
 }
 
-contract BaseTestWithConfiguredVerifier is BaseTest {
+contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
+  FeeManager internal feeManager;
+  RewardManager internal rewardManager;
+  ERC20Mock internal link;
+  WERC20Mock internal native;
+
+  uint256 internal constant DEFAULT_REPORT_LINK_FEE = 1e10;
+  uint256 internal constant DEFAULT_REPORT_NATIVE_FEE = 1e12;
+
+  struct V2Report {
+    // The feed ID the report has data for
+    bytes32 feedId;
+    // The time the median value was observed on
+    uint32 observationsTimestamp;
+    // The median value agreed in an OCR round
+    int192 benchmarkPrice;
+    // The best bid value agreed in an OCR round
+    int192 bid;
+    // The best ask value agreed in an OCR round
+    int192 ask;
+    // The timestamp the report is valid from
+    uint32 validFromTimestamp;
+    // The expiry of the report
+    uint32 expiresAt;
+    // The link fee
+    uint192 linkFee;
+    // The native fee
+    uint192 nativeFee;
+  }
+
   function setUp() public virtual override {
     BaseTest.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
 
-    // Verifier 1, Feed 1, Config 1
     s_verifierProxy.initializeVerifier(address(s_verifier));
     s_verifier.setConfig(
       FEED_ID,
@@ -226,12 +275,116 @@ contract BaseTestWithConfiguredVerifier is BaseTest {
       FAULT_TOLERANCE,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
+
+    s_verifier.setConfig(
+      FEED_ID_V3,
+      _getSignerAddresses(signers),
+      s_offchaintransmitters,
+      FAULT_TOLERANCE,
+      bytes(""),
+      VERIFIER_VERSION,
+      bytes(""),
+      new Common.AddressAndWeight[](0)
+    );
+
+    link = new ERC20Mock("LINK", "LINK", ADMIN, 0);
+    native = new WERC20Mock();
+
+    rewardManager = new RewardManager(address(link));
+    feeManager = new FeeManager(address(link), address(native), address(s_verifierProxy), address(rewardManager));
+
+    s_verifierProxy.setFeeManager(feeManager);
+    rewardManager.setFeeManager(address(feeManager));
+  }
+
+  function _encodeReport(V2Report memory report) internal pure returns (bytes memory) {
+    return
+      abi.encode(
+        report.feedId,
+        report.observationsTimestamp,
+        report.benchmarkPrice,
+        report.bid,
+        report.ask,
+        report.validFromTimestamp,
+        report.expiresAt,
+        report.linkFee,
+        report.nativeFee
+      );
+  }
+
+  function _generateEncodedBlobWithQuote(
+    V2Report memory report,
+    bytes32[3] memory reportContext,
+    Signer[] memory signers,
+    bytes memory quote
+  ) internal pure returns (bytes memory) {
+    bytes memory reportBytes = _encodeReport(report);
+    (bytes32[] memory rs, bytes32[] memory ss, bytes32 rawVs) = _generateSignerSignatures(
+      reportBytes,
+      reportContext,
+      signers
+    );
+
+    return abi.encode(reportContext, reportBytes, rs, ss, rawVs, quote);
+  }
+
+  function _generateQuote(address billingAddress) internal returns (bytes memory) {
+    return abi.encode(billingAddress);
+  }
+
+  function _generateV2Report() internal returns (V2Report memory) {
+    return
+      V2Report({
+        feedId: FEED_ID_V3,
+        observationsTimestamp: OBSERVATIONS_TIMESTAMP,
+        benchmarkPrice: MEDIAN,
+        bid: BID,
+        ask: ASK,
+        validFromTimestamp: uint32(block.timestamp),
+        expiresAt: uint32(block.timestamp),
+        linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
+        nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE)
+      });
+  }
+
+  function _generateReportContext(bytes32 feedId) internal returns (bytes32[3] memory) {
+    (, , bytes32 latestConfigDigest) = s_verifier.latestConfigDetails(feedId);
+    bytes32[3] memory reportContext;
+    reportContext[0] = latestConfigDigest;
+    reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
+    return reportContext;
+  }
+
+  function _approveLink(address spender, uint256 quantity, address sender) internal {
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    link.approve(spender, quantity);
+    changePrank(originalAddr);
+  }
+
+  function _approveNative(address spender, uint256 quantity, address sender) internal {
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    native.approve(spender, quantity);
+    changePrank(originalAddr);
+  }
+
+  function _verify(bytes memory payload, uint256 wrappedNativeValue, address sender) internal {
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    s_verifierProxy.verify{value: wrappedNativeValue}(payload);
+
+    changePrank(originalAddr);
   }
 }
 
-contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier {
+contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifierAndFeeManager {
   bytes32 internal s_configDigestOne;
   bytes32 internal s_configDigestTwo;
   bytes32 internal s_configDigestThree;
@@ -244,7 +397,7 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
   uint8 internal constant FAULT_TOLERANCE_THREE = 1;
 
   function setUp() public virtual override {
-    BaseTestWithConfiguredVerifier.setUp();
+    BaseTestWithConfiguredVerifierAndFeeManager.setUp();
     Signer[] memory signers = _getSigners(MAX_ORACLES);
 
     (, , s_configDigestOne) = s_verifier.latestConfigDetails(FEED_ID);
@@ -258,7 +411,8 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       FAULT_TOLERANCE_TWO,
       bytes(""),
       2,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
     (, , s_configDigestTwo) = s_verifier.latestConfigDetails(FEED_ID);
 
@@ -271,7 +425,8 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       FAULT_TOLERANCE_THREE,
       bytes(""),
       3,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
     (s_numConfigsSet, , s_configDigestThree) = s_verifier.latestConfigDetails(FEED_ID);
 
@@ -283,7 +438,8 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       FAULT_TOLERANCE,
       bytes(""),
       4,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
     (, , s_configDigestFour) = s_verifier.latestConfigDetails(FEED_ID_2);
 
@@ -296,7 +452,8 @@ contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifier
       FAULT_TOLERANCE,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
     (, , s_configDigestFive) = s_verifier_2.latestConfigDetails(FEED_ID_3);
   }

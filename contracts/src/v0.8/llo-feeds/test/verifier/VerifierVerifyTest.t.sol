@@ -1,24 +1,25 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {BaseTestWithConfiguredVerifier} from "./BaseVerifierTest.t.sol";
-import {Verifier} from "../Verifier.sol";
-import {VerifierProxy} from "../VerifierProxy.sol";
-import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
+import {BaseTestWithConfiguredVerifierAndFeeManager} from "./BaseVerifierTest.t.sol";
+import {Verifier} from "../../Verifier.sol";
+import {VerifierProxy} from "../../VerifierProxy.sol";
+import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
+import {Common} from "../../../libraries/Common.sol";
 
-contract VerifierVerifyTest is BaseTestWithConfiguredVerifier {
+contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
   bytes32[3] internal s_reportContext;
 
   event ReportVerified(bytes32 indexed feedId, address requester);
 
-  Report internal s_testReportOne;
+  V0Report internal s_testReportOne;
 
   function setUp() public virtual override {
-    BaseTestWithConfiguredVerifier.setUp();
+    BaseTestWithConfiguredVerifierAndFeeManager.setUp();
     (, , bytes32 configDigest) = s_verifier.latestConfigDetails(FEED_ID);
     s_reportContext[0] = configDigest;
     s_reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
-    s_testReportOne = _createReport(
+    s_testReportOne = _createV0Report(
       FEED_ID,
       OBSERVATIONS_TIMESTAMP,
       MEDIAN,
@@ -26,11 +27,12 @@ contract VerifierVerifyTest is BaseTestWithConfiguredVerifier {
       ASK,
       BLOCKNUMBER_UPPER_BOUND,
       blockhash(BLOCKNUMBER_UPPER_BOUND),
-      BLOCKNUMBER_LOWER_BOUND
+      BLOCKNUMBER_LOWER_BOUND,
+      uint32(block.timestamp)
     );
   }
 
-  function assertReportsEqual(bytes memory response, Report memory testReport) public {
+  function assertReportsEqual(bytes memory response, V0Report memory testReport) public {
     (
       bytes32 feedId,
       uint32 timestamp,
@@ -136,7 +138,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
     signers[10].mockPrivateKey = 1234;
     bytes memory signedReport = _generateEncodedBlob(s_testReportOne, s_reportContext, signers);
     changePrank(address(s_verifierProxy));
-    vm.expectRevert(abi.encodeWithSelector(Verifier.AccessForbidden.selector));
+    vm.expectRevert(abi.encodeWithSelector(Verifier.BadVerification.selector));
     s_verifier.verify(signedReport, msg.sender);
   }
 
@@ -160,7 +162,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
   }
 
   function test_revertsIfReportHasUnconfiguredFeedID() public {
-    Report memory report = _createReport(
+    V0Report memory report = _createV0Report(
       FEED_ID_2,
       OBSERVATIONS_TIMESTAMP,
       MEDIAN,
@@ -168,7 +170,8 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
       ASK,
       BLOCKNUMBER_UPPER_BOUND,
       blockhash(BLOCKNUMBER_UPPER_BOUND),
-      BLOCKNUMBER_LOWER_BOUND
+      BLOCKNUMBER_LOWER_BOUND,
+      uint32(block.timestamp)
     );
     bytes memory signedReport = _generateEncodedBlob(report, s_reportContext, _getSigners(FAULT_TOLERANCE + 1));
     vm.expectRevert(abi.encodeWithSelector(Verifier.DigestInactive.selector, FEED_ID_2, s_reportContext[0]));
@@ -188,7 +191,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
     // Duplicate signer at index 1
     signers[0] = signers[1];
     bytes memory signedReport = _generateEncodedBlob(s_testReportOne, s_reportContext, signers);
-    vm.expectRevert(abi.encodeWithSelector(Verifier.NonUniqueSignatures.selector));
+    vm.expectRevert(abi.encodeWithSelector(Verifier.BadVerification.selector));
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);
   }
@@ -248,7 +251,8 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
       FAULT_TOLERANCE_TWO,
       bytes(""),
       VERIFIER_VERSION,
-      bytes("")
+      bytes(""),
+      new Common.AddressAndWeight[](0)
     );
     (, , s_newConfigDigest) = s_verifier.latestConfigDetails(FEED_ID);
   }

@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import {BaseTest} from "./BaseVerifierTest.t.sol";
-import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
+import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
 
 contract VerifierProxySetAccessControllerTest is BaseTest {
   event AccessControllerSet(address oldAccessController, address newAccessController);
@@ -16,13 +16,13 @@ contract VerifierProxySetAccessControllerTest is BaseTest {
 
   function test_successfullySetsNewAccessController() public {
     s_verifierProxy.setAccessController(AccessControllerInterface(ACCESS_CONTROLLER_ADDRESS));
-    AccessControllerInterface ac = s_verifierProxy.getAccessController();
+    AccessControllerInterface ac = s_verifierProxy.s_accessController();
     assertEq(address(ac), ACCESS_CONTROLLER_ADDRESS);
   }
 
   function test_successfullySetsNewAccessControllerIsEmpty() public {
     s_verifierProxy.setAccessController(AccessControllerInterface(address(0)));
-    AccessControllerInterface ac = s_verifierProxy.getAccessController();
+    AccessControllerInterface ac = s_verifierProxy.s_accessController();
     assertEq(address(ac), address(0));
   }
 
