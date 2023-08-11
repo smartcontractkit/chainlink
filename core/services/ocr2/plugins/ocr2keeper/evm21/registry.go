@@ -699,7 +699,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		uid.FromBigInt(upkeepId)
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
-			if !r.verifyLogBlock(upkeepId, p, i, results) {
+			if !r.verifyLogExists(upkeepId, p, i, results) {
 				continue
 			}
 
@@ -981,7 +981,8 @@ func (r *EvmRegistry) verifyCheckBlock(checkBlock, upkeepId *big.Int, checkHash 
 	return true
 }
 
-func (r *EvmRegistry) verifyLogBlock(upkeepId *big.Int, p ocr2keepers.UpkeepPayload, i int, results []ocr2keepers.CheckResult) bool {
+// verifyLogExists checks that the log still exists on chain
+func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload, i int, results []ocr2keepers.CheckResult) bool {
 	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
 	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
 	// if log block number is populated, check log block number and block hash

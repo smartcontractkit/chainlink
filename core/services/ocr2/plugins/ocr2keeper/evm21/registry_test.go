@@ -488,7 +488,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 	}
 }
 
-func TestRegistry_VerifyLogBlock(t *testing.T) {
+func TestRegistry_VerifyLogExists(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	upkeepId := ocr2keepers.UpkeepIdentifier{}
 	upkeepId.FromBigInt(big.NewInt(12345))
@@ -626,7 +626,7 @@ func TestRegistry_VerifyLogBlock(t *testing.T) {
 				e.client = client
 			}
 
-			valid := e.verifyLogBlock(tc.upkeepId, tc.payload, tc.i, tc.results)
+			valid := e.verifyLogExists(tc.upkeepId, tc.payload, tc.i, tc.results)
 			assert.Equal(t, tc.valid, valid)
 			assert.Equal(t, tc.expectedResults, tc.results)
 		})
