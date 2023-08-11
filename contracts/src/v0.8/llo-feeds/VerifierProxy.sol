@@ -117,9 +117,23 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IVerifierProxy
-  function verify(
+  function verify(bytes calldata payload) external payable checkAccess returns (bytes memory verifiedReport) {
+    return _verify(payload);
+  }
+
+  /// @inheritdoc IVerifierProxy
+  function verify(bytes[] calldata payloads) external payable checkAccess returns (bytes[] memory verifiedReport) {
+    bytes[] memory reports = new bytes[](payloads.length);
+    for (uint256 i = 0; i < payloads.length; i++) {
+      reports[i] = _verify(payloads[i]);
+    }
+
+    return reports;
+  }
+
+  function _verify(
     bytes calldata payload
-  ) external payable override checkAccess returns (bytes memory verifierResponse) {
+  ) internal returns (bytes memory verifierResponse) {
     // First 32 bytes of the signed report is the config digest
     bytes32 configDigest = bytes32(payload);
     address verifierAddress = s_verifiersByConfig[configDigest];

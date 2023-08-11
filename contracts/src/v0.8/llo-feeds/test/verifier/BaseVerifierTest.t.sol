@@ -382,6 +382,15 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
 
     changePrank(originalAddr);
   }
+
+  function _verify(bytes[] memory payload, uint256 wrappedNativeValue, address sender) internal {
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    s_verifierProxy.verify{value: wrappedNativeValue}(payload);
+
+    changePrank(originalAddr);
+  }
 }
 
 contract BaseTestWithMultipleConfiguredDigests is BaseTestWithConfiguredVerifierAndFeeManager {
