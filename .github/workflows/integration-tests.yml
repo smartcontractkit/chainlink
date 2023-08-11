@@ -650,7 +650,7 @@ jobs:
 
   testnet-smoke-tests-notify:
     name: Live Testnet Start Slack Thread
-    if: ${{ success() || failure() }}
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }} ## Only run live tests on new tags and nightly
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
