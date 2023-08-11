@@ -174,6 +174,32 @@ func (_m *LoopRelayAdapter) NewConfigProvider(_a0 context.Context, _a1 types.Rel
 	return r0, r1
 }
 
+// NewFunctionsProvider provides a mock function with given fields: _a0, _a1, _a2
+func (_m *LoopRelayAdapter) NewFunctionsProvider(_a0 context.Context, _a1 types.RelayArgs, _a2 types.PluginArgs) (types.FunctionsProvider, error) {
+	ret := _m.Called(_a0, _a1, _a2)
+
+	var r0 types.FunctionsProvider
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) (types.FunctionsProvider, error)); ok {
+		return rf(_a0, _a1, _a2)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) types.FunctionsProvider); ok {
+		r0 = rf(_a0, _a1, _a2)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.FunctionsProvider)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, types.RelayArgs, types.PluginArgs) error); ok {
+		r1 = rf(_a0, _a1, _a2)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // NewMedianProvider provides a mock function with given fields: _a0, _a1, _a2
 func (_m *LoopRelayAdapter) NewMedianProvider(_a0 context.Context, _a1 types.RelayArgs, _a2 types.PluginArgs) (types.MedianProvider, error) {
 	ret := _m.Called(_a0, _a1, _a2)
