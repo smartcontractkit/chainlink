@@ -12,7 +12,6 @@ require (
 	github.com/cometbft/cometbft v0.37.2
 	github.com/cosmos/cosmos-sdk v0.47.4
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
-	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/fatih/color v1.15.0
 	github.com/fxamacker/cbor/v2 v2.4.0
@@ -154,6 +153,7 @@ require (
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
+	github.com/deckarep/golang-set/v2 v2.3.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/dfuse-io/logging v0.0.0-20210109005628-b97a57253f70 // indirect
 	github.com/dgraph-io/badger/v2 v2.2007.4 // indirect

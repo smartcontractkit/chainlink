@@ -66,6 +66,9 @@ func main() {
 	maxGasPriceGwei := flag.Int("max-gas-price-gwei", -1, "Max gas price gwei of the eth keys")
 	numVRFKeys := flag.Int("num-vrf-keys", 1, "Number of vrf keys to create")
 
+	batchFulfillmentEnabled := flag.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether to enable batch fulfillment on Cl node")
+	minConfs := flag.Int("min-confs", constants.MinConfs, "minimum confirmations")
+
 	linkAddress := flag.String("link-address", "", "address of link token")
 	linkEthAddress := flag.String("link-eth-feed", "", "address of link eth feed")
 	bhsContractAddressString := flag.String("bhs-address", "", "address of BHS contract")
@@ -75,47 +78,47 @@ func main() {
 
 	e := helpers.SetupEnv(false)
 	flag.Parse()
-	nodes := make(map[string]scripts.Node)
+	nodesMap := make(map[string]scripts.Node)
 
 	if *vrfPrimaryNodeURL != "" {
-		nodes[scripts.VRFPrimaryNodeName] = scripts.Node{
+		nodesMap[scripts.VRFPrimaryNodeName] = scripts.Node{
 			URL:                     *vrfPrimaryNodeURL,
-			SendingKeyFundingAmount: *nodeSendingKeyFundingAmount,
+			SendingKeyFundingAmount: *big.NewInt(*nodeSendingKeyFundingAmount),
 			CredsFile:               *vrfPrimaryCredsFile,
 		}
 	}
 	if *vrfBackupNodeURL != "" {
-		nodes[scripts.VRFBackupNodeName] = scripts.Node{
+		nodesMap[scripts.VRFBackupNodeName] = scripts.Node{
 			URL:                     *vrfBackupNodeURL,
-			SendingKeyFundingAmount: *nodeSendingKeyFundingAmount,
+			SendingKeyFundingAmount: *big.NewInt(*nodeSendingKeyFundingAmount),
 			CredsFile:               *vrfBackupCredsFile,
 		}
 	}
 	if *bhsNodeURL != "" {
-		nodes[scripts.BHSNodeName] = scripts.Node{
+		nodesMap[scripts.BHSNodeName] = scripts.Node{
 			URL:                     *bhsNodeURL,
-			SendingKeyFundingAmount: *nodeSendingKeyFundingAmount,
+			SendingKeyFundingAmount: *big.NewInt(*nodeSendingKeyFundingAmount),
 			CredsFile:               *bhsCredsFile,
 		}
 	}
 	if *bhsBackupNodeURL != "" {
-		nodes[scripts.BHSBackupNodeName] = scripts.Node{
+		nodesMap[scripts.BHSBackupNodeName] = scripts.Node{
 			URL:                     *bhsBackupNodeURL,
-			SendingKeyFundingAmount: *nodeSendingKeyFundingAmount,
+			SendingKeyFundingAmount: *big.NewInt(*nodeSendingKeyFundingAmount),
 			CredsFile:               *bhsBackupCredsFile,
 		}
 	}
 
 	if *bhfNodeURL != "" {
-		nodes[scripts.BHFNodeName] = scripts.Node{
+		nodesMap[scripts.BHFNodeName] = scripts.Node{
 			URL:                     *bhfNodeURL,
-			SendingKeyFundingAmount: *nodeSendingKeyFundingAmount,
+			SendingKeyFundingAmount: *big.NewInt(*nodeSendingKeyFundingAmount),
 			CredsFile:               *bhfCredsFile,
 		}
 	}
 
 	output := &bytes.Buffer{}
-	for key, node := range nodes {
+	for key, node := range nodesMap {
 
 		client, app := connectToNode(&node.URL, output, node.CredsFile)
 		ethKeys := createETHKeysIfNeeded(client, app, output, numEthKeys, &node.URL, maxGasPriceGwei)
@@ -131,16 +134,12 @@ func main() {
 			node.VrfKeys = mapVrfKeysToStringArr(vrfKeys)
 		}
 
-		node.SendingKeys = mapEthKeysToStringArr(ethKeys)
-		nodes[key] = node
+		node.SendingKeys = mapEthKeysToSendingKeyArr(ethKeys)
 		printETHKeyData(ethKeys)
-
-		if node.SendingKeyFundingAmount > 0 {
-			fmt.Println("\nFunding ", key, " Node's Sending Keys...")
-			helpers.FundNodes(e, node.SendingKeys, big.NewInt(node.SendingKeyFundingAmount))
-		}
+		fundNodesIfNeeded(node, key, e)
+		nodesMap[key] = node
 	}
-	importVRFKeyToNodeIfSet(vrfBackupNodeURL, nodes, output, nodes[scripts.VRFBackupNodeName].CredsFile)
+	importVRFKeyToNodeIfSet(vrfBackupNodeURL, nodesMap, output, nodesMap[scripts.VRFBackupNodeName].CredsFile)
 	fmt.Println()
 	feeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
 		FulfillmentFlatFeeLinkPPMTier1: uint32(constants.FlatFeeTier1),
@@ -154,26 +153,35 @@ func main() {
 		ReqsForTier5:                   big.NewInt(constants.ReqsForTier5),
 	}
 
+	contractAddresses := scripts.ContractAddresses{
+		LinkAddress:             *linkAddress,
+		LinkEthAddress:          *linkEthAddress,
+		BhsContractAddress:      common.HexToAddress(*bhsContractAddressString),
+		BatchBHSAddress:         common.HexToAddress(*batchBHSAddressString),
+		CoordinatorAddress:      common.HexToAddress(*coordinatorAddressString),
+		BatchCoordinatorAddress: common.HexToAddress(*batchCoordinatorAddressString),
+	}
+
+	coordinatorConfig := scripts.CoordinatorConfig{
+		MinConfs:               minConfs,
+		MaxGasLimit:            &constants.MaxGasLimit,
+		StalenessSeconds:       &constants.StalenessSeconds,
+		GasAfterPayment:        &constants.GasAfterPayment,
+		FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
+		FeeConfig:              feeConfig,
+	}
+
 	jobSpecs := scripts.VRFV2DeployUniverse(
 		e,
-		constants.FallbackWeiPerUnitLink,
 		constants.SubscriptionBalanceJuels,
-		&nodes[scripts.VRFPrimaryNodeName].VrfKeys[0],
-		*linkAddress,
-		*linkEthAddress,
-		common.HexToAddress(*bhsContractAddressString),
-		common.HexToAddress(*batchBHSAddressString),
-		common.HexToAddress(*coordinatorAddressString),
-		common.HexToAddress(*batchCoordinatorAddressString),
-		&constants.MinConfs,
-		&constants.MaxGasLimit,
-		&constants.StalenessSeconds,
-		&constants.GasAfterPayment,
-		feeConfig,
-		nodes,
+		&nodesMap[scripts.VRFPrimaryNodeName].VrfKeys[0],
+		contractAddresses,
+		coordinatorConfig,
+		*batchFulfillmentEnabled,
+		nodesMap,
 	)
 
-	for key, node := range nodes {
+	for key, node := range nodesMap {
 		client, app := connectToNode(&node.URL, output, node.CredsFile)
 
 		//GET ALL JOBS
@@ -195,6 +203,20 @@ func main() {
 			createJob(jobSpecs.BHSBackupNode, client, app, output)
 		case scripts.BHFNodeName:
 			createJob(jobSpecs.BHFNode, client, app, output)
+		}
+	}
+}
+
+func fundNodesIfNeeded(node scripts.Node, key string, e helpers.Environment) {
+	if node.SendingKeyFundingAmount.Int64() > 0 {
+		fmt.Println("\nFunding", key, "Node's Sending Keys...")
+		for _, sendingKey := range node.SendingKeys {
+			fundingToSendWei := node.SendingKeyFundingAmount.Int64() - sendingKey.BalanceEth.Int64()
+			if fundingToSendWei > 0 {
+				helpers.FundNode(e, sendingKey.Address, big.NewInt(fundingToSendWei))
+			} else {
+				fmt.Println("\nSkipping Funding", sendingKey.Address, "since it has", sendingKey.BalanceEth.Int64(), "wei")
+			}
 		}
 	}
 }
@@ -307,12 +329,13 @@ func printETHKeyData(ethKeys []presenters.ETHKeyResource) {
 	}
 }
 
-func mapEthKeysToStringArr(ethKeys []presenters.ETHKeyResource) []string {
-	var ethKeysString []string
+func mapEthKeysToSendingKeyArr(ethKeys []presenters.ETHKeyResource) []scripts.SendingKey {
+	var sendingKeys []scripts.SendingKey
 	for _, ethKey := range ethKeys {
-		ethKeysString = append(ethKeysString, ethKey.Address)
+		sendingKey := scripts.SendingKey{Address: ethKey.Address, BalanceEth: *ethKey.EthBalance.ToInt()}
+		sendingKeys = append(sendingKeys, sendingKey)
 	}
-	return ethKeysString
+	return sendingKeys
 }
 
 func mapVrfKeysToStringArr(vrfKeys []presenters.VRFKeyResource) []string {
@@ -358,7 +381,7 @@ func createVRFKeyIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buffe
 
 	switch {
 	case len(vrfKeys) == *numVRFKeys:
-		fmt.Println(checkMarkEmoji, "found", len(vrfKeys), "vrf keys on", nodeURL)
+		fmt.Println(checkMarkEmoji, "found", len(vrfKeys), "vrf keys on", *nodeURL)
 	case len(vrfKeys) > *numVRFKeys:
 		fmt.Println(xEmoji, "found", len(vrfKeys), "vrf keys on", nodeURL, " which is more than expected")
 		os.Exit(1)
@@ -410,9 +433,9 @@ func createETHKeysIfNeeded(client *clcmd.Shell, app *cli.App, output *bytes.Buff
 	helpers.PanicErr(json.Unmarshal(output.Bytes(), &ethKeys))
 	switch {
 	case len(ethKeys) >= *numEthKeys:
-		fmt.Println(checkMarkEmoji, "found", len(ethKeys), "eth keys on", nodeURL)
+		fmt.Println(checkMarkEmoji, "found", len(ethKeys), "eth keys on", *nodeURL)
 	case len(ethKeys) < *numEthKeys:
-		fmt.Println(xEmoji, "found only", len(ethKeys), "eth keys on", nodeURL,
+		fmt.Println(xEmoji, "found only", len(ethKeys), "eth keys on", *nodeURL,
 			"; creating", *numEthKeys-len(ethKeys), "more")
 		toCreate := *numEthKeys - len(ethKeys)
 		for i := 0; i < toCreate; i++ {
