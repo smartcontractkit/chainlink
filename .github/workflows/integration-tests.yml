@@ -765,7 +765,7 @@ jobs:
                       "type": "section",
                       "text": {
                         "type": "mrkdwn",
-                        "text": "[Run](${{steps.test-results.outputs.link}})"
+                        "text": "<${{steps.test-results.outputs.link}}|Run>"
                       }
                     }
                   ]
