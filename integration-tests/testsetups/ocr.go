@@ -3,6 +3,7 @@ package testsetups
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -527,6 +528,14 @@ func (o *OCRSoakTest) observeOCREvents() error {
 		Addresses: ocrAddresses,
 		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
 		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
+	}
+
+	// Convert struct to JSON
+	jsonData, err := json.Marshal(o.filterQuery)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println(string(jsonData))
 	}
 
 	eventLogs := make(chan types.Log)
