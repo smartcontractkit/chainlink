@@ -340,23 +340,16 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     return success;
   }
 
-  struct Output {
-    bytes32 keyHash;
-    uint256 requestId;
-    uint256 randomness;
-  }
-
-  function getRandomnessFromProof(
-    Proof calldata proof,
-    RequestCommitment calldata rc
-  ) internal view returns (Output memory) {
-    bytes32 keyHash = hashOfKey(proof.pk);
+  function validateProvingKey(bytes32 keyHash) internal view {
     // Only registered proving keys are permitted.
     address oracle = s_provingKeys[keyHash];
     if (oracle == address(0)) {
       revert NoSuchProvingKey(keyHash);
     }
-    uint256 requestId = uint256(keccak256(abi.encode(keyHash, proof.seed)));
+  }
+
+  function validateCommitment(bytes32 keyHash, uint256 seed, RequestCommitment memory rc) internal view returns (uint256) {
+    uint256 requestId = uint256(keccak256(abi.encode(keyHash, seed)));
     bytes32 commitment = s_requestCommitments[requestId];
     if (commitment == 0) {
       revert NoCorrespondingRequest();
@@ -367,19 +360,39 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     ) {
       revert IncorrectCommitment();
     }
+    return requestId;
+  }
 
-    bytes32 blockHash = ChainSpecificUtil.getBlockhash(rc.blockNum);
+  function getBlockhash(uint64 blockNum) internal view returns (bytes32) {
+    bytes32 blockHash = ChainSpecificUtil.getBlockhash(blockNum);
     if (blockHash == bytes32(0)) {
-      blockHash = BLOCKHASH_STORE.getBlockhash(rc.blockNum);
+      blockHash = BLOCKHASH_STORE.getBlockhash(blockNum);
       if (blockHash == bytes32(0)) {
-        revert BlockhashNotInStore(rc.blockNum);
+        revert BlockhashNotInStore(blockNum);
       }
     }
+    return blockHash;
+  }
+
+  function calculateActualSeed(uint256 seed, bytes32 blockHash) internal pure returns (uint256) {
+    // The seed actually used by the VRF machinery, mixing in the blockhash
+    uint256 actualSeed = uint256(keccak256(abi.encodePacked(seed, blockHash)));
+    return actualSeed;
+  }
+
+  function getRandomnessFromProof(
+    Proof memory proof,
+    RequestCommitment memory rc
+  ) internal view returns (bytes32 keyHash, uint256 requestId, uint256 randomness) {
+    keyHash = hashOfKey(proof.pk);
+    validateProvingKey(keyHash);
+    requestId = validateCommitment(keyHash, proof.seed, rc);
+
+    bytes32 blockHash = getBlockhash(rc.blockNum);
 
     // The seed actually used by the VRF machinery, mixing in the blockhash
-    uint256 actualSeed = uint256(keccak256(abi.encodePacked(proof.seed, blockHash)));
-    uint256 randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
-    return Output(keyHash, requestId, randomness);
+    uint256 actualSeed = calculateActualSeed(proof.seed, blockHash);
+    randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
   }
 
   /*
@@ -394,16 +407,16 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     RequestCommitment calldata rc
   ) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
-    Output memory output = getRandomnessFromProof(proof, rc);
+    (bytes32 keyHash, uint256 requestId, uint256 randomness) = getRandomnessFromProof(proof, rc);
 
     uint256[] memory randomWords = new uint256[](rc.numWords);
     for (uint256 i = 0; i < rc.numWords; i++) {
-      randomWords[i] = uint256(keccak256(abi.encode(output.randomness, i)));
+      randomWords[i] = uint256(keccak256(abi.encode(randomness, i)));
     }
 
-    delete s_requestCommitments[output.requestId];
+    delete s_requestCommitments[requestId];
     VRFConsumerBaseV2Plus v;
-    bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, output.requestId, randomWords);
+    bytes memory resp = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, requestId, randomWords);
     // Call with explicitly the amount of callback gas requested
     // Important to not let them exhaust the gas budget and avoid oracle payment.
     // Do not allow any non-view/non-pure coordinator functions to be called
@@ -435,13 +448,13 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
           revert InsufficientBalance();
         }
         s_subscriptions[rc.subId].ethBalance -= payment;
-        s_withdrawableEth[s_provingKeys[output.keyHash]] += payment;
+        s_withdrawableEth[s_provingKeys[keyHash]] += payment;
       } else {
         if (s_subscriptions[rc.subId].balance < payment) {
           revert InsufficientBalance();
         }
         s_subscriptions[rc.subId].balance -= payment;
-        s_withdrawableTokens[s_provingKeys[output.keyHash]] += payment;
+        s_withdrawableTokens[s_provingKeys[keyHash]] += payment;
       }
 
       bytes memory extraArgs = VRFV2PlusClient._argsToBytes(
@@ -449,7 +462,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       );
       // Include payment in the event for tracking costs.
       // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);
-      emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, extraArgs, success);
+      emit RandomWordsFulfilled(requestId, randomness, rc.subId, payment, extraArgs, success);
 
       return payment;
     }
