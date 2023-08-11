@@ -578,6 +578,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     console.log(lastGasLeft - gasleft());
     lastGasLeft = gasleft();
 
+    // fromBytes goes here
+    console.log(lastGasLeft - gasleft());
+    lastGasLeft = gasleft();
+
     // We want to charge users exactly for how much gas they use in their callback.
     // The gasAfterPaymentCalculation is meant to cover these additional operations where we
     // decrement the subscription balance and increment the oracles withdrawable balance.

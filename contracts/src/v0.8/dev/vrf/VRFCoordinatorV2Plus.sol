@@ -460,6 +460,9 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     // stack too deep error
     {
       bool nativePayment = _fromBytes(rc.extraArgs).nativePayment;
+      console.log(lastGasLeft - gasleft());
+      lastGasLeft = gasleft();
+
       // We want to charge users exactly for how much gas they use in their callback.
       // The gasAfterPaymentCalculation is meant to cover these additional operations where we
       // decrement the subscription balance and increment the oracles withdrawable balance.
