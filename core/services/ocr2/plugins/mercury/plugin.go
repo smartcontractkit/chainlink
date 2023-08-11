@@ -50,7 +50,7 @@ func NewServices(
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	err = config.ValidatePluginConfig(pluginConfig)
+	err = config.ValidatePluginConfig(pluginConfig, feedID)
 	if err != nil {
 		return nil, err
 	}
