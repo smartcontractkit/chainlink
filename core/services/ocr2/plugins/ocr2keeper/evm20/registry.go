@@ -93,7 +93,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, lggr logger.Lo
 		addr:     addr,
 		client:   client.Client(),
 		txHashes: make(map[string]bool),
-		Registry: registry,
+		registry: registry,
 		abi:      keeperRegistryABI,
 		active:   make(map[string]activeUpkeep),
 		packer:   &evmRegistryPackerV2_0{abi: keeperRegistryABI},
@@ -141,7 +141,7 @@ type EvmRegistry struct {
 	poller        logpoller.LogPoller
 	addr          common.Address
 	client        client.Client
-	Registry      Registry
+	registry      Registry
 	abi           abi.ABI
 	packer        *evmRegistryPackerV2_0
 	chLog         chan logpoller.Log
@@ -405,7 +405,7 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	r.txHashes[hash] = true
 
 	rawLog := l.ToGethLog()
-	abilog, err := r.Registry.ParseLog(rawLog)
+	abilog, err := r.registry.ParseLog(rawLog)
 	if err != nil {
 		return err
 	}
@@ -474,7 +474,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 		return nil, err
 	}
 
-	state, err := r.Registry.GetState(opts)
+	state, err := r.registry.GetState(opts)
 	if err != nil {
 		n := "latest"
 		if opts.BlockNumber != nil {
@@ -497,7 +497,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 			maxCount = ActiveUpkeepIDBatchSize
 		}
 
-		batchIDs, err := r.Registry.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
+		batchIDs, err := r.registry.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
 		if err != nil {
 			return nil, fmt.Errorf("%w: failed to get active upkeep IDs from index %d to %d (both inclusive)", err, startIndex, startIndex+maxCount-1)
 		}

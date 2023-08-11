@@ -60,6 +60,7 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 			e.lggr.Errorf("Error occurred while getting newestConfigDetails for initialization %v", cdErr0)
 		} else {
 			e.configDigest = configDetails.ConfigDigest
+			e.sendNodeVersionMsg()
 		}
 		go func() {
 			ticker := time.NewTicker(1 * time.Minute)
@@ -76,29 +77,13 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 					newConfigDigest := newConfigDetails.ConfigDigest
 					if newConfigDigest != e.configDigest {
 						e.configDigest = newConfigDigest
+						e.sendNodeVersionMsg()
 					}
 				case <-ctx.Done():
 					return
 				}
 			}
 		}()
-		vMsg := &telem.NodeVersion{
-			Timestamp:    uint64(time.Now().UTC().UnixMilli()),
-			NodeVersion:  static.Version,
-			ConfigDigest: e.configDigest[:],
-		}
-		wrappedVMsg := &telem.AutomationTelemWrapper{
-			Msg: &telem.AutomationTelemWrapper_NodeVersion{
-				NodeVersion: vMsg,
-			},
-		}
-		bytes, err := proto.Marshal(wrappedVMsg)
-		if err != nil {
-			e.lggr.Errorf("Error occurred while marshalling the Node Version Message %s: %v", wrappedVMsg.String(), err)
-		} else {
-			e.monitoringEndpoint.SendLog(bytes)
-			e.lggr.Infof("NodeVersion Message Sent to Endpoint: %d", vMsg.Timestamp)
-		}
 		_, e.unsubscribe = e.headBroadcaster.Subscribe(&headWrapper{e.headCh})
 		go func() {
 			e.lggr.Infof("Started: Sending BlockNumber Messages")
@@ -143,6 +128,26 @@ func (e *AutomationCustomTelemetryService) Close() error {
 		e.lggr.Infof("Stopped: Custom telemetry service")
 		return nil
 	})
+}
+
+func (e *AutomationCustomTelemetryService) sendNodeVersionMsg() {
+	vMsg := &telem.NodeVersion{
+		Timestamp:    uint64(time.Now().UTC().UnixMilli()),
+		NodeVersion:  static.Version,
+		ConfigDigest: e.configDigest[:],
+	}
+	wrappedVMsg := &telem.AutomationTelemWrapper{
+		Msg: &telem.AutomationTelemWrapper_NodeVersion{
+			NodeVersion: vMsg,
+		},
+	}
+	bytes, err := proto.Marshal(wrappedVMsg)
+	if err != nil {
+		e.lggr.Errorf("Error occurred while marshalling the Node Version Message %s: %v", wrappedVMsg.String(), err)
+	} else {
+		e.monitoringEndpoint.SendLog(bytes)
+		e.lggr.Infof("NodeVersion Message Sent to Endpoint: %d", vMsg.Timestamp)
+	}
 }
 
 // blockKey contains block and hash info for BlockNumber telemetry message
