@@ -921,14 +921,15 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		Encoder:                      encoder,
 		Runnable:                     rgstry,
 		LogProvider:                  logProvider,
-		CacheExpiration:              cfg.CacheExpiration.Value(),
-		CacheEvictionInterval:        cfg.CacheEvictionInterval.Value(),
-		MaxServiceWorkers:            cfg.MaxServiceWorkers,
-		ServiceQueueLength:           cfg.ServiceQueueLength,
-		BlockSubscriber:              blockSub,
-		RecoverableProvider:          new(mockRecoverableProvider),
-		UpkeepTypeGetter:             ocr2keeper21core.GetUpkeepType,
-		WorkIDGenerator:              ocr2keeper21core.WorkIDGenerator,
+		// TODO: Clean up the config
+		CacheExpiration:       cfg.CacheExpiration.Value(),
+		CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),
+		MaxServiceWorkers:     cfg.MaxServiceWorkers,
+		ServiceQueueLength:    cfg.ServiceQueueLength,
+		BlockSubscriber:       blockSub,
+		RecoverableProvider:   new(mockRecoverableProvider),
+		UpkeepTypeGetter:      ocr2keeper21core.GetUpkeepType,
+		WorkIDGenerator:       ocr2keeper21core.WorkIDGenerator,
 	}
 
 	pluginService, err := ocr2keepers21.NewDelegate(dConf)
