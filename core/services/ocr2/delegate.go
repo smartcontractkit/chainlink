@@ -928,6 +928,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		BlockSubscriber:              blockSub,
 		RecoverableProvider:          new(mockRecoverableProvider),
 		UpkeepTypeGetter:             ocr2keeper21core.GetUpkeepType,
+		WorkIDGenerator:              ocr2keeper21core.WorkIDGenerator,
 	}
 
 	pluginService, err := ocr2keepers21.NewDelegate(dConf)
