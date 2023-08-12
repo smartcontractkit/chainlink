@@ -1,6 +1,10 @@
 package node
 
 import (
+	"fmt"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"math/big"
 	"net"
 	"time"
@@ -9,7 +13,6 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"go.uber.org/zap/zapcore"
@@ -116,6 +119,33 @@ func SetDefaultSimulatedGeth(cfg *chainlink.Config, ws, http string) {
 	}
 }
 
+func SetChainConfig(cfg *chainlink.Config, wsUrls, httpUrls []string, chain blockchain.EVMNetwork) {
+	var nodes []*evmcfg.Node
+	for i, _ := range wsUrls {
+		node := evmcfg.Node{
+			Name:     ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
+			WSURL:    mustURL(wsUrls[i]),
+			HTTPURL:  mustURL(httpUrls[i]),
+			SendOnly: ptr(false),
+		}
+
+		nodes = append(nodes, &node)
+	}
+	if cfg.EVM == nil {
+		cfg.EVM = evmcfg.EVMConfigs{
+			{
+				ChainID: utils.NewBig(big.NewInt(chain.ChainID)),
+				Chain: evmcfg.Chain{
+					AutoCreateKey:      ptr(true),
+					FinalityDepth:      ptr[uint32](1),
+					MinContractPayment: assets.NewLinkFromJuels(0),
+				},
+				Nodes: nodes,
+			},
+		}
+	}
+}
+
 func WithSimulatedEVM(httpUrl, wsUrl string) NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.EVM = evmcfg.EVMConfigs{
@@ -140,13 +170,13 @@ func WithSimulatedEVM(httpUrl, wsUrl string) NodeConfigOpt {
 }
 
 func WithVRFv2EVMEstimator(addr string) NodeConfigOpt {
-	est := assets.Wei(*big.NewInt(350000))
+	est := assets.GWei(vrfv2_constants.MaxGasPriceGWei)
 	return func(c *chainlink.Config) {
 		c.EVM[0].KeySpecific = evmcfg.KeySpecificConfig{
 			{
 				Key: ptr(ethkey.EIP55Address(addr)),
 				GasEstimator: evmcfg.KeySpecificGasEstimator{
-					PriceMax: ptr(est),
+					PriceMax: est,
 				},
 			},
 		}

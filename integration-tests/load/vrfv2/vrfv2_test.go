@@ -31,7 +31,7 @@ func TestVRFV2Load(t *testing.T) {
 		T:          t,
 		LoadType:   wasp.VU,
 		GenName:    "vu",
-		VU:         NewJobVolumeVU(cfg.SoakVolume.Pace.Duration(), 1, env.GetAPIs(), env.Geth.EthClient, vrfv2Contracts),
+		VU:         NewJobVolumeVU(cfg.SoakVolume.Pace.Duration(), 1, env.GetAPIs(), env.EthClient, vrfv2Contracts),
 		Labels:     labels,
 		LokiConfig: wasp.NewEnvLokiConfig(),
 	}
