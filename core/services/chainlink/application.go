@@ -50,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
@@ -300,6 +301,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
 		sessionORM     = sessions.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
@@ -426,6 +428,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			db,
 			jobORM,
 			bridgeORM,
+			mercuryORM,
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,

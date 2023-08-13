@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -26,11 +26,12 @@ func TestGetActiveUpkeepIDs(t *testing.T) {
 		ExpectedKeys []ocr2keepers.UpkeepIdentifier
 	}{
 		{Name: "NoActiveIDs", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{}},
-		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []string{"8", "9", "3", "1"}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-			ocr2keepers.UpkeepIdentifier("8"),
-			ocr2keepers.UpkeepIdentifier("9"),
-			ocr2keepers.UpkeepIdentifier("3"),
-			ocr2keepers.UpkeepIdentifier("1"),
+		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []string{
+			"32329108151019397958065800113404894502874153543356521479058624064899121404671",
+			"5820911532554020907796191562093071158274499580927271776163559390280294438608",
+		}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
+			upkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
+			upkeepIDFromInt("5820911532554020907796191562093071158274499580927271776163559390280294438608"),
 		}},
 	}
 
@@ -81,28 +82,28 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 			LatestHead: 1,
 			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				ocr2keepers.UpkeepIdentifier("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
+				upkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
 			},
-			Triggers: []uint8{uint8(logTrigger)},
+			Triggers: []uint8{uint8(ocr2keepers.LogTrigger)},
 		},
 		{
 			Name:       "get conditional upkeeps",
 			LatestHead: 1,
 			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				ocr2keepers.UpkeepIdentifier("8"),
+				upkeepIDFromInt("8"),
 			},
-			Triggers: []uint8{uint8(conditionTrigger)},
+			Triggers: []uint8{uint8(ocr2keepers.ConditionTrigger)},
 		},
 		{
 			Name:       "get multiple types of upkeeps",
 			LatestHead: 1,
 			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				ocr2keepers.UpkeepIdentifier("8"),
-				ocr2keepers.UpkeepIdentifier("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
+				upkeepIDFromInt("8"),
+				upkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
 			},
-			Triggers: []uint8{uint8(logTrigger), uint8(conditionTrigger)},
+			Triggers: []uint8{uint8(ocr2keepers.LogTrigger), uint8(ocr2keepers.ConditionTrigger)},
 		},
 	}
 
@@ -316,26 +317,22 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 		{
 			"happy flow",
 			ocr2keepers.UpkeepPayload{
-				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier([]byte("10")),
-				},
+				UpkeepID: upkeepIDFromInt("10"),
 				Trigger: ocr2keepers.Trigger{
 					BlockNumber: 1,
-					BlockHash:   common.Bytes2Hex([]byte{1, 2, 3, 4, 5, 6, 7, 8}),
+					BlockHash:   common.HexToHash("0x1"),
 				},
 			},
 			big.NewInt(1),
-			big.NewInt(0).SetBytes([]byte("10")),
+			big.NewInt(10),
 		},
 		{
-			"empty block number",
+			"empty trigger",
 			ocr2keepers.UpkeepPayload{
-				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier([]byte("10")),
-				},
+				UpkeepID: upkeepIDFromInt("10"),
 			},
 			big.NewInt(0),
-			big.NewInt(0).SetBytes([]byte("10")),
+			big.NewInt(10),
 		},
 		{
 			"empty payload",
@@ -347,9 +344,9 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			block, upkeep := r.getBlockAndUpkeepId(tc.input)
+			block, upkeep := r.getBlockAndUpkeepId(tc.input.UpkeepID, tc.input.Trigger)
 			assert.Equal(t, tc.wantBlock, block)
-			assert.Equal(t, tc.wantUpkeep, upkeep)
+			assert.Equal(t, tc.wantUpkeep.String(), upkeep.String())
 		})
 	}
 }

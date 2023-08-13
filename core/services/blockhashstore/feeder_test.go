@@ -229,10 +229,13 @@ func TestFeeder(t *testing.T) {
 				FulfillmentEvents: test.fulfillments,
 			}
 
+			lp := &mocklp.LogPoller{}
 			feeder := NewFeeder(
 				logger.TestLogger(t),
 				coordinator,
 				&test.bhs,
+				lp,
+				0,
 				test.wait,
 				test.lookback,
 				func(ctx context.Context) (uint64, error) {
@@ -322,6 +325,8 @@ func TestFeederWithLogPollerVRFv1(t *testing.T) {
 				logger.TestLogger(t),
 				coordinator,
 				&test.bhs,
+				lp,
+				0,
 				test.wait,
 				test.lookback,
 				func(ctx context.Context) (uint64, error) {
@@ -415,6 +420,8 @@ func TestFeederWithLogPollerVRFv2(t *testing.T) {
 				logger.TestLogger(t),
 				coordinator,
 				&test.bhs,
+				lp,
+				0,
 				test.wait,
 				test.lookback,
 				func(ctx context.Context) (uint64, error) {
@@ -508,6 +515,8 @@ func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
 				logger.TestLogger(t),
 				coordinator,
 				&test.bhs,
+				lp,
+				0,
 				test.wait,
 				test.lookback,
 				func(ctx context.Context) (uint64, error) {
@@ -533,10 +542,13 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 
 	bhs := &TestBHS{}
 
+	lp := &mocklp.LogPoller{}
 	feeder := NewFeeder(
 		logger.TestLogger(t),
 		coordinator,
 		bhs,
+		lp,
+		0,
 		100,
 		200,
 		func(ctx context.Context) (uint64, error) {
@@ -908,7 +920,6 @@ func newRandomnessFulfilledLogV2Plus(
 	nonIndexedData, err := unindexed.Pack(
 		e.OutputSeed,
 		e.Payment,
-		e.ExtraArgs,
 		e.Success,
 	)
 	require.NoError(t, err)

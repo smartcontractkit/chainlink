@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -76,6 +76,8 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 
 func TestEvmRegistry_FeedLookup(t *testing.T) {
 	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
+	var upkeepIdentifier [32]byte
+	copy(upkeepIdentifier[:], upkeepId.Bytes())
 	assert.True(t, ok, t.Name())
 	tests := []struct {
 		name              string
@@ -97,19 +99,11 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 			input: []ocr2keepers.CheckResult{
 				{
 					PerformData: []byte{125, 221, 147, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 141, 110, 193, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 100, 72, 101, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 53, 53, 52, 52, 56, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-					Payload: ocr2keepers.UpkeepPayload{
-						Upkeep: ocr2keepers.ConfiguredUpkeep{
-							ID:     upkeepId.Bytes(),
-							Type:   0,
-							Config: nil,
-						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
-						Trigger: ocr2keepers.Trigger{
-							BlockNumber: 26046145,
-						},
+					UpkeepID:    upkeepIdentifier,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: 26046145,
 					},
-					Extension: EVMAutomationResultExtension21{FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED},
+					IneligibilityReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 				},
 			},
 			blob:              "0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000159761000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000648a1fbb000000000000000000000000000000000000000000000000000000274421041500000000000000000000000000000000000000000000000000000027437c6ecd0000000000000000000000000000000000000000000000000000002744c5995d00000000000000000000000000000000000000000000000000000000018d6ec108936dfe39c48715572a51ac868129958f937fb95ef5abdf73a239cf86a4fee700000000000000000000000000000000000000000000000000000000018d6ec100000000000000000000000000000000000000000000000000000000648a1fbb00000000000000000000000000000000000000000000000000000000000000028a26e557ee2feb91ccb116f3ab4eb1469afe5c3b012538cb151dbe3fbceaf6f117b24ac2a82cff25b286ae0a9b903dc6badaa16f6e67bf0983461b008574e30a00000000000000000000000000000000000000000000000000000000000000020db5c5924481061b98df59caefd9c4c1e72657c4976bf7c7568730fbdaf828080bff6b1edea2c8fed5e8bbac5574aa94cf809d898f5055cb1db14a16f1493726",
@@ -122,19 +116,11 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 				{
 					Eligible:    true,
 					PerformData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 224, 0, 6, 109, 252, 209, 237, 45, 149, 177, 140, 148, 141, 188, 91, 214, 76, 104, 122, 254, 147, 228, 202, 125, 102, 61, 222, 193, 76, 32, 9, 10, 216, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 21, 151, 97, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 128, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 32, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 138, 31, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 68, 33, 4, 21, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 67, 124, 110, 205, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 68, 197, 153, 93, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 141, 110, 193, 8, 147, 109, 254, 57, 196, 135, 21, 87, 42, 81, 172, 134, 129, 41, 149, 143, 147, 127, 185, 94, 245, 171, 223, 115, 162, 57, 207, 134, 164, 254, 231, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 141, 110, 193, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 138, 31, 187, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 138, 38, 229, 87, 238, 47, 235, 145, 204, 177, 22, 243, 171, 78, 177, 70, 154, 254, 92, 59, 1, 37, 56, 203, 21, 29, 190, 63, 188, 234, 246, 241, 23, 178, 74, 194, 168, 44, 255, 37, 178, 134, 174, 10, 155, 144, 61, 198, 186, 218, 161, 111, 110, 103, 191, 9, 131, 70, 27, 0, 133, 116, 227, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 13, 181, 197, 146, 68, 129, 6, 27, 152, 223, 89, 202, 239, 217, 196, 193, 231, 38, 87, 196, 151, 107, 247, 199, 86, 135, 48, 251, 218, 248, 40, 8, 11, 255, 107, 30, 222, 162, 200, 254, 213, 232, 187, 172, 85, 116, 170, 148, 207, 128, 157, 137, 143, 80, 85, 203, 29, 177, 74, 22, 241, 73, 55, 38, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 120, 111, 101, 122, 90, 54, 44, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-					Payload: ocr2keepers.UpkeepPayload{
-						Upkeep: ocr2keepers.ConfiguredUpkeep{
-							ID:     upkeepId.Bytes(),
-							Type:   0,
-							Config: nil,
-						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
-						Trigger: ocr2keepers.Trigger{
-							BlockNumber: 26046145,
-						},
+					UpkeepID:    upkeepIdentifier,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: 26046145,
 					},
-					Extension: EVMAutomationResultExtension21{FailureReason: UPKEEP_FAILURE_REASON_NONE},
+					IneligibilityReason: UPKEEP_FAILURE_REASON_NONE,
 				},
 			},
 			hasError:      false,
@@ -145,38 +131,22 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 			input: []ocr2keepers.CheckResult{
 				{
 					PerformData: []byte{},
-					Payload: ocr2keepers.UpkeepPayload{
-						Upkeep: ocr2keepers.ConfiguredUpkeep{
-							ID:     upkeepId.Bytes(),
-							Type:   0,
-							Config: nil,
-						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
-						Trigger: ocr2keepers.Trigger{
-							BlockNumber: 26046145,
-						},
+					UpkeepID:    upkeepIdentifier,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: 26046145,
 					},
-					Extension: EVMAutomationResultExtension21{FailureReason: UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE},
+					IneligibilityReason: UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE,
 				},
 			},
 			expectedResults: []ocr2keepers.CheckResult{
 				{
 					Eligible:    false,
 					PerformData: []byte{},
-					Payload: ocr2keepers.UpkeepPayload{
-						Upkeep: ocr2keepers.ConfiguredUpkeep{
-							ID:     upkeepId.Bytes(),
-							Type:   0,
-							Config: nil,
-						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
-						Trigger: ocr2keepers.Trigger{
-							BlockNumber: 26046145,
-						},
+					UpkeepID:    upkeepIdentifier,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: 26046145,
 					},
-					Extension: EVMAutomationResultExtension21{FailureReason: UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE},
+					IneligibilityReason: UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE,
 				},
 			},
 			hasError: true,
@@ -186,38 +156,22 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 			input: []ocr2keepers.CheckResult{
 				{
 					PerformData: []byte{},
-					Payload: ocr2keepers.UpkeepPayload{
-						Upkeep: ocr2keepers.ConfiguredUpkeep{
-							ID:     upkeepId.Bytes(),
-							Type:   0,
-							Config: nil,
-						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
-						Trigger: ocr2keepers.Trigger{
-							BlockNumber: 26046145,
-						},
+					UpkeepID:    upkeepIdentifier,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: 26046145,
 					},
-					Extension: EVMAutomationResultExtension21{FailureReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED},
+					IneligibilityReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
 				},
 			},
 			expectedResults: []ocr2keepers.CheckResult{
 				{
 					Eligible:    false,
 					PerformData: []byte{},
-					Payload: ocr2keepers.UpkeepPayload{
-						Upkeep: ocr2keepers.ConfiguredUpkeep{
-							ID:     upkeepId.Bytes(),
-							Type:   0,
-							Config: nil,
-						},
-						CheckBlock: "26046145",
-						CheckData:  nil,
-						Trigger: ocr2keepers.Trigger{
-							BlockNumber: 26046145,
-						},
+					UpkeepID:    upkeepIdentifier,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: 26046145,
 					},
-					Extension: EVMAutomationResultExtension21{FailureReason: UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED},
+					IneligibilityReason: UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED,
 				},
 			},
 			hasError: false,

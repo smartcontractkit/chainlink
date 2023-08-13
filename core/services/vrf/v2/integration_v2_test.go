@@ -735,7 +735,6 @@ func assertRandomWordsFulfilled(
 		for filter.Next() {
 			require.Equal(t, expectedSuccess, filter.Event().Success(), "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, filter.Event().Success())
 			require.Equal(t, requestID, filter.Event().RequestID())
-			require.Equal(t, nativePayment, filter.Event().NativePayment())
 			found = true
 			rwfe = filter.Event()
 		}
@@ -1294,6 +1293,46 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 		ptr(uni.vrfOwnerAddress),
 		vrfcommon.V2,
 		false,
+	)
+}
+
+func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)
+	testMultipleConsumersNeedTrustedBHS(
+		t,
+		ownerKey,
+		uni,
+		uni.vrfConsumers,
+		uni.consumerContracts,
+		uni.consumerContractAddresses,
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress,
+		vrfcommon.V2Plus,
+		false,
+		false,
+	)
+}
+
+func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore_AfterDelay(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)
+	testMultipleConsumersNeedTrustedBHS(
+		t,
+		ownerKey,
+		uni,
+		uni.vrfConsumers,
+		uni.consumerContracts,
+		uni.consumerContractAddresses,
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress,
+		vrfcommon.V2Plus,
+		false,
+		true,
 	)
 }
 

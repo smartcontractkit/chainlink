@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
@@ -150,6 +151,51 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 				l.lggr.Errorw("LatestEvents: failed to parse a request log, skipping")
 				continue
 			}
+
+			uint32Type, errType1 := abi.NewType("uint32", "uint32", nil)
+			uint40Type, errType2 := abi.NewType("uint40", "uint40", nil)
+			uint64Type, errType3 := abi.NewType("uint64", "uint64", nil)
+			uint72Type, errType4 := abi.NewType("uint72", "uint72", nil)
+			uint96Type, errType5 := abi.NewType("uint96", "uint96", nil)
+			addressType, errType6 := abi.NewType("address", "address", nil)
+			bytes32Type, errType7 := abi.NewType("bytes32", "bytes32", nil)
+
+			if errType1 != nil || errType2 != nil || errType3 != nil || errType4 != nil || errType5 != nil || errType6 != nil || errType7 != nil {
+				l.lggr.Errorw("LatestEvents: failed to initialize types", "errType1", errType1,
+					"errType2", errType2, "errType3", errType3, "errType4", errType4, "errType5", errType5, "errType6", errType6, "errType7", errType7,
+				)
+				continue
+			}
+			commitmentABI := abi.Arguments{
+				{Type: bytes32Type}, // RequestId
+				{Type: addressType}, // Coordinator
+				{Type: uint96Type},  // EstimatedTotalCostJuels
+				{Type: addressType}, // Client
+				{Type: uint64Type},  // SubscriptionId
+				{Type: uint32Type},  // CallbackGasLimit
+				{Type: uint72Type},  // AdminFee
+				{Type: uint72Type},  // DonFee
+				{Type: uint40Type},  // GasOverheadBeforeCallback
+				{Type: uint40Type},  // GasOverheadAfterCallback
+				{Type: uint32Type},  // TimeoutTimestamp
+			}
+			commitmentBytes, err := commitmentABI.Pack(
+				oracleRequest.Commitment.RequestId,
+				oracleRequest.Commitment.Coordinator,
+				oracleRequest.Commitment.EstimatedTotalCostJuels,
+				oracleRequest.Commitment.Client,
+				oracleRequest.Commitment.SubscriptionId,
+				oracleRequest.Commitment.CallbackGasLimit,
+				oracleRequest.Commitment.AdminFee,
+				oracleRequest.Commitment.DonFee,
+				oracleRequest.Commitment.GasOverheadBeforeCallback,
+				oracleRequest.Commitment.GasOverheadAfterCallback,
+				oracleRequest.Commitment.TimeoutTimestamp,
+			)
+			if err != nil {
+				l.lggr.Errorw("LatestEvents: failed to pack commitment bytes, skipping", err)
+			}
+
 			resultsReq = append(resultsReq, evmRelayTypes.OracleRequest{
 				RequestId:           oracleRequest.RequestId,
 				RequestingContract:  oracleRequest.RequestingContract,
@@ -161,7 +207,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 				Flags:               oracleRequest.Flags,
 				CallbackGasLimit:    oracleRequest.CallbackGasLimit,
 				TxHash:              oracleRequest.Raw.TxHash,
-				OnchainMetadata:     oracleRequest.Commitment,
+				OnchainMetadata:     commitmentBytes,
 				CoordinatorContract: coordinator,
 			})
 		}

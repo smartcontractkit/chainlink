@@ -242,7 +242,7 @@ func testMultipleConsumersNeedBHS(
 
 	_ = vrftesthelpers.CreateAndStartBHSJob(
 		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
-		v2CoordinatorAddress, v2PlusCoordinatorAddress)
+		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200)
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
@@ -298,6 +298,161 @@ func testMultipleConsumersNeedBHS(
 	}
 }
 
+func testMultipleConsumersNeedTrustedBHS(
+	t *testing.T,
+	ownerKey ethkey.KeyV2,
+	uni coordinatorV2PlusUniverse,
+	consumers []*bind.TransactOpts,
+	consumerContracts []vrftesthelpers.VRFConsumerContract,
+	consumerContractAddresses []common.Address,
+	coordinator v22.CoordinatorV2_X,
+	coordinatorAddress common.Address,
+	batchCoordinatorAddress common.Address,
+	vrfVersion vrfcommon.Version,
+	nativePayment bool,
+	addedDelay bool,
+	assertions ...func(
+		t *testing.T,
+		coordinator v22.CoordinatorV2_X,
+		rwfe v22.RandomWordsFulfilled),
+) {
+	nConsumers := len(consumers)
+	vrfKey := cltest.MustGenerateRandomKey(t)
+	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
+
+	// generate n BHS keys to make sure BHS job rotates sending keys
+	var bhsKeys []ethkey.KeyV2
+	var bhsKeyAddresses []common.Address
+	var bhsKeyAddressesStrings []string
+	var keySpecificOverrides []toml.KeySpecific
+	var keys []interface{}
+	gasLanePriceWei := assets.GWei(10)
+	for i := 0; i < nConsumers; i++ {
+		bhsKey := cltest.MustGenerateRandomKey(t)
+		bhsKeys = append(bhsKeys, bhsKey)
+		bhsKeyAddressesStrings = append(bhsKeyAddressesStrings, bhsKey.Address.String())
+		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address)
+		keys = append(keys, bhsKey)
+		keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
+			Key:          ptr(bhsKey.EIP55Address),
+			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+		})
+		sendEth(t, ownerKey, uni.backend, bhsKey.Address, 10)
+	}
+	keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
+		// Gas lane.
+		Key:          ptr(vrfKey.EIP55Address),
+		GasEstimator: toml.KeySpecificGasEstimator{PriceMax: gasLanePriceWei},
+	})
+
+	// Whitelist vrf key for trusted BHS.
+	_, err := uni.trustedBhsContract.SetWhitelist(uni.neil, bhsKeyAddresses)
+	require.NoError(t, err)
+	uni.backend.Commit()
+
+	config, db := heavyweight.FullTestDBV2(t, "vrfv2_needs_trusted_blockhash_store", func(c *chainlink.Config, s *chainlink.Secrets) {
+		simulatedOverrides(t, assets.GWei(10), keySpecificOverrides...)(c, s)
+		c.EVM[0].MinIncomingConfirmations = ptr[uint32](2)
+		c.Feature.LogPoller = ptr(true)
+		c.EVM[0].FinalityDepth = ptr[uint32](2)
+		c.EVM[0].LogPollInterval = models.MustNewDuration(time.Second)
+	})
+	keys = append(keys, ownerKey, vrfKey)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	// Create VRF job.
+	vrfJobs := createVRFJobs(
+		t,
+		[][]ethkey.KeyV2{{vrfKey}},
+		app,
+		coordinator,
+		coordinatorAddress,
+		batchCoordinatorAddress,
+		uni.coordinatorV2UniverseCommon,
+		nil,
+		vrfVersion,
+		false,
+		gasLanePriceWei)
+	keyHash := vrfJobs[0].VRFSpec.PublicKey.MustHash()
+
+	var (
+		v2CoordinatorAddress     string
+		v2PlusCoordinatorAddress string
+	)
+
+	if vrfVersion == vrfcommon.V2 {
+		v2CoordinatorAddress = coordinatorAddress.String()
+	} else if vrfVersion == vrfcommon.V2Plus {
+		v2PlusCoordinatorAddress = coordinatorAddress.String()
+	}
+
+	_ = vrftesthelpers.CreateAndStartBHSJob(
+		t, bhsKeyAddressesStrings, app, "", "",
+		v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000)
+
+	// Ensure log poller is ready and has all logs.
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
+	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
+
+	for i := 0; i < nConsumers; i++ {
+		consumer := consumers[i]
+		consumerContract := consumerContracts[i]
+
+		// Create a subscription and fund with 0 LINK.
+		_, subID := subscribeVRF(t, consumer, consumerContract, coordinator, uni.backend, new(big.Int), nativePayment)
+		if vrfVersion == vrfcommon.V2 {
+			require.Equal(t, uint64(i+1), subID.Uint64())
+		}
+
+		// Make the randomness request. It will not yet succeed since it is underfunded.
+		numWords := uint32(20)
+
+		requestID, requestBlock := requestRandomnessAndAssertRandomWordsRequestedEvent(t, consumerContract, consumer, keyHash, subID, numWords, 500_000, coordinator, uni.backend, nativePayment)
+
+		// Wait 101 blocks.
+		for i := 0; i < 100; i++ {
+			uni.backend.Commit()
+		}
+
+		// For an added delay, we even go beyond the EVM lookback limit. This is not a problem in a trusted BHS setup.
+		if addedDelay {
+			for i := 0; i < 300; i++ {
+				uni.backend.Commit()
+			}
+		}
+
+		verifyBlockhashStoredTrusted(t, uni, requestBlock)
+
+		// Wait another 160 blocks so that the request is outside of the 256 block window
+		for i := 0; i < 160; i++ {
+			uni.backend.Commit()
+		}
+
+		// Fund the subscription
+		topUpSubscription(t, consumer, consumerContract, uni.backend, big.NewInt(5e18 /* 5 LINK */), nativePayment)
+
+		// Wait for fulfillment to be queued.
+		gomega.NewGomegaWithT(t).Eventually(func() bool {
+			uni.backend.Commit()
+			runs, err := app.PipelineORM().GetAllRuns()
+			require.NoError(t, err)
+			t.Log("runs", len(runs))
+			return len(runs) == 1
+		}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+
+		mine(t, requestID, subID, uni.backend, db, vrfVersion)
+
+		rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, nativePayment)
+		if len(assertions) > 0 {
+			assertions[0](t, coordinator, rwfe)
+		}
+
+		// Assert correct number of random words sent by coordinator.
+		assertNumRandomWords(t, consumerContract, numWords)
+	}
+}
+
 func verifyBlockhashStored(
 	t *testing.T,
 	uni coordinatorV2UniverseCommon,
@@ -322,6 +477,32 @@ func verifyBlockhashStored(
 			return false
 		}
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
+}
+
+func verifyBlockhashStoredTrusted(
+	t *testing.T,
+	uni coordinatorV2PlusUniverse,
+	requestBlock uint64,
+) {
+	// Wait for the blockhash to be stored
+	gomega.NewGomegaWithT(t).Eventually(func() bool {
+		uni.backend.Commit()
+		callOpts := &bind.CallOpts{
+			Pending:     false,
+			From:        common.Address{},
+			BlockNumber: nil,
+			Context:     nil,
+		}
+		_, err := uni.trustedBhsContract.GetBlockhash(callOpts, big.NewInt(int64(requestBlock)))
+		if err == nil {
+			return true
+		} else if strings.Contains(err.Error(), "execution reverted") {
+			return false
+		} else {
+			t.Fatal(err)
+			return false
+		}
+	}, time.Second*300, time.Second).Should(gomega.BeTrue())
 }
 
 func testSingleConsumerHappyPathBatchFulfillment(

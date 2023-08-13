@@ -12,7 +12,6 @@ require (
 	github.com/cometbft/cometbft v0.37.2
 	github.com/cosmos/cosmos-sdk v0.47.4
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
-	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/fatih/color v1.15.0
 	github.com/fxamacker/cbor/v2 v2.4.0
@@ -52,7 +51,7 @@ require (
 	github.com/onsi/gomega v1.27.8
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pelletier/go-toml v1.9.5
-	github.com/pelletier/go-toml/v2 v2.0.8
+	github.com/pelletier/go-toml/v2 v2.0.9
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.5.3
 	github.com/prometheus/client_golang v1.16.0
@@ -67,15 +66,15 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230802143343-59cdfce9fb24
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230802190005-10db9909d256
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230808141159-4e20b0757f3a
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a85
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a
-	github.com/smartcontractkit/libocr v0.0.0-20230724105022-c5e49b4195ac
-	github.com/smartcontractkit/ocr2keepers v0.7.2
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230616201444-d8b4222aff3c
+	github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829
+	github.com/smartcontractkit/ocr2keepers v0.7.8
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
-	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230616141813-ca0ecf03ca5c
-	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230625174811-4934857d1c4a
+	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230808152300-d34f9201db27
+	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230808152300-d34f9201db27
 	github.com/smartcontractkit/wsrpc v0.7.2
 	github.com/spf13/cast v1.5.1
 	github.com/stretchr/testify v1.8.4
@@ -85,7 +84,7 @@ require (
 	github.com/ulule/limiter/v3 v3.11.2
 	github.com/umbracle/ethgo v0.1.3
 	github.com/unrolled/secure v1.13.0
-	github.com/urfave/cli v1.22.13
+	github.com/urfave/cli v1.22.14
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.1.0
 	go.uber.org/multierr v1.11.0
@@ -154,6 +153,7 @@ require (
 	github.com/danieljoos/wincred v1.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
+	github.com/deckarep/golang-set/v2 v2.3.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/dfuse-io/logging v0.0.0-20210109005628-b97a57253f70 // indirect
 	github.com/dgraph-io/badger/v2 v2.2007.4 // indirect
@@ -302,6 +302,7 @@ require (
 	github.com/multiformats/go-multihash v0.0.14 // indirect
 	github.com/multiformats/go-multistream v0.2.0 // indirect
 	github.com/multiformats/go-varint v0.0.6 // indirect
+	github.com/mwitkow/grpc-proxy v0.0.0-20230212185441-f345521cb9c9 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0-rc3 // indirect
@@ -380,5 +381,8 @@ replace (
 	github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
 
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
-	github.com/hashicorp/go-plugin => github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75
+	github.com/hashicorp/go-plugin => github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472
+
+	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
+	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
 )

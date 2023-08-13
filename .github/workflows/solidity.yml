@@ -40,7 +40,7 @@ jobs:
         run: pnpm prepublishOnly
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
+        uses: smartcontractkit/push-gha-metrics-action@6f41029bc7f0d0db5827f6804a2322e2a89e3b32
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -84,7 +84,7 @@ jobs:
         run: gh pr comment -b 'Go solidity wrappers are out-of-date, regenerate them via the `make wrappers-all` command'
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
+        uses: smartcontractkit/push-gha-metrics-action@6f41029bc7f0d0db5827f6804a2322e2a89e3b32
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -108,7 +108,7 @@ jobs:
         run: pnpm lint
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
+        uses: smartcontractkit/push-gha-metrics-action@6f41029bc7f0d0db5827f6804a2322e2a89e3b32
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -132,7 +132,7 @@ jobs:
         run: pnpm prettier:check
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@9d03d67aca5cab68f3c8565ee9fde236593bef3f
+        uses: smartcontractkit/push-gha-metrics-action@6f41029bc7f0d0db5827f6804a2322e2a89e3b32
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
