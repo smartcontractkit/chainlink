@@ -226,8 +226,9 @@ func deployOnRamp(t *testing.T, client EvmConfig, laneConfig *EVMLaneConfig, des
 			Pool:  tokenConfig.Pool,
 		})
 		tokenTransferFeeConfig = append(tokenTransferFeeConfig, evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
-			Token: tokenConfig.Token,
-			Ratio: 5_0, // 5 bps
+			Token:   tokenConfig.Token,
+			Ratio:   5_0, // 5 bps
+			DestGas: 34_000,
 		})
 	}
 
