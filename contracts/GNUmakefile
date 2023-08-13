@@ -45,7 +45,7 @@ abigen: ## Build & install abigen.
 .PHONY: wrappers
 wrappers: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./scripts/native_solc_compile_all_$(FOUNDRY_PROFILE)
-	go generate ../core/gethwrappers/go_generate_$(FOUNDRY_PROFILE).go
+	go generate ../core/gethwrappers/$(FOUNDRY_PROFILE)
 
 # This call generates all gethwrappers for all products. It does so based on the
 # assumption that native_solc_compile_all contains sub-calls to each product, and
