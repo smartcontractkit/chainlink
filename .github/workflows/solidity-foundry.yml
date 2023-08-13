@@ -27,7 +27,7 @@ jobs:
   tests:
     strategy:
       matrix:
-        product: [ vrf, automation, llo, functions, automation-dev, shared ]
+        product: [ vrf, automation, llo-feeds, functions, automation-dev, shared ]
     needs: [changes]
     if: needs.changes.outputs.changes == 'true'
     name: Tests
