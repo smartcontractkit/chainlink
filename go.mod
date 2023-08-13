@@ -61,7 +61,7 @@ require (
 	github.com/prometheus/prometheus v0.45.0
 	github.com/pyroscope-io/client v0.7.1
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/rogpeppe/go-internal v1.10.0
+	github.com/rogpeppe/go-internal v1.11.0
 	github.com/scylladb/go-reflectx v1.0.1
 	github.com/shirou/gopsutil/v3 v3.23.7
 	github.com/shopspring/decimal v1.3.1
