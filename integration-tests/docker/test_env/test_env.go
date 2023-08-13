@@ -103,7 +103,6 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 			n := NewClNode([]string{te.Network.Name}, nodeConfig,
 				WithNodeContainerName(nodeContainerName),
 				WithDbContainerName(dbContainerName),
-				WithLogWatch(te.LogWatch),
 			)
 			err := n.StartContainer()
 			if err != nil {
