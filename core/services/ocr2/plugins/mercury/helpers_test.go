@@ -33,6 +33,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
+	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -73,13 +75,20 @@ func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (
 }
 
 func (s *mercuryServer) LatestReport(ctx context.Context, lrr *pb.LatestReportRequest) (*pb.LatestReportResponse, error) {
-	// not implemented in test
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return nil, errors.New("could not extract public key")
 	}
 	s.t.Logf("mercury server got latest report from %x for feed id 0x%x", p.PublicKey, lrr.FeedId)
-	return nil, nil
+
+	out := new(pb.LatestReportResponse)
+	out.Report = new(pb.Report)
+	out.Report.FeedId = lrr.FeedId
+
+	price := big.NewInt(123456789)
+	encodedPrice, _ := relaymercury.EncodeValueInt192(price)
+	out.Report.Price = encodedPrice
+	return out, nil
 }
 
 func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.PublicKey) (serverURL string) {
@@ -352,6 +361,9 @@ serverURL = "%[6]s"
 serverPubKey = "%[7]x"
 linkFeedID = "0x%[11]x"
 nativeFeedID = "0x%[12]x"
+
+[relayConfig]
+chainID = 1337
 		`,
 		i,
 		verifierAddress,
@@ -430,6 +442,9 @@ serverURL = "%[8]s"
 serverPubKey = "%[9]x"
 linkFeedID = "0x%[13]x"
 nativeFeedID = "0x%[14]x"
+
+[relayConfig]
+chainID = 1337
 		`,
 		i,
 		verifierAddress,
