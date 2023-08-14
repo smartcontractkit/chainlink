@@ -20,18 +20,6 @@ func TestPerformedEventsScanner(t *testing.T) {
 	registryAddr := common.HexToAddress("0x12345")
 	lggr := logger.TestLogger(t)
 
-	mp := new(mocks.LogPoller)
-	mp.On("RegisterFilter", mock.Anything).Return(nil)
-	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
-	scanner := NewPerformedEventsScanner(lggr, mp, registryAddr)
-
-	go func() {
-		_ = scanner.Start(ctx)
-	}()
-	defer func() {
-		_ = scanner.Close()
-	}()
-
 	tests := []struct {
 		name           string
 		pollerResults  []logpoller.Log
@@ -73,6 +61,17 @@ func TestPerformedEventsScanner(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			mp := new(mocks.LogPoller)
+			mp.On("RegisterFilter", mock.Anything).Return(nil)
+			mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
+			scanner := NewPerformedEventsScanner(lggr, mp, registryAddr)
+
+			go func() {
+				_ = scanner.Start(ctx)
+			}()
+			defer func() {
+				_ = scanner.Close()
+			}()
 
 			mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.pollerResults, nil)
 
