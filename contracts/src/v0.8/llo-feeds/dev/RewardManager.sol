@@ -7,6 +7,7 @@ import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interf
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
 import {Common} from "../../libraries/Common.sol";
+import "./interfaces/IFeeManager.sol";
 
 /**
  * @title FeeManager
@@ -34,7 +35,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   address private immutable i_linkAddress;
 
   // The total weight of all RewardRecipients. 1e18 = 100% of the pool fees
-  uint256 private constant PERCENTAGE_SCALAR = 1e18;
+  uint64 private constant PERCENTAGE_SCALAR = 1e18;
 
   // The fee manager address
   address public s_feeManagerAddress;
@@ -53,9 +54,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
   // Events emitted upon state change
   event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);
-  event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint256 quantity);
+  event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint192 quantity);
   event FeeManagerUpdated(address newFeeManagerAddress);
-  event FeePaid(bytes32 poolId, address payee, uint256 quantity);
+  event FeePaid(FeePayment[] payments, address payee);
 
   /**
    * @notice Constructor
@@ -89,18 +90,24 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IRewardManager
-  function onFeePaid(bytes32 poolId, address payee, uint256 amount) external override onlyOwnerOrFeeManager {
-    //update the total fees collected for this pot
-    unchecked {
-      //the total amount for any ERC20 asset cannot exceed 2^256 - 1
-      s_totalRewardRecipientFees[poolId] += amount;
+  function onFeePaid(FeePayment[] calldata payments, address payee) external override onlyOwnerOrFeeManager {
+    uint256 totalFeeAmount;
+    for(uint256 i; i < payments.length; ++i) {
+      unchecked {
+        //the total amount for any ERC20 asset cannot exceed 2^256 - 1
+        s_totalRewardRecipientFees[payments[i].poolId] += payments[i].amount;
+
+        //tally the total payable fees
+        totalFeeAmount += payments[i].amount;
+      }
     }
 
-    //transfer the fee to this contract
-    IERC20(i_linkAddress).transferFrom(payee, address(this), amount);
+    //transfer the fees to this contract
+    IERC20(i_linkAddress).transferFrom(payee, address(this), totalFeeAmount);
 
-    emit FeePaid(poolId, payee, amount);
+    emit FeePaid(payments, payee);
   }
+
 
   /// @inheritdoc IRewardManager
   function claimRewards(bytes32[] memory poolIds) external override {
@@ -137,7 +144,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
         s_totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient] = totalFeesInPot;
 
         //emit event if the recipient has rewards to claim
-        emit RewardsClaimed(poolIds[i], recipient, recipientShare);
+        emit RewardsClaimed(poolIds[i], recipient, uint192(recipientShare));
       }
     }
 

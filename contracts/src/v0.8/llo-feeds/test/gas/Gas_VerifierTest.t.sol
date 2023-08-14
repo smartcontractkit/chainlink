@@ -5,6 +5,7 @@ import {BaseTest, BaseTestWithConfiguredVerifierAndFeeManager} from "../verifier
 import {Verifier} from "../../Verifier.sol";
 import {SimpleWriteAccessController} from "../../../SimpleWriteAccessController.sol";
 import {Common} from "../../../libraries/Common.sol";
+import {IRewardManager} from "../../dev/interfaces/IRewardManager.sol";
 
 contract Verifier_setConfig is BaseTest {
   address[] internal s_signerAddrs;
@@ -58,8 +59,11 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
     _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
+    IRewardManager.FeePayment[] memory payments = new IRewardManager.FeePayment[](1);
+    payments[0] = IRewardManager.FeePayment(latestConfigDigest, uint192(DEFAULT_REPORT_LINK_FEE));
+
     changePrank(address(feeManager));
-    rewardManager.onFeePaid(latestConfigDigest, address(this), DEFAULT_REPORT_LINK_FEE);
+    rewardManager.onFeePaid(payments, address(this));
 
     changePrank(USER);
   }

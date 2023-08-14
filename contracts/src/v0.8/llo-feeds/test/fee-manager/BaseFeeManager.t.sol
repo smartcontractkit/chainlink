@@ -52,7 +52,7 @@ contract BaseFeeManagerTest is Test {
   uint256 internal constant DEFAULT_REPORT_NATIVE_FEE = 1e12;
 
   //rewards
-  uint256 internal constant FEE_SCALAR = 1e18;
+  uint64 internal constant FEE_SCALAR = 1e18;
 
   address internal constant NATIVE_WITHDRAW_ADDRESS = address(0);
 
@@ -69,10 +69,10 @@ contract BaseFeeManagerTest is Test {
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
 
   //events emitted
-  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
-  event NativeSurchargeUpdated(uint256 newSurcharge);
-  event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
-  event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
+  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint64 discount);
+  event NativeSurchargeUpdated(uint64 newSurcharge);
+  event InsufficientLink(bytes32 indexed configDigest, uint192 linkQuantity, uint192 nativeQuantity);
+  event Withdraw(address adminAddress, address assetAddress, uint192 quantity);
 
   function setUp() public virtual {
     //change to admin user
@@ -120,7 +120,7 @@ contract BaseFeeManagerTest is Test {
     changePrank(sender);
 
     //set the discount
-    feeManager.updateSubscriberDiscount(subscriber, feedId, token, discount);
+    feeManager.updateSubscriberDiscount(subscriber, feedId, token, uint64(discount));
 
     //change back to the original address
     changePrank(originalAddr);
@@ -132,7 +132,7 @@ contract BaseFeeManagerTest is Test {
     changePrank(sender);
 
     //set the surcharge
-    feeManager.setNativeSurcharge(surcharge);
+    feeManager.setNativeSurcharge(uint64(surcharge));
 
     //change back to the original address
     changePrank(originalAddr);
@@ -236,7 +236,7 @@ contract BaseFeeManagerTest is Test {
     changePrank(sender);
 
     //set the surcharge
-    feeManager.withdraw(assetAddress, amount);
+    feeManager.withdraw(assetAddress, uint192(amount));
 
     //change back to the original address
     changePrank(originalAddr);

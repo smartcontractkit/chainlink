@@ -44,7 +44,7 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
    * @notice Sets the native surcharge
    * @param surcharge surcharge to be paid if paying in native
    */
-  function setNativeSurcharge(uint256 surcharge) external;
+  function setNativeSurcharge(uint64 surcharge) external;
 
   /**
    * @notice Adds a subscriber to the fee manager
@@ -53,12 +53,12 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
    * @param token token to apply the discount to
    * @param discount discount to be applied to the fee
    */
-  function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint256 discount) external;
+  function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint64 discount) external;
 
   /**
    * @notice Withdraws any native rewards to the owner address
    * @param quantity quantity of native tokens to withdraw, address(0) is native
    * @param quantity quantity to withdraw
    */
-  function withdraw(address assetAddress, uint256 quantity) external;
+  function withdraw(address assetAddress, uint192 quantity) external;
 }

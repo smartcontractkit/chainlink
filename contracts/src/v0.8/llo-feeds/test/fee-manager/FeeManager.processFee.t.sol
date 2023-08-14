@@ -150,7 +150,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectEmit();
 
     //emit the event that is expected to be emitted
-    emit InsufficientLink(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
+    emit InsufficientLink(DEFAULT_CONFIG_DIGEST, uint192(DEFAULT_REPORT_LINK_FEE), uint192(DEFAULT_REPORT_NATIVE_FEE));
 
     //processing the fee will transfer the native from the user to the feeManager
     processFee(payload, USER, 0, ADMIN);

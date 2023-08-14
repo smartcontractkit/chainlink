@@ -22,7 +22,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   mapping(address => mapping(bytes32 => mapping(address => uint256))) public s_subscriberDiscounts;
 
   /// @notice the total discount that can be applied to a fee, 1e18 = 100% discount
-  uint256 private constant PERCENTAGE_SCALAR = 1e18;
+  uint64 private constant PERCENTAGE_SCALAR = 1e18;
 
   /// @notice the LINK token address
   address private immutable i_linkAddress;
@@ -79,22 +79,22 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @param feedId Feed ID for the discount
   /// @param token Token address for the discount
   /// @param discount Discount to apply, in relation to the PERCENTAGE_SCALAR
-  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
+  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint64 discount);
 
   /// @notice Emitted when updating the native surcharge
   /// @param newSurcharge Surcharge amount to apply relative to PERCENTAGE_SCALAR
-  event NativeSurchargeUpdated(uint256 newSurcharge);
+  event NativeSurchargeUpdated(uint64 newSurcharge);
 
   /// @notice Emits when this contract does not have enough LINK to send to the reward manager when paying in native
   /// @param configDigest Config digest of the report
   /// @param linkQuantity Amount of LINK required to pay the reward
   /// @param nativeQuantity Amount of native required to pay the reward
-  event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
+  event InsufficientLink(bytes32 indexed configDigest, uint192 linkQuantity, uint192 nativeQuantity);
 
   /// @notice Emitted when funds are withdrawn
   /// @param assetAddress Address of the asset withdrawn
   /// @param quantity Amount of the asset withdrawn
-  event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
+  event Withdraw(address adminAddress, address assetAddress, uint192 quantity);
 
   /**
    * @notice Construct the FeeManager contract
@@ -125,7 +125,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   modifier onlyOwnerOrProxy() {
-    if (msg.sender != owner() && msg.sender != i_proxyAddress) revert Unauthorized();
+    if (msg.sender != i_proxyAddress && msg.sender != owner()) revert Unauthorized();
     _;
   }
 
@@ -186,12 +186,16 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //get the config digest which is the first 32 bytes of the payload
     bytes32 configDigest = bytes32(payload);
 
-    //some users might not be billed
-    if (fee.amount != 0) {
+    // FeeManager takes an array of FeePayments, but we only have one
+    IRewardManager.FeePayment[] memory payments = new IRewardManager.FeePayment[](1);
+    payments[0] = IRewardManager.FeePayment(configDigest, uint192(reward.amount));
+
+
+    if(fee.amount > 0) {
       //if the fee is in LINK, transfer directly from the subscriber to the reward manager
       if (fee.assetAddress == i_linkAddress) {
         //distributes the fee
-        i_rewardManager.onFeePaid(configDigest, subscriber, reward.amount);
+        i_rewardManager.onFeePaid(payments, subscriber);
       } else {
         //if the fee is in native wrapped, transfer to this contract in exchange for the equivalent amount of LINK excluding the surcharge
         if (msg.value == 0) {
@@ -202,14 +206,13 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
         if (reward.amount > IERC20(i_linkAddress).balanceOf(address(this))) {
           // If not enough LINK on this contract to forward for rewards, fire this event and
           // call onFeePaid out-of-band to pay out rewards
-          emit InsufficientLink(configDigest, reward.amount, fee.amount);
+          emit InsufficientLink(configDigest, uint192(reward.amount), uint192(fee.amount));
         } else {
           //bill the payee and distribute the fee using the config digest as the key
-          i_rewardManager.onFeePaid(configDigest, address(this), reward.amount);
+          i_rewardManager.onFeePaid(payments, address(this));
         }
       }
-    }
-
+  }
     // a refund may be needed if the payee has paid in excess of the fee
     if (change != 0) {
       payable(subscriber).transfer(change);
@@ -266,6 +269,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       revert ExpiredReport();
     }
 
+    //get the discount being applied
+    uint256 discount = s_subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
+
     //the reward is always set in LINK
     reward.assetAddress = i_linkAddress;
     reward.amount = linkQuantity;
@@ -273,20 +279,22 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //calculate either the LINK fee or native fee if it's within the report
     if (quote.quoteAddress == i_linkAddress) {
       fee.assetAddress = reward.assetAddress;
-      fee.amount = reward.amount;
+      fee.amount = linkQuantity;
     } else {
       fee.assetAddress = i_nativeAddress;
       fee.amount = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + s_nativeSurcharge), PERCENTAGE_SCALAR);
     }
 
-    //get the discount being applied
-    uint256 discount = s_subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
-
     //apply the discount to the fee, rounding up
     fee.amount = fee.amount - ((fee.amount * discount) / PERCENTAGE_SCALAR);
 
-    //apply the discount to the reward, rounding down
-    reward.amount = reward.amount - Math.ceilDiv(reward.amount * discount, PERCENTAGE_SCALAR);
+    if(quote.quoteAddress == i_linkAddress) {
+      //the fee and reward should always be the same if paying in link
+      reward.amount = fee.amount;
+    } else {
+      //apply the discount to the reward, rounding down
+      reward.amount = reward.amount - Math.ceilDiv(reward.amount * discount, PERCENTAGE_SCALAR);
+    }
 
     //return the fee
     return (fee, reward);
@@ -301,7 +309,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IFeeManager
-  function setNativeSurcharge(uint256 surcharge) external onlyOwner {
+  function setNativeSurcharge(uint64 surcharge) external onlyOwner {
     if (surcharge > PERCENTAGE_SCALAR) revert InvalidSurcharge();
 
     s_nativeSurcharge = surcharge;
@@ -314,7 +322,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     address subscriber,
     bytes32 feedId,
     address token,
-    uint256 discount
+    uint64 discount
   ) external onlyOwner {
     //make sure the discount is not greater than the total discount that can be applied
     if (discount > PERCENTAGE_SCALAR) revert InvalidDiscount();
@@ -327,7 +335,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IFeeManager
-  function withdraw(address assetAddress, uint256 quantity) external onlyOwner {
+  function withdraw(address assetAddress, uint192 quantity) external onlyOwner {
     //address 0 is used to withdraw native in the context of withdrawing
     if (assetAddress == address(0)) {
       payable(owner()).transfer(quantity);
