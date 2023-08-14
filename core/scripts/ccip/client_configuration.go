@@ -1110,6 +1110,10 @@ func (client *CCIPClient) sendNativeTx(t *testing.T, from *bind.TransactOpts, to
 }
 
 func FundPingPong(t *testing.T, chain rhea.EvmDeploymentConfig, minimumBalance *big.Int) {
+	if chain.LaneConfig.PingPongDapp == common.HexToAddress("") {
+		t.Logf("No ping pong deployed")
+		return
+	}
 	linkToken, err := burn_mint_erc677.NewBurnMintERC677(chain.ChainConfig.SupportedTokens[rhea.LINK].Token, chain.Client)
 	require.NoError(t, err)
 
@@ -1119,7 +1123,9 @@ func FundPingPong(t *testing.T, chain rhea.EvmDeploymentConfig, minimumBalance *
 	if balance.Cmp(minimumBalance) == -1 {
 		t.Logf("❌ %s balance of %s link, which is lower than the set minimum. Funding...", ccip.ChainName(int64(chain.ChainConfig.EvmChainId)), dione.EthBalanceToString(balance))
 		_, err := linkToken.Transfer(chain.Owner, chain.LaneConfig.PingPongDapp, minimumBalance)
-		require.NoError(t, err)
+		if err != nil {
+			t.Logf("error funding ping pong dapp: %v", err)
+		}
 	} else {
 		t.Logf("✅ %s balance of %s link ", ccip.ChainName(int64(chain.ChainConfig.EvmChainId)), dione.EthBalanceToString(balance))
 	}

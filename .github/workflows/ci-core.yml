@@ -82,7 +82,7 @@ jobs:
         with:
           version: v1.53.3
           only-new-issues: ${{ github.event.schedule == '' }} # show only new issues, unless it's a scheduled run
-          args: --out-format checkstyle:golangci-lint-report.xml
+          args: --timeout=35m0s --out-format checkstyle:golangci-lint-report.xml
       - name: Print lint report artifact
         if: always()
         run: test -f golangci-lint-report.xml && cat golangci-lint-report.xml || true

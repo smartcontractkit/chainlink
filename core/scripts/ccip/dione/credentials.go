@@ -21,19 +21,19 @@ func (dc *DonCredentials) WriteToFile() error {
 	return WriteJSON(path+".NEW", file)
 }
 
-func (dc *DonCredentials) DialNodes() (nodes []*client.Chainlink, bootstrap *client.Chainlink, err error) {
+func (dc *DonCredentials) DialNodes() (nodes []*client.ChainlinkClient, bootstrap *client.ChainlinkClient, err error) {
 	for _, config := range dc.Nodes {
 		cfg := config
-		chainlinkNode, err2 := client.NewChainlink(&cfg)
+		chainlinkNode, err2 := client.NewChainlinkClient(&cfg)
 		if err2 != nil {
-			return []*client.Chainlink{}, &client.Chainlink{}, err2
+			return []*client.ChainlinkClient{}, &client.ChainlinkClient{}, err2
 		}
 		nodes = append(nodes, chainlinkNode)
 	}
 
-	bootstrap, err = client.NewChainlink(&dc.Bootstrap)
+	bootstrap, err = client.NewChainlinkClient(&dc.Bootstrap)
 	if err != nil {
-		return []*client.Chainlink{}, &client.Chainlink{}, err
+		return []*client.ChainlinkClient{}, &client.ChainlinkClient{}, err
 	}
 
 	return nodes, bootstrap, nil
