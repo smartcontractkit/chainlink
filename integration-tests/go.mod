@@ -25,7 +25,7 @@ require (
 	github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829
 	github.com/smartcontractkit/ocr2keepers v0.7.8
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
-	github.com/smartcontractkit/wasp v0.2.7
+	github.com/smartcontractkit/wasp v0.2.9
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.4
 	github.com/testcontainers/testcontainers-go v0.22.0
@@ -366,7 +366,7 @@ require (
 	github.com/prometheus/procfs v0.11.0 // indirect
 	github.com/prometheus/prometheus v0.45.0 // indirect
 	github.com/pyroscope-io/client v0.7.1 // indirect
-	github.com/pyroscope-io/godeltaprof v0.1.0 // indirect
+	github.com/pyroscope-io/godeltaprof v0.1.2 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
