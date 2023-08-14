@@ -56,6 +56,7 @@ type AppConfig interface {
 	TelemetryIngress() TelemetryIngress
 	Threshold() Threshold
 	WebServer() WebServer
+	LegacyGasStation() LegacyGasStation
 }
 
 type DatabaseBackupMode string

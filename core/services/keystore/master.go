@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

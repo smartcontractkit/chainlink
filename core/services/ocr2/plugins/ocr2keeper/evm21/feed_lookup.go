@@ -22,7 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
 )
 
 const (
@@ -74,14 +74,13 @@ type AdminOffchainConfig struct {
 // feedLookup looks through check upkeep results looking for any that need off chain lookup
 func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
 	lookups := map[int]*FeedLookup{}
-	for i := range upkeepResults {
-		res := &upkeepResults[i]
-		if res.IneligibilityReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
+	for i, res := range upkeepResults {
+		ext := res.Extension.(EVMAutomationResultExtension21)
+		if ext.FailureReason != UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED {
 			continue
 		}
 
-		block := big.NewInt(int64(res.Trigger.BlockNumber))
-		upkeepId := res.UpkeepID
+		block, upkeepId := r.getBlockAndUpkeepId(res.Payload)
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
@@ -89,14 +88,15 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 			return nil, err
 		}
 
-		allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
+		allowed, err := r.allowedToUseMercury(opts, upkeepId)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d failed to time mercury allow list: %v", upkeepId, block, err)
 			continue
 		}
 
 		if !allowed {
-			res.IneligibilityReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
+			ext.FailureReason = UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
+			upkeepResults[i].Extension = ext
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d NOT allowed to time Mercury server", upkeepId, block)
 			continue
 		}
@@ -107,7 +107,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
 			continue
 		}
-		lookup.upkeepId = upkeepId.BigInt()
+		lookup.upkeepId = upkeepId
 		// the block here is exclusively used to call checkCallback at this block, not to be confused with the block number
 		// in the revert for mercury v0.2, which is denoted by time in the struct bc starting from v0.3, only timestamp will be supported
 		lookup.block = uint64(block.Int64())
@@ -152,19 +152,28 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 		return
 	}
 
+	ext, ok := upkeepResults[i].Extension.(EVMAutomationResultExtension21)
+	if !ok {
+		r.lggr.Errorf("[FeedLookup] upkeep %s block %d unexpected check result extension struct", lookup.upkeepId, lookup.block)
+		return
+	}
+
 	if int(failureReason) == UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED {
-		upkeepResults[i].IneligibilityReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
+		ext.FailureReason = UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
+		upkeepResults[i].Extension = ext
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d mercury callback reverts", lookup.upkeepId, lookup.block)
 		return
 	}
 
 	if !needed {
-		upkeepResults[i].IneligibilityReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
+		ext.FailureReason = UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
+		upkeepResults[i].Extension = ext
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d callback reports upkeep not needed", lookup.upkeepId, lookup.block)
 		return
 	}
 
-	upkeepResults[i].IneligibilityReason = UPKEEP_FAILURE_REASON_NONE
+	ext.FailureReason = UPKEEP_FAILURE_REASON_NONE
+	upkeepResults[i].Extension = ext
 	upkeepResults[i].Eligible = true
 	upkeepResults[i].PerformData = performData
 	r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %s", lookup.upkeepId, lookup.block, hexutil.Encode(performData))
@@ -306,7 +315,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 			retryable = false
 			resp, err1 := r.hc.Do(req)
 			if err1 != nil {
-				r.lggr.Warnf("FeedLookup upkeep %s block %s GET request fails for feed %s: %v", ml.upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
+				r.lggr.Errorf("FeedLookup upkeep %s block %s GET request fails for feed %s: %v", ml.upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
 				return err1
 			}
 			defer resp.Body.Close()
@@ -316,7 +325,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 			}
 
 			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
-				r.lggr.Warnf("FeedLookup upkeep %s block %s received status code %d for feed %s", ml.upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
+				r.lggr.Errorf("FeedLookup upkeep %s block %s received status code %d for feed %s", ml.upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
 				retryable = true
 				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
 			} else if resp.StatusCode != http.StatusOK {
@@ -326,12 +335,12 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryBy
 			var m MercuryResponse
 			err1 = json.Unmarshal(body, &m)
 			if err1 != nil {
-				r.lggr.Warnf("FeedLookup upkeep %s block %s failed to unmarshal body to MercuryResponse for feed %s: %v", ml.upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
+				r.lggr.Errorf("FeedLookup upkeep %s block %s failed to unmarshal body to MercuryResponse for feed %s: %v", ml.upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
 				return err1
 			}
 			blobBytes, err1 := hexutil.Decode(m.ChainlinkBlob)
 			if err1 != nil {
-				r.lggr.Warnf("FeedLookup upkeep %s block %s failed to decode chainlinkBlob %s for feed %s: %v", ml.upkeepId.String(), ml.time.String(), m.ChainlinkBlob, ml.feeds[index], err1)
+				r.lggr.Errorf("FeedLookup upkeep %s block %s failed to decode chainlinkBlob %s for feed %s: %v", ml.upkeepId.String(), ml.time.String(), m.ChainlinkBlob, ml.feeds[index], err1)
 				return err1
 			}
 			ch <- MercuryBytes{Index: index, Bytes: blobBytes}
@@ -386,7 +395,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBy
 			retryable = false
 			resp, err1 := r.hc.Do(req)
 			if err1 != nil {
-				r.lggr.Warnf("FeedLookup upkeep %s block %s GET request fails for multi feed: %v", ml.upkeepId.String(), ml.time.String(), err1)
+				r.lggr.Errorf("FeedLookup upkeep %s block %s GET request fails for multi feed: %v", ml.upkeepId.String(), ml.time.String(), err1)
 				return err1
 			}
 			defer resp.Body.Close()
@@ -396,7 +405,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBy
 			}
 
 			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
-				r.lggr.Warnf("FeedLookup upkeep %s block %s received status code %d for multi feed", ml.upkeepId.String(), ml.time.String(), resp.StatusCode)
+				r.lggr.Errorf("FeedLookup upkeep %s block %s received status code %d for multi feed", ml.upkeepId.String(), ml.time.String(), resp.StatusCode)
 				retryable = true
 				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
 			} else if resp.StatusCode != http.StatusOK {
@@ -406,12 +415,12 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryBy
 			var m MercuryResponse
 			err1 = json.Unmarshal(body, &m)
 			if err1 != nil {
-				r.lggr.Warnf("FeedLookup upkeep %s block %s failed to unmarshal body to MercuryResponse for multi feed: %v", ml.upkeepId.String(), ml.time.String(), err1)
+				r.lggr.Errorf("FeedLookup upkeep %s block %s failed to unmarshal body to MercuryResponse for multi feed: %v", ml.upkeepId.String(), ml.time.String(), err1)
 				return err1
 			}
 			blobBytes, err1 := hexutil.Decode(m.ChainlinkBlob)
 			if err1 != nil {
-				r.lggr.Warnf("FeedLookup upkeep %s block %s failed to decode chainlinkBlob %s for multi feed: %v", ml.upkeepId.String(), ml.time.String(), m.ChainlinkBlob, err1)
+				r.lggr.Errorf("FeedLookup upkeep %s block %s failed to decode chainlinkBlob %s for multi feed: %v", ml.upkeepId.String(), ml.time.String(), m.ChainlinkBlob, err1)
 				return err1
 			}
 			ch <- MercuryBytes{

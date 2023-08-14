@@ -14,10 +14,6 @@ on:
           - "CELO_MAINNET"
           - "BASE_GOERLI"
           - "BASE_MAINNET"
-          - "BSC_MAINNET"
-          - "BSC_TESTNET"
-          - "SCROLL_SEPOLIA"
-          - "SCROLL_MAINNET"   
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
@@ -81,7 +77,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@6f41029bc7f0d0db5827f6804a2322e2a89e3b32
+        uses: smartcontractkit/push-gha-metrics-action@2dcc6578752a8949bdabf8d7fb4f0c70b83703cd
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -136,7 +132,6 @@ jobs:
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          should_cleanup: false
           go_mod_path: ./integration-tests/go.mod
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

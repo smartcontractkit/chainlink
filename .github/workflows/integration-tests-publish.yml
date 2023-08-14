@@ -4,10 +4,10 @@ name: Integration Tests Publish
 on:
   push:
     branches:
-      - develop
+      - ccip-develop
 
 env:
-  ECR_TAG: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:develop
+  ECR_TAG: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests:develop
 
 jobs:
   publish-integration-test-image:
@@ -20,7 +20,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@6f41029bc7f0d0db5827f6804a2322e2a89e3b32
+        uses: smartcontractkit/push-gha-metrics-action@2dcc6578752a8949bdabf8d7fb4f0c70b83703cd
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

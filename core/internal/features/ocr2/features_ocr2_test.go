@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -191,7 +192,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	// Note it's plausible these ports could be occupied on a CI machine.
 	// May need a port randomize + retry approach if we observe collisions.
-	bootstrapNodePort := uint16(29999)
+	bootstrapNodePort := uint16(27999)
 	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", false /* useForwarders */, b, nil)
 
 	var (

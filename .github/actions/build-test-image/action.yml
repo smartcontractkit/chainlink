@@ -4,7 +4,7 @@ description: A composite action that allows building and publishing the test rem
 inputs:
   repository:
     description: The docker repository for the image
-    default: chainlink-tests
+    default: chainlink-ccip-tests
     required: false
   tag:
     description: The tag to use by default and to use for checking image existance
@@ -15,7 +15,7 @@ inputs:
     required: false
   suites:
     description: The test suites to build into the image
-    default: chaos migration performance reorg smoke soak benchmark
+    default: chaos migration performance reorg smoke soak benchmark load
     required: false
   QA_AWS_ROLE_TO_ASSUME:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
@@ -32,7 +32,7 @@ runs:
   steps:
     - name: Check if image exists
       id: check-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
       with:
         repository: ${{ inputs.repository }}
         tag: ${{ inputs.tag }}
@@ -40,7 +40,7 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     - name: Build and Publish Test Runner
       if: steps.check-image.outputs.exists == 'false'
-      uses: smartcontractkit/chainlink-github-actions/docker/build-push@ab595504ae9cf10c60eb8d2c5ce025284e58b210 #v2.1.5
+      uses: smartcontractkit/chainlink-github-actions/docker/build-push@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
       with:
         tags: |
           ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag }}

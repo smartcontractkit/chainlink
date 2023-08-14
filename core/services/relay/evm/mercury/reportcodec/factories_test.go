@@ -12,7 +12,7 @@ import (
 
 func NewValidParsedAttributedObservations() []relaymercury.ParsedAttributedObservation {
 	return []relaymercury.ParsedAttributedObservation{
-		relaymercury.ParsedAttributedObservation{
+		{
 			Timestamp: 1676484822,
 			Observer:  commontypes.OracleID(1),
 
@@ -29,7 +29,7 @@ func NewValidParsedAttributedObservations() []relaymercury.ParsedAttributedObser
 			MaxFinalizedBlockNumber:      16634355,
 			MaxFinalizedBlockNumberValid: true,
 		},
-		relaymercury.ParsedAttributedObservation{
+		{
 			Timestamp: 1676484826,
 			Observer:  commontypes.OracleID(2),
 
@@ -46,7 +46,7 @@ func NewValidParsedAttributedObservations() []relaymercury.ParsedAttributedObser
 			MaxFinalizedBlockNumber:      16634355,
 			MaxFinalizedBlockNumberValid: true,
 		},
-		relaymercury.ParsedAttributedObservation{
+		{
 			Timestamp: 1676484828,
 			Observer:  commontypes.OracleID(3),
 
@@ -63,7 +63,7 @@ func NewValidParsedAttributedObservations() []relaymercury.ParsedAttributedObser
 			MaxFinalizedBlockNumber:      16634355,
 			MaxFinalizedBlockNumberValid: true,
 		},
-		relaymercury.ParsedAttributedObservation{
+		{
 			Timestamp: 1676484830,
 			Observer:  commontypes.OracleID(4),
 

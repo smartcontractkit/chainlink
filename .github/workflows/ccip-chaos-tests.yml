@@ -1,0 +1,199 @@
+name: CCIP Chaos Tests
+on:
+  workflow_run:
+    workflows: [ CCIP Load Test ]
+    types: [ completed ]
+    branches: [ ccip-develop ]
+  workflow_dispatch:
+
+
+
+# Only run 1 of this workflow at a time per PR
+concurrency:
+  group: chaos-ccip-tests-chainlink-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CL_ECR: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-ccip-tests:${{ github.sha }}
+
+jobs:
+  build-chainlink:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Chainlink Image
+    runs-on: ubuntu20.04-16cores-64GB
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Check if image exists
+        id: check-image
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        with:
+          repository: chainlink
+          tag: ${{ github.sha }}
+          AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      - name: Build Image
+        if: steps.check-image.outputs.exists == 'false'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          cl_repo: smartcontractkit/chainlink-ccip
+          cl_ref: ${{ github.sha }}
+          push_tag: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink:${{ github.sha }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Chainlink Image
+        continue-on-error: true
+
+  build-test-image:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Test Image
+    runs-on: ubuntu20.04-16cores-64GB
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Test Image
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Build Test Image
+        uses: ./.github/actions/build-test-image
+        with:
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+
+  ccip-chaos-tests:
+    environment: integration
+    permissions:
+      issues: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: ccip-chaos-tests
+    runs-on: ubuntu-latest
+    needs: [ build-chainlink, build-test-image ]
+    env:
+      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+      TEST_SUITE: chaos
+      TEST_ARGS: -test.timeout 30m
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_TRIGGERED_BY: ccip-cron-chaos-eth
+      TEST_LOG_LEVEL: debug
+      DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: CCIP chaos Test
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Run Chaos Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        with:
+          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 1h -count=1 -json -test.parallel 11 -run 'TestChaosCCIP' ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_download_vendor_packages_command: make gomod
+          cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+          cl_image_tag: ${{ github.sha }}
+          artifacts_location: ./integration-tests/chaos/logs
+          publish_check_name: CCIP Chaos Test Results
+          publish_report_paths: ./tests-chaos-report.xml
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          CGO_ENABLED: "1"
+
+      ## Run Cleanup if the job succeeds
+      - name: cleanup
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        with:
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+
+  ccip-chaos-with-load-tests:
+    environment: integration
+    permissions:
+      issues: read
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    name: ccip-load-with-chaos-tests
+    runs-on: ubuntu-latest
+    needs: [ build-chainlink, build-test-image ]
+    env:
+      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+      TEST_SUITE: load
+      TEST_ARGS: -test.timeout 1h
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_TRIGGERED_BY: ccip-cron-chaos-and-load-eth
+      TEST_LOG_LEVEL: debug
+      DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
+      GH_TOKEN: ${{ github.token }}
+      TEST_LOKI_TOKEN: ${{ secrets.LOKI_TOKEN }}
+      TEST_LOKI_URL: ${{ secrets.LOKI_URL }}
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: CCIP load with chaos test
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
+      - name: Run Load With Chaos Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        with:
+          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 1h -count=1 -json -test.parallel 4 -run '^TestLoadCCIPStableRequestTriggeringWithPodChaos$' ./load 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_download_vendor_packages_command: make gomod
+          cl_repo: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+          cl_image_tag: ${{ github.sha }}
+          artifacts_location: ./integration-tests/load/logs
+          publish_check_name: CCIP Chaos With Load Test Results
+          publish_report_paths: ./tests-chaos-with-load-report.xml
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          CGO_ENABLED: "1"
+
+      ## Run Cleanup if the job succeeds
+      - name: cleanup
+        if: always()
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/cleanup@ce87f8986ca18336cc5015df75916c2ec0a7c4b3 # v2.1.2
+        with:
+          triggered_by: ${{ env.TEST_TRIGGERED_BY }}

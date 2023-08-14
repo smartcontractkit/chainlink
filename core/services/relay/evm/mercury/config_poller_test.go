@@ -82,8 +82,7 @@ func TestMercuryConfigPoller(t *testing.T) {
 		offchainTransmitters[i] = oracles[i].OffchainPublicKey
 		encodedTransmitter[i] = ocrtypes2.Account(fmt.Sprintf("%x", oracles[i].OffchainPublicKey[:]))
 	}
-
-	_, err = th.verifierContract.SetConfig(th.user, feedIDBytes, signerAddresses, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, nil)
+	_, err = th.verifierContract.SetConfig(th.user, feedIDBytes, signerAddresses, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 	require.NoError(t, err, "failed to setConfig with feed ID")
 	th.backend.Commit()
 

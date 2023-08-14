@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/scripts"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner_test_consumer"
 	"log"
 	"math/big"
 	"os"
@@ -349,7 +347,7 @@ func main() {
 		cmd := flag.NewFlagSet("batch-bhs-deploy", flag.ExitOnError)
 		bhsAddr := cmd.String("bhs-address", "", "address of the blockhash store contract")
 		helpers.ParseArgs(cmd, os.Args[2:], "bhs-address")
-		scripts.DeployBatchBHS(e, common.HexToAddress(*bhsAddr))
+		deployBatchBHS(e, common.HexToAddress(*bhsAddr))
 	case "batch-bhs-store":
 		cmd := flag.NewFlagSet("batch-bhs-store", flag.ExitOnError)
 		batchAddr := cmd.String("batch-bhs-address", "", "address of the batch bhs contract")
@@ -482,14 +480,14 @@ func main() {
 		helpers.PanicErr(err)
 		fmt.Println("latest head number:", h.Number.String())
 	case "bhs-deploy":
-		scripts.DeployBHS(e)
+		deployBHS(e)
 	case "coordinator-deploy":
 		coordinatorDeployCmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
 		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
 		coordinatorDeployBHSAddress := coordinatorDeployCmd.String("bhs-address", "", "address of bhs")
 		coordinatorDeployLinkEthFeedAddress := coordinatorDeployCmd.String("link-eth-feed", "", "address of link-eth-feed")
 		helpers.ParseArgs(coordinatorDeployCmd, os.Args[2:], "link-address", "bhs-address", "link-eth-feed")
-		scripts.DeployCoordinator(e, *coordinatorDeployLinkAddress, *coordinatorDeployBHSAddress, *coordinatorDeployLinkEthFeedAddress)
+		deployCoordinator(e, *coordinatorDeployLinkAddress, *coordinatorDeployBHSAddress, *coordinatorDeployLinkEthFeedAddress)
 	case "coordinator-get-config":
 		cmd := flag.NewFlagSet("coordinator-get-config", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator address")
@@ -498,7 +496,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		scripts.PrintCoordinatorConfig(coordinator)
+		printCoordinatorConfig(coordinator)
 	case "coordinator-set-config":
 		cmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
 		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
@@ -521,7 +519,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*setConfigAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		scripts.SetCoordinatorConfig(
+		setCoordinatorConfig(
 			e,
 			*coordinator,
 			uint16(*minConfs),
@@ -555,7 +553,7 @@ func main() {
 			*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
 		}
 
-		scripts.RegisterCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
+		registerCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
 	case "coordinator-deregister-key":
 		coordinatorDeregisterKey := flag.NewFlagSet("coordinator-deregister-key", flag.ExitOnError)
 		deregisterKeyAddress := coordinatorDeregisterKey.String("address", "", "coordinator address")
@@ -683,14 +681,14 @@ func main() {
 		helpers.PanicErr(err)
 		fmt.Printf("Request config %+v Rw %+v Rid %+v\n", rc, rw, rid)
 	case "deploy-universe":
-		scripts.DeployUniverseViaCLI(e)
+		deployUniverse(e)
 	case "eoa-consumer-deploy":
 		consumerDeployCmd := flag.NewFlagSet("eoa-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := consumerDeployCmd.String("coordinator-address", "", "coordinator address")
 		consumerLinkAddress := consumerDeployCmd.String("link-address", "", "link-address")
 		helpers.ParseArgs(consumerDeployCmd, os.Args[2:], "coordinator-address", "link-address")
 
-		scripts.EoaDeployConsumer(e, *consumerCoordinator, *consumerLinkAddress)
+		eoaDeployConsumer(e, *consumerCoordinator, *consumerLinkAddress)
 	case "eoa-load-test-consumer-deploy":
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
@@ -707,12 +705,7 @@ func main() {
 		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-load-test-consumer-with-metrics-deploy", flag.ExitOnError)
 		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
 		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address")
-		scripts.EoaLoadTestConsumerWithMetricsDeploy(e, *consumerCoordinator)
-	case "eoa-vrf-owner-test-consumer-deploy":
-		loadTestConsumerDeployCmd := flag.NewFlagSet("eoa-vrf-owner-test-consumer-deploy", flag.ExitOnError)
-		consumerCoordinator := loadTestConsumerDeployCmd.String("coordinator-address", "", "coordinator address")
-		helpers.ParseArgs(loadTestConsumerDeployCmd, os.Args[2:], "coordinator-address")
-		_, tx, _, err := vrf_owner_test_consumer.DeployVRFV2OwnerTestConsumer(
+		_, tx, _, err := vrf_load_test_with_metrics.DeployVRFV2LoadTestWithMetrics(
 			e.Owner,
 			e.Ec,
 			common.HexToAddress(*consumerCoordinator),
@@ -725,7 +718,7 @@ func main() {
 		helpers.ParseArgs(createSubCmd, os.Args[2:], "coordinator-address")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		scripts.EoaCreateSub(e, *coordinator)
+		eoaCreateSub(e, *coordinator)
 	case "eoa-add-sub-consumer":
 		addSubConsCmd := flag.NewFlagSet("eoa-add-sub-consumer", flag.ExitOnError)
 		coordinatorAddress := addSubConsCmd.String("coordinator-address", "", "coordinator address")
@@ -734,7 +727,7 @@ func main() {
 		helpers.ParseArgs(addSubConsCmd, os.Args[2:], "coordinator-address", "sub-id", "consumer-address")
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
-		scripts.EoaAddConsumerToSub(e, *coordinator, uint64(*subID), *consumerAddress)
+		eoaAddConsumerToSub(e, *coordinator, uint64(*subID), *consumerAddress)
 	case "eoa-create-fund-authorize-sub":
 		// Lets just treat the owner key as the EOA controlling the sub
 		cfaSubCmd := flag.NewFlagSet("eoa-create-fund-authorize-sub", flag.ExitOnError)
@@ -836,75 +829,6 @@ func main() {
 		for i, tx := range txes {
 			helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("load test %d", i+1))
 		}
-	case "eoa-vrf-owner-test-request":
-		request := flag.NewFlagSet("eoa-eoa-vrf-owner-test-request", flag.ExitOnError)
-		consumerAddress := request.String("consumer-address", "", "consumer address")
-		requestConfirmations := request.Uint("request-confirmations", 3, "minimum request confirmations")
-		keyHash := request.String("key-hash", "", "key hash")
-		cbGasLimit := request.Uint("cb-gas-limit", 100_000, "request callback gas limit")
-		numWords := request.Uint("num-words", 1, "num words to request")
-		requests := request.Uint("requests", 10, "number of randomness requests to make per run")
-		runs := request.Uint("runs", 1, "number of runs to do. total randomness requests will be (requests * runs).")
-		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "key-hash")
-		keyHashBytes := common.HexToHash(*keyHash)
-
-		consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
-			common.HexToAddress(*consumerAddress),
-			e.Ec)
-		helpers.PanicErr(err)
-		var txes []*types.Transaction
-		for i := 0; i < int(*runs); i++ {
-			tx, err := consumer.RequestRandomWords(
-				e.Owner,
-				uint16(*requestConfirmations),
-				keyHashBytes,
-				uint32(*cbGasLimit),
-				uint32(*numWords),
-				uint16(*requests),
-			)
-			helpers.PanicErr(err)
-			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
-			txes = append(txes, tx)
-		}
-		fmt.Println("Total number of requests sent:", (*requests)*(*runs))
-		fmt.Println("fetching receipts for all transactions")
-		for i, tx := range txes {
-			helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("load test %d", i+1))
-		}
-	case "eoa-vrf-owner-test-read-metrics":
-		request := flag.NewFlagSet("eoa-load-test-read-metrics", flag.ExitOnError)
-		consumerAddress := request.String("consumer-address", "", "consumer address")
-		helpers.ParseArgs(request, os.Args[2:], "consumer-address")
-		consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
-			common.HexToAddress(*consumerAddress),
-			e.Ec)
-		helpers.PanicErr(err)
-		responseCount, err := consumer.SResponseCount(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Response Count: ", responseCount)
-		requestCount, err := consumer.SRequestCount(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Request Count: ", requestCount)
-		averageFulfillmentInMillions, err := consumer.SAverageFulfillmentInMillions(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Average Fulfillment In Millions: ", averageFulfillmentInMillions)
-		slowestFulfillment, err := consumer.SSlowestFulfillment(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Slowest Fulfillment: ", slowestFulfillment)
-		fastestFulfillment, err := consumer.SFastestFulfillment(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Fastest Fulfillment: ", fastestFulfillment)
-	case "eoa-vrf-owner-test-reset-metrics":
-		request := flag.NewFlagSet("eoa-vrf-owner-test-reset-metrics", flag.ExitOnError)
-		consumerAddress := request.String("consumer-address", "", "consumer address")
-		helpers.ParseArgs(request, os.Args[2:], "consumer-address")
-		consumer, err := vrf_owner_test_consumer.NewVRFV2OwnerTestConsumer(
-			common.HexToAddress(*consumerAddress),
-			e.Ec)
-		helpers.PanicErr(err)
-		_, err = consumer.Reset(e.Owner)
-		helpers.PanicErr(err)
-		fmt.Println("Load Test Consumer With Metrics was reset ")
 	case "eoa-load-test-request-with-metrics":
 		request := flag.NewFlagSet("eoa-load-test-request-with-metrics", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")
@@ -1020,7 +944,7 @@ func main() {
 		coordinator, err := vrf_coordinator_v2.NewVRFCoordinatorV2(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		scripts.EoaFundSubscription(e, *coordinator, *consumerLinkAddress, amount, uint64(*subID))
+		eoaFundSubscription(e, *coordinator, *consumerLinkAddress, amount, uint64(*subID))
 	case "eoa-read":
 		cmd := flag.NewFlagSet("eoa-read", flag.ExitOnError)
 		consumerAddress := cmd.String("consumer", "", "consumer address")
@@ -1188,7 +1112,7 @@ func main() {
 		linkETHFeedAddress := cmd.String("link-eth-feed", "", "address of link-eth-feed")
 		coordinatorAddress := cmd.String("coordinator-address", "", "address of the vrf coordinator v2 contract")
 		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address")
-		scripts.WrapperDeploy(e,
+		wrapperDeploy(e,
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*linkETHFeedAddress),
 			common.HexToAddress(*coordinatorAddress))
@@ -1226,7 +1150,7 @@ func main() {
 		maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
 		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "key-hash")
 
-		scripts.WrapperConfigure(e,
+		wrapperConfigure(e,
 			common.HexToAddress(*wrapperAddress),
 			*wrapperGasOverhead,
 			*coordinatorGasOverhead,
@@ -1258,7 +1182,7 @@ func main() {
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")
 		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "wrapper-address")
 
-		scripts.WrapperConsumerDeploy(e,
+		wrapperConsumerDeploy(e,
 			common.HexToAddress(*linkAddress),
 			common.HexToAddress(*wrapperAddress))
 	case "wrapper-consumer-request":
@@ -1330,7 +1254,7 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:])
 		_ = helpers.CalculateLatestBlockHeader(e, *blockNumber)
 	case "wrapper-universe-deploy":
-		scripts.DeployWrapperUniverse(e)
+		deployWrapperUniverse(e)
 	default:
 		panic("unrecognized subcommand: " + os.Args[1])
 	}

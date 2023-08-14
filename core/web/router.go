@@ -21,14 +21,16 @@ import (
 	"github.com/gin-contrib/expvar"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
+	"github.com/ulule/limiter/v3"
+
 	limits "github.com/gin-contrib/size"
 	"github.com/gin-gonic/gin"
 	"github.com/graph-gophers/graphql-go"
 	"github.com/graph-gophers/graphql-go/relay"
 	"github.com/pkg/errors"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/ulule/limiter/v3"
 	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"github.com/unrolled/secure"
@@ -46,6 +48,7 @@ import (
 func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.Engine, error) {
 	engine := gin.New()
 	engine.RemoteIPHeaders = nil // don't trust default headers: "X-Forwarded-For", "X-Real-IP"
+
 	config := app.GetConfig()
 	secret, err := app.SecretGenerator().Generate(config.RootDir())
 	if err != nil {
@@ -95,7 +98,20 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 		graphqlHandler(app),
 	)
 
+	legacyGasStationRoutes(config, app, api)
+
 	return engine, nil
+}
+
+func legacyGasStationRoutes(config chainlink.GeneralConfig, app chainlink.Application, r *gin.RouterGroup) {
+	if config.Feature().LegacyGasStation() {
+		group := r.Group("/gasstation")
+		lgsc := LegacyGasStationController{
+			requestRouter: app.LegacyGasStationRequestRouter(),
+			lggr:          app.GetLogger(),
+		}
+		group.Any("send_transaction", lgsc.SendTransaction)
+	}
 }
 
 // Defining the Graphql handler

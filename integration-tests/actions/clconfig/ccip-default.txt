@@ -1,0 +1,64 @@
+[Feature]
+LogPoller = true
+CCIP = true
+
+[Database]
+MaxIdleConns = 50
+MaxOpenConns = 50
+
+[OCR2]
+Enabled = true
+DefaultTransactionQueueDepth = 0
+
+[OCR]
+Enabled = false
+DefaultTransactionQueueDepth = 0
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+
+{{range $networkIndex,$net := .Networks}}
+[[EVM]]
+ChainID = {{.ChainID}}
+MinContractPayment = '0'
+Enabled = true
+FinalityDepth = 50
+LogPollInterval = '1s'
+
+[EVM.HeadTracker]
+HistoryDepth = 100
+
+[EVM.BalanceMonitor]
+Enabled = false
+
+[EVM.GasEstimator]
+{{if eq .ChainID 421613}}
+LimitDefault = 100_000_000
+{{else}}
+LimitDefault = 6_000_000
+{{end}}
+{{if eq .ChainID 420}}
+BumpThreshold = 60
+BumpPercent = 20
+BumpMin = '100 wei'
+{{end}}
+{{if eq .ChainID 5}}
+PriceMax = '500 gwei'
+FeeCapDefault = '500 gwei'
+{{else}}
+PriceMax = '200 gwei'
+FeeCapDefault = '200 gwei'
+{{end}}
+
+{{range $i,$url := .URLs }}
+[[EVM.Nodes]]
+Name = 'primary-{{$networkIndex}}-{{$i}}'
+WSURL = '{{$url}}'
+HTTPURL = '{{ index (index $.Networks $networkIndex).HTTPURLs $i}}'
+{{end}}
+{{end}}

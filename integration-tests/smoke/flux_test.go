@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -36,14 +35,14 @@ func TestFluxBasic(t *testing.T) {
 	err = env.MockServer.Client.SetValuePath(adapterPath, 1e5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
-	lt, err := actions.DeployLINKToken(env.Geth.ContractDeployer)
+	linkToken, err := env.Geth.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	fluxInstance, err := env.Geth.ContractDeployer.DeployFluxAggregatorContract(lt.Address(), contracts.DefaultFluxAggregatorOptions())
+	fluxInstance, err := env.Geth.ContractDeployer.DeployFluxAggregatorContract(linkToken.Address(), contracts.DefaultFluxAggregatorOptions())
 	require.NoError(t, err, "Deploying Flux Aggregator Contract shouldn't fail")
 	err = env.Geth.EthClient.WaitForEvents()
 	require.NoError(t, err, "Failed waiting for deployment of flux aggregator contract")
 
-	err = lt.Transfer(fluxInstance.Address(), big.NewInt(1e18))
+	err = linkToken.Transfer(fluxInstance.Address(), big.NewInt(1e18))
 	require.NoError(t, err, "Funding Flux Aggregator Contract shouldn't fail")
 	err = env.Geth.EthClient.WaitForEvents()
 	require.NoError(t, err, "Failed waiting for funding of flux aggregator contract")
@@ -51,8 +50,8 @@ func TestFluxBasic(t *testing.T) {
 	err = fluxInstance.UpdateAvailableFunds()
 	require.NoError(t, err, "Updating the available funds on the Flux Aggregator Contract shouldn't fail")
 
-	err = env.FundChainlinkNodes(big.NewFloat(1))
-	require.NoError(t, err, "Failed to fund the nodes")
+	err = env.FundChainlinkNodes(big.NewFloat(.02))
+	require.NoError(t, err, "Funding chainlink nodes with ETH shouldn't fail")
 
 	err = fluxInstance.SetOracles(
 		contracts.FluxAggregatorSetOraclesOptions{

@@ -6,35 +6,24 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	tc "github.com/testcontainers/testcontainers-go"
 	"go.uber.org/multierr"
 )
 
-var (
-	ErrFundCLNode     = "failed to fund CL node"
-	ErrGetNodeCSAKeys = "failed get CL node CSA keys"
-)
-
 type CLClusterTestEnv struct {
-	Cfg      *TestEnvConfig
-	Network  *tc.DockerNetwork
-	LogWatch *logwatch.LogWatch
-
-	/* components */
+	cfg        *TestEnvConfig
+	Network    *tc.DockerNetwork
+	LogWatch   *logwatch.LogWatch
 	CLNodes    []*ClNode
 	Geth       *Geth
 	MockServer *MockServer
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
-	utils.SetupCoreDockerEnvLogger()
 	network, err := docker.CreateNetwork()
 	if err != nil {
 		return nil, err
@@ -48,7 +37,6 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 }
 
 func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
-	utils.SetupCoreDockerEnvLogger()
 	network, err := docker.CreateNetwork()
 	if err != nil {
 		return nil, err
@@ -56,35 +44,23 @@ func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 	networks := []string{network.Name}
 	log.Info().Interface("Cfg", cfg).Send()
 	return &CLClusterTestEnv{
-		Cfg:        cfg,
+		cfg:        cfg,
 		Network:    network,
 		Geth:       NewGeth(networks, WithContainerName(cfg.Geth.ContainerName)),
 		MockServer: NewMockServer(networks, WithContainerName(cfg.MockServer.ContainerName)),
 	}, nil
 }
 
-func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
-	te.Geth.EthClient.ParallelTransactions(enabled)
+func (m *CLClusterTestEnv) StartGeth() error {
+	return m.Geth.StartContainer(m.LogWatch)
 }
 
-func (te *CLClusterTestEnv) StartGeth() error {
-	return te.Geth.StartContainer()
-}
-
-func (te *CLClusterTestEnv) StartMockServer() error {
-	return te.MockServer.StartContainer()
-}
-
-func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
-	clients := make([]*client.ChainlinkClient, 0)
-	for _, c := range te.CLNodes {
-		clients = append(clients, c.API)
-	}
-	return clients
+func (m *CLClusterTestEnv) StartMockServer() error {
+	return m.MockServer.StartContainer(m.LogWatch)
 }
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
-func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int) error {
+func (m *CLClusterTestEnv) StartClNodes(nodeConfig chainlink.Config, count int) error {
 	var wg sync.WaitGroup
 	var errs = []error{}
 	var mu sync.Mutex
@@ -96,22 +72,21 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 		go func() {
 			defer wg.Done()
 			var nodeContainerName, dbContainerName string
-			if te.Cfg != nil {
-				nodeContainerName = te.Cfg.Nodes[i].NodeContainerName
-				dbContainerName = te.Cfg.Nodes[i].DbContainerName
+			if m.cfg != nil {
+				nodeContainerName = m.cfg.Nodes[i].NodeContainerName
+				dbContainerName = m.cfg.Nodes[i].DbContainerName
 			}
-			n := NewClNode([]string{te.Network.Name}, nodeConfig,
+			n := NewClNode([]string{m.Network.Name}, nodeConfig,
 				WithNodeContainerName(nodeContainerName),
-				WithDbContainerName(dbContainerName),
-			)
-			err := n.StartContainer()
+				WithDbContainerName(dbContainerName))
+			err := n.StartContainer(m.LogWatch)
 			if err != nil {
 				mu.Lock()
 				errs = append(errs, err)
 				mu.Unlock()
 			} else {
 				mu.Lock()
-				te.CLNodes = append(te.CLNodes, n)
+				m.CLNodes = append(m.CLNodes, n)
 				mu.Unlock()
 			}
 		}()
@@ -126,9 +101,9 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 }
 
 // ChainlinkNodeAddresses will return all the on-chain wallet addresses for a set of Chainlink nodes
-func (te *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
+func (m *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 	addresses := make([]common.Address, 0)
-	for _, n := range te.CLNodes {
+	for _, n := range m.CLNodes {
 		primaryAddress, err := n.ChainlinkNodeAddress()
 		if err != nil {
 			return nil, err
@@ -139,28 +114,28 @@ func (te *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 }
 
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
-func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
-	for _, cl := range te.CLNodes {
-		if err := cl.Fund(te.Geth.EthClient, amount); err != nil {
-			return errors.Wrap(err, ErrFundCLNode)
+func (m *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
+	for _, cl := range m.CLNodes {
+		if err := cl.Fund(m.Geth.EthClient, amount); err != nil {
+			return err
 		}
 	}
-	return te.Geth.EthClient.WaitForEvents()
+	return m.Geth.EthClient.WaitForEvents()
 }
 
-func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
+func (m *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 	var keys []string
-	for _, n := range te.CLNodes {
+	for _, n := range m.CLNodes {
 		csaKeys, err := n.GetNodeCSAKeys()
 		if err != nil {
-			return nil, errors.Wrap(err, ErrGetNodeCSAKeys)
+			return nil, err
 		}
 		keys = append(keys, csaKeys.Data[0].ID)
 	}
 	return keys, nil
 }
 
-func (te *CLClusterTestEnv) Terminate() error {
+func (m *CLClusterTestEnv) Terminate() error {
 	// TESTCONTAINERS_RYUK_DISABLED=false by defualt so ryuk will remove all
 	// the containers and the network
 	return nil

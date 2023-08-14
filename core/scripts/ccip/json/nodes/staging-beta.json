@@ -1,0 +1,247 @@
+{
+  "Bootstrap": {
+    "EthKeys": null,
+    "PeerID": "12D3KooWDMu1of5R49NK4fker5MoTmR8zBBrFGEkwgm6Ay4C39tz",
+    "OCRKeys": {
+      "data": null
+    }
+  },
+  "Nodes": [
+    {
+      "EthKeys": {
+        "11155111": "0x9220D164B732d162064D614f14b585894eE0FD14",
+        "1287": "0x1C025d85E1D2E7E527485f332f825Bc1C5589d2F",
+        "420": "0x6FAd8D0Fb6C6d9974f1cB8F3d6b7681dFc6CDBbF",
+        "421613": "0x2a2894D0eCB98551951921b54311cFBf0A8f3D69",
+        "43113": "0x0f87c66E426c304C612B30A52b79f36DF45Cae4e",
+        "44787": "0x524255Fc3a8678f00a1D936cCe7EC7A626197dE3",
+        "5": "0xDAE4A0fBC506CCeD6Eb6dC351F158EA9d54447f1",
+        "80001": "0x9c3706F76c499307fA2C79d4b14acF506FCf9825",
+        "84531": "0x689F244C19beB96Eb221ab0c586b5A5a440Bb374",
+        "97": "0x1263794435f7346eecA9463D2d113cA34131C1B0"
+      },
+      "PeerID": "12D3KooWQMT8TZX8hQu69SNRFRkJi6NiYXhtz3ryhYfZiTmrFfaS",
+      "OCRKeys": {
+        "data": [
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "cosmos",
+              "configPublicKey": "ocr2cfg_cosmos_059b287acea23bedde835379cd993567bf5041b3a604183aa21836f4547d0300",
+              "offchainPublicKey": "ocr2off_cosmos_140488cdf5c9c35a81705ddb49362ffb6a03e8ff5ec42240cb46dce706abe676",
+              "onchainPublicKey": "ocr2on_cosmos_f1fbde5b2e608938c4838147507f53bd9efbbcfd000c0160efce60e17304d8c5"
+            },
+            "id": "614a0ab461331f8833ec4ad44c5f5f3ed9e6cd2725738519f941ca5ebc6a1b0e"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "evm",
+              "configPublicKey": "ocr2cfg_evm_3083c478553f199768b5ed6d9b7490822b05cf47c219a177fdea1cdd49651c70",
+              "offchainPublicKey": "ocr2off_evm_85e95e889b4f255c8b24a5817382c64cc873c5e102afe56fdd30d4d6928e8b3e",
+              "onchainPublicKey": "ocr2on_evm_724828f9d7497f50d4d84b950943e6c42cb571f3"
+            },
+            "id": "0bcf1d4e4d414eabf1f58549bcc4cdd407729996f4155ee8ee3bcd7003cbb6e9"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "solana",
+              "configPublicKey": "ocr2cfg_solana_9f9ddee599b65821e55de8761af7e46995d11aa7b09459f16435a9cf3d7a5253",
+              "offchainPublicKey": "ocr2off_solana_8ae206c271fc3b666d3e5076d8bb0fe913d3c9054901734afcbd46601155051b",
+              "onchainPublicKey": "ocr2on_solana_b0e139008aa5511012f66c404f34a4f40b36235b"
+            },
+            "id": "b9c136cc4bd59bc59787115789c7db6ce3d7886bde807387ecf0f34184d651d2"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "starknet",
+              "configPublicKey": "ocr2cfg_starknet_e032ab8d3bf2de811b4cba83d5686abe08bbc693f502b5b5acca37fc22d69321",
+              "offchainPublicKey": "ocr2off_starknet_6d0c3311dfef58ed8c0e425c889c5f196a90f746dfd62b9cd071f1e97a461d3e",
+              "onchainPublicKey": "ocr2on_starknet_04c72731ff3205b1e237f44b8dd425bc6dc806b68b6d86cd2759f9780180eb94"
+            },
+            "id": "4f8ad7fefd46db2c27c8673dc18803847810a445fc32f7c00804b9aa88caa6fe"
+          }
+        ]
+      }
+    },
+    {
+      "EthKeys": {
+        "11155111": "0x3f798903ce4470eF65Ecbc50B84ba99a32BAb2BB",
+        "1287": "0xEAe0980Dd2a497A7D80d30b29d316C1743d31B5D",
+        "420": "0xA38c9E8DE9e56fAe0462BDb73B20f7392681A9da",
+        "421613": "0xbC2B3B22a428252DFB872454cbB02e4C2Ba228fb",
+        "43113": "0xda696dd66a27b06D14389f39bCD89167b5Bc681D",
+        "44787": "0x7B1C495a1379d5459BDcD4604A0C879557fa9dB1",
+        "5": "0x8Ee1B32b88ff6d9a28F743335eCd9A71B542dBa8",
+        "80001": "0xa78D601a65574C22Ed458eAF397f4185bf2A345E",
+        "84531": "0xbEfDf77326ec7D8dd838bE3bd0A33f4F27A2B4Cb",
+        "97": "0xb0e21443D6dc06aCF935c276D18b6c93a9bC91c3"
+      },
+      "PeerID": "12D3KooWCH8z25CdhkKXfaX4xvhpbC1LrAucnFXSJUdsDBsypAA9",
+      "OCRKeys": {
+        "data": [
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "cosmos",
+              "configPublicKey": "ocr2cfg_cosmos_6dd49ad8d26b161b1cb9f91c9c354ac588e8f5a541ffbd06f5b0aab14b4c3773",
+              "offchainPublicKey": "ocr2off_cosmos_af23ac91459802d961414ff0ca697a0345342e1b431acf20a6f1431adb230f3f",
+              "onchainPublicKey": "ocr2on_cosmos_31ff0a7cf35362ae6e9502a14656e93902f7995848a4b3827d1d2806cad58841"
+            },
+            "id": "389cbf14f4208ca4b4f59d4c69cb3e8fedf8272e7fdfe48cf424a2d8bc8eb373"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "evm",
+              "configPublicKey": "ocr2cfg_evm_aac9703e47cd120e110436dae13e5636be368f2fd24f52d2cbd817a393359b2a",
+              "offchainPublicKey": "ocr2off_evm_9ee77280eea7ea7fc48eb7b2c88aeef5b7f94856e5c371fed3449cd165b7aec0",
+              "onchainPublicKey": "ocr2on_evm_d46dda4e4f799b6ab3079050e761f2566336d658"
+            },
+            "id": "2ab51fcec49e6f6009e43451c6954373f5af29755afd69ad4209c07123c201b3"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "solana",
+              "configPublicKey": "ocr2cfg_solana_4590c37a3b4d6332e549ba005c7a29e15634c9dbd6f4b6701350d26cbe664215",
+              "offchainPublicKey": "ocr2off_solana_c483d075aa63be03eb5df51a6397995d098090cc6ef0303d8b5c8bcbcc093f58",
+              "onchainPublicKey": "ocr2on_solana_f6cb9bbd960d72062b4ebe4f4e016b01d90f1f9d"
+            },
+            "id": "4e32c76b94b2f729b4f79c62f5bbc1e38bfeb4c63abf1643b91aff4abcc25364"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "starknet",
+              "configPublicKey": "ocr2cfg_starknet_b3c3a297eec43c74130030925437a199448cf49e9aff6daa44cfbb7c74d91a27",
+              "offchainPublicKey": "ocr2off_starknet_51f54b414e6f36b9007fd9ca516f3d648c449ba9d7e58894bfb9de54370061cc",
+              "onchainPublicKey": "ocr2on_starknet_057aca09ff4065bbf58e8986b7addc205d3f66fed4d4c6d65476688cbbfff428"
+            },
+            "id": "f852cd737398be17c2369cac060e671d613dfa6cafe62efd6f04513155668eeb"
+          }
+        ]
+      }
+    },
+    {
+      "EthKeys": {
+        "11155111": "0xD803DA818f72A9DFC3C579340CC52c40d771b716",
+        "1287": "0x27812a109c43363E68Ea7bCe18C835D1bc0c11a8",
+        "420": "0xDb6Fa68D91EBf3526C01d4020e048ddde6e4D624",
+        "421613": "0xFD2574fe39452c1C3e4942de7aB5e7ddd0A5C993",
+        "43113": "0x1d2120d2b4fA3A8b0EBD4f6Ac0142731288bb650",
+        "44787": "0x4956CE51693e9500e4EaAADb19A5d319C879C105",
+        "5": "0xd9eeE69d26e6B04D7099a5b74D94915a75C501CE",
+        "80001": "0xc7C77A5ac2F1f744ADEcd10E869309bae8DcAc8d",
+        "84531": "0x3f48fC811eb5aEfd78f87bf3393b662455050BFc",
+        "97": "0xE932127FC6A87A6981B8c09Bbe364ad398Fed33d"
+      },
+      "PeerID": "12D3KooWNNsncWtRiYvtBZ17swz5AqWWQp2Qy5QmRChK92vawcEg",
+      "OCRKeys": {
+        "data": [
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "cosmos",
+              "configPublicKey": "ocr2cfg_cosmos_250be5d24533d1d1dc566ffd520529cc8e2a65748afcad2bada9f9e585171167",
+              "offchainPublicKey": "ocr2off_cosmos_4ccea804b30438af45a314ec41ff4fb07b3c96c2a2c37dbceaf27b0ac84272ec",
+              "onchainPublicKey": "ocr2on_cosmos_dc2302c116f493b1035d232f2e919616c6b25f406872d67041e3fb776bd6b848"
+            },
+            "id": "d9169ada31fb7991fd85aceed33e0c569ca9ae473d593bbca86eac4ecf3233eb"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "evm",
+              "configPublicKey": "ocr2cfg_evm_697f9e3d55ee6ba502de1899336c4c7ed04d29fdf0390cb0393f4fdba1509b2e",
+              "offchainPublicKey": "ocr2off_evm_d1e0430d45339080f01bbb70af91b36ffbcaa6fd47e57bca8f15fcd8a57e2893",
+              "onchainPublicKey": "ocr2on_evm_7b1bacbec44b691a4794e4aeae3d68d2ae48464d"
+            },
+            "id": "35714e37c6a80d784007a6ce19fd3e36f09ada87d968a57db0843fe6951c9a07"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "solana",
+              "configPublicKey": "ocr2cfg_solana_a4d6cba370f3c7778e1567084872ac2a11bcd9cde1080b523a29de4d8b3a3a2a",
+              "offchainPublicKey": "ocr2off_solana_aa001c9d09142689a7d8869f49651fe9dd0307dc3b5e23b8f5ec1a257861525b",
+              "onchainPublicKey": "ocr2on_solana_2b0296ff5575881705f1922c87baf4857f6fda71"
+            },
+            "id": "576ee3f4fc77580b326a702f7f84d0c94b29a305e7a80f84b213f3ce3e96c46a"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "starknet",
+              "configPublicKey": "ocr2cfg_starknet_b42d4016155dcee0bb9cf07c314ce3804cddafb20059c4ffa6d0d6ec83d33e22",
+              "offchainPublicKey": "ocr2off_starknet_7cff8d3d1fac616684bd5b0695d8426a504fa7b2e242f624071128b3e5a89619",
+              "onchainPublicKey": "ocr2on_starknet_07e561498276daac3d0d5c465a3f362c617197eb7af345c5a77c3bc878b0490f"
+            },
+            "id": "2969367a68ab467d78634ce3e807bd55daf88c9bea7305514b90baeefe5fc29a"
+          }
+        ]
+      }
+    },
+    {
+      "EthKeys": {
+        "11155111": "0xdbE6FDB9f00db44b2B8d667acb43D67C3A3A7B9a",
+        "1287": "0x841A18d46b47E80Ed2Cc16325409794821a696FE",
+        "420": "0x1F8d47CE3bd148d3AFA577640C1dF98aA7E921a3",
+        "421613": "0xb13c2C441DBb570D4F97a7526600493f814aD90e",
+        "43113": "0x6C763C84c0ee2C1b130A16218A224C5CdCAa407C",
+        "44787": "0xE26FeaCC6036647b7e4d345d61BAFF0C9826eE63",
+        "5": "0xa5F7F62886a4676e5d20330146Dbed2C6Cb132EB",
+        "80001": "0x17bCf44C240446E387E03066fF231cdDd3209e76",
+        "84531": "0x15d4A27b5B7657848F59b48a831584315BAc4577",
+        "97": "0x34d9dE51e55eF3397e895960964B5475AA28FEf7"
+      },
+      "PeerID": "12D3KooWMqrcbidHM9JQ6cSv2fPVRa5Hn7jobaMqb61MvMbDNkVy",
+      "OCRKeys": {
+        "data": [
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "cosmos",
+              "configPublicKey": "ocr2cfg_cosmos_72cf58ef96ab69db6fd3a06379e028ade92ae76d817f6ecf194f620a9741fd50",
+              "offchainPublicKey": "ocr2off_cosmos_5cd765274d199b6a25474ac9030b7ac14008982589e971c715ea1e2044e49598",
+              "onchainPublicKey": "ocr2on_cosmos_0eaa4baf42587787eb5c9f7f0fbd6ad6e4e98777b4f7904bbd8bf2b695ab042d"
+            },
+            "id": "b91d2c0ab28944ddf42499aa6502fbdd3be12dec277e46d0a664ddc7fd00a6e3"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "evm",
+              "configPublicKey": "ocr2cfg_evm_434ac1d2e857badde8603ded78ccaad7459a574411267fa29180bcaba82dd861",
+              "offchainPublicKey": "ocr2off_evm_4ceef9185890bc168c1406a70b347d600641ee41867faddd649937b29705dfaa",
+              "onchainPublicKey": "ocr2on_evm_3d3892f2876842b0dafda4c615f9d67aab37833e"
+            },
+            "id": "eedcfeb8391e7bbf350bfab8c715d70803dcc9a6595889cab07a0ade377373e6"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "solana",
+              "configPublicKey": "ocr2cfg_solana_55b6b7ab4ec744eca6f94865232a6b870eb990a273a5534b009b54b212ba9777",
+              "offchainPublicKey": "ocr2off_solana_9cbf63dd9a2c48a21cc52b907b66ebcf7275e715350fe93ad57d159e8090e3bc",
+              "onchainPublicKey": "ocr2on_solana_e62c9321b7dfde82b22670466841f39fbf951627"
+            },
+            "id": "c874279ce5f904f94fffaa62ab3766ab8894c7cbb8072a1e27680743208f67b3"
+          },
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "starknet",
+              "configPublicKey": "ocr2cfg_starknet_6bcf92dd764b2de7096beaf6a3eadcdf6bcc87b2790611868e55b23cad07fe72",
+              "offchainPublicKey": "ocr2off_starknet_00f32c1cf1805a03b0b3e8e2afecd78aea908c5d8cd31ed3bcc7f579a4a2f75a",
+              "onchainPublicKey": "ocr2on_starknet_03a6238c8b70e1d7d43807c4550c494da3ea763b78c39169e8dc7f63e06946ee"
+            },
+            "id": "852e2a91adf0d9c6e75ea0bcd7e29d6c5825805151d77d8800c7b39d997c941b"
+          }
+        ]
+      }
+    }
+  ]
+}

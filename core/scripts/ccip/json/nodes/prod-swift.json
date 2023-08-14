@@ -1,0 +1,95 @@
+{
+  "Bootstrap": {
+    "EthKeys": null,
+    "PeerID": "12D3KooWQZ5hCT3FrR7reKNEpSHhPMHGhXgB3XxTG7iG2LrwXnJ8",
+    "OCRKeys": {
+      "data": null
+    }
+  },
+  "Nodes": [
+    {
+      "EthKeys": {
+        "11155111": "0x84ff82f65212D8528760dD4afC8e5557872c09f6",
+        "1337": "0xf13F694735c082F2de3242920C76A50F6CefD9d9"
+      },
+      "PeerID": "12D3KooWK1ThbWFfHWm9WR1ZB1kYbnCGeTmMzaLuJ9FjyxjrEJBn",
+      "OCRKeys": {
+        "data": [
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "evm",
+              "configPublicKey": "ocr2cfg_evm_a15b6a6b5c0b58b00fd1d0043f2fddd7e9877e932d1d3fe7935d0b8aba254b37",
+              "offchainPublicKey": "ocr2off_evm_f91d319523e06e1f7b092d93186dc6268a35d553231a028896d24412d972653f",
+              "onchainPublicKey": "ocr2on_evm_bed5ee8c7eff5f5e74afa1e3d1df0856bc60ce19"
+            },
+            "id": "1b5f7b596b10e3b9b45664a6f850b1b87e36b3d53e379667fcd0b6b245a91a21"
+          }
+        ]
+      }
+    },
+    {
+      "EthKeys": {
+        "11155111": "0x0119E2b82339e27dc47CD30a33a25eB42dC00ad0",
+        "1337": "0x4d43021cb679E7eC407e68c5A4DeF0c9092a37a8"
+      },
+      "PeerID": "12D3KooWNYsPPgMr3jy6wvoPNMe4BcreDuH3JNRAvCj7LzhQhcix",
+      "OCRKeys": {
+        "data": [
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "evm",
+              "configPublicKey": "ocr2cfg_evm_75518ae6bda6f8d595e609ce85baac7d140bd6c6381177e9828a517fb5bb270a",
+              "offchainPublicKey": "ocr2off_evm_8a97c45665772ccd370d7a56c5b24b0f3ae06d3f3c951310eadbda22af0237fd",
+              "onchainPublicKey": "ocr2on_evm_2dfb13c19aa189c58d7e69dccb9c7bb95222473e"
+            },
+            "id": "b305c603157370223e5cdbe8d0b74313a255b84cc3e6a7b0da6cab07342bece9"
+          }
+        ]
+      }
+    },
+    {
+      "EthKeys": {
+        "11155111": "0x20f6D1D44Ff14e90F0BB428b1f9369846b216Fcf",
+        "1337": "0xEE67387C0514369f05eD01ad642Dbed855e7d44D"
+      },
+      "PeerID": "12D3KooWF9vGhhjcPCNetNGPxGPmjMEye1D33FkC2K9iuVLdruPF",
+      "OCRKeys": {
+        "data": [
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "evm",
+              "configPublicKey": "ocr2cfg_evm_0f17348cb386c5a8ba14a9ae24b02f3725bc48420ebd3194ddd5fdb660413f44",
+              "offchainPublicKey": "ocr2off_evm_4f9c7dd5f43d0c2bf7a352e99d8d5f5bd999201ea57d2a39073d6fdc164287d9",
+              "onchainPublicKey": "ocr2on_evm_f62466f275a47077169ddc0cad7d9d85645db8fd"
+            },
+            "id": "d5d481c2626cf06d364105f73d5ecdbd740cfb1da47aa0a609d1fb59606f5d79"
+          }
+        ]
+      }
+    },
+    {
+      "EthKeys": {
+        "11155111": "0xd014BeAf7Ab979E2cC9a585e8eA48d1fFc45E658",
+        "1337": "0x2E7Ee9F7bAFe2B2A786D5355027D1BA84600B4D0"
+      },
+      "PeerID": "12D3KooWGkXoNGTJmK7G34JFqHPtBr7GwdjYvYnu3QNtpsDPwMGC",
+      "OCRKeys": {
+        "data": [
+          {
+            "type": "keyV2s",
+            "attributes": {
+              "chainType": "evm",
+              "configPublicKey": "ocr2cfg_evm_d7e2b1229f4a274b5a48451e4a378d6fee4f326b69e0b77e958d8df00dae3468",
+              "offchainPublicKey": "ocr2off_evm_9abc61fe22f3229b18b8e30f208ebe439bcf175aecff9c6944c3a125f7ff06df",
+              "onchainPublicKey": "ocr2on_evm_2be7c1539cbc9df26d28c125a66b3fa72b44dc8f"
+            },
+            "id": "96a571feebda781711acaab09cf52ce33fdd9904b9bc0c19d1fb6fc8dd45704b"
+          }
+        ]
+      }
+    }
+  ]
+}

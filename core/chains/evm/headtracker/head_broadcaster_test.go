@@ -59,8 +59,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 			chchHeaders <- args.Get(1).(chan<- *evmtypes.Head)
 		}).
 		Return(sub, nil)
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil).Once()
-	ethClient.On("HeadByHash", mock.Anything, mock.Anything).Return(cltest.Head(1), nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(cltest.Head(1), nil)
 
 	sub.On("Unsubscribe").Return()
 	sub.On("Err").Return(nil)

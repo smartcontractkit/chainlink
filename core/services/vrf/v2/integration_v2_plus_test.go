@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/trusted_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_plus_upgradeable_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_plus_v2_example"
@@ -60,11 +59,9 @@ type coordinatorV2PlusUniverse struct {
 	batchCoordinatorContractAddress common.Address
 	migrationTestCoordinator        *vrf_coordinator_v2_plus_v2_example.VRFCoordinatorV2PlusV2Example
 	migrationTestCoordinatorAddress common.Address
-	trustedBhsContract              *trusted_blockhash_store.TrustedBlockhashStore
-	trustedBhsContractAddress       common.Address
 }
 
-func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumers int, trusting bool) coordinatorV2PlusUniverse {
+func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumers int) coordinatorV2PlusUniverse {
 	testutils.SkipShort(t, "VRFCoordinatorV2Universe")
 	oracleTransactor, err := bind.NewKeyedTransactorWithChainID(key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
 	require.NoError(t, err)
@@ -122,22 +119,14 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 	bhsAddress, _, bhsContract, err := blockhash_store.DeployBlockhashStore(neil, backend)
 	require.NoError(t, err, "failed to deploy BlockhashStore contract to simulated ethereum blockchain")
 
-	// Deploy trusted BHS
-	trustedBHSAddress, _, trustedBhsContract, err := trusted_blockhash_store.DeployTrustedBlockhashStore(neil, backend, []common.Address{})
-	require.NoError(t, err, "failed to deploy trusted BlockhashStore contract to simulated ethereum blockchain")
-
 	// Deploy batch blockhash store
 	batchBHSAddress, _, batchBHSContract, err := batch_blockhash_store.DeployBatchBlockhashStore(neil, backend, bhsAddress)
 	require.NoError(t, err, "failed to deploy BatchBlockhashStore contract to simulated ethereum blockchain")
 
 	// Deploy VRF V2plus coordinator
-	var bhsAddr = bhsAddress
-	if trusting {
-		bhsAddr = trustedBHSAddress
-	}
 	coordinatorAddress, _, coordinatorContract, err :=
 		vrf_coordinator_v2plus.DeployVRFCoordinatorV2Plus(
-			neil, backend, bhsAddr)
+			neil, backend, bhsAddress)
 	require.NoError(t, err, "failed to deploy VRFCoordinatorV2 contract to simulated ethereum blockchain")
 	backend.Commit()
 
@@ -298,15 +287,13 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		submanager:                      submanager,
 		migrationTestCoordinator:        migrationTestCoordinator,
 		migrationTestCoordinatorAddress: migrationTestCoordinatorAddress,
-		trustedBhsContract:              trustedBhsContract,
-		trustedBhsContractAddress:       trustedBHSAddress,
 	}
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	t.Run("link payment", func(tt *testing.T) {
 		testSingleConsumerHappyPathBatchFulfillment(
 			t,
@@ -359,7 +346,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	t.Run("link payment", func(tt *testing.T) {
 		testSingleConsumerHappyPathBatchFulfillment(
 			t,
@@ -412,7 +399,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	t.Run("link payment", func(tt *testing.T) {
 		testSingleConsumerHappyPath(
 			t,
@@ -458,7 +445,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	testEoa(
 		t,
 		ownerKey,
@@ -473,7 +460,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	testEoa(
 		t,
 		ownerKey,
@@ -488,7 +475,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *tes
 func TestVRFV2PlusIntegration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	testSingleConsumerEIP150(
 		t,
 		ownerKey,
@@ -503,7 +490,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 func TestVRFV2PlusIntegration_SingleConsumer_EIP150_Revert(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	testSingleConsumerEIP150Revert(
 		t,
 		ownerKey,
@@ -518,7 +505,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_EIP150_Revert(t *testing.T) {
 func TestVRFV2PlusIntegration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2)
 	t.Run("link payment", func(tt *testing.T) {
 		testMultipleConsumersNeedBHS(
 			t,
@@ -556,7 +543,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 func TestVRFV2PlusIntegration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	t.Run("link payment", func(tt *testing.T) {
 		testBlockHeaderFeeder(
 			t,
@@ -594,7 +581,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 func TestVRFV2PlusIntegration_SingleConsumer_NeedsTopUp(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	t.Run("link payment", func(tt *testing.T) {
 		testSingleConsumerNeedsTopUp(
 			t,
@@ -635,7 +622,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsTopUp(t *testing.T) {
 
 func TestVRFV2PlusIntegration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	testSingleConsumerBigGasCallbackSandwich(
 		t,
 		ownerKey,
@@ -649,7 +636,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_BigGasCallback_Sandwich(t *testing.
 
 func TestVRFV2PlusIntegration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	testSingleConsumerMultipleGasLanes(
 		t,
 		ownerKey,
@@ -663,7 +650,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 
 func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0)
 	testSingleConsumerAlwaysRevertingCallbackStillFulfilled(
 		t,
 		ownerKey,
@@ -677,7 +664,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_AlwaysRevertingCallback_StillFulfil
 
 func TestVRFV2PlusIntegration_ConsumerProxy_HappyPath(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0)
 	testConsumerProxyHappyPath(
 		t,
 		ownerKey,
@@ -691,7 +678,7 @@ func TestVRFV2PlusIntegration_ConsumerProxy_HappyPath(t *testing.T) {
 
 func TestVRFV2PlusIntegration_ConsumerProxy_CoordinatorZeroAddress(t *testing.T) {
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 0)
 	testConsumerProxyCoordinatorZeroAddress(t, uni.coordinatorV2UniverseCommon)
 }
 
@@ -818,7 +805,7 @@ func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
 func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
 	t.Parallel()
 	key := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1)
 	testMaliciousConsumer(
 		t,
 		key,
@@ -831,7 +818,7 @@ func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
 
 func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1)
 
 	cfg := configtest.NewGeneralConfigSimulated(t, nil)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
@@ -911,7 +898,7 @@ func TestVRFV2PlusIntegration_RequestCost(t *testing.T) {
 
 func TestVRFV2PlusIntegration_MaxConsumersCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1)
 	carol := uni.vrfConsumers[0]
 	carolContract := uni.consumerContracts[0]
 	carolContractAddress := uni.consumerContractAddresses[0]
@@ -991,7 +978,7 @@ func requestAndEstimateFulfillmentCost(
 
 func TestVRFV2PlusIntegration_FulfillmentCost(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1)
 
 	cfg := configtest.NewGeneralConfigSimulated(t, nil)
 	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, uni.backend, key)
@@ -1144,7 +1131,7 @@ func setupSubscriptionAndFund(
 func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1)
 	key1 := cltest.MustGenerateRandomKey(t)
 	gasLanePriceWei := assets.GWei(10)
 	config, db := heavyweight.FullTestDBV2(t, "vrfv2plus_migration", func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -1314,7 +1301,7 @@ func requestRandomnessAndValidate(t *testing.T,
 
 func TestVRFV2PlusIntegration_CancelSubscription(t *testing.T) {
 	key := cltest.MustGenerateRandomKey(t)
-	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
+	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1)
 	consumer := uni.vrfConsumers[0]
 	consumerContract := uni.consumerContracts[0]
 	consumerContractAddress := uni.consumerContractAddresses[0]

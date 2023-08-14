@@ -156,6 +156,14 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 		if p.BlockHeaderFeederSpec != nil {
 			return p.BlockHeaderFeederSpec.CreatedAt.Format(time.RFC3339)
 		}
+	case presenters.LegacyGasStationServerJobSpec:
+		if p.LegacyGasStationServerSpec != nil {
+			return p.LegacyGasStationServerSpec.CreatedAt.Format(time.RFC3339)
+		}
+	case presenters.LegacyGasStationSidecarJobSpec:
+		if p.LegacyGasStationSidecarSpec != nil {
+			return p.LegacyGasStationSidecarSpec.CreatedAt.Format(time.RFC3339)
+		}
 	case presenters.BootstrapJobSpec:
 		if p.BootstrapSpec != nil {
 			return p.BootstrapSpec.CreatedAt.Format(time.RFC3339)

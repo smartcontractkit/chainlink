@@ -1,0 +1,20 @@
+{
+  "MAX_RET_BYTES()": "787350e3",
+  "acceptOwnership()": "79ba5097",
+  "applyRampUpdates((uint64,address)[],(uint64,address)[],(uint64,address)[])": "da5fcac8",
+  "ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))": "96f4e9f9",
+  "getArmProxy()": "5246492f",
+  "getFee(uint64,(bytes,bytes,(address,uint256)[],address,bytes))": "20487ded",
+  "getOffRamps()": "a40e69c7",
+  "getOnRamp(uint64)": "a8d87a3b",
+  "getSupportedTokens(uint64)": "fbca3b74",
+  "getWrappedNative()": "e861e907",
+  "isChainSupported(uint64)": "a48a9058",
+  "isOffRamp(address)": "1d7a74a0",
+  "owner()": "8da5cb5b",
+  "recoverTokens(address,address,uint256)": "5f3e849f",
+  "routeMessage((bytes32,uint64,bytes,bytes,(address,uint256)[]),uint16,uint256,address)": "3cf97983",
+  "setWrappedNative(address)": "52cb60ca",
+  "transferOwnership(address)": "f2fde38b",
+  "typeAndVersion()": "181f5a77"
+}

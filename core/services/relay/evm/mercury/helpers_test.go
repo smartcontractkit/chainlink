@@ -13,10 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func buildSampleReport(p int64) []byte {
-	feedID := sampleFeedID
+func buildSampleReport() []byte {
+	feedID := [32]byte{'f', 'o', 'o'}
 	timestamp := uint32(42)
-	bp := big.NewInt(p)
+	bp := big.NewInt(242)
 	bid := big.NewInt(243)
 	ask := big.NewInt(244)
 	currentBlockNumber := uint64(143)
@@ -52,18 +52,9 @@ func buildSamplePayload() []byte {
 	return payload
 }
 
-var sampleReports [][]byte
-
-func init() {
-	sampleReports = make([][]byte, 4)
-	for i := 0; i < len(sampleReports); i++ {
-		sampleReports[i] = buildSampleReport(int64(i))
-	}
-}
-
 var (
 	sampleFeedID        = [32]uint8{28, 145, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
-	sampleReport        = buildSampleReport(242)
+	sampleReport        = buildSampleReport()
 	sampleClientPubKey  = hexutil.MustDecode("0x724ff6eae9e900270edfff233e16322a70ec06e1a6e62a81ef13921f398f6c93")
 	sig2                = ocrtypes.AttributedOnchainSignature{Signature: mustDecodeBase64("kbeuRczizOJCxBzj7MUAFpz3yl2WRM6K/f0ieEBvA+oTFUaKslbQey10krumVjzAvlvKxMfyZo0WkOgNyfF6xwE="), Signer: 2}
 	sig3                = ocrtypes.AttributedOnchainSignature{Signature: mustDecodeBase64("9jz4b6Dh2WhXxQ97a6/S9UNjSfrEi9016XKTrfN0mLQFDiNuws23x7Z4n+6g0sqKH/hnxx1VukWUH/ohtw83/wE="), Signer: 3}

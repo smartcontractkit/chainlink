@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 )
@@ -36,14 +37,14 @@ func NewMockServer(networks []string, opts ...EnvComponentOption) *MockServer {
 	return ms
 }
 
-func (ms *MockServer) SetExternalAdapterMocks(count int) error {
+func (m *MockServer) SetExternalAdapterMocks(count int) error {
 	for i := 0; i < count; i++ {
 		path := fmt.Sprintf("/ea-%d", i)
-		err := ms.Client.SetRandomValuePath(path)
+		err := m.Client.SetRandomValuePath(path)
 		if err != nil {
 			return err
 		}
-		cName, err := ms.Container.Name(context.Background())
+		cName, err := m.EnvComponent.Container.Name(context.Background())
 		if err != nil {
 			return err
 		}
@@ -53,51 +54,56 @@ func (ms *MockServer) SetExternalAdapterMocks(count int) error {
 		if err != nil {
 			return err
 		}
-		ms.EAMockUrls = append(ms.EAMockUrls, eaUrl)
+		m.EAMockUrls = append(m.EAMockUrls, eaUrl)
 	}
 	return nil
 }
 
-func (ms *MockServer) StartContainer() error {
+func (m *MockServer) StartContainer(lw *logwatch.LogWatch) error {
 	c, err := tc.GenericContainer(context.Background(), tc.GenericContainerRequest{
-		ContainerRequest: ms.getContainerRequest(),
+		ContainerRequest: m.getContainerRequest(),
 		Started:          true,
 		Reuse:            true,
 	})
 	if err != nil {
 		return errors.Wrapf(err, "cannot start MockServer container")
 	}
-	ms.Container = c
+	m.Container = c
+	if lw != nil {
+		if err := lw.ConnectContainer(context.Background(), c, m.ContainerName, true); err != nil {
+			return err
+		}
+	}
 	endpoint, err := c.Endpoint(context.Background(), "http")
 	if err != nil {
 		return err
 	}
-	log.Info().Any("endpoint", endpoint).Str("containerName", ms.ContainerName).
+	log.Info().Any("endpoint", endpoint).Str("containerName", m.ContainerName).
 		Msgf("Started MockServer container")
-	ms.Endpoint = endpoint
-	ms.InternalEndpoint = fmt.Sprintf("http://%s:%s", ms.ContainerName, "1080")
+	m.Endpoint = endpoint
+	m.InternalEndpoint = fmt.Sprintf("http://%s:%s", m.ContainerName, "1080")
 
 	client := ctfClient.NewMockserverClient(&ctfClient.MockserverConfig{
 		LocalURL:   endpoint,
-		ClusterURL: ms.InternalEndpoint,
+		ClusterURL: m.InternalEndpoint,
 	})
 	if err != nil {
 		return errors.Wrapf(err, "cannot connect to MockServer client")
 	}
-	ms.Client = client
+	m.Client = client
 
 	return nil
 }
 
-func (ms *MockServer) getContainerRequest() tc.ContainerRequest {
+func (m *MockServer) getContainerRequest() tc.ContainerRequest {
 	return tc.ContainerRequest{
-		Name:         ms.ContainerName,
+		Name:         m.ContainerName,
 		Image:        "mockserver/mockserver:5.11.2",
 		ExposedPorts: []string{"1080/tcp"},
 		Env: map[string]string{
 			"SERVER_PORT": "1080",
 		},
-		Networks: ms.Networks,
+		Networks: m.Networks,
 		WaitingFor: tcwait.ForLog("INFO 1080 started on port: 1080").
 			WithStartupTimeout(30 * time.Second).
 			WithPollInterval(100 * time.Millisecond),

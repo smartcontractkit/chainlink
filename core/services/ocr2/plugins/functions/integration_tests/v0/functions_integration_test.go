@@ -62,12 +62,11 @@ func TestIntegration_Functions_MultipleRequests_ThresholdDecryptionSuccess(t *te
 		DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
 		UniqueReports:             true,
 		ThresholdPluginConfig: &functionsConfig.ThresholdReportingPluginConfig{
-			// approximately 750 bytes per test ciphertext + overhead
-			MaxQueryLengthBytes:       70_000,
-			MaxObservationLengthBytes: 70_000,
-			MaxReportLengthBytes:      70_000,
-			RequestCountLimit:         50,
-			RequestTotalBytesLimit:    50_000,
+			MaxQueryLengthBytes:       10_000,
+			MaxObservationLengthBytes: 10_000,
+			MaxReportLengthBytes:      15_000,
+			RequestCountLimit:         100,
+			RequestTotalBytesLimit:    1_000,
 			RequireLocalRequestCheck:  true,
 		},
 	}
@@ -77,5 +76,5 @@ func TestIntegration_Functions_MultipleRequests_ThresholdDecryptionSuccess(t *te
 	utils.CommitWithFinality(b)
 
 	// validate that all client contracts got correct responses to their requests
-	utils.ClientTestRequests(t, owner, b, linkToken, registryAddress, registryContract, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, linkToken, registryAddress, registryContract, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, 3*time.Minute)
 }

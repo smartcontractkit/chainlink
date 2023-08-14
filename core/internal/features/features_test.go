@@ -1374,11 +1374,6 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 
-	// HeadTracker backfill
-	ethClient.On("HeadByHash", mock.Anything, h40.Hash).Return(&h40, nil).Maybe()
-	ethClient.On("HeadByHash", mock.Anything, h41.Hash).Return(&h41, nil).Maybe()
-	ethClient.On("HeadByHash", mock.Anything, h42.Hash).Return(&h42, nil).Maybe()
-
 	require.NoError(t, cc.Start(testutils.Context(t)))
 	var newHeads evmtest.RawSub[*evmtypes.Head]
 	select {
@@ -1403,10 +1398,12 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		elems[0].Result = &b43
 	})
 
+	// HeadTracker backfill
+	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(42)).Return(&h42, nil)
+	ethClient.On("HeadByNumber", mock.Anything, big.NewInt(41)).Return(&h41, nil)
+
 	// Simulate one new head and check the gas price got updated
-	h43 := cltest.Head(43)
-	h43.ParentHash = h42.Hash
-	newHeads.TrySend(h43)
+	newHeads.TrySend(cltest.Head(43))
 
 	gomega.NewWithT(t).Eventually(func() string {
 		gasPrice, _, err := estimator.GetFee(testutils.Context(t), nil, 500000, maxGasPrice)
