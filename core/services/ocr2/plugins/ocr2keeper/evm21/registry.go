@@ -38,18 +38,21 @@ import (
 )
 
 const (
-	// DefaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
-	DefaultAllowListExpiration = 20 * time.Minute
-	// CleanupInterval decides when the expired items in cache will be deleted.
-	CleanupInterval = 25 * time.Minute
+	// defaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
+	defaultAllowListExpiration = 20 * time.Minute
+	// cleanupInterval decides when the expired items in cache will be deleted.
+	cleanupInterval = 25 * time.Minute
+	// LookbackDepth decides valid trigger block lookback range
+	LookbackDepth = 1024
+	// BlockHistorySize decides the block history size
+	BlockHistorySize = 128
+	// validCheckBlockRange decides the max distance between the check block and the current block
+	validCheckBlockRange = 128
 )
 
 var (
 	ErrLogReadFailure                = fmt.Errorf("failure reading logs")
 	ErrHeadNotAvailable              = fmt.Errorf("head not available")
-	ErrRegistryCallFailure           = fmt.Errorf("registry chain call failure")
-	ErrBlockKeyNotParsable           = fmt.Errorf("block identifier not parsable")
-	ErrUpkeepKeyNotParsable          = fmt.Errorf("upkeep key not parsable")
 	ErrInitializationFailure         = fmt.Errorf("failed to initialize registry")
 	ErrContextCancelled              = fmt.Errorf("context was cancelled")
 	ErrABINotParsable                = fmt.Errorf("error parsing abi")
@@ -79,7 +82,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, *EVMAutomationEncoder21, error) {
+func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, bs *BlockSubscriber, lggr logger.Logger) (*EvmRegistry, *EVMAutomationEncoder21, error) {
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -119,11 +122,12 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		mercury: &MercuryConfig{
 			cred:           mc,
 			abi:            feedLookupCompatibleABI,
-			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
+			allowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		hc:               http.DefaultClient,
 		enc:              EVMAutomationEncoder21{packer: packer},
 		logEventProvider: logEventProvider,
+		bs:               bs,
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -169,30 +173,30 @@ type MercuryConfig struct {
 }
 
 type EvmRegistry struct {
-	ht            types.HeadTracker
-	sync          utils.StartStopOnce
-	lggr          logger.Logger
-	poller        logpoller.LogPoller
-	addr          common.Address
-	client        client.Client
-	registry      Registry
-	abi           abi.ABI
-	packer        *evmRegistryPackerV2_1
-	chLog         chan logpoller.Log
-	reInit        *time.Timer
-	mu            sync.RWMutex
-	txHashes      map[string]bool
-	lastPollBlock int64
-	ctx           context.Context
-	cancel        context.CancelFunc
-	active        map[string]activeUpkeep
-	headFunc      func(ocr2keepers.BlockKey)
-	runState      int
-	runError      error
-	mercury       *MercuryConfig
-	hc            HttpClient
-	enc           EVMAutomationEncoder21
-
+	ht               types.HeadTracker
+	sync             utils.StartStopOnce
+	lggr             logger.Logger
+	poller           logpoller.LogPoller
+	addr             common.Address
+	client           client.Client
+	registry         Registry
+	abi              abi.ABI
+	packer           *evmRegistryPackerV2_1
+	chLog            chan logpoller.Log
+	reInit           *time.Timer
+	mu               sync.RWMutex
+	txHashes         map[string]bool
+	lastPollBlock    int64
+	ctx              context.Context
+	cancel           context.CancelFunc
+	active           map[string]activeUpkeep
+	headFunc         func(ocr2keepers.BlockKey)
+	runState         int
+	runError         error
+	mercury          *MercuryConfig
+	hc               HttpClient
+	enc              EVMAutomationEncoder21
+	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
 }
 
@@ -661,9 +665,10 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 	}
 }
 
-func (r *EvmRegistry) getBlockAndUpkeepId(upkeepID ocr2keepers.UpkeepIdentifier, trigger ocr2keepers.Trigger) (*big.Int, *big.Int) {
+// getBlockAndUpkeepId retrieves check block number, block hash from trigger and upkeep id
+func (r *EvmRegistry) getBlockAndUpkeepId(upkeepID ocr2keepers.UpkeepIdentifier, trigger ocr2keepers.Trigger) (*big.Int, common.Hash, *big.Int) {
 	block := new(big.Int).SetInt64(int64(trigger.BlockNumber))
-	return block, upkeepID.BigInt()
+	return block, common.BytesToHash(trigger.BlockHash[:]), upkeepID.BigInt()
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
@@ -673,10 +678,15 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		checkResults = make([]*string, len(payloads))
 		blocks       = make([]*big.Int, len(payloads))
 		upkeepIds    = make([]*big.Int, len(payloads))
+		results      = make([]ocr2keepers.CheckResult, len(payloads))
 	)
 
 	for i, p := range payloads {
-		block, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
+		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
+		if !r.verifyCheckBlock(block, upkeepId, checkHash, p, i, results) {
+			continue
+		}
+
 		blocks[i] = block
 		upkeepIds[i] = upkeepId
 
@@ -689,6 +699,10 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		uid.FromBigInt(upkeepId)
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
+			if !r.verifyLogExists(upkeepId, p, i, results) {
+				continue
+			}
+
 			// check data will include the log trigger config
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, p.CheckData)
 			if err != nil {
@@ -721,10 +735,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		return nil, err
 	}
 
-	var (
-		multiErr error
-		results  = make([]ocr2keepers.CheckResult, len(payloads))
-	)
+	var multiErr error
 
 	for i, req := range checkReqs {
 		if req.Error != nil {
@@ -755,7 +766,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			continue
 		}
 
-		block, upkeepId := r.getBlockAndUpkeepId(cr.UpkeepID, cr.Trigger)
+		block, _, upkeepId := r.getBlockAndUpkeepId(cr.UpkeepID, cr.Trigger)
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
@@ -925,4 +936,77 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 	}
 
 	return block.Hash(), nil
+}
+
+func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
+	txr, err := r.client.TransactionReceipt(r.ctx, txHash)
+	if err != nil {
+		return nil, common.Hash{}, err
+	}
+
+	return txr.BlockNumber, txr.BlockHash, nil
+}
+
+func (r *EvmRegistry) getCheckResult(p ocr2keepers.UpkeepPayload, reason, state uint8) ocr2keepers.CheckResult {
+	return ocr2keepers.CheckResult{
+		IneligibilityReason:    reason,
+		PipelineExecutionState: state,
+		UpkeepID:               p.UpkeepID,
+		Trigger:                p.Trigger,
+		WorkID:                 p.WorkID,
+		FastGasWei:             big.NewInt(0),
+		LinkNative:             big.NewInt(0),
+	}
+}
+
+// verifyCheckBlock checks that the check block and hash are valid
+func (r *EvmRegistry) verifyCheckBlock(checkBlock, upkeepId *big.Int, checkHash common.Hash, p ocr2keepers.UpkeepPayload, i int, results []ocr2keepers.CheckResult) bool {
+	// verify check block number is not too old
+	if r.bs.latestBlock.Load()-checkBlock.Int64() > validCheckBlockRange {
+		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
+		results[i] = r.getCheckResult(p, UpkeepFailureReasonNone, CheckBlockTooOld)
+		return false
+	}
+	// verify check block number and hash are valid
+	h, ok := r.bs.queryBlocksMap(checkBlock.Int64())
+	if !ok || checkHash.Hex() != h {
+		if !ok {
+			r.lggr.Warnf("check block %s does not exist in block subscriber for upkeepId %s", checkBlock, upkeepId)
+		} else {
+			r.lggr.Warnf("check block %s hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", checkBlock, h, checkHash.Hex(), upkeepId)
+		}
+		results[i] = r.getCheckResult(p, UpkeepFailureReasonNone, CheckBlockInvalid)
+		return false
+	}
+
+	return true
+}
+
+// verifyLogExists checks that the log still exists on chain
+func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload, i int, results []ocr2keepers.CheckResult) bool {
+	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
+	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
+	// if log block number is populated, check log block number and block hash
+	if logBlockNumber != 0 {
+		h, ok := r.bs.queryBlocksMap(logBlockNumber)
+		if !ok {
+			r.lggr.Warnf("log block %d does not exist in block subscriber for upkeepId %s", logBlockNumber, upkeepId)
+			results[i] = r.getCheckResult(p, UpkeepFailureReasonLogBlockNoLongerExists, NoPipelineError)
+			return false
+		}
+		if h != logBlockHash.Hex() {
+			r.lggr.Warnf("log block %d hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", logBlockNumber, h, logBlockHash.Hex(), upkeepId)
+			results[i] = r.getCheckResult(p, UpkeepFailureReasonLogBlockInvalid, NoPipelineError)
+			return false
+		}
+	} else {
+		// use txHash to verify the log is still on the chain
+		bn, _, err := r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
+		if err != nil || bn != nil {
+			r.lggr.Warnf("cannot get tx block for txHash %s for upkeepId %s", common.Hash(p.Trigger.LogTriggerExtension.TxHash).Hex(), upkeepId)
+			results[i] = r.getCheckResult(p, UpkeepFailureReasonTxHashNoLongerExists, NoPipelineError)
+			return false
+		}
+	}
+	return true
 }

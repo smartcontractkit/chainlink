@@ -21,13 +21,14 @@ import (
 )
 
 const blockHistorySize = int64(4)
+const intializeBlockSize = int64(4)
 
 func TestBlockSubscriber_Subscribe(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb types.HeadBroadcaster
 	var lp logpoller.LogPoller
 
-	bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+	bs := NewBlockSubscriber(hb, lp, blockHistorySize, intializeBlockSize, lggr)
 	subId, _, err := bs.Subscribe()
 	assert.Nil(t, err)
 	assert.Equal(t, subId, 1)
@@ -44,7 +45,7 @@ func TestBlockSubscriber_Unsubscribe(t *testing.T) {
 	var hb types.HeadBroadcaster
 	var lp logpoller.LogPoller
 
-	bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+	bs := NewBlockSubscriber(hb, lp, blockHistorySize, intializeBlockSize, lggr)
 	subId, _, err := bs.Subscribe()
 	assert.Nil(t, err)
 	assert.Equal(t, subId, 1)
@@ -60,7 +61,7 @@ func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
 	var hb types.HeadBroadcaster
 	var lp logpoller.LogPoller
 
-	bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+	bs := NewBlockSubscriber(hb, lp, blockHistorySize, intializeBlockSize, lggr)
 	err := bs.Unsubscribe(2)
 	assert.Equal(t, err.Error(), "subscriber 2 does not exist")
 }
@@ -90,7 +91,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			lp := new(mocks.LogPoller)
 			lp.On("LatestBlock", mock.Anything).Return(tc.LatestBlock, tc.LatestBlockErr)
-			bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+			bs := NewBlockSubscriber(hb, lp, blockHistorySize, intializeBlockSize, lggr)
 			blocks, err := bs.getBlockRange(testutils.Context(t))
 
 			if tc.LatestBlockErr != nil {
@@ -146,7 +147,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			lp := new(mocks.LogPoller)
 			lp.On("GetBlocksRange", mock.Anything, tc.Blocks, mock.Anything).Return(tc.PollerBlocks, tc.Error)
-			bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+			bs := NewBlockSubscriber(hb, lp, blockHistorySize, intializeBlockSize, lggr)
 			err := bs.initializeBlocks(tc.Blocks)
 
 			if tc.Error != nil {
@@ -202,7 +203,7 @@ func TestBlockSubscriber_BuildHistory(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
-			bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+			bs := NewBlockSubscriber(hb, lp, blockHistorySize, intializeBlockSize, lggr)
 			bs.blocks = tc.Blocks
 
 			history := bs.buildHistory(tc.Block)
@@ -245,7 +246,7 @@ func TestBlockSubscriber_Cleanup(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
-			bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+			bs := NewBlockSubscriber(hb, lp, blockHistorySize, intializeBlockSize, lggr)
 			bs.blocks = tc.Blocks
 			bs.lastClearedBlock = tc.LastClearedBlock
 			bs.lastSentBlock = tc.LastSentBlock
@@ -285,7 +286,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 
 	lp.On("GetBlocksRange", mock.Anything, blocks, mock.Anything).Return(pollerBlocks, nil)
 
-	bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+	bs := NewBlockSubscriber(hb, lp, blockHistorySize, intializeBlockSize, lggr)
 	err := bs.Start(context.Background())
 	assert.Nil(t, err)
 
