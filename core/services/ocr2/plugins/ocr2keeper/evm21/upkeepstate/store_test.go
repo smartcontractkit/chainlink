@@ -320,6 +320,9 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				require.NoError(t, store.SetUpkeepState(context.Background(), insert.result, insert.state), "storing states should not produce an error")
 			}
 
+			// empty the cache before doing selects to force a db lookup
+			store.cache = make(map[string]*upkeepStateRecord)
+
 			states, err := store.SelectByWorkIDsInRange(ctx, 1, 100, test.queryIDs...)
 
 			require.NoError(t, err, "no error expected from selecting states")
