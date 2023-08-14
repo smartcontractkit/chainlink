@@ -121,7 +121,7 @@ func NewServices(
 			ocr2Provider.ReportCodecV3(),
 		)
 	default:
-		panic("unknown schema version")
+		return nil, errors.New("unknown Mercury report schema version")
 	}
 
 	oracle, err := libocr2.NewOracle(argsNoPlugin)

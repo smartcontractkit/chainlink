@@ -57,40 +57,34 @@ func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID ty
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs relaymercuryv3.Observation, merr error) {
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	run, trrs, err := ds.executeRun(ctx)
+	if err != nil {
+		merr = fmt.Errorf("Observe failed while executing run: %w", err)
+		obs.BenchmarkPrice.Err = err
+		obs.Bid.Err = err
+		obs.Ask.Err = err
+		return
+	}
+	select {
+	case ds.runResults <- run:
+	default:
+		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
+	}
 
-		run, trrs, err := ds.executeRun(ctx)
-		if err != nil {
-			merr = fmt.Errorf("Observe failed while executing run: %w", err)
-			obs.BenchmarkPrice.Err = err
-			obs.Bid.Err = err
-			obs.Ask.Err = err
-			return
-		}
-		select {
-		case ds.runResults <- run:
-		default:
-			ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
-		}
-
-		var parsed parseOutput
-		parsed, err = ds.parse(trrs)
-		if err != nil {
-			// This is not expected under normal circumstances
-			ds.lggr.Errorw("Observe failed while parsing run results", "err", err)
-			merr = fmt.Errorf("Observe failed while parsing run results: %w", err)
-			return
-		}
+	var parsed parseOutput
+	parsed, err = ds.parse(trrs)
+	if err != nil {
+		// This is not expected under normal circumstances
+		ds.lggr.Errorw("Observe failed while parsing run results", "err", err)
+		merr = fmt.Errorf("Observe failed while parsing run results: %w", err)
+		return
+	} else {
 		obs.BenchmarkPrice = parsed.benchmarkPrice
 		obs.Bid = parsed.bid
 		obs.Ask = parsed.ask
-	}()
+	}
 
-	// wait for runner to finish
-	wg.Wait()
+	var wg sync.WaitGroup
 
 	if fetchMaxFinalizedTimestamp {
 		wg.Add(1)
