@@ -346,7 +346,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   }
 
   function getRandomnessFromProof(
-    Proof calldata proof,
+    Proof memory proof,
     RequestCommitment memory rc
   ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
@@ -389,7 +389,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
   function fulfillRandomWords(
-    Proof calldata proof,
+    Proof memory proof,
     RequestCommitment memory rc
   ) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
