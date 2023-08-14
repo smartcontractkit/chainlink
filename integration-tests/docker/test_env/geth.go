@@ -34,6 +34,7 @@ type Geth struct {
 	InternalWsUrl    string
 	EthClient        *blockchain.EthereumClient
 	ContractDeployer contracts.ContractDeployer
+	ContractLoader   contracts.ContractLoader
 }
 
 func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
@@ -108,6 +109,11 @@ func (g *Geth) StartContainer() error {
 		return err
 	}
 	g.ContractDeployer = cd
+	cl, err := contracts.NewContractLoader(bc)
+	if err != nil {
+		return err
+	}
+	g.ContractLoader = cl
 
 	log.Info().Str("containerName", g.ContainerName).
 		Str("internalHttpUrl", g.InternalHttpUrl).
@@ -178,8 +184,9 @@ func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 		Image:        "ethereum/client-go:stable",
 		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
 		Networks:     networks,
-		WaitingFor: tcwait.ForLog("Commit new sealing work").
-			WithStartupTimeout(999 * time.Second).
+		WaitingFor: tcwait.ForHTTP("/").
+			WithPort("8544/tcp").
+			WithStartupTimeout(120 * time.Second).
 			WithPollInterval(1 * time.Second),
 		Entrypoint: []string{"sh", "./root/init.sh",
 			"--dev",
