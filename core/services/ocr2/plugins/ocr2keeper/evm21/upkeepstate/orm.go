@@ -73,7 +73,7 @@ func (o *ORM) SelectStatesByWorkIDs(workIDs []string, qopts ...pg.QOpt) (states 
 // DeleteBeforeTime prunes stored states older than to the provided time
 func (o *ORM) DeleteBeforeTime(end time.Time, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	_, err := q.Exec(`DELETE FROM evm_upkeep_state WHERE added_at BEFORE $1 AND evm_chain_id::NUMERIC = $2`, end, utils.NewBig(o.chainID))
+	_, err := q.Exec(`DELETE FROM evm_upkeep_state WHERE added_at <= $1 AND evm_chain_id::NUMERIC = $2`, end, utils.NewBig(o.chainID))
 
 	return err
 }

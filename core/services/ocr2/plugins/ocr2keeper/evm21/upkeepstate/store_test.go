@@ -369,6 +369,60 @@ func TestUpkeepStateStore_Upsert(t *testing.T) {
 	require.Equal(t, uint64(2), block)
 }
 
+func TestUpkeepStateStore_Service(t *testing.T) {
+	// need to test cleaning cache
+	// need to test cleaning db at prune depth
+
+	lggr, _ := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+	chainID := testutils.FixtureChainID
+	db := pgtest.NewSqlxDB(t)
+	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	scanner := &mockScanner{}
+
+	store := NewUpkeepStateStore(orm, lggr, scanner)
+
+	store.pruneDepth = 500 * time.Millisecond
+	store.cleanCadence = 100 * time.Millisecond
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		assert.NoError(t, store.Start(context.Background()), "no error from starting service")
+
+		wg.Done()
+	}()
+
+	// add a value to set up the test
+	require.NoError(t, store.SetUpkeepState(context.Background(), ocr2keepers.CheckResult{
+		Eligible: false,
+		WorkID:   "0x2",
+		Trigger: ocr2keepers.Trigger{
+			BlockNumber: ocr2keepers.BlockNumber(1),
+		},
+	}, ocr2keepers.Ineligible))
+
+	// allow one cycle of cleaning the cache
+	time.Sleep(110 * time.Millisecond)
+
+	// select from store to ensure values still exist
+	values, err := store.SelectByWorkIDsInRange(context.Background(), 1, 100, "0x2")
+	require.NoError(t, err, "no error from selecting states")
+	require.Equal(t, []ocr2keepers.UpkeepState{ocr2keepers.Ineligible}, values, "selected values should match expected")
+
+	// wait longer than cache timeout
+	time.Sleep(700 * time.Millisecond)
+
+	// select from store to ensure cached values were removed
+	values, err = store.SelectByWorkIDsInRange(context.Background(), 1, 100, "0x2")
+	require.NoError(t, err, "no error from selecting states")
+	require.Equal(t, []ocr2keepers.UpkeepState{StateUnknown}, values, "selected values should match expected")
+
+	assert.NoError(t, store.Close(), "no error from closing service")
+
+	wg.Wait()
+}
+
 func createUpkeepIDForTest(v int64) ocr2keepers.UpkeepIdentifier {
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	_ = uid.FromBigInt(big.NewInt(v))
@@ -406,9 +460,10 @@ func (s *mockScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]s
 }
 
 type mockORM struct {
-	lock    sync.Mutex
-	records []upkeepStateRecord
-	err     error
+	lock           sync.Mutex
+	records        []upkeepStateRecord
+	lastPruneDepth time.Time
+	err            error
 }
 
 func (_m *mockORM) addRecords(records ...upkeepStateRecord) {
@@ -440,5 +495,10 @@ func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, _ ...pg.QOpt) ([]upke
 }
 
 func (_m *mockORM) DeleteBeforeTime(tm time.Time, _ ...pg.QOpt) error {
+	_m.lock.Lock()
+	defer _m.lock.Unlock()
+
+	_m.lastPruneDepth = tm
+
 	return _m.err
 }

@@ -279,7 +279,7 @@ func (u *upkeepStateStore) cleanCache() {
 	defer u.mu.Unlock()
 
 	for id, state := range u.cache {
-		if time.Since(state.AddedAt) > CacheExpiration {
+		if time.Since(state.AddedAt) > u.pruneDepth {
 			delete(u.cache, id)
 		}
 	}
