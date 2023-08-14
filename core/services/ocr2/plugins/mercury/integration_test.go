@@ -50,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
 	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
+	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -691,6 +692,284 @@ func TestIntegration_MercuryV2(t *testing.T) {
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
 			assert.InDelta(t, feed.baseBenchmarkPrice.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)
+			assert.NotZero(t, reportElems["validFromTimestamp"].(uint32))
+			assert.GreaterOrEqual(t, reportElems["observationsTimestamp"].(uint32), reportElems["validFromTimestamp"].(uint32))
+			assert.Equal(t, expectedExpiresAt, reportElems["expiresAt"].(uint32))
+			assert.Equal(t, expectedFee, reportElems["linkFee"].(*big.Int))
+			assert.Equal(t, expectedFee, reportElems["nativeFee"].(*big.Int))
+
+			t.Logf("oracle %x reported for feed %s (0x%x)", req.pk, feed.name, feed.id)
+
+			seen[feedID][req.pk] = struct{}{}
+			if len(seen[feedID]) == n {
+				t.Logf("all oracles reported for feed %s (0x%x)", feed.name, feed.id)
+				delete(seen, feedID)
+				if len(seen) == 0 {
+					break // saw all oracles; success!
+				}
+			}
+		}
+	}
+
+	t.Run("receives at least one report per feed from each oracle when EAs are at 100% reliability", func(t *testing.T) {
+		runTestSetup()
+	})
+
+	t.Run("receives at least one report per feed from each oracle when EAs are at 80% reliability", func(t *testing.T) {
+		pError.Store(20)
+		runTestSetup()
+	})
+}
+
+func TestIntegration_MercuryV3(t *testing.T) {
+	t.Parallel()
+
+	var logObservers []*observer.ObservedLogs
+	t.Cleanup(func() {
+		detectPanicLogs(t, logObservers)
+	})
+
+	testStartTimeStamp := uint32(time.Now().Unix())
+
+	// test vars
+	// pError is the probability that an EA will return an error instead of a result, as integer percentage
+	// pError = 0 means it will never return error
+	pError := atomic.Int64{}
+
+	// feeds
+	btcFeed := Feed{
+		name:               "BTC/USD",
+		id:                 randomFeedID(3),
+		baseBenchmarkPrice: big.NewInt(20_000 * multiplier),
+		baseBid:            big.NewInt(19_997 * multiplier),
+		baseAsk:            big.NewInt(20_004 * multiplier),
+	}
+	ethFeed := Feed{
+		name:               "ETH/USD",
+		id:                 randomFeedID(3),
+		baseBenchmarkPrice: big.NewInt(1_568 * multiplier),
+		baseBid:            big.NewInt(1_566 * multiplier),
+		baseAsk:            big.NewInt(1_569 * multiplier),
+	}
+	linkFeed := Feed{
+		name:               "LINK/USD",
+		id:                 randomFeedID(3),
+		baseBenchmarkPrice: big.NewInt(7150 * multiplier / 1000),
+		baseBid:            big.NewInt(7123 * multiplier / 1000),
+		baseAsk:            big.NewInt(7177 * multiplier / 1000),
+	}
+	feeds := []Feed{btcFeed, ethFeed, linkFeed}
+	feedM := make(map[[32]byte]Feed, len(feeds))
+	for i := range feeds {
+		feedM[feeds[i].id] = feeds[i]
+	}
+
+	reqs := make(chan request)
+	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
+	serverPubKey := serverKey.PublicKey
+	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
+	clientCSAKeys := make([]csakey.KeyV2, n+1)
+	clientPubKeys := make([]ed25519.PublicKey, n+1)
+	for i := 0; i < n+1; i++ {
+		k := big.NewInt(int64(i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+	serverURL := startMercuryServer(t, srv, clientPubKeys)
+	chainID := testutils.SimulatedChainID
+
+	steve, backend, verifier, verifierAddress := setupBlockchain(t)
+
+	// Setup bootstrap + oracle nodes
+	bootstrapNodePort := int64(21700)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+	logObservers = append(logObservers, observedLogs)
+
+	// Set up n oracles
+	var (
+		oracles []confighelper.OracleIdentityExtra
+		nodes   []Node
+	)
+	for i := int64(0); i < int64(n); i++ {
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
+			// Supply the bootstrap IP and port as a V2 peer address
+			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
+		}, backend, clientCSAKeys[i])
+
+		nodes = append(nodes, Node{
+			app, transmitter, kb,
+		})
+
+		offchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
+		oracles = append(oracles, confighelper.OracleIdentityExtra{
+			OracleIdentity: confighelper.OracleIdentity{
+				OnchainPublicKey:  offchainPublicKey,
+				TransmitAccount:   ocr2types.Account(fmt.Sprintf("%x", transmitter[:])),
+				OffchainPublicKey: kb.OffchainPublicKey(),
+				PeerID:            peerID,
+			},
+			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
+		})
+		logObservers = append(logObservers, observedLogs)
+	}
+
+	for _, feed := range feeds {
+		addBootstrapJob(t, bootstrapNode, chainID, verifierAddress, feed.name, feed.id)
+	}
+
+	createBridge := func(name string, i int, p *big.Int, borm bridges.ORM) (bridgeName string) {
+		bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+			b, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
+
+			r := rand.Int63n(101)
+			if r > pError.Load() {
+				res.WriteHeader(http.StatusOK)
+				val := decimal.NewFromBigInt(p, 0).Div(decimal.NewFromInt(multiplier)).Add(decimal.NewFromInt(int64(i)).Div(decimal.NewFromInt(100))).String()
+				resp := fmt.Sprintf(`{"result": %s}`, val)
+				_, err := res.Write([]byte(resp))
+				require.NoError(t, err)
+			} else {
+				res.WriteHeader(http.StatusInternalServerError)
+				resp := fmt.Sprintf(`{"error": "pError test error"}`)
+				_, err := res.Write([]byte(resp))
+				require.NoError(t, err)
+			}
+		}))
+		t.Cleanup(bridge.Close)
+		u, _ := url.Parse(bridge.URL)
+		bridgeName = fmt.Sprintf("bridge-%s-%d", name, i)
+		require.NoError(t, borm.CreateBridgeType(&bridges.BridgeType{
+			Name: bridges.BridgeName(bridgeName),
+			URL:  models.WebURL(*u),
+		}))
+
+		return bridgeName
+	}
+
+	// Add OCR jobs - one per feed on each node
+	for i, node := range nodes {
+		for j, feed := range feeds {
+			bmBridge := createBridge(fmt.Sprintf("benchmarkprice-%d", j), i, feed.baseBenchmarkPrice, node.App.BridgeORM())
+			bidBridge := createBridge(fmt.Sprintf("bid-%d", j), i, feed.baseBid, node.App.BridgeORM())
+			askBridge := createBridge(fmt.Sprintf("ask-%d", j), i, feed.baseAsk, node.App.BridgeORM())
+
+			addV3MercuryJob(
+				t,
+				node,
+				i,
+				verifierAddress,
+				bootstrapPeerID,
+				bootstrapNodePort,
+				bmBridge,
+				bidBridge,
+				askBridge,
+				serverURL,
+				serverPubKey,
+				clientPubKeys[i],
+				feed.name,
+				feed.id,
+				randomFeedID(2),
+				randomFeedID(2),
+			)
+		}
+	}
+
+	// Setup config on contract
+	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
+	require.NoError(t, err)
+
+	offchainConfig, err := json.Marshal(rawOffchainConfig)
+	require.NoError(t, err)
+
+	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTestsMercuryV02(
+		2*time.Second,        // DeltaProgress
+		20*time.Second,       // DeltaResend
+		400*time.Millisecond, // DeltaInitial
+		100*time.Millisecond, // DeltaRound
+		0,                    // DeltaGrace
+		300*time.Millisecond, // DeltaCertifiedCommitRequest
+		1*time.Minute,        // DeltaStage
+		100,                  // rMax
+		[]int{len(nodes)},    // S
+		oracles,
+		offchainConfig,       // reportingPluginConfig []byte,
+		250*time.Millisecond, // Max duration observation
+		int(f),               // f
+		onchainConfig,
+	)
+
+	require.NoError(t, err)
+	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
+	require.NoError(t, err)
+
+	offchainTransmitters := make([][32]byte, n)
+	for i := 0; i < n; i++ {
+		offchainTransmitters[i] = nodes[i].ClientPubKey
+	}
+
+	for _, feed := range feeds {
+		_, err = verifier.SetConfig(
+			steve,
+			feed.id,
+			signerAddresses,
+			offchainTransmitters,
+			f,
+			onchainConfig,
+			offchainConfigVersion,
+			offchainConfig,
+			nil,
+		)
+		require.NoError(t, err)
+		backend.Commit()
+	}
+
+	// Bury it with finality depth
+	ch, err := bootstrapNode.App.GetChains().EVM.Get(testutils.SimulatedChainID)
+	require.NoError(t, err)
+	finalityDepth := ch.Config().EVM().FinalityDepth()
+	for i := 0; i < int(finalityDepth); i++ {
+		backend.Commit()
+	}
+
+	runTestSetup := func() {
+		// Expect at least one report per feed from each oracle
+		seen := make(map[[32]byte]map[credentials.StaticSizedPublicKey]struct{})
+		for i := range feeds {
+			// feedID will be deleted when all n oracles have reported
+			seen[feeds[i].id] = make(map[credentials.StaticSizedPublicKey]struct{}, n)
+		}
+
+		for req := range reqs {
+			v := make(map[string]interface{})
+			err := mercury.PayloadTypes.UnpackIntoMap(v, req.req.Payload)
+			require.NoError(t, err)
+			report, exists := v["report"]
+			if !exists {
+				t.Fatalf("expected payload %#v to contain 'report'", v)
+			}
+			reportElems := make(map[string]interface{})
+			err = reportcodecv3.ReportTypes.UnpackIntoMap(reportElems, report.([]byte))
+			require.NoError(t, err)
+
+			feedID := ([32]byte)(reportElems["feedId"].([32]uint8))
+			feed, exists := feedM[feedID]
+			require.True(t, exists)
+
+			if _, exists := seen[feedID]; !exists {
+				continue // already saw all oracles for this feed
+			}
+
+			expectedFee := relaymercury.CalculateFee(big.NewInt(123456789), rawOffchainConfig.BaseUSDFeeCents)
+			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawOffchainConfig.ExpirationWindow
+
+			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
+			assert.InDelta(t, feed.baseBenchmarkPrice.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)
+			assert.InDelta(t, feed.baseBid.Int64(), reportElems["bid"].(*big.Int).Int64(), 5000000)
+			assert.InDelta(t, feed.baseAsk.Int64(), reportElems["ask"].(*big.Int).Int64(), 5000000)
 			assert.NotZero(t, reportElems["validFromTimestamp"].(uint32))
 			assert.GreaterOrEqual(t, reportElems["observationsTimestamp"].(uint32), reportElems["validFromTimestamp"].(uint32))
 			assert.Equal(t, expectedExpiresAt, reportElems["expiresAt"].(uint32))
