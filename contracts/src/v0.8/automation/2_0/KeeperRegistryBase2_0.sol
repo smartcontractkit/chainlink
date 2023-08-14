@@ -4,14 +4,14 @@ pragma solidity 0.8.6;
 import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../../vendor/@eth-optimism/contracts/0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
-import {ArbSys} from "../../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "../ExecutionPrevention.sol";
-import {OnchainConfig, State, UpkeepFailureReason} from "../../interfaces/automation/2_0/AutomationRegistryInterface2_0.sol";
-import "../../ConfirmedOwner.sol";
+import {OnchainConfig, State, UpkeepFailureReason} from "../interfaces/2_0/AutomationRegistryInterface2_0.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
-import "../../interfaces/LinkTokenInterface.sol";
-import "../../interfaces/automation/KeeperCompatibleInterface.sol";
-import "../../interfaces/automation/UpkeepTranscoderInterface.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
+import "../interfaces/KeeperCompatibleInterface.sol";
+import "../interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice relevant state of an upkeep which is used in transmit function

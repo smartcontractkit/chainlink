@@ -365,6 +365,7 @@ type OCR2OracleSpec struct {
 	CreatedAt                         time.Time       `toml:"-"`
 	UpdatedAt                         time.Time       `toml:"-"`
 	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
+	CaptureAutomationCustomTelemetry  bool            `toml:"captureAutomationCustomTelemetry"`
 }
 
 // GetID is a getter function that returns the ID of the spec.
@@ -551,6 +552,12 @@ type BlockhashStoreSpec struct {
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
 	// into.
 	BlockhashStoreAddress ethkey.EIP55Address `toml:"blockhashStoreAddress"`
+
+	// BatchBlockhashStoreAddress is the address of the trusted BlockhashStore contract to store blockhashes
+	TrustedBlockhashStoreAddress *ethkey.EIP55Address `toml:"trustedBlockhashStoreAddress"`
+
+	// BatchBlockhashStoreBatchSize is the number of blockhashes to store in a single batch
+	TrustedBlockhashStoreBatchSize int32 `toml:"trustedBlockhashStoreBatchSize"`
 
 	// PollPeriod defines how often recent blocks should be scanned for blockhash storage.
 	PollPeriod time.Duration `toml:"pollPeriod"`

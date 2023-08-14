@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {CBOR, Buffer} from "../../../shared/vendor/solidity-cborutils/v2.0.0/CBOR.sol";
+import {CBOR, Buffer} from "../../../vendor/solidity-cborutils/v2.0.0/CBOR.sol";
 
 /**
  * @title Library for Chainlink Functions

@@ -477,9 +477,15 @@ func subscribeVRF(
 	consumerContract vrftesthelpers.VRFConsumerContract,
 	coordinator v22.CoordinatorV2_X,
 	backend *backends.SimulatedBackend,
-	fundingJuels *big.Int,
+	fundingAmount *big.Int,
+	nativePayment bool,
 ) (v22.Subscription, *big.Int) {
-	_, err := consumerContract.CreateSubscriptionAndFund(author, fundingJuels)
+	var err error
+	if nativePayment {
+		_, err = consumerContract.CreateSubscriptionAndFundNative(author, fundingAmount)
+	} else {
+		_, err = consumerContract.CreateSubscriptionAndFund(author, fundingAmount)
+	}
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -488,6 +494,13 @@ func subscribeVRF(
 
 	sub, err := coordinator.GetSubscription(nil, subID)
 	require.NoError(t, err)
+
+	if nativePayment {
+		require.Equal(t, fundingAmount.String(), sub.EthBalance().String())
+	} else {
+		require.Equal(t, fundingAmount.String(), sub.Balance().String())
+	}
+
 	return sub, subID
 }
 
@@ -635,6 +648,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	cbGasLimit uint32,
 	coordinator v22.CoordinatorV2_X,
 	backend *backends.SimulatedBackend,
+	nativePayment bool,
 ) (requestID *big.Int, requestBlockNumber uint64) {
 	minRequestConfirmations := uint16(2)
 	_, err := vrfConsumerHandle.RequestRandomness(
@@ -644,7 +658,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 		minRequestConfirmations,
 		cbGasLimit,
 		numWords,
-		false,
+		nativePayment,
 	)
 	require.NoError(t, err)
 	backend.Commit()
@@ -667,6 +681,7 @@ func requestRandomnessAndAssertRandomWordsRequestedEvent(
 	require.Equal(t, cbGasLimit, event.CallbackGasLimit(), "callback gas limit of event and of request not equal")
 	require.Equal(t, minRequestConfirmations, event.MinimumRequestConfirmations(), "min request confirmations of event and of request not equal")
 	require.Equal(t, numWords, event.NumWords(), "num words of event and of request not equal")
+	require.Equal(t, nativePayment, event.NativePayment())
 
 	return requestID, event.Raw().BlockNumber
 }
@@ -679,13 +694,13 @@ func subscribeAndAssertSubscriptionCreatedEvent(
 	vrfConsumerHandle vrftesthelpers.VRFConsumerContract,
 	consumerOwner *bind.TransactOpts,
 	consumerContractAddress common.Address,
-	fundingJuels *big.Int,
+	fundingAmount *big.Int,
 	coordinator v22.CoordinatorV2_X,
 	backend *backends.SimulatedBackend,
+	nativePayment bool,
 ) *big.Int {
 	// Create a subscription and fund with LINK.
-	sub, subID := subscribeVRF(t, consumerOwner, vrfConsumerHandle, coordinator, backend, fundingJuels)
-	require.Equal(t, fundingJuels.String(), sub.Balance().String())
+	_, subID := subscribeVRF(t, consumerOwner, vrfConsumerHandle, coordinator, backend, fundingAmount, nativePayment)
 
 	// Assert the subscription event in the coordinator contract.
 	iter, err := coordinator.FilterSubscriptionCreated(nil, []*big.Int{subID})
@@ -708,6 +723,7 @@ func assertRandomWordsFulfilled(
 	requestID *big.Int,
 	expectedSuccess bool,
 	coordinator v22.CoordinatorV2_X,
+	nativePayment bool,
 ) (rwfe v22.RandomWordsFulfilled) {
 	// Check many times in case there are delays processing the event
 	// this could happen occasionally and cause flaky tests.
@@ -853,6 +869,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T
 		5,     // number of requests to send
 		false, // don't send big callback
 		vrfcommon.V2,
+		false,
 	)
 }
 
@@ -874,6 +891,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallba
 		5,    // number of requests to send
 		true, // send big callback
 		vrfcommon.V2,
+		false,
 	)
 }
 
@@ -893,6 +911,7 @@ func TestVRFV2Integration_SingleConsumer_HappyPath(t *testing.T) {
 		uni.batchCoordinatorContractAddress,
 		ptr(uni.vrfOwnerAddress),
 		vrfcommon.V2,
+		false,
 		func(t *testing.T, coordinator v22.CoordinatorV2_X, rwfe v22.RandomWordsFulfilled, expectedSubID *big.Int) {
 			require.PanicsWithValue(t, "VRF V2 RandomWordsFulfilled does not implement SubID", func() {
 				rwfe.SubID()
@@ -1057,6 +1076,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 		uni.batchCoordinatorContractAddress,
 		false,
 		vrfcommon.V2,
+		false,
 	)
 }
 
@@ -1071,6 +1091,7 @@ func TestVRFV2Integration_SingleConsumer_EIP150_Revert(t *testing.T) {
 		uni.batchCoordinatorContractAddress,
 		false,
 		vrfcommon.V2,
+		false,
 	)
 }
 
@@ -1170,7 +1191,7 @@ func TestVRFV2Integration_SingleConsumer_Wrapper(t *testing.T) {
 	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract)
+	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, false)
 
 	t.Log("Done!")
 }
@@ -1250,7 +1271,7 @@ func TestVRFV2Integration_Wrapper_High_Gas(t *testing.T) {
 	mine(t, requestID, new(big.Int).SetUint64(wrapperSubID), uni.backend, db, vrfcommon.V2)
 
 	// Assert correct state of RandomWordsFulfilled event.
-	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract)
+	assertRandomWordsFulfilled(t, requestID, true, uni.rootContract, false)
 
 	t.Log("Done!")
 }
@@ -1271,6 +1292,47 @@ func TestVRFV2Integration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 		uni.batchCoordinatorContractAddress,
 		ptr(uni.vrfOwnerAddress),
 		vrfcommon.V2,
+		false,
+	)
+}
+
+func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)
+	testMultipleConsumersNeedTrustedBHS(
+		t,
+		ownerKey,
+		uni,
+		uni.vrfConsumers,
+		uni.consumerContracts,
+		uni.consumerContractAddresses,
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress,
+		vrfcommon.V2Plus,
+		false,
+		false,
+	)
+}
+
+func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore_AfterDelay(t *testing.T) {
+	t.Parallel()
+	ownerKey := cltest.MustGenerateRandomKey(t)
+	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)
+	testMultipleConsumersNeedTrustedBHS(
+		t,
+		ownerKey,
+		uni,
+		uni.vrfConsumers,
+		uni.consumerContracts,
+		uni.consumerContractAddresses,
+		uni.rootContract,
+		uni.rootContractAddress,
+		uni.batchCoordinatorContractAddress,
+		vrfcommon.V2Plus,
+		false,
+		true,
 	)
 }
 
@@ -1290,6 +1352,7 @@ func TestVRFV2Integration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 		uni.batchCoordinatorContractAddress,
 		ptr(uni.vrfOwnerAddress),
 		vrfcommon.V2,
+		false,
 	)
 }
 
@@ -1311,6 +1374,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTopUp(t *testing.T) {
 		assets.Ether(1).ToInt(),   // initial funding of 1 LINK
 		assets.Ether(100).ToInt(), // top up of 100 LINK
 		vrfcommon.V2,
+		false,
 	)
 }
 
@@ -1324,6 +1388,7 @@ func TestVRFV2Integration_SingleConsumer_BigGasCallback_Sandwich(t *testing.T) {
 		uni.batchCoordinatorContractAddress,
 		false,
 		vrfcommon.V2,
+		false,
 	)
 }
 
@@ -1337,6 +1402,7 @@ func TestVRFV2Integration_SingleConsumer_MultipleGasLanes(t *testing.T) {
 		uni.batchCoordinatorContractAddress,
 		false,
 		vrfcommon.V2,
+		false,
 	)
 }
 
@@ -1350,6 +1416,7 @@ func TestVRFV2Integration_SingleConsumer_AlwaysRevertingCallback_StillFulfilled(
 		uni.batchCoordinatorContractAddress,
 		false,
 		vrfcommon.V2,
+		false,
 	)
 }
 
@@ -1363,6 +1430,7 @@ func TestVRFV2Integration_ConsumerProxy_HappyPath(t *testing.T) {
 		uni.batchCoordinatorContractAddress,
 		false,
 		vrfcommon.V2,
+		false,
 	)
 }
 
@@ -2128,12 +2196,22 @@ func FindLatestRandomnessRequestedLog(t *testing.T,
 	return rf[latest]
 }
 
+func AssertLinkBalance(t *testing.T, linkContract *link_token_interface.LinkToken, address common.Address, balance *big.Int) {
+	b, err := linkContract.BalanceOf(nil, address)
+	require.NoError(t, err)
+	assert.Equal(t, balance.String(), b.String(), "invalid balance for %v", address)
+}
+
+func AssertNativeBalance(t *testing.T, backend *backends.SimulatedBackend, address common.Address, balance *big.Int) {
+	b, err := backend.BalanceAt(testutils.Context(t), address, nil)
+	require.NoError(t, err)
+	assert.Equal(t, balance.String(), b.String(), "invalid balance for %v", address)
+}
+
 func AssertLinkBalances(t *testing.T, linkContract *link_token_interface.LinkToken, addresses []common.Address, balances []*big.Int) {
 	require.Equal(t, len(addresses), len(balances))
 	for i, a := range addresses {
-		b, err := linkContract.BalanceOf(nil, a)
-		require.NoError(t, err)
-		assert.Equal(t, balances[i].String(), b.String(), "invalid balance for %v", a)
+		AssertLinkBalance(t, linkContract, a, balances[i])
 	}
 }
 

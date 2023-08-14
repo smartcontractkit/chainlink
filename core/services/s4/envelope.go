@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Envelope represents a JSON object that is signed for address verification.
@@ -42,8 +42,7 @@ func (e Envelope) Sign(privateKey *ecdsa.PrivateKey) (signature []byte, err erro
 	if err != nil {
 		return nil, err
 	}
-	hash := crypto.Keccak256Hash(js)
-	return crypto.Sign(hash[:], privateKey)
+	return utils.GenerateEthSignature(privateKey, js)
 }
 
 // GetSignerAddress verifies the signature and returns the signing address.
@@ -55,12 +54,7 @@ func (e Envelope) GetSignerAddress(signature []byte) (address common.Address, er
 	if err != nil {
 		return common.Address{}, err
 	}
-	hash := crypto.Keccak256Hash(js)
-	sigPublicKey, err := crypto.SigToPub(hash[:], signature)
-	if err != nil {
-		return common.Address{}, err
-	}
-	return crypto.PubkeyToAddress(*sigPublicKey), nil
+	return utils.GetSignersEthAddress(js, signature)
 }
 
 func (e Envelope) ToJson() ([]byte, error) {

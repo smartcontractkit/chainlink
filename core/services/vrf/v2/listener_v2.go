@@ -54,9 +54,6 @@ var (
 	batchCoordinatorV2ABI                    = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 	batchCoordinatorV2PlusABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusABI)
 	vrfOwnerABI                              = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
-	// RandomWordsRequestedV2PlusABI is the ABI of the RandomWordsRequested event
-	// for V2Plus.
-	RandomWordsRequestedV2PlusABI = coordinatorV2PlusABI.Events["RandomWordsRequested"].Sig
 )
 
 const (
@@ -97,6 +94,8 @@ const (
 		AND CAST(meta->>'GlobalSubId' AS NUMERIC) = $2
 		AND state IN ('unconfirmed', 'unstarted', 'in_progress')
 		GROUP BY meta->>'GlobalSubId'`
+
+	CouldNotDetermineIfLogConsumedMsg = "Could not determine if log was already consumed"
 )
 
 type errPossiblyInsufficientFunds struct{}
@@ -235,7 +234,7 @@ type listenerV2 struct {
 	// Wait group to wait on all goroutines to shut down.
 	wg *sync.WaitGroup
 
-	// aggregator client to get link/eth feed prices from chain.
+	// aggregator client to get link/eth feed prices from chain. Can be nil for VRF V2 plus
 	aggregator aggregator_v3_interface.AggregatorV3InterfaceInterface
 
 	// deduper prevents processing duplicate requests from the log broadcaster.
@@ -389,8 +388,8 @@ func (lsn *listenerV2) pruneConfirmedRequestCounts() {
 // Determine a set of logs that are confirmed
 // and the subscription has sufficient balance to fulfill,
 // given a eth call with the max gas price.
-// Note we have to consider the pending reqs already in the txm as already "spent" link,
-// using a max link consumed in their metadata.
+// Note we have to consider the pending reqs already in the txm as already "spent" link or native,
+// using a max link or max native consumed in their metadata.
 // A user will need a minBalance capable of fulfilling a single req at the max gas price or nothing will happen.
 // This is acceptable as users can choose different keyhashes which have different max gas prices.
 // Other variables which can change the bill amount between our eth call simulation and tx execution:
@@ -604,6 +603,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 	startBalanceNoReserved *big.Int,
 	reqs []pendingRequest,
 	subIsActive bool,
+	nativePayment bool,
 ) (processed map[string]struct{}) {
 	start := time.Now()
 	processed = make(map[string]struct{})
@@ -631,6 +631,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 		"startBalanceNoReserved", startBalanceNoReserved.String(),
 		"batchMaxGas", batchMaxGas,
 		"subIsActive", subIsActive,
+		"nativePayment", nativePayment,
 	)
 
 	defer func() {
@@ -736,7 +737,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 					}
 
 					if startBalanceNoReserved.Cmp(p.fundsNeeded) < 0 && errors.Is(p.err, errPossiblyInsufficientFunds{}) {
-						ll.Infow("Insufficient link balance to fulfill a request based on estimate, breaking", "err", p.err)
+						ll.Infow("Insufficient balance to fulfill a request based on estimate, breaking", "err", p.err)
 						outOfBalance = true
 
 						// break out of this inner loop to process the currently constructed batch
@@ -834,11 +835,11 @@ func (lsn *listenerV2) processRequestsPerSubBatch(
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		nativeProcessed = lsn.processRequestsPerSubBatchHelper(ctx, subID, startEthBalance, startBalanceNoReserveEth, nativeRequests, subIsActive)
+		nativeProcessed = lsn.processRequestsPerSubBatchHelper(ctx, subID, startEthBalance, startBalanceNoReserveEth, nativeRequests, subIsActive, true)
 	}()
 	go func() {
 		defer wg.Done()
-		linkProcessed = lsn.processRequestsPerSubBatchHelper(ctx, subID, startLinkBalance, startBalanceNoReserveLink, linkRequests, subIsActive)
+		linkProcessed = lsn.processRequestsPerSubBatchHelper(ctx, subID, startLinkBalance, startBalanceNoReserveLink, linkRequests, subIsActive, false)
 	}()
 	wg.Wait()
 	// combine the processed link and native requests into the processed map
@@ -958,6 +959,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 	startBalanceNoReserved *big.Int,
 	reqs []pendingRequest,
 	subIsActive bool,
+	nativePayment bool,
 ) (processed map[string]struct{}) {
 	start := time.Now()
 	processed = make(map[string]struct{})
@@ -968,6 +970,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 		"startBalance", startBalance.String(),
 		"startBalanceNoReserved", startBalanceNoReserved.String(),
 		"subIsActive", subIsActive,
+		"nativePayment", nativePayment,
 	)
 
 	defer func() {
@@ -1061,7 +1064,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 					}
 
 					if startBalanceNoReserved.Cmp(p.fundsNeeded) < 0 {
-						ll.Infow("Insufficient link balance to fulfill a request based on estimate, returning", "err", p.err)
+						ll.Infow("Insufficient balance to fulfill a request based on estimate, returning", "err", p.err)
 						return processed
 					}
 
@@ -1082,7 +1085,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 
 			if startBalanceNoReserved.Cmp(p.maxFee) < 0 {
 				// Insufficient funds, have to wait for a user top up. Leave it unprocessed for now
-				ll.Infow("Insufficient link balance to fulfill a request, returning")
+				ll.Infow("Insufficient balance to fulfill a request, returning")
 				return processed
 			}
 
@@ -1214,7 +1217,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 			startEthBalance,
 			startBalanceNoReserveEth,
 			nativeRequests,
-			subIsActive)
+			subIsActive,
+			true)
 	}()
 	go func() {
 		defer wg.Done()
@@ -1224,7 +1228,8 @@ func (lsn *listenerV2) processRequestsPerSub(
 			startLinkBalance,
 			startBalanceNoReserveLink,
 			linkRequests,
-			subIsActive)
+			subIsActive,
+			false)
 	}()
 	wg.Wait()
 	// combine the native and link processed requests into the processed map
@@ -1570,7 +1575,27 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.l.Debugw("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
+			lsn.l.Errorw(CouldNotDetermineIfLogConsumedMsg, "err", err, "txHash", lb.RawLog().TxHash)
+			return
+		} else if consumed {
+			return
+		}
+		lsn.respCountMu.Lock()
+		lsn.respCount[v.RequestId.String()]++
+		lsn.respCountMu.Unlock()
+		lsn.blockNumberToReqID.Insert(fulfilledReqV2{
+			blockNumber: v.Raw.BlockNumber,
+			reqID:       v.RequestId.String(),
+		})
+		lsn.markLogAsConsumed(lb)
+		return
+	}
+
+	if v, ok := lb.DecodedLog().(*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled); ok {
+		lsn.l.Debugw("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
+		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
+		if err != nil {
+			lsn.l.Errorw(CouldNotDetermineIfLogConsumedMsg, "err", err, "txHash", lb.RawLog().TxHash)
 			return
 		} else if consumed {
 			return
@@ -1591,7 +1616,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		lsn.l.Errorw("Failed to parse log", "err", err, "txHash", lb.RawLog().TxHash)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			lsn.l.Errorw("Could not determine if log was already consumed", "err", err, "txHash", lb.RawLog().TxHash)
+			lsn.l.Errorw(CouldNotDetermineIfLogConsumedMsg, "err", err, "txHash", lb.RawLog().TxHash)
 			return
 		} else if consumed {
 			return
@@ -1670,7 +1695,7 @@ func uniqueReqs(reqs []pendingRequest) int {
 }
 
 // GasProofVerification is an upper limit on the gas used for verifying the VRF proof on-chain.
-// It can be used to estimate the amount of LINK needed to fulfill a request.
+// It can be used to estimate the amount of LINK or native needed to fulfill a request.
 const GasProofVerification uint32 = 200_000
 
 // EstimateFeeJuels estimates the amount of link needed to fulfill a request

@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../interfaces/LinkTokenInterface.sol";
-import "../../ConfirmedOwner.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/interfaces/IERC677Receiver.sol";
 import "../interfaces/IVRFSubscriptionV2Plus.sol";
 
-abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInterface, IVRFSubscriptionV2Plus {
+abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscriptionV2Plus {
   /// @dev may not be provided upon construction on some chains due to lack of availability
   LinkTokenInterface public LINK;
   /// @dev may not be provided upon construction on some chains due to lack of availability
@@ -41,8 +40,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     // a uint96 is large enough to hold around ~8e28 wei, or 80 billion ether.
     // That should be enough to cover most (if not all) subscriptions.
     uint96 ethBalance; // Common eth balance used for all consumer requests.
-
-    // TODO: put back request count?
+    uint64 reqCount;
   }
   // We use the config for the mgmt APIs
   struct SubscriptionConfig {
@@ -83,6 +81,36 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
   event SubscriptionCanceled(uint256 indexed subId, address to, uint256 amountLink, uint256 amountEth);
   event SubscriptionOwnerTransferRequested(uint256 indexed subId, address from, address to);
   event SubscriptionOwnerTransferred(uint256 indexed subId, address from, address to);
+
+  struct Config {
+    uint16 minimumRequestConfirmations;
+    uint32 maxGasLimit;
+    // Reentrancy protection.
+    bool reentrancyLock;
+    // stalenessSeconds is how long before we consider the feed price to be stale
+    // and fallback to fallbackWeiPerUnitLink.
+    uint32 stalenessSeconds;
+    // Gas to cover oracle payment after we calculate the payment.
+    // We make it configurable in case those operations are repriced.
+    // The recommended number is below, though it may vary slightly
+    // if certain chains do not implement certain EIP's.
+    // 21000 + // base cost of the transaction
+    // 100 + 5000 + // warm subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
+    // 2*2100 + 5000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
+    // 4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
+    // 6685 + // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+    // Total: 37,185 gas.
+    uint32 gasAfterPaymentCalculation;
+  }
+  Config public s_config;
+
+  error Reentrant();
+  modifier nonReentrant() {
+    if (s_config.reentrancyLock) {
+      revert Reentrant();
+    }
+    _;
+  }
 
   constructor() ConfirmedOwner(msg.sender) {}
 
@@ -227,13 +255,19 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
    */
   function getSubscription(
     uint256 subId
-  ) public view override returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) {
+  )
+    public
+    view
+    override
+    returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers)
+  {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     return (
       s_subscriptions[subId].balance,
       s_subscriptions[subId].ethBalance,
+      s_subscriptions[subId].reqCount,
       s_subscriptionConfigs[subId].owner,
       s_subscriptionConfigs[subId].consumers
     );
@@ -248,7 +282,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     );
     s_currentSubNonce++;
     address[] memory consumers = new address[](0);
-    s_subscriptions[subId] = Subscription({balance: 0, ethBalance: 0});
+    s_subscriptions[subId] = Subscription({balance: 0, ethBalance: 0, reqCount: 0});
     s_subscriptionConfigs[subId] = SubscriptionConfig({
       owner: msg.sender,
       requestedOwner: address(0),

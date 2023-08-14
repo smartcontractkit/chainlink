@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2"
 )
 
 const formattedVRFJob = `
@@ -38,7 +37,7 @@ pollPeriod = "5s"
 requestTimeout = "24h"
 observationSource = """
 decode_log              [type=ethabidecodelog
-                         abi="%s"
+                         abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint256 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bytes extraArgs,address indexed sender)"
                          data="$(jobRun.logData)"
                          topics="$(jobRun.logTopics)"]
 generate_proof          [type=vrfv2plus
@@ -206,7 +205,6 @@ func deployUniverse(e helpers.Environment) {
 		compressedPkHex,
 		e.ChainID,
 		*registerKeyOracleAddress,
-		v2.RandomWordsRequestedV2PlusABI,
 		coordinatorAddress,
 		coordinatorAddress,
 		coordinatorAddress,

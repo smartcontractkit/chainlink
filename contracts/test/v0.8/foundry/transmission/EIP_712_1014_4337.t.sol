@@ -6,12 +6,12 @@ import "../../../../src/v0.8/dev/transmission/testhelpers/SmartContractAccountHe
 import "../../../../src/v0.8/dev/transmission/4337/SCA.sol";
 import "../../../../src/v0.8/dev/transmission/testhelpers/Greeter.sol";
 import "../../../../src/v0.8/dev/transmission/4337/Paymaster.sol";
-import "../../../../src/v0.8/dev/vendor/entrypoint/interfaces/UserOperation.sol";
-import "../../../../src/v0.8/dev/vendor/entrypoint/core/EntryPoint.sol";
-import "../../../../src/v0.8/dev/vendor/entrypoint/interfaces/IEntryPoint.sol";
+import "../../../../src/v0.8/vendor/entrypoint/interfaces/UserOperation.sol";
+import "../../../../src/v0.8/vendor/entrypoint/core/EntryPoint.sol";
+import "../../../../src/v0.8/vendor/entrypoint/interfaces/IEntryPoint.sol";
 import "../../../../src/v0.8/dev/transmission/4337/SCALibrary.sol";
 import "../../../../src/v0.8/mocks/MockLinkToken.sol";
-import "../../../../src/v0.8/interfaces/LinkTokenInterface.sol";
+import "../../../../src/v0.8/shared/interfaces/LinkTokenInterface.sol";
 import "../../../../src/v0.8/mocks/VRFCoordinatorMock.sol";
 import "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import "../../../../src/v0.8/vrf/testhelpers/VRFConsumer.sol";

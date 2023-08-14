@@ -21,9 +21,7 @@ type ChainlinkConfig struct {
 	URL         string
 	Email       string
 	Password    string
-	InternalIP  string // Can change if the node is restarted. Prefer RemoteURL if possible
-	ChartName   string
-	PodName     string
+	InternalIP  string
 	HTTPTimeout *time.Duration
 }
 
@@ -851,20 +849,20 @@ p2pPeerID                              = "{{.P2PPeerID}}"`
 // OCRTaskJobSpec represents an OCR job that is given to other nodes, meant to communicate with the bootstrap node,
 // and provide their answers
 type OCRTaskJobSpec struct {
-	Name                     string        `toml:"name"`
-	BlockChainTimeout        time.Duration `toml:"blockchainTimeout"`                      // Optional
-	ContractConfirmations    int           `toml:"contractConfigConfirmations"`            // Optional
-	TrackerPollInterval      time.Duration `toml:"contractConfigTrackerPollInterval"`      // Optional
-	TrackerSubscribeInterval time.Duration `toml:"contractConfigTrackerSubscribeInterval"` // Optional
-	ForwardingAllowed        bool          `toml:"forwardingAllowed"`                      // Optional, by default false
-	ContractAddress          string        `toml:"contractAddress"`                        // Address of the OCR contract
-	P2PBootstrapPeers        []*Chainlink  `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
-	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"`                        // Typically false
-	P2PPeerID                string        `toml:"p2pPeerID"`                              // This node's P2P ID
-	KeyBundleID              string        `toml:"keyBundleID"`                            // ID of this node's OCR key bundle
-	MonitoringEndpoint       string        `toml:"monitoringEndpoint"`                     // Typically "chain.link:4321"
-	TransmitterAddress       string        `toml:"transmitterAddress"`                     // ETH address this node will use to transmit its answer
-	ObservationSource        string        `toml:"observationSource"`                      // List of commands for the Chainlink node
+	Name                     string             `toml:"name"`
+	BlockChainTimeout        time.Duration      `toml:"blockchainTimeout"`                      // Optional
+	ContractConfirmations    int                `toml:"contractConfigConfirmations"`            // Optional
+	TrackerPollInterval      time.Duration      `toml:"contractConfigTrackerPollInterval"`      // Optional
+	TrackerSubscribeInterval time.Duration      `toml:"contractConfigTrackerSubscribeInterval"` // Optional
+	ForwardingAllowed        bool               `toml:"forwardingAllowed"`                      // Optional, by default false
+	ContractAddress          string             `toml:"contractAddress"`                        // Address of the OCR contract
+	P2PBootstrapPeers        []*ChainlinkClient `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
+	IsBootstrapPeer          bool               `toml:"isBootstrapPeer"`                        // Typically false
+	P2PPeerID                string             `toml:"p2pPeerID"`                              // This node's P2P ID
+	KeyBundleID              string             `toml:"keyBundleID"`                            // ID of this node's OCR key bundle
+	MonitoringEndpoint       string             `toml:"monitoringEndpoint"`                     // Typically "chain.link:4321"
+	TransmitterAddress       string             `toml:"transmitterAddress"`                     // ETH address this node will use to transmit its answer
+	ObservationSource        string             `toml:"observationSource"`                      // List of commands for the Chainlink node
 }
 
 // P2PData holds the remote ip and the peer id and port
@@ -1070,7 +1068,7 @@ observationSource                      = """
 // VRFV2JobSpec represents a VRFV2 job
 type VRFV2JobSpec struct {
 	Name                     string        `toml:"name"`
-	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF Coordinator contract
+	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
 	PublicKey                string        `toml:"publicKey"`          // Public key of the proving key
 	ExternalJobID            string        `toml:"externalJobID"`
 	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
@@ -1110,7 +1108,7 @@ observationSource = """
 // VRFJobSpec represents a VRF job
 type VRFJobSpec struct {
 	Name                     string `toml:"name"`
-	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF Coordinator contract
+	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
 	PublicKey                string `toml:"publicKey"`          // Public key of the proving key
 	ExternalJobID            string `toml:"externalJobID"`
 	ObservationSource        string `toml:"observationSource"` // List of commands for the Chainlink node
@@ -1140,7 +1138,7 @@ observationSource = """
 // BlockhashStoreJobSpec represents a blockhashstore job
 type BlockhashStoreJobSpec struct {
 	Name                  string `toml:"name"`
-	CoordinatorV2Address  string `toml:"coordinatorV2Address"` // Address of the VRF Coordinator contract
+	CoordinatorV2Address  string `toml:"coordinatorV2Address"` // Address of the VRF CoordinatorV2 contract
 	WaitBlocks            int    `toml:"waitBlocks"`
 	LookbackBlocks        int    `toml:"lookbackBlocks"`
 	BlockhashStoreAddress string `toml:"blockhashStoreAddress"`
@@ -1291,7 +1289,7 @@ func NewBlankChainlinkProfileResults() *ChainlinkProfileResults {
 }
 
 type CLNodesWithKeys struct {
-	Node       *Chainlink
+	Node       *ChainlinkClient
 	KeysBundle NodeKeysBundle
 }
 

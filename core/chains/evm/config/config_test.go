@@ -110,19 +110,30 @@ func TestChainScopedConfig(t *testing.T) {
 			assert.Equal(t, val.String(), cfg3.EVM().GasEstimator().PriceMaxKey(addr).String())
 		})
 		t.Run("uses key-specific override value when set", func(t *testing.T) {
-			val := assets.GWei(250)
-			gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-				c.EVM[0].KeySpecific = toml.KeySpecificConfig{
-					{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
-						GasEstimator: toml.KeySpecificGasEstimator{
-							PriceMax: val,
-						},
-					},
-				}
-			})
-			cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
+			tests := []struct {
+				name string
+				val  *assets.Wei
+			}{
+				{"Test with 250 GWei", assets.GWei(250)},
+				{"Test with 0 GWei", assets.GWei(0)},
+			}
 
-			assert.Equal(t, val.String(), cfg3.EVM().GasEstimator().PriceMaxKey(addr).String())
+			for _, tt := range tests {
+				t.Run(tt.name, func(t *testing.T) {
+					gcfg3 := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+						c.EVM[0].KeySpecific = toml.KeySpecificConfig{
+							{Key: ptr(ethkey.EIP55AddressFromAddress(addr)),
+								GasEstimator: toml.KeySpecificGasEstimator{
+									PriceMax: tt.val,
+								},
+							},
+						}
+					})
+					cfg3 := evmtest.NewChainScopedConfig(t, gcfg3)
+
+					assert.Equal(t, tt.val.String(), cfg3.EVM().GasEstimator().PriceMaxKey(addr).String())
+				})
+			}
 		})
 		t.Run("uses key-specific override value when set and lower than chain specific config", func(t *testing.T) {
 			keySpecificPrice := assets.GWei(900)

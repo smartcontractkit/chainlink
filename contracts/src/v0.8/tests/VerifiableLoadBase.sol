@@ -3,17 +3,9 @@ pragma solidity ^0.8.16;
 
 import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol";
-import {ArbSys} from "../dev/vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ArbSys} from "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "../dev/automation/2_1/AutomationRegistrar2_1.sol";
-
-struct LogTriggerConfig {
-  address contractAddress;
-  uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
-  bytes32 topic0;
-  bytes32 topic1;
-  bytes32 topic2;
-  bytes32 topic3;
-}
+import {LogTriggerConfig} from "../dev/automation/2_1/AutomationUtils2_1.sol";
 
 abstract contract VerifiableLoadBase is ConfirmedOwner {
   error IndexOutOfRange();
@@ -25,7 +17,8 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
 
   using EnumerableSet for EnumerableSet.UintSet;
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
-  bytes32 public constant emittedSig = 0x97009585a4d2440f981ab6f6eec514343e1e6b2aa9b991a26998e6806f41bf08; //keccak256(LogEmitted(uint256,uint256,address))
+  //bytes32 public constant emittedSig = 0x97009585a4d2440f981ab6f6eec514343e1e6b2aa9b991a26998e6806f41bf08; //keccak256(LogEmitted(uint256,uint256,address))
+  bytes32 public immutable emittedSig = LogEmitted.selector;
 
   mapping(uint256 => uint256) public lastTopUpBlocks;
   mapping(uint256 => uint256) public intervals;
@@ -59,15 +52,15 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   uint16 public immutable BUCKET_SIZE = 100;
 
   /**
-   * @param registrarAddress a registrar address
-   * @param useArb if this contract will use arbitrum block number
+   * @param _registrar a automation registrar 2.1 address
+   * @param _useArb if this contract will use arbitrum block number
    */
-  constructor(address registrarAddress, bool useArb) ConfirmedOwner(msg.sender) {
-    registrar = AutomationRegistrar2_1(registrarAddress);
+  constructor(AutomationRegistrar2_1 _registrar, bool _useArb) ConfirmedOwner(msg.sender) {
+    registrar = _registrar;
     (address registryAddress, ) = registrar.getConfig();
     registry = IKeeperRegistryMaster(payable(address(registryAddress)));
     linkToken = registrar.LINK();
-    useArbitrumBlockNum = useArb;
+    useArbitrumBlockNum = _useArb;
   }
 
   receive() external payable {
@@ -352,6 +345,11 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
         emit LogEmitted(upkeepId, blockNum, address(this));
       }
     }
+  }
+
+  function sendLog(uint256 upkeepId) external {
+    uint256 blockNum = getBlockNumber();
+    emit LogEmitted(upkeepId, blockNum, address(this));
   }
 
   function getDelaysLength(uint256 upkeepId) public view returns (uint256) {

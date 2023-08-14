@@ -1,12 +1,13 @@
 import { ethers } from 'hardhat'
 import { BigNumber } from 'ethers'
 import {
-  getSetupFactory,
+  accessControlMockPrivateKey,
+  encodeReport,
   FunctionsContracts,
   FunctionsRoles,
-  ids,
   getEventArg,
-  accessControlMockPrivateKey,
+  getSetupFactory,
+  ids,
 } from './utils'
 import { stringToBytes } from '../../../test-helpers/helpers'
 
@@ -14,7 +15,7 @@ const setup = getSetupFactory()
 let contracts: FunctionsContracts
 let roles: FunctionsRoles
 
-const baselineGasUsed = 944_073
+const baselineGasUsed = 721271
 let currentGasUsed = 0
 
 beforeEach(async () => {
@@ -31,15 +32,24 @@ after(() => {
 describe('Gas Golf', () => {
   it('taking a swing', async () => {
     // User signs Terms of Service
-    const messageHash = await contracts.accessControl.getMessageHash(
+    const message = await contracts.accessControl.getMessage(
       roles.consumerAddress,
       roles.consumerAddress,
     )
     const wallet = new ethers.Wallet(accessControlMockPrivateKey)
-    const proof = await wallet.signMessage(ethers.utils.arrayify(messageHash))
+    const flatSignature = await wallet.signMessage(
+      ethers.utils.arrayify(message),
+    )
+    const { r, s, v } = ethers.utils.splitSignature(flatSignature)
     const acceptTermsOfServiceTx = await contracts.accessControl
       .connect(roles.consumer)
-      .acceptTermsOfService(roles.consumerAddress, roles.consumerAddress, proof)
+      .acceptTermsOfService(
+        roles.consumerAddress,
+        roles.consumerAddress,
+        r,
+        s,
+        v,
+      )
     const { gasUsed: acceptTermsOfServiceGasUsed } =
       await acceptTermsOfServiceTx.wait()
 
@@ -77,13 +87,20 @@ describe('Gas Golf', () => {
     )
     const { gasUsed: requestTxGasUsed, events } = await requestTx.wait()
     const requestId = getEventArg(events, 'RequestSent', 0)
-
+    const oracleRequestEvent = await contracts.coordinator.queryFilter(
+      contracts.coordinator.filters.OracleRequest(),
+    )
     // DON's transmitter submits a response
     const response = stringToBytes('woah, thats fancy')
     const error = stringToBytes('')
-    const report = ethers.utils.defaultAbiCoder.encode(
-      ['bytes32[]', 'bytes[]', 'bytes[]'],
-      [[ethers.utils.hexZeroPad(requestId, 32)], [response], [error]],
+    const onchainMetadata = oracleRequestEvent[0].args?.['commitment']
+    const offchainMetadata = stringToBytes('')
+    const report = await encodeReport(
+      ethers.utils.hexZeroPad(requestId, 32),
+      response,
+      error,
+      onchainMetadata,
+      offchainMetadata,
     )
     const fulfillmentTx = await contracts.coordinator.callReport(report)
     const { gasUsed: fulfillmentTxGasUsed } = await fulfillmentTx.wait()
