@@ -35,6 +35,7 @@ type Geth struct {
 	InternalWsUrl    string
 	EthClient        *blockchain.EthereumClient
 	ContractDeployer contracts.ContractDeployer
+	ContractLoader   contracts.ContractLoader
 }
 
 func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
@@ -109,6 +110,11 @@ func (g *Geth) StartContainer() error {
 		return err
 	}
 	g.ContractDeployer = cd
+	cl, err := contracts.NewContractLoader(bc)
+	if err != nil {
+		return err
+	}
+	g.ContractLoader = cl
 
 	log.Info().Str("containerName", g.ContainerName).
 		Str("internalHttpUrl", g.InternalHttpUrl).
