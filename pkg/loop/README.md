@@ -60,25 +60,58 @@ sequenceDiagram
     participant median as Median (plugin)
 
     Note over core: KeystoreServer
-    core->>+relayer: NewRelayer
+    core->>+relayer: NewRelayer(Config, Keystore)
     Note over relayer: KeystoreClient
     Note over relayer: RelayerServer
     relayer->>-core: Relayer ID 
     Note over core: RelayerClient
 
-    core->>+relayer: NewMedianProvider
+    core->>+relayer: NewMedianProvider(RelayArgs, PluginArgs)
     Note over relayer: MedianProviderServer
     relayer->>-core: MedianProvider ID
-    Note over core: GRPC Proxy
-    core->>+median: NewMedianFactory
+    Note over core: MedianProvider (Proxy)
+
+    Note over core:  DataSourceServer
+    Note over core:  ErrorLogServer
+
+    core->>+median: NewMedianFactory(MedianProvider, DataSource, ErrorLog)
     Note over median: MedianProviderClient
+    Note over median: DataSourceClient
+    Note over median: ErrorLogClient
     Note over median: MedianFactoryServer
     median->>-core: MedianFactory ID
     Note over core: MedianFactoryClient
 
-
-    core->>+median: NewReportingPlugin
+    core->>+median: NewReportingPlugin(ReportingPluginConfig)
     Note over median: ReportingPluginServer
     median->>-core: ReportingPlugin ID
     Note over core: ReportingPluginClient
+```
+Note: MedianProvider includes multiple component services on the same connection.
+```mermaid
+sequenceDiagram
+    autonumber
+    participant relayer as Relayer (plugin)
+    participant core as Chainlink (host)
+    participant median as Median (plugin)
+
+    core->>+relayer: NewMedianProvider(RelayArgs, PluginArgs)
+    Note over relayer: OffchainConfigDigesterServer
+    Note over relayer: ContractConfigTrackerServer
+    Note over relayer: ContractTransmitterServer
+    Note over relayer: ReportCodecServer
+    Note over relayer: MedianContractServer
+    Note over relayer: OnchainConfigCodecServer
+    
+    relayer->>-core: MedianProvider ID
+    Note over core: MedianProvider (Proxy)
+    
+    Note over core: OffchainConfigDigesterClient
+    Note over core: ContractConfigTrackerClient
+    Note over core: ContractTransmitterClient
+    
+    core->>+median: NewMedianFactory(MedianProvider, DataSource, ErrorLog)
+    Note over median: ReportCodecClient
+    Note over median: MedianContractClient
+    Note over median: OnchainConfigCodecClient
 ```
