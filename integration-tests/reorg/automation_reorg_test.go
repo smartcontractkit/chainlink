@@ -178,7 +178,7 @@ func TestAutomationReorg(t *testing.T) {
 		chainClient,
 	)
 
-	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
+	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, ethereum.RegistryVersion_2_0)
 	nodesWithoutBootstrap := chainlinkNodes[1:]
 	ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
 	require.NoError(t, err, "OCR2 config should be built successfully")

@@ -64,11 +64,13 @@ core/services/ocr2/plugins/functions @bolekk @justinkaseman @KuphJr @pinebit
 /contracts/**/*Upkeep* @smartcontractkit/keepers
 /contracts/**/*Functions* @bolekk @justinkaseman @KuphJr @pinebit
 /contracts/src/v0.8/functions @bolekk @justinkaseman @KuphJr @pinebit
+/contracts/src/v0.8/llo-feeds @austinborn @Fletch153
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
+
 
 # CI/CD
 /.github/** @chainchad @javuto @jkongie @jmank88 @samsondav

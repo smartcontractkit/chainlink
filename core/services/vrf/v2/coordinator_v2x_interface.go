@@ -587,7 +587,6 @@ var (
 type RandomWordsFulfilled interface {
 	RequestID() *big.Int
 	Success() bool
-	NativePayment() bool
 	SubID() *big.Int
 	Payment() *big.Int
 	Raw() types.Log
@@ -647,14 +646,6 @@ func (rwf *v2PlusRandomWordsFulfilled) RequestID() *big.Int {
 
 func (rwf *v2PlusRandomWordsFulfilled) Success() bool {
 	return rwf.event.Success
-}
-
-func (rwf *v2PlusRandomWordsFulfilled) NativePayment() bool {
-	nativePayment, err := extraargs.FromExtraArgsV1(rwf.event.ExtraArgs)
-	if err != nil {
-		panic(err)
-	}
-	return nativePayment
 }
 
 func (rwf *v2PlusRandomWordsFulfilled) SubID() *big.Int {

@@ -12,11 +12,11 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_exposed_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/exposed_verifier"
 )
 
 func makeConfigDigestArgs() abi.Arguments {
-	abi, err := abi.JSON(strings.NewReader(mercury_exposed_verifier.MercuryExposedVerifierABI))
+	abi, err := abi.JSON(strings.NewReader(exposed_verifier.ExposedVerifierABI))
 	if err != nil {
 		// assertion
 		panic(fmt.Sprintf("could not parse aggregator ABI: %s", err.Error()))
