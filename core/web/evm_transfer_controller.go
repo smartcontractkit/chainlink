@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"math/big"
 	"net/http"
 
@@ -104,11 +105,14 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 		return errors.Wrap(err, "failed to estimate gas")
 	}
 
-	// TODO: support EIP-1559 transactions
-	if fees.Legacy == nil {
-		return errors.New("estimator did not return legacy tx fee estimates")
+	var gasPrice *assets.Wei
+	if fees.Legacy != nil {
+		gasPrice = fees.Legacy
+	} else if fees.Legacy == nil && fees.DynamicFeeCap != nil && fees.DynamicTipCap != nil {
+		gasPrice = fees.DynamicFeeCap.Add(fees.DynamicTipCap)
+	} else {
+		return fmt.Errorf("estimator did not return valid fee estimates: %s", fees.String())
 	}
-	gasPrice := fees.Legacy
 
 	// Creating a `Big` struct to avoid having a mutation on `tr.Amount` and hence affecting the value stored in the DB
 	amountAsBig := utils.NewBig(amount.ToInt())
