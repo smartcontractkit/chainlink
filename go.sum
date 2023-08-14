@@ -812,10 +812,6 @@ github.com/jbenet/goprocess v0.1.4 h1:DRGOFReOMqqDNXwW70QkacFW0YN9QnwLV0Vqk+3oU0
 github.com/jbenet/goprocess v0.1.4/go.mod h1:5yspPrukOVuOLORacaBi858NqyClJPQxYZlqdZVfqY4=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jhump/protoreflect v1.15.1 h1:HUMERORf3I3ZdX05WaQ6MIpd/NJ434hTp5YiKgfCL6c=
-github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75 h1:KYTOmcwuezD27O7vNF15lj8H7imCBMXCq1RzCdj4e3A=
-github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75/go.mod h1:6/1TEzT0eQznvI/gV2CM29DLSkAK/e58mUWKVsPaph0=
-github.com/jmank88/grpc-proxy v0.0.0-20230731114312-86ed94c93231 h1:CAa5/6QLk2AAgTlqMPfPRkf0ebjtPYoJFhTqe7zJaXs=
-github.com/jmank88/grpc-proxy v0.0.0-20230731114312-86ed94c93231/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
 github.com/jmhodges/levigo v1.0.0 h1:q5EC36kV79HWeTBWsod3mG11EgStG3qArTKcvlksN1U=
@@ -1447,6 +1443,10 @@ github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a8
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a85/go.mod h1:H3/j2l84FsxYevCLNERdVasI7FVr+t2mkpv+BCJLSVw=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a h1:b3rjvZLpTV45TmCV+ALX+EDDslf91pnDUugP54Lu9FA=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a/go.mod h1:LL+FLf10gOUHrF3aUsRGEZlT/w8DaW5T/eEo/54W68c=
+github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472 h1:x3kNwgFlDmbE/n0gTSRMt9GBDfsfGrs4X9b9arPZtFI=
+github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472/go.mod h1:6/1TEzT0eQznvI/gV2CM29DLSkAK/e58mUWKVsPaph0=
+github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJif132UCdjo8u43i7iPN1/MFnu49hv7lFGFftCHKU=
+github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
 github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829 h1:fzefK1SzoRSHzZduOCzIJ2kmkBMPKwIf3FgeBlw7Jjk=
 github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
 github.com/smartcontractkit/ocr2keepers v0.7.8 h1:Z7fSsbWj/9K0CNPN057jrfoEaPOi23B76YsOxxxmXjU=

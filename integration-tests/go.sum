@@ -1522,10 +1522,6 @@ github.com/jbenet/goprocess v0.1.4 h1:DRGOFReOMqqDNXwW70QkacFW0YN9QnwLV0Vqk+3oU0
 github.com/jbenet/goprocess v0.1.4/go.mod h1:5yspPrukOVuOLORacaBi858NqyClJPQxYZlqdZVfqY4=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jhump/protoreflect v1.15.1 h1:HUMERORf3I3ZdX05WaQ6MIpd/NJ434hTp5YiKgfCL6c=
-github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75 h1:KYTOmcwuezD27O7vNF15lj8H7imCBMXCq1RzCdj4e3A=
-github.com/jmank88/go-plugin v0.0.0-20230604120638-7bb12ec27e75/go.mod h1:6/1TEzT0eQznvI/gV2CM29DLSkAK/e58mUWKVsPaph0=
-github.com/jmank88/grpc-proxy v0.0.0-20230731114312-86ed94c93231 h1:CAa5/6QLk2AAgTlqMPfPRkf0ebjtPYoJFhTqe7zJaXs=
-github.com/jmank88/grpc-proxy v0.0.0-20230731114312-86ed94c93231/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
 github.com/jmespath/go-jmespath v0.4.0/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
@@ -2167,8 +2163,8 @@ github.com/prometheus/prometheus v0.43.1-0.20230327151049-211ae4f1f0a2/go.mod h1
 github.com/prometheus/tsdb v0.7.1/go.mod h1:qhTCs0VvXwvX/y3TZrWD7rabWM+ijKTux40TwIPHuXU=
 github.com/pyroscope-io/client v0.7.1 h1:yFRhj3vbgjBxehvxQmedmUWJQ4CAfCHhn+itPsuWsHw=
 github.com/pyroscope-io/client v0.7.1/go.mod h1:4h21iOU4pUOq0prKyDlvYRL+SCKsBc5wKiEtV+rJGqU=
-github.com/pyroscope-io/godeltaprof v0.1.0 h1:UBqtjt0yZi4jTxqZmLAs34XG6ycS3vUTlhEUSq4NHLE=
-github.com/pyroscope-io/godeltaprof v0.1.0/go.mod h1:psMITXp90+8pFenXkKIpNhrfmI9saQnPbba27VIaiQE=
+github.com/pyroscope-io/godeltaprof v0.1.2 h1:MdlEmYELd5w+lvIzmZvXGNMVzW2Qc9jDMuJaPOR75g4=
+github.com/pyroscope-io/godeltaprof v0.1.2/go.mod h1:psMITXp90+8pFenXkKIpNhrfmI9saQnPbba27VIaiQE=
 github.com/rakyll/statik v0.1.7 h1:OF3QCZUuyPxuGEP7B4ypUa7sB/iHtqOTDYZXGM8KOdQ=
 github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 h1:N/ElC8H3+5XpJzTSTfLsJV/mx9Q9g7kxmchpfZyxgzM=
 github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475/go.mod h1:bCqnVzQkZxMG4s8nGwiZ5l3QUCyqpo9Y+/ZMZ9VjZe4=
@@ -2253,6 +2249,10 @@ github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.202308
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a/go.mod h1:LL+FLf10gOUHrF3aUsRGEZlT/w8DaW5T/eEo/54W68c=
 github.com/smartcontractkit/chainlink-testing-framework v1.15.2 h1:WhZvHHz104RKC9u5u+zHeP4YwyyFVG3bW0DVRSe4FnE=
 github.com/smartcontractkit/chainlink-testing-framework v1.15.2/go.mod h1:WxEBntXbe20FgTZllV5fo4fKLd0TM8NfYdWkX5kt6Mg=
+github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472 h1:x3kNwgFlDmbE/n0gTSRMt9GBDfsfGrs4X9b9arPZtFI=
+github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472/go.mod h1:6/1TEzT0eQznvI/gV2CM29DLSkAK/e58mUWKVsPaph0=
+github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJif132UCdjo8u43i7iPN1/MFnu49hv7lFGFftCHKU=
+github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
 github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829 h1:fzefK1SzoRSHzZduOCzIJ2kmkBMPKwIf3FgeBlw7Jjk=
 github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
 github.com/smartcontractkit/ocr2keepers v0.7.8 h1:Z7fSsbWj/9K0CNPN057jrfoEaPOi23B76YsOxxxmXjU=
@@ -2265,8 +2265,8 @@ github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230808152300-
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230808152300-d34f9201db27/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230808152300-d34f9201db27 h1:azEVb1iB0gClMoakc3DMlWXM6j/hgzH2gWUCB8H16VA=
 github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230808152300-d34f9201db27/go.mod h1:G5Sd/yzHWf26rQ+X0nG9E0buKPqRGPMJAfk2gwCzOOw=
-github.com/smartcontractkit/wasp v0.2.7 h1:9SZ1grPvoNDpxCcQgQi917ifXrjt5JhV/J978HkD0d4=
-github.com/smartcontractkit/wasp v0.2.7/go.mod h1:gS2oenc6VEGfewgeqDpVFOSrCZIZX10rVl1PAo+vsxc=
+github.com/smartcontractkit/wasp v0.2.9 h1:gIKuhRjdqQCj61OrdxqKZ2vAuXxs+PlibygYkFlP4l8=
+github.com/smartcontractkit/wasp v0.2.9/go.mod h1:skquNdMbKxIrHi5O8Kyukf66AaaXuEpEEaSTxfHbhak=
 github.com/smartcontractkit/wsrpc v0.7.2 h1:iBXzMeg7vc5YoezIQBq896y25BARw7OKbhrb6vPbtRQ=
 github.com/smartcontractkit/wsrpc v0.7.2/go.mod h1:sj7QX2NQibhkhxTfs3KOhAj/5xwgqMipTvJVSssT9i0=
 github.com/smartystreets/assertions v0.0.0-20180927180507-b2de0cb4f26d/go.mod h1:OnSkiWE9lh6wB0YB77sQom3nweQdgAjqCqsofrRNTgc=
