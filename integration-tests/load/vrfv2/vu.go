@@ -67,6 +67,7 @@ func (m *JobVolumeVU) Teardown(_ *wasp.Generator) error {
 
 func (m *JobVolumeVU) Call(l *wasp.Generator) {
 	time.Sleep(m.pace)
+	tn := time.Now()
 	err := m.contracts.LoadTestConsumer.RequestRandomness(
 		m.keyHash,
 		vrfConst.SubID,
@@ -76,10 +77,10 @@ func (m *JobVolumeVU) Call(l *wasp.Generator) {
 		vrfConst.RandomnessRequestCountPerRequest,
 	)
 	if err != nil {
-		l.ResponsesChan <- &wasp.CallResult{Error: err.Error(), Failed: true}
+		l.ResponsesChan <- &wasp.CallResult{Duration: time.Since(tn), Error: err.Error(), Failed: true}
 		return
 	}
-	l.ResponsesChan <- &wasp.CallResult{}
+	l.ResponsesChan <- &wasp.CallResult{Duration: time.Since(tn)}
 }
 
 func (m *JobVolumeVU) Stop(_ *wasp.Generator) {
