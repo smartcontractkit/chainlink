@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"fmt"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
@@ -26,18 +27,17 @@ func NewPayloadBuilder(lggr logger.Logger, cl client.Client) *payloadBuilder {
 
 func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedBlockProposal) ([]ocr2keepers.UpkeepPayload, error) {
 	payloads := make([]ocr2keepers.UpkeepPayload, len(proposals))
+	block, err := b.latestBlock(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get latest block: %w", err)
+	}
+
 	for i, p := range proposals {
 		var checkData []byte
 		switch core.GetUpkeepType(p.UpkeepID) {
 		case ocr2keepers.LogTrigger:
 			checkData = []byte{} // TODO: call recoverer
 		case ocr2keepers.ConditionTrigger:
-			block, err := b.latestBlock(ctx)
-			if err != nil {
-				b.lggr.Warnw("failed to get latest block", "err", err, "upkeepID", p.UpkeepID)
-				payloads[i] = ocr2keepers.UpkeepPayload{}
-				continue
-			}
 			p.Trigger.BlockNumber = block.Number
 			p.Trigger.BlockHash = block.Hash
 		default:
