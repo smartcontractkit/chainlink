@@ -24,7 +24,7 @@ const (
 	_         FeedIDPrefix = 0xFFFF // reserved for future use
 )
 
-func decodeSchemaVersionFromFeedId(feedID [32]byte) (FeedIDPrefix, error) {
+func DecodeSchemaVersionFromFeedId(feedID [32]byte) (FeedIDPrefix, error) {
 	schemaVersion := FeedIDPrefix(binary.BigEndian.Uint16(feedID[:2]))
 	if schemaVersion != REPORT_V1 && schemaVersion != REPORT_V2 && schemaVersion != REPORT_V3 {
 		return 0, errors.Errorf("invalid schema version: %d", schemaVersion)
@@ -56,7 +56,7 @@ func NewReportDecoder(report ocrtypes.Report, lggr logger.Logger) (ReportDecoder
 		return &reportDecoder{}, errors.Errorf("invalid length for report: %d", len(report))
 	}
 
-	schemaVersion, err := decodeSchemaVersionFromFeedId(feedId)
+	schemaVersion, err := DecodeSchemaVersionFromFeedId(feedId)
 	if err != nil {
 		return nil, err
 	}

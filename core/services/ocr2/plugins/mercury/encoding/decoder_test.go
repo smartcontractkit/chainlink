@@ -55,7 +55,7 @@ func Test_DecodeSchemaVersionFromFeedId(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := decodeSchemaVersionFromFeedId(test.feedID)
+			got, err := DecodeSchemaVersionFromFeedId(test.feedID)
 			if (err != nil) != test.wantErr {
 				t.Errorf("DecodeSchemaVersionFromFeedId() error = %v, wantErr %v", err, test.wantErr)
 				return
