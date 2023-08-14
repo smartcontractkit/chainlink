@@ -59,6 +59,9 @@ func ValidatePluginConfig(config PluginConfig, feedId [32]byte) (merr error) {
 	} else {
 		switch reportSchemaVersion {
 		case 1:
+			if !config.InitialBlockNumber.Valid {
+				merr = errors.Join(merr, errors.New("initialBlockNumber must be specified for v1 jobs"))
+			}
 			if config.LinkFeedID != nil {
 				merr = errors.Join(merr, errors.New("linkFeedID may not be specified for v1 jobs"))
 			}
@@ -71,6 +74,9 @@ func ValidatePluginConfig(config PluginConfig, feedId [32]byte) (merr error) {
 			}
 			if config.NativeFeedID == nil {
 				merr = errors.Join(merr, fmt.Errorf("nativeFeedID must be specified for v%d jobs", reportSchemaVersion))
+			}
+			if config.InitialBlockNumber.Valid {
+				merr = errors.Join(merr, fmt.Errorf("initialBlockNumber may not be specified for v%d jobs", reportSchemaVersion))
 			}
 		default:
 			merr = errors.Join(merr, fmt.Errorf("got unsupported schema version %d; supported versions are 1,2,3", reportSchemaVersion))

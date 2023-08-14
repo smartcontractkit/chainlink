@@ -293,10 +293,11 @@ observationSource = """
 [pluginConfig]
 serverURL = "%[8]s"
 serverPubKey = "%[9]x"
+initialBlockNumber = %[13]d
 
 [relayConfig]
 chainID = %[12]d
-fromBlock = %[13]d
+
 		`,
 		i,
 		verifierAddress,

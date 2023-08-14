@@ -56,6 +56,8 @@ func NewServices(
 	}
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
+	lggr.Infof("BLOBLO: %v", pluginConfig)
+
 	version, err := decoder.DecodeSchemaVersionFromFeedId(feedID)
 	if err != nil {
 		return nil, errors.WithStack(err)
