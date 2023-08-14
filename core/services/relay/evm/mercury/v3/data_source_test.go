@@ -153,7 +153,6 @@ func Test_Datasource(t *testing.T) {
 					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, linkFeedId, nativeFeedId
 				})
 
-				var feedId types.FeedID = [32]byte{1}
 				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, feedId, feedId
 
 				fetcher.ts = 123123

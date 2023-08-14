@@ -106,6 +106,6 @@ func (d *reportDecoder) DecodeAsV3() (*mercuryv3.Report, error) {
 	return reportCodec.Decode(d.report)
 }
 
-func (rd *reportDecoder) GetSchemaVersion() uint16 {
-	return rd.schemaVersion
+func (d *reportDecoder) GetSchemaVersion() uint16 {
+	return d.schemaVersion
 }

@@ -216,7 +216,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 				require.NoError(t, err)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
-				resp := fmt.Sprintf(`{"error": "pError test error"}`)
+				resp := `{"error": "pError test error"}`
 				_, err := res.Write([]byte(resp))
 				require.NoError(t, err)
 			}
@@ -562,7 +562,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 				require.NoError(t, err)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
-				resp := fmt.Sprintf(`{"error": "pError test error"}`)
+				resp := `{"error": "pError test error"}`
 				_, err := res.Write([]byte(resp))
 				require.NoError(t, err)
 			}
@@ -834,7 +834,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 				require.NoError(t, err)
 			} else {
 				res.WriteHeader(http.StatusInternalServerError)
-				resp := fmt.Sprintf(`{"error": "pError test error"}`)
+				resp := `{"error": "pError test error"}`
 				_, err := res.Write([]byte(resp))
 				require.NoError(t, err)
 			}

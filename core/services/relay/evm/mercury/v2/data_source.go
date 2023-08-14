@@ -49,7 +49,7 @@ type datasource struct {
 
 var _ relaymercuryv2.DataSource = &datasource{}
 
-var maxInt192 *big.Int = new(big.Int).Exp(big.NewInt(2), big.NewInt(191), nil)
+var maxInt192 = new(big.Int).Exp(big.NewInt(2), big.NewInt(191), nil)
 
 func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID types.FeedID, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID types.FeedID) *datasource {
 	return &datasource{pr, jb, spec, feedID, lggr, rr, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
