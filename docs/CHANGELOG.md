@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Added the ability to specify and merge fields from multiple secrets files. Overrides of fields and keys are not allowed.
+- Added new database table `evm_upkeep_state` to persist eligibility state for recently checked upkeeps.
 
 ### Upcoming Breaking Change
 - Starting in 2.5.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:
