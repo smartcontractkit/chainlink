@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"golang.org/x/exp/maps"
 )
 
 type ChainsKV[T ChainService] struct {
@@ -68,11 +70,7 @@ func (c *ChainsKV[T]) List(ids ...string) ([]T, error) {
 }
 
 func (c *ChainsKV[T]) Slice() []T {
-	var result []T
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for _, chn := range c.chains {
-		result = append(result, chn)
-	}
-	return result
+	return maps.Values(c.chains)
 }

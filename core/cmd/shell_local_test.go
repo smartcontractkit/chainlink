@@ -54,22 +54,6 @@ func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmr
 	if err != nil {
 		t.Fatal(err)
 	}
-	/*
-		legacyChains := cltest.NewLegacyChainsWithMockChain(t, evmtest.NewEthClientMock(t), opts.GeneralConfig)
-		rly := evmrelayer.NewRelayer(opts.DB, legacyChains, opts.GeneralConfig.Database(), opts.Logger, ks, pg.NewNullEventBroadcaster())
-
-		require.NoError(t, opts.GeneralConfig.Validate(), "invalid config")
-
-		exts, err := evmrelayer.NewChainRelayerExtenders(testutils.Context(t), opts)
-		require.NoError(t, err)
-		require.Equal(t, exts.Len(), 1)
-		ext := exts.Slice()[0]
-
-		adapter := evmrelayer.NewLoopRelayAdapter(rly, ext)
-		rid := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
-		err = relayers.Put(rid, adapter)
-		require.NoError(t, err)
-	*/
 	return relayers
 
 }

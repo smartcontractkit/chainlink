@@ -143,7 +143,7 @@ func (e errChainDisabled) Error() string {
 }
 
 // TODO BCF-2509 what is this and does it need the entire app config?
-type GeneralConfig interface {
+type AppConfig interface {
 	config.AppConfig
 	toml.HasEVMConfigs
 }
@@ -160,7 +160,7 @@ type ChainRelayExtenderConfig struct {
 // the factory wants to own the logger and db
 // the factory creates extenders, which need the same and more opts
 type RelayerConfig struct {
-	GeneralConfig GeneralConfig
+	GeneralConfig AppConfig
 
 	EventBroadcaster   pg.EventBroadcaster
 	MailMon            *utils.MailboxMonitor

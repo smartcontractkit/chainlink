@@ -423,7 +423,7 @@ func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
 }
 
-func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg evm.GeneralConfig) evm.LegacyChainContainer {
+func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg evm.AppConfig) evm.LegacyChainContainer {
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
 	ch.On("Logger").Return(logger.TestLogger(t))
@@ -435,7 +435,7 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 
 }
 
-func NewLegacyChainsWithChain(t testing.TB, ch evm.Chain, cfg evm.GeneralConfig) evm.LegacyChainContainer {
+func NewLegacyChainsWithChain(t testing.TB, ch evm.Chain, cfg evm.AppConfig) evm.LegacyChainContainer {
 	chainNodeConfig := chains.NewConfigs[utils.Big, evmtypes.Node](cfg.EVMConfigs())
 	legacyChains := evm.NewLegacyChains(chainNodeConfig)
 	legacyChains.Put(ch.ID().String(), ch)

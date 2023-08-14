@@ -44,7 +44,6 @@ type RelayerChainInteroperators interface {
 // retrieving [loop.Relayer]
 type LoopRelayerStorer interface {
 	ocr2.RelayGetter
-	Put(id relay.Identifier, r loop.Relayer) error
 	Slice() []loop.Relayer
 }
 
@@ -90,9 +89,7 @@ func NewCoreRelayerChainInteroperators(initFuncs ...CoreRelayerChainInitFunc) (*
 	return cr, nil
 }
 
-//	CoreRelayerChainInitFunc is a hook in the constructor to create relayers from a factory.
-//
-// It is a convenience upon construction rather than using the Put API
+// CoreRelayerChainInitFunc is a hook in the constructor to create relayers from a factory.
 type CoreRelayerChainInitFunc func(op *CoreRelayerChainInteroperators) error
 
 // InitEVM is a option for instantiating evm relayers
@@ -104,7 +101,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 			return fmt.Errorf("failed to setup EVM relayer: %w", err2)
 		}
 		for id, a := range adapters {
-			err2 := op.Put(id, a)
+			err2 := op.put(id, a)
 			if err2 != nil {
 				err = multierror.Append(err, err2)
 			}
@@ -122,7 +119,7 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 			return fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
 		}
 		for id, a := range adapters {
-			err2 := op.Put(id, a)
+			err2 := op.put(id, a)
 			if err2 != nil {
 				err = multierror.Append(err, err2)
 			}
@@ -172,6 +169,7 @@ func (rs *CoreRelayerChainInteroperators) Get(id relay.Identifier) (loop.Relayer
 	return lr, nil
 }
 
+// unsafe for concurrency. see [put]
 func (rs *CoreRelayerChainInteroperators) putOne(id relay.Identifier, lr loop.Relayer) error {
 
 	// backward compatibility. this is bit gross to type cast but it hides the details from products.
@@ -207,7 +205,8 @@ func (rs *CoreRelayerChainInteroperators) putOne(id relay.Identifier, lr loop.Re
 	return nil
 }
 
-func (rs *CoreRelayerChainInteroperators) Put(id relay.Identifier, lr loop.Relayer) error {
+// concurrency safe
+func (rs *CoreRelayerChainInteroperators) put(id relay.Identifier, lr loop.Relayer) error {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	return rs.putOne(id, lr)
