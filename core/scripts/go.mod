@@ -30,7 +30,7 @@ require (
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a // indirect
 	github.com/smartcontractkit/chainlink-testing-framework v1.14.0 // indirect
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20230801012654-c3ae941bed3c
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/chainlink/v2 v2.3.0
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0

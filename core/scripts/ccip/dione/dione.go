@@ -58,8 +58,8 @@ type NodeConfig struct {
 }
 
 type DON struct {
-	Nodes     []*client.Chainlink
-	bootstrap *client.Chainlink
+	Nodes     []*client.ChainlinkClient
+	bootstrap *client.ChainlinkClient
 	OfflineDON
 }
 
@@ -84,7 +84,7 @@ func (don *DON) PopulateOCR2Keys() {
 	}
 }
 
-func createKey(c *client.Chainlink, chain string) (*http.Response, error) {
+func createKey(c *client.ChainlinkClient, chain string) (*http.Response, error) {
 	createUrl := url.URL{
 		Path: "/v2/keys/evm",
 	}
@@ -100,7 +100,7 @@ func createKey(c *client.Chainlink, chain string) (*http.Response, error) {
 	return resp.RawResponse, nil
 }
 
-func deleteKnownETHKey(node *client.Chainlink, key string) (*http.Response, error) {
+func deleteKnownETHKey(node *client.ChainlinkClient, key string) (*http.Response, error) {
 	deleteUrl := url.URL{
 		Path: "/v2/keys/evm/" + key,
 	}
@@ -184,7 +184,7 @@ func (don *DON) clearJobSpecsByName(jobToDelete string) {
 	for i, n := range don.Nodes {
 		wg.Add(1)
 
-		go func(node *client.Chainlink, index int) {
+		go func(node *client.ChainlinkClient, index int) {
 			defer wg.Done()
 			jobs, _, err := node.ReadJobs()
 			common.PanicErr(err)
@@ -212,7 +212,7 @@ func (don *DON) NukeEverything() {
 	for i, n := range don.Nodes {
 		nde := n
 		wg.Add(1)
-		go func(node *client.Chainlink, index int) {
+		go func(node *client.ChainlinkClient, index int) {
 			defer wg.Done()
 			jobs, http, err := node.ReadJobs()
 			common.PanicErr(err)
@@ -381,7 +381,7 @@ func (don *DON) AddJobSpec(spec *client.OCR2TaskJobSpec) {
 	for i, n := range don.Nodes {
 		nde := n
 		wg.Add(1)
-		go func(node *client.Chainlink, index int) {
+		go func(node *client.ChainlinkClient, index int) {
 			defer wg.Done()
 			don.AddSingleJob(node, spec, index)
 		}(nde, i)
@@ -389,7 +389,7 @@ func (don *DON) AddJobSpec(spec *client.OCR2TaskJobSpec) {
 	wg.Wait()
 }
 
-func (don *DON) AddSingleJob(node *client.Chainlink, spec *client.OCR2TaskJobSpec, nodeIndex int) {
+func (don *DON) AddSingleJob(node *client.ChainlinkClient, spec *client.OCR2TaskJobSpec, nodeIndex int) {
 	chainID := spec.OCR2OracleSpec.RelayConfig["chainID"].(uint64)
 	evmKeyBundle := GetOCRkeysForChainType(don.Config.Nodes[nodeIndex].OCRKeys, "evm")
 	transmitterIDs := don.Config.Nodes[nodeIndex].EthKeys

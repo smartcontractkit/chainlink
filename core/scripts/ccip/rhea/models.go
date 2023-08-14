@@ -102,8 +102,8 @@ const (
 	WETH       Token = "WETH"
 	WAVAX      Token = "WAVAX"
 	WMATIC     Token = "WMATIC"
+	WBNB       Token = "WBNB"
 	CACHEGOLD  Token = "CACHE.gold"
-	ANZ        Token = "ANZ"
 	InsurAce   Token = "InsurAce"
 	ZUSD       Token = "zUSD"
 	STEADY     Token = "STEADY"
@@ -113,11 +113,22 @@ const (
 	SNXUSD     Token = "snxUSD"
 	FUGAZIUSDC Token = "FugaziUSDCToken"
 	Alongside  Token = "Alongside"
+	CCIP_BnM   Token = "CCIP-BnM"
+	CCIP_LnM   Token = "clCCIP-LnM"
+	A_DC       Token = "A$DC"
+	NZ_DC      Token = "NZ$DC"
+	SG_DC      Token = "SG$DC"
+	BetSwirl   Token = "BETS"
 )
 
 func GetAllTokens() []Token {
 	return []Token{
-		LINK, WETH, WAVAX, WMATIC, CACHEGOLD, ANZ, InsurAce, ZUSD, STEADY, SUPER, BondToken, BankToken, SNXUSD, FUGAZIUSDC, Alongside,
+		LINK, WETH, WAVAX, WBNB,
+		WMATIC, CACHEGOLD,
+		InsurAce, ZUSD, STEADY,
+		SUPER, BondToken, BankToken,
+		SNXUSD, FUGAZIUSDC, Alongside,
+		CCIP_BnM, CCIP_LnM, A_DC, NZ_DC, SG_DC, BetSwirl,
 	}
 }
 
@@ -126,8 +137,8 @@ var tokenSymbols = map[Token]string{
 	WETH:       "wETH",
 	WAVAX:      "wAVAX",
 	WMATIC:     "wMATIC",
+	WBNB:       "wBNB",
 	CACHEGOLD:  "CGT",
-	ANZ:        "A$DC",
 	InsurAce:   "INSUR",
 	ZUSD:       "zUSD",
 	STEADY:     "Steadefi",
@@ -137,6 +148,12 @@ var tokenSymbols = map[Token]string{
 	SNXUSD:     "snxUSD",
 	FUGAZIUSDC: "FUGAZIUSDC",
 	Alongside:  "AMKT",
+	CCIP_BnM:   "CCIP-BnM",
+	CCIP_LnM:   "clCCIP-LnM",
+	A_DC:       "A$DC",
+	NZ_DC:      "NZ$DC",
+	SG_DC:      "SG$DC",
+	BetSwirl:   "BETS",
 }
 
 func (token Token) Symbol() string {
@@ -148,8 +165,8 @@ var tokenDecimalMultiplier = map[Token]uint8{
 	WETH:       18,
 	WAVAX:      18,
 	WMATIC:     18,
+	WBNB:       18,
 	CACHEGOLD:  8,
-	ANZ:        6,
 	InsurAce:   18,
 	ZUSD:       18,
 	STEADY:     18,
@@ -159,6 +176,12 @@ var tokenDecimalMultiplier = map[Token]uint8{
 	SNXUSD:     18,
 	FUGAZIUSDC: 6,
 	Alongside:  18,
+	CCIP_BnM:   18,
+	CCIP_LnM:   18,
+	A_DC:       6,
+	NZ_DC:      6,
+	SG_DC:      6,
+	BetSwirl:   18,
 }
 
 func (token Token) Decimals() uint8 {
@@ -174,8 +197,8 @@ func (token Token) Price() *big.Int {
 		WETH:       big.NewFloat(1800),
 		WAVAX:      big.NewFloat(15),
 		WMATIC:     big.NewFloat(0.85),
+		WBNB:       big.NewFloat(200),
 		CACHEGOLD:  big.NewFloat(60),
-		ANZ:        big.NewFloat(1),
 		InsurAce:   big.NewFloat(0.08),
 		ZUSD:       big.NewFloat(1),
 		STEADY:     big.NewFloat(1),
@@ -185,6 +208,12 @@ func (token Token) Price() *big.Int {
 		SNXUSD:     big.NewFloat(1),
 		FUGAZIUSDC: big.NewFloat(1),
 		Alongside:  big.NewFloat(1),
+		CCIP_BnM:   big.NewFloat(0.0000000001),
+		CCIP_LnM:   big.NewFloat(0.0000000001),
+		A_DC:       big.NewFloat(1),
+		NZ_DC:      big.NewFloat(1),
+		SG_DC:      big.NewFloat(1),
+		BetSwirl:   big.NewFloat(1),
 	}
 
 	tokenValue := big.NewInt(0)
@@ -261,10 +290,9 @@ type PriceFeed struct {
 }
 
 type EVMLaneConfig struct {
-	OnRamp      gethcommon.Address
-	OffRamp     gethcommon.Address
-	CommitStore gethcommon.Address
-
+	OnRamp         gethcommon.Address
+	OffRamp        gethcommon.Address
+	CommitStore    gethcommon.Address
 	PingPongDapp   gethcommon.Address
 	DeploySettings LaneDeploySettings
 }
