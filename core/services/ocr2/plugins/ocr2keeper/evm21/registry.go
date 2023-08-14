@@ -42,10 +42,6 @@ const (
 	defaultAllowListExpiration = 20 * time.Minute
 	// cleanupInterval decides when the expired items in cache will be deleted.
 	cleanupInterval = 25 * time.Minute
-	// LookbackDepth decides valid trigger block lookback range
-	LookbackDepth = 1024
-	// BlockHistorySize decides the block history size
-	BlockHistorySize = 128
 	// validCheckBlockRange decides the max distance between the check block and the current block
 	validCheckBlockRange = 128
 )
@@ -673,7 +669,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
 		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
 		if state != NoPipelineError {
-			results[i] = getCheckResult(p, UpkeepFailureReasonNone, state, retryable)
+			results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, state, retryable)
 			continue
 		}
 
@@ -684,9 +680,9 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		uid.FromBigInt(upkeepId)
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
-			reason, retryable := r.verifyLogExists(upkeepId, p)
-			if reason != UpkeepFailureReasonNone {
-				results[i] = getCheckResult(p, reason, NoPipelineError, retryable)
+			reason, state, retryable := r.verifyLogExists(upkeepId, p)
+			if reason != UpkeepFailureReasonNone || state != NoPipelineError {
+				results[i] = getIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)
 				continue
 			}
 
@@ -695,7 +691,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack log trigger checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
-				results[i] = getCheckResult(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false)
+				results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false)
 				continue
 			}
 		default:
@@ -703,12 +699,12 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack conditional checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
-				results[i] = getCheckResult(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false)
+				results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false)
 				continue
 			}
 		}
 		indices[len(checkReqs)] = i
-		results[i] = getCheckResult(p, UpkeepFailureReasonNone, NoPipelineError, false)
+		results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, NoPipelineError, false)
 
 		var result string
 		checkReqs = append(checkReqs, rpc.BatchElem{
@@ -741,7 +737,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			// individual upkeep failed in a batch call, retryable
 			r.lggr.Warnf("error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
 			results[index].Retryable = true
-			results[index].PipelineExecutionState = RpcFlakyFailure
+			results[index].PipelineExecutionState = uint8(RpcFlakyFailure)
 		} else {
 			var err error
 			results[index], err = r.packer.UnpackCheckResult(payloads[index], *checkResults[i])
@@ -937,10 +933,11 @@ func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, err
 	return txr.BlockNumber, txr.BlockHash, nil
 }
 
-func getCheckResult(p ocr2keepers.UpkeepPayload, reason, state uint8, retryable bool) ocr2keepers.CheckResult {
+// getIneligibleCheckResultWithoutPerformData returns an ineligible check result with ineligibility reason and pipeline execution state but without perform data
+func getIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason UpkeepFailureReason, state PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
 	return ocr2keepers.CheckResult{
-		IneligibilityReason:    reason,
-		PipelineExecutionState: state,
+		IneligibilityReason:    uint8(reason),
+		PipelineExecutionState: uint8(state),
 		Retryable:              retryable,
 		UpkeepID:               p.UpkeepID,
 		Trigger:                p.Trigger,
@@ -951,7 +948,7 @@ func getCheckResult(p ocr2keepers.UpkeepPayload, reason, state uint8, retryable 
 }
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
-func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state uint8, retryable bool) {
+func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state PipelineExecutionState, retryable bool) {
 	// verify check block number is not too old
 	if r.bs.latestBlock.Load()-checkBlock.Int64() > validCheckBlockRange {
 		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
@@ -967,7 +964,7 @@ func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId
 		b, err := r.client.BlockByNumber(ctx, checkBlock)
 		if err != nil {
 			r.lggr.Warnf("failed to query block %s: %s", checkBlock, err.Error())
-			return CheckBlockInvalid, true
+			return RpcFlakyFailure, true
 		}
 		h = b.Hash().Hex()
 	}
@@ -978,8 +975,8 @@ func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId
 	return NoPipelineError, false
 }
 
-// verifyLogExists checks that the log still exists on chain, returns failure reason and retryable
-func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (uint8, bool) {
+// verifyLogExists checks that the log still exists on chain, returns failure reason, pipeline error, and retryable
+func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (UpkeepFailureReason, PipelineExecutionState, bool) {
 	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
 	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
 	// if log block number is populated, check log block number and block hash
@@ -987,7 +984,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 		h, ok := r.bs.queryBlocksMap(logBlockNumber)
 		if ok && h == logBlockHash.Hex() {
 			r.lggr.Debugf("tx hash %s exists on chain at block number %d for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockNumber, upkeepId)
-			return UpkeepFailureReasonNone, false
+			return UpkeepFailureReasonNone, NoPipelineError, false
 		}
 		r.lggr.Warnf("log block %d does not exist in block subscriber for upkeepId %s, querying eth client", logBlockNumber, upkeepId)
 	} else {
@@ -997,12 +994,12 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	bn, _, err := r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
 	if err != nil {
 		r.lggr.Warnf("failed to query tx hash %s for upkeepId %s: %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId, err.Error())
-		return UpkeepFailureReasonLogBlockInvalid, true
+		return UpkeepFailureReasonNone, RpcFlakyFailure, true
 	}
 	if bn == nil {
 		r.lggr.Warnf("tx hash %s does not exist on chain for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
-		return UpkeepFailureReasonLogBlockNoLongerExists, false
+		return UpkeepFailureReasonLogBlockNoLongerExists, NoPipelineError, false
 	}
 	r.lggr.Debugf("tx hash %s exists on chain for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
-	return UpkeepFailureReasonNone, false
+	return UpkeepFailureReasonNone, NoPipelineError, false
 }

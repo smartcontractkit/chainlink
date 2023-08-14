@@ -135,7 +135,7 @@ func EVMDependencies21(
 	var registry *kevm21.EvmRegistry
 	var encoder *kevm21.EVMAutomationEncoder21
 
-	bs := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), kevm21.BlockHistorySize, kevm21.LookbackDepth, lggr)
+	bs := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), lggr)
 
 	oSpec := spec.OCR2OracleSpec
 

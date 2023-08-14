@@ -13,30 +13,35 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
+type UpkeepFailureReason uint8
+type PipelineExecutionState uint8
+
 const (
-	// upkeep failure
-	UpkeepFailureReasonNone = iota
-	UpkeepFailureReasonUpkeepCancelled
-	UpkeepFailureReasonUpkeepPaused
-	UpkeepFailureReasonTargetCheckReverted
-	UpkeepFailureReasonUpkeepNotNeeded
-	UpkeepFailureReasonPerformDataExceedsLimit
-	UpkeepFailureReasonInsufficientBalance
-	UpkeepFailureReasonMercuryCallbackReverted
-	UpkeepFailureReasonRevertDataExceedsLimit
-	UpkeepFailureReasonRegistryPaused
-	UpkeepFailureReasonMercuryAccessNotAllowed
-	UpkeepFailureReasonLogBlockNoLongerExists
-	UpkeepFailureReasonLogBlockInvalid
-	UpkeepFailureReasonTxHashNoLongerExists
+	// upkeep failure onchain reasons
+	UpkeepFailureReasonNone                    UpkeepFailureReason = 0
+	UpkeepFailureReasonUpkeepCancelled         UpkeepFailureReason = 1
+	UpkeepFailureReasonUpkeepPaused            UpkeepFailureReason = 2
+	UpkeepFailureReasonTargetCheckReverted     UpkeepFailureReason = 3
+	UpkeepFailureReasonUpkeepNotNeeded         UpkeepFailureReason = 4
+	UpkeepFailureReasonPerformDataExceedsLimit UpkeepFailureReason = 5
+	UpkeepFailureReasonInsufficientBalance     UpkeepFailureReason = 6
+	UpkeepFailureReasonMercuryCallbackReverted UpkeepFailureReason = 7
+	UpkeepFailureReasonRevertDataExceedsLimit  UpkeepFailureReason = 8
+	UpkeepFailureReasonRegistryPaused          UpkeepFailureReason = 9
+	// leaving a gap here for more onchain failure reasons in the future
+	// upkeep failure offchain reasons
+	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
+	UpkeepFailureReasonLogBlockNoLongerExists  UpkeepFailureReason = 31
+	UpkeepFailureReasonLogBlockInvalid         UpkeepFailureReason = 32
+	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
 
 	// pipeline execution error
-	NoPipelineError        = 0
-	CheckBlockTooOld       = 1
-	CheckBlockInvalid      = 2
-	RpcFlakyFailure        = 3
-	MercuryFlakyFailure    = 4
-	PackUnpackDecodeFailed = 5
+	NoPipelineError        PipelineExecutionState = 0
+	CheckBlockTooOld       PipelineExecutionState = 1
+	CheckBlockInvalid      PipelineExecutionState = 2
+	RpcFlakyFailure        PipelineExecutionState = 3
+	MercuryFlakyFailure    PipelineExecutionState = 4
+	PackUnpackDecodeFailed PipelineExecutionState = 5
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -60,13 +65,13 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, 
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		// decode failed, not retryable
-		return getCheckResult(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
+		return getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
 
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		// unpack failed, not retryable
-		return getCheckResult(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
+		return getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
 
 	result := ocr2keepers.CheckResult{
@@ -84,7 +89,7 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, 
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
-	if result.IneligibilityReason == UpkeepFailureReasonNone || (result.IneligibilityReason == UpkeepFailureReasonTargetCheckReverted && len(rawPerformData) > 0) {
+	if result.IneligibilityReason == uint8(UpkeepFailureReasonNone) || (result.IneligibilityReason == uint8(UpkeepFailureReasonTargetCheckReverted) && len(rawPerformData) > 0) {
 		result.PerformData = rawPerformData
 	}
 

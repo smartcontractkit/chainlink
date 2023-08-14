@@ -367,7 +367,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		checkHash   common.Hash
 		payload     ocr2keepers.UpkeepPayload
 		blocks      map[int64]string
-		state       uint8
+		state       PipelineExecutionState
 		retryable   bool
 		makeEthCall bool
 	}{
@@ -484,7 +484,8 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 		payload     ocr2keepers.UpkeepPayload
 		blocks      map[int64]string
 		makeEthCall bool
-		reason      uint8
+		reason      UpkeepFailureReason
+		state       PipelineExecutionState
 		retryable   bool
 		ethCallErr  error
 		receipt     *types.Receipt
@@ -497,7 +498,8 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
 				WorkID:   "work",
 			},
-			reason:      UpkeepFailureReasonLogBlockInvalid,
+			reason:      UpkeepFailureReasonNone,
+			state:       RpcFlakyFailure,
 			retryable:   true,
 			makeEthCall: true,
 			ethCallErr:  fmt.Errorf("error"),
@@ -571,8 +573,9 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 				e.client = client
 			}
 
-			reason, retryable := e.verifyLogExists(tc.upkeepId, tc.payload)
+			reason, state, retryable := e.verifyLogExists(tc.upkeepId, tc.payload)
 			assert.Equal(t, tc.reason, reason)
+			assert.Equal(t, tc.state, state)
 			assert.Equal(t, tc.retryable, retryable)
 		})
 	}
