@@ -75,9 +75,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		ds.lggr.Errorw("Observe failed while parsing run results", "err", err)
 		merr = fmt.Errorf("Observe failed while parsing run results: %w", err)
 		return
-	} else {
-		obs.BenchmarkPrice = parsed.benchmarkPrice
 	}
+	obs.BenchmarkPrice = parsed.benchmarkPrice
 
 	var wg sync.WaitGroup
 
