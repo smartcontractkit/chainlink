@@ -1064,7 +1064,7 @@ contract EVM2EVMOnRamp_getFee is EVM2EVMOnRamp_getFeeSetup {
 
       uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD + tokenTransferGas;
       uint256 gasFeeUSD = (gasUsed * feeTokenConfig.gasMultiplier * USD_PER_GAS) / 1 ether;
-      (uint256 transferFeeUSD, uint32 destGas) = s_onRamp.getTokenTransferCost(
+      (uint256 transferFeeUSD,) = s_onRamp.getTokenTransferCost(
         message.feeToken,
         feeTokenPrices[i],
         message.tokenAmounts,
@@ -1099,8 +1099,8 @@ contract EVM2EVMOnRamp_getFee is EVM2EVMOnRamp_getFeeSetup {
       message.data = "random bits and bytes that should be factored into the cost of the message";
 
       uint256 expectedTokenTransferGas = 0;
-      for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
-        expectedTokenTransferGas += s_onRamp.getTokenTransferFeeConfig(message.tokenAmounts[i].token).destGas;
+      for (uint256 j = 0; j < message.tokenAmounts.length; ++j) {
+        expectedTokenTransferGas += s_onRamp.getTokenTransferFeeConfig(message.tokenAmounts[j].token).destGas;
       }
 
       uint256 feeAmount = s_onRamp.getFee(message);
@@ -1111,7 +1111,7 @@ contract EVM2EVMOnRamp_getFee is EVM2EVMOnRamp_getFeeSetup {
         DEST_GAS_PER_PAYLOAD_BYTE +
         expectedTokenTransferGas;
       uint256 gasFeeUSD = (gasUsed * feeTokenConfig.gasMultiplier * USD_PER_GAS) / 1 ether;
-      (uint256 transferFeeUSD, uint32 destGas) = s_onRamp.getTokenTransferCost(
+      (uint256 transferFeeUSD,) = s_onRamp.getTokenTransferCost(
         message.feeToken,
         feeTokenPrices[i],
         message.tokenAmounts,
