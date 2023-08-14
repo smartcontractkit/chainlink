@@ -30,11 +30,11 @@ func (o *ORM) InsertUpkeepState(state upkeepStateRecord, qopts ...pg.QOpt) error
 	q := o.q.WithOpts(qopts...)
 
 	query := `INSERT INTO evm_upkeep_state (evm_chain_id, work_id, completion_state, block_number, added_at)
-	  VALUES ($1::NUMERIC, $2, $3, $4, $5::NUMERIC, CURRENT_TIMESTAMP)
+	  VALUES ($1::NUMERIC, $2, $3, $4::NUMERIC, $5)
 	    ON CONFLICT (evm_chain_id, work_id)
-	    DO UPDATE SET completion_state=$4, block_number=$5`
+	    DO UPDATE SET completion_state=$3, block_number=$4`
 
-	return q.ExecQ(query, utils.NewBig(o.chainID), state.WorkID, state.CompletionState, state.BlockNumber)
+	return q.ExecQ(query, utils.NewBig(o.chainID), state.WorkID, state.CompletionState, state.BlockNumber, state.AddedAt)
 }
 
 // SelectStatesByWorkIDs searches the data store for stored states for the

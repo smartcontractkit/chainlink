@@ -9,6 +9,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -24,6 +25,12 @@ const (
 // UpkeepStateReader is the interface for reading the current state of upkeeps.
 type UpkeepStateReader interface {
 	SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
+}
+
+type UpkeepStateORM interface {
+	InsertUpkeepState(upkeepStateRecord, ...pg.QOpt) error
+	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]upkeepStateRecord, error)
+	DeleteBeforeTime(time.Time, ...pg.QOpt) error
 }
 
 // UpkeepStateStore is the interface for managing upkeeps final state in a local store.
@@ -50,7 +57,7 @@ type upkeepStateRecord struct {
 // In addition, performed events are fetched by the scanner on demand.
 type upkeepStateStore struct {
 	// dependencies
-	orm     *ORM
+	orm     UpkeepStateORM
 	lggr    logger.Logger
 	scanner PerformedLogsScanner
 
@@ -65,11 +72,10 @@ type upkeepStateStore struct {
 	utils.StartStopOnce
 	ctx    context.Context
 	cancel context.CancelFunc
-	wg     sync.WaitGroup
 }
 
 // NewUpkeepStateStore creates a new state store
-func NewUpkeepStateStore(orm *ORM, lggr logger.Logger, scanner PerformedLogsScanner) *upkeepStateStore {
+func NewUpkeepStateStore(orm UpkeepStateORM, lggr logger.Logger, scanner PerformedLogsScanner) *upkeepStateStore {
 	return &upkeepStateStore{
 		orm:          orm,
 		lggr:         lggr.Named("UpkeepStateStore"),

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestUpkeepStateStore(t *testing.T) {
@@ -25,6 +26,8 @@ func TestUpkeepStateStore(t *testing.T) {
 		workIDsSelect      []string
 		workIDsFromScanner []string
 		errScanner         error
+		recordsFromDB      []upkeepStateRecord
+		errDB              error
 		expected           []ocr2keepers.UpkeepState
 		errored            bool
 	}{
@@ -77,6 +80,34 @@ func TestUpkeepStateStore(t *testing.T) {
 			},
 		},
 		{
+			name: "fetch results from db",
+			inserts: []ocr2keepers.CheckResult{
+				{
+					UpkeepID: createUpkeepIDForTest(1),
+					WorkID:   "0x1",
+					Eligible: false,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: ocr2keepers.BlockNumber(1),
+					},
+				},
+			},
+			workIDsSelect:      []string{"0x1", "0x2", "0x3"},
+			workIDsFromScanner: []string{"0x2", "0x222"},
+			recordsFromDB: []upkeepStateRecord{
+				{
+					WorkID:          "0x3",
+					CompletionState: ocr2keepers.Ineligible,
+					BlockNumber:     2,
+					AddedAt:         time.Now(),
+				},
+			},
+			expected: []ocr2keepers.UpkeepState{
+				ocr2keepers.Ineligible,
+				ocr2keepers.Performed,
+				ocr2keepers.Ineligible,
+			},
+		},
+		{
 			name: "unknown states",
 			inserts: []ocr2keepers.CheckResult{
 				{
@@ -111,16 +142,39 @@ func TestUpkeepStateStore(t *testing.T) {
 			errScanner:         fmt.Errorf("test error"),
 			errored:            true,
 		},
+		{
+			name: "db error",
+			inserts: []ocr2keepers.CheckResult{
+				{
+					UpkeepID: createUpkeepIDForTest(1),
+					WorkID:   "0x1",
+					Eligible: false,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: ocr2keepers.BlockNumber(1),
+					},
+				},
+			},
+			workIDsSelect:      []string{"0x1", "0x2"},
+			workIDsFromScanner: []string{"0x2", "0x222"},
+			errDB:              fmt.Errorf("test error"),
+			errored:            true,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := testutils.Context(t)
+			lggr := logger.TestLogger(t)
 
 			scanner := &mockScanner{}
 			scanner.addWorkID(tc.workIDsFromScanner...)
 			scanner.setErr(tc.errScanner)
-			store := NewUpkeepStateStore(nil, logger.TestLogger(t), scanner)
+
+			orm := &mockORM{}
+			orm.addRecords(tc.recordsFromDB...)
+			orm.setErr(tc.errDB)
+
+			store := NewUpkeepStateStore(orm, lggr, scanner)
 
 			for _, insert := range tc.inserts {
 				assert.NoError(t, store.SetUpkeepState(ctx, insert, ocr2keepers.Performed))
@@ -169,63 +223,76 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 		name         string
 		queryIDs     []string
 		storedValues []storedValue
-		expected     map[string]ocr2keepers.UpkeepState
+		expected     []ocr2keepers.UpkeepState
 	}{
 		{
-			name:     "querying non-stored workIDs on empty db returns empty results",
-			queryIDs: []string{"a", "b", "c", "d"},
-			expected: make(map[string]ocr2keepers.UpkeepState),
+			name:     "querying non-stored workIDs on empty db returns unknown state results",
+			queryIDs: []string{"0x1", "0x2", "0x3", "0x4"},
+			expected: []ocr2keepers.UpkeepState{
+				StateUnknown,
+				StateUnknown,
+				StateUnknown,
+				StateUnknown,
+			},
 		},
 		{
-			name:     "querying non-stored workIDs on db with values returns empty results",
-			queryIDs: []string{"a", "b", "c", "d"},
+			name:     "querying non-stored workIDs on db with values returns unknown state results",
+			queryIDs: []string{"0x1", "0x2", "0x3", "0x4"},
 			storedValues: []storedValue{
-				{result: makeTestResult(1, "e", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(2, "f", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(3, "g", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(4, "h", false, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(1, "0x11", false, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(2, "0x22", false, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(3, "0x33", false, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(4, "0x44", false, 1), state: ocr2keepers.Ineligible},
 			},
-			expected: make(map[string]ocr2keepers.UpkeepState),
+			expected: []ocr2keepers.UpkeepState{
+				StateUnknown,
+				StateUnknown,
+				StateUnknown,
+				StateUnknown,
+			},
 		},
 		{
 			name:     "querying workIDs with non-stored values returns valid results",
-			queryIDs: []string{"a", "b", "c", "d"},
+			queryIDs: []string{"0x1", "0x2", "0x3", "0x4"},
 			storedValues: []storedValue{
-				{result: makeTestResult(5, "a", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(6, "b", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(7, "c", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(8, "h", false, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(5, "0x1", false, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(6, "0x2", false, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(7, "0x3", false, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(8, "0x44", false, 1), state: ocr2keepers.Ineligible},
 			},
-			expected: map[string]ocr2keepers.UpkeepState{
-				"a": ocr2keepers.Ineligible,
-				"b": ocr2keepers.Ineligible,
-				"c": ocr2keepers.Ineligible,
+			expected: []ocr2keepers.UpkeepState{
+				ocr2keepers.Ineligible,
+				ocr2keepers.Ineligible,
+				ocr2keepers.Ineligible,
+				StateUnknown,
 			},
 		},
 		{
 			name:     "storing eligible values is a noop",
-			queryIDs: []string{"a", "b", "c", "d"},
+			queryIDs: []string{"0x1", "0x2", "0x3", "0x4"},
 			storedValues: []storedValue{
-				{result: makeTestResult(9, "a", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(10, "b", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(11, "c", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(12, "d", true, 1), state: ocr2keepers.Performed},
+				{result: makeTestResult(9, "0x1", false, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(10, "0x2", false, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(11, "0x3", false, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(12, "0x4", true, 1), state: ocr2keepers.Performed},
 			},
-			expected: map[string]ocr2keepers.UpkeepState{
-				"a": ocr2keepers.Ineligible,
-				"b": ocr2keepers.Ineligible,
-				"c": ocr2keepers.Ineligible,
+			expected: []ocr2keepers.UpkeepState{
+				ocr2keepers.Ineligible,
+				ocr2keepers.Ineligible,
+				ocr2keepers.Ineligible,
+				StateUnknown,
 			},
 		},
 		{
 			name:     "provided state on setupkeepstate is currently ignored for eligible check results",
-			queryIDs: []string{"a", "b"},
+			queryIDs: []string{"0x1", "0x2"},
 			storedValues: []storedValue{
-				{result: makeTestResult(13, "a", true, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(14, "b", false, 1), state: ocr2keepers.Performed},
+				{result: makeTestResult(13, "0x1", true, 1), state: ocr2keepers.Ineligible},
+				{result: makeTestResult(14, "0x2", false, 1), state: ocr2keepers.Performed},
 			},
-			expected: map[string]ocr2keepers.UpkeepState{
-				"b": ocr2keepers.Ineligible,
+			expected: []ocr2keepers.UpkeepState{
+				StateUnknown,
+				ocr2keepers.Ineligible,
 			},
 		},
 	}
@@ -268,7 +335,13 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 
 func TestUpkeepStateStore_Upsert(t *testing.T) {
 	ctx := testutils.Context(t)
-	store := NewUpkeepStateStore(nil, logger.TestLogger(t), &mockScanner{})
+	lggr := logger.TestLogger(t)
+	chainID := testutils.FixtureChainID
+
+	db := pgtest.NewSqlxDB(t)
+	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+
+	store := NewUpkeepStateStore(orm, lggr, &mockScanner{})
 
 	res := ocr2keepers.CheckResult{
 		UpkeepID: createUpkeepIDForTest(1),
@@ -327,4 +400,42 @@ func (s *mockScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]s
 	res := s.workIDs[:]
 	s.workIDs = nil
 	return res, s.err
+}
+
+type mockORM struct {
+	lock    sync.Mutex
+	records []upkeepStateRecord
+	err     error
+}
+
+func (_m *mockORM) addRecords(records ...upkeepStateRecord) {
+	_m.lock.Lock()
+	defer _m.lock.Unlock()
+
+	_m.records = append(_m.records, records...)
+}
+
+func (_m *mockORM) setErr(err error) {
+	_m.lock.Lock()
+	defer _m.lock.Unlock()
+
+	_m.err = err
+}
+
+func (_m *mockORM) InsertUpkeepState(state upkeepStateRecord, _ ...pg.QOpt) error {
+	return nil
+}
+
+func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, _ ...pg.QOpt) ([]upkeepStateRecord, error) {
+	_m.lock.Lock()
+	defer _m.lock.Unlock()
+
+	res := _m.records[:]
+	_m.records = nil
+
+	return res, _m.err
+}
+
+func (_m *mockORM) DeleteBeforeTime(tm time.Time, _ ...pg.QOpt) error {
+	return _m.err
 }
