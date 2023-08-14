@@ -55,7 +55,7 @@ func Test_DecodeSchemaVersionFromFeedId(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := DecodeSchemaVersionFromFeedId(test.feedID)
+			got, err := decodeSchemaVersionFromFeedId(test.feedID)
 			if (err != nil) != test.wantErr {
 				t.Errorf("DecodeSchemaVersionFromFeedId() error = %v, wantErr %v", err, test.wantErr)
 				return
@@ -145,7 +145,7 @@ func Test_ReportDecoder(t *testing.T) {
 			v1Report := buildV1Report(v1FeedId)
 			reportDecoder, err := NewReportDecoder(v1Report, lggr)
 			assert.NoError(t, err)
-			assert.Equal(t, reportDecoder.GetSchemaVersion(), REPORT_V1)
+			assert.Equal(t, reportDecoder.SchemaVersion(), REPORT_V1)
 			report, err := reportDecoder.DecodeAsV1()
 			assert.NoError(t, err)
 			assert.Equal(t, v1FeedId, report.FeedId)
@@ -163,7 +163,7 @@ func Test_ReportDecoder(t *testing.T) {
 			v1Report := buildV1Report(v2FeedId)
 			reportDecoder, err := NewReportDecoder(v1Report, lggr)
 			assert.NoError(t, err)
-			assert.NotEqual(t, reportDecoder.GetSchemaVersion(), REPORT_V1)
+			assert.NotEqual(t, reportDecoder.SchemaVersion(), REPORT_V1)
 			_, err = reportDecoder.DecodeAsV1()
 			assert.EqualError(t, err, "invalid schema version: 2")
 		})
@@ -175,7 +175,7 @@ func Test_ReportDecoder(t *testing.T) {
 			v2Report := buildV2Report(v2FeedId)
 			reportDecoder, err := NewReportDecoder(v2Report, lggr)
 			assert.NoError(t, err)
-			assert.Equal(t, reportDecoder.GetSchemaVersion(), REPORT_V2)
+			assert.Equal(t, reportDecoder.SchemaVersion(), REPORT_V2)
 			report, err := reportDecoder.DecodeAsV2()
 			assert.NoError(t, err)
 			assert.Equal(t, v2FeedId, report.FeedId)
@@ -191,7 +191,7 @@ func Test_ReportDecoder(t *testing.T) {
 			v2Report := buildV2Report(v3FeedId)
 			reportDecoder, err := NewReportDecoder(v2Report, lggr)
 			assert.NoError(t, err)
-			assert.NotEqual(t, reportDecoder.GetSchemaVersion(), REPORT_V2)
+			assert.NotEqual(t, reportDecoder.SchemaVersion(), REPORT_V2)
 			_, err = reportDecoder.DecodeAsV2()
 			assert.EqualError(t, err, "invalid schema version: 3")
 		})
@@ -210,7 +210,7 @@ func Test_ReportDecoder(t *testing.T) {
 			v3Report := buildV3Report(v3FeedId)
 			reportDecoder, err := NewReportDecoder(v3Report, lggr)
 			assert.NoError(t, err)
-			assert.Equal(t, reportDecoder.GetSchemaVersion(), REPORT_V3)
+			assert.Equal(t, reportDecoder.SchemaVersion(), REPORT_V3)
 			report, err := reportDecoder.DecodeAsV3()
 			assert.NoError(t, err)
 			assert.Equal(t, v3FeedId, report.FeedId)
@@ -228,7 +228,7 @@ func Test_ReportDecoder(t *testing.T) {
 			v3Report := buildV3Report(v1FeedId)
 			reportDecoder, err := NewReportDecoder(v3Report, lggr)
 			assert.NoError(t, err)
-			assert.NotEqual(t, reportDecoder.GetSchemaVersion(), REPORT_V3)
+			assert.NotEqual(t, reportDecoder.SchemaVersion(), REPORT_V3)
 			_, err = reportDecoder.DecodeAsV3()
 			assert.EqualError(t, err, "invalid schema version: 1")
 		})

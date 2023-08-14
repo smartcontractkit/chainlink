@@ -24,7 +24,7 @@ const (
 	_         FeedIDPrefix = 0xFFFF // reserved for future use
 )
 
-func DecodeSchemaVersionFromFeedId(feedID [32]byte) (FeedIDPrefix, error) {
+func decodeSchemaVersionFromFeedId(feedID [32]byte) (FeedIDPrefix, error) {
 	schemaVersion := FeedIDPrefix(binary.BigEndian.Uint16(feedID[:2]))
 	if schemaVersion != REPORT_V1 && schemaVersion != REPORT_V2 && schemaVersion != REPORT_V3 {
 		return 0, errors.Errorf("invalid schema version: %d", schemaVersion)
@@ -33,7 +33,7 @@ func DecodeSchemaVersionFromFeedId(feedID [32]byte) (FeedIDPrefix, error) {
 }
 
 type ReportDecoder interface {
-	GetSchemaVersion() FeedIDPrefix
+	SchemaVersion() FeedIDPrefix
 
 	DecodeAsV1() (*mercuryv1.Report, error)
 	DecodeAsV2() (*mercuryv2.Report, error)
@@ -56,33 +56,17 @@ func NewReportDecoder(report ocrtypes.Report, lggr logger.Logger) (ReportDecoder
 		return &reportDecoder{}, errors.Errorf("invalid length for report: %d", len(report))
 	}
 
-	schemaVersion, err := DecodeSchemaVersionFromFeedId(feedId)
+	schemaVersion, err := decodeSchemaVersionFromFeedId(feedId)
 	if err != nil {
 		return nil, err
 	}
 
-	switch schemaVersion {
-	case REPORT_V1:
-		return &reportDecoder{
-			report:        report,
-			feedId:        feedId,
-			schemaVersion: schemaVersion,
-		}, nil
-	case REPORT_V2:
-		return &reportDecoder{
-			report:        report,
-			feedId:        feedId,
-			schemaVersion: schemaVersion,
-		}, nil
-	case REPORT_V3:
-		return &reportDecoder{
-			report:        report,
-			feedId:        feedId,
-			schemaVersion: schemaVersion,
-		}, nil
-	default:
-		return &reportDecoder{}, errors.Errorf("invalid schema version: %d", schemaVersion)
-	}
+	return &reportDecoder{
+		report:        report,
+		feedId:        feedId,
+		schemaVersion: schemaVersion,
+		lggr:          lggr,
+	}, nil
 }
 
 func (d *reportDecoder) DecodeAsV1() (*mercuryv1.Report, error) {
@@ -112,6 +96,6 @@ func (d *reportDecoder) DecodeAsV3() (*mercuryv3.Report, error) {
 	return reportCodec.Decode(d.report)
 }
 
-func (d *reportDecoder) GetSchemaVersion() FeedIDPrefix {
+func (d *reportDecoder) SchemaVersion() FeedIDPrefix {
 	return d.schemaVersion
 }
