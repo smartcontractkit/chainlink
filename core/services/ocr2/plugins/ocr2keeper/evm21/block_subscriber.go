@@ -39,7 +39,7 @@ type BlockSubscriber struct {
 	maxSubId         int
 	lastClearedBlock int64
 	lastSentBlock    int64
-	latestBlock      *atomic.Int64
+	latestBlock      atomic.Int64
 	blockHistorySize int64
 	initialBlockSize int64
 	lggr             logger.Logger
@@ -54,7 +54,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, bloc
 		blocks:           map[int64]string{},
 		blockHistorySize: blockHistorySize,
 		initialBlockSize: initialBlockSize,
-		latestBlock:      &atomic.Int64{},
+		latestBlock:      atomic.Int64{},
 		lggr:             lggr.Named("BlockSubscriber"),
 	}
 }
@@ -221,13 +221,12 @@ func (hw *BlockSubscriber) processHead(h *evmtypes.Head) {
 		}
 		hw.blocks[cp.Number] = cp.Hash.Hex()
 	}
-	hw.lggr.Infof("blocks block %d hash is %s", h.Number, h.Hash.Hex())
+	hw.lggr.Debugf("blocks block %d hash is %s", h.Number, h.Hash.Hex())
 
 	history := hw.buildHistory(h.Number)
 
 	hw.latestBlock.Store(h.Number)
 	hw.lastSentBlock = h.Number
-	hw.lggr.Infof("lastSentBlock is %d", hw.lastSentBlock)
 	// send history to all subscribers
 	for _, subC := range hw.subscribers {
 		// wrapped in a select to not get blocked by certain subscribers
@@ -238,7 +237,7 @@ func (hw *BlockSubscriber) processHead(h *evmtypes.Head) {
 		}
 	}
 
-	hw.lggr.Infof("published block history with length %d to %d subscriber(s)", len(history), len(hw.subscribers))
+	hw.lggr.Debugf("published block history with length %d and latestBlock %d to %d subscriber(s)", len(history), hw.latestBlock.Load(), len(hw.subscribers))
 }
 
 func (hw *BlockSubscriber) queryBlocksMap(bn int64) (string, bool) {
