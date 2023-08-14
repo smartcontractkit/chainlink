@@ -36,26 +36,6 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	workerNodeAddresses, err := actions.ChainlinkNodeAddressesLocal(workerNodes)
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
-	//chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
-	//require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	//contractDeployer, err := contracts.NewContractDeployer(chainClient)
-	//require.NoError(t, err, "Deploying contracts shouldn't fail")
-	//contractLoader, err := contracts.NewContractLoader(chainClient)
-	//require.NoError(t, err, "Loading contracts shouldn't fail")
-	//
-	//chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-	//require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
-	//bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
-	//workerNodeAddresses, err := actions.ChainlinkNodeAddressesLocal(workerNodes)
-	//require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
-	//mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
-	//require.NoError(t, err, "Creating mockserver clients shouldn't fail")
-	//t.Cleanup(func() {
-	//	err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
-	//	require.NoError(t, err, "Error tearing down environment")
-	//})
-	//chainClient.ParallelTransactions(true)
-
 	linkTokenContract, err := env.Geth.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 

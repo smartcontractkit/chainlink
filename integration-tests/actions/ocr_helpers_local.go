@@ -60,7 +60,6 @@ func DeployOCRContractsLocal(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
-	bootstrapNode *client.ChainlinkClient,
 	workerNodes []*client.ChainlinkClient,
 	client blockchain.EVMClient,
 ) ([]contracts.OffchainAggregator, error) {
@@ -75,11 +74,9 @@ func DeployOCRContractsLocal(
 			return nil, fmt.Errorf("OCR instance deployment have failed: %w", err)
 		}
 		ocrInstances = append(ocrInstances, ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for OCR contract deployments: %w", err)
-			}
+		err = client.WaitForEvents()
+		if err != nil {
+			return nil, fmt.Errorf("failed to wait for OCR contract deployments: %w", err)
 		}
 	}
 	err := client.WaitForEvents()
@@ -99,21 +96,15 @@ func DeployOCRContractsLocal(
 	}
 
 	// Set Payees
-	for contractCount, ocrInstance := range ocrInstances {
+	for _, ocrInstance := range ocrInstances {
 		err = ocrInstance.SetPayees(transmitters, payees)
 		if err != nil {
 			return nil, fmt.Errorf("error settings OCR payees: %w", err)
 		}
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for setting OCR payees: %w", err)
-			}
+		err = client.WaitForEvents()
+		if err != nil {
+			return nil, fmt.Errorf("failed to wait for setting OCR payees: %w", err)
 		}
-	}
-	err = client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for OCR contracts to set payees and transmitters: %w", err)
 	}
 
 	// Set Config
@@ -121,7 +112,7 @@ func DeployOCRContractsLocal(
 	if err != nil {
 		return nil, fmt.Errorf("getting node common addresses should not fail: %w", err)
 	}
-	for contractCount, ocrInstance := range ocrInstances {
+	for _, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
 		err = ocrInstance.SetConfigLocal(
 			workerNodes,
@@ -131,11 +122,9 @@ func DeployOCRContractsLocal(
 		if err != nil {
 			return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
 		}
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for setting OCR config: %w", err)
-			}
+		err = client.WaitForEvents()
+		if err != nil {
+			return nil, fmt.Errorf("failed to wait for setting OCR config: %w", err)
 		}
 	}
 	err = client.WaitForEvents()
@@ -309,11 +298,9 @@ func DeployOCRContractsForwarderFlowLocal(
 			return nil, errors.Wrap(err, "failed to deploy offchain aggregator")
 		}
 		ocrInstances = append(ocrInstances, ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, err
-			}
+		err = client.WaitForEvents()
+		if err != nil {
+			return nil, err
 		}
 	}
 	if err := client.WaitForEvents(); err != nil {
@@ -329,15 +316,13 @@ func DeployOCRContractsForwarderFlowLocal(
 	}
 
 	// Set Payees
-	for contractCount, ocrInstance := range ocrInstances {
+	for _, ocrInstance := range ocrInstances {
 		err := ocrInstance.SetPayees(transmitters, payees)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to set OCR payees")
 		}
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			if err := client.WaitForEvents(); err != nil {
-				return nil, err
-			}
+		if err := client.WaitForEvents(); err != nil {
+			return nil, err
 		}
 	}
 	if err := client.WaitForEvents(); err != nil {
@@ -345,7 +330,7 @@ func DeployOCRContractsForwarderFlowLocal(
 	}
 
 	// Set Config
-	for contractCount, ocrInstance := range ocrInstances {
+	for _, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
 		err := ocrInstance.SetConfigLocal(
 			workerNodes,
@@ -355,10 +340,8 @@ func DeployOCRContractsForwarderFlowLocal(
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to set on-chain config")
 		}
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			if err = client.WaitForEvents(); err != nil {
-				return nil, err
-			}
+		if err = client.WaitForEvents(); err != nil {
+			return nil, err
 		}
 	}
 	return ocrInstances, client.WaitForEvents()
