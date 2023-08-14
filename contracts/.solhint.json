@@ -1,7 +1,10 @@
 {
 	"extends": "solhint:recommended",
-	"plugins": ["prettier"],
+	"plugins": [
+		"prettier",
+		"chainlink-solidity"
+	],
 	"rules": {
-	  "prettier/prettier": "error"
+		"prettier/prettier": "error"
 	}
 }

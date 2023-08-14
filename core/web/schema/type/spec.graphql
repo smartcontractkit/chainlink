@@ -10,8 +10,6 @@ union JobSpec =
     BlockhashStoreSpec |
     BlockHeaderFeederSpec |
     BootstrapSpec |
-    LegacyGasStationServerSpec |
-    LegacyGasStationSidecarSpec |
     GatewaySpec
 
 type CronSpec {
@@ -128,6 +126,8 @@ type BlockhashStoreSpec {
     waitBlocks: Int!
     lookbackBlocks: Int!
     blockhashStoreAddress: String!
+    trustedBlockhashStoreAddress: String
+    trustedBlockhashStoreBatchSize: Int!
     pollPeriod: String!
     runTimeout: String!
     evmChainID: String
@@ -161,26 +161,6 @@ type BootstrapSpec {
     blockchainTimeout: String
     contractConfigTrackerPollInterval: String
     contractConfigConfirmations: Int
-    createdAt: Time!
-}
-
-type LegacyGasStationServerSpec {
-    forwarderAddress: String!
-    evmChainID: String
-    ccipChainSelector: String
-    fromAddresses: [String!]
-    createdAt: Time!
-}
-
-type LegacyGasStationSidecarSpec {
-    forwarderAddress: String!
-    offRampAddress: String!
-    lookbackBlocks: Int!
-    pollPeriod: String!
-    runTimeout: String!
-    evmChainID: String
-    ccipChainSelector: String
-    statusUpdateURL: String!
     createdAt: Time!
 }
 

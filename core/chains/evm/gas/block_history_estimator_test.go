@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
@@ -758,11 +759,11 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 		bhe.Recalculate(cltest.Head(1))
 
-		blocks = []evmtypes.Block{{}}
+		blocks = []evmtypes.Block{evmtypes.Block{}}
 		gas.SetRollingBlockHistory(bhe, blocks)
 		bhe.Recalculate(cltest.Head(1))
 
-		blocks = []evmtypes.Block{{Transactions: []evmtypes.Transaction{}}}
+		blocks = []evmtypes.Block{evmtypes.Block{Transactions: []evmtypes.Transaction{}}}
 		gas.SetRollingBlockHistory(bhe, blocks)
 		bhe.Recalculate(cltest.Head(1))
 	})
@@ -782,12 +783,12 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg)
 
 		blocks := []evmtypes.Block{
-			{
+			evmtypes.Block{
 				Number:       0,
 				Hash:         utils.NewHash(),
 				Transactions: cltest.LegacyTransactionsFromGasPrices(9001),
 			},
-			{
+			evmtypes.Block{
 				Number:       1,
 				Hash:         utils.NewHash(),
 				Transactions: cltest.LegacyTransactionsFromGasPrices(9002),
@@ -817,12 +818,12 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg)
 
 		blocks := []evmtypes.Block{
-			{
+			evmtypes.Block{
 				Number:       0,
 				Hash:         utils.NewHash(),
 				Transactions: cltest.LegacyTransactionsFromGasPrices(5),
 			},
-			{
+			evmtypes.Block{
 				Number:       1,
 				Hash:         utils.NewHash(),
 				Transactions: cltest.LegacyTransactionsFromGasPrices(7),
@@ -865,13 +866,13 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 				Number:       1,
 				Hash:         b2Hash,
 				ParentHash:   b1Hash,
-				Transactions: []evmtypes.Transaction{{GasPrice: assets.NewWeiI(70), GasLimit: 42}},
+				Transactions: []evmtypes.Transaction{evmtypes.Transaction{GasPrice: assets.NewWeiI(70), GasLimit: 42}},
 			},
 			{
 				Number:       2,
 				Hash:         utils.NewHash(),
 				ParentHash:   b2Hash,
-				Transactions: []evmtypes.Transaction{{GasPrice: assets.NewWeiI(90), GasLimit: 0}},
+				Transactions: []evmtypes.Transaction{evmtypes.Transaction{GasPrice: assets.NewWeiI(90), GasLimit: 0}},
 			},
 		}
 
@@ -901,7 +902,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		b1Hash := utils.NewHash()
 
 		blocks := []evmtypes.Block{
-			{
+			evmtypes.Block{
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
@@ -937,7 +938,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		b1Hash := utils.NewHash()
 
 		blocks := []evmtypes.Block{
-			{
+			evmtypes.Block{
 				Number:       0,
 				Hash:         b1Hash,
 				ParentHash:   common.Hash{},
@@ -976,20 +977,20 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		b1Hash := utils.NewHash()
 
 		blocks := []evmtypes.Block{
-			{
+			evmtypes.Block{
 				Number:     0,
 				Hash:       b1Hash,
 				ParentHash: common.Hash{},
 				Transactions: []evmtypes.Transaction{
-					{GasPrice: assets.NewWeiI(50), GasLimit: 42},
-					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
-					{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					evmtypes.Transaction{GasPrice: assets.NewWeiI(50), GasLimit: 42},
+					evmtypes.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					evmtypes.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					evmtypes.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					evmtypes.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					evmtypes.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					evmtypes.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					evmtypes.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
+					evmtypes.Transaction{GasPrice: unreasonablyHugeGasPrice, GasLimit: 42},
 				},
 			},
 		}
@@ -1019,7 +1020,7 @@ func TestBlockHistoryEstimator_Recalculate_NoEIP1559(t *testing.T) {
 		b1Hash := utils.NewHash()
 
 		blocks := []evmtypes.Block{
-			{
+			evmtypes.Block{
 				Number:     0,
 				Hash:       b1Hash,
 				ParentHash: common.Hash{},
@@ -1065,7 +1066,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		gas.SetRollingBlockHistory(bhe, blocks)
 		bhe.Recalculate(cltest.Head(1))
 
-		blocks = []evmtypes.Block{{}} // No base fee (doesn't crash)
+		blocks = []evmtypes.Block{evmtypes.Block{}} // No base fee (doesn't crash)
 		gas.SetRollingBlockHistory(bhe, blocks)
 		bhe.Recalculate(cltest.Head(1))
 
@@ -1102,13 +1103,13 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg)
 
 		blocks := []evmtypes.Block{
-			{
+			evmtypes.Block{
 				BaseFeePerGas: assets.NewWeiI(1),
 				Number:        0,
 				Hash:          utils.NewHash(),
 				Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(9001),
 			},
-			{
+			evmtypes.Block{
 				BaseFeePerGas: assets.NewWeiI(1),
 				Number:        1,
 				Hash:          utils.NewHash(),
@@ -1140,13 +1141,13 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg)
 
 		blocks := []evmtypes.Block{
-			{
+			evmtypes.Block{
 				BaseFeePerGas: assets.NewWeiI(1),
 				Number:        0,
 				Hash:          utils.NewHash(),
 				Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(5),
 			},
-			{
+			evmtypes.Block{
 				BaseFeePerGas: assets.NewWeiI(1),
 				Number:        1,
 				Hash:          utils.NewHash(),
@@ -1192,13 +1193,13 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 				Number:        1,
 				Hash:          b2Hash,
 				ParentHash:    b1Hash,
-				Transactions:  []evmtypes.Transaction{{Type: 0x2, MaxFeePerGas: assets.NewWeiI(1000), MaxPriorityFeePerGas: assets.NewWeiI(60), GasLimit: 42}},
+				Transactions:  []evmtypes.Transaction{evmtypes.Transaction{Type: 0x2, MaxFeePerGas: assets.NewWeiI(1000), MaxPriorityFeePerGas: assets.NewWeiI(60), GasLimit: 42}},
 			},
 			{
 				Number:       2,
 				Hash:         utils.NewHash(),
 				ParentHash:   b2Hash,
-				Transactions: []evmtypes.Transaction{{Type: 0x2, MaxFeePerGas: assets.NewWeiI(1000), MaxPriorityFeePerGas: assets.NewWeiI(80), GasLimit: 0}},
+				Transactions: []evmtypes.Transaction{evmtypes.Transaction{Type: 0x2, MaxFeePerGas: assets.NewWeiI(1000), MaxPriorityFeePerGas: assets.NewWeiI(80), GasLimit: 0}},
 			},
 		}
 
@@ -1228,7 +1229,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		b1Hash := utils.NewHash()
 
 		blocks := []evmtypes.Block{
-			{
+			evmtypes.Block{
 				BaseFeePerGas: assets.NewWeiI(10),
 				Number:        0,
 				Hash:          b1Hash,
@@ -1264,7 +1265,7 @@ func TestBlockHistoryEstimator_Recalculate_EIP1559(t *testing.T) {
 		b1Hash := utils.NewHash()
 
 		blocks := []evmtypes.Block{
-			{
+			evmtypes.Block{
 				BaseFeePerGas: assets.NewWeiI(10),
 				Number:        0,
 				Hash:          b1Hash,
@@ -1915,13 +1916,13 @@ func TestBlockHistoryEstimator_GetDynamicFee(t *testing.T) {
 	bhe := newBlockHistoryEstimator(t, nil, cfg, geCfg, bhCfg)
 
 	blocks := []evmtypes.Block{
-		{
+		evmtypes.Block{
 			BaseFeePerGas: assets.NewWeiI(88889),
 			Number:        0,
 			Hash:          utils.NewHash(),
 			Transactions:  cltest.DynamicFeeTransactionsFromTipCaps(5000, 6000, 6000),
 		},
-		{
+		evmtypes.Block{
 			BaseFeePerGas: assets.NewWeiI(100000),
 			Number:        1,
 			Hash:          utils.NewHash(),
@@ -2154,7 +2155,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 			err := bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 7 wei, which is above percentile=40%% (percentile price: 5 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[3].TxHash))
-			require.ErrorIs(t, err, gas.ErrConnectivity)
+			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 		})
 
 		t.Run("fails check if one or more blocks has percentile price higher than any transaction gas price", func(t *testing.T) {
@@ -2171,7 +2172,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 			err = bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 3 wei, which is above percentile=5%% (percentile price: 2 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[1].TxHash))
-			require.ErrorIs(t, err, gas.ErrConnectivity)
+			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 		})
 	})
 
@@ -2203,7 +2204,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 			err := bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 10 wei, which is above percentile=60%% (percentile price: 7 wei) for blocks 3 thru 3 (checking 1 blocks)", attempts[1].TxHash))
-			require.ErrorIs(t, err, gas.ErrConnectivity)
+			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 		})
 
 		attempts = []gas.EvmPriorAttempt{
@@ -2219,7 +2220,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 			err := bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 10 wei, which is above percentile=60%% (percentile tip cap: 6 wei) for blocks 3 thru 3 (checking 1 blocks)", attempts[0].TxHash))
-			require.ErrorIs(t, err, gas.ErrConnectivity)
+			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 		})
 
 	})
@@ -2277,7 +2278,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 			err := bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 5 wei, which is above percentile=20%% (percentile tip cap: 4 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[2].TxHash))
-			require.ErrorIs(t, err, gas.ErrConnectivity)
+			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 
 			bhCfg.CheckInclusionBlocksF = 3
 			bhCfg.CheckInclusionPercentileF = 5
@@ -2285,7 +2286,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 			err = bhe.CheckConnectivity(attempts)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 3 wei, which is above percentile=5%% (percentile tip cap: 2 wei) for blocks 2 thru 0 (checking 3 blocks)", attempts[1].TxHash))
-			require.ErrorIs(t, err, gas.ErrConnectivity)
+			require.ErrorIs(t, err, commonfee.ErrConnectivity)
 		})
 
 		t.Run("passes check if, for at least one block, feecap < tipcap+basefee, even if percentile is not reached", func(t *testing.T) {
@@ -2335,7 +2336,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 
 		_, _, err := bhe.BumpLegacyGas(testutils.Context(t), assets.NewWeiI(42), 100000, maxGasPrice, attempts)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, gas.ErrConnectivity))
+		assert.True(t, errors.Is(err, commonfee.ErrConnectivity))
 		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has gas price of 1 kwei, which is above percentile=10%% (percentile price: 1 wei) for blocks 1 thru 1 (checking 1 blocks)", attempts[0].TxHash))
 	})
 
@@ -2448,7 +2449,7 @@ func TestBlockHistoryEstimator_Bumps(t *testing.T) {
 
 		_, _, err := bhe.BumpDynamicFee(testutils.Context(t), originalFee, 100000, maxGasPrice, attempts)
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, gas.ErrConnectivity))
+		assert.True(t, errors.Is(err, commonfee.ErrConnectivity))
 		assert.Contains(t, err.Error(), fmt.Sprintf("transaction %s has tip cap of 25 wei, which is above percentile=10%% (percentile tip cap: 1 wei) for blocks 1 thru 1 (checking 1 blocks)", attempts[0].TxHash))
 	})
 

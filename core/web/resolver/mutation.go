@@ -33,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/legacygasstation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -1037,10 +1036,6 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = blockhashstore.ValidatedSpec(args.Input.TOML)
 	case job.BlockHeaderFeeder:
 		jb, err = blockheaderfeeder.ValidatedSpec(args.Input.TOML)
-	case job.LegacyGasStationServer:
-		jb, err = legacygasstation.ValidatedServerSpec(args.Input.TOML)
-	case job.LegacyGasStationSidecar:
-		jb, err = legacygasstation.ValidatedSidecarSpec(args.Input.TOML)
 	case job.Bootstrap:
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(args.Input.TOML)
 	case job.Gateway:

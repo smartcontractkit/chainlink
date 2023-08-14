@@ -6,6 +6,8 @@
     "const-name-snakecase": "off",
     "constructor-syntax": "error",
     "var-name-mixedcase": "off",
+    "func-named-parameters": "off",
+    "immutable-vars-naming": "off",
     "func-visibility": [
       "error",
       {

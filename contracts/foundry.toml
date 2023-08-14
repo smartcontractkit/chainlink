@@ -1,7 +1,6 @@
 [profile.default]
-auto_detect_solc = true
 optimizer = true
-optimizer_runs = 1_000_000
+optimizer_runs = 26_000
 
 src = 'src/v0.8'
 test = 'test/v0.8/foundry'
@@ -15,6 +14,21 @@ ffi = false
 gas_price = 1
 block_timestamp = 1234567890
 block_number = 12345
+
+[profile.shared]
+solc_version = '0.8.19'
+src = 'src/v0.8/shared'
+test = 'src/v0.8/shared/test'
+
+[profile.ccip]
+solc_version = '0.8.19'
+src = 'src/v0.8/ccip'
+test = 'src/v0.8/ccip/test'
+
+[profile.metatx]
+solc_version = '0.8.15'
+src = 'src/v0.8/metatx'
+test = 'src/v0.8/metatx/test'
 
 [profile.functions]
 solc_version = '0.8.19'

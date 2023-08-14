@@ -1,8 +1,9 @@
 package chainlink
 
 import (
-	"errors"
 	"fmt"
+
+	"errors"
 
 	"go.uber.org/multierr"
 
@@ -150,10 +151,6 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 
 	if err7 := s.Threshold.SetFrom(&f.Threshold); err7 != nil {
 		err = multierr.Append(err, config.NamedMultiErrorList(err7, "Threshold"))
-	}
-
-	if err8 := s.LegacyGasStation.SetFrom(&f.LegacyGasStation); err8 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err8, "LegacyGasStation"))
 	}
 
 	_, err = utils.MultiErrorList(err)

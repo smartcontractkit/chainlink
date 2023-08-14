@@ -1,64 +1,37 @@
-# Chainlink Smart Contracts
+# Chainlink CCIP Smart Contracts
 
 ## Installation
 
 ```sh
 # via pnpm
-$ pnpm add @chainlink/contracts
+$ pnpm add @chainlink/contracts-ccip
 # via npm
-$ npm install @chainlink/contracts --save
+$ npm install @chainlink/contracts-ccip --save
 ```
 
 ### Directory Structure
 
 ```sh
-@chainlink/contracts
+@chainlink/contracts-ccip
 ├── src # Solidity contracts
-│   ├── v0.4
-│   ├── v0.5
-│   ├── v0.6
-│   ├── v0.7
 │   └── v0.8
 └── abi # ABI json output
-    ├── v0.4
-    ├── v0.5
-    ├── v0.6
-    ├── v0.7
     └── v0.8
 ```
 
 ### Usage
 
-The solidity smart contracts themselves can be imported via the `src` directory of `@chainlink/contracts`:
+The solidity smart contracts themselves can be imported via the `src` directory of `@chainlink/contracts-ccip`:
 
 ```solidity
-import '@chainlink/contracts/src/v0.8/AutomationCompatibleInterface.sol';
-
+import '@chainlink/contracts-ccip/src/v0.8/ccip/applications/CCIPReceiver.sol';
 ```
-
-## Local Development
-
-Note: Contracts in `dev/` directories are under active development and are likely unaudited. Please refrain from using these in production applications.
-
-```bash
-# Clone Chainlink repository
-$ git clone https://github.com/smartcontractkit/chainlink.git
-# Continuing via pnpm
-$ cd contracts/
-$ pnpm
-$ pnpm test
-```
-
-## Contributing
-
-Please try to adhere to [Solidity Style Guide](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/STYLE.md).
-
-Contributions are welcome! Please refer to
-[Chainlink's contributing guidelines](https://github.com/smartcontractkit/chainlink/blob/develop/docs/CONTRIBUTING.md) for detailed
-contribution information.
-
-Thank you!
 
 ## License
 
-[MIT](https://choosealicense.com/licenses/mit/)
+The CCIP repo is licensed under the [BUSL-1.1](LICENSE.md) license, however, there are a few exceptions
+
+- `src/v0.8/ccip/applications/*` is licensed under the [MIT](./LICENSE-MIT.md) license
+- `src/v0.8/ccip/interfaces/*` is licensed under the [MIT](./LICENSE-MIT.md) license
+- `src/v0.8/ccip/libraries/{Client.sol, Internal.sol}` is licensed under the [MIT](./LICENSE-MIT.md) license
+

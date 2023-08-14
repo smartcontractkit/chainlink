@@ -86,9 +86,9 @@ func (o *ObservedLogPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, ev
 	})
 }
 
-func (o *ObservedLogPoller) LatestBlockByEventSigsAddrsWithConfs(eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+func (o *ObservedLogPoller) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
 	return withObservedQuery(o, "LatestBlockByEventSigsAddrsWithConfs", func() (int64, error) {
-		return o.LogPoller.LatestBlockByEventSigsAddrsWithConfs(eventSigs, addresses, confs, qopts...)
+		return o.LogPoller.LatestBlockByEventSigsAddrsWithConfs(fromBlock, eventSigs, addresses, confs, qopts...)
 	})
 }
 
@@ -137,12 +137,6 @@ func (o *ObservedLogPoller) LogsDataWordRange(eventSig common.Hash, address comm
 func (o *ObservedLogPoller) LogsDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQueryAndResults(o, "LogsDataWordGreaterThan", func() ([]Log, error) {
 		return o.LogPoller.LogsDataWordGreaterThan(eventSig, address, wordIndex, wordValueMin, confs, qopts...)
-	})
-}
-
-func (o *ObservedLogPoller) LogsUntilBlockHashDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
-	return withObservedQuery(o, "LogsUntilBlockHashDataWordGreaterThan", func() ([]Log, error) {
-		return o.LogPoller.LogsUntilBlockHashDataWordGreaterThan(eventSig, address, wordIndex, wordValueMin, untilBlockHash, qopts...)
 	})
 }
 

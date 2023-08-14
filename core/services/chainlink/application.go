@@ -40,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/legacygasstation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -51,6 +50,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
@@ -108,9 +108,6 @@ type Application interface {
 	ID() uuid.UUID
 
 	SecretGenerator() SecretGenerator
-
-	// Request router accepts http request and processes meta-transaction of same-chain or cross-chain token transfers
-	LegacyGasStationRequestRouter() legacygasstation.RequestRouter
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -144,7 +141,6 @@ type ChainlinkApplication struct {
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
-	lgsRequestRouter         legacygasstation.RequestRouter
 
 	started     bool
 	startStopMu sync.Mutex
@@ -305,6 +301,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
 		sessionORM     = sessions.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), chains.EVM, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, chains.EVM, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
 		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
@@ -356,27 +353,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				globalLogger,
 				chains.EVM,
 				keyStore.Eth()),
-			job.LegacyGasStationServer: legacygasstation.NewServerDelegate(
-				globalLogger,
-				chains.EVM,
-				keyStore.Eth(),
-				db,
-				cfg.Database(),
-				pipelineRunner,
-			),
-			job.LegacyGasStationSidecar: legacygasstation.NewSidecarDelegate(
-				globalLogger,
-				chains.EVM,
-				keyStore.Eth(),
-				db,
-			),
 			job.Gateway: gateway.NewDelegate(
 				chains.EVM,
 				keyStore.Eth(),
 				globalLogger),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
-		lgsRequestRouter = delegates[job.LegacyGasStationServer].(*legacygasstation.Delegate).RequestRouter()
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -446,6 +428,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			db,
 			jobORM,
 			bridgeORM,
+			mercuryORM,
 			pipelineRunner,
 			peerWrapper,
 			monitoringEndpointGen,
@@ -536,8 +519,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		profiler:                 profiler,
 		loopRegistry:             loopRegistry,
 
-		sqlxDB:           opts.SqlxDB,
-		lgsRequestRouter: lgsRequestRouter,
+		sqlxDB: opts.SqlxDB,
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
@@ -734,10 +716,6 @@ func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalI
 
 func (app *ChainlinkApplication) SecretGenerator() SecretGenerator {
 	return app.secretGenerator
-}
-
-func (app *ChainlinkApplication) LegacyGasStationRequestRouter() legacygasstation.RequestRouter {
-	return app.lgsRequestRouter
 }
 
 // WakeSessionReaper wakes up the reaper to do its reaping.

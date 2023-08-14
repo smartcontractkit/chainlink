@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/ocr2keepers/pkg/config"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -238,8 +238,8 @@ func DeployPerformanceConsumers(
 	numberOfUpkeeps int,
 	linkFundsForEachUpkeep *big.Int,
 	upkeepGasLimit uint32,
-	blockRange, // How many blocks to run the test for
-	blockInterval, // Interval of blocks that upkeeps are expected to be performed
+	blockRange,     // How many blocks to run the test for
+	blockInterval,  // Interval of blocks that upkeeps are expected to be performed
 	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
 	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
 ) ([]contracts.KeeperConsumerPerformance, []*big.Int) {

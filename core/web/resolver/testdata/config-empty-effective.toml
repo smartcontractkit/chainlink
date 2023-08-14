@@ -8,7 +8,6 @@ FeedsManager = true
 LogPoller = false
 UICSAKeys = false
 CCIP = false
-LegacyGasStation = false
 
 [Database]
 DefaultIdleInTxSessionTimeout = '1h0m0s'

@@ -2,7 +2,6 @@
 pragma solidity 0.8.19;
 
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {IARM} from "./interfaces/IARM.sol";
 
 import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
 
@@ -41,8 +40,10 @@ contract ARMProxy is OwnerIsCreator, TypeAndVersionInterface {
   // interface. Calling IARM interface methods in ARMProxy should be transparent, i.e.
   // their input/output behaviour should be identical to calling the proxied s_arm
   // contract directly. (If s_arm doesn't point to a contract, we always revert.)
+  // solhint-disable-next-line payable-fallback, no-complex-fallback
   fallback() external {
     address arm = s_arm;
+    // solhint-disable-next-line no-inline-assembly
     assembly {
       // Revert if no contract present at destination address, otherwise call
       // might succeed unintentionally.

@@ -248,7 +248,7 @@ type OCROracleSpec struct {
 	ContractConfigTrackerPollIntervalEnv      bool
 	ContractConfigConfirmations               uint16 `toml:"contractConfigConfirmations"`
 	ContractConfigConfirmationsEnv            bool
-	EVMChainID                                *utils.Big       `toml:"evmChainID"                             db:"evm_chain_id"`
+	EVMChainID                                *utils.Big       `toml:"evmChainID" db:"evm_chain_id"`
 	DatabaseTimeout                           *models.Interval `toml:"databaseTimeout"`
 	DatabaseTimeoutEnv                        bool
 	ObservationGracePeriod                    *models.Interval `toml:"observationGracePeriod"`
@@ -328,7 +328,7 @@ var ForwardersSupportedPlugins = []OCR2PluginType{Median, DKG, OCR2VRF, OCR2Keep
 type OCR2PluginType string
 
 const (
-	// Median refers to the median.Median plugin
+	// Median refers to the median.Median type
 	Median OCR2PluginType = "median"
 
 	DKG OCR2PluginType = "dkg"
@@ -342,12 +342,11 @@ const (
 
 	OCR2Functions OCR2PluginType = "functions"
 
+	Mercury OCR2PluginType = "mercury"
 	// CCIPCommit refers to the ccip.CCIPCommit plugin
 	CCIPCommit OCR2PluginType = "ccip-commit"
 	// CCIPExecution refers to the ccip.CCIPExecution plugin
 	CCIPExecution OCR2PluginType = "ccip-execution"
-
-	Mercury OCR2PluginType = "mercury"
 )
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
@@ -399,8 +398,8 @@ type ExternalInitiatorWebhookSpec struct {
 type WebhookSpec struct {
 	ID                            int32 `toml:"-"`
 	ExternalInitiatorWebhookSpecs []ExternalInitiatorWebhookSpec
-	CreatedAt                     time.Time `toml:"-"`
-	UpdatedAt                     time.Time `toml:"-"`
+	CreatedAt                     time.Time `json:"createdAt" toml:"-"`
+	UpdatedAt                     time.Time `json:"updatedAt" toml:"-"`
 }
 
 func (w WebhookSpec) GetID() string {
@@ -558,6 +557,12 @@ type BlockhashStoreSpec struct {
 	// into.
 	BlockhashStoreAddress ethkey.EIP55Address `toml:"blockhashStoreAddress"`
 
+	// BatchBlockhashStoreAddress is the address of the trusted BlockhashStore contract to store blockhashes
+	TrustedBlockhashStoreAddress *ethkey.EIP55Address `toml:"trustedBlockhashStoreAddress"`
+
+	// BatchBlockhashStoreBatchSize is the number of blockhashes to store in a single batch
+	TrustedBlockhashStoreBatchSize int32 `toml:"trustedBlockhashStoreBatchSize"`
+
 	// PollPeriod defines how often recent blocks should be scanned for blockhash storage.
 	PollPeriod time.Duration `toml:"pollPeriod"`
 
@@ -682,9 +687,6 @@ type LegacyGasStationSidecarSpec struct {
 
 	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param
 	CCIPChainSelector *utils.Big `toml:"ccipChainSelector"`
-
-	// StatusUpdateURL is the endpoint URL where the sidecar posts status updates
-	StatusUpdateURL string `toml:"statusUpdateURL"`
 
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`

@@ -23,9 +23,9 @@ var (
 		BlockhashStore:          {},
 		Bootstrap:               {},
 		BlockHeaderFeeder:       {},
+		Gateway:                 {},
 		LegacyGasStationServer:  {},
 		LegacyGasStationSidecar: {},
-		Gateway:                 {},
 	}
 )
 

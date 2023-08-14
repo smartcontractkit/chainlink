@@ -36,20 +36,6 @@ type Log struct {
 	CreatedAt      time.Time
 }
 
-func (l *Log) GetGethLog() types.Log {
-	return types.Log{
-		Address:     l.Address,
-		Topics:      l.GetTopics(),
-		Data:        l.Data,
-		BlockNumber: uint64(l.BlockNumber),
-		TxHash:      l.TxHash,
-		TxIndex:     0,
-		BlockHash:   l.BlockHash,
-		Index:       uint(l.LogIndex),
-		Removed:     false,
-	}
-}
-
 func (l *Log) GetTopics() []common.Hash {
 	var tps []common.Hash
 	for _, topic := range l.Topics {

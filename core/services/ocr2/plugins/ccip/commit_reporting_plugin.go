@@ -417,7 +417,7 @@ func (r *CommitReportingPlugin) getLatestTokenPriceUpdates(ctx context.Context, 
 	}
 	for _, log := range tokenUpdatesWithinHeartBeat {
 		// Ordered by ascending timestamps
-		tokenUpdate, err := r.destPriceRegistry.ParseUsdPerTokenUpdated(log.GetGethLog())
+		tokenUpdate, err := r.destPriceRegistry.ParseUsdPerTokenUpdated(log.ToGethLog())
 		if err != nil {
 			return nil, err
 		}
@@ -478,7 +478,7 @@ func (r *CommitReportingPlugin) getLatestGasPriceUpdate(ctx context.Context, now
 
 	for _, log := range gasUpdatesWithinHeartBeat {
 		// Ordered by ascending timestamps
-		priceUpdate, err2 := r.destPriceRegistry.ParseUsdPerUnitGasUpdated(log.GetGethLog())
+		priceUpdate, err2 := r.destPriceRegistry.ParseUsdPerUnitGasUpdated(log.ToGethLog())
 		if err2 != nil {
 			return update{}, err2
 		}

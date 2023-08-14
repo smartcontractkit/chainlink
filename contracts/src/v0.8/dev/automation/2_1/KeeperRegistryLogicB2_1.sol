@@ -189,7 +189,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   }
 
   /**
-   * @notice allows the owner to withdraw any LINK accidentally sent to the contract
+   * @notice allows the owner to withdraw any LINK accidentially sent to the contract
    */
   function recoverFunds() external onlyOwner {
     uint256 total = i_link.balanceOf(address(this));

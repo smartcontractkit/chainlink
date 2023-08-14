@@ -100,26 +100,6 @@ func (r *SpecResolver) ToBlockHeaderFeederSpec() (*BlockHeaderFeederSpecResolver
 	return &BlockHeaderFeederSpecResolver{spec: *r.j.BlockHeaderFeederSpec}, true
 }
 
-// ToLegacyGasStationServerSpec returns the LegacyGasStationServerSpec from the SpecResolver if the job is a
-// LegacyGasStationServerSpec job.
-func (r *SpecResolver) ToLegacyGasStationServerSpec() (*LegacyGasStationServerSpecResolver, bool) {
-	if r.j.Type != job.LegacyGasStationServer {
-		return nil, false
-	}
-
-	return &LegacyGasStationServerSpecResolver{spec: *r.j.LegacyGasStationServerSpec}, true
-}
-
-// ToLegacyGasStationSidecarSpec returns the LegacyGasStationSidecarSpec from the SpecResolver if the job is a
-// LegacyGasStationSidecar job.
-func (r *SpecResolver) ToLegacyGasStationSidecarSpec() (*LegacyGasStationSidecarSpecResolver, bool) {
-	if r.j.Type != job.LegacyGasStationSidecar {
-		return nil, false
-	}
-
-	return &LegacyGasStationSidecarSpecResolver{spec: *r.j.LegacyGasStationSidecarSpec}, true
-}
-
 // ToBootstrapSpec resolves to the Booststrap Spec Resolver
 func (r *SpecResolver) ToBootstrapSpec() (*BootstrapSpecResolver, bool) {
 	if r.j.Type != job.Bootstrap {
@@ -819,6 +799,20 @@ func (b *BlockhashStoreSpecResolver) BlockhashStoreAddress() string {
 	return b.spec.BlockhashStoreAddress.String()
 }
 
+// TrustedBlockhashStoreAddress returns the address of the job's TrustedBlockhashStoreAddress, if any.
+func (b *BlockhashStoreSpecResolver) TrustedBlockhashStoreAddress() *string {
+	if b.spec.TrustedBlockhashStoreAddress == nil {
+		return nil
+	}
+	addr := b.spec.TrustedBlockhashStoreAddress.String()
+	return &addr
+}
+
+// BatchBlockhashStoreAddress returns the job's BatchBlockhashStoreAddress param.
+func (b *BlockhashStoreSpecResolver) TrustedBlockhashStoreBatchSize() int32 {
+	return b.spec.TrustedBlockhashStoreBatchSize
+}
+
 // PollPeriod return's the job's PollPeriod param.
 func (b *BlockhashStoreSpecResolver) PollPeriod() string {
 	return b.spec.PollPeriod.String()
@@ -945,97 +939,6 @@ func (b *BlockHeaderFeederSpecResolver) StoreBlockhashesBatchSize() int32 {
 // CreatedAt resolves the spec's created at timestamp.
 func (b *BlockHeaderFeederSpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: b.spec.CreatedAt}
-}
-
-// LegacyGasStationServerSpecResolver exposes the job parameters for a LegacyGasStationServerSpec.
-type LegacyGasStationServerSpecResolver struct {
-	spec job.LegacyGasStationServerSpec
-}
-
-// ForwarderAddress returns the job's ForwarderAddress param.
-func (b *LegacyGasStationServerSpecResolver) ForwarderAddress() string {
-	return b.spec.ForwarderAddress.String()
-}
-
-// EVMChainID returns the job's EVMChainID param.
-func (b *LegacyGasStationServerSpecResolver) EVMChainID() *string {
-	chainID := b.spec.EVMChainID.String()
-	return &chainID
-}
-
-// CCIPChainSelector returns the job's CCIPChainSelector param.
-func (b *LegacyGasStationServerSpecResolver) CCIPChainSelector() *string {
-	ccipChainSelector := b.spec.CCIPChainSelector.String()
-	return &ccipChainSelector
-}
-
-// FromAddress returns the job's FromAddress param, if any.
-func (b *LegacyGasStationServerSpecResolver) FromAddresses() *[]string {
-	if b.spec.FromAddresses == nil {
-		return nil
-	}
-	var addresses []string
-	for _, a := range b.spec.FromAddresses {
-		addresses = append(addresses, a.Address().String())
-	}
-	return &addresses
-}
-
-// CreatedAt resolves the spec's created at timestamp.
-func (b *LegacyGasStationServerSpecResolver) CreatedAt() graphql.Time {
-	return graphql.Time{Time: b.spec.CreatedAt}
-}
-
-// LegacyGasStationSidecarSpecResolver exposes the job parameters for a LegacyGasStationSidecarSpec.
-type LegacyGasStationSidecarSpecResolver struct {
-	spec job.LegacyGasStationSidecarSpec
-}
-
-// ForwarderAddress returns the job's ForwarderAddress param.
-func (r *LegacyGasStationSidecarSpecResolver) ForwarderAddress() string {
-	return r.spec.ForwarderAddress.String()
-}
-
-// OffRampAddress returns the job's OffRampAddress param.
-func (r *LegacyGasStationSidecarSpecResolver) OffRampAddress() string {
-	return r.spec.OffRampAddress.String()
-}
-
-// LookbackBlocks returns the job's LookbackBlocks param.
-func (r *LegacyGasStationSidecarSpecResolver) LookbackBlocks() int32 {
-	return r.spec.LookbackBlocks
-}
-
-// PollPeriod resolves the spec's poll period.
-func (r *LegacyGasStationSidecarSpecResolver) PollPeriod() string {
-	return r.spec.PollPeriod.String()
-}
-
-// RunTimeout resolves the spec's public key.
-func (r *LegacyGasStationSidecarSpecResolver) RunTimeout() string {
-	return r.spec.RunTimeout.String()
-}
-
-// EVMChainID returns the job's EVMChainID param.
-func (r *LegacyGasStationSidecarSpecResolver) EVMChainID() *string {
-	chainID := r.spec.EVMChainID.String()
-	return &chainID
-}
-
-// CCIPChainSelector returns the job's CCIPChainSelector param.
-func (r *LegacyGasStationSidecarSpecResolver) CCIPChainSelector() *string {
-	ccipChainSelector := r.spec.CCIPChainSelector.String()
-	return &ccipChainSelector
-}
-
-// StatusUpdateURL returns the job's StatusUpdateURL param.
-func (r *LegacyGasStationSidecarSpecResolver) StatusUpdateURL() string {
-	return r.spec.StatusUpdateURL
-}
-
-// CreatedAt resolves the spec's created at timestamp.
-func (r *LegacyGasStationSidecarSpecResolver) CreatedAt() graphql.Time {
-	return graphql.Time{Time: r.spec.CreatedAt}
 }
 
 // BootstrapSpecResolver defines the Bootstrap Spec Resolver

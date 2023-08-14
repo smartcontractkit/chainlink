@@ -317,22 +317,6 @@ func (_m *GeneralConfig) Keeper() config.Keeper {
 	return r0
 }
 
-// LegacyGasStation provides a mock function with given fields:
-func (_m *GeneralConfig) LegacyGasStation() config.LegacyGasStation {
-	ret := _m.Called()
-
-	var r0 config.LegacyGasStation
-	if rf, ok := ret.Get(0).(func() config.LegacyGasStation); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.LegacyGasStation)
-		}
-	}
-
-	return r0
-}
-
 // Log provides a mock function with given fields:
 func (_m *GeneralConfig) Log() config.Log {
 	ret := _m.Called()

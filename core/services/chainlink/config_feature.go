@@ -6,14 +6,6 @@ type featureConfig struct {
 	c toml.Feature
 }
 
-func (f *featureConfig) CCIP() bool {
-	return *f.c.CCIP
-}
-
-func (f *featureConfig) LegacyGasStation() bool {
-	return *f.c.LegacyGasStation
-}
-
 func (f *featureConfig) FeedsManager() bool {
 	return *f.c.FeedsManager
 }
@@ -24,4 +16,8 @@ func (f *featureConfig) LogPoller() bool {
 
 func (f *featureConfig) UICSAKeys() bool {
 	return *f.c.UICSAKeys
+}
+
+func (f *featureConfig) CCIP() bool {
+	return *f.c.CCIP
 }

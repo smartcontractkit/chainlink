@@ -256,8 +256,12 @@ contract VRFV2Plus is BaseTest {
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
     assertEq(entries[0].topics[2], bytes32(uint256(subId)));
-    (uint256 loggedOutputSeed, , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool));
+    (uint256 loggedOutputSeed, , bytes memory loggedExtraArgs, bool loggedSuccess) = abi.decode(
+      entries[0].data,
+      (uint256, uint256, bytes, bool)
+    );
     assertEq(loggedOutputSeed, outputSeed);
+    assertEq(loggedExtraArgs, rc.extraArgs);
     assertEq(loggedSuccess, true);
 
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
@@ -373,8 +377,12 @@ contract VRFV2Plus is BaseTest {
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
     assertEq(entries[0].topics[2], bytes32(uint256(subId)));
-    (uint256 loggedOutputSeed, , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool));
+    (uint256 loggedOutputSeed, , bytes memory loggedExtraArgs, bool loggedSuccess) = abi.decode(
+      entries[0].data,
+      (uint256, uint256, bytes, bool)
+    );
     assertEq(loggedOutputSeed, outputSeed);
+    assertEq(loggedExtraArgs, rc.extraArgs);
     assertEq(loggedSuccess, true);
 
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);

@@ -26,19 +26,17 @@ func (t JobSpecType) String() string {
 }
 
 const (
-	DirectRequestJobSpec           JobSpecType = "directrequest"
-	FluxMonitorJobSpec             JobSpecType = "fluxmonitor"
-	OffChainReportingJobSpec       JobSpecType = "offchainreporting"
-	KeeperJobSpec                  JobSpecType = "keeper"
-	CronJobSpec                    JobSpecType = "cron"
-	VRFJobSpec                     JobSpecType = "vrf"
-	WebhookJobSpec                 JobSpecType = "webhook"
-	BlockhashStoreJobSpec          JobSpecType = "blockhashstore"
-	BlockHeaderFeederJobSpec       JobSpecType = "blockheaderfeeder"
-	BootstrapJobSpec               JobSpecType = "bootstrap"
-	LegacyGasStationServerJobSpec  JobSpecType = "legacygasstationserver"
-	LegacyGasStationSidecarJobSpec JobSpecType = "legacygasstationsidecar"
-	GatewayJobSpec                 JobSpecType = "gateway"
+	DirectRequestJobSpec     JobSpecType = "directrequest"
+	FluxMonitorJobSpec       JobSpecType = "fluxmonitor"
+	OffChainReportingJobSpec JobSpecType = "offchainreporting"
+	KeeperJobSpec            JobSpecType = "keeper"
+	CronJobSpec              JobSpecType = "cron"
+	VRFJobSpec               JobSpecType = "vrf"
+	WebhookJobSpec           JobSpecType = "webhook"
+	BlockhashStoreJobSpec    JobSpecType = "blockhashstore"
+	BlockHeaderFeederJobSpec JobSpecType = "blockheaderfeeder"
+	BootstrapJobSpec         JobSpecType = "bootstrap"
+	GatewayJobSpec           JobSpecType = "gateway"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -327,33 +325,37 @@ func NewVRFSpec(spec *job.VRFSpec) *VRFSpec {
 
 // BlockhashStoreSpec defines the job parameters for a blockhash store feeder job.
 type BlockhashStoreSpec struct {
-	CoordinatorV1Address     *ethkey.EIP55Address  `json:"coordinatorV1Address"`
-	CoordinatorV2Address     *ethkey.EIP55Address  `json:"coordinatorV2Address"`
-	CoordinatorV2PlusAddress *ethkey.EIP55Address  `json:"coordinatorV2PlusAddress"`
-	WaitBlocks               int32                 `json:"waitBlocks"`
-	LookbackBlocks           int32                 `json:"lookbackBlocks"`
-	BlockhashStoreAddress    ethkey.EIP55Address   `json:"blockhashStoreAddress"`
-	PollPeriod               time.Duration         `json:"pollPeriod"`
-	RunTimeout               time.Duration         `json:"runTimeout"`
-	EVMChainID               *utils.Big            `json:"evmChainID"`
-	FromAddresses            []ethkey.EIP55Address `json:"fromAddresses"`
-	CreatedAt                time.Time             `json:"createdAt"`
-	UpdatedAt                time.Time             `json:"updatedAt"`
+	CoordinatorV1Address           *ethkey.EIP55Address  `json:"coordinatorV1Address"`
+	CoordinatorV2Address           *ethkey.EIP55Address  `json:"coordinatorV2Address"`
+	CoordinatorV2PlusAddress       *ethkey.EIP55Address  `json:"coordinatorV2PlusAddress"`
+	WaitBlocks                     int32                 `json:"waitBlocks"`
+	LookbackBlocks                 int32                 `json:"lookbackBlocks"`
+	BlockhashStoreAddress          ethkey.EIP55Address   `json:"blockhashStoreAddress"`
+	TrustedBlockhashStoreAddress   *ethkey.EIP55Address  `json:"trustedBlockhashStoreAddress"`
+	TrustedBlockhashStoreBatchSize int32                 `json:"trustedBlockhashStoreBatchSize"`
+	PollPeriod                     time.Duration         `json:"pollPeriod"`
+	RunTimeout                     time.Duration         `json:"runTimeout"`
+	EVMChainID                     *utils.Big            `json:"evmChainID"`
+	FromAddresses                  []ethkey.EIP55Address `json:"fromAddresses"`
+	CreatedAt                      time.Time             `json:"createdAt"`
+	UpdatedAt                      time.Time             `json:"updatedAt"`
 }
 
 // NewBlockhashStoreSpec creates a new BlockhashStoreSpec for the given parameters.
 func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 	return &BlockhashStoreSpec{
-		CoordinatorV1Address:     spec.CoordinatorV1Address,
-		CoordinatorV2Address:     spec.CoordinatorV2Address,
-		CoordinatorV2PlusAddress: spec.CoordinatorV2PlusAddress,
-		WaitBlocks:               spec.WaitBlocks,
-		LookbackBlocks:           spec.LookbackBlocks,
-		BlockhashStoreAddress:    spec.BlockhashStoreAddress,
-		PollPeriod:               spec.PollPeriod,
-		RunTimeout:               spec.RunTimeout,
-		EVMChainID:               spec.EVMChainID,
-		FromAddresses:            spec.FromAddresses,
+		CoordinatorV1Address:           spec.CoordinatorV1Address,
+		CoordinatorV2Address:           spec.CoordinatorV2Address,
+		CoordinatorV2PlusAddress:       spec.CoordinatorV2PlusAddress,
+		WaitBlocks:                     spec.WaitBlocks,
+		LookbackBlocks:                 spec.LookbackBlocks,
+		BlockhashStoreAddress:          spec.BlockhashStoreAddress,
+		TrustedBlockhashStoreAddress:   spec.TrustedBlockhashStoreAddress,
+		TrustedBlockhashStoreBatchSize: spec.TrustedBlockhashStoreBatchSize,
+		PollPeriod:                     spec.PollPeriod,
+		RunTimeout:                     spec.RunTimeout,
+		EVMChainID:                     spec.EVMChainID,
+		FromAddresses:                  spec.FromAddresses,
 	}
 }
 
@@ -393,56 +395,6 @@ func NewBlockHeaderFeederSpec(spec *job.BlockHeaderFeederSpec) *BlockHeaderFeede
 		FromAddresses:              spec.FromAddresses,
 		GetBlockhashesBatchSize:    spec.GetBlockhashesBatchSize,
 		StoreBlockhashesBatchSize:  spec.StoreBlockhashesBatchSize,
-	}
-}
-
-// LegacyGasStationServerSpec defines the job parameters for a legacy gas station server job.
-type LegacyGasStationServerSpec struct {
-	ForwarderAddress  ethkey.EIP55Address   `json:"forwarderAddress"`
-	EVMChainID        *utils.Big            `json:"evmChainID"`
-	CCIPChainSelector *utils.Big            `json:"ccipChainSelector"`
-	FromAddresses     []ethkey.EIP55Address `json:"fromAddresses"`
-
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-}
-
-// NewLegacyGasStationServerSpec creates a new LegacyGasStationServerSpec for the given parameters.
-func NewLegacyGasStationServerSpec(spec *job.LegacyGasStationServerSpec) *LegacyGasStationServerSpec {
-	return &LegacyGasStationServerSpec{
-		ForwarderAddress:  spec.ForwarderAddress,
-		EVMChainID:        spec.EVMChainID,
-		CCIPChainSelector: spec.CCIPChainSelector,
-		FromAddresses:     spec.FromAddresses,
-	}
-}
-
-// LegacyGasStationSidecarSpec defines the job parameters for a legacy gas station sidecar job.
-type LegacyGasStationSidecarSpec struct {
-	ForwarderAddress  ethkey.EIP55Address `json:"forwarderAddress"`
-	OffRampAddress    ethkey.EIP55Address `json:"offRampAddress"`
-	LookbackBlocks    int32               `json:"lookbackBlocks"`
-	EVMChainID        *utils.Big          `json:"evmChainID"`
-	CCIPChainSelector *utils.Big          `json:"ccipChainSelector"`
-	PollPeriod        time.Duration       `json:"pollPeriod"`
-	RunTimeout        time.Duration       `json:"runTimeout"`
-	StatusUpdateURL   string              `json:"statusUpdateURL"`
-
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-}
-
-// NewLegacyGasStationSidecarSpec creates a new LegacyGasStationSidecarSpec for the given parameters.
-func NewLegacyGasStationSidecarSpec(spec *job.LegacyGasStationSidecarSpec) *LegacyGasStationSidecarSpec {
-	return &LegacyGasStationSidecarSpec{
-		ForwarderAddress:  spec.ForwarderAddress,
-		OffRampAddress:    spec.OffRampAddress,
-		LookbackBlocks:    spec.LookbackBlocks,
-		EVMChainID:        spec.EVMChainID,
-		CCIPChainSelector: spec.CCIPChainSelector,
-		PollPeriod:        spec.PollPeriod,
-		RunTimeout:        spec.RunTimeout,
-		StatusUpdateURL:   spec.StatusUpdateURL,
 	}
 }
 
@@ -509,29 +461,27 @@ func NewJobError(e job.SpecError) JobError {
 // JobResource represents a JobResource
 type JobResource struct {
 	JAID
-	Name                        string                       `json:"name"`
-	Type                        JobSpecType                  `json:"type"`
-	SchemaVersion               uint32                       `json:"schemaVersion"`
-	GasLimit                    clnull.Uint32                `json:"gasLimit"`
-	ForwardingAllowed           bool                         `json:"forwardingAllowed"`
-	MaxTaskDuration             models.Interval              `json:"maxTaskDuration"`
-	ExternalJobID               uuid.UUID                    `json:"externalJobID"`
-	DirectRequestSpec           *DirectRequestSpec           `json:"directRequestSpec"`
-	FluxMonitorSpec             *FluxMonitorSpec             `json:"fluxMonitorSpec"`
-	CronSpec                    *CronSpec                    `json:"cronSpec"`
-	OffChainReportingSpec       *OffChainReportingSpec       `json:"offChainReportingOracleSpec"`
-	OffChainReporting2Spec      *OffChainReporting2Spec      `json:"offChainReporting2OracleSpec"`
-	KeeperSpec                  *KeeperSpec                  `json:"keeperSpec"`
-	VRFSpec                     *VRFSpec                     `json:"vrfSpec"`
-	WebhookSpec                 *WebhookSpec                 `json:"webhookSpec"`
-	BlockhashStoreSpec          *BlockhashStoreSpec          `json:"blockhashStoreSpec"`
-	BlockHeaderFeederSpec       *BlockHeaderFeederSpec       `json:"blockHeaderFeederSpec"`
-	LegacyGasStationServerSpec  *LegacyGasStationServerSpec  `json:"legacyGasStationServerSpec"`
-	LegacyGasStationSidecarSpec *LegacyGasStationSidecarSpec `json:"legacyGasStationSidecarSpec"`
-	BootstrapSpec               *BootstrapSpec               `json:"bootstrapSpec"`
-	GatewaySpec                 *GatewaySpec                 `json:"gatewaySpec"`
-	PipelineSpec                PipelineSpec                 `json:"pipelineSpec"`
-	Errors                      []JobError                   `json:"errors"`
+	Name                   string                  `json:"name"`
+	Type                   JobSpecType             `json:"type"`
+	SchemaVersion          uint32                  `json:"schemaVersion"`
+	GasLimit               clnull.Uint32           `json:"gasLimit"`
+	ForwardingAllowed      bool                    `json:"forwardingAllowed"`
+	MaxTaskDuration        models.Interval         `json:"maxTaskDuration"`
+	ExternalJobID          uuid.UUID               `json:"externalJobID"`
+	DirectRequestSpec      *DirectRequestSpec      `json:"directRequestSpec"`
+	FluxMonitorSpec        *FluxMonitorSpec        `json:"fluxMonitorSpec"`
+	CronSpec               *CronSpec               `json:"cronSpec"`
+	OffChainReportingSpec  *OffChainReportingSpec  `json:"offChainReportingOracleSpec"`
+	OffChainReporting2Spec *OffChainReporting2Spec `json:"offChainReporting2OracleSpec"`
+	KeeperSpec             *KeeperSpec             `json:"keeperSpec"`
+	VRFSpec                *VRFSpec                `json:"vrfSpec"`
+	WebhookSpec            *WebhookSpec            `json:"webhookSpec"`
+	BlockhashStoreSpec     *BlockhashStoreSpec     `json:"blockhashStoreSpec"`
+	BlockHeaderFeederSpec  *BlockHeaderFeederSpec  `json:"blockHeaderFeederSpec"`
+	BootstrapSpec          *BootstrapSpec          `json:"bootstrapSpec"`
+	GatewaySpec            *GatewaySpec            `json:"gatewaySpec"`
+	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
+	Errors                 []JobError              `json:"errors"`
 }
 
 // NewJobResource initializes a new JSONAPI job resource
@@ -569,10 +519,6 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.BlockhashStoreSpec = NewBlockhashStoreSpec(j.BlockhashStoreSpec)
 	case job.BlockHeaderFeeder:
 		resource.BlockHeaderFeederSpec = NewBlockHeaderFeederSpec(j.BlockHeaderFeederSpec)
-	case job.LegacyGasStationServer:
-		resource.LegacyGasStationServerSpec = NewLegacyGasStationServerSpec(j.LegacyGasStationServerSpec)
-	case job.LegacyGasStationSidecar:
-		resource.LegacyGasStationSidecarSpec = NewLegacyGasStationSidecarSpec(j.LegacyGasStationSidecarSpec)
 	case job.Bootstrap:
 		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
 	case job.Gateway:

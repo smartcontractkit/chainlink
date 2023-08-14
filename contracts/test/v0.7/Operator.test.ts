@@ -51,7 +51,7 @@ before(async () => {
 
   roles = users.roles
   v7ConsumerFactory = await ethers.getContractFactory(
-    'src/v0.7/tests/Consumer.sol:Consumer',
+    'src/v0.7/tests/Client.sol:Consumer',
   )
   basicConsumerFactory = await ethers.getContractFactory(
     'src/v0.6/tests/BasicConsumer.sol:BasicConsumer',

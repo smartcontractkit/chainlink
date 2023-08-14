@@ -20,7 +20,7 @@ var (
 
 type PersistenceManager struct {
 	lggr logger.Logger
-	orm  *ORM
+	orm  ORM
 
 	once   utils.StartStopOnce
 	stopCh utils.StopChan
@@ -30,7 +30,7 @@ type PersistenceManager struct {
 	deleteQueue []*pb.TransmitRequest
 }
 
-func NewPersistenceManager(lggr logger.Logger, orm *ORM) *PersistenceManager {
+func NewPersistenceManager(lggr logger.Logger, orm ORM) *PersistenceManager {
 	return &PersistenceManager{
 		lggr:   lggr.Named("MercuryPersistenceManager"),
 		orm:    orm,

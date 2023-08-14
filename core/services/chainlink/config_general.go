@@ -289,10 +289,6 @@ func (g *generalConfig) FeatureCCIP() bool {
 	return *g.c.Feature.CCIP
 }
 
-func (g *generalConfig) FeatureLegacyGasStation() bool {
-	return *g.c.Feature.LegacyGasStation
-}
-
 func (g *generalConfig) FeatureUICSAKeys() bool {
 	return *g.c.Feature.UICSAKeys
 }
@@ -522,13 +518,6 @@ func (g *generalConfig) Sentry() coreconfig.Sentry {
 
 func (g *generalConfig) Password() coreconfig.Password {
 	return &passwordConfig{keystore: g.keystorePassword, vrf: g.vrfPassword}
-}
-
-func (g *generalConfig) LegacyGasStation() coreconfig.LegacyGasStation {
-	if g.secrets.LegacyGasStation.AuthConfig == nil {
-		return nil
-	}
-	return &legacyGasStationConfig{s: g.secrets.LegacyGasStation}
 }
 
 func (g *generalConfig) Prometheus() coreconfig.Prometheus {

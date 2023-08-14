@@ -1,4 +1,5 @@
 artifacts
+foundry-artifacts
 cache
 node_modules
 solc

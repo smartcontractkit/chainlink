@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 // CCIPContractsDeployer provides the implementations for deploying CCIP ETH contracts
@@ -556,7 +556,7 @@ func NewOffChainAggregatorV2Config[T ccipconfig.OffchainConfig](
 		onChainKeys = append(onChainKeys, oracleIdentities[i].OnchainPublicKey)
 		transmitters = append(transmitters, common.HexToAddress(ethAddress))
 	}
-	signers, err = ocrcommon.OnchainPublicKeyToAddress(onChainKeys)
+	signers, err = evm.OnchainPublicKeyToAddress(onChainKeys)
 	if err != nil {
 		return nil, nil, 0, nil, 0, nil, err
 	}

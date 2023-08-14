@@ -5,7 +5,6 @@ import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 import {ITokenMessenger} from "./ITokenMessenger.sol";
 import {IMessageReceiver} from "./IMessageReceiver.sol";
 
-import {RateLimiter} from "../../libraries/RateLimiter.sol";
 import {TokenPool} from "../TokenPool.sol";
 
 /// @notice This pool mints and burns USDC tokens through the Cross Chain Transfer

@@ -94,7 +94,7 @@ abstract contract OCR2Abstract is TypeAndVersionInterface {
 
   /**
     * @notice optionally emited to indicate the latest configDigest and epoch for
-     which a report was successfully transmited. Alternatively, the contract may
+     which a report was successfully transmitted. Alternatively, the contract may
      use latestConfigDigestAndEpoch with scanLogs set to false.
   */
   event Transmitted(bytes32 configDigest, uint32 epoch);

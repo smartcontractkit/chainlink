@@ -14,7 +14,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 type OCR2Params struct {
@@ -130,11 +130,11 @@ func (client *CCIPClient) setOCRConfig(ocrConf ocr2Configurer, pluginOffchainCon
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create args for ocr config tx")
 	}
-	signerAddresses, err := ocrcommon.OnchainPublicKeyToAddress(signers)
+	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
 	if err != nil {
 		return nil, err
 	}
-	transmitterAddresses, err := ocrcommon.AccountToAddress(transmitters)
+	transmitterAddresses, err := evm.AccountToAddress(transmitters)
 	if err != nil {
 		return nil, err
 	}

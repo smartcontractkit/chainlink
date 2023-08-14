@@ -30,9 +30,14 @@ var (
 	_ = abi.ConvertType
 )
 
+type CommonAddressAndWeight struct {
+	Addr   common.Address
+	Weight *big.Int
+}
+
 var MercuryVerifierProxyMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"contractAccessControllerInterface\",\"name\":\"accessController\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"AccessForbidden\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"verifier\",\"type\":\"address\"}],\"name\":\"ConfigDigestAlreadySet\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"verifier\",\"type\":\"address\"}],\"name\":\"VerifierAlreadyInitialized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VerifierInvalid\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"}],\"name\":\"VerifierNotFound\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddress\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oldAccessController\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newAccessController\",\"type\":\"address\"}],\"name\":\"AccessControllerSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"verifierAddress\",\"type\":\"address\"}],\"name\":\"VerifierInitialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"oldConfigDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"newConfigDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"verifierAddress\",\"type\":\"address\"}],\"name\":\"VerifierSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"verifierAddress\",\"type\":\"address\"}],\"name\":\"VerifierUnset\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getAccessController\",\"outputs\":[{\"internalType\":\"contractAccessControllerInterface\",\"name\":\"accessController\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"}],\"name\":\"getVerifier\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"verifierAddress\",\"type\":\"address\"}],\"name\":\"initializeVerifier\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractAccessControllerInterface\",\"name\":\"accessController\",\"type\":\"address\"}],\"name\":\"setAccessController\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"currentConfigDigest\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"newConfigDigest\",\"type\":\"bytes32\"}],\"name\":\"setVerifier\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"}],\"name\":\"unsetVerifier\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"signedReport\",\"type\":\"bytes\"}],\"name\":\"verify\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"verifierResponse\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b5060405161112e38038061112e83398101604081905261002f91610187565b33806000816100855760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b03848116919091179091558116156100b5576100b5816100de565b5050600480546001600160a01b0319166001600160a01b039390931692909217909155506101b7565b336001600160a01b038216036101365760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161007c565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b60006020828403121561019957600080fd5b81516001600160a01b03811681146101b057600080fd5b9392505050565b610f68806101c66000396000f3fe608060405234801561001057600080fd5b50600436106100c95760003560e01c80638c2a4d5311610081578063eeb7b2481161005b578063eeb7b248146101c8578063f08391d8146101fe578063f2fde38b1461021157600080fd5b80638c2a4d53146101845780638da5cb5b146101975780638e760afe146101b557600080fd5b80632cc99477116100b25780632cc99477146101545780636e9140941461016957806379ba50971461017c57600080fd5b806316d6b5f6146100ce578063181f5a7714610112575b600080fd5b60045473ffffffffffffffffffffffffffffffffffffffff165b60405173ffffffffffffffffffffffffffffffffffffffff90911681526020015b60405180910390f35b60408051808201909152601381527f566572696669657250726f787920312e302e300000000000000000000000000060208201525b6040516101099190610c40565b610167610162366004610c5a565b610224565b005b610167610177366004610c7c565b61036f565b610167610467565b610167610192366004610cb7565b610564565b60005473ffffffffffffffffffffffffffffffffffffffff166100e8565b6101476101c3366004610cd4565b610795565b6100e86101d6366004610c7c565b60009081526003602052604090205473ffffffffffffffffffffffffffffffffffffffff1690565b61016761020c366004610cb7565b6109bf565b61016761021f366004610cb7565b610a46565b600081815260036020526040902054819073ffffffffffffffffffffffffffffffffffffffff1680156102a7576040517f375d1fe60000000000000000000000000000000000000000000000000000000081526004810183905273ffffffffffffffffffffffffffffffffffffffff821660248201526044015b60405180910390fd5b3360009081526002602052604090205460ff166102f0576040517fef67f5d800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000838152600360209081526040918290208054337fffffffffffffffffffffffff0000000000000000000000000000000000000000909116811790915582518781529182018690528183015290517fbeb513e532542a562ac35699e7cd9ae7d198dcd3eee15bada6c857d28ceaddcf9181900360600190a150505050565b610377610a5a565b60008181526003602052604090205473ffffffffffffffffffffffffffffffffffffffff16806103d6576040517fb151802b0000000000000000000000000000000000000000000000000000000081526004810183905260240161029e565b6000828152600360205260409081902080547fffffffffffffffffffffffff0000000000000000000000000000000000000000169055517f11dc15c4b8ac2b183166cc8427e5385a5ece8308217a4217338c6a7614845c4c9061045b908490849091825273ffffffffffffffffffffffffffffffffffffffff16602082015260400190565b60405180910390a15050565b60015473ffffffffffffffffffffffffffffffffffffffff1633146104e8576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e657200000000000000000000604482015260640161029e565b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b61056c610a5a565b8073ffffffffffffffffffffffffffffffffffffffff81166105ba576040517fd92e233d00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6040517f01ffc9a70000000000000000000000000000000000000000000000000000000081527f3d3ac1b500000000000000000000000000000000000000000000000000000000600482015273ffffffffffffffffffffffffffffffffffffffff8216906301ffc9a790602401602060405180830381865afa158015610644573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906106689190610d46565b61069e576040517f75b0527a00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff821660009081526002602052604090205460ff1615610716576040517f4e01ccfd00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff8316600482015260240161029e565b73ffffffffffffffffffffffffffffffffffffffff821660008181526002602090815260409182902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016600117905590519182527f1f2cd7c97f4d801b5efe26cc409617c1fd6c5ef786e79aacb90af40923e4e8e9910161045b565b60045460609073ffffffffffffffffffffffffffffffffffffffff16801580159061085557506040517f6b14daf800000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff821690636b14daf8906108129033906000903690600401610db1565b602060405180830381865afa15801561082f573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906108539190610d46565b155b1561088c576040517fef67f5d800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b60006108988486610dea565b60008181526003602052604090205490915073ffffffffffffffffffffffffffffffffffffffff16806108fa576040517fb151802b0000000000000000000000000000000000000000000000000000000081526004810183905260240161029e565b6040517f3d3ac1b500000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff821690633d3ac1b59061095090899089903390600401610e27565b6000604051808303816000875af115801561096f573d6000803e3d6000fd5b505050506040513d6000823e601f3d9081017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe01682016040526109b59190810190610e90565b9695505050505050565b6109c7610a5a565b6004805473ffffffffffffffffffffffffffffffffffffffff8381167fffffffffffffffffffffffff000000000000000000000000000000000000000083168117909355604080519190921680825260208201939093527f953e92b1a6442e9c3242531154a3f6f6eb00b4e9c719ba8118fa6235e4ce89b6910161045b565b610a4e610a5a565b610a5781610add565b50565b60005473ffffffffffffffffffffffffffffffffffffffff163314610adb576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e657200000000000000000000604482015260640161029e565b565b3373ffffffffffffffffffffffffffffffffffffffff821603610b5c576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161029e565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b60005b83811015610bed578181015183820152602001610bd5565b50506000910152565b60008151808452610c0e816020860160208601610bd2565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b602081526000610c536020830184610bf6565b9392505050565b60008060408385031215610c6d57600080fd5b50508035926020909101359150565b600060208284031215610c8e57600080fd5b5035919050565b73ffffffffffffffffffffffffffffffffffffffff81168114610a5757600080fd5b600060208284031215610cc957600080fd5b8135610c5381610c95565b60008060208385031215610ce757600080fd5b823567ffffffffffffffff80821115610cff57600080fd5b818501915085601f830112610d1357600080fd5b813581811115610d2257600080fd5b866020828501011115610d3457600080fd5b60209290920196919550909350505050565b600060208284031215610d5857600080fd5b81518015158114610c5357600080fd5b8183528181602085013750600060208284010152600060207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f840116840101905092915050565b73ffffffffffffffffffffffffffffffffffffffff84168152604060208201526000610de1604083018486610d68565b95945050505050565b80356020831015610e21577fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff602084900360031b1b165b92915050565b604081526000610e3b604083018587610d68565b905073ffffffffffffffffffffffffffffffffffffffff83166020830152949350505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b600060208284031215610ea257600080fd5b815167ffffffffffffffff80821115610eba57600080fd5b818401915084601f830112610ece57600080fd5b815181811115610ee057610ee0610e61565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0908116603f01168101908382118183101715610f2657610f26610e61565b81604052828152876020848701011115610f3f57600080fd5b610f50836020830160208801610bd2565b97965050505050505056fea164736f6c6343000810000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"contractAccessControllerInterface\",\"name\":\"accessController\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"AccessForbidden\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"BadVerification\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"verifier\",\"type\":\"address\"}],\"name\":\"ConfigDigestAlreadySet\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"verifier\",\"type\":\"address\"}],\"name\":\"VerifierAlreadyInitialized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"VerifierInvalid\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"}],\"name\":\"VerifierNotFound\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddress\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oldAccessController\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newAccessController\",\"type\":\"address\"}],\"name\":\"AccessControllerSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"oldFeeManager\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"newFeeManager\",\"type\":\"address\"}],\"name\":\"FeeManagerSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferRequested\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"from\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"OwnershipTransferred\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"address\",\"name\":\"verifierAddress\",\"type\":\"address\"}],\"name\":\"VerifierInitialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"oldConfigDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"newConfigDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"verifierAddress\",\"type\":\"address\"}],\"name\":\"VerifierSet\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"address\",\"name\":\"verifierAddress\",\"type\":\"address\"}],\"name\":\"VerifierUnset\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"acceptOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"}],\"name\":\"getVerifier\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"verifierAddress\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"verifierAddress\",\"type\":\"address\"}],\"name\":\"initializeVerifier\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"owner\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_accessController\",\"outputs\":[{\"internalType\":\"contractAccessControllerInterface\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"s_feeManager\",\"outputs\":[{\"internalType\":\"contractIVerifierFeeManager\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractAccessControllerInterface\",\"name\":\"accessController\",\"type\":\"address\"}],\"name\":\"setAccessController\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"contractIVerifierFeeManager\",\"name\":\"feeManager\",\"type\":\"address\"}],\"name\":\"setFeeManager\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"currentConfigDigest\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"newConfigDigest\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"weight\",\"type\":\"uint256\"}],\"internalType\":\"structCommon.AddressAndWeight[]\",\"name\":\"addressesAndWeights\",\"type\":\"tuple[]\"}],\"name\":\"setVerifier\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"to\",\"type\":\"address\"}],\"name\":\"transferOwnership\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"typeAndVersion\",\"outputs\":[{\"internalType\":\"string\",\"name\":\"\",\"type\":\"string\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"configDigest\",\"type\":\"bytes32\"}],\"name\":\"unsetVerifier\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"payload\",\"type\":\"bytes\"}],\"name\":\"verify\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"verifierResponse\",\"type\":\"bytes\"}],\"stateMutability\":\"payable\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b50604051620015333803806200153383398101604081905261003191610189565b33806000816100875760405162461bcd60e51b815260206004820152601860248201527f43616e6e6f7420736574206f776e657220746f207a65726f000000000000000060448201526064015b60405180910390fd5b600080546001600160a01b0319166001600160a01b03848116919091179091558116156100b7576100b7816100e0565b5050600480546001600160a01b0319166001600160a01b039390931692909217909155506101b9565b336001600160a01b038216036101385760405162461bcd60e51b815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161007e565b600180546001600160a01b0319166001600160a01b0383811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b60006020828403121561019b57600080fd5b81516001600160a01b03811681146101b257600080fd5b9392505050565b61136a80620001c96000396000f3fe6080604052600436106100d25760003560e01c80638c2a4d531161007f57806394ba28461161005957806394ba284614610256578063eeb7b24814610283578063f08391d8146102c6578063f2fde38b146102e657600080fd5b80638c2a4d53146101f85780638da5cb5b146102185780638e760afe1461024357600080fd5b8063589ede28116100b0578063589ede28146101a35780636e914094146101c357806379ba5097146101e357600080fd5b8063181f5a77146100d757806338416b5b1461012f578063472d35b914610181575b600080fd5b3480156100e357600080fd5b5060408051808201909152601381527f566572696669657250726f787920312e312e300000000000000000000000000060208201525b6040516101269190610f7d565b60405180910390f35b34801561013b57600080fd5b5060055461015c9073ffffffffffffffffffffffffffffffffffffffff1681565b60405173ffffffffffffffffffffffffffffffffffffffff9091168152602001610126565b34801561018d57600080fd5b506101a161019c366004610fb9565b610306565b005b3480156101af57600080fd5b506101a16101be366004610fd6565b6103e2565b3480156101cf57600080fd5b506101a16101de366004611059565b61060d565b3480156101ef57600080fd5b506101a16106f9565b34801561020457600080fd5b506101a1610213366004610fb9565b6107f6565b34801561022457600080fd5b5060005473ffffffffffffffffffffffffffffffffffffffff1661015c565b610119610251366004611072565b610a27565b34801561026257600080fd5b5060045461015c9073ffffffffffffffffffffffffffffffffffffffff1681565b34801561028f57600080fd5b5061015c61029e366004611059565b60009081526003602052604090205473ffffffffffffffffffffffffffffffffffffffff1690565b3480156102d257600080fd5b506101a16102e1366004610fb9565b610cfc565b3480156102f257600080fd5b506101a1610301366004610fb9565b610d83565b61030e610d97565b73ffffffffffffffffffffffffffffffffffffffff811661035b576040517fd92e233d00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6005805473ffffffffffffffffffffffffffffffffffffffff8381167fffffffffffffffffffffffff000000000000000000000000000000000000000083168117909355604080519190921680825260208201939093527f04628abcaa6b1674651352125cb94b65b289145bc2bc4d67720bb7d966372f0391015b60405180910390a15050565b600083815260036020526040902054839073ffffffffffffffffffffffffffffffffffffffff168015610465576040517f375d1fe60000000000000000000000000000000000000000000000000000000081526004810183905273ffffffffffffffffffffffffffffffffffffffff821660248201526044015b60405180910390fd5b3360009081526002602052604090205460ff166104ae576040517fef67f5d800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b600085815260036020526040902080547fffffffffffffffffffffffff0000000000000000000000000000000000000000163317905582156105c65760055473ffffffffffffffffffffffffffffffffffffffff16610539576040517fd92e233d00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6005546040517f69fd2b3400000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff909116906369fd2b3490610593908890889088906004016110e4565b600060405180830381600087803b1580156105ad57600080fd5b505af11580156105c1573d6000803e3d6000fd5b505050505b6040805187815260208101879052338183015290517fbeb513e532542a562ac35699e7cd9ae7d198dcd3eee15bada6c857d28ceaddcf9181900360600190a1505050505050565b610615610d97565b60008181526003602052604090205473ffffffffffffffffffffffffffffffffffffffff1680610674576040517fb151802b0000000000000000000000000000000000000000000000000000000081526004810183905260240161045c565b6000828152600360205260409081902080547fffffffffffffffffffffffff0000000000000000000000000000000000000000169055517f11dc15c4b8ac2b183166cc8427e5385a5ece8308217a4217338c6a7614845c4c906103d6908490849091825273ffffffffffffffffffffffffffffffffffffffff16602082015260400190565b60015473ffffffffffffffffffffffffffffffffffffffff16331461077a576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4d7573742062652070726f706f736564206f776e657200000000000000000000604482015260640161045c565b60008054337fffffffffffffffffffffffff00000000000000000000000000000000000000008083168217845560018054909116905560405173ffffffffffffffffffffffffffffffffffffffff90921692909183917f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e091a350565b6107fe610d97565b8073ffffffffffffffffffffffffffffffffffffffff811661084c576040517fd92e233d00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6040517f01ffc9a70000000000000000000000000000000000000000000000000000000081527f3d3ac1b500000000000000000000000000000000000000000000000000000000600482015273ffffffffffffffffffffffffffffffffffffffff8216906301ffc9a790602401602060405180830381865afa1580156108d6573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906108fa9190611153565b610930576040517f75b0527a00000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b73ffffffffffffffffffffffffffffffffffffffff821660009081526002602052604090205460ff16156109a8576040517f4e01ccfd00000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff8316600482015260240161045c565b73ffffffffffffffffffffffffffffffffffffffff821660008181526002602090815260409182902080547fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016600117905590519182527f1f2cd7c97f4d801b5efe26cc409617c1fd6c5ef786e79aacb90af40923e4e8e991016103d6565b60045460609073ffffffffffffffffffffffffffffffffffffffff168015801590610ae757506040517f6b14daf800000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff821690636b14daf890610aa490339060009036906004016111be565b602060405180830381865afa158015610ac1573d6000803e3d6000fd5b505050506040513d601f19601f82011682018060405250810190610ae59190611153565b155b15610b1e576040517fef67f5d800000000000000000000000000000000000000000000000000000000815260040160405180910390fd5b6000610b2a84866111f7565b60008181526003602052604090205490915073ffffffffffffffffffffffffffffffffffffffff1680610b8c576040517fb151802b0000000000000000000000000000000000000000000000000000000081526004810183905260240161045c565b60055473ffffffffffffffffffffffffffffffffffffffff168015610c36576040517ff1387e1600000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff82169063f1387e16903490610c03908b908b903390600401611234565b6000604051808303818588803b158015610c1c57600080fd5b505af1158015610c30573d6000803e3d6000fd5b50505050505b6040517f3d3ac1b500000000000000000000000000000000000000000000000000000000815273ffffffffffffffffffffffffffffffffffffffff831690633d3ac1b590610c8c908a908a903390600401611234565b6000604051808303816000875af1158015610cab573d6000803e3d6000fd5b505050506040513d6000823e601f3d9081017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0168201604052610cf1919081019061129d565b979650505050505050565b610d04610d97565b6004805473ffffffffffffffffffffffffffffffffffffffff8381167fffffffffffffffffffffffff000000000000000000000000000000000000000083168117909355604080519190921680825260208201939093527f953e92b1a6442e9c3242531154a3f6f6eb00b4e9c719ba8118fa6235e4ce89b691016103d6565b610d8b610d97565b610d9481610e1a565b50565b60005473ffffffffffffffffffffffffffffffffffffffff163314610e18576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601660248201527f4f6e6c792063616c6c61626c65206279206f776e657200000000000000000000604482015260640161045c565b565b3373ffffffffffffffffffffffffffffffffffffffff821603610e99576040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f43616e6e6f74207472616e7366657220746f2073656c66000000000000000000604482015260640161045c565b600180547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff83811691821790925560008054604051929316917fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae12789190a350565b60005b83811015610f2a578181015183820152602001610f12565b50506000910152565b60008151808452610f4b816020860160208601610f0f565b601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b602081526000610f906020830184610f33565b9392505050565b73ffffffffffffffffffffffffffffffffffffffff81168114610d9457600080fd5b600060208284031215610fcb57600080fd5b8135610f9081610f97565b60008060008060608587031215610fec57600080fd5b8435935060208501359250604085013567ffffffffffffffff8082111561101257600080fd5b818701915087601f83011261102657600080fd5b81358181111561103557600080fd5b8860208260061b850101111561104a57600080fd5b95989497505060200194505050565b60006020828403121561106b57600080fd5b5035919050565b6000806020838503121561108557600080fd5b823567ffffffffffffffff8082111561109d57600080fd5b818501915085601f8301126110b157600080fd5b8135818111156110c057600080fd5b8660208285010111156110d257600080fd5b60209290920196919550909350505050565b8381526040602080830182905282820184905260009190859060608501845b8781101561114657833561111681610f97565b73ffffffffffffffffffffffffffffffffffffffff16825283830135838301529284019290840190600101611103565b5098975050505050505050565b60006020828403121561116557600080fd5b81518015158114610f9057600080fd5b8183528181602085013750600060208284010152600060207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f840116840101905092915050565b73ffffffffffffffffffffffffffffffffffffffff841681526040602082015260006111ee604083018486611175565b95945050505050565b8035602083101561122e577fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff602084900360031b1b165b92915050565b604081526000611248604083018587611175565b905073ffffffffffffffffffffffffffffffffffffffff83166020830152949350505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6000602082840312156112af57600080fd5b815167ffffffffffffffff808211156112c757600080fd5b818401915084601f8301126112db57600080fd5b8151818111156112ed576112ed61126e565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0908116603f011681019083821181831017156113335761133361126e565b8160405282815287602084870101111561134c57600080fd5b610cf1836020830160208801610f0f56fea164736f6c6343000810000a",
 }
 
 var MercuryVerifierProxyABI = MercuryVerifierProxyMetaData.ABI
@@ -171,28 +176,6 @@ func (_MercuryVerifierProxy *MercuryVerifierProxyTransactorRaw) Transact(opts *b
 	return _MercuryVerifierProxy.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_MercuryVerifierProxy *MercuryVerifierProxyCaller) GetAccessController(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _MercuryVerifierProxy.contract.Call(opts, &out, "getAccessController")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-func (_MercuryVerifierProxy *MercuryVerifierProxySession) GetAccessController() (common.Address, error) {
-	return _MercuryVerifierProxy.Contract.GetAccessController(&_MercuryVerifierProxy.CallOpts)
-}
-
-func (_MercuryVerifierProxy *MercuryVerifierProxyCallerSession) GetAccessController() (common.Address, error) {
-	return _MercuryVerifierProxy.Contract.GetAccessController(&_MercuryVerifierProxy.CallOpts)
-}
-
 func (_MercuryVerifierProxy *MercuryVerifierProxyCaller) GetVerifier(opts *bind.CallOpts, configDigest [32]byte) (common.Address, error) {
 	var out []interface{}
 	err := _MercuryVerifierProxy.contract.Call(opts, &out, "getVerifier", configDigest)
@@ -235,6 +218,50 @@ func (_MercuryVerifierProxy *MercuryVerifierProxySession) Owner() (common.Addres
 
 func (_MercuryVerifierProxy *MercuryVerifierProxyCallerSession) Owner() (common.Address, error) {
 	return _MercuryVerifierProxy.Contract.Owner(&_MercuryVerifierProxy.CallOpts)
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxyCaller) SAccessController(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _MercuryVerifierProxy.contract.Call(opts, &out, "s_accessController")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxySession) SAccessController() (common.Address, error) {
+	return _MercuryVerifierProxy.Contract.SAccessController(&_MercuryVerifierProxy.CallOpts)
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxyCallerSession) SAccessController() (common.Address, error) {
+	return _MercuryVerifierProxy.Contract.SAccessController(&_MercuryVerifierProxy.CallOpts)
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxyCaller) SFeeManager(opts *bind.CallOpts) (common.Address, error) {
+	var out []interface{}
+	err := _MercuryVerifierProxy.contract.Call(opts, &out, "s_feeManager")
+
+	if err != nil {
+		return *new(common.Address), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
+
+	return out0, err
+
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxySession) SFeeManager() (common.Address, error) {
+	return _MercuryVerifierProxy.Contract.SFeeManager(&_MercuryVerifierProxy.CallOpts)
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxyCallerSession) SFeeManager() (common.Address, error) {
+	return _MercuryVerifierProxy.Contract.SFeeManager(&_MercuryVerifierProxy.CallOpts)
 }
 
 func (_MercuryVerifierProxy *MercuryVerifierProxyCaller) TypeAndVersion(opts *bind.CallOpts) (string, error) {
@@ -295,16 +322,28 @@ func (_MercuryVerifierProxy *MercuryVerifierProxyTransactorSession) SetAccessCon
 	return _MercuryVerifierProxy.Contract.SetAccessController(&_MercuryVerifierProxy.TransactOpts, accessController)
 }
 
-func (_MercuryVerifierProxy *MercuryVerifierProxyTransactor) SetVerifier(opts *bind.TransactOpts, currentConfigDigest [32]byte, newConfigDigest [32]byte) (*types.Transaction, error) {
-	return _MercuryVerifierProxy.contract.Transact(opts, "setVerifier", currentConfigDigest, newConfigDigest)
+func (_MercuryVerifierProxy *MercuryVerifierProxyTransactor) SetFeeManager(opts *bind.TransactOpts, feeManager common.Address) (*types.Transaction, error) {
+	return _MercuryVerifierProxy.contract.Transact(opts, "setFeeManager", feeManager)
 }
 
-func (_MercuryVerifierProxy *MercuryVerifierProxySession) SetVerifier(currentConfigDigest [32]byte, newConfigDigest [32]byte) (*types.Transaction, error) {
-	return _MercuryVerifierProxy.Contract.SetVerifier(&_MercuryVerifierProxy.TransactOpts, currentConfigDigest, newConfigDigest)
+func (_MercuryVerifierProxy *MercuryVerifierProxySession) SetFeeManager(feeManager common.Address) (*types.Transaction, error) {
+	return _MercuryVerifierProxy.Contract.SetFeeManager(&_MercuryVerifierProxy.TransactOpts, feeManager)
 }
 
-func (_MercuryVerifierProxy *MercuryVerifierProxyTransactorSession) SetVerifier(currentConfigDigest [32]byte, newConfigDigest [32]byte) (*types.Transaction, error) {
-	return _MercuryVerifierProxy.Contract.SetVerifier(&_MercuryVerifierProxy.TransactOpts, currentConfigDigest, newConfigDigest)
+func (_MercuryVerifierProxy *MercuryVerifierProxyTransactorSession) SetFeeManager(feeManager common.Address) (*types.Transaction, error) {
+	return _MercuryVerifierProxy.Contract.SetFeeManager(&_MercuryVerifierProxy.TransactOpts, feeManager)
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxyTransactor) SetVerifier(opts *bind.TransactOpts, currentConfigDigest [32]byte, newConfigDigest [32]byte, addressesAndWeights []CommonAddressAndWeight) (*types.Transaction, error) {
+	return _MercuryVerifierProxy.contract.Transact(opts, "setVerifier", currentConfigDigest, newConfigDigest, addressesAndWeights)
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxySession) SetVerifier(currentConfigDigest [32]byte, newConfigDigest [32]byte, addressesAndWeights []CommonAddressAndWeight) (*types.Transaction, error) {
+	return _MercuryVerifierProxy.Contract.SetVerifier(&_MercuryVerifierProxy.TransactOpts, currentConfigDigest, newConfigDigest, addressesAndWeights)
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxyTransactorSession) SetVerifier(currentConfigDigest [32]byte, newConfigDigest [32]byte, addressesAndWeights []CommonAddressAndWeight) (*types.Transaction, error) {
+	return _MercuryVerifierProxy.Contract.SetVerifier(&_MercuryVerifierProxy.TransactOpts, currentConfigDigest, newConfigDigest, addressesAndWeights)
 }
 
 func (_MercuryVerifierProxy *MercuryVerifierProxyTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
@@ -331,16 +370,16 @@ func (_MercuryVerifierProxy *MercuryVerifierProxyTransactorSession) UnsetVerifie
 	return _MercuryVerifierProxy.Contract.UnsetVerifier(&_MercuryVerifierProxy.TransactOpts, configDigest)
 }
 
-func (_MercuryVerifierProxy *MercuryVerifierProxyTransactor) Verify(opts *bind.TransactOpts, signedReport []byte) (*types.Transaction, error) {
-	return _MercuryVerifierProxy.contract.Transact(opts, "verify", signedReport)
+func (_MercuryVerifierProxy *MercuryVerifierProxyTransactor) Verify(opts *bind.TransactOpts, payload []byte) (*types.Transaction, error) {
+	return _MercuryVerifierProxy.contract.Transact(opts, "verify", payload)
 }
 
-func (_MercuryVerifierProxy *MercuryVerifierProxySession) Verify(signedReport []byte) (*types.Transaction, error) {
-	return _MercuryVerifierProxy.Contract.Verify(&_MercuryVerifierProxy.TransactOpts, signedReport)
+func (_MercuryVerifierProxy *MercuryVerifierProxySession) Verify(payload []byte) (*types.Transaction, error) {
+	return _MercuryVerifierProxy.Contract.Verify(&_MercuryVerifierProxy.TransactOpts, payload)
 }
 
-func (_MercuryVerifierProxy *MercuryVerifierProxyTransactorSession) Verify(signedReport []byte) (*types.Transaction, error) {
-	return _MercuryVerifierProxy.Contract.Verify(&_MercuryVerifierProxy.TransactOpts, signedReport)
+func (_MercuryVerifierProxy *MercuryVerifierProxyTransactorSession) Verify(payload []byte) (*types.Transaction, error) {
+	return _MercuryVerifierProxy.Contract.Verify(&_MercuryVerifierProxy.TransactOpts, payload)
 }
 
 type MercuryVerifierProxyAccessControllerSetIterator struct {
@@ -455,6 +494,124 @@ func (_MercuryVerifierProxy *MercuryVerifierProxyFilterer) WatchAccessController
 func (_MercuryVerifierProxy *MercuryVerifierProxyFilterer) ParseAccessControllerSet(log types.Log) (*MercuryVerifierProxyAccessControllerSet, error) {
 	event := new(MercuryVerifierProxyAccessControllerSet)
 	if err := _MercuryVerifierProxy.contract.UnpackLog(event, "AccessControllerSet", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type MercuryVerifierProxyFeeManagerSetIterator struct {
+	Event *MercuryVerifierProxyFeeManagerSet
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *MercuryVerifierProxyFeeManagerSetIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(MercuryVerifierProxyFeeManagerSet)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(MercuryVerifierProxyFeeManagerSet)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *MercuryVerifierProxyFeeManagerSetIterator) Error() error {
+	return it.fail
+}
+
+func (it *MercuryVerifierProxyFeeManagerSetIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type MercuryVerifierProxyFeeManagerSet struct {
+	OldFeeManager common.Address
+	NewFeeManager common.Address
+	Raw           types.Log
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxyFilterer) FilterFeeManagerSet(opts *bind.FilterOpts) (*MercuryVerifierProxyFeeManagerSetIterator, error) {
+
+	logs, sub, err := _MercuryVerifierProxy.contract.FilterLogs(opts, "FeeManagerSet")
+	if err != nil {
+		return nil, err
+	}
+	return &MercuryVerifierProxyFeeManagerSetIterator{contract: _MercuryVerifierProxy.contract, event: "FeeManagerSet", logs: logs, sub: sub}, nil
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxyFilterer) WatchFeeManagerSet(opts *bind.WatchOpts, sink chan<- *MercuryVerifierProxyFeeManagerSet) (event.Subscription, error) {
+
+	logs, sub, err := _MercuryVerifierProxy.contract.WatchLogs(opts, "FeeManagerSet")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(MercuryVerifierProxyFeeManagerSet)
+				if err := _MercuryVerifierProxy.contract.UnpackLog(event, "FeeManagerSet", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_MercuryVerifierProxy *MercuryVerifierProxyFilterer) ParseFeeManagerSet(log types.Log) (*MercuryVerifierProxyFeeManagerSet, error) {
+	event := new(MercuryVerifierProxyFeeManagerSet)
+	if err := _MercuryVerifierProxy.contract.UnpackLog(event, "FeeManagerSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -1091,6 +1248,8 @@ func (_MercuryVerifierProxy *MercuryVerifierProxy) ParseLog(log types.Log) (gene
 	switch log.Topics[0] {
 	case _MercuryVerifierProxy.abi.Events["AccessControllerSet"].ID:
 		return _MercuryVerifierProxy.ParseAccessControllerSet(log)
+	case _MercuryVerifierProxy.abi.Events["FeeManagerSet"].ID:
+		return _MercuryVerifierProxy.ParseFeeManagerSet(log)
 	case _MercuryVerifierProxy.abi.Events["OwnershipTransferRequested"].ID:
 		return _MercuryVerifierProxy.ParseOwnershipTransferRequested(log)
 	case _MercuryVerifierProxy.abi.Events["OwnershipTransferred"].ID:
@@ -1109,6 +1268,10 @@ func (_MercuryVerifierProxy *MercuryVerifierProxy) ParseLog(log types.Log) (gene
 
 func (MercuryVerifierProxyAccessControllerSet) Topic() common.Hash {
 	return common.HexToHash("0x953e92b1a6442e9c3242531154a3f6f6eb00b4e9c719ba8118fa6235e4ce89b6")
+}
+
+func (MercuryVerifierProxyFeeManagerSet) Topic() common.Hash {
+	return common.HexToHash("0x04628abcaa6b1674651352125cb94b65b289145bc2bc4d67720bb7d966372f03")
 }
 
 func (MercuryVerifierProxyOwnershipTransferRequested) Topic() common.Hash {
@@ -1136,11 +1299,13 @@ func (_MercuryVerifierProxy *MercuryVerifierProxy) Address() common.Address {
 }
 
 type MercuryVerifierProxyInterface interface {
-	GetAccessController(opts *bind.CallOpts) (common.Address, error)
-
 	GetVerifier(opts *bind.CallOpts, configDigest [32]byte) (common.Address, error)
 
 	Owner(opts *bind.CallOpts) (common.Address, error)
+
+	SAccessController(opts *bind.CallOpts) (common.Address, error)
+
+	SFeeManager(opts *bind.CallOpts) (common.Address, error)
 
 	TypeAndVersion(opts *bind.CallOpts) (string, error)
 
@@ -1150,19 +1315,27 @@ type MercuryVerifierProxyInterface interface {
 
 	SetAccessController(opts *bind.TransactOpts, accessController common.Address) (*types.Transaction, error)
 
-	SetVerifier(opts *bind.TransactOpts, currentConfigDigest [32]byte, newConfigDigest [32]byte) (*types.Transaction, error)
+	SetFeeManager(opts *bind.TransactOpts, feeManager common.Address) (*types.Transaction, error)
+
+	SetVerifier(opts *bind.TransactOpts, currentConfigDigest [32]byte, newConfigDigest [32]byte, addressesAndWeights []CommonAddressAndWeight) (*types.Transaction, error)
 
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 
 	UnsetVerifier(opts *bind.TransactOpts, configDigest [32]byte) (*types.Transaction, error)
 
-	Verify(opts *bind.TransactOpts, signedReport []byte) (*types.Transaction, error)
+	Verify(opts *bind.TransactOpts, payload []byte) (*types.Transaction, error)
 
 	FilterAccessControllerSet(opts *bind.FilterOpts) (*MercuryVerifierProxyAccessControllerSetIterator, error)
 
 	WatchAccessControllerSet(opts *bind.WatchOpts, sink chan<- *MercuryVerifierProxyAccessControllerSet) (event.Subscription, error)
 
 	ParseAccessControllerSet(log types.Log) (*MercuryVerifierProxyAccessControllerSet, error)
+
+	FilterFeeManagerSet(opts *bind.FilterOpts) (*MercuryVerifierProxyFeeManagerSetIterator, error)
+
+	WatchFeeManagerSet(opts *bind.WatchOpts, sink chan<- *MercuryVerifierProxyFeeManagerSet) (event.Subscription, error)
+
+	ParseFeeManagerSet(log types.Log) (*MercuryVerifierProxyFeeManagerSet, error)
 
 	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*MercuryVerifierProxyOwnershipTransferRequestedIterator, error)
 

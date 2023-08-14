@@ -113,7 +113,7 @@ func getCommitReportForSeqNum(ctx context.Context, dstLogPoller logpoller.LogPol
 		return commit_store.CommitStoreCommitReport{}, err
 	}
 	for _, log := range logs {
-		reportAccepted, err := commitStore.ParseReportAccepted(log.GetGethLog())
+		reportAccepted, err := commitStore.ParseReportAccepted(log.ToGethLog())
 		if err != nil {
 			return commit_store.CommitStoreCommitReport{}, err
 		}

@@ -99,6 +99,6 @@ func (d disabled) IndexedLogsCreatedAfter(eventSig common.Hash, address common.A
 	return nil, ErrDisabled
 }
 
-func (d disabled) LatestBlockByEventSigsAddrsWithConfs(eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+func (d disabled) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
 	return 0, ErrDisabled
 }

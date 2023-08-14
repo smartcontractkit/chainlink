@@ -320,7 +320,7 @@ func (o *ORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses 
 }
 
 // SelectLatestBlockNumberEventSigsAddrsWithConfs finds the latest block number that matches a list of Addresses and list of events. It returns 0 if there is no matching block
-func (o *ORM) SelectLatestBlockNumberEventSigsAddrsWithConfs(eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+func (o *ORM) SelectLatestBlockNumberEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
 	var blockNumber int64
 	sigs := concatBytes(eventSigs)
 	addrs := concatBytes(addresses)
@@ -331,8 +331,9 @@ func (o *ORM) SelectLatestBlockNumberEventSigsAddrsWithConfs(eventSigs []common.
 				WHERE evm_chain_id = $1 AND
 				    event_sig = ANY($2) AND
 					address = ANY($3) AND
-					block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $4`,
-		o.chainID.Int64(), sigs, addrs, confs)
+					block_number > $4 AND
+					block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $5`,
+		o.chainID.Int64(), sigs, addrs, fromBlock, confs)
 	if err != nil {
 		return 0, err
 	}
@@ -545,6 +546,7 @@ func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIn
 		return nil, err
 	}
 	return logs, nil
+
 }
 
 type bytesProducer interface {

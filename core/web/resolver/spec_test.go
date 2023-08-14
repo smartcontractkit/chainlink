@@ -755,6 +755,10 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 	blockhashStoreAddress, err := ethkey.NewEIP55Address("0xb26A6829D454336818477B946f03Fb21c9706f3A")
 	require.NoError(t, err)
 
+	trustedBlockhashStoreAddress, err := ethkey.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
+	require.NoError(t, err)
+	trustedBlockhashStoreBatchSize := int32(20)
+
 	testCases := []GQLTestCase{
 		{
 			name:          "blockhash store spec",
@@ -764,17 +768,19 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
 					Type: job.BlockhashStore,
 					BlockhashStoreSpec: &job.BlockhashStoreSpec{
-						CoordinatorV1Address:     &coordinatorV1Address,
-						CoordinatorV2Address:     &coordinatorV2Address,
-						CoordinatorV2PlusAddress: &coordinatorV2PlusAddress,
-						CreatedAt:                f.Timestamp(),
-						EVMChainID:               utils.NewBigI(42),
-						FromAddresses:            []ethkey.EIP55Address{fromAddress1, fromAddress2},
-						PollPeriod:               1 * time.Minute,
-						RunTimeout:               37 * time.Second,
-						WaitBlocks:               100,
-						LookbackBlocks:           200,
-						BlockhashStoreAddress:    blockhashStoreAddress,
+						CoordinatorV1Address:           &coordinatorV1Address,
+						CoordinatorV2Address:           &coordinatorV2Address,
+						CoordinatorV2PlusAddress:       &coordinatorV2PlusAddress,
+						CreatedAt:                      f.Timestamp(),
+						EVMChainID:                     utils.NewBigI(42),
+						FromAddresses:                  []ethkey.EIP55Address{fromAddress1, fromAddress2},
+						PollPeriod:                     1 * time.Minute,
+						RunTimeout:                     37 * time.Second,
+						WaitBlocks:                     100,
+						LookbackBlocks:                 200,
+						BlockhashStoreAddress:          blockhashStoreAddress,
+						TrustedBlockhashStoreAddress:   &trustedBlockhashStoreAddress,
+						TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,
 					},
 				}, nil)
 			},
@@ -796,6 +802,8 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 									waitBlocks
 									lookbackBlocks
 									blockhashStoreAddress
+									trustedBlockhashStoreAddress
+									trustedBlockhashStoreBatchSize
 								}
 							}
 						}
@@ -817,7 +825,9 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 							"runTimeout": "37s",
 							"waitBlocks": 100,
 							"lookbackBlocks": 200,
-							"blockhashStoreAddress": "0xb26A6829D454336818477B946f03Fb21c9706f3A"
+							"blockhashStoreAddress": "0xb26A6829D454336818477B946f03Fb21c9706f3A",
+							"trustedBlockhashStoreAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
+							"trustedBlockhashStoreBatchSize": 20
 						}
 					}
 				}
@@ -922,148 +932,6 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 							"batchBlockhashStoreAddress": "0xd23BAE30019853Caf1D08b4C03291b10AD7743Df",
 							"getBlockhashesBatchSize": 5,
 							"storeBlockhashesBatchSize": 3
-						}
-					}
-				}
-			`,
-		},
-	}
-
-	RunGQLTests(t, testCases)
-}
-
-func TestResolver_LegacyGasStationServer(t *testing.T) {
-	var (
-		id = int32(1)
-	)
-	forwarderAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
-	require.NoError(t, err)
-
-	fromAddress, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
-	require.NoError(t, err)
-
-	testCases := []GQLTestCase{
-		{
-			name:          "legacy gas station server spec",
-			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
-					Type: job.LegacyGasStationServer,
-					LegacyGasStationServerSpec: &job.LegacyGasStationServerSpec{
-						ForwarderAddress:  forwarderAddress,
-						CreatedAt:         f.Timestamp(),
-						EVMChainID:        utils.NewBigI(42),
-						CCIPChainSelector: utils.NewBigI(420000),
-						FromAddresses:     []ethkey.EIP55Address{fromAddress},
-					},
-				}, nil)
-			},
-			query: `
-				query GetJob {
-					job(id: "1") {
-						... on Job {
-							spec {
-								__typename
-								... on LegacyGasStationServerSpec {
-									forwarderAddress
-									evmChainID
-									ccipChainSelector
-									fromAddresses
-									createdAt
-								}
-							}
-						}
-					}
-				}
-			`,
-			result: `
-				{
-					"job": {
-						"spec": {
-							"__typename": "LegacyGasStationServerSpec",
-							"forwarderAddress": "0x613a38AC1659769640aaE063C651F48E0250454C",
-							"ccipChainSelector": "420000",
-							"evmChainID": "42",
-							"fromAddresses": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"],
-							"createdAt": "2021-01-01T00:00:00Z"
-						}
-					}
-				}
-			`,
-		},
-	}
-
-	RunGQLTests(t, testCases)
-}
-
-func TestResolver_LegacyGasStationSidecarSpec(t *testing.T) {
-	var (
-		id = int32(1)
-	)
-	forwarderAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
-	require.NoError(t, err)
-
-	offRampAddress, err := ethkey.NewEIP55Address("0x2fcA960AF066cAc46085588a66dA2D614c7Cd337")
-	require.NoError(t, err)
-
-	testCases := []GQLTestCase{
-		{
-			name:          "legacy gas station sidecar spec",
-			authenticated: true,
-			before: func(f *gqlTestFramework) {
-				f.App.On("JobORM").Return(f.Mocks.jobORM)
-				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
-					Type: job.LegacyGasStationSidecar,
-					LegacyGasStationSidecarSpec: &job.LegacyGasStationSidecarSpec{
-						ForwarderAddress:  forwarderAddress,
-						OffRampAddress:    offRampAddress,
-						CreatedAt:         f.Timestamp(),
-						EVMChainID:        utils.NewBigI(42),
-						CCIPChainSelector: utils.NewBigI(420000),
-						PollPeriod:        1 * time.Minute,
-						RunTimeout:        37 * time.Second,
-						LookbackBlocks:    200,
-						StatusUpdateURL:   "https://testurl.com",
-					},
-				}, nil)
-			},
-			query: `
-				query GetJob {
-					job(id: "1") {
-						... on Job {
-							spec {
-								__typename
-								... on LegacyGasStationSidecarSpec {
-									forwarderAddress
-									offRampAddress
-									evmChainID
-									ccipChainSelector
-									pollPeriod
-									runTimeout
-									lookbackBlocks
-									statusUpdateURL
-									createdAt
-								}
-							}
-						}
-					}
-				}
-			`,
-			result: `
-				{
-					"job": {
-						"spec": {
-							"__typename": "LegacyGasStationSidecarSpec",
-							"forwarderAddress": "0x613a38AC1659769640aaE063C651F48E0250454C",
-							"offRampAddress": "0x2fcA960AF066cAc46085588a66dA2D614c7Cd337",
-							"evmChainID": "42",
-							"ccipChainSelector": "420000",
-							"pollPeriod": "1m0s",
-							"runTimeout": "37s",
-							"lookbackBlocks": 200,
-							"statusUpdateURL": "https://testurl.com",
-							"createdAt": "2021-01-01T00:00:00Z"
 						}
 					}
 				}

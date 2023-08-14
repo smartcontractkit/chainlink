@@ -508,7 +508,7 @@ describe('CronUpkeep', () => {
 })
 
 // only run during pnpm test:gas
-describe.skip('Cron Gas Usage', () => {
+describe.skip('Cron Gas Usage [ @skip-coverage ]', () => {
   before(async () => {
     const accounts = await ethers.getSigners()
     admin = accounts[0]

@@ -235,30 +235,6 @@ func TestJob_FriendlyCreatedAt(t *testing.T) {
 			now.Format(time.RFC3339),
 		},
 		{
-			"gets the legacy gas station server spec created at timestamp",
-			&cmd.JobPresenter{
-				JobResource: presenters.JobResource{
-					Type: presenters.LegacyGasStationServerJobSpec,
-					LegacyGasStationServerSpec: &presenters.LegacyGasStationServerSpec{
-						CreatedAt: now,
-					},
-				},
-			},
-			now.Format(time.RFC3339),
-		},
-		{
-			"gets the legacy gas station sidecar spec created at timestamp",
-			&cmd.JobPresenter{
-				JobResource: presenters.JobResource{
-					Type: presenters.LegacyGasStationSidecarJobSpec,
-					LegacyGasStationSidecarSpec: &presenters.LegacyGasStationSidecarSpec{
-						CreatedAt: now,
-					},
-				},
-			},
-			now.Format(time.RFC3339),
-		},
-		{
 			"invalid type",
 			&cmd.JobPresenter{
 				JobResource: presenters.JobResource{

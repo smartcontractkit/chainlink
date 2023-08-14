@@ -427,9 +427,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       }
       // call and report whether we succeeded
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-      let gasBeforeCall := gas()
       success := call(callbackGasLimit, client, 0, add(encodedCallback, 0x20), mload(encodedCallback), 0, 0)
-      gasUsed := sub(gasBeforeCall, gas())
+      gasUsed := sub(g, gas())
 
       // limit our copy to MAX_CALLBACK_RETURN_BYTES bytes
       let toCopy := returndatasize()

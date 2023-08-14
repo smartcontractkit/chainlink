@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -31,7 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/legacygasstation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -256,6 +257,8 @@ func TestORM(t *testing.T) {
 		require.Equal(t, jb.BlockhashStoreSpec.WaitBlocks, savedJob.BlockhashStoreSpec.WaitBlocks)
 		require.Equal(t, jb.BlockhashStoreSpec.LookbackBlocks, savedJob.BlockhashStoreSpec.LookbackBlocks)
 		require.Equal(t, jb.BlockhashStoreSpec.BlockhashStoreAddress, savedJob.BlockhashStoreSpec.BlockhashStoreAddress)
+		require.Equal(t, jb.BlockhashStoreSpec.TrustedBlockhashStoreAddress, savedJob.BlockhashStoreSpec.TrustedBlockhashStoreAddress)
+		require.Equal(t, jb.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize, savedJob.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize)
 		require.Equal(t, jb.BlockhashStoreSpec.PollPeriod, savedJob.BlockhashStoreSpec.PollPeriod)
 		require.Equal(t, jb.BlockhashStoreSpec.RunTimeout, savedJob.BlockhashStoreSpec.RunTimeout)
 		require.Equal(t, jb.BlockhashStoreSpec.EVMChainID, savedJob.BlockhashStoreSpec.EVMChainID)
@@ -291,54 +294,6 @@ func TestORM(t *testing.T) {
 		require.Equal(t, jb.BlockHeaderFeederSpec.FromAddresses, savedJob.BlockHeaderFeederSpec.FromAddresses)
 		require.Equal(t, jb.BlockHeaderFeederSpec.GetBlockhashesBatchSize, savedJob.BlockHeaderFeederSpec.GetBlockhashesBatchSize)
 		require.Equal(t, jb.BlockHeaderFeederSpec.StoreBlockhashesBatchSize, savedJob.BlockHeaderFeederSpec.StoreBlockhashesBatchSize)
-		err = orm.DeleteJob(jb.ID)
-		require.NoError(t, err)
-		_, err = orm.FindJob(testutils.Context(t), jb.ID)
-		require.Error(t, err)
-	})
-
-	t.Run("it creates and deletes records for legacy gas station server job", func(t *testing.T) {
-		jb, err := legacygasstation.ValidatedServerSpec(
-			testspecs.GenerateLegacyGasStationServerSpec(testspecs.LegacyGasStationServerSpecParams{}).Toml())
-		require.NoError(t, err)
-
-		err = orm.CreateJob(&jb)
-		require.NoError(t, err)
-		savedJob, err := orm.FindJob(testutils.Context(t), jb.ID)
-		require.NoError(t, err)
-		require.Equal(t, jb.ID, savedJob.ID)
-		require.Equal(t, jb.Type, savedJob.Type)
-		require.Equal(t, jb.LegacyGasStationServerSpec.ID, savedJob.LegacyGasStationServerSpec.ID)
-		require.Equal(t, jb.LegacyGasStationServerSpec.ForwarderAddress, savedJob.LegacyGasStationServerSpec.ForwarderAddress)
-		require.Equal(t, jb.LegacyGasStationServerSpec.EVMChainID, savedJob.LegacyGasStationServerSpec.EVMChainID)
-		require.Equal(t, jb.LegacyGasStationServerSpec.CCIPChainSelector, savedJob.LegacyGasStationServerSpec.CCIPChainSelector)
-		require.Equal(t, jb.LegacyGasStationServerSpec.FromAddresses, savedJob.LegacyGasStationServerSpec.FromAddresses)
-		err = orm.DeleteJob(jb.ID)
-		require.NoError(t, err)
-		_, err = orm.FindJob(testutils.Context(t), jb.ID)
-		require.Error(t, err)
-	})
-
-	t.Run("it creates and deletes records for legacy gas station sidecar jobs", func(t *testing.T) {
-		jb, err := legacygasstation.ValidatedSidecarSpec(
-			testspecs.GenerateLegacyGasStationSidecarSpec(testspecs.LegacyGasStationSidecarSpecParams{}).Toml())
-		require.NoError(t, err)
-
-		err = orm.CreateJob(&jb)
-		require.NoError(t, err)
-		savedJob, err := orm.FindJob(testutils.Context(t), jb.ID)
-		require.NoError(t, err)
-		require.Equal(t, jb.ID, savedJob.ID)
-		require.Equal(t, jb.Type, savedJob.Type)
-		require.Equal(t, jb.LegacyGasStationSidecarSpec.ID, savedJob.LegacyGasStationSidecarSpec.ID)
-		require.Equal(t, jb.LegacyGasStationSidecarSpec.ForwarderAddress, savedJob.LegacyGasStationSidecarSpec.ForwarderAddress)
-		require.Equal(t, jb.LegacyGasStationSidecarSpec.OffRampAddress, savedJob.LegacyGasStationSidecarSpec.OffRampAddress)
-		require.Equal(t, jb.LegacyGasStationSidecarSpec.LookbackBlocks, savedJob.LegacyGasStationSidecarSpec.LookbackBlocks)
-		require.Equal(t, jb.LegacyGasStationSidecarSpec.PollPeriod, savedJob.LegacyGasStationSidecarSpec.PollPeriod)
-		require.Equal(t, jb.LegacyGasStationSidecarSpec.RunTimeout, savedJob.LegacyGasStationSidecarSpec.RunTimeout)
-		require.Equal(t, jb.LegacyGasStationSidecarSpec.EVMChainID, savedJob.LegacyGasStationSidecarSpec.EVMChainID)
-		require.Equal(t, jb.LegacyGasStationSidecarSpec.CCIPChainSelector, savedJob.LegacyGasStationSidecarSpec.CCIPChainSelector)
-		require.Equal(t, jb.LegacyGasStationSidecarSpec.StatusUpdateURL, savedJob.LegacyGasStationSidecarSpec.StatusUpdateURL)
 		err = orm.DeleteJob(jb.ID)
 		require.NoError(t, err)
 		_, err = orm.FindJob(testutils.Context(t), jb.ID)
@@ -836,7 +791,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T) {
+func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing.T) {
 	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -872,7 +827,7 @@ func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T)
 		jb.OCR2OracleSpec.TransmitterID = null.String{}
 		_, address2 := cltest.MustInsertRandomKey(t, keyStore.Eth())
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{address.String(), address2.String(), common.HexToAddress("0X0").String()})
-		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"0x0000000000000000000000000000000000000000\": no such transmitter key exists", jobORM.CreateJob(&jb).Error())
+		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"0x0000000000000000000000000000000000000000\": no such sending key exists", jobORM.CreateJob(&jb).Error())
 
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{1, 2, 3})
 		assert.Equal(t, "CreateJobFailed: sending keys are of wrong type", jobORM.CreateJob(&jb).Error())
@@ -888,6 +843,71 @@ func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T)
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("transmitterID that doesn't have a match in key store")
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = nil
 		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"transmitterID that doesn't have a match in key store\": no such transmitter key exists", jobORM.CreateJob(&jb).Error())
+	})
+}
+
+func TestORM_ValidateKeyStoreMatch(t *testing.T) {
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
+
+	keyStore := cltest.NewKeyStore(t, pgtest.NewSqlxDB(t), config.Database())
+	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
+
+	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	require.NoError(t, err)
+
+	t.Run("test ETH key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.EVM
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no EVM key matching: \"bad key\"")
+
+		_, evmKey := cltest.MustInsertRandomKey(t, keyStore.Eth())
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, evmKey.String())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Cosmos key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.Cosmos
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
+
+		cosmosKey, err := keyStore.Cosmos().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, cosmosKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Solana key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.Solana
+
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Solana key matching: \"bad key\"")
+
+		solanaKey, err := keyStore.Solana().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, solanaKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Starknet key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.StarkNet
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Starknet key matching: \"bad key\"")
+
+		starkNetKey, err := keyStore.StarkNet().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, starkNetKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Mercury ETH key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.PluginType = job.Mercury
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no CSA key matching: \"bad key\"")
+
+		csaKey, err := keyStore.CSA().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, csaKey.ID())
+		require.NoError(t, err)
 	})
 }
 
