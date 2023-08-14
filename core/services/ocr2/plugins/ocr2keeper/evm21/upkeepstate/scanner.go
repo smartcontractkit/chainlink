@@ -46,8 +46,9 @@ func (s *performedEventsScanner) Start(_ context.Context) error {
 	})
 }
 
+// implements io.Closer, does nothing upon close
 func (s *performedEventsScanner) Close() error {
-	return s.poller.UnregisterFilter(dedupFilterName(s.registryAddress), nil)
+	return nil
 }
 
 func (s *performedEventsScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]string, error) {

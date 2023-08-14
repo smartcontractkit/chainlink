@@ -43,6 +43,9 @@ type upkeepStateRecord struct {
 	addedAt time.Time
 }
 
+// upkeepStateStore implements UpkeepStateStore.
+// It stores the state of ineligible upkeeps in a local, in-memory cache (TODO: save in DB).
+// In addition, performed events are fetched by the scanner on demand.
 type upkeepStateStore struct {
 	lggr logger.Logger
 
