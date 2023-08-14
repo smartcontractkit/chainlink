@@ -14,6 +14,7 @@ type CLTestEnvBuilder struct {
 	hasLogWatch          bool
 	hasGeth              bool
 	hasMockServer        bool
+	hasForwarders        bool
 	clNodeConfig         *chainlink.Config
 	clNodesCount         int
 	externalAdapterCount int
@@ -37,6 +38,11 @@ func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
 
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	b.clNodesCount = clNodesCount
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithForwarders() *CLTestEnvBuilder {
+	b.hasForwarders = true
 	return b
 }
 
@@ -137,7 +143,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 				node.WithP2Pv1(),
 			)
 		}
-		node.SetDefaultSimulatedGeth(cfg, te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl)
+		node.SetDefaultSimulatedGeth(cfg, te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl, b.hasForwarders)
 		err := te.StartClNodes(cfg, b.clNodesCount)
 		if err != nil {
 			return te, err
