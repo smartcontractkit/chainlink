@@ -24,11 +24,22 @@ func TestPerformedEventsScanner(t *testing.T) {
 		name           string
 		pollerResults  []logpoller.Log
 		scannerResults []string
+		pollerErr      error
+		errored        bool
 	}{
 		{
 			"no logs",
 			[]logpoller.Log{},
 			[]string{},
+			nil,
+			false,
+		},
+		{
+			"log poller error",
+			[]logpoller.Log{},
+			[]string{},
+			fmt.Errorf("test-error"),
+			true,
 		},
 		{
 			"one result",
@@ -43,6 +54,8 @@ func TestPerformedEventsScanner(t *testing.T) {
 				},
 			},
 			[]string{common.HexToHash("0x1111").Hex()},
+			nil,
+			false,
 		},
 		{
 			"missing workID",
@@ -56,6 +69,8 @@ func TestPerformedEventsScanner(t *testing.T) {
 				},
 			},
 			[]string{},
+			nil,
+			false,
 		},
 	}
 
@@ -73,9 +88,13 @@ func TestPerformedEventsScanner(t *testing.T) {
 				_ = scanner.Close()
 			}()
 
-			mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.pollerResults, nil)
+			mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.pollerResults, tc.pollerErr)
 
 			results, err := scanner.WorkIDsInRange(ctx, 0, 100)
+			if tc.errored {
+				require.Error(t, err)
+				return
+			}
 			require.NoError(t, err)
 			require.Equal(t, len(tc.scannerResults), len(results))
 

@@ -2,6 +2,7 @@ package upkeepstate
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"sync"
 	"testing"
@@ -21,7 +22,9 @@ func TestUpkeepStateStore(t *testing.T) {
 		inserts            []ocr2keepers.CheckResult
 		workIDsSelect      []string
 		workIDsFromScanner []string
+		errScanner         error
 		expected           []ocr2keepers.UpkeepState
+		errored            bool
 	}{
 		{
 			name: "empty store",
@@ -89,6 +92,23 @@ func TestUpkeepStateStore(t *testing.T) {
 				StateUnknown,
 			},
 		},
+		{
+			name: "scanner error",
+			inserts: []ocr2keepers.CheckResult{
+				{
+					UpkeepID: createUpkeepIDForTest(1),
+					WorkID:   "0x1",
+					Eligible: false,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: ocr2keepers.BlockNumber(1),
+					},
+				},
+			},
+			workIDsSelect:      []string{"0x1", "0x2"},
+			workIDsFromScanner: []string{"0x2", "0x222"},
+			errScanner:         fmt.Errorf("test error"),
+			errored:            true,
+		},
 	}
 
 	for _, tc := range tests {
@@ -96,15 +116,20 @@ func TestUpkeepStateStore(t *testing.T) {
 			ctx := testutils.Context(t)
 
 			scanner := &mockScanner{}
-			scanner.add(tc.workIDsFromScanner...)
+			scanner.addWorkID(tc.workIDsFromScanner...)
+			scanner.setErr(tc.errScanner)
 			store := NewUpkeepStateStore(logger.TestLogger(t), scanner)
 
 			for _, insert := range tc.inserts {
-				assert.NoError(t, store.SetUpkeepState(ctx, insert, ocr2keepers.Performed), "storing states should not produce an error")
+				assert.NoError(t, store.SetUpkeepState(ctx, insert, ocr2keepers.Performed))
 			}
 
 			states, err := store.SelectByWorkIDsInRange(ctx, 1, 100, tc.workIDsSelect...)
-			assert.NoError(t, err, "no error expected from selecting states")
+			if tc.errored {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
 
 			assert.Equal(t, len(tc.expected), len(states))
 			for i, state := range states {
@@ -151,13 +176,21 @@ func createUpkeepIDForTest(v int64) ocr2keepers.UpkeepIdentifier {
 type mockScanner struct {
 	lock    sync.Mutex
 	workIDs []string
+	err     error
 }
 
-func (s *mockScanner) add(workIDs ...string) {
+func (s *mockScanner) addWorkID(workIDs ...string) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
 	s.workIDs = append(s.workIDs, workIDs...)
+}
+
+func (s *mockScanner) setErr(err error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	s.err = err
 }
 
 func (s *mockScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]string, error) {
@@ -166,5 +199,5 @@ func (s *mockScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]s
 
 	res := s.workIDs[:]
 	s.workIDs = nil
-	return res, nil
+	return res, s.err
 }
