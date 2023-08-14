@@ -24,12 +24,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	chainlinkmocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
@@ -40,25 +40,36 @@ import (
 )
 
 func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
-	relayers, err := chainlink.NewCoreRelayerChainInteroperators()
+	f := chainlink.RelayerFactory{
+		Logger:       opts.Logger,
+		DB:           opts.DB,
+		QConfig:      opts.GeneralConfig.Database(),
+		LoopRegistry: plugins.NewLoopRegistry(opts.Logger),
+	}
+
+	relayers, err := chainlink.NewCoreRelayerChainInteroperators(chainlink.InitEVM(testutils.Context(t), f, chainlink.EVMFactoryConfig{
+		RelayerConfig:  opts.RelayerConfig,
+		CSAETHKeystore: ks,
+	}))
 	if err != nil {
 		t.Fatal(err)
 	}
+	/*
+		legacyChains := cltest.NewLegacyChainsWithMockChain(t, evmtest.NewEthClientMock(t), opts.GeneralConfig)
+		rly := evmrelayer.NewRelayer(opts.DB, legacyChains, opts.GeneralConfig.Database(), opts.Logger, ks, pg.NewNullEventBroadcaster())
 
-	legacyChains := cltest.NewLegacyChainsWithMockChain(t, evmtest.NewEthClientMock(t), evmtest.NewChainScopedConfig(t, opts.GeneralConfig))
-	rly := evmrelayer.NewRelayer(opts.DB, legacyChains, opts.GeneralConfig.Database(), opts.Logger, ks, pg.NewNullEventBroadcaster())
+		require.NoError(t, opts.GeneralConfig.Validate(), "invalid config")
 
-	require.NoError(t, opts.GeneralConfig.Validate(), "invalid config")
+		exts, err := evmrelayer.NewChainRelayerExtenders(testutils.Context(t), opts)
+		require.NoError(t, err)
+		require.Equal(t, exts.Len(), 1)
+		ext := exts.Slice()[0]
 
-	exts, err := evmrelayer.NewChainRelayerExtenders(testutils.Context(t), opts)
-	require.NoError(t, err)
-	require.Equal(t, exts.Len(), 1)
-	ext := exts.Slice()[0]
-
-	adapter := evmrelayer.NewLoopRelayAdapter(rly, ext)
-	rid := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
-	err = relayers.Put(rid, adapter)
-	require.NoError(t, err)
+		adapter := evmrelayer.NewLoopRelayAdapter(rly, ext)
+		rid := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
+		err = relayers.Put(rid, adapter)
+		require.NoError(t, err)
+	*/
 	return relayers
 
 }
@@ -311,7 +322,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	app.On("GetKeyStore").Return(keyStore)
 	app.On("ID").Maybe().Return(uuid.New())
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))
+	legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
 	mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
 	mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
@@ -393,7 +404,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))
+			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
 			mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
 			mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)
@@ -472,7 +483,7 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			app.On("ID").Maybe().Return(uuid.New())
 			ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 			ethClient.On("Dial", mock.Anything).Return(nil)
-			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, config))
+			legacy := cltest.NewLegacyChainsWithMockChain(t, ethClient, config)
 
 			mockRelayerChainInteroperators := chainlinkmocks.NewRelayerChainInteroperators(t)
 			mockRelayerChainInteroperators.On("LegacyEVMChains").Return(legacy, nil)

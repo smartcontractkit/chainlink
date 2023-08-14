@@ -52,7 +52,7 @@ type LoopRelayerStorer interface {
 // This will be deprecated/removed when products depend only
 // on the relayer interface.
 type LegacyChainer interface {
-	LegacyEVMChains() evm.LegacyChainContainer //evm.LegacyChainContainer
+	LegacyEVMChains() evm.LegacyChainContainer
 	LegacyCosmosChains() cosmos.LegacyChainContainer
 }
 
@@ -79,7 +79,6 @@ type CoreRelayerChainInteroperators struct {
 func NewCoreRelayerChainInteroperators(initFuncs ...CoreRelayerChainInitFunc) (*CoreRelayerChainInteroperators, error) {
 	cr := &CoreRelayerChainInteroperators{
 		loopRelayers: make(map[relay.Identifier]loop.Relayer),
-		legacyChains: legacyChains{EVMChains: evm.NewLegacyChains(), CosmosChains: cosmos.NewLegacyChains()},
 		srvs:         make([]services.ServiceCtx, 0),
 	}
 	for _, initFn := range initFuncs {
@@ -99,6 +98,7 @@ type CoreRelayerChainInitFunc func(op *CoreRelayerChainInteroperators) error
 // InitEVM is a option for instantiating evm relayers
 func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
+		op.legacyChains.EVMChains = evm.NewLegacyChains(config.OperationalConfigs)
 		adapters, err2 := factory.NewEVM(ctx, config)
 		if err2 != nil {
 			return fmt.Errorf("failed to setup EVM relayer: %w", err2)
@@ -116,6 +116,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 // InitCosmos is a option for instantiating Cosmos relayers
 func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
+		op.legacyChains.CosmosChains = cosmos.NewLegacyChains()
 		adapters, err2 := factory.NewCosmos(ctx, config)
 		if err2 != nil {
 			return fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
@@ -251,7 +252,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, relay
 	}
 	lr, err := rs.Get(*relayID)
 	if err != nil {
-		return types.ChainStatus{}, fmt.Errorf("error getting chainstatus: %w", err)
+		return types.ChainStatus{}, fmt.Errorf("%w: error getting chainstatus: %w", chains.ErrNotFound, err)
 	}
 	// this call is weird because the [loop.Relayer] interface still requires id
 	// but in this context the `relayer` should only have only id
@@ -261,7 +262,6 @@ func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, relay
 
 func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
 	// chain statuses are not dynamic; the call would be better named as ChainConfig or such.
-	// TODO lazily create a cache and use that case for the offset and limit to ensure deterministic results
 
 	var (
 		stats    []types.ChainStatus
@@ -287,6 +287,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 		}
 		stats = append(stats, stat)
 	}
+
 	if totalErr != nil {
 		return nil, 0, totalErr
 	}
@@ -295,6 +296,21 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 		return stats[offset : offset+limit], cnt, nil
 	}
 	return stats[offset:], cnt, nil
+}
+
+func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string) (types.NodeStatus, error) {
+	// This implementation is round-about
+	// TODO BFC-2511, may be better in the loop.Relayer interface itself
+	stats, _, err := rs.NodeStatuses(ctx, 0, -1)
+	if err != nil {
+		return types.NodeStatus{}, err
+	}
+	for _, stat := range stats {
+		if stat.Name == name {
+			return stat, nil
+		}
+	}
+	return types.NodeStatus{}, chains.ErrNotFound
 }
 
 // ids must be a string representation of relay.Identifier

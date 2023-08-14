@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -86,7 +87,8 @@ func TestResolver_ETHKeys(t *testing.T) {
 				chainID := *utils.NewBigI(12)
 				linkAddr := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
 
-				legacyEVMChains := evm.NewLegacyChains()
+				cfg := evmtest.NewTestConfigs()
+				legacyEVMChains := evm.NewLegacyChains(cfg)
 				legacyEVMChains.Put(states[0].EVMChainID.String(), f.Mocks.chain)
 
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)

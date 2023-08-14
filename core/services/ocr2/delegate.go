@@ -1184,7 +1184,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		return nil, err
 	}
 
-	// TODO need to promote the chain id out of relay config to top level field in job spec
+	// TODO BCF-2442 need to promote the chain id out of relay config to top level field in job spec
 	var relayConfig evmrelaytypes.RelayConfig
 	err = json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
 	if err != nil {

@@ -57,7 +57,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 	}
 	for _, ext := range evmRelayExtenders.Slice() {
 		relayId := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
-		legacyChains := evm.NewLegacyChains()
+		legacyChains := evm.NewLegacyChains(evmRelayExtenders.ChainNodeConfigs())
 		legacyChains.Put(ext.Chain().ID().String(), ext.Chain())
 		relayer := evmrelay.NewLoopRelayAdapter(evmrelay.NewRelayer(ccOpts.DB, legacyChains, r.QConfig, ccOpts.Logger, config.CSAETHKeystore, ccOpts.EventBroadcaster), ext)
 		relayers[relayId] = relayer

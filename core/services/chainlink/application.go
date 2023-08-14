@@ -57,7 +57,7 @@ import (
 )
 
 // Application implements the common functions used in the core node.
-
+//
 //go:generate mockery --quiet --name Application --output ../../internal/mocks/ --case=underscore
 type Application interface {
 	Start(ctx context.Context) error
@@ -109,7 +109,6 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	//Chains                   Chains
 	relayers                 *CoreRelayerChainInteroperators
 	EventBroadcaster         pg.EventBroadcaster
 	jobORM                   job.ORM
@@ -661,15 +660,9 @@ func (app *ChainlinkApplication) SessionORM() sessions.ORM {
 	return app.sessionORM
 }
 
-// TODO remove this all together
+// TODO BCF-2516 remove this all together remove EVM specifics
 func (app *ChainlinkApplication) EVMORM() evmtypes.Configs {
-
-	//TODO
-	// this is close, but the evm interface is slightly different than the
-	// chainset/loop relayer interface wrt chain status.
-	// either write an adapter or change/simplify the evm interface
-	// app.relayers.List(FilterByType(relay.EVM))
-	return nil
+	return app.GetRelayers().LegacyEVMChains().ChainNodeConfigs()
 }
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {

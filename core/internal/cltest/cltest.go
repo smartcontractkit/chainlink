@@ -396,8 +396,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		DB:           db,
 		QConfig:      cfg.Database(),
 		LoopRegistry: loopRegistry,
-		//TODO
-		GRPCOpts: loop.GRPCOpts{},
+		GRPCOpts:     loop.GRPCOpts{},
 	}
 
 	chainId := ethClient.ConfiguredChainID()

@@ -51,17 +51,19 @@ type EVMChainRelayerExtender interface {
 type EVMChainRelayerExtenderSlicer interface {
 	Slice() []EVMChainRelayerExtender
 	Len() int
+	ChainNodeConfigs() evmtypes.Configs
 }
 
 type ChainRelayerExtenders struct {
 	exts []EVMChainRelayerExtender
+	cfgs evmtypes.Configs
 }
 
 var _ EVMChainRelayerExtenderSlicer = &ChainRelayerExtenders{}
 
 // func NewLegacyChainsFromRelayerExtenders(exts []EVMChainRelayerExtender) *Chains {
 func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *evmchain.LegacyChains {
-	l := evmchain.NewLegacyChains()
+	l := evmchain.NewLegacyChains(exts.ChainNodeConfigs())
 	for _, r := range exts.Slice() {
 		l.Put(r.Chain().ID().String(), r.Chain())
 		if r.Default() {
@@ -79,6 +81,10 @@ func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt) *ChainRelayerExtender
 	return &ChainRelayerExtenders{
 		exts: temp,
 	}
+}
+
+func (c *ChainRelayerExtenders) ChainNodeConfigs() evmtypes.Configs {
+	return c.cfgs
 }
 
 func (c *ChainRelayerExtenders) Slice() []EVMChainRelayerExtender {
@@ -361,11 +367,11 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 	if err := opts.Check(); err != nil {
 		return nil, err
 	}
-	chains := opts.GeneralConfig.EVMConfigs()
+	evmConfigs := opts.GeneralConfig.EVMConfigs()
 	var enabled []*toml.EVMConfig
-	for i := range chains {
-		if chains[i].IsEnabled() {
-			enabled = append(enabled, chains[i])
+	for i := range evmConfigs {
+		if evmConfigs[i].IsEnabled() {
+			enabled = append(enabled, evmConfigs[i])
 		}
 	}
 

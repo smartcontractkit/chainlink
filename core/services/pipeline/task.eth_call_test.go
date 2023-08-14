@@ -262,7 +262,7 @@ func TestETHCallTask(t *testing.T) {
 				exts := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
 				legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(exts)
 			} else {
-				legacyChains = cltest.NewLegacyChainsWithMockChain(t, ethClient, evmtest.NewChainScopedConfig(t, cfg))
+				legacyChains = cltest.NewLegacyChainsWithMockChain(t, ethClient, cfg)
 			}
 
 			task.HelperSetDependencies(legacyChains, cfg.JobPipeline(), test.specGasLimit, pipeline.DirectRequestJobType)

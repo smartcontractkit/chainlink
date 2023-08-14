@@ -75,8 +75,6 @@ func TestRunner(t *testing.T) {
 		c.Insecure.OCRDevelopmentMode = ptr(true)
 	})
 
-	chainScopedConfig := evmtest.NewChainScopedConfig(t, config)
-
 	ethClient := cltest.NewEthMocksWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(10), nil)
 	ethClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(nil, nil)
@@ -195,7 +193,7 @@ func TestRunner(t *testing.T) {
 		_, b := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 		// Reference a different one
-		legacyChains := cltest.NewLegacyChainsWithMockChain(t, nil, chainScopedConfig)
+		legacyChains := cltest.NewLegacyChainsWithMockChain(t, nil, config)
 
 		jb, err2 := ocr.ValidatedOracleSpecToml(legacyChains, fmt.Sprintf(`
 			type               = "offchainreporting"

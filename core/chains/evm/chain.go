@@ -63,11 +63,13 @@ var (
 type LegacyChains struct {
 	*chains.ChainsKV[Chain]
 	dflt Chain
+
+	cfgs evmtypes.Configs
 }
 
 // LegacyChainContainer is container for EVM chains.
+//
 //go:generate mockery --quiet --name LegacyChainContainer --output ./mocks/ --case=underscore
-
 type LegacyChainContainer interface {
 	SetDefault(Chain)
 	Default() (Chain, error)
@@ -76,16 +78,22 @@ type LegacyChainContainer interface {
 	List(ids ...string) ([]Chain, error)
 	Put(id string, chain Chain)
 	Slice() []Chain
+
+	ChainNodeConfigs() evmtypes.Configs
 }
 
 var _ LegacyChainContainer = &LegacyChains{}
 
-func NewLegacyChains() *LegacyChains {
+func NewLegacyChains(c evmtypes.Configs) *LegacyChains {
 	return &LegacyChains{
 		ChainsKV: chains.NewChainsKV[Chain](),
+		cfgs:     c,
 	}
 }
 
+func (c *LegacyChains) ChainNodeConfigs() evmtypes.Configs {
+	return c.cfgs
+}
 func (c *LegacyChains) SetDefault(dflt Chain) {
 	c.dflt = dflt
 }
@@ -159,6 +167,7 @@ type RelayerConfig struct {
 	GasEstimator       gas.EvmFeeEstimator
 	OperationalConfigs evmtypes.Configs
 
+	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(*big.Int) client.Client
 	GenLogBroadcaster func(*big.Int) log.Broadcaster
