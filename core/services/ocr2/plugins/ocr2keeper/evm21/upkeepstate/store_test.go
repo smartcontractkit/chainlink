@@ -5,148 +5,140 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+	"time"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func TestUpkeepStateStore_SelectByWorkIDs(t *testing.T) {
-	workIDs := []string{"a", "b", "c", "d"}
-	inserts := []ocr2keepers.CheckResult{
+func TestUpkeepStateStore(t *testing.T) {
+	tests := []struct {
+		name               string
+		inserts            []ocr2keepers.CheckResult
+		workIDsSelect      []string
+		workIDsFromScanner []string
+		expected           []ocr2keepers.UpkeepState
+	}{
 		{
-			UpkeepID: createUpkeepIDForTest(1),
-			WorkID:   workIDs[0],
-			Eligible: false,
-			Trigger: ocr2keepers.Trigger{
-				BlockNumber: ocr2keepers.BlockNumber(1),
+			name: "empty store",
+		},
+		{
+			name: "save only ineligible states",
+			inserts: []ocr2keepers.CheckResult{
+				{
+					UpkeepID: createUpkeepIDForTest(1),
+					WorkID:   "0x1",
+					Eligible: false,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: ocr2keepers.BlockNumber(1),
+					},
+				},
+				{
+					UpkeepID: createUpkeepIDForTest(2),
+					WorkID:   "ox2",
+					Eligible: true,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: ocr2keepers.BlockNumber(2),
+					},
+				},
+			},
+			workIDsSelect: []string{"0x1", "0x2"},
+			expected: []ocr2keepers.UpkeepState{
+				ocr2keepers.Ineligible,
+				StateUnknown,
 			},
 		},
 		{
-			UpkeepID: createUpkeepIDForTest(2),
-			WorkID:   workIDs[1],
-			Eligible: false,
-			Trigger: ocr2keepers.Trigger{
-				BlockNumber: ocr2keepers.BlockNumber(2),
+			name: "fetch results from scanner",
+			inserts: []ocr2keepers.CheckResult{
+				{
+					UpkeepID: createUpkeepIDForTest(1),
+					WorkID:   "0x1",
+					Eligible: false,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: ocr2keepers.BlockNumber(1),
+					},
+				},
+			},
+			workIDsSelect:      []string{"0x1", "0x2"},
+			workIDsFromScanner: []string{"0x2", "0x222"},
+			expected: []ocr2keepers.UpkeepState{
+				ocr2keepers.Ineligible,
+				ocr2keepers.Performed,
 			},
 		},
 		{
-			UpkeepID: createUpkeepIDForTest(3),
-			WorkID:   workIDs[2],
-			Eligible: false,
-			Trigger: ocr2keepers.Trigger{
-				BlockNumber: ocr2keepers.BlockNumber(3),
+			name: "unknown states",
+			inserts: []ocr2keepers.CheckResult{
+				{
+					UpkeepID: createUpkeepIDForTest(1),
+					WorkID:   "0x1",
+					Eligible: false,
+					Trigger: ocr2keepers.Trigger{
+						BlockNumber: ocr2keepers.BlockNumber(1),
+					},
+				},
 			},
-		},
-		{
-			UpkeepID: createUpkeepIDForTest(3),
-			WorkID:   workIDs[3],
-			Eligible: true,
-			Trigger: ocr2keepers.Trigger{
-				BlockNumber: ocr2keepers.BlockNumber(3),
+			workIDsSelect:      []string{"0x2"},
+			workIDsFromScanner: []string{},
+			expected: []ocr2keepers.UpkeepState{
+				StateUnknown,
 			},
 		},
 	}
 
-	expected := []ocr2keepers.UpkeepState{
-		ocr2keepers.Ineligible,
-		ocr2keepers.Ineligible,
-		ocr2keepers.Ineligible,
-		StateUnknown,
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testutils.Context(t)
+
+			scanner := &mockScanner{}
+			scanner.add(tc.workIDsFromScanner...)
+			store := NewUpkeepStateStore(logger.TestLogger(t), scanner)
+
+			for _, insert := range tc.inserts {
+				assert.NoError(t, store.SetUpkeepState(ctx, insert, ocr2keepers.Performed), "storing states should not produce an error")
+			}
+
+			states, err := store.SelectByWorkIDsInRange(ctx, 1, 100, tc.workIDsSelect...)
+			assert.NoError(t, err, "no error expected from selecting states")
+
+			assert.Equal(t, len(tc.expected), len(states))
+			for i, state := range states {
+				assert.Equal(t, tc.expected[i], state)
+			}
+		})
 	}
-
-	store := NewUpkeepStateStore(logger.TestLogger(t), &mockScanner{})
-
-	for _, insert := range inserts {
-		assert.NoError(t, store.SetUpkeepState(context.Background(), insert, ocr2keepers.Performed), "storing states should not produce an error")
-	}
-
-	states, err := store.SelectByWorkIDsInRange(context.Background(), 1, 100, workIDs...)
-	assert.NoError(t, err, "no error expected from selecting states")
-
-	assert.Equal(t, expected, states, "upkeep state values should match expected")
 }
 
-func TestUpkeepStateStore_SetUpkeepState(t *testing.T) {
-	t.Run("should not save state for upkeep eligible", func(t *testing.T) {
-		uid := &ocr2keepers.UpkeepIdentifier{}
-		_ = uid.FromBigInt(big.NewInt(1))
+func TestUpkeepStateStore_Upsert(t *testing.T) {
+	ctx := testutils.Context(t)
+	store := NewUpkeepStateStore(logger.TestLogger(t), &mockScanner{})
 
-		store := NewUpkeepStateStore(logger.TestLogger(t), &mockScanner{})
+	res := ocr2keepers.CheckResult{
+		UpkeepID: createUpkeepIDForTest(1),
+		WorkID:   "0x1",
+		Eligible: false,
+		Trigger: ocr2keepers.Trigger{
+			BlockNumber: ocr2keepers.BlockNumber(1),
+		},
+	}
+	require.NoError(t, store.SetUpkeepState(ctx, res, ocr2keepers.Performed))
+	<-time.After(10 * time.Millisecond)
+	res.Trigger.BlockNumber = ocr2keepers.BlockNumber(2)
+	now := time.Now()
+	require.NoError(t, store.SetUpkeepState(ctx, res, ocr2keepers.Performed))
 
-		assert.NoError(t, store.SetUpkeepState(context.Background(), ocr2keepers.CheckResult{
-			UpkeepID: *uid,
-			WorkID:   "test",
-			Eligible: true,
-		}, ocr2keepers.Ineligible), "setting state should not return an error")
+	store.mu.Lock()
+	addedAt := store.cache["0x1"].addedAt
+	block := store.cache["0x1"].block
+	store.mu.Unlock()
 
-		store.mu.RLock()
-		defer store.mu.RUnlock()
-		assert.Len(t, store.cache, 0, "should not add to upkeep states")
-	})
-
-	t.Run("should insert new state when ineligible and state does not exist in store and ignore state input", func(t *testing.T) {
-		uid := &ocr2keepers.UpkeepIdentifier{}
-		_ = uid.FromBigInt(big.NewInt(1))
-
-		store := NewUpkeepStateStore(logger.TestLogger(t), &mockScanner{})
-		input := ocr2keepers.CheckResult{
-			UpkeepID: *uid,
-			WorkID:   "test",
-			Trigger: ocr2keepers.Trigger{
-				BlockNumber: ocr2keepers.BlockNumber(1),
-			},
-			Eligible: false,
-		}
-
-		assert.NoError(t, store.SetUpkeepState(context.Background(), input, ocr2keepers.Performed))
-
-		store.mu.RLock()
-		defer store.mu.RUnlock()
-
-		require.Len(t, store.cache, 1, "should add to upkeep states")
-
-		assert.Equal(t, ocr2keepers.Ineligible, store.cache["test"].state, "stored state should be ineligible")
-		assert.Equal(t, input.WorkID, store.cache["test"].workID, "stored workID should match input")
-		assert.Equal(t, uint64(input.Trigger.BlockNumber), store.cache["test"].block, "stored block should match input")
-	})
-
-	// when eligible and state exists in store, override state, ignore state input
-	t.Run("should override block when ineligible and state exists in store and ignore state input", func(t *testing.T) {
-		store := NewUpkeepStateStore(logger.TestLogger(t), &mockScanner{})
-		input := ocr2keepers.CheckResult{
-			UpkeepID: createUpkeepIDForTest(1),
-			WorkID:   "test",
-			Trigger: ocr2keepers.Trigger{
-				BlockNumber: ocr2keepers.BlockNumber(1),
-			},
-			Eligible: false,
-		}
-
-		assert.NoError(t, store.SetUpkeepState(context.Background(), input, ocr2keepers.Performed), "setting state should not return an error")
-
-		store.mu.RLock()
-		cacheSize := len(store.cache)
-		store.mu.RUnlock()
-
-		require.Equal(t, 1, cacheSize, "should add to upkeep states")
-
-		// update the block number for the input to indicate a state data change
-		input.Trigger.BlockNumber = ocr2keepers.BlockNumber(5)
-
-		assert.NoError(t, store.SetUpkeepState(context.Background(), input, ocr2keepers.Performed), "setting state should not return an error")
-
-		store.mu.RLock()
-		defer store.mu.RUnlock()
-
-		require.Len(t, store.cache, 1, "should update existing upkeep state")
-
-		assert.Equal(t, ocr2keepers.Ineligible, store.cache["test"].state, "stored state should be ineligible")
-		assert.Equal(t, input.WorkID, store.cache["test"].workID, "stored workID should match input")
-		assert.Equal(t, uint64(input.Trigger.BlockNumber), store.cache["test"].block, "stored block should match input")
-	})
+	require.True(t, now.After(addedAt))
+	require.Equal(t, uint64(2), block)
 }
 
 func createUpkeepIDForTest(v int64) ocr2keepers.UpkeepIdentifier {

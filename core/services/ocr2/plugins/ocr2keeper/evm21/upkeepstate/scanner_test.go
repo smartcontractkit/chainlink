@@ -1,6 +1,7 @@
 package upkeepstate
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -83,6 +84,21 @@ func TestPerformedEventsScanner(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPerformedEventsScanner_LogPollerErrors(t *testing.T) {
+	ctx := testutils.Context(t)
+	registryAddr := common.HexToAddress("0x12345")
+	lggr := logger.TestLogger(t)
+
+	mp := new(mocks.LogPoller)
+	scanner := NewPerformedEventsScanner(lggr, mp, registryAddr)
+
+	mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("test error"))
+
+	workIDs, err := scanner.WorkIDsInRange(ctx, 0, 100)
+	require.Error(t, err)
+	require.Nil(t, workIDs)
 }
 
 func convertTopics(topics []common.Hash) [][]byte {

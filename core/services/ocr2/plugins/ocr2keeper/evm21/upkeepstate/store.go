@@ -46,6 +46,8 @@ type upkeepStateRecord struct {
 type upkeepStateStore struct {
 	lggr logger.Logger
 
+	cancel context.CancelFunc
+
 	mu    sync.RWMutex
 	cache map[string]*upkeepStateRecord
 
@@ -67,6 +69,10 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
 
+	u.mu.Lock()
+	u.cancel = cancel
+	u.mu.Unlock()
+
 	u.lggr.Debug("Starting upkeep state store")
 
 	ticker := time.NewTicker(GCInterval)
@@ -82,9 +88,22 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 	}
 }
 
+func (u *upkeepStateStore) Close() error {
+	u.mu.Lock()
+	cancel := u.cancel
+	u.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+
+	return nil
+}
+
 // SelectByWorkIDs returns the current state of the upkeep for the provided ids.
 // If an id is not found, the state is returned as StateUnknown.
 // We first check the cache, and if any ids are missing, we fetch them from the scanner.
+// TODO: fetch from DB
 func (u *upkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 	states, ok := u.selectFromCache(workIDs...)
 	if ok {
@@ -115,7 +134,7 @@ func (u *upkeepStateStore) SetUpkeepState(_ context.Context, result ocr2keepers.
 // upsertStateRecord inserts or updates a record for the provided
 // check result. If an item already exists in the data store, the state and
 // block are updated.
-// TODO: add persistence layer
+// TODO: persist to DB
 func (u *upkeepStateStore) upsertStateRecord(workID string, s ocr2keepers.UpkeepState, b uint64) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
@@ -179,8 +198,19 @@ func (u *upkeepStateStore) selectFromCache(workIDs ...string) ([]ocr2keepers.Upk
 	return states, !hasMisses
 }
 
-// cleanup removes any records from the cache that are older than the TTL.
+// cleanup removes any records that are older than the TTL from both cache and DB.
 func (u *upkeepStateStore) cleanup() {
+	u.cleanCache()
+	u.cleanDB()
+}
+
+// cleanDB cleans up records in the DB that are older than the TTL.
+func (u *upkeepStateStore) cleanDB() {
+	// TODO: implement
+}
+
+// cleanupCache removes any records from the cache that are older than the TTL.
+func (u *upkeepStateStore) cleanCache() {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
