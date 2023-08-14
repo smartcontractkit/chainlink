@@ -1,75 +1,60 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Functions} from "./Functions.sol";
 import {IFunctionsRouter} from "./interfaces/IFunctionsRouter.sol";
 import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
 
-/**
- * @title The Chainlink Functions client contract
- * @notice Contract writers can inherit this contract in order to create Chainlink Functions requests
- */
+import {FunctionsRequest} from "./libraries/FunctionsRequest.sol";
+
+// @title The Chainlink Functions client contract
+// @notice Contract developers can inherit this contract in order to make Chainlink Functions requests
 abstract contract FunctionsClient is IFunctionsClient {
-  IFunctionsRouter internal immutable s_router;
+  using FunctionsRequest for FunctionsRequest.Request;
+
+  IFunctionsRouter internal immutable i_router;
 
   event RequestSent(bytes32 indexed id);
   event RequestFulfilled(bytes32 indexed id);
 
-  error OnlyRouterCanFufill();
+  error OnlyRouterCanFulfill();
 
   constructor(address router) {
-    s_router = IFunctionsRouter(router);
+    i_router = IFunctionsRouter(router);
   }
 
-  /**
-   * @notice Sends a Chainlink Functions request to the stored oracle address
-   * @param req The initialized Functions.Request
-   * @param subscriptionId The subscription ID
-   * @param callbackGasLimit gas limit for the fulfillment callback
-   * @return requestId The generated request ID
-   */
+  // @notice Sends a Chainlink Functions request
+  // @param data The CBOR encoded bytes data for a Functions request
+  // @param subscriptionId The subscription ID that will be charged to service the request
+  // @param callbackGasLimit the amount of gas that will be available for the fulfillment callback
+  // @return requestId The generated request ID for this request
   function _sendRequest(
-    Functions.Request memory req,
-    uint64 subscriptionId,
-    uint32 callbackGasLimit,
-    bytes32 donId
-  ) internal returns (bytes32 requestId) {
-    bytes memory requestData = Functions.encodeCBOR(req);
-    requestId = _sendRequestBytes(requestData, subscriptionId, callbackGasLimit, donId);
-  }
-
-  /**
-   * @notice Sends a Chainlink Functions request to the stored oracle address
-   * @param data The initialized Functions request data
-   * @param subscriptionId The subscription ID
-   * @param callbackGasLimit gas limit for the fulfillment callback
-   * @return requestId The generated request ID
-   */
-  function _sendRequestBytes(
     bytes memory data,
     uint64 subscriptionId,
     uint32 callbackGasLimit,
     bytes32 donId
-  ) internal returns (bytes32 requestId) {
-    requestId = s_router.sendRequest(subscriptionId, data, Functions.REQUEST_DATA_VERSION, callbackGasLimit, donId);
+  ) internal returns (bytes32) {
+    bytes32 requestId = i_router.sendRequest(
+      subscriptionId,
+      data,
+      FunctionsRequest.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      donId
+    );
     emit RequestSent(requestId);
+    return requestId;
   }
 
-  /**
-   * @notice User defined function to handle a response
-   * @param requestId The request ID, returned by sendRequest()
-   * @param response Aggregated response from the user code
-   * @param err Aggregated error from the user code or from the execution pipeline
-   * Either response or error parameter will be set, but never both
-   */
+  // @notice User defined function to handle a response from the DON
+  // @param requestId The request ID, returned by sendRequest()
+  // @param response Aggregated response from the execution of the user's source code
+  // @param err Aggregated error from the execution of the user code or from the execution pipeline
+  // @dev Either response or error parameter will be set, but never both
   function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal virtual;
 
-  /**
-   * @inheritdoc IFunctionsClient
-   */
+  // @inheritdoc IFunctionsClient
   function handleOracleFulfillment(bytes32 requestId, bytes memory response, bytes memory err) external override {
-    if (msg.sender != address(s_router)) {
-      revert OnlyRouterCanFufill();
+    if (msg.sender != address(i_router)) {
+      revert OnlyRouterCanFulfill();
     }
     fulfillRequest(requestId, response, err);
   }

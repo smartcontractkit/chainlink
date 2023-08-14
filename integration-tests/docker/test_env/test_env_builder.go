@@ -1,20 +1,27 @@
 package test_env
 
 import (
+	"os"
+
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/node"
-	"os"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"math/big"
 )
 
 type CLTestEnvBuilder struct {
 	hasLogWatch          bool
 	hasGeth              bool
 	hasMockServer        bool
+	clNodeConfig         *chainlink.Config
 	clNodesCount         int
 	externalAdapterCount int
 	customNodeCsaKeys    []string
 	defaultNodeCsaKeys   []string
+
+	/* funding */
+	ETHFunds *big.Float
 }
 
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
@@ -23,28 +30,38 @@ func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	}
 }
 
-func (m *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
-	m.hasLogWatch = true
-	return m
+func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
+	b.hasLogWatch = true
+	return b
 }
 
-func (m *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
-	m.clNodesCount = clNodesCount
-	return m
+func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
+	b.clNodesCount = clNodesCount
+	return b
 }
 
-func (m *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
-	m.hasGeth = true
-	return m
+func (b *CLTestEnvBuilder) WithFunding(eth *big.Float) *CLTestEnvBuilder {
+	b.ETHFunds = eth
+	return b
 }
 
-func (m *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBuilder {
-	m.hasMockServer = true
-	m.externalAdapterCount = externalAdapterCount
-	return m
+func (b *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
+	b.hasGeth = true
+	return b
 }
 
-func (m *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
+func (b *CLTestEnvBuilder) WithCLNodeConfig(cfg *chainlink.Config) *CLTestEnvBuilder {
+	b.clNodeConfig = cfg
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBuilder {
+	b.hasMockServer = true
+	b.externalAdapterCount = externalAdapterCount
+	return b
+}
+
+func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	envConfigPath, isSet := os.LookupEnv("TEST_ENV_CONFIG_PATH")
 	if isSet {
 		cfg, err := NewTestEnvConfigFromFile(envConfigPath)
@@ -52,27 +69,36 @@ func (m *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 		_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
-		return m.connectExistingEnv(cfg)
+		return b.buildNewEnv(cfg)
+	}
+	return b.buildNewEnv(nil)
+}
+
+func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
+	log.Info().
+		Bool("hasGeth", b.hasGeth).
+		Bool("hasMockServer", b.hasMockServer).
+		Int("externalAdapterCount", b.externalAdapterCount).
+		Int("clNodesCount", b.clNodesCount).
+		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
+		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
+		Msg("Building CL cluster test environment..")
+
+	var te *CLClusterTestEnv
+	var err error
+	if cfg != nil {
+		te, err = NewTestEnvFromCfg(cfg)
+		if err != nil {
+			return te, err
+		}
 	} else {
-		return m.buildNewEnv()
-	}
-}
-
-func (m *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
-	log.Info().
-		Bool("hasGeth", m.hasGeth).
-		Bool("hasMockServer", m.hasMockServer).
-		Int("externalAdapterCount", m.externalAdapterCount).
-		Int("clNodesCount", m.clNodesCount).
-		Strs("customNodeCsaKeys", m.customNodeCsaKeys).
-		Strs("defaultNodeCsaKeys", m.defaultNodeCsaKeys).
-		Msg("Building CL cluster test environment..")
-	te, err := NewTestEnvFromCfg(cfg)
-	if err != nil {
-		return te, err
+		te, err = NewTestEnv()
+		if err != nil {
+			return te, err
+		}
 	}
 
-	if m.hasLogWatch {
+	if b.hasLogWatch {
 		lw, err := logwatch.NewLogWatch(nil, nil)
 		if err != nil {
 			return te, err
@@ -80,18 +106,18 @@ func (m *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTes
 		te.LogWatch = lw
 	}
 
-	if m.hasMockServer {
+	if b.hasMockServer {
 		err := te.StartMockServer()
 		if err != nil {
 			return te, err
 		}
-		err = te.MockServer.SetExternalAdapterMocks(m.externalAdapterCount)
+		err = te.MockServer.SetExternalAdapterMocks(b.externalAdapterCount)
 		if err != nil {
 			return te, err
 		}
 	}
 
-	if m.hasGeth {
+	if b.hasGeth {
 		err := te.StartGeth()
 		if err != nil {
 			return te, err
@@ -101,18 +127,18 @@ func (m *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTes
 	var nodeCsaKeys []string
 
 	// Start Chainlink Nodes
-	if m.clNodesCount > 0 {
-		// Create nodes
-		nodeConfOpts := node.NodeConfigOpts{
-			EVM: struct {
-				HttpUrl string
-				WsUrl   string
-			}{
-				HttpUrl: te.Geth.InternalHttpUrl,
-				WsUrl:   te.Geth.InternalWsUrl,
-			},
+	if b.clNodesCount > 0 {
+		var cfg *chainlink.Config
+		if b.clNodeConfig != nil {
+			cfg = b.clNodeConfig
+		} else {
+			cfg = node.NewConfig(node.BaseConf,
+				node.WithOCR1(),
+				node.WithP2Pv1(),
+			)
 		}
-		err = te.StartClNodes(nodeConfOpts, m.clNodesCount)
+		node.SetDefaultSimulatedGeth(cfg, te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl)
+		err := te.StartClNodes(cfg, b.clNodesCount)
 		if err != nil {
 			return te, err
 		}
@@ -121,77 +147,15 @@ func (m *CLTestEnvBuilder) connectExistingEnv(cfg *TestEnvConfig) (*CLClusterTes
 		if err != nil {
 			return te, err
 		}
-		m.defaultNodeCsaKeys = nodeCsaKeys
+		b.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
-	return te, nil
-}
-
-func (m *CLTestEnvBuilder) buildNewEnv() (*CLClusterTestEnv, error) {
-	log.Info().
-		Bool("hasGeth", m.hasGeth).
-		Bool("hasMockServer", m.hasMockServer).
-		Int("externalAdapterCount", m.externalAdapterCount).
-		Int("clNodesCount", m.clNodesCount).
-		Strs("customNodeCsaKeys", m.customNodeCsaKeys).
-		Strs("defaultNodeCsaKeys", m.defaultNodeCsaKeys).
-		Msg("Building CL cluster test environment..")
-
-	te, err := NewTestEnv()
-	if err != nil {
-		return te, err
-	}
-
-	if m.hasLogWatch {
-		lw, err := logwatch.NewLogWatch(nil, nil)
-		if err != nil {
+	if b.hasGeth && b.clNodesCount > 0 && b.ETHFunds != nil {
+		te.ParallelTransactions(true)
+		defer te.ParallelTransactions(false)
+		if err := te.FundChainlinkNodes(b.ETHFunds); err != nil {
 			return te, err
 		}
-		te.LogWatch = lw
-	}
-
-	if m.hasMockServer {
-		err := te.StartMockServer()
-		if err != nil {
-			return te, err
-		}
-		err = te.MockServer.SetExternalAdapterMocks(m.externalAdapterCount)
-		if err != nil {
-			return te, err
-		}
-	}
-
-	if m.hasGeth {
-		err := te.StartGeth()
-		if err != nil {
-			return te, err
-		}
-	}
-
-	var nodeCsaKeys []string
-
-	// Start Chainlink Nodes
-	if m.clNodesCount > 0 {
-		// Create nodes
-		nodeConfOpts := node.NodeConfigOpts{
-			EVM: struct {
-				HttpUrl string
-				WsUrl   string
-			}{
-				HttpUrl: te.Geth.InternalHttpUrl,
-				WsUrl:   te.Geth.InternalWsUrl,
-			},
-		}
-		err = te.StartClNodes(nodeConfOpts, m.clNodesCount)
-		if err != nil {
-			return te, err
-		}
-
-		nodeCsaKeys, err = te.GetNodeCSAKeys()
-		if err != nil {
-			return te, err
-		}
-		m.defaultNodeCsaKeys = nodeCsaKeys
 	}
 
 	return te, nil

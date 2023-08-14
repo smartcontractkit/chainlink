@@ -19,7 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 
-	offchain "github.com/smartcontractkit/ocr2keepers/pkg/config"
+	offchain20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -148,7 +148,7 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	}
 	wg.Wait()
 
-	offC, err := json.Marshal(offchain.OffchainConfig{
+	offC, err := json.Marshal(offchain20config.OffchainConfig{
 		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 		MinConfirmations:     1,
 	})
@@ -288,7 +288,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	}
 	wg.Wait()
 
-	offC, err := json.Marshal(offchain.OffchainConfig{
+	offC, err := json.Marshal(offchain20config.OffchainConfig{
 		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 		MinConfirmations:     1,
 		MercuryLookup:        d.cfg.UpkeepType == config.Mercury || d.cfg.UpkeepType == config.LogTriggeredFeedLookup,

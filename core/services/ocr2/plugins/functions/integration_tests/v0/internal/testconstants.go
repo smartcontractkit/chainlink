@@ -7,6 +7,7 @@ var (
 	DefaultSecretsUrlsBase64 = "AQID"
 	DefaultArg1              = "arg1"
 	DefaultArg2              = "arg2"
+	DefaultGasPrice          = 1_000_000_000
 
 	// Below are the corresponding values for the encrypted threshold keys used in the test
 	// mockThresholdPubKey := `{"Group":"P256","G_bar":"BAnzIguQNKnA37Zh0b3Z3K5CcvxHjzfTIytt37ZgNQLaTeuiq9rrVhz+yaZcvNQ9EYw978KmmYOq6qd0NA/ERh8=","H":"BOyfKc8aowVjOK2qYf0kdeuLkPeqbjDnjDFGIj/2n7O+qHIvqKx3A07Oa92tP5DkcS5AL/tipXDIBJvVWvcvudk=","HArray":["BBhLQicdsIUgigmIW4l6Xi1jBkFFXEtm2wuvydoZCjZZdlDZt82pXtOI+vPQbd5iawQPX6u4HUrhEisqwhx5P0A=","BLTOIUViwoVJTAzCKIo2FgliIfK7w3jG6wjwf3LVkdsMYJ2ZiEJDA7YC1GwsVgutYdxrwOkAY+wnoh9j+AYF/rQ=","BH2vi5G9ftykpOJARMlziZuZKXSx5YiP131HpwWwsgFAquSpsNTRWHsjk4nc0lcQKf6x9E+7UUQpAPwDpyrh7Xc=","BHQBZMqVRvxQHtnC4tqfh9Qc632IfSCPCBDsePyLzD1nXOf/qJWrCpfsZ3T3PaRm/U30LSgnb1nsuXI9nDuTFsM="]}`
