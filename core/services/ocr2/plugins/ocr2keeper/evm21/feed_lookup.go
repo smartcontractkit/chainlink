@@ -72,10 +72,10 @@ type AdminOffchainConfig struct {
 }
 
 // feedLookup looks through check upkeep results looking for any that need off chain lookup
-func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
+func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult {
 	lookups := map[int]*FeedLookup{}
-	for i := range upkeepResults {
-		res := &upkeepResults[i]
+	for i := range checkResults {
+		res := &checkResults[i]
 		if res.IneligibilityReason != UpkeepFailureReasonTargetCheckReverted {
 			continue
 		}
@@ -83,11 +83,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 		block := big.NewInt(int64(res.Trigger.BlockNumber))
 		upkeepId := res.UpkeepID
 
-		opts, err := r.buildCallOpts(ctx, block)
-		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d buildCallOpts: %v", upkeepId, block, err)
-			return nil, err
-		}
+		opts := r.buildCallOpts(ctx, block)
 
 		allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
 		if err != nil {
@@ -101,7 +97,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 			continue
 		}
 
-		r.lggr.Infof("[FeedLookup] upkeep %s block %d decodeFeedLookup performData=%s", upkeepId, block, hexutil.Encode(upkeepResults[i].PerformData))
+		r.lggr.Infof("[FeedLookup] upkeep %s block %d decodeFeedLookup performData=%s", upkeepId, block, hexutil.Encode(checkResults[i].PerformData))
 		lookup, err := r.decodeFeedLookup(res.PerformData)
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
@@ -118,21 +114,21 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, upkeepResults []ocr2keeper
 	var wg sync.WaitGroup
 	for i, lookup := range lookups {
 		wg.Add(1)
-		go r.doLookup(ctx, &wg, lookup, i, upkeepResults)
+		go r.doLookup(ctx, &wg, lookup, i, checkResults)
 	}
 	wg.Wait()
 
 	// don't surface error to plugin bc FeedLookup process should be self-contained.
-	return upkeepResults, nil
+	return checkResults
 }
 
-func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *FeedLookup, i int, upkeepResults []ocr2keepers.CheckResult) {
+func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *FeedLookup, i int, checkResults []ocr2keepers.CheckResult) {
 	defer wg.Done()
 
 	values, retryable, err := r.doMercuryRequest(ctx, lookup)
 	if err != nil {
 		r.lggr.Errorf("[FeedLookup] upkeep %s retryable %v doMercuryRequest: %v", lookup.upkeepId, retryable, err)
-		upkeepResults[i].Retryable = retryable
+		checkResults[i].Retryable = retryable
 		return
 	}
 	for j, v := range values {
@@ -153,20 +149,20 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 	}
 
 	if int(failureReason) == UpkeepFailureReasonMercuryCallbackReverted {
-		upkeepResults[i].IneligibilityReason = UpkeepFailureReasonMercuryCallbackReverted
+		checkResults[i].IneligibilityReason = UpkeepFailureReasonMercuryCallbackReverted
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d mercury callback reverts", lookup.upkeepId, lookup.block)
 		return
 	}
 
 	if !needed {
-		upkeepResults[i].IneligibilityReason = UpkeepFailureReasonUpkeepNotNeeded
+		checkResults[i].IneligibilityReason = UpkeepFailureReasonUpkeepNotNeeded
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d callback reports upkeep not needed", lookup.upkeepId, lookup.block)
 		return
 	}
 
-	upkeepResults[i].IneligibilityReason = UpkeepFailureReasonNone
-	upkeepResults[i].Eligible = true
-	upkeepResults[i].PerformData = performData
+	checkResults[i].IneligibilityReason = UpkeepFailureReasonNone
+	checkResults[i].Eligible = true
+	checkResults[i].PerformData = performData
 	r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %s", lookup.upkeepId, lookup.block, hexutil.Encode(performData))
 }
 
@@ -232,7 +228,6 @@ func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup
 
 // doMercuryRequest sends requests to Mercury API to retrieve ChainlinkBlob.
 func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup) ([][]byte, bool, error) {
-	// TODO (AUTO-3253): if no feed labels are provided in v0.3, request for all feeds
 	resultLen := len(ml.feeds)
 	ch := make(chan MercuryBytes, resultLen)
 	if ml.feedParamKey == FeedIdHex && ml.timeParamKey == BlockNumber {

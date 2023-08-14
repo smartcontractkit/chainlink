@@ -85,7 +85,6 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 		blob              string
 		callbackResp      []byte
 		expectedResults   []ocr2keepers.CheckResult
-		wantErr           error
 		callbackNeeded    bool
 		extraData         []byte
 		checkCallbackResp []byte
@@ -220,13 +219,8 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 				r.client = client
 			}
 
-			got, err := r.feedLookup(context.Background(), tt.input)
-			if tt.wantErr != nil {
-				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
-				assert.NotNil(t, err, tt.name)
-			} else {
-				assert.Equal(t, tt.expectedResults, got, tt.name)
-			}
+			got := r.feedLookup(context.Background(), tt.input)
+			assert.Equal(t, tt.expectedResults, got, tt.name)
 		})
 	}
 }

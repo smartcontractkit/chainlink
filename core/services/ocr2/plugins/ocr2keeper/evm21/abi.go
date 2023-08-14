@@ -31,12 +31,12 @@ const (
 	UpkeepFailureReasonTxHashNoLongerExists
 
 	// pipeline execution error
-	NoPipelineError     = 0
-	CheckBlockTooOld    = 1
-	CheckBlockInvalid   = 2
-	RpcFlakyFailure     = 3
-	MercuryFlakyFailure = 4
-	PackUnpackFailed    = 5
+	NoPipelineError        = 0
+	CheckBlockTooOld       = 1
+	CheckBlockInvalid      = 2
+	RpcFlakyFailure        = 3
+	MercuryFlakyFailure    = 4
+	PackUnpackDecodeFailed = 5
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -57,19 +57,19 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
-	var result ocr2keepers.CheckResult
-
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return result, err
+		// decode failed, not retryable
+		return getCheckResult(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
 
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return result, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
+		// unpack failed, not retryable
+		return getCheckResult(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
 
-	result = ocr2keepers.CheckResult{
+	result := ocr2keepers.CheckResult{
 		Eligible:            *abi.ConvertType(out[0], new(bool)).(*bool),
 		Retryable:           false,
 		GasAllocated:        uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
