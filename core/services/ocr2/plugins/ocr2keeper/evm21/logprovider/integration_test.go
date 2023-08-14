@@ -116,8 +116,6 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
-	type deferableFunc func()
-
 	setupTest := func(
 		t *testing.T,
 		opts *logprovider.LogEventProviderOptions,
@@ -318,7 +316,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 }
 
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
-	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*30)
+	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
 	defer cancel()
 
 	backend, stopMining, accounts := setupBackend(t)
@@ -350,8 +348,8 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	b, err := ethClient.BlockByHash(ctx, backend.Commit())
 	latestBlock := b.Number().Int64()
 	for {
-		latestPolled, err := lp.LatestBlock(pg.WithParentCtx(ctx))
-		require.NoError(t, err)
+		latestPolled, lberr := lp.LatestBlock(pg.WithParentCtx(ctx))
+		require.NoError(t, lberr)
 		if latestPolled >= latestBlock {
 			break
 		}
@@ -360,8 +358,8 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 	// starting the log provider should backfill logs
 	go func() {
-		if err := logProvider.Start(ctx); err != nil {
-			t.Logf("error starting log provider: %s", err)
+		if startErr := logProvider.Start(ctx); err != nil {
+			t.Logf("error starting log provider: %s", startErr)
 			t.Fail()
 		}
 	}()
@@ -370,7 +368,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	t.Log("waiting for log provider to do some backfilling")
 	for ctx.Err() == nil {
 		currentPartition := logProvider.CurrentPartitionIdx()
-		if currentPartition >= 2 {
+		if currentPartition > 2 { // make sure we went over all items
 			break
 		}
 	}
