@@ -19,29 +19,29 @@ type PipelineExecutionState uint8
 const (
 	// upkeep failure onchain reasons
 	UpkeepFailureReasonNone                    UpkeepFailureReason = 0
-	UpkeepFailureReasonUpkeepCancelled                             = 1
-	UpkeepFailureReasonUpkeepPaused                                = 2
-	UpkeepFailureReasonTargetCheckReverted                         = 3
-	UpkeepFailureReasonUpkeepNotNeeded                             = 4
-	UpkeepFailureReasonPerformDataExceedsLimit                     = 5
-	UpkeepFailureReasonInsufficientBalance                         = 6
-	UpkeepFailureReasonMercuryCallbackReverted                     = 7
-	UpkeepFailureReasonRevertDataExceedsLimit                      = 8
-	UpkeepFailureReasonRegistryPaused                              = 9
-
+	UpkeepFailureReasonUpkeepCancelled         UpkeepFailureReason = 1
+	UpkeepFailureReasonUpkeepPaused            UpkeepFailureReason = 2
+	UpkeepFailureReasonTargetCheckReverted     UpkeepFailureReason = 3
+	UpkeepFailureReasonUpkeepNotNeeded         UpkeepFailureReason = 4
+	UpkeepFailureReasonPerformDataExceedsLimit UpkeepFailureReason = 5
+	UpkeepFailureReasonInsufficientBalance     UpkeepFailureReason = 6
+	UpkeepFailureReasonMercuryCallbackReverted UpkeepFailureReason = 7
+	UpkeepFailureReasonRevertDataExceedsLimit  UpkeepFailureReason = 8
+	UpkeepFailureReasonRegistryPaused          UpkeepFailureReason = 9
+	// leaving a gap here for more onchain failure reasons in the future
 	// upkeep failure offchain reasons
-	UpkeepFailureReasonMercuryAccessNotAllowed = 32
-	UpkeepFailureReasonLogBlockNoLongerExists  = 31
-	UpkeepFailureReasonLogBlockInvalid         = 32
-	UpkeepFailureReasonTxHashNoLongerExists    = 33
+	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
+	UpkeepFailureReasonLogBlockNoLongerExists  UpkeepFailureReason = 31
+	UpkeepFailureReasonLogBlockInvalid         UpkeepFailureReason = 32
+	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
 
 	// pipeline execution error
 	NoPipelineError     PipelineExecutionState = 0
-	CheckBlockTooOld                           = 1
-	CheckBlockInvalid                          = 2
-	RpcFlakyFailure                            = 3
-	MercuryFlakyFailure                        = 4
-	PackUnpackFailed                           = 5
+	CheckBlockTooOld    PipelineExecutionState = 1
+	CheckBlockInvalid   PipelineExecutionState = 2
+	RpcFlakyFailure     PipelineExecutionState = 3
+	MercuryFlakyFailure PipelineExecutionState = 4
+	PackUnpackFailed    PipelineExecutionState = 5
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
