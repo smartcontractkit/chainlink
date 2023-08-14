@@ -9,10 +9,10 @@ ALL_FOUNDRY_PRODUCTS = vrf automation llo-feeds functions automation-dev shared
 # to run the tests for the product you're working on. In that case, you can just
 # call `make snapshot` and it will use the env var.
 # env var example
-#		export FOUNDRY_PROFILE=llo
+#		export FOUNDRY_PROFILE=llo-feeds
 #		make snapshot
 # make call example
-# 		make FOUNDRY_PROFILE=llo snapshot
+# 		make FOUNDRY_PROFILE=llo-feeds snapshot
 .PHONY: snapshot
 snapshot: ## Make a snapshot for a specific product.
 	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
@@ -38,10 +38,10 @@ abigen: ## Build & install abigen.
 # is to improve the workflow for developers working with Foundry, which is the
 # recommended way to develop Solidity for CL products.
 # env var example
-#		export FOUNDRY_PROFILE=llo
+#		export FOUNDRY_PROFILE=llo-feeds
 #		make wrappers
 # make call example
-# 		make FOUNDRY_PROFILE=llo wrappers
+# 		make FOUNDRY_PROFILE=llo-feeds wrappers
 .PHONY: wrappers
 wrappers: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
 	./scripts/native_solc_compile_all_$(FOUNDRY_PROFILE)
