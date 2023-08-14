@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 
-	// "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -63,12 +62,12 @@ var (
 	},
 		[]string{"feedID"},
 	)
-	transmitServerErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "mercury_transmit_server_error_count",
-		Help: "Number of errored transmissions that failed due to an error returned by the mercury server",
-	},
-		[]string{"feedID", "code"},
-	)
+	// transmitServerErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+	// 	Name: "mercury_transmit_server_error_count",
+	// 	Help: "Number of errored transmissions that failed due to an error returned by the mercury server",
+	// },
+	// 	[]string{"feedID", "code"},
+	// )
 )
 
 type Transmitter interface {

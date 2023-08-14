@@ -26,8 +26,8 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 	f := 1
 
 	t.Run("BuildReport errors if observations are empty", func(t *testing.T) {
-		paos := []relaymercuryv2.ParsedAttributedObservation{}
-		_, err := r.BuildReport(paos, f, 123, 10)
+		ps := []relaymercuryv2.ParsedAttributedObservation{}
+		_, err := r.BuildReport(ps, f, 123, 10)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "cannot build report from empty attributed observation")
 	})
