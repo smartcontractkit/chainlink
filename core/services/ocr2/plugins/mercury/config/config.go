@@ -53,34 +53,30 @@ func ValidatePluginConfig(config PluginConfig, feedId [32]byte) (merr error) {
 		merr = errors.Join(merr, errors.New("mercury: ServerPubKey is required and must be a 32-byte hex string"))
 	}
 
-	reportSchemaVersion, err := decoder.DecodeSchemaVersionFromFeedId(feedId)
-	if err != nil {
-		merr = errors.Join(merr, err)
-	} else {
-		switch reportSchemaVersion {
-		case 1:
-			if !config.InitialBlockNumber.Valid {
-				merr = errors.Join(merr, errors.New("initialBlockNumber must be specified for v1 jobs"))
-			}
-			if config.LinkFeedID != nil {
-				merr = errors.Join(merr, errors.New("linkFeedID may not be specified for v1 jobs"))
-			}
-			if config.NativeFeedID != nil {
-				merr = errors.Join(merr, errors.New("nativeFeedID may not be specified for v1 jobs"))
-			}
-		case 2, 3:
-			if config.LinkFeedID == nil {
-				merr = errors.Join(merr, fmt.Errorf("linkFeedID must be specified for v%d jobs", reportSchemaVersion))
-			}
-			if config.NativeFeedID == nil {
-				merr = errors.Join(merr, fmt.Errorf("nativeFeedID must be specified for v%d jobs", reportSchemaVersion))
-			}
-			if config.InitialBlockNumber.Valid {
-				merr = errors.Join(merr, fmt.Errorf("initialBlockNumber may not be specified for v%d jobs", reportSchemaVersion))
-			}
-		default:
-			merr = errors.Join(merr, fmt.Errorf("got unsupported schema version %d; supported versions are 1,2,3", reportSchemaVersion))
+	reportSchemaVersion := decoder.SchemaVersionFromFeedId(feedId)
+	switch reportSchemaVersion {
+	case 1:
+		if !config.InitialBlockNumber.Valid {
+			merr = errors.Join(merr, errors.New("initialBlockNumber must be specified for v1 jobs"))
 		}
+		if config.LinkFeedID != nil {
+			merr = errors.Join(merr, errors.New("linkFeedID may not be specified for v1 jobs"))
+		}
+		if config.NativeFeedID != nil {
+			merr = errors.Join(merr, errors.New("nativeFeedID may not be specified for v1 jobs"))
+		}
+	case 2, 3:
+		if config.LinkFeedID == nil {
+			merr = errors.Join(merr, fmt.Errorf("linkFeedID must be specified for v%d jobs", reportSchemaVersion))
+		}
+		if config.NativeFeedID == nil {
+			merr = errors.Join(merr, fmt.Errorf("nativeFeedID must be specified for v%d jobs", reportSchemaVersion))
+		}
+		if config.InitialBlockNumber.Valid {
+			merr = errors.Join(merr, fmt.Errorf("initialBlockNumber may not be specified for v%d jobs", reportSchemaVersion))
+		}
+	default:
+		merr = errors.Join(merr, fmt.Errorf("got unsupported schema version %d; supported versions are 1,2,3", reportSchemaVersion))
 	}
 
 	return merr

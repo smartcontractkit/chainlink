@@ -56,14 +56,7 @@ func NewServices(
 	}
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
-	lggr.Infof("BLOBLO: %v", pluginConfig)
-
-	version, err := decoder.DecodeSchemaVersionFromFeedId(feedID)
-	if err != nil {
-		return nil, errors.WithStack(err)
-	}
-
-	switch version {
+	switch decoder.SchemaVersionFromFeedId(feedID) {
 	case 1:
 		ds := mercuryv1.NewDataSource(
 			orm,

@@ -251,12 +251,10 @@ func TestORM_InsertTransmitRequest_LatestReport(t *testing.T) {
 }
 
 func Test_ReportCodec_FeedIDFromReport(t *testing.T) {
-	r := ormCodec{}
-
 	t.Run("FeedIDFromReport extracts the current block number from a valid report", func(t *testing.T) {
 		report := buildSampleV1Report(42)
 
-		f, err := r.FeedIDFromReport(report)
+		f, err := FeedIDFromReport(report)
 		require.NoError(t, err)
 
 		assert.Equal(t, sampleFeedID[:], f[:])
@@ -264,7 +262,7 @@ func Test_ReportCodec_FeedIDFromReport(t *testing.T) {
 	t.Run("FeedIDFromReport returns error if report is invalid", func(t *testing.T) {
 		report := []byte{1}
 
-		_, err := r.FeedIDFromReport(report)
+		_, err := FeedIDFromReport(report)
 		assert.EqualError(t, err, "invalid length for report: 1")
 	})
 }

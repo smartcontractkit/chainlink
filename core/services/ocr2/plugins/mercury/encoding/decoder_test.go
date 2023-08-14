@@ -15,58 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func Test_DecodeSchemaVersionFromFeedId(t *testing.T) {
-	tests := []struct {
-		name    string
-		feedID  [32]byte
-		want    FeedIDPrefix
-		wantErr bool
-	}{
-		{
-			name:    "schemaVersion v1",
-			feedID:  [32]byte{0x00, 0x01},
-			want:    1,
-			wantErr: false,
-		},
-		{
-			name:    "schemaVersion v2",
-			feedID:  [32]byte{0x00, 0x02},
-			want:    2,
-			wantErr: false,
-		},
-		{
-			name:    "schemaVersion v3",
-			feedID:  [32]byte{0x00, 0x03},
-			want:    3,
-			wantErr: false,
-		},
-		{
-			name:    "schemaVersion invalid",
-			feedID:  [32]byte{0x00, 0x04},
-			want:    0,
-			wantErr: true,
-		},
-		{
-			name:    "schemaVersion invalid",
-			feedID:  [32]byte{0x00, 0x00},
-			want:    0,
-			wantErr: true,
-		},
-	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			got, err := DecodeSchemaVersionFromFeedId(test.feedID)
-			if (err != nil) != test.wantErr {
-				t.Errorf("DecodeSchemaVersionFromFeedId() error = %v, wantErr %v", err, test.wantErr)
-				return
-			}
-			if got != test.want {
-				t.Errorf("DecodeSchemaVersionFromFeedId() = %v, want %v", got, test.want)
-			}
-		})
-	}
-}
-
 var (
 	hash          = hexutil.MustDecode("0x552c2cea3ab43bae137d89ee6142a01db3ae2b5678bc3c9bd5f509f537bea57b")
 	v1FeedId      = [32]uint8{00, 01, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
@@ -127,110 +75,79 @@ func buildV3Report(fId [32]byte) []byte {
 	return report
 }
 
+func Test_DecodeSchemaVersionFromFeedId(t *testing.T) {
+	assert.Equal(t, REPORT_V1, SchemaVersionFromFeedId(v1FeedId))
+	assert.Equal(t, REPORT_V2, SchemaVersionFromFeedId(v2FeedId))
+	assert.Equal(t, REPORT_V3, SchemaVersionFromFeedId(v3FeedId))
+}
+
 func Test_ReportDecoder(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	t.Run("invalid report length", func(t *testing.T) {
-		_, err := NewReportDecoder([]byte{0x00}, lggr)
+		_, err := DecodeV1([]byte{0x00}, lggr)
 		assert.EqualError(t, err, "invalid length for report: 1")
+
+		_, err = DecodeV2([]byte{0x00, 0x01}, lggr)
+		assert.EqualError(t, err, "invalid length for report: 2")
+
+		_, err = DecodeV3([]byte{0x00, 0x01, 0x02}, lggr)
+		assert.EqualError(t, err, "invalid length for report: 3")
 	})
 
-	t.Run("invalid feed id", func(t *testing.T) {
+	t.Run("invalid schema version", func(t *testing.T) {
 		report := buildV1Report(invalidFeedId)
-		_, err := NewReportDecoder(report, lggr)
+		_, err := DecodeV1(report, lggr)
+		assert.EqualError(t, err, "invalid schema version: 7313")
+
+		report = buildV2Report(invalidFeedId)
+		_, err = DecodeV2(report, lggr)
+		assert.EqualError(t, err, "invalid schema version: 7313")
+
+		report = buildV3Report(invalidFeedId)
+		_, err = DecodeV3(report, lggr)
 		assert.EqualError(t, err, "invalid schema version: 7313")
 	})
 	t.Run("v1", func(t *testing.T) {
-		t.Run("happy path", func(t *testing.T) {
-			v1Report := buildV1Report(v1FeedId)
-			reportDecoder, err := NewReportDecoder(v1Report, lggr)
-			assert.NoError(t, err)
-			assert.Equal(t, reportDecoder.SchemaVersion(), REPORT_V1)
-			report, err := reportDecoder.DecodeAsV1()
-			assert.NoError(t, err)
-			assert.Equal(t, v1FeedId, report.FeedId)
-			assert.Equal(t, uint32(42), report.ObservationsTimestamp)
-			assert.Equal(t, big.NewInt(242), report.BenchmarkPrice)
-			assert.Equal(t, big.NewInt(243), report.Bid)
-			assert.Equal(t, big.NewInt(244), report.Ask)
-			assert.Equal(t, uint64(143), report.CurrentBlockNum)
-			assert.Equal(t, hash, report.CurrentBlockHash[:])
-			assert.Equal(t, uint64(123), report.CurrentBlockTimestamp)
-			assert.Equal(t, uint64(142), report.ValidFromBlockNum)
-		})
-
-		t.Run("errors if invalid schema version", func(t *testing.T) {
-			v1Report := buildV1Report(v2FeedId)
-			reportDecoder, err := NewReportDecoder(v1Report, lggr)
-			assert.NoError(t, err)
-			assert.NotEqual(t, reportDecoder.SchemaVersion(), REPORT_V1)
-			_, err = reportDecoder.DecodeAsV1()
-			assert.EqualError(t, err, "invalid schema version: 2")
-		})
-
+		v1Report := buildV1Report(v1FeedId)
+		report, err := DecodeV1(v1Report, lggr)
+		assert.NoError(t, err)
+		assert.Equal(t, v1FeedId, report.FeedId)
+		assert.Equal(t, uint32(42), report.ObservationsTimestamp)
+		assert.Equal(t, big.NewInt(242), report.BenchmarkPrice)
+		assert.Equal(t, big.NewInt(243), report.Bid)
+		assert.Equal(t, big.NewInt(244), report.Ask)
+		assert.Equal(t, uint64(143), report.CurrentBlockNum)
+		assert.Equal(t, hash, report.CurrentBlockHash[:])
+		assert.Equal(t, uint64(123), report.CurrentBlockTimestamp)
+		assert.Equal(t, uint64(142), report.ValidFromBlockNum)
 	})
 
 	t.Run("v2", func(t *testing.T) {
-		t.Run("happy path", func(t *testing.T) {
-			v2Report := buildV2Report(v2FeedId)
-			reportDecoder, err := NewReportDecoder(v2Report, lggr)
-			assert.NoError(t, err)
-			assert.Equal(t, reportDecoder.SchemaVersion(), REPORT_V2)
-			report, err := reportDecoder.DecodeAsV2()
-			assert.NoError(t, err)
-			assert.Equal(t, v2FeedId, report.FeedId)
-			assert.Equal(t, uint32(52), report.ObservationsTimestamp)
-			assert.Equal(t, big.NewInt(342), report.BenchmarkPrice)
-			assert.Equal(t, uint32(343), report.ValidFromTimestamp)
-			assert.Equal(t, uint32(344), report.ExpiresAt)
-			assert.Equal(t, big.NewInt(345), report.LinkFee)
-			assert.Equal(t, big.NewInt(346), report.NativeFee)
-		})
-
-		t.Run("errors if invalid schema version", func(t *testing.T) {
-			v2Report := buildV2Report(v3FeedId)
-			reportDecoder, err := NewReportDecoder(v2Report, lggr)
-			assert.NoError(t, err)
-			assert.NotEqual(t, reportDecoder.SchemaVersion(), REPORT_V2)
-			_, err = reportDecoder.DecodeAsV2()
-			assert.EqualError(t, err, "invalid schema version: 3")
-		})
-
-		t.Run("errors when decoding wrong report of larger size", func(t *testing.T) {
-			v2Report := buildV2Report(v1FeedId)
-			reportDecoder, err := NewReportDecoder(v2Report, lggr)
-			assert.NoError(t, err)
-			_, err = reportDecoder.DecodeAsV1()
-			assert.EqualError(t, err, "error during unpack: abi: cannot marshal in to go type: length insufficient 224 require 256")
-		})
+		v2Report := buildV2Report(v2FeedId)
+		report, err := DecodeV2(v2Report, lggr)
+		assert.NoError(t, err)
+		assert.Equal(t, v2FeedId, report.FeedId)
+		assert.Equal(t, uint32(52), report.ObservationsTimestamp)
+		assert.Equal(t, big.NewInt(342), report.BenchmarkPrice)
+		assert.Equal(t, uint32(343), report.ValidFromTimestamp)
+		assert.Equal(t, uint32(344), report.ExpiresAt)
+		assert.Equal(t, big.NewInt(345), report.LinkFee)
+		assert.Equal(t, big.NewInt(346), report.NativeFee)
 	})
 
 	t.Run("v3", func(t *testing.T) {
-		t.Run("happy path", func(t *testing.T) {
-			v3Report := buildV3Report(v3FeedId)
-			reportDecoder, err := NewReportDecoder(v3Report, lggr)
-			assert.NoError(t, err)
-			assert.Equal(t, reportDecoder.SchemaVersion(), REPORT_V3)
-			report, err := reportDecoder.DecodeAsV3()
-			assert.NoError(t, err)
-			assert.Equal(t, v3FeedId, report.FeedId)
-			assert.Equal(t, uint32(62), report.ObservationsTimestamp)
-			assert.Equal(t, big.NewInt(442), report.BenchmarkPrice)
-			assert.Equal(t, big.NewInt(443), report.Bid)
-			assert.Equal(t, big.NewInt(444), report.Ask)
-			assert.Equal(t, uint32(445), report.ValidFromTimestamp)
-			assert.Equal(t, uint32(446), report.ExpiresAt)
-			assert.Equal(t, big.NewInt(447), report.LinkFee)
-			assert.Equal(t, big.NewInt(448), report.NativeFee)
-		})
-
-		t.Run("errors if invalid schema version", func(t *testing.T) {
-			v3Report := buildV3Report(v1FeedId)
-			reportDecoder, err := NewReportDecoder(v3Report, lggr)
-			assert.NoError(t, err)
-			assert.NotEqual(t, reportDecoder.SchemaVersion(), REPORT_V3)
-			_, err = reportDecoder.DecodeAsV3()
-			assert.EqualError(t, err, "invalid schema version: 1")
-		})
+		v3Report := buildV3Report(v3FeedId)
+		report, err := DecodeV3(v3Report, lggr)
+		assert.NoError(t, err)
+		assert.Equal(t, v3FeedId, report.FeedId)
+		assert.Equal(t, uint32(62), report.ObservationsTimestamp)
+		assert.Equal(t, big.NewInt(442), report.BenchmarkPrice)
+		assert.Equal(t, big.NewInt(443), report.Bid)
+		assert.Equal(t, big.NewInt(444), report.Ask)
+		assert.Equal(t, uint32(445), report.ValidFromTimestamp)
+		assert.Equal(t, uint32(446), report.ExpiresAt)
+		assert.Equal(t, big.NewInt(447), report.LinkFee)
+		assert.Equal(t, big.NewInt(448), report.NativeFee)
 	})
 }

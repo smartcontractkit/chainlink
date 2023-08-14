@@ -27,15 +27,7 @@ type ORM interface {
 	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
 }
 
-type ORMCodec interface {
-	FeedIDFromReport(report ocrtypes.Report) (feedID [32]byte, err error)
-}
-
-type ormCodec struct{}
-
-var _ ORMCodec = &ormCodec{}
-
-func (r *ormCodec) FeedIDFromReport(report ocrtypes.Report) (feedID [32]byte, err error) {
+func FeedIDFromReport(report ocrtypes.Report) (feedID [32]byte, err error) {
 	if n := copy(feedID[:], report); n != 32 {
 		return feedID, pkgerrors.Errorf("invalid length for report: %d", len(report))
 	}
@@ -43,16 +35,14 @@ func (r *ormCodec) FeedIDFromReport(report ocrtypes.Report) (feedID [32]byte, er
 }
 
 type orm struct {
-	q     pg.Q
-	codec ORMCodec
+	q pg.Q
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	namedLogger := lggr.Named("MercuryORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{
-		q:     q,
-		codec: &ormCodec{},
+		q: q,
 	}
 }
 
@@ -72,7 +62,7 @@ func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.
 	`, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:])
 	}()
 
-	feedID, err := o.codec.FeedIDFromReport(req.Payload)
+	feedID, err := FeedIDFromReport(req.Payload)
 	if err != nil {
 		return err
 	}
