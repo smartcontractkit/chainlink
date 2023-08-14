@@ -444,7 +444,7 @@ var (
 		Name:                      "Linea Testnet",
 		SupportsEIP1559:           true,
 		ClientImplementation:      blockchain.EthereumClientImplementation,
-		ChainID:                   59144,
+		ChainID:                   59140,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
