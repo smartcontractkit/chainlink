@@ -128,7 +128,7 @@ func EVMDependencies21(
 	pr pipeline.Runner,
 	mc *models.MercuryCredentials,
 	keyring ocrtypes.OnchainKeyring,
-) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder21, *kevm21.TransmitEventProvider, ocr2keepers21.LogEventProvider, ocr3types.OnchainKeyring[ocr2keepers21plugin.AutomationReportInfo], *kevm21.BlockSubscriber, error) {
+) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder21, *kevm21.TransmitEventProvider, ocr2keepers21.LogEventProvider, ocr3types.OnchainKeyring[ocr2keepers21plugin.AutomationReportInfo], *kevm21.BlockSubscriber, ocr2keepers21.PayloadBuilder, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
@@ -140,24 +140,25 @@ func EVMDependencies21(
 	// get the chain from the config
 	chainID, err2 := spec.OCR2OracleSpec.RelayConfig.EVMChainID()
 	if err2 != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err2
+		return nil, nil, nil, nil, nil, nil, nil, nil, err2
 	}
 	chain, err2 = set.Get(big.NewInt(chainID))
 	if err2 != nil {
-		return nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
+		return nil, nil, nil, nil, nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
 	}
 
 	// the provider will be returned as a dependency
 	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
 	if registry, encoder, err = kevm21.NewEVMRegistryService(rAddr, chain, mc, lggr); err != nil {
-		return nil, nil, nil, nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
 
 	hp := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), 128, lggr)
+	pb := kevm21.NewPayloadBuilder(lggr)
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases
@@ -165,7 +166,7 @@ func EVMDependencies21(
 	// TODO: accept a version of the registry contract and use the correct interfaces
 	logTransmitter, err := kevm21.NewTransmitEventProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
-	return keeperProvider, registry, encoder, logTransmitter, registry.LogEventProvider(), kevm21.NewOnchainKeyringV3Wrapper(keyring), hp, err
+	return keeperProvider, registry, encoder, logTransmitter, registry.LogEventProvider(), kevm21.NewOnchainKeyringV3Wrapper(keyring), hp, pb, err
 }
 
 func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {
