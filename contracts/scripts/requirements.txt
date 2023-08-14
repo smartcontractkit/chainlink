@@ -1,1 +1,1 @@
-solc-select==0.2.0 --hash=sha256:faa2fb5d43b77b6dc48ce73cb863b27631c477d0a350403294ff186c51bd744e
+solc-select==1.0.4 --hash=sha256:db7b9de009af6de3a5416b80bbe5b6d636bf314703c016319b8c1231e248a6c7
