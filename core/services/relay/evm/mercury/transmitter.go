@@ -62,12 +62,12 @@ var (
 	},
 		[]string{"feedID"},
 	)
-	// transmitServerErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
-	// 	Name: "mercury_transmit_server_error_count",
-	// 	Help: "Number of errored transmissions that failed due to an error returned by the mercury server",
-	// },
-	// 	[]string{"feedID", "code"},
-	// )
+	transmitServerErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "mercury_transmit_server_error_count",
+		Help: "Number of errored transmissions that failed due to an error returned by the mercury server",
+	},
+		[]string{"feedID", "code"},
+	)
 )
 
 type Transmitter interface {
@@ -244,25 +244,8 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 				mt.transmitDuplicateCount.Inc()
 				mt.lggr.Tracew("Transmit report succeeded; duplicate report", "code", res.Code)
 			default:
-				// elems := map[string]interface{}{}
-				// var validFrom int64
-				// var currentBlock int64
-				// var unpackErr error
-				// if err = PayloadTypes.UnpackIntoMap(elems, t.Req.Payload); err != nil {
-				// 	unpackErr = err
-				// } else {
-				// 	report := elems["report"].([]byte)
-				// 	validFrom, err = (&reportcodec.EVMReportCodec{}).ValidFromBlockNumFromReport(report)
-				// 	if err != nil {
-				// 		unpackErr = err
-				// 	}
-				// 	currentBlock, err = (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(report)
-				// 	if err != nil {
-				// 		unpackErr = errors.Join(unpackErr, err)
-				// 	}
-				// }
-				// transmitServerErrorCount.WithLabelValues(mt.feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
-				// mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
+				transmitServerErrorCount.WithLabelValues(fmt.Sprintf("0x%x", mt.feedID[:]), fmt.Sprintf("%d", res.Code)).Inc()
+				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
 
