@@ -19,7 +19,7 @@ func Test_DecodeSchemaVersionFromFeedId(t *testing.T) {
 	tests := []struct {
 		name    string
 		feedID  [32]byte
-		want    uint16
+		want    FeedIDPrefix
 		wantErr bool
 	}{
 		{

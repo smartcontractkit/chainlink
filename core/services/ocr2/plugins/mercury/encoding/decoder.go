@@ -14,12 +14,18 @@ import (
 	"github.com/pkg/errors"
 )
 
-const REPORT_V1 uint16 = 1
-const REPORT_V2 uint16 = 2
-const REPORT_V3 uint16 = 3
+type FeedIDPrefix uint16
 
-func DecodeSchemaVersionFromFeedId(feedID [32]byte) (uint16, error) {
-	schemaVersion := binary.BigEndian.Uint16(feedID[:2])
+const (
+	_         FeedIDPrefix = 0 // reserved to prevent errors where a zero-default creeps through somewhere
+	REPORT_V1 FeedIDPrefix = 1
+	REPORT_V2 FeedIDPrefix = 2
+	REPORT_V3 FeedIDPrefix = 3
+	_         FeedIDPrefix = 0xFFFF // reserved for future use
+)
+
+func DecodeSchemaVersionFromFeedId(feedID [32]byte) (FeedIDPrefix, error) {
+	schemaVersion := FeedIDPrefix(binary.BigEndian.Uint16(feedID[:2]))
 	if schemaVersion != REPORT_V1 && schemaVersion != REPORT_V2 && schemaVersion != REPORT_V3 {
 		return 0, errors.Errorf("invalid schema version: %d", schemaVersion)
 	}
@@ -27,7 +33,7 @@ func DecodeSchemaVersionFromFeedId(feedID [32]byte) (uint16, error) {
 }
 
 type ReportDecoder interface {
-	GetSchemaVersion() uint16
+	GetSchemaVersion() FeedIDPrefix
 
 	DecodeAsV1() (*mercuryv1.Report, error)
 	DecodeAsV2() (*mercuryv2.Report, error)
@@ -37,7 +43,7 @@ type ReportDecoder interface {
 type reportDecoder struct {
 	report        ocrtypes.Report
 	feedId        [32]byte
-	schemaVersion uint16
+	schemaVersion FeedIDPrefix
 
 	lggr logger.Logger
 }
@@ -106,6 +112,6 @@ func (d *reportDecoder) DecodeAsV3() (*mercuryv3.Report, error) {
 	return reportCodec.Decode(d.report)
 }
 
-func (d *reportDecoder) GetSchemaVersion() uint16 {
+func (d *reportDecoder) GetSchemaVersion() FeedIDPrefix {
 	return d.schemaVersion
 }
