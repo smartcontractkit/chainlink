@@ -438,12 +438,11 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			lb := atomic.Int64{}
-			lb.Store(tc.latestBlock.Int64())
 			bs := &BlockSubscriber{
-				latestBlock: lb,
+				latestBlock: atomic.Int64{},
 				blocks:      tc.blocks,
 			}
+			bs.latestBlock.Store(tc.latestBlock.Int64())
 			e := &EvmRegistry{
 				lggr: lggr,
 				bs:   bs,
