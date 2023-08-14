@@ -159,10 +159,6 @@ jobs:
             nodes: 9
             os: ubuntu-latest
             pyroscope_env: ci-smoke-automation-evm-simulated
-          - name: forwarder_ocr
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
           # temporarily disabled
           # - name: ocr2vrf
           #   nodes: 2
@@ -274,6 +270,14 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
+          - name: forwarder_ocr
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+          - name: forwarders_ocr2
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
 
           # Keeper tests split out to use minimal environments
           - name: keeper-1
