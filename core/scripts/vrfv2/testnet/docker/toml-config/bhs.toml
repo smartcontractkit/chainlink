@@ -1,7 +1,0 @@
-
-[Feature]
-LogPoller = true
-
-[[EVM]]
-ChainID = '11155111'
-FinalityDepth = 10

@@ -12,7 +12,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -29,7 +29,7 @@ const (
 
 func init() {
 	var err error
-	verifierABI, err = abi.JSON(strings.NewReader(verifier.VerifierABI))
+	verifierABI, err = abi.JSON(strings.NewReader(mercury_verifier.MercuryVerifierABI))
 	if err != nil {
 		panic(err)
 	}
@@ -42,8 +42,8 @@ type FullConfigFromLog struct {
 	feedID [32]byte
 }
 
-func unpackLogData(d []byte) (*verifier.VerifierConfigSet, error) {
-	unpacked := new(verifier.VerifierConfigSet)
+func unpackLogData(d []byte) (*mercury_verifier.MercuryVerifierConfigSet, error) {
+	unpacked := new(mercury_verifier.MercuryVerifierConfigSet)
 
 	err := verifierABI.UnpackIntoInterface(unpacked, configSetEventName, d)
 	if err != nil {

@@ -43,7 +43,7 @@ func ABIEncode(abiStr string, values ...interface{}) ([]byte, error) {
 	return res[4:], nil
 }
 
-// ABIEncode is the equivalent of abi.decode.
+// ABIDecode is the equivalent of abi.decode.
 // See a full set of examples https://github.com/ethereum/go-ethereum/blob/420b78659bef661a83c5c442121b13f13288c09f/accounts/abi/packing_test.go#L31
 func ABIDecode(abiStr string, data []byte) ([]interface{}, error) {
 	inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "outputs": %s}]`, abiStr)

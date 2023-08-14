@@ -301,7 +301,7 @@ func newConfigProvider(lggr logger.Logger, chainSet evm.ChainSet, args relaytype
 	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, args.New), nil
 }
 
-func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth) (*contractTransmitter, error) {
+func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, reportToEthMeta ReportToEthMetadata) (*contractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -366,7 +366,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 		transmitter,
 		configWatcher.chain.LogPoller(),
 		lggr,
-		nil,
+		reportToEthMeta,
 	)
 }
 
@@ -430,10 +430,8 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		return nil, err
 	}
 	var contractTransmitter ContractTransmitter
-	var reportCodec median.ReportCodec
-
-	reportCodec = evmreportcodec.ReportCodec{}
-	contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth())
+	reportCodec := evmreportcodec.ReportCodec{}
+	contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth(), nil)
 	if err != nil {
 		return nil, err
 	}

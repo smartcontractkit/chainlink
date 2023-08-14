@@ -33,18 +33,11 @@ import (
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 )
 
-var (
-	ErrConnectNodeClient    = "could not connect Node HTTP Client"
-	ErrStartCLNodeContainer = "failed to start CL node container"
-)
-
 type ClNode struct {
 	EnvComponent
-	API                   *client.ChainlinkClient
-	NodeConfig            *chainlink.Config
-	NodeSecretsConfigTOML string
-	PostgresDb            *PostgresDb
-	lw                    *logwatch.LogWatch
+	API        *client.ChainlinkClient
+	NodeConfig *chainlink.Config
+	PostgresDb *PostgresDb
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -67,13 +60,7 @@ func WithDbContainerName(name string) ClNodeOption {
 	}
 }
 
-func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
-	return func(c *ClNode) {
-		c.lw = lw
-	}
-}
-
-func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, nodeConfig chainlink.Config, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:3])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
@@ -82,26 +69,13 @@ func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOp
 			ContainerName: nodeDefaultCName,
 			Networks:      networks,
 		},
-		NodeConfig: nodeConfig,
+		NodeConfig: &nodeConfig,
 		PostgresDb: pgDb,
 	}
 	for _, opt := range opts {
 		opt(n)
 	}
 	return n
-}
-
-// Restart restarts only CL node, DB container is reused
-func (n *ClNode) Restart(cfg *chainlink.Config) error {
-	if err := n.Container.Terminate(context.Background()); err != nil {
-		return err
-	}
-	n.NodeConfig = cfg
-	return n.StartContainer()
-}
-
-func (n *ClNode) PrimaryETHAddress() (string, error) {
-	return n.API.PrimaryEthAddress()
 }
 
 func (n *ClNode) AddBootstrapJob(verifierAddr common.Address, fromBlock uint64, chainId int64,
@@ -158,7 +132,7 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 }
 
 func (n *ClNode) GetContainerName() string {
-	name, err := n.Container.Name(context.Background())
+	name, err := n.EnvComponent.Container.Name(context.Background())
 	if err != nil {
 		return ""
 	}
@@ -203,22 +177,17 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
 
-func (n *ClNode) StartContainer() error {
-	err := n.PostgresDb.StartContainer()
+func (n *ClNode) StartContainer(lw *logwatch.LogWatch) error {
+	err := n.PostgresDb.StartContainer(lw)
 	if err != nil {
 		return err
 	}
-	nodeSecretsToml, err := templates.NodeSecretsTemplate{
-		PgDbName:   n.PostgresDb.DbName,
-		PgHost:     n.PostgresDb.ContainerName,
-		PgPort:     n.PostgresDb.Port,
-		PgPassword: n.PostgresDb.Password,
-	}.String()
+	nodeSecrets, err := templates.ExecuteNodeSecretsTemplate(
+		n.PostgresDb.Password, n.PostgresDb.DbName, n.PostgresDb.ContainerName, n.PostgresDb.Port)
 	if err != nil {
 		return err
 	}
-	n.NodeSecretsConfigTOML = nodeSecretsToml
-	cReq, err := n.getContainerRequest()
+	cReq, err := n.getContainerRequest(nodeSecrets)
 	if err != nil {
 		return err
 	}
@@ -228,10 +197,10 @@ func (n *ClNode) StartContainer() error {
 		Reuse:            true,
 	})
 	if err != nil {
-		return errors.Wrap(err, ErrStartCLNodeContainer)
+		return errors.Wrapf(err, "could not start Chainlink Node container")
 	}
-	if n.lw != nil {
-		if err := n.lw.ConnectContainer(context.Background(), container, "cl-node", true); err != nil {
+	if lw != nil {
+		if err := lw.ConnectContainer(context.Background(), container, "chainlink", true); err != nil {
 			return err
 		}
 	}
@@ -239,22 +208,18 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
-	ip, err := container.ContainerIP(context.Background())
-	if err != nil {
-		return err
-	}
+
 	log.Info().Str("containerName", n.ContainerName).
 		Str("clEndpoint", clEndpoint).
-		Str("clInternalIP", ip).
 		Msg("Started Chainlink Node container")
+
 	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
-		URL:        clEndpoint,
-		Email:      "local@local.com",
-		Password:   "localdevpassword",
-		InternalIP: ip,
+		URL:      clEndpoint,
+		Email:    "local@local.com",
+		Password: "localdevpassword",
 	})
 	if err != nil {
-		return errors.Wrap(err, ErrConnectNodeClient)
+		return errors.Wrapf(err, "could not connect Node HTTP Client")
 	}
 
 	n.Container = container
@@ -263,7 +228,7 @@ func (n *ClNode) StartContainer() error {
 	return nil
 }
 
-func (n *ClNode) getContainerRequest() (
+func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
@@ -277,11 +242,12 @@ func (n *ClNode) getContainerRequest() (
 	if err != nil {
 		return nil, err
 	}
+
 	secretsFile, err := os.CreateTemp("", "node_secrets")
 	if err != nil {
 		return nil, err
 	}
-	_, err = secretsFile.WriteString(n.NodeSecretsConfigTOML)
+	_, err = secretsFile.WriteString(secrets)
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +287,7 @@ func (n *ClNode) getContainerRequest() (
 	}
 
 	return &tc.ContainerRequest{
-		Name:         n.ContainerName,
+		Name:         n.EnvComponent.ContainerName,
 		Image:        fmt.Sprintf("%s:%s", image, tag),
 		ExposedPorts: []string{"6688/tcp"},
 		Entrypoint: []string{"chainlink",

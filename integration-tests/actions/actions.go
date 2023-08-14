@@ -41,13 +41,7 @@ func FundChainlinkNodes(
 		if err != nil {
 			return err
 		}
-		recipient := common.HexToAddress(toAddress)
-		msg := ethereum.CallMsg{
-			From:  common.HexToAddress(client.GetDefaultWallet().Address()),
-			To:    &recipient,
-			Value: utils.EtherToWei(amount),
-		}
-		gasEstimates, err := client.EstimateGas(msg)
+		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
 		if err != nil {
 			return err
 		}
@@ -415,20 +409,4 @@ func UpgradeChainlinkNodeVersions(
 		return err
 	}
 	return client.ReconnectChainlinkNodes(testEnvironment, nodes)
-}
-
-func DeployLINKToken(cd contracts.ContractDeployer) (contracts.LinkToken, error) {
-	linkToken, err := cd.DeployLinkTokenContract()
-	if err != nil {
-		return nil, err
-	}
-	return linkToken, err
-}
-
-func DeployMockETHLinkFeed(cd contracts.ContractDeployer, answer *big.Int) (contracts.MockETHLINKFeed, error) {
-	mockETHLINKFeed, err := cd.DeployMockETHLINKFeed(answer)
-	if err != nil {
-		return nil, err
-	}
-	return mockETHLINKFeed, err
 }

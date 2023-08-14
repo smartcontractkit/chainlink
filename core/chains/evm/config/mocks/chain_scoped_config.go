@@ -270,6 +270,22 @@ func (_m *ChainScopedConfig) Keeper() coreconfig.Keeper {
 	return r0
 }
 
+// LegacyGasStation provides a mock function with given fields:
+func (_m *ChainScopedConfig) LegacyGasStation() coreconfig.LegacyGasStation {
+	ret := _m.Called()
+
+	var r0 coreconfig.LegacyGasStation
+	if rf, ok := ret.Get(0).(func() coreconfig.LegacyGasStation); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.LegacyGasStation)
+		}
+	}
+
+	return r0
+}
+
 // Log provides a mock function with given fields:
 func (_m *ChainScopedConfig) Log() coreconfig.Log {
 	ret := _m.Called()

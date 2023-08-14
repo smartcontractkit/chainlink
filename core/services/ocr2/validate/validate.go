@@ -113,6 +113,7 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		return nil
 	case job.Mercury:
 		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig)
+	case job.CCIPExecution, job.CCIPCommit:
 	case "":
 		return errors.New("no plugin specified")
 	default:

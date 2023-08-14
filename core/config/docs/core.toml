@@ -15,6 +15,10 @@ FeedsManager = true # Default
 LogPoller = false # Default
 # UICSAKeys enables CSA Keys in the UI.
 UICSAKeys = false # Default
+# CCIP enables the Cross Chain Interoperability Protocol
+CCIP = false # Default
+# LegacyGasStation is an experimental feature that enables meta-transactions for token transfers
+LegacyGasStation = false # Default
 
 [Database]
 # DefaultIdleInTxSessionTimeout is the maximum time allowed for a transaction to be open and idle before timing out. See Postgres `idle_in_transaction_session_timeout` for more details.

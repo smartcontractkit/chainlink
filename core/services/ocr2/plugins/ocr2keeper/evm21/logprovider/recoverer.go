@@ -6,7 +6,8 @@ import (
 	"sync"
 	"time"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	keepersflows "github.com/smartcontractkit/ocr2keepers/pkg/v3/flows"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,7 +31,7 @@ type logRecoverer struct {
 	poller logpoller.LogPoller
 }
 
-var _ ocr2keepers.RecoverableProvider = &logRecoverer{}
+var _ keepersflows.RecoverableProvider = &logRecoverer{}
 
 func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, interval time.Duration) *logRecoverer {
 	if interval == 0 {
@@ -78,7 +79,7 @@ func (r *logRecoverer) Close() error {
 	return nil
 }
 
-func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+func (r *logRecoverer) GetRecoverables() ([]ocr2keepers.UpkeepPayload, error) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
@@ -90,7 +91,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 	r.pending = make([]ocr2keepers.UpkeepPayload, 0)
 
 	for _, p := range pending {
-		r.visited[p.WorkID] = true
+		r.visited[p.ID] = true
 	}
 
 	return pending, nil

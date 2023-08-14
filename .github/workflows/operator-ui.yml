@@ -22,18 +22,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./operator_ui/check.sh
 
-      - name: Open PR
-        uses: peter-evans/create-pull-request@38e0b6e68b4c852a5500a94740f0e535e0d7ba54 # v4.2.4
-        with:
-          title: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
-          branch: chore/update-operator-ui
-          commit-message: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
-          body: ${{ steps.update.outputs.body }}
+#      - name: Open PR
+#        uses: peter-evans/create-pull-request@38e0b6e68b4c852a5500a94740f0e535e0d7ba54 # v4.2.4
+#        with:
+#          title: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
+#          branch: chore/update-operator-ui
+#          commit-message: Update Operator UI from ${{ steps.update.outputs.current_tag }} to ${{ steps.update.outputs.latest_tag }}
+#          body: ${{ steps.update.outputs.body }}
 
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@6f41029bc7f0d0db5827f6804a2322e2a89e3b32
+        uses: smartcontractkit/push-gha-metrics-action@2dcc6578752a8949bdabf8d7fb4f0c70b83703cd
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

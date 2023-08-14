@@ -52,7 +52,6 @@ func NewTransmitter(
 	if keystore == nil {
 		return nil, errors.New("nil keystore provided to transmitter")
 	}
-
 	return &transmitter{
 		txm:                         txm,
 		fromAddresses:               fromAddresses,

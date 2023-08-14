@@ -40,9 +40,9 @@ const (
 	BlockHeaderFeederJobType       string = "blockheaderfeeder"
 	WebhookJobType                 string = "webhook"
 	BootstrapJobType               string = "bootstrap"
-	GatewayJobType                 string = "gateway"
 	LegacyGasStationServerJobType  string = "legacygasstationserver"
 	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
+	GatewayJobType                 string = "gateway"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore

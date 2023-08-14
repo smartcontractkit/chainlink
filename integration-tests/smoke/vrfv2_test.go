@@ -7,106 +7,113 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
-	vrfConst "github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 func TestVRFv2Basic(t *testing.T) {
+
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 
-	env, err := test_env.NewCLTestEnvBuilder().
-		WithGeth().
-		WithMockServer(1).
-		WithCLNodes(1).
-		WithFunding(vrfConst.ChainlinkNodeFundingAmountEth).
-		Build()
-	require.NoError(t, err)
-	env.ParallelTransactions(true)
-
-	mockFeed, err := actions.DeployMockETHLinkFeed(env.Geth.ContractDeployer, vrfConst.LinkEthFeedResponse)
-	require.NoError(t, err)
-	lt, err := actions.DeployLINKToken(env.Geth.ContractDeployer)
-	require.NoError(t, err)
-	vrfv2Contracts, err := vrfv2_actions.DeployVRFV2Contracts(env.Geth.ContractDeployer, env.Geth.EthClient, lt, mockFeed)
-	require.NoError(t, err)
-
-	err = env.Geth.EthClient.WaitForEvents()
-	require.NoError(t, err)
-
-	err = vrfv2Contracts.Coordinator.SetConfig(
-		vrfConst.MinimumConfirmations,
-		vrfConst.MaxGasLimitVRFCoordinatorConfig,
-		vrfConst.StalenessSeconds,
-		vrfConst.GasAfterPaymentCalculation,
-		vrfConst.LinkEthFeedResponse,
-		vrfConst.VRFCoordinatorV2FeeConfig,
+	testNetwork := networks.SelectedNetwork
+	testEnvironment := vrfv2_actions.SetupVRFV2Environment(
+		t,
+		testNetwork,
+		config.BaseVRFV2NetworkDetailTomlConfig,
+		"",
+		"smoke-vrfv2",
+		"",
+		time.Minute*20,
 	)
+	if testEnvironment.WillUseRemoteRunner() {
+		return
+	}
+
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
 	require.NoError(t, err)
-	err = env.Geth.EthClient.WaitForEvents()
+	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	require.NoError(t, err)
+	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err)
 
-	err = vrfv2Contracts.Coordinator.CreateSubscription()
+	chainClient.ParallelTransactions(true)
+
+	mockETHLINKFeed, err := contractDeployer.DeployMockETHLINKFeed(vrfv2_constants.LinkEthFeedResponse)
 	require.NoError(t, err)
-	err = env.Geth.EthClient.WaitForEvents()
+	linkToken, err := contractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err)
 
-	err = vrfv2Contracts.Coordinator.AddConsumer(vrfConst.SubID, vrfv2Contracts.LoadTestConsumer.Address())
-	require.NoError(t, err)
-
-	err = vrfv2_actions.FundVRFCoordinatorV2Subscription(lt, vrfv2Contracts.Coordinator, env.Geth.EthClient, vrfConst.SubID, vrfConst.VRFSubscriptionFundingAmountLink)
-	require.NoError(t, err)
-
-	vrfV2jobs, err := vrfv2_actions.CreateVRFV2Jobs(env.GetAPIs(), vrfv2Contracts.Coordinator, env.Geth.EthClient, vrfConst.MinimumConfirmations)
-	require.NoError(t, err)
-
-	// this part is here because VRFv2 can work with only a specific key
-	// [[EVM.KeySpecific]]
-	//	Key = '...'
-	addr, err := env.CLNodes[0].API.PrimaryEthAddress()
-	require.NoError(t, err)
-	nodeConfig := node.NewConfig(env.CLNodes[0].NodeConfig,
-		node.WithVRFv2EVMEstimator(addr),
+	vrfV2Contracts, chainlinkNodesAfterRedeployment, vrfV2jobs, testEnvironmentAfterRedeployment := vrfv2_actions.SetupVRFV2Universe(
+		t,
+		linkToken,
+		mockETHLINKFeed,
+		contractDeployer,
+		chainClient,
+		chainlinkNodes,
+		testNetwork,
+		testEnvironment,
+		vrfv2_constants.ChainlinkNodeFundingAmountEth,
+		vrfv2_constants.VRFSubscriptionFundingAmountLink,
+		"smoke-vrfv2",
+		time.Minute*20,
 	)
-	err = env.CLNodes[0].Restart(nodeConfig)
-	require.NoError(t, err)
 
-	// test and assert
-	err = vrfv2Contracts.LoadTestConsumer.RequestRandomness(
+	consumerContract := vrfV2Contracts.LoadTestConsumer
+
+	t.Cleanup(func() {
+		err := actions.TeardownSuite(
+			t,
+			testEnvironmentAfterRedeployment,
+			utils.ProjectRoot,
+			chainlinkNodesAfterRedeployment,
+			nil,
+			zapcore.ErrorLevel,
+			chainClient,
+		)
+		require.NoError(t, err, "Error tearing down environment")
+	})
+
+	err = consumerContract.RequestRandomness(
 		vrfV2jobs[0].KeyHash,
-		vrfConst.SubID,
-		vrfConst.MinimumConfirmations,
-		vrfConst.CallbackGasLimit,
-		vrfConst.NumberOfWords,
-		vrfConst.RandomnessRequestCountPerRequest,
+		vrfv2_constants.SubID,
+		vrfv2_constants.MinimumConfirmations,
+		vrfv2_constants.CallbackGasLimit,
+		vrfv2_constants.NumberOfWords,
+		vrfv2_constants.RandomnessRequestCountPerRequest,
 	)
 	require.NoError(t, err)
 
 	gom := gomega.NewGomegaWithT(t)
-	timeout := time.Minute * 1
+	timeout := time.Minute * 2
 	var lastRequestID *big.Int
 	gom.Eventually(func(g gomega.Gomega) {
-		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfV2jobs[0].Job.Data.ID)
+		jobRuns, err := chainlinkNodesAfterRedeployment[0].MustReadRunsByJob(vrfV2jobs[0].Job.Data.ID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically("==", 1))
-		lastRequestID, err = vrfv2Contracts.LoadTestConsumer.GetLastRequestId(context.Background())
+		lastRequestID, err = consumerContract.GetLastRequestId(context.Background())
 		l.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
 
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
-		status, err := vrfv2Contracts.LoadTestConsumer.GetRequestStatus(context.Background(), lastRequestID)
+		status, err := consumerContract.GetRequestStatus(context.Background(), lastRequestID)
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		g.Expect(status.Fulfilled).Should(gomega.BeTrue())
 		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
 		g.Expect(err).ShouldNot(gomega.HaveOccurred())
 		for _, w := range status.RandomWords {
-			l.Info().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
+			l.Debug().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
 			g.Expect(w.Uint64()).Should(gomega.BeNumerically(">", 0), "Expected the VRF job give an answer bigger than 0")
 		}
 	}, timeout, "1s").Should(gomega.Succeed())

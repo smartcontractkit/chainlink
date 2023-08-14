@@ -49,6 +49,7 @@
 # Chainlink Functions related services
 core/services/ocr2/plugins/functions @bolekk @justinkaseman @KuphJr @pinebit
 
+
 # API
 /core/web @jkongie
 
@@ -62,15 +63,15 @@ core/services/ocr2/plugins/functions @bolekk @justinkaseman @KuphJr @pinebit
 /contracts/ @se3000 @connorwstein
 /contracts/**/*Keeper* @smartcontractkit/keepers
 /contracts/**/*Upkeep* @smartcontractkit/keepers
+/contracts/**/ccip/ @rensr @matyang
 /contracts/**/*Functions* @bolekk @justinkaseman @KuphJr @pinebit
 /contracts/src/v0.8/functions @bolekk @justinkaseman @KuphJr @pinebit
-/contracts/src/v0.8/llo-feeds @austinborn @Fletch153
+
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
-
 
 # CI/CD
 /.github/** @chainchad @javuto @jkongie @jmank88 @samsondav
@@ -98,6 +99,18 @@ flake.lock @smartcontractkit/prodsec-public
 ./core/config @samsondav @jmank88
 ./docs/CONFIG.md @samsondav @jmank88 @dwightjl
 ./internal/config/docs.toml @samsondav @jmank88 @dwightjl
+
+
+# CCIP override
+/core/ @smartcontractkit/ccip
+/contracts/ @rensr @matyang
+/.github/ @rensr @connorwstein
+
+# CCIP ARM
+/contracts/src/v0.8/ccip/ARM.sol @gtklocker @kaleofduty
+/contracts/src/v0.8/ccip/ARMProxy.sol @gtklocker @kaleofduty
+/contracts/src/v0.8/ccip/interfaces/IARM.sol @gtklocker @kaleofduty
+/contracts/src/v0.8/ccip/test/arm @gtklocker @kaleofduty
 
 # LOOP Plugins
 /plugins @jmank88 @krehermann

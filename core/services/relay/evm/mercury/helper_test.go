@@ -15,8 +15,8 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -27,7 +27,7 @@ type TestHarness struct {
 	configPoller     *ConfigPoller
 	user             *bind.TransactOpts
 	backend          *backends.SimulatedBackend
-	verifierContract *verifier.Verifier
+	verifierContract *mercury_verifier.MercuryVerifier
 	logPoller        logpoller.LogPoller
 	eventBroadcaster *pgmocks.EventBroadcaster
 	subscription     *pgmocks.Subscription
@@ -42,9 +42,9 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 		user.From: {Balance: big.NewInt(1000000000000000000)}},
 		5*ethconfig.Defaults.Miner.GasCeil)
 
-	proxyAddress, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(user, b, common.Address{})
+	proxyAddress, _, verifierProxy, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(user, b, common.Address{})
 	require.NoError(t, err, "failed to deploy test mercury verifier proxy contract")
-	verifierAddress, _, verifierContract, err := verifier.DeployVerifier(user, b, proxyAddress)
+	verifierAddress, _, verifierContract, err := mercury_verifier.DeployMercuryVerifier(user, b, proxyAddress)
 	require.NoError(t, err, "failed to deploy test mercury verifier contract")
 	_, err = verifierProxy.InitializeVerifier(user, verifierAddress)
 	require.NoError(t, err)

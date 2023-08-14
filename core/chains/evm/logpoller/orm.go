@@ -320,7 +320,7 @@ func (o *ORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses 
 }
 
 // SelectLatestBlockNumberEventSigsAddrsWithConfs finds the latest block number that matches a list of Addresses and list of events. It returns 0 if there is no matching block
-func (o *ORM) SelectLatestBlockNumberEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+func (o *ORM) SelectLatestBlockNumberEventSigsAddrsWithConfs(eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
 	var blockNumber int64
 	sigs := concatBytes(eventSigs)
 	addrs := concatBytes(addresses)
@@ -331,9 +331,8 @@ func (o *ORM) SelectLatestBlockNumberEventSigsAddrsWithConfs(fromBlock int64, ev
 				WHERE evm_chain_id = $1 AND
 				    event_sig = ANY($2) AND
 					address = ANY($3) AND
-					block_number > $4 AND
-					block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $5`,
-		o.chainID.Int64(), sigs, addrs, fromBlock, confs)
+					block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $4`,
+		o.chainID.Int64(), sigs, addrs, confs)
 	if err != nil {
 		return 0, err
 	}
@@ -367,6 +366,31 @@ func (o *ORM) SelectDataWordGreaterThan(address common.Address, eventSig common.
 			AND substring(data from 32*$4+1 for 32) >= $5
 			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $6
 			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), wordIndex, wordValueMin.Bytes(), confs)
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+func (o *ORM) SelectUntilBlockHashDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	var logs []Log
+	q := o.q.WithOpts(qopts...)
+	err := q.Transaction(func(tx pg.Queryer) error {
+		// We want to mimic the behaviour of the ETH RPC which errors if blockhash not found.
+		var block LogPollerBlock
+		if err := tx.Get(&block,
+			`SELECT * FROM evm_log_poller_blocks 
+					WHERE evm_chain_id = $1 AND block_hash = $2`, utils.NewBig(o.chainID), untilBlockHash); err != nil {
+			return err
+		}
+		return q.Select(&logs,
+			`SELECT * FROM evm_logs 
+			WHERE evm_chain_id = $1
+			AND address = $2 AND event_sig = $3
+			AND substring(data from 32*$4+1 for 32) >= $5
+			AND block_number <= $6 
+			ORDER BY (block_number, log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), wordIndex, wordValueMin.Bytes(), block.BlockNumber)
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -521,7 +545,6 @@ func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIn
 		return nil, err
 	}
 	return logs, nil
-
 }
 
 type bytesProducer interface {

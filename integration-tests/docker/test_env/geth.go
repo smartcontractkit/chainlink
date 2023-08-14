@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
@@ -34,7 +35,6 @@ type Geth struct {
 	InternalWsUrl    string
 	EthClient        *blockchain.EthereumClient
 	ContractDeployer contracts.ContractDeployer
-	ContractLoader   contracts.ContractLoader
 }
 
 func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
@@ -50,7 +50,7 @@ func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
 	return g
 }
 
-func (g *Geth) StartContainer() error {
+func (g *Geth) StartContainer(lw *logwatch.LogWatch) error {
 	r, _, _, err := g.getGethContainerRequest(g.Networks)
 	if err != nil {
 		return err
@@ -63,6 +63,11 @@ func (g *Geth) StartContainer() error {
 		})
 	if err != nil {
 		return errors.Wrapf(err, "cannot start geth container")
+	}
+	if lw != nil {
+		if err := lw.ConnectContainer(context.Background(), ct, "geth", true); err != nil {
+			return err
+		}
 	}
 	host, err := ct.Host(context.Background())
 	if err != nil {
@@ -77,7 +82,7 @@ func (g *Geth) StartContainer() error {
 		return err
 	}
 
-	g.Container = ct
+	g.EnvComponent.Container = ct
 	g.ExternalHttpUrl = fmt.Sprintf("http://%s:%s", host, httpPort.Port())
 	g.InternalHttpUrl = fmt.Sprintf("http://%s:8544", g.ContainerName)
 	g.ExternalWsUrl = fmt.Sprintf("ws://%s:%s", host, wsPort.Port())
@@ -109,11 +114,6 @@ func (g *Geth) StartContainer() error {
 		return err
 	}
 	g.ContractDeployer = cd
-	cl, err := contracts.NewContractLoader(bc)
-	if err != nil {
-		return err
-	}
-	g.ContractLoader = cl
 
 	log.Info().Str("containerName", g.ContainerName).
 		Str("internalHttpUrl", g.InternalHttpUrl).
@@ -147,10 +147,7 @@ func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 	if err != nil {
 		return nil, ks, &account, err
 	}
-	genesisJsonStr, err := templates.GenesisJsonTemplate{
-		ChainId:     chainId,
-		AccountAddr: account.Address.Hex(),
-	}.String()
+	genesisJsonStr, err := templates.BuildGenesisJson(chainId, account.Address.Hex())
 	if err != nil {
 		return nil, ks, &account, err
 	}
@@ -184,9 +181,8 @@ func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 		Image:        "ethereum/client-go:stable",
 		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
 		Networks:     networks,
-		WaitingFor: tcwait.ForHTTP("/").
-			WithPort("8544/tcp").
-			WithStartupTimeout(120 * time.Second).
+		WaitingFor: tcwait.ForLog("Commit new sealing work").
+			WithStartupTimeout(999 * time.Second).
 			WithPollInterval(1 * time.Second),
 		Entrypoint: []string{"sh", "./root/init.sh",
 			"--dev",
