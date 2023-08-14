@@ -104,25 +104,3 @@ func Test_ReportCodec_CurrentBlockNumFromReport(t *testing.T) {
 		assert.Contains(t, err.Error(), "blockNum overflows max int64, got: 18446744073709551615")
 	})
 }
-
-// func Test_ReportCodec_FeedIDFromReport(t *testing.T) {
-// 	r := ReportCodec{}
-
-// 	feedID := utils.NewHash()
-// 	var validBn int64 = 42
-
-// 	t.Run("FeedIDFromReport extracts the current block number from a valid report", func(t *testing.T) {
-// 		report := buildSampleReport(validBn, feedID)
-
-// 		f, err := r.FeedIDFromReport(report)
-// 		require.NoError(t, err)
-
-// 		assert.Equal(t, feedID[:], f[:])
-// 	})
-// 	t.Run("FeedIDFromReport returns error if report is invalid", func(t *testing.T) {
-// 		report := []byte{1}
-
-// 		_, err := r.FeedIDFromReport(report)
-// 		assert.EqualError(t, err, "invalid length for report: 1")
-// 	})
-// }

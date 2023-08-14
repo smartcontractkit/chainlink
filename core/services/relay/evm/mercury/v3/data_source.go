@@ -125,7 +125,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 
 	wg.Wait()
 
-	// todo: implement telemetry
+	// todo: implement telemetry  https://smartcontract-it.atlassian.net/browse/MERC-1388
 	// if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {
 	// 	ocrcommon.EnqueueEnhancedTelem(ds.chEnhancedTelem, ocrcommon.EnhancedTelemetryMercuryData{
 	// 		TaskRunResults: trrs,
