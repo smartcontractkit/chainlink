@@ -388,10 +388,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
    * @return payment amount billed to the subscription
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
-  function fulfillRandomWords(
-    Proof memory proof,
-    RequestCommitment memory rc
-  ) external nonReentrant returns (uint96) {
+  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
     Output memory output = getRandomnessFromProof(proof, rc);
 
