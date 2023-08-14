@@ -370,8 +370,9 @@ func TestUpkeepStateStore_Upsert(t *testing.T) {
 }
 
 func TestUpkeepStateStore_Service(t *testing.T) {
-	// need to test cleaning cache
-	// need to test cleaning db at prune depth
+	if testing.Short() {
+		t.Skip("database required for upkeep state store integration test")
+	}
 
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	chainID := testutils.FixtureChainID
