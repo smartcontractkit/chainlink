@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -35,17 +36,18 @@ func NewPerformedEventsScanner(
 }
 
 func (s *performedEventsScanner) Start(_ context.Context) error {
-	if err := s.registerFilters(); err != nil {
-		return err
-	}
-	return nil
+	return s.poller.RegisterFilter(logpoller.Filter{
+		Name: dedupFilterName(s.registryAddress),
+		EventSigs: []common.Hash{
+			// listening to dedup key added event
+			iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
+		},
+		Addresses: []common.Address{s.registryAddress},
+	})
 }
 
 func (s *performedEventsScanner) Close() error {
-	if err := s.poller.UnregisterFilter(dedupFilterName(s.registryAddress), nil); err != nil {
-		return err
-	}
-	return nil
+	return s.poller.UnregisterFilter(dedupFilterName(s.registryAddress), nil)
 }
 
 func (s *performedEventsScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]string, error) {
@@ -76,17 +78,6 @@ func (s *performedEventsScanner) logsToWorkIDs(logs []logpoller.Log) []string {
 		workIDs = append(workIDs, hexutil.Encode(topics[1].Bytes()))
 	}
 	return workIDs
-}
-
-func (s *performedEventsScanner) registerFilters() error {
-	return s.poller.RegisterFilter(logpoller.Filter{
-		Name: dedupFilterName(s.registryAddress),
-		EventSigs: []common.Hash{
-			// listening to dedup key added event
-			iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
-		},
-		Addresses: []common.Address{s.registryAddress},
-	})
 }
 
 func dedupFilterName(addr common.Address) string {
