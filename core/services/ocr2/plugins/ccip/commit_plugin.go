@@ -178,7 +178,7 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet, ne
 
 func getSeqNumFromLog(onRamp evm_2_evm_onramp.EVM2EVMOnRampInterface) func(log logpoller.Log) (uint64, error) {
 	return func(log logpoller.Log) (uint64, error) {
-		req, err := onRamp.ParseCCIPSendRequested(log.GetGethLog())
+		req, err := onRamp.ParseCCIPSendRequested(log.ToGethLog())
 		if err != nil {
 			return 0, err
 		}

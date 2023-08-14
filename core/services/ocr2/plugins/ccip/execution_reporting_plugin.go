@@ -449,7 +449,7 @@ func (r *ExecutionReportingPlugin) getExecutedSeqNrsInRange(ctx context.Context,
 	}
 	executedMp := make(map[uint64]bool)
 	for _, executedLog := range executedLogs {
-		exec, err := r.config.offRamp.ParseExecutionStateChanged(executedLog.GetGethLog())
+		exec, err := r.config.offRamp.ParseExecutionStateChanged(executedLog.ToGethLog())
 		if err != nil {
 			return nil, err
 		}
