@@ -19,8 +19,6 @@ const (
 	CacheExpiration = 24 * time.Hour
 	// GCInterval is the amount of time between cache cleanups.
 	GCInterval = 2 * time.Hour
-	// TODO: use sentinel value from ocr2keepers
-	StateUnknown = ocr2keepers.UpkeepState(100)
 )
 
 // UpkeepStateReader is the interface for reading the current state of upkeeps.
@@ -272,7 +270,7 @@ func (u *upkeepStateStore) selectFromCache(workIDs ...string) ([]ocr2keepers.Upk
 			states[i] = state.CompletionState
 		} else {
 			hasMisses = true
-			states[i] = StateUnknown
+			states[i] = ocr2keepers.UnknownState
 		}
 	}
 
