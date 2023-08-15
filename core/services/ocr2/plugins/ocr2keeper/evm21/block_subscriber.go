@@ -72,7 +72,9 @@ func (bs *BlockSubscriber) getBlockRange(ctx context.Context) ([]uint64, error) 
 
 	var blocks []uint64
 	for i := bs.blockSize - 1; i >= 0; i-- {
-		blocks = append(blocks, uint64(h-i))
+		if h-i > 0 {
+			blocks = append(blocks, uint64(h-i))
+		}
 	}
 	return blocks, nil
 }
@@ -97,13 +99,15 @@ func (bs *BlockSubscriber) buildHistory(block int64) ocr2keepers.BlockHistory {
 	var keys []ocr2keepers.BlockKey
 	// populate keys slice in block DES order
 	for i := int64(0); i < bs.blockHistorySize; i++ {
-		if h, ok := bs.blocks[block-i]; ok {
-			keys = append(keys, ocr2keepers.BlockKey{
-				Number: ocr2keepers.BlockNumber(block - i),
-				Hash:   common.HexToHash(h),
-			})
-		} else {
-			bs.lggr.Infof("block %d is missing", block-i)
+		if block-i > 0 {
+			if h, ok := bs.blocks[block-i]; ok {
+				keys = append(keys, ocr2keepers.BlockKey{
+					Number: ocr2keepers.BlockNumber(block - i),
+					Hash:   common.HexToHash(h),
+				})
+			} else {
+				bs.lggr.Infof("block %d is missing", block-i)
+			}
 		}
 	}
 	return keys
@@ -126,7 +130,8 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 	return bs.sync.StartOnce("BlockSubscriber", func() error {
 		bs.mu.Lock()
 		defer bs.mu.Unlock()
-		bs.ctx, bs.cancel = context.WithCancel(ctx)
+		// TODO: we should use ctx instead of context.Background())
+		bs.ctx, bs.cancel = context.WithCancel(context.Background())
 		// initialize the blocks map with the recent blockSize blocks
 		blocks, err := bs.getBlockRange(bs.ctx)
 		if err != nil {
