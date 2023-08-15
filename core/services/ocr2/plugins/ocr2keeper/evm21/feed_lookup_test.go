@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -230,11 +229,13 @@ func TestEvmRegistry_DecodeFeedLookup(t *testing.T) {
 		name     string
 		data     []byte
 		expected *FeedLookup
+		state    PipelineExecutionState
 		err      error
 	}{
 		{
-			name: "success - decode to feed lookup",
-			data: []byte{125, 221, 147, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 138, 215, 253, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 100, 72, 101, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 53, 53, 52, 52, 56, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 50, 53, 52, 52, 51, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			name:  "success - decode to feed lookup",
+			data:  []byte{125, 221, 147, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 138, 215, 253, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 100, 72, 101, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 53, 53, 52, 52, 56, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 50, 53, 52, 52, 51, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			state: NoPipelineError,
 			expected: &FeedLookup{
 				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
@@ -253,8 +254,9 @@ func TestEvmRegistry_DecodeFeedLookup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
-			fl, err := r.decodeFeedLookup(tt.data)
+			state, fl, err := r.decodeFeedLookup(tt.data)
 			assert.Equal(t, tt.expected, fl)
+			assert.Equal(t, tt.state, state)
 			if tt.err != nil {
 				assert.Equal(t, tt.err.Error(), err.Error())
 			}
@@ -270,6 +272,8 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 		cached       bool
 		allowed      bool
 		errorMessage string
+		state        PipelineExecutionState
+		retryable    bool
 	}{
 		{
 			name:    "success - allowed via cache",
@@ -295,6 +299,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 			name:         "failure - cannot unmarshal privilege config",
 			cached:       false,
 			errorMessage: "failed to unmarshal privilege config for upkeep ID 71022726777042968814359024671382968091267501884371696415772139504780367423725: invalid character '\\x00' looking for beginning of value",
+			state:        MercuryUnmarshalError,
 		},
 	}
 
@@ -319,7 +324,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 				}
 			}
 
-			allowed, err := r.allowedToUseMercury(nil, upkeepId)
+			state, retryable, allowed, err := r.allowedToUseMercury(nil, upkeepId)
 			if tt.errorMessage != "" {
 				assert.NotNil(t, err)
 				assert.Equal(t, tt.errorMessage, err.Error())
@@ -327,6 +332,8 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 				assert.Nil(t, err)
 				assert.Equal(t, tt.allowed, allowed)
 			}
+			assert.Equal(t, tt.state, state)
+			assert.Equal(t, tt.retryable, retryable)
 		})
 	}
 }
@@ -769,13 +776,15 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 		values     [][]byte
 		statusCode int
 
-		callbackMsg  ethereum.CallMsg
 		callbackResp []byte
 		callbackErr  error
 
 		upkeepNeeded bool
 		performData  []byte
 		wantErr      assert.ErrorAssertionFunc
+
+		state     PipelineExecutionState
+		retryable bool
 	}{
 		{
 			name: "success - empty extra data",
@@ -830,6 +839,8 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 			callbackResp: []byte{},
 			callbackErr:  errors.New("bad response"),
 			wantErr:      assert.Error,
+			state:        RpcFlakyFailure,
+			retryable:    true,
 		},
 	}
 
@@ -850,8 +861,10 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 				}).Once()
 			r.client = client
 
-			_, err = r.checkCallback(context.Background(), tt.values, tt.lookup)
+			state, retryable, _, err := r.checkCallback(context.Background(), tt.values, tt.lookup)
 			tt.wantErr(t, err, fmt.Sprintf("Error asserion failed: %v", tt.name))
+			assert.Equal(t, tt.state, state)
+			assert.Equal(t, tt.retryable, retryable)
 		})
 	}
 }

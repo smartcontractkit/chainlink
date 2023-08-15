@@ -74,8 +74,7 @@ type AdminOffchainConfig struct {
 // feedLookup looks through check upkeep results looking for any that need off chain lookup
 func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult {
 	lookups := map[int]*FeedLookup{}
-	for i := range checkResults {
-		res := &checkResults[i]
+	for i, res := range checkResults {
 		if res.IneligibilityReason != uint8(UpkeepFailureReasonTargetCheckReverted) {
 			continue
 		}
@@ -85,23 +84,26 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers
 
 		opts := r.buildCallOpts(ctx, block)
 
-		allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
+		state, retryable, allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
 		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d failed to time mercury allow list: %v", upkeepId, block, err)
-
+			r.lggr.Warnf("[FeedLookup] upkeep %s block %d failed to query mercury allow list: %s", upkeepId, block, err)
+			checkResults[i].PipelineExecutionState = uint8(state)
+			checkResults[i].Retryable = retryable
 			continue
 		}
 
 		if !allowed {
-			res.IneligibilityReason = uint8(UpkeepFailureReasonMercuryAccessNotAllowed)
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d NOT allowed to time Mercury server", upkeepId, block)
+			r.lggr.Warnf("[FeedLookup] upkeep %s block %d NOT allowed to query Mercury server", upkeepId, block)
+			checkResults[i].IneligibilityReason = uint8(UpkeepFailureReasonMercuryAccessNotAllowed)
+			checkResults[i].Retryable = retryable
 			continue
 		}
 
 		r.lggr.Infof("[FeedLookup] upkeep %s block %d decodeFeedLookup performData=%s", upkeepId, block, hexutil.Encode(checkResults[i].PerformData))
-		lookup, err := r.decodeFeedLookup(res.PerformData)
+		state, lookup, err := r.decodeFeedLookup(res.PerformData)
 		if err != nil {
-			r.lggr.Errorf("[FeedLookup] upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
+			r.lggr.Warnf("[FeedLookup] upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
+			checkResults[i].PipelineExecutionState = uint8(state)
 			continue
 		}
 		lookup.upkeepId = upkeepId.BigInt()
@@ -136,16 +138,19 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 		r.lggr.Infof("[FeedLookup] checkCallback values[%d]=%s", j, hexutil.Encode(v))
 	}
 
-	mercuryBytes, err := r.checkCallback(ctx, values, lookup)
+	state, retryable, mercuryBytes, err := r.checkCallback(ctx, values, lookup)
 	if err != nil {
 		r.lggr.Errorf("[FeedLookup] upkeep %s block %d checkCallback err: %v", lookup.upkeepId, lookup.block, err)
+		checkResults[i].Retryable = retryable
+		checkResults[i].PipelineExecutionState = uint8(state)
 		return
 	}
 	r.lggr.Infof("[FeedLookup] checkCallback mercuryBytes=%s", hexutil.Encode(mercuryBytes))
 
-	needed, performData, failureReason, _, err := r.packer.UnpackCheckCallbackResult(mercuryBytes)
+	state, needed, performData, failureReason, _, err := r.packer.UnpackCheckCallbackResult(mercuryBytes)
 	if err != nil {
 		r.lggr.Errorf("[FeedLookup] upkeep %s block %d UnpackCheckCallbackResult err: %v", lookup.upkeepId, lookup.block, err)
+		checkResults[i].PipelineExecutionState = uint8(state)
 		return
 	}
 
@@ -169,36 +174,36 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 
 // allowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
 // this upkeep is allowed to use Mercury service.
-func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (bool, error) {
+func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (state PipelineExecutionState, retryable bool, allow bool, err error) {
 	allowed, ok := r.mercury.allowListCache.Get(upkeepId.String())
 	if ok {
-		return allowed.(bool), nil
+		return NoPipelineError, false, allowed.(bool), nil
 	}
 
 	cfg, err := r.registry.GetUpkeepPrivilegeConfig(opts, upkeepId)
 	if err != nil {
-		return false, fmt.Errorf("failed to get upkeep privilege config for upkeep ID %s: %v", upkeepId, err)
+		return RpcFlakyFailure, true, false, fmt.Errorf("failed to get upkeep privilege config for upkeep ID %s: %v", upkeepId, err)
 	}
 
 	var a AdminOffchainConfig
 	err = json.Unmarshal(cfg, &a)
 	if err != nil {
-		return false, fmt.Errorf("failed to unmarshal privilege config for upkeep ID %s: %v", upkeepId, err)
+		return MercuryUnmarshalError, false, false, fmt.Errorf("failed to unmarshal privilege config for upkeep ID %s: %v", upkeepId, err)
 	}
 	r.mercury.allowListCache.Set(upkeepId.String(), a.MercuryEnabled, cache.DefaultExpiration)
-	return a.MercuryEnabled, nil
+	return NoPipelineError, false, a.MercuryEnabled, nil
 }
 
 // decodeFeedLookup decodes the revert error FeedLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
-func (r *EvmRegistry) decodeFeedLookup(data []byte) (*FeedLookup, error) {
+func (r *EvmRegistry) decodeFeedLookup(data []byte) (PipelineExecutionState, *FeedLookup, error) {
 	e := r.mercury.abi.Errors["FeedLookup"]
 	unpack, err := e.Unpack(data)
 	if err != nil {
-		return nil, fmt.Errorf("unpack error: %w", err)
+		return PackUnpackDecodeFailed, nil, fmt.Errorf("unpack error: %w", err)
 	}
 	errorParameters := unpack.([]interface{})
 
-	return &FeedLookup{
+	return NoPipelineError, &FeedLookup{
 		feedParamKey: *abi.ConvertType(errorParameters[0], new(string)).(*string),
 		feeds:        *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
 		timeParamKey: *abi.ConvertType(errorParameters[2], new(string)).(*string),
@@ -207,10 +212,10 @@ func (r *EvmRegistry) decodeFeedLookup(data []byte) (*FeedLookup, error) {
 	}, nil
 }
 
-func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup *FeedLookup) (hexutil.Bytes, error) {
+func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup *FeedLookup) (PipelineExecutionState, bool, hexutil.Bytes, error) {
 	payload, err := r.abi.Pack("checkCallback", lookup.upkeepId, values, lookup.extraData)
 	if err != nil {
-		return nil, err
+		return PackUnpackDecodeFailed, false, nil, err
 	}
 
 	var b hexutil.Bytes
@@ -222,9 +227,9 @@ func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup
 	// call checkCallback function at the block which OCR3 has agreed upon
 	err = r.client.CallContext(ctx, &b, "eth_call", args, hexutil.EncodeUint64(lookup.block))
 	if err != nil {
-		return nil, err
+		return RpcFlakyFailure, true, nil, err
 	}
-	return b, nil
+	return NoPipelineError, false, b, nil
 }
 
 // doMercuryRequest sends requests to Mercury API to retrieve ChainlinkBlob.

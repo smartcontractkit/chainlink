@@ -107,19 +107,22 @@ func TestPacker_UnpackPerformResult(t *testing.T) {
 	tests := []struct {
 		Name    string
 		RawData string
+		State   PipelineExecutionState
 	}{
 		{
 			Name:    "unpack success",
 			RawData: "0x0000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000a52d",
+			State:   NoPipelineError,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			packer, err := newPacker()
 			assert.NoError(t, err)
-			rs, err := packer.UnpackPerformResult(test.RawData)
+			state, rs, err := packer.UnpackPerformResult(test.RawData)
 			assert.Nil(t, err)
 			assert.True(t, rs)
+			assert.Equal(t, test.State, state)
 		})
 	}
 }
@@ -133,6 +136,7 @@ func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 		FailureReason uint8
 		GasUsed       *big.Int
 		ErrorString   string
+		State         PipelineExecutionState
 	}{
 		{
 			Name:          "unpack upkeep needed",
@@ -156,6 +160,7 @@ func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 			UpkeepNeeded: false,
 			PerformData:  nil,
 			ErrorString:  "abi: improperly encoded boolean value: unpack checkUpkeep return: ",
+			State:        PackUnpackDecodeFailed,
 		},
 	}
 	for _, test := range tests {
@@ -163,7 +168,7 @@ func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 			packer, err := newPacker()
 			assert.NoError(t, err)
 
-			needed, pd, failureReason, gasUsed, err := packer.UnpackCheckCallbackResult(test.CallbackResp)
+			state, needed, pd, failureReason, gasUsed, err := packer.UnpackCheckCallbackResult(test.CallbackResp)
 
 			if test.ErrorString != "" {
 				assert.EqualError(t, err, test.ErrorString+hexutil.Encode(test.CallbackResp))
@@ -174,6 +179,7 @@ func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 			assert.Equal(t, test.PerformData, pd)
 			assert.Equal(t, test.FailureReason, failureReason)
 			assert.Equal(t, test.GasUsed, gasUsed)
+			assert.Equal(t, test.State, state)
 		})
 	}
 }

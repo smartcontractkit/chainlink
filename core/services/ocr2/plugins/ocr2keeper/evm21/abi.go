@@ -42,6 +42,7 @@ const (
 	RpcFlakyFailure        PipelineExecutionState = 3
 	MercuryFlakyFailure    PipelineExecutionState = 4
 	PackUnpackDecodeFailed PipelineExecutionState = 5
+	MercuryUnmarshalError  PipelineExecutionState = 6
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -96,17 +97,17 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, 
 	return result, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {
+func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) (PipelineExecutionState, bool, []byte, uint8, *big.Int, error) {
 	out, err := rp.abi.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
 	if err != nil {
-		return false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
+		return PackUnpackDecodeFailed, false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
 	}
 
 	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 	failureReason := *abi.ConvertType(out[2], new(uint8)).(*uint8)
 	gasUsed := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	return upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
+	return NoPipelineError, upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (PipelineExecutionState, bool, error) {
