@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,13 +12,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 func TestForwarderOCR2Basic(t *testing.T) {
@@ -108,4 +116,43 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		require.NoError(t, err, "Error getting latest OCRv2 answer")
 		require.Equal(t, int64(ocrRoundVal), answer.Int64(), fmt.Sprintf("Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64()))
 	}
+}
+
+func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
+	testEnvironment *environment.Environment,
+	testNetwork blockchain.EVMNetwork,
+) {
+	testNetwork = networks.SelectedNetwork
+	evmConfig := ethereum.New(nil)
+	if !testNetwork.Simulated {
+		evmConfig = ethereum.New(&ethereum.Props{
+			NetworkName: testNetwork.Name,
+			Simulated:   testNetwork.Simulated,
+			WsURLs:      testNetwork.URLs,
+		})
+	}
+
+	var toml string
+	if forwardersEnabled {
+		toml = client.AddNetworkDetailedConfig(config.BaseOCR2Config, config.ForwarderNetworkDetailConfig, testNetwork)
+	} else {
+		toml = client.AddNetworksConfig(config.BaseOCR2Config, testNetwork)
+	}
+
+	chainlinkChart, err := chainlink.NewDeployment(6, map[string]interface{}{
+		"toml": toml,
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
+
+	testEnvironment = environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-ocr2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:            t,
+	}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelmCharts(chainlinkChart)
+	err = testEnvironment.Run()
+	require.NoError(t, err, "Error running test environment")
+	return testEnvironment, testNetwork
 }
