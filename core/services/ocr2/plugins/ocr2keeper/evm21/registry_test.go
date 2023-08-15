@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -721,4 +722,126 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			assert.Equal(t, tc.err, err)
 		})
 	}
+}
+
+func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
+	uid0 := genUpkeepID(ocr2keepers.UpkeepType(0), "p0")
+	uid1 := genUpkeepID(ocr2keepers.UpkeepType(1), "p1")
+	uid2 := genUpkeepID(ocr2keepers.UpkeepType(1), "p2")
+
+	extension1 := &ocr2keepers.LogTriggerExtension{
+		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
+		Index:       0,
+		BlockHash:   common.HexToHash("0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857"),
+		BlockNumber: 550,
+	}
+
+	trigger0 := ocr2keepers.NewTrigger(150, common.HexToHash("0x1c77db0abe32327cf3ea9de2aadf79876f9e6b6dfcee9d4719a8a2dc8ca289d0"))
+	trigger1 := ocr2keepers.NewLogTrigger(570, common.HexToHash("0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc"), extension1)
+	trigger2 := ocr2keepers.NewLogTrigger(570, common.HexToHash("0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc"), extension1)
+
+	cr0 := ocr2keepers.CheckResult{
+		PipelineExecutionState: uint8(CheckBlockTooOld),
+		Retryable:              false,
+		Eligible:               false,
+		IneligibilityReason:    0,
+		UpkeepID:               uid0,
+		Trigger:                trigger0,
+		WorkID:                 "work0",
+		GasAllocated:           0,
+		PerformData:            nil,
+		FastGasWei:             big.NewInt(0),
+		LinkNative:             big.NewInt(0),
+	}
+
+	tests := []struct {
+		name    string
+		inputs  []ocr2keepers.CheckResult
+		results []ocr2keepers.CheckResult
+		err     error
+	}{
+		{
+			name: "simulate multiple upkeeps",
+			inputs: []ocr2keepers.CheckResult{
+				cr0,
+				{
+					PipelineExecutionState: 0,
+					Retryable:              false,
+					Eligible:               true,
+					IneligibilityReason:    0,
+					UpkeepID:               uid1,
+					Trigger:                trigger1,
+					WorkID:                 "work1",
+					GasAllocated:           20000,
+					PerformData:            []byte{0, 0, 0, 1, 2, 3},
+					FastGasWei:             big.NewInt(20000),
+					LinkNative:             big.NewInt(20000),
+				},
+				{
+					PipelineExecutionState: 0,
+					Retryable:              false,
+					Eligible:               true,
+					IneligibilityReason:    0,
+					UpkeepID:               uid2,
+					Trigger:                trigger2,
+					WorkID:                 "work2",
+					GasAllocated:           20000,
+					PerformData:            []byte{0, 0, 0, 1, 2, 3},
+					FastGasWei:             big.NewInt(20000),
+					LinkNative:             big.NewInt(20000),
+				},
+			},
+			results: []ocr2keepers.CheckResult{
+				cr0,
+				{
+					PipelineExecutionState: uint8(RpcFlakyFailure),
+					Retryable:              true,
+					Eligible:               false,
+					IneligibilityReason:    0,
+					UpkeepID:               uid1,
+					Trigger:                trigger1,
+					WorkID:                 "work1",
+					GasAllocated:           20000,
+					PerformData:            []byte{0, 0, 0, 1, 2, 3},
+					FastGasWei:             big.NewInt(20000),
+					LinkNative:             big.NewInt(20000),
+				},
+				{
+					PipelineExecutionState: uint8(PackUnpackDecodeFailed),
+					Retryable:              false,
+					Eligible:               false,
+					IneligibilityReason:    0,
+					UpkeepID:               uid2,
+					Trigger:                trigger2,
+					WorkID:                 "work2",
+					GasAllocated:           20000,
+					PerformData:            []byte{0, 0, 0, 1, 2, 3},
+					FastGasWei:             big.NewInt(20000),
+					LinkNative:             big.NewInt(20000),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			e := setupEVMRegistry(t)
+			client := new(evmClientMocks.Client)
+			client.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
+				return len(b) == 2 && b[0].Method == "eth_call" && b[1].Method == "eth_call"
+			})).Return(nil).
+				Run(func(args mock.Arguments) {
+					be := args.Get(1).([]rpc.BatchElem)
+					be[0].Error = fmt.Errorf("error")
+					res := "0x0001"
+					be[1].Result = res
+				}).Once()
+			e.client = client
+
+			results, err := e.simulatePerformUpkeeps(context.Background(), tc.inputs)
+			assert.Equal(t, tc.results, results)
+			assert.Equal(t, tc.err, err)
+		})
+	}
+
 }

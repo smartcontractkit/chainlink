@@ -772,6 +772,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, cr.PerformData)
 		if err != nil {
 			// pack failed, not retryable
+			r.lggr.Warnf("failed to pack perform data %s for %s: %s", hexutil.Encode(cr.PerformData), upkeepId, err)
 			checkResults[i].Eligible = false
 			checkResults[i].PipelineExecutionState = uint8(PackUnpackDecodeFailed)
 			continue
@@ -810,21 +811,21 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			checkResults[idx].Eligible = false
 			checkResults[idx].PipelineExecutionState = uint8(RpcFlakyFailure)
 			continue
-		} else {
-			state, simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
-			if err != nil {
-				// unpack failed, not retyable
-				r.lggr.Warnf("failed to unpack simulate performUpkeep result for upkeepId %s for state %d: %s", checkResults[idx].UpkeepID.String(), state, req.Error)
-				checkResults[idx].Retryable = false
-				checkResults[idx].Eligible = false
-				checkResults[idx].PipelineExecutionState = uint8(state)
-				continue
-			}
+		}
 
-			if !simulatePerformSuccess {
-				r.lggr.Warnf("upkeepId %s is not eligible after simulation", checkResults[idx].UpkeepID.String())
-				checkResults[performToKeyIdx[i]].Eligible = false
-			}
+		state, simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
+		if err != nil {
+			// unpack failed, not retryable
+			r.lggr.Warnf("failed to unpack simulate performUpkeep result for upkeepId %s for state %d: %s", checkResults[idx].UpkeepID.String(), state, req.Error)
+			checkResults[idx].Retryable = false
+			checkResults[idx].Eligible = false
+			checkResults[idx].PipelineExecutionState = uint8(state)
+			continue
+		}
+
+		if !simulatePerformSuccess {
+			r.lggr.Warnf("upkeepId %s is not eligible after simulation", checkResults[idx].UpkeepID.String())
+			checkResults[performToKeyIdx[i]].Eligible = false
 		}
 	}
 
