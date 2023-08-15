@@ -19,7 +19,7 @@ type orm struct {
 }
 
 type PersistedStateRecord struct {
-	UpkeepID            *big.Int
+	UpkeepID            []byte
 	WorkID              string
 	CompletionState     uint8
 	BlockNumber         uint64
@@ -40,11 +40,11 @@ func (o *orm) InsertUpkeepState(state PersistedStateRecord, qopts ...pg.QOpt) er
 	q := o.q.WithOpts(qopts...)
 
 	query := `INSERT INTO evm_upkeep_state (evm_chain_id, work_id, completion_state, block_number, added_at, upkeep_id, ineligibility_reason)
-	  VALUES ($1::NUMERIC, $2, $3, $4::NUMERIC, $5, $6::NUMERIC, $7::NUMERIC)
+	  VALUES ($1::NUMERIC, $2, $3, $4::NUMERIC, $5, $6::BYTEA, $7::NUMERIC)
 	    ON CONFLICT (evm_chain_id, work_id)
 	    DO NOTHING`
 
-	return q.ExecQ(query, utils.NewBig(o.chainID), state.WorkID, state.CompletionState, state.BlockNumber, state.AddedAt, utils.NewBig(state.UpkeepID), state.IneligibilityReason)
+	return q.ExecQ(query, utils.NewBig(o.chainID), state.WorkID, state.CompletionState, state.BlockNumber, state.AddedAt, state.UpkeepID, state.IneligibilityReason)
 }
 
 // SelectStatesByWorkIDs searches the data store for stored states for the

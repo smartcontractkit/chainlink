@@ -195,7 +195,7 @@ func (u *upkeepStateStore) upsertStateRecord(workID string, s ocr2keepers.Upkeep
 	u.cache[workID] = record
 
 	return u.orm.InsertUpkeepState(PersistedStateRecord{
-		UpkeepID:            upkeepID,
+		UpkeepID:            upkeepID.Bytes(),
 		WorkID:              record.WorkID,
 		CompletionState:     uint8(record.CompletionState),
 		BlockNumber:         record.BlockNumber,

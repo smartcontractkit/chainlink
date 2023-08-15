@@ -3,7 +3,7 @@
 CREATE TABLE evm_upkeep_state (
     work_id TEXT PRIMARY KEY,
     evm_chain_id NUMERIC NOT NULL,
-    upkeep_id NUMERIC NOT NULL,
+    upkeep_id BYTEA NOT NULL,
     completion_state SMALLINT NOT NULL,
     ineligibility_reason NUMERIC NOT NULL,
     block_number NUMERIC,
