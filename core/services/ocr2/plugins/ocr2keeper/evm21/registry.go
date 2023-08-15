@@ -722,13 +722,15 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		checkResults = append(checkResults, &result)
 	}
 
-	// In contrast to CallContext, BatchCallContext only returns errors that have occurred
-	// while sending the request. Any error specific to a request is reported through the
-	// Error field of the corresponding BatchElem.
-	// hence, if BatchCallContext returns an error, it will be an error which will terminate the pipeline
-	if err := r.client.BatchCallContext(ctx, checkReqs); err != nil {
-		r.lggr.Errorf("failed to batch call for checkUpkeeps: %s", err)
-		return nil, err
+	if len(checkResults) > 0 {
+		// In contrast to CallContext, BatchCallContext only returns errors that have occurred
+		// while sending the request. Any error specific to a request is reported through the
+		// Error field of the corresponding BatchElem.
+		// hence, if BatchCallContext returns an error, it will be an error which will terminate the pipeline
+		if err := r.client.BatchCallContext(ctx, checkReqs); err != nil {
+			r.lggr.Errorf("failed to batch call for checkUpkeeps: %s", err)
+			return nil, err
+		}
 	}
 
 	for i, req := range checkReqs {

@@ -577,3 +577,148 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 		})
 	}
 }
+
+func TestRegistry_CheckUpkeeps(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	uid0 := genUpkeepID(ocr2keepers.UpkeepType(0), "p0")
+	uid1 := genUpkeepID(ocr2keepers.UpkeepType(1), "p1")
+	uid2 := genUpkeepID(ocr2keepers.UpkeepType(1), "p2")
+
+	extension1 := &ocr2keepers.LogTriggerExtension{
+		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
+		Index:       0,
+		BlockHash:   common.HexToHash("0x0919c83363b439ea634ce2b576cf3e30db26b340fb7a12058c2fcc401bd04ba0"),
+		BlockNumber: 550,
+	}
+	extension2 := &ocr2keepers.LogTriggerExtension{
+		TxHash:      common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651"),
+		Index:       0,
+		BlockHash:   common.HexToHash("0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857"),
+		BlockNumber: 550,
+	}
+
+	trigger0 := ocr2keepers.NewTrigger(150, common.HexToHash("0x1c77db0abe32327cf3ea9de2aadf79876f9e6b6dfcee9d4719a8a2dc8ca289d0"))
+	trigger1 := ocr2keepers.NewLogTrigger(560, common.HexToHash("0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857"), extension1)
+	trigger2 := ocr2keepers.NewLogTrigger(570, common.HexToHash("0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc"), extension2)
+
+	tests := []struct {
+		name          string
+		inputs        []ocr2keepers.UpkeepPayload
+		blocks        map[int64]string
+		latestBlock   *big.Int
+		results       []ocr2keepers.CheckResult
+		err           error
+		ethCalls      map[string]bool
+		receipts      map[string]*types.Receipt
+		ethCallErrors map[string]error
+	}{
+		{
+			name: "check upkeeps with different upkeep types",
+			inputs: []ocr2keepers.UpkeepPayload{
+				{
+					UpkeepID: uid0,
+					Trigger:  trigger0,
+					WorkID:   "work0",
+				},
+				{
+					UpkeepID: uid1,
+					Trigger:  trigger1,
+					WorkID:   "work1",
+				},
+				{
+					UpkeepID: uid2,
+					Trigger:  trigger2,
+					WorkID:   "work2",
+					// check data byte slice length cannot be odd number, abi pack error
+					CheckData: []byte{0, 0, 0, 0, 1},
+				},
+			},
+			blocks: map[int64]string{
+				550: "0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857",
+				560: "0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857",
+				570: "0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc",
+			},
+			latestBlock: big.NewInt(580),
+			results: []ocr2keepers.CheckResult{
+				{
+					PipelineExecutionState: uint8(CheckBlockTooOld),
+					Retryable:              false,
+					Eligible:               false,
+					IneligibilityReason:    0,
+					UpkeepID:               uid0,
+					Trigger:                trigger0,
+					WorkID:                 "work0",
+					GasAllocated:           0,
+					PerformData:            nil,
+					FastGasWei:             big.NewInt(0),
+					LinkNative:             big.NewInt(0),
+				},
+				{
+					PipelineExecutionState: uint8(RpcFlakyFailure),
+					Retryable:              true,
+					Eligible:               false,
+					IneligibilityReason:    0,
+					UpkeepID:               uid1,
+					Trigger:                trigger1,
+					WorkID:                 "work1",
+					GasAllocated:           0,
+					PerformData:            nil,
+					FastGasWei:             big.NewInt(0),
+					LinkNative:             big.NewInt(0),
+				},
+				{
+					PipelineExecutionState: uint8(PackUnpackDecodeFailed),
+					Retryable:              false,
+					Eligible:               false,
+					IneligibilityReason:    0,
+					UpkeepID:               uid2,
+					Trigger:                trigger2,
+					WorkID:                 "work2",
+					GasAllocated:           0,
+					PerformData:            nil,
+					FastGasWei:             big.NewInt(0),
+					LinkNative:             big.NewInt(0),
+				},
+			},
+			ethCalls: map[string]bool{
+				uid1.String(): true,
+			},
+			receipts: map[string]*types.Receipt{
+				//uid1.String(): {
+				//	BlockNumber: big.NewInt(550),
+				//	BlockHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
+				//},
+			},
+			ethCallErrors: map[string]error{
+				uid1.String(): fmt.Errorf("error"),
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			bs := &BlockSubscriber{
+				latestBlock: atomic.Int64{},
+				blocks:      tc.blocks,
+			}
+			bs.latestBlock.Store(tc.latestBlock.Int64())
+			e := &EvmRegistry{
+				lggr: lggr,
+				bs:   bs,
+			}
+			client := new(evmClientMocks.Client)
+			for _, i := range tc.inputs {
+				uid := i.UpkeepID.String()
+				if tc.ethCalls[uid] {
+					client.On("TransactionReceipt", mock.Anything, common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
+						Return(tc.receipts[uid], tc.ethCallErrors[uid])
+				}
+			}
+			e.client = client
+
+			results, err := e.checkUpkeeps(context.Background(), tc.inputs)
+			assert.Equal(t, tc.results, results)
+			assert.Equal(t, tc.err, err)
+		})
+	}
+}
