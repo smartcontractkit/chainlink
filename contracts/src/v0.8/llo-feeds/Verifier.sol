@@ -259,8 +259,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /**
    * @notice Conditionally update the epoch for a feed
-   /// @param reportContext Report context containing the epoch and round
-   /// @param feedVerifierState Feed verifier state to conditionally update
+   * @param reportContext Report context containing the epoch and round
+   * @param feedVerifierState Feed verifier state to conditionally update
    */
   function _updateEpoch(bytes32[3] memory reportContext, VerifierState storage feedVerifierState) private {
     uint40 epochAndRound = uint40(uint256(reportContext[1]));
@@ -464,7 +464,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
-  ) internal view returns (bytes32) {
+  ) internal pure returns (bytes32) {
     uint256 h = uint256(
       keccak256(
         abi.encode(
