@@ -143,8 +143,8 @@ func (u *upkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, en
 	}
 
 	idsWithUnknownState := []string{}
-	for i, id := range states {
-		if id == StateUnknown {
+	for i, state := range states {
+		if state == StateUnknown {
 			idsWithUnknownState = append(idsWithUnknownState, workIDs[i])
 		}
 	}
