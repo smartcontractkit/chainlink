@@ -147,13 +147,10 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 		{
 			go func(ctx context.Context) {
 				for {
-					bs.lggr.Debug("waiting for head")
 					select {
 					case h := <-bs.headC:
-						bs.lggr.Debugf("got head %d", h.Number)
 						bs.processHead(h)
 					case <-ctx.Done():
-						bs.lggr.Info("head subscriber done")
 						return
 					}
 				}
