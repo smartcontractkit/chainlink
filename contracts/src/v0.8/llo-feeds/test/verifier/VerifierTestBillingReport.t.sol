@@ -23,8 +23,8 @@ contract VerifierTestWithConfiguredVerifierAndFeeManager is BaseTestWithConfigur
 contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeManager {
   function test_verifyWithLink() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
@@ -38,8 +38,8 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
 
   function test_verifyWithNative() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -53,8 +53,8 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
 
   function test_verifyWithNativeUnwrapped() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -67,8 +67,8 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
 
   function test_verifyWithNativeUnwrappedReturnsChange() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -85,8 +85,8 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
   function test_verifyWithBulkLink() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
@@ -105,8 +105,8 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
   function test_verifyWithBulkNative() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -125,8 +125,8 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
   function test_verifyWithBulkNativeUnwrapped() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -144,8 +144,8 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
   function test_verifyWithBulkNativeUnwrappedReturnsChange() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -163,15 +163,15 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
   function test_verifyBulkWithLinkAndWrappedNative() public {
     bytes memory linkReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
 
     bytes memory nativeReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -195,15 +195,15 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
   function test_verifyBulkWithLinkAndUnwrappedNative() public {
     bytes memory linkReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
 
     bytes memory nativeReport = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -228,15 +228,15 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
   function test_verifyBulkReportWithUnwrappedAndWrappedNativeDefaultsToUnwrapped() public {
     bytes memory nativeReport1 = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
 
     bytes memory nativeReport2 = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -246,7 +246,6 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
     signedReports[0] = nativeReport1;
     signedReports[1] = nativeReport2;
 
-
     _verifyBulk(signedReports, DEFAULT_REPORT_NATIVE_FEE * 2, USER);
 
     assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 2);
@@ -254,31 +253,31 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
   }
 
   function test_verifyMultiVersions() public {
-    bytes memory signedReportV0 = _generateEncodedBlob(
-      _generateV0Report(),
-      _generateReportContext(v0ConfigDigest, FEED_ID_V3),
+    bytes memory signedReportV1 = _generateEncodedBlob(
+      _generateV1Report(),
+      _generateReportContext(v1ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1)
     );
 
-    bytes memory signedReportV2Link = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+    bytes memory signedReportV3Link = _generateEncodedBlobWithQuote(
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
 
-    bytes memory signedReportV2Native = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+    bytes memory signedReportV3Native = _generateEncodedBlobWithQuote(
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
 
     bytes[] memory signedReports = new bytes[](3);
 
-    signedReports[0] = signedReportV0;
-    signedReports[1] = signedReportV2Link;
-    signedReports[2] = signedReportV2Native;
+    signedReports[0] = signedReportV1;
+    signedReports[1] = signedReportV3Link;
+    signedReports[2] = signedReportV3Native;
 
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
     _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
@@ -288,5 +287,4 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
     assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE);
     assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
   }
-
 }

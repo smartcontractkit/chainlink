@@ -71,8 +71,8 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   function testVerifyProxyWithLinkFeeSuccess_gas() public {
     vm.pauseGasMetering();
     bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
@@ -85,8 +85,8 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   function testVerifyProxyWithNativeFeeSuccess_gas() public {
     vm.pauseGasMetering();
     bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -101,6 +101,7 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
   uint256 internal constant DEFAULT_LINK_MINT_QUANTITY = 100 ether;
   uint256 internal constant DEFAULT_NATIVE_MINT_QUANTITY = 100 ether;
   uint256 internal constant NUMBER_OF_REPORTS_TO_VERIFY = 5;
+
   function setUp() public virtual override {
     super.setUp();
 
@@ -137,8 +138,8 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
   function testBulkVerifyProxyWithLinkFeeSuccess_gas() public {
     vm.pauseGasMetering();
     bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
@@ -156,8 +157,8 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
   function testBulkVerifyProxyWithNativeFeeSuccess_gas() public {
     vm.pauseGasMetering();
     bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
-      _generateV2Report(),
-      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _generateV3Report(),
+      _generateReportContext(v3ConfigDigest),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );

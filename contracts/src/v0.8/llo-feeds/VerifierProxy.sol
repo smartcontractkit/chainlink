@@ -128,7 +128,6 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     return _verify(payload);
   }
 
-
   /// @inheritdoc IVerifierProxy
   function verifyBulk(bytes[] calldata payloads) external payable checkAccess returns (bytes[] memory verifiedReports) {
     IVerifierFeeManager feeManager = s_feeManager;
@@ -140,7 +139,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
 
     //verify the reports
     verifiedReports = new bytes[](payloads.length);
-    for(uint256 i; i < payloads.length; ++i) {
+    for (uint256 i; i < payloads.length; ++i) {
       verifiedReports[i] = _verify(payloads[i]);
     }
 
