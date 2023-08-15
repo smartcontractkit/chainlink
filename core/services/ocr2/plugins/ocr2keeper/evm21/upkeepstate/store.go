@@ -167,18 +167,18 @@ func (u *upkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, en
 // SetUpkeepState updates the state of the upkeep.
 // Currently we only store the state if the upkeep is ineligible.
 // Performed events will be fetched on demand.
-func (u *upkeepStateStore) SetUpkeepState(_ context.Context, result ocr2keepers.CheckResult, _ ocr2keepers.UpkeepState) error {
+func (u *upkeepStateStore) SetUpkeepState(ctx context.Context, result ocr2keepers.CheckResult, _ ocr2keepers.UpkeepState) error {
 	if result.Eligible {
 		return nil
 	}
 
-	return u.upsertStateRecord(result.WorkID, ocr2keepers.Ineligible, uint64(result.Trigger.BlockNumber), result.UpkeepID.BigInt(), result.IneligibilityReason)
+	return u.upsertStateRecord(ctx, result.WorkID, ocr2keepers.Ineligible, uint64(result.Trigger.BlockNumber), result.UpkeepID.BigInt(), result.IneligibilityReason)
 }
 
 // upsertStateRecord inserts or updates a record for the provided
 // check result. If an item already exists in the data store, the state and
 // block are updated.
-func (u *upkeepStateStore) upsertStateRecord(workID string, s ocr2keepers.UpkeepState, b uint64, upkeepID *big.Int, reason uint8) error {
+func (u *upkeepStateStore) upsertStateRecord(ctx context.Context, workID string, s ocr2keepers.UpkeepState, b uint64, upkeepID *big.Int, reason uint8) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
@@ -202,7 +202,7 @@ func (u *upkeepStateStore) upsertStateRecord(workID string, s ocr2keepers.Upkeep
 		BlockNumber:         record.BlockNumber,
 		IneligibilityReason: reason,
 		AddedAt:             record.AddedAt,
-	})
+	}, pg.WithParentCtx(ctx))
 }
 
 // fetchPerformed fetches all performed logs from the scanner to populate the cache.

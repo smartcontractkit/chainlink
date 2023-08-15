@@ -96,7 +96,7 @@ func TestUpkeepStateStore(t *testing.T) {
 			recordsFromDB: []PersistedStateRecord{
 				{
 					WorkID:          "0x3",
-					CompletionState: 1,
+					CompletionState: 2,
 					BlockNumber:     2,
 					AddedAt:         time.Now(),
 				},
