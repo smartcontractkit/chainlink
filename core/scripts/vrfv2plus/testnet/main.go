@@ -9,7 +9,6 @@ import (
 	"log"
 	"math/big"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -322,7 +321,7 @@ func main() {
 		helpers.PanicErr(err)
 		blockRange, err := blockhashstore.DecreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*startBlock-*numBlocks-1))
 		helpers.PanicErr(err)
-		rlpHeaders, _, err := helpers.GetRlpHeaders(e, blockRange)
+		rlpHeaders, _, err := helpers.GetRlpHeaders(e, blockRange, true)
 		helpers.PanicErr(err)
 		tx, err := batchBHS.StoreVerifyHeader(e.Owner, blockRange, rlpHeaders)
 		helpers.PanicErr(err)
@@ -397,7 +396,7 @@ func main() {
 			fmt.Println("using gas price", e.Owner.GasPrice, "wei")
 
 			blockNumbers := blockRange[i:j]
-			blockHeaders, _, err := helpers.GetRlpHeaders(e, blockNumbers)
+			blockHeaders, _, err := helpers.GetRlpHeaders(e, blockNumbers, true)
 			fmt.Println("storing blockNumbers:", blockNumbers)
 			helpers.PanicErr(err)
 
@@ -418,19 +417,13 @@ func main() {
 		trustedBHSAddr := cmd.String("trusted-bhs-address", "", "address of the trusted bhs contract")
 		blockNumbersString := cmd.String("block-numbers", "", "comma-separated list of block numbers e.g 123,456 ")
 		batchSizePtr := cmd.Int64("batch-size", -1, "batch size")
-		helpers.ParseArgs(cmd, os.Args[2:], "trusted-bhs-address", "end-block", "batch-size", "block-numbers")
+		helpers.ParseArgs(cmd, os.Args[2:], "trusted-bhs-address", "batch-size", "block-numbers")
 
 		// Parse batch size.
 		batchSize := int(*batchSizePtr)
 
 		// Parse block numbers.
-		blockNumbersStrings := strings.Split(*blockNumbersString, ",")
-		var blockNumbers []*big.Int
-		for _, s := range blockNumbersStrings {
-			b, err := strconv.Atoi(s)
-			helpers.PanicErr(err)
-			blockNumbers = append(blockNumbers, big.NewInt(int64(b)))
-		}
+		blockNumbers := helpers.ParseBigIntSlice(*blockNumbersString)
 
 		// Instantiate trusted bhs.
 		trustedBHS, err := trusted_blockhash_store.NewTrustedBlockhashStore(common.HexToAddress(*trustedBHSAddr), e.Ec)
@@ -440,13 +433,13 @@ func main() {
 			// Get recent blockhash and block number anew each iteration. We do this so they do not get stale.
 			recentBlockNumber, err := e.Ec.BlockNumber(context.Background())
 			helpers.PanicErr(err)
-			recentBlock, err := e.Ec.BlockByNumber(context.Background(), big.NewInt(int64(recentBlockNumber)))
+			recentBlock, err := e.Ec.HeaderByNumber(context.Background(), big.NewInt(int64(recentBlockNumber)))
 			helpers.PanicErr(err)
 			recentBlockhash := recentBlock.Hash()
 
 			// Get blockhashes to store.
 			blockNumbersSlice := blockNumbers[i : i+batchSize]
-			_, blockhashesStrings, err := helpers.GetRlpHeaders(e, blockNumbersSlice)
+			_, blockhashesStrings, err := helpers.GetRlpHeaders(e, blockNumbersSlice, false)
 			helpers.PanicErr(err)
 			fmt.Println("storing blockNumbers:", blockNumbers)
 			var blockhashes [][32]byte
@@ -454,13 +447,11 @@ func main() {
 				blockhashes = append(blockhashes, common.HexToHash(h))
 			}
 
-			// Executre storage tx.
+			// Execute storage tx.
 			tx, err := trustedBHS.StoreTrusted(e.Owner, blockNumbersSlice, blockhashes, big.NewInt(int64(recentBlockNumber)), recentBlockhash)
 			helpers.PanicErr(err)
-			fmt.Println("sent tx:", helpers.ExplorerLink(e.ChainID, tx.Hash()))
 			fmt.Println("waiting for it to mine...")
-			_, err = bind.WaitMined(context.Background(), e.Ec, tx)
-			helpers.PanicErr(err)
+			helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 			fmt.Println("received receipt, continuing")
 		}
 		fmt.Println("done")
