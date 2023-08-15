@@ -5,29 +5,44 @@ pragma solidity ^0.8.6;
 
 contract FunctionsBillingRegistryEventsMock {
     struct FunctionsBillingRegistryCommitment {uint64 subscriptionId;address client;uint32 gasLimit;uint256 gasPrice;address don;uint96 donFee;uint96 registryFee;uint96 estimatedCost;uint256 timestamp; }
-    event BillingEnd(bytes32 indexed requestId,uint64 subscriptionId,uint96 signerPayment,uint96 transmitterPayment,uint96 totalCost,bool success);
     event BillingStart(bytes32 indexed requestId,FunctionsBillingRegistryCommitment commitment);
-    event FundsRecovered(address to,uint256 amount);
-    event OwnershipTransferRequested(address indexed from,address indexed to);
-    event Paused(address account);
-    event RequestTimedOut(bytes32 indexed requestId);
-    event SubscriptionCanceled(uint64 indexed subscriptionId,address to,uint256 amount);
-    event SubscriptionConsumerRemoved(uint64 indexed subscriptionId,address consumer);
-    event SubscriptionFunded(uint64 indexed subscriptionId,uint256 oldBalance,uint256 newBalance);
-    event SubscriptionOwnerTransferred(uint64 indexed subscriptionId,address from,address to);
-    event AuthorizedSendersChanged(address[] senders,address changedBy);
-    event ConfigSet(uint32 maxGasLimit,uint32 stalenessSeconds,uint256 gasAfterPaymentCalculation,int256 fallbackWeiPerUnitLink,uint32 gasOverhead);
     event Initialized(uint8 version);
+    event Paused(address account);
     event OwnershipTransferred(address indexed from,address indexed to);
-    event SubscriptionCreated(uint64 indexed subscriptionId,address owner);
-    event Unpaused(address account);
     event SubscriptionConsumerAdded(uint64 indexed subscriptionId,address consumer);
     event SubscriptionOwnerTransferRequested(uint64 indexed subscriptionId,address from,address to);
-    function emitBillingEnd(bytes32 requestId,uint64 subscriptionId,uint96 signerPayment,uint96 transmitterPayment,uint96 totalCost,bool success) public {
-        emit BillingEnd(requestId,subscriptionId,signerPayment,transmitterPayment,totalCost,success);
-    }
+    event ConfigSet(uint32 maxGasLimit,uint32 stalenessSeconds,uint256 gasAfterPaymentCalculation,int256 fallbackWeiPerUnitLink,uint32 gasOverhead);
+    event FundsRecovered(address to,uint256 amount);
+    event OwnershipTransferRequested(address indexed from,address indexed to);
+    event SubscriptionFunded(uint64 indexed subscriptionId,uint256 oldBalance,uint256 newBalance);
+    event Unpaused(address account);
+    event BillingEnd(bytes32 indexed requestId,uint64 subscriptionId,uint96 signerPayment,uint96 transmitterPayment,uint96 totalCost,bool success);
+    event RequestTimedOut(bytes32 indexed requestId);
+    event SubscriptionCreated(uint64 indexed subscriptionId,address owner);
+    event SubscriptionOwnerTransferred(uint64 indexed subscriptionId,address from,address to);
+    event AuthorizedSendersChanged(address[] senders,address changedBy);
+    event SubscriptionCanceled(uint64 indexed subscriptionId,address to,uint256 amount);
+    event SubscriptionConsumerRemoved(uint64 indexed subscriptionId,address consumer);
     function emitBillingStart(bytes32 requestId,FunctionsBillingRegistryCommitment memory commitment) public {
         emit BillingStart(requestId,commitment);
+    }
+    function emitInitialized(uint8 version) public {
+        emit Initialized(version);
+    }
+    function emitPaused(address account) public {
+        emit Paused(account);
+    }
+    function emitOwnershipTransferred(address from,address to) public {
+        emit OwnershipTransferred(from,to);
+    }
+    function emitSubscriptionConsumerAdded(uint64 subscriptionId,address consumer) public {
+        emit SubscriptionConsumerAdded(subscriptionId,consumer);
+    }
+    function emitSubscriptionOwnerTransferRequested(uint64 subscriptionId,address from,address to) public {
+        emit SubscriptionOwnerTransferRequested(subscriptionId,from,to);
+    }
+    function emitConfigSet(uint32 maxGasLimit,uint32 stalenessSeconds,uint256 gasAfterPaymentCalculation,int256 fallbackWeiPerUnitLink,uint32 gasOverhead) public {
+        emit ConfigSet(maxGasLimit,stalenessSeconds,gasAfterPaymentCalculation,fallbackWeiPerUnitLink,gasOverhead);
     }
     function emitFundsRecovered(address to,uint256 amount) public {
         emit FundsRecovered(to,amount);
@@ -35,20 +50,20 @@ contract FunctionsBillingRegistryEventsMock {
     function emitOwnershipTransferRequested(address from,address to) public {
         emit OwnershipTransferRequested(from,to);
     }
-    function emitPaused(address account) public {
-        emit Paused(account);
+    function emitSubscriptionFunded(uint64 subscriptionId,uint256 oldBalance,uint256 newBalance) public {
+        emit SubscriptionFunded(subscriptionId,oldBalance,newBalance);
+    }
+    function emitUnpaused(address account) public {
+        emit Unpaused(account);
+    }
+    function emitBillingEnd(bytes32 requestId,uint64 subscriptionId,uint96 signerPayment,uint96 transmitterPayment,uint96 totalCost,bool success) public {
+        emit BillingEnd(requestId,subscriptionId,signerPayment,transmitterPayment,totalCost,success);
     }
     function emitRequestTimedOut(bytes32 requestId) public {
         emit RequestTimedOut(requestId);
     }
-    function emitSubscriptionCanceled(uint64 subscriptionId,address to,uint256 amount) public {
-        emit SubscriptionCanceled(subscriptionId,to,amount);
-    }
-    function emitSubscriptionConsumerRemoved(uint64 subscriptionId,address consumer) public {
-        emit SubscriptionConsumerRemoved(subscriptionId,consumer);
-    }
-    function emitSubscriptionFunded(uint64 subscriptionId,uint256 oldBalance,uint256 newBalance) public {
-        emit SubscriptionFunded(subscriptionId,oldBalance,newBalance);
+    function emitSubscriptionCreated(uint64 subscriptionId,address owner) public {
+        emit SubscriptionCreated(subscriptionId,owner);
     }
     function emitSubscriptionOwnerTransferred(uint64 subscriptionId,address from,address to) public {
         emit SubscriptionOwnerTransferred(subscriptionId,from,to);
@@ -56,25 +71,10 @@ contract FunctionsBillingRegistryEventsMock {
     function emitAuthorizedSendersChanged(address[] memory senders,address changedBy) public {
         emit AuthorizedSendersChanged(senders,changedBy);
     }
-    function emitConfigSet(uint32 maxGasLimit,uint32 stalenessSeconds,uint256 gasAfterPaymentCalculation,int256 fallbackWeiPerUnitLink,uint32 gasOverhead) public {
-        emit ConfigSet(maxGasLimit,stalenessSeconds,gasAfterPaymentCalculation,fallbackWeiPerUnitLink,gasOverhead);
+    function emitSubscriptionCanceled(uint64 subscriptionId,address to,uint256 amount) public {
+        emit SubscriptionCanceled(subscriptionId,to,amount);
     }
-    function emitInitialized(uint8 version) public {
-        emit Initialized(version);
-    }
-    function emitOwnershipTransferred(address from,address to) public {
-        emit OwnershipTransferred(from,to);
-    }
-    function emitSubscriptionCreated(uint64 subscriptionId,address owner) public {
-        emit SubscriptionCreated(subscriptionId,owner);
-    }
-    function emitUnpaused(address account) public {
-        emit Unpaused(account);
-    }
-    function emitSubscriptionConsumerAdded(uint64 subscriptionId,address consumer) public {
-        emit SubscriptionConsumerAdded(subscriptionId,consumer);
-    }
-    function emitSubscriptionOwnerTransferRequested(uint64 subscriptionId,address from,address to) public {
-        emit SubscriptionOwnerTransferRequested(subscriptionId,from,to);
+    function emitSubscriptionConsumerRemoved(uint64 subscriptionId,address consumer) public {
+        emit SubscriptionConsumerRemoved(subscriptionId,consumer);
     }
 }
