@@ -96,75 +96,44 @@ func WithP2Pv2() NodeConfigOpt {
 	}
 }
 
-func SetDefaultSimulatedGeth(cfg *chainlink.Config, ws, http string) {
+func SetChainConfig(
+	cfg *chainlink.Config,
+	wsUrls,
+	httpUrls []string,
+	chain blockchain.EVMNetwork,
+	forwarders bool,
+) {
 	if cfg.EVM == nil {
-		cfg.EVM = evmcfg.EVMConfigs{
-			{
-				ChainID: utils.NewBig(big.NewInt(1337)),
-				Chain: evmcfg.Chain{
-					AutoCreateKey:      ptr(true),
-					FinalityDepth:      ptr[uint32](1),
-					MinContractPayment: assets.NewLinkFromJuels(0),
-				},
-				Nodes: []*evmcfg.Node{
-					{
-						Name:     ptr("1337_primary_local_0"),
-						WSURL:    mustURL(ws),
-						HTTPURL:  mustURL(http),
-						SendOnly: ptr(false),
-					},
-				},
-			},
-		}
-	}
-}
+		var nodes []*evmcfg.Node
+		for i, _ := range wsUrls {
+			node := evmcfg.Node{
+				Name:     ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
+				WSURL:    mustURL(wsUrls[i]),
+				HTTPURL:  mustURL(httpUrls[i]),
+				SendOnly: ptr(false),
+			}
 
-func SetChainConfig(cfg *chainlink.Config, wsUrls, httpUrls []string, chain blockchain.EVMNetwork) {
-	var nodes []*evmcfg.Node
-	for i, _ := range wsUrls {
-		node := evmcfg.Node{
-			Name:     ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
-			WSURL:    mustURL(wsUrls[i]),
-			HTTPURL:  mustURL(httpUrls[i]),
-			SendOnly: ptr(false),
+			nodes = append(nodes, &node)
 		}
-
-		nodes = append(nodes, &node)
-	}
-	if cfg.EVM == nil {
+		var chainConfig evmcfg.Chain
+		if chain.Simulated {
+			chainConfig = evmcfg.Chain{
+				AutoCreateKey:      ptr(true),
+				FinalityDepth:      ptr[uint32](1),
+				MinContractPayment: assets.NewLinkFromJuels(0),
+			}
+		}
 		cfg.EVM = evmcfg.EVMConfigs{
 			{
 				ChainID: utils.NewBig(big.NewInt(chain.ChainID)),
-				Chain: evmcfg.Chain{
-					AutoCreateKey:      ptr(true),
-					FinalityDepth:      ptr[uint32](1),
-					MinContractPayment: assets.NewLinkFromJuels(0),
-				},
-				Nodes: nodes,
+				Chain:   chainConfig,
+				Nodes:   nodes,
 			},
 		}
-	}
-}
-
-func WithSimulatedEVM(httpUrl, wsUrl string) NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.EVM = evmcfg.EVMConfigs{
-			{
-				ChainID: utils.NewBig(big.NewInt(1337)),
-				Chain: evmcfg.Chain{
-					AutoCreateKey:      ptr(true),
-					FinalityDepth:      ptr[uint32](1),
-					MinContractPayment: assets.NewLinkFromJuels(0),
-				},
-				Nodes: []*evmcfg.Node{
-					{
-						Name:     ptr("1337_primary_local_0"),
-						WSURL:    mustURL(wsUrl),
-						HTTPURL:  mustURL(httpUrl),
-						SendOnly: ptr(false),
-					},
-				},
-			},
+		if forwarders {
+			cfg.EVM[0].Transactions = evmcfg.Transactions{
+				ForwardersEnabled: ptr(true),
+			}
 		}
 	}
 }

@@ -33,8 +33,9 @@ type CLClusterTestEnv struct {
 	CLNodes          []*ClNode
 	Geth             *Geth
 	MockServer       *MockServer
-	EthClient        *blockchain.EthereumClient
+	EVMClient        blockchain.EVMClient
 	ContractDeployer contracts.ContractDeployer
+	ContractLoader   contracts.ContractLoader
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
@@ -68,7 +69,7 @@ func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 }
 
 func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
-	te.EthClient.ParallelTransactions(enabled)
+	te.EVMClient.ParallelTransactions(enabled)
 }
 
 func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, InternalDockerUrls, error) {
@@ -145,11 +146,11 @@ func (te *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
 func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 	for _, cl := range te.CLNodes {
-		if err := cl.Fund(te.EthClient, amount); err != nil {
+		if err := cl.Fund(te.EVMClient, amount); err != nil {
 			return errors.Wrap(err, ErrFundCLNode)
 		}
 	}
-	return te.EthClient.WaitForEvents()
+	return te.EVMClient.WaitForEvents()
 }
 
 func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {

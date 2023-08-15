@@ -1,7 +1,6 @@
 package test_env
 
 import (
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/networks"
@@ -18,6 +17,7 @@ type CLTestEnvBuilder struct {
 	hasLogWatch          bool
 	hasGeth              bool
 	hasMockServer        bool
+	hasForwarders        bool
 	clNodeConfig         *chainlink.Config
 	clNodesCount         int
 	externalAdapterCount int
@@ -46,6 +46,11 @@ func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
 
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	b.clNodesCount = clNodesCount
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithForwarders() *CLTestEnvBuilder {
+	b.hasForwarders = true
 	return b
 }
 
@@ -138,23 +143,20 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 	if err != nil {
 		return nil, err
 	}
-	// Get blockchain.EthereumClient as this is the only possible client for Geth
-	switch val := bc.(type) {
-	case *blockchain.EthereumMultinodeClient:
-		ethClient, ok := val.Clients[0].(*blockchain.EthereumClient)
-		if !ok {
-			return nil, errors.Errorf("could not get blockchain.EthereumClient from %+v", val)
-		}
-		te.EthClient = ethClient
-	default:
-		return nil, errors.Errorf("%+v not supported for geth", val)
-	}
+
+	te.EVMClient = bc
 
 	cd, err := contracts.NewContractDeployer(bc)
 	if err != nil {
 		return nil, err
 	}
 	te.ContractDeployer = cd
+
+	cl, err := contracts.NewContractLoader(bc)
+	if err != nil {
+		return nil, err
+	}
+	te.ContractLoader = cl
 
 	var nodeCsaKeys []string
 
@@ -169,6 +171,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 				node.WithP2Pv1(),
 			)
 		}
+		//node.SetDefaultSimulatedGeth(cfg, te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl, b.hasForwarders)
 
 		var httpUrls []string
 		var wsUrls []string
@@ -180,7 +183,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 			wsUrls = networkConfig.URLs
 		}
 
-		node.SetChainConfig(cfg, wsUrls, httpUrls, networkConfig)
+		node.SetChainConfig(cfg, wsUrls, httpUrls, networkConfig, b.hasForwarders)
 
 		err := te.StartClNodes(cfg, b.clNodesCount)
 		if err != nil {

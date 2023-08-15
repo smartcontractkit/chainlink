@@ -31,7 +31,7 @@ func TestRunLogBasic(t *testing.T) {
 	require.NoError(t, err, "Deploying Oracle Contract shouldn't fail")
 	consumer, err := env.ContractDeployer.DeployAPIConsumer(lt.Address())
 	require.NoError(t, err, "Deploying Consumer Contract shouldn't fail")
-	err = env.EthClient.SetDefaultWallet(0)
+	err = env.EVMClient.SetDefaultWallet(0)
 	require.NoError(t, err, "Setting default wallet shouldn't fail")
 	err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))

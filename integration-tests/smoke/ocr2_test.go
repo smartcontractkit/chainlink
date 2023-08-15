@@ -44,7 +44,7 @@ func TestOCRv2Basic(t *testing.T) {
 	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	err = actions.FundChainlinkNodesLocal(workerNodes, env.EthClient, big.NewFloat(.05))
+	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	// Gather transmitters
@@ -57,19 +57,19 @@ func TestOCRv2Basic(t *testing.T) {
 		transmitters = append(transmitters, addr)
 	}
 
-	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, env.ContractDeployer, transmitters, env.EthClient)
+	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, env.ContractDeployer, transmitters, env.EVMClient)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockServer.Client, "ocr2", 5, env.EthClient.GetChainID().Uint64(), false)
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockServer.Client, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes)
 	require.NoError(t, err, "Error building OCRv2 config")
 
-	err = actions.ConfigureOCRv2AggregatorContracts(env.EthClient, ocrv2Config, aggregatorContracts)
+	err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, aggregatorContracts)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EthClient, time.Minute*5)
+	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5)
 	require.NoError(t, err, "Error starting new OCR2 round")
 	roundData, err := aggregatorContracts[0].GetRound(context.Background(), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
@@ -80,7 +80,7 @@ func TestOCRv2Basic(t *testing.T) {
 
 	err = env.MockServer.Client.SetValuePath("ocr2", 10)
 	require.NoError(t, err)
-	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EthClient, time.Minute*5)
+	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5)
 	require.NoError(t, err)
 
 	roundData, err = aggregatorContracts[0].GetRound(context.Background(), big.NewInt(2))

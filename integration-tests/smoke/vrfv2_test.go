@@ -24,10 +24,6 @@ func TestVRFv2Basic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
 		WithCLNodes(1).
-		//WithCLNodeConfig(node.NewConfig(node.BaseConf,
-		//	node.WithOCR2(),
-		//	node.WithP2Pv2(),
-		//)).
 		WithFunding(vrfConst.ChainlinkNodeFundingAmountEth).
 		Build()
 	require.NoError(t, err)
@@ -37,10 +33,10 @@ func TestVRFv2Basic(t *testing.T) {
 	require.NoError(t, err)
 	lt, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err)
-	vrfv2Contracts, err := vrfv2_actions.DeployVRFV2Contracts(env.ContractDeployer, env.EthClient, lt, mockFeed)
+	vrfv2Contracts, err := vrfv2_actions.DeployVRFV2Contracts(env.ContractDeployer, env.EVMClient, lt, mockFeed)
 	require.NoError(t, err)
 
-	err = env.EthClient.WaitForEvents()
+	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err)
 
 	err = vrfv2Contracts.Coordinator.SetConfig(
@@ -52,21 +48,21 @@ func TestVRFv2Basic(t *testing.T) {
 		vrfConst.VRFCoordinatorV2FeeConfig,
 	)
 	require.NoError(t, err)
-	err = env.EthClient.WaitForEvents()
+	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err)
 
 	err = vrfv2Contracts.Coordinator.CreateSubscription()
 	require.NoError(t, err)
-	err = env.EthClient.WaitForEvents()
+	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err)
 
 	err = vrfv2Contracts.Coordinator.AddConsumer(vrfConst.SubID, vrfv2Contracts.LoadTestConsumer.Address())
 	require.NoError(t, err)
 
-	err = vrfv2_actions.FundVRFCoordinatorV2Subscription(lt, vrfv2Contracts.Coordinator, env.EthClient, vrfConst.SubID, vrfConst.VRFSubscriptionFundingAmountLink)
+	err = vrfv2_actions.FundVRFCoordinatorV2Subscription(lt, vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.SubID, vrfConst.VRFSubscriptionFundingAmountLink)
 	require.NoError(t, err)
 
-	vrfV2jobs, err := vrfv2_actions.CreateVRFV2Jobs(env.GetAPIs(), vrfv2Contracts.Coordinator, env.EthClient, vrfConst.MinimumConfirmations)
+	vrfV2jobs, err := vrfv2_actions.CreateVRFV2Jobs(env.GetAPIs(), vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.MinimumConfirmations)
 	require.NoError(t, err)
 
 	// this part is here because VRFv2 can work with only a specific key
