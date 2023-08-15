@@ -645,7 +645,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			latestBlock: big.NewInt(580),
 			results: []ocr2keepers.CheckResult{
 				{
-					PipelineExecutionState: uint8(CheckBlockTooOld),
+					PipelineExecutionState: uint8(encoding.CheckBlockTooOld),
 					Retryable:              false,
 					Eligible:               false,
 					IneligibilityReason:    0,
@@ -658,7 +658,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 					LinkNative:             big.NewInt(0),
 				},
 				{
-					PipelineExecutionState: uint8(RpcFlakyFailure),
+					PipelineExecutionState: uint8(encoding.RpcFlakyFailure),
 					Retryable:              true,
 					Eligible:               false,
 					IneligibilityReason:    0,
@@ -671,7 +671,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 					LinkNative:             big.NewInt(0),
 				},
 				{
-					PipelineExecutionState: uint8(PackUnpackDecodeFailed),
+					PipelineExecutionState: uint8(encoding.PackUnpackDecodeFailed),
 					Retryable:              false,
 					Eligible:               false,
 					IneligibilityReason:    0,
@@ -744,7 +744,7 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 	trigger2 := ocr2keepers.NewLogTrigger(570, common.HexToHash("0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc"), extension1)
 
 	cr0 := ocr2keepers.CheckResult{
-		PipelineExecutionState: uint8(CheckBlockTooOld),
+		PipelineExecutionState: uint8(encoding.CheckBlockTooOld),
 		Retryable:              false,
 		Eligible:               false,
 		IneligibilityReason:    0,
@@ -797,7 +797,7 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 			results: []ocr2keepers.CheckResult{
 				cr0,
 				{
-					PipelineExecutionState: uint8(RpcFlakyFailure),
+					PipelineExecutionState: uint8(encoding.RpcFlakyFailure),
 					Retryable:              true,
 					Eligible:               false,
 					IneligibilityReason:    0,
@@ -810,7 +810,7 @@ func TestRegistry_SimulatePerformUpkeeps(t *testing.T) {
 					LinkNative:             big.NewInt(20000),
 				},
 				{
-					PipelineExecutionState: uint8(PackUnpackDecodeFailed),
+					PipelineExecutionState: uint8(encoding.PackUnpackDecodeFailed),
 					Retryable:              false,
 					Eligible:               false,
 					IneligibilityReason:    0,

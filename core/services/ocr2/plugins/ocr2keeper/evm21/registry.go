@@ -693,7 +693,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack log trigger checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
-				results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false)
+				results[i] = getIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, encoding.PackUnpackDecodeFailed, false)
 				continue
 			}
 		default:
@@ -703,12 +703,12 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack conditional checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
-				results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false)
+				results[i] = getIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, encoding.PackUnpackDecodeFailed, false)
 				continue
 			}
 		}
 		indices[len(checkReqs)] = i
-		results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, NoPipelineError, false)
+		results[i] = getIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false)
 
 		var result string
 		checkReqs = append(checkReqs, rpc.BatchElem{
@@ -743,7 +743,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			// individual upkeep failed in a batch call, retryable
 			r.lggr.Warnf("error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
 			results[index].Retryable = true
-			results[index].PipelineExecutionState = uint8(RpcFlakyFailure)
+			results[index].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
 		} else {
 			var err error
 			results[index], err = r.packer.UnpackCheckResult(payloads[index], *checkResults[i])
@@ -778,7 +778,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			// pack failed, not retryable
 			r.lggr.Warnf("failed to pack perform data %s for %s: %s", hexutil.Encode(cr.PerformData), upkeepId, err)
 			checkResults[i].Eligible = false
-			checkResults[i].PipelineExecutionState = uint8(PackUnpackDecodeFailed)
+			checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
 			continue
 		}
 
@@ -813,7 +813,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			r.lggr.Warnf("failed to simulate upkeepId %s: %s", checkResults[idx].UpkeepID.String(), req.Error)
 			checkResults[idx].Retryable = true
 			checkResults[idx].Eligible = false
-			checkResults[idx].PipelineExecutionState = uint8(RpcFlakyFailure)
+			checkResults[idx].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
 			continue
 		}
 
@@ -1018,7 +1018,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	if err != nil {
 		// primitive way of checking errors
 		if strings.Contains(err.Error(), "missing required field") || strings.Contains(err.Error(), "not found") {
-			return UpkeepFailureReasonTxHashNoLongerExists, NoPipelineError, false
+			return encoding.UpkeepFailureReasonTxHashNoLongerExists, encoding.NoPipelineError, false
 		}
 		r.lggr.Warnf("failed to query tx hash %s for upkeepId %s: %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId, err.Error())
 		return encoding.UpkeepFailureReasonNone, encoding.RpcFlakyFailure, true

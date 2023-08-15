@@ -230,13 +230,13 @@ func TestEvmRegistry_DecodeFeedLookup(t *testing.T) {
 		name     string
 		data     []byte
 		expected *FeedLookup
-		state    PipelineExecutionState
+		state    encoding.PipelineExecutionState
 		err      error
 	}{
 		{
 			name:  "success - decode to feed lookup",
 			data:  []byte{125, 221, 147, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 138, 215, 253, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 100, 72, 101, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 53, 53, 52, 52, 56, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 50, 53, 52, 52, 51, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-			state: NoPipelineError,
+			state: encoding.NoPipelineError,
 			expected: &FeedLookup{
 				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
@@ -249,7 +249,7 @@ func TestEvmRegistry_DecodeFeedLookup(t *testing.T) {
 			name:  "failure - unpack error",
 			data:  []byte{1, 2, 3, 4},
 			err:   errors.New("unpack error: invalid data for unpacking"),
-			state: PackUnpackDecodeFailed,
+			state: encoding.PackUnpackDecodeFailed,
 		},
 	}
 
@@ -274,7 +274,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 		cached       bool
 		allowed      bool
 		errorMessage string
-		state        PipelineExecutionState
+		state        encoding.PipelineExecutionState
 		retryable    bool
 	}{
 		{
@@ -301,7 +301,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 			name:         "failure - cannot unmarshal privilege config",
 			cached:       false,
 			errorMessage: "failed to unmarshal privilege config for upkeep ID 71022726777042968814359024671382968091267501884371696415772139504780367423725: invalid character '\\x00' looking for beginning of value",
-			state:        MercuryUnmarshalError,
+			state:        encoding.MercuryUnmarshalError,
 		},
 	}
 
@@ -352,7 +352,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		expectedValues     [][]byte
 		expectedRetryable  bool
 		expectedError      error
-		state              PipelineExecutionState
+		state              encoding.PipelineExecutionState
 	}{
 		{
 			name: "success",
@@ -385,7 +385,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			expectedValues:     [][]byte{nil},
 			expectedRetryable:  true,
 			expectedError:      errors.New("All attempts fail:\n#1: 500\n#2: 500\n#3: 500"),
-			state:              MercuryFlakyFailure,
+			state:              encoding.MercuryFlakyFailure,
 		},
 		{
 			name: "failure - not retryable",
@@ -402,7 +402,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			expectedValues:     [][]byte{nil},
 			expectedRetryable:  false,
 			expectedError:      errors.New("All attempts fail:\n#1: FeedLookup upkeep 88786950015966611018675766524283132478093844178961698330929478019253453382042 block 25880526 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
-			state:              InvalidMercuryRequest,
+			state:              encoding.InvalidMercuryRequest,
 		},
 	}
 
@@ -789,7 +789,7 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 		performData  []byte
 		wantErr      assert.ErrorAssertionFunc
 
-		state     PipelineExecutionState
+		state     encoding.PipelineExecutionState
 		retryable bool
 	}{
 		{
@@ -845,7 +845,7 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 			callbackResp: []byte{},
 			callbackErr:  errors.New("bad response"),
 			wantErr:      assert.Error,
-			state:        RpcFlakyFailure,
+			state:        encoding.RpcFlakyFailure,
 			retryable:    true,
 		},
 	}
