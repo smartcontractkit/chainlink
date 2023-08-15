@@ -1,13 +1,13 @@
 package upkeepstate
 
 import (
+	"math/big"
 	"testing"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -19,11 +19,13 @@ func TestInsertSelectDelete(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 
-	inserted := upkeepStateRecord{
-		WorkID:          "0x1",
-		CompletionState: ocr2keepers.UpkeepState(100),
-		BlockNumber:     2,
-		AddedAt:         time.Now(),
+	inserted := PersistedStateRecord{
+		UpkeepID:            big.NewInt(2),
+		WorkID:              "0x1",
+		CompletionState:     100,
+		BlockNumber:         2,
+		IneligibilityReason: 2,
+		AddedAt:             time.Now(),
 	}
 
 	err := orm.InsertUpkeepState(inserted)
