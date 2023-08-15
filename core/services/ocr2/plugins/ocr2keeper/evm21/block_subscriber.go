@@ -130,7 +130,8 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 	return bs.sync.StartOnce("BlockSubscriber", func() error {
 		bs.mu.Lock()
 		defer bs.mu.Unlock()
-		bs.ctx, bs.cancel = context.WithCancel(ctx)
+		// TODO: we should use ctx instead of context.Background())
+		bs.ctx, bs.cancel = context.WithCancel(context.Background())
 		// initialize the blocks map with the recent blockSize blocks
 		blocks, err := bs.getBlockRange(bs.ctx)
 		if err != nil {
