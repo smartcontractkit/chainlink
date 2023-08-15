@@ -184,7 +184,6 @@ func (bs *BlockSubscriber) Close() error {
 		bs.mu.Lock()
 		defer bs.mu.Unlock()
 
-		close(bs.headC)
 		bs.cancel()
 		bs.unsubscribe()
 		return nil
