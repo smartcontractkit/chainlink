@@ -262,6 +262,9 @@ type headWrapper struct {
 
 func (w *headWrapper) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
 	if head != nil {
-		w.headC <- head
+		select {
+		case w.headC <- head:
+		default:
+		}
 	}
 }
