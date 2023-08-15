@@ -233,7 +233,7 @@ type FunctionsOracleEventsMock interface {
 type FunctionsBillingRegistryEventsMock interface {
 	Address() string
 	SubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error
-	BillingStart(requestId [32]byte, commitment functions_billing_registry_events_mock.FunctionsBillingRegistryEventsMockCommitment) error
+	BillingStart(requestId [32]byte, commitment functions_billing_registry_events_mock.FunctionsBillingRegistryEventsMockFunctionsBillingRegistryCommitment) error
 	BillingEnd(requestId [32]byte, subscriptionId uint64, signerPayment *big.Int, transmitterPayment *big.Int, totalCost *big.Int, success bool) error
 }
 
