@@ -4,7 +4,6 @@ import (
 	"context"
 	"math/big"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -16,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 )
 
@@ -51,36 +51,6 @@ func (m *mockFetcher) LatestTimestamp(context.Context) (uint32, error) {
 	return m.ts, m.tsErr
 }
 
-var _ Runner = &mockRunner{}
-
-type mockRunner struct {
-	trrs pipeline.TaskRunResults
-	err  error
-}
-
-func (m *mockRunner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run pipeline.Run, trrs pipeline.TaskRunResults, err error) {
-	return pipeline.Run{ID: 42}, m.trrs, m.err
-}
-
-type mockTask struct {
-	result pipeline.Result
-}
-
-func (m *mockTask) Type() pipeline.TaskType { return "MockTask" }
-func (m *mockTask) ID() int                 { return 0 }
-func (m *mockTask) DotID() string           { return "" }
-func (m *mockTask) Run(ctx context.Context, lggr logger.Logger, vars pipeline.Vars, inputs []pipeline.Result) (pipeline.Result, pipeline.RunInfo) {
-	return m.result, pipeline.RunInfo{}
-}
-func (m *mockTask) Base() *pipeline.BaseTask           { return nil }
-func (m *mockTask) Outputs() []pipeline.Task           { return nil }
-func (m *mockTask) Inputs() []pipeline.TaskDependency  { return nil }
-func (m *mockTask) OutputIndex() int32                 { return 0 }
-func (m *mockTask) TaskTimeout() (time.Duration, bool) { return 0, false }
-func (m *mockTask) TaskRetries() uint32                { return 0 }
-func (m *mockTask) TaskMinBackoff() time.Duration      { return 0 }
-func (m *mockTask) TaskMaxBackoff() time.Duration      { return 0 }
-
 func Test_Datasource(t *testing.T) {
 	ds := &datasource{lggr: logger.TestLogger(t)}
 	ctx := testutils.Context(t)
@@ -93,22 +63,22 @@ func Test_Datasource(t *testing.T) {
 		{
 			// bp
 			Result: pipeline.Result{Value: "122.345"},
-			Task:   &mockTask{},
+			Task:   &mercurymocks.MockTask{},
 		},
 		{
 			// bid
 			Result: pipeline.Result{Value: "121.993"},
-			Task:   &mockTask{},
+			Task:   &mercurymocks.MockTask{},
 		},
 		{
 			// ask
 			Result: pipeline.Result{Value: "123.111"},
-			Task:   &mockTask{},
+			Task:   &mercurymocks.MockTask{},
 		},
 	}
 
-	ds.pipelineRunner = &mockRunner{
-		trrs: goodTrrs,
+	ds.pipelineRunner = &mercurymocks.MockRunner{
+		Trrs: goodTrrs,
 	}
 
 	spec := pipeline.Spec{}
@@ -180,15 +150,15 @@ func Test_Datasource(t *testing.T) {
 	t.Run("when fetchMaxFinalizedTimestamp=false", func(t *testing.T) {
 		t.Run("when run execution fails, returns error", func(t *testing.T) {
 			t.Cleanup(func() {
-				ds.pipelineRunner = &mockRunner{
-					trrs: goodTrrs,
-					err:  nil,
+				ds.pipelineRunner = &mercurymocks.MockRunner{
+					Trrs: goodTrrs,
+					Err:  nil,
 				}
 			})
 
-			ds.pipelineRunner = &mockRunner{
-				trrs: goodTrrs,
-				err:  errors.New("run execution failed"),
+			ds.pipelineRunner = &mercurymocks.MockRunner{
+				Trrs: goodTrrs,
+				Err:  errors.New("run execution failed"),
 			}
 
 			_, err := ds.Observe(ctx, repts, false)
@@ -197,9 +167,9 @@ func Test_Datasource(t *testing.T) {
 
 		t.Run("when parsing run results fails, return error", func(t *testing.T) {
 			t.Cleanup(func() {
-				runner := &mockRunner{
-					trrs: goodTrrs,
-					err:  nil,
+				runner := &mercurymocks.MockRunner{
+					Trrs: goodTrrs,
+					Err:  nil,
 				}
 				ds.pipelineRunner = runner
 			})
@@ -208,23 +178,23 @@ func Test_Datasource(t *testing.T) {
 				{
 					// benchmark price
 					Result: pipeline.Result{Value: "122.345"},
-					Task:   &mockTask{},
+					Task:   &mercurymocks.MockTask{},
 				},
 				{
 					// bid
 					Result: pipeline.Result{Value: "121.993"},
-					Task:   &mockTask{},
+					Task:   &mercurymocks.MockTask{},
 				},
 				{
 					// ask
 					Result: pipeline.Result{Error: errors.New("some error with ask")},
-					Task:   &mockTask{},
+					Task:   &mercurymocks.MockTask{},
 				},
 			}
 
-			ds.pipelineRunner = &mockRunner{
-				trrs: badTrrs,
-				err:  nil,
+			ds.pipelineRunner = &mercurymocks.MockRunner{
+				Trrs: badTrrs,
+				Err:  nil,
 			}
 
 			_, err := ds.Observe(ctx, repts, false)

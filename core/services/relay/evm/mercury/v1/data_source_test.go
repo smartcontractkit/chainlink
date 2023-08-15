@@ -52,38 +52,6 @@ func (m *mockFetcher) LatestTimestamp(context.Context) (uint32, error) {
 	return 0, nil
 }
 
-var _ Runner = &mockRunner{}
-
-type mockRunner struct {
-	trrs pipeline.TaskRunResults
-	err  error
-}
-
-func (m *mockRunner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run pipeline.Run, trrs pipeline.TaskRunResults, err error) {
-	return pipeline.Run{ID: 42}, m.trrs, m.err
-}
-
-var _ pipeline.Task = &mockTask{}
-
-type mockTask struct {
-	result pipeline.Result
-}
-
-func (m *mockTask) Type() pipeline.TaskType { return "MockTask" }
-func (m *mockTask) ID() int                 { return 0 }
-func (m *mockTask) DotID() string           { return "" }
-func (m *mockTask) Run(ctx context.Context, lggr logger.Logger, vars pipeline.Vars, inputs []pipeline.Result) (pipeline.Result, pipeline.RunInfo) {
-	return m.result, pipeline.RunInfo{}
-}
-func (m *mockTask) Base() *pipeline.BaseTask           { return nil }
-func (m *mockTask) Outputs() []pipeline.Task           { return nil }
-func (m *mockTask) Inputs() []pipeline.TaskDependency  { return nil }
-func (m *mockTask) OutputIndex() int32                 { return 0 }
-func (m *mockTask) TaskTimeout() (time.Duration, bool) { return 0, false }
-func (m *mockTask) TaskRetries() uint32                { return 0 }
-func (m *mockTask) TaskMinBackoff() time.Duration      { return 0 }
-func (m *mockTask) TaskMaxBackoff() time.Duration      { return 0 }
-
 var _ types.ChainHeadTracker = &mockHeadTracker{}
 
 type mockHeadTracker struct {
@@ -113,25 +81,25 @@ func TestMercury_Observe(t *testing.T) {
 	ds.fetcher = fetcher
 
 	trrs := []pipeline.TaskRunResult{
-		pipeline.TaskRunResult{
+		{
 			// benchmark price
 			Result: pipeline.Result{Value: "122.345"},
-			Task:   &mockTask{},
+			Task:   &mercurymocks.MockTask{},
 		},
-		pipeline.TaskRunResult{
+		{
 			// bid
 			Result: pipeline.Result{Value: "121.993"},
-			Task:   &mockTask{},
+			Task:   &mercurymocks.MockTask{},
 		},
-		pipeline.TaskRunResult{
+		{
 			// ask
 			Result: pipeline.Result{Value: "123.111"},
-			Task:   &mockTask{},
+			Task:   &mercurymocks.MockTask{},
 		},
 	}
 
-	runner := &mockRunner{
-		trrs: trrs,
+	runner := &mercurymocks.MockRunner{
+		Trrs: trrs,
 	}
 	ds.pipelineRunner = runner
 
@@ -246,9 +214,9 @@ func TestMercury_Observe(t *testing.T) {
 	t.Run("when fetchMaxFinalizedBlockNum=false", func(t *testing.T) {
 		t.Run("when run execution fails, returns error", func(t *testing.T) {
 			t.Cleanup(func() {
-				runner.err = nil
+				runner.Err = nil
 			})
-			runner.err = errors.New("run execution failed")
+			runner.Err = errors.New("run execution failed")
 
 			_, err := ds.Observe(ctx, repts, false)
 			assert.EqualError(t, err, "Observe failed while executing run: error executing run for spec ID 0: run execution failed")
