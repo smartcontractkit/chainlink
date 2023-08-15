@@ -107,7 +107,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d59571d46c81ef39c68b2ec61db906bb0dac21bd # v2.2.7
         env:
           DETACH_RUNNER: true
           TEST_SUITE: benchmark

@@ -57,7 +57,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d59571d46c81ef39c68b2ec61db906bb0dac21bd # v2.2.7
         with:
           test_command_to_run: cd integration-tests && go test -timeout 1h -count=1 -json -test.parallel 10 ./performance 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: make gomod

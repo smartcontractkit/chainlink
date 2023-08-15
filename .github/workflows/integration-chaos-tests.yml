@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Check if image exists
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@d59571d46c81ef39c68b2ec61db906bb0dac21bd # v2.2.7
         with:
           repository: chainlink
           tag: ${{ github.sha }}
@@ -38,7 +38,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@d59571d46c81ef39c68b2ec61db906bb0dac21bd # v2.2.7
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -109,7 +109,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@d59571d46c81ef39c68b2ec61db906bb0dac21bd # v2.2.7
         with:
           test_command_to_run: make test_need_operator_assets && cd integration-tests && go test -timeout 1h -count=1 -json -test.parallel 11 ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
