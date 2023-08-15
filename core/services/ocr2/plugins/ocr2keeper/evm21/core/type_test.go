@@ -27,12 +27,12 @@ func TestGetUpkeepType(t *testing.T) {
 		},
 		{
 			"condition trigger",
-			GenUpkeepID(ocr2keepers.ConditionTrigger, "").Bytes(),
+			GenUpkeepID(ocr2keepers.ConditionTrigger, "").BigInt().Bytes(),
 			ocr2keepers.ConditionTrigger,
 		},
 		{
 			"log trigger",
-			GenUpkeepID(ocr2keepers.LogTrigger, "111").Bytes(),
+			GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt().Bytes(),
 			ocr2keepers.LogTrigger,
 		},
 		{
