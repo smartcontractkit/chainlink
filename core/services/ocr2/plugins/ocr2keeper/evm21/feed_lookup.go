@@ -88,6 +88,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers
 		allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
 		if err != nil {
 			r.lggr.Errorf("[FeedLookup] upkeep %s block %d failed to time mercury allow list: %v", upkeepId, block, err)
+
 			continue
 		}
 

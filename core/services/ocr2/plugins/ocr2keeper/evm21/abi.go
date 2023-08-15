@@ -109,18 +109,18 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) 
 	return upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (bool, error) {
+func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (PipelineExecutionState, bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return false, err
+		return PackUnpackDecodeFailed, false, err
 	}
 
 	out, err := rp.abi.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return false, fmt.Errorf("%w: unpack simulatePerformUpkeep return: %s", err, raw)
+		return PackUnpackDecodeFailed, false, err
 	}
 
-	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
+	return NoPipelineError, *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (UpkeepInfo, error) {

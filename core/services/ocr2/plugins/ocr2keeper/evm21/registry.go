@@ -769,7 +769,10 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
 		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, cr.PerformData)
 		if err != nil {
-			return nil, err
+			// pack failed, not retryable
+			checkResults[i].Eligible = false
+			checkResults[i].PipelineExecutionState = uint8(PackUnpackDecodeFailed)
+			continue
 		}
 
 		var result string
@@ -791,28 +794,39 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 	if len(performReqs) > 0 {
 		if err := r.client.BatchCallContext(ctx, performReqs); err != nil {
+			r.lggr.Errorf("failed to batch call for simulatePerformUpkeeps: %s", err)
 			return nil, err
 		}
 	}
 
-	var multiErr error
 	for i, req := range performReqs {
+		idx := performToKeyIdx[i]
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Trigger.BlockNumber, checkResults[i].UpkeepID.BigInt(), req.Error)
-			multierr.AppendInto(&multiErr, req.Error)
+			// individual upkeep failed in a batch call, retryable
+			r.lggr.Warnf("failed to simulate upkeepId %s: %s", checkResults[idx].UpkeepID.String(), req.Error)
+			checkResults[idx].Retryable = true
+			checkResults[idx].Eligible = false
+			checkResults[idx].PipelineExecutionState = uint8(RpcFlakyFailure)
+			continue
 		} else {
-			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
+			state, simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
 			if err != nil {
-				return nil, err
+				// unpack failed, not retyable
+				r.lggr.Warnf("failed to unpack simulate performUpkeep result for upkeepId %s for state %d: %s", checkResults[idx].UpkeepID.String(), state, req.Error)
+				checkResults[idx].Retryable = false
+				checkResults[idx].Eligible = false
+				checkResults[idx].PipelineExecutionState = uint8(state)
+				continue
 			}
 
 			if !simulatePerformSuccess {
+				r.lggr.Warnf("upkeepId %s is not eligible after simulation", checkResults[idx].UpkeepID.String())
 				checkResults[performToKeyIdx[i]].Eligible = false
 			}
 		}
 	}
 
-	return checkResults, multiErr
+	return checkResults, nil
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
