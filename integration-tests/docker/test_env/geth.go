@@ -87,7 +87,7 @@ func (g *Geth) StartContainer() error {
 	networkConfig := blockchain.SimulatedEVMNetwork
 	networkConfig.Name = "geth"
 	networkConfig.URLs = []string{g.ExternalWsUrl}
-	networkConfig.HTTPURLs = []string{g.ExternalWsUrl}
+	networkConfig.HTTPURLs = []string{g.ExternalHttpUrl}
 
 	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig)
 	if err != nil {
