@@ -27,7 +27,6 @@ type UpkeepStateReader interface {
 	SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
 }
 
-//go:generate mockery --quiet --name UpkeepStateORM --output ./mocks/ --case=underscore
 type ORM interface {
 	InsertUpkeepState(PersistedStateRecord, ...pg.QOpt) error
 	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]PersistedStateRecord, error)
