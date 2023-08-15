@@ -162,11 +162,13 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //keep track of the number of fees to prevent over initialising the FeePayment array within _convertToLinkAndNativeFees
     uint256 numberOfLinkFees;
     uint256 numberOfNativeFees;
+
+    uint256 feesAndRewardsIndex;
     for (uint256 i; i < payloads.length; ++i) {
       (Common.Asset memory fee, Common.Asset memory reward) = _processFee(payloads[i], subscriber);
 
       if (fee.amount != 0) {
-        feesAndRewards[i] = IFeeManager.FeeAndReward(bytes32(payloads[i]), fee, reward);
+        feesAndRewards[feesAndRewardsIndex++] = IFeeManager.FeeAndReward(bytes32(payloads[i]), fee, reward);
 
         unchecked {
           //keep track of some tallys to make downstream calculations more efficent

@@ -72,7 +72,7 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
     vm.pauseGasMetering();
     bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
       _generateV2Report(),
-      _generateReportContext(FEED_ID_V3),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
@@ -86,7 +86,7 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
     vm.pauseGasMetering();
     bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
       _generateV2Report(),
-      _generateReportContext(FEED_ID_V3),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -138,7 +138,7 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
     vm.pauseGasMetering();
     bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
       _generateV2Report(),
-      _generateReportContext(FEED_ID_V3),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
@@ -157,7 +157,7 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
     vm.pauseGasMetering();
     bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
       _generateV2Report(),
-      _generateReportContext(FEED_ID_V3),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );

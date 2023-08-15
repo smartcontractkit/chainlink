@@ -24,7 +24,7 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
   function test_verifyWithLink() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
       _generateV2Report(),
-      _generateReportContext(FEED_ID_V3),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(link))
     );
@@ -39,7 +39,7 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
   function test_verifyWithNative() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
       _generateV2Report(),
-      _generateReportContext(FEED_ID_V3),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -54,7 +54,7 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
   function test_verifyWithNativeUnwrapped() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
       _generateV2Report(),
-      _generateReportContext(FEED_ID_V3),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -68,7 +68,7 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
   function test_verifyWithNativeUnwrappedReturnsChange() public {
     bytes memory signedReport = _generateEncodedBlobWithQuote(
       _generateV2Report(),
-      _generateReportContext(FEED_ID_V3),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
       _getSigners(FAULT_TOLERANCE + 1),
       _generateQuote(address(native))
     );
@@ -78,4 +78,215 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
     assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
     assertEq(address(feeManager).balance, 0);
   }
+}
+
+contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAndFeeManager {
+  uint256 internal constant NUMBERS_OF_REPORTS = 5;
+
+  function test_verifyWithBulkLink() public {
+    bytes memory signedReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(link))
+    );
+
+    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+    for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
+      signedReports[i] = signedReport;
+    }
+
+    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS, USER);
+
+    _verifyBulk(signedReports, 0, USER);
+
+    assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS);
+  }
+
+  function test_verifyWithBulkNative() public {
+    bytes memory signedReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(native))
+    );
+
+    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+    for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
+      signedReports[i] = signedReport;
+    }
+
+    _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS, USER);
+
+    _verifyBulk(signedReports, 0, USER);
+
+    assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS);
+  }
+
+  function test_verifyWithBulkNativeUnwrapped() public {
+    bytes memory signedReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(native))
+    );
+
+    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+    for (uint256 i; i < NUMBERS_OF_REPORTS; i++) {
+      signedReports[i] = signedReport;
+    }
+
+    _verifyBulk(signedReports, DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS, USER);
+
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
+    assertEq(address(feeManager).balance, 0);
+  }
+
+  function test_verifyWithBulkNativeUnwrappedReturnsChange() public {
+    bytes memory signedReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(native))
+    );
+
+    bytes[] memory signedReports = new bytes[](NUMBERS_OF_REPORTS);
+    for (uint256 i = 0; i < NUMBERS_OF_REPORTS; i++) {
+      signedReports[i] = signedReport;
+    }
+
+    _verifyBulk(signedReports, DEFAULT_REPORT_NATIVE_FEE * (NUMBERS_OF_REPORTS * 2), USER);
+
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBERS_OF_REPORTS);
+    assertEq(address(feeManager).balance, 0);
+  }
+
+  function test_verifyBulkWithLinkAndWrappedNative() public {
+    bytes memory linkReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(link))
+    );
+
+    bytes memory nativeReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(native))
+    );
+
+    bytes[] memory signedReports = new bytes[](5);
+
+    signedReports[0] = linkReport;
+    signedReports[1] = linkReport;
+    signedReports[2] = linkReport;
+    signedReports[3] = nativeReport;
+    signedReports[4] = nativeReport;
+
+    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * 3, USER);
+    _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
+
+    _verifyBulk(signedReports, 0, USER);
+
+    assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 2);
+    assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * 3);
+  }
+
+  function test_verifyBulkWithLinkAndUnwrappedNative() public {
+    bytes memory linkReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(link))
+    );
+
+    bytes memory nativeReport = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(native))
+    );
+
+    bytes[] memory signedReports = new bytes[](5);
+
+    signedReports[0] = linkReport;
+    signedReports[1] = linkReport;
+    signedReports[2] = linkReport;
+    signedReports[3] = nativeReport;
+    signedReports[4] = nativeReport;
+
+    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * 3, USER);
+
+    _verifyBulk(signedReports, DEFAULT_REPORT_NATIVE_FEE * 40, USER);
+
+    //user should have some link returned as twice the amount was passed into msg.value
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 2);
+    assertEq(native.balanceOf(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * 2);
+    assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * 3);
+  }
+
+  function test_verifyBulkReportWithUnwrappedAndWrappedNativeDefaultsToUnwrapped() public {
+    bytes memory nativeReport1 = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(native))
+    );
+
+    bytes memory nativeReport2 = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(native))
+    );
+
+    bytes[] memory signedReports = new bytes[](2);
+
+    signedReports[0] = nativeReport1;
+    signedReports[1] = nativeReport2;
+
+
+    _verifyBulk(signedReports, DEFAULT_REPORT_NATIVE_FEE * 2, USER);
+
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 2);
+    assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY);
+  }
+
+  function test_verifyMultiVersions() public {
+    bytes memory signedReportV0 = _generateEncodedBlob(
+      _generateV0Report(),
+      _generateReportContext(v0ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1)
+    );
+
+    bytes memory signedReportV2Link = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(link))
+    );
+
+    bytes memory signedReportV2Native = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(v3ConfigDigest, FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(native))
+    );
+
+    bytes[] memory signedReports = new bytes[](3);
+
+    signedReports[0] = signedReportV0;
+    signedReports[1] = signedReportV2Link;
+    signedReports[2] = signedReportV2Native;
+
+    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
+    _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+
+    _verifyBulk(signedReports, 0, USER);
+
+    assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE);
+    assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
+  }
+
 }

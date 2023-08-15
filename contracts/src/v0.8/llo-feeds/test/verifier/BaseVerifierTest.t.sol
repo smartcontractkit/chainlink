@@ -242,6 +242,9 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
   uint256 internal constant DEFAULT_REPORT_LINK_FEE = 1e10;
   uint256 internal constant DEFAULT_REPORT_NATIVE_FEE = 1e12;
 
+  bytes32 internal v0ConfigDigest;
+  bytes32 internal v3ConfigDigest;
+
   struct V2Report {
     // The feed ID the report has data for
     bytes32 feedId;
@@ -278,6 +281,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       bytes(""),
       new Common.AddressAndWeight[](0)
     );
+    (, , v0ConfigDigest) = s_verifier.latestConfigDetails(FEED_ID);
 
     s_verifier.setConfig(
       FEED_ID_V3,
@@ -289,6 +293,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       bytes(""),
       new Common.AddressAndWeight[](0)
     );
+    (, , v3ConfigDigest) = s_verifier.latestConfigDetails(FEED_ID_V3);
 
     link = new ERC20Mock("LINK", "LINK", ADMIN, 0);
     native = new WERC20Mock();
@@ -335,6 +340,20 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     return abi.encode(billingAddress);
   }
 
+  function _generateV0Report() internal view returns (V0Report memory) {
+    return _createV0Report(
+      FEED_ID,
+      OBSERVATIONS_TIMESTAMP,
+      MEDIAN,
+      BID,
+      ASK,
+      BLOCKNUMBER_UPPER_BOUND,
+      bytes32(blockhash(BLOCKNUMBER_UPPER_BOUND)),
+      BLOCKNUMBER_LOWER_BOUND,
+      uint32(block.timestamp)
+    );
+  }
+
   function _generateV2Report() internal view returns (V2Report memory) {
     return
       V2Report({
@@ -350,10 +369,9 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       });
   }
 
-  function _generateReportContext(bytes32 feedId) internal view returns (bytes32[3] memory) {
-    (, , bytes32 latestConfigDigest) = s_verifier.latestConfigDetails(feedId);
+  function _generateReportContext(bytes32 configDigest, bytes32 feedId) internal view returns (bytes32[3] memory) {
     bytes32[3] memory reportContext;
-    reportContext[0] = latestConfigDigest;
+    reportContext[0] = configDigest;
     reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
     return reportContext;
   }
