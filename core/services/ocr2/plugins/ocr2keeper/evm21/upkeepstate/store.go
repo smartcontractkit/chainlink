@@ -2,7 +2,7 @@ package upkeepstate
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math/big"
 	"sync"
 	"time"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -88,7 +89,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 // it does background cleanup of the cache.
 func (u *upkeepStateStore) Start(pctx context.Context) error {
 	if u.retention == 0 {
-		return fmt.Errorf("pruneDepth %d must be greater than zero", u.retention)
+		return errors.New("pruneDepth must be greater than zero")
 	}
 
 	ctx, cancel := context.WithCancel(pctx)
@@ -100,16 +101,18 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 	u.lggr.Debug("Starting upkeep state store")
 
-	cleanTick := time.NewTicker(u.cleanCadence)
+	timer := time.NewTimer(u.cleanCadence)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-cleanTick.C:
-			if err := u.cleanup(); err != nil {
+		case <-timer.C:
+			if err := u.cleanup(ctx); err != nil {
 				u.lggr.Errorw("unable to clean old state values", "err", err)
 			}
+
+			_ = timer.Reset(utils.WithJitter(u.cleanCadence))
 		}
 	}
 }
@@ -233,7 +236,7 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64,
 // fetchFromDB fetches all upkeeps indicated as ineligible from the db to
 // populate the cache
 func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs ...string) error {
-	states, err := u.orm.SelectStatesByWorkIDs(workIDs)
+	states, err := u.orm.SelectStatesByWorkIDs(workIDs, pg.WithParentCtx(ctx))
 	if err != nil {
 		return err
 	}
@@ -277,17 +280,17 @@ func (u *upkeepStateStore) selectFromCache(workIDs ...string) ([]ocr2keepers.Upk
 }
 
 // cleanup removes any records that are older than the TTL from both cache and DB.
-func (u *upkeepStateStore) cleanup() error {
+func (u *upkeepStateStore) cleanup(ctx context.Context) error {
 	u.cleanCache()
 
-	return u.cleanDB()
+	return u.cleanDB(ctx)
 }
 
 // cleanDB cleans up records in the DB that are older than the TTL.
-func (u *upkeepStateStore) cleanDB() error {
+func (u *upkeepStateStore) cleanDB(ctx context.Context) error {
 	tm := time.Now().Add(-1 * u.retention)
 
-	return u.orm.DeleteExpired(tm)
+	return u.orm.DeleteExpired(tm, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
 }
 
 // cleanupCache removes any records from the cache that are older than the TTL.
