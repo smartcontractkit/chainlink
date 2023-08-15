@@ -61,7 +61,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 					Secret:    "new-secret",
 					AccessKey: "new-access-key",
 				}, nil)
-				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
+				f.App.On("AuthenticationProvider").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
 			variables: variables,
@@ -86,7 +86,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				session.User.HashedPassword = "wrong-password"
 
 				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
-				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
+				f.App.On("AuthenticationProvider").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
 			variables: variables,
@@ -115,7 +115,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 				session.User.HashedPassword = pwd
 
 				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, gError)
-				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
+				f.App.On("AuthenticationProvider").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
 			variables: variables,
@@ -144,7 +144,7 @@ func TestResolver_CreateAPIToken(t *testing.T) {
 
 				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.Mocks.sessionsORM.On("CreateAndSetAuthToken", session.User).Return(nil, gError)
-				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
+				f.App.On("AuthenticationProvider").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
 			variables: variables,
@@ -210,7 +210,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 
 				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.Mocks.sessionsORM.On("DeleteAuthToken", session.User).Return(nil)
-				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
+				f.App.On("AuthenticationProvider").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
 			variables: variables,
@@ -234,7 +234,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				session.User.HashedPassword = "wrong-password"
 
 				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
-				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
+				f.App.On("AuthenticationProvider").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
 			variables: variables,
@@ -263,7 +263,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 				session.User.HashedPassword = pwd
 
 				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, gError)
-				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
+				f.App.On("AuthenticationProvider").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
 			variables: variables,
@@ -292,7 +292,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 
 				f.Mocks.sessionsORM.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.Mocks.sessionsORM.On("DeleteAuthToken", session.User).Return(gError)
-				f.App.On("SessionORM").Return(f.Mocks.sessionsORM)
+				f.App.On("AuthenticationProvider").Return(f.Mocks.sessionsORM)
 			},
 			query:     mutation,
 			variables: variables,

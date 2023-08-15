@@ -330,13 +330,13 @@ func NewMockAPIInitializer(t testing.TB) *MockAPIInitializer {
 	return &MockAPIInitializer{t: t}
 }
 
-func (m *MockAPIInitializer) Initialize(um sessions.UserManager, lggr logger.Logger) (sessions.User, error) {
-	if user, err := um.FindUser(APIEmailAdmin); err == nil {
+func (m *MockAPIInitializer) Initialize(orm sessions.LocalAdminUsersORM, lggr logger.Logger) (sessions.User, error) {
+	if user, err := orm.FindUser(APIEmailAdmin); err == nil {
 		return user, err
 	}
 	m.Count++
 	user := MustRandomUser(m.t)
-	return user, um.CreateUser(&user)
+	return user, orm.CreateUser(&user)
 }
 
 func NewMockAuthenticatedHTTPClient(lggr logger.Logger, cfg cmd.ClientOpts, sessionID string) cmd.HTTPClient {

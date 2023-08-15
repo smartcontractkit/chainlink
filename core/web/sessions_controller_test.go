@@ -59,7 +59,7 @@ func TestSessionsController_Create(t *testing.T) {
 
 				decrypted, err := cltest.DecodeSessionCookie(sessionCookie.Value)
 				require.NoError(t, err)
-				user, err := app.SessionORM().AuthorizedUserWithSession(decrypted)
+				user, err := app.AuthenticationProvider().AuthorizedUserWithSession(decrypted)
 				assert.NoError(t, err)
 				assert.Equal(t, test.email, user.Email)
 
@@ -69,7 +69,7 @@ func TestSessionsController_Create(t *testing.T) {
 			} else {
 				require.True(t, resp.StatusCode >= 400, "Should not be able to create session")
 				// Ignore fixture session
-				sessions, err := app.SessionORM().Sessions(1, 2)
+				sessions, err := app.AuthenticationProvider().Sessions(1, 2)
 				assert.NoError(t, err)
 				assert.Empty(t, sessions)
 			}
@@ -107,7 +107,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 
 	var s []sessions.Session
 	gomega.NewWithT(t).Eventually(func() []sessions.Session {
-		s, err = app.SessionORM().Sessions(0, 10)
+		s, err = app.AuthenticationProvider().Sessions(0, 10)
 		assert.NoError(t, err)
 		return s
 	}).Should(gomega.HaveLen(1))
@@ -150,7 +150,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 			resp, err := client.Do(request)
 			assert.NoError(t, err)
 
-			_, err = app.SessionORM().AuthorizedUserWithSession(test.sessionID)
+			_, err = app.AuthenticationProvider().AuthorizedUserWithSession(test.sessionID)
 			assert.Error(t, err)
 			if test.success {
 				assert.Equal(t, http.StatusOK, resp.StatusCode)
@@ -192,7 +192,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	gomega.NewWithT(t).Eventually(func() []sessions.Session {
-		sessions, err := app.SessionORM().Sessions(0, 10)
+		sessions, err := app.AuthenticationProvider().Sessions(0, 10)
 		assert.NoError(t, err)
 		return sessions
 	}).Should(gomega.HaveLen(0))

@@ -33,7 +33,7 @@ func authSuccess(*gin.Context, webauth.Authenticator) error {
 }
 
 type userFindFailer struct {
-	sessions.UserManager
+	sessions.AuthenticationProvider
 	err error
 }
 
@@ -46,7 +46,7 @@ func (u userFindFailer) FindUserByAPIToken(token string) (sessions.User, error) 
 }
 
 type userFindSuccesser struct {
-	sessions.UserManager
+	sessions.AuthenticationProvider
 	user sessions.User
 }
 

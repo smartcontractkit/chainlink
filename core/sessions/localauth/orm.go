@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
-// implements sessions.UserManager interface
+// implements sessions.AuthenticationProvider interface
 type orm struct {
 	q               pg.Q
 	sessionDuration time.Duration
@@ -27,14 +27,15 @@ type orm struct {
 	auditLogger     audit.AuditLogger
 }
 
-var _ sessions.UserManager = (*orm)(nil)
+var _ sessions.AuthenticationProvider = (*orm)(nil)
+var _ sessions.LocalAdminUsersORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, sd time.Duration, lggr logger.Logger, cfg pg.QConfig, auditLogger audit.AuditLogger) sessions.UserManager {
-	namedLogger := lggr.Named("LocalAuthUserManagerORM")
+func NewORM(db *sqlx.DB, sd time.Duration, lggr logger.Logger, cfg pg.QConfig, auditLogger audit.AuditLogger) sessions.AuthenticationProvider {
+	namedLogger := lggr.Named("LocalAuthAuthenticationProviderORM")
 	return &orm{
 		q:               pg.NewQ(db, namedLogger, cfg),
 		sessionDuration: sd,
-		lggr:            lggr.Named("LocalAuthUserManagerORM"),
+		lggr:            lggr.Named("LocalAuthAuthenticationProviderORM"),
 		auditLogger:     auditLogger,
 	}
 }
@@ -362,18 +363,4 @@ func (o *orm) FindExternalInitiator(
 	exi := &bridges.ExternalInitiator{}
 	err := o.q.Get(exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
 	return exi, err
-}
-
-// Other implementations require preserving fallback local CLI user table admin auth
-// localauth implementation requires no changes
-func (o *orm) LocalAdminListUsers() ([]sessions.User, error) {
-	return o.ListUsers()
-}
-
-func (o *orm) LocalAdminCreateUser(user *sessions.User) error {
-	return o.CreateUser(user)
-}
-
-func (o *orm) LocalAdminFindUser(email string) (sessions.User, error) {
-	return o.findUser(email)
 }

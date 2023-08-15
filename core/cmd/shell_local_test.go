@@ -79,7 +79,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			})
 			db := pgtest.NewSqlxDB(t)
 			keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-			sessionORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
+			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 			lggr := logger.TestLogger(t)
 
@@ -100,7 +100,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			pgtest.MustExec(t, db, "DELETE FROM users;")
 
 			app := mocks.NewApplication(t)
-			app.On("SessionORM").Return(sessionORM).Maybe()
+			app.On("AuthenticationProvider").Return(authProviderORM).Maybe()
 			app.On("GetKeyStore").Return(keyStore).Maybe()
 			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)
@@ -171,7 +171,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 			db := pgtest.NewSqlxDB(t)
-			sessionORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
+			authProviderORM := localauth.NewORM(db, time.Minute, logger.TestLogger(t), cfg.Database(), audit.NoopLogger)
 
 			// Clear out fixture users/users created from the other test cases
 			// This asserts that on initial run with an empty users table that the credentials file will instantiate and
@@ -199,7 +199,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
 			app := mocks.NewApplication(t)
-			app.On("SessionORM").Return(sessionORM)
+			app.On("LocalAdminUsersORM").Return(authProviderORM)
 			app.On("GetKeyStore").Return(keyStore)
 			app.On("GetRelayers").Return(testRelayers).Maybe()
 			app.On("Start", mock.Anything).Maybe().Return(nil)

@@ -20,10 +20,6 @@ This implementation is read only; user mutation actions such as Delete are not s
 MFA is supported via the remote LDAP server implementation. Sufficient request time out should accomodate
 for a blocking auth call while the user responds to a potential push notification callback.
 
-Upon startup, local CLI utilizes the Authentication provider backend to assume the local admin user. This
-functionality is supported and implemented to search the local database users table.
-This is implemented through the interface `LocalAdmin*`` functions.
-
 */
 
 import (
@@ -46,13 +42,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
-// implements sessions.UserManager interface
+// implements sessions.AuthenticationProvider interface
 type ldapAuthenticator struct {
 	q           pg.Q
 	config      config.LDAP
 	lggr        logger.Logger
 	auditLogger audit.AuditLogger
 }
+
+var _ sessions.AuthenticationProvider = (*ldapAuthenticator)(nil)
 
 func NewLDAPAuthenticator(
 	db *sqlx.DB,
@@ -61,8 +59,8 @@ func NewLDAPAuthenticator(
 	dev bool,
 	lggr logger.Logger,
 	auditLogger audit.AuditLogger,
-) (sessions.UserManager, error) {
-	namedLogger := lggr.Named("LDAPUserManager")
+) (sessions.AuthenticationProvider, error) {
+	namedLogger := lggr.Named("LDAPAuthenticationProvider")
 
 	// If not chainlink dev and not tls, error
 	if !dev && !ldapCfg.ServerTLS() {
@@ -84,7 +82,7 @@ func NewLDAPAuthenticator(
 	ldapAuth := ldapAuthenticator{
 		q:           pg.NewQ(db, namedLogger, pgCfg),
 		config:      ldapCfg,
-		lggr:        lggr.Named("LDAPUserManager"),
+		lggr:        lggr.Named("LDAPAuthenticationProvider"),
 		auditLogger: auditLogger,
 	}
 
@@ -576,33 +574,6 @@ func (l *ldapAuthenticator) localLoginFallback(sr sessions.SessionRequest) (sess
 		return user, errors.New("Invalid password")
 	}
 
-	return user, nil
-}
-
-// LocalAdminListUsers lists all local database users
-// The LDAP implementation preserves fallback access to the local users table for the CLI client
-func (l *ldapAuthenticator) LocalAdminListUsers() ([]sessions.User, error) {
-	users := []sessions.User{}
-	sql := "SELECT * FROM users ORDER BY email ASC;"
-	if err := l.q.Select(&users, sql); err != nil {
-		return nil, errors.Wrap(err, "error listing users from local users table")
-	}
-	return users, nil
-}
-
-// The ldap implementation supports admin level local only user creation
-func (l *ldapAuthenticator) LocalAdminCreateUser(user *sessions.User) error {
-	sql := "INSERT INTO users (email, hashed_password, role, created_at, updated_at) VALUES ($1, $2, $3, now(), now()) RETURNING *"
-	return l.q.Get(user, sql, strings.ToLower(user.Email), user.HashedPassword, user.Role)
-}
-
-// LocalAdminFindUser searches the local users database
-func (l *ldapAuthenticator) LocalAdminFindUser(email string) (sessions.User, error) {
-	var user sessions.User
-	sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-	if err := l.q.Get(&user, sql, email); err != nil {
-		return user, errors.Wrap(err, "error searching local users table")
-	}
 	return user, nil
 }
 

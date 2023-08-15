@@ -84,7 +84,8 @@ type Application interface {
 	EVMORM() evmtypes.Configs
 	PipelineORM() pipeline.ORM
 	BridgeORM() bridges.ORM
-	SessionORM() sessions.UserManager
+	LocalAdminUsersORM() sessions.LocalAdminUsersORM
+	AuthenticationProvider() sessions.AuthenticationProvider
 	TxmStorageService() txmgr.EvmTxStore
 	AddJobV2(ctx context.Context, job *job.Job) error
 	DeleteJob(ctx context.Context, jobID int32) error
@@ -117,7 +118,8 @@ type ChainlinkApplication struct {
 	pipelineORM              pipeline.ORM
 	pipelineRunner           pipeline.Runner
 	bridgeORM                bridges.ORM
-	sessionORM               sessions.UserManager
+	localAdminUsersORM       sessions.LocalAdminUsersORM
+	authenticationProvider   sessions.AuthenticationProvider
 	txmStorageService        txmgr.EvmTxStore
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
@@ -247,16 +249,21 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		return nil, fmt.Errorf("no evm chains found")
 	}
 
+	// Initialize Local Users ORM and Authentication Provider specified in config
+	// LocalAdminUsersORM is initialized and required regardless of separate Authentication Provider
+	var localAdminUsersORM sessions.LocalAdminUsersORM
+	localAdminUsersORM = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+
 	// Initialize Sessions ORM based on environment configured authenticator
 	// localDB auth or remote LDAP auth
 	authMethod := cfg.WebServer().AuthenticationMethod()
-	var sessionsORM sessions.UserManager
+	var authenticationProvider sessions.AuthenticationProvider
 	var sessionReaper utils.SleeperTask
 
 	switch authMethod {
 	case string(sessions.LDAPAuth):
 		var err error
-		sessionsORM, err = ldapauth.NewLDAPAuthenticator(
+		authenticationProvider, err = ldapauth.NewLDAPAuthenticator(
 			db, cfg.Database(), cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
 		)
 		if err != nil {
@@ -264,7 +271,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 		sessionReaper = ldapauth.NewLDAPServerStateSync(db, cfg.Database(), cfg.WebServer().LDAP(), globalLogger)
 	case string(sessions.LocalAuth):
-		sessionsORM = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
+		authenticationProvider = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 		sessionReaper = localauth.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger)
 	default:
 		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, string(sessions.LocalAuth), string(sessions.LDAPAuth))
@@ -273,7 +280,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var (
 		pipelineORM    = pipeline.NewORM(db, globalLogger, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, globalLogger, cfg.Database())
-		sessionORM     = sessionsORM
 		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
@@ -465,7 +471,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineRunner:           pipelineRunner,
 		pipelineORM:              pipelineORM,
 		bridgeORM:                bridgeORM,
-		sessionORM:               sessionORM,
+		localAdminUsersORM:       localAdminUsersORM,
+		authenticationProvider:   authenticationProvider,
 		txmStorageService:        txmORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
@@ -637,8 +644,12 @@ func (app *ChainlinkApplication) BridgeORM() bridges.ORM {
 	return app.bridgeORM
 }
 
-func (app *ChainlinkApplication) SessionORM() sessions.UserManager {
-	return app.sessionORM
+func (app *ChainlinkApplication) LocalAdminUsersORM() sessions.LocalAdminUsersORM {
+	return app.localAdminUsersORM
+}
+
+func (app *ChainlinkApplication) AuthenticationProvider() sessions.AuthenticationProvider {
+	return app.authenticationProvider
 }
 
 // TODO BCF-2516 remove this all together remove EVM specifics

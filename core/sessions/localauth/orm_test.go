@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func setupORM(t *testing.T) (*sqlx.DB, sessions.UserManager) {
+func setupORM(t *testing.T) (*sqlx.DB, sessions.AuthenticationProvider) {
 	t.Helper()
 
 	db := pgtest.NewSqlxDB(t)
