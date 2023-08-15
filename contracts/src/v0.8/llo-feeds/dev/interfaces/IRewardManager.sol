@@ -5,14 +5,12 @@ import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/in
 import {Common} from "../../../libraries/Common.sol";
 
 interface IRewardManager is IERC165 {
-
   /**
    * @notice Record the fee received for a particular pool
    * @param payments array of structs containing pool id and amount
    * @param payee the user the funds should be retrieved from
    */
   function onFeePaid(FeePayment[] calldata payments, address payee) external;
-
 
   /**
    * @notice Claims the rewards in a specific pool

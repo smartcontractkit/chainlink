@@ -8,6 +8,7 @@ import {RewardManager} from "../../dev/RewardManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/mocks/WERC20Mock.sol";
+import {IRewardManager} from "../../dev/interfaces/IRewardManager.sol";
 
 /**
  * @title BaseFeeManagerTest
@@ -71,7 +72,7 @@ contract BaseFeeManagerTest is Test {
   //events emitted
   event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint64 discount);
   event NativeSurchargeUpdated(uint64 newSurcharge);
-  event InsufficientLink(bytes32 indexed configDigest, uint192 linkQuantity, uint192 nativeQuantity);
+  event InsufficientLink(IRewardManager.FeePayment[] feesAndRewards);
   event Withdraw(address adminAddress, address assetAddress, uint192 quantity);
 
   function setUp() public virtual {
@@ -161,11 +162,11 @@ contract BaseFeeManagerTest is Test {
     return reward;
   }
 
-  function getV0Report(bytes32 feedId) public pure returns (bytes memory) {
+  function getV1Report(bytes32 feedId) public pure returns (bytes memory) {
     return abi.encode(feedId, uint32(0), int192(0), int192(0), int192(0), uint64(0), bytes32(0), uint64(0), uint64(0));
   }
 
-  function getV1Report(bytes32 feedId) public view returns (bytes memory) {
+  function getV2Report(bytes32 feedId) public view returns (bytes memory) {
     return
       abi.encode(
         feedId,
@@ -178,16 +179,16 @@ contract BaseFeeManagerTest is Test {
       );
   }
 
-  function getV1ReportWithExpiryAndFee(
+  function getV2ReportWithExpiryAndFee(
     bytes32 feedId,
     uint256 expiry,
     uint256 linkFee,
     uint256 nativeFee
-  ) public view returns (bytes memory) {
+  ) public pure returns (bytes memory) {
     return abi.encode(feedId, uint32(0), int192(0), uint32(0), uint32(expiry), linkFee, nativeFee);
   }
 
-  function getV2Report(bytes32 feedId) public view returns (bytes memory) {
+  function getV3Report(bytes32 feedId) public view returns (bytes memory) {
     return
       abi.encode(
         feedId,
@@ -202,7 +203,7 @@ contract BaseFeeManagerTest is Test {
       );
   }
 
-  function getV2ReportWithCustomExpiryAndFee(
+  function getV3ReportWithCustomExpiryAndFee(
     bytes32 feedId,
     uint256 expiry,
     uint256 linkFee,

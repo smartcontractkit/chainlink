@@ -22,7 +22,7 @@ interface IVerifierProxy {
    * report and any metadata for billing.
    * @return verifiedReports The encoded reports from the verifier.
    */
-  function verify(bytes[] calldata payloads) external payable returns (bytes[] memory verifiedReports);
+  function verifyBulk(bytes[] calldata payloads) external payable returns (bytes[] memory verifiedReports);
 
   /**
    * @notice Sets the verifier address initially, allowing `setVerifier` to be set by this Verifier in the future

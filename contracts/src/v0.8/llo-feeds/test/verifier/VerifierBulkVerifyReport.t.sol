@@ -37,7 +37,7 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * 5, USER);
 
-    _verify(signedReports, 0, USER);
+    _verifyBulk(signedReports, 0, USER);
 
     assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * 5);
   }
@@ -58,7 +58,7 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
     _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 5, USER);
 
-    _verify(signedReports, 0, USER);
+    _verifyBulk(signedReports, 0, USER);
 
     assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
   }
@@ -73,11 +73,11 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
     //create an array containing 5 link reports
     bytes[] memory signedReports = new bytes[](5);
-    for (uint256 i = 0; i < 5; i++) {
+    for (uint256 i; i < 5; i++) {
       signedReports[i] = signedReport;
     }
 
-    _verify(signedReports, DEFAULT_REPORT_NATIVE_FEE * 5, USER);
+    _verifyBulk(signedReports, DEFAULT_REPORT_NATIVE_FEE * 5, USER);
 
     assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
     assertEq(address(feeManager).balance, 0);
@@ -97,7 +97,7 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
       signedReports[i] = signedReport;
     }
 
-    _verify(signedReports, DEFAULT_REPORT_NATIVE_FEE * 10, USER);
+    _verifyBulk(signedReports, DEFAULT_REPORT_NATIVE_FEE * 10, USER);
 
     assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
     assertEq(address(feeManager).balance, 0);

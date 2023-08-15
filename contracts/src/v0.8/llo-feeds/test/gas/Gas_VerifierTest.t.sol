@@ -69,6 +69,7 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   }
 
   function testVerifyProxyWithLinkFeeSuccess_gas() public {
+    vm.pauseGasMetering();
     bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
       _generateV2Report(),
       _generateReportContext(FEED_ID_V3),
@@ -76,10 +77,13 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
       _generateQuote(address(link))
     );
 
+    vm.resumeGasMetering();
+
     s_verifierProxy.verify(signedLinkPayload);
   }
 
   function testVerifyProxyWithNativeFeeSuccess_gas() public {
+    vm.pauseGasMetering();
     bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
       _generateV2Report(),
       _generateReportContext(FEED_ID_V3),
@@ -87,7 +91,85 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
       _generateQuote(address(native))
     );
 
+    vm.resumeGasMetering();
+
     s_verifierProxy.verify(signedNativePayload);
+  }
+}
+
+contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
+  uint256 internal constant DEFAULT_LINK_MINT_QUANTITY = 100 ether;
+  uint256 internal constant DEFAULT_NATIVE_MINT_QUANTITY = 100 ether;
+  uint256 internal constant NUMBER_OF_REPORTS_TO_VERIFY = 5;
+  function setUp() public virtual override {
+    super.setUp();
+
+    //mint some link and eth to warm the storage
+    link.mint(address(rewardManager), DEFAULT_LINK_MINT_QUANTITY);
+    native.mint(address(feeManager), DEFAULT_NATIVE_MINT_QUANTITY);
+
+    //warm the rewardManager
+    link.mint(address(this), DEFAULT_NATIVE_MINT_QUANTITY);
+    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, address(this));
+    (, , bytes32 latestConfigDigest) = s_verifier.latestConfigDetails(FEED_ID);
+
+    //mint some tokens to the user
+    link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);
+    native.mint(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+    vm.deal(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+
+    //mint some link tokens to the feeManager pool
+    link.mint(address(feeManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS_TO_VERIFY);
+
+    //approve funds prior to test
+    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS_TO_VERIFY, USER);
+    _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS_TO_VERIFY, USER);
+
+    IRewardManager.FeePayment[] memory payments = new IRewardManager.FeePayment[](1);
+    payments[0] = IRewardManager.FeePayment(latestConfigDigest, uint192(DEFAULT_REPORT_LINK_FEE));
+
+    changePrank(address(feeManager));
+    rewardManager.onFeePaid(payments, address(this));
+
+    changePrank(USER);
+  }
+
+  function testBulkVerifyProxyWithLinkFeeSuccess_gas() public {
+    vm.pauseGasMetering();
+    bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(link))
+    );
+
+    bytes[] memory signedLinkPayloads = new bytes[](NUMBER_OF_REPORTS_TO_VERIFY);
+    for (uint256 i = 0; i < NUMBER_OF_REPORTS_TO_VERIFY; i++) {
+      signedLinkPayloads[i] = signedLinkPayload;
+    }
+
+    vm.resumeGasMetering();
+
+    s_verifierProxy.verifyBulk(signedLinkPayloads);
+  }
+
+  function testBulkVerifyProxyWithNativeFeeSuccess_gas() public {
+    vm.pauseGasMetering();
+    bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
+      _generateV2Report(),
+      _generateReportContext(FEED_ID_V3),
+      _getSigners(FAULT_TOLERANCE + 1),
+      _generateQuote(address(native))
+    );
+
+    bytes[] memory signedNativePayloads = new bytes[](NUMBER_OF_REPORTS_TO_VERIFY);
+    for (uint256 i = 0; i < NUMBER_OF_REPORTS_TO_VERIFY; i++) {
+      signedNativePayloads[i] = signedNativePayload;
+    }
+
+    vm.resumeGasMetering();
+
+    s_verifierProxy.verifyBulk(signedNativePayloads);
   }
 }
 

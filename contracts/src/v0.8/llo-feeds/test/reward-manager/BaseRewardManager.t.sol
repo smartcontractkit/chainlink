@@ -171,14 +171,13 @@ contract BaseRewardManagerTest is Test {
     addFundsToPool(payments, sender);
   }
 
-
   function addFundsToPool(IRewardManager.FeePayment[] memory payments, address sender) public {
     //record the current address and switch to the sender
     address originalAddr = msg.sender;
     changePrank(sender);
 
     uint256 totalPayment;
-    for(uint256 i; i < payments.length; ++i) {
+    for (uint256 i; i < payments.length; ++i) {
       totalPayment += payments[i].amount;
     }
 
@@ -191,8 +190,6 @@ contract BaseRewardManagerTest is Test {
     //change back to the original address
     changePrank(originalAddr);
   }
-
-
 
   function getAsset(uint256 quantity) public view returns (Common.Asset memory) {
     return Common.Asset(address(asset), quantity);

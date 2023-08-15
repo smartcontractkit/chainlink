@@ -92,7 +92,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   /// @inheritdoc IRewardManager
   function onFeePaid(FeePayment[] calldata payments, address payee) external override onlyOwnerOrFeeManager {
     uint256 totalFeeAmount;
-    for(uint256 i; i < payments.length; ++i) {
+    for (uint256 i; i < payments.length; ++i) {
       unchecked {
         //the total amount for any ERC20 asset cannot exceed 2^256 - 1
         s_totalRewardRecipientFees[payments[i].poolId] += payments[i].amount;
@@ -107,7 +107,6 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
     emit FeePaid(payments, payee);
   }
-
 
   /// @inheritdoc IRewardManager
   function claimRewards(bytes32[] memory poolIds) external override {

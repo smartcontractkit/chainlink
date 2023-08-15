@@ -18,6 +18,13 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
   function processFee(bytes calldata payload, address subscriber) external payable;
 
   /**
+   * @notice Processes the fees for each report in the payload, billing the subscriber and paying the reward manager
+   * @param payloads reports and quotes to process
+   * @param subscriber address of the user to process fee for
+   */
+  function processFeeBulk(bytes[] calldata payloads, address subscriber) external payable;
+
+  /**
    * @notice Calculate the applied fee and the reward from a report. If the sender is a subscriber, they will receive a discount.
    * @param subscriber address trying to verify
    * @param report report to calculate the fee for
@@ -61,4 +68,16 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
    * @param quantity quantity to withdraw
    */
   function withdraw(address assetAddress, uint192 quantity) external;
+
+  /**
+   * @notice The structure to hold a fee and reward to verify a report
+   * digest the digest linked to the fee and reward
+   * fee the fee paid to verify the report
+   * reward the reward paid upon verification
+   */
+  struct FeeAndReward {
+    bytes32 configDigest;
+    Common.Asset fee;
+    Common.Asset reward;
+  }
 }

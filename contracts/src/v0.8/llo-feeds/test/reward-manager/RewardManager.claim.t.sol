@@ -40,9 +40,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
     }
   }
 
-  function test_claimMultiFee() public {
-
-  }
+  function test_claimMultiFee() public {}
 
   function test_claimRewardsWithDuplicatPoolIdsDoesNotPayoutTwice() public {
     //add funds to a different pool to ensure they're not claimed
