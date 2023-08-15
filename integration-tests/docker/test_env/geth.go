@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"os"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/google/uuid"
@@ -15,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
-	"os"
 )
 
 const (
@@ -40,7 +41,7 @@ type Geth struct {
 func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
 	g := &Geth{
 		EnvComponent: EnvComponent{
-			ContainerName: fmt.Sprintf("%s-%s", "geth", uuid.NewString()[0:3]),
+			ContainerName: fmt.Sprintf("%s-%s", "geth", uuid.NewString()[0:8]),
 			Networks:      networks,
 		},
 	}
@@ -86,7 +87,7 @@ func (g *Geth) StartContainer() error {
 	networkConfig := blockchain.SimulatedEVMNetwork
 	networkConfig.Name = "geth"
 	networkConfig.URLs = []string{g.ExternalWsUrl}
-	networkConfig.HTTPURLs = []string{g.ExternalWsUrl}
+	networkConfig.HTTPURLs = []string{g.ExternalHttpUrl}
 
 	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig)
 	if err != nil {
