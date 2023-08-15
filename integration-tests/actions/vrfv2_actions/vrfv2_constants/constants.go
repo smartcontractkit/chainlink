@@ -13,7 +13,7 @@ var (
 	//todo - get Sub id when creating subscription - need to listen for SubscriptionCreated Log
 	SubID                            = uint64(1)
 	VRFSubscriptionFundingAmountLink = big.NewInt(100)
-	ChainlinkNodeFundingAmountEth    = big.NewFloat(1)
+	ChainlinkNodeFundingAmountEth    = big.NewFloat(0.1)
 	NumberOfWords                    = uint32(3)
 	MaxGasPriceGWei                  = 1000
 	CallbackGasLimit                 = uint32(1000000)
