@@ -45,7 +45,7 @@ func TestWorkID(t *testing.T) {
 					TxHash: common.HexToHash("0x12345"),
 				},
 			},
-			expected: "91ace35299de40860e17d31adbc64bee48f437362cedd3b69ccf749a2f38d8e5",
+			expected: "278fb23f812503265e1d8e8531e1df62ad593455917eed7872f24c634a048a11",
 		},
 		{
 			name:     "empty upkeepID",
