@@ -183,7 +183,6 @@ func (bs *BlockSubscriber) Close() error {
 		bs.mu.Lock()
 		defer bs.mu.Unlock()
 
-		close(bs.headC)
 		bs.cancel()
 		bs.unsubscribe()
 		return nil
@@ -275,6 +274,11 @@ func (w *headWrapper) OnNewLongestChain(_ context.Context, head *evmtypes.Head) 
 	w.lggr.Debugf("OnNewLongestChain called with new head %+v", head)
 
 	if head != nil {
-		w.headC <- head
+		select {
+		case w.headC <- head:
+		default:
+			w.lggr.Debugf("head channel is full, discarding head %+v", head)
+		}
+
 	}
 }
