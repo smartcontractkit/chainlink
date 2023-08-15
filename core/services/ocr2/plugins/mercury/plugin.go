@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
-	decoder "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
@@ -39,7 +38,7 @@ func NewServices(
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
 	chainHeadTracker types.ChainHeadTracker,
 	orm types.DataSourceORM,
-	feedID [32]byte,
+	feedID types.FeedID,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
@@ -56,7 +55,7 @@ func NewServices(
 	}
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
 
-	switch decoder.SchemaVersionFromFeedId(feedID) {
+	switch feedID.Version() {
 	case 1:
 		ds := mercuryv1.NewDataSource(
 			orm,
@@ -87,8 +86,8 @@ func NewServices(
 			runResults,
 			chEnhancedTelem,
 			ocr2Provider.ContractTransmitter(),
-			types.FeedID(*pluginConfig.LinkFeedID),
-			types.FeedID(*pluginConfig.NativeFeedID),
+			*pluginConfig.LinkFeedID,
+			*pluginConfig.NativeFeedID,
 		)
 		argsNoPlugin.MercuryPluginFactory = relaymercuryv2.NewFactory(
 			ds,
@@ -106,8 +105,8 @@ func NewServices(
 			runResults,
 			chEnhancedTelem,
 			ocr2Provider.ContractTransmitter(),
-			types.FeedID(*pluginConfig.LinkFeedID),
-			types.FeedID(*pluginConfig.NativeFeedID),
+			*pluginConfig.LinkFeedID,
+			*pluginConfig.NativeFeedID,
 		)
 		argsNoPlugin.MercuryPluginFactory = relaymercuryv3.NewFactory(
 			ds,

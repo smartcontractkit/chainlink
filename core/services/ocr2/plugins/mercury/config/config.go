@@ -9,13 +9,12 @@ import (
 	"net/url"
 	"regexp"
 
-	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	decoder "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 )
 
 type PluginConfig struct {
@@ -27,11 +26,11 @@ type PluginConfig struct {
 	// effectively sets the "first" validFromBlockNumber.
 	InitialBlockNumber null.Int64 `json:"initialBlockNumber" toml:"initialBlockNumber"`
 
-	LinkFeedID   *common.Hash `json:"linkFeedID" toml:"linkFeedID"`
-	NativeFeedID *common.Hash `json:"nativeFeedID" toml:"nativeFeedID"`
+	LinkFeedID   *types.FeedID `json:"linkFeedID" toml:"linkFeedID"`
+	NativeFeedID *types.FeedID `json:"nativeFeedID" toml:"nativeFeedID"`
 }
 
-func ValidatePluginConfig(config PluginConfig, feedId [32]byte) (merr error) {
+func ValidatePluginConfig(config PluginConfig, feedID types.FeedID) (merr error) {
 	if config.RawServerURL == "" {
 		merr = errors.New("mercury: ServerURL must be specified")
 	} else {
@@ -53,8 +52,7 @@ func ValidatePluginConfig(config PluginConfig, feedId [32]byte) (merr error) {
 		merr = errors.Join(merr, errors.New("mercury: ServerPubKey is required and must be a 32-byte hex string"))
 	}
 
-	reportSchemaVersion := decoder.SchemaVersionFromFeedId(feedId)
-	switch reportSchemaVersion {
+	switch feedID.Version() {
 	case 1:
 		if !config.InitialBlockNumber.Valid {
 			merr = errors.Join(merr, errors.New("initialBlockNumber must be specified for v1 jobs"))
@@ -67,16 +65,16 @@ func ValidatePluginConfig(config PluginConfig, feedId [32]byte) (merr error) {
 		}
 	case 2, 3:
 		if config.LinkFeedID == nil {
-			merr = errors.Join(merr, fmt.Errorf("linkFeedID must be specified for v%d jobs", reportSchemaVersion))
+			merr = errors.Join(merr, fmt.Errorf("linkFeedID must be specified for v%d jobs", feedID.Version()))
 		}
 		if config.NativeFeedID == nil {
-			merr = errors.Join(merr, fmt.Errorf("nativeFeedID must be specified for v%d jobs", reportSchemaVersion))
+			merr = errors.Join(merr, fmt.Errorf("nativeFeedID must be specified for v%d jobs", feedID.Version()))
 		}
 		if config.InitialBlockNumber.Valid {
-			merr = errors.Join(merr, fmt.Errorf("initialBlockNumber may not be specified for v%d jobs", reportSchemaVersion))
+			merr = errors.Join(merr, fmt.Errorf("initialBlockNumber may not be specified for v%d jobs", feedID.Version()))
 		}
 	default:
-		merr = errors.Join(merr, fmt.Errorf("got unsupported schema version %d; supported versions are 1,2,3", reportSchemaVersion))
+		merr = errors.Join(merr, fmt.Errorf("got unsupported schema version %d; supported versions are 1,2,3", feedID.Version()))
 	}
 
 	return merr

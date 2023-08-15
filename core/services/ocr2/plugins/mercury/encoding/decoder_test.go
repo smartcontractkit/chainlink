@@ -75,12 +75,6 @@ func buildV3Report(fId [32]byte) []byte {
 	return report
 }
 
-func Test_DecodeSchemaVersionFromFeedId(t *testing.T) {
-	assert.Equal(t, REPORT_V1, SchemaVersionFromFeedId(v1FeedId))
-	assert.Equal(t, REPORT_V2, SchemaVersionFromFeedId(v2FeedId))
-	assert.Equal(t, REPORT_V3, SchemaVersionFromFeedId(v3FeedId))
-}
-
 func Test_ReportDecoder(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
