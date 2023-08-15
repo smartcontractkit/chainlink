@@ -30,19 +30,21 @@ func NewAbiPacker(abi abi.ABI, utilsAbi abi.ABI) *abiPacker {
 }
 
 func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
-	var result ocr2keepers.CheckResult
-
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return result, err
+		// decode failed, not retryable
+		return getIneligibleCheckResultWithoutPerformData(payload, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false),
+			fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", payload.UpkeepID.String(), raw, err)
 	}
 
 	out, err := p.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return result, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
+		// unpack failed, not retryable
+		return getIneligibleCheckResultWithoutPerformData(payload, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false),
+			fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %s", payload.UpkeepID.String(), raw, err)
 	}
 
-	result = ocr2keepers.CheckResult{
+	result := ocr2keepers.CheckResult{
 		Eligible:            *abi.ConvertType(out[0], new(bool)).(*bool),
 		Retryable:           false,
 		GasAllocated:        uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
@@ -64,31 +66,32 @@ func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw str
 	return result, nil
 }
 
-func (p *abiPacker) UnpackCheckCallbackResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {
+func (p *abiPacker) UnpackCheckCallbackResult(callbackResp []byte) (PipelineExecutionState, bool, []byte, uint8, *big.Int, error) {
 	out, err := p.abi.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
 	if err != nil {
-		return false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
+		return PackUnpackDecodeFailed, false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
 	}
 
 	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 	failureReason := *abi.ConvertType(out[2], new(uint8)).(*uint8)
 	gasUsed := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	return upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
+
+	return NoPipelineError, upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
 }
 
-func (p *abiPacker) UnpackPerformResult(raw string) (bool, error) {
+func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return false, err
+		return PackUnpackDecodeFailed, false, err
 	}
 
 	out, err := p.abi.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return false, fmt.Errorf("%w: unpack simulatePerformUpkeep return: %s", err, raw)
+		return PackUnpackDecodeFailed, false, err
 	}
 
-	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
+	return NoPipelineError, *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
 func (p *abiPacker) UnpackUpkeepInfo(id *big.Int, raw string) (UpkeepInfo, error) {
@@ -159,4 +162,18 @@ func (p *abiPacker) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistr
 	}
 
 	return report, nil
+}
+
+// getIneligibleCheckResultWithoutPerformData returns an ineligible check result with ineligibility reason and pipeline execution state but without perform data
+func getIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason UpkeepFailureReason, state PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
+	return ocr2keepers.CheckResult{
+		IneligibilityReason:    uint8(reason),
+		PipelineExecutionState: uint8(state),
+		Retryable:              retryable,
+		UpkeepID:               p.UpkeepID,
+		Trigger:                p.Trigger,
+		WorkID:                 p.WorkID,
+		FastGasWei:             big.NewInt(0),
+		LinkNative:             big.NewInt(0),
+	}
 }

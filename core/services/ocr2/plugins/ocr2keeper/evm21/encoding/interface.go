@@ -31,20 +31,24 @@ const (
 	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
 
 	// pipeline execution error
-	NoPipelineError     PipelineExecutionState = 0
-	CheckBlockTooOld    PipelineExecutionState = 1
-	CheckBlockInvalid   PipelineExecutionState = 2
-	RpcFlakyFailure     PipelineExecutionState = 3
-	MercuryFlakyFailure PipelineExecutionState = 4
-	PackUnpackFailed    PipelineExecutionState = 5
+	NoPipelineError             PipelineExecutionState = 0
+	CheckBlockTooOld            PipelineExecutionState = 1
+	CheckBlockInvalid           PipelineExecutionState = 2
+	RpcFlakyFailure             PipelineExecutionState = 3
+	MercuryFlakyFailure         PipelineExecutionState = 4
+	PackUnpackDecodeFailed      PipelineExecutionState = 5
+	MercuryUnmarshalError       PipelineExecutionState = 6
+	InvalidMercuryRequest       PipelineExecutionState = 7
+	FailedToReadMercuryResponse PipelineExecutionState = 8
+	InvalidRevertDataInput      PipelineExecutionState = 9
 )
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
 
 type Packer interface {
 	UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error)
-	UnpackCheckCallbackResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error)
-	UnpackPerformResult(raw string) (bool, error)
+	UnpackCheckCallbackResult(callbackResp []byte) (PipelineExecutionState, bool, []byte, uint8, *big.Int, error)
+	UnpackPerformResult(raw string) (PipelineExecutionState, bool, error)
 	UnpackUpkeepInfo(id *big.Int, raw string) (UpkeepInfo, error)
 	UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error)
 	PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error)
