@@ -38,18 +38,17 @@ import (
 )
 
 const (
-	// DefaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
-	DefaultAllowListExpiration = 20 * time.Minute
-	// CleanupInterval decides when the expired items in cache will be deleted.
-	CleanupInterval = 25 * time.Minute
+	// defaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
+	defaultAllowListExpiration = 20 * time.Minute
+	// cleanupInterval decides when the expired items in cache will be deleted.
+	cleanupInterval = 25 * time.Minute
+	// validCheckBlockRange decides the max distance between the check block and the current block
+	validCheckBlockRange = 128
 )
 
 var (
 	ErrLogReadFailure                = fmt.Errorf("failure reading logs")
 	ErrHeadNotAvailable              = fmt.Errorf("head not available")
-	ErrRegistryCallFailure           = fmt.Errorf("registry chain call failure")
-	ErrBlockKeyNotParsable           = fmt.Errorf("block identifier not parsable")
-	ErrUpkeepKeyNotParsable          = fmt.Errorf("upkeep key not parsable")
 	ErrInitializationFailure         = fmt.Errorf("failed to initialize registry")
 	ErrContextCancelled              = fmt.Errorf("context was cancelled")
 	ErrABINotParsable                = fmt.Errorf("error parsing abi")
@@ -79,7 +78,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, lggr logger.Logger) (*EvmRegistry, *EVMAutomationEncoder21, error) {
+func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, bs *BlockSubscriber, lggr logger.Logger) (*EvmRegistry, *EVMAutomationEncoder21, error) {
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -119,11 +118,12 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		mercury: &MercuryConfig{
 			cred:           mc,
 			abi:            feedLookupCompatibleABI,
-			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
+			allowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		hc:               http.DefaultClient,
 		enc:              EVMAutomationEncoder21{packer: packer},
 		logEventProvider: logEventProvider,
+		bs:               bs,
 	}
 
 	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
@@ -169,30 +169,30 @@ type MercuryConfig struct {
 }
 
 type EvmRegistry struct {
-	ht            types.HeadTracker
-	sync          utils.StartStopOnce
-	lggr          logger.Logger
-	poller        logpoller.LogPoller
-	addr          common.Address
-	client        client.Client
-	registry      Registry
-	abi           abi.ABI
-	packer        *evmRegistryPackerV2_1
-	chLog         chan logpoller.Log
-	reInit        *time.Timer
-	mu            sync.RWMutex
-	txHashes      map[string]bool
-	lastPollBlock int64
-	ctx           context.Context
-	cancel        context.CancelFunc
-	active        map[string]activeUpkeep
-	headFunc      func(ocr2keepers.BlockKey)
-	runState      int
-	runError      error
-	mercury       *MercuryConfig
-	hc            HttpClient
-	enc           EVMAutomationEncoder21
-
+	ht               types.HeadTracker
+	sync             utils.StartStopOnce
+	lggr             logger.Logger
+	poller           logpoller.LogPoller
+	addr             common.Address
+	client           client.Client
+	registry         Registry
+	abi              abi.ABI
+	packer           *evmRegistryPackerV2_1
+	chLog            chan logpoller.Log
+	reInit           *time.Timer
+	mu               sync.RWMutex
+	txHashes         map[string]bool
+	lastPollBlock    int64
+	ctx              context.Context
+	cancel           context.CancelFunc
+	active           map[string]activeUpkeep
+	headFunc         func(ocr2keepers.BlockKey)
+	runState         int
+	runError         error
+	mercury          *MercuryConfig
+	hc               HttpClient
+	enc              EVMAutomationEncoder21
+	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
 }
 
@@ -661,9 +661,10 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 	}
 }
 
-func (r *EvmRegistry) getBlockAndUpkeepId(upkeepID ocr2keepers.UpkeepIdentifier, trigger ocr2keepers.Trigger) (*big.Int, *big.Int) {
+// getBlockAndUpkeepId retrieves check block number, block hash from trigger and upkeep id
+func (r *EvmRegistry) getBlockAndUpkeepId(upkeepID ocr2keepers.UpkeepIdentifier, trigger ocr2keepers.Trigger) (*big.Int, common.Hash, *big.Int) {
 	block := new(big.Int).SetInt64(int64(trigger.BlockNumber))
-	return block, upkeepID.BigInt()
+	return block, common.BytesToHash(trigger.BlockHash[:]), upkeepID.BigInt()
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
@@ -671,14 +672,16 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	var (
 		checkReqs    = make([]rpc.BatchElem, len(payloads))
 		checkResults = make([]*string, len(payloads))
-		blocks       = make([]*big.Int, len(payloads))
-		upkeepIds    = make([]*big.Int, len(payloads))
+		results      = make([]ocr2keepers.CheckResult, len(payloads))
 	)
 
 	for i, p := range payloads {
-		block, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
-		blocks[i] = block
-		upkeepIds[i] = upkeepId
+		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
+		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
+		if state != NoPipelineError {
+			results[i] = r.getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, state, retryable)
+			continue
+		}
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
@@ -689,6 +692,12 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		uid.FromBigInt(upkeepId)
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
+			reason, state, retryable := r.verifyLogExists(upkeepId, p)
+			if reason != UpkeepFailureReasonNone || state != NoPipelineError {
+				results[i] = r.getIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)
+				continue
+			}
+
 			// check data will include the log trigger config
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, p.CheckData)
 			if err != nil {
@@ -721,10 +730,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		return nil, err
 	}
 
-	var (
-		multiErr error
-		results  = make([]ocr2keepers.CheckResult, len(payloads))
-	)
+	var multiErr error
 
 	for i, req := range checkReqs {
 		if req.Error != nil {
@@ -755,7 +761,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 			continue
 		}
 
-		block, upkeepId := r.getBlockAndUpkeepId(cr.UpkeepID, cr.Trigger)
+		block, _, upkeepId := r.getBlockAndUpkeepId(cr.UpkeepID, cr.Trigger)
 
 		opts, err := r.buildCallOpts(ctx, block)
 		if err != nil {
@@ -925,4 +931,86 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 	}
 
 	return block.Hash(), nil
+}
+
+func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
+	// TODO: we need to differentiate here b/w flaky errors and tx not found errors
+	txr, err := r.client.TransactionReceipt(r.ctx, txHash)
+	if err != nil {
+		return nil, common.Hash{}, err
+	}
+
+	return txr.BlockNumber, txr.BlockHash, nil
+}
+
+// getIneligibleCheckResultWithoutPerformData returns an ineligible check result with ineligibility reason and pipeline execution state but without perform data
+func (r *EvmRegistry) getIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason UpkeepFailureReason, state PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
+	return ocr2keepers.CheckResult{
+		IneligibilityReason:    uint8(reason),
+		PipelineExecutionState: uint8(state),
+		Retryable:              retryable,
+		UpkeepID:               p.UpkeepID,
+		Trigger:                p.Trigger,
+		WorkID:                 p.WorkID,
+		FastGasWei:             big.NewInt(0),
+		LinkNative:             big.NewInt(0),
+	}
+}
+
+// verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
+func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state PipelineExecutionState, retryable bool) {
+	// verify check block number is not too old
+	if r.bs.latestBlock.Load()-checkBlock.Int64() > validCheckBlockRange {
+		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
+		return CheckBlockTooOld, false
+	}
+	r.lggr.Warnf("latestBlock=%d checkBlock=%d", r.bs.latestBlock.Load(), checkBlock.Int64())
+
+	var h string
+	var ok bool
+	// verify check block number and hash are valid
+	h, ok = r.bs.queryBlocksMap(checkBlock.Int64())
+	if !ok {
+		r.lggr.Warnf("check block %s does not exist in block subscriber for upkeepId %s, querying eth client", checkBlock, upkeepId)
+		b, err := r.client.BlockByNumber(ctx, checkBlock)
+		if err != nil {
+			r.lggr.Warnf("failed to query block %s: %s", checkBlock, err.Error())
+			return RpcFlakyFailure, true
+		}
+		h = b.Hash().Hex()
+	}
+	if checkHash.Hex() != h {
+		r.lggr.Warnf("check block %s hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", checkBlock, h, checkHash.Hex(), upkeepId)
+		return CheckBlockInvalid, false
+	}
+	return NoPipelineError, false
+}
+
+// verifyLogExists checks that the log still exists on chain, returns failure reason, pipeline error, and retryable
+func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (UpkeepFailureReason, PipelineExecutionState, bool) {
+	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
+	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
+	// if log block number is populated, check log block number and block hash
+	if logBlockNumber != 0 {
+		h, ok := r.bs.queryBlocksMap(logBlockNumber)
+		if ok && h == logBlockHash.Hex() {
+			r.lggr.Debugf("tx hash %s exists on chain at block number %d for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockNumber, upkeepId)
+			return UpkeepFailureReasonNone, NoPipelineError, false
+		}
+		r.lggr.Debugf("log block %d does not exist in block subscriber for upkeepId %s, querying eth client", logBlockNumber, upkeepId)
+	} else {
+		r.lggr.Debugf("log block not provided, querying eth client for tx hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
+	}
+	// query eth client as a fallback
+	bn, _, err := r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
+	if err != nil {
+		r.lggr.Warnf("failed to query tx hash %s for upkeepId %s: %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId, err.Error())
+		return UpkeepFailureReasonNone, RpcFlakyFailure, true
+	}
+	if bn == nil {
+		r.lggr.Warnf("tx hash %s does not exist on chain for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
+		return UpkeepFailureReasonLogBlockNoLongerExists, NoPipelineError, false
+	}
+	r.lggr.Debugf("tx hash %s exists on chain for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
+	return UpkeepFailureReasonNone, NoPipelineError, false
 }

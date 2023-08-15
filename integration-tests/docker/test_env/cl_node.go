@@ -74,7 +74,7 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 }
 
 func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
-	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:3])
+	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
 	n := &ClNode{

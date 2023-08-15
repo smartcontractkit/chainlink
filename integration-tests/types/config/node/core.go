@@ -93,7 +93,7 @@ func WithP2Pv2() NodeConfigOpt {
 	}
 }
 
-func SetDefaultSimulatedGeth(cfg *chainlink.Config, ws, http string) {
+func SetDefaultSimulatedGeth(cfg *chainlink.Config, ws, http string, forwarders bool) {
 	if cfg.EVM == nil {
 		cfg.EVM = evmcfg.EVMConfigs{
 			{
@@ -112,6 +112,11 @@ func SetDefaultSimulatedGeth(cfg *chainlink.Config, ws, http string) {
 					},
 				},
 			},
+		}
+		if forwarders {
+			cfg.EVM[0].Transactions = evmcfg.Transactions{
+				ForwardersEnabled: ptr(true),
+			}
 		}
 	}
 }

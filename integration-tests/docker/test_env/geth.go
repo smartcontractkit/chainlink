@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"os"
+
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/google/uuid"
@@ -15,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
-	"os"
 )
 
 const (
@@ -34,12 +35,13 @@ type Geth struct {
 	InternalWsUrl    string
 	EthClient        *blockchain.EthereumClient
 	ContractDeployer contracts.ContractDeployer
+	ContractLoader   contracts.ContractLoader
 }
 
 func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
 	g := &Geth{
 		EnvComponent: EnvComponent{
-			ContainerName: fmt.Sprintf("%s-%s", "geth", uuid.NewString()[0:3]),
+			ContainerName: fmt.Sprintf("%s-%s", "geth", uuid.NewString()[0:8]),
 			Networks:      networks,
 		},
 	}
@@ -85,7 +87,7 @@ func (g *Geth) StartContainer() error {
 	networkConfig := blockchain.SimulatedEVMNetwork
 	networkConfig.Name = "geth"
 	networkConfig.URLs = []string{g.ExternalWsUrl}
-	networkConfig.HTTPURLs = []string{g.ExternalWsUrl}
+	networkConfig.HTTPURLs = []string{g.ExternalHttpUrl}
 
 	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig)
 	if err != nil {
@@ -108,6 +110,11 @@ func (g *Geth) StartContainer() error {
 		return err
 	}
 	g.ContractDeployer = cd
+	cl, err := contracts.NewContractLoader(bc)
+	if err != nil {
+		return err
+	}
+	g.ContractLoader = cl
 
 	log.Info().Str("containerName", g.ContainerName).
 		Str("internalHttpUrl", g.InternalHttpUrl).
@@ -178,8 +185,9 @@ func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 		Image:        "ethereum/client-go:stable",
 		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
 		Networks:     networks,
-		WaitingFor: tcwait.ForLog("Commit new sealing work").
-			WithStartupTimeout(999 * time.Second).
+		WaitingFor: tcwait.ForHTTP("/").
+			WithPort("8544/tcp").
+			WithStartupTimeout(120 * time.Second).
 			WithPollInterval(1 * time.Second),
 		Entrypoint: []string{"sh", "./root/init.sh",
 			"--dev",

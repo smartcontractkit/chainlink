@@ -50,3 +50,8 @@ Here is an example for 3 nodes cluster
   ]
 }
 ```
+
+### Debugging CL client API calls
+```
+export CL_CLIENT_DEBUG=true
+```

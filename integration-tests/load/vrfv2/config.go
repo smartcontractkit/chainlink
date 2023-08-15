@@ -45,16 +45,18 @@ type SoakVolume struct {
 }
 
 type Load struct {
-	RPSFrom  int64            `toml:"rps_from"`
-	RPSTo    int64            `toml:"rps_to"`
-	Duration *models.Duration `toml:"duration"`
+	RPSFrom     int64            `toml:"rps_from"`
+	RPSIncrease int64            `toml:"rps_increase"`
+	RPSSteps    int              `toml:"rps_steps"`
+	Duration    *models.Duration `toml:"duration"`
 }
 
 type LoadVolume struct {
-	ProductsFrom int64            `toml:"products_from"`
-	ProductsTo   int64            `toml:"products_to"`
-	Pace         *models.Duration `toml:"pace"`
-	Duration     *models.Duration `toml:"duration"`
+	ProductsFrom     int64            `toml:"products_from"`
+	ProductsIncrease int64            `toml:"products_increase"`
+	ProductsSteps    int              `toml:"products_steps"`
+	Pace             *models.Duration `toml:"pace"`
+	Duration         *models.Duration `toml:"duration"`
 }
 
 func ReadConfig() (*PerformanceConfig, error) {
