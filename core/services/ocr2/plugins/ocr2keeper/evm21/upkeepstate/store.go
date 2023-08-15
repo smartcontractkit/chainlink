@@ -3,6 +3,7 @@ package upkeepstate
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -10,12 +11,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
 	// CacheExpiration is the amount of time that we keep a record in the cache.
 	CacheExpiration = 24 * time.Hour
+	// PersistRetention ...
+	PersistRetention = 24 * time.Hour
 	// GCInterval is the amount of time between cache cleanups.
 	GCInterval = 2 * time.Hour
 	// TODO: use sentinel value from ocr2keepers
@@ -27,10 +29,11 @@ type UpkeepStateReader interface {
 	SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
 }
 
-type UpkeepStateORM interface {
-	InsertUpkeepState(upkeepStateRecord, ...pg.QOpt) error
-	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]upkeepStateRecord, error)
-	DeleteBeforeTime(time.Time, ...pg.QOpt) error
+//go:generate mockery --quiet --name UpkeepStateORM --output ./mocks/ --case=underscore
+type ORM interface {
+	InsertUpkeepState(PersistedStateRecord, ...pg.QOpt) error
+	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]PersistedStateRecord, error)
+	DeleteExpired(time.Time, ...pg.QOpt) error
 }
 
 // UpkeepStateStore is the interface for managing upkeeps final state in a local store.
@@ -57,31 +60,29 @@ type upkeepStateRecord struct {
 // In addition, performed events are fetched by the scanner on demand.
 type upkeepStateStore struct {
 	// dependencies
-	orm     UpkeepStateORM
+	orm     ORM
 	lggr    logger.Logger
 	scanner PerformedLogsScanner
 
 	// configuration
-	pruneDepth   time.Duration
+	retention    time.Duration
 	cleanCadence time.Duration
 
 	mu    sync.RWMutex
 	cache map[string]*upkeepStateRecord
 
 	// service values
-	utils.StartStopOnce
-	ctx    context.Context
 	cancel context.CancelFunc
 }
 
 // NewUpkeepStateStore creates a new state store
-func NewUpkeepStateStore(orm UpkeepStateORM, lggr logger.Logger, scanner PerformedLogsScanner) *upkeepStateStore {
+func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScanner) *upkeepStateStore {
 	return &upkeepStateStore{
 		orm:          orm,
 		lggr:         lggr.Named("UpkeepStateStore"),
 		cache:        map[string]*upkeepStateRecord{},
 		scanner:      scanner,
-		pruneDepth:   CacheExpiration,
+		retention:    CacheExpiration,
 		cleanCadence: GCInterval,
 	}
 }
@@ -89,23 +90,31 @@ func NewUpkeepStateStore(orm UpkeepStateORM, lggr logger.Logger, scanner Perform
 // Start starts the upkeep state store.
 // it does background cleanup of the cache.
 func (u *upkeepStateStore) Start(pctx context.Context) error {
-	if u.pruneDepth == 0 {
-		return fmt.Errorf("pruneDepth %d must be greater than zero", u.pruneDepth)
+	if u.retention == 0 {
+		return fmt.Errorf("pruneDepth %d must be greater than zero", u.retention)
 	}
 
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
 
 	u.mu.Lock()
-	u.ctx = ctx
 	u.cancel = cancel
 	u.mu.Unlock()
 
 	u.lggr.Debug("Starting upkeep state store")
 
-	u.run()
+	cleanTick := time.NewTicker(u.cleanCadence)
 
-	return nil
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-cleanTick.C:
+			if err := u.cleanup(); err != nil {
+				u.lggr.Errorw("unable to clean old state values", "err", err)
+			}
+		}
+	}
 }
 
 // Close stops the service of pruning stale data; implements io.Closer
@@ -119,16 +128,6 @@ func (u *upkeepStateStore) Close() error {
 	}
 
 	return nil
-}
-
-// Name provides the service name
-func (u *upkeepStateStore) Name() string {
-	return u.lggr.Name()
-}
-
-// HealthReport provides a health report on the service
-func (u *upkeepStateStore) HealthReport() map[string]error {
-	return map[string]error{u.Name(): u.StartStopOnce.Healthy()}
 }
 
 // SelectByWorkIDs returns the current state of the upkeep for the provided ids.
@@ -146,9 +145,18 @@ func (u *upkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, en
 		return nil, err
 	}
 
-	// fetch values from the db to populate the cache with missing values here
-	if err := u.fetchFromDB(ctx, workIDs...); err != nil {
-		return nil, err
+	idsWithUnknownState := []string{}
+	for i, id := range states {
+		if id == StateUnknown {
+			idsWithUnknownState = append(idsWithUnknownState, workIDs[i])
+		}
+	}
+
+	if len(idsWithUnknownState) > 0 {
+		// fetch values from the db to populate the cache with missing values here
+		if err := u.fetchFromDB(ctx, idsWithUnknownState...); err != nil {
+			return nil, err
+		}
 	}
 
 	// at this point all values should be in the cache. if values are missing
@@ -166,13 +174,13 @@ func (u *upkeepStateStore) SetUpkeepState(_ context.Context, result ocr2keepers.
 		return nil
 	}
 
-	return u.upsertStateRecord(result.WorkID, ocr2keepers.Ineligible, uint64(result.Trigger.BlockNumber))
+	return u.upsertStateRecord(result.WorkID, ocr2keepers.Ineligible, uint64(result.Trigger.BlockNumber), result.UpkeepID.BigInt(), result.IneligibilityReason)
 }
 
 // upsertStateRecord inserts or updates a record for the provided
 // check result. If an item already exists in the data store, the state and
 // block are updated.
-func (u *upkeepStateStore) upsertStateRecord(workID string, s ocr2keepers.UpkeepState, b uint64) error {
+func (u *upkeepStateStore) upsertStateRecord(workID string, s ocr2keepers.UpkeepState, b uint64, upkeepID *big.Int, reason uint8) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
@@ -189,7 +197,14 @@ func (u *upkeepStateStore) upsertStateRecord(workID string, s ocr2keepers.Upkeep
 
 	u.cache[workID] = record
 
-	return u.orm.InsertUpkeepState(*record)
+	return u.orm.InsertUpkeepState(PersistedStateRecord{
+		UpkeepID:            upkeepID,
+		WorkID:              record.WorkID,
+		CompletionState:     uint8(record.CompletionState),
+		BlockNumber:         record.BlockNumber,
+		IneligibilityReason: reason,
+		AddedAt:             record.AddedAt,
+	})
 }
 
 // fetchPerformed fetches all performed logs from the scanner to populate the cache.
@@ -231,7 +246,12 @@ func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs ...string) e
 
 	for _, state := range states {
 		if _, ok := u.cache[state.WorkID]; !ok {
-			u.cache[state.WorkID] = &state
+			u.cache[state.WorkID] = &upkeepStateRecord{
+				WorkID:          state.WorkID,
+				CompletionState: ocr2keepers.UpkeepState(state.CompletionState),
+				BlockNumber:     state.BlockNumber,
+				AddedAt:         state.AddedAt,
+			}
 		}
 	}
 
@@ -268,9 +288,9 @@ func (u *upkeepStateStore) cleanup() error {
 
 // cleanDB cleans up records in the DB that are older than the TTL.
 func (u *upkeepStateStore) cleanDB() error {
-	tm := time.Now().Add(-1 * u.pruneDepth)
+	tm := time.Now().Add(-1 * u.retention)
 
-	return u.orm.DeleteBeforeTime(tm)
+	return u.orm.DeleteExpired(tm)
 }
 
 // cleanupCache removes any records from the cache that are older than the TTL.
@@ -279,25 +299,8 @@ func (u *upkeepStateStore) cleanCache() {
 	defer u.mu.Unlock()
 
 	for id, state := range u.cache {
-		if time.Since(state.AddedAt) > u.pruneDepth {
+		if time.Since(state.AddedAt) > u.retention {
 			delete(u.cache, id)
-		}
-	}
-}
-
-func (u *upkeepStateStore) run() {
-	cleanTick := time.After(u.cleanCadence)
-
-	for {
-		select {
-		case <-u.ctx.Done():
-			return
-		case <-cleanTick:
-			if err := u.cleanup(); err != nil {
-				u.lggr.Errorw("unable to clean old state values", "err", err)
-			}
-
-			cleanTick = time.After(utils.WithJitter(u.cleanCadence))
 		}
 	}
 }

@@ -35,7 +35,7 @@ func TestInsertSelectDelete(t *testing.T) {
 	require.NoError(t, err, "no error expected from select")
 	require.Len(t, states, 1, "records return should equal records inserted")
 
-	err = orm.DeleteBeforeTime(time.Now())
+	err = orm.DeleteExpired(time.Now())
 
 	assert.NoError(t, err, "no error expected from delete")
 

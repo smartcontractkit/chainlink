@@ -1,10 +1,11 @@
 -- +goose Up
 
 CREATE TABLE evm_upkeep_state (
-    id BIGSERIAL PRIMARY KEY,
+    work_id TEXT PRIMARY KEY,
     evm_chain_id NUMERIC NOT NULL,
-    work_id TEXT NOT NULL,
+    upkeep_id NUMERIC NOT NULL,
     completion_state SMALLINT NOT NULL,
+    ineligibility_reason NUMERIC NOT NULL,
     block_number NUMERIC,
     added_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );

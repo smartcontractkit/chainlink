@@ -26,7 +26,7 @@ func TestUpkeepStateStore(t *testing.T) {
 		workIDsSelect      []string
 		workIDsFromScanner []string
 		errScanner         error
-		recordsFromDB      []upkeepStateRecord
+		recordsFromDB      []PersistedStateRecord
 		errDB              error
 		expected           []ocr2keepers.UpkeepState
 		errored            bool
@@ -93,10 +93,10 @@ func TestUpkeepStateStore(t *testing.T) {
 			},
 			workIDsSelect:      []string{"0x1", "0x2", "0x3"},
 			workIDsFromScanner: []string{"0x2", "0x222"},
-			recordsFromDB: []upkeepStateRecord{
+			recordsFromDB: []PersistedStateRecord{
 				{
 					WorkID:          "0x3",
-					CompletionState: ocr2keepers.Ineligible,
+					CompletionState: 1,
 					BlockNumber:     2,
 					AddedAt:         time.Now(),
 				},
@@ -337,11 +337,10 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 }
 
 func TestUpkeepStateStore_Upsert(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
 	ctx := testutils.Context(t)
 	lggr := logger.TestLogger(t)
 	chainID := testutils.FixtureChainID
-
-	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 
 	store := NewUpkeepStateStore(orm, lggr, &mockScanner{})
@@ -370,19 +369,16 @@ func TestUpkeepStateStore_Upsert(t *testing.T) {
 }
 
 func TestUpkeepStateStore_Service(t *testing.T) {
-	if testing.Short() {
-		t.Skip("database required for upkeep state store integration test")
-	}
+	orm := &mockORM{
+		onDelete: func(tm time.Time) {
 
-	lggr, _ := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
-	chainID := testutils.FixtureChainID
-	db := pgtest.NewSqlxDB(t)
-	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+		},
+	}
 	scanner := &mockScanner{}
 
-	store := NewUpkeepStateStore(orm, lggr, scanner)
+	store := NewUpkeepStateStore(orm, logger.TestLogger(t), scanner)
 
-	store.pruneDepth = 500 * time.Millisecond
+	store.retention = 500 * time.Millisecond
 	store.cleanCadence = 100 * time.Millisecond
 
 	var wg sync.WaitGroup
@@ -462,12 +458,13 @@ func (s *mockScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]s
 
 type mockORM struct {
 	lock           sync.Mutex
-	records        []upkeepStateRecord
+	records        []PersistedStateRecord
 	lastPruneDepth time.Time
+	onDelete       func(tm time.Time)
 	err            error
 }
 
-func (_m *mockORM) addRecords(records ...upkeepStateRecord) {
+func (_m *mockORM) addRecords(records ...PersistedStateRecord) {
 	_m.lock.Lock()
 	defer _m.lock.Unlock()
 
@@ -481,11 +478,11 @@ func (_m *mockORM) setErr(err error) {
 	_m.err = err
 }
 
-func (_m *mockORM) InsertUpkeepState(state upkeepStateRecord, _ ...pg.QOpt) error {
+func (_m *mockORM) InsertUpkeepState(state PersistedStateRecord, _ ...pg.QOpt) error {
 	return nil
 }
 
-func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, _ ...pg.QOpt) ([]upkeepStateRecord, error) {
+func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, _ ...pg.QOpt) ([]PersistedStateRecord, error) {
 	_m.lock.Lock()
 	defer _m.lock.Unlock()
 
@@ -495,11 +492,12 @@ func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, _ ...pg.QOpt) ([]upke
 	return res, _m.err
 }
 
-func (_m *mockORM) DeleteBeforeTime(tm time.Time, _ ...pg.QOpt) error {
+func (_m *mockORM) DeleteExpired(tm time.Time, _ ...pg.QOpt) error {
 	_m.lock.Lock()
 	defer _m.lock.Unlock()
 
 	_m.lastPruneDepth = tm
+	_m.onDelete(tm)
 
 	return _m.err
 }
