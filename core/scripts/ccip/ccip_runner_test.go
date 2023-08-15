@@ -47,7 +47,7 @@ var (
 // SEED_KEY   private key used for multi-user tests. Not needed when using the "deploy" command.
 // COMMAND    what function to run e.g. "deploy", "setConfig", or "gas".
 func TestCCIP(t *testing.T) {
-	ownerKey := checkOwnerKeyAndSetupChain(t)
+	ownerKey := checkOwnerKeyAndSetupChain(t, ENV)
 	command := os.Getenv("COMMAND")
 	if command == "" {
 		t.Log("No command given, skipping ccip-script. This is intended behaviour for automated testing.")
@@ -122,7 +122,7 @@ func TestRheaDeployChains(t *testing.T) {
 // TestRheaDeployLane can be run as a test with the following config
 // OWNER_KEY  private key used to deploy all contracts and is used as default in all single user tests.
 func TestRheaDeployLane(t *testing.T) {
-	key := checkOwnerKeyAndSetupChain(t)
+	key := checkOwnerKeyAndSetupChain(t, ENV)
 	rhea.DeployLanes(t, &SOURCE, &DESTINATION)
 	deployment_io.PrettyPrintLanes(ENV, &SOURCE, &DESTINATION)
 
@@ -159,7 +159,7 @@ func TestRheaDeployLane(t *testing.T) {
 // * setOCR2Config with proper addresses (but job specs are not updated at this point)
 // All contracts' addresses deployed at this point are saved under rhea.EvmDeploymentConfig.UpgradeLaneConfig
 func TestRheaDeployUpgradeLane(t *testing.T) {
-	key := checkOwnerKeyAndSetupChain(t)
+	key := checkOwnerKeyAndSetupChain(t, ENV)
 	err := rhea.DeployUpgradeRouters(&SOURCE, &DESTINATION)
 	if err != nil {
 		t.Error(err)
@@ -212,7 +212,7 @@ func TestRheaDeployUpgradeLane(t *testing.T) {
 // - populates addresses from rhea.EvmDeploymentConfig.UpgradeLaneConfig to rhea.EvmDeploymentConfig.LaneConfig
 // - sets addresses in rhea.EvmDeploymentConfig.UpgradeLaneConfig to 0 (this is a sign that there is no pending deployment)
 func TestRheaPromoteUpgradeLaneDeployment(t *testing.T) {
-	key := checkOwnerKeyAndSetupChain(t)
+	key := checkOwnerKeyAndSetupChain(t, ENV)
 
 	rhea.EnableUpgradeOffRamps(t, &SOURCE, &DESTINATION, func(src *rhea.EvmDeploymentConfig, dst *rhea.EvmDeploymentConfig) {
 		client := NewCcipClient(t, *src, *dst, key, key)
@@ -228,7 +228,7 @@ func TestRheaPromoteUpgradeLaneDeployment(t *testing.T) {
 
 // TestRheaPostUpgradeDeploymentClean removed job specs with currentVersion. MAKE SURE you bumped this value before running this script
 func TestRheaPostUpgradeDeploymentClean(t *testing.T) {
-	checkOwnerKeyAndSetupChain(t)
+	checkOwnerKeyAndSetupChain(t, ENV)
 
 	// Remove job specs from previous deployment
 	env := ENV
@@ -243,7 +243,7 @@ func TestRheaPostUpgradeDeploymentClean(t *testing.T) {
 // TestDione can be run as a test with the following config
 // OWNER_KEY  private key used to deploy all contracts and is used as default in all single user tests.
 func TestDione(t *testing.T) {
-	checkOwnerKeyAndSetupChain(t)
+	checkOwnerKeyAndSetupChain(t, ENV)
 
 	env := ENV
 	if SOURCE.ChainConfig.EvmChainId == 1337 || DESTINATION.ChainConfig.EvmChainId == 1337 {
@@ -264,7 +264,7 @@ func TestDione(t *testing.T) {
 // 1. gets the keys from the nodes based upon ENV (OCR2Keys EthKeys PeerId) using json/credentials/ for auth
 // 2. writes the node keys into a file in json/nodes/
 func TestDionePopulateNodeKeys(t *testing.T) {
-	checkOwnerKey(t)
+	checkOwnerKey(t, ENV)
 
 	env := ENV
 	if SOURCE.ChainConfig.EvmChainId == 1337 || DESTINATION.ChainConfig.EvmChainId == 1337 {
@@ -282,7 +282,7 @@ func TestDionePopulateNodeKeys(t *testing.T) {
 // 3. set ocrConfig for both
 // OWNER_KEY  private key used to deploy all contracts and is used as default in all single user tests.
 func TestUpdateAllLanes(t *testing.T) {
-	ownerKey := checkOwnerKey(t)
+	ownerKey := checkOwnerKey(t, ENV)
 	if _, ok := laneMapping[ENV]; !ok {
 		t.Error("set environment not supported")
 	}
@@ -358,7 +358,7 @@ func TestUpdateAllLanes(t *testing.T) {
 // Run TestSyncTokens
 // ** 	This should set the correct config on each ramp and token pool based on previous steps
 func TestSyncTokens(t *testing.T) {
-	ownerKey := checkOwnerKey(t)
+	ownerKey := checkOwnerKey(t, ENV)
 	DoForEachLane(t, ENV, func(source rhea.EvmDeploymentConfig, destination rhea.EvmDeploymentConfig) {
 		client := NewCcipClient(t, source, destination, ownerKey, ownerKey)
 		client.SyncTokenPools()
@@ -368,7 +368,7 @@ func TestSyncTokens(t *testing.T) {
 // TestPrintNodeBalances can be run as a test with the following config
 // OWNER_KEY  private key used to deploy all contracts and is used as default in all single user tests.
 func TestPrintNodeBalances(t *testing.T) {
-	checkOwnerKeyAndSetupChain(t)
+	checkOwnerKeyAndSetupChain(t, ENV)
 
 	don := dione.NewOfflineDON(ENV, logger.TestLogger(t))
 
@@ -377,7 +377,7 @@ func TestPrintNodeBalances(t *testing.T) {
 }
 
 func TestFundNodes(t *testing.T) {
-	key := checkOwnerKeyAndSetupChain(t)
+	key := checkOwnerKeyAndSetupChain(t, ENV)
 
 	don := dione.NewOfflineDON(ENV, logger.TestLogger(t))
 	don.FundNodeKeys(&SOURCE, key, big.NewInt(4e18), big.NewInt(4e18))
@@ -396,7 +396,7 @@ func TestFundPingPong(t *testing.T) {
 // OWNER_KEY  private key used to deploy all contracts and is used as default in all single user tests.
 // It will print the node balances for all chains where the given `env` is deployed
 func TestPrintAllNodeBalancesPerEnv(t *testing.T) {
-	ownerKey := checkOwnerKey(t)
+	ownerKey := checkOwnerKey(t, ENV)
 
 	for _, source := range chainMapping[ENV] {
 		source.SetupChain(t, ownerKey)
@@ -409,7 +409,7 @@ func TestPrintAllNodeBalancesPerEnv(t *testing.T) {
 // OWNER_KEY  private key used to deploy all contracts and is used as default in all single user tests.
 // It will fund the node balances for all chains where the given `env` is deployed
 func TestFundAllNodesPerEnv(t *testing.T) {
-	ownerKey := checkOwnerKey(t)
+	ownerKey := checkOwnerKey(t, ENV)
 	for _, source := range chainMapping[ENV] {
 		source.SetupChain(t, ownerKey)
 		don := dione.NewOfflineDON(ENV, logger.TestLogger(t))
@@ -435,8 +435,8 @@ func TestWriteNodesWalletsToCSV(t *testing.T) {
 	})
 }
 
-func checkOwnerKeyAndSetupChain(t *testing.T) string {
-	ownerKey := checkOwnerKey(t)
+func checkOwnerKeyAndSetupChain(t *testing.T, env dione.Environment) string {
+	ownerKey := checkOwnerKey(t, env)
 	SOURCE.SetupChain(t, ownerKey)
 	DESTINATION.SetupChain(t, ownerKey)
 
@@ -447,7 +447,7 @@ func checkOwnerKeyAndSetupChain(t *testing.T) string {
 // It uses set configuration by selected ENV and overrides any variables provided by calling CLO API configuration
 // You must set additional env variables FMS_AUTH_TOKEN, CLO_QUERY_URL for CLO requests
 func TestCLO(t *testing.T) {
-	ownerKey := checkOwnerKeyAndSetupChain(t)
+	ownerKey := checkOwnerKeyAndSetupChain(t, ENV)
 	seedKey := os.Getenv("SEED_KEY")
 	if seedKey == "" {
 		t.Error("must set seed key")
@@ -469,7 +469,7 @@ func TestCLO(t *testing.T) {
 
 // This ALWAYS uses the production env
 func Test__PROD__SetAllowListAllLanes(t *testing.T) {
-	ownerKey := checkOwnerKey(t)
+	ownerKey := checkOwnerKey(t, ENV)
 
 	// Simply comment out the lanes that are not needed.
 	allProdLanes := []*rhea.EvmDeploymentConfig{
@@ -512,7 +512,7 @@ func Test__PROD__SetAllowListAllLanes(t *testing.T) {
 // * OffRamp (via setOCR2Config)
 // * CommitStore (via setOCR2Config)
 func TestUpdateLaneARMAddress(t *testing.T) {
-	key := checkOwnerKeyAndSetupChain(t)
+	key := checkOwnerKeyAndSetupChain(t, ENV)
 
 	client := NewCcipClient(t, SOURCE, DESTINATION, key, key)
 	client.SetDynamicConfigOnRamp(t)
@@ -524,7 +524,7 @@ func TestUpdateLaneARMAddress(t *testing.T) {
 }
 
 func TestFinalityTags(t *testing.T) {
-	checkOwnerKeyAndSetupChain(t)
+	checkOwnerKeyAndSetupChain(t, ENV)
 
 	// Ensure that HeaderByBlockNumber using finality tag works.
 	finalityTagChains := []uint64{420, 43113, 421613, 11155111, 1, 10, 43114, 42161}
