@@ -158,9 +158,6 @@ func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLim
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
 		dynamicFee, chainSpecificFeeLimit, err = e.EvmEstimator.GetDynamicFee(ctx, feeLimit, maxFeePrice)
-		if dynamicFee.FeeCap == nil || dynamicFee.TipCap == nil {
-			err = fmt.Errorf("estimator did not return valid fee estimates: %v", dynamicFee)
-		}
 		fee.DynamicFeeCap = dynamicFee.FeeCap
 		fee.DynamicTipCap = dynamicFee.TipCap
 		return
@@ -179,7 +176,7 @@ func (e WrappedEvmEstimator) GetCost(ctx context.Context, amount assets.Eth, cal
 
 	var gasPrice *assets.Wei
 	if e.EIP1559Enabled {
-		gasPrice = fees.DynamicFeeCap.Add(fees.DynamicTipCap)
+		gasPrice = fees.DynamicFeeCap
 	} else {
 		gasPrice = fees.Legacy
 	}
