@@ -40,7 +40,7 @@ interface IVerifier is IERC165 {
     Common.AddressAndWeight[] memory recipientAddressesAndWeights
   ) external;
 
-    /**
+  /**
    * @notice identical to `setConfig` except with args for sourceChainId and sourceAddress
    * @param feedId Feed ID to set config for
    * @param sourceChainId Chain ID of source config
