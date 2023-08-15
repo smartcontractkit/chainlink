@@ -695,7 +695,9 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 				return nil, err
 			}
 		default:
-			payload, err = r.abi.Pack("checkUpkeep", upkeepId)
+			// checkUpkeep is overloaded on the contract for conditionals and log upkeeps
+			// Need to use the first function (checkUpkeep0) for conditionals
+			payload, err = r.abi.Pack("checkUpkeep0", upkeepId)
 			if err != nil {
 				return nil, err
 			}
