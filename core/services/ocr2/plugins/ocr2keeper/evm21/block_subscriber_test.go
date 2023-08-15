@@ -16,17 +16,21 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-const blockHistorySize = int64(4)
+const historySize = 4
+const blockSize = int64(4)
 
 func TestBlockSubscriber_Subscribe(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb types.HeadBroadcaster
 	var lp logpoller.LogPoller
 
-	bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+	bs := NewBlockSubscriber(hb, lp, lggr)
+	bs.blockHistorySize = historySize
+	bs.blockSize = blockSize
 	subId, _, err := bs.Subscribe()
 	assert.Nil(t, err)
 	assert.Equal(t, subId, 1)
@@ -43,7 +47,9 @@ func TestBlockSubscriber_Unsubscribe(t *testing.T) {
 	var hb types.HeadBroadcaster
 	var lp logpoller.LogPoller
 
-	bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+	bs := NewBlockSubscriber(hb, lp, lggr)
+	bs.blockHistorySize = historySize
+	bs.blockSize = blockSize
 	subId, _, err := bs.Subscribe()
 	assert.Nil(t, err)
 	assert.Equal(t, subId, 1)
@@ -59,7 +65,9 @@ func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
 	var hb types.HeadBroadcaster
 	var lp logpoller.LogPoller
 
-	bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+	bs := NewBlockSubscriber(hb, lp, lggr)
+	bs.blockHistorySize = historySize
+	bs.blockSize = blockSize
 	err := bs.Unsubscribe(2)
 	assert.Equal(t, err.Error(), "subscriber 2 does not exist")
 }
@@ -81,7 +89,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 		{
 			Name:           "get block range",
 			LatestBlock:    100,
-			ExpectedBlocks: []uint64{100, 99, 98, 97},
+			ExpectedBlocks: []uint64{97, 98, 99, 100},
 		},
 	}
 
@@ -89,8 +97,10 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			lp := new(mocks.LogPoller)
 			lp.On("LatestBlock", mock.Anything).Return(tc.LatestBlock, tc.LatestBlockErr)
-			bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
-			blocks, err := bs.getBlockRange(context.Background())
+			bs := NewBlockSubscriber(hb, lp, lggr)
+			bs.blockHistorySize = historySize
+			bs.blockSize = blockSize
+			blocks, err := bs.getBlockRange(testutils.Context(t))
 
 			if tc.LatestBlockErr != nil {
 				assert.Equal(t, tc.LatestBlockErr.Error(), err.Error())
@@ -101,15 +111,16 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 	}
 }
 
-func TestBlockSubscriber_GetLogPollerBlocks(t *testing.T) {
+func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	var hb types.HeadBroadcaster
 
 	tests := []struct {
-		Name         string
-		Blocks       []uint64
-		PollerBlocks []logpoller.LogPollerBlock
-		Error        error
+		Name             string
+		Blocks           []uint64
+		PollerBlocks     []logpoller.LogPollerBlock
+		LastClearedBlock int64
+		Error            error
 	}{
 		{
 			Name:  "failed to get latest block",
@@ -117,25 +128,26 @@ func TestBlockSubscriber_GetLogPollerBlocks(t *testing.T) {
 		},
 		{
 			Name:   "get block range",
-			Blocks: []uint64{100, 99, 98, 97},
+			Blocks: []uint64{97, 98, 99, 100},
 			PollerBlocks: []logpoller.LogPollerBlock{
 				{
-					BlockNumber: 100,
+					BlockNumber: 97,
 					BlockHash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
 				},
 				{
-					BlockNumber: 99,
+					BlockNumber: 98,
 					BlockHash:   common.HexToHash("0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba"),
 				},
 				{
-					BlockNumber: 98,
+					BlockNumber: 99,
 					BlockHash:   common.HexToHash("0xa7ac5bbc905b81f3a2ad9fb8ef1fe45f4a95768df456736952e4ec6c21296abe"),
 				},
 				{
-					BlockNumber: 97,
+					BlockNumber: 100,
 					BlockHash:   common.HexToHash("0xa7ac5bbc905b81f3a2ad9fb8ef1fe45f4a95768df456736952e4ec6c21296abe"),
 				},
 			},
+			LastClearedBlock: 96,
 		},
 	}
 
@@ -143,17 +155,20 @@ func TestBlockSubscriber_GetLogPollerBlocks(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			lp := new(mocks.LogPoller)
 			lp.On("GetBlocksRange", mock.Anything, tc.Blocks, mock.Anything).Return(tc.PollerBlocks, tc.Error)
-			bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
-			err := bs.getLogPollerBlocks(context.Background(), tc.Blocks)
+			bs := NewBlockSubscriber(hb, lp, lggr)
+			bs.blockHistorySize = historySize
+			bs.blockSize = blockSize
+			err := bs.initializeBlocks(tc.Blocks)
 
 			if tc.Error != nil {
 				assert.Equal(t, tc.Error.Error(), err.Error())
 			} else {
 				for _, b := range tc.PollerBlocks {
-					h, ok := bs.blocksFromPoller[b.BlockNumber]
+					h, ok := bs.blocks[b.BlockNumber]
 					assert.True(t, ok)
-					assert.Equal(t, b.BlockHash, h)
+					assert.Equal(t, b.BlockHash.Hex(), h)
 				}
+				assert.Equal(t, tc.LastClearedBlock, bs.lastClearedBlock)
 			}
 		})
 	}
@@ -165,28 +180,24 @@ func TestBlockSubscriber_BuildHistory(t *testing.T) {
 	lp := new(mocks.LogPoller)
 
 	tests := []struct {
-		Name                  string
-		BlocksFromLogPoller   map[int64]common.Hash
-		BlocksFromBroadcaster map[int64]common.Hash
-		Block                 int64
-		ExpectedHistory       ocr2keepers.BlockHistory
+		Name            string
+		Blocks          map[int64]string
+		Block           int64
+		ExpectedHistory ocr2keepers.BlockHistory
 	}{
 		{
 			Name: "build history",
-			BlocksFromLogPoller: map[int64]common.Hash{
-				100: common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
-				97:  common.HexToHash("0xa7ac5bbc905b81f3a2ad9fb8ef1fe45f4a95768df456736952e4ec6c21296abe"),
-				96:  common.HexToHash("0x44f23c588193695abd92697ddc1ba032376d0a784818eddd2d159eee4c41f03f"),
-			},
-			BlocksFromBroadcaster: map[int64]common.Hash{
-				100: common.HexToHash("0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba"),
-				98:  common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+			Blocks: map[int64]string{
+				100: "0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba",
+				98:  "0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0",
+				97:  "0xa7ac5bbc905b81f3a2ad9fb8ef1fe45f4a95768df456736952e4ec6c21296abe",
+				95:  "0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0",
 			},
 			Block: 100,
 			ExpectedHistory: ocr2keepers.BlockHistory{
 				ocr2keepers.BlockKey{
 					Number: 100,
-					Hash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
+					Hash:   common.HexToHash("0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba"),
 				},
 				ocr2keepers.BlockKey{
 					Number: 98,
@@ -202,9 +213,10 @@ func TestBlockSubscriber_BuildHistory(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
-			bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
-			bs.blocksFromPoller = tc.BlocksFromLogPoller
-			bs.blocksFromBroadcaster = tc.BlocksFromBroadcaster
+			bs := NewBlockSubscriber(hb, lp, lggr)
+			bs.blockHistorySize = historySize
+			bs.blockSize = blockSize
+			bs.blocks = tc.Blocks
 
 			history := bs.buildHistory(tc.Block)
 			assert.Equal(t, history, tc.ExpectedHistory)
@@ -218,57 +230,44 @@ func TestBlockSubscriber_Cleanup(t *testing.T) {
 	lp := new(mocks.LogPoller)
 
 	tests := []struct {
-		Name                      string
-		BlocksFromLogPoller       map[int64]common.Hash
-		BlocksFromBroadcaster     map[int64]common.Hash
-		LastClearedBlock          int64
-		LastSentBlock             int64
-		ExpectedLastClearedBlock  int64
-		ExpectedLogPollerBlocks   map[int64]common.Hash
-		ExpectedBroadcasterBlocks map[int64]common.Hash
+		Name                     string
+		Blocks                   map[int64]string
+		LastClearedBlock         int64
+		LastSentBlock            int64
+		ExpectedLastClearedBlock int64
+		ExpectedBlocks           map[int64]string
 	}{
 		{
 			Name: "build history",
-			BlocksFromLogPoller: map[int64]common.Hash{
-				101: common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
-				100: common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
-				97:  common.HexToHash("0xa7ac5bbc905b81f3a2ad9fb8ef1fe45f4a95768df456736952e4ec6c21296abe"),
-				96:  common.HexToHash("0x44f23c588193695abd92697ddc1ba032376d0a784818eddd2d159eee4c41f03f"),
-				95:  common.HexToHash("0x44f23c588193695abd92697ddc1ba032376d0a784818eddd2d159eee4c41f03f"),
-			},
-			BlocksFromBroadcaster: map[int64]common.Hash{
-				102: common.HexToHash("0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba"),
-				100: common.HexToHash("0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba"),
-				98:  common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
-				95:  common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+			Blocks: map[int64]string{
+				102: "0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba",
+				100: "0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba",
+				98:  "0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0",
+				95:  "0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0",
 			},
 			LastClearedBlock:         94,
 			LastSentBlock:            101,
 			ExpectedLastClearedBlock: 97,
-			ExpectedLogPollerBlocks: map[int64]common.Hash{
-				101: common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
-				100: common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
-			},
-			ExpectedBroadcasterBlocks: map[int64]common.Hash{
-				102: common.HexToHash("0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba"),
-				100: common.HexToHash("0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba"),
-				98:  common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+			ExpectedBlocks: map[int64]string{
+				102: "0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba",
+				100: "0xaf3f8b36a27837e9f1ea3b4da7cdbf2ce0bdf7ef4e87d23add83b19438a2fcba",
+				98:  "0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0",
 			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
-			bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
-			bs.blocksFromPoller = tc.BlocksFromLogPoller
-			bs.blocksFromBroadcaster = tc.BlocksFromBroadcaster
+			bs := NewBlockSubscriber(hb, lp, lggr)
+			bs.blockHistorySize = historySize
+			bs.blockSize = blockSize
+			bs.blocks = tc.Blocks
 			bs.lastClearedBlock = tc.LastClearedBlock
 			bs.lastSentBlock = tc.LastSentBlock
 			bs.cleanup()
 
 			assert.Equal(t, tc.ExpectedLastClearedBlock, bs.lastClearedBlock)
-			assert.Equal(t, tc.ExpectedBroadcasterBlocks, bs.blocksFromBroadcaster)
-			assert.Equal(t, tc.ExpectedLogPollerBlocks, bs.blocksFromPoller)
+			assert.Equal(t, tc.ExpectedBlocks, bs.blocks)
 		})
 	}
 }
@@ -278,33 +277,84 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	hb := commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
 	lp := new(mocks.LogPoller)
-	lp.On("LatestBlock", mock.Anything).Maybe().Return(int64(0), fmt.Errorf("error"))
+	lp.On("LatestBlock", mock.Anything).Return(int64(100), nil)
+	blocks := []uint64{97, 98, 99, 100}
+	pollerBlocks := []logpoller.LogPollerBlock{
+		{
+			BlockNumber: 97,
+			BlockHash:   common.HexToHash("0xda2f9d1359eadd7b93338703adc07d942021a78195564038321ef53f23f87333"),
+		},
+		{
+			BlockNumber: 98,
+			BlockHash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+		},
+		{
+			BlockNumber: 99,
+			BlockHash:   common.HexToHash("0x9bc2b51e147f9cad05f1614b7f1d8181cb24c544cbcf841f3155e54e752a3b44"),
+		},
+		{
+			BlockNumber: 100,
+			BlockHash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
+		},
+	}
 
-	bs := NewBlockSubscriber(hb, lp, blockHistorySize, lggr)
+	lp.On("GetBlocksRange", mock.Anything, blocks, mock.Anything).Return(pollerBlocks, nil)
+
+	bs := NewBlockSubscriber(hb, lp, lggr)
+	bs.blockHistorySize = historySize
+	bs.blockSize = blockSize
 	err := bs.Start(context.Background())
 	assert.Nil(t, err)
 
+	h97 := evmtypes.Head{
+		Number: 97,
+		Hash:   common.HexToHash("0xda2f9d1359eadd7b93338703adc07d942021a78195564038321ef53f23f87333"),
+		Parent: nil,
+	}
+	h98 := evmtypes.Head{
+		Number: 98,
+		Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+		Parent: &h97,
+	}
+	h99 := evmtypes.Head{
+		Number: 99,
+		Hash:   common.HexToHash("0x9bc2b51e147f9cad05f1614b7f1d8181cb24c544cbcf841f3155e54e752a3b44"),
+		Parent: &h98,
+	}
+	h100 := evmtypes.Head{
+		Number: 100,
+		Hash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
+		Parent: &h99,
+	}
+
 	// no subscribers yet
-	bs.headC <- BlockKey{
-		block: 100,
-		hash:  common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
+	bs.headC <- &h100
+
+	expectedBlocks := map[int64]string{
+		97:  "0xda2f9d1359eadd7b93338703adc07d942021a78195564038321ef53f23f87333",
+		98:  "0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0",
+		99:  "0x9bc2b51e147f9cad05f1614b7f1d8181cb24c544cbcf841f3155e54e752a3b44",
+		100: "0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b",
 	}
 
 	// sleep 100 milli to wait for the go routine to finish
 	time.Sleep(100 * time.Millisecond)
-	assert.Equal(t, blockHistorySize, bs.blockHistorySize)
-	assert.Equal(t, int64(99), bs.lastClearedBlock)
+	assert.Equal(t, int64(historySize), bs.blockHistorySize)
+	assert.Equal(t, int64(96), bs.lastClearedBlock)
 	assert.Equal(t, int64(100), bs.lastSentBlock)
+	assert.Equal(t, expectedBlocks, bs.blocks)
 
 	// add 1 subscriber
 	subId1, c1, err := bs.Subscribe()
 	assert.Nil(t, err)
 	assert.Equal(t, 1, subId1)
 
-	bs.headC <- BlockKey{
-		block: 101,
-		hash:  common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+	h101 := &evmtypes.Head{
+		Number: 101,
+		Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+		Parent: &h100,
 	}
+	bs.headC <- h101
 
 	time.Sleep(100 * time.Millisecond)
 	bk1 := <-c1
@@ -317,6 +367,14 @@ func TestBlockSubscriber_Start(t *testing.T) {
 			Number: 100,
 			Hash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
 		},
+		ocr2keepers.BlockKey{
+			Number: 99,
+			Hash:   common.HexToHash("0x9bc2b51e147f9cad05f1614b7f1d8181cb24c544cbcf841f3155e54e752a3b44"),
+		},
+		ocr2keepers.BlockKey{
+			Number: 98,
+			Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+		},
 	}, bk1)
 
 	// add 2nd subscriber
@@ -324,49 +382,78 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, 2, subId2)
 
-	bs.headC <- BlockKey{
-		block: 103,
-		hash:  common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+	// re-org happens
+	new99 := &evmtypes.Head{
+		Number: 99,
+		Hash:   common.HexToHash("0x70c03acc4ddbfb253ba41a25dc13fb21b25da8b63bcd1aa7fb55713d33a36c71"),
+		Parent: &h98,
 	}
+	new100 := &evmtypes.Head{
+		Number: 100,
+		Hash:   common.HexToHash("0x8a876b62d252e63e16cf3487db3486c0a7c0a8e06bc3792a3b116c5ca480503f"),
+		Parent: new99,
+	}
+	new101 := &evmtypes.Head{
+		Number: 101,
+		Hash:   common.HexToHash("0x41b5842b8847dcf834e39556d2ac51cc7d960a7de9471ec504673d0038fd6c8e"),
+		Parent: new100,
+	}
+
+	new102 := &evmtypes.Head{
+		Number: 102,
+		Hash:   common.HexToHash("0x9ac1ebc307554cf1bcfcc2a49462278e89d6878d613a33df38a64d0aeac971b5"),
+		Parent: new101,
+	}
+
+	bs.headC <- new102
 
 	time.Sleep(100 * time.Millisecond)
 	bk1 = <-c1
 	assert.Equal(t,
 		ocr2keepers.BlockHistory{
 			ocr2keepers.BlockKey{
-				Number: 103,
-				Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+				Number: 102,
+				Hash:   common.HexToHash("0x9ac1ebc307554cf1bcfcc2a49462278e89d6878d613a33df38a64d0aeac971b5"),
 			},
 			ocr2keepers.BlockKey{
 				Number: 101,
-				Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+				Hash:   common.HexToHash("0x41b5842b8847dcf834e39556d2ac51cc7d960a7de9471ec504673d0038fd6c8e"),
 			},
 			ocr2keepers.BlockKey{
 				Number: 100,
-				Hash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
+				Hash:   common.HexToHash("0x8a876b62d252e63e16cf3487db3486c0a7c0a8e06bc3792a3b116c5ca480503f"),
+			},
+			ocr2keepers.BlockKey{
+				Number: 99,
+				Hash:   common.HexToHash("0x70c03acc4ddbfb253ba41a25dc13fb21b25da8b63bcd1aa7fb55713d33a36c71"),
 			},
 		},
 		bk1,
 	)
+
 	bk2 := <-c2
 	assert.Equal(t,
 		ocr2keepers.BlockHistory{
 			ocr2keepers.BlockKey{
-				Number: 103,
-				Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+				Number: 102,
+				Hash:   common.HexToHash("0x9ac1ebc307554cf1bcfcc2a49462278e89d6878d613a33df38a64d0aeac971b5"),
 			},
 			ocr2keepers.BlockKey{
 				Number: 101,
-				Hash:   common.HexToHash("0xc20c7b47466c081a44a3b168994e89affe85cb894547845d938f923b67c633c0"),
+				Hash:   common.HexToHash("0x41b5842b8847dcf834e39556d2ac51cc7d960a7de9471ec504673d0038fd6c8e"),
 			},
 			ocr2keepers.BlockKey{
 				Number: 100,
-				Hash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
+				Hash:   common.HexToHash("0x8a876b62d252e63e16cf3487db3486c0a7c0a8e06bc3792a3b116c5ca480503f"),
+			},
+			ocr2keepers.BlockKey{
+				Number: 99,
+				Hash:   common.HexToHash("0x70c03acc4ddbfb253ba41a25dc13fb21b25da8b63bcd1aa7fb55713d33a36c71"),
 			},
 		},
 		bk2,
 	)
 
-	assert.Equal(t, int64(103), bs.lastSentBlock)
-	assert.Equal(t, int64(99), bs.lastClearedBlock)
+	assert.Equal(t, int64(102), bs.lastSentBlock)
+	assert.Equal(t, int64(96), bs.lastClearedBlock)
 }

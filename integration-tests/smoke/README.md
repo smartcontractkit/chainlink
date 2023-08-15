@@ -61,3 +61,9 @@ SELECTED_NETWORKS=<Chain Name> \
 go test -v -run ${TestName}
 ```
 
+
+
+### Debugging CL client API calls
+```
+export CL_CLIENT_DEBUG=true
+```
