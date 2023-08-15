@@ -166,7 +166,8 @@ func EVMDependencies21(
 		rAddr,
 	)
 	us := upkeepstate.NewUpkeepStateStore(lggr, scanner)
-	up := kevm21.NewUpkeepProvider(registry, chain.LogPoller())
+	activeUpkeepList := kevm21.NewActiveUpkeepList()
+	up := kevm21.NewUpkeepProvider(activeUpkeepList, registry, chain.LogPoller())
 
 	// lookback blocks is hard coded and should provide ample time for logs
 	// to be detected in most cases

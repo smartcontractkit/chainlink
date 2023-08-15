@@ -25,35 +25,36 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 
 	r := &EvmRegistry{
 		mu:     sync.RWMutex{},
-		active: map[string]activeUpkeep{},
 		client: c,
 	}
 	var lp logpoller.LogPoller
 
-	p := NewUpkeepProvider(r, lp)
-
 	tests := []struct {
 		name        string
-		active      map[string]activeUpkeep
+		active      ActiveUpkeepList
 		blockHeader coreTypes.Header
 		want        []ocr2keepers.UpkeepPayload
 		wantErr     bool
 	}{
 		{
 			"empty",
-			map[string]activeUpkeep{},
+			&mockActiveUpkeepList{
+				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+					return []*big.Int{}
+				},
+			},
 			coreTypes.Header{Number: big.NewInt(0)},
 			nil,
 			false,
 		},
 		{
 			"happy flow",
-			map[string]activeUpkeep{
-				"1": {
-					ID: big.NewInt(1),
-				},
-				"2": {
-					ID: big.NewInt(2),
+			&mockActiveUpkeepList{
+				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+					return []*big.Int{
+						big.NewInt(1),
+						big.NewInt(2),
+					}
 				},
 			},
 			coreTypes.Header{Number: big.NewInt(1)},
@@ -74,9 +75,7 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 			b := coreTypes.NewBlockWithHeader(&tc.blockHeader)
 			c.On("BlockByNumber", mock.Anything, mock.Anything).Return(b, nil)
 
-			r.mu.Lock()
-			r.active = tc.active
-			r.mu.Unlock()
+			p := NewUpkeepProvider(tc.active, r, lp)
 
 			got, err := p.GetActiveUpkeeps(ctx)
 			require.NoError(t, err)
@@ -92,4 +91,13 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 			}
 		})
 	}
+}
+
+type mockActiveUpkeepList struct {
+	ActiveUpkeepList
+	ViewFn func(...ocr2keepers.UpkeepType) []*big.Int
+}
+
+func (l *mockActiveUpkeepList) View(u ...ocr2keepers.UpkeepType) []*big.Int {
+	return l.ViewFn(u...)
 }

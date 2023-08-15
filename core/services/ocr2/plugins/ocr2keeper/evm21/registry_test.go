@@ -29,31 +29,35 @@ func TestGetActiveUpkeepIDs(t *testing.T) {
 	tests := []struct {
 		Name         string
 		LatestHead   int64
-		ActiveIDs    []string
+		Active       ActiveUpkeepList
 		ExpectedErr  error
 		ExpectedKeys []ocr2keepers.UpkeepIdentifier
 	}{
-		{Name: "NoActiveIDs", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{}},
-		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []string{
-			"32329108151019397958065800113404894502874153543356521479058624064899121404671",
-			"5820911532554020907796191562093071158274499580927271776163559390280294438608",
-		}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-			core.UpkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
-			core.UpkeepIDFromInt("5820911532554020907796191562093071158274499580927271776163559390280294438608"),
-		}},
+		{Name: "NoActiveIDs", LatestHead: 1,
+			Active: &mockActiveUpkeepList{
+				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+					return []*big.Int{}
+				},
+			}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{}},
+		{Name: "AvailableActiveIDs", LatestHead: 1,
+			Active: &mockActiveUpkeepList{
+				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+					a, _ := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
+					b, _ := big.NewInt(0).SetString("5820911532554020907796191562093071158274499580927271776163559390280294438608", 10)
+					return []*big.Int{
+						a, b,
+					}
+				},
+			}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
+				core.UpkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
+				core.UpkeepIDFromInt("5820911532554020907796191562093071158274499580927271776163559390280294438608"),
+			}},
 	}
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			actives := make(map[string]activeUpkeep)
-			for _, id := range test.ActiveIDs {
-				idNum := big.NewInt(0)
-				idNum.SetString(id, 10)
-				actives[id] = activeUpkeep{ID: idNum}
-			}
-
 			rg := &EvmRegistry{
-				active: actives,
+				active: test.Active,
 			}
 
 			keys, err := rg.GetActiveUpkeepIDs(context.Background())
@@ -79,16 +83,28 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 	tests := []struct {
 		Name         string
 		LatestHead   int64
-		ActiveIDs    []string
+		Active       ActiveUpkeepList
 		ExpectedErr  error
 		ExpectedKeys []ocr2keepers.UpkeepIdentifier
 		Triggers     []uint8
 	}{
-		{Name: "no active ids", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{}},
+		{Name: "no active ids", LatestHead: 1, Active: &mockActiveUpkeepList{
+			ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+				return []*big.Int{}
+			},
+		}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{}},
 		{
 			Name:       "get log upkeeps",
 			LatestHead: 1,
-			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
+			Active: &mockActiveUpkeepList{
+				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+					a, _ := big.NewInt(0).SetString("8", 10)
+					b, _ := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
+					return []*big.Int{
+						a, b,
+					}
+				},
+			},
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
 				core.UpkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
 			},
@@ -97,7 +113,15 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 		{
 			Name:       "get conditional upkeeps",
 			LatestHead: 1,
-			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
+			Active: &mockActiveUpkeepList{
+				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+					a, _ := big.NewInt(0).SetString("8", 10)
+					b, _ := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
+					return []*big.Int{
+						a, b,
+					}
+				},
+			},
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
 				core.UpkeepIDFromInt("8"),
 			},
@@ -106,7 +130,15 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 		{
 			Name:       "get multiple types of upkeeps",
 			LatestHead: 1,
-			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
+			Active: &mockActiveUpkeepList{
+				ViewFn: func(upkeepType ...ocr2keepers.UpkeepType) []*big.Int {
+					a, _ := big.NewInt(0).SetString("8", 10)
+					b, _ := big.NewInt(0).SetString("32329108151019397958065800113404894502874153543356521479058624064899121404671", 10)
+					return []*big.Int{
+						a, b,
+					}
+				},
+			},
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
 				core.UpkeepIDFromInt("8"),
 				core.UpkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
@@ -117,15 +149,8 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			actives := make(map[string]activeUpkeep)
-			for _, id := range test.ActiveIDs {
-				idNum := big.NewInt(0)
-				idNum.SetString(id, 10)
-				actives[id] = activeUpkeep{ID: idNum}
-			}
-
 			rg := &EvmRegistry{
-				active: actives,
+				active: test.Active,
 			}
 
 			keys, err := rg.GetActiveUpkeepIDsByType(context.Background(), test.Triggers...)

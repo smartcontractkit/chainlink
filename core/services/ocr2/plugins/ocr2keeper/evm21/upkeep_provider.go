@@ -14,22 +14,20 @@ import (
 var _ ocr2keepers.ConditionalUpkeepProvider = &upkeepProvider{}
 
 type upkeepProvider struct {
-	reg *EvmRegistry
-	lp  logpoller.LogPoller
+	activeUpkeeps ActiveUpkeepList
+	reg           *EvmRegistry
+	lp            logpoller.LogPoller
 }
 
-func NewUpkeepProvider(reg *EvmRegistry, lp logpoller.LogPoller) *upkeepProvider {
+func NewUpkeepProvider(activeUpkeeps ActiveUpkeepList, reg *EvmRegistry, lp logpoller.LogPoller) *upkeepProvider {
 	return &upkeepProvider{
-		reg: reg,
-		lp:  lp,
+		activeUpkeeps: activeUpkeeps,
+		reg:           reg,
+		lp:            lp,
 	}
 }
 
 func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
-	ids, err := p.reg.GetActiveUpkeepIDsByType(ctx, uint8(ocr2keepers.ConditionTrigger))
-	if err != nil {
-		return nil, err
-	}
 	latestBlock, err := p.lp.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
@@ -42,9 +40,9 @@ func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context) ([]ocr2keepers.Up
 	}
 
 	var payloads []ocr2keepers.UpkeepPayload
-	for _, uid := range ids {
+	for _, uid := range p.activeUpkeeps.View(ocr2keepers.ConditionTrigger) {
 		payload, err := core.NewUpkeepPayload(
-			uid.BigInt(),
+			uid,
 			ocr2keepers.NewTrigger(ocr2keepers.BlockNumber(block.Int64()), blockHash),
 			nil,
 		)

@@ -56,7 +56,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		txHashes: make(map[string]bool),
 		registry: mockRegistry,
 		abi:      keeperRegistryABI,
-		active:   make(map[string]activeUpkeep),
+		active:   NewActiveUpkeepList(),
 		packer:   encoding.NewAbiPacker(keeperRegistryABI, utilsABI),
 		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
