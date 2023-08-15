@@ -134,7 +134,6 @@ func EVMDependencies21(
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
 	var registry *kevm21.EvmRegistry
-	var encoder *kevm21.EVMAutomationEncoder21
 
 	oSpec := spec.OCR2OracleSpec
 
@@ -155,7 +154,8 @@ func EVMDependencies21(
 
 	bs := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), lggr)
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	if registry, encoder, err = kevm21.NewEVMRegistryService(rAddr, chain, mc, bs, lggr); err != nil {
+	registry, encoder, err := kevm21.NewEVMRegistryService(rAddr, chain, mc, bs, lggr)
+	if err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
 
