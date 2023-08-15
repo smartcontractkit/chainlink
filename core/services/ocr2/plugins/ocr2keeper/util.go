@@ -136,8 +136,6 @@ func EVMDependencies21(
 	var registry *kevm21.EvmRegistry
 	var encoder *kevm21.EVMAutomationEncoder21
 
-	bs := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), lggr)
-
 	oSpec := spec.OCR2OracleSpec
 
 	// get the chain from the config
@@ -155,12 +153,12 @@ func EVMDependencies21(
 		return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
 
+	bs := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), lggr)
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	if registry, encoder, err = kevm21.NewEVMRegistryService(rAddr, chain, mc, lggr); err != nil {
+	if registry, encoder, err = kevm21.NewEVMRegistryService(rAddr, chain, mc, bs, lggr); err != nil {
 		return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
 
-	hp := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), lggr)
 	pb := kevm21.NewPayloadBuilder(lggr)
 	scanner := upkeepstate.NewPerformedEventsScanner(
 		lggr,
@@ -176,7 +174,7 @@ func EVMDependencies21(
 	// TODO: accept a version of the registry contract and use the correct interfaces
 	logTransmitter, err := kevm21.NewTransmitEventProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
-	return keeperProvider, registry, encoder, logTransmitter, registry.LogEventProvider(), kevm21.NewOnchainKeyringV3Wrapper(keyring), hp, pb, us, up, err
+	return keeperProvider, registry, encoder, logTransmitter, registry.LogEventProvider(), kevm21.NewOnchainKeyringV3Wrapper(keyring), bs, pb, us, up, err
 }
 
 func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {
