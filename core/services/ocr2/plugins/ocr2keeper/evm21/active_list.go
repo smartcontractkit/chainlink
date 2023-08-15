@@ -17,7 +17,7 @@ type ActiveUpkeepList interface {
 	// Remove removes entries from the list
 	Remove(id ...*big.Int) int
 	// View returns the list of IDs of the given type
-	View(ocr2keepers.UpkeepType) []*big.Int
+	View(...ocr2keepers.UpkeepType) []*big.Int
 	// IsActive returns true if the given ID is of an active upkeep
 	IsActive(id *big.Int) bool
 	Size() int
@@ -80,7 +80,7 @@ func (al *activeList) Remove(ids ...*big.Int) int {
 }
 
 // View returns the list of IDs of the given type
-func (al *activeList) View(t ocr2keepers.UpkeepType) []*big.Int {
+func (al *activeList) View(upkeepTypes ...ocr2keepers.UpkeepType) []*big.Int {
 	al.lock.RLock()
 	defer al.lock.RUnlock()
 
@@ -94,8 +94,12 @@ func (al *activeList) View(t ocr2keepers.UpkeepType) []*big.Int {
 		if !id.FromBigInt(bint) {
 			continue
 		}
-		if core.GetUpkeepType(*id) == t {
-			keys = append(keys, bint)
+		currentType := core.GetUpkeepType(*id)
+		for _, t := range upkeepTypes {
+			if currentType == t {
+				keys = append(keys, bint)
+				break
+			}
 		}
 	}
 	return keys
