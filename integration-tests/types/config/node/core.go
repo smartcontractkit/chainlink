@@ -9,12 +9,13 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"go.uber.org/zap/zapcore"
 )
 
-var BaseConf = chainlink.Config{
+var BaseConf = &chainlink.Config{
 	Core: toml.Core{
 		RootDir: ptr("/home/chainlink"),
 		Database: toml.Database{
@@ -50,9 +51,9 @@ var BaseConf = chainlink.Config{
 
 type NodeConfigOpt = func(c *chainlink.Config)
 
-func NewConfig(baseConf chainlink.Config, opts ...NodeConfigOpt) chainlink.Config {
+func NewConfig(baseConf *chainlink.Config, opts ...NodeConfigOpt) *chainlink.Config {
 	for _, opt := range opts {
-		opt(&baseConf)
+		opt(baseConf)
 	}
 	return baseConf
 }
@@ -92,6 +93,34 @@ func WithP2Pv2() NodeConfigOpt {
 	}
 }
 
+func SetDefaultSimulatedGeth(cfg *chainlink.Config, ws, http string, forwarders bool) {
+	if cfg.EVM == nil {
+		cfg.EVM = evmcfg.EVMConfigs{
+			{
+				ChainID: utils.NewBig(big.NewInt(1337)),
+				Chain: evmcfg.Chain{
+					AutoCreateKey:      ptr(true),
+					FinalityDepth:      ptr[uint32](1),
+					MinContractPayment: assets.NewLinkFromJuels(0),
+				},
+				Nodes: []*evmcfg.Node{
+					{
+						Name:     ptr("1337_primary_local_0"),
+						WSURL:    mustURL(ws),
+						HTTPURL:  mustURL(http),
+						SendOnly: ptr(false),
+					},
+				},
+			},
+		}
+		if forwarders {
+			cfg.EVM[0].Transactions = evmcfg.Transactions{
+				ForwardersEnabled: ptr(true),
+			}
+		}
+	}
+}
+
 func WithSimulatedEVM(httpUrl, wsUrl string) NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.EVM = evmcfg.EVMConfigs{
@@ -115,8 +144,17 @@ func WithSimulatedEVM(httpUrl, wsUrl string) NodeConfigOpt {
 	}
 }
 
-func WithVRFv2EVMEstimator() NodeConfigOpt {
+func WithVRFv2EVMEstimator(addr string) NodeConfigOpt {
+	est := assets.Wei(*big.NewInt(350000))
 	return func(c *chainlink.Config) {
+		c.EVM[0].KeySpecific = evmcfg.KeySpecificConfig{
+			{
+				Key: ptr(ethkey.EIP55Address(addr)),
+				GasEstimator: evmcfg.KeySpecificGasEstimator{
+					PriceMax: ptr(est),
+				},
+			},
+		}
 		c.EVM[0].Chain.GasEstimator = evmcfg.GasEstimator{
 			LimitDefault: ptr[uint32](3500000),
 		}

@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"errors"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 

@@ -63,30 +63,11 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     uint256 outputSeed,
     uint256 indexed subID,
     uint96 payment,
-    bytes extraArgs,
     bool success
   );
 
-  struct Config {
-    uint16 minimumRequestConfirmations;
-    uint32 maxGasLimit;
-    // stalenessSeconds is how long before we consider the feed price to be stale
-    // and fallback to fallbackWeiPerUnitLink.
-    uint32 stalenessSeconds;
-    // Gas to cover oracle payment after we calculate the payment.
-    // We make it configurable in case those operations are repriced.
-    // The recommended number is below, though it may vary slightly
-    // if certain chains do not implement certain EIP's.
-    // 21000 + // base cost of the transaction
-    // 100 + 5000 + // warm subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
-    // 2*2100 + 5000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
-    // 4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
-    // 6685 + // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
-    // Total: 37,185 gas.
-    uint32 gasAfterPaymentCalculation;
-  }
   int256 public s_fallbackWeiPerUnitLink;
-  Config public s_config;
+
   FeeConfig public s_feeConfig;
   struct FeeConfig {
     // Flat fee charged per fulfillment in millionths of link
@@ -185,7 +166,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       minimumRequestConfirmations: minimumRequestConfirmations,
       maxGasLimit: maxGasLimit,
       stalenessSeconds: stalenessSeconds,
-      gasAfterPaymentCalculation: gasAfterPaymentCalculation
+      gasAfterPaymentCalculation: gasAfterPaymentCalculation,
+      reentrancyLock: false
     });
     s_feeConfig = feeConfig;
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
@@ -364,8 +346,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   }
 
   function getRandomnessFromProof(
-    Proof calldata proof,
-    RequestCommitment calldata rc
+    Proof memory proof,
+    RequestCommitment memory rc
   ) internal view returns (Output memory) {
     bytes32 keyHash = hashOfKey(proof.pk);
     // Only registered proving keys are permitted.
@@ -406,10 +388,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
    * @return payment amount billed to the subscription
    * @dev simulated offchain to determine if sufficient balance is present to fulfill the request
    */
-  function fulfillRandomWords(
-    Proof calldata proof,
-    RequestCommitment calldata rc
-  ) external nonReentrant returns (uint96) {
+  function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
     Output memory output = getRandomnessFromProof(proof, rc);
 
@@ -427,7 +406,9 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     // during the consumers callback code via reentrancyLock.
     // Note that callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
+    s_config.reentrancyLock = true;
     bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
+    s_config.reentrancyLock = false;
 
     // Increment the req count for the subscription.
     uint64 reqCount = s_subscriptions[rc.subId].reqCount;
@@ -435,7 +416,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
 
     // stack too deep error
     {
-      bool nativePayment = _fromBytes(rc.extraArgs).nativePayment;
+      bool nativePayment = uint8(rc.extraArgs[rc.extraArgs.length - 1]) == 1;
       // We want to charge users exactly for how much gas they use in their callback.
       // The gasAfterPaymentCalculation is meant to cover these additional operations where we
       // decrement the subscription balance and increment the oracles withdrawable balance.
@@ -459,12 +440,9 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         s_withdrawableTokens[s_provingKeys[output.keyHash]] += payment;
       }
 
-      bytes memory extraArgs = VRFV2PlusClient._argsToBytes(
-        VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment})
-      );
       // Include payment in the event for tracking costs.
       // event RandomWordsFulfilled(uint256 indexed requestId, uint256 outputSeed, uint96 payment, bytes extraArgs, bool success);
-      emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, extraArgs, success);
+      emit RandomWordsFulfilled(output.requestId, output.randomness, rc.subId, payment, success);
 
       return payment;
     }

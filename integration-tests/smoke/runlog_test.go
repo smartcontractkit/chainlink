@@ -21,11 +21,9 @@ func TestRunLogBasic(t *testing.T) {
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodes(1).
+		WithFunding(big.NewFloat(1)).
 		Build()
 	require.NoError(t, err)
-
-	err = env.FundChainlinkNodes(big.NewFloat(.01))
-	require.NoError(t, err, "Funding chainlink nodes with ETH shouldn't fail")
 
 	lt, err := env.Geth.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
