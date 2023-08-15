@@ -17,6 +17,9 @@ contract VerifierTestWithConfiguredVerifierAndFeeManager is BaseTestWithConfigur
     link.mint(USER, DEFAULT_LINK_MINT_QUANTITY);
     native.mint(USER, DEFAULT_NATIVE_MINT_QUANTITY);
     vm.deal(USER, DEFAULT_NATIVE_MINT_QUANTITY);
+
+    //mint some link tokens to the feeManager pool
+    link.mint(address(feeManager), DEFAULT_REPORT_LINK_FEE);
   }
 }
 
@@ -49,6 +52,7 @@ contract VerifierTestBillingReport is VerifierTestWithConfiguredVerifierAndFeeMa
     _verify(signedReport, 0, USER);
 
     assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
+    assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
   }
 
   function test_verifyWithNativeUnwrapped() public {
@@ -101,6 +105,7 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
     _verifyBulk(signedReports, 0, USER);
 
     assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS);
+    assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBERS_OF_REPORTS);
   }
 
   function test_verifyWithBulkNative() public {
@@ -191,6 +196,7 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
     assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 2);
     assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * 3);
+    assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * 3);
   }
 
   function test_verifyBulkWithLinkAndUnwrappedNative() public {
@@ -224,6 +230,7 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
     assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 2);
     assertEq(native.balanceOf(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * 2);
     assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * 3);
+    assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * 3);
   }
 
   function test_verifyBulkReportWithUnwrappedAndWrappedNativeDefaultsToUnwrapped() public {
@@ -286,5 +293,6 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
 
     assertEq(link.balanceOf(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE);
     assertEq(native.balanceOf(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
+    assertEq(link.balanceOf(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * 2);
   }
 }
