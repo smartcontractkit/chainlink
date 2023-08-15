@@ -63,6 +63,22 @@ func (_m *Application) AddJobV2(ctx context.Context, _a1 *job.Job) error {
 	return r0
 }
 
+// AuthenticationProvider provides a mock function with given fields:
+func (_m *Application) AuthenticationProvider() sessions.AuthenticationProvider {
+	ret := _m.Called()
+
+	var r0 sessions.AuthenticationProvider
+	if rf, ok := ret.Get(0).(func() sessions.AuthenticationProvider); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(sessions.AuthenticationProvider)
+		}
+	}
+
+	return r0
+}
+
 // BridgeORM provides a mock function with given fields:
 func (_m *Application) BridgeORM() bridges.ORM {
 	ret := _m.Called()
@@ -331,6 +347,22 @@ func (_m *Application) JobSpawner() job.Spawner {
 	return r0
 }
 
+// LocalAdminUsersORM provides a mock function with given fields:
+func (_m *Application) LocalAdminUsersORM() sessions.LocalAdminUsersORM {
+	ret := _m.Called()
+
+	var r0 sessions.LocalAdminUsersORM
+	if rf, ok := ret.Get(0).(func() sessions.LocalAdminUsersORM); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(sessions.LocalAdminUsersORM)
+		}
+	}
+
+	return r0
+}
+
 // PipelineORM provides a mock function with given fields:
 func (_m *Application) PipelineORM() pipeline.ORM {
 	ret := _m.Called()
@@ -433,22 +465,6 @@ func (_m *Application) SecretGenerator() chainlink.SecretGenerator {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(chainlink.SecretGenerator)
-		}
-	}
-
-	return r0
-}
-
-// SessionORM provides a mock function with given fields:
-func (_m *Application) SessionORM() sessions.UserManager {
-	ret := _m.Called()
-
-	var r0 sessions.UserManager
-	if rf, ok := ret.Get(0).(func() sessions.UserManager); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(sessions.UserManager)
 		}
 	}
 
