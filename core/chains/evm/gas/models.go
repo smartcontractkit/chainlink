@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
@@ -30,6 +31,7 @@ type EvmFeeEstimator interface {
 	services.ServiceCtx
 	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
 
+	TxAmountWithFees(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error)
 	GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error)
 	BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error)
 }
@@ -154,6 +156,9 @@ func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLim
 	if e.EIP1559Enabled {
 		var dynamicFee DynamicFee
 		dynamicFee, chainSpecificFeeLimit, err = e.EvmEstimator.GetDynamicFee(ctx, feeLimit, maxFeePrice)
+		if dynamicFee.FeeCap == nil || dynamicFee.TipCap == nil {
+			err = fmt.Errorf("estimator did not return valid fee estimates: %v", dynamicFee)
+		}
 		fee.DynamicFeeCap = dynamicFee.FeeCap
 		fee.DynamicTipCap = dynamicFee.TipCap
 		return
@@ -162,6 +167,26 @@ func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLim
 	// get legacy fee
 	fee.Legacy, chainSpecificFeeLimit, err = e.EvmEstimator.GetLegacyGas(ctx, calldata, feeLimit, maxFeePrice, opts...)
 	return
+}
+
+func (e WrappedEvmEstimator) TxAmountWithFees(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (*big.Int, error) {
+	fees, gasLimit, err := e.GetFee(ctx, calldata, feeLimit, maxFeePrice, opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	var gasPrice *assets.Wei
+	if e.EIP1559Enabled {
+		gasPrice = fees.DynamicFeeCap.Add(fees.DynamicTipCap)
+	} else {
+		gasPrice = fees.Legacy
+	}
+
+	// Creating a `Big` struct to avoid having a mutation on `tr.Amount` and hence affecting the value stored in the DB
+	amountAsBig := utils.NewBig(amount.ToInt())
+	fee := new(big.Int).Mul(gasPrice.ToInt(), big.NewInt(int64(gasLimit)))
+	amountWithFees := new(big.Int).Add(amountAsBig.ToInt(), fee)
+	return amountWithFees, nil
 }
 
 func (e WrappedEvmEstimator) BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error) {
