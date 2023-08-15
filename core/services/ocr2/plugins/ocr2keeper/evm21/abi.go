@@ -13,23 +13,35 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
-// enum UpkeepFailureReason is defined by https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/dev/automation/2_1/interfaces/AutomationRegistryInterface2_1.sol#L97
-// make sure failure reasons are in sync between contract and offchain enum
-const (
-	UPKEEP_FAILURE_REASON_NONE = iota
-	UPKEEP_FAILURE_REASON_UPKEEP_CANCELLED
-	UPKEEP_FAILURE_REASON_UPKEEP_PAUSED
-	UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
-	UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
-	UPKEEP_FAILURE_REASON_PERFORM_DATA_EXCEEDS_LIMIT
-	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
-	UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
-	UPKEEP_FAILURE_REASON_REVERT_DATA_EXCEEDS_LIMIT
-	UPKEEP_FAILURE_REASON_REGISTRY_PAUSED
+type UpkeepFailureReason uint8
+type PipelineExecutionState uint8
 
-	// Start of offchain failure types. All onchain failure reasons from
-	// contract should be put above
-	UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
+const (
+	// upkeep failure onchain reasons
+	UpkeepFailureReasonNone                    UpkeepFailureReason = 0
+	UpkeepFailureReasonUpkeepCancelled         UpkeepFailureReason = 1
+	UpkeepFailureReasonUpkeepPaused            UpkeepFailureReason = 2
+	UpkeepFailureReasonTargetCheckReverted     UpkeepFailureReason = 3
+	UpkeepFailureReasonUpkeepNotNeeded         UpkeepFailureReason = 4
+	UpkeepFailureReasonPerformDataExceedsLimit UpkeepFailureReason = 5
+	UpkeepFailureReasonInsufficientBalance     UpkeepFailureReason = 6
+	UpkeepFailureReasonMercuryCallbackReverted UpkeepFailureReason = 7
+	UpkeepFailureReasonRevertDataExceedsLimit  UpkeepFailureReason = 8
+	UpkeepFailureReasonRegistryPaused          UpkeepFailureReason = 9
+	// leaving a gap here for more onchain failure reasons in the future
+	// upkeep failure offchain reasons
+	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
+	UpkeepFailureReasonLogBlockNoLongerExists  UpkeepFailureReason = 31
+	UpkeepFailureReasonLogBlockInvalid         UpkeepFailureReason = 32
+	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
+
+	// pipeline execution error
+	NoPipelineError     PipelineExecutionState = 0
+	CheckBlockTooOld    PipelineExecutionState = 1
+	CheckBlockInvalid   PipelineExecutionState = 2
+	RpcFlakyFailure     PipelineExecutionState = 3
+	MercuryFlakyFailure PipelineExecutionState = 4
+	PackUnpackFailed    PipelineExecutionState = 5
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -77,7 +89,7 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, 
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
-	if result.IneligibilityReason == UPKEEP_FAILURE_REASON_NONE || (result.IneligibilityReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
+	if result.IneligibilityReason == uint8(UpkeepFailureReasonNone) || (result.IneligibilityReason == uint8(UpkeepFailureReasonTargetCheckReverted) && len(rawPerformData) > 0) {
 		result.PerformData = rawPerformData
 	}
 
