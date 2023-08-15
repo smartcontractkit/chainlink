@@ -93,7 +93,7 @@ runs:
     - if: inputs.publish == 'true'
       # Log in to AWS for publish to ECR
       name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@67fbcbb121271f7775d2e7715933280b06314838 # v1.7.0
+      uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355 # v2.2.0
       with:
         role-to-assume: ${{ inputs.aws-role-to-assume }}
         role-duration-seconds: ${{ inputs.aws-role-duration-seconds }}
@@ -101,7 +101,7 @@ runs:
 
     - if: inputs.publish == 'true'
       name: Login to ECR
-      uses: docker/login-action@42d299face0c5c43a0487c477f595ac9cf22f1a7 # v1.12.0
+      uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
       with:
         registry: ${{ inputs.ecr-hostname }}
 
