@@ -955,6 +955,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		runResultSaver,
 		keeperProvider,
 		rgstry,
+		blockSub,
 		transmitEventProvider,
 		pluginService,
 	}, nil

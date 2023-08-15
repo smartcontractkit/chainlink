@@ -158,7 +158,7 @@ func EVMDependencies21(
 		return nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, err
 	}
 
-	hp := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), 128, lggr)
+	hp := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), lggr)
 	pb := kevm21.NewPayloadBuilder(lggr)
 	scanner := upkeepstate.NewPerformedEventsScanner(
 		lggr,
