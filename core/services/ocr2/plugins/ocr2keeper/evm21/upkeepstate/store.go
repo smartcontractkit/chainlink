@@ -16,8 +16,6 @@ import (
 const (
 	// CacheExpiration is the amount of time that we keep a record in the cache.
 	CacheExpiration = 24 * time.Hour
-	// PersistRetention ...
-	PersistRetention = 24 * time.Hour
 	// GCInterval is the amount of time between cache cleanups.
 	GCInterval = 2 * time.Hour
 	// TODO: use sentinel value from ocr2keepers
