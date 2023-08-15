@@ -8,7 +8,9 @@ set -ex
 # get this scripts directory
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
 
-cd "$SCRIPT_DIR"/../ || exit 1
+cd "$SCRIPT_DIR"/../../ || exit 1
+make test_need_operator_assets
+cd ./integration-tests
 
 helm repo update
 
