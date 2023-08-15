@@ -310,6 +310,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 	// in the case of multiple retries here, use the last attempt's data
 	state := NoPipelineError
 	retryable := false
+	sent := false
 	retryErr := retry.Do(
 		func() error {
 			retryable = false
@@ -360,6 +361,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 				Retryable: false,
 				State:     NoPipelineError,
 			}
+			sent = true
 			return nil
 		},
 		// only retry when the error is 404 Not Found or 500 Internal Server Error
@@ -370,8 +372,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 		retry.Delay(RetryDelay),
 		retry.Attempts(TotalAttempt))
 
-	// if all retries fail, return the error and ask the caller to handle cool down and heavyweight retry
-	if retryErr != nil {
+	if !sent {
 		md := MercuryData{
 			Index:     index,
 			Retryable: retryable,
@@ -408,6 +409,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	// in the case of multiple retries here, use the last attempt's data
 	state := NoPipelineError
 	retryable := false
+	sent := false
 	retryErr := retry.Do(
 		func() error {
 			retryable = false
@@ -458,6 +460,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				Retryable: false,
 				State:     NoPipelineError,
 			}
+			sent = true
 			return nil
 		},
 		// only retry when the error is 404 Not Found or 500 Internal Server Error
@@ -468,8 +471,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 		retry.Delay(RetryDelay),
 		retry.Attempts(TotalAttempt))
 
-	// if all retries fail, return the error and ask the caller to handle cool down and heavyweight retry
-	if retryErr != nil {
+	if !sent {
 		md := MercuryData{
 			Index:     0,
 			Retryable: retryable,

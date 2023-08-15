@@ -245,9 +245,10 @@ func TestEvmRegistry_DecodeFeedLookup(t *testing.T) {
 			},
 		},
 		{
-			name: "failure - unpack error",
-			data: []byte{1, 2, 3, 4},
-			err:  errors.New("unpack error: invalid data for unpacking"),
+			name:  "failure - unpack error",
+			data:  []byte{1, 2, 3, 4},
+			err:   errors.New("unpack error: invalid data for unpacking"),
+			state: PackUnpackDecodeFailed,
 		},
 	}
 
