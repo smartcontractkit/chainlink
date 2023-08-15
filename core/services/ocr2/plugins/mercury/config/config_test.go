@@ -34,19 +34,26 @@ func Test_PluginConfig(t *testing.T) {
 
 		t.Run("with invalid values", func(t *testing.T) {
 			rawToml := `
-				ServerURL = "http://example.com"
-				ServerPubKey = "4242"
+				InitialBlockNumber = "invalid"
 			`
 
 			var mc PluginConfig
 			err := toml.Unmarshal([]byte(rawToml), &mc)
+			require.Error(t, err)
+			assert.EqualError(t, err, `toml: strconv.ParseInt: parsing "invalid": invalid syntax`)
+
+			rawToml = `
+				ServerURL = "http://example.com"
+				ServerPubKey = "4242"
+			`
+
+			err = toml.Unmarshal([]byte(rawToml), &mc)
 			require.NoError(t, err)
 
 			err = ValidatePluginConfig(mc, v1FeedId)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), `Mercury: invalid scheme specified for MercuryServer, got: "http://example.com" (scheme: "http") but expected a websocket url e.g. "192.0.2.2:4242" or "wss://192.0.2.2:4242"`)
 			assert.Contains(t, err.Error(), `mercury: ServerPubKey is required and must be a 32-byte hex string`)
-			assert.Contains(t, err.Error(), `initialBlockNumber must be specified for v1 jobs`)
 		})
 
 		t.Run("with unnecessary values", func(t *testing.T) {
@@ -81,8 +88,10 @@ func Test_PluginConfig(t *testing.T) {
 			err = ValidatePluginConfig(mc, v2FeedId)
 			require.NoError(t, err)
 
-			assert.Equal(t, "0x00026b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472", mc.LinkFeedID.String())
-			assert.Equal(t, "0x00036b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472", mc.NativeFeedID.String())
+			require.NotNil(t, mc.LinkFeedID)
+			require.NotNil(t, mc.NativeFeedID)
+			assert.Equal(t, "0x00026b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472", (*mc.LinkFeedID).String())
+			assert.Equal(t, "0x00036b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472", (*mc.NativeFeedID).String())
 
 		})
 
@@ -91,11 +100,11 @@ func Test_PluginConfig(t *testing.T) {
 
 			rawToml := `LinkFeedID = "test"`
 			err := toml.Unmarshal([]byte(rawToml), &mc)
-			assert.Contains(t, err.Error(), `toml: hex string without 0x prefix`)
+			assert.Contains(t, err.Error(), "toml: hash: expected a hex string starting with '0x'")
 
 			rawToml = `LinkFeedID = "0xtest"`
 			err = toml.Unmarshal([]byte(rawToml), &mc)
-			assert.Contains(t, err.Error(), `toml: hex string has length 4, want 64 for Hash`)
+			assert.Contains(t, err.Error(), `toml: hash: UnmarshalText failed: encoding/hex: invalid byte: U+0074 't'`)
 
 			rawToml = `
 				ServerURL = "example.com:80"

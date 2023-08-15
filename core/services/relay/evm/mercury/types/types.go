@@ -3,12 +3,11 @@ package types
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type FeedIDPrefix uint16
@@ -23,22 +22,12 @@ const (
 
 type FeedID [32]byte
 
-func (f FeedID) String() string {
-	return fmt.Sprintf("%x", f[:])
-}
+func (f FeedID) Hex() string { return (utils.Hash)(f).Hex() }
 
-func (f FeedID) Hex() string {
-	return f.String()
-}
+func (f FeedID) String() string { return (utils.Hash)(f).String() }
 
-// UnmarshalText parses a hash in hex syntax.
 func (f *FeedID) UnmarshalText(input []byte) error {
-	return (*common.Hash)(f).UnmarshalText(input)
-}
-
-// UnmarshalJSON parses a hash in hex syntax.
-func (f *FeedID) UnmarshalJSON(input []byte) error {
-	return (*common.Hash)(f).UnmarshalJSON(input)
+	return (*utils.Hash)(f).UnmarshalText(input)
 }
 
 func (f FeedID) Version() FeedIDPrefix {

@@ -54,9 +54,6 @@ func ValidatePluginConfig(config PluginConfig, feedID types.FeedID) (merr error)
 
 	switch feedID.Version() {
 	case 1:
-		if !config.InitialBlockNumber.Valid {
-			merr = errors.Join(merr, errors.New("initialBlockNumber must be specified for v1 jobs"))
-		}
 		if config.LinkFeedID != nil {
 			merr = errors.Join(merr, errors.New("linkFeedID may not be specified for v1 jobs"))
 		}
