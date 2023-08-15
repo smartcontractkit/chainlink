@@ -27,6 +27,7 @@ type TestHarness struct {
 	configPoller     *ConfigPoller
 	user             *bind.TransactOpts
 	backend          *backends.SimulatedBackend
+	verifierAddress  common.Address
 	verifierContract *verifier.Verifier
 	logPoller        logpoller.LogPoller
 	eventBroadcaster *pgmocks.EventBroadcaster
@@ -73,6 +74,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 		configPoller:     configPoller,
 		user:             user,
 		backend:          b,
+		verifierAddress:  verifierAddress,
 		verifierContract: verifierContract,
 		logPoller:        lp,
 		eventBroadcaster: eventBroadcaster,
