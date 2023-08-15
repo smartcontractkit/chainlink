@@ -154,7 +154,7 @@ jobs:
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
-          cache-go-modules: ${{ contains(matrix.split.id, '1/') }}
+          matrix-id: ${{ matrix.cmd }}-${{ matrix.split.id }}
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
       - name: Setup wasmd
