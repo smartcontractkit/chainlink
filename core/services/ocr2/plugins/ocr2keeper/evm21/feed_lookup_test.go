@@ -350,6 +350,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		expectedValues     [][]byte
 		expectedRetryable  bool
 		expectedError      error
+		state              PipelineExecutionState
 	}{
 		{
 			name: "success",
@@ -382,6 +383,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			expectedValues:     [][]byte{nil},
 			expectedRetryable:  true,
 			expectedError:      errors.New("All attempts fail:\n#1: 500\n#2: 500\n#3: 500"),
+			state:              MercuryFlakyFailure,
 		},
 		{
 			name: "failure - not retryable",
@@ -398,6 +400,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			expectedValues:     [][]byte{nil},
 			expectedRetryable:  false,
 			expectedError:      errors.New("All attempts fail:\n#1: FeedLookup upkeep 88786950015966611018675766524283132478093844178961698330929478019253453382042 block 25880526 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+			state:              InvalidMercuryRequest,
 		},
 	}
 
@@ -423,9 +426,10 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			}
 			r.hc = hc
 
-			values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup)
+			state, values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup)
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
+			assert.Equal(t, tt.state, state)
 			if tt.expectedError != nil {
 				assert.Equal(t, tt.expectedError.Error(), reqErr.Error())
 			}
@@ -587,7 +591,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			}
 			r.hc = hc
 
-			ch := make(chan MercuryBytes, 1)
+			ch := make(chan MercuryData, 1)
 			r.singleFeedRequest(context.Background(), ch, tt.index, tt.lookup, tt.mv)
 
 			m := <-ch
@@ -746,7 +750,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			}
 			r.hc = hc
 
-			ch := make(chan MercuryBytes, 1)
+			ch := make(chan MercuryData, 1)
 			r.multiFeedsRequest(context.Background(), ch, tt.lookup)
 
 			m := <-ch
