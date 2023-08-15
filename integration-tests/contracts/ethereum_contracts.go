@@ -301,7 +301,7 @@ func (f *EthereumFunctionsBillingRegistryEventsMock) SubscriptionFunded(subscrip
 	return f.client.ProcessTransaction(tx)
 }
 
-func (f *EthereumFunctionsBillingRegistryEventsMock) BillingStart(requestId [32]byte, commitment functions_billing_registry_events_mock.FunctionsBillingRegistryEventsMockCommitment) error {
+func (f *EthereumFunctionsBillingRegistryEventsMock) BillingStart(requestId [32]byte, commitment functions_billing_registry_events_mock.FunctionsBillingRegistryEventsMockFunctionsBillingRegistryCommitment) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
 		return err
