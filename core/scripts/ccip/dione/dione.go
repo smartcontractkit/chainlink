@@ -24,11 +24,9 @@ const (
 type Environment string
 
 const (
-	StagingAlpha Environment = "staging-alpha"
-	StagingBeta  Environment = "staging-beta"
-	Production   Environment = "prod"
-	Prod_Swift   Environment = "prod-swift"
-	MainnetGamma Environment = "mainnet-gamma"
+	StagingBeta Environment = "staging-beta"
+	Production  Environment = "prod"
+	Prod_Swift  Environment = "prod-swift"
 )
 
 type JobType string

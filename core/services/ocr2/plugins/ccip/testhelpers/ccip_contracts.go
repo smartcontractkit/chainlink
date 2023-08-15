@@ -11,9 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -36,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/merklemulti"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -403,6 +406,30 @@ func (c *CCIPContracts) AssertBalances(t *testing.T, bas []BalanceAssertion) {
 	}
 }
 
+func AccountToAddress(accounts []ocr2types.Account) (addresses []common.Address, err error) {
+	for _, signer := range accounts {
+		bytes, err := hexutil.Decode(string(signer))
+		if err != nil {
+			return []common.Address{}, errors.Wrap(err, fmt.Sprintf("given address is not valid %s", signer))
+		}
+		if len(bytes) != 20 {
+			return []common.Address{}, errors.Errorf("address is not 20 bytes %s", signer)
+		}
+		addresses = append(addresses, common.BytesToAddress(bytes))
+	}
+	return addresses, nil
+}
+
+func OnchainPublicKeyToAddress(publicKeys []ocrtypes.OnchainPublicKey) (addresses []common.Address, err error) {
+	for _, signer := range publicKeys {
+		if len(signer) != 20 {
+			return []common.Address{}, errors.Errorf("address is not 20 bytes %s", signer)
+		}
+		addresses = append(addresses, common.BytesToAddress(signer))
+	}
+	return addresses, nil
+}
+
 func (c *CCIPContracts) DeriveOCR2Config(t *testing.T, oracles []confighelper.OracleIdentityExtra, rawOnchainConfig []byte, rawOffchainConfig []byte) *OCR2Config {
 	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		2*time.Second,        // deltaProgress
@@ -431,9 +458,9 @@ func (c *CCIPContracts) DeriveOCR2Config(t *testing.T, oracles []confighelper.Or
 		"onchainConfig", onchainConfig,
 		"encodedConfigVersion", offchainConfigVersion,
 	)
-	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
+	signerAddresses, err := OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
-	transmitterAddresses, err := evm.AccountToAddress(transmitters)
+	transmitterAddresses, err := AccountToAddress(transmitters)
 	require.NoError(t, err)
 
 	return &OCR2Config{

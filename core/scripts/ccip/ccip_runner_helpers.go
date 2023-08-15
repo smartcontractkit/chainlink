@@ -20,15 +20,13 @@ import (
 )
 
 var laneMapping = map[dione.Environment]map[rhea.Chain]map[rhea.Chain]rhea.EvmDeploymentConfig{
-	dione.StagingAlpha: deployments.AlphaChainMapping,
-	dione.StagingBeta:  deployments.BetaChainMapping,
-	dione.Production:   deployments.ProdChainMapping,
+	dione.StagingBeta: deployments.BetaChainMapping,
+	dione.Production:  deployments.ProdChainMapping,
 }
 
 var chainMapping = map[dione.Environment]map[rhea.Chain]rhea.EvmDeploymentConfig{
-	dione.StagingAlpha: deployments.AlphaChains,
-	dione.StagingBeta:  deployments.BetaChains,
-	dione.Production:   deployments.ProdChains,
+	dione.StagingBeta: deployments.BetaChains,
+	dione.Production:  deployments.ProdChains,
 }
 
 func checkOwnerKey(t *testing.T) string {

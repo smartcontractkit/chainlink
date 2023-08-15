@@ -80,3 +80,5 @@ contracts/yarn.lock
 
 # Ignore DevSpace cache and log folder
 .devspace/
+
+core/scripts/ccip/json/credentials
