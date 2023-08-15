@@ -150,7 +150,9 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 				for {
 					select {
 					case h := <-bs.headC:
-						bs.processHead(h)
+						if h != nil {
+							bs.processHead(h)
+						}
 					case <-ctx.Done():
 						return
 					}
