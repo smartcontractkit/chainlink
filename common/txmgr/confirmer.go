@@ -610,6 +610,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reb
 	var errMu sync.Mutex
 	for _, address := range ec.enabledAddresses {
 		go func(fromAddress ADDR) {
+			ec.lggr.Errorw("Error in RebroadcastWhereNecessary", "err", "err", "fromAddress", fromAddress)
+
 			if err := ec.rebroadcastWhereNecessary(ctx, fromAddress, blockHeight); err != nil {
 				errMu.Lock()
 				errors = append(errors, err)
@@ -757,7 +759,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) att
 			return previousAttempt, nil
 		}
 		attempt, err = ec.bumpGas(ctx, etx, etx.TxAttempts)
-
+		lggr.Errorw("Failed to bump gas", append(logFields, "err", err)...)
 		if commonfee.IsBumpErr(err) {
 			lggr.Errorw("Failed to bump gas", append(logFields, "err", err)...)
 			// Do not create a new attempt if bumping gas would put us over the limit or cause some other problem
@@ -942,6 +944,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Ens
 	wg.Add(len(ec.enabledAddresses))
 	for _, address := range ec.enabledAddresses {
 		go func(fromAddress ADDR) {
+			ec.lggr.Errorw("Error in handleAnyInProgressAttempts", "err", err, "fromAddress", fromAddress)
+
 			if err := ec.handleAnyInProgressAttempts(ctx, fromAddress, head.BlockNumber()); err != nil {
 				errMu.Lock()
 				errors = append(errors, err)

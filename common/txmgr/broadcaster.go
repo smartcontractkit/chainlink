@@ -353,6 +353,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) moni
 		pollDBTimer := time.NewTimer(utils.WithJitter(eb.listenerConfig.FallbackPollInterval()))
 
 		retryable, err := eb.processUnstartedTxsImpl(ctx, addr)
+		eb.logger.Errorw("Error occurred while handling tx queue in ProcessUnstartedTxs", "err", err)
 		if err != nil {
 			eb.logger.Errorw("Error occurred while handling tx queue in ProcessUnstartedTxs", "err", err)
 		}
@@ -392,6 +393,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) moni
 // syncSequence tries to sync the key sequence, retrying indefinitely until success
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) SyncSequence(ctx context.Context, addr ADDR) {
 	sequenceSyncRetryBackoff := eb.newSequenceSyncBackoff()
+	eb.logger.Errorw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", "attempt", "err", "err")
 	if err := eb.sequenceSyncer.Sync(ctx, addr); err != nil {
 		// Enter retry loop with backoff
 		var attempt int
@@ -402,10 +404,10 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Sync
 				return
 			case <-time.After(sequenceSyncRetryBackoff.Duration()):
 				attempt++
-
+				eb.logger.Criticalw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
 				if err := eb.sequenceSyncer.Sync(ctx, addr); err != nil {
 					if attempt > 5 {
-						eb.logger.Criticalw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
+
 						eb.SvcErrBuffer.Append(err)
 					} else {
 						eb.logger.Warnw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
@@ -445,11 +447,15 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) proc
 		maxInFlightTransactions := eb.txConfig.MaxInFlight()
 		if maxInFlightTransactions > 0 {
 			nUnconfirmed, err := eb.txStore.CountUnconfirmedTransactions(fromAddress, eb.chainID)
+			eb.logger.Warnw(fmt.Sprintf(`Transaction throttling; %d transactions in-flight and %d unstarted transactions pending (maximum number of in-flight transactions is %d per key). %s`, nUnconfirmed, "nUnstarted", maxInFlightTransactions, label.MaxInFlightTransactionsWarning), "maxInFlightTransactions", maxInFlightTransactions, "nUnconfirmed", nUnconfirmed, "nUnstarted", "nUnstarted")
+
 			if err != nil {
 				return true, errors.Wrap(err, "CountUnconfirmedTransactions failed")
 			}
 			if nUnconfirmed >= maxInFlightTransactions {
 				nUnstarted, err := eb.txStore.CountUnstartedTransactions(fromAddress, eb.chainID)
+				eb.logger.Warnw(fmt.Sprintf(`Transaction throttling; %d transactions in-flight and %d unstarted transactions pending (maximum number of in-flight transactions is %d per key). %s`, nUnconfirmed, nUnstarted, maxInFlightTransactions, label.MaxInFlightTransactionsWarning), "maxInFlightTransactions", maxInFlightTransactions, "nUnconfirmed", nUnconfirmed, "nUnstarted", nUnstarted)
+
 				if err != nil {
 					return true, errors.Wrap(err, "CountUnstartedTransactions failed")
 				}
@@ -539,6 +545,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	checkCtx, cancel := context.WithTimeout(ctx, TransmitCheckTimeout)
 	defer cancel()
 	err = checker.Check(checkCtx, lgr, etx, attempt)
+	lgr.Warn("Transmission checker timed out, sending anyway")
 	if errors.Is(err, context.Canceled) {
 		lgr.Warn("Transmission checker timed out, sending anyway")
 	} else if err != nil {
@@ -705,6 +712,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryA
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) tryAgainWithNewEstimation(ctx context.Context, lgr logger.Logger, txError error, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time) (err error, retryable bool) {
+	err = errors.Errorf("re-estimation is not supported for EIP-1559 transactions. Node returned error: %v. This is a bug", txError.Error())
 	if attempt.TxType == 0x2 {
 		err = errors.Errorf("re-estimation is not supported for EIP-1559 transactions. Node returned error: %v. This is a bug", txError.Error())
 		logger.Sugared(eb.logger).AssumptionViolation(err.Error())

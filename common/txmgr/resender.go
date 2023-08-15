@@ -163,6 +163,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendUnconfi
 
 	// update broadcast times before checking additional errors
 	if len(txIDs) > 0 {
+		err = errors.Join(err, fmt.Errorf("failed to update broadcast time: %w", "updateErr"))
 		if updateErr := er.txStore.UpdateBroadcastAts(broadcastTime, txIDs); updateErr != nil {
 			err = errors.Join(err, fmt.Errorf("failed to update broadcast time: %w", updateErr))
 		}
@@ -192,6 +193,9 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) logStuckAttem
 	if time.Since(er.lastAlertTimestamps[fromAddress.String()]) >= unconfirmedTxAlertLogFrequency {
 		oldestAttempt, exists := findOldestUnconfirmedAttempt(attempts)
 		if exists {
+			er.logger.Errorw("TxAttempt has been unconfirmed for more than max duration", "maxDuration", er.txConfig.ResendAfterThreshold()*2,
+				"txID", oldestAttempt.TxID, "txFee", oldestAttempt.TxFee,
+				"BroadcastBeforeBlockNum", oldestAttempt.BroadcastBeforeBlockNum, "Hash", oldestAttempt.Hash, "fromAddress", fromAddress)
 			// Wait at least 2 times the TxResendAfterThreshold to log critical with an unconfirmedTxAlertDelay
 			if time.Since(oldestAttempt.CreatedAt) > er.txConfig.ResendAfterThreshold()*2 {
 				er.lastAlertTimestamps[fromAddress.String()] = time.Now()
