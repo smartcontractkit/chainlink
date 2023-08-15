@@ -106,7 +106,7 @@ func (bs *BlockSubscriber) buildHistory(block int64) ocr2keepers.BlockHistory {
 					Hash:   common.HexToHash(h),
 				})
 			} else {
-				bs.lggr.Infof("block %d is missing", block-i)
+				bs.lggr.Debugf("block %d is missing", block-i)
 			}
 		}
 	}
@@ -117,12 +117,11 @@ func (bs *BlockSubscriber) cleanup() {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
 
-	bs.lggr.Infof("start clearing blocks from %d to %d", bs.lastClearedBlock+1, bs.lastSentBlock-bs.blockSize)
+	bs.lggr.Debugf("start clearing blocks from %d to %d", bs.lastClearedBlock+1, bs.lastSentBlock-bs.blockSize)
 	for i := bs.lastClearedBlock + 1; i <= bs.lastSentBlock-bs.blockSize; i++ {
 		delete(bs.blocks, i)
 	}
 	bs.lastClearedBlock = bs.lastSentBlock - bs.blockSize
-	bs.lggr.Infof("lastClearedBlock is set to %d", bs.lastClearedBlock)
 }
 
 func (bs *BlockSubscriber) Start(ctx context.Context) error {
