@@ -29,12 +29,12 @@ func getReportTypes() abi.Arguments {
 	}
 	return abi.Arguments([]abi.Argument{
 		{Name: "feedId", Type: mustNewType("bytes32")},
-		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
-		{Name: "benchmarkPrice", Type: mustNewType("int192")},
 		{Name: "validFromTimestamp", Type: mustNewType("uint32")},
-		{Name: "expiresAt", Type: mustNewType("uint32")},
-		{Name: "linkFee", Type: mustNewType("int192")},
+		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
 		{Name: "nativeFee", Type: mustNewType("int192")},
+		{Name: "linkFee", Type: mustNewType("int192")},
+		{Name: "expiresAt", Type: mustNewType("uint32")},
+		{Name: "benchmarkPrice", Type: mustNewType("int192")},
 	})
 }
 

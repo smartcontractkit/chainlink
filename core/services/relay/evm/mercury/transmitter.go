@@ -149,7 +149,7 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 		if err != nil {
 			return err
 		}
-		mt.queue = NewTransmitQueue(mt.lggr, fmt.Sprintf("0x%x", mt.feedID), maxTransmitQueueSize, transmissions, mt.persistenceManager)
+		mt.queue = NewTransmitQueue(mt.lggr, mt.feedID.String(), maxTransmitQueueSize, transmissions, mt.persistenceManager)
 
 		if err := mt.rpcClient.Start(ctx); err != nil {
 			return err
@@ -244,7 +244,7 @@ func (mt *mercuryTransmitter) runQueueLoop() {
 				mt.transmitDuplicateCount.Inc()
 				mt.lggr.Tracew("Transmit report succeeded; duplicate report", "code", res.Code)
 			default:
-				transmitServerErrorCount.WithLabelValues(fmt.Sprintf("0x%x", mt.feedID[:]), fmt.Sprintf("%d", res.Code)).Inc()
+				transmitServerErrorCount.WithLabelValues(mt.feedID.String(), fmt.Sprintf("%d", res.Code)).Inc()
 				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
 		}
