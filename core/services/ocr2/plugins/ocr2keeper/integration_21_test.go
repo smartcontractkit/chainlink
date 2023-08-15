@@ -76,7 +76,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
-	t.Skip() // TODO: unskip when conditional flow is ready
+	//t.Skip() // TODO: unskip when conditional flow is ready
 
 	g := gomega.NewWithT(t)
 	lggr := logger.TestLogger(t)

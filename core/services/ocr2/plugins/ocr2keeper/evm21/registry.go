@@ -229,6 +229,7 @@ func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...
 }
 
 func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
+	r.lggr.Debugw("Checking upkeeps", "upkeeps", keys)
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx, keys, chResult)
 

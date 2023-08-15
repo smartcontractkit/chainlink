@@ -24,6 +24,7 @@ func NewPayloadBuilder(lggr logger.Logger) *payloadBuilder {
 }
 
 func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedBlockProposal) ([]ocr2keepers.UpkeepPayload, error) {
+
 	payloads := make([]ocr2keepers.UpkeepPayload, len(proposals))
 	//block, err := b.latestBlock(ctx)
 	//if err != nil {
@@ -31,6 +32,7 @@ func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2kee
 	//}
 
 	for i, p := range proposals {
+		b.lggr.Debugf("building payload for coordinated block proposal %+v", p)
 		var checkData []byte
 		switch core.GetUpkeepType(p.UpkeepID) {
 		case ocr2keepers.LogTrigger:
