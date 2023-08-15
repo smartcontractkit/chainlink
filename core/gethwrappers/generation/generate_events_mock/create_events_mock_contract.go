@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,27 +9,8 @@ import (
 	"text/template"
 
 	"github.com/Masterminds/sprig/v3"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 )
-
-type AbiEvent struct {
-	Type   string      `json:"type"`
-	Name   string      `json:"name"`
-	Inputs []AbiInputs `json:"inputs"`
-}
-
-type AbiInputs struct {
-	Name         string          `json:"name"`
-	Type         string          `json:"type"`
-	Indexed      bool            `json:"indexed"`
-	InternalType string          `json:"internalType,omitempty"`
-	Components   []AbiComponents `json:"components,omitempty"`
-}
-
-type AbiComponents struct {
-	Name         string `json:"name"`
-	Type         string `json:"type"`
-	InternalType string `json:"internalType"`
-}
 
 type SolEvent struct {
 	Name   string
@@ -91,8 +71,7 @@ func getABIFiles(root string) ([]string, error) {
 }
 
 func extractEventsAndStructs(abiJSON []byte) ([]SolEvent, []SolStruct, error) {
-	var parsedABI []AbiEvent
-	err := json.Unmarshal(abiJSON, &parsedABI)
+	parsedABI, err := abi.JSON(bytes.NewReader(abiJSON))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -100,59 +79,75 @@ func extractEventsAndStructs(abiJSON []byte) ([]SolEvent, []SolStruct, error) {
 	var solEvents []SolEvent
 	var solStructs []SolStruct
 
-	for _, item := range parsedABI {
-		if item.Type == "event" {
-			eventName := item.Name
-			var eventParams []SolEventParam
+	//for _, m := range parsedABI.Methods {
+	//	fmt.Printf("Name: %s\n", m.Name)
+	//	fmt.Printf("RawName: %s\n", m.RawName)
+	//	fmt.Printf("String(): %s\n", m.String())
+	//	fmt.Printf("Signature: %s\n", m.Sig)
+	//	fmt.Printf("ID: %s\n", string(m.ID))
+	//	fmt.Printf("Const: %t\n", m.Constant)
+	//	fmt.Printf("Payable: %t\n", m.Payable)
+	//	fmt.Printf("StateMutability: %s\n", m.StateMutability)
+	//	fmt.Printf("Type: %d\n", m.Type)
+	//	fmt.Printf("Inputs: \n")
+	//	for i, input := range m.Inputs {
+	//		fmt.Printf(" Input[%d].Name: %s\n", i, input.Name)
+	//		fmt.Printf(" Input[%d].Type.String(): %s\n", i, input.Type.String())
+	//		fmt.Printf(" Input[%d].Type.TupleRawName: %s\n", i, input.Type.TupleRawName)
+	//	}
+	//	fmt.Printf("Outputs: \n")
+	//	for i, output := range m.Outputs {
+	//		fmt.Printf(" Output[%d].Name: %s\n", i, output.Name)
+	//		fmt.Printf(" Output[%d].Type.String(): %s\n", i, output.Type.String())
+	//		fmt.Printf(" Output[%d].Type.TupleRawName: %s\n", i, output.Type.TupleRawName)
+	//	}
+	//	fmt.Printf("\n\n")
+	//}
 
-			for i, input := range item.Inputs {
-				if input.Name == "" {
-					input.Name = "param" + fmt.Sprintf("%d", i+1)
-				}
-				if input.Type == "tuple" && strings.Contains(input.InternalType, "struct") {
-					internalType := strings.TrimPrefix(input.InternalType, "struct ")
-					if strings.Contains(internalType, ".") {
-						internalType = strings.Split(internalType, ".")[1]
-					}
-					structName := internalType
+	for _, e := range parsedABI.Events {
+		eventName := e.Name
+		var eventParams []SolEventParam
 
-					var solStructParams []SolStructParam
-					for _, component := range input.Components {
-						solStructParam := SolStructParam{
-							Type: component.Type,
-							Name: component.Name,
-						}
-						solStructParams = append(solStructParams, solStructParam)
-					}
-
-					solStruct := SolStruct{
-						Name:            structName,
-						SolStructParams: solStructParams,
-					}
-					solStructs = append(solStructs, solStruct)
-
-					eventParams = append(eventParams, SolEventParam{
-						Type:         structName,
-						Name:         input.Name,
-						Indexed:      input.Indexed,
-						InternalType: "struct",
-					})
-				} else {
-					eventParams = append(eventParams, SolEventParam{
-						Type:    input.Type,
-						Name:    input.Name,
-						Indexed: input.Indexed,
-					})
-				}
+		for i, input := range e.Inputs {
+			if input.Name == "" {
+				input.Name = "param" + fmt.Sprintf("%d", i+1)
 			}
+			if input.Type.TupleRawName != "" {
+				structName := input.Type.TupleRawName
 
-			solEvents = append(solEvents, SolEvent{
-				Name:   eventName,
-				Params: eventParams,
-			})
+				var structParams []SolStructParam
+				for t, trn := range input.Type.TupleElems {
+					structParams = append(structParams, SolStructParam{
+						Type: trn.String(),
+						Name: input.Type.TupleRawNames[t],
+					})
+				}
+
+				solStruct := SolStruct{
+					Name:            structName,
+					SolStructParams: structParams,
+				}
+				solStructs = append(solStructs, solStruct)
+
+				eventParams = append(eventParams, SolEventParam{
+					Type:         structName,
+					Name:         input.Name,
+					Indexed:      input.Indexed,
+					InternalType: "struct",
+				})
+			} else {
+				eventParams = append(eventParams, SolEventParam{
+					Type:    input.Type.String(),
+					Name:    input.Name,
+					Indexed: input.Indexed,
+				})
+			}
 		}
+		solEvents = append(solEvents, SolEvent{
+			Name:   eventName,
+			Params: eventParams,
+		})
 	}
-
 	return solEvents, solStructs, nil
 }
 
@@ -270,7 +265,7 @@ func main() {
 		functions = append(functions, fileFunctions...)
 	}
 
-	// Generate the contract
+	//// Generate the contract
 	data := TemplateData{
 		ContractName: contractName,
 		Events:       events,
