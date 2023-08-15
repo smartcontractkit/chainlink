@@ -243,6 +243,7 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 			TransactionHash: l.TxHash,
 			WorkID:          workID,
 			UpkeepID:        *upkeepId,
+			CheckBlock:      trigger.BlockNumber,
 		})
 	}
 

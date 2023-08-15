@@ -391,7 +391,7 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
 		100*time.Millisecond,  // deltaInitial time.Duration,
-		2500*time.Millisecond, // deltaRound time.Duration,
+		1000*time.Millisecond, // deltaRound time.Duration,
 		40*time.Millisecond,   // deltaGrace time.Duration,
 		200*time.Millisecond,  // deltaRequestCertifiedCommit time.Duration,
 		30*time.Second,        // deltaStage time.Duration,
