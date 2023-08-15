@@ -34,7 +34,7 @@ type UpdatePasswordRequest struct {
 func (c *UserController) Index(ctx *gin.Context) {
 	users, err := c.App.AuthenticationProvider().ListUsers()
 	if err != nil {
-		if err == clsession.ErrNotSupported {
+		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
 			return
 		}
@@ -89,7 +89,7 @@ func (c *UserController) Create(ctx *gin.Context) {
 				return
 			}
 		}
-		if err == clsession.ErrNotSupported {
+		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
 			return
 		}
@@ -142,7 +142,7 @@ func (c *UserController) UpdateRole(ctx *gin.Context) {
 
 	user, err := c.App.AuthenticationProvider().UpdateRole(request.Email, request.NewRole)
 	if err != nil {
-		if err == clsession.ErrNotSupported {
+		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
 			return
 		}
@@ -160,7 +160,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 	// Attempt find user by email
 	user, err := c.App.AuthenticationProvider().FindUser(email)
 	if err != nil {
-		if err == clsession.ErrNotSupported {
+		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
 			return
 		}
@@ -180,7 +180,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 	}
 
 	if err = c.App.AuthenticationProvider().DeleteUser(email); err != nil {
-		if err == clsession.ErrNotSupported {
+		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
 			return
 		}
@@ -207,7 +207,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 	}
 	user, err := c.App.AuthenticationProvider().FindUser(sessionUser.Email)
 	if err != nil {
-		if err == clsession.ErrNotSupported {
+		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
 			return
 		}
@@ -248,7 +248,7 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 	}
 	user, err := c.App.AuthenticationProvider().FindUser(sessionUser.Email)
 	if err != nil {
-		if err == clsession.ErrNotSupported {
+		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
 			return
 		}
@@ -265,7 +265,7 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 	}
 	newToken := auth.NewToken()
 	if err := c.App.AuthenticationProvider().SetAuthToken(&user, newToken); err != nil {
-		if err == clsession.ErrNotSupported {
+		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
 			return
 		}
@@ -292,7 +292,7 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 	}
 	user, err := c.App.AuthenticationProvider().FindUser(sessionUser.Email)
 	if err != nil {
-		if err == clsession.ErrNotSupported {
+		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
 			return
 		}
@@ -307,7 +307,7 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 		return
 	}
 	if err := c.App.AuthenticationProvider().DeleteAuthToken(&user); err != nil {
-		if err == clsession.ErrNotSupported {
+		if errors.Is(err, clsession.ErrNotSupported) {
 			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
 			return
 		}
@@ -340,7 +340,7 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *clsession.Us
 		return errors.New("unable to update password")
 	}
 	if err := orm.SetPassword(user, newPassword); err != nil {
-		if err == clsession.ErrNotSupported {
+		if errors.Is(err, clsession.ErrNotSupported) {
 			return errors.New("Action is unsupported with configured authentication provider")
 		}
 		c.App.GetLogger().Errorf("failed to update current user password: %s", err)
