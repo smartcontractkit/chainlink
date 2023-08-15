@@ -16,6 +16,7 @@ func TestOCRBasic(t *testing.T) {
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodes(6).
+		WithLogWatcher().
 		WithFunding(big.NewFloat(10)).
 		Build()
 	require.NoError(t, err)
@@ -44,7 +45,7 @@ func TestOCRBasic(t *testing.T) {
 	answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
-
+	w
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockServer.Client)
 	require.NoError(t, err)
 	err = actions.StartNewRound(2, ocrInstances, env.Geth.EthClient)
