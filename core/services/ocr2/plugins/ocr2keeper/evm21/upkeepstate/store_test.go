@@ -229,10 +229,10 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			name:     "querying non-stored workIDs on empty db returns unknown state results",
 			queryIDs: []string{"0x1", "0x2", "0x3", "0x4"},
 			expected: []ocr2keepers.UpkeepState{
-				StateUnknown,
-				StateUnknown,
-				StateUnknown,
-				StateUnknown,
+				ocr2keepers.UnknownState,
+				ocr2keepers.UnknownState,
+				ocr2keepers.UnknownState,
+				ocr2keepers.UnknownState,
 			},
 		},
 		{
@@ -245,10 +245,10 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				{result: makeTestResult(4, "0x44", false, 1), state: ocr2keepers.Ineligible},
 			},
 			expected: []ocr2keepers.UpkeepState{
-				StateUnknown,
-				StateUnknown,
-				StateUnknown,
-				StateUnknown,
+				ocr2keepers.UnknownState,
+				ocr2keepers.UnknownState,
+				ocr2keepers.UnknownState,
+				ocr2keepers.UnknownState,
 			},
 		},
 		{
@@ -264,7 +264,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				ocr2keepers.Ineligible,
 				ocr2keepers.Ineligible,
 				ocr2keepers.Ineligible,
-				StateUnknown,
+				ocr2keepers.UnknownState,
 			},
 		},
 		{
@@ -280,7 +280,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				ocr2keepers.Ineligible,
 				ocr2keepers.Ineligible,
 				ocr2keepers.Ineligible,
-				StateUnknown,
+				ocr2keepers.UnknownState,
 			},
 		},
 		{
@@ -291,7 +291,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				{result: makeTestResult(14, "0x2", false, 1), state: ocr2keepers.Performed},
 			},
 			expected: []ocr2keepers.UpkeepState{
-				StateUnknown,
+				ocr2keepers.UnknownState,
 				ocr2keepers.Ineligible,
 			},
 		},
@@ -413,7 +413,7 @@ func TestUpkeepStateStore_Service(t *testing.T) {
 	// select from store to ensure cached values were removed
 	values, err = store.SelectByWorkIDsInRange(context.Background(), 1, 100, "0x2")
 	require.NoError(t, err, "no error from selecting states")
-	require.Equal(t, []ocr2keepers.UpkeepState{StateUnknown}, values, "selected values should match expected")
+	require.Equal(t, []ocr2keepers.UpkeepState{ocr2keepers.UnknownState}, values, "selected values should match expected")
 
 	assert.NoError(t, store.Close(), "no error from closing service")
 

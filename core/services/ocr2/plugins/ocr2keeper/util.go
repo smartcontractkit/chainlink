@@ -25,6 +25,7 @@ import (
 	kevm20 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm20"
 	kevm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/upkeepstate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -129,6 +130,7 @@ func EVMDependencies21(
 	pr pipeline.Runner,
 	mc *models.MercuryCredentials,
 	keyring ocrtypes.OnchainKeyring,
+	dbCfg pg.QConfig,
 ) (evmrelay.OCR2KeeperProvider, *kevm21.EvmRegistry, Encoder21, *kevm21.TransmitEventProvider, ocr2keepers21.LogEventProvider, ocr3types.OnchainKeyring[ocr2keepers21plugin.AutomationReportInfo], *kevm21.BlockSubscriber, ocr2keepers21.PayloadBuilder, ocr2keepers21.UpkeepStateUpdater, ocr2keepers21.ConditionalUpkeepProvider, error) {
 	var err error
 	var chain evm.Chain
@@ -165,7 +167,10 @@ func EVMDependencies21(
 		chain.LogPoller(),
 		rAddr,
 	)
-	us := upkeepstate.NewUpkeepStateStore(lggr, scanner)
+
+	orm := upkeepstate.NewORM(big.NewInt(chainID), db, lggr, dbCfg)
+
+	us := upkeepstate.NewUpkeepStateStore(orm, lggr, scanner)
 	up := kevm21.NewUpkeepProvider(registry, chain.LogPoller())
 
 	// lookback blocks is hard coded and should provide ample time for logs
