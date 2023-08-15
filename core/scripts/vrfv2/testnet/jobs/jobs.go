@@ -28,6 +28,7 @@ estimate_gas [type=estimategaslimit
               multiplier="1.1"
               data="$(vrf.output)"]
 simulate     [type=ethcall
+              from="%s"
               to="%s"
               gas="$(estimate_gas)"
               gasPrice="$(jobSpec.maxGasPrice)"

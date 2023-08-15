@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {IERC165} from "../../vendor/IERC165.sol";
+import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
+import {Common} from "../../libraries/Common.sol";
 
 interface IVerifier is IERC165 {
   /**
    * @notice Verifies that the data encoded has been signed
    * correctly by routing to the correct verifier.
    * @param signedReport The encoded data to be verified.
-   * @param requester The original address that requested to verify the contract.
+   * @param sender The address that requested to verify the contract.
    * This is only used for logging purposes.
    * @dev Verification is typically only done through the proxy contract so
    * we can't just use msg.sender to log the requester as the msg.sender
    * contract will always be the proxy.
    * @return response The encoded verified response.
    */
-  function verify(bytes memory signedReport, address requester) external returns (bytes memory response);
+  function verify(bytes calldata signedReport, address sender) external returns (bytes memory response);
 
   /**
    * @notice sets offchain reporting protocol configuration incl. participating oracles
@@ -26,6 +27,7 @@ interface IVerifier is IERC165 {
    * @param onchainConfig serialized configuration used by the contract (and possibly oracles)
    * @param offchainConfigVersion version number for offchainEncoding schema
    * @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
+   * @param recipientAddressesAndWeights the addresses and weights of all the recipients to receive rewards
    */
   function setConfig(
     bytes32 feedId,
@@ -34,8 +36,39 @@ interface IVerifier is IERC165 {
     uint8 f,
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
-    bytes memory offchainConfig
+    bytes memory offchainConfig,
+    Common.AddressAndWeight[] memory recipientAddressesAndWeights
   ) external;
+
+  /**
+   * @notice Activates the configuration for a config digest
+   * @param feedId Feed ID to activate config for
+   * @param configDigest The config digest to activate
+   * @dev This function can be called by the contract admin to activate a configuration.
+   */
+  function activateConfig(bytes32 feedId, bytes32 configDigest) external;
+
+  /**
+   * @notice Deactivates the configuration for a config digest
+   * @param feedId Feed ID to deactivate config for
+   * @param configDigest The config digest to deactivate
+   * @dev This function can be called by the contract admin to deactivate an incorrect configuration.
+   */
+  function deactivateConfig(bytes32 feedId, bytes32 configDigest) external;
+
+  /**
+   * @notice Activates the given feed
+   * @param feedId Feed ID to activated
+   * @dev This function can be called by the contract admin to activate a feed
+   */
+  function activateFeed(bytes32 feedId) external;
+
+  /**
+   * @notice Deactivates the given feed
+   * @param feedId Feed ID to deactivated
+   * @dev This function can be called by the contract admin to deactivate a feed
+   */
+  function deactivateFeed(bytes32 feedId) external;
 
   /**
    * @notice returns the latest config digest and epoch for a feed

@@ -5,6 +5,8 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -58,7 +60,6 @@ func DeployOCRContractsLocal(
 	numberOfContracts int,
 	linkTokenContract contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
-	bootstrapNode *client.ChainlinkClient,
 	workerNodes []*client.ChainlinkClient,
 	client blockchain.EVMClient,
 ) ([]contracts.OffchainAggregator, error) {
@@ -73,11 +74,9 @@ func DeployOCRContractsLocal(
 			return nil, fmt.Errorf("OCR instance deployment have failed: %w", err)
 		}
 		ocrInstances = append(ocrInstances, ocrInstance)
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for OCR contract deployments: %w", err)
-			}
+		err = client.WaitForEvents()
+		if err != nil {
+			return nil, fmt.Errorf("failed to wait for OCR contract deployments: %w", err)
 		}
 	}
 	err := client.WaitForEvents()
@@ -97,21 +96,15 @@ func DeployOCRContractsLocal(
 	}
 
 	// Set Payees
-	for contractCount, ocrInstance := range ocrInstances {
+	for _, ocrInstance := range ocrInstances {
 		err = ocrInstance.SetPayees(transmitters, payees)
 		if err != nil {
 			return nil, fmt.Errorf("error settings OCR payees: %w", err)
 		}
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for setting OCR payees: %w", err)
-			}
+		err = client.WaitForEvents()
+		if err != nil {
+			return nil, fmt.Errorf("failed to wait for setting OCR payees: %w", err)
 		}
-	}
-	err = client.WaitForEvents()
-	if err != nil {
-		return nil, fmt.Errorf("error waiting for OCR contracts to set payees and transmitters: %w", err)
 	}
 
 	// Set Config
@@ -119,7 +112,7 @@ func DeployOCRContractsLocal(
 	if err != nil {
 		return nil, fmt.Errorf("getting node common addresses should not fail: %w", err)
 	}
-	for contractCount, ocrInstance := range ocrInstances {
+	for _, ocrInstance := range ocrInstances {
 		// Exclude the first node, which will be used as a bootstrapper
 		err = ocrInstance.SetConfigLocal(
 			workerNodes,
@@ -129,11 +122,9 @@ func DeployOCRContractsLocal(
 		if err != nil {
 			return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
 		}
-		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
-			if err != nil {
-				return nil, fmt.Errorf("failed to wait for setting OCR config: %w", err)
-			}
+		err = client.WaitForEvents()
+		if err != nil {
+			return nil, fmt.Errorf("failed to wait for setting OCR config: %w", err)
 		}
 	}
 	err = client.WaitForEvents()
@@ -269,4 +260,165 @@ func SetAllAdapterResponsesToTheSameValueLocal(
 		}
 	}
 	return eg.Wait()
+}
+
+func TrackForwarderLocal(
+	chainClient blockchain.EVMClient,
+	authorizedForwarder common.Address,
+	node *client.ChainlinkClient,
+) error {
+	chainID := chainClient.GetChainID()
+	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
+	if err != nil {
+		return errors.Wrap(err, "failed to track forwarder")
+	}
+	log.Info().Str("NodeURL", node.Config.URL).
+		Str("ForwarderAddress", authorizedForwarder.Hex()).
+		Str("ChaindID", chainID.String()).
+		Msg("Forwarder tracked")
+	return nil
+}
+
+func DeployOCRContractsForwarderFlowLocal(
+	numberOfContracts int,
+	linkTokenContract contracts.LinkToken,
+	contractDeployer contracts.ContractDeployer,
+	workerNodes []*client.ChainlinkClient,
+	forwarderAddresses []common.Address,
+	client blockchain.EVMClient,
+) ([]contracts.OffchainAggregator, error) {
+	// Deploy contracts
+	var ocrInstances []contracts.OffchainAggregator
+	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
+		ocrInstance, err := contractDeployer.DeployOffChainAggregator(
+			linkTokenContract.Address(),
+			contracts.DefaultOffChainAggregatorOptions(),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to deploy offchain aggregator")
+		}
+		ocrInstances = append(ocrInstances, ocrInstance)
+		err = client.WaitForEvents()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := client.WaitForEvents(); err != nil {
+		return nil, err
+	}
+
+	// Gather transmitter and address payees
+	var transmitters, payees []string
+	for _, forwarderCommonAddress := range forwarderAddresses {
+		forwarderAddress := forwarderCommonAddress.Hex()
+		transmitters = append(transmitters, forwarderAddress)
+		payees = append(payees, client.GetDefaultWallet().Address())
+	}
+
+	// Set Payees
+	for _, ocrInstance := range ocrInstances {
+		err := ocrInstance.SetPayees(transmitters, payees)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to set OCR payees")
+		}
+		if err := client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+	}
+	if err := client.WaitForEvents(); err != nil {
+		return nil, err
+	}
+
+	// Set Config
+	for _, ocrInstance := range ocrInstances {
+		// Exclude the first node, which will be used as a bootstrapper
+		err := ocrInstance.SetConfigLocal(
+			workerNodes,
+			contracts.DefaultOffChainAggregatorConfig(len(workerNodes)),
+			forwarderAddresses,
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to set on-chain config")
+		}
+		if err = client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+	}
+	return ocrInstances, client.WaitForEvents()
+}
+
+func CreateOCRJobsWithForwarderLocal(
+	ocrInstances []contracts.OffchainAggregator,
+	bootstrapNode *client.ChainlinkClient,
+	workerNodes []*client.ChainlinkClient,
+	mockValue int,
+	mockserver *ctfClient.MockserverClient,
+) error {
+	for _, ocrInstance := range ocrInstances {
+		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
+		if err != nil {
+			return err
+		}
+		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
+		bootstrapSpec := &client.OCRBootstrapJobSpec{
+			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
+			ContractAddress: ocrInstance.Address(),
+			P2PPeerID:       bootstrapP2PId,
+			IsBootstrapPeer: true,
+		}
+		_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
+		if err != nil {
+			return err
+		}
+
+		for _, node := range workerNodes {
+			nodeP2PIds, err := node.MustReadP2PKeys()
+			if err != nil {
+				return err
+			}
+			nodeP2PId := nodeP2PIds.Data[0].Attributes.PeerID
+			nodeTransmitterAddress, err := node.PrimaryEthAddress()
+			if err != nil {
+				return err
+			}
+			nodeOCRKeys, err := node.MustReadOCRKeys()
+			if err != nil {
+				return err
+			}
+			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+
+			nodeContractPairID, err := BuildNodeContractPairIDLocal(node, ocrInstance)
+			if err != nil {
+				return err
+			}
+			bta := &client.BridgeTypeAttributes{
+				Name: nodeContractPairID,
+				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(nodeContractPairID, "/")),
+			}
+			err = SetAdapterResponseLocal(mockValue, ocrInstance, node, mockserver)
+			if err != nil {
+				return err
+			}
+			err = node.MustCreateBridge(bta)
+			if err != nil {
+				return err
+			}
+
+			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode}
+			ocrSpec := &client.OCRTaskJobSpec{
+				ContractAddress:    ocrInstance.Address(),
+				P2PPeerID:          nodeP2PId,
+				P2PBootstrapPeers:  bootstrapPeers,
+				KeyBundleID:        nodeOCRKeyId,
+				TransmitterAddress: nodeTransmitterAddress,
+				ObservationSource:  client.ObservationSourceSpecBridge(bta),
+				ForwardingAllowed:  true,
+			}
+			_, err = node.MustCreateJob(ocrSpec)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

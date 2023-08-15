@@ -39,8 +39,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -127,9 +127,9 @@ func TestIntegration_Mercury(t *testing.T) {
 	t.Cleanup(stopMining)
 
 	// Deploy config contract
-	verifierProxyAddr, _, verifierProxy, err := mercury_verifier_proxy.DeployMercuryVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
+	verifierProxyAddr, _, verifierProxy, err := verifier_proxy.DeployVerifierProxy(steve, backend, common.Address{}) // zero address for access controller disables access control
 	require.NoError(t, err)
-	verifierAddress, _, verifier, err := mercury_verifier.DeployMercuryVerifier(steve, backend, verifierProxyAddr)
+	verifierAddress, _, verifier, err := verifier.DeployVerifier(steve, backend, verifierProxyAddr)
 	require.NoError(t, err)
 	_, err = verifierProxy.InitializeVerifier(steve, verifierAddress)
 	require.NoError(t, err)
@@ -300,6 +300,7 @@ func TestIntegration_Mercury(t *testing.T) {
 			onchainConfig,
 			offchainConfigVersion,
 			offchainConfig,
+			nil,
 		)
 		require.NoError(t, err)
 		backend.Commit()
