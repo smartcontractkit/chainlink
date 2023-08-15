@@ -3,17 +3,19 @@ package test_env
 import (
 	"os"
 
+	"math/big"
+
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"math/big"
 )
 
 type CLTestEnvBuilder struct {
 	hasLogWatch          bool
 	hasGeth              bool
 	hasMockServer        bool
+	hasForwarders        bool
 	clNodeConfig         *chainlink.Config
 	clNodesCount         int
 	externalAdapterCount int
@@ -37,6 +39,11 @@ func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
 
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
 	b.clNodesCount = clNodesCount
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithForwarders() *CLTestEnvBuilder {
+	b.hasForwarders = true
 	return b
 }
 
@@ -99,15 +106,14 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 	}
 
 	if b.hasLogWatch {
-		lw, err := logwatch.NewLogWatch(nil, nil)
+		te.LogWatch, err = logwatch.NewLogWatch(nil, nil)
 		if err != nil {
 			return te, err
 		}
-		te.LogWatch = lw
 	}
 
 	if b.hasMockServer {
-		err := te.StartMockServer()
+		err = te.StartMockServer()
 		if err != nil {
 			return te, err
 		}
@@ -118,7 +124,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 	}
 
 	if b.hasGeth {
-		err := te.StartGeth()
+		err = te.StartGeth()
 		if err != nil {
 			return te, err
 		}
@@ -137,7 +143,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 				node.WithP2Pv1(),
 			)
 		}
-		node.SetDefaultSimulatedGeth(cfg, te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl)
+		node.SetDefaultSimulatedGeth(cfg, te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl, b.hasForwarders)
 		err := te.StartClNodes(cfg, b.clNodesCount)
 		if err != nil {
 			return te, err

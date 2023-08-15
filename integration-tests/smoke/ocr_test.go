@@ -30,7 +30,7 @@ func TestOCRBasic(t *testing.T) {
 	err = actions.FundChainlinkNodesLocal(workerNodes, env.Geth.EthClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	ocrInstances, err := actions.DeployOCRContractsLocal(1, linkTokenContract, env.Geth.ContractDeployer, bootstrapNode, workerNodes, env.Geth.EthClient)
+	ocrInstances, err := actions.DeployOCRContractsLocal(1, linkTokenContract, env.Geth.ContractDeployer, workerNodes, env.Geth.EthClient)
 	require.NoError(t, err)
 	err = env.Geth.EthClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")

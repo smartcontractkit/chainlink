@@ -1,0 +1,8 @@
+HeartbeatRequester_getAggregatorRequestHeartbeat:testBasicSuccess() (gas: 75412)
+HeartbeatRequester_getAggregatorRequestHeartbeat:testHeartbeatNotPermittedReverts() (gas: 21730)
+HeartbeatRequester_permitHeartbeat:testBasicDeployerSuccess() (gas: 48280)
+HeartbeatRequester_permitHeartbeat:testBasicSuccess() (gas: 45856)
+HeartbeatRequester_permitHeartbeat:testOnlyCallableByOwnerReverts() (gas: 13796)
+HeartbeatRequester_removeHeartbeat:testBasicSuccess() (gas: 30192)
+HeartbeatRequester_removeHeartbeat:testOnlyCallableByOwnerReverts() (gas: 11629)
+HeartbeatRequester_removeHeartbeat:testRemoveNoPermitsSuccess() (gas: 15660)
