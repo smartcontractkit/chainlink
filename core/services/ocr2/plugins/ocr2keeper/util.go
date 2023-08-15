@@ -136,6 +136,8 @@ func EVMDependencies21(
 	var registry *kevm21.EvmRegistry
 	var encoder *kevm21.EVMAutomationEncoder21
 
+	bs := kevm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), lggr)
+
 	oSpec := spec.OCR2OracleSpec
 
 	// get the chain from the config
