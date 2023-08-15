@@ -16,7 +16,8 @@ func Test_ChainKV(t *testing.T) {
 		testChain   = &testChainService{name: "test chain"}
 	)
 	// test empty case
-	kv := chains.NewChainsKV[*testChainService]()
+	empty := make(map[string]*testChainService)
+	kv := chains.NewChainsKV[*testChainService](empty)
 	c, err := kv.Get(testChainID)
 	assert.Nil(t, c)
 	assert.ErrorIs(t, err, chains.ErrNoSuchChainID)
@@ -29,23 +30,10 @@ func Test_ChainKV(t *testing.T) {
 	assert.Len(t, cs, 0)
 
 	// test with one chain
-	kv.Put(testChainID, testChain)
+	onechain := map[string]*testChainService{testChainID: testChain}
+	kv = chains.NewChainsKV[*testChainService](onechain)
 	c, err = kv.Get(testChainID)
 	assert.Equal(t, c, testChain)
-	assert.NoError(t, err)
-
-	assert.Equal(t, kv.Len(), 1)
-	assert.Len(t, kv.Slice(), 1)
-
-	cs, err = kv.List()
-	assert.NoError(t, err)
-	assert.Len(t, cs, 1)
-
-	// test overwrite
-	conflict := &testChainService{name: "latest wins"}
-	kv.Put(testChainID, conflict)
-	c, err = kv.Get(testChainID)
-	assert.Equal(t, c, conflict)
 	assert.NoError(t, err)
 
 	assert.Equal(t, kv.Len(), 1)
@@ -59,7 +47,7 @@ func Test_ChainKV(t *testing.T) {
 	cs, err = kv.List(testChainID)
 	assert.NoError(t, err)
 	assert.Len(t, cs, 1)
-	assert.Equal(t, conflict, cs[0])
+	assert.Equal(t, testChain, cs[0])
 
 	//List no such id
 	cs, err = kv.List("no such id")

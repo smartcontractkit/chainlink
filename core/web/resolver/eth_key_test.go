@@ -88,8 +88,8 @@ func TestResolver_ETHKeys(t *testing.T) {
 				linkAddr := common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
 
 				cfg := evmtest.NewTestConfigs()
-				legacyEVMChains := evm.NewLegacyChains(cfg)
-				legacyEVMChains.Put(states[0].EVMChainID.String(), f.Mocks.chain)
+				m := map[string]evm.Chain{states[0].EVMChainID.String(): f.Mocks.chain}
+				legacyEVMChains := evm.NewLegacyChains(cfg, m)
 
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)

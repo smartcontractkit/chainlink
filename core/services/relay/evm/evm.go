@@ -45,7 +45,7 @@ var _ relaytypes.Relayer = &Relayer{}
 
 type Relayer struct {
 	db               *sqlx.DB
-	legacyChains     evm.LegacyChainContainer
+	chain            evm.Chain
 	lggr             logger.Logger
 	ks               CSAETHKeystore
 	mercuryPool      wsrpc.Pool
@@ -58,10 +58,10 @@ type CSAETHKeystore interface {
 	Eth() keystore.Eth
 }
 
-func NewRelayer(db *sqlx.DB, legacyChains evm.LegacyChainContainer, cfg pg.QConfig, lggr logger.Logger, ks CSAETHKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
+func NewRelayer(db *sqlx.DB, chain evm.Chain, cfg pg.QConfig, lggr logger.Logger, ks CSAETHKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
 	return &Relayer{
 		db:               db,
-		legacyChains:     legacyChains,
+		chain:            chain,
 		lggr:             lggr.Named("Relayer"),
 		ks:               ks,
 		mercuryPool:      wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
@@ -110,14 +110,10 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 		return nil, errors.New("FeedID must be specified")
 	}
 
-	// TODO BFC-2440 in a single relayer:chain world the logic here should change
-	// instead of a legacyChains, the relayer should have one chain
-	// and this check should be an check of that chain's id vs the requested value
-	chain, err := r.legacyChains.Get(relayConfig.ChainID.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain: %w", err)
+	if relayConfig.ChainID.String() != r.chain.ID().String() {
+		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	configWatcher, err := newConfigProvider(r.lggr, chain, relayOpts, r.eventBroadcaster)
+	configWatcher, err := newConfigProvider(r.lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
@@ -143,7 +139,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 
 func (r *Relayer) NewFunctionsProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.FunctionsProvider, error) {
 	// TODO(FUN-668): Not ready yet (doesn't implement FunctionsEvents() properly)
-	return NewFunctionsProvider(r.legacyChains, rargs, pargs, r.lggr, r.ks.Eth(), functions.FunctionsPlugin)
+	return NewFunctionsProvider(r.chain, rargs, pargs, r.lggr, r.ks.Eth(), functions.FunctionsPlugin)
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {
@@ -152,11 +148,12 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
-	chain, err := r.legacyChains.Get(relayConfig.ChainID.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain: %w", err)
+	expectedChainID := relayConfig.ChainID.String()
+	if expectedChainID != r.chain.ID().String() {
+		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	configProvider, err := newConfigProvider(r.lggr, chain, relayOpts, r.eventBroadcaster)
+
+	configProvider, err := newConfigProvider(r.lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
 		// Never return (*configProvider)(nil)
 		return nil, err
@@ -440,11 +437,12 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay config: %w", err)
 	}
-	chain, err := r.legacyChains.Get(relayConfig.ChainID.String())
-	if err != nil {
-		return nil, fmt.Errorf("failed to get chain: %w", err)
+	expectedChainID := relayConfig.ChainID.String()
+	if expectedChainID != r.chain.ID().String() {
+		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	configWatcher, err := newConfigProvider(r.lggr, chain, relayOpts, r.eventBroadcaster)
+
+	configWatcher, err := newConfigProvider(r.lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
 		return nil, err
 	}

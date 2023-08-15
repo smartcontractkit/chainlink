@@ -1154,9 +1154,17 @@ func (d *Delegate) newServicesOCR2Functions(
 		return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
 	}
 
+	relayerID, err := spec.RelayIdentifier()
+	if err != nil {
+		return nil, fmt.Errorf("functions: OCR2 Delegate could not get relayer: %w", err)
+	}
+	chain, err := d.legacyChains.Get(relayerID.ChainID.String())
+	if err != nil {
+		return nil, fmt.Errorf("functions: OCR2 Delegate could not find chain id (%s) given in the spec: %w", relayerID.ChainID, err)
+	}
 	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmrelaytypes.FunctionsProvider, error) {
 		return evmrelay.NewFunctionsProvider(
-			d.legacyChains,
+			chain,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
 				JobID:         spec.ID,
@@ -1185,17 +1193,6 @@ func (d *Delegate) newServicesOCR2Functions(
 	}
 
 	s4Provider, err := createPluginProvider(functionsRelay.S4Plugin, "FunctionsS4Relayer")
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO BCF-2442 need to promote the chain id out of relay config to top level field in job spec
-	var relayConfig evmrelaytypes.RelayConfig
-	err = json.Unmarshal(spec.RelayConfig.Bytes(), &relayConfig)
-	if err != nil {
-		return nil, err
-	}
-	chain, err := d.legacyChains.Get(relayConfig.ChainID.String())
 	if err != nil {
 		return nil, err
 	}

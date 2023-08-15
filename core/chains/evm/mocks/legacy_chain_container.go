@@ -128,11 +128,6 @@ func (_m *LegacyChainContainer) List(ids ...string) ([]evm.Chain, error) {
 	return r0, r1
 }
 
-// Put provides a mock function with given fields: id, chain
-func (_m *LegacyChainContainer) Put(id string, chain evm.Chain) {
-	_m.Called(id, chain)
-}
-
 // SetDefault provides a mock function with given fields: _a0
 func (_m *LegacyChainContainer) SetDefault(_a0 evm.Chain) {
 	_m.Called(_a0)

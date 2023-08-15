@@ -281,15 +281,15 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		lggr := logger.TestLogger(t)
 		relayExtenders := evmtest.NewChainRelayExtenders(t, testopts)
+		assert.Equal(t, relayExtenders.Len(), 1)
 		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
-		evmRelayer := evmrelayer.NewRelayer(testopts.DB, legacyChains, testopts.GeneralConfig.Database(), lggr, keyStore, pg.NewNullEventBroadcaster())
+		evmRelayer := evmrelayer.NewRelayer(testopts.DB, chain, testopts.GeneralConfig.Database(), lggr, keyStore, pg.NewNullEventBroadcaster())
 		testRelayGetter := &relayGetter{
 			e: relayExtenders.Slice()[0],
 			r: evmRelayer,
 		}
-
-		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
 		jobOCR2VRF := makeOCR2VRFJobSpec(t, keyStore, config, address, chain.ID(), 2)
 

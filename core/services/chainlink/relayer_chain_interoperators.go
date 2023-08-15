@@ -7,8 +7,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/hashicorp/go-multierror"
-
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
@@ -17,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	evmrelayer "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 var ErrNoSuchRelayer = errors.New("relayer does not exist")
@@ -95,36 +92,48 @@ type CoreRelayerChainInitFunc func(op *CoreRelayerChainInteroperators) error
 // InitEVM is a option for instantiating evm relayers
 func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		op.legacyChains.EVMChains = evm.NewLegacyChains(config.OperationalConfigs)
 		adapters, err2 := factory.NewEVM(ctx, config)
 		if err2 != nil {
 			return fmt.Errorf("failed to setup EVM relayer: %w", err2)
 		}
+
+		legacyMap := make(map[string]evm.Chain)
+		var defaultChain evm.Chain
 		for id, a := range adapters {
-			err2 := op.put(id, a)
-			if err2 != nil {
-				err = multierror.Append(err, err2)
+			// adapter is a service
+			op.srvs = append(op.srvs, a)
+			op.loopRelayers[id] = a
+			legacyMap[id.ChainID.String()] = a.Chain()
+			if a.Default() {
+				defaultChain = a.Chain()
 			}
+
 		}
-		return err
+		op.legacyChains.EVMChains = evm.NewLegacyChains(config.OperationalConfigs, legacyMap)
+		// TODO BCF-2510 this may not be necessary if EVM is not enabled by default
+		if defaultChain != nil {
+			op.legacyChains.EVMChains.SetDefault(defaultChain)
+		}
+		return nil
 	}
 }
 
 // InitCosmos is a option for instantiating Cosmos relayers
 func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		op.legacyChains.CosmosChains = cosmos.NewLegacyChains()
 		adapters, err2 := factory.NewCosmos(ctx, config)
 		if err2 != nil {
 			return fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
 		}
+		legacyMap := make(map[string]cosmos.Chain)
 		for id, a := range adapters {
-			err2 := op.put(id, a)
-			if err2 != nil {
-				err = multierror.Append(err, err2)
-			}
+			op.srvs = append(op.srvs, a)
+			op.loopRelayers[id] = a
+			legacyMap[id.ChainID.String()] = a.Chain()
 		}
-		return err
+		op.legacyChains.CosmosChains = cosmos.NewLegacyChains(legacyMap)
+
+		return nil
 	}
 }
 
@@ -135,10 +144,11 @@ func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactor
 		if err2 != nil {
 			return fmt.Errorf("failed to setup Solana relayer: %w", err2)
 		}
-		err2 = op.putBatch(solRelayers)
-		if err2 != nil {
-			return fmt.Errorf("failed to store Solana relayers: %w", err2)
+		for id, relayer := range solRelayers {
+			op.srvs = append(op.srvs, relayer)
+			op.loopRelayers[id] = relayer
 		}
+
 		return nil
 	}
 }
@@ -150,9 +160,9 @@ func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFa
 		if err2 != nil {
 			return fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
 		}
-		err2 = op.putBatch(starkRelayers)
-		if err2 != nil {
-			return fmt.Errorf("failed to store StarkNet relayers: %w", err2)
+		for id, relayer := range starkRelayers {
+			op.srvs = append(op.srvs, relayer)
+			op.loopRelayers[id] = relayer
 		}
 		return nil
 	}
@@ -167,61 +177,6 @@ func (rs *CoreRelayerChainInteroperators) Get(id relay.Identifier) (loop.Relayer
 		return nil, fmt.Errorf("%w: %s", ErrNoSuchRelayer, id)
 	}
 	return lr, nil
-}
-
-// unsafe for concurrency. see [put]
-func (rs *CoreRelayerChainInteroperators) putOne(id relay.Identifier, lr loop.Relayer) error {
-
-	// backward compatibility. this is bit gross to type cast but it hides the details from products.
-	switch id.Network {
-	case relay.EVM:
-		adapter, ok := lr.(evmrelayer.LoopRelayAdapter)
-		if !ok {
-			return fmt.Errorf("unsupported evm loop relayer implementation. got %t want (evmrelayer.LoopRelayAdapter)", lr)
-		}
-
-		rs.legacyChains.EVMChains.Put(id.ChainID.String(), adapter.Chain())
-		if adapter.Default() {
-			dflt, _ := rs.legacyChains.EVMChains.Default()
-			if dflt != nil {
-				return fmt.Errorf("multiple default evm chains. %s, %s", dflt.ID(), adapter.Chain().ID())
-			}
-			rs.legacyChains.EVMChains.SetDefault(adapter.Chain())
-		}
-		rs.srvs = append(rs.srvs, adapter)
-	case relay.Cosmos:
-		adapter, ok := lr.(cosmos.LoopRelayerChainer)
-		if !ok {
-			return fmt.Errorf("unsupported cosmos loop relayer implementation. got %t want (cosmos.LoopRelayAdapter)", lr)
-		}
-
-		rs.legacyChains.CosmosChains.Put(id.ChainID.String(), adapter.Chain())
-		rs.srvs = append(rs.srvs, adapter)
-	default:
-		rs.srvs = append(rs.srvs, lr)
-	}
-
-	rs.loopRelayers[id] = lr
-	return nil
-}
-
-// concurrency safe
-func (rs *CoreRelayerChainInteroperators) put(id relay.Identifier, lr loop.Relayer) error {
-	rs.mu.Lock()
-	defer rs.mu.Unlock()
-	return rs.putOne(id, lr)
-}
-
-func (rs *CoreRelayerChainInteroperators) putBatch(b map[relay.Identifier]loop.Relayer) (err error) {
-	rs.mu.Lock()
-	defer rs.mu.Unlock()
-	for id, r := range b {
-		err2 := rs.putOne(id, r)
-		if err2 != nil {
-			err = multierror.Append(err, err2)
-		}
-	}
-	return err
 }
 
 // LegacyEVMChains returns a container with all the evm chains

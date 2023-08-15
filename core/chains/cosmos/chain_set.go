@@ -30,6 +30,9 @@ var (
 	ErrChainIDInvalid = errors.New("chain id does not match any local chains")
 )
 
+// Chain is a wrap for easy use in other places in the core node
+type Chain = adapters.Chain
+
 // ChainSetOpts holds options for configuring a ChainSet.
 type ChainSetOpts struct {
 	QueryConfig      pg.QConfig
@@ -85,7 +88,6 @@ type LegacyChainContainer interface {
 	Get(id string) (adapters.Chain, error)
 	Len() int
 	List(ids ...string) ([]adapters.Chain, error)
-	Put(id string, chain adapters.Chain)
 	Slice() []adapters.Chain
 }
 
@@ -93,8 +95,8 @@ type LegacyChains = chains.ChainsKV[adapters.Chain]
 
 var _ LegacyChainContainer = &LegacyChains{}
 
-func NewLegacyChains() *LegacyChains {
-	return chains.NewChainsKV[adapters.Chain]()
+func NewLegacyChains(m map[string]adapters.Chain) *LegacyChains {
+	return chains.NewChainsKV[adapters.Chain](m)
 }
 
 type LoopRelayerChainer interface {

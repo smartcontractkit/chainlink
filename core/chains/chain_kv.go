@@ -3,45 +3,35 @@ package chains
 import (
 	"errors"
 	"fmt"
-	"sync"
 
 	"golang.org/x/exp/maps"
 )
 
 type ChainsKV[T ChainService] struct {
-	mu     sync.Mutex
+	// note: this is read only after construction so no need for mutex
 	chains map[string]T
 }
 
 var ErrNoSuchChainID = errors.New("chain id does not exist")
 
-func NewChainsKV[T ChainService]() *ChainsKV[T] {
+func NewChainsKV[T ChainService](cs map[string]T) *ChainsKV[T] {
+
 	return &ChainsKV[T]{
-		chains: make(map[string]T),
+		chains: cs,
 	}
 }
 func (c *ChainsKV[T]) Len() int {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	return len(c.chains)
 }
 
 // Get return [ErrNoSuchChainID] if [id] is not found
 func (c *ChainsKV[T]) Get(id string) (T, error) {
 	var dflt T
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	chn, exist := c.chains[id]
 	if !exist {
 		return dflt, fmt.Errorf("%w: %s", ErrNoSuchChainID, id)
 	}
 	return chn, nil
-}
-
-func (c *ChainsKV[T]) Put(id string, chn T) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.chains[id] = chn
 }
 
 func (c *ChainsKV[T]) List(ids ...string) ([]T, error) {
@@ -53,8 +43,6 @@ func (c *ChainsKV[T]) List(ids ...string) ([]T, error) {
 		result []T
 		err    error
 	)
-	c.mu.Lock()
-	defer c.mu.Unlock()
 
 	for _, id := range ids {
 		chn, exists := c.chains[id]
@@ -70,7 +58,5 @@ func (c *ChainsKV[T]) List(ids ...string) ([]T, error) {
 }
 
 func (c *ChainsKV[T]) Slice() []T {
-	c.mu.Lock()
-	defer c.mu.Unlock()
 	return maps.Values(c.chains)
 }

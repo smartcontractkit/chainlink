@@ -61,14 +61,19 @@ type ChainRelayerExtenders struct {
 
 var _ EVMChainRelayerExtenderSlicer = &ChainRelayerExtenders{}
 
-// func NewLegacyChainsFromRelayerExtenders(exts []EVMChainRelayerExtender) *Chains {
 func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *evmchain.LegacyChains {
-	l := evmchain.NewLegacyChains(exts.ChainNodeConfigs())
+
+	m := make(map[string]evmchain.Chain)
+	var dflt evmchain.Chain
 	for _, r := range exts.Slice() {
-		l.Put(r.Chain().ID().String(), r.Chain())
+		m[r.Chain().ID().String()] = r.Chain()
 		if r.Default() {
-			l.SetDefault(r.Chain())
+			dflt = r.Chain()
 		}
+	}
+	l := evmchain.NewLegacyChains(exts.ChainNodeConfigs(), m)
+	if dflt != nil {
+		l.SetDefault(dflt)
 	}
 	return l
 }

@@ -76,7 +76,6 @@ type LegacyChainContainer interface {
 	Get(id string) (Chain, error)
 	Len() int
 	List(ids ...string) ([]Chain, error)
-	Put(id string, chain Chain)
 	Slice() []Chain
 
 	ChainNodeConfigs() evmtypes.Configs
@@ -84,9 +83,9 @@ type LegacyChainContainer interface {
 
 var _ LegacyChainContainer = &LegacyChains{}
 
-func NewLegacyChains(c evmtypes.Configs) *LegacyChains {
+func NewLegacyChains(c evmtypes.Configs, m map[string]Chain) *LegacyChains {
 	return &LegacyChains{
-		ChainsKV: chains.NewChainsKV[Chain](),
+		ChainsKV: chains.NewChainsKV[Chain](m),
 		cfgs:     c,
 	}
 }
@@ -94,6 +93,8 @@ func NewLegacyChains(c evmtypes.Configs) *LegacyChains {
 func (c *LegacyChains) ChainNodeConfigs() evmtypes.Configs {
 	return c.cfgs
 }
+
+// TODO BCR-2510 this may not be needed if EVM is not enabled by default
 func (c *LegacyChains) SetDefault(dflt Chain) {
 	c.dflt = dflt
 }
