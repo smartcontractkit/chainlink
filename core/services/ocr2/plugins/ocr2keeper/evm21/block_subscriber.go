@@ -219,6 +219,10 @@ func (bs *BlockSubscriber) Unsubscribe(subId int) error {
 }
 
 func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
+	if h == nil {
+		// TODO: Debug why we are getting nil here
+		return
+	}
 	bs.lggr.Debugf("process head called with head %+v", h)
 
 	bs.mu.Lock()
