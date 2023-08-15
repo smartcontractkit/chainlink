@@ -229,6 +229,7 @@ func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...
 }
 
 func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
+	r.lggr.Debugw("Checking upkeeps", "upkeeps", keys)
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx, keys, chResult)
 
@@ -695,7 +696,9 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 				continue
 			}
 		default:
-			payload, err = r.abi.Pack("checkUpkeep", upkeepId)
+			// checkUpkeep is overloaded on the contract for conditionals and log upkeeps
+			// Need to use the first function (checkUpkeep0) for conditionals
+			payload, err = r.abi.Pack("checkUpkeep0", upkeepId)
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack conditional checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)

@@ -106,7 +106,7 @@ func (bs *BlockSubscriber) buildHistory(block int64) ocr2keepers.BlockHistory {
 					Hash:   common.HexToHash(h),
 				})
 			} else {
-				bs.lggr.Infof("block %d is missing", block-i)
+				bs.lggr.Debugf("block %d is missing", block-i)
 			}
 		}
 	}
@@ -117,7 +117,7 @@ func (bs *BlockSubscriber) cleanup() {
 	bs.mu.Lock()
 	defer bs.mu.Unlock()
 
-	bs.lggr.Infof("start clearing blocks from %d to %d", bs.lastClearedBlock+1, bs.lastSentBlock-bs.blockSize)
+	bs.lggr.Debugf("start clearing blocks from %d to %d", bs.lastClearedBlock+1, bs.lastSentBlock-bs.blockSize)
 	for i := bs.lastClearedBlock + 1; i <= bs.lastSentBlock-bs.blockSize; i++ {
 		delete(bs.blocks, i)
 	}
@@ -142,7 +142,7 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 			bs.lggr.Errorf("failed to get log poller blocks", err)
 		}
 
-		_, bs.unsubscribe = bs.hb.Subscribe(&headWrapper{headC: bs.headC})
+		_, bs.unsubscribe = bs.hb.Subscribe(&headWrapper{headC: bs.headC, lggr: bs.lggr})
 
 		// poll from head broadcaster channel and push to subscribers
 		{
@@ -150,7 +150,9 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 				for {
 					select {
 					case h := <-bs.headC:
-						bs.processHead(h)
+						if h != nil {
+							bs.processHead(h)
+						}
 					case <-ctx.Done():
 						return
 					}
@@ -184,7 +186,6 @@ func (bs *BlockSubscriber) Close() error {
 		bs.mu.Lock()
 		defer bs.mu.Unlock()
 
-		close(bs.headC)
 		bs.cancel()
 		bs.unsubscribe()
 		return nil
@@ -263,6 +264,7 @@ func (bs *BlockSubscriber) queryBlocksMap(bn int64) (string, bool) {
 
 type headWrapper struct {
 	headC chan *evmtypes.Head
+	lggr  logger.Logger
 }
 
 func (w *headWrapper) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
@@ -270,6 +272,7 @@ func (w *headWrapper) OnNewLongestChain(_ context.Context, head *evmtypes.Head) 
 		select {
 		case w.headC <- head:
 		default:
+			w.lggr.Debugf("head channel is full, discarding head %+v", head)
 		}
 	}
 }
