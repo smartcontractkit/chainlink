@@ -918,8 +918,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		return nil, fmt.Errorf("get chainset: %w", err2)
 	}
 
-	keeperProvider, rgstry, encoder, transmitEventProvider, logProvider, wrappedKey, blockSub, err2 :=
-		ocr2keeper.EVMDependencies21(jb, d.db, lggr, chain, d.pipelineRunner, mc, kb)
+	keeperProvider, rgstry, encoder, transmitEventProvider, logProvider, wrappedKey, blockSub, payloadBuilder, upkeepStateStore, up, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, chain, d.pipelineRunner, mc, kb)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
@@ -955,23 +954,28 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		ContractTransmitter:          evmrelay.NewKeepersOCR3ContractTransmitter(keeperProvider.ContractTransmitter()),
 		ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
 		KeepersDatabase:              ocrDB,
-		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Automation),
 		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               wrappedKey,
-		EventProvider:                transmitEventProvider,
-		Encoder:                      encoder,
-		Runnable:                     rgstry,
+		LocalConfig:                  lc,
 		LogProvider:                  logProvider,
-		CacheExpiration:              cfg.CacheExpiration.Value(),
-		CacheEvictionInterval:        cfg.CacheEvictionInterval.Value(),
-		MaxServiceWorkers:            cfg.MaxServiceWorkers,
-		ServiceQueueLength:           cfg.ServiceQueueLength,
+		EventProvider:                transmitEventProvider,
+		Runnable:                     rgstry,
+		Encoder:                      encoder,
 		BlockSubscriber:              blockSub,
 		RecoverableProvider:          new(mockRecoverableProvider),
+		PayloadBuilder:               payloadBuilder,
+		UpkeepProvider:               up,
+		UpkeepStateUpdater:           upkeepStateStore,
 		UpkeepTypeGetter:             ocr2keeper21core.GetUpkeepType,
+		WorkIDGenerator:              ocr2keeper21core.WorkIDGenerator,
+		// TODO: Clean up the config
+		CacheExpiration:       cfg.CacheExpiration.Value(),
+		CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),
+		MaxServiceWorkers:     cfg.MaxServiceWorkers,
+		ServiceQueueLength:    cfg.ServiceQueueLength,
 	}
 
 	pluginService, err := ocr2keepers21.NewDelegate(dConf)
@@ -994,6 +998,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		runResultSaver,
 		keeperProvider,
 		rgstry,
+		blockSub,
 		transmitEventProvider,
 		pluginService,
 	}, nil
