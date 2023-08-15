@@ -388,7 +388,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   /**
    * @notice received upkeeps migrated from another registry
    * @param encodedUpkeeps the raw upkeep data to import
-   * @dev this function is never called direcly, it is only called by another registry's migrate function
+   * @dev this function is never called directly, it is only called by another registry's migrate function
    */
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external {
     if (
@@ -425,7 +425,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   /**
    * @notice sets the upkeep trigger config
    * @param id the upkeepID to change the trigger for
-   * @param triggerConfig the new triggerconfig
+   * @param triggerConfig the new trigger config
    */
   function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
     _requireAdminAndNotCancelled(id);

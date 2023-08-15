@@ -33,7 +33,7 @@ func WithPostgresDbContainerName(name string) PostgresDbOption {
 func NewPostgresDb(networks []string, opts ...PostgresDbOption) *PostgresDb {
 	pg := &PostgresDb{
 		EnvComponent: EnvComponent{
-			ContainerName: fmt.Sprintf("%s-%s", "postgres-db", uuid.NewString()[0:3]),
+			ContainerName: fmt.Sprintf("%s-%s", "postgres-db", uuid.NewString()[0:8]),
 			Networks:      networks,
 		},
 		User:     "postgres",

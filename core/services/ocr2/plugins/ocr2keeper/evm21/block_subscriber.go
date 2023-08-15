@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -18,266 +19,257 @@ import (
 )
 
 const (
-	// PollLogInterval is the interval to query log poller
-	PollLogInterval = time.Second
-	// CleanUpInterval is the interval for cleaning up block maps
-	CleanUpInterval = 15 * time.Minute
-	// ChannelSize represents the channel size for head broadcaster
-	ChannelSize = 20
+	// cleanUpInterval is the interval for cleaning up block maps
+	cleanUpInterval = 15 * time.Minute
+	// channelSize represents the channel size for head broadcaster
+	channelSize = 100
+	// lookbackDepth decides valid trigger block lookback range
+	lookbackDepth = 1024
+	// blockHistorySize decides the block history size
+	blockHistorySize = int64(128)
 )
 
-type BlockKey struct {
-	block int64
-	hash  common.Hash
-}
-
-func (bk *BlockKey) getBlockKey() ocr2keepers.BlockKey {
-	return ocr2keepers.BlockKey{
-		Number: ocr2keepers.BlockNumber(bk.block),
-		Hash:   bk.hash,
-	}
-}
-
 type BlockSubscriber struct {
-	sync                  utils.StartStopOnce
-	mu                    sync.RWMutex
-	ctx                   context.Context
-	cancel                context.CancelFunc
-	hb                    httypes.HeadBroadcaster
-	lp                    logpoller.LogPoller
-	headC                 chan BlockKey
-	unsubscribe           func()
-	subscribers           map[int]chan ocr2keepers.BlockHistory
-	blocksFromPoller      map[int64]common.Hash
-	blocksFromBroadcaster map[int64]common.Hash
-	maxSubId              int
-	lastClearedBlock      int64
-	lastSentBlock         int64
-	blockHistorySize      int64
-	lggr                  logger.Logger
+	sync             utils.StartStopOnce
+	mu               sync.RWMutex
+	ctx              context.Context
+	cancel           context.CancelFunc
+	hb               httypes.HeadBroadcaster
+	lp               logpoller.LogPoller
+	headC            chan *evmtypes.Head
+	unsubscribe      func()
+	subscribers      map[int]chan ocr2keepers.BlockHistory
+	blocks           map[int64]string
+	maxSubId         int
+	lastClearedBlock int64
+	lastSentBlock    int64
+	latestBlock      atomic.Int64
+	blockHistorySize int64
+	blockSize        int64
+	lggr             logger.Logger
 }
 
-func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, blockHistorySize int64, lggr logger.Logger) *BlockSubscriber {
+func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr logger.Logger) *BlockSubscriber {
 	return &BlockSubscriber{
-		hb:                    hb,
-		lp:                    lp,
-		headC:                 make(chan BlockKey, ChannelSize),
-		subscribers:           map[int]chan ocr2keepers.BlockHistory{},
-		blocksFromPoller:      map[int64]common.Hash{},
-		blocksFromBroadcaster: map[int64]common.Hash{},
-		blockHistorySize:      blockHistorySize,
-		lggr:                  lggr.Named("BlockSubscriber"),
+		hb:               hb,
+		lp:               lp,
+		headC:            make(chan *evmtypes.Head, channelSize),
+		subscribers:      map[int]chan ocr2keepers.BlockHistory{},
+		blocks:           map[int64]string{},
+		blockHistorySize: blockHistorySize,
+		blockSize:        lookbackDepth,
+		latestBlock:      atomic.Int64{},
+		lggr:             lggr.Named("BlockSubscriber"),
 	}
 }
 
-func (hw *BlockSubscriber) getBlockRange(ctx context.Context) ([]uint64, error) {
-	h, err := hw.lp.LatestBlock(pg.WithParentCtx(ctx))
+func (bs *BlockSubscriber) getBlockRange(ctx context.Context) ([]uint64, error) {
+	h, err := bs.lp.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, err
 	}
-	hw.lggr.Infof("latest block from log poller is %d", h)
+	bs.lggr.Infof("latest block from log poller is %d", h)
 
 	var blocks []uint64
-	for i := int64(0); i < hw.blockHistorySize; i++ {
-		blocks = append(blocks, uint64(h-i))
+	for i := bs.blockSize - 1; i >= 0; i-- {
+		if h-i > 0 {
+			blocks = append(blocks, uint64(h-i))
+		}
 	}
 	return blocks, nil
 }
 
-func (hw *BlockSubscriber) getLogPollerBlocks(ctx context.Context, blocks []uint64) error {
-	// request the past LOOK_BACK blocksFromPoller from log poller
-	// returned blocksFromPoller are in ASC order
-	logpollerBlocks, err := hw.lp.GetBlocksRange(ctx, blocks, pg.WithParentCtx(ctx))
+func (bs *BlockSubscriber) initializeBlocks(blocks []uint64) error {
+	logpollerBlocks, err := bs.lp.GetBlocksRange(bs.ctx, blocks, pg.WithParentCtx(bs.ctx))
 	if err != nil {
 		return err
 	}
-	hw.mu.Lock()
-	for _, b := range logpollerBlocks {
-		hw.blocksFromPoller[b.BlockNumber] = b.BlockHash
+	for i, b := range logpollerBlocks {
+		if i == 0 {
+			bs.lastClearedBlock = b.BlockNumber - 1
+			bs.lggr.Infof("lastClearedBlock is %d", bs.lastClearedBlock)
+		}
+		bs.blocks[b.BlockNumber] = b.BlockHash.Hex()
 	}
-	hw.mu.Unlock()
+	bs.lggr.Infof("initialize with %d blocks", len(logpollerBlocks))
 	return nil
 }
 
-func (hw *BlockSubscriber) buildHistory(block int64) ocr2keepers.BlockHistory {
-	var keys []BlockKey
+func (bs *BlockSubscriber) buildHistory(block int64) ocr2keepers.BlockHistory {
+	var keys []ocr2keepers.BlockKey
 	// populate keys slice in block DES order
-	for i := int64(0); i < hw.blockHistorySize; i++ {
-		if h1, ok1 := hw.blocksFromPoller[block-i]; ok1 {
-			// if a block exists in log poller, use block data from log poller
-			keys = append(keys, BlockKey{
-				block: block - i,
-				hash:  h1,
-			})
-		} else if h2, ok2 := hw.blocksFromBroadcaster[block-i]; ok2 {
-			// if a block only exists in broadcaster, use data from broadcaster
-			keys = append(keys, BlockKey{
-				block: block - i,
-				hash:  h2,
-			})
-		} else {
-			hw.lggr.Infof("block %d is missing", block-i)
+	for i := int64(0); i < bs.blockHistorySize; i++ {
+		if block-i > 0 {
+			if h, ok := bs.blocks[block-i]; ok {
+				keys = append(keys, ocr2keepers.BlockKey{
+					Number: ocr2keepers.BlockNumber(block - i),
+					Hash:   common.HexToHash(h),
+				})
+			} else {
+				bs.lggr.Infof("block %d is missing", block-i)
+			}
 		}
-		// if a block does not exist in both log poller and broadcaster, skip
 	}
-	return getBlockHistory(keys)
+	return keys
 }
 
-func (hw *BlockSubscriber) cleanup() {
-	hw.mu.Lock()
-	defer hw.mu.Unlock()
+func (bs *BlockSubscriber) cleanup() {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
 
-	hw.lggr.Infof("start clearing blocks from %d to %d", hw.lastClearedBlock+1, hw.lastSentBlock-hw.blockHistorySize)
-	for i := hw.lastClearedBlock + 1; i <= hw.lastSentBlock-hw.blockHistorySize; i++ {
-		delete(hw.blocksFromPoller, i)
-		delete(hw.blocksFromBroadcaster, i)
+	bs.lggr.Infof("start clearing blocks from %d to %d", bs.lastClearedBlock+1, bs.lastSentBlock-bs.blockSize)
+	for i := bs.lastClearedBlock + 1; i <= bs.lastSentBlock-bs.blockSize; i++ {
+		delete(bs.blocks, i)
 	}
-	hw.lastClearedBlock = hw.lastSentBlock - hw.blockHistorySize
-	hw.lggr.Infof("lastClearedBlock is set to %d", hw.lastClearedBlock)
+	bs.lastClearedBlock = bs.lastSentBlock - bs.blockSize
+	bs.lggr.Infof("lastClearedBlock is set to %d", bs.lastClearedBlock)
 }
 
-func (hw *BlockSubscriber) Start(_ context.Context) error {
-	hw.lggr.Info("block subscriber started.")
-	return hw.sync.StartOnce("BlockSubscriber", func() error {
-		hw.mu.Lock()
-		defer hw.mu.Unlock()
-		_, hw.unsubscribe = hw.hb.Subscribe(&headWrapper{headC: hw.headC})
-		hw.ctx, hw.cancel = context.WithCancel(context.Background())
+func (bs *BlockSubscriber) Start(ctx context.Context) error {
+	bs.lggr.Info("block subscriber started.")
+	return bs.sync.StartOnce("BlockSubscriber", func() error {
+		bs.mu.Lock()
+		defer bs.mu.Unlock()
+		// TODO: we should use ctx instead of context.Background())
+		bs.ctx, bs.cancel = context.WithCancel(context.Background())
+		// initialize the blocks map with the recent blockSize blocks
+		blocks, err := bs.getBlockRange(bs.ctx)
+		if err != nil {
+			bs.lggr.Errorf("failed to get block range", err)
+		}
+		err = bs.initializeBlocks(blocks)
+		if err != nil {
+			bs.lggr.Errorf("failed to get log poller blocks", err)
+		}
+
+		_, bs.unsubscribe = bs.hb.Subscribe(&headWrapper{headC: bs.headC})
 
 		// poll from head broadcaster channel and push to subscribers
 		{
 			go func(ctx context.Context) {
 				for {
 					select {
-					case bk := <-hw.headC:
-						hw.mu.Lock()
-						if hw.lastClearedBlock == 0 {
-							hw.lastClearedBlock = bk.block - 1
-							hw.lggr.Infof("lastClearedBlock is %d", hw.lastClearedBlock)
-						}
-						hw.blocksFromBroadcaster[bk.block] = bk.hash
-						hw.lggr.Infof("blocksFromBroadcaster block %d hash is %s", bk.block, bk.hash.String())
-
-						history := hw.buildHistory(bk.block)
-
-						hw.lastSentBlock = bk.block
-						hw.lggr.Infof("lastSentBlock is %d", hw.lastSentBlock)
-						// send history to all subscribers
-						for _, subC := range hw.subscribers {
-							subC <- history
-						}
-						hw.lggr.Infof("published block history with length %d to %d subscriber(s)", len(history), len(hw.subscribers))
-
-						hw.mu.Unlock()
+					case h := <-bs.headC:
+						bs.processHead(h)
 					case <-ctx.Done():
 						return
 					}
 				}
-			}(hw.ctx)
-		}
-
-		// poll logs from log poller at an interval and update block map
-		{
-			go func(ctx context.Context) {
-				ticker := time.NewTicker(PollLogInterval)
-				for {
-					select {
-					case <-ticker.C:
-						blocks, err := hw.getBlockRange(ctx)
-						if err != nil {
-							hw.lggr.Infof("failed to get block range", err)
-							return
-						}
-						err = hw.getLogPollerBlocks(ctx, blocks)
-						if err != nil {
-							hw.lggr.Infof("failed to get log poller blocks", err)
-						}
-					case <-ctx.Done():
-						ticker.Stop()
-						return
-					}
-				}
-			}(hw.ctx)
+			}(bs.ctx)
 		}
 
 		// clean up block maps
 		{
 			go func(ctx context.Context) {
-				ticker := time.NewTicker(CleanUpInterval)
+				ticker := time.NewTicker(cleanUpInterval)
 				for {
 					select {
 					case <-ticker.C:
-						hw.cleanup()
+						bs.cleanup()
 					case <-ctx.Done():
 						ticker.Stop()
 						return
 					}
 				}
-			}(hw.ctx)
+			}(bs.ctx)
 		}
 
 		return nil
 	})
 }
 
-func (hw *BlockSubscriber) Close() error {
-	hw.lggr.Info("stop block subscriber")
-	return hw.sync.StopOnce("BlockSubscriber", func() error {
-		hw.mu.Lock()
-		defer hw.mu.Unlock()
+func (bs *BlockSubscriber) Close() error {
+	bs.lggr.Info("stop block subscriber")
+	return bs.sync.StopOnce("BlockSubscriber", func() error {
+		bs.mu.Lock()
+		defer bs.mu.Unlock()
 
-		close(hw.headC)
-		hw.cancel()
-		hw.unsubscribe()
+		close(bs.headC)
+		bs.cancel()
+		bs.unsubscribe()
 		return nil
 	})
 }
 
-func (hw *BlockSubscriber) Subscribe() (int, chan ocr2keepers.BlockHistory, error) {
-	hw.mu.Lock()
-	defer hw.mu.Unlock()
+func (bs *BlockSubscriber) Subscribe() (int, chan ocr2keepers.BlockHistory, error) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
 
-	hw.maxSubId++
-	subId := hw.maxSubId
-	newC := make(chan ocr2keepers.BlockHistory, ChannelSize)
-	hw.subscribers[subId] = newC
-	hw.lggr.Infof("new subscriber %d", subId)
+	bs.maxSubId++
+	subId := bs.maxSubId
+	newC := make(chan ocr2keepers.BlockHistory, channelSize)
+	bs.subscribers[subId] = newC
+	bs.lggr.Infof("new subscriber %d", subId)
 
 	return subId, newC, nil
 }
 
-func (hw *BlockSubscriber) Unsubscribe(subId int) error {
-	hw.mu.Lock()
-	defer hw.mu.Unlock()
+func (bs *BlockSubscriber) Unsubscribe(subId int) error {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
 
-	c, ok := hw.subscribers[subId]
+	c, ok := bs.subscribers[subId]
 	if !ok {
 		return fmt.Errorf("subscriber %d does not exist", subId)
 	}
 
 	close(c)
-	delete(hw.subscribers, subId)
-	hw.lggr.Infof("subscriber %d unsubscribed", subId)
+	delete(bs.subscribers, subId)
+	bs.lggr.Infof("subscriber %d unsubscribed", subId)
 	return nil
 }
 
+func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	// head parent is a linked list with EVM finality depth
+	// when re-org happens, new heads will have pointers to the new blocks
+	i := int64(0)
+	for cp := h; cp != nil; cp = cp.Parent {
+		if cp != h && bs.blocks[cp.Number] != cp.Hash.Hex() {
+			bs.lggr.Warnf("overriding block %d old hash %s with new hash %s due to re-org", cp.Number, bs.blocks[cp.Number], cp.Hash.Hex())
+		}
+		bs.blocks[cp.Number] = cp.Hash.Hex()
+		i++
+		if i > bs.blockSize {
+			break
+		}
+	}
+	bs.lggr.Debugf("blocks block %d hash is %s", h.Number, h.Hash.Hex())
+
+	history := bs.buildHistory(h.Number)
+
+	bs.latestBlock.Store(h.Number)
+	bs.lastSentBlock = h.Number
+	// send history to all subscribers
+	for _, subC := range bs.subscribers {
+		// wrapped in a select to not get blocked by certain subscribers
+		select {
+		case subC <- history:
+		default:
+			bs.lggr.Warnf("subscriber channel is full, dropping block history with length %d", len(history))
+		}
+	}
+
+	bs.lggr.Debugf("published block history with length %d and latestBlock %d to %d subscriber(s)", len(history), bs.latestBlock.Load(), len(bs.subscribers))
+}
+
+func (bs *BlockSubscriber) queryBlocksMap(bn int64) (string, bool) {
+	bs.mu.RLock()
+	defer bs.mu.RUnlock()
+	v, ok := bs.blocks[bn]
+	return v, ok
+}
+
 type headWrapper struct {
-	headC chan BlockKey
+	headC chan *evmtypes.Head
 }
 
 func (w *headWrapper) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
 	if head != nil {
-		w.headC <- BlockKey{
-			block: head.Number,
-			hash:  head.BlockHash(),
+		select {
+		case w.headC <- head:
+		default:
 		}
 	}
-}
-
-func getBlockHistory(keys []BlockKey) ocr2keepers.BlockHistory {
-	var blockKeys []ocr2keepers.BlockKey
-	for _, k := range keys {
-		blockKeys = append(blockKeys, k.getBlockKey())
-	}
-	return blockKeys
 }

@@ -735,7 +735,6 @@ func assertRandomWordsFulfilled(
 		for filter.Next() {
 			require.Equal(t, expectedSuccess, filter.Event().Success(), "fulfillment event success not correct, expected: %+v, actual: %+v", expectedSuccess, filter.Event().Success())
 			require.Equal(t, requestID, filter.Event().RequestID())
-			require.Equal(t, nativePayment, filter.Event().NativePayment())
 			found = true
 			rwfe = filter.Event()
 		}

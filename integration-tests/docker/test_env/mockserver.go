@@ -26,7 +26,7 @@ type MockServer struct {
 func NewMockServer(networks []string, opts ...EnvComponentOption) *MockServer {
 	ms := &MockServer{
 		EnvComponent: EnvComponent{
-			ContainerName: fmt.Sprintf("%s-%s", "mockserver", uuid.NewString()[0:3]),
+			ContainerName: fmt.Sprintf("%s-%s", "mockserver", uuid.NewString()[0:8]),
 			Networks:      networks,
 		},
 	}
