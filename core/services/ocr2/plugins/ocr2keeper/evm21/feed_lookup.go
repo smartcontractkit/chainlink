@@ -22,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
@@ -76,7 +77,7 @@ type AdminOffchainConfig struct {
 func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult {
 	lookups := map[int]*FeedLookup{}
 	for i, res := range checkResults {
-		if res.IneligibilityReason != uint8(UpkeepFailureReasonTargetCheckReverted) {
+		if res.IneligibilityReason != uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
 			continue
 		}
 
@@ -95,7 +96,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers
 
 		if !allowed {
 			r.lggr.Warnf("[FeedLookup] upkeep %s block %d NOT allowed to query Mercury server", upkeepId, block)
-			checkResults[i].IneligibilityReason = uint8(UpkeepFailureReasonMercuryAccessNotAllowed)
+			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryAccessNotAllowed)
 			checkResults[i].Retryable = retryable
 			continue
 		}
@@ -156,19 +157,19 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 		return
 	}
 
-	if failureReason == uint8(UpkeepFailureReasonMercuryCallbackReverted) {
-		checkResults[i].IneligibilityReason = uint8(UpkeepFailureReasonMercuryCallbackReverted)
+	if failureReason == uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted) {
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted)
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d mercury callback reverts", lookup.upkeepId, lookup.block)
 		return
 	}
 
 	if !needed {
-		checkResults[i].IneligibilityReason = uint8(UpkeepFailureReasonUpkeepNotNeeded)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonUpkeepNotNeeded)
 		r.lggr.Debugf("[FeedLookup] upkeep %s block %d callback reports upkeep not needed", lookup.upkeepId, lookup.block)
 		return
 	}
 
-	checkResults[i].IneligibilityReason = uint8(UpkeepFailureReasonNone)
+	checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonNone)
 	checkResults[i].Eligible = true
 	checkResults[i].PerformData = performData
 	r.lggr.Infof("[FeedLookup] upkeep %s block %d successful with perform data: %s", lookup.upkeepId, lookup.block, hexutil.Encode(performData))

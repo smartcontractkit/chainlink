@@ -1,4 +1,4 @@
-package evm
+package encoding
 
 import (
 	"math/big"
@@ -15,13 +15,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
-func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
+func TestReportEncoder_EncodeExtract(t *testing.T) {
 	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	assert.Nil(t, err)
 	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 	assert.Nil(t, err)
-	encoder := EVMAutomationEncoder21{
-		packer: NewEvmRegistryPackerV2_1(keepersABI, utilsABI),
+	encoder := reportEncoder{
+		packer: NewAbiPacker(keepersABI, utilsABI),
 	}
 
 	tests := []struct {
@@ -35,7 +35,7 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 		{
 			"happy flow single",
 			[]ocr2keepers.CheckResult{
-				newResult(1, 1, genUpkeepID(ocr2keepers.LogTrigger, "123"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(ocr2keepers.LogTrigger, "123"), 1, 1),
 			},
 			704,
 			1,
@@ -45,9 +45,9 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 		{
 			"happy flow multiple",
 			[]ocr2keepers.CheckResult{
-				newResult(1, 1, genUpkeepID(ocr2keepers.LogTrigger, "10"), 1, 1),
-				newResult(1, 1, genUpkeepID(ocr2keepers.ConditionTrigger, "20"), 1, 1),
-				newResult(1, 1, genUpkeepID(ocr2keepers.ConditionTrigger, "30"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(ocr2keepers.LogTrigger, "10"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "20"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "30"), 1, 1),
 			},
 			1280,
 			3,
@@ -57,9 +57,9 @@ func TestEVMAutomationEncoder21_EncodeExtract(t *testing.T) {
 		{
 			"happy flow highest block number first",
 			[]ocr2keepers.CheckResult{
-				newResult(1, 1, genUpkeepID(ocr2keepers.ConditionTrigger, "30"), 1, 1),
-				newResult(1, 1, genUpkeepID(ocr2keepers.ConditionTrigger, "20"), 1, 1),
-				newResult(1, 1, genUpkeepID(ocr2keepers.LogTrigger, "10"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "30"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "20"), 1, 1),
+				newResult(1, 1, core.GenUpkeepID(ocr2keepers.LogTrigger, "10"), 1, 1),
 			},
 			1280,
 			1000,

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 func TestTransmitEventProvider(t *testing.T) {
@@ -100,7 +101,7 @@ func TestTransmitEventProvider(t *testing.T) {
 
 func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 	provider := &TransmitEventProvider{}
-	id := genUpkeepID(ocr2keepers.LogTrigger, "1111111111111111")
+	id := core.GenUpkeepID(ocr2keepers.LogTrigger, "1111111111111111")
 	tests := []struct {
 		name        string
 		performed   []transmitEventLog
@@ -159,7 +160,7 @@ func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 }
 
 func TestTransmitEventLog(t *testing.T) {
-	uid := genUpkeepID(ocr2keepers.ConditionTrigger, "111")
+	uid := core.GenUpkeepID(ocr2keepers.ConditionTrigger, "111")
 
 	tests := []struct {
 		name  string

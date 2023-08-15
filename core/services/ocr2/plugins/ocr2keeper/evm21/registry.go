@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -60,7 +61,7 @@ var (
 
 //go:generate mockery --quiet --name Registry --output ./mocks/ --case=underscore
 type Registry interface {
-	GetUpkeep(opts *bind.CallOpts, id *big.Int) (UpkeepInfo, error)
+	GetUpkeep(opts *bind.CallOpts, id *big.Int) (encoding.UpkeepInfo, error)
 	GetState(opts *bind.CallOpts) (iregistry21.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
@@ -78,7 +79,7 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, bs *BlockSubscriber, lggr logger.Logger) (*EvmRegistry, *EVMAutomationEncoder21, error) {
+func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, bs *BlockSubscriber, lggr logger.Logger) (*EvmRegistry, ocr2keepers.Encoder, error) {
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -91,7 +92,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 	if err != nil {
 		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
-	packer := NewEvmRegistryPackerV2_1(keeperRegistryABI, utilsABI)
+	packer := encoding.NewAbiPacker(keeperRegistryABI, utilsABI)
 	logPacker := logprovider.NewLogEventsPacker(utilsABI)
 
 	registry, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
@@ -121,7 +122,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 			allowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		hc:               http.DefaultClient,
-		enc:              EVMAutomationEncoder21{packer: packer},
+		enc:              encoding.NewReportEncoder(packer),
 		logEventProvider: logEventProvider,
 		bs:               bs,
 	}
@@ -130,7 +131,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		return nil, nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
 	}
 
-	return r, &r.enc, nil
+	return r, r.enc, nil
 }
 
 var upkeepStateEvents = []common.Hash{
@@ -177,7 +178,7 @@ type EvmRegistry struct {
 	client           client.Client
 	registry         Registry
 	abi              abi.ABI
-	packer           *evmRegistryPackerV2_1
+	packer           encoding.Packer
 	chLog            chan logpoller.Log
 	reInit           *time.Timer
 	mu               sync.RWMutex
@@ -191,7 +192,7 @@ type EvmRegistry struct {
 	runError         error
 	mercury          *MercuryConfig
 	hc               HttpClient
-	enc              EVMAutomationEncoder21
+	enc              ocr2keepers.Encoder
 	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
 }
@@ -669,8 +670,8 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	for i, p := range payloads {
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
 		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
-		if state != NoPipelineError {
-			results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, state, retryable)
+		if state != encoding.NoPipelineError {
+			results[i] = getIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, state, retryable)
 			continue
 		}
 
@@ -682,7 +683,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
 			reason, state, retryable := r.verifyLogExists(upkeepId, p)
-			if reason != UpkeepFailureReasonNone || state != NoPipelineError {
+			if reason != encoding.UpkeepFailureReasonNone || state != encoding.NoPipelineError {
 				results[i] = getIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)
 				continue
 			}
@@ -955,7 +956,7 @@ func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, err
 }
 
 // getIneligibleCheckResultWithoutPerformData returns an ineligible check result with ineligibility reason and pipeline execution state but without perform data
-func getIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason UpkeepFailureReason, state PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
+func getIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason encoding.UpkeepFailureReason, state encoding.PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
 	return ocr2keepers.CheckResult{
 		IneligibilityReason:    uint8(reason),
 		PipelineExecutionState: uint8(state),
@@ -969,11 +970,11 @@ func getIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, rea
 }
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
-func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state PipelineExecutionState, retryable bool) {
+func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
 	// verify check block number is not too old
 	if r.bs.latestBlock.Load()-checkBlock.Int64() > validCheckBlockRange {
 		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
-		return CheckBlockTooOld, false
+		return encoding.CheckBlockTooOld, false
 	}
 	r.lggr.Warnf("latestBlock=%d checkBlock=%d", r.bs.latestBlock.Load(), checkBlock.Int64())
 
@@ -986,19 +987,19 @@ func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId
 		b, err := r.client.BlockByNumber(ctx, checkBlock)
 		if err != nil {
 			r.lggr.Warnf("failed to query block %s: %s", checkBlock, err.Error())
-			return RpcFlakyFailure, true
+			return encoding.RpcFlakyFailure, true
 		}
 		h = b.Hash().Hex()
 	}
 	if checkHash.Hex() != h {
 		r.lggr.Warnf("check block %s hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", checkBlock, h, checkHash.Hex(), upkeepId)
-		return CheckBlockInvalid, false
+		return encoding.CheckBlockInvalid, false
 	}
-	return NoPipelineError, false
+	return encoding.NoPipelineError, false
 }
 
 // verifyLogExists checks that the log still exists on chain, returns failure reason, pipeline error, and retryable
-func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (UpkeepFailureReason, PipelineExecutionState, bool) {
+func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (encoding.UpkeepFailureReason, encoding.PipelineExecutionState, bool) {
 	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
 	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
 	// if log block number is populated, check log block number and block hash
@@ -1006,7 +1007,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 		h, ok := r.bs.queryBlocksMap(logBlockNumber)
 		if ok && h == logBlockHash.Hex() {
 			r.lggr.Debugf("tx hash %s exists on chain at block number %d for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockNumber, upkeepId)
-			return UpkeepFailureReasonNone, NoPipelineError, false
+			return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
 		}
 		r.lggr.Debugf("log block %d does not exist in block subscriber for upkeepId %s, querying eth client", logBlockNumber, upkeepId)
 	} else {
@@ -1020,12 +1021,12 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 			return UpkeepFailureReasonTxHashNoLongerExists, NoPipelineError, false
 		}
 		r.lggr.Warnf("failed to query tx hash %s for upkeepId %s: %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId, err.Error())
-		return UpkeepFailureReasonNone, RpcFlakyFailure, true
+		return encoding.UpkeepFailureReasonNone, encoding.RpcFlakyFailure, true
 	}
 	if bn == nil {
 		r.lggr.Warnf("tx hash %s does not exist on chain for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
-		return UpkeepFailureReasonLogBlockNoLongerExists, NoPipelineError, false
+		return encoding.UpkeepFailureReasonLogBlockNoLongerExists, encoding.NoPipelineError, false
 	}
 	r.lggr.Debugf("tx hash %s exists on chain for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
-	return UpkeepFailureReasonNone, NoPipelineError, false
+	return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
 }

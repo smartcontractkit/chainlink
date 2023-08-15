@@ -36,7 +36,7 @@ func TestWorkID(t *testing.T) {
 		},
 		{
 			name:     "happy flow with extension",
-			upkeepID: genUpkeepID(ocr2keepers.LogTrigger, "12345").String(),
+			upkeepID: GenUpkeepID(ocr2keepers.LogTrigger, "12345").String(),
 			trigger: ocr2keepers.Trigger{
 				BlockNumber: 123,
 				BlockHash:   common.HexToHash("0xabcdef"),

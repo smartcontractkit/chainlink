@@ -20,6 +20,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -36,8 +38,8 @@ func TestGetActiveUpkeepIDs(t *testing.T) {
 			"32329108151019397958065800113404894502874153543356521479058624064899121404671",
 			"5820911532554020907796191562093071158274499580927271776163559390280294438608",
 		}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-			upkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
-			upkeepIDFromInt("5820911532554020907796191562093071158274499580927271776163559390280294438608"),
+			core.UpkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
+			core.UpkeepIDFromInt("5820911532554020907796191562093071158274499580927271776163559390280294438608"),
 		}},
 	}
 
@@ -88,7 +90,7 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 			LatestHead: 1,
 			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				upkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
+				core.UpkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
 			},
 			Triggers: []uint8{uint8(ocr2keepers.LogTrigger)},
 		},
@@ -97,7 +99,7 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 			LatestHead: 1,
 			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				upkeepIDFromInt("8"),
+				core.UpkeepIDFromInt("8"),
 			},
 			Triggers: []uint8{uint8(ocr2keepers.ConditionTrigger)},
 		},
@@ -106,8 +108,8 @@ func TestGetActiveUpkeepIDsByType(t *testing.T) {
 			LatestHead: 1,
 			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
 			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				upkeepIDFromInt("8"),
-				upkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
+				core.UpkeepIDFromInt("8"),
+				core.UpkeepIDFromInt("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
 			},
 			Triggers: []uint8{uint8(ocr2keepers.LogTrigger), uint8(ocr2keepers.ConditionTrigger)},
 		},
@@ -323,7 +325,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 		{
 			"happy flow",
 			ocr2keepers.UpkeepPayload{
-				UpkeepID: upkeepIDFromInt("10"),
+				UpkeepID: core.UpkeepIDFromInt("10"),
 				Trigger: ocr2keepers.Trigger{
 					BlockNumber: 1,
 					BlockHash:   common.HexToHash("0x1"),
@@ -335,7 +337,7 @@ func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
 		{
 			"empty trigger",
 			ocr2keepers.UpkeepPayload{
-				UpkeepID: upkeepIDFromInt("10"),
+				UpkeepID: core.UpkeepIDFromInt("10"),
 			},
 			big.NewInt(0),
 			big.NewInt(10),
@@ -369,7 +371,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		checkHash   common.Hash
 		payload     ocr2keepers.UpkeepPayload
 		blocks      map[int64]string
-		state       PipelineExecutionState
+		state       encoding.PipelineExecutionState
 		retryable   bool
 		makeEthCall bool
 	}{
@@ -384,7 +386,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
 				WorkID:   "work",
 			},
-			state: CheckBlockTooOld,
+			state: encoding.CheckBlockTooOld,
 		},
 		{
 			name:        "check block number invalid",
@@ -397,7 +399,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
 				WorkID:   "work",
 			},
-			state:       RpcFlakyFailure,
+			state:       encoding.RpcFlakyFailure,
 			retryable:   true,
 			makeEthCall: true,
 		},
@@ -415,7 +417,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 			blocks: map[int64]string{
 				500: "0xa518faeadcc423338c62572da84dda35fe44b34f521ce88f6081b703b250cca4",
 			},
-			state: CheckBlockInvalid,
+			state: encoding.CheckBlockInvalid,
 		},
 		{
 			name:        "check block is valid",
@@ -431,7 +433,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 			blocks: map[int64]string{
 				500: "0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83",
 			},
-			state: NoPipelineError,
+			state: encoding.NoPipelineError,
 		},
 	}
 
@@ -483,8 +485,8 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 		payload     ocr2keepers.UpkeepPayload
 		blocks      map[int64]string
 		makeEthCall bool
-		reason      UpkeepFailureReason
-		state       PipelineExecutionState
+		reason      encoding.UpkeepFailureReason
+		state       encoding.PipelineExecutionState
 		retryable   bool
 		ethCallErr  error
 		receipt     *types.Receipt
@@ -497,8 +499,8 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
 				WorkID:   "work",
 			},
-			reason:      UpkeepFailureReasonNone,
-			state:       RpcFlakyFailure,
+			reason:      encoding.UpkeepFailureReasonNone,
+			state:       encoding.RpcFlakyFailure,
 			retryable:   true,
 			makeEthCall: true,
 			ethCallErr:  fmt.Errorf("error"),
@@ -511,7 +513,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
 				WorkID:   "work",
 			},
-			reason:      UpkeepFailureReasonLogBlockNoLongerExists,
+			reason:      encoding.UpkeepFailureReasonLogBlockNoLongerExists,
 			retryable:   false,
 			makeEthCall: true,
 			blocks: map[int64]string{
@@ -527,7 +529,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension1),
 				WorkID:   "work",
 			},
-			reason:    UpkeepFailureReasonNone,
+			reason:    encoding.UpkeepFailureReasonNone,
 			retryable: false,
 			blocks: map[int64]string{
 				500: "0xa518faeadcc423338c62572da84dda35fe44b34f521ce88f6081b703b250cca4",
@@ -546,7 +548,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
 				WorkID:   "work",
 			},
-			reason:    UpkeepFailureReasonNone,
+			reason:    encoding.UpkeepFailureReasonNone,
 			retryable: false,
 			blocks: map[int64]string{
 				500: "0x3df0e926f3e21ec1195ffe007a2899214905eb02e768aa89ce0b94accd7f3d71",

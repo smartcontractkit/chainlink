@@ -1,4 +1,4 @@
-package evm
+package encoding
 
 import (
 	"fmt"
@@ -14,11 +14,19 @@ var (
 	ErrEmptyResults = fmt.Errorf("empty results; cannot encode")
 )
 
-type EVMAutomationEncoder21 struct {
-	packer *evmRegistryPackerV2_1
+type reportEncoder struct {
+	packer Packer
 }
 
-func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]byte, error) {
+var _ ocr2keepers.Encoder = (*reportEncoder)(nil)
+
+func NewReportEncoder(p Packer) ocr2keepers.Encoder {
+	return &reportEncoder{
+		packer: p,
+	}
+}
+
+func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error) {
 	if len(results) == 0 {
 		return nil, ErrEmptyResults
 	}
@@ -71,12 +79,12 @@ func (enc EVMAutomationEncoder21) Encode(results ...ocr2keepers.CheckResult) ([]
 
 	fmt.Printf("[automation-ocr3|EvmRegistry|Encoder] encoded %d out of %d results\n", encoded, len(results))
 
-	return enc.packer.PackReport(report)
+	return e.packer.PackReport(report)
 }
 
 // Extract the plugin will call this function to accept/transmit reports
-func (enc EVMAutomationEncoder21) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error) {
-	report, err := enc.packer.UnpackReport(raw)
+func (e reportEncoder) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error) {
+	report, err := e.packer.UnpackReport(raw)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to unpack report", err)
 	}

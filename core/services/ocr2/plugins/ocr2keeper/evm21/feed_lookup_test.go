@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/mocks"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -56,7 +57,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		registry: mockRegistry,
 		abi:      keeperRegistryABI,
 		active:   make(map[string]activeUpkeep),
-		packer:   NewEvmRegistryPackerV2_1(keeperRegistryABI, utilsABI),
+		packer:   encoding.NewAbiPacker(keeperRegistryABI, utilsABI),
 		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
@@ -101,7 +102,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: uint8(UpkeepFailureReasonTargetCheckReverted),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonTargetCheckReverted),
 				},
 			},
 			blob:              "0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000159761000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000648a1fbb000000000000000000000000000000000000000000000000000000274421041500000000000000000000000000000000000000000000000000000027437c6ecd0000000000000000000000000000000000000000000000000000002744c5995d00000000000000000000000000000000000000000000000000000000018d6ec108936dfe39c48715572a51ac868129958f937fb95ef5abdf73a239cf86a4fee700000000000000000000000000000000000000000000000000000000018d6ec100000000000000000000000000000000000000000000000000000000648a1fbb00000000000000000000000000000000000000000000000000000000000000028a26e557ee2feb91ccb116f3ab4eb1469afe5c3b012538cb151dbe3fbceaf6f117b24ac2a82cff25b286ae0a9b903dc6badaa16f6e67bf0983461b008574e30a00000000000000000000000000000000000000000000000000000000000000020db5c5924481061b98df59caefd9c4c1e72657c4976bf7c7568730fbdaf828080bff6b1edea2c8fed5e8bbac5574aa94cf809d898f5055cb1db14a16f1493726",
@@ -118,7 +119,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: uint8(UpkeepFailureReasonNone),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonNone),
 				},
 			},
 			hasError:      false,
@@ -133,7 +134,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: uint8(UpkeepFailureReasonInsufficientBalance),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonInsufficientBalance),
 				},
 			},
 			expectedResults: []ocr2keepers.CheckResult{
@@ -144,7 +145,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: uint8(UpkeepFailureReasonInsufficientBalance),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonInsufficientBalance),
 				},
 			},
 			hasError: true,
@@ -158,7 +159,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: uint8(UpkeepFailureReasonTargetCheckReverted),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonTargetCheckReverted),
 				},
 			},
 			expectedResults: []ocr2keepers.CheckResult{
@@ -169,7 +170,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: uint8(UpkeepFailureReasonMercuryAccessNotAllowed),
+					IneligibilityReason: uint8(encoding.UpkeepFailureReasonMercuryAccessNotAllowed),
 				},
 			},
 			hasError: false,

@@ -1,4 +1,4 @@
-package evm
+package encoding
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
-func TestUnpackCheckResults(t *testing.T) {
+func TestPacker_UnpackCheckResults(t *testing.T) {
 	uid, _ := new(big.Int).SetString("1843548457736589226156809205796175506139185429616502850435279853710366065936", 10)
 	upkeepId := ocr2keepers.UpkeepIdentifier{}
 	upkeepId.FromBigInt(uid)
@@ -233,7 +233,7 @@ func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 	}
 }
 
-func newPacker() (*evmRegistryPackerV2_1, error) {
+func newPacker() (*abiPacker, error) {
 	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
 		return nil, err
@@ -242,5 +242,5 @@ func newPacker() (*evmRegistryPackerV2_1, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewEvmRegistryPackerV2_1(keepersABI, utilsABI), nil
+	return NewAbiPacker(keepersABI, utilsABI), nil
 }

@@ -15,6 +15,7 @@ import (
 	clientmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
@@ -58,10 +59,10 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 			coreTypes.Header{Number: big.NewInt(1)},
 			[]ocr2keepers.UpkeepPayload{
 				{
-					UpkeepID: upkeepIDFromInt("10"),
+					UpkeepID: core.UpkeepIDFromInt("10"),
 				},
 				{
-					UpkeepID: upkeepIDFromInt("15"),
+					UpkeepID: core.UpkeepIDFromInt("15"),
 				},
 			},
 			false,

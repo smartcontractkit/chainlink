@@ -5,24 +5,25 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestActiveUpkeepList(t *testing.T) {
 	logIDs := []ocr2keepers.UpkeepIdentifier{
-		genUpkeepID(ocr2keepers.LogTrigger, "0"),
-		genUpkeepID(ocr2keepers.LogTrigger, "1"),
-		genUpkeepID(ocr2keepers.LogTrigger, "2"),
-		genUpkeepID(ocr2keepers.LogTrigger, "3"),
-		genUpkeepID(ocr2keepers.LogTrigger, "4"),
+		core.GenUpkeepID(ocr2keepers.LogTrigger, "0"),
+		core.GenUpkeepID(ocr2keepers.LogTrigger, "1"),
+		core.GenUpkeepID(ocr2keepers.LogTrigger, "2"),
+		core.GenUpkeepID(ocr2keepers.LogTrigger, "3"),
+		core.GenUpkeepID(ocr2keepers.LogTrigger, "4"),
 	}
 	conditionalIDs := []ocr2keepers.UpkeepIdentifier{
-		genUpkeepID(ocr2keepers.ConditionTrigger, "0"),
-		genUpkeepID(ocr2keepers.ConditionTrigger, "1"),
-		genUpkeepID(ocr2keepers.ConditionTrigger, "2"),
-		genUpkeepID(ocr2keepers.ConditionTrigger, "3"),
-		genUpkeepID(ocr2keepers.ConditionTrigger, "4"),
+		core.GenUpkeepID(ocr2keepers.ConditionTrigger, "0"),
+		core.GenUpkeepID(ocr2keepers.ConditionTrigger, "1"),
+		core.GenUpkeepID(ocr2keepers.ConditionTrigger, "2"),
+		core.GenUpkeepID(ocr2keepers.ConditionTrigger, "3"),
+		core.GenUpkeepID(ocr2keepers.ConditionTrigger, "4"),
 	}
 
 	tests := []struct {
