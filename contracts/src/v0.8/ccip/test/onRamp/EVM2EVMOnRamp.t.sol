@@ -1064,7 +1064,7 @@ contract EVM2EVMOnRamp_getFee is EVM2EVMOnRamp_getFeeSetup {
 
       uint256 gasUsed = GAS_LIMIT + DEST_GAS_OVERHEAD + tokenTransferGas;
       uint256 gasFeeUSD = (gasUsed * feeTokenConfig.gasMultiplier * USD_PER_GAS) / 1 ether;
-      (uint256 transferFeeUSD,) = s_onRamp.getTokenTransferCost(
+      (uint256 transferFeeUSD, ) = s_onRamp.getTokenTransferCost(
         message.feeToken,
         feeTokenPrices[i],
         message.tokenAmounts,
@@ -1111,7 +1111,7 @@ contract EVM2EVMOnRamp_getFee is EVM2EVMOnRamp_getFeeSetup {
         DEST_GAS_PER_PAYLOAD_BYTE +
         expectedTokenTransferGas;
       uint256 gasFeeUSD = (gasUsed * feeTokenConfig.gasMultiplier * USD_PER_GAS) / 1 ether;
-      (uint256 transferFeeUSD,) = s_onRamp.getTokenTransferCost(
+      (uint256 transferFeeUSD, ) = s_onRamp.getTokenTransferCost(
         message.feeToken,
         feeTokenPrices[i],
         message.tokenAmounts,
