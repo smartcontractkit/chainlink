@@ -162,19 +162,19 @@ func SetupLocalLoadTestEnv(nodesFunding *big.Float, subFundingLINK *big.Int) (*t
 	}
 	env.ParallelTransactions(true)
 
-	mockFeed, err := actions.DeployMockETHLinkFeed(env.Geth.ContractDeployer, vrfConst.LinkEthFeedResponse)
+	mockFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfConst.LinkEthFeedResponse)
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
-	lt, err := actions.DeployLINKToken(env.Geth.ContractDeployer)
+	lt, err := actions.DeployLINKToken(env.ContractDeployer)
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
-	vrfv2Contracts, err := DeployVRFV2Contracts(env.Geth.ContractDeployer, env.Geth.EthClient, lt, mockFeed)
+	vrfv2Contracts, err := DeployVRFV2Contracts(env.ContractDeployer, env.EVMClient, lt, mockFeed)
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
-	err = env.Geth.EthClient.WaitForEvents()
+	err = env.EVMClient.WaitForEvents()
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
@@ -189,7 +189,7 @@ func SetupLocalLoadTestEnv(nodesFunding *big.Float, subFundingLINK *big.Int) (*t
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
-	err = env.Geth.EthClient.WaitForEvents()
+	err = env.EVMClient.WaitForEvents()
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
@@ -197,7 +197,7 @@ func SetupLocalLoadTestEnv(nodesFunding *big.Float, subFundingLINK *big.Int) (*t
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
-	err = env.Geth.EthClient.WaitForEvents()
+	err = env.EVMClient.WaitForEvents()
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
@@ -205,11 +205,11 @@ func SetupLocalLoadTestEnv(nodesFunding *big.Float, subFundingLINK *big.Int) (*t
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
-	err = FundVRFCoordinatorV2Subscription(lt, vrfv2Contracts.Coordinator, env.Geth.EthClient, vrfConst.SubID, subFundingLINK)
+	err = FundVRFCoordinatorV2Subscription(lt, vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.SubID, subFundingLINK)
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
-	jobs, err := CreateVRFV2Jobs(env.GetAPIs(), vrfv2Contracts.Coordinator, env.Geth.EthClient, vrfConst.MinimumConfirmations)
+	jobs, err := CreateVRFV2Jobs(env.GetAPIs(), vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.MinimumConfirmations)
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}

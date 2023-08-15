@@ -1,6 +1,8 @@
 package test_env
 
 import (
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"sync"
 
 	"math/big"
@@ -28,9 +30,12 @@ type CLClusterTestEnv struct {
 	LogWatch *logwatch.LogWatch
 
 	/* components */
-	CLNodes    []*ClNode
-	Geth       *Geth
-	MockServer *MockServer
+	CLNodes          []*ClNode
+	Geth             *Geth
+	MockServer       *MockServer
+	EVMClient        blockchain.EVMClient
+	ContractDeployer contracts.ContractDeployer
+	ContractLoader   contracts.ContractLoader
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
@@ -64,10 +69,10 @@ func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 }
 
 func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
-	te.Geth.EthClient.ParallelTransactions(enabled)
+	te.EVMClient.ParallelTransactions(enabled)
 }
 
-func (te *CLClusterTestEnv) StartGeth() error {
+func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, InternalDockerUrls, error) {
 	return te.Geth.StartContainer()
 }
 
@@ -141,11 +146,11 @@ func (te *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
 func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 	for _, cl := range te.CLNodes {
-		if err := cl.Fund(te.Geth.EthClient, amount); err != nil {
+		if err := cl.Fund(te.EVMClient, amount); err != nil {
 			return errors.Wrap(err, ErrFundCLNode)
 		}
 	}
-	return te.Geth.EthClient.WaitForEvents()
+	return te.EVMClient.WaitForEvents()
 }
 
 func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
@@ -162,6 +167,6 @@ func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 
 func (te *CLClusterTestEnv) Terminate() error {
 	// TESTCONTAINERS_RYUK_DISABLED=false by defualt so ryuk will remove all
-	// the containers and the network
+	// the containers and the Network
 	return nil
 }
