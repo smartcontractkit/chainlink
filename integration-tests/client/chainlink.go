@@ -13,6 +13,7 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
+	"os"
 )
 
 const (
@@ -45,6 +46,10 @@ func NewChainlinkClient(c *ChainlinkConfig) (*ChainlinkClient, error) {
 	rc, err := initRestyClient(c.URL, c.Email, c.Password, c.HTTPTimeout)
 	if err != nil {
 		return nil, err
+	}
+	_, isSet := os.LookupEnv("CL_CLIENT_DEBUG")
+	if isSet {
+		rc.SetDebug(true)
 	}
 	return &ChainlinkClient{
 		Config:    c,

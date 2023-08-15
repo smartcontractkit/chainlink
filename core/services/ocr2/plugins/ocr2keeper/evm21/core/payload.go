@@ -29,6 +29,13 @@ func UpkeepWorkID(id *big.Int, trigger ocr2keepers.Trigger) (string, error) {
 	return hex.EncodeToString(hash[:]), nil
 }
 
+func WorkIDGenerator(u ocr2keepers.UpkeepIdentifier, trigger ocr2keepers.Trigger) string {
+	// Error should not happen here since we pass in a valid upkeepID
+	// TODO: Clean this up
+	id, _ := UpkeepWorkID(u.BigInt(), trigger)
+	return id
+}
+
 func NewUpkeepPayload(id *big.Int, trigger ocr2keepers.Trigger, checkData []byte) (ocr2keepers.UpkeepPayload, error) {
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	ok := uid.FromBigInt(id)
