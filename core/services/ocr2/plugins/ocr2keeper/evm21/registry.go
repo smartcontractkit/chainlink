@@ -111,8 +111,8 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 		client:   client.Client(),
 		txHashes: make(map[string]bool),
 		registry: registry,
-		active:   make(map[string]activeUpkeep),
 		abi:      keeperRegistryABI,
+		active:   NewActiveUpkeepList(),
 		packer:   packer,
 		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
@@ -183,10 +183,10 @@ type EvmRegistry struct {
 	reInit           *time.Timer
 	mu               sync.RWMutex
 	txHashes         map[string]bool
+	active           ActiveUpkeepList
 	lastPollBlock    int64
 	ctx              context.Context
 	cancel           context.CancelFunc
-	active           map[string]activeUpkeep
 	headFunc         func(ocr2keepers.BlockKey)
 	runState         int
 	runError         error
@@ -210,9 +210,9 @@ func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...
 
 	keys := make([]ocr2keepers.UpkeepIdentifier, 0)
 
-	for _, value := range r.active {
+	for _, value := range r.active.View() {
 		uid := &ocr2keepers.UpkeepIdentifier{}
-		uid.FromBigInt(value.ID)
+		uid.FromBigInt(value)
 		if len(triggers) == 0 {
 			keys = append(keys, *uid)
 			continue
@@ -377,7 +377,7 @@ func (r *EvmRegistry) initialize() error {
 	startupCtx, cancel := context.WithTimeout(r.ctx, reInitializationDelay)
 	defer cancel()
 
-	idMap := make(map[string]activeUpkeep)
+	idMap := NewActiveUpkeepList()
 
 	r.lggr.Debugf("Re-initializing active upkeeps list")
 	// get active upkeep ids from contract
@@ -399,7 +399,7 @@ func (r *EvmRegistry) initialize() error {
 		}
 
 		for _, active := range actives {
-			idMap[active.ID.String()] = active
+			idMap.Add(active.ID)
 		}
 
 		offset += batch
@@ -536,7 +536,7 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 
 func (r *EvmRegistry) removeFromActive(id *big.Int) {
 	r.mu.Lock()
-	delete(r.active, id.String())
+	r.active.Remove(id)
 	r.mu.Unlock()
 
 	uid := &ocr2keepers.UpkeepIdentifier{}
@@ -557,10 +557,10 @@ func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
 	defer r.mu.Unlock()
 
 	if r.active == nil {
-		r.active = make(map[string]activeUpkeep)
+		r.active = NewActiveUpkeepList()
 	}
 
-	if _, ok := r.active[id.String()]; !ok || force {
+	if ok := r.active.IsActive(id); !ok || force {
 		actives, err := r.getUpkeepConfigs(r.ctx, []*big.Int{id})
 		if err != nil {
 			r.lggr.Warnf("failed to get upkeep configs during adding active upkeep: %w", err)
@@ -571,7 +571,7 @@ func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
 			return
 		}
 
-		r.active[id.String()] = actives[0]
+		r.active.Add(id)
 	}
 }
 
