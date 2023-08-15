@@ -30,6 +30,7 @@ var (
 	}
 )
 
+// Identifier uniquely identifies a relayer by network and chain id
 type Identifier struct {
 	Network Network
 	ChainID ChainID
@@ -47,7 +48,6 @@ var idRegex = regexp.MustCompile(
 	fmt.Sprintf("^((%s)|(%s)|(%s)|(%s))\\.", EVM, Cosmos, Solana, StarkNet),
 )
 
-// regexp.MustCompile(strings.Join([]string{string(EVM),string(Cosmos),string(Solana),string(StarkNet)}, "|")
 func (i *Identifier) UnmarshalString(s string) error {
 	idxs := idRegex.FindStringIndex(s)
 	if idxs == nil {

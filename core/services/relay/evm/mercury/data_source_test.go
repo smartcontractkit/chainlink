@@ -27,8 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
-	//	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
-	//"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"

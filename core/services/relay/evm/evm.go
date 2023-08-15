@@ -90,8 +90,6 @@ func (r *Relayer) Ready() error {
 
 func (r *Relayer) HealthReport() (report map[string]error) {
 	report = make(map[string]error)
-	// TODO does legacy chains need to implement HealthReport?
-	//	maps.Copy(report, r.legacyChains.HealthReport())
 	maps.Copy(report, r.mercuryPool.HealthReport())
 	return
 }
@@ -112,7 +110,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 		return nil, errors.New("FeedID must be specified")
 	}
 
-	// TODO in a single relayer:chain world the logic here should change
+	// TODO BFC-2440 in a single relayer:chain world the logic here should change
 	// instead of a legacyChains, the relayer should have one chain
 	// and this check should be an check of that chain's id vs the requested value
 	chain, err := r.legacyChains.Get(relayConfig.ChainID.String())
@@ -271,18 +269,6 @@ func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 }
 
 func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpts, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
-	/*
-		var relayConfig types.RelayConfig
-		err := json.Unmarshal(args.RelayConfig, &relayConfig)
-		if err != nil {
-			return nil, err
-		}
-		// TODO: does this need to change?
-		chain, err := chainSet.Get(relayConfig.ChainID.ToInt())
-		if err != nil {
-			return nil, err
-		}
-	*/
 	if !common.IsHexAddress(opts.ContractID) {
 		return nil, errors.Errorf("invalid contractID, expected hex address")
 	}

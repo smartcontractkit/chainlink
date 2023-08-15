@@ -14,7 +14,7 @@ type LoopRelayAdapter interface {
 }
 type LoopRelayer struct {
 	loop.Relayer
-	x EVMChainRelayerExtender
+	ext EVMChainRelayerExtender
 }
 
 var _ loop.Relayer = &LoopRelayer{}
@@ -23,16 +23,14 @@ func NewLoopRelayAdapter(r *Relayer, cs EVMChainRelayerExtender) *LoopRelayer {
 	ra := relay.NewRelayerAdapter(r, cs)
 	return &LoopRelayer{
 		Relayer: ra,
-		x:       cs,
+		ext:     cs,
 	}
 }
 
 func (la *LoopRelayer) Chain() evm.Chain {
-	return la.x.Chain()
+	return la.ext.Chain()
 }
 
 func (la *LoopRelayer) Default() bool {
-	return la.x.Default()
+	return la.ext.Default()
 }
-
-//TODO need service multi start/close, etc for the contained relayer and extender?

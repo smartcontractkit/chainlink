@@ -325,22 +325,7 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
-	/*
-		evmRelayers := r.App.GetRelayers().List(chainlink.FilterByType(relay.EVM)).Slice()
-		var (
-			allNodes []types.NodeStatus
-			total    int
-		)
-		// TODO limit is not repected any longer because it's passed to multiple calls...
-		for _, r := range evmRelayers {
-			nodes, count, err := r.NodeStatuses(ctx, offset, limit)
-			if err != nil {
-				return nil, err
-			}
-			allNodes = append(allNodes, nodes...)
-			total += count
-		}
-	*/
+
 	allNodes, total, err := r.App.GetRelayers().NodeStatuses(ctx, offset, limit)
 	if err != nil {
 		return nil, err

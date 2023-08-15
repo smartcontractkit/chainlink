@@ -148,7 +148,6 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 	assert.Empty(t, links["prev"].Href)
 
 	assert.Len(t, links, 1)
-	//	require.Len(t, chains, 1)
 	assert.Equal(t, *chainA.ChainID, chains[0].ID)
 	tomlA, err := chainA.TOMLString()
 	require.NoError(t, err)

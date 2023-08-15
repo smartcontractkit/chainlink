@@ -43,10 +43,7 @@ func TestResolver_Nodes(t *testing.T) {
 			name:          "success",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
-				//legacyEVMChains := evmmocks.NewLegacyChains(t)
-
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
-				//f.Mocks.relayerChainInterops.On("List", mock.Anything).Return(f.Mocks.relayerChainInterops)
 				f.Mocks.relayerChainInterops.On("NodeStatuses", mock.Anything, PageDefaultOffset, PageDefaultLimit).Return([]types.NodeStatus{
 					{
 						Name:    "node-name",
