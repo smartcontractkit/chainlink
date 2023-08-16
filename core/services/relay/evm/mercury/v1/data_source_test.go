@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -73,7 +74,7 @@ func (m *mockORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg
 
 func TestMercury_Observe(t *testing.T) {
 	orm := &mockORM{}
-	ds := &datasource{lggr: logger.TestLogger(t), orm: orm, codec: (ReportCodec{})}
+	ds := &datasource{lggr: logger.TestLogger(t), orm: orm, codec: (reportcodecv1.ReportCodec{})}
 	ctx := testutils.Context(t)
 	repts := ocrtypes.ReportTimestamp{}
 
@@ -123,7 +124,7 @@ func TestMercury_Observe(t *testing.T) {
 
 	t.Run("when fetchMaxFinalizedBlockNum=true", func(t *testing.T) {
 		t.Run("with latest report in database", func(t *testing.T) {
-			orm.report = sampleReport
+			orm.report = buildSampleV1Report()
 			orm.err = nil
 
 			obs, err := ds.Observe(ctx, repts, true)
@@ -439,4 +440,24 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 		ethClient.AssertExpectations(t)
 		headTracker.AssertExpectations(t)
 	})
+}
+
+var sampleFeedID = [32]uint8{28, 145, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
+
+func buildSampleV1Report() []byte {
+	feedID := sampleFeedID
+	timestamp := uint32(42)
+	bp := big.NewInt(242)
+	bid := big.NewInt(243)
+	ask := big.NewInt(244)
+	currentBlockNumber := uint64(143)
+	currentBlockHash := utils.NewHash()
+	currentBlockTimestamp := uint64(123)
+	validFromBlockNum := uint64(142)
+
+	b, err := reportcodecv1.ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, currentBlockTimestamp, validFromBlockNum)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

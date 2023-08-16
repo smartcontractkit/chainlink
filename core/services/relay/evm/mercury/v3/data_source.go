@@ -99,9 +99,9 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		obs.Ask = parsed.ask
 	}()
 
+	var isLink, isNative bool
 	if ds.feedID == ds.linkFeedID {
-		// This IS the LINK feed, use our observed price
-		obs.LinkPrice.Val, obs.LinkPrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
+		isLink = true
 	} else {
 		wg.Add(1)
 		go func() {
@@ -115,8 +115,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	}
 
 	if ds.feedID == ds.nativeFeedID {
-		// This IS the native feed, use our observed price
-		obs.NativePrice.Val, obs.NativePrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
+		isNative = true
 	} else {
 		wg.Add(1)
 		go func() {
@@ -130,6 +129,21 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	}
 
 	wg.Wait()
+	cancel()
+
+	if isLink || isNative {
+		// run has now completed so it is safe to use err or benchmark price
+		if err != nil {
+			return
+		}
+		if isLink {
+			// This IS the LINK feed, use our observed price
+			obs.LinkPrice.Val, obs.LinkPrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
+		} else if isNative {
+			// This IS the native feed, use our observed price
+			obs.NativePrice.Val, obs.NativePrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
+		}
+	}
 
 	// todo: implement telemetry  https://smartcontract-it.atlassian.net/browse/MERC-1388
 	// if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&ds.jb) {

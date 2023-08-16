@@ -19,6 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
+func Test_MercuryTransmitter_Transmit(t *testing.T) {
+	t.Fatal("TODO for all three types of report")
+}
+
 func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)

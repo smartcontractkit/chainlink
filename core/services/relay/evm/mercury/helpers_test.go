@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	pgmocks "github.com/smartcontractkit/chainlink/v2/core/services/pg/mocks"
-	v1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
+	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -42,7 +42,7 @@ func buildSampleV1Report(p int64) []byte {
 	currentBlockTimestamp := uint64(123)
 	validFromBlockNum := uint64(142)
 
-	b, err := v1.ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, currentBlockTimestamp, validFromBlockNum)
+	b, err := reportcodecv1.ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, currentBlockTimestamp, validFromBlockNum)
 	if err != nil {
 		panic(err)
 	}
