@@ -190,6 +190,9 @@ func (h *Head) ChainString() string {
 	return sb.String()
 }
 
+func (h *Head) BlockTimestamp() time.Time {
+	return h.Timestamp
+}
 // String returns a string representation of this head
 func (h *Head) String() string {
 	return fmt.Sprintf("Head{Number: %d, Hash: %s, ParentHash: %s}", h.ToInt(), h.Hash.Hex(), h.ParentHash.Hex())
