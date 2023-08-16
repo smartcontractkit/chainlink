@@ -498,10 +498,10 @@ func (txm *Txm) GetMsgs(ids ...int64) (adapters.Msgs, error) {
 	return txm.orm.GetMsgs(ids...)
 }
 
-// GasPrice returns the gas price from the estimator in the configured native token.
+// GasPrice returns the gas price from the estimator in the configured fee token.
 func (txm *Txm) GasPrice() (sdk.DecCoin, error) {
 	prices := txm.gpe.GasPrices()
-	gasPrice, ok := prices[txm.cfg.NativeToken()]
+	gasPrice, ok := prices[txm.cfg.FeeToken()]
 	if !ok {
 		return sdk.DecCoin{}, errors.New("unexpected empty gas price")
 	}

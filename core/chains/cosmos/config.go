@@ -282,8 +282,8 @@ func setFromChain(c, f *coscfg.Chain) {
 	if f.TxMsgTimeout != nil {
 		c.TxMsgTimeout = f.TxMsgTimeout
 	}
-	if f.NativeToken != nil {
-		c.NativeToken = f.NativeToken
+	if f.FeeToken != nil {
+		c.FeeToken = f.FeeToken
 	}
 }
 
@@ -347,8 +347,8 @@ func (c *CosmosConfig) TxMsgTimeout() time.Duration {
 	return c.Chain.TxMsgTimeout.Duration()
 }
 
-func (c *CosmosConfig) NativeToken() string {
-	return c.Chain.NativeToken
+func (c *CosmosConfig) FeeToken() string {
+	return c.Chain.FeeToken
 }
 
 func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
