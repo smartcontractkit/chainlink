@@ -52,8 +52,6 @@ var (
 		},
 		ExtraHash: [32]uint8{27, 144, 106, 73, 166, 228, 123, 166, 179, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114},
 	}
-	sampleV1Payload    = buildSamplePayload(sampleV1Report)
-	sampleV1PayloadHex = hexutil.Encode(sampleV1Payload)
 )
 
 func init() {
