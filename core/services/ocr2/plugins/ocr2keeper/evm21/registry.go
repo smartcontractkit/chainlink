@@ -277,7 +277,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 						return
 					}
 				}
-			}(r.ctx, r.lggr, r.pollLogs)
+			}(r.ctx, r.lggr, r.pollUpkeepStateLogs)
 		}
 
 		// run process to process logs from log channel
@@ -363,7 +363,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 	return nil
 }
 
-func (r *EvmRegistry) pollLogs() error {
+func (r *EvmRegistry) pollUpkeepStateLogs() error {
 	var latest int64
 	var end int64
 	var err error
