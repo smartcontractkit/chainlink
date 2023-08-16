@@ -51,6 +51,18 @@ Here is an example for 3 nodes cluster
 }
 ```
 
+### Running against Live Testnets
+
+```
+SELECTED_NETWORKS=<Chain Name> \
+<Chain Name>_KEYS= \
+<Chain Name>_URLS= \
+<Chain Name>_HTTP_URLS= \
+go test -v -run ${TestName}
+```
+
+
+
 ### Debugging CL client API calls
 ```
 export CL_CLIENT_DEBUG=true
