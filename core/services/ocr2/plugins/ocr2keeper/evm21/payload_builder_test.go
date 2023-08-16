@@ -76,7 +76,7 @@ func TestNewPayloadBuilder(t *testing.T) {
 			},
 		},
 		{
-			name: "for an inactive log trigger upkeep, an empty payload is created",
+			name: "for an inactive log trigger upkeep, a payload is created but not added to the list of payloads",
 			activeList: &mockActiveUpkeepList{
 				IsActiveFn: func(id *big.Int) bool {
 					if core.GenUpkeepID(types.LogTrigger, "ghi").BigInt().Cmp(id) == 0 {
@@ -137,11 +137,10 @@ func TestNewPayloadBuilder(t *testing.T) {
 						BlockHash:   [32]byte{2},
 					},
 				},
-				{},
 			},
 		},
 		{
-			name: "when the recoverer errors, an empty payload is returned",
+			name: "when the recoverer errors, an empty payload is created but not added to the list of payloads",
 			activeList: &mockActiveUpkeepList{
 				IsActiveFn: func(id *big.Int) bool {
 					return true
@@ -162,12 +161,10 @@ func TestNewPayloadBuilder(t *testing.T) {
 					return types.UpkeepPayload{}, errors.New("recoverer boom")
 				},
 			},
-			wantPayloads: []types.UpkeepPayload{
-				{},
-			},
+			wantPayloads: []types.UpkeepPayload{},
 		},
 		{
-			name: "currently a conditional upkeep does not have a new payload built, and an empty payload is added",
+			name: "currently a conditional upkeep does not have a new payload built, and an empty payload is created but not added to the list of payloads",
 			activeList: &mockActiveUpkeepList{
 				IsActiveFn: func(id *big.Int) bool {
 					return true
@@ -183,12 +180,10 @@ func TestNewPayloadBuilder(t *testing.T) {
 					},
 				},
 			},
-			wantPayloads: []types.UpkeepPayload{
-				{},
-			},
+			wantPayloads: []types.UpkeepPayload{},
 		},
 		{
-			name: "an unknown upkeep type does not have a new payload built, and an empty payload is added",
+			name: "an unknown upkeep type does not have a new payload built, and an empty payload is created but not added to the list of payloads",
 			activeList: &mockActiveUpkeepList{
 				IsActiveFn: func(id *big.Int) bool {
 					return true
@@ -204,9 +199,7 @@ func TestNewPayloadBuilder(t *testing.T) {
 					},
 				},
 			},
-			wantPayloads: []types.UpkeepPayload{
-				{},
-			},
+			wantPayloads: []types.UpkeepPayload{},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

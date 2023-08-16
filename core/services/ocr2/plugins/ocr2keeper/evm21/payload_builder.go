@@ -11,43 +11,45 @@ import (
 )
 
 type payloadBuilder struct {
-	active    ActiveUpkeepList
-	lggr      logger.Logger
-	recoverer logprovider.LogRecoverer
+	upkeepList ActiveUpkeepList
+	lggr       logger.Logger
+	recoverer  logprovider.LogRecoverer
 }
 
 var _ ocr2keepers.PayloadBuilder = &payloadBuilder{}
 
-func NewPayloadBuilder(al ActiveUpkeepList, recoverer logprovider.LogRecoverer, lggr logger.Logger) *payloadBuilder {
+func NewPayloadBuilder(activeUpkeepList ActiveUpkeepList, recoverer logprovider.LogRecoverer, lggr logger.Logger) *payloadBuilder {
 	return &payloadBuilder{
-		active:    al,
-		lggr:      lggr,
-		recoverer: recoverer,
+		upkeepList: activeUpkeepList,
+		lggr:       lggr,
+		recoverer:  recoverer,
 	}
 }
 
 func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedBlockProposal) ([]ocr2keepers.UpkeepPayload, error) {
-	payloads := make([]ocr2keepers.UpkeepPayload, len(proposals))
-	for i, p := range proposals {
+	payloads := make([]ocr2keepers.UpkeepPayload, 0, len(proposals))
+	for _, proposal := range proposals {
 		var payload ocr2keepers.UpkeepPayload
 		var err error
-		if b.active.IsActive(p.UpkeepID.BigInt()) {
-			b.lggr.Debugf("building payload for coordinated block proposal %+v", p)
-			switch core.GetUpkeepType(p.UpkeepID) {
+		if b.upkeepList.IsActive(proposal.UpkeepID.BigInt()) {
+			b.lggr.Debugf("building payload for coordinated block proposal %+v", proposal)
+			switch core.GetUpkeepType(proposal.UpkeepID) {
 			case ocr2keepers.LogTrigger:
-				payload, err = b.BuildPayload(ctx, p)
+				payload, err = b.BuildPayload(ctx, proposal)
 			case ocr2keepers.ConditionTrigger:
 				// Trigger.BlockNumber and Trigger.BlockHash are already coordinated
 				// TODO: check for upkeepID being active upkeep here using b.active
-			default:
 			}
 			if err != nil {
-				b.lggr.Warnw("failed to build payload", "err", err, "upkeepID", p.UpkeepID)
+				b.lggr.Warnw("failed to build payload", "err", err, "upkeepID", proposal.UpkeepID)
 			}
 		} else {
-			b.lggr.Warnw("upkeep is not active, skipping", "upkeepID", p.UpkeepID)
+			b.lggr.Warnw("upkeep is not active, skipping", "upkeepID", proposal.UpkeepID)
 		}
-		payloads[i] = payload
+
+		if !payload.IsEmpty() {
+			payloads = append(payloads, payload)
+		}
 	}
 
 	return payloads, nil
