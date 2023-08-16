@@ -1,4 +1,4 @@
-package mercury_v1
+package reportcodec
 
 import (
 	"fmt"
@@ -10,16 +10,11 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	reportcodec "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
+	reportcodec "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 )
-
-// NOTE:
-// This report codec is based on the original median evmreportcodec
-// here:
-// https://github.com/smartcontractkit/offchain-reporting/blob/master/lib/offchainreporting2/reportingplugin/median/evmreportcodec/reportcodec.go
 
 var ReportTypes = getReportTypes()
 var maxReportLength = 32 * len(ReportTypes) // each arg is 256 bit EVM word
@@ -34,14 +29,14 @@ func getReportTypes() abi.Arguments {
 	}
 	return abi.Arguments([]abi.Argument{
 		{Name: "feedId", Type: mustNewType("bytes32")},
+		{Name: "validFromTimestamp", Type: mustNewType("uint32")},
 		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
+		{Name: "nativeFee", Type: mustNewType("int192")},
+		{Name: "linkFee", Type: mustNewType("int192")},
+		{Name: "expiresAt", Type: mustNewType("uint32")},
 		{Name: "benchmarkPrice", Type: mustNewType("int192")},
 		{Name: "bid", Type: mustNewType("int192")},
 		{Name: "ask", Type: mustNewType("int192")},
-		{Name: "currentBlockNum", Type: mustNewType("uint64")},
-		{Name: "currentBlockHash", Type: mustNewType("bytes32")},
-		{Name: "validFromBlockNum", Type: mustNewType("uint64")},
-		{Name: "currentBlockTimestamp", Type: mustNewType("uint64")},
 	})
 }
 
@@ -51,10 +46,10 @@ type Report struct {
 	BenchmarkPrice        *big.Int
 	Bid                   *big.Int
 	Ask                   *big.Int
-	CurrentBlockNum       uint64
-	CurrentBlockHash      [32]byte
-	ValidFromBlockNum     uint64
-	CurrentBlockTimestamp uint64
+	ValidFromTimestamp    uint32
+	ExpiresAt             uint32
+	LinkFee               *big.Int
+	NativeFee             *big.Int
 }
 
 var _ reportcodec.ReportCodec = &ReportCodec{}
@@ -68,7 +63,7 @@ func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
 	return &ReportCodec{lggr, feedID}
 }
 
-func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation, f int, validFromBlockNum int64) (ocrtypes.Report, error) {
+func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation, f int, validFromTimestamp, expiresAt uint32) (ocrtypes.Report, error) {
 	if len(paos) == 0 {
 		return nil, errors.Errorf("cannot build report from empty attributed observations")
 	}
@@ -76,6 +71,7 @@ func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation
 	mPaos := reportcodec.Convert(paos)
 
 	timestamp := relaymercury.GetConsensusTimestamp(mPaos)
+
 	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(mPaos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBenchmarkPrice failed")
@@ -89,75 +85,44 @@ func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation
 		return nil, errors.Wrap(err, "GetConsensusAsk failed")
 	}
 
-	currentBlockHash, currentBlockNum, currentBlockTimestamp, err := reportcodec.GetConsensusCurrentBlock(paos, f)
+	linkFee, err := relaymercury.GetConsensusLinkFee(mPaos, f)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetConsensusCurrentBlock failed")
+		return nil, errors.Wrap(err, "GetConsensusLinkFee failed")
+	}
+	nativeFee, err := relaymercury.GetConsensusNativeFee(mPaos, f)
+	if err != nil {
+		return nil, errors.Wrap(err, "GetConsensusNativeFee failed")
 	}
 
-	if validFromBlockNum > currentBlockNum {
-		return nil, errors.Errorf("validFromBlockNum=%d may not be greater than currentBlockNum=%d", validFromBlockNum, currentBlockNum)
-	}
-
-	if len(currentBlockHash) != 32 {
-		return nil, errors.Errorf("invalid length for currentBlockHash, expected: 32, got: %d", len(currentBlockHash))
-	}
-	currentBlockHashArray := [32]byte{}
-	copy(currentBlockHashArray[:], currentBlockHash)
-
-	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, benchmarkPrice, bid, ask, uint64(currentBlockNum), currentBlockHashArray, uint64(validFromBlockNum), currentBlockTimestamp)
+	reportBytes, err := ReportTypes.Pack(r.feedID, validFromTimestamp, timestamp, nativeFee, linkFee, expiresAt, benchmarkPrice, bid, ask)
 	return ocrtypes.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
 }
 
-// Maximum length in bytes of Report returned by BuildReport. Used for
-// defending against spam attacks.
 func (r *ReportCodec) MaxReportLength(n int) (int, error) {
 	return maxReportLength, nil
 }
 
-func (r *ReportCodec) CurrentBlockNumFromReport(report ocrtypes.Report) (int64, error) {
+func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error) {
 	reportElems := map[string]interface{}{}
 	if err := ReportTypes.UnpackIntoMap(reportElems, report); err != nil {
 		return 0, errors.Errorf("error during unpack: %v", err)
 	}
 
-	blockNumIface, ok := reportElems["currentBlockNum"]
+	timestampIface, ok := reportElems["observationsTimestamp"]
 	if !ok {
-		return 0, errors.Errorf("unpacked report has no 'currentBlockNum' field")
+		return 0, errors.Errorf("unpacked report has no 'timestamp' field")
 	}
 
-	blockNum, ok := blockNumIface.(uint64)
+	timestamp, ok := timestampIface.(uint32)
 	if !ok {
-		return 0, errors.Errorf("cannot cast blockNum to int64, type is %T", blockNumIface)
+		return 0, errors.Errorf("cannot cast timestamp to uint32, type is %T", timestampIface)
 	}
 
-	if blockNum > math.MaxInt64 {
-		return 0, errors.Errorf("blockNum overflows max int64, got: %d", blockNum)
+	if timestamp > math.MaxInt32 {
+		return 0, errors.Errorf("timestamp overflows max uint32, got: %d", timestamp)
 	}
 
-	return int64(blockNum), nil
-}
-
-func (r *ReportCodec) ValidFromBlockNumFromReport(report ocrtypes.Report) (int64, error) {
-	reportElems := map[string]interface{}{}
-	if err := ReportTypes.UnpackIntoMap(reportElems, report); err != nil {
-		return 0, errors.Errorf("error during unpack: %v", err)
-	}
-
-	blockNumIface, ok := reportElems["validFromBlockNum"]
-	if !ok {
-		return 0, errors.Errorf("unpacked report has no 'validFromBlockNum' field")
-	}
-
-	blockNum, ok := blockNumIface.(uint64)
-	if !ok {
-		return 0, errors.Errorf("cannot cast blockNum to int64, type is %T", blockNumIface)
-	}
-
-	if blockNum > math.MaxInt64 {
-		return 0, errors.Errorf("blockNum overflows max int64, got: %d", blockNum)
-	}
-
-	return int64(blockNum), nil
+	return timestamp, nil
 }
 
 // Decode is made available to external users (i.e. mercury server)
