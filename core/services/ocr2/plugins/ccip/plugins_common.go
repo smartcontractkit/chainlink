@@ -150,7 +150,7 @@ func unregisterLpFilters(q pg.Queryer, lp logpoller.LogPoller, filters []logpoll
 		if filterContainsZeroAddress(lpFilter.Addresses) {
 			continue
 		}
-		if err := lp.UnregisterFilter(lpFilter.Name, q); err != nil {
+		if err := lp.UnregisterFilter(lpFilter.Name, pg.WithQueryer(q)); err != nil {
 			return err
 		}
 	}
