@@ -350,6 +350,7 @@ func (r *EvmRegistry) initialize() error {
 		uid.FromBigInt(id)
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
+			// TODO: Think if we need to reset config here for removed upkeeps
 			if err := r.updateTriggerConfig(id, nil); err != nil {
 				r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", id.String(), err)
 			}
