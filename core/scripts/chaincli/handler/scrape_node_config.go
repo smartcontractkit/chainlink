@@ -27,7 +27,7 @@ type CSAKeyInfo struct {
 }
 
 func (ci *CSAKeyInfo) Equals(ci2 *CSAKeyInfo) bool {
-	return ci.PublicKey == ci2.PublicKey && ci.NodeAddress == ci.NodeAddress
+	return ci.PublicKey == ci2.PublicKey && ci.NodeAddress == ci2.NodeAddress
 }
 
 type NodeInfo struct {
