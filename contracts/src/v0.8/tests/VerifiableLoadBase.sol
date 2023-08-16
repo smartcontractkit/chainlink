@@ -9,8 +9,10 @@ import {LogTriggerConfig} from "../dev/automation/2_1/AutomationUtils2_1.sol";
 
 abstract contract VerifiableLoadBase is ConfirmedOwner {
   error IndexOutOfRange();
+  error UpkeepIdsDoNotMatch(address addr, uint256 upkeepIdFromLog, uint256 upkeepIdFromCheckData);
+  error EventSigDoNotMatch(address addr, bytes32 topic0, bytes32 emittedSig);
 
-  event LogEmitted(uint256 indexed upkeepId, uint256 indexed blockNum, address addr);
+  event LogEmitted(uint256 indexed upkeepId, uint256 indexed blockNum, address indexed addr);
   event UpkeepsRegistered(uint256[] upkeepIds);
   event UpkeepTopUp(uint256 upkeepId, uint96 amount, uint256 blockNum);
   event Received(address sender, uint256 value);
@@ -50,6 +52,13 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   // the following fields are immutable bc if they are adjusted, the existing upkeeps' delays will be stored in
   // different sizes of buckets. it's better to redeploy this contract with new values.
   uint16 public immutable BUCKET_SIZE = 100;
+
+  string[] public feedsHex = [
+    "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+    "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
+  ];
+  string public constant feedParamKey = "feedIdHex";
+  string public constant timeParamKey = "blockNumber";
 
   /**
    * @param _registrar a automation registrar 2.1 address
@@ -125,14 +134,24 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     return upkeepId;
   }
 
-  function getLogTriggerConfig(uint256 upkeepId) external view returns (bytes memory logTrigger) {
+  /**
+   * @notice returns a log trigger config
+   */
+  function getLogTriggerConfig(
+    address addr,
+    uint8 selector,
+    bytes32 topic0,
+    bytes32 topic1,
+    bytes32 topic2,
+    bytes32 topic3
+  ) external view returns (bytes memory logTrigger) {
     LogTriggerConfig memory cfg = LogTriggerConfig({
-      contractAddress: address(this),
-      filterSelector: 1, // only filter by topic1
-      topic0: emittedSig,
-      topic1: bytes32(abi.encode(upkeepId)),
-      topic2: 0x000000000000000000000000000000000000000000000000000000000000000,
-      topic3: 0x000000000000000000000000000000000000000000000000000000000000000
+      contractAddress: addr,
+      filterSelector: selector,
+      topic0: topic0,
+      topic1: topic1,
+      topic2: topic2,
+      topic3: topic3
     });
     return abi.encode(cfg);
   }
@@ -175,7 +194,15 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     for (uint8 i = 0; i < number; i++) {
       uint256 upkeepId = _registerUpkeep(params);
       if (triggerType == 1) {
-        bytes memory triggerCfg = this.getLogTriggerConfig(upkeepId);
+        // currently no using a filter selector
+        bytes memory triggerCfg = this.getLogTriggerConfig(
+          address(this),
+          0,
+          emittedSig,
+          bytes32(abi.encode(upkeepId)),
+          bytes32(0),
+          bytes32(0)
+        );
         registry.setUpkeepTriggerConfig(upkeepId, triggerCfg);
       }
       upkeepIds[i] = upkeepId;
