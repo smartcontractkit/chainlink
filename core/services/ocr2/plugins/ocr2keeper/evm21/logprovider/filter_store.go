@@ -41,6 +41,21 @@ type upkeepFilter struct {
 	lastRePollBlock int64
 }
 
+func (f upkeepFilter) Clone() upkeepFilter {
+	topics := make([]common.Hash, len(f.topics))
+	copy(topics, f.topics)
+	addr := make([]byte, len(f.addr))
+	copy(addr, f.addr)
+	return upkeepFilter{
+		upkeepID:        f.upkeepID,
+		topics:          topics,
+		addr:            addr,
+		lastPollBlock:   f.lastPollBlock,
+		lastRePollBlock: f.lastRePollBlock,
+		blockLimiter:    f.blockLimiter,
+	}
+}
+
 type upkeepFilterStore struct {
 	lock *sync.RWMutex
 	// filters is a map of upkeepID to upkeepFilter
@@ -135,7 +150,7 @@ func (s *upkeepFilterStore) GetFilters(selector func(upkeepFilter) bool) []upkee
 	var filters []upkeepFilter
 	for _, f := range s.filters {
 		if selector(f) {
-			filters = append(filters, f)
+			filters = append(filters, f.Clone())
 		}
 	}
 	return filters

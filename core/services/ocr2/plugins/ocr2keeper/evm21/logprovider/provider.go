@@ -315,19 +315,7 @@ func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big
 			filters = append(filters, upkeepFilter{upkeepID: f.upkeepID})
 			return
 		}
-		// cloning struct to be thread safe
-		topics := make([]common.Hash, len(f.topics))
-		copy(topics, f.topics)
-		addr := make([]byte, len(f.addr))
-		copy(addr, f.addr)
-		filters = append(filters, upkeepFilter{
-			upkeepID:        f.upkeepID,
-			topics:          topics,
-			addr:            addr,
-			lastPollBlock:   f.lastPollBlock,
-			lastRePollBlock: f.lastRePollBlock,
-			blockLimiter:    f.blockLimiter,
-		})
+		filters = append(filters, f.Clone())
 	}, ids...)
 
 	return filters
