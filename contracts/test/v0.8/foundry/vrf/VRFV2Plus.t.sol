@@ -141,13 +141,13 @@ contract VRFV2Plus is BaseTest {
     s_testCoordinator.fundSubscriptionWithEth{value: 10 ether}(subId);
   }
 
-  function testGetSubscriptionIds() public {
+  function testGetActiveSubscriptionIds() public {
     uint numSubs = 40;
     for (uint i = 0; i < numSubs; i++) {
       s_testCoordinator.createSubscription();
     }
     // get all subscriptions, assert length is correct
-    uint256[] memory allSubs = s_testCoordinator.getSubscriptionIds(0, 0);
+    uint256[] memory allSubs = s_testCoordinator.getActiveSubscriptionIds(0, 0);
     assertEq(allSubs.length, s_testCoordinator.s_currentSubNonce());
 
     // paginate through subscriptions, batching by 10.
@@ -157,7 +157,7 @@ contract VRFV2Plus is BaseTest {
     uint batchSize = 10;
     uint256[][] memory subIds = new uint256[][](4);
     while (startIndex < numSubs) {
-      subIds[arrIndex] = s_testCoordinator.getSubscriptionIds(startIndex, batchSize);
+      subIds[arrIndex] = s_testCoordinator.getActiveSubscriptionIds(startIndex, batchSize);
       startIndex += batchSize;
       arrIndex++;
     }

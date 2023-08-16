@@ -65,7 +65,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   // subscription nonce used to construct subID. Rises monotonically
   uint64 public s_currentSubNonce;
   // track all subscription id's that were created by this contract
-  // note: access should be through the getSubscriptionIds() view function
+  // note: access should be through the getActiveSubscriptionIds() view function
   // which takes a starting index and a max number to fetch in order to allow
   // "pagination" of the subscription ids. in the event a very large number of
   // subscription id's are stored in this set, they cannot be retrieved in a
@@ -287,7 +287,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function getSubscriptionIds(uint256 startIndex, uint256 maxCount) external view override returns (uint256[] memory) {
+  function getActiveSubscriptionIds(uint256 startIndex, uint256 maxCount) external view override returns (uint256[] memory) {
     uint256 numSubs = s_subIds.length();
     if (startIndex >= numSubs) revert IndexOutOfRange();
     uint256 endIndex = startIndex + maxCount;
