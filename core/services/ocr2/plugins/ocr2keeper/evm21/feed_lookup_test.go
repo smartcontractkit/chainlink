@@ -619,7 +619,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		{
 			name: "success - mercury responds in the first try",
 			lookup: &FeedLookup{
-				feedParamKey: feedID,
+				feedParamKey: feedIDs,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: timestamp,
 				time:         big.NewInt(123456),
@@ -630,20 +630,20 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					FeedId:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 					ValidFromTimestamp:    "123456",
 					ObservationsTimestamp: "123456",
-					ReportBlob:            "0xab2123dc00000012",
+					FullReport:            "0xab2123dc00000012",
 				},
 				{
 					FeedId:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
 					ValidFromTimestamp:    "123458",
 					ObservationsTimestamp: "123458",
-					ReportBlob:            "0xab2123dc00000016",
+					FullReport:            "0xab2123dc00000016",
 				},
 			},
 		},
 		{
 			name: "success - retry for 404",
 			lookup: &FeedLookup{
-				feedParamKey: feedID,
+				feedParamKey: feedIDs,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: timestamp,
 				time:         big.NewInt(123456),
@@ -657,20 +657,20 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					FeedId:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 					ValidFromTimestamp:    "123456",
 					ObservationsTimestamp: "123456",
-					ReportBlob:            "0xab2123dc00000012",
+					FullReport:            "0xab2123dc00000012",
 				},
 				{
 					FeedId:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
 					ValidFromTimestamp:    "123458",
 					ObservationsTimestamp: "123458",
-					ReportBlob:            "0xab2123dc00000012",
+					FullReport:            "0xab2123dc00000012",
 				},
 			},
 		},
 		{
 			name: "success - retry for 500",
 			lookup: &FeedLookup{
-				feedParamKey: feedID,
+				feedParamKey: feedIDs,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: timestamp,
 				time:         big.NewInt(123456),
@@ -684,20 +684,20 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					FeedId:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 					ValidFromTimestamp:    "123456",
 					ObservationsTimestamp: "123456",
-					ReportBlob:            "0xab2123dc00000012",
+					FullReport:            "0xab2123dc00000012",
 				},
 				{
 					FeedId:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
 					ValidFromTimestamp:    "123458",
 					ObservationsTimestamp: "123458",
-					ReportBlob:            "0xab2123dc00000019",
+					FullReport:            "0xab2123dc00000019",
 				},
 			},
 		},
 		{
 			name: "failure - returns retryable",
 			lookup: &FeedLookup{
-				feedParamKey: feedID,
+				feedParamKey: feedIDs,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: timestamp,
 				time:         big.NewInt(123456),
@@ -711,7 +711,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		{
 			name: "failure - returns retryable and then non-retryable",
 			lookup: &FeedLookup{
-				feedParamKey: feedID,
+				feedParamKey: feedIDs,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: timestamp,
 				time:         big.NewInt(123456),
@@ -725,7 +725,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		{
 			name: "failure - returns not retryable",
 			lookup: &FeedLookup{
-				feedParamKey: feedID,
+				feedParamKey: feedIDs,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
 				timeParamKey: timestamp,
 				time:         big.NewInt(123456),
@@ -793,7 +793,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				var reports [][]byte
 				var report []byte
 				for _, rsp := range tt.responses {
-					report, err = hexutil.Decode(rsp.ReportBlob)
+					report, err = hexutil.Decode(rsp.FullReport)
 					assert.Nil(t, err)
 					reports = append(reports, report)
 				}

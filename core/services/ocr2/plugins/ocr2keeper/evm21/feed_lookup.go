@@ -30,7 +30,7 @@ import (
 const (
 	applicationJson     = "application/json"
 	blockNumber         = "blockNumber" // valid for v0.2
-	feedID              = "feedID"      // valid for v0.3
+	feedIDs             = "feedIDs"     // valid for v0.3
 	feedIdHex           = "feedIdHex"   // valid for v0.2
 	headerAuthorization = "Authorization"
 	headerContentType   = "Content-Type"
@@ -66,7 +66,7 @@ type MercuryV03Response struct {
 	FeedId                string `json:"feedId"`
 	ValidFromTimestamp    string `json:"validFromTimestamp"`
 	ObservationsTimestamp string `json:"observationsTimestamp"`
-	ReportBlob            string `json:"reportBlob"`
+	FullReport            string `json:"fullReport"`
 }
 
 type MercuryData struct {
@@ -256,7 +256,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr
 		for i := range ml.feeds {
 			go r.singleFeedRequest(ctx, ch, i, ml, lggr)
 		}
-	} else if ml.feedParamKey == feedID && ml.timeParamKey == timestamp {
+	} else if ml.feedParamKey == feedIDs && ml.timeParamKey == timestamp {
 		// only mercury v0.3
 		resultLen = 1
 		isMercuryV03 = true
@@ -397,7 +397,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 // multiFeedsRequest sends a Mercury v0.3 request for a multi-feed report
 func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, ml *FeedLookup, lggr logger.Logger) {
 	q := url.Values{
-		feedID:    {strings.Join(ml.feeds, ",")},
+		feedIDs:   {strings.Join(ml.feeds, ",")},
 		timestamp: {ml.time.String()},
 	}
 
@@ -465,9 +465,9 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			var reportBytes [][]byte
 			var b []byte
 			for _, rsp := range responses {
-				b, err1 = hexutil.Decode(rsp.ReportBlob)
+				b, err1 = hexutil.Decode(rsp.FullReport)
 				if err1 != nil {
-					lggr.Warnf("upkeep %s block %s failed to decode reportBlob %s for multi feed: %v", ml.upkeepId.String(), ml.time.String(), rsp.ReportBlob, err1)
+					lggr.Warnf("upkeep %s block %s failed to decode reportBlob %s for multi feed: %v", ml.upkeepId.String(), ml.time.String(), rsp.FullReport, err1)
 					retryable = false
 					state = FailedToDecodeMercuryResponse
 					return err1
