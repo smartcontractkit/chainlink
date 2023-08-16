@@ -153,7 +153,7 @@ func TestPollLogs(t *testing.T) {
 				addr:          test.Address,
 				lastPollBlock: test.LastPoll,
 				poller:        mp,
-				chStateLog:    make(chan logpoller.Log, 10),
+				chLog:         make(chan logpoller.Log, 10),
 			}
 
 			err := rg.pollUpkeepStateLogs()
@@ -171,7 +171,7 @@ func TestPollLogs(t *testing.T) {
 			for {
 				chT := time.NewTimer(20 * time.Millisecond)
 				select {
-				case l := <-rg.chStateLog:
+				case l := <-rg.chLog:
 					chT.Stop()
 					if test.LogsWithSigs == nil {
 						assert.FailNow(t, "logs detected but no logs were expected")

@@ -49,17 +49,17 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	client := evmClientMocks.NewClient(t)
 
 	r := &EvmRegistry{
-		lggr:                lggr,
-		poller:              logPoller,
-		addr:                addr,
-		client:              client,
-		stateEventProcessed: make(map[string]bool),
-		registry:            mockRegistry,
-		abi:                 keeperRegistryABI,
-		active:              NewActiveUpkeepList(),
-		packer:              encoding.NewAbiPacker(keeperRegistryABI, utilsABI),
-		headFunc:            func(ocr2keepers.BlockKey) {},
-		chStateLog:          make(chan logpoller.Log, 1000),
+		lggr:         lggr,
+		poller:       logPoller,
+		addr:         addr,
+		client:       client,
+		logProcessed: make(map[string]bool),
+		registry:     mockRegistry,
+		abi:          keeperRegistryABI,
+		active:       NewActiveUpkeepList(),
+		packer:       encoding.NewAbiPacker(keeperRegistryABI, utilsABI),
+		headFunc:     func(ocr2keepers.BlockKey) {},
+		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred: &models.MercuryCredentials{
 				URL:      "https://google.com",
