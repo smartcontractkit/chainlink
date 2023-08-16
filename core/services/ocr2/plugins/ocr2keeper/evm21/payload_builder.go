@@ -7,19 +7,22 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 )
 
 type payloadBuilder struct {
-	active ActiveUpkeepList
-	lggr   logger.Logger
+	active    ActiveUpkeepList
+	lggr      logger.Logger
+	recoverer logprovider.LogRecoverer
 }
 
 var _ ocr2keepers.PayloadBuilder = &payloadBuilder{}
 
-func NewPayloadBuilder(al ActiveUpkeepList, lggr logger.Logger) *payloadBuilder {
+func NewPayloadBuilder(al ActiveUpkeepList, recoverer logprovider.LogRecoverer, lggr logger.Logger) *payloadBuilder {
 	return &payloadBuilder{
-		active: al,
-		lggr:   lggr,
+		active:    al,
+		lggr:      lggr,
+		recoverer: recoverer,
 	}
 }
 
@@ -31,6 +34,13 @@ func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2kee
 		switch core.GetUpkeepType(p.UpkeepID) {
 		case ocr2keepers.LogTrigger:
 			checkData = []byte{} // TODO: call recoverer
+			payload, err := b.recoverer.BuildPayload(ctx, p)
+			if err != nil {
+				b.lggr.Warnw("failed to build payload", "err", err, "upkeepID", p.UpkeepID)
+				payloads[i] = ocr2keepers.UpkeepPayload{}
+				continue
+			}
+			payloads[i] = payload
 		case ocr2keepers.ConditionTrigger:
 			// Trigger.BlockNumber and Trigger.BlockHash are already coordinated
 			checkData = []byte{} // CheckData derived on chain for conditionals

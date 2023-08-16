@@ -120,6 +120,74 @@ func (r *logRecoverer) Close() error {
 	return nil
 }
 
+func (r *logRecoverer) BuildPayload(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) (ocr2keepers.UpkeepPayload, error) {
+	switch core.GetUpkeepType(proposal.UpkeepID) {
+	case ocr2keepers.LogTrigger:
+		// TODO should we be querying the filter store with something other than upkeep ID?
+		if r.filterStore.Has(proposal.UpkeepID.BigInt()) {
+			latest, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+			if err != nil {
+				return ocr2keepers.UpkeepPayload{}, err
+			}
+
+			offsetBlock := r.getRecoveryOffsetBlock(latest)
+
+			if isRecoverable := uint64(proposal.Trigger.LogTriggerExtension.BlockNumber) < uint64(offsetBlock); isRecoverable {
+				upkeepStates, err := r.states.SelectByWorkIDsInRange(ctx, int64(proposal.Trigger.LogTriggerExtension.BlockNumber)-1, offsetBlock, proposal.WorkID)
+				if err != nil {
+					return ocr2keepers.UpkeepPayload{}, err
+				}
+				for _, upkeepState := range upkeepStates {
+					switch upkeepState {
+					case ocr2keepers.Performed, ocr2keepers.Ineligible:
+						return ocr2keepers.UpkeepPayload{}, nil
+					default:
+						// we can proceed
+					}
+				}
+
+				var filter upkeepFilter
+				r.filterStore.RangeFiltersByIDs(func(i int, f upkeepFilter) {
+					filter = f
+				}, proposal.UpkeepID.BigInt())
+
+				if len(filter.addr) == 0 {
+					return ocr2keepers.UpkeepPayload{}, errors.New("filter not found, upkeep is inactive") // TODO fix error msg
+				}
+
+				logs, err := r.poller.LogsWithSigs(int64(proposal.Trigger.LogTriggerExtension.BlockNumber)-1, offsetBlock, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
+				if err != nil {
+					return ocr2keepers.UpkeepPayload{}, fmt.Errorf("could not read logs: %w", err)
+				}
+
+				for _, log := range logs {
+					trigger := logToTrigger(log)
+					upkeepId := &ocr2keepers.UpkeepIdentifier{}
+					// TODO do we need to use the filter upkeepID for correctness, or can we remove this block and use the upkeep ID on the proposal?
+					ok := upkeepId.FromBigInt(filter.upkeepID)
+					if !ok {
+						r.lggr.Warnw("failed to convert upkeepID to UpkeepIdentifier", "upkeepID", filter.upkeepID)
+						continue
+					}
+					wid := core.UpkeepWorkID(*upkeepId, trigger)
+					if wid == proposal.WorkID {
+						checkData, err := r.packer.PackLogData(log)
+						if err != nil {
+							r.lggr.Warnw("failed to pack log data", "err", err, "log", log)
+							continue
+						}
+
+						return core.NewUpkeepPayload(proposal.UpkeepID.BigInt(), trigger, checkData)
+					}
+				}
+			}
+		}
+	default:
+		return ocr2keepers.UpkeepPayload{}, errors.New("not a log trigger upkeep ID")
+	}
+	return ocr2keepers.UpkeepPayload{}, nil
+}
+
 func (r *logRecoverer) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedBlockProposal) ([]ocr2keepers.UpkeepPayload, error) {
 	// TODO: implement
 	return []ocr2keepers.UpkeepPayload{}, nil
