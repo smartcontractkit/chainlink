@@ -52,8 +52,9 @@ var (
 	ErrABINotParsable                = fmt.Errorf("error parsing abi")
 	ActiveUpkeepIDBatchSize    int64 = 1000
 	FetchUpkeepConfigBatchSize       = 10
-	reInitializationDelay            = 15 * time.Minute
-	logEventLookback           int64 = 250
+	// This is the interval at which active upkeep list is fully refreshed from chain
+	refreshInterval        = 15 * time.Minute
+	logEventLookback int64 = 250
 )
 
 //go:generate mockery --quiet --name Registry --output ./mocks/ --case=underscore
@@ -231,13 +232,13 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		r.ctx, r.cancel = context.WithCancel(context.Background())
-		r.reInit = time.NewTimer(reInitializationDelay)
+		r.reInit = time.NewTimer(refreshInterval)
 
 		if err := r.registerEvents(r.chainID, r.addr); err != nil {
 			return fmt.Errorf("logPoller error while registering automation events: %w", err)
 		}
 
-		// initialize the upkeep keys; if the reInit timer returns, do it again
+		// refresh the active upkeep keys; if the reInit timer returns, do it again
 		{
 			go func(cx context.Context, tmr *time.Timer, lggr logger.Logger, f func() error) {
 				err := f()
@@ -252,12 +253,12 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 						if err != nil {
 							lggr.Errorf("failed to re-initialize upkeeps", err)
 						}
-						tmr.Reset(reInitializationDelay)
+						tmr.Reset(refreshInterval)
 					case <-cx.Done():
 						return
 					}
 				}
-			}(r.ctx, r.reInit, r.lggr, r.initialize)
+			}(r.ctx, r.reInit, r.lggr, r.refreshActiveUpkeeps)
 		}
 
 		// start polling logs on an interval
@@ -332,19 +333,20 @@ func (r *EvmRegistry) HealthReport() map[string]error {
 	return map[string]error{r.Name(): r.sync.Healthy()}
 }
 
-func (r *EvmRegistry) initialize() error {
-	startupCtx, cancel := context.WithTimeout(r.ctx, reInitializationDelay)
+func (r *EvmRegistry) refreshActiveUpkeeps() error {
+	// Allow for max timeout of refreshInterval
+	ctx, cancel := context.WithTimeout(r.ctx, refreshInterval)
 	defer cancel()
 
-	r.lggr.Debugf("Re-initializing active upkeeps list")
+	r.lggr.Debugf("Refreshing active upkeeps list")
 	// get active upkeep ids from contract
-	ids, err := r.getLatestIDsFromContract(startupCtx)
+	ids, err := r.getLatestIDsFromContract(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get ids from contract: %s", err)
+		return fmt.Errorf("failed to get active upkeep ids from contract during refresh: %s", err)
 	}
 	r.active.Reset(ids...)
 
-	// register upkeep ids for log triggers
+	// refresh trigger config log upkeeps
 	for _, id := range ids {
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		uid.FromBigInt(id)
