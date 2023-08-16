@@ -133,6 +133,7 @@ type checkResult struct {
 	err error
 }
 
+// TODO: Clean this up as these fields are derived from chain during checkUpkeep
 type activeUpkeep struct {
 	ID              *big.Int
 	PerformGasLimit uint32
@@ -142,7 +143,7 @@ type activeUpkeep struct {
 type MercuryConfig struct {
 	cred *models.MercuryCredentials
 	abi  abi.ABI
-	// allowListCache stores the admin address' privilege. in 2.1, this only includes a JSON bytes for allowed to use mercury
+	// allowListCache stores the upkeeps privileges. In 2.1, this only includes a JSON bytes for allowed to use mercury
 	allowListCache *cache.Cache
 }
 
@@ -170,17 +171,19 @@ type EvmRegistry struct {
 	runError         error
 	mercury          *MercuryConfig
 	hc               HttpClient
-	enc              ocr2keepers.Encoder
+	enc              ocr2keepers.Encoder // TODO: clean this up as this doesn't seem to be used
 	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
 }
 
 // GetActiveUpkeepIDs uses the latest head and map of all active upkeeps to build a
 // slice of upkeep keys.
+// TODO: Move this to active upkeep list
 func (r *EvmRegistry) GetActiveUpkeepIDs(ctx context.Context) ([]ocr2keepers.UpkeepIdentifier, error) {
 	return r.GetActiveUpkeepIDsByType(ctx)
 }
 
+// TODO: Move this to active upkeep list
 // GetActiveUpkeepIDsByType returns all active upkeeps of the given trigger types.
 func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...uint8) ([]ocr2keepers.UpkeepIdentifier, error) {
 	r.mu.RLock()
@@ -606,6 +609,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		return
 	}
 
+	// todo: can feed lookup return errors?
 	upkeepResults = r.feedLookup(ctx, upkeepResults)
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
