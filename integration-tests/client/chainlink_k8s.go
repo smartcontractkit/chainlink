@@ -23,6 +23,10 @@ func NewChainlinkK8sClient(c *ChainlinkConfig, podName, chartName string) (*Chai
 	if err != nil {
 		return nil, err
 	}
+	_, isSet := os.LookupEnv("CL_CLIENT_DEBUG")
+	if isSet {
+		rc.SetDebug(true)
+	}
 	return &ChainlinkK8sClient{
 		ChainlinkClient: &ChainlinkClient{
 			APIClient: rc,

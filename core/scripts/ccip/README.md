@@ -9,9 +9,9 @@ To configure a DON and all contracts from nothing we need a few things
 - [ ]  (optional) access to CCIP Shared Vault in 1password
 - [ ]  (optional) Grafana access
 
-The scripts are in alpha state and will change in the future!
+The scripts are in beta state and will change in the future!
 
-To see k8s config please check example for beta [k8s config](https://github.com/smartcontractkit/infra-k8s/tree/main/projects/chainlink/files/chainlink-clusters/clc-ocr-multichain-ccip-beta/config.yaml) in the `infra-k8s` repo. NOTE: replace `beta` with `alpha` when using the alpha cluster.
+To see k8s config please check example for beta [k8s config](https://github.com/smartcontractkit/infra-k8s/tree/main/projects/chainlink/files/chainlink-clusters/clc-ocr-multichain-ccip-beta/config.yaml) in the `infra-k8s` repo. NOTE: replace `beta` with `prod` when using the prod cluster.
 
 ## Funding keys
 
@@ -19,11 +19,11 @@ Chainlink has an **[internal faucet](https://internal-apps-ui.main.prod.cldev.sh
 
 ## Node credentials
 
-To communicate with the nodes in the k8s cluster you will need to have their urls & passwords. These can be found in 1pass by searching the node name e.g `ccip alpha` or if you have access to `CCIP Shared Vault` there is ready to go json for every environment. Infra is the owner of the k8s instances and will populate 1pass with these credentials when they spin up new nodes. To test access simply go to the url you see in 1pass and test it. This should be first and second to last time you open the node UI (we’ll need to open the bootstrap node UI once more)
+To communicate with the nodes in the k8s cluster you will need to have their urls & passwords. These can be found in 1pass by searching the node name e.g `ccip beta` or if you have access to `CCIP Shared Vault` there is ready to go json for every environment. Infra is the owner of the k8s instances and will populate 1pass with these credentials when they spin up new nodes. To test access simply go to the url you see in 1pass and test it. This should be first and second to last time you open the node UI (we’ll need to open the bootstrap node UI once more)
 
 ## Setting up the script
 
-The script needs the node credentials discussed in the last step. To supply them we transform them into a JSON file and put that file in `core/scripts/ccip/json/credentials/` in the following format. You can get current node configuration in 1pass for ex. `CCIP Alpha testnet credentials`
+The script needs the node credentials discussed in the last step. To supply them we transform them into a JSON file and put that file in `core/scripts/ccip/json/credentials/` in the following format. You can get current node configuration in 1pass for ex. `CCIP Beta testnet credentials`
 
 ```json
 {
@@ -81,7 +81,7 @@ var chainIdToRPC = map[uint64]string{
 
 ## Deploying to the new chain
 
-We need to go to `core/scripts/ccip/rhea/deployments/` and create two new `EvmChainConfig` objects in one of environments files (alpha/beta/prod). When naming them please use the Environment name as well as the blockchain. This chain config will contain information about both the blockchain and the deployed contracts.
+We need to go to `core/scripts/ccip/rhea/deployments/` and create two new `EvmChainConfig` objects in one of environments files (beta/prod). When naming them please use the Environment name as well as the blockchain. This chain config will contain information about both the blockchain and the deployed contracts.
 
 Set `ChainId`, `GasSettings`, `SupportedTokens` and `DeploySettings` `FeeTokens` , `WrappedNative` - reuse them if there is configuration for specific chain already. Example for Sepolia on Beta:
 

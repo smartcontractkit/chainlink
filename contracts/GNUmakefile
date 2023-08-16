@@ -1,25 +1,35 @@
-.DEFAULT_GOAL := build
+# ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
+# profile defined. Adding a product to this list will make it available for
+# snapshotting.
+ALL_FOUNDRY_PRODUCTS = vrf automation llo-feeds functions automation-dev shared ccip
 
-GOPATH ?= $(HOME)/go
-COMMIT_SHA ?= $(shell git rev-parse HEAD)
-VERSION = $(shell cat VERSION)
-GOBIN ?= $(GOPATH)/bin
-GO_LDFLAGS := $(shell tools/bin/ldflags)
-GOFLAGS = -ldflags "$(GO_LDFLAGS)"
+# To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
+# or call the target with `FOUNDRY_PROFILE=product`
+# When developing with Foundry, you'll most likely already have the env var set
+# to run the tests for the product you're working on. In that case, you can just
+# call `make snapshot` and it will use the env var.
+# env var example
+#		export FOUNDRY_PROFILE=llo-feeds
+#		make snapshot
+# make call example
+# 		make FOUNDRY_PROFILE=llo-feeds snapshot
+.PHONY: snapshot
+snapshot: ## Make a snapshot for a specific product.
+	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
 
+.PHONY: snapshot-all
+snapshot-all: ## Make a snapshot for all products.
+	for foundry_profile in $(ALL_FOUNDRY_PRODUCTS) ; do \
+		make snapshot FOUNDRY_PROFILE=$$foundry_profile ; \
+	done
+
+.PHONY: pnpmdep
+pnpmdep: ## Install solidity contract dependencies through pnpm
+	 pnpm i
 
 .PHONY: abigen
 abigen: ## Build & install abigen.
 	../tools/bin/build_abigen
-
-.PHONY: wrappers
-wrappers: abigen ## Recompiles solidity contracts and their go wrappers.
-	./scripts/native_solc_compile_all_ccip
-	go generate ../core/gethwrappers/go_generate_ccip.go
-
-.PHONY: snapshot
-snapshot:
-	FOUNDRY_PROFILE= forge snapshot --match-test _gas
 
 ccip-precommit: export FOUNDRY_PROFILE=ccip
 .PHONY: ccip-precommit
@@ -35,6 +45,40 @@ ccip-lcov:
 	forge coverage --report lcov
 	../tools/ci/ccip_lcov_prune ./lcov.info ./lcov.info.pruned
 	genhtml -o report lcov.info.pruned --branch-coverage
+
+# To generate gethwrappers for a specific product, either set the `FOUNDRY_PROFILE`
+# env var or call the target with `FOUNDRY_PROFILE=product`
+# This uses FOUNDRY_PROFILE, even though it does support non-foundry products. This
+# is to improve the workflow for developers working with Foundry, which is the
+# recommended way to develop Solidity for CL products.
+# env var example
+#		export FOUNDRY_PROFILE=llo-feeds
+#		make wrappers
+# make call example
+# 		make FOUNDRY_PROFILE=llo-feeds wrappers
+.PHONY: wrappers
+wrappers: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
+	./scripts/native_solc_compile_all_$(FOUNDRY_PROFILE)
+	go generate ../core/gethwrappers/$(FOUNDRY_PROFILE)
+
+# This call generates all gethwrappers for all products. It does so based on the
+# assumption that native_solc_compile_all contains sub-calls to each product, and
+# go_generate does the same.
+.PHONY: wrappers-all
+wrappers-all: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
+	# go_generate contains a call to  compile all contracts before generating wrappers
+	go generate ../core/gethwrappers/go_generate.go
+
+# Custom wrapper generation for OCR2VRF as their contracts do not exist in this repo
+.PHONY: go-solidity-wrappers-ocr2vrf
+go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles OCR2VRF solidity contracts and their go wrappers.
+	./scripts/native_solc_compile_all_ocr2vrf
+	# replace the go:generate_disabled directive with the regular go:generate directive
+	sed -i '' 's/go:generate_disabled/go:generate/g' ../core/gethwrappers/ocr2vrf/go_generate.go
+	go generate ../core/gethwrappers/ocr2vrf
+	go generate ../core/internal/mocks
+	# put the go:generate_disabled directive back
+	sed -i '' 's/go:generate/go:generate_disabled/g' ../core/gethwrappers/ocr2vrf/go_generate.go
 
 help:
 	@echo ""

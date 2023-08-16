@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 )
@@ -34,7 +33,7 @@ func WithPostgresDbContainerName(name string) PostgresDbOption {
 func NewPostgresDb(networks []string, opts ...PostgresDbOption) *PostgresDb {
 	pg := &PostgresDb{
 		EnvComponent: EnvComponent{
-			ContainerName: fmt.Sprintf("%s-%s", "postgres-db", uuid.NewString()[0:3]),
+			ContainerName: fmt.Sprintf("%s-%s", "postgres-db", uuid.NewString()[0:8]),
 			Networks:      networks,
 		},
 		User:     "postgres",
@@ -48,7 +47,7 @@ func NewPostgresDb(networks []string, opts ...PostgresDbOption) *PostgresDb {
 	return pg
 }
 
-func (pg *PostgresDb) StartContainer(lw *logwatch.LogWatch) error {
+func (pg *PostgresDb) StartContainer() error {
 	req := pg.getContainerRequest()
 	c, err := tc.GenericContainer(context.Background(), tc.GenericContainerRequest{
 		ContainerRequest: *req,

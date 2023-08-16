@@ -24,6 +24,8 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/shopspring/decimal"
 
+	types2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 )
@@ -524,4 +526,15 @@ func IsAvaxNetwork(chainID int64) bool {
 		chainID == 43113 || // Fuji testnet
 		chainID == 335 || // DFK testnet
 		chainID == 53935 // DFK mainnet
+}
+
+func ToOffchainPublicKey(s string) (key types2.OffchainPublicKey) {
+	copy(key[:], hexutil.MustDecode(s)[:])
+	return
+}
+
+func StringTo32Bytes(s string) [32]byte {
+	var b [32]byte
+	copy(b[:], hexutil.MustDecode(s))
+	return b
 }

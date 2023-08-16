@@ -1068,7 +1068,7 @@ observationSource                      = """
 // VRFV2JobSpec represents a VRFV2 job
 type VRFV2JobSpec struct {
 	Name                     string        `toml:"name"`
-	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF Coordinator contract
+	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
 	PublicKey                string        `toml:"publicKey"`          // Public key of the proving key
 	ExternalJobID            string        `toml:"externalJobID"`
 	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
@@ -1108,7 +1108,7 @@ observationSource = """
 // VRFJobSpec represents a VRF job
 type VRFJobSpec struct {
 	Name                     string `toml:"name"`
-	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF Coordinator contract
+	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
 	PublicKey                string `toml:"publicKey"`          // Public key of the proving key
 	ExternalJobID            string `toml:"externalJobID"`
 	ObservationSource        string `toml:"observationSource"` // List of commands for the Chainlink node
@@ -1138,7 +1138,7 @@ observationSource = """
 // BlockhashStoreJobSpec represents a blockhashstore job
 type BlockhashStoreJobSpec struct {
 	Name                  string `toml:"name"`
-	CoordinatorV2Address  string `toml:"coordinatorV2Address"` // Address of the VRF Coordinator contract
+	CoordinatorV2Address  string `toml:"coordinatorV2Address"` // Address of the VRF CoordinatorV2 contract
 	WaitBlocks            int    `toml:"waitBlocks"`
 	LookbackBlocks        int    `toml:"lookbackBlocks"`
 	BlockhashStoreAddress string `toml:"blockhashStoreAddress"`
@@ -1208,7 +1208,7 @@ func ObservationSourceSpecBridge(bta *BridgeTypeAttributes) string {
 		fetch -> parse;`, bta.Name, bta.RequestData)
 }
 
-// MarshallTemplate Helper to marshall templates
+// marshallTemplate Helper to marshall templates
 func MarshallTemplate(jobSpec interface{}, name, templateString string) (string, error) {
 	var buf bytes.Buffer
 	tmpl, err := template.New(name).Parse(templateString)

@@ -1,24 +1,17 @@
 package templates
 
 import (
-	"bytes"
-	"fmt"
-	"os"
-	"text/template"
+	"github.com/google/uuid"
 )
 
-var InitGethScript = `
-#!/bin/bash
-if [ ! -d /root/.ethereum/keystore ]; then
-	echo "/root/.ethereum/keystore not found, running 'geth init'..."
-	geth init /root/genesis.json
-	echo "...done!"
-fi
+type GenesisJsonTemplate struct {
+	AccountAddr string
+	ChainId     string
+}
 
-geth "$@"
-`
-
-var GenesisJson = `
+// String representation of the job
+func (c GenesisJsonTemplate) String() (string, error) {
+	tpl := `
 {
 	"config": {
 	  "chainId": {{ .ChainId }},
@@ -48,24 +41,16 @@ var GenesisJson = `
 	  }
 	}
   }`
-
-func BuildGenesisJson(chainId, accountAddr string) (string, error) {
-	data := struct {
-		AccountAddr string
-		ChainId     string
-	}{
-		AccountAddr: accountAddr,
-		ChainId:     chainId,
-	}
-
-	t, err := template.New("genesis-json").Parse(GenesisJson)
-	if err != nil {
-		fmt.Println("Error parsing template:", err)
-		os.Exit(1)
-	}
-
-	var buf bytes.Buffer
-	err = t.Execute(&buf, data)
-
-	return buf.String(), err
+	return MarshalTemplate(c, uuid.NewString(), tpl)
 }
+
+var InitGethScript = `
+#!/bin/bash
+if [ ! -d /root/.ethereum/keystore ]; then
+	echo "/root/.ethereum/keystore not found, running 'geth init'..."
+	geth init /root/genesis.json
+	echo "...done!"
+fi
+
+geth "$@"
+`

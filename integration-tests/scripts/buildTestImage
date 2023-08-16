@@ -16,7 +16,7 @@ SUITES=$3
 DEFAULT_SUITES="smoke soak chaos"
 ACCOUNT=$(aws sts get-caller-identity | jq -r .Account)
 AWS_BASE="${ACCOUNT}".dkr.ecr.us-west-2.amazonaws.com
-TAG="${AWS_BASE}"/chainlink-ccip-tests:"${TAG_VERSION}"
+TAG="${AWS_BASE}"/chainlink-tests:"${TAG_VERSION}"
 BASE_IMAGE="${AWS_BASE}"/test-base-image
 
 if [ "${TAG_VERSION}" = "" ]; then

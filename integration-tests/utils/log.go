@@ -6,8 +6,8 @@ import (
 	"os"
 )
 
-func SetupGlobalLogger() {
-	lvlStr := os.Getenv("GLOBAL_LOG_LEVEL")
+func SetupCoreDockerEnvLogger() {
+	lvlStr := os.Getenv("CORE_DOCKER_ENV_LOG_LEVEL")
 	if lvlStr == "" {
 		lvlStr = "info"
 	}
