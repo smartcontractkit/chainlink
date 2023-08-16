@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
@@ -181,10 +180,8 @@ func (e WrappedEvmEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, 
 		gasPrice = fees.Legacy
 	}
 
-	// Creating a `Big` struct to avoid having a mutation on `amount` and hence affecting the value stored in the DB
-	amountAsBig := utils.NewBig(amount.ToInt())
 	fee := new(big.Int).Mul(gasPrice.ToInt(), big.NewInt(int64(gasLimit)))
-	amountWithFees := new(big.Int).Add(amountAsBig.ToInt(), fee)
+	amountWithFees := new(big.Int).Add(amount.ToInt(), fee)
 	return amountWithFees, nil
 }
 
