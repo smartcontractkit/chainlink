@@ -28,6 +28,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	nodesFile := fs.String("nodes", "", "a file containing nodes urls, logins and passwords")
 	chainID := fs.Int64("chainid", 80001, "chain id")
 	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
+	donID := fs.String("donid", "", "don ID string")
 	contractAddress := fs.String("contract", "", "oracle contract address")
 	truncateHostname := fs.Bool("truncateboothostname", false, "truncate host name to first segment (needed for staging DONs)")
 	err := fs.Parse(args)
@@ -53,7 +54,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	lines, err = readLines(filepath.Join(templatesDir, oracleSpecTemplate))
 	helpers.PanicErr(err)
 	for i := 1; i < len(nodes); i++ {
-		oracleLines := replacePlaceholders(lines, *chainID, *p2pPort, *contractAddress, bootHost, &bootstrapNode, &nca[i], *truncateHostname)
+		oracleLines := replacePlaceholders(lines, donID, *chainID, *p2pPort, *contractAddress, bootHost, &bootstrapNode, &nca[i], *truncateHostname)
 		outputPath := filepath.Join(artefactsDir, nodes[i].url.Host+".toml")
 		err = writeLines(oracleLines, outputPath)
 		helpers.PanicErr(err)
@@ -61,7 +62,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	}
 }
 
-func replacePlaceholders(lines []string, chainID, p2pPort int64, contractAddress, bootHost string, boot *NodeKeys, node *NodeKeys, truncateHostname bool) (output []string) {
+func replacePlaceholders(lines []string, donID string, chainID, p2pPort int64, contractAddress, bootHost string, boot *NodeKeys, node *NodeKeys, truncateHostname bool) (output []string) {
 	chainIDStr := strconv.FormatInt(chainID, 10)
 	if truncateHostname {
 		bootHost = bootHost[:strings.IndexByte(bootHost, '.')]
@@ -75,6 +76,7 @@ func replacePlaceholders(lines []string, chainID, p2pPort int64, contractAddress
 		l = strings.Replace(l, "{{ocr2_key_bundle_id}}", node.OCR2BundleID, 1)
 		l = strings.Replace(l, "{{p2p_bootstrapper}}", bootstrapper, 1)
 		l = strings.Replace(l, "{{timestamp}}", ts, 1)
+		l = strings.Replace(l, "{{don_id}}", donID, 1)
 		output = append(output, l)
 	}
 	return
