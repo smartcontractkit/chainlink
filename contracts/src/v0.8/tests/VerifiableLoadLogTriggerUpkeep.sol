@@ -79,32 +79,32 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
   }
 
   function performUpkeep(bytes calldata performData) external {
-    uint256 startGas = gasleft();
-//    (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
-//    (uint256 upkeepId, uint256 logBlockNumber) = abi.decode(extraData, (uint256, uint256));
+    //    uint256 startGas = gasleft();
+    //    (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
+    //    (uint256 upkeepId, uint256 logBlockNumber) = abi.decode(extraData, (uint256, uint256));
     (uint256 upkeepId, uint256 logBlockNumber, address addr) = abi.decode(performData, (uint256, uint256, address));
 
-    uint256 firstPerformBlock = firstPerformBlocks[upkeepId];
-    uint256 previousPerformBlock = previousPerformBlocks[upkeepId];
+    //    uint256 firstPerformBlock = firstPerformBlocks[upkeepId];
+    //    uint256 previousPerformBlock = previousPerformBlocks[upkeepId];
     uint256 currentBlockNum = getBlockNumber();
 
-    if (firstPerformBlock == 0) {
-      firstPerformBlocks[upkeepId] = currentBlockNum;
-    } else {
-      uint256 delay = currentBlockNum - logBlockNumber;
-      uint16 bucket = buckets[upkeepId];
-      uint256[] memory bucketDelays = bucketedDelays[upkeepId][bucket];
-      if (bucketDelays.length == BUCKET_SIZE) {
-        bucket++;
-        buckets[upkeepId] = bucket;
-      }
-      bucketedDelays[upkeepId][bucket].push(delay);
-      delays[upkeepId].push(delay);
-    }
-
-    uint256 counter = counters[upkeepId] + 1;
-    counters[upkeepId] = counter;
-    previousPerformBlocks[upkeepId] = currentBlockNum;
+    //    if (firstPerformBlock == 0) {
+    //      firstPerformBlocks[upkeepId] = currentBlockNum;
+    //    } else {
+    //      uint256 delay = currentBlockNum - logBlockNumber;
+    //      uint16 bucket = buckets[upkeepId];
+    //      uint256[] memory bucketDelays = bucketedDelays[upkeepId][bucket];
+    //      if (bucketDelays.length == BUCKET_SIZE) {
+    //        bucket++;
+    //        buckets[upkeepId] = bucket;
+    //      }
+    //      bucketedDelays[upkeepId][bucket].push(delay);
+    //      delays[upkeepId].push(delay);
+    //    }
+    //
+    //    uint256 counter = counters[upkeepId] + 1;
+    //    counters[upkeepId] = counter;
+    //    previousPerformBlocks[upkeepId] = currentBlockNum;
 
     // for every upkeepTopUpCheckInterval (5), check if the upkeep balance is at least
     // minBalanceThresholdMultiplier (20) * min balance. If not, add addLinkAmount (0.2) to the upkeep
