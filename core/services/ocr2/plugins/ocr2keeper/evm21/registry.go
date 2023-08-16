@@ -112,11 +112,11 @@ func NewEvmRegistry(
 }
 
 var upkeepStateEvents = []common.Hash{
-	iregistry21.IKeeperRegistryMasterUpkeepRegistered{}.Topic(), // adds new upkeep id to registry
-	iregistry21.IKeeperRegistryMasterUpkeepReceived{}.Topic(),   // adds new upkeep id to registry via migration
-	iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(),   // unpauses an upkeep
-	iregistry21.IKeeperRegistryMasterUpkeepPaused{}.Topic(),     // pauses an upkeep
-	// TODO: listen to migrate event
+	iregistry21.IKeeperRegistryMasterUpkeepRegistered{}.Topic(),       // adds new upkeep id to registry
+	iregistry21.IKeeperRegistryMasterUpkeepReceived{}.Topic(),         // adds new upkeep id to registry via migration
+	iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(),         // unpauses an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepPaused{}.Topic(),           // pauses an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepMigrated{}.Topic(),         // migrated an upkeep, equivalent to cancel from this registry's perspective
 	iregistry21.IKeeperRegistryMasterUpkeepCanceled{}.Topic(),         // cancels an upkeep
 	iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), // trigger config was changed
 }
@@ -315,12 +315,13 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 	r.active.Reset(ids...)
 
 	// refresh trigger config log upkeeps
+	// Note: We only update the trigger config for current active upkeeps and do not remove configs
+	// for any upkeeps that might have been removed. We depend upon state events to remove the configs
 	for _, id := range ids {
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		uid.FromBigInt(id)
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
-			// TODO: Think if we need to reset config here for removed upkeeps
 			if err := r.updateTriggerConfig(id, nil); err != nil {
 				r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", id.String(), err)
 			}
@@ -402,17 +403,16 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	case *iregistry21.IKeeperRegistryMasterUpkeepPaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.removeFromActive(l.Id)
-		// TODO: remove triggerConfig here?
 	case *iregistry21.IKeeperRegistryMasterUpkeepCanceled:
 		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.removeFromActive(l.Id)
-		// TODO: remove triggerConfig here? note event might get reorged
+	case *iregistry21.IKeeperRegistryMasterUpkeepMigrated:
+		r.lggr.Debugf("KeeperRegistryMasterUpkeepMigrated log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
+		r.removeFromActive(l.Id)
 	case *iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
-		// passing nil instead of l.TriggerConfig to protect against reorgs,
-		// as we'll fetch the latest config from the contract
-		if err := r.updateTriggerConfig(l.Id, nil); err != nil {
-			r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", l.Id.String(), err)
+		if err := r.updateTriggerConfig(l.Id, l.TriggerConfig); err != nil {
+			r.lggr.Warnf("failed to update trigger config upon KeeperRegistryMasterUpkeepTriggerConfigSet for upkeep ID %s: %s", l.Id.String(), err)
 		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepRegistered:
 		uid := &ocr2keepers.UpkeepIdentifier{}
@@ -420,19 +420,20 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 		trigger := core.GetUpkeepType(*uid)
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s (trigger=%d) in transaction %s", l.Id.String(), trigger, hash)
 		r.active.Add(l.Id)
-		// TODO: Make a wrapper function to automatically update trigger config for log trigger upkeeps
 		if err := r.updateTriggerConfig(l.Id, nil); err != nil {
-			r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", err)
+			r.lggr.Warnf("failed to update trigger config upon KeeperRegistryMasterUpkeepRegistered for upkeep ID %s: %s", err)
 		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepReceived:
 		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.active.Add(l.Id)
-		// TODO: Also update trigger config for log trigger upkeeps?
+		if err := r.updateTriggerConfig(l.Id, nil); err != nil {
+			r.lggr.Warnf("failed to update trigger config upon KeeperRegistryMasterUpkeepReceived for upkeep ID %s: %s", err)
+		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepUnpaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.active.Add(l.Id)
 		if err := r.updateTriggerConfig(l.Id, nil); err != nil {
-			r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", err)
+			r.lggr.Warnf("failed to update trigger config upon KeeperRegistryMasterUpkeepUnpaused for upkeep ID %s: %s", err)
 		}
 	default:
 		r.lggr.Debugf("Unknown log detected for log %+v in transaction %s", l, hash)
@@ -441,6 +442,7 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	return nil
 }
 
+// Removes an upkeepID from active list and unregisters the log filter for log upkeeps
 func (r *EvmRegistry) removeFromActive(id *big.Int) {
 	r.active.Remove(id)
 
