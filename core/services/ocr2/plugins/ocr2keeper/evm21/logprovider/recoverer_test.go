@@ -14,7 +14,7 @@ import (
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := NewLogRecoverer(logger.TestLogger(t), nil, time.Millisecond*10)
+	r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, time.Millisecond*10, 0)
 
 	tests := []struct {
 		name    string

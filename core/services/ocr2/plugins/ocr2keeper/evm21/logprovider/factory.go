@@ -4,13 +4,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
-func New(lggr logger.Logger, poller logpoller.LogPoller, utilsABI abi.ABI) (LogEventProvider, LogRecoverer) {
+func New(lggr logger.Logger, poller logpoller.LogPoller, utilsABI abi.ABI, stateStore core.UpkeepStateReader) (LogEventProvider, LogRecoverer) {
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker(utilsABI)
 	provider := NewLogProvider(lggr, poller, packer, filterStore, nil)
-	recoverer := NewLogRecoverer(lggr, poller, DefaultRecoveryInterval)
+	recoverer := NewLogRecoverer(lggr, poller, stateStore, packer, filterStore, 0, provider.opts.LogBlocksLookback)
 
 	return provider, recoverer
 }

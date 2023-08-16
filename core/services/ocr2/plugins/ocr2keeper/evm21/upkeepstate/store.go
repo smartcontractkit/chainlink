@@ -8,6 +8,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 var (
@@ -17,15 +18,10 @@ var (
 	GCInterval = 2 * time.Hour
 )
 
-// UpkeepStateReader is the interface for reading the current state of upkeeps.
-type UpkeepStateReader interface {
-	SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
-}
-
 // UpkeepStateStore is the interface for managing upkeeps final state in a local store.
 type UpkeepStateStore interface {
 	ocr2keepers.UpkeepStateUpdater
-	UpkeepStateReader
+	core.UpkeepStateReader
 }
 
 var (

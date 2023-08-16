@@ -166,14 +166,7 @@ func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.Upk
 	var payloads []ocr2keepers.UpkeepPayload
 	for _, l := range logs {
 		log := l.log
-		trig := ocr2keepers.NewTrigger(
-			ocr2keepers.BlockNumber(log.BlockNumber),
-			log.BlockHash,
-		)
-		trig.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{
-			TxHash: log.TxHash,
-			Index:  uint32(log.LogIndex),
-		}
+		trig := logToTrigger(log)
 		checkData, err := p.packer.PackLogData(log)
 		if err != nil {
 			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
