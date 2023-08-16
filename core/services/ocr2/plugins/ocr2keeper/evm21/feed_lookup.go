@@ -37,8 +37,8 @@ const (
 	headerTimestamp     = "X-Authorization-Timestamp"
 	headerSignature     = "X-Authorization-Signature-SHA256"
 	headerUpkeepId      = "X-Authorization-Upkeep-Id"
-	mercuryPathV2       = "/client?"
-	mercuryBatchPathV3  = "/v1/reports/bulk?"
+	mercuryPathV02      = "/client?"          // only used to access mercury v0.2 server
+	mercuryBatchPathV03 = "/v1/reports/bulk?" // only used to access mercury v0.3 server
 	retryDelay          = 500 * time.Millisecond
 	timestamp           = "timestamp" // valid for v0.3
 	totalAttempt        = 3
@@ -281,6 +281,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr
 			if m.State != NoPipelineError {
 				state = m.State
 			}
+			continue
 		}
 		if isMercuryV03 {
 			results = m.Bytes
@@ -300,7 +301,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 		ml.timeParamKey: {ml.time.String()},
 	}
 	mercuryURL := r.mercury.cred.URL
-	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, mercuryPathV2, q.Encode())
+	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, mercuryPathV02, q.Encode())
 	lggr.Debugf("request URL: %s", reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
@@ -310,7 +311,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 	}
 
 	ts := time.Now().UTC().UnixMilli()
-	signature := r.generateHMAC(http.MethodGet, mercuryPathV2+q.Encode(), []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
+	signature := r.generateHMAC(http.MethodGet, mercuryPathV02+q.Encode(), []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
 	req.Header.Set(headerContentType, applicationJson)
 	req.Header.Set(headerAuthorization, r.mercury.cred.Username)
 	req.Header.Set(headerTimestamp, strconv.FormatInt(ts, 10))
@@ -400,7 +401,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 		timestamp: {ml.time.String()},
 	}
 
-	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV3, q.Encode())
+	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, q.Encode())
 	lggr.Debugf("request URL: %s", reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
@@ -410,7 +411,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	}
 
 	ts := time.Now().UTC().UnixMilli()
-	signature := r.generateHMAC(http.MethodGet, mercuryBatchPathV3+q.Encode(), []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
+	signature := r.generateHMAC(http.MethodGet, mercuryBatchPathV03+q.Encode(), []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
 	req.Header.Set(headerContentType, applicationJson)
 	// username here is often referred to as user id
 	req.Header.Set(headerAuthorization, r.mercury.cred.Username)
