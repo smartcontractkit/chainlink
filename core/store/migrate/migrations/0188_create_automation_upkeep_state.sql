@@ -1,17 +1,18 @@
 -- +goose Up
 
 CREATE TABLE evm_upkeep_states (
-    work_id TEXT PRIMARY KEY,
-    evm_chain_id NUMERIC NOT NULL,
-    upkeep_id BYTEA NOT NULL,
-    completion_state SMALLINT NOT NULL,
-    ineligibility_reason NUMERIC NOT NULL,
-    block_number NUMERIC,
-    added_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  id SERIAL PRIMARY KEY,
+  work_id VARCHAR(32) NOT NULL,
+  evm_chain_id NUMERIC(20) NOT NULL,
+  upkeep_id NUMERIC(78) NOT NULL, -- upkeep id is an evm word (uint256) which has a max size of precision 78
+  completion_state SMALLINT NOT NULL,
+  ineligibility_reason SMALLINT NOT NULL,
+  block_number BIGINT,
+  inserted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE UNIQUE INDEX idx_evm_upkeep_state_chainid_workid ON evm_upkeep_states (evm_chain_id, work_id);
-CREATE INDEX idx_evm_upkeep_state_added_at_chain_id ON evm_upkeep_states (evm_chain_id, added_at);
+CREATE INDEX idx_evm_upkeep_state_added_at_chain_id ON evm_upkeep_states (evm_chain_id, inserted_at);
 
 -- +goose Down
 

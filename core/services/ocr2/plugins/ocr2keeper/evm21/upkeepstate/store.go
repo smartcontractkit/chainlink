@@ -27,8 +27,8 @@ type UpkeepStateReader interface {
 }
 
 type ORM interface {
-	InsertUpkeepState(PersistedStateRecord, ...pg.QOpt) error
-	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]PersistedStateRecord, error)
+	InsertUpkeepState(persistedStateRecord, ...pg.QOpt) error
+	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]persistedStateRecord, error)
 	DeleteExpired(time.Time, ...pg.QOpt) error
 }
 
@@ -195,13 +195,13 @@ func (u *upkeepStateStore) upsertStateRecord(ctx context.Context, workID string,
 
 	u.cache[workID] = record
 
-	return u.orm.InsertUpkeepState(PersistedStateRecord{
-		UpkeepID:            upkeepID.Bytes(),
+	return u.orm.InsertUpkeepState(persistedStateRecord{
+		UpkeepID:            utils.NewBig(upkeepID),
 		WorkID:              record.WorkID,
 		CompletionState:     uint8(record.CompletionState),
-		BlockNumber:         record.BlockNumber,
+		BlockNumber:         int64(record.BlockNumber),
 		IneligibilityReason: reason,
-		AddedAt:             record.AddedAt,
+		InsertedAt:          record.AddedAt,
 	}, pg.WithParentCtx(ctx))
 }
 
@@ -218,10 +218,10 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64,
 	for _, workID := range performed {
 		if _, ok := u.cache[workID]; !ok {
 			s := &upkeepStateRecord{
-				WorkID:          workID,
+				WorkID:          "0x" + workID,
 				CompletionState: ocr2keepers.Performed,
 				AddedAt:         time.Now(),
-				BlockNumber:     uint64(end), // TODO: use block number from log
+				BlockNumber:     uint64(end),
 			}
 
 			u.cache[workID] = s
@@ -247,8 +247,8 @@ func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs ...string) e
 			u.cache[state.WorkID] = &upkeepStateRecord{
 				WorkID:          state.WorkID,
 				CompletionState: ocr2keepers.UpkeepState(state.CompletionState),
-				BlockNumber:     state.BlockNumber,
-				AddedAt:         state.AddedAt,
+				BlockNumber:     uint64(state.BlockNumber),
+				AddedAt:         state.InsertedAt,
 			}
 		}
 	}

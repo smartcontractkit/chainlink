@@ -1,11 +1,11 @@
 package upkeepstate
 
 import (
-	"database/sql"
-	"errors"
 	"math/big"
+	"strings"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -14,67 +14,55 @@ import (
 )
 
 type orm struct {
-	chainID *big.Int
+	chainID *utils.Big
 	q       pg.Q
 }
 
-type PersistedStateRecord struct {
-	UpkeepID            []byte
+type persistedStateRecord struct {
+	UpkeepID            *utils.Big
 	WorkID              string
 	CompletionState     uint8
-	BlockNumber         uint64
+	BlockNumber         int64
 	IneligibilityReason uint8
-	AddedAt             time.Time
+	InsertedAt          time.Time
 }
 
 // NewORM creates an ORM scoped to chainID.
 func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
 	return &orm{
-		chainID: chainID,
+		chainID: utils.NewBig(chainID),
 		q:       pg.NewQ(db, lggr.Named("ORM"), cfg),
 	}
 }
 
 // InsertUpkeepState is idempotent and sets upkeep state values in db
-func (o *orm) InsertUpkeepState(state PersistedStateRecord, qopts ...pg.QOpt) error {
+func (o *orm) InsertUpkeepState(state persistedStateRecord, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 
-	query := `INSERT INTO evm_upkeep_states (evm_chain_id, work_id, completion_state, block_number, added_at, upkeep_id, ineligibility_reason)
-	  VALUES ($1::NUMERIC, $2, $3, $4::NUMERIC, $5, $6::BYTEA, $7::NUMERIC)
+	query := `INSERT INTO evm_upkeep_states (evm_chain_id, work_id, completion_state, block_number, inserted_at, upkeep_id, ineligibility_reason)
+	  VALUES ($1::NUMERIC, $2, $3, $4, $5, $6::NUMERIC, $7)
 	    ON CONFLICT (evm_chain_id, work_id)
 	    DO NOTHING`
 
-	return q.ExecQ(query, utils.NewBig(o.chainID), state.WorkID, state.CompletionState, state.BlockNumber, state.AddedAt, state.UpkeepID, state.IneligibilityReason)
+	return q.ExecQ(query, o.chainID, normalizeWorkID(state.WorkID), state.CompletionState, state.BlockNumber, state.InsertedAt, state.UpkeepID, state.IneligibilityReason)
 }
 
 // SelectStatesByWorkIDs searches the data store for stored states for the
 // provided work ids and configured chain id
-func (o *orm) SelectStatesByWorkIDs(workIDs []string, qopts ...pg.QOpt) (states []PersistedStateRecord, err error) {
+func (o *orm) SelectStatesByWorkIDs(workIDs []string, qopts ...pg.QOpt) (states []persistedStateRecord, err error) {
 	q := o.q.WithOpts(qopts...)
 
-	namedArgs := map[string]any{
-		"chainID": utils.NewBig(o.chainID),
-		"workIDs": workIDs,
+	nWorkIDs := make([]string, len(workIDs))
+	for i, id := range workIDs {
+		nWorkIDs[i] = normalizeWorkID(id)
 	}
 
-	query, args, err := sqlx.Named(`SELECT upkeep_id, work_id, completion_state, block_number, ineligibility_reason, added_at
+	err = q.Select(&states, `SELECT upkeep_id, CONCAT('0x', work_id) AS work_id, completion_state, block_number, ineligibility_reason, inserted_at
 	  FROM evm_upkeep_states
-	  WHERE evm_chain_id = :chainID AND work_id IN (:workIDs)`, namedArgs)
+	  WHERE work_id = ANY($1) AND evm_chain_id = $2::NUMERIC`, pq.Array(nWorkIDs), o.chainID)
 
 	if err != nil {
 		return nil, err
-	}
-
-	query, args, err = sqlx.In(query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	query = q.Rebind(query)
-
-	err = q.Select(&states, query, args...)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
 	}
 
 	return states, err
@@ -83,7 +71,11 @@ func (o *orm) SelectStatesByWorkIDs(workIDs []string, qopts ...pg.QOpt) (states 
 // DeleteExpired prunes stored states older than to the provided time
 func (o *orm) DeleteExpired(expired time.Time, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	_, err := q.Exec(`DELETE FROM evm_upkeep_states WHERE added_at <= $1 AND evm_chain_id::NUMERIC = $2`, expired, utils.NewBig(o.chainID))
+	_, err := q.Exec(`DELETE FROM evm_upkeep_states WHERE inserted_at <= $1 AND evm_chain_id::NUMERIC = $2`, expired, o.chainID)
 
 	return err
+}
+
+func normalizeWorkID(workID string) string {
+	return strings.Replace(workID, "0x", "", 1)
 }

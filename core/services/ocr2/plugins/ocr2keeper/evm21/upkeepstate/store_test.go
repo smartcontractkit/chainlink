@@ -26,7 +26,7 @@ func TestUpkeepStateStore(t *testing.T) {
 		workIDsSelect      []string
 		workIDsFromScanner []string
 		errScanner         error
-		recordsFromDB      []PersistedStateRecord
+		recordsFromDB      []persistedStateRecord
 		errDB              error
 		expected           []ocr2keepers.UpkeepState
 		errored            bool
@@ -93,12 +93,12 @@ func TestUpkeepStateStore(t *testing.T) {
 			},
 			workIDsSelect:      []string{"0x1", "0x2", "0x3"},
 			workIDsFromScanner: []string{"0x2", "0x222"},
-			recordsFromDB: []PersistedStateRecord{
+			recordsFromDB: []persistedStateRecord{
 				{
 					WorkID:          "0x3",
 					CompletionState: 2,
 					BlockNumber:     2,
-					AddedAt:         time.Now(),
+					InsertedAt:      time.Now(),
 				},
 			},
 			expected: []ocr2keepers.UpkeepState{
@@ -311,7 +311,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			t.Cleanup(func() {
 				t.Log("cleaning up database")
 
-				if _, err := db.Exec(`DELETE FROM evm_upkeep_state`); err != nil {
+				if _, err := db.Exec(`DELETE FROM evm_upkeep_states`); err != nil {
 					t.Logf("error in cleanup: %s", err)
 				}
 			})
@@ -458,13 +458,13 @@ func (s *mockScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]s
 
 type mockORM struct {
 	lock           sync.Mutex
-	records        []PersistedStateRecord
+	records        []persistedStateRecord
 	lastPruneDepth time.Time
 	onDelete       func(tm time.Time)
 	err            error
 }
 
-func (_m *mockORM) addRecords(records ...PersistedStateRecord) {
+func (_m *mockORM) addRecords(records ...persistedStateRecord) {
 	_m.lock.Lock()
 	defer _m.lock.Unlock()
 
@@ -478,11 +478,11 @@ func (_m *mockORM) setErr(err error) {
 	_m.err = err
 }
 
-func (_m *mockORM) InsertUpkeepState(state PersistedStateRecord, _ ...pg.QOpt) error {
+func (_m *mockORM) InsertUpkeepState(state persistedStateRecord, _ ...pg.QOpt) error {
 	return nil
 }
 
-func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, _ ...pg.QOpt) ([]PersistedStateRecord, error) {
+func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, _ ...pg.QOpt) ([]persistedStateRecord, error) {
 	_m.lock.Lock()
 	defer _m.lock.Unlock()
 

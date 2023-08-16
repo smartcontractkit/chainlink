@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestInsertSelectDelete(t *testing.T) {
@@ -20,13 +21,13 @@ func TestInsertSelectDelete(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 
-	inserted := PersistedStateRecord{
-		UpkeepID:            big.NewInt(2).Bytes(),
+	inserted := persistedStateRecord{
+		UpkeepID:            utils.NewBig(big.NewInt(2)),
 		WorkID:              "0x1",
 		CompletionState:     100,
 		BlockNumber:         2,
 		IneligibilityReason: 2,
-		AddedAt:             time.Now(),
+		InsertedAt:          time.Now(),
 	}
 
 	err := orm.InsertUpkeepState(inserted)
