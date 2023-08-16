@@ -16,6 +16,15 @@ interface IVerifierProxy {
   function verify(bytes calldata payload) external payable returns (bytes memory verifiedReport);
 
   /**
+   * @notice Bulk verifies that the data encoded has been signed
+   * correctly by routing to the correct verifier, and bills the user if applicable.
+   * @param payloads The encoded payloads to be verified, including the signed
+   * report and any metadata for billing.
+   * @return verifiedReports The encoded reports from the verifier.
+   */
+  function verifyBulk(bytes[] calldata payloads) external payable returns (bytes[] memory verifiedReports);
+
+  /**
    * @notice Sets the verifier address initially, allowing `setVerifier` to be set by this Verifier in the future
    * @param verifierAddress The address of the verifier contract to initialize
    */

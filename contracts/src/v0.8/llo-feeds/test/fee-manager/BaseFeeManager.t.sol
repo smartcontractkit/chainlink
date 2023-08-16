@@ -8,6 +8,7 @@ import {RewardManager} from "../../dev/RewardManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/mocks/WERC20Mock.sol";
+import {IRewardManager} from "../../dev/interfaces/IRewardManager.sol";
 
 /**
  * @title BaseFeeManagerTest
@@ -52,7 +53,7 @@ contract BaseFeeManagerTest is Test {
   uint256 internal constant DEFAULT_REPORT_NATIVE_FEE = 1e12;
 
   //rewards
-  uint256 internal constant FEE_SCALAR = 1e18;
+  uint64 internal constant FEE_SCALAR = 1e18;
 
   address internal constant NATIVE_WITHDRAW_ADDRESS = address(0);
 
@@ -69,10 +70,10 @@ contract BaseFeeManagerTest is Test {
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
 
   //events emitted
-  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
-  event NativeSurchargeUpdated(uint256 newSurcharge);
-  event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
-  event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
+  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint64 discount);
+  event NativeSurchargeUpdated(uint64 newSurcharge);
+  event InsufficientLink(IRewardManager.FeePayment[] feesAndRewards);
+  event Withdraw(address adminAddress, address assetAddress, uint192 quantity);
 
   function setUp() public virtual {
     //change to admin user
@@ -120,7 +121,7 @@ contract BaseFeeManagerTest is Test {
     changePrank(sender);
 
     //set the discount
-    feeManager.updateSubscriberDiscount(subscriber, feedId, token, discount);
+    feeManager.updateSubscriberDiscount(subscriber, feedId, token, uint64(discount));
 
     //change back to the original address
     changePrank(originalAddr);
@@ -132,7 +133,7 @@ contract BaseFeeManagerTest is Test {
     changePrank(sender);
 
     //set the surcharge
-    feeManager.setNativeSurcharge(surcharge);
+    feeManager.setNativeSurcharge(uint64(surcharge));
 
     //change back to the original address
     changePrank(originalAddr);
@@ -161,11 +162,11 @@ contract BaseFeeManagerTest is Test {
     return reward;
   }
 
-  function getV0Report(bytes32 feedId) public pure returns (bytes memory) {
+  function getV1Report(bytes32 feedId) public pure returns (bytes memory) {
     return abi.encode(feedId, uint32(0), int192(0), int192(0), int192(0), uint64(0), bytes32(0), uint64(0), uint64(0));
   }
 
-  function getV1Report(bytes32 feedId) public view returns (bytes memory) {
+  function getV2Report(bytes32 feedId) public view returns (bytes memory) {
     return
       abi.encode(
         feedId,
@@ -178,16 +179,16 @@ contract BaseFeeManagerTest is Test {
       );
   }
 
-  function getV1ReportWithExpiryAndFee(
+  function getV2ReportWithExpiryAndFee(
     bytes32 feedId,
     uint256 expiry,
     uint256 linkFee,
     uint256 nativeFee
-  ) public view returns (bytes memory) {
+  ) public pure returns (bytes memory) {
     return abi.encode(feedId, uint32(0), int192(0), uint32(0), uint32(expiry), linkFee, nativeFee);
   }
 
-  function getV2Report(bytes32 feedId) public view returns (bytes memory) {
+  function getV3Report(bytes32 feedId) public view returns (bytes memory) {
     return
       abi.encode(
         feedId,
@@ -202,7 +203,7 @@ contract BaseFeeManagerTest is Test {
       );
   }
 
-  function getV2ReportWithCustomExpiryAndFee(
+  function getV3ReportWithCustomExpiryAndFee(
     bytes32 feedId,
     uint256 expiry,
     uint256 linkFee,
@@ -236,7 +237,7 @@ contract BaseFeeManagerTest is Test {
     changePrank(sender);
 
     //set the surcharge
-    feeManager.withdraw(assetAddress, amount);
+    feeManager.withdraw(assetAddress, uint192(amount));
 
     //change back to the original address
     changePrank(originalAddr);
@@ -289,6 +290,18 @@ contract BaseFeeManagerTest is Test {
 
     //process the fee
     feeManager.processFee{value: wrappedNativeValue}(payload, subscriber);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function processFee(bytes[] memory payloads, address subscriber, uint256 wrappedNativeValue, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //process the fee
+    feeManager.processFeeBulk{value: wrappedNativeValue}(payloads, subscriber);
 
     //change back to the original address
     changePrank(originalAddr);
