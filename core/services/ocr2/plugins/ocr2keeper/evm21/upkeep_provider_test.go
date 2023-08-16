@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"math/big"
 	"sort"
-	"sync"
 	"testing"
 
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
@@ -23,10 +22,7 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 	ctx := testutils.Context(t)
 	c := new(clientmocks.Client)
 
-	r := &EvmRegistry{
-		mu:     sync.RWMutex{},
-		client: c,
-	}
+	bs := &BlockSubscriber{}
 	var lp logpoller.LogPoller
 
 	tests := []struct {
@@ -75,7 +71,7 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 			b := coreTypes.NewBlockWithHeader(&tc.blockHeader)
 			c.On("BlockByNumber", mock.Anything, mock.Anything).Return(b, nil)
 
-			p := NewUpkeepProvider(tc.active, r, lp)
+			p := NewUpkeepProvider(tc.active, bs, lp)
 
 			got, err := p.GetActiveUpkeeps(ctx)
 			require.NoError(t, err)

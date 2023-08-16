@@ -338,13 +338,3 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 	return checkResults, nil
 }
-
-func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
-	// TODO: clean up and use bs instead
-	block, err := r.client.BlockByNumber(r.ctx, blockNumber)
-	if err != nil {
-		return [32]byte{}, err
-	}
-
-	return block.Hash(), nil
-}

@@ -2,48 +2,43 @@ package evm
 
 import (
 	"context"
-	"math/big"
+	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var _ ocr2keepers.ConditionalUpkeepProvider = &upkeepProvider{}
 
 type upkeepProvider struct {
 	activeUpkeeps ActiveUpkeepList
-	reg           *EvmRegistry
+	bs            *BlockSubscriber
 	lp            logpoller.LogPoller
 }
 
-func NewUpkeepProvider(activeUpkeeps ActiveUpkeepList, reg *EvmRegistry, lp logpoller.LogPoller) *upkeepProvider {
+func NewUpkeepProvider(activeUpkeeps ActiveUpkeepList, bs *BlockSubscriber, lp logpoller.LogPoller) *upkeepProvider {
 	return &upkeepProvider{
 		activeUpkeeps: activeUpkeeps,
-		reg:           reg,
+		bs:            bs,
 		lp:            lp,
 	}
 }
 
 func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
-	latestBlock, err := p.lp.LatestBlock(pg.WithParentCtx(ctx))
-	if err != nil {
-		return nil, err
+	latestBlock := p.bs.latestBlock.Load()
+	h, ok := p.bs.queryBlocksMap(latestBlock)
+	if !ok {
+		return nil, fmt.Errorf("unable to find block %d in block history", latestBlock)
 	}
-
-	block := big.NewInt(latestBlock)
-	blockHash, err := p.reg.getBlockHash(block)
-	if err != nil {
-		return nil, err
-	}
-
+	hash := common.HexToHash(h)
 	var payloads []ocr2keepers.UpkeepPayload
 	for _, uid := range p.activeUpkeeps.View(ocr2keepers.ConditionTrigger) {
 		payload, err := core.NewUpkeepPayload(
 			uid,
-			ocr2keepers.NewTrigger(ocr2keepers.BlockNumber(block.Int64()), blockHash),
+			ocr2keepers.NewTrigger(ocr2keepers.BlockNumber(latestBlock), hash),
 			nil,
 		)
 		if err != nil {

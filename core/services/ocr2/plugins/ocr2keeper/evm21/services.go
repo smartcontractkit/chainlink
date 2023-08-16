@@ -82,7 +82,7 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 		keeperRegistryABI, registryContract, mc, al, services.logProvider,
 		packer, services.blockSub)
 
-	services.upkeepProvider = NewUpkeepProvider(al, services.reg, client.LogPoller())
+	services.upkeepProvider = NewUpkeepProvider(al, services.blockSub, client.LogPoller())
 
 	return services, nil
 }
