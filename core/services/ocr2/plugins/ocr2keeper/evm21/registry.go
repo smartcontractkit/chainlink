@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/patrickmn/go-cache"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
-	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -132,13 +131,6 @@ var upkeepTransmitEvents = []common.Hash{
 type checkResult struct {
 	cr  []ocr2keepers.CheckResult
 	err error
-}
-
-// TODO: Clean this up as these fields are derived from chain during checkUpkeep
-type activeUpkeep struct {
-	ID              *big.Int
-	PerformGasLimit uint32
-	CheckData       []byte
 }
 
 type MercuryConfig struct {
@@ -344,37 +336,13 @@ func (r *EvmRegistry) initialize() error {
 	startupCtx, cancel := context.WithTimeout(r.ctx, reInitializationDelay)
 	defer cancel()
 
-	idMap := NewActiveUpkeepList()
-
 	r.lggr.Debugf("Re-initializing active upkeeps list")
 	// get active upkeep ids from contract
 	ids, err := r.getLatestIDsFromContract(startupCtx)
 	if err != nil {
 		return fmt.Errorf("failed to get ids from contract: %s", err)
 	}
-
-	var offset int
-	for offset < len(ids) {
-		batch := FetchUpkeepConfigBatchSize
-		if len(ids)-offset < batch {
-			batch = len(ids) - offset
-		}
-
-		actives, err := r.getUpkeepConfigs(startupCtx, ids[offset:offset+batch])
-		if err != nil {
-			return fmt.Errorf("failed to get configs for id batch (length '%d'): %s", batch, err)
-		}
-
-		for _, active := range actives {
-			idMap.Add(active.ID)
-		}
-
-		offset += batch
-	}
-
-	r.mu.Lock()
-	r.active = idMap
-	r.mu.Unlock()
+	r.active.Reset(ids...)
 
 	// register upkeep ids for log triggers
 	for _, id := range ids {
@@ -478,22 +446,24 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 		uid.FromBigInt(l.Id)
 		trigger := core.GetUpkeepType(*uid)
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s (trigger=%d) in transaction %s", l.Id.String(), trigger, hash)
-		r.addToActive(l.Id, false)
+		r.active.Add(l.Id)
+		// TODO: Make a wrapper function to automatically update trigger config for log trigger upkeeps
 		if err := r.updateTriggerConfig(l.Id, nil); err != nil {
 			r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", err)
 		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepReceived:
 		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
-		r.addToActive(l.Id, false)
+		r.active.Add(l.Id)
+		// TODO: Also update trigger config for log trigger upkeeps?
 	case *iregistry21.IKeeperRegistryMasterUpkeepUnpaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
-		r.addToActive(l.Id, false)
+		r.active.Add(l.Id)
 		if err := r.updateTriggerConfig(l.Id, nil); err != nil {
 			r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", err)
 		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepGasLimitSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepGasLimitSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
-		r.addToActive(l.Id, true)
+		r.active.Add(l.Id)
 	default:
 		r.lggr.Debugf("Unknown log detected for log %+v in transaction %s", l, hash)
 	}
@@ -502,9 +472,7 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 }
 
 func (r *EvmRegistry) removeFromActive(id *big.Int) {
-	r.mu.Lock()
 	r.active.Remove(id)
-	r.mu.Unlock()
 
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	uid.FromBigInt(id)
@@ -516,29 +484,6 @@ func (r *EvmRegistry) removeFromActive(id *big.Int) {
 		}
 		r.lggr.Debugw("unregistered log filter", "upkeepID", id.String())
 	default:
-	}
-}
-
-func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.active == nil {
-		r.active = NewActiveUpkeepList()
-	}
-
-	if ok := r.active.IsActive(id); !ok || force {
-		actives, err := r.getUpkeepConfigs(r.ctx, []*big.Int{id})
-		if err != nil {
-			r.lggr.Warnf("failed to get upkeep configs during adding active upkeep: %w", err)
-			return
-		}
-
-		if len(actives) != 1 {
-			return
-		}
-
-		r.active.Add(id)
 	}
 }
 
@@ -802,70 +747,6 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 	}
 
 	return checkResults, nil
-}
-
-// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
-func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]activeUpkeep, error) {
-	if len(ids) == 0 {
-		return []activeUpkeep{}, nil
-	}
-
-	var (
-		uReqs    = make([]rpc.BatchElem, len(ids))
-		uResults = make([]*string, len(ids))
-	)
-
-	for i, id := range ids {
-		opts := r.buildCallOpts(ctx, nil)
-
-		payload, err := r.abi.Pack("getUpkeep", id)
-		if err != nil {
-			return nil, fmt.Errorf("failed to pack id with abi: %s", err)
-		}
-
-		var result string
-		uReqs[i] = rpc.BatchElem{
-			Method: "eth_call",
-			Args: []interface{}{
-				map[string]interface{}{
-					"to":   r.addr.Hex(),
-					"data": hexutil.Bytes(payload),
-				},
-				hexutil.EncodeBig(opts.BlockNumber),
-			},
-			Result: &result,
-		}
-
-		uResults[i] = &result
-	}
-
-	if err := r.client.BatchCallContext(ctx, uReqs); err != nil {
-		return nil, fmt.Errorf("rpc error: %s", err)
-	}
-
-	var (
-		multiErr error
-		results  = make([]activeUpkeep, len(ids))
-	)
-
-	for i, req := range uReqs {
-		if req.Error != nil {
-			r.lggr.Debugf("error encountered for config id %s with message '%s' in get config", ids[i], req.Error)
-			multierr.AppendInto(&multiErr, req.Error)
-		} else {
-			info, err := r.packer.UnpackUpkeepInfo(ids[i], *uResults[i])
-			if err != nil {
-				return nil, fmt.Errorf("failed to unpack result: %s", err)
-			}
-			results[i] = activeUpkeep{ // TODO
-				ID:              ids[i],
-				PerformGasLimit: info.PerformGas,
-				CheckData:       info.CheckData,
-			}
-		}
-	}
-
-	return results, multiErr
 }
 
 func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) error {
