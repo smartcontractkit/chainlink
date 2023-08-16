@@ -11,5 +11,5 @@ var ErrSolanaNotEnabled = errChainDisabled{name: "Solana", tomlKey: "Solana.Enab
 
 func NewSolanaNodesController(app chainlink.Application) NodesController {
 	return newNodesController[presenters.SolanaNodeResource](
-		app.GetRelayers().List(chainlink.FilterByType(relay.Solana)), ErrSolanaNotEnabled, presenters.NewSolanaNodeResource, app.GetAuditLogger())
+		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.Solana)), ErrSolanaNotEnabled, presenters.NewSolanaNodeResource, app.GetAuditLogger())
 }

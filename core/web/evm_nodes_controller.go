@@ -8,5 +8,5 @@ import (
 
 func NewEVMNodesController(app chainlink.Application) NodesController {
 	return newNodesController[presenters.EVMNodeResource](
-		app.GetRelayers().List(chainlink.FilterByType(relay.EVM)), ErrEVMNotEnabled, presenters.NewEVMNodeResource, app.GetAuditLogger())
+		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.EVM)), ErrEVMNotEnabled, presenters.NewEVMNodeResource, app.GetAuditLogger())
 }

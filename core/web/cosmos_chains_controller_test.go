@@ -122,8 +122,6 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	}
 	controller := setupCosmosChainsControllerTestV2(t, chainA, chainB)
 
-	//controller := setupCosmosChainsControllerTestV2(t, chainA)
-
 	badResp, cleanup := controller.client.Get("/v2/chains/cosmos?size=asd")
 	t.Cleanup(cleanup)
 	require.Equal(t, http.StatusUnprocessableEntity, badResp.StatusCode)
@@ -151,23 +149,23 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	tomlA, err := chainA.TOMLString()
 	require.NoError(t, err)
 	assert.Equal(t, tomlA, chains[0].Config)
-	/*
-	   resp, cleanup = controller.client.Get(links["next"].Href)
-	   t.Cleanup(cleanup)
-	   require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	   chains = []presenters.CosmosChainResource{}
-	   err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &chains, &links)
-	   assert.NoError(t, err)
-	   assert.Empty(t, links["next"].Href)
-	   assert.NotEmpty(t, links["prev"].Href)
+	resp, cleanup = controller.client.Get(links["next"].Href)
+	t.Cleanup(cleanup)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
 
-	   assert.Len(t, links, 1)
-	   assert.Equal(t, *chainB.ChainID, chains[0].ID)
-	   tomlB, err := chainB.TOMLString()
-	   require.NoError(t, err)
-	   assert.Equal(t, tomlB, chains[0].Config)
-	*/
+	chains = []presenters.CosmosChainResource{}
+	err = web.ParsePaginatedResponse(cltest.ParseResponseBody(t, resp), &chains, &links)
+	assert.NoError(t, err)
+	assert.Empty(t, links["next"].Href)
+	assert.NotEmpty(t, links["prev"].Href)
+
+	assert.Len(t, links, 1)
+	assert.Equal(t, *chainB.ChainID, chains[0].ID)
+	tomlB, err := chainB.TOMLString()
+	require.NoError(t, err)
+	assert.Equal(t, tomlB, chains[0].Config)
+
 }
 
 type TestCosmosChainsController struct {

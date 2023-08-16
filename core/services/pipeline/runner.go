@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
-	//evmloop "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/loopadapter"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -53,11 +52,10 @@ type Runner interface {
 }
 
 type runner struct {
-	orm          ORM
-	btORM        bridges.ORM
-	config       Config
-	bridgeConfig BridgeConfig
-	//chainSet               evm.ChainSet
+	orm                    ORM
+	btORM                  bridges.ORM
+	config                 Config
+	bridgeConfig           BridgeConfig
 	legacyEVMChains        evm.LegacyChainContainer
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
@@ -106,11 +104,10 @@ var (
 
 func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains evm.LegacyChainContainer, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
-		orm:          orm,
-		btORM:        btORM,
-		config:       cfg,
-		bridgeConfig: bridgeCfg,
-		//chainSet:               chainSet,
+		orm:                    orm,
+		btORM:                  btORM,
+		config:                 cfg,
+		bridgeConfig:           bridgeCfg,
 		legacyEVMChains:        legacyChains,
 		ethKeyStore:            ethks,
 		vrfKeyStore:            vrfks,
@@ -264,7 +261,6 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			// may run external adapters on their own hardware
 			task.(*BridgeTask).httpClient = r.unrestrictedHTTPClient
 		case TaskTypeETHCall:
-			//task.(*ETHCallTask).chainSet = r.chainSet
 			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
 			task.(*ETHCallTask).config = r.config
 			task.(*ETHCallTask).specGasLimit = run.PipelineSpec.GasLimit

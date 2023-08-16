@@ -11,6 +11,6 @@ var ErrCosmosNotEnabled = errChainDisabled{name: "Cosmos", tomlKey: "Cosmos.Enab
 
 func NewCosmosNodesController(app chainlink.Application) NodesController {
 	return newNodesController[presenters.CosmosNodeResource](
-		app.GetRelayers().List(chainlink.FilterByType(relay.Cosmos)), ErrCosmosNotEnabled, presenters.NewCosmosNodeResource, app.GetAuditLogger(),
+		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.Cosmos)), ErrCosmosNotEnabled, presenters.NewCosmosNodeResource, app.GetAuditLogger(),
 	)
 }

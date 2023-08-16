@@ -9,7 +9,7 @@ import (
 func NewStarkNetChainsController(app chainlink.Application) ChainsController {
 	return newChainsController(
 		relay.StarkNet,
-		app.GetRelayers().List(chainlink.FilterByType(relay.StarkNet)),
+		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.StarkNet)),
 		ErrStarkNetNotEnabled,
 		presenters.NewStarkNetChainResource,
 		app.GetLogger(),

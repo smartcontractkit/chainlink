@@ -11,5 +11,5 @@ var ErrStarkNetNotEnabled = errChainDisabled{name: "StarkNet", tomlKey: "Starkne
 
 func NewStarkNetNodesController(app chainlink.Application) NodesController {
 	return newNodesController[presenters.StarkNetNodeResource](
-		app.GetRelayers().List(chainlink.FilterByType(relay.StarkNet)), ErrStarkNetNotEnabled, presenters.NewStarkNetNodeResource, app.GetAuditLogger())
+		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.StarkNet)), ErrStarkNetNotEnabled, presenters.NewStarkNetNodeResource, app.GetAuditLogger())
 }

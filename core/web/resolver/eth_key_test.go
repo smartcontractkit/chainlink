@@ -267,11 +267,9 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(f.Mocks.chain, gError)
-				//f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, gError)
 				f.Mocks.relayerChainInterops.On("LegacyEVMChains").Return(f.Mocks.legacyEVMChains)
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
-				//				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 			},
 			query: query,
 			result: `
@@ -302,15 +300,12 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.ethKs.On("GetAll").Return(keys, nil)
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.Mocks.ethClient.On("LINKBalance", mock.Anything, address, linkAddr).Return(assets.NewLinkFromJuels(12), gError)
-				//				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
 				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(f.Mocks.chain, nil)
 				f.Mocks.relayerChainInterops.On("LegacyEVMChains").Return(f.Mocks.legacyEVMChains)
-
 				f.Mocks.chain.On("Client").Return(f.Mocks.ethClient)
 				f.Mocks.balM.On("GetEthBalance", address).Return(assets.NewEth(1))
 				f.Mocks.chain.On("BalanceMonitor").Return(f.Mocks.balM)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
-				//				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
@@ -363,15 +358,11 @@ func TestResolver_ETHKeys(t *testing.T) {
 				f.Mocks.chain.On("Config").Return(f.Mocks.scfg)
 				f.Mocks.legacyEVMChains.On("Get", states[0].EVMChainID.String()).Return(f.Mocks.chain, nil)
 				f.Mocks.relayerChainInterops.On("LegacyEVMChains").Return(f.Mocks.legacyEVMChains)
-
-				//				f.Mocks.chainSet.On("Get", states[0].EVMChainID.ToInt()).Return(f.Mocks.chain, nil)
 				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 				f.Mocks.keystore.On("Eth").Return(f.Mocks.ethKs)
 				f.App.On("GetKeyStore").Return(f.Mocks.keystore)
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 				f.App.On("GetRelayers").Return(f.Mocks.relayerChainInterops)
-
-				//				f.App.On("GetChains").Return(chainlink.Chains{EVM: f.Mocks.chainSet})
 				f.Mocks.scfg.On("EVM").Return(&evmMockConfig)
 			},
 			query: query,

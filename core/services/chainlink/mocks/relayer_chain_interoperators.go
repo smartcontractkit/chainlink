@@ -11,7 +11,7 @@ import (
 
 	evm "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 
-	// mockery generates the wrong dependency. manually edited to use `loop` rather than `loop/internal`
+	// Manually edited. mockery generates the wrong dependency.  edited to use `loop` rather than `loop/internal`
 	// seems to caused by incorrect alias resolution of the relayer dep
 	internal "github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
@@ -30,21 +30,21 @@ type RelayerChainInteroperators struct {
 }
 
 // ChainStatus provides a mock function with given fields: ctx, id
-func (_m *RelayerChainInteroperators) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
+func (_m *RelayerChainInteroperators) ChainStatus(ctx context.Context, id relay.Identifier) (types.ChainStatus, error) {
 	ret := _m.Called(ctx, id)
 
 	var r0 types.ChainStatus
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (types.ChainStatus, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, relay.Identifier) (types.ChainStatus, error)); ok {
 		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) types.ChainStatus); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, relay.Identifier) types.ChainStatus); ok {
 		r0 = rf(ctx, id)
 	} else {
 		r0 = ret.Get(0).(types.ChainStatus)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, relay.Identifier) error); ok {
 		r1 = rf(ctx, id)
 	} else {
 		r1 = ret.Error(1)
@@ -198,34 +198,6 @@ func (_m *RelayerChainInteroperators) NodeStatuses(ctx context.Context, offset i
 	}
 
 	return r0, r1, r2
-}
-
-// Put provides a mock function with given fields: id, r
-func (_m *RelayerChainInteroperators) Put(id relay.Identifier, r internal.Relayer) error {
-	ret := _m.Called(id, r)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(relay.Identifier, internal.Relayer) error); ok {
-		r0 = rf(id, r)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// PutBatch provides a mock function with given fields: b
-func (_m *RelayerChainInteroperators) PutBatch(b map[relay.Identifier]internal.Relayer) error {
-	ret := _m.Called(b)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(map[relay.Identifier]internal.Relayer) error); ok {
-		r0 = rf(b)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
 }
 
 // Services provides a mock function with given fields:

@@ -323,7 +323,7 @@ var AllRelayers = func(id relay.Identifier) bool {
 }
 
 // Returns true if the given network matches id.Network
-func FilterByType(network relay.Network) func(id relay.Identifier) bool {
+func FilterRelayersByType(network relay.Network) func(id relay.Identifier) bool {
 	return func(id relay.Identifier) bool {
 		return id.Network == network
 	}

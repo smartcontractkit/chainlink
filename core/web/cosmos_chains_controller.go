@@ -9,7 +9,7 @@ import (
 func NewCosmosChainsController(app chainlink.Application) ChainsController {
 	return newChainsController[presenters.CosmosChainResource](
 		relay.Cosmos,
-		app.GetRelayers().List(chainlink.FilterByType(relay.Cosmos)),
+		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.Cosmos)),
 		ErrCosmosNotEnabled,
 		presenters.NewCosmosChainResource,
 		app.GetLogger(),

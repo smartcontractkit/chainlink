@@ -23,7 +23,7 @@ type SolanaTransfersController struct {
 
 // Create sends SOL and other native coins from the Chainlink's account to a specified address.
 func (tc *SolanaTransfersController) Create(c *gin.Context) {
-	relayers := tc.App.GetRelayers().List(chainlink.FilterByType(relay.Solana))
+	relayers := tc.App.GetRelayers().List(chainlink.FilterRelayersByType(relay.Solana))
 	if relayers == nil {
 		jsonAPIError(c, http.StatusBadRequest, ErrSolanaNotEnabled)
 		return

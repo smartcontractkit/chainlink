@@ -354,8 +354,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					require.Fail(t, "untested relay network", relayNetwork)
 				}
 
-				interops := cr.List(chainlink.FilterByType(relayNetwork))
-				assert.Len(t, cr.List(chainlink.FilterByType(relayNetwork)).Slice(), expectedChainCnt)
+				interops := cr.List(chainlink.FilterRelayersByType(relayNetwork))
+				assert.Len(t, cr.List(chainlink.FilterRelayersByType(relayNetwork)).Slice(), expectedChainCnt)
 				if relayNetwork == relay.EVM {
 					assert.Len(t, cr.LegacyEVMChains().Slice(), expectedChainCnt)
 				}
