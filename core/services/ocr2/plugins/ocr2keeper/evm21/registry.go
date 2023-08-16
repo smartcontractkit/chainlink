@@ -171,40 +171,6 @@ type EvmRegistry struct {
 	logEventProvider    logprovider.LogEventProvider
 }
 
-// GetActiveUpkeepIDs uses the latest head and map of all active upkeeps to build a
-// slice of upkeep keys.
-// TODO: Move this to active upkeep list
-func (r *EvmRegistry) GetActiveUpkeepIDs(ctx context.Context) ([]ocr2keepers.UpkeepIdentifier, error) {
-	return r.GetActiveUpkeepIDsByType(ctx)
-}
-
-// TODO: Move this to active upkeep list
-// GetActiveUpkeepIDsByType returns all active upkeeps of the given trigger types.
-func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...uint8) ([]ocr2keepers.UpkeepIdentifier, error) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	keys := make([]ocr2keepers.UpkeepIdentifier, 0)
-
-	for _, value := range r.active.View() {
-		uid := &ocr2keepers.UpkeepIdentifier{}
-		uid.FromBigInt(value)
-		if len(triggers) == 0 {
-			keys = append(keys, *uid)
-			continue
-		}
-		trigger := core.GetUpkeepType(*uid)
-		for _, t := range triggers {
-			if trigger == ocr2keepers.UpkeepType(t) {
-				keys = append(keys, *uid)
-				break
-			}
-		}
-	}
-
-	return keys, nil
-}
-
 func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	r.lggr.Debugw("Checking upkeeps", "upkeeps", keys)
 	chResult := make(chan checkResult, 1)
