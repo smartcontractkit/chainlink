@@ -51,15 +51,12 @@ func (l *loadArgs) Setup(sameCommitAndExec bool) {
 	lggr := l.lggr
 	var setUpArgs *testsetups.CCIPTestSetUpOutputs
 	if !l.TestCfg.ExistingDeployment {
-		replicas := "6"
+		replicas := int64(6)
 		if !sameCommitAndExec {
-			replicas = "12"
+			replicas = 12
 		}
 		setUpArgs = testsetups.CCIPDefaultTestSetUp(l.TestCfg.Test, lggr, "load-ccip",
-			map[string]interface{}{
-				"replicas":   replicas,
-				"prometheus": "true",
-			}, transferAmounts, 5, sameCommitAndExec, true, l.TestCfg)
+			replicas, transferAmounts, 5, sameCommitAndExec, true, l.TestCfg)
 	} else {
 		setUpArgs = testsetups.CCIPExistingDeploymentTestSetUp(l.TestCfg.Test, lggr, transferAmounts, true, l.TestCfg)
 	}

@@ -153,13 +153,11 @@ jobs:
       TEST_LOG_LEVEL: debug
       KEEP_ENVIRONMENTS: ONFAIL
       DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
+      CCIP_DEPLOY_ON_LOCAL: true
     strategy:
       fail-fast: false
       matrix:
         product:
-          - name: ccip
-            nodes: 2
-            os: ubuntu-latest
           - name: automation
             nodes: 9
             os: ubuntu-latest
@@ -247,6 +245,16 @@ jobs:
       fail-fast: false
       matrix:
         product:
+          - name: ccip-smoke
+            nodes: 1
+            os: ubuntu20.04-16cores-64GB
+            file: ccip
+            run: -run ^TestSmokeCCIPForBidirectionalLane$
+          - name: ccip-smoke-rate-limit
+            nodes: 1
+            os: ubuntu20.04-16cores-64GB
+            file: ccip
+            run: -run ^TestSmokeCCIPRateLimit$
           - name: cron
             nodes: 1
             os: ubuntu-latest
@@ -399,6 +407,7 @@ jobs:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+          CCIP_DEPLOY_ON_LOCAL: true
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download

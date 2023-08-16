@@ -107,9 +107,9 @@ func TestChaosCCIP(t *testing.T) {
 				numOfRequests    = 3
 			)
 
-			setUpArgs := testsetups.CCIPDefaultTestSetUp(t, l, "chaos-ccip", map[string]interface{}{
-				"replicas": "12",
-			}, []*big.Int{big.NewInt(1e8)}, numOfCommitNodes, false, false, testCfg)
+			setUpArgs := testsetups.CCIPDefaultTestSetUp(
+				t, l, "chaos-ccip", 12, []*big.Int{big.NewInt(1e8)},
+				numOfCommitNodes, false, false, testCfg)
 
 			if len(setUpArgs.Lanes) == 0 {
 				return

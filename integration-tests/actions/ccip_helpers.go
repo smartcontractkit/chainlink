@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ccip"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ccip/laneconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/commit_store"
@@ -2137,6 +2138,7 @@ func nodeContractPair(nodeAddr, contractAddr string) string {
 }
 
 type CCIPTestEnv struct {
+	LocalCluster             *test_env.CLClusterTestEnv
 	MockServer               *ctfClient.MockserverClient
 	CLNodesWithKeys          map[string][]*client.CLNodesWithKeys // key - network chain-id
 	CLNodes                  []*client.ChainlinkK8sClient
@@ -2209,23 +2211,34 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 	nodeFund *big.Float,
 	chains []blockchain.EVMClient,
 ) error {
-	log.Info().Msg("Connecting to launched resources")
-	chainlinkK8sNodes, err := client.ConnectChainlinkNodes(c.K8Env)
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	if len(chainlinkK8sNodes) == 0 {
-		return fmt.Errorf("no CL node found")
-	}
-
 	chainlinkNodes := make([]*client.ChainlinkClient, 0)
-	for _, chainlinkNode := range chainlinkK8sNodes {
-		chainlinkNodes = append(chainlinkNodes, chainlinkNode.ChainlinkClient)
-	}
+	var err error
+	if c.LocalCluster != nil {
+		// for local cluster, fetch the values from the local cluster
+		c.MockServer = c.LocalCluster.MockServer.Client
+		for _, chainlinkNode := range c.LocalCluster.CLNodes {
+			chainlinkNodes = append(chainlinkNodes, chainlinkNode.API)
+		}
+	} else {
+		// in case of k8s, we need to connect to the chainlink nodes
+		log.Info().Msg("Connecting to launched resources")
+		chainlinkK8sNodes, err := client.ConnectChainlinkNodes(c.K8Env)
+		if err != nil {
+			return errors.WithStack(err)
+		}
+		if len(chainlinkK8sNodes) == 0 {
+			return fmt.Errorf("no CL node found")
+		}
 
-	mockServer, err := ctfClient.ConnectMockServer(c.K8Env)
-	if err != nil {
-		return fmt.Errorf("creating mockserver clients shouldn't fail %+v", err)
+		for _, chainlinkNode := range chainlinkK8sNodes {
+			chainlinkNodes = append(chainlinkNodes, chainlinkNode.ChainlinkClient)
+		}
+
+		c.MockServer, err = ctfClient.ConnectMockServer(c.K8Env)
+		if err != nil {
+			return fmt.Errorf("creating mockserver clients shouldn't fail %+v", err)
+		}
+		c.CLNodes = chainlinkK8sNodes
 	}
 
 	nodesWithKeys := make(map[string][]*client.CLNodesWithKeys)
@@ -2253,18 +2266,18 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 			if cfg == nil {
 				return fmt.Errorf("blank network config")
 			}
-			c, err := blockchain.ConcurrentEVMClient(*cfg, c.K8Env, ec)
+			c1, err := blockchain.ConcurrentEVMClient(*cfg, c.K8Env, ec)
 			if err != nil {
 				return fmt.Errorf("getting concurrent evmclient chain %s %+v", ec.GetNetworkName(), err)
 			}
 			defer func() {
-				if c != nil {
-					c.Close()
+				if c1 != nil {
+					c1.Close()
 				}
 			}()
-			err = FundChainlinkNodesAddresses(chainlinkK8sNodes[1:], c, nodeFund)
+			err = FundChainlinkNodesAddresses(chainlinkNodes[1:], c1, nodeFund)
 			if err != nil {
-				return fmt.Errorf("funding nodes for chain %s %+v", c.GetNetworkName(), err)
+				return fmt.Errorf("funding nodes for chain %s %+v", c1.GetNetworkName(), err)
 			}
 			return nil
 		})
@@ -2282,9 +2295,7 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 		return errors.WithStack(err)
 	}
 
-	c.MockServer = mockServer
 	c.CLNodesWithKeys = nodesWithKeys
-	c.CLNodes = chainlinkK8sNodes
 	return nil
 }
 
