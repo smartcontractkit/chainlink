@@ -22,7 +22,7 @@ import (
 )
 
 func TestLogEventProvider_GetEntries(t *testing.T) {
-	p := New(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
 
 	_, f := newEntry(p, 1)
 	p.filterStore.AddActiveUpkeeps(f)
@@ -58,7 +58,7 @@ func TestLogEventProvider_GetEntries(t *testing.T) {
 }
 
 func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
-	p := New(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
 
 	n := 10
 
@@ -172,7 +172,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 			defer cancel()
 
 			readInterval := 10 * time.Millisecond
-			p := New(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), &LogEventProviderOptions{
+			p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), &LogEventProviderOptions{
 				ReadMaxBatchSize: tc.maxBatchSize,
 				ReadInterval:     readInterval,
 			})
@@ -248,7 +248,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 		},
 	}, nil)
 
-	p := New(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
 
 	var ids []*big.Int
 	for i := 0; i < 10; i++ {

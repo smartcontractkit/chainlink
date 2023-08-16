@@ -3,6 +3,7 @@ package logprovider
 import (
 	"context"
 	"errors"
+	"io"
 	"sync"
 	"time"
 
@@ -13,7 +14,8 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("not found")
+	ErrNotFound             = errors.New("not found")
+	DefaultRecoveryInterval = 5 * time.Second
 )
 
 type logRecoverer struct {
@@ -30,7 +32,15 @@ type logRecoverer struct {
 	poller logpoller.LogPoller
 }
 
-var _ ocr2keepers.RecoverableProvider = &logRecoverer{}
+type LogRecoverer interface {
+	ocr2keepers.RecoverableProvider
+	ocr2keepers.PayloadBuilder
+
+	Start(context.Context) error
+	io.Closer
+}
+
+var _ LogRecoverer = &logRecoverer{}
 
 func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, interval time.Duration) *logRecoverer {
 	if interval == 0 {
@@ -76,6 +86,11 @@ func (r *logRecoverer) Close() error {
 		r.cancel()
 	}
 	return nil
+}
+
+func (r *logRecoverer) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedBlockProposal) ([]ocr2keepers.UpkeepPayload, error) {
+	// TODO: implement
+	return []ocr2keepers.UpkeepPayload{}, nil
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {

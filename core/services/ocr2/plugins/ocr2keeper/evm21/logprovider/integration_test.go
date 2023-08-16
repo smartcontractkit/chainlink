@@ -466,7 +466,7 @@ func setupLogProvider(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBack
 	logDataABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 	require.NoError(t, err)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	logProvider := logprovider.New(lggr, lp, logprovider.NewLogEventsPacker(logDataABI), filterStore, opts)
+	logProvider := logprovider.NewLogProvider(lggr, lp, logprovider.NewLogEventsPacker(logDataABI), filterStore, opts)
 
 	return logProvider, filterStore, lp, ethClient
 }

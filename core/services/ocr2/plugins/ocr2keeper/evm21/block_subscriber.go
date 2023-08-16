@@ -49,6 +49,8 @@ type BlockSubscriber struct {
 	lggr             logger.Logger
 }
 
+var _ ocr2keepers.BlockSubscriber = &BlockSubscriber{}
+
 func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr logger.Logger) *BlockSubscriber {
 	return &BlockSubscriber{
 		hb:               hb,

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"hash"
+	"io"
 	"math/big"
 	"runtime"
 	"sync"
@@ -31,17 +32,17 @@ var (
 // LogTriggerConfig is an alias for log trigger config.
 type LogTriggerConfig automation_utils_2_1.LogTriggerConfig
 
-type LogEventProvider interface {
-	// Start starts the log event provider.
-	Start(ctx context.Context) error
-	// Close closes the log event provider.
-	Close() error
+type LogTriggersLifeCycle interface {
 	// RegisterFilter registers the filter (if valid) for the given upkeepID.
 	RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfig) error
 	// UnregisterFilter removes the filter for the given upkeepID.
 	UnregisterFilter(upkeepID *big.Int) error
-	// GetLatestPayloads returns the logs in the given range.
-	GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error)
+}
+type LogEventProvider interface {
+	ocr2keepers.LogEventProvider
+	LogTriggersLifeCycle
+	Start(context.Context) error
+	io.Closer
 }
 
 type LogEventProviderTest interface {
@@ -50,8 +51,8 @@ type LogEventProviderTest interface {
 	CurrentPartitionIdx() uint64
 }
 
-var _ ocr2keepers.PayloadBuilder = &logEventProvider{}
-var _ ocr2keepers.LogEventProvider = &logEventProvider{}
+var _ LogEventProvider = &logEventProvider{}
+var _ LogEventProviderTest = &logEventProvider{}
 
 // logEventProvider manages log filters for upkeeps and enables to read the log events.
 type logEventProvider struct {
@@ -73,7 +74,7 @@ type logEventProvider struct {
 	currentPartitionIdx uint64
 }
 
-func New(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts *LogEventProviderOptions) *logEventProvider {
+func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts *LogEventProviderOptions) *logEventProvider {
 	if opts == nil {
 		opts = new(LogEventProviderOptions)
 	}
@@ -89,8 +90,8 @@ func New(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, f
 	}
 }
 
-func (p *logEventProvider) Start(pctx context.Context) error {
-	ctx, cancel := context.WithCancel(pctx)
+func (p *logEventProvider) Start(context.Context) error {
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	p.lock.Lock()
@@ -98,6 +99,8 @@ func (p *logEventProvider) Start(pctx context.Context) error {
 	p.lock.Unlock()
 
 	readQ := make(chan []*big.Int, 32)
+
+	p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", p.opts.ReadMaxBatchSize, "readers", p.opts.Readers)
 
 	for i := 0; i < p.opts.Readers; i++ {
 		go p.startReader(ctx, readQ)
@@ -121,11 +124,6 @@ func (p *logEventProvider) Close() error {
 		p.cancel()
 	}
 	return nil
-}
-
-func (p *logEventProvider) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedBlockProposal) ([]ocr2keepers.UpkeepPayload, error) {
-	// TODO: implement
-	return []ocr2keepers.UpkeepPayload{}, nil
 }
 
 func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
@@ -216,6 +214,7 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 			partitionIdx++
 			atomic.StoreUint64(&p.currentPartitionIdx, partitionIdx)
 		case <-ctx.Done():
+			p.lggr.Debug("stopped log event provider")
 			return nil
 		}
 	}

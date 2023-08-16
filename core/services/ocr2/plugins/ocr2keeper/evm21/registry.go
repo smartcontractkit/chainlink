@@ -26,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
@@ -79,40 +77,28 @@ type LatestBlockGetter interface {
 	LatestBlock() int64
 }
 
-func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, bs *BlockSubscriber, lggr logger.Logger) (*EvmRegistry, ocr2keepers.Encoder, error) {
-	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
-	if err != nil {
-		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
-	}
-	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	if err != nil {
-		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
-	}
-	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
-	if err != nil {
-		return nil, nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
-	}
-	packer := encoding.NewAbiPacker(keeperRegistryABI, utilsABI)
-	logPacker := logprovider.NewLogEventsPacker(utilsABI)
-
-	registry, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
-	if err != nil {
-		return nil, nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
-	}
-
-	filterStore := logprovider.NewUpkeepFilterStore()
-	logEventProvider := logprovider.New(lggr, client.LogPoller(), logPacker, filterStore, nil)
-
-	r := &EvmRegistry{
-		ht:       client.HeadTracker(),
+func NewEvmRegistry(
+	lggr logger.Logger,
+	addr common.Address,
+	client evm.Chain,
+	feedLookupCompatibleABI, keeperRegistryABI abi.ABI,
+	registry *iregistry21.IKeeperRegistryMaster,
+	mc *models.MercuryCredentials,
+	al ActiveUpkeepList,
+	logEventProvider logprovider.LogEventProvider,
+	encoder ocr2keepers.Encoder,
+	packer encoding.Packer,
+) *EvmRegistry {
+	return &EvmRegistry{
 		lggr:     lggr.Named("EvmRegistry"),
+		ht:       client.HeadTracker(),
 		poller:   client.LogPoller(),
 		addr:     addr,
 		client:   client.Client(),
 		txHashes: make(map[string]bool),
 		registry: registry,
 		abi:      keeperRegistryABI,
-		active:   NewActiveUpkeepList(),
+		active:   al,
 		packer:   packer,
 		headFunc: func(ocr2keepers.BlockKey) {},
 		chLog:    make(chan logpoller.Log, 1000),
@@ -121,17 +107,8 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, mc *models.Mer
 			abi:            feedLookupCompatibleABI,
 			allowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
-		hc:               http.DefaultClient,
-		enc:              encoding.NewReportEncoder(packer),
-		logEventProvider: logEventProvider,
-		bs:               bs,
+		hc: http.DefaultClient,
 	}
-
-	if err := r.registerEvents(client.ID().Uint64(), addr); err != nil {
-		return nil, nil, fmt.Errorf("logPoller error while registering automation events: %w", err)
-	}
-
-	return r, r.enc, nil
 }
 
 var upkeepStateEvents = []common.Hash{
@@ -176,6 +153,7 @@ type EvmRegistry struct {
 	poller           logpoller.LogPoller
 	addr             common.Address
 	client           client.Client
+	chainID          uint64
 	registry         Registry
 	abi              abi.ABI
 	packer           encoding.Packer
@@ -260,6 +238,10 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 		r.ctx, r.cancel = context.WithCancel(context.Background())
 		r.reInit = time.NewTimer(reInitializationDelay)
 
+		if err := r.registerEvents(r.chainID, r.addr); err != nil {
+			return fmt.Errorf("logPoller error while registering automation events: %w", err)
+		}
+
 		// initialize the upkeep keys; if the reInit timer returns, do it again
 		{
 			go func(cx context.Context, tmr *time.Timer, lggr logger.Logger, f func() error) {
@@ -317,20 +299,6 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 					}
 				}
 			}(r.ctx, r.chLog, r.lggr, r.processUpkeepStateLog)
-		}
-
-		// Start log event provider
-		{
-			go func(ctx context.Context, lggr logger.Logger, f func(context.Context) error, c func() error) {
-				for ctx.Err() == nil {
-					if err := f(ctx); err != nil {
-						lggr.Errorf("failed to start log event provider", err)
-					}
-					if err := c(); err != nil {
-						lggr.Errorf("failed to close log event provider", err)
-					}
-				}
-			}(r.ctx, r.lggr, r.logEventProvider.Start, r.logEventProvider.Close)
 		}
 
 		r.runState = 1
