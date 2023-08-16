@@ -150,7 +150,6 @@ func TestIntegration_MercuryV1(t *testing.T) {
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
 	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
-
 	clientCSAKeys := make([]csakey.KeyV2, n+1)
 	clientPubKeys := make([]ed25519.PublicKey, n+1)
 	for i := 0; i < n+1; i++ {
