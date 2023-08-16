@@ -232,10 +232,7 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 			trigger.LogTriggerExtension.Index = triggerW.LogIndex
 		default:
 		}
-		workID, err := core.UpkeepWorkID(id, trigger)
-		if err != nil {
-			return nil, err
-		}
+		workID := core.UpkeepWorkID(*upkeepId, trigger)
 		vals = append(vals, ocr2keepers.TransmitEvent{
 			Type:            l.TransmitEventType(),
 			TransmitBlock:   ocr2keepers.BlockNumber(l.BlockNumber),

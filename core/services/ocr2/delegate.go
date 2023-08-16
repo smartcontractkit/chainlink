@@ -926,7 +926,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		UpkeepProvider:               services.UpkeepProvider(),
 		UpkeepStateUpdater:           services.UpkeepStateStore(),
 		UpkeepTypeGetter:             ocr2keeper21core.GetUpkeepType,
-		WorkIDGenerator:              ocr2keeper21core.WorkIDGenerator,
+		WorkIDGenerator:              ocr2keeper21core.UpkeepWorkID,
 		// TODO: Clean up the config
 		CacheExpiration:       cfg.CacheExpiration.Value(),
 		CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),

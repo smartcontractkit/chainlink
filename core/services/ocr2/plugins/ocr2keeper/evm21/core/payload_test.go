@@ -16,7 +16,6 @@ func TestWorkID(t *testing.T) {
 		upkeepID string
 		trigger  ocr2keepers.Trigger
 		expected string
-		errored  bool
 	}{
 		{
 			name:     "happy flow no extension",
@@ -61,19 +60,18 @@ func TestWorkID(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Convert the string to a big.Int
-			var upkeepID big.Int
-			_, success := upkeepID.SetString(tc.upkeepID, 10)
+			var id big.Int
+			_, success := id.SetString(tc.upkeepID, 10)
 			if !success {
 				t.Fatal("Invalid big integer value")
 			}
-
-			res, err := UpkeepWorkID(&upkeepID, tc.trigger)
-			if tc.errored {
-				assert.Error(t, err)
-				return
+			uid := &ocr2keepers.UpkeepIdentifier{}
+			ok := uid.FromBigInt(&id)
+			if !ok {
+				t.Fatal("Invalid upkeep identifier")
 			}
-			assert.NoError(t, err)
 
+			res := UpkeepWorkID(*uid, tc.trigger)
 			assert.Equal(t, tc.expected, res, "UpkeepWorkID mismatch")
 		})
 	}

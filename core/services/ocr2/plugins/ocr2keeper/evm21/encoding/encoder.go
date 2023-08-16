@@ -109,7 +109,7 @@ func (e reportEncoder) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error)
 			trigger.LogTriggerExtension.Index = triggerW.LogIndex
 		default:
 		}
-		workID, _ := core.UpkeepWorkID(upkeepId, trigger)
+		workID := core.UpkeepWorkID(*id, trigger)
 		reportedUpkeeps[i] = ocr2keepers.ReportedUpkeep{
 			WorkID:   workID,
 			UpkeepID: *id,
