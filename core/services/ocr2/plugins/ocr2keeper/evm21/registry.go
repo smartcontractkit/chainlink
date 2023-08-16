@@ -108,11 +108,13 @@ func NewEvmRegistry(
 }
 
 var upkeepStateEvents = []common.Hash{
-	iregistry21.IKeeperRegistryMasterUpkeepRegistered{}.Topic(),       // adds new upkeep id to registry
-	iregistry21.IKeeperRegistryMasterUpkeepReceived{}.Topic(),         // adds new upkeep id to registry via migration
-	iregistry21.IKeeperRegistryMasterUpkeepGasLimitSet{}.Topic(),      // updates the gas limit for an upkeep
-	iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(),         // unpauses an upkeep
-	iregistry21.IKeeperRegistryMasterUpkeepPaused{}.Topic(),           // pauses an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepRegistered{}.Topic(), // adds new upkeep id to registry
+	iregistry21.IKeeperRegistryMasterUpkeepReceived{}.Topic(),   // adds new upkeep id to registry via migration
+	// TODO: this can be cleaned up
+	iregistry21.IKeeperRegistryMasterUpkeepGasLimitSet{}.Topic(), // updates the gas limit for an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(),    // unpauses an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepPaused{}.Topic(),      // pauses an upkeep
+	// TODO: listen to migrate event
 	iregistry21.IKeeperRegistryMasterUpkeepCanceled{}.Topic(),         // cancels an upkeep
 	iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), // trigger config was changed
 }
