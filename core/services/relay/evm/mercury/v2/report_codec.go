@@ -114,81 +114,13 @@ func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (ui
 }
 
 func (r *ReportCodec) Decode(report ocrtypes.Report) (*Report, error) {
-	reportElements := map[string]interface{}{}
-	if err := ReportTypes.UnpackIntoMap(reportElements, report); err != nil {
-		return nil, errors.Errorf("error during unpack: %v", err)
+	values, err := ReportTypes.Unpack(report)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode report: %w", err)
 	}
-
-	feedIdInterface, ok := reportElements["feedId"]
-	if !ok {
-		return nil, errors.Errorf("unpacked report has no 'feedId'")
+	decoded := new(Report)
+	if err = ReportTypes.Copy(decoded, values); err != nil {
+		return nil, fmt.Errorf("failed to copy report values to struct: %w", err)
 	}
-	feedID, ok := feedIdInterface.([32]byte)
-	if !ok {
-		return nil, errors.Errorf("cannot cast feedId to [32]byte, type is %T", feedID)
-	}
-
-	observationsTimestampInterface, ok := reportElements["observationsTimestamp"]
-	if !ok {
-		return nil, errors.Errorf("unpacked report has no 'observationsTimestamp'")
-	}
-	observationsTimestamp, ok := observationsTimestampInterface.(uint32)
-	if !ok {
-		return nil, errors.Errorf("cannot cast observationsTimestamp to uint32, type is %T", observationsTimestamp)
-	}
-
-	benchmarkPriceInterface, ok := reportElements["benchmarkPrice"]
-	if !ok {
-		return nil, errors.Errorf("unpacked report has no 'benchmarkPrice'")
-	}
-	benchmarkPrice, ok := benchmarkPriceInterface.(*big.Int)
-	if !ok {
-		return nil, errors.Errorf("cannot cast benchmark price to *big.Int, type is %T", benchmarkPrice)
-	}
-
-	validFromTimestampInterface, ok := reportElements["validFromTimestamp"]
-	if !ok {
-		return nil, errors.Errorf("unpacked report has no 'validFromTimestamp'")
-	}
-	validFromTimestamp, ok := validFromTimestampInterface.(uint32)
-	if !ok {
-		return nil, errors.Errorf("cannot cast validFromTimestamp to uint32, type is %T", validFromTimestamp)
-	}
-
-	expiresAtInterface, ok := reportElements["expiresAt"]
-	if !ok {
-		return nil, errors.Errorf("unpacked report has no 'expiresAt'")
-	}
-	expiresAt, ok := expiresAtInterface.(uint32)
-	if !ok {
-		return nil, errors.Errorf("cannot cast expiresAt to uint32, type is %T", expiresAt)
-	}
-
-	linkFeeInterface, ok := reportElements["linkFee"]
-	if !ok {
-		return nil, errors.Errorf("unpacked report has no 'linkFee'")
-	}
-	linkFee, ok := linkFeeInterface.(*big.Int)
-	if !ok {
-		return nil, errors.Errorf("cannot cast linkFee to *big.Int, type is %T", linkFee)
-	}
-
-	nativeFeeInterface, ok := reportElements["nativeFee"]
-	if !ok {
-		return nil, errors.Errorf("unpacked report has no 'nativeFee'")
-	}
-	nativeFee, ok := nativeFeeInterface.(*big.Int)
-	if !ok {
-		return nil, errors.Errorf("cannot cast nativeFee to *big.Int, type is %T", nativeFee)
-	}
-
-	return &Report{
-		FeedId:                feedID,
-		ObservationsTimestamp: observationsTimestamp,
-		BenchmarkPrice:        benchmarkPrice,
-		ValidFromTimestamp:    validFromTimestamp,
-		ExpiresAt:             expiresAt,
-		LinkFee:               linkFee,
-		NativeFee:             nativeFee,
-	}, nil
+	return decoded, nil
 }

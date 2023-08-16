@@ -161,8 +161,6 @@ func (r *ReportCodec) ValidFromBlockNumFromReport(report ocrtypes.Report) (int64
 }
 
 func (r *ReportCodec) Decode(report ocrtypes.Report) (*Report, error) {
-	// reportElements := map[string]interface{}{}
-
 	values, err := ReportTypes.Unpack(report)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode report: %w", err)
@@ -172,97 +170,4 @@ func (r *ReportCodec) Decode(report ocrtypes.Report) (*Report, error) {
 		return nil, fmt.Errorf("failed to copy report values to struct: %w", err)
 	}
 	return decoded, nil
-
-	// feedIdInterface, ok := reportElements["feedId"]
-	// if !ok {
-	//     return nil, errors.Errorf("unpacked report has no 'feedId'")
-	// }
-	// feedID, ok := feedIdInterface.([32]byte)
-	// if !ok {
-	//     return nil, errors.Errorf("cannot cast feedId to [32]byte, type is %T", feedID)
-	// }
-
-	// observationsTimestampInterface, ok := reportElements["observationsTimestamp"]
-	// if !ok {
-	//     return nil, errors.Errorf("unpacked report has no 'observationsTimestamp'")
-	// }
-	// observationsTimestamp, ok := observationsTimestampInterface.(uint32)
-	// if !ok {
-	//     return nil, errors.Errorf("cannot cast observationsTimestamp to uint32, type is %T", observationsTimestamp)
-	// }
-
-	// benchmarkPriceInterface, ok := reportElements["benchmarkPrice"]
-	// if !ok {
-	//     return nil, errors.Errorf("unpacked report has no 'benchmarkPrice'")
-	// }
-	// benchmarkPrice, ok := benchmarkPriceInterface.(*big.Int)
-	// if !ok {
-	//     return nil, errors.Errorf("cannot cast benchmark price to *big.Int, type is %T", benchmarkPrice)
-	// }
-
-	// bidInterface, ok := reportElements["bid"]
-	// if !ok {
-	//     return nil, errors.Errorf("unpacked report has no 'bid'")
-	// }
-	// bid, ok := bidInterface.(*big.Int)
-	// if !ok {
-	//     return nil, errors.Errorf("cannot cast bid to *big.Int, type is %T", bid)
-	// }
-
-	// askInterface, ok := reportElements["ask"]
-	// if !ok {
-	//     return nil, errors.Errorf("unpacked report has no 'ask'")
-	// }
-	// ask, ok := askInterface.(*big.Int)
-	// if !ok {
-	//     return nil, errors.Errorf("cannot cast ask to *big.Int, type is %T", ask)
-	// }
-
-	// currentBlockNumberInterface, ok := reportElements["currentBlockNum"]
-	// if !ok {
-	//     return nil, errors.Errorf("unpacked report has no 'currentBlockNum'")
-	// }
-	// currentBlockNum, ok := currentBlockNumberInterface.(uint64)
-	// if !ok {
-	//     return nil, errors.Errorf("cannot cast currentBlockNum to uint64, type is %T", currentBlockNum)
-	// }
-
-	// currentBlockHashInterface, ok := reportElements["currentBlockHash"]
-	// if !ok {
-	//     return nil, errors.Errorf("unpacked report has no 'currentBlockHash'")
-	// }
-	// currentBlockHash, ok := currentBlockHashInterface.([32]byte)
-	// if !ok {
-	//     return nil, errors.Errorf("cannot cast currentBlockHash to [32]byte, type is %T", currentBlockHash)
-	// }
-
-	// validFromBlockNumInterface, ok := reportElements["validFromBlockNum"]
-	// if !ok {
-	//     return nil, errors.Errorf("unpacked report has no 'validFromBlockNum'")
-	// }
-	// validFromBlockNum, ok := validFromBlockNumInterface.(uint64)
-	// if !ok {
-	//     return nil, errors.Errorf("cannot cast validFromBlockNum to uint64, type is %T", validFromBlockNum)
-	// }
-
-	// currentBlockTimestampInterface, ok := reportElements["currentBlockTimestamp"]
-	// if !ok {
-	//     return nil, errors.Errorf("unpacked report has no 'currentBlockTimestamp'")
-	// }
-	// currentBlockTimestamp, ok := currentBlockTimestampInterface.(uint64)
-	// if !ok {
-	//     return nil, errors.Errorf("cannot cast currentBlockTimestamp to uint64, type is %T", currentBlockTimestamp)
-	// }
-
-	// return &Report{
-	//     FeedId:                feedID,
-	//     ObservationsTimestamp: observationsTimestamp,
-	//     BenchmarkPrice:        benchmarkPrice,
-	//     Bid:                   bid,
-	//     Ask:                   ask,
-	//     CurrentBlockNum:       currentBlockNum,
-	//     CurrentBlockHash:      currentBlockHash,
-	//     ValidFromBlockNum:     validFromBlockNum,
-	//     CurrentBlockTimestamp: currentBlockTimestamp,
-	// }, nil
 }

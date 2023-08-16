@@ -25,7 +25,7 @@ var paos = []relaymercuryv1.ParsedAttributedObservation{
 	relaymercuryv1.NewParsedAttributedObservation(342, commontypes.OracleID(250), big.NewInt(343), big.NewInt(344), big.NewInt(345), true, 842, hash, 456, true, 13, true),
 }
 
-func Test_ReportCodec_BuildReport(t *testing.T) {
+func Test_ReportCodec(t *testing.T) {
 	r := ReportCodec{}
 	f := 1
 
@@ -60,6 +60,34 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 		max, err := r.MaxReportLength(4)
 		require.NoError(t, err)
 		assert.LessOrEqual(t, len(report), max)
+
+		t.Run("Decode decodes the report", func(t *testing.T) {
+			decoded, err := r.Decode(report)
+			require.NoError(t, err)
+
+			require.NotNil(t, decoded)
+
+			assert.Equal(t, uint32(242), decoded.ObservationsTimestamp)
+			assert.Equal(t, big.NewInt(243), decoded.BenchmarkPrice)
+			assert.Equal(t, big.NewInt(244), decoded.Bid)
+			assert.Equal(t, big.NewInt(245), decoded.Ask)
+			assert.Equal(t, uint64(248), decoded.CurrentBlockNum)
+			assert.Equal(t, [32]byte(common.BytesToHash(hash)), decoded.CurrentBlockHash)
+			assert.Equal(t, uint64(123), decoded.CurrentBlockTimestamp)
+			assert.Equal(t, uint64(46), decoded.ValidFromBlockNum)
+		})
+	})
+
+	t.Run("Decode errors on invalid report", func(t *testing.T) {
+		_, err := r.Decode([]byte{1, 2, 3})
+		assert.EqualError(t, err, "failed to decode report: abi: cannot marshal in to go type: length insufficient 3 require 32")
+
+		longBad := make([]byte, 64)
+		for i := 0; i < len(longBad); i++ {
+			longBad[i] = byte(i)
+		}
+		_, err = r.Decode(longBad)
+		assert.EqualError(t, err, "failed to decode report: abi: improperly encoded uint32 value")
 	})
 }
 
