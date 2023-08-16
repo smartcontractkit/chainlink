@@ -135,7 +135,9 @@ type MockCountingPrompter struct {
 }
 
 // Prompt returns an entered string
-func (p *MockCountingPrompter) Prompt(string) string {
+func (p *MockCountingPrompter) Prompt(string) string { return p.prompt() }
+
+func (p *MockCountingPrompter) prompt() string {
 	i := p.Count
 	p.Count++
 	if len(p.EnteredStrings)-1 < i {
@@ -146,15 +148,7 @@ func (p *MockCountingPrompter) Prompt(string) string {
 }
 
 // PasswordPrompt returns an entered string
-func (p *MockCountingPrompter) PasswordPrompt(string) string {
-	i := p.Count
-	p.Count++
-	if len(p.EnteredStrings)-1 < i {
-		p.T.Errorf("Not enough passwords supplied to MockCountingPrompter, wanted %d", i)
-		p.T.FailNow()
-	}
-	return p.EnteredStrings[i]
-}
+func (p *MockCountingPrompter) PasswordPrompt(string) string { return p.prompt() }
 
 // IsTerminal always returns true in tests
 func (p *MockCountingPrompter) IsTerminal() bool {
