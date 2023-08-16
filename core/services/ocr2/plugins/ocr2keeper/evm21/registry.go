@@ -53,7 +53,8 @@ var (
 	ActiveUpkeepIDBatchSize    int64 = 1000
 	FetchUpkeepConfigBatchSize       = 10
 	// This is the interval at which active upkeep list is fully refreshed from chain
-	refreshInterval        = 15 * time.Minute
+	refreshInterval = 15 * time.Minute
+	// This is the lookback for polling upkeep state event logs from latest block
 	logEventLookback int64 = 250
 )
 
@@ -85,18 +86,18 @@ func NewEvmRegistry(
 	packer encoding.Packer,
 ) *EvmRegistry {
 	return &EvmRegistry{
-		lggr:     lggr.Named("EvmRegistry"),
-		ht:       client.HeadTracker(),
-		poller:   client.LogPoller(),
-		addr:     addr,
-		client:   client.Client(),
-		txHashes: make(map[string]bool),
-		registry: registry,
-		abi:      keeperRegistryABI,
-		active:   al,
-		packer:   packer,
-		headFunc: func(ocr2keepers.BlockKey) {},
-		chLog:    make(chan logpoller.Log, 1000),
+		lggr:       lggr.Named("EvmRegistry"),
+		ht:         client.HeadTracker(),
+		poller:     client.LogPoller(),
+		addr:       addr,
+		client:     client.Client(),
+		txHashes:   make(map[string]bool),
+		registry:   registry,
+		abi:        keeperRegistryABI,
+		active:     al,
+		packer:     packer,
+		headFunc:   func(ocr2keepers.BlockKey) {},
+		chStateLog: make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred:           mc,
 			abi:            feedLookupCompatibleABI,
@@ -152,7 +153,7 @@ type EvmRegistry struct {
 	registry         Registry
 	abi              abi.ABI
 	packer           encoding.Packer
-	chLog            chan logpoller.Log
+	chStateLog       chan logpoller.Log
 	reInit           *time.Timer
 	mu               sync.RWMutex
 	txHashes         map[string]bool
@@ -294,7 +295,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 						return
 					}
 				}
-			}(r.ctx, r.chLog, r.lggr, r.processUpkeepStateLog)
+			}(r.ctx, r.chStateLog, r.lggr, r.processUpkeepStateLog)
 		}
 
 		r.runState = 1
@@ -382,22 +383,19 @@ func (r *EvmRegistry) pollUpkeepStateLogs() error {
 		return nil
 	}
 
-	{
-		var logs []logpoller.Log
+	var logs []logpoller.Log
+	if logs, err = r.poller.LogsWithSigs(
+		end-logEventLookback,
+		end,
+		upkeepStateEvents,
+		r.addr,
+		pg.WithParentCtx(r.ctx),
+	); err != nil {
+		return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
+	}
 
-		if logs, err = r.poller.LogsWithSigs(
-			end-logEventLookback,
-			end,
-			upkeepStateEvents,
-			r.addr,
-			pg.WithParentCtx(r.ctx),
-		); err != nil {
-			return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
-		}
-
-		for _, log := range logs {
-			r.chLog <- log
-		}
+	for _, log := range logs {
+		r.chStateLog <- log
 	}
 
 	return nil
