@@ -1,11 +1,14 @@
 package secrets
 
-import "strconv"
-
-var chainIdToRPC = map[uint64]string{}
+import (
+	"os"
+	"strconv"
+)
 
 func GetRPC(chainID uint64) string {
-	if rpc, ok := chainIdToRPC[chainID]; ok {
+	envVariable := "RPC_" + strconv.FormatUint(chainID, 10)
+	rpc := os.Getenv(envVariable)
+	if rpc != "" {
 		return rpc
 	}
 	panic("RPC not found. Please check secrets.go for chainID " + strconv.FormatUint(chainID, 10))

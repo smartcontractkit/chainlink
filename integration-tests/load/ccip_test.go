@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/wasp"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 )
@@ -50,27 +49,6 @@ func TestLoadCCIPSequentialLaneAdd(t *testing.T) {
 	})
 	testArgs.TriggerLoad()
 	testArgs.AddMoreLanesToRun()
-	testArgs.Wait()
-}
-
-func TestLoadCCIPIncrementalLoad(t *testing.T) {
-	t.Parallel()
-	lggr := utils.GetTestLogger(t)
-	testArgs := NewLoadArgs(t, lggr, context.Background())
-	testArgs.TestCfg.SequentialLaneAddition = true
-	testArgs.Setup(true)
-	// if the test runs on remote runner
-	if len(testArgs.TestSetupArgs.Lanes) == 0 {
-		return
-	}
-	t.Cleanup(func() {
-		log.Info().Msg("Tearing down the environment")
-		testArgs.TestSetupArgs.TearDown()
-	})
-	stepDuration := testArgs.TestCfg.TestDuration / 3
-	schedules := wasp.CombineAndRepeat(3,
-		wasp.Line(1, testArgs.TestCfg.Load.RequestPerUnitTime[0], stepDuration))
-	testArgs.TriggerLoad(schedules...)
 	testArgs.Wait()
 }
 

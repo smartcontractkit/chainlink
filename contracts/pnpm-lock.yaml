@@ -338,7 +338,7 @@ packages:
     resolution: {integrity: sha512-Mp0iB2YNWYGUV+VMl5tjPsaXKbKo8MDH9wSJ702l9EBjdxFf/vBvnMBAC1Fub1lLtmD0JHtp1pq+mWzg/xlLnA==}
     engines: {node: '>=10.0'}
     dependencies:
-      '@ethersproject/abi': 5.7.0
+      '@ethersproject/abi': 5.6.4
       ethers: 5.6.9
     transitivePeerDependencies:
       - bufferutil
@@ -409,7 +409,7 @@ packages:
     resolution: {integrity: sha512-TTeZUlCeIHG6527/2goZA6gW5F8Emoc7MrZDC7hhP84aRGvW3TEdTnZR08Ls88YXM1m2SuK42Osw/jSi3uO8gg==}
     dependencies:
       '@ethersproject/address': 5.7.0
-      '@ethersproject/bignumber': 5.7.0
+      '@ethersproject/bignumber': 5.6.2
       '@ethersproject/bytes': 5.7.0
       '@ethersproject/constants': 5.7.0
       '@ethersproject/hash': 5.7.0
@@ -548,7 +548,7 @@ packages:
   /@ethersproject/contracts/5.6.2:
     resolution: {integrity: sha512-hguUA57BIKi6WY0kHvZp6PwPlWF87MCeB4B7Z7AbUpTxfFXFdn/3b0GmjZPagIHS+3yhcBJDnuEfU4Xz+Ks/8g==}
     dependencies:
-      '@ethersproject/abi': 5.7.0
+      '@ethersproject/abi': 5.6.4
       '@ethersproject/abstract-provider': 5.7.0
       '@ethersproject/abstract-signer': 5.7.0
       '@ethersproject/address': 5.7.0
@@ -692,14 +692,14 @@ packages:
       '@ethersproject/address': 5.7.0
       '@ethersproject/base64': 5.7.0
       '@ethersproject/basex': 5.7.0
-      '@ethersproject/bignumber': 5.7.0
+      '@ethersproject/bignumber': 5.6.2
       '@ethersproject/bytes': 5.7.0
       '@ethersproject/constants': 5.7.0
       '@ethersproject/hash': 5.7.0
       '@ethersproject/logger': 5.0.6
       '@ethersproject/networks': 5.7.1
       '@ethersproject/properties': 5.7.0
-      '@ethersproject/random': 5.7.0
+      '@ethersproject/random': 5.6.1
       '@ethersproject/rlp': 5.7.0
       '@ethersproject/sha2': 5.7.0
       '@ethersproject/strings': 5.7.0
@@ -1255,7 +1255,7 @@ packages:
     peerDependencies:
       hardhat: ^2.0.4
     dependencies:
-      '@ethersproject/abi': 5.7.0
+      '@ethersproject/abi': 5.6.4
       '@ethersproject/address': 5.7.0
       cbor: 8.1.0
       chalk: 2.4.2
@@ -3272,7 +3272,7 @@ packages:
     hasBin: true
     dependencies:
       caniuse-lite: 1.0.30001520
-      electron-to-chromium: 1.4.490
+      electron-to-chromium: 1.4.491
     dev: true
 
   /bs58/4.0.1:
@@ -4439,8 +4439,8 @@ packages:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
     dev: true
 
-  /electron-to-chromium/1.4.490:
-    resolution: {integrity: sha512-6s7NVJz+sATdYnIwhdshx/N/9O6rvMxmhVoDSDFdj6iA45gHR8EQje70+RYsF4GeB+k0IeNSBnP7yG9ZXJFr7A==}
+  /electron-to-chromium/1.4.491:
+    resolution: {integrity: sha512-ZzPqGKghdVzlQJ+qpfE+r6EB321zed7e5JsvHIlMM4zPFF8okXUkF5Of7h7F3l3cltPL0rG7YVmlp5Qro7RQLA==}
     dev: true
 
   /elliptic/6.5.4:
@@ -4831,7 +4831,7 @@ packages:
       '@codechecks/client':
         optional: true
     dependencies:
-      '@ethersproject/abi': 5.7.0
+      '@ethersproject/abi': 5.6.4
       '@solidity-parser/parser': 0.14.5
       cli-table3: 0.5.1
       colors: 1.4.0
@@ -6152,7 +6152,7 @@ packages:
     peerDependencies:
       hardhat: ^2.0.0
     dependencies:
-      '@ethersproject/abi': 5.7.0
+      '@ethersproject/abi': 5.6.4
       delete-empty: 3.0.0
       hardhat: 2.12.7_6qtx7vkbdhwvdm4crzlegk4mvi
     dev: true
@@ -6202,7 +6202,7 @@ packages:
       typescript:
         optional: true
     dependencies:
-      '@ethersproject/abi': 5.7.0
+      '@ethersproject/abi': 5.6.4
       '@metamask/eth-sig-util': 4.0.1
       '@nomicfoundation/ethereumjs-block': 4.2.2
       '@nomicfoundation/ethereumjs-blockchain': 6.2.2
@@ -9861,7 +9861,7 @@ packages:
     peerDependencies:
       hardhat: ^2.11.0
     dependencies:
-      '@ethersproject/abi': 5.7.0
+      '@ethersproject/abi': 5.6.4
       '@solidity-parser/parser': 0.16.1
       chalk: 2.4.2
       death: 1.1.0

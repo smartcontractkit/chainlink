@@ -80,6 +80,12 @@ UICSAKeys = false # Default
 ```
 UICSAKeys enables CSA Keys in the UI.
 
+### CCIP
+```toml
+CCIP = false # Default
+```
+CCIP enables the CCIP service.
+
 ## Database
 ```toml
 [Database]

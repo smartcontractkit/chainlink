@@ -58,6 +58,7 @@ core/web/assets
 
 # Integration Tests
 integration-tests/**/logs/
+integration-tests/**/tmp_*
 tests-*.xml
 *.test
 tmp-manifest-*.yaml
@@ -70,6 +71,16 @@ cosign.*
 dist/
 MacOSX*
 
+cache
+core/services/ocr2/plugins/ccip/transactions.rlp
+lcov.info
+!core/services/ocr2/plugins/ccip/cache/
+
+
+core/scripts/ccip/json/credentials
+core/scripts/ccip/json/deployments
+core/scripts/ccip/csv/node-wallets
+
 # Test & linter reports
 *report.xml
 *report.json
@@ -80,3 +91,5 @@ contracts/yarn.lock
 
 # Ignore DevSpace cache and log folder
 .devspace/
+
+core/scripts/ccip/json/credentials

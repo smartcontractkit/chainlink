@@ -138,6 +138,7 @@ type OffchainAggregator interface {
 	Fund(nativeAmount *big.Float) error
 	GetContractData(ctx context.Context) (*OffchainAggregatorData, error)
 	SetConfig(chainlinkNodes []*client.ChainlinkK8sClient, ocrConfig OffChainAggregatorConfig, transmitters []common.Address) error
+	SetConfigLocal(chainlinkNodes []*client.ChainlinkClient, ocrConfig OffChainAggregatorConfig, transmitters []common.Address) error
 	SetPayees([]string, []string) error
 	RequestNewRound() error
 	GetLatestAnswer(ctx context.Context) (*big.Int, error)
@@ -234,6 +235,25 @@ type FunctionsBillingRegistryEventsMock interface {
 	SubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error
 	BillingStart(requestId [32]byte, commitment functions_billing_registry_events_mock.FunctionsBillingRegistryEventsMockCommitment) error
 	BillingEnd(requestId [32]byte, subscriptionId uint64, signerPayment *big.Int, transmitterPayment *big.Int, totalCost *big.Int, success bool) error
+}
+
+type StakingEventsMock interface {
+	Address() string
+	PoolSizeIncreased(maxPoolSize *big.Int) error
+	MaxCommunityStakeAmountIncreased(maxStakeAmount *big.Int) error
+	MaxOperatorStakeAmountIncreased(maxStakeAmount *big.Int) error
+	RewardInitialized(rate *big.Int, available *big.Int, startTimestamp *big.Int, endTimestamp *big.Int) error
+	AlertRaised(alerter common.Address, roundId *big.Int, rewardAmount *big.Int) error
+	Staked(staker common.Address, newStake *big.Int, totalStake *big.Int) error
+	OperatorAdded(operator common.Address) error
+	OperatorRemoved(operator common.Address, amount *big.Int) error
+	FeedOperatorsSet(feedOperators []common.Address) error
+}
+
+type OffchainAggregatorEventsMock interface {
+	Address() string
+	ConfigSet(previousConfigBlockNumber uint32, configCount uint64, signers []common.Address, transmitters []common.Address, threshold uint8, encodedConfigVersion uint64, encoded []byte) error
+	NewTransmission(aggregatorRoundId uint32, answer *big.Int, transmitter common.Address, observations []*big.Int, observers []byte, rawReportContext [32]byte) error
 }
 
 type MockAggregatorProxy interface {

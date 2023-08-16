@@ -41,7 +41,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@2dcc6578752a8949bdabf8d7fb4f0c70b83703cd
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -71,7 +71,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@2dcc6578752a8949bdabf8d7fb4f0c70b83703cd
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -119,7 +119,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@2dcc6578752a8949bdabf8d7fb4f0c70b83703cd
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -160,10 +160,93 @@ jobs:
           - name: ccip
             nodes: 2
             os: ubuntu-latest
-#          - name: automation
-#            nodes: 9
-#            os: ubuntu-latest
-#            pyroscope_env: ci-smoke-automation-evm-simulated
+          - name: automation
+            nodes: 9
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-automation-evm-simulated
+          # temporarily disabled
+          # - name: ocr2vrf
+          #   nodes: 2
+          #   os: ubuntu-latest
+          #   pyroscope_env: ci-smoke-ocr2vrf-evm-simulated
+    runs-on: ${{ matrix.product.os }}
+    name: ETH Smoke Tests ${{ matrix.product.name }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      ## Run this step when changes that require tests to be run are made
+      - name: Run Tests
+        if: needs.changes.outputs.src == 'true'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@v2.2.7
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: true
+          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
+          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+        with:
+          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ./smoke/${{ matrix.product.name }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+          cl_image_tag: ${{ github.sha }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_location: ./integration-tests/smoke/logs
+          publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          matrix_id: ${{ matrix.product.name }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+      ## Run this step when changes that do not need the test to run are made
+      - name: Run Setup
+        if: needs.changes.outputs.src == 'false'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@v2.2.6
+        with:
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          go_mod_path: ./integration-tests/go.mod
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+
+      - name: Upload test log
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        if: failure()
+        with:
+          name: test-log-${{ matrix.product.name }}
+          path: /tmp/gotest.log
+          retention-days: 7
+        continue-on-error: true
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@6f41029bc7f0d0db5827f6804a2322e2a89e3b32
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
+          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+        continue-on-error: true
+
+  eth-smoke-tests-matrix-docker:
+    environment: integration
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    needs: [build-chainlink, changes]
+    env:
+      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+      CHAINLINK_ENV_USER: ${{ github.actor }}
+      TEST_LOG_LEVEL: debug
+    strategy:
+      fail-fast: false
+      matrix:
+        product:
           - name: cron
             nodes: 1
             os: ubuntu-latest
@@ -172,14 +255,6 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ""
-#          - name: keeper
-#            nodes: 30
-#            os: ubuntu20.04-4cores-16GB
-#            pyroscope_env: ci-smoke-keeper-evm-simulated
-          - name: forwarder_ocr
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
           - name: ocr
             nodes: 1
             os: ubuntu-latest
@@ -200,10 +275,106 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ci-smoke-vrf2-evm-simulated
-#          - name: ocr2vrf
-#            nodes: 2
-#            os: ubuntu-latest
-#            pyroscope_env: ci-smoke-ocr2vrf-evm-simulated
+          - name: forwarder_ocr
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+          - name: forwarders_ocr2
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+
+          # Keeper tests split out to use minimal environments
+          - name: keeper-1
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperBasicSmoke$
+          - name: keeper-2
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperBlockCountPerTurn/registry_1_1$
+          - name: keeper-3
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperBlockCountPerTurn/registry_1_2$
+          - name: keeper-4
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperBlockCountPerTurn/registry_1_3$
+          - name: keeper-5
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperSimulation$
+          - name: keeper-6
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperCheckPerformGasLimit/registry_1_2$
+          - name: keeper-7
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperCheckPerformGasLimit/registry_1_3$
+          - name: keeper-8
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperRegisterUpkeep$
+          - name: keeper-9
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperAddFunds$
+          - name: keeper-10
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperRemove$
+          - name: keeper-11
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperPauseRegistry$
+          - name: keeper-12
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperMigrateRegistry$
+          - name: keeper-13
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperNodeDown/registry_1_1$
+          - name: keeper-14
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperNodeDown/registry_1_2$
+          - name: keeper-15
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-keeper-evm-simulated
+            file: keeper
+            run: -run ^TestKeeperNodeDown/registry_1_3$
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}
     steps:
@@ -211,37 +382,45 @@ jobs:
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Go Test Command
+        id: build-go-test-command
+        run: |
+          # if the matrix.product.run is set, use it for a different command
+          if [ "${{ matrix.product.run }}" != "" ]; then
+            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+          fi
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@v2.2.3
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@v2.2.7
         env:
-          TESTCONTAINERS_RYUK_DISABLED: true
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ./smoke/${{ matrix.product.name }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
-          go_version: '1.20.5'
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_location: ./integration-tests/smoke/logs
           publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
+          matrix_id: ${{ matrix.product.name }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@v2.2.7
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
+          matrix_id: ${{ matrix.product.name }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
@@ -257,7 +436,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@2dcc6578752a8949bdabf8d7fb4f0c70b83703cd
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -270,15 +449,15 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     name: ETH Smoke Tests
-    needs: eth-smoke-tests-matrix
+    needs: [eth-smoke-tests-matrix,eth-smoke-tests-matrix-docker]
     steps:
       - name: Check smoke test matrix status
-        if: needs.eth-smoke-tests-matrix.result != 'success'
+        if: needs.eth-smoke-tests-matrix.result != 'success' && needs.eth-smoke-tests-matrix-docker.result != 'success'
         run: exit 1
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@2dcc6578752a8949bdabf8d7fb4f0c70b83703cd
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -322,7 +501,7 @@ jobs:
         run: |
           echo "Running migration tests from version '${{ steps.get_latest_version.outputs.latest_version }}' to: '${{ github.sha }}'"
       - name: Run Migration Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@v2.2.7
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -346,7 +525,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@2dcc6578752a8949bdabf8d7fb4f0c70b83703cd
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
