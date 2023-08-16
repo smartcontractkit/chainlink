@@ -13,23 +13,39 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
-// enum UpkeepFailureReason is defined by https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/dev/automation/2_1/interfaces/AutomationRegistryInterface2_1.sol#L97
-// make sure failure reasons are in sync between contract and offchain enum
-const (
-	UPKEEP_FAILURE_REASON_NONE = iota
-	UPKEEP_FAILURE_REASON_UPKEEP_CANCELLED
-	UPKEEP_FAILURE_REASON_UPKEEP_PAUSED
-	UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED
-	UPKEEP_FAILURE_REASON_UPKEEP_NOT_NEEDED
-	UPKEEP_FAILURE_REASON_PERFORM_DATA_EXCEEDS_LIMIT
-	UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE
-	UPKEEP_FAILURE_REASON_MERCURY_CALLBACK_REVERTED
-	UPKEEP_FAILURE_REASON_REVERT_DATA_EXCEEDS_LIMIT
-	UPKEEP_FAILURE_REASON_REGISTRY_PAUSED
+type UpkeepFailureReason uint8
+type PipelineExecutionState uint8
 
-	// Start of offchain failure types. All onchain failure reasons from
-	// contract should be put above
-	UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED
+const (
+	// upkeep failure onchain reasons
+	UpkeepFailureReasonNone                    UpkeepFailureReason = 0
+	UpkeepFailureReasonUpkeepCancelled         UpkeepFailureReason = 1
+	UpkeepFailureReasonUpkeepPaused            UpkeepFailureReason = 2
+	UpkeepFailureReasonTargetCheckReverted     UpkeepFailureReason = 3
+	UpkeepFailureReasonUpkeepNotNeeded         UpkeepFailureReason = 4
+	UpkeepFailureReasonPerformDataExceedsLimit UpkeepFailureReason = 5
+	UpkeepFailureReasonInsufficientBalance     UpkeepFailureReason = 6
+	UpkeepFailureReasonMercuryCallbackReverted UpkeepFailureReason = 7
+	UpkeepFailureReasonRevertDataExceedsLimit  UpkeepFailureReason = 8
+	UpkeepFailureReasonRegistryPaused          UpkeepFailureReason = 9
+	// leaving a gap here for more onchain failure reasons in the future
+	// upkeep failure offchain reasons
+	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
+	UpkeepFailureReasonLogBlockNoLongerExists  UpkeepFailureReason = 31
+	UpkeepFailureReasonLogBlockInvalid         UpkeepFailureReason = 32
+	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
+
+	// pipeline execution error
+	NoPipelineError             PipelineExecutionState = 0
+	CheckBlockTooOld            PipelineExecutionState = 1
+	CheckBlockInvalid           PipelineExecutionState = 2
+	RpcFlakyFailure             PipelineExecutionState = 3
+	MercuryFlakyFailure         PipelineExecutionState = 4
+	PackUnpackDecodeFailed      PipelineExecutionState = 5
+	MercuryUnmarshalError       PipelineExecutionState = 6
+	InvalidMercuryRequest       PipelineExecutionState = 7
+	FailedToReadMercuryResponse PipelineExecutionState = 8
+	InvalidRevertDataInput      PipelineExecutionState = 9
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -50,19 +66,19 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
-	var result ocr2keepers.CheckResult
-
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return result, err
+		// decode failed, not retryable
+		return getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
 
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return result, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
+		// unpack failed, not retryable
+		return getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
 
-	result = ocr2keepers.CheckResult{
+	result := ocr2keepers.CheckResult{
 		Eligible:            *abi.ConvertType(out[0], new(bool)).(*bool),
 		Retryable:           false,
 		GasAllocated:        uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
@@ -77,38 +93,38 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, 
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 
 	// if NONE we expect the perform data. if TARGET_CHECK_REVERTED we will have the error data in the perform data used for off chain lookup
-	if result.IneligibilityReason == UPKEEP_FAILURE_REASON_NONE || (result.IneligibilityReason == UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED && len(rawPerformData) > 0) {
+	if result.IneligibilityReason == uint8(UpkeepFailureReasonNone) || (result.IneligibilityReason == uint8(UpkeepFailureReasonTargetCheckReverted) && len(rawPerformData) > 0) {
 		result.PerformData = rawPerformData
 	}
 
 	return result, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {
+func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) (PipelineExecutionState, bool, []byte, uint8, *big.Int, error) {
 	out, err := rp.abi.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
 	if err != nil {
-		return false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
+		return PackUnpackDecodeFailed, false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
 	}
 
 	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 	failureReason := *abi.ConvertType(out[2], new(uint8)).(*uint8)
 	gasUsed := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	return upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
+	return NoPipelineError, upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (bool, error) {
+func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (PipelineExecutionState, bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return false, err
+		return PackUnpackDecodeFailed, false, err
 	}
 
 	out, err := rp.abi.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return false, fmt.Errorf("%w: unpack simulatePerformUpkeep return: %s", err, raw)
+		return PackUnpackDecodeFailed, false, err
 	}
 
-	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
+	return NoPipelineError, *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (UpkeepInfo, error) {

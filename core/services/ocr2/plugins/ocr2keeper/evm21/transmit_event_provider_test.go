@@ -130,7 +130,7 @@ func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 				{
 					Type:       ocr2keepers.PerformEvent,
 					UpkeepID:   id,
-					CheckBlock: ocr2keepers.BlockNumber(0), // empty for log triggers
+					CheckBlock: ocr2keepers.BlockNumber(1), // empty for log triggers
 				},
 			},
 			false,
@@ -206,7 +206,7 @@ func TestTransmitEventLog(t *testing.T) {
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
 			},
-			ocr2keepers.TransmitEventType(3),
+			ocr2keepers.InsufficientFundsReportEvent,
 		},
 		{
 			"reorged",
@@ -220,7 +220,7 @@ func TestTransmitEventLog(t *testing.T) {
 					Trigger: []byte{1, 2, 3, 4, 5, 6, 7, 8},
 				},
 			},
-			ocr2keepers.TransmitEventType(2),
+			ocr2keepers.ReorgReportEvent,
 		},
 		{
 			"empty",
@@ -230,7 +230,7 @@ func TestTransmitEventLog(t *testing.T) {
 					BlockHash:   common.HexToHash("0x010203040"),
 				},
 			},
-			ocr2keepers.TransmitEventType(0),
+			ocr2keepers.UnknownEvent,
 		},
 	}
 
