@@ -101,7 +101,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	validateFiltersTable(t, lp, orm)
 
 	// Removing non-existence Filter should log error but return nil
-	err = lp.UnregisterFilter("Filter doesn't exist", nil)
+	err = lp.UnregisterFilter("Filter doesn't exist")
 	require.NoError(t, err)
 	require.Equal(t, observedLogs.Len(), 1)
 	require.Contains(t, observedLogs.TakeAll()[0].Entry.Message, "not found")
@@ -115,16 +115,16 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.True(t, ok, "'Emitter Log 1 + 2 dupe' Filter missing")
 
 	// Removing an existing Filter should remove it from both memory and db
-	err = lp.UnregisterFilter("Emitter Log 1 + 2", nil)
+	err = lp.UnregisterFilter("Emitter Log 1 + 2")
 	require.NoError(t, err)
 	_, ok = lp.filters["Emitter Log 1 + 2"]
 	require.False(t, ok, "'Emitter Log 1 Filter' should have been removed by UnregisterFilter()")
 	require.Len(t, lp.filters, 2)
 	validateFiltersTable(t, lp, orm)
 
-	err = lp.UnregisterFilter("Emitter Log 1 + 2 dupe", nil)
+	err = lp.UnregisterFilter("Emitter Log 1 + 2 dupe")
 	require.NoError(t, err)
-	err = lp.UnregisterFilter("Emitter Log 1", nil)
+	err = lp.UnregisterFilter("Emitter Log 1")
 	require.NoError(t, err)
 	assert.Len(t, lp.filters, 0)
 	filters, err := lp.orm.LoadFilters()

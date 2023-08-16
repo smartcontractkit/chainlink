@@ -36,12 +36,16 @@ const (
 	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
 
 	// pipeline execution error
-	NoPipelineError     PipelineExecutionState = 0
-	CheckBlockTooOld    PipelineExecutionState = 1
-	CheckBlockInvalid   PipelineExecutionState = 2
-	RpcFlakyFailure     PipelineExecutionState = 3
-	MercuryFlakyFailure PipelineExecutionState = 4
-	PackUnpackFailed    PipelineExecutionState = 5
+	NoPipelineError             PipelineExecutionState = 0
+	CheckBlockTooOld            PipelineExecutionState = 1
+	CheckBlockInvalid           PipelineExecutionState = 2
+	RpcFlakyFailure             PipelineExecutionState = 3
+	MercuryFlakyFailure         PipelineExecutionState = 4
+	PackUnpackDecodeFailed      PipelineExecutionState = 5
+	MercuryUnmarshalError       PipelineExecutionState = 6
+	InvalidMercuryRequest       PipelineExecutionState = 7
+	FailedToReadMercuryResponse PipelineExecutionState = 8
+	InvalidRevertDataInput      PipelineExecutionState = 9
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -62,19 +66,19 @@ func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
-	var result ocr2keepers.CheckResult
-
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return result, err
+		// decode failed, not retryable
+		return getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
 
 	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return result, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, raw)
+		// unpack failed, not retryable
+		return getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
 	}
 
-	result = ocr2keepers.CheckResult{
+	result := ocr2keepers.CheckResult{
 		Eligible:            *abi.ConvertType(out[0], new(bool)).(*bool),
 		Retryable:           false,
 		GasAllocated:        uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
@@ -96,31 +100,31 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, 
 	return result, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) (bool, []byte, uint8, *big.Int, error) {
+func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) (PipelineExecutionState, bool, []byte, uint8, *big.Int, error) {
 	out, err := rp.abi.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
 	if err != nil {
-		return false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
+		return PackUnpackDecodeFailed, false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
 	}
 
 	upkeepNeeded := *abi.ConvertType(out[0], new(bool)).(*bool)
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 	failureReason := *abi.ConvertType(out[2], new(uint8)).(*uint8)
 	gasUsed := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
-	return upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
+	return NoPipelineError, upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (bool, error) {
+func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (PipelineExecutionState, bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
-		return false, err
+		return PackUnpackDecodeFailed, false, err
 	}
 
 	out, err := rp.abi.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
-		return false, fmt.Errorf("%w: unpack simulatePerformUpkeep return: %s", err, raw)
+		return PackUnpackDecodeFailed, false, err
 	}
 
-	return *abi.ConvertType(out[0], new(bool)).(*bool), nil
+	return NoPipelineError, *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
 func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (UpkeepInfo, error) {

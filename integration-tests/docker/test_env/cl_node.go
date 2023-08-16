@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"net/url"
 	"os"
 	"strings"
@@ -15,22 +16,21 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 
-	"math/big"
-
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	tc "github.com/testcontainers/testcontainers-go"
+	tcwait "github.com/testcontainers/testcontainers-go/wait"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	tc "github.com/testcontainers/testcontainers-go"
-	tcwait "github.com/testcontainers/testcontainers-go/wait"
 )
 
 var (
@@ -257,6 +257,7 @@ func (n *ClNode) StartContainer() error {
 		return errors.Wrap(err, ErrConnectNodeClient)
 	}
 
+	clClient.Config.InternalIP = n.ContainerName
 	n.Container = container
 	n.API = clClient
 
