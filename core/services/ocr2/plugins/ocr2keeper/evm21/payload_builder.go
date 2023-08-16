@@ -29,29 +29,23 @@ func NewPayloadBuilder(al ActiveUpkeepList, recoverer logprovider.LogRecoverer, 
 func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedBlockProposal) ([]ocr2keepers.UpkeepPayload, error) {
 	payloads := make([]ocr2keepers.UpkeepPayload, len(proposals))
 	for i, p := range proposals {
-		b.lggr.Debugf("building payload for coordinated block proposal %+v", p)
-		var checkData []byte
-		switch core.GetUpkeepType(p.UpkeepID) {
-		case ocr2keepers.LogTrigger:
-			checkData = []byte{} // TODO: call recoverer
-			payload, err := b.BuildPayload(ctx, p)
+		var payload ocr2keepers.UpkeepPayload
+		var err error
+		if b.active.IsActive(p.UpkeepID.BigInt()) {
+			b.lggr.Debugf("building payload for coordinated block proposal %+v", p)
+			switch core.GetUpkeepType(p.UpkeepID) {
+			case ocr2keepers.LogTrigger:
+				payload, err = b.BuildPayload(ctx, p)
+			case ocr2keepers.ConditionTrigger:
+				// Trigger.BlockNumber and Trigger.BlockHash are already coordinated
+				// TODO: check for upkeepID being active upkeep here using b.active
+			default:
+			}
 			if err != nil {
 				b.lggr.Warnw("failed to build payload", "err", err, "upkeepID", p.UpkeepID)
-				payloads[i] = ocr2keepers.UpkeepPayload{}
-				continue
 			}
-			payloads[i] = payload
-		case ocr2keepers.ConditionTrigger:
-			// Trigger.BlockNumber and Trigger.BlockHash are already coordinated
-			checkData = []byte{} // CheckData derived on chain for conditionals
-			// TODO: check for upkeepID being active upkeep here using b.active
-		default:
-		}
-		payload, err := core.NewUpkeepPayload(p.UpkeepID.BigInt(), p.Trigger, checkData)
-		if err != nil {
-			b.lggr.Warnw("failed to build payload", "err", err, "upkeepID", p.UpkeepID)
-			payloads[i] = ocr2keepers.UpkeepPayload{}
-			continue
+		} else {
+			b.lggr.Warnw("upkeep is not active, skipping", "upkeepID", p.UpkeepID)
 		}
 		payloads[i] = payload
 	}
