@@ -1076,7 +1076,7 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 }
 
 func setupKeeperTest(t *testing.T) (
-	*blockchain.EthereumClient,
+	blockchain.EVMClient,
 	[]*client.ChainlinkClient,
 	contracts.ContractDeployer,
 	contracts.LinkToken,
@@ -1101,11 +1101,11 @@ func setupKeeperTest(t *testing.T) (
 
 	env.ParallelTransactions(true)
 
-	linkTokenContract, err := env.Geth.ContractDeployer.DeployLinkTokenContract()
+	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	env.Geth.EthClient.WaitForEvents()
+	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	return env.Geth.EthClient, env.GetAPIs(), env.Geth.ContractDeployer, linkTokenContract, env
+	return env.EVMClient, env.GetAPIs(), env.ContractDeployer, linkTokenContract, env
 }

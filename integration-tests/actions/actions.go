@@ -85,7 +85,7 @@ func FundChainlinkNodesAddress(
 
 // FundChainlinkNodesAddress will fund all of the provided Chainlink nodes addresses with a set amount of native currency
 func FundChainlinkNodesAddresses(
-	nodes []*client.ChainlinkK8sClient,
+	nodes []*client.ChainlinkClient,
 	client blockchain.EVMClient,
 	amount *big.Float,
 ) error {

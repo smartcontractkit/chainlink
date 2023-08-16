@@ -52,7 +52,7 @@ func TestUpkeepStateStore(t *testing.T) {
 			workIDsSelect: []string{"0x1", "0x2"},
 			expected: []ocr2keepers.UpkeepState{
 				ocr2keepers.Ineligible,
-				StateUnknown,
+				ocr2keepers.UnknownState,
 			},
 		},
 		{
@@ -89,7 +89,7 @@ func TestUpkeepStateStore(t *testing.T) {
 			workIDsSelect:      []string{"0x2"},
 			workIDsFromScanner: []string{},
 			expected: []ocr2keepers.UpkeepState{
-				StateUnknown,
+				ocr2keepers.UnknownState,
 			},
 		},
 		{

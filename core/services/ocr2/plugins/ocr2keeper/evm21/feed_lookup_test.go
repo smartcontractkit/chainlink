@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -67,7 +66,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 				Password: "FakeClientKey",
 			},
 			abi:            feedLookupCompatibleABI,
-			allowListCache: cache.New(DefaultAllowListExpiration, CleanupInterval),
+			allowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		hc: mockHttpClient,
 	}
@@ -85,7 +84,6 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 		blob              string
 		callbackResp      []byte
 		expectedResults   []ocr2keepers.CheckResult
-		wantErr           error
 		callbackNeeded    bool
 		extraData         []byte
 		checkCallbackResp []byte
@@ -103,7 +101,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
+					IneligibilityReason: uint8(UpkeepFailureReasonTargetCheckReverted),
 				},
 			},
 			blob:              "0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000159761000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000648a1fbb000000000000000000000000000000000000000000000000000000274421041500000000000000000000000000000000000000000000000000000027437c6ecd0000000000000000000000000000000000000000000000000000002744c5995d00000000000000000000000000000000000000000000000000000000018d6ec108936dfe39c48715572a51ac868129958f937fb95ef5abdf73a239cf86a4fee700000000000000000000000000000000000000000000000000000000018d6ec100000000000000000000000000000000000000000000000000000000648a1fbb00000000000000000000000000000000000000000000000000000000000000028a26e557ee2feb91ccb116f3ab4eb1469afe5c3b012538cb151dbe3fbceaf6f117b24ac2a82cff25b286ae0a9b903dc6badaa16f6e67bf0983461b008574e30a00000000000000000000000000000000000000000000000000000000000000020db5c5924481061b98df59caefd9c4c1e72657c4976bf7c7568730fbdaf828080bff6b1edea2c8fed5e8bbac5574aa94cf809d898f5055cb1db14a16f1493726",
@@ -120,7 +118,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: UPKEEP_FAILURE_REASON_NONE,
+					IneligibilityReason: uint8(UpkeepFailureReasonNone),
 				},
 			},
 			hasError:      false,
@@ -135,7 +133,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE,
+					IneligibilityReason: uint8(UpkeepFailureReasonInsufficientBalance),
 				},
 			},
 			expectedResults: []ocr2keepers.CheckResult{
@@ -146,7 +144,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: UPKEEP_FAILURE_REASON_INSUFFICIENT_BALANCE,
+					IneligibilityReason: uint8(UpkeepFailureReasonInsufficientBalance),
 				},
 			},
 			hasError: true,
@@ -160,7 +158,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: UPKEEP_FAILURE_REASON_TARGET_CHECK_REVERTED,
+					IneligibilityReason: uint8(UpkeepFailureReasonTargetCheckReverted),
 				},
 			},
 			expectedResults: []ocr2keepers.CheckResult{
@@ -171,7 +169,7 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 					Trigger: ocr2keepers.Trigger{
 						BlockNumber: 26046145,
 					},
-					IneligibilityReason: UPKEEP_FAILURE_REASON_MERCURY_ACCESS_NOT_ALLOWED,
+					IneligibilityReason: uint8(UpkeepFailureReasonMercuryAccessNotAllowed),
 				},
 			},
 			hasError: false,
@@ -220,13 +218,8 @@ func TestEvmRegistry_FeedLookup(t *testing.T) {
 				r.client = client
 			}
 
-			got, err := r.feedLookup(context.Background(), tt.input)
-			if tt.wantErr != nil {
-				assert.Equal(t, tt.wantErr.Error(), err.Error(), tt.name)
-				assert.NotNil(t, err, tt.name)
-			} else {
-				assert.Equal(t, tt.expectedResults, got, tt.name)
-			}
+			got := r.feedLookup(context.Background(), tt.input)
+			assert.Equal(t, tt.expectedResults, got, tt.name)
 		})
 	}
 }
@@ -236,11 +229,13 @@ func TestEvmRegistry_DecodeFeedLookup(t *testing.T) {
 		name     string
 		data     []byte
 		expected *FeedLookup
+		state    PipelineExecutionState
 		err      error
 	}{
 		{
-			name: "success - decode to feed lookup",
-			data: []byte{125, 221, 147, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 138, 215, 253, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 100, 72, 101, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 53, 53, 52, 52, 56, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 50, 53, 52, 52, 51, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			name:  "success - decode to feed lookup",
+			data:  []byte{125, 221, 147, 62, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 138, 215, 253, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 128, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 102, 101, 101, 100, 73, 100, 72, 101, 120, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 64, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 53, 53, 52, 52, 56, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 66, 48, 120, 52, 50, 53, 52, 52, 51, 50, 100, 53, 53, 53, 51, 52, 52, 50, 100, 52, 49, 53, 50, 52, 50, 52, 57, 53, 52, 53, 50, 53, 53, 52, 100, 50, 100, 53, 52, 52, 53, 53, 51, 53, 52, 52, 101, 52, 53, 53, 52, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 11, 98, 108, 111, 99, 107, 78, 117, 109, 98, 101, 114, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+			state: NoPipelineError,
 			expected: &FeedLookup{
 				feedParamKey: FeedIdHex,
 				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
@@ -250,17 +245,19 @@ func TestEvmRegistry_DecodeFeedLookup(t *testing.T) {
 			},
 		},
 		{
-			name: "failure - unpack error",
-			data: []byte{1, 2, 3, 4},
-			err:  errors.New("unpack error: invalid data for unpacking"),
+			name:  "failure - unpack error",
+			data:  []byte{1, 2, 3, 4},
+			err:   errors.New("unpack error: invalid data for unpacking"),
+			state: PackUnpackDecodeFailed,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
-			fl, err := r.decodeFeedLookup(tt.data)
+			state, fl, err := r.decodeFeedLookup(tt.data)
 			assert.Equal(t, tt.expected, fl)
+			assert.Equal(t, tt.state, state)
 			if tt.err != nil {
 				assert.Equal(t, tt.err.Error(), err.Error())
 			}
@@ -276,6 +273,8 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 		cached       bool
 		allowed      bool
 		errorMessage string
+		state        PipelineExecutionState
+		retryable    bool
 	}{
 		{
 			name:    "success - allowed via cache",
@@ -301,6 +300,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 			name:         "failure - cannot unmarshal privilege config",
 			cached:       false,
 			errorMessage: "failed to unmarshal privilege config for upkeep ID 71022726777042968814359024671382968091267501884371696415772139504780367423725: invalid character '\\x00' looking for beginning of value",
+			state:        MercuryUnmarshalError,
 		},
 	}
 
@@ -325,7 +325,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 				}
 			}
 
-			allowed, err := r.allowedToUseMercury(nil, upkeepId)
+			state, retryable, allowed, err := r.allowedToUseMercury(nil, upkeepId)
 			if tt.errorMessage != "" {
 				assert.NotNil(t, err)
 				assert.Equal(t, tt.errorMessage, err.Error())
@@ -333,6 +333,8 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 				assert.Nil(t, err)
 				assert.Equal(t, tt.allowed, allowed)
 			}
+			assert.Equal(t, tt.state, state)
+			assert.Equal(t, tt.retryable, retryable)
 		})
 	}
 }
@@ -349,6 +351,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		expectedValues     [][]byte
 		expectedRetryable  bool
 		expectedError      error
+		state              PipelineExecutionState
 	}{
 		{
 			name: "success",
@@ -381,6 +384,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			expectedValues:     [][]byte{nil},
 			expectedRetryable:  true,
 			expectedError:      errors.New("All attempts fail:\n#1: 500\n#2: 500\n#3: 500"),
+			state:              MercuryFlakyFailure,
 		},
 		{
 			name: "failure - not retryable",
@@ -397,6 +401,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			expectedValues:     [][]byte{nil},
 			expectedRetryable:  false,
 			expectedError:      errors.New("All attempts fail:\n#1: FeedLookup upkeep 88786950015966611018675766524283132478093844178961698330929478019253453382042 block 25880526 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+			state:              InvalidMercuryRequest,
 		},
 	}
 
@@ -422,9 +427,10 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			}
 			r.hc = hc
 
-			values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup)
+			state, values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup)
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
+			assert.Equal(t, tt.state, state)
 			if tt.expectedError != nil {
 				assert.Equal(t, tt.expectedError.Error(), reqErr.Error())
 			}
@@ -586,7 +592,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			}
 			r.hc = hc
 
-			ch := make(chan MercuryBytes, 1)
+			ch := make(chan MercuryData, 1)
 			r.singleFeedRequest(context.Background(), ch, tt.index, tt.lookup, tt.mv)
 
 			m := <-ch
@@ -745,7 +751,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			}
 			r.hc = hc
 
-			ch := make(chan MercuryBytes, 1)
+			ch := make(chan MercuryData, 1)
 			r.multiFeedsRequest(context.Background(), ch, tt.lookup)
 
 			m := <-ch
@@ -775,13 +781,15 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 		values     [][]byte
 		statusCode int
 
-		callbackMsg  ethereum.CallMsg
 		callbackResp []byte
 		callbackErr  error
 
 		upkeepNeeded bool
 		performData  []byte
 		wantErr      assert.ErrorAssertionFunc
+
+		state     PipelineExecutionState
+		retryable bool
 	}{
 		{
 			name: "success - empty extra data",
@@ -836,6 +844,8 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 			callbackResp: []byte{},
 			callbackErr:  errors.New("bad response"),
 			wantErr:      assert.Error,
+			state:        RpcFlakyFailure,
+			retryable:    true,
 		},
 	}
 
@@ -856,8 +866,10 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 				}).Once()
 			r.client = client
 
-			_, err = r.checkCallback(context.Background(), tt.values, tt.lookup)
+			state, retryable, _, err := r.checkCallback(context.Background(), tt.values, tt.lookup)
 			tt.wantErr(t, err, fmt.Sprintf("Error asserion failed: %v", tt.name))
+			assert.Equal(t, tt.state, state)
+			assert.Equal(t, tt.retryable, retryable)
 		})
 	}
 }

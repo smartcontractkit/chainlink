@@ -92,7 +92,7 @@ func (ms *MockServer) StartContainer() error {
 func (ms *MockServer) getContainerRequest() tc.ContainerRequest {
 	return tc.ContainerRequest{
 		Name:         ms.ContainerName,
-		Image:        "mockserver/mockserver:5.11.2",
+		Image:        "mockserver/mockserver:5.15.0",
 		ExposedPorts: []string{"1080/tcp"},
 		Env: map[string]string{
 			"SERVER_PORT": "1080",
