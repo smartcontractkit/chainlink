@@ -142,6 +142,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     (Common.Asset memory fee, Common.Asset memory reward) = _processFee(payload, subscriber);
 
     if (fee.amount == 0) {
+      _tryReturnChange(subscriber, msg.value);
       return;
     }
 
@@ -183,6 +184,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
     if (numberOfLinkFees != 0 || numberOfNativeFees != 0) {
       _handleFeesAndRewards(subscriber, feesAndRewards, numberOfLinkFees, numberOfNativeFees);
+    } else {
+      _tryReturnChange(subscriber, msg.value);
     }
   }
 
@@ -428,8 +431,12 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     // a refund may be needed if the payee has paid in excess of the fee
-    if (change != 0) {
-      payable(subscriber).transfer(change);
+    _tryReturnChange(subscriber, change);
+  }
+
+  function _tryReturnChange(address subscriber, uint256 quantity) internal {
+    if (quantity != 0) {
+      payable(subscriber).transfer(quantity);
     }
   }
 }

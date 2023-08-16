@@ -343,6 +343,26 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     processFee(payload, USER, 0, ADMIN);
   }
 
+  function test_V1PayloadVerifiesAndReturnsChange() public {
+    //emulate a V1 payload with no quote
+    bytes memory payload = abi.encode(
+      [DEFAULT_CONFIG_DIGEST, 0, 0],
+      getV1Report(DEFAULT_FEED_1_V1),
+      new bytes32[](1),
+      new bytes32[](1),
+      bytes32("")
+    );
+
+    processFee(payload, USER, DEFAULT_REPORT_NATIVE_FEE, PROXY);
+
+    //Fee manager should not contain any native
+    assertEq(address(feeManager).balance, 0);
+    assertEq(getNativeBalance(address(feeManager)), 0);
+
+    //check the unused native passed in is returned
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY + DEFAULT_REPORT_NATIVE_FEE);
+  }
+
   function test_processFeeWithInvalidReportVersion() public {
     bytes memory data = abi.encode(0x0000100000000000000000000000000000000000000000000000000000000000);
 
