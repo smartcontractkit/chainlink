@@ -12,7 +12,6 @@ import (
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
-	"github.com/smartcontractkit/chainlink/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -25,50 +24,53 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	t.Run("v1 report transmission successfully enqueued", func(t *testing.T) {
+		report := sampleV1Report
 		c := mocks.MockWSRPCClient{
 			TransmitF: func(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
 				require.NotNil(t, in)
-				assert.Equal(t, samplePayloadHex, hexutil.Encode(in.Payload))
+				assert.Equal(t, hexutil.Encode(buildSamplePayload(report)), hexutil.Encode(in.Payload))
 				out = new(pb.TransmitResponse)
 				out.Code = 42
 				out.Error = ""
 				return out, nil
 			},
 		}
-		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
-		err := mt.Transmit(testutils.Context(t), sampleReportContext, sampleReport, sampleSigs)
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
 		require.NoError(t, err)
 	})
 	t.Run("v2 report transmission successfully enqueued", func(t *testing.T) {
+		report := sampleV2Report
 		c := mocks.MockWSRPCClient{
 			TransmitF: func(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
 				require.NotNil(t, in)
-				assert.Equal(t, samplePayloadHex, hexutil.Encode(in.Payload))
+				assert.Equal(t, hexutil.Encode(buildSamplePayload(report)), hexutil.Encode(in.Payload))
 				out = new(pb.TransmitResponse)
 				out.Code = 42
 				out.Error = ""
 				return out, nil
 			},
 		}
-		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
-		err := mt.Transmit(testutils.Context(t), sampleReportContext, sampleReport, sampleSigs)
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
 		require.NoError(t, err)
 	})
 	t.Run("v3 report transmission successfully enqueued", func(t *testing.T) {
+		report := sampleV3Report
 		c := mocks.MockWSRPCClient{
 			TransmitF: func(ctx context.Context, in *pb.TransmitRequest) (out *pb.TransmitResponse, err error) {
 				require.NotNil(t, in)
-				assert.Equal(t, samplePayloadHex, hexutil.Encode(in.Payload))
+				assert.Equal(t, hexutil.Encode(buildSamplePayload(report)), hexutil.Encode(in.Payload))
 				out = new(pb.TransmitResponse)
 				out.Code = 42
 				out.Error = ""
 				return out, nil
 			},
 		}
-		mt := mercury.NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
-		err := mt.Transmit(testutils.Context(t), sampleReportContext, sampleReport, sampleSigs)
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
 		require.NoError(t, err)
 	})
