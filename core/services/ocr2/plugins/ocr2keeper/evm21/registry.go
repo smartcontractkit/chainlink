@@ -73,10 +73,6 @@ type HttpClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-type LatestBlockGetter interface {
-	LatestBlock() int64
-}
-
 func NewEvmRegistry(
 	lggr logger.Logger,
 	addr common.Address,
@@ -107,6 +103,7 @@ func NewEvmRegistry(
 			abi:            feedLookupCompatibleABI,
 			allowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
+		// TODO: is there some core node http client we should use
 		hc: http.DefaultClient,
 	}
 }
@@ -114,17 +111,20 @@ func NewEvmRegistry(
 var upkeepStateEvents = []common.Hash{
 	iregistry21.IKeeperRegistryMasterUpkeepRegistered{}.Topic(),       // adds new upkeep id to registry
 	iregistry21.IKeeperRegistryMasterUpkeepReceived{}.Topic(),         // adds new upkeep id to registry via migration
-	iregistry21.IKeeperRegistryMasterUpkeepGasLimitSet{}.Topic(),      // unpauses an upkeep
-	iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(),         // updates the gas limit for an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepGasLimitSet{}.Topic(),      // updates the gas limit for an upkeep
+	iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(),         // unpauses an upkeep
 	iregistry21.IKeeperRegistryMasterUpkeepPaused{}.Topic(),           // pauses an upkeep
 	iregistry21.IKeeperRegistryMasterUpkeepCanceled{}.Topic(),         // cancels an upkeep
 	iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), // trigger config was changed
 }
 
-var upkeepActiveEvents = []common.Hash{
-	iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
-	iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
-	iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
+var upkeepTransmitEvents = []common.Hash{
+	// These are the events that are emitted when a node transmits a report
+	iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),               // Happy path: report performed the upkeep
+	iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),           // Report checkBlockNumber was reorged
+	iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(), // Upkeep didn't have sufficient funds when report reached chain, perform was aborted early
+	// Report was too old when it reached the chain. For conditionals upkeep was already performed on a higher block than checkBlockNum,
+	// for logs upkeep was already performed for the particular log
 	iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
 }
 
@@ -442,7 +442,7 @@ func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error 
 	// we need
 	return r.poller.RegisterFilter(logpoller.Filter{
 		Name:      UpkeepFilterName(addr),
-		EventSigs: append(upkeepStateEvents, upkeepActiveEvents...),
+		EventSigs: append(upkeepStateEvents, upkeepTransmitEvents...),
 		Addresses: []common.Address{addr},
 	})
 }
