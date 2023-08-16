@@ -1,8 +1,6 @@
 package mercury
 
 import (
-	"encoding/base64"
-
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -28,15 +26,6 @@ func BuildSamplePayload(report []byte, reportCtx ocrtypes.ReportContext, sigs []
 		panic(err)
 	}
 	return payload
-}
-
-func MustDecodeBase64(s string) (b []byte) {
-	var err error
-	b, err = base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		panic(err)
-	}
-	return
 }
 
 func MustHexToConfigDigest(s string) (cd ocrtypes.ConfigDigest) {

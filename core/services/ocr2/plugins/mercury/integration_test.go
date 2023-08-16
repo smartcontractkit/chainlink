@@ -62,7 +62,7 @@ var (
 		Min: big.NewInt(0),
 		Max: big.NewInt(math.MaxInt64),
 	}
-	rawOffchainConfig = relaymercury.OffchainConfig{
+	rawReportingPluginConfig = relaymercury.OffchainConfig{
 		ExpirationWindow: 1,
 		BaseUSDFeeCents:  100,
 	}
@@ -263,7 +263,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
-	offchainConfig, err := json.Marshal(rawOffchainConfig)
+	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
 	require.NoError(t, err)
 
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTestsMercuryV02(
@@ -277,9 +277,9 @@ func TestIntegration_MercuryV1(t *testing.T) {
 		100,                  // rMax
 		[]int{len(nodes)},    // S
 		oracles,
-		offchainConfig,       // reportingPluginConfig []byte,
-		250*time.Millisecond, // Max duration observation
-		int(f),               // f
+		reportingPluginConfig, // reportingPluginConfig []byte,
+		250*time.Millisecond,  // Max duration observation
+		int(f),                // f
 		onchainConfig,
 	)
 
@@ -605,7 +605,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
-	offchainConfig, err := json.Marshal(rawOffchainConfig)
+	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
 	require.NoError(t, err)
 
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTestsMercuryV02(
@@ -619,9 +619,9 @@ func TestIntegration_MercuryV2(t *testing.T) {
 		100,                  // rMax
 		[]int{len(nodes)},    // S
 		oracles,
-		offchainConfig,       // reportingPluginConfig []byte,
-		250*time.Millisecond, // Max duration observation
-		int(f),               // f
+		reportingPluginConfig, // reportingPluginConfig []byte,
+		250*time.Millisecond,  // Max duration observation
+		int(f),                // f
 		onchainConfig,
 	)
 
@@ -686,8 +686,8 @@ func TestIntegration_MercuryV2(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(123456789), rawOffchainConfig.BaseUSDFeeCents)
-			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawOffchainConfig.ExpirationWindow
+			expectedFee := relaymercury.CalculateFee(big.NewInt(123456789), rawReportingPluginConfig.BaseUSDFeeCents)
+			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
 			assert.InDelta(t, feed.baseBenchmarkPrice.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)
@@ -881,7 +881,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 	onchainConfig, err := (relaymercury.StandardOnchainConfigCodec{}).Encode(rawOnchainConfig)
 	require.NoError(t, err)
 
-	offchainConfig, err := json.Marshal(rawOffchainConfig)
+	reportingPluginConfig, err := json.Marshal(rawReportingPluginConfig)
 	require.NoError(t, err)
 
 	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTestsMercuryV02(
@@ -895,9 +895,9 @@ func TestIntegration_MercuryV3(t *testing.T) {
 		100,                  // rMax
 		[]int{len(nodes)},    // S
 		oracles,
-		offchainConfig,       // reportingPluginConfig []byte,
-		250*time.Millisecond, // Max duration observation
-		int(f),               // f
+		reportingPluginConfig, // reportingPluginConfig []byte,
+		250*time.Millisecond,  // Max duration observation
+		int(f),                // f
 		onchainConfig,
 	)
 
@@ -962,8 +962,8 @@ func TestIntegration_MercuryV3(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(123456789), rawOffchainConfig.BaseUSDFeeCents)
-			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawOffchainConfig.ExpirationWindow
+			expectedFee := relaymercury.CalculateFee(big.NewInt(123456789), rawReportingPluginConfig.BaseUSDFeeCents)
+			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
 			assert.InDelta(t, feed.baseBenchmarkPrice.Int64(), reportElems["benchmarkPrice"].(*big.Int).Int64(), 5000000)

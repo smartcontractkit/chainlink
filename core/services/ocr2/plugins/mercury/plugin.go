@@ -78,6 +78,7 @@ func NewServices(
 		)
 	case 2:
 		ds := mercuryv2.NewDataSource(
+			// TODO: Needs ORM to carry timestamps over
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
@@ -115,7 +116,7 @@ func NewServices(
 			ocr2Provider.ReportCodecV3(),
 		)
 	default:
-		return nil, errors.New("unknown Mercury report schema version")
+		return nil, errors.Errorf("unknown Mercury report schema version: %d", feedID.Version())
 	}
 
 	oracle, err := libocr2.NewOracle(argsNoPlugin)

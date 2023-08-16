@@ -94,7 +94,7 @@ func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation
 		return nil, errors.Wrap(err, "GetConsensusNativeFee failed")
 	}
 
-	reportBytes, err := ReportTypes.Pack(r.feedID, timestamp, benchmarkPrice, bid, ask, validFromTimestamp, expiresAt, linkFee, nativeFee)
+	reportBytes, err := ReportTypes.Pack(r.feedID, validFromTimestamp, timestamp, nativeFee, linkFee, expiresAt, benchmarkPrice, bid, ask)
 	return ocrtypes.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
 }
 
