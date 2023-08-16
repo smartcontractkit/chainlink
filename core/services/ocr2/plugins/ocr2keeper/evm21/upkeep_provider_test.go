@@ -91,9 +91,14 @@ func TestUpkeepProvider_GetActiveUpkeeps(t *testing.T) {
 
 type mockActiveUpkeepList struct {
 	ActiveUpkeepList
-	ViewFn func(...ocr2keepers.UpkeepType) []*big.Int
+	ViewFn     func(...ocr2keepers.UpkeepType) []*big.Int
+	IsActiveFn func(id *big.Int) bool
 }
 
 func (l *mockActiveUpkeepList) View(u ...ocr2keepers.UpkeepType) []*big.Int {
 	return l.ViewFn(u...)
+}
+
+func (l *mockActiveUpkeepList) IsActive(id *big.Int) bool {
+	return l.IsActiveFn(id)
 }
