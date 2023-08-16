@@ -154,11 +154,12 @@ func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 	}
 
 	return &tc.ContainerRequest{
-		Name:         g.ContainerName,
-		Image:        "ethereum/client-go:stable",
-		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
-		Networks:     networks,
-		WaitingFor: tcwait.ForLog("mined potential block").
+		Name:            g.ContainerName,
+		AlwaysPullImage: true,
+		Image:           "ethereum/client-go:stable",
+		ExposedPorts:    []string{"8544/tcp", "8545/tcp"},
+		Networks:        networks,
+		WaitingFor: tcwait.ForLog("Chain head was updated").
 			WithStartupTimeout(120 * time.Second).
 			WithPollInterval(1 * time.Second),
 		Entrypoint: []string{"sh", "./root/init.sh",
