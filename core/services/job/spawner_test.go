@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -48,7 +49,7 @@ func (d delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d delegate) ServicesForSpec(js job.Job) ([]job.ServiceCtx, error) {
+func (d delegate) ServicesForSpec(js job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	if js.Type != d.jobType {
 		return nil, nil
 	}

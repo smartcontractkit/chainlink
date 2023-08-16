@@ -4,18 +4,20 @@ import (
 	"math/big"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 
 	tc "github.com/testcontainers/testcontainers-go"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -72,7 +74,7 @@ func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 }
 
 func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
-	te.Geth.EthClient.ParallelTransactions(enabled)
+	te.EVMClient.ParallelTransactions(enabled)
 }
 
 func (m *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
@@ -99,7 +101,7 @@ func (m *CLClusterTestEnv) StartPrivateGethChain() error {
 	return nil
 }
 
-func (te *CLClusterTestEnv) StartGeth() error {
+func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, InternalDockerUrls, error) {
 	return te.Geth.StartContainer()
 }
 
@@ -173,11 +175,11 @@ func (te *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
 func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 	for _, cl := range te.CLNodes {
-		if err := cl.Fund(te.Geth.EthClient, amount); err != nil {
+		if err := cl.Fund(te.EVMClient, amount); err != nil {
 			return errors.Wrap(err, ErrFundCLNode)
 		}
 	}
-	return te.Geth.EthClient.WaitForEvents()
+	return te.EVMClient.WaitForEvents()
 }
 
 func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
@@ -194,6 +196,6 @@ func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 
 func (te *CLClusterTestEnv) Terminate() error {
 	// TESTCONTAINERS_RYUK_DISABLED=false by defualt so ryuk will remove all
-	// the containers and the network
+	// the containers and the Network
 	return nil
 }

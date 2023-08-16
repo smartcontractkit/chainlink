@@ -4,6 +4,9 @@ inputs:
   only-modules:
     description: Set to 'true' to only cache modules
     default: 'false'
+  matrix-id:
+    description: Job caches can have key collisions when used in a matrix so we need to pass a unique id in for these cases
+    default: "1"
   cache-version: 
     description: Set this to cache bust
     default: "1"
@@ -36,9 +39,9 @@ runs:
             ${{ steps.go-cache-dir.outputs.gomodcache }}
           # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
           # here by not having the primary key contain the branch name
-          key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles('./go.sum') }}
+          key: ${{ runner.os }}-gomod-${{ inputs.matrix-id }}-${{ inputs.cache-version }}-${{ hashFiles('./go.sum') }}
           restore-keys: |
-            ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
+            ${{ runner.os }}-gomod-${{ inputs.matrix-id }}-${{ inputs.cache-version }}-
 
       - uses: actions/cache@v3
         if: ${{ inputs.only-modules == 'false' }}

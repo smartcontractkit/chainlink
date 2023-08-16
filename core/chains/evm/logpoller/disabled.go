@@ -33,9 +33,9 @@ func (disabled) Replay(ctx context.Context, fromBlock int64) error { return ErrD
 
 func (disabled) ReplayAsync(fromBlock int64) {}
 
-func (disabled) RegisterFilter(filter Filter) error { return ErrDisabled }
+func (disabled) RegisterFilter(filter Filter, qopts ...pg.QOpt) error { return ErrDisabled }
 
-func (disabled) UnregisterFilter(name string, q pg.Queryer) error { return ErrDisabled }
+func (disabled) UnregisterFilter(name string, qopts ...pg.QOpt) error { return ErrDisabled }
 
 func (disabled) LatestBlock(qopts ...pg.QOpt) (int64, error) { return -1, ErrDisabled }
 

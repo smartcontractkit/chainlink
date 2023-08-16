@@ -34,8 +34,8 @@ type LogPoller interface {
 	services.ServiceCtx
 	Replay(ctx context.Context, fromBlock int64) error
 	ReplayAsync(fromBlock int64)
-	RegisterFilter(filter Filter) error
-	UnregisterFilter(name string, q pg.Queryer) error
+	RegisterFilter(filter Filter, qopts ...pg.QOpt) error
+	UnregisterFilter(name string, qopts ...pg.QOpt) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
@@ -201,7 +201,7 @@ func (filter *Filter) Contains(other *Filter) bool {
 // Generally speaking this is harmless. We enforce that EventSigs and Addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
 // The filter may be unregistered later by Filter.Name
-func (lp *logPoller) RegisterFilter(filter Filter) error {
+func (lp *logPoller) RegisterFilter(filter Filter, qopts ...pg.QOpt) error {
 	if len(filter.Addresses) == 0 {
 		return errors.Errorf("at least one address must be specified")
 	}
@@ -233,7 +233,7 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 		lp.lggr.Debugw("Creating new filter", "filter", filter)
 	}
 
-	if err := lp.orm.InsertFilter(filter); err != nil {
+	if err := lp.orm.InsertFilter(filter, qopts...); err != nil {
 		return errors.Wrap(err, "RegisterFilter failed to save filter to db")
 	}
 	lp.filters[filter.Name] = filter
@@ -241,7 +241,7 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 	return nil
 }
 
-func (lp *logPoller) UnregisterFilter(name string, q pg.Queryer) error {
+func (lp *logPoller) UnregisterFilter(name string, qopts ...pg.QOpt) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
 
@@ -251,7 +251,7 @@ func (lp *logPoller) UnregisterFilter(name string, q pg.Queryer) error {
 		return nil
 	}
 
-	if err := lp.orm.DeleteFilter(name, pg.WithQueryer(q)); err != nil {
+	if err := lp.orm.DeleteFilter(name, qopts...); err != nil {
 		return errors.Wrapf(err, "Failed to delete filter %s", name)
 	}
 	delete(lp.filters, name)

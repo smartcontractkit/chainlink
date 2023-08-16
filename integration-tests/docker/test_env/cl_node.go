@@ -255,6 +255,7 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return errors.Wrap(err, ErrConnectNodeClient)
 	}
+
 	clClient.Config.InternalIP = n.ContainerName
 	n.Container = container
 	n.API = clClient

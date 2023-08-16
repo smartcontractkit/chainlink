@@ -12,10 +12,10 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 )
 
@@ -29,13 +29,10 @@ const (
 
 type Geth struct {
 	EnvComponent
-	ExternalHttpUrl  string
-	InternalHttpUrl  string
-	ExternalWsUrl    string
-	InternalWsUrl    string
-	EthClient        *blockchain.EthereumClient
-	ContractDeployer contracts.ContractDeployer
-	ContractLoader   contracts.ContractLoader
+	ExternalHttpUrl string
+	InternalHttpUrl string
+	ExternalWsUrl   string
+	InternalWsUrl   string
 }
 
 func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
@@ -51,10 +48,10 @@ func NewGeth(networks []string, opts ...EnvComponentOption) *Geth {
 	return g
 }
 
-func (g *Geth) StartContainer() error {
+func (g *Geth) StartContainer() (blockchain.EVMNetwork, InternalDockerUrls, error) {
 	r, _, _, err := g.getGethContainerRequest(g.Networks)
 	if err != nil {
-		return err
+		return blockchain.EVMNetwork{}, InternalDockerUrls{}, err
 	}
 	ct, err := tc.GenericContainer(context.Background(),
 		tc.GenericContainerRequest{
@@ -63,19 +60,19 @@ func (g *Geth) StartContainer() error {
 			Reuse:            true,
 		})
 	if err != nil {
-		return errors.Wrapf(err, "cannot start geth container")
+		return blockchain.EVMNetwork{}, InternalDockerUrls{}, errors.Wrapf(err, "cannot start geth container")
 	}
 	host, err := ct.Host(context.Background())
 	if err != nil {
-		return err
+		return blockchain.EVMNetwork{}, InternalDockerUrls{}, err
 	}
 	httpPort, err := ct.MappedPort(context.Background(), "8544/tcp")
 	if err != nil {
-		return err
+		return blockchain.EVMNetwork{}, InternalDockerUrls{}, err
 	}
 	wsPort, err := ct.MappedPort(context.Background(), "8545/tcp")
 	if err != nil {
-		return err
+		return blockchain.EVMNetwork{}, InternalDockerUrls{}, err
 	}
 
 	g.Container = ct
@@ -89,32 +86,10 @@ func (g *Geth) StartContainer() error {
 	networkConfig.URLs = []string{g.ExternalWsUrl}
 	networkConfig.HTTPURLs = []string{g.ExternalHttpUrl}
 
-	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig)
-	if err != nil {
-		return err
+	internalDockerUrls := InternalDockerUrls{
+		HttpUrl: g.InternalHttpUrl,
+		WsUrl:   g.InternalWsUrl,
 	}
-	// Get blockchain.EthereumClient as this is the only possible client for Geth
-	switch val := bc.(type) {
-	case *blockchain.EthereumMultinodeClient:
-		ethClient, ok := val.Clients[0].(*blockchain.EthereumClient)
-		if !ok {
-			return errors.Errorf("could not get blockchain.EthereumClient from %+v", val)
-		}
-		g.EthClient = ethClient
-	default:
-		return errors.Errorf("%+v not supported for geth", val)
-	}
-
-	cd, err := contracts.NewContractDeployer(bc)
-	if err != nil {
-		return err
-	}
-	g.ContractDeployer = cd
-	cl, err := contracts.NewContractLoader(bc)
-	if err != nil {
-		return err
-	}
-	g.ContractLoader = cl
 
 	log.Info().Str("containerName", g.ContainerName).
 		Str("internalHttpUrl", g.InternalHttpUrl).
@@ -123,7 +98,7 @@ func (g *Geth) StartContainer() error {
 		Str("internalWsUrl", g.InternalWsUrl).
 		Msg("Started Geth container")
 
-	return nil
+	return networkConfig, internalDockerUrls, nil
 }
 
 func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest, *keystore.KeyStore, *accounts.Account, error) {
@@ -185,9 +160,8 @@ func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 		Image:        "ethereum/client-go:stable",
 		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
 		Networks:     networks,
-		WaitingFor: tcwait.ForHTTP("/").
-			WithPort("8544/tcp").
-			WithStartupTimeout(120 * time.Second).
+		WaitingFor: tcwait.ForListeningPort("8545/tcp").
+			WithStartupTimeout(60 * time.Second).
 			WithPollInterval(1 * time.Second),
 		Entrypoint: []string{"sh", "./root/init.sh",
 			"--dev",
