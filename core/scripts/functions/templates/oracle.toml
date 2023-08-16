@@ -19,11 +19,11 @@ observationSource  = """
 chainID = {{chain_id}}
 
 [pluginConfig]
-contractUpdateCheckFrequencySec = 30
+contractUpdateCheckFrequencySec = 300
 contractVersion = 1
 donID = "{{don_id}}"
 enableRequestSignatureCheck = false
-listenerEventHandlerTimeoutSec = 120
+listenerEventHandlerTimeoutSec = 180
 listenerEventsCheckFrequencyMillis = 500
 maxRequestSizeBytes = 30_720
 minIncomingConfirmations = 3

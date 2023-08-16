@@ -102,11 +102,8 @@ func (l *logPollerWrapper) Ready() error {
 // methods of LogPollerWrapper
 func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmRelayTypes.OracleResponse, error) {
 	l.mu.Lock()
-	coordinators := make([]common.Address, 0)
-	if l.activeCoordinator != common.HexToAddress("0x0") {
-		coordinators = append(coordinators, l.activeCoordinator)
-	}
-	if l.activeCoordinator != l.proposedCoordinator && l.proposedCoordinator != common.HexToAddress("0x0") {
+	coordinators := []common.Address{l.activeCoordinator}
+	if l.activeCoordinator != l.proposedCoordinator {
 		coordinators = append(coordinators, l.proposedCoordinator)
 	}
 	nextBlock := l.nextBlock
