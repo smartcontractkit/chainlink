@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -58,6 +59,7 @@ var _ LogEventProviderTest = &logEventProvider{}
 type logEventProvider struct {
 	lggr logger.Logger
 
+	sync   utils.StartStopOnce
 	cancel context.CancelFunc
 
 	poller logpoller.LogPoller
@@ -92,9 +94,12 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 
 func (p *logEventProvider) Start(context.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	p.lock.Lock()
+	if p.cancel != nil {
+		p.lock.Unlock()
+		return errors.New("already started")
+	}
 	p.cancel = cancel
 	p.lock.Unlock()
 
@@ -102,28 +107,50 @@ func (p *logEventProvider) Start(context.Context) error {
 
 	p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", p.opts.ReadMaxBatchSize, "readers", p.opts.Readers)
 
-	for i := 0; i < p.opts.Readers; i++ {
-		go p.startReader(ctx, readQ)
+	{ // start readers
+		go func(ctx context.Context) {
+			for i := 0; i < p.opts.Readers; i++ {
+				go p.startReader(ctx, readQ)
+			}
+		}(ctx)
 	}
 
-	return p.scheduleReadJobs(ctx, func(ids []*big.Int) {
-		select {
-		case readQ <- ids:
-		case <-ctx.Done():
-		default:
-			p.lggr.Warnw("readQ is full, dropping ids", "ids", ids)
-		}
-	})
+	{ // start scheduler
+		lggr := p.lggr.With("where", "scheduler")
+		go func(ctx context.Context) {
+			err := p.scheduleReadJobs(ctx, func(ids []*big.Int) {
+				select {
+				case readQ <- ids:
+				case <-ctx.Done():
+				default:
+					lggr.Warnw("readQ is full, dropping ids", "ids", ids)
+				}
+			})
+			if err != nil {
+				lggr.Warnw("stopped scheduling read jobs with error", "err", err)
+			}
+			lggr.Debug("stopped scheduling read jobs")
+		}(ctx)
+	}
+
+	return nil
 }
 
 func (p *logEventProvider) Close() error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
-	if p.cancel != nil {
-		p.cancel()
+	if cancel := p.cancel; cancel != nil {
+		p.cancel = nil
+		cancel()
+	} else {
+		return errors.New("already stopped")
 	}
 	return nil
+}
+
+func (p *logEventProvider) Name() string {
+	return p.lggr.Name()
 }
 
 func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
@@ -133,6 +160,8 @@ func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.Upk
 		diff = latest
 	}
 	logs := p.buffer.dequeue(int(diff))
+
+	// p.lggr.Debugw("got latest logs from buffer", "latest", latest, "diff", diff, "logs", len(logs))
 
 	var payloads []ocr2keepers.UpkeepPayload
 	for _, l := range logs {
@@ -153,7 +182,7 @@ func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.Upk
 
 		payload, err := core.NewUpkeepPayload(l.id, trig, checkData)
 		if err != nil {
-			// skip invalid payloads
+			p.lggr.Warnw("failed to create upkeep payload", "err", err, "id", l.id, "trigger", trig, "checkData", checkData)
 			continue
 		}
 
@@ -214,8 +243,7 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 			partitionIdx++
 			atomic.StoreUint64(&p.currentPartitionIdx, partitionIdx)
 		case <-ctx.Done():
-			p.lggr.Debug("stopped log event provider")
-			return nil
+			return ctx.Err()
 		}
 	}
 }

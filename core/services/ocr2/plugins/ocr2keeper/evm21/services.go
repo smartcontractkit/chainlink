@@ -79,7 +79,8 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	services.payloadBuilder = NewPayloadBuilder(al, lggr)
 
 	services.reg = NewEvmRegistry(lggr, addr, client, feedLookupCompatibleABI,
-		keeperRegistryABI, registryContract, mc, al, services.logProvider, packer)
+		keeperRegistryABI, registryContract, mc, al, services.logProvider,
+		packer, services.blockSub)
 
 	services.upkeepProvider = NewUpkeepProvider(al, services.reg, client.LogPoller())
 

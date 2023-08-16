@@ -53,7 +53,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	opts := &logprovider.LogEventProviderOptions{
 		ReadInterval: time.Second / 2,
 	}
-	logProvider, _, lp, ethClient := setupLogProvider(t, db, backend, opts)
+	logProvider, filterStore, lp, ethClient := setupLogProvider(t, db, backend, opts)
 
 	n := 10
 
@@ -69,47 +69,46 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	defer logProvider.Close()
 
 	logsRounds := 10
-	pollerTimeout := time.Second * 5
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
 	triggerEvents(ctx, t, backend, carrol, logsRounds, poll, contracts...)
 
 	poll(backend.Commit())
-	// let it time to poll
-	<-time.After(pollerTimeout)
 
-	logs, _ := logProvider.GetLatestPayloads(ctx)
-	require.NoError(t, logProvider.Close())
+	waitLogPoller(ctx, t, backend, lp, ethClient)
 
+	waitLogProvider(ctx, t, logProvider, 3)
+
+	logs, err := logProvider.GetLatestPayloads(ctx)
+	require.NoError(t, err)
 	require.GreaterOrEqual(t, len(logs), n, "failed to get all logs")
+
 	t.Run("Restart", func(t *testing.T) {
+		t.Log("restarting log provider")
 		// assuming that our service was closed and restarted,
 		// we should be able to backfill old logs and fetch new ones
-		require.NoError(t, logProvider.Close())
+		logDataABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
+		require.NoError(t, err)
+		filterStore.(logprovider.UpkeepFilterStoreTest).ResetLastPollBlock()
+		logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, logprovider.NewLogEventsPacker(logDataABI), filterStore, opts)
 
 		poll(backend.Commit())
 
 		go func() {
-			if err := logProvider.Start(ctx); err != nil {
+			if err := logProvider2.Start(ctx); err != nil {
 				t.Logf("error starting log provider: %s", err)
 				t.Fail()
 			}
 		}()
-		defer logProvider.Close()
+		defer logProvider2.Close()
 
-		logsAfterRestart, _ := logProvider.GetLatestPayloads(ctx)
-		require.GreaterOrEqual(t, len(logsAfterRestart), 0,
-			"logs should have been marked visited")
+		waitLogProvider(ctx, t, logProvider2, 2)
 
-		triggerEvents(ctx, t, backend, carrol, logsRounds, poll, contracts...)
-		// let it time to poll
-		poll(backend.Commit())
+		t.Log("getting logs after restart")
 
-		<-time.After(pollerTimeout)
-
-		logsAfterRestart, _ = logProvider.GetLatestPayloads(ctx)
-		require.NoError(t, logProvider.Close())
+		logsAfterRestart, err := logProvider2.GetLatestPayloads(ctx)
+		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(logsAfterRestart), n,
 			"failed to get logs after restart")
 	})
@@ -343,9 +342,42 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 		poll(backend.Commit())
 	}
 
+	waitLogPoller(ctx, t, backend, lp, ethClient)
+
+	// starting the log provider should backfill logs
+	go func() {
+		if startErr := logProvider.Start(ctx); startErr != nil {
+			t.Logf("error starting log provider: %s", startErr)
+			t.Fail()
+		}
+	}()
+	defer logProvider.Close()
+
+	waitLogProvider(ctx, t, logProvider, 2)
+
+	logs, err := logProvider.GetLatestPayloads(ctx)
+	require.NoError(t, err)
+	require.NoError(t, logProvider.Close())
+
+	require.GreaterOrEqual(t, len(logs), len(contracts), "failed to backfill logs")
+}
+
+func waitLogProvider(ctx context.Context, t *testing.T, logProvider logprovider.LogEventProviderTest, partition int) {
+	t.Logf("waiting for log provider to reach partition %d", partition)
+	for ctx.Err() == nil {
+		currentPartition := logProvider.CurrentPartitionIdx()
+		if currentPartition > uint64(partition) { // make sure we went over all items
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+func waitLogPoller(ctx context.Context, t *testing.T, backend *backends.SimulatedBackend, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) {
 	t.Log("waiting for log poller to get updated")
 	// let the log poller work
 	b, err := ethClient.BlockByHash(ctx, backend.Commit())
+	require.NoError(t, err)
 	latestBlock := b.Number().Int64()
 	for {
 		latestPolled, lberr := lp.LatestBlock(pg.WithParentCtx(ctx))
@@ -355,29 +387,6 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 		}
 		lp.PollAndSaveLogs(ctx, latestBlock)
 	}
-
-	// starting the log provider should backfill logs
-	go func() {
-		if startErr := logProvider.Start(ctx); err != nil {
-			t.Logf("error starting log provider: %s", startErr)
-			t.Fail()
-		}
-	}()
-	defer logProvider.Close()
-
-	t.Log("waiting for log provider to do some backfilling")
-	for ctx.Err() == nil {
-		currentPartition := logProvider.CurrentPartitionIdx()
-		if currentPartition > 2 { // make sure we went over all items
-			break
-		}
-	}
-
-	logs, err := logProvider.GetLatestPayloads(ctx)
-	require.NoError(t, err)
-	require.NoError(t, logProvider.Close())
-
-	require.GreaterOrEqual(t, len(logs), len(contracts), "failed to backfill logs")
 }
 
 func pollFn(ctx context.Context, t *testing.T, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) func(blockHash common.Hash) {
@@ -463,9 +472,9 @@ func setupLogProvider(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBack
 	lp := logpoller.NewLogPoller(lorm, ethClient, pollerLggr, 100*time.Millisecond, 1, 2, 2, 1000)
 
 	lggr := logger.TestLogger(t)
+	filterStore := logprovider.NewUpkeepFilterStore()
 	logDataABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 	require.NoError(t, err)
-	filterStore := logprovider.NewUpkeepFilterStore()
 	logProvider := logprovider.NewLogProvider(lggr, lp, logprovider.NewLogEventsPacker(logDataABI), filterStore, opts)
 
 	return logProvider, filterStore, lp, ethClient

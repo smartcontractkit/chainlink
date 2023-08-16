@@ -19,6 +19,11 @@ type UpkeepFilterStore interface {
 	Size() int
 }
 
+type UpkeepFilterStoreTest interface {
+	UpkeepFilterStore
+	ResetLastPollBlock()
+}
+
 var _ UpkeepFilterStore = &upkeepFilterStore{}
 
 type upkeepFilter struct {
@@ -160,4 +165,14 @@ func (s *upkeepFilterStore) Size() int {
 	defer s.lock.RUnlock()
 
 	return len(s.filters)
+}
+
+func (s *upkeepFilterStore) ResetLastPollBlock() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	for k, f := range s.filters {
+		f.lastPollBlock = 0
+		s.filters[k] = f
+	}
 }

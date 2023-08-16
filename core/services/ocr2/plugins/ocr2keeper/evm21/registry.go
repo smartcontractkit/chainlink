@@ -84,6 +84,7 @@ func NewEvmRegistry(
 	al ActiveUpkeepList,
 	logEventProvider logprovider.LogEventProvider,
 	packer encoding.Packer,
+	blockSub *BlockSubscriber,
 ) *EvmRegistry {
 	return &EvmRegistry{
 		lggr:       lggr.Named("EvmRegistry"),
@@ -104,7 +105,9 @@ func NewEvmRegistry(
 			allowListCache: cache.New(defaultAllowListExpiration, cleanupInterval),
 		},
 		// TODO: is there some core node http client we should use
-		hc: http.DefaultClient,
+		hc:               http.DefaultClient,
+		logEventProvider: logEventProvider,
+		bs:               blockSub,
 	}
 }
 
