@@ -5,9 +5,10 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 func TestActiveUpkeepList(t *testing.T) {
@@ -86,4 +87,17 @@ func TestActiveUpkeepList(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestActiveUpkeepList_error(t *testing.T) {
+	t.Run("if invalid or negative numbers are in the store, they are excluded from the view operation", func(t *testing.T) {
+		al := &activeList{}
+		al.items = make(map[string]bool)
+		al.items["not a number"] = true
+		al.items["-1"] = true
+		al.items["100"] = true
+
+		keys := al.View(ocr2keepers.ConditionTrigger)
+		require.Equal(t, []*big.Int{big.NewInt(100)}, keys)
+	})
 }
