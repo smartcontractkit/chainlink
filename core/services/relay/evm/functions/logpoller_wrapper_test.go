@@ -27,11 +27,11 @@ func TestLogPollerWrapper_BasicEmptyEvents(t *testing.T) {
 		ContractUpdateCheckFrequencySec: 1000000, // only once
 		ContractVersion:                 1,
 	}
-	lpWrapper, err := functions.NewLogPollerWrapper(gethcommon.Address{}, config, client, lp, lggr)
+	lpWrapper, err := functions.NewLogPollerWrapper(gethcommon.HexToAddress("0x05"), config, client, lp, lggr)
 	require.NoError(t, err)
 
 	lp.On("LatestBlock").Return(int64(100), nil)
-	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{}, nil)
+	lp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{}, nil).Maybe()
 
 	contractAddr, err := hex.DecodeString("0000000000000000000000000000000000000000000000000000000000000001")
 	require.NoError(t, err)
