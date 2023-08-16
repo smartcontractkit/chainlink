@@ -136,7 +136,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		if isLink {
 			// This IS the LINK feed, use our observed price
 			obs.LinkPrice.Val, obs.LinkPrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
-		} else if isNative {
+		}
+		if isNative {
 			// This IS the native feed, use our observed price
 			obs.NativePrice.Val, obs.NativePrice.Err = obs.BenchmarkPrice.Val, obs.BenchmarkPrice.Err
 		}

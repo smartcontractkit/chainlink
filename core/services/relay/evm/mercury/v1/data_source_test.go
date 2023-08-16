@@ -131,7 +131,7 @@ func TestMercury_Observe(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.NoError(t, obs.MaxFinalizedBlockNumber.Err)
-			assert.Equal(t, int64(123), obs.MaxFinalizedBlockNumber.Val)
+			assert.Equal(t, int64(143), obs.MaxFinalizedBlockNumber.Val)
 		})
 		t.Run("if querying latest report fails", func(t *testing.T) {
 			orm.report = nil
