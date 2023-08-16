@@ -70,14 +70,13 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 
 	services.blockSub = NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), lggr)
 
-	services.payloadBuilder = NewPayloadBuilder(lggr)
-
 	scanner := upkeepstate.NewPerformedEventsScanner(lggr, client.LogPoller(), addr)
 	services.upkeepState = upkeepstate.NewUpkeepStateStore(lggr, scanner)
 
 	services.keyring = NewOnchainKeyringV3Wrapper(keyring)
 
 	al := NewActiveUpkeepList()
+	services.payloadBuilder = NewPayloadBuilder(al, lggr)
 
 	services.reg = NewEvmRegistry(lggr, addr, client, feedLookupCompatibleABI,
 		keeperRegistryABI, registryContract, mc, al, services.logProvider, packer)

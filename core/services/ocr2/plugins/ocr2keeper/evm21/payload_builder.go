@@ -10,14 +10,16 @@ import (
 )
 
 type payloadBuilder struct {
-	lggr logger.Logger
+	active ActiveUpkeepList
+	lggr   logger.Logger
 }
 
 var _ ocr2keepers.PayloadBuilder = &payloadBuilder{}
 
-func NewPayloadBuilder(lggr logger.Logger) *payloadBuilder {
+func NewPayloadBuilder(al ActiveUpkeepList, lggr logger.Logger) *payloadBuilder {
 	return &payloadBuilder{
-		lggr: lggr,
+		active: al,
+		lggr:   lggr,
 	}
 }
 
@@ -32,7 +34,7 @@ func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2kee
 		case ocr2keepers.ConditionTrigger:
 			// Trigger.BlockNumber and Trigger.BlockHash are already coordinated
 			checkData = []byte{} // CheckData derived on chain for conditionals
-			// TODO: check for upkeepID being active upkeep here
+			// TODO: check for upkeepID being active upkeep here using b.active
 		default:
 		}
 		payload, err := core.NewUpkeepPayload(p.UpkeepID.BigInt(), p.Trigger, checkData)
