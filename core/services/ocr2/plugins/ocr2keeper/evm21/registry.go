@@ -82,7 +82,6 @@ func NewEvmRegistry(
 	mc *models.MercuryCredentials,
 	al ActiveUpkeepList,
 	logEventProvider logprovider.LogEventProvider,
-	encoder ocr2keepers.Encoder,
 	packer encoding.Packer,
 ) *EvmRegistry {
 	return &EvmRegistry{
@@ -171,7 +170,6 @@ type EvmRegistry struct {
 	runError         error
 	mercury          *MercuryConfig
 	hc               HttpClient
-	enc              ocr2keepers.Encoder // TODO: clean this up as this doesn't seem to be used
 	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
 }
@@ -909,6 +907,7 @@ func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
 }
 
 func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
+	// TODO: clean up and use bs instead
 	block, err := r.client.BlockByNumber(r.ctx, blockNumber)
 	if err != nil {
 		return [32]byte{}, err
