@@ -220,7 +220,6 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		_, err := logProvider.GetLatestPayloads(ctx)
 
 		require.NoError(t, err)
-		require.NoError(t, logProvider.Close())
 	})
 
 	t.Run("should produce a rate limit error for over burst limit", func(t *testing.T) {
@@ -259,7 +258,6 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		_, err := logProvider.GetLatestPayloads(ctx)
 
 		require.NoError(t, err)
-		require.NoError(t, logProvider.Close())
 	})
 
 	t.Run("should allow polling after lookback number of blocks have passed", func(t *testing.T) {
@@ -310,7 +308,6 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		_, err = logProvider.GetLatestPayloads(ctx)
 
 		require.NoError(t, err)
-		require.NoError(t, logProvider.Close())
 	})
 }
 
