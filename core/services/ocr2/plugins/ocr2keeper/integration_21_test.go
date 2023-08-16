@@ -41,9 +41,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -254,6 +257,92 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	require.GreaterOrEqual(t, len(allRuns), 1)
 }
 
+func TestIntegration_KeeperPluginLogRecoveryBackfill(t *testing.T) {
+	t.Skip() // Uncomment when the flow works and backfill is implemented
+	// This test setups up a registry with a log trigger upkeep before the DON is brought up
+	// When the DON is brought up it should go through the backlog of logs and trigger the upkeep
+	g := gomega.NewWithT(t)
+
+	// setup blockchain
+	sergey := testutils.MustNewSimTransactor(t) // owns all the link
+	steve := testutils.MustNewSimTransactor(t)  // registry owner
+	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
+	genesisData := core.GenesisAlloc{
+		sergey.From: {Balance: assets.Ether(10000).ToInt()},
+		steve.From:  {Balance: assets.Ether(10000).ToInt()},
+		carrol.From: {Balance: assets.Ether(10000).ToInt()},
+	}
+	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
+	var nodeKeys [5]ethkey.KeyV2
+	for i := int64(0); i < 5; i++ {
+		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
+		genesisData[nodeKeys[i].Address] = core.GenesisAccount{Balance: assets.Ether(1000).ToInt()}
+	}
+
+	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
+	stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
+	defer stopMining()
+
+	// Deploy registry
+	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
+	require.NoError(t, err)
+	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
+	require.NoError(t, err)
+	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(2000000000000000000))
+	require.NoError(t, err)
+	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+
+	setupJustOnchainContractConfig(t, nodeKeys, registry, backend, steve)
+	<-time.After(time.Second * 5)
+
+	upkeeps := 1
+
+	_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
+	require.NoError(t, err)
+	ids, _, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, upkeeps)
+	require.Equal(t, upkeeps, len(ids))
+	require.Equal(t, len(contracts), len(ids))
+	backend.Commit()
+
+	// Emit 10 logs without the nodes being setup so that they are missed
+	emits := 10
+	for i := 0; i < emits; i++ {
+		t.Logf("EvmRegistry: calling upkeep contracts to emit events. run: %d", i+1)
+		for _, contract := range contracts {
+			_, err = contract.Start(carrol)
+			require.NoError(t, err)
+			backend.Commit()
+		}
+	}
+	// Mine enough blocks to ensre these logs don't fall into log provider range
+	for i := 0; i < 1000; i++ {
+		backend.Commit()
+	}
+
+	// Now setup the nodes so that they start listening to logs
+	nodes := setupNodes(t, nodeKeys, registry, backend, steve)
+	performed := listenPerformed(t, backend, registry, ids)
+	receivedPerformedEvents := func() bool {
+		count := 0
+		performed.Range(func(key, value interface{}) bool {
+			count++
+			return true
+		})
+		return count > 0
+	}
+	g.Eventually(receivedPerformedEvents, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
+
+	// check pipeline runs
+	var allRuns []pipeline.Run
+	for _, node := range nodes {
+		runs, err2 := node.App.PipelineORM().GetAllRuns()
+		require.NoError(t, err2)
+		allRuns = append(allRuns, runs...)
+	}
+
+	require.GreaterOrEqual(t, len(allRuns), 1)
+}
+
 func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int) *sync.Map {
 	performed := &sync.Map{}
 
@@ -434,6 +523,92 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 	backend.Commit()
 
 	return nodes
+}
+
+// This function just sets up the onchain contract config withoout setting up nodes and with a dummy offchain config
+func setupJustOnchainContractConfig(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *backends.SimulatedBackend, usr *bind.TransactOpts) {
+	var (
+		oracles []confighelper.OracleIdentityExtra
+	)
+	// Create 4 dummy oracles
+	for i := int64(0); i < 4; i++ {
+		cfg, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("dummy%d", i), func(c *chainlink.Config, s *chainlink.Secrets) {})
+		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t,
+			cfg, backend)
+		kb, _ := app.GetKeyStore().OCR2().Create(chaintype.EVM)
+		onchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
+		oracles = append(oracles, confighelper.OracleIdentityExtra{
+			OracleIdentity: confighelper.OracleIdentity{
+				OnchainPublicKey:  onchainPublicKey,
+				TransmitAccount:   ocrTypes.Account(fmt.Sprintf("0x000000000000000000000000000000000000000%d", i)),
+				OffchainPublicKey: kb.OffchainPublicKey(),
+				PeerID:            fmt.Sprintf("oracle%d", i),
+			},
+			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
+		})
+	}
+	// Setup config on contract
+	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint32 maxRevertDataSize, uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address[] registrars, address upkeepPrivilegeManager)")
+	onchainConfig, err := abi.Encode(map[string]interface{}{
+		"paymentPremiumPPB":      uint32(0),
+		"flatFeeMicroLink":       uint32(0),
+		"checkGasLimit":          uint32(6500000),
+		"stalenessSeconds":       uint32(90000),
+		"gasCeilingMultiplier":   uint16(2),
+		"minUpkeepSpend":         uint32(0),
+		"maxPerformGas":          uint32(5000000),
+		"maxCheckDataSize":       uint32(5000),
+		"maxPerformDataSize":     uint32(5000),
+		"maxRevertDataSize":      uint32(5000),
+		"fallbackGasPrice":       big.NewInt(60000000000),
+		"fallbackLinkPrice":      big.NewInt(2000000000000000000),
+		"transcoder":             testutils.NewAddress(),
+		"registrars":             []common.Address{testutils.NewAddress()},
+		"upkeepPrivilegeManager": testutils.NewAddress(),
+	}, configType)
+	require.NoError(t, err)
+	rawCfg, err := json.Marshal(config.OffchainConfig{})
+	if err != nil {
+		t.Logf("error creating off-chain config: %s", err)
+		t.FailNow()
+	}
+	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
+		5*time.Second,         // deltaProgress time.Duration,
+		10*time.Second,        // deltaResend time.Duration,
+		100*time.Millisecond,  // deltaInitial time.Duration,
+		1000*time.Millisecond, // deltaRound time.Duration,
+		40*time.Millisecond,   // deltaGrace time.Duration,
+		200*time.Millisecond,  // deltaRequestCertifiedCommit time.Duration,
+		30*time.Second,        // deltaStage time.Duration,
+		uint64(50),            // rMax uint8,
+		[]int{1, 1, 1, 1},     // s []int,
+		oracles,               // oracles []OracleIdentityExtra,
+		rawCfg,                // reportingPluginConfig []byte,
+		20*time.Millisecond,   // maxDurationQuery time.Duration,
+		1600*time.Millisecond, // maxDurationObservation time.Duration,
+		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
+		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,                     // f int,
+		onchainConfig,         // onchainConfig []byte,
+	)
+
+	require.NoError(t, err)
+	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
+	require.NoError(t, err)
+	transmitterAddresses, err := accountsToAddress(transmitters)
+	require.NoError(t, err)
+
+	_, err = registry.SetConfig(
+		usr,
+		signerAddresses,
+		transmitterAddresses,
+		threshold,
+		onchainConfig,
+		offchainConfigVersion,
+		offchainConfig,
+	)
+	require.NoError(t, err)
+	backend.Commit()
 }
 
 func deployUpkeeps(t *testing.T, backend *backends.SimulatedBackend, carrol, steve *bind.TransactOpts, linkToken *link_token_interface.LinkToken, registry *iregistry21.IKeeperRegistryMaster, n int) ([]*big.Int, []common.Address, []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
