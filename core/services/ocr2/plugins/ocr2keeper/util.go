@@ -162,5 +162,5 @@ func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error)
 	if err != nil {
 		return nil, err
 	}
-	return []string{kevm21.TransmitEventProviderFilterName(addr.Address()), kevm21.UpkeepFilterName(addr.Address())}, err
+	return []string{kevm21.TransmitEventProviderFilterName(addr.Address()), kevm21.RegistryUpkeepFilterName(addr.Address())}, err
 }
