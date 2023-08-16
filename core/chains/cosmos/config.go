@@ -267,9 +267,6 @@ func setFromChain(c, f *coscfg.Chain) {
 	if f.FallbackGasPrice != nil {
 		c.FallbackGasPrice = f.FallbackGasPrice
 	}
-	if f.FCDURL != nil {
-		c.FCDURL = f.FCDURL
-	}
 	if f.GasLimitMultiplier != nil {
 		c.GasLimitMultiplier = f.GasLimitMultiplier
 	}
@@ -328,10 +325,6 @@ func (c *CosmosConfig) ConfirmPollPeriod() time.Duration {
 
 func (c *CosmosConfig) FallbackGasPrice() sdk.Dec {
 	return sdkDecFromDecimal(c.Chain.FallbackGasPrice)
-}
-
-func (c *CosmosConfig) FCDURL() url.URL {
-	return (url.URL)(*c.Chain.FCDURL)
 }
 
 func (c *CosmosConfig) GasLimitMultiplier() float64 {

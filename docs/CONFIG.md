@@ -5139,7 +5139,6 @@ BlockRate = '6s' # Default
 BlocksUntilTxTimeout = 30 # Default
 ConfirmPollPeriod = '1s' # Default
 FallbackGasPrice = '0.015' # Default
-FCDURL = 'http://cosmos.com' # Example
 GasLimitMultiplier = '1.5' # Default
 MaxMsgsPerBatch = 100 # Default
 OCR2CachePollPeriod = '4s' # Default
@@ -5183,12 +5182,6 @@ ConfirmPollPeriod sets how often check for tx confirmation.
 FallbackGasPrice = '0.015' # Default
 ```
 FallbackGasPrice sets a fallback gas price to use when the estimator is not available.
-
-### FCDURL
-```toml
-FCDURL = 'http://cosmos.com' # Example
-```
-FCDURL sets the FCD (Full Client Daemon) URL.
 
 ### GasLimitMultiplier
 ```toml

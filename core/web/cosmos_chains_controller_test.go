@@ -47,7 +47,6 @@ BlockRate = '6s'
 BlocksUntilTxTimeout = 30
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '9.999'
-FCDURL = ''
 GasLimitMultiplier = '1.55555'
 MaxMsgsPerBatch = 100
 OCR2CachePollPeriod = '4s'
