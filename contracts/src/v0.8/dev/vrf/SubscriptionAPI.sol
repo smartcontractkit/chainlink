@@ -287,7 +287,10 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function getActiveSubscriptionIds(uint256 startIndex, uint256 maxCount) external view override returns (uint256[] memory) {
+  function getActiveSubscriptionIds(
+    uint256 startIndex,
+    uint256 maxCount
+  ) external view override returns (uint256[] memory) {
     uint256 numSubs = s_subIds.length();
     if (startIndex >= numSubs) revert IndexOutOfRange();
     uint256 endIndex = startIndex + maxCount;

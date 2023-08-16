@@ -182,7 +182,10 @@ contract VRFV2Plus is BaseTest {
     }
   }
 
-  function paginateSubscriptions(ExposedVRFCoordinatorV2Plus coordinator, uint256 batchSize) internal view returns (uint256[][] memory) {
+  function paginateSubscriptions(
+    ExposedVRFCoordinatorV2Plus coordinator,
+    uint256 batchSize
+  ) internal view returns (uint256[][] memory) {
     uint arrIndex = 0;
     uint startIndex = 0;
     uint256 numSubs = coordinator.getActiveSubscriptionIdsLength();
