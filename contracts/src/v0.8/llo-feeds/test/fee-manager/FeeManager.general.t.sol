@@ -81,7 +81,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_eventIsEmittedAfterSurchargeIsSet() public {
     //native surcharge
-    uint256 nativeSurcharge = FEE_SCALAR / 5;
+    uint64 nativeSurcharge = FEE_SCALAR / 5;
 
     //expect an emit
     vm.expectEmit();
@@ -95,7 +95,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_subscriberDiscountEventIsEmittedOnUpdate() public {
     //native surcharge
-    uint256 discount = FEE_SCALAR / 3;
+    uint64 discount = FEE_SCALAR / 3;
 
     //an event should be emitted
     vm.expectEmit();
@@ -112,7 +112,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     mintLink(address(feeManager), DEFAULT_LINK_MINT_QUANTITY);
 
     //the amount to withdraw
-    uint256 withdrawAmount = 1;
+    uint192 withdrawAmount = 1;
 
     //expect an emit
     vm.expectEmit();
