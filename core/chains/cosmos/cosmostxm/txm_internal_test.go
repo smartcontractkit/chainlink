@@ -74,11 +74,12 @@ func TestTxm(t *testing.T) {
 	two := int64(2)
 	cfg := &cosmos.CosmosConfig{Chain: coscfg.Chain{
 		MaxMsgsPerBatch: &two,
+		NativeToken:     "ucosm",
 	}}
 	cfg.SetDefaults()
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
-			"uatom": cosmostypes.NewDecCoinFromDec("uatom", cosmostypes.MustNewDecFromStr("0.01")),
+			cfg.NativeToken(): cosmostypes.NewDecCoinFromDec(cfg.NativeToken(), cosmostypes.MustNewDecFromStr("0.01")),
 		}),
 	}, lggr)
 

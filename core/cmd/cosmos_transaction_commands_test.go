@@ -44,10 +44,10 @@ func TestMain(m *testing.M) {
 func TestShell_SendCosmosCoins(t *testing.T) {
 	// TODO(BCI-978): cleanup once SetupLocalCosmosNode is updated
 	chainID := cosmostest.RandomChainID()
-	accounts, _, url := cosmosclient.SetupLocalCosmosNode(t, chainID, "uatom")
-	require.Greater(t, len(accounts), 1)
 	cosmosChain := coscfg.Chain{}
 	cosmosChain.SetDefaults()
+	accounts, _, url := cosmosclient.SetupLocalCosmosNode(t, chainID, cosmosChain.NativeToken)
+	require.Greater(t, len(accounts), 1)
 	nodes := cosmos.CosmosNodes{
 		&coscfg.Node{
 			Name:          ptr("random"),
@@ -67,7 +67,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		coin, err := reader.Balance(from.Address, "uatom")
+		coin, err := reader.Balance(from.Address, cosmosChain.NativeToken)
 		if !assert.NoError(t, err) {
 			return false
 		}
@@ -93,7 +93,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	} {
 		tt := tt
 		t.Run(tt.amount, func(t *testing.T) {
-			startBal, err := reader.Balance(from.Address, "uatom")
+			startBal, err := reader.Balance(from.Address, cosmosChain.NativeToken)
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendcosmoscoins", 0)
@@ -152,11 +152,11 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 			}
 
 			// Check balance
-			endBal, err := reader.Balance(from.Address, "uatom")
+			endBal, err := reader.Balance(from.Address, cosmosChain.NativeToken)
 			require.NoError(t, err)
 			if assert.NotNil(t, startBal) && assert.NotNil(t, endBal) {
 				diff := startBal.Sub(*endBal).Amount
-				sent, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec("atom", sdk.MustNewDecFromStr(tt.amount)), "uatom")
+				sent, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec("atom", sdk.MustNewDecFromStr(tt.amount)), cosmosChain.NativeToken)
 				require.NoError(t, err)
 				if assert.True(t, diff.IsInt64()) && assert.True(t, sent.Amount.IsInt64()) {
 					require.Greater(t, diff.Int64(), sent.Amount.Int64())

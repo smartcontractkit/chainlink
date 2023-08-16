@@ -279,11 +279,14 @@ func setFromChain(c, f *coscfg.Chain) {
 	if f.OCR2CachePollPeriod != nil {
 		c.OCR2CachePollPeriod = f.OCR2CachePollPeriod
 	}
-	if f.BlockRate != nil {
-		c.BlockRate = f.BlockRate
+	if f.OCR2CacheTTL != nil {
+		c.OCR2CacheTTL = f.OCR2CacheTTL
 	}
-	if f.BlockRate != nil {
-		c.BlockRate = f.BlockRate
+	if f.TxMsgTimeout != nil {
+		c.TxMsgTimeout = f.TxMsgTimeout
+	}
+	if f.NativeToken != nil {
+		c.NativeToken = f.NativeToken
 	}
 }
 
@@ -349,6 +352,10 @@ func (c *CosmosConfig) OCR2CacheTTL() time.Duration {
 
 func (c *CosmosConfig) TxMsgTimeout() time.Duration {
 	return c.Chain.TxMsgTimeout.Duration()
+}
+
+func (c *CosmosConfig) NativeToken() string {
+	return c.Chain.NativeToken
 }
 
 func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {

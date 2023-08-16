@@ -98,6 +98,7 @@ func (s *Shell) CosmosSendAtom(c *cli.Context) (err error) {
 		FromAddress:        fromAddress,
 		Amount:             amount,
 		CosmosChainID:      chainID,
+		Token:              "atom",
 		AllowHigherAmounts: c.IsSet("force"),
 	}
 
