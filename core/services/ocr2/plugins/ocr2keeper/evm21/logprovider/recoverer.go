@@ -76,33 +76,46 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, stateStore 
 }
 
 func (r *logRecoverer) Start(pctx context.Context) error {
-	ctx, cancel := context.WithCancel(pctx)
+	ctx, cancel := context.WithCancel(context.Background())
+
 	r.lock.Lock()
+	if r.cancel != nil {
+		r.lock.Unlock()
+		return errors.New("already started")
+	}
 	r.cancel = cancel
-	interval := r.interval
 	r.lock.Unlock()
 
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	{
+		go func(ctx context.Context, interval time.Duration) {
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
 
-	r.lggr.Debug("Starting log recoverer")
+			r.lggr.Debug("Starting log recoverer")
 
-	for {
-		select {
-		case <-ticker.C:
-			r.recover(ctx)
-		case <-ctx.Done():
-			return nil
-		}
+			for {
+				select {
+				case <-ticker.C:
+					r.recover(ctx)
+				case <-ctx.Done():
+					return
+				}
+			}
+		}(ctx, r.interval)
 	}
+
+	return nil
 }
 
 func (r *logRecoverer) Close() error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
-	if r.cancel != nil {
-		r.cancel()
+	if cancel := r.cancel; cancel != nil {
+		r.cancel = nil
+		cancel()
+	} else {
+		return errors.New("already stopped")
 	}
 	return nil
 }
@@ -160,7 +173,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		return nil
 	}
 
-	filters := r.getFiltersBatch(offsetBlock)
+	filters := r.getFilterBatch(offsetBlock)
 	if len(filters) == 0 {
 		return nil
 	}
@@ -172,7 +185,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		wg.Add(1)
 		go func(f upkeepFilter) {
 			defer wg.Done()
-			r.recoverFilter(ctx, f)
+			r.recoverFilter(ctx, f, offsetBlock)
 		}(f)
 	}
 	wg.Wait()
@@ -180,8 +193,14 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 	return nil
 }
 
-func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter) error {
-	start, end := f.lastRePollBlock, f.lastRePollBlock+10
+// recoverFilter recovers logs for a single upkeep filter.
+func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, offsetBlock int64) error {
+	start := f.lastRePollBlock
+	end := start + 10
+	if end > offsetBlock {
+		end = offsetBlock
+	}
+	// we expect start to be > offsetBlock in any case
 	logs, err := r.poller.LogsWithSigs(start, end, f.topics, common.BytesToAddress(f.addr), pg.WithParentCtx(ctx))
 	if err != nil {
 		return fmt.Errorf("could not read logs: %w", err)
@@ -204,17 +223,44 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter) error 
 		return fmt.Errorf("could not read states: %w", err)
 	}
 
-	filteredLogs := make([]logpoller.Log, 0)
-	for i, log := range logs {
-		state := states[i]
-		if state != ocr2keepers.UnknownState {
-			continue
-		}
-		filteredLogs = append(filteredLogs, log)
+	filteredLogs := r.filterFinalizedStates(f, logs, states)
+
+	added, alreadyPending := r.populatePending(f, filteredLogs)
+
+	if added > 0 {
+		r.lggr.Debugw("recovered logs", "count", added, "upkeepID", f.upkeepID)
+	} else if alreadyPending == 0 {
+		// no logs found or still in process, update the lastRePollBlock for this upkeep
+		r.filterStore.UpdateFilters(func(uf1, uf2 upkeepFilter) upkeepFilter {
+			uf1.lastRePollBlock = end
+			return uf1
+		}, f)
 	}
 
+	return nil
+}
+
+// populatePending adds the logs to the pending list if they are not already pending.
+// returns the number of logs added and the number of logs that were already pending.
+func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.Log) (int, int) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	pendingSizeBefore := len(r.pending)
+	alreadyPending := 0
 	for _, log := range filteredLogs {
 		trigger := logToTrigger(log)
+		upkeepId := &ocr2keepers.UpkeepIdentifier{}
+		ok := upkeepId.FromBigInt(f.upkeepID)
+		if !ok {
+			r.lggr.Warnw("failed to convert upkeepID to UpkeepIdentifier", "upkeepID", f.upkeepID)
+			continue
+		}
+		wid := core.UpkeepWorkID(*upkeepId, trigger)
+		if _, ok := r.visited[wid]; ok {
+			alreadyPending++
+			continue
+		}
 		checkData, err := r.packer.PackLogData(log)
 		if err != nil {
 			r.lggr.Warnw("failed to pack log data", "err", err, "log", log)
@@ -225,10 +271,27 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter) error 
 			r.lggr.Warnw("failed to create payload", "err", err, "log", log)
 			continue
 		}
+		r.visited[wid] = time.Now()
+
 		r.pending = append(r.pending, payload)
 	}
 
-	return nil
+	return len(r.pending) - pendingSizeBefore, alreadyPending
+}
+
+// filterFinalizedStates filters out the log upkeeps that have already been completed (performed or ineligible).
+func (r *logRecoverer) filterFinalizedStates(f upkeepFilter, logs []logpoller.Log, states []ocr2keepers.UpkeepState) []logpoller.Log {
+	filtered := make([]logpoller.Log, 0)
+
+	for i, log := range logs {
+		state := states[i]
+		if state != ocr2keepers.UnknownState {
+			continue
+		}
+		filtered = append(filtered, log)
+	}
+
+	return filtered
 }
 
 // getRecoveryOffsetBlock returns the max block number that the recoverer will try to fetch logs.
@@ -237,7 +300,8 @@ func (r *logRecoverer) getRecoveryOffsetBlock(latest int64) int64 {
 	return latest - lookbackBlocks
 }
 
-func (r *logRecoverer) getFiltersBatch(offsetBlock int64) []upkeepFilter {
+// getFilterBatch returns a batch of filters that are ready to be recovered.
+func (r *logRecoverer) getFilterBatch(offsetBlock int64) []upkeepFilter {
 	filters := r.filterStore.GetFilters(func(f upkeepFilter) bool {
 		if f.lastRePollBlock >= offsetBlock {
 			return false
@@ -249,10 +313,13 @@ func (r *logRecoverer) getFiltersBatch(offsetBlock int64) []upkeepFilter {
 		return filters[i].lastRePollBlock < filters[j].lastRePollBlock
 	})
 
-	return r.selectBatch(filters)
+	return r.selectFilterBatch(filters)
 }
 
-func (r *logRecoverer) selectBatch(filters []upkeepFilter) []upkeepFilter {
+// selectFilterBatch selects a batch of filters to be recovered.
+// Half of the batch is selected randomly, the other half is selected
+// in order of the oldest lastRePollBlock.
+func (r *logRecoverer) selectFilterBatch(filters []upkeepFilter) []upkeepFilter {
 	batchSize := RecoveryBatchSize
 
 	if len(filters) < batchSize {
