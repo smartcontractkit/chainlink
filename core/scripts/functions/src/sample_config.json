@@ -6,6 +6,7 @@
     "MaxRequestBatchSize": 10,
     "DefaultAggregationMethod": 0,
     "UniqueReports": true,
+    "MaxReportTotalCallbackGas": 2000000,
 
     "ThresholdOffchainConfig": {
       "MaxQueryLengthBytes": 10000,
