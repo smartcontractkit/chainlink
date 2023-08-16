@@ -382,7 +382,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					lr, err := cr.Get(wantId)
 					assert.NotNil(t, lr)
 					assert.NoError(t, err)
-					stat, err := cr.ChainStatus(testctx, wantId.String())
+					stat, err := cr.ChainStatus(testctx, wantId)
 					assert.NoError(t, err)
 					assert.Equal(t, wantId.ChainID.String(), stat.ID)
 					// check legacy chains for evm and cosmos

@@ -52,9 +52,16 @@ type LegacyChainer interface {
 	LegacyCosmosChains() cosmos.LegacyChainContainer
 }
 
+// Similar to [chains.ChainStatuser] but keyed by relay identifier instead of string
+// TODO BCF-2441 remove this comment when chains.ChainStatus is no longer keyed.
+type ChainStatuser interface {
+	ChainStatus(ctx context.Context, id relay.Identifier) (types.ChainStatus, error)
+	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
+}
+
 // ChainsNodesStatuser report statuses about chains and nodes
 type ChainsNodesStatuser interface {
-	chains.ChainStatuser
+	ChainStatuser
 	chains.NodesStatuser
 }
 
@@ -195,23 +202,17 @@ func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() cosmos.LegacyChai
 	return rs.legacyChains.CosmosChains
 }
 
-// ChainStatus gets [types.ChainStatus] relayID must be string representation of [relayer.Identifier], which ensures unique identification
-// amongst the multiple relayer:chain pairs wrapped in the interoperators
-// TODO: BCF-2440/1 this signature can be changed to id relay.Identifier which is a much better API
-func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, relayerID string) (types.ChainStatus, error) {
-	relayID := new(relay.Identifier)
-	err := relayID.UnmarshalString(relayerID)
-	if err != nil {
-		return types.ChainStatus{}, fmt.Errorf("error getting chainstatus: %w", err)
-	}
-	lr, err := rs.Get(*relayID)
+// ChainStatus gets [types.ChainStatus]
+func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id relay.Identifier) (types.ChainStatus, error) {
+
+	lr, err := rs.Get(id)
 	if err != nil {
 		return types.ChainStatus{}, fmt.Errorf("%w: error getting chainstatus: %w", chains.ErrNotFound, err)
 	}
 	// this call is weird because the [loop.Relayer] interface still requires id
 	// but in this context the `relayer` should only have only id
 	// moreover, the `relayer` here is pinned to one chain we need to pass the chain id
-	return lr.ChainStatus(ctx, relayID.ChainID.String())
+	return lr.ChainStatus(ctx, id.ChainID.String())
 }
 
 func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {

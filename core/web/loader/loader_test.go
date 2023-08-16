@@ -68,7 +68,6 @@ func TestLoader_Nodes(t *testing.T) {
 	app := coremocks.NewApplication(t)
 	ctx := InjectDataloader(testutils.Context(t), app)
 
-	//var mockedLoopAdapters []*evmrelaymocks.LoopRelayAdapter
 	chainID1, chainID2, notAnID := big.NewInt(1), big.NewInt(2), big.NewInt(3)
 	relayID1 := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(chainID1.String())}
 	relayID2 := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(chainID2.String())}
