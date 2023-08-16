@@ -86,7 +86,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   event NativeSurchargeUpdated(uint64 newSurcharge);
 
   /// @notice Emits when this contract does not have enough LINK to send to the reward manager when paying in native
-  /// @param rewards Config digest and fee of the report
+  /// @param rewards Config digest and link fees which could not be subsidised
   event InsufficientLink(IRewardManager.FeePayment[] rewards);
 
   /// @notice Emitted when funds are withdrawn
@@ -172,7 +172,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
         feesAndRewards[feesAndRewardsIndex++] = IFeeManager.FeeAndReward(bytes32(payloads[i]), fee, reward);
 
         unchecked {
-          //keep track of some tallys to make downstream calculations more efficent
+          //keep track of some tallys to make downstream calculations more efficient
           if (fee.assetAddress == i_linkAddress) {
             ++numberOfLinkFees;
           } else {
@@ -344,7 +344,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //get the feedId from the report
     bytes32 feedId = bytes32(report);
 
-    //v2 doesn't need a quote payload, so skip the decoding if the report is a v1 report
+    //v1 doesn't need a quote payload, so skip the decoding
     Quote memory quote;
     if (getReportVersion(feedId) != REPORT_V1) {
       //all reports greater than v1 should have a quote payload
@@ -397,7 +397,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     uint256 change;
 
     if (msg.value != 0) {
-      //quote must be in native with enough to cover the fee
+      //there must be enough to cover the fee
       if (totalNativeFee > msg.value) revert InvalidDeposit();
 
       //wrap the amount required to pay the fee & approve as the subscriber paid in unwrapped native
