@@ -160,6 +160,7 @@ func (r *ReportCodec) ValidFromBlockNumFromReport(report ocrtypes.Report) (int64
 	return int64(blockNum), nil
 }
 
+// Decode is made available to external users (i.e. mercury server)
 func (r *ReportCodec) Decode(report ocrtypes.Report) (*Report, error) {
 	values, err := ReportTypes.Unpack(report)
 	if err != nil {

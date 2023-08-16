@@ -113,6 +113,7 @@ func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (ui
 	return timestamp, nil
 }
 
+// Decode is made available to external users (i.e. mercury server)
 func (r *ReportCodec) Decode(report ocrtypes.Report) (*Report, error) {
 	values, err := ReportTypes.Unpack(report)
 	if err != nil {

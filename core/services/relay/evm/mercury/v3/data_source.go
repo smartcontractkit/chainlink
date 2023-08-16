@@ -56,34 +56,9 @@ func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID ty
 	return &datasource{pr, jb, spec, feedID, lggr, rr, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
-func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs relaymercuryv3.Observation, merr error) {
-	run, trrs, err := ds.executeRun(ctx)
-	if err != nil {
-		merr = fmt.Errorf("Observe failed while executing run: %w", err)
-		obs.BenchmarkPrice.Err = err
-		obs.Bid.Err = err
-		obs.Ask.Err = err
-		return
-	}
-	select {
-	case ds.runResults <- run:
-	default:
-		ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
-	}
-
-	var parsed parseOutput
-	parsed, err = ds.parse(trrs)
-	if err != nil {
-		// This is not expected under normal circumstances
-		ds.lggr.Errorw("Observe failed while parsing run results", "err", err)
-		merr = fmt.Errorf("Observe failed while parsing run results: %w", err)
-		return
-	}
-	obs.BenchmarkPrice = parsed.benchmarkPrice
-	obs.Bid = parsed.bid
-	obs.Ask = parsed.ask
-
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs relaymercuryv3.Observation, err error) {
 	var wg sync.WaitGroup
+	ctx, cancel := context.WithCancel(ctx)
 
 	if fetchMaxFinalizedTimestamp {
 		wg.Add(1)
@@ -92,6 +67,37 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			obs.MaxFinalizedTimestamp.Val, obs.MaxFinalizedTimestamp.Err = ds.fetcher.LatestTimestamp(ctx)
 		}()
 	}
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		var trrs pipeline.TaskRunResults
+		var run pipeline.Run
+		run, trrs, err = ds.executeRun(ctx)
+		if err != nil {
+			cancel()
+			err = fmt.Errorf("Observe failed while executing run: %w", err)
+			return
+		}
+		select {
+		case ds.runResults <- run:
+		default:
+			ds.lggr.Warnf("unable to enqueue run save for job ID %d, buffer full", ds.spec.JobID)
+		}
+
+		var parsed parseOutput
+		parsed, err = ds.parse(trrs)
+		if err != nil {
+			cancel()
+			// This is not expected under normal circumstances
+			ds.lggr.Errorw("Observe failed while parsing run results", "err", err)
+			err = fmt.Errorf("Observe failed while parsing run results: %w", err)
+			return
+		}
+		obs.BenchmarkPrice = parsed.benchmarkPrice
+		obs.Bid = parsed.bid
+		obs.Ask = parsed.ask
+	}()
 
 	if ds.feedID == ds.linkFeedID {
 		// This IS the LINK feed, use our observed price
@@ -134,7 +140,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	// 	})
 	// }
 
-	return obs, merr
+	cancel()
+	return obs, err
 }
 
 func toBigInt(val interface{}) (*big.Int, error) {
