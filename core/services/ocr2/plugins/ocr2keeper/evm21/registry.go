@@ -121,16 +121,6 @@ var upkeepStateEvents = []common.Hash{
 	iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), // trigger config was changed
 }
 
-var upkeepTransmitEvents = []common.Hash{
-	// These are the events that are emitted when a node transmits a report
-	iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),               // Happy path: report performed the upkeep
-	iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),           // Report checkBlockNumber was reorged
-	iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(), // Upkeep didn't have sufficient funds when report reached chain, perform was aborted early
-	// Report was too old when it reached the chain. For conditionals upkeep was already performed on a higher block than checkBlockNum,
-	// for logs upkeep was already performed for the particular log
-	iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
-}
-
 type checkResult struct {
 	cr  []ocr2keepers.CheckResult
 	err error
@@ -378,7 +368,7 @@ func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error 
 	// we need
 	return r.poller.RegisterFilter(logpoller.Filter{
 		Name:      RegistryUpkeepFilterName(addr),
-		EventSigs: append(upkeepStateEvents, upkeepTransmitEvents...),
+		EventSigs: upkeepStateEvents,
 		Addresses: []common.Address{addr},
 	})
 }
