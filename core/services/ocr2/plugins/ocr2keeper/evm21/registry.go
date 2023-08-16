@@ -87,18 +87,18 @@ func NewEvmRegistry(
 	blockSub *BlockSubscriber,
 ) *EvmRegistry {
 	return &EvmRegistry{
-		lggr:       lggr.Named("EvmRegistry"),
-		ht:         client.HeadTracker(),
-		poller:     client.LogPoller(),
-		addr:       addr,
-		client:     client.Client(),
-		txHashes:   make(map[string]bool),
-		registry:   registry,
-		abi:        keeperRegistryABI,
-		active:     al,
-		packer:     packer,
-		headFunc:   func(ocr2keepers.BlockKey) {},
-		chStateLog: make(chan logpoller.Log, 1000),
+		lggr:                lggr.Named("EvmRegistry"),
+		ht:                  client.HeadTracker(),
+		poller:              client.LogPoller(),
+		addr:                addr,
+		client:              client.Client(),
+		stateEventProcessed: make(map[string]bool),
+		registry:            registry,
+		abi:                 keeperRegistryABI,
+		active:              al,
+		packer:              packer,
+		headFunc:            func(ocr2keepers.BlockKey) {},
+		chStateLog:          make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred:           mc,
 			abi:            feedLookupCompatibleABI,
@@ -146,31 +146,31 @@ type MercuryConfig struct {
 }
 
 type EvmRegistry struct {
-	ht               types.HeadTracker
-	sync             utils.StartStopOnce
-	lggr             logger.Logger
-	poller           logpoller.LogPoller
-	addr             common.Address
-	client           client.Client
-	chainID          uint64
-	registry         Registry
-	abi              abi.ABI
-	packer           encoding.Packer
-	chStateLog       chan logpoller.Log
-	reInit           *time.Timer
-	mu               sync.RWMutex
-	txHashes         map[string]bool
-	active           ActiveUpkeepList
-	lastPollBlock    int64
-	ctx              context.Context
-	cancel           context.CancelFunc
-	headFunc         func(ocr2keepers.BlockKey)
-	runState         int
-	runError         error
-	mercury          *MercuryConfig
-	hc               HttpClient
-	bs               *BlockSubscriber
-	logEventProvider logprovider.LogEventProvider
+	ht                  types.HeadTracker
+	sync                utils.StartStopOnce
+	lggr                logger.Logger
+	poller              logpoller.LogPoller
+	addr                common.Address
+	client              client.Client
+	chainID             uint64
+	registry            Registry
+	abi                 abi.ABI
+	packer              encoding.Packer
+	chStateLog          chan logpoller.Log
+	reInit              *time.Timer
+	mu                  sync.RWMutex
+	stateEventProcessed map[string]bool
+	active              ActiveUpkeepList
+	lastPollBlock       int64
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	headFunc            func(ocr2keepers.BlockKey)
+	runState            int
+	runError            error
+	mercury             *MercuryConfig
+	hc                  HttpClient
+	bs                  *BlockSubscriber
+	logEventProvider    logprovider.LogEventProvider
 }
 
 // GetActiveUpkeepIDs uses the latest head and map of all active upkeeps to build a
@@ -420,10 +420,13 @@ func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error 
 
 func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	hash := l.TxHash.String()
-	if _, ok := r.txHashes[hash]; ok {
+	r.mu.Lock()
+	if _, ok := r.stateEventProcessed[hash]; ok {
+		r.mu.Unlock()
 		return nil
 	}
-	r.txHashes[hash] = true
+	r.stateEventProcessed[hash] = true
+	r.mu.Unlock()
 
 	rawLog := l.ToGethLog()
 	abilog, err := r.registry.ParseLog(rawLog)
@@ -435,9 +438,11 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 	case *iregistry21.IKeeperRegistryMasterUpkeepPaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepPaused log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.removeFromActive(l.Id)
+		// TODO: remove triggerConfig here?
 	case *iregistry21.IKeeperRegistryMasterUpkeepCanceled:
 		r.lggr.Debugf("KeeperRegistryUpkeepCanceled log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		r.removeFromActive(l.Id)
+		// TODO: remove triggerConfig here? note event might get reorged
 	case *iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), hash)
 		// passing nil instead of l.TriggerConfig to protect against reorgs,
