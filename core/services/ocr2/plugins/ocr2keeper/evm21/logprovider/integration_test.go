@@ -369,8 +369,6 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 }
 
 func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
-	t.Skip() // TODO: fix
-
 	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
 	defer cancel()
 
@@ -413,7 +411,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 
 	// create dummy blocks
 	var blockNumber int64
-	for blockNumber < lookbackBlocks+(lookbackBlocks/2) {
+	for blockNumber < lookbackBlocks*4 {
 		b, err := ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
@@ -440,6 +438,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 			time.Sleep(100 * time.Millisecond)
 			continue
 		}
+		break
 	}
 	require.NoError(t, lctx.Err(), "could not recover logs before timeout")
 }
@@ -610,5 +609,5 @@ func (m *mockUpkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start
 	for i := range workIDs {
 		states[i] = ocr2keepers.UnknownState
 	}
-	return nil, nil
+	return states, nil
 }

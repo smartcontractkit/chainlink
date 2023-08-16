@@ -133,14 +133,10 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 		return nil, nil
 	}
 
-	pending := r.pending
-	r.pending = make([]ocr2keepers.UpkeepPayload, 0)
+	pending := make([]ocr2keepers.UpkeepPayload, len(r.pending))
+	copy(pending, r.pending)
 
-	for _, p := range pending {
-		if _, ok := r.visited[p.WorkID]; !ok {
-			r.visited[p.WorkID] = time.Now()
-		}
-	}
+	r.pending = make([]ocr2keepers.UpkeepPayload, 0)
 
 	return pending, nil
 }
@@ -226,11 +222,8 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, offset
 		return fmt.Errorf("log and state count mismatch: %d != %d", len(logs), len(states))
 	}
 	filteredLogs := r.filterFinalizedStates(f, logs, states)
-	if len(filteredLogs) > 0 {
-		r.lggr.Debugw("found missed logs for upkeep", "upkeepID", f.upkeepID, "start", start, "end", end, "logs", len(filteredLogs))
-	}
-	added, alreadyPending := r.populatePending(f, filteredLogs)
 
+	added, alreadyPending := r.populatePending(f, filteredLogs)
 	if added > 0 {
 		r.lggr.Debugw("recovered logs", "count", added, "upkeepID", f.upkeepID)
 	} else if alreadyPending == 0 {
@@ -275,11 +268,13 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 			r.lggr.Warnw("failed to create payload", "err", err, "log", log)
 			continue
 		}
+		// r.lggr.Debugw("adding a payload to pending", "payload", payload)
 		r.visited[wid] = time.Now()
-
 		r.pending = append(r.pending, payload)
 	}
-
+	if len(r.pending) == 0 {
+		return 0, 0
+	}
 	return len(r.pending) - pendingSizeBefore, alreadyPending
 }
 
