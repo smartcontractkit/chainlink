@@ -178,7 +178,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		return nil
 	}
 
-	r.lggr.Debugw("recovering logs", "filters", filters)
+	// r.lggr.Debugw("recovering logs", "filters", filters, "offsetBlock", offsetBlock, "latestBlock", latest)
 
 	var wg sync.WaitGroup
 	for _, f := range filters {
@@ -222,9 +222,13 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, offset
 	if err != nil {
 		return fmt.Errorf("could not read states: %w", err)
 	}
-
+	if len(logs) != len(states) {
+		return fmt.Errorf("log and state count mismatch: %d != %d", len(logs), len(states))
+	}
 	filteredLogs := r.filterFinalizedStates(f, logs, states)
-
+	if len(filteredLogs) > 0 {
+		r.lggr.Debugw("found missed logs for upkeep", "upkeepID", f.upkeepID, "start", start, "end", end, "logs", len(filteredLogs))
+	}
 	added, alreadyPending := r.populatePending(f, filteredLogs)
 
 	if added > 0 {
@@ -303,7 +307,7 @@ func (r *logRecoverer) getRecoveryOffsetBlock(latest int64) int64 {
 // getFilterBatch returns a batch of filters that are ready to be recovered.
 func (r *logRecoverer) getFilterBatch(offsetBlock int64) []upkeepFilter {
 	filters := r.filterStore.GetFilters(func(f upkeepFilter) bool {
-		if f.lastRePollBlock >= offsetBlock {
+		if f.lastRePollBlock > offsetBlock {
 			return false
 		}
 		return true
