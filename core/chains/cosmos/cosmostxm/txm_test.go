@@ -61,7 +61,7 @@ func TestTxm_Integration(t *testing.T) {
 	tc, err := cosmosclient.NewClient(chainID, tendermintURL, cosmos.DefaultRequestTimeout, lggr)
 	require.NoError(t, err)
 
-	// First create a transmitter key and fund it with 1k gas tokens
+	// First create a transmitter key and fund it with 1k native tokens
 	require.NoError(t, ks.Unlock("blah"))
 	transmitterKey, err := ks.Cosmos().Create()
 	require.NoError(t, err)
