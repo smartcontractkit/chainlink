@@ -3,7 +3,8 @@ name: Solidity-Hardhat
 on:
   merge_group:
   push:
-    - develop
+    branches:
+      - develop
 
 env:
   NODE_OPTIONS: --max_old_space_size=8192
