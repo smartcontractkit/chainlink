@@ -9,13 +9,14 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -27,21 +28,22 @@ type ORM interface {
 	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
 }
 
-type ORMCodec interface {
-	FeedIDFromReport(report ocrtypes.Report) (feedID [32]byte, err error)
+func FeedIDFromReport(report ocrtypes.Report) (feedID types.FeedID, err error) {
+	if n := copy(feedID[:], report); n != 32 {
+		return feedID, pkgerrors.Errorf("invalid length for report: %d", len(report))
+	}
+	return feedID, nil
 }
 
 type orm struct {
-	q     pg.Q
-	codec ORMCodec
+	q pg.Q
 }
 
 func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 	namedLogger := lggr.Named("MercuryORM")
 	q := pg.NewQ(db, namedLogger, cfg)
 	return &orm{
-		q:     q,
-		codec: (&reportcodec.EVMReportCodec{}),
+		q: q,
 	}
 }
 
@@ -61,7 +63,7 @@ func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.
 	`, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:])
 	}()
 
-	feedID, err := o.codec.FeedIDFromReport(req.Payload)
+	feedID, err := FeedIDFromReport(req.Payload)
 	if err != nil {
 		return err
 	}

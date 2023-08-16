@@ -63,6 +63,7 @@ import (
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	evmmercurytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -301,7 +302,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 
 	for _, filter := range filters {
 		d.lggr.Debugf("Unregistering %s filter", filter)
-		err = lp.UnregisterFilter(filter, q)
+		err = lp.UnregisterFilter(filter, pg.WithQueryer(q))
 		if err != nil {
 			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
 		}
@@ -310,7 +311,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 }
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.OCR2OracleSpec to be present, got %v", jb)
@@ -545,7 +546,7 @@ func (d *Delegate) newServicesMercury(
 
 	chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
 
-	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, d.mercuryORM, *spec.FeedID)
+	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, d.mercuryORM, (evmmercurytypes.FeedID)(*spec.FeedID))
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))

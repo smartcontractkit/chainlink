@@ -1,4 +1,4 @@
-package mercury
+package mercury_v1
 
 import (
 	"context"
@@ -12,34 +12,26 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-//go:generate mockery --quiet --name ChainHeadTracker --output ./mocks/ --case=underscore
-type ChainHeadTracker interface {
-	Client() evmclient.Client
-	HeadTracker() httypes.HeadTracker
-}
 
 type Runner interface {
 	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run pipeline.Run, trrs pipeline.TaskRunResults, err error)
 }
 
+// Fetcher fetcher data from Mercury server
 type Fetcher interface {
-	// FetchInitialMaxFinalizedBlockNumber should fetch the initial max
-	// finalized block number from the mercury server.
+	// FetchInitialMaxFinalizedBlockNumber should fetch the initial max finalized block number
 	FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error)
 }
 
@@ -49,29 +41,25 @@ type datasource struct {
 	spec           pipeline.Spec
 	lggr           logger.Logger
 	runResults     chan<- pipeline.Run
-	orm            DataSourceORM
-	codec          relaymercury.ReportCodec
+	orm            types.DataSourceORM
+	codec          reportcodec.ReportCodec
 	feedID         [32]byte
 
 	mu sync.RWMutex
 
 	chEnhancedTelem    chan<- ocrcommon.EnhancedTelemetryMercuryData
-	chainHeadTracker   ChainHeadTracker
+	chainHeadTracker   types.ChainHeadTracker
 	fetcher            Fetcher
 	initialBlockNumber *int64
 }
 
-var _ relaymercury.DataSource = &datasource{}
+var _ relaymercuryv1.DataSource = &datasource{}
 
-type DataSourceORM interface {
-	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID [32]byte) *datasource {
+	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber}
 }
 
-func NewDataSource(orm DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID [32]byte) *datasource {
-	return &datasource{pr, jb, spec, lggr, rr, orm, &reportcodec.EVMReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber}
-}
-
-func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercury.Observation, err error) {
+func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedBlockNum bool) (obs relaymercuryv1.Observation, err error) {
 	// setCurrentBlock must come first, along with observationTimestamp, to
 	// avoid front-running
 	ds.setCurrentBlock(ctx, &obs)
@@ -267,7 +255,7 @@ func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.Ta
 	return run, trrs, err
 }
 
-func (ds *datasource) setCurrentBlock(ctx context.Context, obs *relaymercury.Observation) {
+func (ds *datasource) setCurrentBlock(ctx context.Context, obs *relaymercuryv1.Observation) {
 	latestHead, err := ds.getCurrentBlock(ctx)
 	if err != nil {
 		obs.CurrentBlockNum.Err = err

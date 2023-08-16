@@ -221,8 +221,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
 					Keystore:      keyStore.Solana(),
-					SolanaConfigs: cfg.SolanaConfigs()},
-				)},
+					SolanaConfigs: cfg.SolanaConfigs()}),
+			},
 			expectedSolanaChainCnt: 2,
 			expectedSolanaNodeCnt:  2,
 			expectedSolanaRelayerIds: []relay.Identifier{
@@ -234,8 +234,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
 					Keystore:        keyStore.StarkNet(),
-					StarknetConfigs: cfg.StarknetConfigs()},
-				),
+					StarknetConfigs: cfg.StarknetConfigs()}),
 			},
 			expectedStarknetChainCnt: 2,
 			expectedStarknetNodeCnt:  4,
@@ -244,16 +243,13 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
 			},
 		},
-
 		{
 			name: "2 cosmos chains with 2 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
 					Keystore:         keyStore.Cosmos(),
 					CosmosConfigs:    cfg.CosmosConfigs(),
-					EventBroadcaster: pg.NewNullEventBroadcaster(),
-				},
-				),
+					EventBroadcaster: pg.NewNullEventBroadcaster()}),
 			},
 			expectedCosmosChainCnt: 2,
 			expectedCosmosNodeCnt:  2,
@@ -266,8 +262,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		{name: "all chains",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
 				Keystore:      keyStore.Solana(),
-				SolanaConfigs: cfg.SolanaConfigs()},
-			),
+				SolanaConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
 					RelayerConfig: evm.RelayerConfig{
 						GeneralConfig:    cfg,
@@ -278,14 +273,12 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				}),
 				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
 					Keystore:        keyStore.StarkNet(),
-					StarknetConfigs: cfg.StarknetConfigs()},
-				),
+					StarknetConfigs: cfg.StarknetConfigs()}),
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
 					Keystore:         keyStore.Cosmos(),
 					CosmosConfigs:    cfg.CosmosConfigs(),
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
-				},
-				),
+				}),
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,

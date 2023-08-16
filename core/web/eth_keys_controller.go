@@ -426,10 +426,7 @@ func (ekc *ETHKeysController) getKeyMaxGasPriceWei(state ethkey.State, keyAddres
 func (ekc *ETHKeysController) getChain(c *gin.Context, chainIDstr string) (chain evm.Chain, ok bool) {
 	chain, err := getChain(ekc.app.GetRelayers().LegacyEVMChains(), chainIDstr)
 	if err != nil {
-		if errors.Is(err, ErrInvalidChainID) {
-			jsonAPIError(c, http.StatusBadRequest, err)
-			return nil, false
-		} else if errors.Is(err, ErrMultipleChains) {
+		if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return nil, false
 		} else if errors.Is(err, ErrMissingChainID) {
