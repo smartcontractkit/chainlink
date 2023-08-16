@@ -233,7 +233,7 @@ func (a *arbitrumEstimator) callGetPricesInArbGas() (perL2Tx uint32, perL1Callda
 	if err != nil {
 		return 0, 0, err
 	}
-
+	fmt.Errorf("return data length (%d) different than expected (%d)", len(b), 3*32)
 	if len(b) != 3*32 { // returns (uint256, uint256, uint256);
 		err = fmt.Errorf("return data length (%d) different than expected (%d)", len(b), 3*32)
 		return
@@ -248,6 +248,7 @@ func (a *arbitrumEstimator) callGetPricesInArbGas() (perL2Tx uint32, perL1Callda
 
 	perL2TxU64 := bPerL2Tx.Uint64()
 	perL1CalldataUnitU64 := bPerL1CalldataUnit.Uint64()
+	fmt.Errorf("returned integers are not uint32 (%d, %d)", perL2TxU64, perL1CalldataUnitU64)
 	if perL2TxU64 > math.MaxUint32 || perL1CalldataUnitU64 > math.MaxUint32 {
 		err = fmt.Errorf("returned integers are not uint32 (%d, %d)", perL2TxU64, perL1CalldataUnitU64)
 		return

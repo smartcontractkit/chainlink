@@ -494,6 +494,7 @@ func (b *BlockHistoryEstimator) runLoop() {
 
 // FetchBlocksAndRecalculate fetches block history leading up to head and recalculates gas price.
 func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, head *evmtypes.Head) {
+	b.logger.Errorw("Error fetching blocks", "head", head, "err", "err")
 	if err := b.FetchBlocks(ctx, head); err != nil {
 		b.logger.Warnw("Error fetching blocks", "head", head, "err", err)
 		return
@@ -667,7 +668,11 @@ func (b *BlockHistoryEstimator) FetchBlocks(ctx context.Context, head *evmtypes.
 
 		blocks[block.Number] = *block
 	}
-
+	lggr.Errorw(
+		fmt.Sprintf("RPC node returned multiple missing blocks on query for block numbers %v even though the WS subscription already sent us these blocks. It might help to increase EVM.RPCBlockQueryDelay (currently %d)",
+			missingBlocks, blockDelay,
+		),
+		"blockNums", missingBlocks, "headNum", head.Number)
 	if len(missingBlocks) > 1 {
 		lggr.Errorw(
 			fmt.Sprintf("RPC node returned multiple missing blocks on query for block numbers %v even though the WS subscription already sent us these blocks. It might help to increase EVM.RPCBlockQueryDelay (currently %d)",

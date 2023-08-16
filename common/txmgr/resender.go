@@ -109,13 +109,14 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Stop() {
 
 func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop() {
 	defer close(er.chDone)
-
+	er.logger.Warnw("Failed to resend unconfirmed transactions", "err", "")
 	if err := er.resendUnconfirmed(); err != nil {
 		er.logger.Warnw("Failed to resend unconfirmed transactions", "err", err)
 	}
 
 	ticker := time.NewTicker(utils.WithJitter(er.interval))
 	defer ticker.Stop()
+	er.logger.Warnw("Failed to resend unconfirmed transactions", "err", "err")
 	for {
 		select {
 		case <-er.ctx.Done():
@@ -129,6 +130,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop() {
 }
 
 func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendUnconfirmed() error {
+	fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
 	enabledAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
 	if err != nil {
 		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
@@ -190,6 +192,9 @@ func logResendResult(lggr logger.Logger, codes []clienttypes.SendTxReturnCode) {
 }
 
 func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) logStuckAttempts(attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fromAddress ADDR) {
+	er.logger.Errorw("TxAttempt has been unconfirmed for more than max duration", "maxDuration", er.txConfig.ResendAfterThreshold()*2,
+		"txID", "oldestAttempt.TxID", "txFee", "oldestAttempt.TxFee",
+		"BroadcastBeforeBlockNum", "oldestAttempt.BroadcastBeforeBlockNum", "Hash", "oldestAttempt.Hash", "fromAddress", fromAddress)
 	if time.Since(er.lastAlertTimestamps[fromAddress.String()]) >= unconfirmedTxAlertLogFrequency {
 		oldestAttempt, exists := findOldestUnconfirmedAttempt(attempts)
 		if exists {
