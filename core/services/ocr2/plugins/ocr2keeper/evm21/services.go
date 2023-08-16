@@ -1,9 +1,7 @@
 package evm
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -24,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/upkeepstate"
 )
 
-type AutomationFacade interface {
+type AutomationServices interface {
 	Registry() *EvmRegistry
 	Encoder() ocr2keepers.Encoder
 	TransmitEventProvider() *TransmitEventProvider
@@ -35,12 +33,9 @@ type AutomationFacade interface {
 	LogRecoverer() logprovider.LogRecoverer
 	UpkeepProvider() ocr2keepers.ConditionalUpkeepProvider
 	Keyring() ocr3types.OnchainKeyring[plugin.AutomationReportInfo]
-
-	Start(context.Context) error
-	io.Closer
 }
 
-func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, keyring ocrtypes.OnchainKeyring, lggr logger.Logger) (AutomationFacade, error) {
+func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, keyring ocrtypes.OnchainKeyring, lggr logger.Logger) (AutomationServices, error) {
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -65,34 +60,34 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 		return nil, err
 	}
 
-	f := new(automationFacade)
-	f.transmitter = transmitter
+	services := new(automationServices)
+	services.transmitter = transmitter
 
 	packer := encoding.NewAbiPacker(keeperRegistryABI, utilsABI)
-	f.encoder = encoding.NewReportEncoder(packer)
+	services.encoder = encoding.NewReportEncoder(packer)
 
-	f.logProvider, f.logRecoverer = logprovider.New(lggr, client.LogPoller(), utilsABI)
+	services.logProvider, services.logRecoverer = logprovider.New(lggr, client.LogPoller(), utilsABI)
 
-	f.blockSub = NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), lggr)
+	services.blockSub = NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), lggr)
 
-	f.payloadBuilder = NewPayloadBuilder(lggr)
+	services.payloadBuilder = NewPayloadBuilder(lggr)
 
 	scanner := upkeepstate.NewPerformedEventsScanner(lggr, client.LogPoller(), addr)
-	f.upkeepState = upkeepstate.NewUpkeepStateStore(lggr, scanner)
+	services.upkeepState = upkeepstate.NewUpkeepStateStore(lggr, scanner)
 
-	f.keyring = NewOnchainKeyringV3Wrapper(keyring)
+	services.keyring = NewOnchainKeyringV3Wrapper(keyring)
 
 	al := NewActiveUpkeepList()
 
-	f.reg = NewEvmRegistry(lggr, addr, client, feedLookupCompatibleABI,
-		keeperRegistryABI, registryContract, mc, al, f.logProvider, f.encoder, packer)
+	services.reg = NewEvmRegistry(lggr, addr, client, feedLookupCompatibleABI,
+		keeperRegistryABI, registryContract, mc, al, services.logProvider, services.encoder, packer)
 
-	f.upkeepProvider = NewUpkeepProvider(al, f.reg, client.LogPoller())
+	services.upkeepProvider = NewUpkeepProvider(al, services.reg, client.LogPoller())
 
-	return f, nil
+	return services, nil
 }
 
-type automationFacade struct {
+type automationServices struct {
 	reg            *EvmRegistry
 	encoder        ocr2keepers.Encoder
 	transmitter    *TransmitEventProvider
@@ -105,54 +100,44 @@ type automationFacade struct {
 	keyring        *onchainKeyringV3Wrapper
 }
 
-var _ AutomationFacade = &automationFacade{}
+var _ AutomationServices = &automationServices{}
 
-func (f *automationFacade) Start(_ context.Context) error {
-	// TODO: implement
-	return nil
-}
-
-func (f *automationFacade) Close() error {
-	// TODO: implement
-	return nil
-}
-
-func (f *automationFacade) Registry() *EvmRegistry {
+func (f *automationServices) Registry() *EvmRegistry {
 	return f.reg
 }
 
-func (f *automationFacade) Encoder() ocr2keepers.Encoder {
+func (f *automationServices) Encoder() ocr2keepers.Encoder {
 	return f.encoder
 }
 
-func (f *automationFacade) TransmitEventProvider() *TransmitEventProvider {
+func (f *automationServices) TransmitEventProvider() *TransmitEventProvider {
 	return f.transmitter
 }
 
-func (f *automationFacade) BlockSubscriber() *BlockSubscriber {
+func (f *automationServices) BlockSubscriber() *BlockSubscriber {
 	return f.blockSub
 }
 
-func (f *automationFacade) PayloadBuilder() ocr2keepers.PayloadBuilder {
+func (f *automationServices) PayloadBuilder() ocr2keepers.PayloadBuilder {
 	return f.payloadBuilder
 }
 
-func (f *automationFacade) UpkeepStateStore() upkeepstate.UpkeepStateStore {
+func (f *automationServices) UpkeepStateStore() upkeepstate.UpkeepStateStore {
 	return f.upkeepState
 }
 
-func (f *automationFacade) LogEventProvider() logprovider.LogEventProvider {
+func (f *automationServices) LogEventProvider() logprovider.LogEventProvider {
 	return f.logProvider
 }
 
-func (f *automationFacade) LogRecoverer() logprovider.LogRecoverer {
+func (f *automationServices) LogRecoverer() logprovider.LogRecoverer {
 	return f.logRecoverer
 }
 
-func (f *automationFacade) UpkeepProvider() ocr2keepers.ConditionalUpkeepProvider {
+func (f *automationServices) UpkeepProvider() ocr2keepers.ConditionalUpkeepProvider {
 	return f.upkeepProvider
 }
 
-func (f *automationFacade) Keyring() ocr3types.OnchainKeyring[plugin.AutomationReportInfo] {
+func (f *automationServices) Keyring() ocr3types.OnchainKeyring[plugin.AutomationReportInfo] {
 	return f.keyring
 }

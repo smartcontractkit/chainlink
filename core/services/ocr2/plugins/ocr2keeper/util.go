@@ -126,7 +126,7 @@ func EVMDependencies21(
 	pr pipeline.Runner,
 	mc *models.MercuryCredentials,
 	keyring ocrtypes.OnchainKeyring,
-) (evmrelay.OCR2KeeperProvider, kevm21.AutomationFacade, error) {
+) (evmrelay.OCR2KeeperProvider, kevm21.AutomationServices, error) {
 	var err error
 	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
@@ -149,12 +149,12 @@ func EVMDependencies21(
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	facade, err := kevm21.New(rAddr, chain, mc, keyring, lggr)
+	services, err := kevm21.New(rAddr, chain, mc, keyring, lggr)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return keeperProvider, facade, err
+	return keeperProvider, services, err
 }
 
 func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {

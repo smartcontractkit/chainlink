@@ -875,7 +875,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 
 	mc := d.cfg.Mercury().Credentials(credName)
 
-	keeperProvider, facade, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc, kb)
+	keeperProvider, services, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc, kb)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
@@ -914,17 +914,17 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Automation),
 		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
-		OnchainKeyring:               facade.Keyring(),
+		OnchainKeyring:               services.Keyring(),
 		LocalConfig:                  lc,
-		LogProvider:                  facade.LogEventProvider(),
-		EventProvider:                facade.TransmitEventProvider(),
-		Runnable:                     facade.Registry(),
-		Encoder:                      facade.Encoder(),
-		BlockSubscriber:              facade.BlockSubscriber(),
-		RecoverableProvider:          facade.LogRecoverer(),
-		PayloadBuilder:               facade.PayloadBuilder(),
-		UpkeepProvider:               facade.UpkeepProvider(),
-		UpkeepStateUpdater:           facade.UpkeepStateStore(),
+		LogProvider:                  services.LogEventProvider(),
+		EventProvider:                services.TransmitEventProvider(),
+		Runnable:                     services.Registry(),
+		Encoder:                      services.Encoder(),
+		BlockSubscriber:              services.BlockSubscriber(),
+		RecoverableProvider:          services.LogRecoverer(),
+		PayloadBuilder:               services.PayloadBuilder(),
+		UpkeepProvider:               services.UpkeepProvider(),
+		UpkeepStateUpdater:           services.UpkeepStateStore(),
 		UpkeepTypeGetter:             ocr2keeper21core.GetUpkeepType,
 		WorkIDGenerator:              ocr2keeper21core.WorkIDGenerator,
 		// TODO: Clean up the config
@@ -953,10 +953,10 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	return []job.ServiceCtx{
 		runResultSaver,
 		keeperProvider,
-		facade.Registry(),
-		facade.BlockSubscriber(),
-		facade.LogEventProvider(),
-		facade.TransmitEventProvider(),
+		services.Registry(),
+		services.BlockSubscriber(),
+		services.LogEventProvider(),
+		services.TransmitEventProvider(),
 		pluginService,
 	}, nil
 }
