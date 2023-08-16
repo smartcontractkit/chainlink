@@ -69,14 +69,15 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	scanner := upkeepstate.NewPerformedEventsScanner(lggr, client.LogPoller(), addr)
 	services.upkeepState = upkeepstate.NewUpkeepStateStore(lggr, scanner)
 
-	services.logProvider, services.logRecoverer = logprovider.New(lggr, client.LogPoller(), utilsABI, services.upkeepState)
-
+	logProvider, logRecoverer := logprovider.New(lggr, client.LogPoller(), utilsABI, services.upkeepState)
+	services.logProvider = logProvider
+	services.logRecoverer = logRecoverer
 	services.blockSub = NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), lggr)
 
 	services.keyring = NewOnchainKeyringV3Wrapper(keyring)
 
 	al := NewActiveUpkeepList()
-	services.payloadBuilder = NewPayloadBuilder(al, lggr)
+	services.payloadBuilder = NewPayloadBuilder(al, logRecoverer, lggr)
 
 	services.reg = NewEvmRegistry(lggr, addr, client, feedLookupCompatibleABI,
 		keeperRegistryABI, registryContract, mc, al, services.logProvider,

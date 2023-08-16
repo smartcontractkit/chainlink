@@ -34,7 +34,7 @@ func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2kee
 		switch core.GetUpkeepType(p.UpkeepID) {
 		case ocr2keepers.LogTrigger:
 			checkData = []byte{} // TODO: call recoverer
-			payload, err := b.recoverer.BuildPayload(ctx, p)
+			payload, err := b.BuildPayload(ctx, p)
 			if err != nil {
 				b.lggr.Warnw("failed to build payload", "err", err, "upkeepID", p.UpkeepID)
 				payloads[i] = ocr2keepers.UpkeepPayload{}
@@ -57,4 +57,8 @@ func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2kee
 	}
 
 	return payloads, nil
+}
+
+func (b *payloadBuilder) BuildPayload(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) (ocr2keepers.UpkeepPayload, error) {
+	return b.recoverer.BuildPayload(ctx, proposal)
 }
