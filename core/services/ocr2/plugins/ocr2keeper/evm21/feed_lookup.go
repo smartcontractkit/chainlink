@@ -63,7 +63,7 @@ type MercuryV02Response struct {
 
 // MercuryV03Response represents a JSON structure used by Mercury v0.3
 type MercuryV03Response struct {
-	FeedId                string `json:"feedId"`
+	FeedID                string `json:"feedID"`
 	ValidFromTimestamp    string `json:"validFromTimestamp"`
 	ObservationsTimestamp string `json:"observationsTimestamp"`
 	FullReport            string `json:"fullReport"`
