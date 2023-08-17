@@ -17,6 +17,106 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
+func TestPacker_PackReport(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		report     automation21Utils.KeeperRegistryBase21Report
+		expectsErr bool
+		wantErr    error
+		wantBytes  int
+	}{
+		{
+			name: "all non-zero values get encoded to a byte array of a specific length",
+			report: automation21Utils.KeeperRegistryBase21Report{
+				FastGasWei: big.NewInt(0),
+				LinkNative: big.NewInt(0),
+				UpkeepIds:  []*big.Int{big.NewInt(3)},
+				GasLimits:  []*big.Int{big.NewInt(4)},
+				Triggers: [][]byte{
+					{5},
+				},
+				PerformDatas: [][]byte{
+					{6},
+				},
+			},
+			wantBytes: 608,
+		},
+		{
+			name: "if upkeep IDs are nil, the packed report is smaller",
+			report: automation21Utils.KeeperRegistryBase21Report{
+				FastGasWei: big.NewInt(1),
+				LinkNative: big.NewInt(2),
+				UpkeepIds:  nil,
+				GasLimits:  []*big.Int{big.NewInt(4)},
+				Triggers: [][]byte{
+					{5},
+				},
+				PerformDatas: [][]byte{
+					{6},
+				},
+			},
+			wantBytes: 576,
+		},
+		{
+			name: "if gas limits are nil, the packed report is smaller",
+			report: automation21Utils.KeeperRegistryBase21Report{
+				FastGasWei: big.NewInt(1),
+				LinkNative: big.NewInt(2),
+				UpkeepIds:  []*big.Int{big.NewInt(3)},
+				GasLimits:  nil,
+				Triggers: [][]byte{
+					{5},
+				},
+				PerformDatas: [][]byte{
+					{6},
+				},
+			},
+			wantBytes: 576,
+		},
+		{
+			name: "if perform datas are nil, the packed report is smaller",
+			report: automation21Utils.KeeperRegistryBase21Report{
+				FastGasWei: big.NewInt(1),
+				LinkNative: big.NewInt(2),
+				UpkeepIds:  []*big.Int{big.NewInt(3)},
+				GasLimits:  []*big.Int{big.NewInt(4)},
+				Triggers: [][]byte{
+					{5},
+				},
+				PerformDatas: nil,
+			},
+			wantBytes: 512,
+		},
+		{
+			name: "if triggers are nil, the packed report is smaller",
+			report: automation21Utils.KeeperRegistryBase21Report{
+				FastGasWei: big.NewInt(1),
+				LinkNative: big.NewInt(2),
+				UpkeepIds:  []*big.Int{big.NewInt(3)},
+				GasLimits:  []*big.Int{big.NewInt(4)},
+				Triggers:   nil,
+				PerformDatas: [][]byte{
+					{6},
+				},
+			},
+			wantBytes: 512,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			packer, err := newPacker()
+			assert.NoError(t, err)
+			bytes, err := packer.PackReport(tc.report)
+			if tc.expectsErr {
+				assert.Error(t, err)
+				assert.Equal(t, tc.wantErr.Error(), err.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.wantBytes, len(bytes))
+			}
+		})
+	}
+}
+
 func TestPacker_UnpackCheckResults(t *testing.T) {
 	uid, _ := new(big.Int).SetString("1843548457736589226156809205796175506139185429616502850435279853710366065936", 10)
 	upkeepId := ocr2keepers.UpkeepIdentifier{}

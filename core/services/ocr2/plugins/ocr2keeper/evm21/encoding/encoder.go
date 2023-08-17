@@ -32,6 +32,8 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 	}
 
 	report := automation_utils_2_1.KeeperRegistryBase21Report{
+		FastGasWei:   big.NewInt(0),
+		LinkNative:   big.NewInt(0),
 		UpkeepIds:    make([]*big.Int, len(results)),
 		GasLimits:    make([]*big.Int, len(results)),
 		Triggers:     make([][]byte, len(results)),
