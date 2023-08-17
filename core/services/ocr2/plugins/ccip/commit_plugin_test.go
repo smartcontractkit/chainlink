@@ -146,10 +146,10 @@ func Test_updateCommitPluginLogPollerFilters(t *testing.T) {
 
 	// make sure existing filters get unregistered
 	for _, f := range rf.destChainFilters {
-		dstLP.On("UnregisterFilter", f.Name, nil).Return(nil)
+		dstLP.On("UnregisterFilter", f.Name, mock.Anything).Return(nil)
 	}
 	for _, f := range rf.sourceChainFilters[1:] { // skip the first one, which should not be unregistered
-		srcLP.On("UnregisterFilter", f.Name, nil).Return(nil)
+		srcLP.On("UnregisterFilter", f.Name, mock.Anything).Return(nil)
 	}
 
 	// make sure new filters are registered
