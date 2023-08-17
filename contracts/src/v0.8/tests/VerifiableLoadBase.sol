@@ -156,6 +156,54 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     return abi.encode(cfg);
   }
 
+  // this function sets pipeline data and trigger config for log trigger upkeeps
+  function batchPreparingUpkeeps(uint256[] calldata upkeepIds) external {
+    uint256 len = upkeepIds.length;
+    for (uint256 i = 0; i < len; i++) {
+      uint256 upkeepId = upkeepIds[i];
+
+      this.updateUpkeepPipelineData(upkeepId, abi.encode(upkeepId));
+
+      uint8 triggerType = registry.getTriggerType(upkeepId);
+      if (triggerType == 1) {
+        // currently no using a filter selector
+        bytes memory triggerCfg = this.getLogTriggerConfig(
+          address(this),
+          0,
+          emittedSig,
+          bytes32(abi.encode(upkeepId)),
+          bytes32(0),
+          bytes32(0)
+        );
+        registry.setUpkeepTriggerConfig(upkeepId, triggerCfg);
+      }
+    }
+  }
+
+  function updateLogTriggerConfig1(
+    uint256 upkeepId,
+    address addr,
+    uint8 selector,
+    bytes32 topic0,
+    bytes32 topic1,
+    bytes32 topic2,
+    bytes32 topic3
+  ) external {
+    LogTriggerConfig memory cfg = LogTriggerConfig({
+      contractAddress: addr,
+      filterSelector: selector,
+      topic0: topic0,
+      topic1: topic1,
+      topic2: topic2,
+      topic3: topic3
+    });
+    registry.setUpkeepTriggerConfig(upkeepId, abi.encode(cfg));
+  }
+
+  function updateLogTriggerConfig2(uint256 upkeepId, bytes calldata cfg) external {
+    registry.setUpkeepTriggerConfig(upkeepId, cfg);
+  }
+
   /**
    * @notice batch registering upkeeps.
    * @param number the number of upkeeps to be registered
@@ -193,18 +241,6 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     uint256[] memory upkeepIds = new uint256[](number);
     for (uint8 i = 0; i < number; i++) {
       uint256 upkeepId = _registerUpkeep(params);
-      if (triggerType == 1) {
-        // currently no using a filter selector
-        bytes memory triggerCfg = this.getLogTriggerConfig(
-          address(this),
-          0,
-          emittedSig,
-          bytes32(abi.encode(upkeepId)),
-          bytes32(0),
-          bytes32(0)
-        );
-        registry.setUpkeepTriggerConfig(upkeepId, triggerCfg);
-      }
       upkeepIds[i] = upkeepId;
       checkGasToBurns[upkeepId] = checkGasToBurn;
       performGasToBurns[upkeepId] = performGasToBurn;
