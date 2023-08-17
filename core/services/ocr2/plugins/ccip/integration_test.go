@@ -24,7 +24,7 @@ import (
 )
 
 func TestIntegration_CCIP(t *testing.T) {
-	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.DestChainID)
+	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
 	linkUSD := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, err := w.Write([]byte(`{"UsdPerLink": "8000000000000000000"}`))
 		require.NoError(t, err)
@@ -85,7 +85,7 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 			FeeToken:  ccipTH.Source.LinkToken.Address(),
 			ExtraArgs: extraArgs,
 		}
-		fee, err2 := ccipTH.Source.Router.GetFee(nil, testhelpers.DestChainID, msg)
+		fee, err2 := ccipTH.Source.Router.GetFee(nil, testhelpers.DestChainSelector, msg)
 		require.NoError(t, err2)
 		// Currently no overhead and 10gwei dest gas price. So fee is simply (gasLimit * gasPrice)* link/native
 		// require.Equal(t, new(big.Int).Mul(gasLimit, gasPrice).String(), fee.String())
@@ -183,14 +183,14 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 				FeeToken:  ccipTH.Source.LinkToken.Address(),
 				ExtraArgs: extraArgs,
 			}
-			fee, err2 := ccipTH.Source.Router.GetFee(nil, testhelpers.DestChainID, msg)
+			fee, err2 := ccipTH.Source.Router.GetFee(nil, testhelpers.DestChainSelector, msg)
 			require.NoError(t, err2)
 			// Currently no overhead and 1gwei dest gas price. So fee is simply gasLimit * gasPrice.
 			// require.Equal(t, new(big.Int).Mul(txGasLimit, gasPrice).String(), fee.String())
 			// Approve the fee amount + the token amount
 			_, err2 = ccipTH.Source.LinkToken.Approve(ccipTH.Source.User, ccipTH.Source.Router.Address(), new(big.Int).Add(fee, tokenAmount))
 			require.NoError(t, err2)
-			tx, err2 := ccipTH.Source.Router.CcipSend(ccipTH.Source.User, ccipTH.Dest.ChainID, msg)
+			tx, err2 := ccipTH.Source.Router.CcipSend(ccipTH.Source.User, ccipTH.Dest.ChainSelector, msg)
 			require.NoError(t, err2)
 			txs = append(txs, tx)
 		}
@@ -372,7 +372,7 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 			ExtraArgs:    extraArgs,
 			FeeToken:     common.Address{},
 		}
-		fee, err := ccipTH.Source.Router.GetFee(nil, testhelpers.DestChainID, msg)
+		fee, err := ccipTH.Source.Router.GetFee(nil, testhelpers.DestChainSelector, msg)
 		require.NoError(t, err)
 
 		// verify message is sent

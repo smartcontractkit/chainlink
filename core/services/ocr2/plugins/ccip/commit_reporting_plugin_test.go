@@ -78,9 +78,9 @@ func setupCommitTestHarness(t *testing.T) commitTestHarness {
 			priceGetter:         priceGetter,
 			sourceNative:        utils.RandomAddress(),
 			sourceFeeEstimator:  sourceFeeEstimator,
-			sourceChainSelector: th.Source.ChainID,
+			sourceChainSelector: th.Source.ChainSelector,
 			destClient:          backendClient,
-			leafHasher:          hasher.NewLeafHasher(th.Source.ChainID, th.Dest.ChainID, th.Source.OnRamp.Address(), hasher.NewKeccakCtx()),
+			leafHasher:          hasher.NewLeafHasher(th.Source.ChainSelector, th.Dest.ChainSelector, th.Source.OnRamp.Address(), hasher.NewKeccakCtx()),
 			getSeqNumFromLog:    getSeqNumFromLog(th.Source.OnRamp),
 		},
 		inflightReports: newInflightCommitReportsContainer(time.Hour),
@@ -149,7 +149,7 @@ func TestCommitReportEncoding(t *testing.T) {
 					UsdPerToken: newTokenPrice,
 				},
 			},
-			DestChainSelector: th.Source.ChainID,
+			DestChainSelector: th.Source.ChainSelector,
 			UsdPerUnitGas:     newGasPrice,
 		},
 		MerkleRoot: tree.Root(),
@@ -177,7 +177,7 @@ func TestCommitReportEncoding(t *testing.T) {
 	require.NotEqual(t, ts.String(), "0")
 
 	// Ensure price update went through
-	destChainGasPrice, err := th.Dest.PriceRegistry.GetDestinationChainGasPrice(nil, th.Source.ChainID)
+	destChainGasPrice, err := th.Dest.PriceRegistry.GetDestinationChainGasPrice(nil, th.Source.ChainSelector)
 	require.NoError(t, err)
 	assert.Equal(t, newGasPrice, destChainGasPrice.Value)
 
@@ -915,7 +915,7 @@ func TestShouldTransmitAcceptedReport(t *testing.T) {
 		TokenPriceUpdates: []price_registry.InternalTokenPriceUpdate{
 			{SourceToken: th.Dest.LinkToken.Address(), UsdPerToken: tokenPrice},
 		},
-		DestChainSelector: th.Source.ChainID,
+		DestChainSelector: th.Source.ChainSelector,
 		UsdPerUnitGas:     gasPrice,
 	})
 	require.NoError(t, err)
@@ -941,10 +941,10 @@ func TestShouldTransmitAcceptedReport(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var destChainID uint64
+			var destChainSelector uint64
 			gasPrice := new(big.Int)
 			if tt.gasPrice != nil {
-				destChainID = th.Source.ChainID
+				destChainSelector = th.Source.ChainSelector
 				gasPrice = tt.gasPrice
 			}
 
@@ -965,7 +965,7 @@ func TestShouldTransmitAcceptedReport(t *testing.T) {
 			report, err := abihelpers.EncodeCommitReport(commit_store.CommitStoreCommitReport{
 				PriceUpdates: commit_store.InternalPriceUpdates{
 					TokenPriceUpdates: tokenPrices,
-					DestChainSelector: destChainID,
+					DestChainSelector: destChainSelector,
 					UsdPerUnitGas:     gasPrice,
 				},
 				MerkleRoot: root,

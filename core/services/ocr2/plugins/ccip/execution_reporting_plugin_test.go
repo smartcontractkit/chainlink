@@ -82,7 +82,7 @@ func setupExecTestHarness(t *testing.T) execTestHarness {
 			offRamp:                  th.Dest.OffRamp,
 			destClient:               th.DestClient,
 			sourceWrappedNativeToken: th.Source.WrappedNative.Address(),
-			leafHasher:               hasher.NewLeafHasher(th.Source.ChainID, th.Dest.ChainID, th.Source.OnRamp.Address(), hasher.NewKeccakCtx()),
+			leafHasher:               hasher.NewLeafHasher(th.Source.ChainSelector, th.Dest.ChainSelector, th.Source.OnRamp.Address(), hasher.NewKeccakCtx()),
 			destGasEstimator:         destFeeEstimator,
 		},
 		onchainConfig:         th.ExecOnchainConfig,

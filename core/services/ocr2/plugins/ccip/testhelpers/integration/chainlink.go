@@ -413,8 +413,8 @@ type CCIPIntegrationTestHarness struct {
 	Bootstrap Node
 }
 
-func SetupCCIPIntegrationTH(t *testing.T, sourceChainID, destChainID uint64) CCIPIntegrationTestHarness {
-	c := testhelpers.SetupCCIPContracts(t, sourceChainID, destChainID)
+func SetupCCIPIntegrationTH(t *testing.T, sourceChainID, sourceChainSelector, destChainId, destChainSelector uint64) CCIPIntegrationTestHarness {
+	c := testhelpers.SetupCCIPContracts(t, sourceChainID, sourceChainSelector, destChainId, destChainSelector)
 	return CCIPIntegrationTestHarness{
 		CCIPContracts: c,
 	}
