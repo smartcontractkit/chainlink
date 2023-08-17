@@ -69,14 +69,12 @@ type CCIPTOMLEnv struct {
 	Networks []blockchain.EVMNetwork
 }
 
-var EvmChainIdToChainSelector = func(chainId uint64, simulated bool) (uint64, error) {
-	if simulated {
-		return chainId, nil
-	}
+var EvmChainIdToChainSelector = func(chainId uint64) (uint64, error) {
 	mapSelector := map[uint64]uint64{
 		// Testnets
 		420:      2664363617261496610,  // Optimism Goerli
-		1337:     3379446385462418246,  // Quorem
+		1337:     3379446385462418246,  // Tests
+		2337:     12922642891491394802, // Tests
 		43113:    14767482510784806043, // Avax Fuji
 		80001:    12532609583862916517, // Polygon Mumbai
 		421613:   6101244977088475029,  // Arbitrum Goerli
@@ -519,11 +517,11 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 	if len(sourceCCIP.TransferAmount) != len(sourceCCIP.Common.BridgeTokens) {
 		sourceCCIP.TransferAmount = sourceCCIP.TransferAmount[:len(sourceCCIP.Common.BridgeTokens)]
 	}
-	sourceChainSelector, err := EvmChainIdToChainSelector(sourceCCIP.Common.ChainClient.GetChainID().Uint64(), sourceCCIP.Common.ChainClient.NetworkSimulated())
+	sourceChainSelector, err := EvmChainIdToChainSelector(sourceCCIP.Common.ChainClient.GetChainID().Uint64())
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	destChainSelector, err := EvmChainIdToChainSelector(sourceCCIP.DestinationChainId, sourceCCIP.Common.ChainClient.NetworkSimulated())
+	destChainSelector, err := EvmChainIdToChainSelector(sourceCCIP.DestinationChainId)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -635,7 +633,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		}
 
 		// update source Router with OnRamp address
-		err = sourceCCIP.Common.Router.SetOnRamp(sourceCCIP.DestinationChainId, sourceCCIP.OnRamp.EthAddress)
+		err = sourceCCIP.Common.Router.SetOnRamp(destChainSelector, sourceCCIP.OnRamp.EthAddress)
 		if err != nil {
 			return fmt.Errorf("setting onramp on the router shouldn't fail %+v", err)
 		}
@@ -849,7 +847,7 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 	if err != nil {
 		return common.Hash{}, d, nil, fmt.Errorf("failed encoding the options field: %+v", err)
 	}
-	destChainSelector, err := EvmChainIdToChainSelector(sourceCCIP.DestinationChainId, sourceCCIP.Common.ChainClient.NetworkSimulated())
+	destChainSelector, err := EvmChainIdToChainSelector(sourceCCIP.DestinationChainId)
 	if err != nil {
 		return common.Hash{}, d, nil, fmt.Errorf("failed getting the chain selector: %+v", err)
 	}
@@ -966,11 +964,11 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 	}
 
 	destCCIP.LoadContracts(lane)
-	sourceChainSelector, err := EvmChainIdToChainSelector(destCCIP.SourceChainId, sourceCCIP.Common.ChainClient.NetworkSimulated())
+	sourceChainSelector, err := EvmChainIdToChainSelector(destCCIP.SourceChainId)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	destChainSelector, err := EvmChainIdToChainSelector(destCCIP.Common.ChainClient.GetChainID().Uint64(), destCCIP.Common.ChainClient.NetworkSimulated())
+	destChainSelector, err := EvmChainIdToChainSelector(destCCIP.Common.ChainClient.GetChainID().Uint64())
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -1098,7 +1096,7 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		}
 
 		// apply offramp updates
-		_, err = destCCIP.Common.Router.AddOffRamp(destCCIP.OffRamp.EthAddress, destCCIP.SourceChainId)
+		_, err = destCCIP.Common.Router.AddOffRamp(destCCIP.OffRamp.EthAddress, sourceChainSelector)
 		if err != nil {
 			return fmt.Errorf("setting offramp as fee updater shouldn't fail %+v", err)
 		}
