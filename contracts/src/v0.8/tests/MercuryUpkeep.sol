@@ -63,6 +63,12 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
     callbackReturnBool = value;
   }
 
+  function reset() public {
+    previousPerformBlock = 0;
+    initialBlock = 0;
+    counter = 0;
+  }
+
   function checkCallback(bytes[] memory values, bytes memory extraData) external view returns (bool, bytes memory) {
     require(!shouldRevertCallback, "shouldRevertCallback is true");
     // do sth about the chainlinkBlob data in values and extraData

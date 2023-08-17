@@ -6,12 +6,6 @@ import "../dev/automation/2_1/interfaces/ILogAutomation.sol";
 import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
 contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface, ILogAutomation {
-  //  string[] constant feedsHex = [
-  //    "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-  //    "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
-  //  ];
-  //  string public constant feedParamKey = "feedIdHex";
-  //  string public constant timeParamKey = "blockNumber";
   //  bool public autoLog;
   //  bool public useMercury;
 
@@ -79,31 +73,31 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
   }
 
   function performUpkeep(bytes calldata performData) external {
-    //    uint256 startGas = gasleft();
+    uint256 startGas = gasleft();
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
     (uint256 upkeepId, uint256 logBlockNumber, address addr) = abi.decode(extraData, (uint256, uint256, address));
 
-    //    uint256 firstPerformBlock = firstPerformBlocks[upkeepId];
-    //    uint256 previousPerformBlock = previousPerformBlocks[upkeepId];
+    uint256 firstPerformBlock = firstPerformBlocks[upkeepId];
+    uint256 previousPerformBlock = previousPerformBlocks[upkeepId];
     uint256 currentBlockNum = getBlockNumber();
 
-    //    if (firstPerformBlock == 0) {
-    //      firstPerformBlocks[upkeepId] = currentBlockNum;
-    //    } else {
-    //      uint256 delay = currentBlockNum - logBlockNumber;
-    //      uint16 bucket = buckets[upkeepId];
-    //      uint256[] memory bucketDelays = bucketedDelays[upkeepId][bucket];
-    //      if (bucketDelays.length == BUCKET_SIZE) {
-    //        bucket++;
-    //        buckets[upkeepId] = bucket;
-    //      }
-    //      bucketedDelays[upkeepId][bucket].push(delay);
-    //      delays[upkeepId].push(delay);
-    //    }
-    //
-    //    uint256 counter = counters[upkeepId] + 1;
-    //    counters[upkeepId] = counter;
-    //    previousPerformBlocks[upkeepId] = currentBlockNum;
+    if (firstPerformBlock == 0) {
+      firstPerformBlocks[upkeepId] = currentBlockNum;
+    } else {
+      uint256 delay = currentBlockNum - logBlockNumber;
+      uint16 bucket = buckets[upkeepId];
+      uint256[] memory bucketDelays = bucketedDelays[upkeepId][bucket];
+      if (bucketDelays.length == BUCKET_SIZE) {
+        bucket++;
+        buckets[upkeepId] = bucket;
+      }
+      bucketedDelays[upkeepId][bucket].push(delay);
+      delays[upkeepId].push(delay);
+    }
+
+    uint256 counter = counters[upkeepId] + 1;
+    counters[upkeepId] = counter;
+    previousPerformBlocks[upkeepId] = currentBlockNum;
 
     // for every upkeepTopUpCheckInterval (5), check if the upkeep balance is at least
     // minBalanceThresholdMultiplier (20) * min balance. If not, add addLinkAmount (0.2) to the upkeep
@@ -112,7 +106,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
     //if (autoLog) {
     emit LogEmitted(upkeepId, currentBlockNum, address(this));
     //}
-    //    burnPerformGas(upkeepId, startGas, currentBlockNum);
+    burnPerformGas(upkeepId, startGas, currentBlockNum);
   }
 
   function checkCallback(
