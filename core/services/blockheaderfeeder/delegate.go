@@ -25,20 +25,20 @@ import (
 var _ job.ServiceCtx = &service{}
 
 type Delegate struct {
-	logger logger.Logger
-	chains evm.ChainSet
-	ks     keystore.Eth
+	logger       logger.Logger
+	legacyChains evm.LegacyChainContainer
+	ks           keystore.Eth
 }
 
 func NewDelegate(
 	logger logger.Logger,
-	chains evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	ks keystore.Eth,
 ) *Delegate {
 	return &Delegate{
-		logger: logger,
-		chains: chains,
-		ks:     ks,
+		logger:       logger,
+		legacyChains: legacyChains,
+		ks:           ks,
 	}
 }
 
@@ -53,7 +53,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		return nil, errors.Errorf("Delegate expects a BlockHeaderFeederSpec to be present, got %+v", jb)
 	}
 
-	chain, err := d.chains.Get(jb.BlockHeaderFeederSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.BlockHeaderFeederSpec.EVMChainID.String())
 	if err != nil {
 		return nil, fmt.Errorf(
 			"getting chain ID %d: %w", jb.BlockHeaderFeederSpec.EVMChainID.ToInt(), err)

@@ -22,14 +22,16 @@ var (
 	ErrNotFound     = errors.New("not found")
 )
 
-// Chains is a generic interface for chain configuration.
-type Chains interface {
+// ChainStatuser is a generic interface for chain configuration.
+type ChainStatuser interface {
+	// must return [ErrNotFound] if the id is not found
 	ChainStatus(ctx context.Context, id string) (types.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
 }
 
-// Nodes is an interface for node configuration and state.
-type Nodes interface {
+// NodesStatuser is an interface for node configuration and state.
+// TODO BCF2440, BCF-2511 may need Node(ctx,name) to get a node status by name
+type NodesStatuser interface {
 	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
 }
 

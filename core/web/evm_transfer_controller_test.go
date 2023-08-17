@@ -252,3 +252,48 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 
 	cltest.AssertServerResponse(t, resp, http.StatusBadRequest)
 }
+
+func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
+	t.Parallel()
+
+	key := cltest.MustGenerateRandomKey(t)
+
+	ethClient := cltest.NewEthMocksWithTransactionsOnBlocksAssertions(t)
+
+	balance, err := assets.NewEthValueS("200")
+	require.NoError(t, err)
+
+	ethClient.On("PendingNonceAt", mock.Anything, key.Address).Return(uint64(1), nil)
+	ethClient.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
+
+	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(true)
+		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
+	})
+
+	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)
+	require.NoError(t, app.Start(testutils.Context(t)))
+
+	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+
+	amount, err := assets.NewEthValueS("100")
+	require.NoError(t, err)
+
+	request := models.SendEtherRequest{
+		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
+		FromAddress:        key.Address,
+		Amount:             amount,
+	}
+
+	body, err := json.Marshal(&request)
+	assert.NoError(t, err)
+
+	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
+	t.Cleanup(cleanup)
+
+	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Len(t, errors.Errors, 0)
+
+	cltest.AssertCount(t, app.GetSqlxDB(), "eth_txes", 1)
+}

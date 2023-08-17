@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -14,15 +13,17 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -416,15 +417,22 @@ func (m MockPasswordPrompter) Prompt() string {
 	return m.Password
 }
 
-func NewChainSetMockWithOneChain(t testing.TB, ethClient evmclient.Client, cfg evmconfig.ChainScopedConfig) evm.ChainSet {
-	cc := new(evmmocks.ChainSet)
+func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg evm.AppConfig) evm.LegacyChainContainer {
 	ch := new(evmmocks.Chain)
 	ch.On("Client").Return(ethClient)
-	ch.On("Config").Return(cfg)
 	ch.On("Logger").Return(logger.TestLogger(t))
-	ch.On("ID").Return(cfg.EVM().ChainID())
-	cc.On("Default").Return(ch, nil)
-	cc.On("Get", (*big.Int)(nil)).Return(ch, nil)
-	cc.On("Chains").Return([]evm.Chain{ch})
-	return cc
+	scopedCfg := evmtest.NewChainScopedConfig(t, cfg)
+	ch.On("ID").Return(scopedCfg.EVM().ChainID())
+	ch.On("Config").Return(scopedCfg)
+
+	return NewLegacyChainsWithChain(t, ch, cfg)
+
+}
+
+func NewLegacyChainsWithChain(t testing.TB, ch evm.Chain, cfg evm.AppConfig) evm.LegacyChainContainer {
+	chainNodeConfig := chains.NewConfigs[utils.Big, evmtypes.Node](cfg.EVMConfigs())
+	m := map[string]evm.Chain{ch.ID().String(): ch}
+	legacyChains := evm.NewLegacyChains(chainNodeConfig, m)
+	legacyChains.SetDefault(ch)
+	return legacyChains
 }

@@ -15,8 +15,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func NewTOMLChainScopedConfig(genCfg gencfg.AppConfig, chain *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
-	return &ChainScoped{AppConfig: genCfg, cfg: chain, lggr: lggr}
+func NewTOMLChainScopedConfig(genCfg gencfg.AppConfig, tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
+	return &ChainScoped{
+		AppConfig: genCfg,
+		evmConfig: &evmConfig{c: tomlConfig},
+		lggr:      lggr}
 }
 
 // ChainScoped implements config.ChainScopedConfig with a gencfg.BasicConfig and EVMConfig.
@@ -24,7 +27,15 @@ type ChainScoped struct {
 	gencfg.AppConfig
 	lggr logger.Logger
 
-	cfg *toml.EVMConfig
+	evmConfig *evmConfig
+}
+
+func (c *ChainScoped) EVM() EVM {
+	return c.evmConfig
+}
+
+func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
+	return c.EVM().NodeNoNewHeadsThreshold()
 }
 
 func (c *ChainScoped) Validate() (err error) {
@@ -138,14 +149,6 @@ func (e *evmConfig) NodePool() NodePool {
 
 func (e *evmConfig) NodeNoNewHeadsThreshold() time.Duration {
 	return e.c.NoNewHeadsThreshold.Duration()
-}
-
-func (c *ChainScoped) EVM() EVM {
-	return &evmConfig{c: c.cfg}
-}
-
-func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
-	return c.EVM().NodeNoNewHeadsThreshold()
 }
 
 func (e *evmConfig) MinContractPayment() *assets.Link {
