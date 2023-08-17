@@ -1,4 +1,4 @@
-package mercury
+package mercury_v1
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -23,16 +24,17 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ relaymercury.Fetcher = &mockFetcher{}
+var _ relaymercury.MercuryServerFetcher = &mockFetcher{}
 
 type mockFetcher struct {
 	num *int64
@@ -43,39 +45,15 @@ func (m *mockFetcher) FetchInitialMaxFinalizedBlockNumber(context.Context) (*int
 	return m.num, m.err
 }
 
-var _ Runner = &mockRunner{}
-
-type mockRunner struct {
-	trrs pipeline.TaskRunResults
-	err  error
+func (m *mockFetcher) LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error) {
+	return nil, nil
 }
 
-func (m *mockRunner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run pipeline.Run, trrs pipeline.TaskRunResults, err error) {
-	return pipeline.Run{ID: 42}, m.trrs, m.err
+func (m *mockFetcher) LatestTimestamp(context.Context) (uint32, error) {
+	return 0, nil
 }
 
-var _ pipeline.Task = &mockTask{}
-
-type mockTask struct {
-	result pipeline.Result
-}
-
-func (m *mockTask) Type() pipeline.TaskType { return "MockTask" }
-func (m *mockTask) ID() int                 { return 0 }
-func (m *mockTask) DotID() string           { return "" }
-func (m *mockTask) Run(ctx context.Context, lggr logger.Logger, vars pipeline.Vars, inputs []pipeline.Result) (pipeline.Result, pipeline.RunInfo) {
-	return m.result, pipeline.RunInfo{}
-}
-func (m *mockTask) Base() *pipeline.BaseTask           { return nil }
-func (m *mockTask) Outputs() []pipeline.Task           { return nil }
-func (m *mockTask) Inputs() []pipeline.TaskDependency  { return nil }
-func (m *mockTask) OutputIndex() int32                 { return 0 }
-func (m *mockTask) TaskTimeout() (time.Duration, bool) { return 0, false }
-func (m *mockTask) TaskRetries() uint32                { return 0 }
-func (m *mockTask) TaskMinBackoff() time.Duration      { return 0 }
-func (m *mockTask) TaskMaxBackoff() time.Duration      { return 0 }
-
-var _ ChainHeadTracker = &mockHeadTracker{}
+var _ types.ChainHeadTracker = &mockHeadTracker{}
 
 type mockHeadTracker struct {
 	c evmclient.Client
@@ -96,7 +74,7 @@ func (m *mockORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg
 
 func TestMercury_Observe(t *testing.T) {
 	orm := &mockORM{}
-	ds := &datasource{lggr: logger.TestLogger(t), orm: orm, codec: (&reportcodec.EVMReportCodec{})}
+	ds := &datasource{lggr: logger.TestLogger(t), orm: orm, codec: (reportcodecv1.ReportCodec{})}
 	ctx := testutils.Context(t)
 	repts := ocrtypes.ReportTimestamp{}
 
@@ -104,25 +82,25 @@ func TestMercury_Observe(t *testing.T) {
 	ds.fetcher = fetcher
 
 	trrs := []pipeline.TaskRunResult{
-		pipeline.TaskRunResult{
+		{
 			// benchmark price
 			Result: pipeline.Result{Value: "122.345"},
-			Task:   &mockTask{},
+			Task:   &mercurymocks.MockTask{},
 		},
-		pipeline.TaskRunResult{
+		{
 			// bid
 			Result: pipeline.Result{Value: "121.993"},
-			Task:   &mockTask{},
+			Task:   &mercurymocks.MockTask{},
 		},
-		pipeline.TaskRunResult{
+		{
 			// ask
 			Result: pipeline.Result{Value: "123.111"},
-			Task:   &mockTask{},
+			Task:   &mercurymocks.MockTask{},
 		},
 	}
 
-	runner := &mockRunner{
-		trrs: trrs,
+	runner := &mercurymocks.MockRunner{
+		Trrs: trrs,
 	}
 	ds.pipelineRunner = runner
 
@@ -130,7 +108,7 @@ func TestMercury_Observe(t *testing.T) {
 	ds.spec = spec
 
 	h := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-	c := evmtest.NewEthClientMock(t)
+	c := evmclimocks.NewClient(t)
 	ht := &mockHeadTracker{
 		c: c,
 		h: h,
@@ -146,7 +124,7 @@ func TestMercury_Observe(t *testing.T) {
 
 	t.Run("when fetchMaxFinalizedBlockNum=true", func(t *testing.T) {
 		t.Run("with latest report in database", func(t *testing.T) {
-			orm.report = sampleReport
+			orm.report = buildSampleV1Report()
 			orm.err = nil
 
 			obs, err := ds.Observe(ctx, repts, true)
@@ -218,7 +196,7 @@ func TestMercury_Observe(t *testing.T) {
 					h2 := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 					h2.On("LatestChain").Return((*evmtypes.Head)(nil))
 					ht.h = h2
-					c2 := evmtest.NewEthClientMock(t)
+					c2 := evmclimocks.NewClient(t)
 					c2.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("head retrieval failed"))
 					ht.c = c2
 
@@ -237,9 +215,9 @@ func TestMercury_Observe(t *testing.T) {
 	t.Run("when fetchMaxFinalizedBlockNum=false", func(t *testing.T) {
 		t.Run("when run execution fails, returns error", func(t *testing.T) {
 			t.Cleanup(func() {
-				runner.err = nil
+				runner.Err = nil
 			})
-			runner.err = errors.New("run execution failed")
+			runner.Err = errors.New("run execution failed")
 
 			_, err := ds.Observe(ctx, repts, false)
 			assert.EqualError(t, err, "Observe failed while executing run: error executing run for spec ID 0: run execution failed")
@@ -355,7 +333,7 @@ func TestMercury_Observe(t *testing.T) {
 				c.AssertExpectations(t)
 			})
 			t.Run("if call fails, returns error for that observation", func(t *testing.T) {
-				c = evmtest.NewEthClientMock(t)
+				c = evmclimocks.NewClient(t)
 				ht.c = c
 				c.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, errors.New("client call failed")).Once()
 
@@ -401,7 +379,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 
 		ds.chainHeadTracker = chainHeadTracker
 
-		obs := relaymercury.Observation{}
+		obs := relaymercuryv1.Observation{}
 		ds.setCurrentBlock(context.Background(), &obs)
 
 		assert.Equal(t, h.Number, obs.CurrentBlockNum.Val)
@@ -425,7 +403,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 
 		ds.chainHeadTracker = chainHeadTracker
 
-		obs := relaymercury.Observation{}
+		obs := relaymercuryv1.Observation{}
 		ds.setCurrentBlock(context.Background(), &obs)
 
 		assert.Equal(t, h.Number, obs.CurrentBlockNum.Val)
@@ -451,7 +429,7 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 
 		ds.chainHeadTracker = chainHeadTracker
 
-		obs := relaymercury.Observation{}
+		obs := relaymercuryv1.Observation{}
 		ds.setCurrentBlock(context.Background(), &obs)
 
 		assert.Equal(t, err, obs.CurrentBlockNum.Err)
@@ -462,4 +440,24 @@ func TestMercury_SetCurrentBlock(t *testing.T) {
 		ethClient.AssertExpectations(t)
 		headTracker.AssertExpectations(t)
 	})
+}
+
+var sampleFeedID = [32]uint8{28, 145, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
+
+func buildSampleV1Report() []byte {
+	feedID := sampleFeedID
+	timestamp := uint32(42)
+	bp := big.NewInt(242)
+	bid := big.NewInt(243)
+	ask := big.NewInt(244)
+	currentBlockNumber := uint64(143)
+	currentBlockHash := utils.NewHash()
+	currentBlockTimestamp := uint64(123)
+	validFromBlockNum := uint64(142)
+
+	b, err := reportcodecv1.ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, currentBlockTimestamp, validFromBlockNum)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

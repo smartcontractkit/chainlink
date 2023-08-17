@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 )
 
 // FeedScopedConfigSet ConfigSet with FeedID for use with mercury (and multi-config DON)
@@ -39,7 +40,7 @@ func init() {
 // FullConfigFromLog defines the contract config with the feedID
 type FullConfigFromLog struct {
 	ocrtypes.ContractConfig
-	feedID [32]byte
+	feedID types.FeedID
 }
 
 func unpackLogData(d []byte) (*verifier.VerifierConfigSet, error) {
@@ -191,7 +192,10 @@ func (cp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 }
 
 func (cp *ConfigPoller) startLogSubscription() {
-	feedIdPgHex := cp.feedId.Hex()[2:] // trim the leading 0x to make it comparable to pg's hex encoding.
+	// trim the leading 0x to make it comparable to pg's hex encoding.
+	addressPgHex := cp.addr.Hex()[2:]
+	feedIdPgHex := cp.feedId.Hex()[2:]
+
 	for {
 		event, ok := <-cp.subscription.Events()
 		if !ok {
@@ -203,6 +207,11 @@ func (cp *ConfigPoller) startLogSubscription() {
 		addressTopicValues := strings.Split(event.Payload, ":")
 		if len(addressTopicValues) < 2 {
 			cp.lggr.Warnf("invalid event from %s channel: %s", pg.ChannelInsertOnEVMLogs, event.Payload)
+			continue
+		}
+
+		address := addressTopicValues[0]
+		if address != addressPgHex {
 			continue
 		}
 

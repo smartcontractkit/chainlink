@@ -6,12 +6,13 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/scripts"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner_test_consumer"
 	"log"
 	"math/big"
 	"os"
 	"strings"
+
+	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/scripts"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner_test_consumer"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -386,7 +387,7 @@ func main() {
 		helpers.PanicErr(err)
 		blockRange, err := blockhashstore.DecreasingBlockRange(big.NewInt(*startBlock-1), big.NewInt(*startBlock-*numBlocks-1))
 		helpers.PanicErr(err)
-		rlpHeaders, _, err := helpers.GetRlpHeaders(e, blockRange)
+		rlpHeaders, _, err := helpers.GetRlpHeaders(e, blockRange, true)
 		helpers.PanicErr(err)
 		tx, err := batchBHS.StoreVerifyHeader(e.Owner, blockRange, rlpHeaders)
 		helpers.PanicErr(err)
@@ -461,7 +462,7 @@ func main() {
 			fmt.Println("using gas price", e.Owner.GasPrice, "wei")
 
 			blockNumbers := blockRange[i:j]
-			blockHeaders, _, err := helpers.GetRlpHeaders(e, blockNumbers)
+			blockHeaders, _, err := helpers.GetRlpHeaders(e, blockNumbers, true)
 			fmt.Println("storing blockNumbers:", blockNumbers)
 			helpers.PanicErr(err)
 

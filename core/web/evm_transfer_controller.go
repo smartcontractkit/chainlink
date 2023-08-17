@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -34,7 +33,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	chain, err := getChain(tc.App.GetChains().EVM, tr.EVMChainID.String())
+	chain, err := getChain(tc.App.GetRelayers().LegacyEVMChains(), tr.EVMChainID.String())
 	switch err {
 	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
@@ -94,26 +93,13 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 		return errors.Errorf("balance is too low for this transaction to be executed: %v", balance)
 	}
 
-	var fees gas.EvmFee
-
 	gasLimit := chain.Config().EVM().GasEstimator().LimitTransfer()
 	estimator := chain.GasEstimator()
 
-	fees, gasLimit, err = estimator.GetFee(c, nil, gasLimit, chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddr))
+	amountWithFees, err := estimator.GetMaxCost(c, amount, nil, gasLimit, chain.Config().EVM().GasEstimator().PriceMaxKey(fromAddr))
 	if err != nil {
-		return errors.Wrap(err, "failed to estimate gas")
+		return err
 	}
-
-	// TODO: support EIP-1559 transactions
-	if fees.Legacy == nil {
-		return errors.New("estimator did not return legacy tx fee estimates")
-	}
-	gasPrice := fees.Legacy
-
-	// Creating a `Big` struct to avoid having a mutation on `tr.Amount` and hence affecting the value stored in the DB
-	amountAsBig := utils.NewBig(amount.ToInt())
-	fee := new(big.Int).Mul(gasPrice.ToInt(), big.NewInt(int64(gasLimit)))
-	amountWithFees := new(big.Int).Add(amountAsBig.ToInt(), fee)
 	if balance.Cmp(amountWithFees) < 0 {
 		// ETH balance is less than the sent amount + fees
 		return errors.Errorf("balance is too low for this transaction to be executed: %v", balance)

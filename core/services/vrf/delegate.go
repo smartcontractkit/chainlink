@@ -34,13 +34,13 @@ import (
 )
 
 type Delegate struct {
-	q       pg.Q
-	pr      pipeline.Runner
-	porm    pipeline.ORM
-	ks      keystore.Master
-	cc      evm.ChainSet
-	lggr    logger.Logger
-	mailMon *utils.MailboxMonitor
+	q            pg.Q
+	pr           pipeline.Runner
+	porm         pipeline.ORM
+	ks           keystore.Master
+	legacyChains evm.LegacyChainContainer
+	lggr         logger.Logger
+	mailMon      *utils.MailboxMonitor
 }
 
 func NewDelegate(
@@ -48,18 +48,18 @@ func NewDelegate(
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
-	chainSet evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg pg.QConfig,
 	mailMon *utils.MailboxMonitor) *Delegate {
 	return &Delegate{
-		q:       pg.NewQ(db, lggr, cfg),
-		ks:      ks,
-		pr:      pr,
-		porm:    porm,
-		cc:      chainSet,
-		lggr:    lggr,
-		mailMon: mailMon,
+		q:            pg.NewQ(db, lggr, cfg),
+		ks:           ks,
+		pr:           pr,
+		porm:         porm,
+		legacyChains: legacyChains,
+		lggr:         lggr,
+		mailMon:      mailMon,
 	}
 }
 
@@ -73,7 +73,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
@@ -81,7 +81,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
-	chain, err := d.cc.Get(jb.VRFSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
