@@ -241,11 +241,11 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 	bs.lggr.Debugf("blocks block %d hash is %s", h.Number, h.Hash.Hex())
 
 	history := bs.buildHistory(h.Number)
-
-	bs.latestBlock.Store(&ocr2keepers.BlockKey{
+	block := &ocr2keepers.BlockKey{
 		Number: ocr2keepers.BlockNumber(h.Number),
-		Hash:   h.Hash,
-	})
+	}
+	copy(block.Hash[:], h.Hash[:])
+	bs.latestBlock.Store(block)
 	bs.lastSentBlock = h.Number
 	// send history to all subscribers
 	for _, subC := range bs.subscribers {
