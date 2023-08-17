@@ -130,7 +130,7 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) runLoop() {
 }
 
 func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) resendUnconfirmed() error {
-	fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
+	fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), "err")
 	enabledAddresses, err := er.ks.EnabledAddressesForChain(er.chainID)
 	if err != nil {
 		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
