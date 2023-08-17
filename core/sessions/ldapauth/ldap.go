@@ -27,7 +27,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/go-ldap/ldap"
+	"github.com/go-ldap/ldap/v3"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 

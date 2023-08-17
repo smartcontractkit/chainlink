@@ -274,7 +274,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		authenticationProvider = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 		sessionReaper = localauth.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger)
 	default:
-		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, string(sessions.LocalAuth), string(sessions.LDAPAuth))
+		return nil, errors.Errorf("NewApplication: Unexpected 'AuthenticationMethod': %s supported values: %s, %s", authMethod, sessions.LocalAuth, sessions.LDAPAuth)
 	}
 
 	var (
