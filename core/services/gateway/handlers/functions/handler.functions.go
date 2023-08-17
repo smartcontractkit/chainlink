@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -52,7 +51,7 @@ type PendingSecretsRequest struct {
 
 var _ handlers.Handler = (*functionsHandler)(nil)
 
-func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, chains evm.ChainSet, lggr logger.Logger) (handlers.Handler, error) {
+func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON, legacyChains evm.LegacyChainContainer, lggr logger.Logger) (handlers.Handler, error) {
 	var cfg FunctionsHandlerConfig
 	err := json.Unmarshal(handlerConfig, &cfg)
 	if err != nil {
@@ -60,16 +59,12 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 	}
 	var allowlist OnchainAllowlist
 	if cfg.OnchainAllowlist != nil {
-		chainId, ok := big.NewInt(0).SetString(cfg.OnchainAllowlistChainID, 10)
-		if !ok {
-			return nil, errors.New("invalid chain ID")
-		}
-		chain, err := chains.Get(chainId)
-		if err != nil {
+		chain, err2 := legacyChains.Get(cfg.OnchainAllowlistChainID)
+		if err2 != nil {
 			return nil, err
 		}
-		allowlist, err = NewOnchainAllowlist(chain.Client(), *cfg.OnchainAllowlist, lggr)
-		if err != nil {
+		allowlist, err2 = NewOnchainAllowlist(chain.Client(), *cfg.OnchainAllowlist, lggr)
+		if err2 != nil {
 			return nil, err
 		}
 	}

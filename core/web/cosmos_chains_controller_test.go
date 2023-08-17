@@ -106,14 +106,15 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainA := &cosmos.CosmosConfig{
-		ChainID: ptr(cosmostest.RandomChainID()),
+		ChainID: ptr("a" + cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
 			FallbackGasPrice: ptr(decimal.RequireFromString("9.999")),
 		},
 	}
+
 	chainB := &cosmos.CosmosConfig{
-		ChainID: ptr(cosmostest.RandomChainID()),
+		ChainID: ptr("b" + cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
 			GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
@@ -164,6 +165,7 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	tomlB, err := chainB.TOMLString()
 	require.NoError(t, err)
 	assert.Equal(t, tomlB, chains[0].Config)
+
 }
 
 type TestCosmosChainsController struct {
