@@ -73,7 +73,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 	tests := []struct {
 		name        string
 		checkBlock  *big.Int
-		latestBlock *big.Int
+		latestBlock ocr2keepers.BlockKey
 		upkeepId    *big.Int
 		checkHash   common.Hash
 		payload     ocr2keepers.UpkeepPayload
@@ -85,7 +85,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		{
 			name:        "check block number too told",
 			checkBlock:  big.NewInt(500),
-			latestBlock: big.NewInt(800),
+			latestBlock: ocr2keepers.BlockKey{Number: 800},
 			upkeepId:    big.NewInt(12345),
 			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 			payload: ocr2keepers.UpkeepPayload{
@@ -98,7 +98,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		{
 			name:        "check block number invalid",
 			checkBlock:  big.NewInt(500),
-			latestBlock: big.NewInt(560),
+			latestBlock: ocr2keepers.BlockKey{Number: 560},
 			upkeepId:    big.NewInt(12345),
 			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 			payload: ocr2keepers.UpkeepPayload{
@@ -113,7 +113,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		{
 			name:        "check block hash does not match",
 			checkBlock:  big.NewInt(500),
-			latestBlock: big.NewInt(560),
+			latestBlock: ocr2keepers.BlockKey{Number: 560},
 			upkeepId:    big.NewInt(12345),
 			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 			payload: ocr2keepers.UpkeepPayload{
@@ -129,7 +129,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		{
 			name:        "check block is valid",
 			checkBlock:  big.NewInt(500),
-			latestBlock: big.NewInt(560),
+			latestBlock: ocr2keepers.BlockKey{Number: 560},
 			upkeepId:    big.NewInt(12345),
 			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 			payload: ocr2keepers.UpkeepPayload{
@@ -147,10 +147,10 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			bs := &BlockSubscriber{
-				latestBlock: atomic.Int64{},
+				latestBlock: atomic.Pointer[ocr2keepers.BlockKey]{},
 				blocks:      tc.blocks,
 			}
-			bs.latestBlock.Store(tc.latestBlock.Int64())
+			bs.latestBlock.Store(&tc.latestBlock)
 			e := &EvmRegistry{
 				lggr: lggr,
 				bs:   bs,
@@ -316,7 +316,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 		name          string
 		inputs        []ocr2keepers.UpkeepPayload
 		blocks        map[int64]string
-		latestBlock   *big.Int
+		latestBlock   ocr2keepers.BlockKey
 		results       []ocr2keepers.CheckResult
 		err           error
 		ethCalls      map[string]bool
@@ -349,7 +349,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 				560: "0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857",
 				570: "0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc",
 			},
-			latestBlock: big.NewInt(580),
+			latestBlock: ocr2keepers.BlockKey{Number: 580},
 			results: []ocr2keepers.CheckResult{
 				{
 					PipelineExecutionState: uint8(encoding.CheckBlockTooOld),
@@ -409,10 +409,10 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			bs := &BlockSubscriber{
-				latestBlock: atomic.Int64{},
+				latestBlock: atomic.Pointer[ocr2keepers.BlockKey]{},
 				blocks:      tc.blocks,
 			}
-			bs.latestBlock.Store(tc.latestBlock.Int64())
+			bs.latestBlock.Store(&tc.latestBlock)
 			e := &EvmRegistry{
 				lggr: lggr,
 				bs:   bs,
