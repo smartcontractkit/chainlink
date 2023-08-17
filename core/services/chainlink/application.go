@@ -260,8 +260,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	var authenticationProvider sessions.AuthenticationProvider
 	var sessionReaper utils.SleeperTask
 
-	switch authMethod {
-	case string(sessions.LDAPAuth):
+	switch sessions.AuthenticationProviderName(authMethod) {
+	case sessions.LDAPAuth:
 		var err error
 		authenticationProvider, err = ldapauth.NewLDAPAuthenticator(
 			db, cfg.Database(), cfg.WebServer().LDAP(), cfg.Insecure().DevWebServer(), globalLogger, auditLogger,
@@ -270,7 +270,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize LDAP Authentication module")
 		}
 		sessionReaper = ldapauth.NewLDAPServerStateSync(db, cfg.Database(), cfg.WebServer().LDAP(), globalLogger)
-	case string(sessions.LocalAuth):
+	case sessions.LocalAuth:
 		authenticationProvider = localauth.NewORM(db, cfg.WebServer().SessionTimeout().Duration(), globalLogger, cfg.Database(), auditLogger)
 		sessionReaper = localauth.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger)
 	default:
