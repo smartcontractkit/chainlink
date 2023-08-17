@@ -37,7 +37,7 @@ func (p *logEventProvider) RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfi
 }
 
 func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
-	err := p.poller.UnregisterFilter(p.filterName(upkeepID), nil)
+	err := p.poller.UnregisterFilter(p.filterName(upkeepID))
 	if err == nil {
 		p.filterStore.RemoveActiveUpkeeps(upkeepFilter{
 			upkeepID: upkeepID,

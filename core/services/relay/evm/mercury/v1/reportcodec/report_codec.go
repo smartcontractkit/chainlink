@@ -3,14 +3,17 @@ package reportcodec
 import (
 	"fmt"
 	"math"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	reportcodec "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 )
 
 // NOTE:
@@ -42,40 +45,51 @@ func getReportTypes() abi.Arguments {
 	})
 }
 
-var _ relaymercury.ReportCodec = &EVMReportCodec{}
+type Report struct {
+	FeedId                [32]byte
+	ObservationsTimestamp uint32
+	BenchmarkPrice        *big.Int
+	Bid                   *big.Int
+	Ask                   *big.Int
+	CurrentBlockNum       uint64
+	CurrentBlockHash      [32]byte
+	ValidFromBlockNum     uint64
+	CurrentBlockTimestamp uint64
+}
 
-type EVMReportCodec struct {
+var _ reportcodec.ReportCodec = &ReportCodec{}
+
+type ReportCodec struct {
 	logger logger.Logger
-	feedID [32]byte
+	feedID types.FeedID
 }
 
-func NewEVMReportCodec(feedID [32]byte, lggr logger.Logger) *EVMReportCodec {
-	return &EVMReportCodec{lggr, feedID}
+func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
+	return &ReportCodec{lggr, feedID}
 }
 
-func (r *EVMReportCodec) BuildReport(paos []relaymercury.ParsedAttributedObservation, f int, validFromBlockNum int64) (ocrtypes.Report, error) {
+func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation, f int, validFromBlockNum int64) (ocrtypes.Report, error) {
 	if len(paos) == 0 {
 		return nil, errors.Errorf("cannot build report from empty attributed observations")
 	}
 
-	// copy so we can safely sort in place
-	paos = append([]relaymercury.ParsedAttributedObservation{}, paos...)
+	mPaos := reportcodec.Convert(paos)
 
-	timestamp := relaymercury.GetConsensusTimestamp(paos)
-	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(paos, f)
+	timestamp := relaymercury.GetConsensusTimestamp(mPaos)
+	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(mPaos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBenchmarkPrice failed")
 	}
-	bid, err := relaymercury.GetConsensusBid(paos, f)
+	bid, err := relaymercury.GetConsensusBid(mPaos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusBid failed")
 	}
-	ask, err := relaymercury.GetConsensusAsk(paos, f)
+	ask, err := relaymercury.GetConsensusAsk(mPaos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusAsk failed")
 	}
 
-	currentBlockHash, currentBlockNum, currentBlockTimestamp, err := relaymercury.GetConsensusCurrentBlock(paos, f)
+	currentBlockHash, currentBlockNum, currentBlockTimestamp, err := reportcodec.GetConsensusCurrentBlock(paos, f)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetConsensusCurrentBlock failed")
 	}
@@ -96,18 +110,11 @@ func (r *EVMReportCodec) BuildReport(paos []relaymercury.ParsedAttributedObserva
 
 // Maximum length in bytes of Report returned by BuildReport. Used for
 // defending against spam attacks.
-func (r *EVMReportCodec) MaxReportLength(n int) (int, error) {
+func (r *ReportCodec) MaxReportLength(n int) (int, error) {
 	return maxReportLength, nil
 }
 
-func (r *EVMReportCodec) FeedIDFromReport(report ocrtypes.Report) (feedID [32]byte, err error) {
-	if n := copy(feedID[:], report); n != 32 {
-		return feedID, errors.Errorf("invalid length for report: %d", len(report))
-	}
-	return feedID, nil
-}
-
-func (r *EVMReportCodec) CurrentBlockNumFromReport(report ocrtypes.Report) (int64, error) {
+func (r *ReportCodec) CurrentBlockNumFromReport(report ocrtypes.Report) (int64, error) {
 	reportElems := map[string]interface{}{}
 	if err := ReportTypes.UnpackIntoMap(reportElems, report); err != nil {
 		return 0, errors.Errorf("error during unpack: %v", err)
@@ -130,7 +137,7 @@ func (r *EVMReportCodec) CurrentBlockNumFromReport(report ocrtypes.Report) (int6
 	return int64(blockNum), nil
 }
 
-func (r *EVMReportCodec) ValidFromBlockNumFromReport(report ocrtypes.Report) (int64, error) {
+func (r *ReportCodec) ValidFromBlockNumFromReport(report ocrtypes.Report) (int64, error) {
 	reportElems := map[string]interface{}{}
 	if err := ReportTypes.UnpackIntoMap(reportElems, report); err != nil {
 		return 0, errors.Errorf("error during unpack: %v", err)
@@ -151,4 +158,17 @@ func (r *EVMReportCodec) ValidFromBlockNumFromReport(report ocrtypes.Report) (in
 	}
 
 	return int64(blockNum), nil
+}
+
+// Decode is made available to external users (i.e. mercury server)
+func (r *ReportCodec) Decode(report ocrtypes.Report) (*Report, error) {
+	values, err := ReportTypes.Unpack(report)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode report: %w", err)
+	}
+	decoded := new(Report)
+	if err = ReportTypes.Copy(decoded, values); err != nil {
+		return nil, fmt.Errorf("failed to copy report values to struct: %w", err)
+	}
+	return decoded, nil
 }
