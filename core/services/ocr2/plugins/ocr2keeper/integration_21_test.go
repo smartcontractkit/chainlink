@@ -341,7 +341,6 @@ func TestIntegration_KeeperPluginLogRecoverer(t *testing.T) {
 		t.Logf("EvmRegistry: calling new upkeep contracts to emit events. run: %d", i+1)
 		_, err = contract[0].Start(carrol)
 		require.NoError(t, err)
-		backend.Commit()
 	}
 	// Mine enough blocks to ensre these logs don't fall into log provider range
 	for i := 0; i < 1000; i++ {
