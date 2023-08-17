@@ -307,7 +307,9 @@ func (ccipModule *CCIPCommon) CleanUp() error {
 
 // DeployContracts deploys the contracts which are necessary in both source and dest chain
 // This reuses common contracts for bidirectional lanes
-func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int, conf *laneconfig.LaneConfig) error {
+func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
+	tokenDeployerFns []blockchain.ContractDeployer,
+	conf *laneconfig.LaneConfig) error {
 	var err error
 	cd := ccipModule.Deployer
 
@@ -360,7 +362,13 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int, conf *laneconfig.L
 	if len(ccipModule.BridgeTokens) == 0 {
 		// deploy bridge token.
 		for i := len(ccipModule.BridgeTokens); i < noOfTokens; i++ {
-			token, err := cd.DeployLinkTokenContract()
+			var token *ccip.LinkToken
+			var err error
+			if len(tokenDeployerFns) != noOfTokens {
+				token, err = cd.DeployLinkTokenContract()
+			} else {
+				token, err = cd.DeployERC20TokenContract(tokenDeployerFns[i])
+			}
 			if err != nil {
 				return fmt.Errorf("deploying bridge token contract shouldn't fail %+v", err)
 			}
@@ -1764,6 +1772,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	sourceCommon *CCIPCommon,
 	destCommon *CCIPCommon,
 	transferAmounts []*big.Int,
+	tokenDeployerFns []blockchain.ContractDeployer,
 	newBootstrap bool,
 	configureCLNodes bool,
 	existingDeployment bool,
@@ -1796,11 +1805,11 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 
 	// deploy all common contracts in parallel
 	lane.Source.Common.deploy.Go(func() error {
-		return lane.Source.Common.DeployContracts(len(lane.Source.TransferAmount), srcConf)
+		return lane.Source.Common.DeployContracts(len(lane.Source.TransferAmount), tokenDeployerFns, srcConf)
 	})
 
 	lane.Dest.Common.deploy.Go(func() error {
-		return lane.Dest.Common.DeployContracts(len(lane.Source.TransferAmount), destConf)
+		return lane.Dest.Common.DeployContracts(len(lane.Source.TransferAmount), tokenDeployerFns, destConf)
 	})
 
 	// deploy all source contracts

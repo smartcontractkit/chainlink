@@ -427,6 +427,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	networkA, networkB blockchain.EVMNetwork,
 	chainClientA, chainClientB blockchain.EVMClient,
 	transferAmounts []*big.Int,
+	tokenDeployerFns []blockchain.ContractDeployer,
 	numOfCommitNodes int,
 	commitAndExecOnSameDON, bidirectional bool,
 	newBootstrap bool,
@@ -528,7 +529,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	setUpFuncs.Go(func() error {
 		lggr.Info().Msgf("Setting up lane %s to %s", networkA.Name, networkB.Name)
 		err := ccipLaneA2B.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, nil, nil,
-			transferAmounts, newBootstrap, configureCLNode, o.Cfg.ExistingDeployment)
+			transferAmounts, tokenDeployerFns, newBootstrap, configureCLNode, o.Cfg.ExistingDeployment)
 		if err != nil {
 			allErrors = multierr.Append(allErrors, fmt.Errorf("deploying lane %s to %s; err - %+v", networkA.Name, networkB.Name, err))
 		}
@@ -546,7 +547,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 			destCommon := ccipLaneA2B.Source.Common.CopyAddresses(ccipLaneB2A.Context, ccipLaneB2A.DestChain, o.Cfg.ExistingDeployment)
 			lggr.Info().Msgf("Setting up lane %s to %s", networkB.Name, networkA.Name)
 			err := ccipLaneB2A.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, srcCommon, destCommon,
-				transferAmounts, false, configureCLNode, o.Cfg.ExistingDeployment)
+				transferAmounts, tokenDeployerFns, false, configureCLNode, o.Cfg.ExistingDeployment)
 			if err != nil {
 				allErrors = multierr.Append(allErrors, fmt.Errorf("deploying lane %s to %s; err -  %+v", networkB.Name, networkA.Name, err))
 			}
@@ -594,6 +595,7 @@ func CCIPDefaultTestSetUp(
 	envName string,
 	numOfCLNodes int64,
 	transferAmounts []*big.Int,
+	tokenDeployerFns []blockchain.ContractDeployer,
 	numOfCommitNodes int, commitAndExecOnSameDON, bidirectional bool,
 	inputs *CCIPTestConfig,
 ) *CCIPTestSetUpOutputs {
@@ -750,7 +752,7 @@ func CCIPDefaultTestSetUp(
 		err = setUpArgs.AddLanesForNetworkPair(
 			lggr, n.NetworkA, n.NetworkB,
 			chainByChainID[n.NetworkA.ChainID], chainByChainID[n.NetworkB.ChainID],
-			transferAmounts, numOfCommitNodes, commitAndExecOnSameDON,
+			transferAmounts, tokenDeployerFns, numOfCommitNodes, commitAndExecOnSameDON,
 			bidirectional, newBootstrap)
 		require.NoError(t, err)
 		err = laneconfig.WriteLanesToJSON(setUpArgs.LaneConfigFile, setUpArgs.LaneConfig)
@@ -785,7 +787,7 @@ func CCIPExistingDeploymentTestSetUp(
 	input *CCIPTestConfig,
 ) *CCIPTestSetUpOutputs {
 	return CCIPDefaultTestSetUp(t, lggr, "ccip-runner", 0, transferAmounts,
-		0, false, bidirectional, input)
+		nil, 0, false, bidirectional, input)
 }
 
 func DeployLocalCluster(
