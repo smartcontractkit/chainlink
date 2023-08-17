@@ -144,6 +144,7 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 	if err := eg.Wait(); err != nil {
 		return err
 	}
+	close(nodes)
 
 	for node := range nodes {
 		te.CLNodes = append(te.CLNodes, node)
@@ -188,7 +189,7 @@ func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 }
 
 func (te *CLClusterTestEnv) Terminate() error {
-	// TESTCONTAINERS_RYUK_DISABLED=false by defualt so ryuk will remove all
+	// TESTCONTAINERS_RYUK_DISABLED=false by default so ryuk will remove all
 	// the containers and the Network
 	return nil
 }
