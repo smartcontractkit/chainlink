@@ -681,6 +681,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		uid.FromBigInt(upkeepId)
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
+			r.lggr.Infof("start packing checkUpkeep for log trigger upkeep %s", upkeepId)
 			reason, state, retryable := r.verifyLogExists(upkeepId, p)
 			if reason != UpkeepFailureReasonNone || state != NoPipelineError {
 				results[i] = getIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)
@@ -695,7 +696,12 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 				results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false)
 				continue
 			}
+			r.lggr.Infof("finished packing checkUpkeep for log trigger upkeep %s", upkeepId)
 		default:
+			r.lggr.Infof("start packing checkUpkeep0 for conditional upkeep %s", upkeepId)
+
+			m := r.abi.Methods["checkUpkeep0"]
+			r.lggr.Warnf("upkeep %s this is checkUpkeep0: %s", upkeepId, m.String())
 			// checkUpkeep is overloaded on the contract for conditionals and log upkeeps
 			// Need to use the first function (checkUpkeep0) for conditionals
 			payload, err = r.abi.Pack("checkUpkeep0", upkeepId)
@@ -705,6 +711,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 				results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false)
 				continue
 			}
+			r.lggr.Infof("finished packing checkUpkeep0 for conditional upkeep %s", upkeepId)
 		}
 		indices[len(checkReqs)] = i
 		results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, NoPipelineError, false)
@@ -832,6 +839,14 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 	}
 
+	r.lggr.Infof("pipeline run finished with % %d upkeeps", len(checkResults))
+	for i, cr := range checkResults {
+		if cr.Trigger.LogTriggerExtension != nil {
+			r.lggr.Infof("log trigger upkeep %d id %s eligible %t state %d reason %d tx hash %s", i, cr.UpkeepID.String(), cr.Eligible, cr.PipelineExecutionState, cr.IneligibilityReason, hexutil.Encode(cr.Trigger.LogTriggerExtension.TxHash[:]))
+		} else {
+			r.lggr.Infof("conditional trigger upkeep %d id %s eligible %t state %d reason %d check block number %d", i, cr.UpkeepID.String(), cr.Eligible, cr.PipelineExecutionState, cr.IneligibilityReason, cr.Trigger.BlockNumber)
+		}
+	}
 	return checkResults, nil
 }
 
