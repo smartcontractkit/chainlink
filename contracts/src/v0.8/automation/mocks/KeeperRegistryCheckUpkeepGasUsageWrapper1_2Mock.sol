@@ -3,13 +3,15 @@
 pragma solidity ^0.8.6;
 
 contract KeeperRegistryCheckUpkeepGasUsageWrapper1_2Mock {
-    event OwnershipTransferRequested(address indexed from,address indexed to);
-    event OwnershipTransferred(address indexed from,address indexed to);
-    function emitOwnershipTransferRequested(address from,address to) public {
-        emit OwnershipTransferRequested(from,to);
+    event OwnershipTransferRequested(address indexed from, address indexed to);
+    event OwnershipTransferred(address indexed from, address indexed to);
+
+    function emitOwnershipTransferRequested(address from, address to) public {
+        emit OwnershipTransferRequested(from, to);
     }
-    function emitOwnershipTransferred(address from,address to) public {
-        emit OwnershipTransferred(from,to);
+
+    function emitOwnershipTransferred(address from, address to) public {
+        emit OwnershipTransferred(from, to);
     }
 
     bool public s_mockResult;
