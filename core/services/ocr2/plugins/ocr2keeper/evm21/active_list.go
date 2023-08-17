@@ -4,8 +4,9 @@ import (
 	"math/big"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 // ActiveUpkeepList is a list to manage active upkeep IDs

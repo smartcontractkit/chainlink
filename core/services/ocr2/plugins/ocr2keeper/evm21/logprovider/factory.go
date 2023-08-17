@@ -2,6 +2,7 @@ package logprovider
 
 import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

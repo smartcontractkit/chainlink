@@ -3,9 +3,10 @@ package encoding
 import (
 	"math/big"
 
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
 type UpkeepFailureReason uint8
