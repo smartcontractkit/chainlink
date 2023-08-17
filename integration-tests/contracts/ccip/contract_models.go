@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -427,16 +428,17 @@ func (r *Router) Address() string {
 	return r.EthAddress.Hex()
 }
 
-func (r *Router) SetOnRamp(chainID uint64, onRamp common.Address) error {
+func (r *Router) SetOnRamp(chainSelector uint64, onRamp common.Address) error {
 	opts, err := r.client.TransactionOpts(r.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
 	log.Info().
 		Str("Router", r.Address()).
+		Str("ChainSelector", strconv.FormatUint(chainSelector, 10)).
 		Msg("Setting on ramp for r")
 
-	tx, err := r.Instance.ApplyRampUpdates(opts, []router.RouterOnRamp{{DestChainSelector: chainID, OnRamp: onRamp}}, nil, nil)
+	tx, err := r.Instance.ApplyRampUpdates(opts, []router.RouterOnRamp{{DestChainSelector: chainSelector, OnRamp: onRamp}}, nil, nil)
 	if err != nil {
 		return err
 	}
@@ -464,6 +466,7 @@ func (r *Router) CCIPSend(destChainSelector uint64, msg router.ClientEVM2AnyMess
 		Str("router", r.Address()).
 		Str("txHash", tx.Hash().Hex()).
 		Str("Network Name", r.client.GetNetworkConfig().Name).
+		Str("chain selector", strconv.FormatUint(destChainSelector, 10)).
 		Msg("msg is sent")
 	return tx, r.client.ProcessTransaction(tx)
 }

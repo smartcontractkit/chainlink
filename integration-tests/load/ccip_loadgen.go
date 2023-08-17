@@ -161,7 +161,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 	var sendTx *types.Transaction
 	var err error
 
-	destChainSelector, err := actions.EvmChainIdToChainSelector(sourceCCIP.DestinationChainId, c.Lane.Dest.Common.ChainClient.NetworkSimulated())
+	destChainSelector, err := actions.EvmChainIdToChainSelector(sourceCCIP.DestinationChainId)
 	if err != nil {
 		res.Error = err.Error()
 		res.Failed = true

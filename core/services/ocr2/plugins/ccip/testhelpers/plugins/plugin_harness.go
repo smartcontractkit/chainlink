@@ -64,7 +64,7 @@ func (th *CCIPPluginTestHarness) CommitAndPollLogs(t *testing.T) {
 }
 
 func SetupCCIPTestHarness(t *testing.T) CCIPPluginTestHarness {
-	c := testhelpers.SetupCCIPContracts(t, testhelpers.SourceChainID, testhelpers.DestChainID)
+	c := testhelpers.SetupCCIPContracts(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
 
 	lggr := logger.TestLogger(t)
 
@@ -113,7 +113,7 @@ func SetupCCIPTestHarness(t *testing.T) CCIPPluginTestHarness {
 			{SourceToken: c.Dest.LinkToken.Address(), UsdPerToken: big.NewInt(5)},
 			{SourceToken: c.Dest.WrappedNative.Address(), UsdPerToken: big.NewInt(5)},
 		},
-		DestChainSelector: c.Dest.ChainID,
+		DestChainSelector: c.Dest.ChainSelector,
 		UsdPerUnitGas:     big.NewInt(1),
 	})
 	require.NoError(t, err)
@@ -194,7 +194,7 @@ func (mb MessageBatch) ToExecutionReport() evm_2_evm_offramp.InternalExecutionRe
 
 func (th *CCIPPluginTestHarness) GenerateAndSendMessageBatch(t *testing.T, nMessages int, payloadSize int, nTokensPerMessage int) MessageBatch {
 	mctx := hasher.NewKeccakCtx()
-	leafHasher := hasher.NewLeafHasher(th.Source.ChainID, th.Dest.ChainID, th.Source.OnRamp.Address(), mctx)
+	leafHasher := hasher.NewLeafHasher(th.Source.ChainSelector, th.Dest.ChainSelector, th.Source.OnRamp.Address(), mctx)
 
 	maxPayload := make([]byte, payloadSize)
 	for i := 0; i < payloadSize; i++ {
@@ -222,7 +222,7 @@ func (th *CCIPPluginTestHarness) GenerateAndSendMessageBatch(t *testing.T, nMess
 			Data:         maxPayload,
 			ExtraArgs:    []byte{},
 		}
-		_, err := th.Source.Router.CcipSend(th.Source.User, th.Dest.ChainID, routerMsg)
+		_, err := th.Source.Router.CcipSend(th.Source.User, th.Dest.ChainSelector, routerMsg)
 		require.NoError(t, err)
 		lastFlush++
 		if lastFlush*payloadSize > 700_000 {

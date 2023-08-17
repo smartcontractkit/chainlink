@@ -109,7 +109,7 @@ func TestChaosCCIP(t *testing.T) {
 
 			setUpArgs := testsetups.CCIPDefaultTestSetUp(
 				t, l, "chaos-ccip", 12, []*big.Int{big.NewInt(1e8)},
-				numOfCommitNodes, false, false, testCfg)
+				nil, numOfCommitNodes, false, false, testCfg)
 
 			if len(setUpArgs.Lanes) == 0 {
 				return
