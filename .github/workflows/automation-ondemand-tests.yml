@@ -49,7 +49,7 @@ jobs:
       - name: Check if image exists
         if: inputs.chainlinkImage == ''
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 #v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35 #v2.2.9
         with:
           repository: chainlink
           tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
@@ -57,7 +57,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false' && inputs.chainlinkImage == ''
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35 # v2.2.9
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -160,7 +160,7 @@ jobs:
             echo "version=develop" >>$GITHUB_OUTPUT
           fi
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 #v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35 #v2.2.9
         env:
           PYROSCOPE_SERVER: ${{ matrix.tests.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.tests.pyroscope_env }}

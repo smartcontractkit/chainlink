@@ -180,7 +180,7 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.split.pkgs }}"
       - name: Print Filtered Test Results
         if: failure()
-        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@9a48ff0869aa6cb2753125301f744d5372d669f6 # v2.2.5
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35 # v2.2.9
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
