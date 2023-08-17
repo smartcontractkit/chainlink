@@ -25,6 +25,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -560,14 +561,14 @@ func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBac
 	return lp, ethClient, utilsABI
 }
 
-func setup(lggr logger.Logger, poller logpoller.LogPoller, utilsABI abi.ABI, stateStore kevmcore.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, opts *logprovider.LogEventProviderOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
+func setup(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, utilsABI abi.ABI, stateStore kevmcore.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, opts *logprovider.LogEventProviderOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
 	packer := logprovider.NewLogEventsPacker(utilsABI)
 	if opts == nil {
 		opts = new(logprovider.LogEventProviderOptions)
 		opts.Defaults()
 	}
 	provider := logprovider.NewLogProvider(lggr, poller, packer, filterStore, opts)
-	recoverer := logprovider.NewLogRecoverer(lggr, poller, stateStore, packer, filterStore, 0, opts.LogBlocksLookback)
+	recoverer := logprovider.NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, 0, opts.LogBlocksLookback)
 
 	return provider, recoverer
 }

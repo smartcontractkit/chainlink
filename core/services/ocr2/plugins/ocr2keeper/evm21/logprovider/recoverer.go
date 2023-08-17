@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"math/rand"
 	"sort"
 	"sync"
@@ -14,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
@@ -55,11 +57,12 @@ type logRecoverer struct {
 	states      core.UpkeepStateReader
 	packer      LogDataPacker
 	poller      logpoller.LogPoller
+	client      client.Client
 }
 
 var _ LogRecoverer = &logRecoverer{}
 
-func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, stateStore core.UpkeepStateReader, packer LogDataPacker, filterStore UpkeepFilterStore, interval time.Duration, lookbackBlocks int64) *logRecoverer {
+func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client client.Client, stateStore core.UpkeepStateReader, packer LogDataPacker, filterStore UpkeepFilterStore, interval time.Duration, lookbackBlocks int64) *logRecoverer {
 	if interval == 0 {
 		interval = DefaultRecoveryInterval
 	}
@@ -77,6 +80,7 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, stateStore 
 		filterStore: filterStore,
 		states:      stateStore,
 		packer:      packer,
+		client:      client,
 	}
 
 	rec.lookbackBlocks.Store(lookbackBlocks)
@@ -150,7 +154,6 @@ func (r *logRecoverer) GetProposalData(ctx context.Context, proposal ocr2keepers
 	default:
 		return []byte{}, errors.New("not a log trigger upkeep ID")
 	}
-	return []byte{}, nil
 }
 
 func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) ([]byte, error) {
@@ -163,9 +166,17 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 		}
 
 		start, offsetBlock := r.getRecoveryWindow(latest)
-		block := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
-		if isRecoverable := block < offsetBlock && block > start; isRecoverable {
-			upkeepStates, err := r.states.SelectByWorkIDsInRange(ctx, int64(proposal.Trigger.LogTriggerExtension.BlockNumber)-1, offsetBlock, proposal.WorkID)
+		logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
+		if logBlock == 0 {
+			number, _, err := r.getTxBlock(proposal.Trigger.LogTriggerExtension.TxHash)
+			if err != nil {
+				return nil, err
+			}
+			logBlock = number.Int64()
+		}
+		fmt.Println("log block", logBlock, "start", start, "offsetBlock", offsetBlock)
+		if isRecoverable := logBlock < offsetBlock && logBlock > start; isRecoverable {
+			upkeepStates, err := r.states.SelectByWorkIDsInRange(ctx, int64(logBlock)-1, offsetBlock, proposal.WorkID)
 			if err != nil {
 				return nil, err
 			}
@@ -188,21 +199,20 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 				return nil, errors.New("filter not found, upkeep is inactive") // TODO fix error msg
 			}
 
-			logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
 			logs, err := r.poller.LogsWithSigs(logBlock-1, logBlock+1, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
 			if err != nil {
 				return nil, fmt.Errorf("could not read logs: %w", err)
 			}
 
+			upkeepId := &ocr2keepers.UpkeepIdentifier{}
+			// TODO do we need to use the filter upkeepID for correctness, or can we remove this block and use the upkeep ID on the proposal?
+			ok := upkeepId.FromBigInt(filter.upkeepID)
+			if !ok {
+				r.lggr.Warnw("failed to convert upkeepID to UpkeepIdentifier", "upkeepID", filter.upkeepID)
+				return nil, errors.New("failed to convert upkeepID to UpkeepIdentifier")
+			}
 			for _, log := range logs {
 				trigger := logToTrigger(log)
-				upkeepId := &ocr2keepers.UpkeepIdentifier{}
-				// TODO do we need to use the filter upkeepID for correctness, or can we remove this block and use the upkeep ID on the proposal?
-				ok := upkeepId.FromBigInt(filter.upkeepID)
-				if !ok {
-					r.lggr.Warnw("failed to convert upkeepID to UpkeepIdentifier", "upkeepID", filter.upkeepID)
-					continue
-				}
 				trigger.BlockHash = proposal.Trigger.BlockHash
 				trigger.BlockNumber = proposal.Trigger.BlockNumber
 				wid := core.UpkeepWorkID(*upkeepId, trigger)
@@ -217,7 +227,17 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 			}
 		}
 	}
-	return nil, nil
+	return nil, fmt.Errorf("no log found for upkeepID %v", proposal.UpkeepID)
+}
+
+func (r *logRecoverer) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
+	// TODO: we need to differentiate here b/w flaky errors and tx not found errors
+	txr, err := r.client.TransactionReceipt(context.Background(), txHash)
+	if err != nil {
+		return nil, common.Hash{}, err
+	}
+
+	return txr.BlockNumber, txr.BlockHash, nil
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
@@ -311,6 +331,8 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	workIDs := make([]string, 0)
 	for _, log := range logs {
 		trigger := logToTrigger(log)
+		trigger.BlockHash = [32]byte{}
+		trigger.BlockNumber = 0
 		upkeepId := &ocr2keepers.UpkeepIdentifier{}
 		ok := upkeepId.FromBigInt(f.upkeepID)
 		if !ok {
@@ -353,6 +375,8 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 	alreadyPending := 0
 	for _, log := range filteredLogs {
 		trigger := logToTrigger(log)
+		trigger.BlockHash = [32]byte{}
+		trigger.BlockNumber = 0
 		upkeepId := &ocr2keepers.UpkeepIdentifier{}
 		ok := upkeepId.FromBigInt(f.upkeepID)
 		if !ok {

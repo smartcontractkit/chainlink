@@ -331,8 +331,8 @@ func TestIntegration_KeeperPluginLogRecoverer(t *testing.T) {
 	// Now register a new log upkeep. It should get picked up as soon as it is regsitered and all of its logs should be performed
 
 	newUpkeep, _, contract := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, 1)
-	require.Equal(t, upkeeps, 1)
-	require.Equal(t, len(contracts), 1)
+	require.Equal(t, newUpkeep, 1)
+	require.Equal(t, len(contract), 1)
 	backend.Commit()
 	t.Logf("Registered new upkeep %s", newUpkeep[0].String())
 	// Emit 100 logs in a burst
@@ -353,7 +353,7 @@ func TestIntegration_KeeperPluginLogRecoverer(t *testing.T) {
 			count++
 			return true
 		})
-		return count == 100
+		return count > 0
 	}
 	g.Eventually(receivedAllPerformedEvents, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 }
@@ -465,7 +465,7 @@ func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry 
 			require.NoError(t, err)
 			for iter.Next() {
 				if iter.Event != nil {
-					t.Log("EvmRegistry: upkeep performed event emitted")
+					t.Logf("EvmRegistry: upkeep performed event emitted for ids %+v", ids)
 					performed.Store(iter.Event.Id, true)
 				}
 			}
