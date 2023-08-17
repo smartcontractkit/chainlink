@@ -48,8 +48,12 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 
 		if checkBlock.Cmp(highestCheckBlock) == 1 {
 			highestCheckBlock = checkBlock
-			report.FastGasWei = result.FastGasWei
-			report.LinkNative = result.LinkNative
+			if result.FastGasWei != nil {
+				report.FastGasWei = result.FastGasWei
+			}
+			if result.LinkNative != nil {
+				report.LinkNative = result.LinkNative
+			}
 		}
 
 		id := result.UpkeepID.BigInt()
