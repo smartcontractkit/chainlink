@@ -295,6 +295,9 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	if start < startBlock {
 		start = startBlock
 	}
+	if start < 0 {
+		start = 0
+	}
 	end := start + recoveryLogsBuffer
 	if end > offsetBlock {
 		end = offsetBlock
