@@ -450,8 +450,8 @@ func (r *logRecoverer) selectFilterBatch(filters []upkeepFilter) []upkeepFilter 
 
 func logToTrigger(log logpoller.Log) ocr2keepers.Trigger {
 	t := ocr2keepers.NewTrigger(
-		0,
-		[32]byte{},
+		ocr2keepers.BlockNumber(log.BlockNumber),
+		log.BlockHash,
 	)
 	t.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{
 		TxHash:      log.TxHash,
