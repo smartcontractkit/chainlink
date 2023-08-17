@@ -74,18 +74,18 @@ func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
 	te.EVMClient.ParallelTransactions(enabled)
 }
 
-func (m *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
+func (te *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
 	var chains []test_env.PrivateGethChain
 	for _, evmNetwork := range evmNetworks {
 		n := evmNetwork
-		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{m.Network.Name}))
+		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{te.Network.Name}))
 	}
-	m.PrivateGethChain = chains
-	return m
+	te.PrivateGethChain = chains
+	return te
 }
 
-func (m *CLClusterTestEnv) StartPrivateGethChain() error {
-	for _, chain := range m.PrivateGethChain {
+func (te *CLClusterTestEnv) StartPrivateGethChain() error {
+	for _, chain := range te.PrivateGethChain {
 		err := chain.PrimaryNode.Start()
 		if err != nil {
 			return err
