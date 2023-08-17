@@ -11,6 +11,7 @@ import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers
 import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
 import {VmSafe} from "forge-std/Vm.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol"; // for Math.ceilDiv
 
 /*
  * USAGE INSTRUCTIONS:
@@ -139,6 +140,68 @@ contract VRFV2Plus is BaseTest {
   function testCreateSubscription() public {
     uint256 subId = s_testCoordinator.createSubscription();
     s_testCoordinator.fundSubscriptionWithEth{value: 10 ether}(subId);
+  }
+
+  function testGetActiveSubscriptionIds() public {
+    uint numSubs = 40;
+    for (uint i = 0; i < numSubs; i++) {
+      s_testCoordinator.createSubscription();
+    }
+    // get all subscriptions, assert length is correct
+    uint256[] memory allSubs = s_testCoordinator.getActiveSubscriptionIds(0, 0);
+    assertEq(allSubs.length, s_testCoordinator.getActiveSubscriptionIdsLength());
+
+    // paginate through subscriptions, batching by 10.
+    // we should eventually get all the subscriptions this way.
+    uint256[][] memory subIds = paginateSubscriptions(s_testCoordinator, 10);
+    // check that all subscriptions were returned
+    uint actualNumSubs = 0;
+    for (uint batchIdx = 0; batchIdx < subIds.length; batchIdx++) {
+      for (uint subIdx = 0; subIdx < subIds[batchIdx].length; subIdx++) {
+        s_testCoordinator.getSubscription(subIds[batchIdx][subIdx]);
+        actualNumSubs++;
+      }
+    }
+    assertEq(actualNumSubs, s_testCoordinator.getActiveSubscriptionIdsLength());
+
+    // cancel a bunch of subscriptions, assert that they are not returned
+    uint256[] memory subsToCancel = new uint256[](3);
+    for (uint i = 0; i < 3; i++) {
+      subsToCancel[i] = subIds[0][i];
+    }
+    for (uint i = 0; i < subsToCancel.length; i++) {
+      s_testCoordinator.cancelSubscription(subsToCancel[i], LINK_WHALE);
+    }
+    uint256[][] memory newSubIds = paginateSubscriptions(s_testCoordinator, 10);
+    // check that all subscriptions were returned
+    // and assert that none of the canceled subscriptions are returned
+    actualNumSubs = 0;
+    for (uint batchIdx = 0; batchIdx < newSubIds.length; batchIdx++) {
+      for (uint subIdx = 0; subIdx < newSubIds[batchIdx].length; subIdx++) {
+        for (uint i = 0; i < subsToCancel.length; i++) {
+          assertFalse(newSubIds[batchIdx][subIdx] == subsToCancel[i]);
+        }
+        s_testCoordinator.getSubscription(newSubIds[batchIdx][subIdx]);
+        actualNumSubs++;
+      }
+    }
+    assertEq(actualNumSubs, s_testCoordinator.getActiveSubscriptionIdsLength());
+  }
+
+  function paginateSubscriptions(
+    ExposedVRFCoordinatorV2Plus coordinator,
+    uint256 batchSize
+  ) internal view returns (uint256[][] memory) {
+    uint arrIndex = 0;
+    uint startIndex = 0;
+    uint256 numSubs = coordinator.getActiveSubscriptionIdsLength();
+    uint256[][] memory subIds = new uint256[][](Math.ceilDiv(numSubs, batchSize));
+    while (startIndex < numSubs) {
+      subIds[arrIndex] = coordinator.getActiveSubscriptionIds(startIndex, batchSize);
+      startIndex += batchSize;
+      arrIndex++;
+    }
+    return subIds;
   }
 
   event RandomWordsRequested(

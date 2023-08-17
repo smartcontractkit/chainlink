@@ -1,8 +1,14 @@
 package ocr2_test
 
 import (
+	"testing"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -15,11 +21,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/stretchr/testify/require"
-	"gopkg.in/guregu/null.v4"
-	"testing"
 )
 
 func TestGetEVMEffectiveTransmitterID(t *testing.T) {
@@ -40,7 +44,9 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	txManager := txmmocks.NewMockEvmTxManager(t)
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
+	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
+	require.True(t, relayerExtenders.Len() > 0)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
 
 	type testCase struct {
 		name                  string
@@ -134,7 +140,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		require.NoError(t, err)
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("some transmitterID string")
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = nil
-		effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(&jb, cc, customChainID.Int64(), lggr)
+		effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(&jb, legacyChains, customChainID.String(), lggr)
 		require.NoError(t, err)
 		require.Equal(t, "some transmitterID string", effectiveTransmitterID)
 		require.Equal(t, []string{"some transmitterID string"}, jb.OCR2OracleSpec.RelayConfig["sendingKeys"].([]string))
@@ -146,7 +152,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			require.NoError(t, err)
 			setTestCase(&jb, tc, txManager)
 
-			effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(&jb, cc, customChainID.Int64(), lggr)
+			effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(&jb, legacyChains, customChainID.String(), lggr)
 			if tc.expectedError {
 				require.Error(t, err)
 			} else {
@@ -167,7 +173,8 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		require.NoError(t, err)
 		jb.ForwardingAllowed = true
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("0x7e57000000000000000000000000000000000001")
-		_, err = ocr2.GetEVMEffectiveTransmitterID(&jb, cc, int64(-1), lggr)
-		require.Equal(t, "failed to get chainset: failed to get chain with id -1: not found", err.Error())
+		_, err = ocr2.GetEVMEffectiveTransmitterID(&jb, legacyChains, "-1", lggr)
+		require.Error(t, err)
+		require.ErrorIs(t, err, chains.ErrNoSuchChainID)
 	})
 }

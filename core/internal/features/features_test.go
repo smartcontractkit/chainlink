@@ -65,6 +65,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -234,7 +235,8 @@ observationSource   = """
 
 		pipelineORM := pipeline.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM := bridges.NewORM(app.GetSqlxDB(), logger.TestLogger(t), cfg.Database())
-		jobORM := job.NewORM(app.GetSqlxDB(), app.GetChains().EVM, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
+		legacyChains := app.GetRelayers().LegacyEVMChains()
+		jobORM := job.NewORM(app.GetSqlxDB(), legacyChains, pipelineORM, bridgeORM, app.KeyStore, logger.TestLogger(t), cfg.Database())
 
 		runs := cltest.WaitForPipelineComplete(t, 0, jobID, 1, 2, jobORM, 5*time.Second, 300*time.Millisecond)
 		require.Len(t, runs, 1)
@@ -922,7 +924,7 @@ func TestIntegration_OCR(t *testing.T) {
 			err = appBootstrap.Start(testutils.Context(t))
 			require.NoError(t, err)
 
-			jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetChains().EVM, fmt.Sprintf(`
+			jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -990,7 +992,7 @@ isBootstrapPeer    = true
 
 				// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 				// So 200ms + 200ms + 500ms < 1s
-				jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetChains().EVM, fmt.Sprintf(`
+				jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
@@ -1150,7 +1152,7 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 		require.NoError(t, err)
 
 		// set forwardingAllowed = true
-		jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetChains().EVM, fmt.Sprintf(`
+		jb, err := ocr.ValidatedOracleSpecToml(appBootstrap.GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
@@ -1220,7 +1222,7 @@ isBootstrapPeer    = true
 			// Note we need: observationTimeout + observationGracePeriod + DeltaGrace (500ms) < DeltaRound (1s)
 			// So 200ms + 200ms + 500ms < 1s
 			// forwardingAllowed = true
-			jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetChains().EVM, fmt.Sprintf(`
+			jb, err := ocr.ValidatedOracleSpecToml(apps[i].GetRelayers().LegacyEVMChains(), fmt.Sprintf(`
 type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
@@ -1322,7 +1324,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})
+	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})
 
 	b41 := evmtypes.Block{
 		Number:       41,
@@ -1373,13 +1375,15 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
-
 	// HeadTracker backfill
 	ethClient.On("HeadByHash", mock.Anything, h40.Hash).Return(&h40, nil).Maybe()
 	ethClient.On("HeadByHash", mock.Anything, h41.Hash).Return(&h41, nil).Maybe()
 	ethClient.On("HeadByHash", mock.Anything, h42.Hash).Return(&h42, nil).Maybe()
 
-	require.NoError(t, cc.Start(testutils.Context(t)))
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
+	for _, re := range cc.Slice() {
+		require.NoError(t, re.Start(testutils.Context(t)))
+	}
 	var newHeads evmtest.RawSub[*evmtypes.Head]
 	select {
 	case newHeads = <-chchNewHeads:
@@ -1387,7 +1391,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		t.Fatal("timed out waiting for app to subscribe")
 	}
 
-	chain := evmtest.MustGetDefaultChain(t, cc)
+	chain := evmtest.MustGetDefaultChain(t, legacyChains)
 	estimator := chain.GasEstimator()
 	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice)
 	require.NoError(t, err)
@@ -1416,7 +1420,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 }
 
 func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
-	for _, chain := range app.GetChains().EVM.Chains() {
+	for _, chain := range app.GetRelayers().LegacyEVMChains().Slice() {
 		keys, err := app.KeyStore.Eth().EnabledKeysForChain(chain.ID())
 		require.NoError(t, err)
 		for _, k := range keys {
