@@ -153,8 +153,6 @@ jobs:
           prod: "true"
       - name: Setup Go
         uses: ./.github/actions/setup-go
-        with:
-          matrix-id: ${{ matrix.cmd }}-${{ matrix.split.id }}
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
       - name: Setup wasmd
@@ -228,7 +226,7 @@ jobs:
         if: needs.core.result != 'success'
         run: exit 1
       - name: Notify Slack
-        if: failure() && ${{ matrix.cmd }} == 'go_core_race_tests' && github.event.schedule != ''
+        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && github.event.schedule != '' }}
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}

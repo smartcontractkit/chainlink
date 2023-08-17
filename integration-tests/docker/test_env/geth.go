@@ -3,8 +3,6 @@ package test_env
 import (
 	"context"
 	"fmt"
-	"time"
-
 	"os"
 
 	"github.com/ethereum/go-ethereum/accounts"
@@ -16,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
+	"time"
 )
 
 const (
@@ -155,12 +154,12 @@ func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 	}
 
 	return &tc.ContainerRequest{
-		Name:         g.ContainerName,
-		Image:        "ethereum/client-go:stable",
-		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
-		Networks:     networks,
-		WaitingFor: tcwait.ForHTTP("/").
-			WithPort("8544/tcp").
+		Name:            g.ContainerName,
+		AlwaysPullImage: true,
+		Image:           "ethereum/client-go:stable",
+		ExposedPorts:    []string{"8544/tcp", "8545/tcp"},
+		Networks:        networks,
+		WaitingFor: tcwait.ForLog("Chain head was updated").
 			WithStartupTimeout(120 * time.Second).
 			WithPollInterval(1 * time.Second),
 		Entrypoint: []string{"sh", "./root/init.sh",

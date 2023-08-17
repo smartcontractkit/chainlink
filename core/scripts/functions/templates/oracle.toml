@@ -11,17 +11,25 @@ relay = "evm"
 pluginType = "functions"
 transmitterID = "{{node_eth_address}}"
 observationSource  = """
-	run_computation    [type="bridge" name="ea_bridge" requestData="{\\"note\\": \\"observationSource is unused but the bridge is required\\"}"]
-	run_computation
+    run_computation    [type="bridge" name="ea_bridge" requestData="{\\"note\\": \\"observationSource is unused but the bridge is required\\"}"]
+    run_computation
 """
 
 [relayConfig]
 chainID = {{chain_id}}
 
 [pluginConfig]
+contractUpdateCheckFrequencySec = 300
+contractVersion = 1
+donID = "{{don_id}}"
+enableRequestSignatureCheck = false
+listenerEventHandlerTimeoutSec = 180
+listenerEventsCheckFrequencyMillis = 500
+maxRequestSizeBytes = 30_720
 minIncomingConfirmations = 3
-requestTimeoutSec = 300
-requestTimeoutCheckFrequencySec = 10
+pruneBatchSize = 5
+pruneCheckFrequencySec = 30
+pruneMaxStoredRequests = 20
 requestTimeoutBatchLookupSize = 20
-listenerEventHandlerTimeoutSec = 120
-maxRequestSizeBytes = 30720
+requestTimeoutCheckFrequencySec = 10
+requestTimeoutSec = 300

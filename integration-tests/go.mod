@@ -23,7 +23,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework v1.15.3
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829
-	github.com/smartcontractkit/ocr2keepers v0.7.9
+	github.com/smartcontractkit/ocr2keepers v0.7.10
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/wasp v0.2.9
 	github.com/spf13/cobra v1.6.1
@@ -382,7 +382,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230802143343-59cdfce9fb24 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230808141159-4e20b0757f3a // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230814175909-17597db0d6fc // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a85 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
