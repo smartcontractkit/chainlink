@@ -175,6 +175,7 @@ contract VRFV2Plus is BaseTest {
       }
       uint256[][] memory newSubIds = paginateSubscriptions(s_testCoordinator, 10);
       // check that all subscriptions were returned
+      // and assert that none of the canceled subscriptions are returned
       actualNumSubs = 0;
       for (uint batchIdx = 0; batchIdx < newSubIds.length; batchIdx++) {
         for (uint subIdx = 0; subIdx < newSubIds[batchIdx].length; subIdx++) {
@@ -458,9 +459,5 @@ contract VRFV2Plus is BaseTest {
     // note: delta is doubled from the native test to account for more variance due to the link/eth ratio
     (uint96 linkBalanceAfter, , , , ) = s_testCoordinator.getSubscription(subId);
     assertApproxEqAbs(linkBalanceAfter, linkBalanceBefore - 280_000, 20_000);
-  }
-
-  function testMyFunction() public {
-    // ...
   }
 }
