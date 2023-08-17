@@ -27,6 +27,15 @@ type checkResult struct {
 
 func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	r.lggr.Debugw("Checking upkeeps", "upkeeps", keys)
+	for _, key := range keys {
+		if key.Trigger.BlockNumber == 0 { // check block was not populated, use latest
+			latest := r.bs.latestBlock.Load()
+			copy(key.Trigger.BlockHash[:], latest.Hash[:])
+			key.Trigger.BlockNumber = latest.Number
+			r.lggr.Debugf("Check upkeep key had no trigger block number, using latest block %v", key.Trigger.BlockNumber)
+		}
+	}
+
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx, keys, chResult)
 
@@ -54,7 +63,6 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		return
 	}
 
-	// todo: can feed lookup return errors?
 	upkeepResults = r.feedLookup(ctx, upkeepResults)
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
@@ -98,6 +106,7 @@ func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, err
 	return txr.BlockNumber, txr.BlockHash, nil
 }
 
+// todo: remove duplicate
 // getIneligibleCheckResultWithoutPerformData returns an ineligible check result with ineligibility reason and pipeline execution state but without perform data
 func getIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason encoding.UpkeepFailureReason, state encoding.PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
 	return ocr2keepers.CheckResult{
@@ -128,12 +137,12 @@ func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId
 	h, ok = r.bs.queryBlocksMap(checkBlock.Int64())
 	if !ok {
 		r.lggr.Warnf("check block %s does not exist in block subscriber for upkeepId %s, querying eth client", checkBlock, upkeepId)
-		b, err := r.client.BlockByNumber(ctx, checkBlock)
+		b, err := r.getBlockHash(checkBlock)
 		if err != nil {
 			r.lggr.Warnf("failed to query block %s: %s", checkBlock, err.Error())
 			return encoding.RpcFlakyFailure, true
 		}
-		h = b.Hash().Hex()
+		h = b.Hex()
 	}
 	if checkHash.Hex() != h {
 		r.lggr.Warnf("check block %s hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", checkBlock, h, checkHash.Hex(), upkeepId)
@@ -184,11 +193,6 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	indices := map[int]int{}
 
 	for i, p := range payloads {
-		if p.Trigger.BlockNumber == 0 { // check block was not populated
-			latest := r.bs.latestBlock.Load()
-			copy(p.Trigger.BlockHash[:], latest.Hash[:])
-			p.Trigger.BlockNumber = latest.Number
-		}
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
 		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
 		if state != encoding.NoPipelineError {

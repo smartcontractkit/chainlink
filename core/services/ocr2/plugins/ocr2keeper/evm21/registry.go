@@ -19,7 +19,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -83,7 +82,6 @@ func NewEvmRegistry(
 ) *EvmRegistry {
 	return &EvmRegistry{
 		lggr:         lggr.Named("EvmRegistry"),
-		ht:           client.HeadTracker(),
 		poller:       client.LogPoller(),
 		addr:         addr,
 		client:       client.Client(),
@@ -99,7 +97,6 @@ func NewEvmRegistry(
 			abi:            feedLookupCompatibleABI,
 			allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),
 		},
-		// TODO: is there some core node http client we should use
 		hc:               http.DefaultClient,
 		logEventProvider: logEventProvider,
 		bs:               blockSub,
@@ -124,7 +121,6 @@ type MercuryConfig struct {
 }
 
 type EvmRegistry struct {
-	ht               types.HeadTracker
 	sync             utils.StartStopOnce
 	lggr             logger.Logger
 	poller           logpoller.LogPoller
@@ -426,9 +422,9 @@ func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) *bind.C
 	}
 
 	if block == nil || block.Int64() == 0 {
-		l := r.ht.LatestChain()
-		if l != nil && l.BlockNumber() != 0 {
-			opts.BlockNumber = big.NewInt(l.BlockNumber())
+		l := r.bs.latestBlock.Load()
+		if l != nil && l.Number != 0 {
+			opts.BlockNumber = big.NewInt(int64(l.Number))
 		}
 	} else {
 		opts.BlockNumber = block
