@@ -172,7 +172,6 @@ func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.Upk
 			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
 			continue
 		}
-
 		payload, err := core.NewUpkeepPayload(l.id, trig, checkData)
 		if err != nil {
 			p.lggr.Warnw("failed to create upkeep payload", "err", err, "id", l.id, "trigger", trig, "checkData", checkData)

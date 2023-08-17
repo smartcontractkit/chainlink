@@ -201,3 +201,11 @@ func (s *mockScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]s
 	s.workIDs = nil
 	return res, s.err
 }
+
+func (s *mockScanner) Start(context.Context) error {
+	return nil
+}
+
+func (s *mockScanner) Close() error {
+	return nil
+}

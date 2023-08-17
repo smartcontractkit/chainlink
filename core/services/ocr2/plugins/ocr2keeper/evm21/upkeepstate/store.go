@@ -2,6 +2,8 @@ package upkeepstate
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"sync"
 	"time"
 
@@ -22,6 +24,8 @@ var (
 type UpkeepStateStore interface {
 	ocr2keepers.UpkeepStateUpdater
 	core.UpkeepStateReader
+	Start(context.Context) error
+	io.Closer
 }
 
 var (
@@ -62,14 +66,20 @@ func NewUpkeepStateStore(lggr logger.Logger, scanner PerformedLogsScanner) *upke
 
 // Start starts the upkeep state store.
 // it does background cleanup of the cache.
-func (u *upkeepStateStore) Start(pctx context.Context) error {
-	// todo: should this depend on pctx?
-	ctx, cancel := context.WithCancel(pctx)
-	defer cancel()
+func (u *upkeepStateStore) Start(context.Context) error {
+	ctx, cancel := context.WithCancel(context.Background())
 
 	u.mu.Lock()
+	if u.cancel != nil {
+		u.mu.Unlock()
+		return fmt.Errorf("already started")
+	}
 	u.cancel = cancel
 	u.mu.Unlock()
+
+	if err := u.scanner.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start scanner")
+	}
 
 	u.lggr.Debug("Starting upkeep state store")
 
@@ -88,11 +98,16 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 func (u *upkeepStateStore) Close() error {
 	u.mu.Lock()
-	cancel := u.cancel
-	u.mu.Unlock()
+	defer u.mu.Unlock()
 
-	if cancel != nil {
+	if cancel := u.cancel; cancel != nil {
+		u.cancel = nil
 		cancel()
+	} else {
+		return fmt.Errorf("already stopped")
+	}
+	if err := u.scanner.Close(); err != nil {
+		return fmt.Errorf("failed to start scanner")
 	}
 
 	return nil
