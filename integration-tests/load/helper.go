@@ -56,7 +56,7 @@ func (l *loadArgs) Setup(sameCommitAndExec bool) {
 			replicas = 12
 		}
 		setUpArgs = testsetups.CCIPDefaultTestSetUp(l.TestCfg.Test, lggr, "load-ccip",
-			replicas, transferAmounts, 5, sameCommitAndExec, true, l.TestCfg)
+			replicas, transferAmounts, nil, 5, sameCommitAndExec, true, l.TestCfg)
 	} else {
 		setUpArgs = testsetups.CCIPExistingDeploymentTestSetUp(l.TestCfg.Test, lggr, transferAmounts, true, l.TestCfg)
 	}
@@ -141,7 +141,7 @@ func (l *loadArgs) AddMoreLanesToRun() {
 			err := l.TestSetupArgs.AddLanesForNetworkPair(
 				l.lggr, n.NetworkA, n.NetworkB,
 				n.ChainClientA, n.ChainClientB,
-				transferAmounts, 5, true,
+				transferAmounts, nil, 5, true,
 				true, false)
 			assert.NoError(l.t, err)
 			l.LaneLoadCfg <- laneLoadCfg{
