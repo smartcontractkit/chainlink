@@ -827,7 +827,7 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	// Set the jobs for the second registry
 	// _, err = actions.CreateKeeperJobsLocal(chainlinkNodes, secondRegistry, contracts.OCRv2Config{})
 	// require.NoError(t, err, "Error creating keeper jobs")
-	actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+	actions.CreateKeeperJobs(t, chainlinkNodes, secondRegistry, contracts.OCRv2Config{})
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error creating keeper jobs")
 
