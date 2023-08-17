@@ -404,6 +404,7 @@ func (r *logRecoverer) getRecoveryWindow(latest int64) (int64, int64) {
 	lookbackBlocks := r.lookbackBlocks.Load()
 	blockTime := r.blockTime.Load()
 	start := int64(24*time.Hour) / blockTime
+	// TODO: use max(finality depth, lookbackBlocks)
 	return latest - start, latest - lookbackBlocks
 }
 
