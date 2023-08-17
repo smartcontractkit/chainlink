@@ -27,12 +27,12 @@ type checkResult struct {
 
 func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	r.lggr.Debugw("Checking upkeeps", "upkeeps", keys)
-	for _, key := range keys {
-		if key.Trigger.BlockNumber == 0 { // check block was not populated, use latest
+	for i := range keys {
+		if keys[i].Trigger.BlockNumber == 0 { // check block was not populated, use latest
 			latest := r.bs.latestBlock.Load()
-			copy(key.Trigger.BlockHash[:], latest.Hash[:])
-			key.Trigger.BlockNumber = latest.Number
-			r.lggr.Debugf("Check upkeep key had no trigger block number, using latest block %v", key.Trigger.BlockNumber)
+			copy(keys[i].Trigger.BlockHash[:], latest.Hash[:])
+			keys[i].Trigger.BlockNumber = latest.Number
+			r.lggr.Debugf("Check upkeep key had no trigger block number, using latest block %v", keys[i].Trigger.BlockNumber)
 		}
 	}
 
