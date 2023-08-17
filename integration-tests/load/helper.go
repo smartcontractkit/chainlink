@@ -56,7 +56,7 @@ func (l *loadArgs) Setup(sameCommitAndExec bool) {
 			replicas = 12
 		}
 		setUpArgs = testsetups.CCIPDefaultTestSetUp(l.TestCfg.Test, lggr, "load-ccip",
-			replicas, transferAmounts, 5, sameCommitAndExec, true, l.TestCfg)
+			replicas, transferAmounts, nil, 5, sameCommitAndExec, true, l.TestCfg)
 	} else {
 		setUpArgs = testsetups.CCIPExistingDeploymentTestSetUp(l.TestCfg.Test, lggr, transferAmounts, true, l.TestCfg)
 	}
