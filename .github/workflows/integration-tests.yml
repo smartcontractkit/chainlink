@@ -452,7 +452,7 @@ jobs:
     needs: [eth-smoke-tests-matrix,eth-smoke-tests-matrix-docker]
     steps:
       - name: Check smoke test matrix status
-        if: needs.eth-smoke-tests-matrix.result != 'success' && needs.eth-smoke-tests-matrix-docker.result != 'success'
+        if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-docker.result != 'success'
         run: exit 1
       - name: Collect Metrics
         if: always()
