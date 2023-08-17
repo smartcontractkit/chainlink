@@ -2,24 +2,22 @@ package test_env
 
 import (
 	"math/big"
-	"sync"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	tc "github.com/testcontainers/testcontainers-go"
-	"go.uber.org/multierr"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 var (
@@ -118,20 +116,17 @@ func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
 func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int) error {
-	var wg sync.WaitGroup
-	var errs = []error{}
-	var mu sync.Mutex
+	eg := &errgroup.Group{}
+	nodes := make(chan *ClNode, count)
 
 	// Start nodes
 	for i := 0; i < count; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		nodeIndex := i
+		eg.Go(func() error {
 			var nodeContainerName, dbContainerName string
 			if te.Cfg != nil {
-				nodeContainerName = te.Cfg.Nodes[i].NodeContainerName
-				dbContainerName = te.Cfg.Nodes[i].DbContainerName
+				nodeContainerName = te.Cfg.Nodes[nodeIndex].NodeContainerName
+				dbContainerName = te.Cfg.Nodes[nodeIndex].DbContainerName
 			}
 			n := NewClNode([]string{te.Network.Name}, nodeConfig,
 				WithNodeContainerName(nodeContainerName),
@@ -139,22 +134,21 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 			)
 			err := n.StartContainer()
 			if err != nil {
-				mu.Lock()
-				errs = append(errs, err)
-				mu.Unlock()
-			} else {
-				mu.Lock()
-				te.CLNodes = append(te.CLNodes, n)
-				mu.Unlock()
+				return err
 			}
-		}()
+			nodes <- n
+			return nil
+		})
 	}
 
-	wg.Wait()
-
-	if len(errs) > 0 {
-		return multierr.Combine(errs...)
+	if err := eg.Wait(); err != nil {
+		return err
 	}
+
+	for node := range nodes {
+		te.CLNodes = append(te.CLNodes, node)
+	}
+
 	return nil
 }
 
