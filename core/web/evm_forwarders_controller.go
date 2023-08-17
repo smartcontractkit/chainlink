@@ -91,7 +91,7 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 			// handle same as non-existent chain id
 			return nil
 		}
-		return chain.LogPoller().UnregisterFilter(forwarders.FilterName(addr), tx)
+		return chain.LogPoller().UnregisterFilter(forwarders.FilterName(addr), pg.WithQueryer(tx))
 	}
 
 	orm := forwarders.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig().Database())

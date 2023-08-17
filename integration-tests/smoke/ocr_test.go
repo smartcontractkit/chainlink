@@ -24,21 +24,21 @@ func TestOCRBasic(t *testing.T) {
 	nodeClients := env.GetAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
-	linkTokenContract, err := env.Geth.ContractDeployer.DeployLinkTokenContract()
+	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	err = actions.FundChainlinkNodesLocal(workerNodes, env.Geth.EthClient, big.NewFloat(.05))
+	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
-	ocrInstances, err := actions.DeployOCRContractsLocal(1, linkTokenContract, env.Geth.ContractDeployer, workerNodes, env.Geth.EthClient)
+	ocrInstances, err := actions.DeployOCRContractsLocal(1, linkTokenContract, env.ContractDeployer, workerNodes, env.EVMClient)
 	require.NoError(t, err)
-	err = env.Geth.EthClient.WaitForEvents()
+	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockServer.Client)
 	require.NoError(t, err)
 
-	_ = actions.StartNewRound(1, ocrInstances, env.Geth.EthClient)
+	_ = actions.StartNewRound(1, ocrInstances, env.EVMClient)
 	require.NoError(t, err)
 
 	answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
@@ -47,7 +47,7 @@ func TestOCRBasic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockServer.Client)
 	require.NoError(t, err)
-	err = actions.StartNewRound(2, ocrInstances, env.Geth.EthClient)
+	err = actions.StartNewRound(2, ocrInstances, env.EVMClient)
 	require.NoError(t, err)
 
 	answer, err = ocrInstances[0].GetLatestAnswer(context.Background())

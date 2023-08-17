@@ -30,7 +30,10 @@ require (
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a // indirect
 	github.com/smartcontractkit/chainlink-testing-framework v1.15.2 // indirect
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20230814135816-51632e392c47
-	github.com/smartcontractkit/chainlink/v2 v2.3.0
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
+	github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829
+	github.com/smartcontractkit/ocr2keepers v0.7.10
+	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
@@ -49,9 +52,6 @@ require (
 
 require (
 	github.com/joho/godotenv v1.4.0
-	github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829
-	github.com/smartcontractkit/ocr2keepers v0.7.8
-	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
 )
 

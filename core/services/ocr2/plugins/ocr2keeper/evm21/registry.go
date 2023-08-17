@@ -229,6 +229,7 @@ func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...
 }
 
 func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
+	r.lggr.Debugw("Checking upkeeps", "upkeeps", keys)
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx, keys, chResult)
 
@@ -573,10 +574,9 @@ func (r *EvmRegistry) addToActive(id *big.Int, force bool) {
 	}
 }
 
-func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.CallOpts, error) {
+func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) *bind.CallOpts {
 	opts := bind.CallOpts{
-		Context:     ctx,
-		BlockNumber: nil,
+		Context: ctx,
 	}
 
 	if block == nil || block.Int64() == 0 {
@@ -588,14 +588,11 @@ func (r *EvmRegistry) buildCallOpts(ctx context.Context, block *big.Int) (*bind.
 		opts.BlockNumber = block
 	}
 
-	return &opts, nil
+	return &opts
 }
 
 func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int, error) {
-	opts, err := r.buildCallOpts(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
+	opts := r.buildCallOpts(ctx, nil)
 
 	state, err := r.registry.GetState(opts)
 	if err != nil {
@@ -640,13 +637,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		return
 	}
 
-	upkeepResults, err = r.feedLookup(ctx, upkeepResults)
-	if err != nil {
-		chResult <- checkResult{
-			err: err,
-		}
-		return
-	}
+	upkeepResults = r.feedLookup(ctx, upkeepResults)
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
@@ -667,51 +658,59 @@ func (r *EvmRegistry) getBlockAndUpkeepId(upkeepID ocr2keepers.UpkeepIdentifier,
 	return block, common.BytesToHash(trigger.BlockHash[:]), upkeepID.BigInt()
 }
 
-// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
 	var (
-		checkReqs    = make([]rpc.BatchElem, len(payloads))
-		checkResults = make([]*string, len(payloads))
+		checkReqs    []rpc.BatchElem
+		checkResults []*string
 		results      = make([]ocr2keepers.CheckResult, len(payloads))
 	)
+	indices := map[int]int{}
 
 	for i, p := range payloads {
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
 		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
 		if state != NoPipelineError {
-			results[i] = r.getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, state, retryable)
+			results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, state, retryable)
 			continue
 		}
 
-		opts, err := r.buildCallOpts(ctx, block)
-		if err != nil {
-			return nil, err
-		}
+		opts := r.buildCallOpts(ctx, block)
 		var payload []byte
+		var err error
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		uid.FromBigInt(upkeepId)
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
 			reason, state, retryable := r.verifyLogExists(upkeepId, p)
 			if reason != UpkeepFailureReasonNone || state != NoPipelineError {
-				results[i] = r.getIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)
+				results[i] = getIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)
 				continue
 			}
 
 			// check data will include the log trigger config
 			payload, err = r.abi.Pack("checkUpkeep", upkeepId, p.CheckData)
 			if err != nil {
-				return nil, err
+				// pack error, no retryable
+				r.lggr.Warnf("failed to pack log trigger checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
+				results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false)
+				continue
 			}
 		default:
-			payload, err = r.abi.Pack("checkUpkeep", upkeepId)
+			// checkUpkeep is overloaded on the contract for conditionals and log upkeeps
+			// Need to use the first function (checkUpkeep0) for conditionals
+			payload, err = r.abi.Pack("checkUpkeep0", upkeepId)
 			if err != nil {
-				return nil, err
+				// pack error, no retryable
+				r.lggr.Warnf("failed to pack conditional checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
+				results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false)
+				continue
 			}
 		}
+		indices[len(checkReqs)] = i
+		results[i] = getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, NoPipelineError, false)
 
 		var result string
-		checkReqs[i] = rpc.BatchElem{
+		checkReqs = append(checkReqs, rpc.BatchElem{
 			Method: "eth_call",
 			Args: []interface{}{
 				map[string]interface{}{
@@ -721,34 +720,41 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 				hexutil.EncodeBig(opts.BlockNumber),
 			},
 			Result: &result,
+		})
+
+		checkResults = append(checkResults, &result)
+	}
+
+	if len(checkResults) > 0 {
+		// In contrast to CallContext, BatchCallContext only returns errors that have occurred
+		// while sending the request. Any error specific to a request is reported through the
+		// Error field of the corresponding BatchElem.
+		// hence, if BatchCallContext returns an error, it will be an error which will terminate the pipeline
+		if err := r.client.BatchCallContext(ctx, checkReqs); err != nil {
+			r.lggr.Errorf("failed to batch call for checkUpkeeps: %s", err)
+			return nil, err
 		}
-
-		checkResults[i] = &result
 	}
-
-	if err := r.client.BatchCallContext(ctx, checkReqs); err != nil {
-		return nil, err
-	}
-
-	var multiErr error
 
 	for i, req := range checkReqs {
+		index := indices[i]
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %s with message '%s' in check", payloads[i], req.Error)
-			multierr.AppendInto(&multiErr, req.Error)
+			// individual upkeep failed in a batch call, retryable
+			r.lggr.Warnf("error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
+			results[index].Retryable = true
+			results[index].PipelineExecutionState = uint8(RpcFlakyFailure)
 		} else {
 			var err error
-			results[i], err = r.packer.UnpackCheckResult(payloads[i], *checkResults[i])
+			results[index], err = r.packer.UnpackCheckResult(payloads[index], *checkResults[i])
 			if err != nil {
-				return nil, errors.Wrap(err, "failed to unpack check result")
+				r.lggr.Warnf("failed to unpack check result: %s", err)
 			}
 		}
 	}
 
-	return results, multiErr
+	return results, nil
 }
 
-// TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
 func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults []ocr2keepers.CheckResult) ([]ocr2keepers.CheckResult, error) {
 	var (
 		performReqs     = make([]rpc.BatchElem, 0, len(checkResults))
@@ -763,15 +769,16 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 		block, _, upkeepId := r.getBlockAndUpkeepId(cr.UpkeepID, cr.Trigger)
 
-		opts, err := r.buildCallOpts(ctx, block)
-		if err != nil {
-			return nil, err
-		}
+		opts := r.buildCallOpts(ctx, block)
 
 		// Since checkUpkeep is true, simulate perform upkeep to ensure it doesn't revert
 		payload, err := r.abi.Pack("simulatePerformUpkeep", upkeepId, cr.PerformData)
 		if err != nil {
-			return nil, err
+			// pack failed, not retryable
+			r.lggr.Warnf("failed to pack perform data %s for %s: %s", hexutil.Encode(cr.PerformData), upkeepId, err)
+			checkResults[i].Eligible = false
+			checkResults[i].PipelineExecutionState = uint8(PackUnpackDecodeFailed)
+			continue
 		}
 
 		var result string
@@ -793,28 +800,39 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 
 	if len(performReqs) > 0 {
 		if err := r.client.BatchCallContext(ctx, performReqs); err != nil {
+			r.lggr.Errorf("failed to batch call for simulatePerformUpkeeps: %s", err)
 			return nil, err
 		}
 	}
 
-	var multiErr error
 	for i, req := range performReqs {
+		idx := performToKeyIdx[i]
 		if req.Error != nil {
-			r.lggr.Debugf("error encountered for key %d|%s with message '%s' in simulate perform", checkResults[i].Trigger.BlockNumber, checkResults[i].UpkeepID.BigInt(), req.Error)
-			multierr.AppendInto(&multiErr, req.Error)
-		} else {
-			simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
-			if err != nil {
-				return nil, err
-			}
+			// individual upkeep failed in a batch call, retryable
+			r.lggr.Warnf("failed to simulate upkeepId %s: %s", checkResults[idx].UpkeepID.String(), req.Error)
+			checkResults[idx].Retryable = true
+			checkResults[idx].Eligible = false
+			checkResults[idx].PipelineExecutionState = uint8(RpcFlakyFailure)
+			continue
+		}
 
-			if !simulatePerformSuccess {
-				checkResults[performToKeyIdx[i]].Eligible = false
-			}
+		state, simulatePerformSuccess, err := r.packer.UnpackPerformResult(*performResults[i])
+		if err != nil {
+			// unpack failed, not retryable
+			r.lggr.Warnf("failed to unpack simulate performUpkeep result for upkeepId %s for state %d: %s", checkResults[idx].UpkeepID.String(), state, req.Error)
+			checkResults[idx].Retryable = false
+			checkResults[idx].Eligible = false
+			checkResults[idx].PipelineExecutionState = uint8(state)
+			continue
+		}
+
+		if !simulatePerformSuccess {
+			r.lggr.Warnf("upkeepId %s is not eligible after simulation", checkResults[idx].UpkeepID.String())
+			checkResults[performToKeyIdx[i]].Eligible = false
 		}
 	}
 
-	return checkResults, multiErr
+	return checkResults, nil
 }
 
 // TODO (AUTO-2013): Have better error handling to not return nil results in case of partial errors
@@ -829,10 +847,7 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	)
 
 	for i, id := range ids {
-		opts, err := r.buildCallOpts(ctx, nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get call opts: %s", err)
-		}
+		opts := r.buildCallOpts(ctx, nil)
 
 		payload, err := r.abi.Pack("getUpkeep", id)
 		if err != nil {
@@ -911,11 +926,7 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte) error {
 
 // updateTriggerConfig gets invoked upon changes in the trigger config of an upkeep.
 func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
-	opts, err := r.buildCallOpts(r.ctx, nil)
-	if err != nil {
-		r.lggr.Warnw("failed to build opts for tx", "err", err)
-		return nil, err
-	}
+	opts := r.buildCallOpts(r.ctx, nil)
 	cfg, err := r.registry.GetUpkeepTriggerConfig(opts, id)
 	if err != nil {
 		r.lggr.Warnw("failed to get trigger config", "err", err)
@@ -944,7 +955,7 @@ func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, err
 }
 
 // getIneligibleCheckResultWithoutPerformData returns an ineligible check result with ineligibility reason and pipeline execution state but without perform data
-func (r *EvmRegistry) getIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason UpkeepFailureReason, state PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
+func getIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason UpkeepFailureReason, state PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
 	return ocr2keepers.CheckResult{
 		IneligibilityReason:    uint8(reason),
 		PipelineExecutionState: uint8(state),
@@ -1004,6 +1015,10 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	// query eth client as a fallback
 	bn, _, err := r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
 	if err != nil {
+		// primitive way of checking errors
+		if strings.Contains(err.Error(), "missing required field") || strings.Contains(err.Error(), "not found") {
+			return UpkeepFailureReasonTxHashNoLongerExists, NoPipelineError, false
+		}
 		r.lggr.Warnf("failed to query tx hash %s for upkeepId %s: %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId, err.Error())
 		return UpkeepFailureReasonNone, RpcFlakyFailure, true
 	}

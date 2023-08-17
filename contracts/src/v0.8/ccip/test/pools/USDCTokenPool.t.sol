@@ -267,6 +267,8 @@ contract USDCTokenPool_setDomains is USDCTokenPoolSetup {
 
   mapping(uint64 destChainSelector => USDCTokenPool.Domain domain) private s_chainToDomain;
 
+  /// forge-config: default.fuzz.runs = 10
+  /// forge-config: ccip.fuzz.runs = 10
   function testSetDomainsSuccess(
     bytes32[10] calldata allowedCallers,
     uint32[10] calldata domainIdentifiers,
