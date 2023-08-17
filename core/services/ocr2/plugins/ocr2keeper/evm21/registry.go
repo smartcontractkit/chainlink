@@ -936,12 +936,15 @@ func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
 }
 
 func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
-	block, err := r.client.BlockByNumber(r.ctx, blockNumber)
+	blocks, err := r.poller.GetBlocksRange(r.ctx, []uint64{blockNumber.Uint64()})
 	if err != nil {
 		return [32]byte{}, err
 	}
+	if len(blocks) == 0 {
+		return [32]byte{}, fmt.Errorf("could not find block %d in log poller", blockNumber.Uint64())
+	}
 
-	return block.Hash(), nil
+	return blocks[0].BlockHash, nil
 }
 
 func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
