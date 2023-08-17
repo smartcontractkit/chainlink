@@ -17,9 +17,9 @@ type LeafHasherInterface[H Hash] interface {
 
 var LeafDomainSeparator = [1]byte{0x00}
 
-func GetMetaDataHash[H Hash](ctx Ctx[H], prefix [32]byte, sourceChainId uint64, onRampId common.Address, destChainId uint64) H {
+func GetMetaDataHash[H Hash](ctx Ctx[H], prefix [32]byte, sourceChainSelector uint64, onRampId common.Address, destChainSelector uint64) H {
 	paddedOnRamp := onRampId.Hash()
-	return ctx.Hash(utils.ConcatBytes(prefix[:], math.U256Bytes(big.NewInt(0).SetUint64(sourceChainId)), math.U256Bytes(big.NewInt(0).SetUint64(destChainId)), paddedOnRamp[:]))
+	return ctx.Hash(utils.ConcatBytes(prefix[:], math.U256Bytes(big.NewInt(0).SetUint64(sourceChainSelector)), math.U256Bytes(big.NewInt(0).SetUint64(destChainSelector)), paddedOnRamp[:]))
 }
 
 type LeafHasher struct {
@@ -27,9 +27,9 @@ type LeafHasher struct {
 	ctx          Ctx[[32]byte]
 }
 
-func NewLeafHasher(sourceChainId uint64, destChainId uint64, onRampId common.Address, ctx Ctx[[32]byte]) *LeafHasher {
+func NewLeafHasher(sourceChainSelector uint64, destChainSelector uint64, onRampId common.Address, ctx Ctx[[32]byte]) *LeafHasher {
 	return &LeafHasher{
-		metaDataHash: GetMetaDataHash(ctx, ctx.Hash([]byte("EVM2EVMMessageEvent")), sourceChainId, onRampId, destChainId),
+		metaDataHash: GetMetaDataHash(ctx, ctx.Hash([]byte("EVM2EVMMessageEvent")), sourceChainSelector, onRampId, destChainSelector),
 		ctx:          ctx,
 	}
 }

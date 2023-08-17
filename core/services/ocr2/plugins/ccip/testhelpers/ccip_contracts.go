@@ -55,13 +55,15 @@ var (
 	OffRamp  = "offramp"
 	DestPool = "dest pool"
 
-	Receiver      = "receiver"
-	Sender        = "sender"
-	Link          = func(amount int64) *big.Int { return new(big.Int).Mul(big.NewInt(1e18), big.NewInt(amount)) }
-	HundredLink   = Link(100)
-	LinkUSDValue  = func(amount int64) *big.Int { return new(big.Int).Mul(big.NewInt(1e18), big.NewInt(amount)) }
-	SourceChainID = uint64(1000)
-	DestChainID   = uint64(1337)
+	Receiver            = "receiver"
+	Sender              = "sender"
+	Link                = func(amount int64) *big.Int { return new(big.Int).Mul(big.NewInt(1e18), big.NewInt(amount)) }
+	HundredLink         = Link(100)
+	LinkUSDValue        = func(amount int64) *big.Int { return new(big.Int).Mul(big.NewInt(1e18), big.NewInt(amount)) }
+	SourceChainID       = uint64(1000)
+	SourceChainSelector = uint64(1500)
+	DestChainID         = uint64(1337)
+	DestChainSelector   = uint64(3000)
 )
 
 type MaybeRevertReceiver struct {
@@ -71,6 +73,7 @@ type MaybeRevertReceiver struct {
 
 type Common struct {
 	ChainID           uint64
+	ChainSelector     uint64
 	User              *bind.TransactOpts
 	Chain             *backends.SimulatedBackend
 	LinkToken         *link_token_interface.LinkToken
@@ -141,8 +144,8 @@ func (c *CCIPContracts) DeployNewOffRamp(t *testing.T) {
 		c.Dest.Chain,
 		evm_2_evm_offramp.EVM2EVMOffRampStaticConfig{
 			CommitStore:         c.Dest.CommitStore.Address(),
-			ChainSelector:       c.Dest.ChainID,
-			SourceChainSelector: c.Source.ChainID,
+			ChainSelector:       c.Dest.ChainSelector,
+			SourceChainSelector: c.Source.ChainSelector,
 			OnRamp:              c.Source.OnRamp.Address(),
 			PrevOffRamp:         prevOffRamp,
 			ArmProxy:            c.Dest.ARMProxy.Address(),
@@ -180,7 +183,7 @@ func (c *CCIPContracts) EnableOffRamp(t *testing.T) {
 	require.NoError(t, err)
 	c.Dest.Chain.Commit()
 
-	_, err = c.Dest.Router.ApplyRampUpdates(c.Dest.User, nil, nil, []router.RouterOffRamp{{SourceChainSelector: SourceChainID, OffRamp: c.Dest.OffRamp.Address()}})
+	_, err = c.Dest.Router.ApplyRampUpdates(c.Dest.User, nil, nil, []router.RouterOffRamp{{SourceChainSelector: SourceChainSelector, OffRamp: c.Dest.OffRamp.Address()}})
 	require.NoError(t, err)
 	c.Dest.Chain.Commit()
 
@@ -213,8 +216,8 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 		c.Source.Chain, // client
 		evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
 			LinkToken:         c.Source.LinkToken.Address(),
-			ChainSelector:     c.Source.ChainID,
-			DestChainSelector: c.Dest.ChainID,
+			ChainSelector:     c.Source.ChainSelector,
+			DestChainSelector: c.Dest.ChainSelector,
 			DefaultTxGasLimit: 200_000,
 			MaxNopFeesJuels:   big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
 			PrevOnRamp:        prevOnRamp,
@@ -301,7 +304,7 @@ func (c *CCIPContracts) EnableOnRamp(t *testing.T) {
 	c.Source.Chain.Commit()
 
 	t.Log("Setting onRamp on source router")
-	_, err = c.Source.Router.ApplyRampUpdates(c.Source.User, []router.RouterOnRamp{{DestChainSelector: c.Dest.ChainID, OnRamp: c.Source.OnRamp.Address()}}, nil, nil)
+	_, err = c.Source.Router.ApplyRampUpdates(c.Source.User, []router.RouterOnRamp{{DestChainSelector: c.Dest.ChainSelector, OnRamp: c.Source.OnRamp.Address()}}, nil, nil)
 	require.NoError(t, err)
 	c.Source.Chain.Commit()
 	c.Dest.Chain.Commit()
@@ -312,8 +315,8 @@ func (c *CCIPContracts) DeployNewCommitStore(t *testing.T) {
 		c.Dest.User,  // user
 		c.Dest.Chain, // client
 		commit_store_helper.CommitStoreStaticConfig{
-			ChainSelector:       c.Dest.ChainID,
-			SourceChainSelector: c.Source.ChainID,
+			ChainSelector:       c.Dest.ChainSelector,
+			SourceChainSelector: c.Source.ChainSelector,
 			OnRamp:              c.Source.OnRamp.Address(),
 			ArmProxy:            c.Dest.ARMProxy.Address(),
 		},
@@ -354,7 +357,7 @@ func (c *CCIPContracts) DeployNewPriceRegistry(t *testing.T) {
 				UsdPerToken: big.NewInt(1e18), // 1usd
 			},
 		},
-		DestChainSelector: c.Source.ChainID,
+		DestChainSelector: c.Source.ChainSelector,
 		UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
 	}
 	_, err = c.Dest.PriceRegistry.UpdatePrices(c.Dest.User, priceUpdates)
@@ -605,7 +608,7 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 				UsdPerToken: big.NewInt(1e18), // 1usd
 			},
 		},
-		DestChainSelector: c.Dest.ChainID,
+		DestChainSelector: c.Dest.ChainSelector,
 		UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9,
 	})
 	if err != nil {
@@ -636,7 +639,7 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 				UsdPerToken: big.NewInt(5),
 			},
 		},
-		DestChainSelector: 0,
+		DestChainSelector: c.Source.ChainSelector,
 		UsdPerUnitGas:     big.NewInt(0),
 	})
 	if err != nil {
@@ -688,7 +691,7 @@ func (c *CCIPContracts) SendMessage(t *testing.T, gasLimit, tokenAmount *big.Int
 		FeeToken:  c.Source.LinkToken.Address(),
 		ExtraArgs: extraArgs,
 	}
-	fee, err := c.Source.Router.GetFee(nil, c.Dest.ChainID, msg)
+	fee, err := c.Source.Router.GetFee(nil, c.Dest.ChainSelector, msg)
 	require.NoError(t, err)
 	// Currently no overhead and 1gwei dest gas price. So fee is simply gasLimit * gasPrice.
 	// require.Equal(t, new(big.Int).Mul(gasLimit, gasPrice).String(), fee.String())
@@ -726,7 +729,7 @@ func MustEncodeAddress(t *testing.T, address common.Address) []byte {
 	return bts
 }
 
-func SetupCCIPContracts(t *testing.T, sourceChainID, destChainID uint64) CCIPContracts {
+func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destChainID, destChainSelector uint64) CCIPContracts {
 	sourceChain, sourceUser := SetupChain(t)
 	destChain, destUser := SetupChain(t)
 
@@ -868,7 +871,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, destChainID uint64) CCIPCon
 				UsdPerToken: new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2)), // TODO make this 2000USD and once we figure out the fee and exec cost discrepancy
 			},
 		},
-		DestChainSelector: destChainID,
+		DestChainSelector: destChainSelector,
 		UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
 	}
 
@@ -880,8 +883,8 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, destChainID uint64) CCIPCon
 		sourceChain, // client
 		evm_2_evm_onramp.EVM2EVMOnRampStaticConfig{
 			LinkToken:         sourceLinkTokenAddress,
-			ChainSelector:     sourceChainID, // source chain id
-			DestChainSelector: destChainID,   // destinationChainSelectors
+			ChainSelector:     sourceChainSelector,
+			DestChainSelector: destChainSelector,
 			DefaultTxGasLimit: 200_000,
 			MaxNopFeesJuels:   big.NewInt(0).Mul(big.NewInt(100_000_000), big.NewInt(1e18)),
 			PrevOnRamp:        common.HexToAddress(""),
@@ -966,7 +969,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, destChainID uint64) CCIPCon
 	)
 	require.NoError(t, err)
 	sourceChain.Commit()
-	_, err = sourceRouter.ApplyRampUpdates(sourceUser, []router.RouterOnRamp{{DestChainSelector: destChainID, OnRamp: onRampAddress}}, nil, nil)
+	_, err = sourceRouter.ApplyRampUpdates(sourceUser, []router.RouterOnRamp{{DestChainSelector: destChainSelector, OnRamp: onRampAddress}}, nil, nil)
 	require.NoError(t, err)
 	sourceChain.Commit()
 
@@ -1001,7 +1004,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, destChainID uint64) CCIPCon
 			{SourceToken: destCustomTokenAddress, UsdPerToken: big.NewInt(5e18)}, // 5usd
 			{SourceToken: destWeth9addr, UsdPerToken: big.NewInt(2e18)},          // 2usd
 		},
-		DestChainSelector: sourceChainID,
+		DestChainSelector: sourceChainSelector,
 		UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
 	}
 
@@ -1013,8 +1016,8 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, destChainID uint64) CCIPCon
 		destUser,  // user
 		destChain, // client
 		commit_store_helper.CommitStoreStaticConfig{
-			ChainSelector:       destChainID,
-			SourceChainSelector: sourceChainID,
+			ChainSelector:       destChainSelector,
+			SourceChainSelector: sourceChainSelector,
 			OnRamp:              onRamp.Address(),
 			ArmProxy:            destARMProxy.Address(),
 		},
@@ -1038,8 +1041,8 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, destChainID uint64) CCIPCon
 		destChain,
 		evm_2_evm_offramp.EVM2EVMOffRampStaticConfig{
 			CommitStore:         commitStore.Address(),
-			ChainSelector:       destChainID,
-			SourceChainSelector: sourceChainID,
+			ChainSelector:       destChainSelector,
+			SourceChainSelector: sourceChainSelector,
 			OnRamp:              onRampAddress,
 			PrevOffRamp:         common.HexToAddress(""),
 			ArmProxy:            armProxyDestAddress,
@@ -1070,7 +1073,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, destChainID uint64) CCIPCon
 	_, err = destPriceRegistry.ApplyPriceUpdatersUpdates(destUser, []common.Address{commitStoreAddress}, []common.Address{})
 	require.NoError(t, err)
 	_, err = destRouter.ApplyRampUpdates(destUser, nil,
-		nil, []router.RouterOffRamp{{SourceChainSelector: sourceChainID, OffRamp: offRampAddress}})
+		nil, []router.RouterOffRamp{{SourceChainSelector: sourceChainSelector, OffRamp: offRampAddress}})
 	require.NoError(t, err)
 
 	// Deploy 2 revertable (one SS one non-SS)
@@ -1093,6 +1096,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, destChainID uint64) CCIPCon
 	source := SourceChain{
 		Common: Common{
 			ChainID:           sourceChainID,
+			ChainSelector:     sourceChainSelector,
 			User:              sourceUser,
 			Chain:             sourceChain,
 			LinkToken:         sourceLinkToken,
@@ -1111,6 +1115,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, destChainID uint64) CCIPCon
 	dest := DestinationChain{
 		Common: Common{
 			ChainID:           destChainID,
+			ChainSelector:     destChainSelector,
 			User:              destUser,
 			Chain:             destChain,
 			LinkToken:         destLinkToken,
@@ -1137,7 +1142,7 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, destChainID uint64) CCIPCon
 }
 
 func (c *CCIPContracts) SendRequest(t *testing.T, msg router.ClientEVM2AnyMessage) *types.Transaction {
-	tx, err := c.Source.Router.CcipSend(c.Source.User, c.Dest.ChainID, msg)
+	tx, err := c.Source.Router.CcipSend(c.Source.User, c.Dest.ChainSelector, msg)
 	require.NoError(t, err)
 	ConfirmTxs(t, []*types.Transaction{tx}, c.Source.Chain)
 	return tx
@@ -1458,16 +1463,5 @@ func GenerateCCIPSendLog(t *testing.T, message evm_2_evm_onramp.InternalEVM2EVMM
 	return types.Log{
 		Topics: []common.Hash{abihelpers.EventSignatures.SendRequested},
 		Data:   pack,
-	}
-}
-
-func GenerateCCIPSendLPLog(t *testing.T, message evm_2_evm_onramp.InternalEVM2EVMMessage, block int64) logpoller.Log {
-	pack, err := abihelpers.MessageArgs.Pack(message)
-	require.NoError(t, err)
-
-	return logpoller.Log{
-		Topics:      [][]byte{abihelpers.EventSignatures.SendRequested[:]},
-		Data:        pack,
-		BlockNumber: block,
 	}
 }
