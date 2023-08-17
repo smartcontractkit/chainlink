@@ -1,8 +1,8 @@
 type = "offchainreporting2"
 schemaVersion = 1
-name = "Functions {{timestamp}}"
+name = "Functions V1 {{timestamp}}"
 forwardingAllowed = false
-contractID = "{{oracle_contract_address}}"
+contractID = "{{router_contract_address}}"
 ocrKeyBundleID = "{{ocr2_key_bundle_id}}"
 p2pv2Bootstrappers = [
   "{{p2p_bootstrapper}}"
