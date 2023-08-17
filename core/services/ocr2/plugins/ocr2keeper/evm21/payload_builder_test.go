@@ -48,35 +48,33 @@ func TestNewPayloadBuilder(t *testing.T) {
 				},
 			},
 			recoverer: &mockLogRecoverer{
-				BuildPayloadFn: func(ctx context.Context, proposal types.CoordinatedBlockProposal) (types.UpkeepPayload, error) {
-					return types.UpkeepPayload{
-						UpkeepID: proposal.UpkeepID,
-						WorkID:   proposal.WorkID,
-						Trigger:  proposal.Trigger,
-					}, nil
+				GetProposalDataFn: func(ctx context.Context, proposal types.CoordinatedBlockProposal) ([]byte, error) {
+					return []byte{1, 2, 3}, nil
 				},
 			},
 			wantPayloads: []types.UpkeepPayload{
 				{
 					UpkeepID: core.GenUpkeepID(types.LogTrigger, "abc"),
-					WorkID:   "workID1",
+					WorkID:   "714f83255c5b562823725748c4a75777c9b78ea8c5ba72ea819926a1fecd389e",
 					Trigger: types.Trigger{
 						BlockNumber: 1,
 						BlockHash:   [32]byte{1},
 					},
+					CheckData: []byte{1, 2, 3},
 				},
 				{
 					UpkeepID: core.GenUpkeepID(types.LogTrigger, "def"),
-					WorkID:   "workID2",
+					WorkID:   "3956daa0378d6a761fe972ee00fe98338f17fb6b7865c1d49a8a416cd85977b8",
 					Trigger: types.Trigger{
 						BlockNumber: 2,
 						BlockHash:   [32]byte{2},
 					},
+					CheckData: []byte{1, 2, 3},
 				},
 			},
 		},
 		{
-			name: "for an inactive log trigger upkeep, a payload is created but not added to the list of payloads",
+			name: "for an inactive log trigger upkeep, an empty payload is added to the list of payloads",
 			activeList: &mockActiveUpkeepList{
 				IsActiveFn: func(id *big.Int) bool {
 					if core.GenUpkeepID(types.LogTrigger, "ghi").BigInt().Cmp(id) == 0 {
@@ -112,31 +110,30 @@ func TestNewPayloadBuilder(t *testing.T) {
 				},
 			},
 			recoverer: &mockLogRecoverer{
-				BuildPayloadFn: func(ctx context.Context, proposal types.CoordinatedBlockProposal) (types.UpkeepPayload, error) {
-					return types.UpkeepPayload{
-						UpkeepID: proposal.UpkeepID,
-						WorkID:   proposal.WorkID,
-						Trigger:  proposal.Trigger,
-					}, nil
+				GetProposalDataFn: func(ctx context.Context, proposal types.CoordinatedBlockProposal) ([]byte, error) {
+					return []byte{1, 2, 3}, nil
 				},
 			},
 			wantPayloads: []types.UpkeepPayload{
 				{
 					UpkeepID: core.GenUpkeepID(types.LogTrigger, "abc"),
-					WorkID:   "workID1",
+					WorkID:   "714f83255c5b562823725748c4a75777c9b78ea8c5ba72ea819926a1fecd389e",
 					Trigger: types.Trigger{
 						BlockNumber: 1,
 						BlockHash:   [32]byte{1},
 					},
+					CheckData: []byte{1, 2, 3},
 				},
 				{
 					UpkeepID: core.GenUpkeepID(types.LogTrigger, "def"),
-					WorkID:   "workID2",
+					WorkID:   "3956daa0378d6a761fe972ee00fe98338f17fb6b7865c1d49a8a416cd85977b8",
 					Trigger: types.Trigger{
 						BlockNumber: 2,
 						BlockHash:   [32]byte{2},
 					},
+					CheckData: []byte{1, 2, 3},
 				},
+				{},
 			},
 		},
 		{
@@ -157,14 +154,16 @@ func TestNewPayloadBuilder(t *testing.T) {
 				},
 			},
 			recoverer: &mockLogRecoverer{
-				BuildPayloadFn: func(ctx context.Context, proposal types.CoordinatedBlockProposal) (types.UpkeepPayload, error) {
-					return types.UpkeepPayload{}, errors.New("recoverer boom")
+				GetProposalDataFn: func(ctx context.Context, proposal types.CoordinatedBlockProposal) ([]byte, error) {
+					return nil, errors.New("recoverer boom")
 				},
 			},
-			wantPayloads: []types.UpkeepPayload{},
+			wantPayloads: []types.UpkeepPayload{
+				{},
+			},
 		},
 		{
-			name: "currently a conditional upkeep does not have a new payload built, and an empty payload is created but not added to the list of payloads",
+			name: "currently a conditional upkeep does not have a new payload built, and an empty payload is added to the list of payloads",
 			activeList: &mockActiveUpkeepList{
 				IsActiveFn: func(id *big.Int) bool {
 					return true
@@ -180,26 +179,9 @@ func TestNewPayloadBuilder(t *testing.T) {
 					},
 				},
 			},
-			wantPayloads: []types.UpkeepPayload{},
-		},
-		{
-			name: "an unknown upkeep type does not have a new payload built, and an empty payload is created but not added to the list of payloads",
-			activeList: &mockActiveUpkeepList{
-				IsActiveFn: func(id *big.Int) bool {
-					return true
-				},
+			wantPayloads: []types.UpkeepPayload{
+				{},
 			},
-			proposals: []types.CoordinatedBlockProposal{
-				{
-					UpkeepID: types.UpkeepIdentifier([32]byte{1}),
-					WorkID:   "workID1",
-					Trigger: types.Trigger{
-						BlockNumber: 1,
-						BlockHash:   [32]byte{1},
-					},
-				},
-			},
-			wantPayloads: []types.UpkeepPayload{},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -214,9 +196,9 @@ func TestNewPayloadBuilder(t *testing.T) {
 
 type mockLogRecoverer struct {
 	logprovider.LogRecoverer
-	BuildPayloadFn func(context.Context, types.CoordinatedBlockProposal) (types.UpkeepPayload, error)
+	GetProposalDataFn func(context.Context, types.CoordinatedBlockProposal) ([]byte, error)
 }
 
-func (r *mockLogRecoverer) BuildPayload(ctx context.Context, p types.CoordinatedBlockProposal) (types.UpkeepPayload, error) {
-	return r.BuildPayloadFn(ctx, p)
+func (r *mockLogRecoverer) GetProposalData(ctx context.Context, p types.CoordinatedBlockProposal) ([]byte, error) {
+	return r.GetProposalDataFn(ctx, p)
 }

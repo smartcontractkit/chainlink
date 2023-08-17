@@ -31,7 +31,7 @@ var (
 
 type LogRecoverer interface {
 	ocr2keepers.RecoverableProvider
-	ocr2keepers.PayloadBuilder
+	GetProposalData(context.Context, ocr2keepers.CoordinatedBlockProposal) ([]byte, error)
 
 	Start(context.Context) error
 	io.Closer
@@ -141,23 +141,23 @@ func (r *logRecoverer) Close() error {
 	return nil
 }
 
-func (r *logRecoverer) BuildPayload(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) (ocr2keepers.UpkeepPayload, error) {
+func (r *logRecoverer) GetProposalData(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) ([]byte, error) {
 	switch core.GetUpkeepType(proposal.UpkeepID) {
 	case ocr2keepers.LogTrigger:
-		return r.buildLogTriggerPayload(ctx, proposal)
+		return r.getLogTriggerCheckData(ctx, proposal)
 	default:
-		return ocr2keepers.UpkeepPayload{}, errors.New("not a log trigger upkeep ID")
+		return []byte{}, errors.New("not a log trigger upkeep ID")
 	}
-	return ocr2keepers.UpkeepPayload{}, nil
+	return []byte{}, nil
 }
 
-func (r *logRecoverer) buildLogTriggerPayload(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) (ocr2keepers.UpkeepPayload, error) {
+func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) ([]byte, error) {
 	// TODO should we be querying the filter store with something other than upkeep ID?
 	if r.filterStore.Has(proposal.UpkeepID.BigInt()) {
 
 		latest, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
 		if err != nil {
-			return ocr2keepers.UpkeepPayload{}, err
+			return nil, err
 		}
 
 		start, offsetBlock := r.getRecoveryWindow(latest)
@@ -165,13 +165,13 @@ func (r *logRecoverer) buildLogTriggerPayload(ctx context.Context, proposal ocr2
 		if isRecoverable := block < offsetBlock && block > start; isRecoverable {
 			upkeepStates, err := r.states.SelectByWorkIDsInRange(ctx, int64(proposal.Trigger.LogTriggerExtension.BlockNumber)-1, offsetBlock, proposal.WorkID)
 			if err != nil {
-				return ocr2keepers.UpkeepPayload{}, err
+				return nil, err
 			}
 
 			for _, upkeepState := range upkeepStates {
 				switch upkeepState {
 				case ocr2keepers.Performed, ocr2keepers.Ineligible:
-					return ocr2keepers.UpkeepPayload{}, nil
+					return nil, errors.New("upkeep state is not recoverable")
 				default:
 					// we can proceed
 				}
@@ -183,12 +183,12 @@ func (r *logRecoverer) buildLogTriggerPayload(ctx context.Context, proposal ocr2
 			}, proposal.UpkeepID.BigInt())
 
 			if len(filter.addr) == 0 {
-				return ocr2keepers.UpkeepPayload{}, errors.New("filter not found, upkeep is inactive") // TODO fix error msg
+				return nil, errors.New("filter not found, upkeep is inactive") // TODO fix error msg
 			}
 
 			logs, err := r.poller.LogsWithSigs(int64(proposal.Trigger.LogTriggerExtension.BlockNumber)-1, offsetBlock, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
 			if err != nil {
-				return ocr2keepers.UpkeepPayload{}, fmt.Errorf("could not read logs: %w", err)
+				return nil, fmt.Errorf("could not read logs: %w", err)
 			}
 
 			for _, log := range logs {
@@ -208,17 +208,12 @@ func (r *logRecoverer) buildLogTriggerPayload(ctx context.Context, proposal ocr2
 						continue
 					}
 
-					return core.NewUpkeepPayload(proposal.UpkeepID.BigInt(), trigger, checkData)
+					return checkData, nil
 				}
 			}
 		}
 	}
-	return ocr2keepers.UpkeepPayload{}, nil
-}
-
-func (r *logRecoverer) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedBlockProposal) ([]ocr2keepers.UpkeepPayload, error) {
-	// TODO: implement
-	return []ocr2keepers.UpkeepPayload{}, nil
+	return nil, nil
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
