@@ -10,6 +10,42 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+)
+
+type UpkeepFailureReason uint8
+type PipelineExecutionState uint8
+
+const (
+	// upkeep failure onchain reasons
+	UpkeepFailureReasonNone                    UpkeepFailureReason = 0
+	UpkeepFailureReasonUpkeepCancelled         UpkeepFailureReason = 1
+	UpkeepFailureReasonUpkeepPaused            UpkeepFailureReason = 2
+	UpkeepFailureReasonTargetCheckReverted     UpkeepFailureReason = 3
+	UpkeepFailureReasonUpkeepNotNeeded         UpkeepFailureReason = 4
+	UpkeepFailureReasonPerformDataExceedsLimit UpkeepFailureReason = 5
+	UpkeepFailureReasonInsufficientBalance     UpkeepFailureReason = 6
+	UpkeepFailureReasonMercuryCallbackReverted UpkeepFailureReason = 7
+	UpkeepFailureReasonRevertDataExceedsLimit  UpkeepFailureReason = 8
+	UpkeepFailureReasonRegistryPaused          UpkeepFailureReason = 9
+	// leaving a gap here for more onchain failure reasons in the future
+	// upkeep failure offchain reasons
+	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
+	UpkeepFailureReasonLogBlockNoLongerExists  UpkeepFailureReason = 31
+	UpkeepFailureReasonLogBlockInvalid         UpkeepFailureReason = 32
+	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
+
+	// pipeline execution error
+	NoPipelineError               PipelineExecutionState = 0
+	CheckBlockTooOld              PipelineExecutionState = 1
+	CheckBlockInvalid             PipelineExecutionState = 2
+	RpcFlakyFailure               PipelineExecutionState = 3
+	MercuryFlakyFailure           PipelineExecutionState = 4
+	PackUnpackDecodeFailed        PipelineExecutionState = 5
+	MercuryUnmarshalError         PipelineExecutionState = 6
+	InvalidMercuryRequest         PipelineExecutionState = 7
+	FailedToDecodeMercuryResponse PipelineExecutionState = 8
+	InvalidRevertDataInput        PipelineExecutionState = 9
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)

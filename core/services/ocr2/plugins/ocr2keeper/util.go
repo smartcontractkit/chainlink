@@ -2,7 +2,6 @@ package ocr2keeper
 
 import (
 	"fmt"
-	"math/big"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers20 "github.com/smartcontractkit/ocr2keepers/pkg/v2"
@@ -69,32 +68,20 @@ func EVMDependencies20(
 	spec job.Job,
 	db *sqlx.DB,
 	lggr logger.Logger,
-	set evm.ChainSet,
+	chain evm.Chain,
 	pr pipeline.Runner,
 ) (evmrelay.OCR2KeeperProvider, *kevm20.EvmRegistry, Encoder20, *kevm20.LogProvider, error) {
 	var err error
-	var chain evm.Chain
+
 	var keeperProvider evmrelay.OCR2KeeperProvider
 	var registry *kevm20.EvmRegistry
-
-	oSpec := spec.OCR2OracleSpec
-
-	// get the chain from the config
-	chainID, err2 := spec.OCR2OracleSpec.RelayConfig.EVMChainID()
-	if err2 != nil {
-		return nil, nil, nil, nil, err2
-	}
-	chain, err2 = set.Get(big.NewInt(chainID))
-	if err2 != nil {
-		return nil, nil, nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
-	}
 
 	// the provider will be returned as a dependency
 	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
 		return nil, nil, nil, nil, err
 	}
 
-	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
+	rAddr := ethkey.MustEIP55Address(spec.OCR2OracleSpec.ContractID).Address()
 	if registry, err = kevm20.NewEVMRegistryService(rAddr, chain, lggr); err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -122,13 +109,12 @@ func EVMDependencies21(
 	spec job.Job,
 	db *sqlx.DB,
 	lggr logger.Logger,
-	set evm.ChainSet,
+	chain evm.Chain,
 	pr pipeline.Runner,
 	mc *models.MercuryCredentials,
 	keyring ocrtypes.OnchainKeyring,
 ) (evmrelay.OCR2KeeperProvider, kevm21.AutomationServices, error) {
 	var err error
-	var chain evm.Chain
 	var keeperProvider evmrelay.OCR2KeeperProvider
 
 	oSpec := spec.OCR2OracleSpec

@@ -83,20 +83,20 @@ type ORMConfig interface {
 }
 
 type orm struct {
-	q           pg.Q
-	chainSet    evm.ChainSet
-	keyStore    keystore.Master
-	pipelineORM pipeline.ORM
-	lggr        logger.SugaredLogger
-	cfg         pg.QConfig
-	bridgeORM   bridges.ORM
+	q            pg.Q
+	legacyChains evm.LegacyChainContainer
+	keyStore     keystore.Master
+	pipelineORM  pipeline.ORM
+	lggr         logger.SugaredLogger
+	cfg          pg.QConfig
+	bridgeORM    bridges.ORM
 }
 
 var _ ORM = (*orm)(nil)
 
 func NewORM(
 	db *sqlx.DB,
-	chainSet evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	pipelineORM pipeline.ORM,
 	bridgeORM bridges.ORM,
 	keyStore keystore.Master, // needed to validation key properties on new job creation
@@ -105,13 +105,13 @@ func NewORM(
 ) *orm {
 	namedLogger := logger.Sugared(lggr.Named("JobORM"))
 	return &orm{
-		q:           pg.NewQ(db, namedLogger, cfg),
-		chainSet:    chainSet,
-		keyStore:    keyStore,
-		pipelineORM: pipelineORM,
-		bridgeORM:   bridgeORM,
-		lggr:        namedLogger,
-		cfg:         cfg,
+		q:            pg.NewQ(db, namedLogger, cfg),
+		legacyChains: legacyChains,
+		keyStore:     keyStore,
+		pipelineORM:  pipelineORM,
+		bridgeORM:    bridgeORM,
+		lggr:         namedLogger,
+		cfg:          cfg,
 	}
 }
 func (o *orm) Close() error {
@@ -200,7 +200,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 			if jb.OCROracleSpec.EVMChainID == nil {
 				// If unspecified, assume we're creating a job intended to run on default chain id
-				newChain, err := o.chainSet.Default()
+				newChain, err := o.legacyChains.Default()
 				if err != nil {
 					return err
 				}
@@ -696,7 +696,7 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 
 func (o *orm) LoadEnvConfigVars(jb *Job) error {
 	if jb.OCROracleSpec != nil {
-		ch, err := o.chainSet.Get(jb.OCROracleSpec.EVMChainID.ToInt())
+		ch, err := o.legacyChains.Get(jb.OCROracleSpec.EVMChainID.String())
 		if err != nil {
 			return err
 		}
@@ -706,13 +706,13 @@ func (o *orm) LoadEnvConfigVars(jb *Job) error {
 		}
 		jb.OCROracleSpec = newSpec
 	} else if jb.VRFSpec != nil {
-		ch, err := o.chainSet.Get(jb.VRFSpec.EVMChainID.ToInt())
+		ch, err := o.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
 		if err != nil {
 			return err
 		}
 		jb.VRFSpec = LoadEnvConfigVarsVRF(ch.Config().EVM(), *jb.VRFSpec)
 	} else if jb.DirectRequestSpec != nil {
-		ch, err := o.chainSet.Get(jb.DirectRequestSpec.EVMChainID.ToInt())
+		ch, err := o.legacyChains.Get(jb.DirectRequestSpec.EVMChainID.String())
 		if err != nil {
 			return err
 		}
