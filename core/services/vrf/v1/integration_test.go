@@ -150,8 +150,8 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 		cu.RootContractAddress.String(), "", "", "", 0, 200)
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	// Create a VRF request
 	_, err := cu.ConsumerContract.TestRequestRandomness(cu.Carol,

@@ -27,18 +27,18 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func NewChainScopedConfig(t testing.TB, cfg evm.GeneralConfig) evmconfig.ChainScopedConfig {
+func NewChainScopedConfig(t testing.TB, cfg evm.AppConfig) evmconfig.ChainScopedConfig {
 	var evmCfg *evmtoml.EVMConfig
 	if len(cfg.EVMConfigs()) > 0 {
 		evmCfg = cfg.EVMConfigs()[0]
@@ -58,7 +58,7 @@ type TestChainOpts struct {
 	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
 	LogPoller      logpoller.LogPoller
-	GeneralConfig  evm.GeneralConfig
+	GeneralConfig  evm.AppConfig
 	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
 	TxManager      txmgr.TxManager
@@ -67,32 +67,27 @@ type TestChainOpts struct {
 	GasEstimator   gas.EvmFeeEstimator
 }
 
-// NewChainSet returns a simple chain collection with one chain and
+// NewChainRelayExtenders returns a simple chain collection with one chain and
 // allows to mock client/config on that chain
-func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
-	opts := NewChainSetOpts(t, testopts)
-	cc, err := evm.NewTOMLChainSet(testutils.Context(t), opts)
+func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) *evmrelay.ChainRelayerExtenders {
+	opts := NewChainRelayExtOpts(t, testopts)
+	cc, err := evmrelay.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
 	return cc
 }
 
-// NewMockChainSetWithChain returns a mock chainset with one chain
-func NewMockChainSetWithChain(t testing.TB, ch evm.Chain) *evmmocks.ChainSet {
-	cc := evmmocks.NewChainSet(t)
-	cc.On("Default").Return(ch, nil)
-	return cc
-}
-
-func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
+func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayExtenderConfig {
 	require.NotNil(t, testopts.KeyStore)
-	opts := evm.ChainSetOpts{
-		Config:           testopts.GeneralConfig,
-		Logger:           logger.TestLogger(t),
-		DB:               testopts.DB,
-		KeyStore:         testopts.KeyStore,
-		EventBroadcaster: pg.NewNullEventBroadcaster(),
-		MailMon:          testopts.MailMon,
-		GasEstimator:     testopts.GasEstimator,
+	opts := evm.ChainRelayExtenderConfig{
+		Logger:   logger.TestLogger(t),
+		DB:       testopts.DB,
+		KeyStore: testopts.KeyStore,
+		RelayerConfig: evm.RelayerConfig{
+			GeneralConfig:    testopts.GeneralConfig,
+			EventBroadcaster: pg.NewNullEventBroadcaster(),
+			MailMon:          testopts.MailMon,
+			GasEstimator:     testopts.GasEstimator,
+		},
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		if testopts.Client != nil {
@@ -132,7 +127,7 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 	return opts
 }
 
-func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
+func MustGetDefaultChain(t testing.TB, cc evm.LegacyChainContainer) evm.Chain {
 	chain, err := cc.Default()
 	require.NoError(t, err)
 	return chain

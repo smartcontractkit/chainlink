@@ -11,12 +11,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/stringutils"
 )
 
@@ -327,12 +326,11 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
 
-	nodes, count, err := r.App.GetChains().EVM.NodeStatuses(ctx, offset, limit)
+	allNodes, total, err := r.App.GetRelayers().NodeStatuses(ctx, offset, limit)
 	if err != nil {
 		return nil, err
 	}
-
-	npr, warn := NewNodesPayload(nodes, int32(count))
+	npr, warn := NewNodesPayload(allNodes, int32(total))
 	if warn != nil {
 		r.App.GetLogger().Warnw("Error creating NodesPayloadResolver", "err", warn)
 	}
@@ -407,8 +405,8 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 			return nil, err
 		}
 
-		chain, err := r.App.GetChains().EVM.Get(state.EVMChainID.ToInt())
-		if errors.Is(errors.Cause(err), evm.ErrNoChains) {
+		chain, err := r.App.GetRelayers().LegacyEVMChains().Get(state.EVMChainID.String())
+		if errors.Is(errors.Cause(err), evmrelay.ErrNoChains) {
 			ethKeys = append(ethKeys, ETHKey{
 				addr:  k.EIP55Address,
 				state: state,
