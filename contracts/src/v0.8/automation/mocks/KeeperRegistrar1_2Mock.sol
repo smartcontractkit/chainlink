@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.6;
+pragma solidity ^0.8.6;
 
 contract KeeperRegistrar1_2Mock {
     event AutoApproveAllowedSenderSet(address indexed senderAddress,bool allowed);
