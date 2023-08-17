@@ -88,7 +88,7 @@ func setupExecTestHarness(t *testing.T) execTestHarness {
 		onchainConfig:         th.ExecOnchainConfig,
 		offchainConfig:        offchainConfig,
 		lggr:                  th.Lggr.Named("ExecutionReportingPlugin"),
-		snoozedRoots:          cache.NewSnoozedRootsInMem(),
+		snoozedRoots:          cache.NewSnoozedRoots(th.ExecOnchainConfig.PermissionLessExecutionThresholdDuration(), offchainConfig.RootSnoozeTime.Duration()),
 		inflightReports:       newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
 		destPriceRegistry:     th.Dest.PriceRegistry,
 		destWrappedNative:     th.Dest.WrappedNative.Address(),

@@ -132,7 +132,7 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 			config:                rf.config,
 			F:                     config.F,
 			lggr:                  rf.config.lggr.Named("ExecutionReportingPlugin"),
-			snoozedRoots:          cache.NewSnoozedRootsInMem(),
+			snoozedRoots:          cache.NewSnoozedRoots(onchainConfig.PermissionLessExecutionThresholdDuration(), offchainConfig.RootSnoozeTime.Duration()),
 			inflightReports:       newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
 			destPriceRegistry:     priceRegistry,
 			destWrappedNative:     destWrappedNative,
@@ -304,8 +304,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 			"maxSeqNr", rep.commitReport.Interval.Max,
 		)
 
-		snoozeUntil, haveSnoozed := r.snoozedRoots.Get(merkleRoot)
-		if haveSnoozed && time.Now().Before(snoozeUntil) {
+		if r.snoozedRoots.IsSnoozed(merkleRoot) {
 			rootLggr.Debug("Skipping snoozed root")
 			continue
 		}
@@ -319,7 +318,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 		// config.PermissionLessExecutionThresholdSeconds so it will never be considered again.
 		if allMsgsExecutedAndFinalized := rep.allRequestsAreExecutedAndFinalized(); allMsgsExecutedAndFinalized {
 			rootLggr.Infof("Snoozing root %s forever since there are no executable txs anymore", hex.EncodeToString(merkleRoot[:]))
-			r.snoozedRoots.Set(merkleRoot, time.Now().Add(r.onchainConfig.PermissionLessExecutionThresholdDuration()))
+			r.snoozedRoots.MarkAsExecuted(merkleRoot)
 			incSkippedRequests(reasonAllExecuted)
 			continue
 		}
@@ -360,7 +359,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 		if len(batch) != 0 {
 			return batch, nil
 		}
-		r.snoozedRoots.Set(merkleRoot, time.Now().Add(r.offchainConfig.RootSnoozeTime.Duration()))
+		r.snoozedRoots.Snooze(merkleRoot)
 	}
 	return []ObservedMessage{}, nil
 }
