@@ -5,13 +5,19 @@ import (
 	"fmt"
 	"math/big"
 	"strconv"
+	"strings"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
@@ -19,9 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 const (
@@ -30,6 +34,12 @@ const (
 	keeperDefaultUpkeepsToDeploy      = 10
 	numUpkeepsAllowedForStragglingTxs = 6
 	keeperExpectedData                = "abcdef"
+	keeperBaseTOML                    = `[Keeper]
+	TurnLookBack = 0
+	
+	[Keeper.Registry]
+	SyncInterval = '5s'
+	PerformGasOverhead = 150_000`
 )
 
 var (
@@ -81,11 +91,15 @@ func TestKeeperBasicSmoke(t *testing.T) {
 		ethereum.RegistryVersion_1_2,
 		ethereum.RegistryVersion_1_3,
 	}
-
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 
 	for _, registryVersion := range registryVersions {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "basic-smoke")
+			if onlyStartRunner {
+				return
+			}
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -99,9 +113,10 @@ func TestKeeperBasicSmoke(t *testing.T) {
 			)
 			gom := gomega.NewGomegaWithT(t)
 
-			_, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-			require.NoError(t, err, "Error creating keeper jobs")
-			err = chainClient.WaitForEvents()
+			// _, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+			// require.NoError(t, err, "Error creating keeper jobs")
+			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+			err := chainClient.WaitForEvents()
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			gom.Eventually(func(g gomega.Gomega) error {
@@ -157,10 +172,15 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 
 	for _, registryVersion := range registryVersions {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "bcpt")
+			if onlyStartRunner {
+				return
+			}
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -174,9 +194,10 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 			)
 			gom := gomega.NewGomegaWithT(t)
 
-			_, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-			require.NoError(t, err, "Error creating keeper jobs")
-			err = chainClient.WaitForEvents()
+			// _, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+			// require.NoError(t, err, "Error creating keeper jobs")
+			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+			err := chainClient.WaitForEvents()
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			keepersPerformed := make([]string, 0)
@@ -259,10 +280,15 @@ func TestKeeperSimulation(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 
 	for _, registryVersion := range registryVersions {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "simulation")
+			if onlyStartRunner {
+				return
+			}
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
 				registryVersion,
@@ -280,9 +306,10 @@ func TestKeeperSimulation(t *testing.T) {
 			)
 			gom := gomega.NewGomegaWithT(t)
 
-			_, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-			require.NoError(t, err, "Error creating keeper jobs")
-			err = chainClient.WaitForEvents()
+			// _, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+			// require.NoError(t, err, "Error creating keeper jobs")
+			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+			err := chainClient.WaitForEvents()
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			consumerPerformance := consumersPerformance[0]
@@ -333,7 +360,12 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 
 	for _, registryVersion := range registryVersions {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
-			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+			// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "gas-limit")
+			if onlyStartRunner {
+				return
+			}
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
 				registryVersion,
@@ -351,9 +383,10 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 			)
 			gom := gomega.NewGomegaWithT(t)
 
-			_, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-			require.NoError(t, err, "Error creating keeper jobs")
-			err = chainClient.WaitForEvents()
+			// _, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+			// require.NoError(t, err, "Error creating keeper jobs")
+			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+			err := chainClient.WaitForEvents()
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			consumerPerformance := consumersPerformance[0]
@@ -442,10 +475,15 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 
 	for _, registryVersion := range registryVersions {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "register-upkeep")
+			if onlyStartRunner {
+				return
+			}
 			registry, registrar, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -459,9 +497,10 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 			)
 			gom := gomega.NewGomegaWithT(t)
 
-			_, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-			require.NoError(t, err, "Error creating keeper jobs")
-			err = chainClient.WaitForEvents()
+			// _, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+			// require.NoError(t, err, "Error creating keeper jobs")
+			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+			err := chainClient.WaitForEvents()
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -529,10 +568,15 @@ func TestKeeperAddFunds(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 
 	for _, registryVersion := range registryVersions {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "add-funds")
+			if onlyStartRunner {
+				return
+			}
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -546,9 +590,10 @@ func TestKeeperAddFunds(t *testing.T) {
 			)
 			gom := gomega.NewGomegaWithT(t)
 
-			_, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-			require.NoError(t, err, "Error creating keeper jobs")
-			err = chainClient.WaitForEvents()
+			// _, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+			// require.NoError(t, err, "Error creating keeper jobs")
+			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+			err := chainClient.WaitForEvents()
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			// Since the upkeep is currently underfunded, check that it doesn't get executed
@@ -591,10 +636,15 @@ func TestKeeperRemove(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 
 	for _, registryVersion := range registryVersions {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "remove")
+			if onlyStartRunner {
+				return
+			}
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -608,9 +658,10 @@ func TestKeeperRemove(t *testing.T) {
 			)
 			gom := gomega.NewGomegaWithT(t)
 
-			_, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-			require.NoError(t, err, "Error creating keeper jobs")
-			err = chainClient.WaitForEvents()
+			// _, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+			// require.NoError(t, err, "Error creating keeper jobs")
+			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+			err := chainClient.WaitForEvents()
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -667,10 +718,15 @@ func TestKeeperPauseRegistry(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 
 	for _, registryVersion := range registryVersions {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "pause-registry")
+			if onlyStartRunner {
+				return
+			}
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -684,9 +740,10 @@ func TestKeeperPauseRegistry(t *testing.T) {
 			)
 			gom := gomega.NewGomegaWithT(t)
 
-			_, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-			require.NoError(t, err, "Error creating keeper jobs")
-			err = chainClient.WaitForEvents()
+			// _, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+			// require.NoError(t, err, "Error creating keeper jobs")
+			actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+			err := chainClient.WaitForEvents()
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			// Observe that the upkeeps which are initially registered are performing
@@ -730,7 +787,11 @@ func TestKeeperPauseRegistry(t *testing.T) {
 
 func TestKeeperMigrateRegistry(t *testing.T) {
 	t.Parallel()
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "migrate-registry")
+	if onlyStartRunner {
+		return
+	}
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_2,
@@ -744,9 +805,10 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	)
 	gom := gomega.NewGomegaWithT(t)
 
-	_, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-	require.NoError(t, err, "Error creating keeper jobs")
-	err = chainClient.WaitForEvents()
+	// _, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+	// require.NoError(t, err, "Error creating keeper jobs")
+	actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+	err := chainClient.WaitForEvents()
 	require.NoError(t, err, "Error creating keeper jobs")
 
 	// Deploy the second registry, second registrar, and the same number of upkeeps as the first one
@@ -763,8 +825,9 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 	)
 
 	// Set the jobs for the second registry
-	_, err = actions.CreateKeeperJobsLocal(chainlinkNodes, secondRegistry, contracts.OCRv2Config{})
-	require.NoError(t, err, "Error creating keeper jobs")
+	// _, err = actions.CreateKeeperJobsLocal(chainlinkNodes, secondRegistry, contracts.OCRv2Config{})
+	// require.NoError(t, err, "Error creating keeper jobs")
+	actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
 	err = chainClient.WaitForEvents()
 	require.NoError(t, err, "Error creating keeper jobs")
 
@@ -820,7 +883,12 @@ func TestKeeperNodeDown(t *testing.T) {
 
 	for _, registryVersion := range registryVersions {
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
-			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+			// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "node-down")
+			if onlyStartRunner {
+				return
+			}
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -834,9 +902,10 @@ func TestKeeperNodeDown(t *testing.T) {
 			)
 			gom := gomega.NewGomegaWithT(t)
 
-			jobs, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-			require.NoError(t, err, "Error creating keeper jobs")
-			err = chainClient.WaitForEvents()
+			// jobs, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+			// require.NoError(t, err, "Error creating keeper jobs")
+			jobs := actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+			err := chainClient.WaitForEvents()
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
@@ -919,14 +988,18 @@ func TestKeeperNodeDown(t *testing.T) {
 }
 
 type nodeAndJob struct {
-	node *client.ChainlinkClient
+	node *client.ChainlinkK8sClient //*client.ChainlinkClient
 	job  *client.Job
 }
 
 func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "pause-upkeep")
+	if onlyStartRunner {
+		return
+	}
 	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 		t,
 		ethereum.RegistryVersion_1_3,
@@ -940,9 +1013,10 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 	)
 	gom := gomega.NewGomegaWithT(t)
 
-	_, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-	require.NoError(t, err, "Error creating keeper jobs")
-	err = chainClient.WaitForEvents()
+	// _, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+	// require.NoError(t, err, "Error creating keeper jobs")
+	actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+	err := chainClient.WaitForEvents()
 	require.NoError(t, err, "Error creating keeper jobs")
 
 	gom.Eventually(func(g gomega.Gomega) error {
@@ -1016,7 +1090,11 @@ func TestKeeperPauseUnPauseUpkeep(t *testing.T) {
 func TestKeeperUpdateCheckData(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	// chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+	chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner := setupKeeperTest(t, "pause-upkeep")
+	if onlyStartRunner {
+		return
+	}
 	registry, _, performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerContracts(
 		t,
 		ethereum.RegistryVersion_1_3,
@@ -1031,9 +1109,10 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 	)
 	gom := gomega.NewGomegaWithT(t)
 
-	_, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
-	require.NoError(t, err, "Error creating keeper jobs")
-	err = chainClient.WaitForEvents()
+	// _, err := actions.CreateKeeperJobsLocal(chainlinkNodes, registry, contracts.OCRv2Config{})
+	// require.NoError(t, err, "Error creating keeper jobs")
+	actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+	err := chainClient.WaitForEvents()
 	require.NoError(t, err, "Error creating keeper jobs")
 
 	gom.Consistently(func(g gomega.Gomega) {
@@ -1075,37 +1154,101 @@ func TestKeeperUpdateCheckData(t *testing.T) {
 	}, "3m", "1s").Should(gomega.Succeed())
 }
 
-func setupKeeperTest(t *testing.T) (
-	blockchain.EVMClient,
-	[]*client.ChainlinkClient,
-	contracts.ContractDeployer,
-	contracts.LinkToken,
-	*test_env.CLClusterTestEnv,
+// func setupKeeperTest(t *testing.T) (
+// 	blockchain.EVMClient,
+// 	[]*client.ChainlinkClient,
+// 	contracts.ContractDeployer,
+// 	contracts.LinkToken,
+// 	*test_env.CLClusterTestEnv,
+// ) {
+// 	clNodeConfig := node.NewConfig(node.BaseConf)
+// 	turnLookBack := int64(0)
+// 	syncInterval := models.MustMakeDuration(5 * time.Second)
+// 	performGasOverhead := uint32(150000)
+// 	clNodeConfig.Keeper.TurnLookBack = &turnLookBack
+// 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
+// 	clNodeConfig.Keeper.Registry.PerformGasOverhead = &performGasOverhead
+
+// 	env, err := test_env.NewCLTestEnvBuilder().
+// 		WithGeth().
+// 		WithMockServer(1).
+// 		WithCLNodes(5).
+// 		WithCLNodeConfig(clNodeConfig).
+// 		WithFunding(big.NewFloat(.5)).
+// 		Build()
+// 	require.NoError(t, err, "Error deploying test environment")
+
+// 	env.ParallelTransactions(true)
+
+// 	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
+// 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+
+// 	err = env.EVMClient.WaitForEvents()
+// 	require.NoError(t, err, "Error waiting for events")
+
+// 	return env.EVMClient, env.GetAPIs(), env.ContractDeployer, linkTokenContract, env
+// }
+
+func setupKeeperTest(
+	t *testing.T,
+	testName string,
+) (
+	chainClient blockchain.EVMClient,
+	chainlinkNodes []*client.ChainlinkK8sClient,
+	contractDeployer contracts.ContractDeployer,
+	linkToken contracts.LinkToken,
+	onlyStartRunner bool,
 ) {
-	clNodeConfig := node.NewConfig(node.BaseConf)
-	turnLookBack := int64(0)
-	syncInterval := models.MustMakeDuration(5 * time.Second)
-	performGasOverhead := uint32(150000)
-	clNodeConfig.Keeper.TurnLookBack = &turnLookBack
-	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
-	clNodeConfig.Keeper.Registry.PerformGasOverhead = &performGasOverhead
+	network := networks.SelectedNetwork
+	evmConfig := eth.New(nil)
+	if !network.Simulated {
+		evmConfig = eth.New(&eth.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})
+	}
 
-	env, err := test_env.NewCLTestEnvBuilder().
-		WithGeth().
-		WithMockServer(1).
-		WithCLNodes(5).
-		WithCLNodeConfig(clNodeConfig).
-		WithFunding(big.NewFloat(.5)).
-		Build()
+	chainlinkChart, err := chainlink.NewDeployment(5, map[string]interface{}{
+		"toml": client.AddNetworksConfig(keeperBaseTOML, network),
+	})
+	require.NoError(t, err, "Error creating chainlink deployment")
+
+	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
+	testEnvironment := environment.New(
+		&environment.Config{
+			NamespacePrefix: fmt.Sprintf("smoke-keeper-%s-%s", testName, networkName),
+			Test:            t,
+		}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelmCharts(chainlinkChart)
+	err = testEnvironment.Run()
 	require.NoError(t, err, "Error deploying test environment")
+	onlyStartRunner = testEnvironment.WillUseRemoteRunner()
+	if !onlyStartRunner {
+		chainClient, err = blockchain.NewEVMClient(network, testEnvironment)
+		require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
+		contractDeployer, err = contracts.NewContractDeployer(chainClient)
+		require.NoError(t, err, "Deploying contracts shouldn't fail")
+		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
+		require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+		chainClient.ParallelTransactions(true)
 
-	env.ParallelTransactions(true)
+		// Register cleanup for any test
+		t.Cleanup(func() {
+			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
+			require.NoError(t, err, "Error tearing down environment")
+		})
 
-	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
-	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
+		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.5))
+		require.NoError(t, err, "Funding Chainlink nodes shouldn't fail")
+		linkToken, err = contractDeployer.DeployLinkTokenContract()
+		require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	err = env.EVMClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting for events")
-
-	return env.EVMClient, env.GetAPIs(), env.ContractDeployer, linkTokenContract, env
+		err = chainClient.WaitForEvents()
+		require.NoError(t, err, "Error waiting for events")
+	}
+	return chainClient, chainlinkNodes, contractDeployer, linkToken, onlyStartRunner
 }

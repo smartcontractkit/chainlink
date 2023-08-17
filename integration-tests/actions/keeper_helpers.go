@@ -27,7 +27,7 @@ func CreateKeeperJobs(
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	keeperRegistry contracts.KeeperRegistry,
 	ocrConfig contracts.OCRv2Config,
-) {
+) []*client.Job {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]
 	primaryNodeAddress, err := primaryNode.PrimaryEthAddress()
@@ -41,18 +41,20 @@ func CreateKeeperJobs(
 	}
 	err = keeperRegistry.SetKeepers(nodeAddressesStr, payees, ocrConfig)
 	require.NoError(t, err, "Setting keepers in the registry shouldn't fail")
-
+	jobs := []*client.Job{}
 	for _, chainlinkNode := range chainlinkNodes {
 		chainlinkNodeAddress, err := chainlinkNode.PrimaryEthAddress()
 		require.NoError(t, err, "Error retrieving chainlink node address")
-		_, err = chainlinkNode.MustCreateJob(&client.KeeperJobSpec{
+		job, err := chainlinkNode.MustCreateJob(&client.KeeperJobSpec{
 			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
 			ContractAddress:          keeperRegistry.Address(),
 			FromAddress:              chainlinkNodeAddress,
 			MinIncomingConfirmations: 1,
 		})
 		require.NoError(t, err, "Creating KeeperV2 Job shouldn't fail")
+		jobs = append(jobs, job)
 	}
+	return jobs
 }
 
 func CreateKeeperJobsWithKeyIndex(
