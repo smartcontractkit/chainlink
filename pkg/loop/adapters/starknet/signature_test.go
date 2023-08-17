@@ -1,9 +1,10 @@
 package starknet
 
 import (
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestSignature(t *testing.T) {

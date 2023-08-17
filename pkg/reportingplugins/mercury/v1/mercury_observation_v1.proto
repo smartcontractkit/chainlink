@@ -1,7 +1,7 @@
 syntax="proto3";
 
-package mercury;
-option go_package = ".;mercury";
+package mercury_v1;
+option go_package = ".;mercury_v1";
 
 // TODO: what about different report formats for different clients?
 message MercuryObservationProto {

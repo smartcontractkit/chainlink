@@ -26,7 +26,7 @@ func TestManager(t *testing.T) {
 		// The managed function in turn runs 10 noop goroutines and increments/decrements a goroutine counter.
 		defer goleak.VerifyNone(t)
 
-		var goRoutineCounter int64 = 0
+		var goRoutineCounter int64
 		var subs utils.Subprocesses
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
@@ -74,7 +74,7 @@ func TestManager(t *testing.T) {
 			rddPoller,
 		)
 
-		var countManagedFuncExecutions uint64 = 0
+		var countManagedFuncExecutions uint64
 		var managedFunc = func(_ context.Context, _ RDDData) {
 			atomic.AddUint64(&countManagedFuncExecutions, 1)
 		}

@@ -1,14 +1,14 @@
 package mercury
 
 import (
-	"fmt"
+	"math"
 	"math/big"
 
 	pkgerrors "github.com/pkg/errors"
 )
 
 // NOTE: hardcoded for now, this may need to change if we support block range on chains other than eth
-const evmHashLen = 32
+const EvmHashLen = 32
 
 // ValidateBenchmarkPrice checks that value is between min and max
 func ValidateBenchmarkPrice(paos []ParsedAttributedObservation, f int, min, max *big.Int) error {
@@ -52,43 +52,17 @@ func ValidateAsk(paos []ParsedAttributedObservation, f int, min, max *big.Int) e
 	return nil
 }
 
-// ValidateCurrentBlock sanity checks number and hash
-func ValidateCurrentBlock(paos []ParsedAttributedObservation, f int, validFromBlockNum int64) error {
-	if validFromBlockNum < 0 {
-		return fmt.Errorf("validFromBlockNum must be >= 0 (got: %d)", validFromBlockNum)
-	}
-	var newBlockRangePaos []ParsedAttributedObservation
-	for _, pao := range paos {
-		if pao.CurrentBlockValid && pao.CurrentBlockNum >= validFromBlockNum {
-			newBlockRangePaos = append(newBlockRangePaos, pao)
-		}
+func ValidateValidFromTimestamp(observationTimestamp uint32, validFromTimestamp uint32) error {
+	if observationTimestamp < validFromTimestamp {
+		return pkgerrors.Errorf("observationTimestamp (%d) must be >= validFromTimestamp (%d)", observationTimestamp, validFromTimestamp)
 	}
 
-	if len(newBlockRangePaos) < f+1 {
-		s := fmt.Sprintf("only %v/%v attributed observations have currentBlockNum >= validFromBlockNum, need at least f+1 (%v/%v) to make a new report", len(newBlockRangePaos), len(paos), f+1, len(paos))
-		_, num, _, err := GetConsensusCurrentBlock(paos, f)
-		if err == nil {
-			return fmt.Errorf("%s; consensusCurrentBlock=%d, validFromBlockNum=%d", s, num, validFromBlockNum)
-		}
-		return fmt.Errorf("%s; GetConsensusCurrentBlock failed: %w", s, err)
-	}
-	hash, num, _, err := GetConsensusCurrentBlock(newBlockRangePaos, f)
-	if err != nil {
-		return fmt.Errorf("GetConsensusCurrentBlock failed: %w", err)
-	}
+	return nil
+}
 
-	if num < 0 {
-		return pkgerrors.Errorf("block number must be >= 0 (got: %d)", num)
-	}
-
-	// NOTE: hardcoded ethereum hash
-	if len(hash) != evmHashLen {
-		return pkgerrors.Errorf("invalid length for hash; expected %d (got: %d)", evmHashLen, len(hash))
-	}
-
-	if validFromBlockNum > num {
-		// should be impossible actually due to filtering above, but here for sanity check
-		return pkgerrors.Errorf("validFromBlockNum (%d) must be less than current block number (%d)", validFromBlockNum, num)
+func ValidateExpiresAt(observationTimestamp uint32, expirationWindow uint32) error {
+	if int64(observationTimestamp)+int64(expirationWindow) > math.MaxUint32 {
+		return pkgerrors.Errorf("timestamp %d + expiration window %d overflows uint32", observationTimestamp, expirationWindow)
 	}
 
 	return nil

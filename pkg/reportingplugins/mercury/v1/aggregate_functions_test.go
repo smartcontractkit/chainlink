@@ -1,9 +1,11 @@
-package mercury
+package mercury_v1
 
 import (
 	"encoding/hex"
 	"math/big"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
@@ -18,51 +20,203 @@ func mustDecodeHex(s string) []byte {
 	return b
 }
 
+func NewValidParsedAttributedObservations() []ParsedAttributedObservation {
+	return []ParsedAttributedObservation{
+		parsedAttributedObservation{
+			Timestamp: 1676484822,
+			Observer:  commontypes.OracleID(1),
+
+			BenchmarkPrice: big.NewInt(345),
+			Bid:            big.NewInt(343),
+			Ask:            big.NewInt(347),
+			PricesValid:    true,
+
+			CurrentBlockNum:       16634364,
+			CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+			CurrentBlockTimestamp: 1682908180,
+			CurrentBlockValid:     true,
+
+			MaxFinalizedBlockNumber:      16634355,
+			MaxFinalizedBlockNumberValid: true,
+		},
+		parsedAttributedObservation{
+			Timestamp: 1676484826,
+			Observer:  commontypes.OracleID(2),
+
+			BenchmarkPrice: big.NewInt(335),
+			Bid:            big.NewInt(332),
+			Ask:            big.NewInt(336),
+			PricesValid:    true,
+
+			CurrentBlockNum:       16634364,
+			CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+			CurrentBlockTimestamp: 1682908180,
+			CurrentBlockValid:     true,
+
+			MaxFinalizedBlockNumber:      16634355,
+			MaxFinalizedBlockNumberValid: true,
+		},
+		parsedAttributedObservation{
+			Timestamp: 1676484828,
+			Observer:  commontypes.OracleID(3),
+
+			BenchmarkPrice: big.NewInt(347),
+			Bid:            big.NewInt(345),
+			Ask:            big.NewInt(350),
+			PricesValid:    true,
+
+			CurrentBlockNum:       16634365,
+			CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+			CurrentBlockTimestamp: 1682591344,
+			CurrentBlockValid:     true,
+
+			MaxFinalizedBlockNumber:      16634355,
+			MaxFinalizedBlockNumberValid: true,
+		},
+		parsedAttributedObservation{
+			Timestamp: 1676484830,
+			Observer:  commontypes.OracleID(4),
+
+			BenchmarkPrice: big.NewInt(346),
+			Bid:            big.NewInt(347),
+			Ask:            big.NewInt(350),
+			PricesValid:    true,
+
+			CurrentBlockNum:       16634365,
+			CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+			CurrentBlockTimestamp: 1682591344,
+			CurrentBlockValid:     true,
+
+			MaxFinalizedBlockNumber:      16634355,
+			MaxFinalizedBlockNumberValid: true,
+		},
+	}
+}
+
+func NewInvalidParsedAttributedObservations() []ParsedAttributedObservation {
+	return []ParsedAttributedObservation{
+		parsedAttributedObservation{
+			Timestamp: 1676484822,
+			Observer:  commontypes.OracleID(1),
+
+			BenchmarkPrice: big.NewInt(345),
+			Bid:            big.NewInt(343),
+			Ask:            big.NewInt(347),
+			PricesValid:    false,
+
+			CurrentBlockNum:       16634364,
+			CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+			CurrentBlockTimestamp: 1682908180,
+			CurrentBlockValid:     false,
+
+			MaxFinalizedBlockNumber:      16634355,
+			MaxFinalizedBlockNumberValid: false,
+		},
+		parsedAttributedObservation{
+			Timestamp: 1676484826,
+			Observer:  commontypes.OracleID(2),
+
+			BenchmarkPrice: big.NewInt(335),
+			Bid:            big.NewInt(332),
+			Ask:            big.NewInt(336),
+			PricesValid:    false,
+
+			CurrentBlockNum:       16634364,
+			CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+			CurrentBlockTimestamp: 1682908180,
+			CurrentBlockValid:     false,
+
+			MaxFinalizedBlockNumber:      16634355,
+			MaxFinalizedBlockNumberValid: false,
+		},
+		parsedAttributedObservation{
+			Timestamp: 1676484828,
+			Observer:  commontypes.OracleID(3),
+
+			BenchmarkPrice: big.NewInt(347),
+			Bid:            big.NewInt(345),
+			Ask:            big.NewInt(350),
+			PricesValid:    false,
+
+			CurrentBlockNum:       16634365,
+			CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+			CurrentBlockTimestamp: 1682591344,
+			CurrentBlockValid:     false,
+
+			MaxFinalizedBlockNumber:      16634355,
+			MaxFinalizedBlockNumberValid: false,
+		},
+		parsedAttributedObservation{
+			Timestamp: 1676484830,
+			Observer:  commontypes.OracleID(4),
+
+			BenchmarkPrice: big.NewInt(346),
+			Bid:            big.NewInt(347),
+			Ask:            big.NewInt(350),
+			PricesValid:    false,
+
+			CurrentBlockNum:       16634365,
+			CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+			CurrentBlockTimestamp: 1682591344,
+			CurrentBlockValid:     false,
+
+			MaxFinalizedBlockNumber:      16634355,
+			MaxFinalizedBlockNumberValid: false,
+		},
+	}
+}
+
 func Test_AggregateFunctions(t *testing.T) {
 	f := 1
 	validPaos := NewValidParsedAttributedObservations()
 	invalidPaos := NewInvalidParsedAttributedObservations()
 
 	t.Run("GetConsensusTimestamp", func(t *testing.T) {
-		ts := GetConsensusTimestamp(validPaos)
+		validMPaos := Convert(validPaos)
+		ts := mercury.GetConsensusTimestamp(validMPaos)
 
 		assert.Equal(t, 1676484828, int(ts))
 	})
 	t.Run("GetConsensusBenchmarkPrice", func(t *testing.T) {
 		t.Run("when prices valid, gets median price", func(t *testing.T) {
-			bp, err := GetConsensusBenchmarkPrice(validPaos, f)
+			validMPaos := Convert(validPaos)
+			bp, err := mercury.GetConsensusBenchmarkPrice(validMPaos, f)
 			require.NoError(t, err)
 			assert.Equal(t, "346", bp.String())
 		})
 
 		t.Run("if more than f+1 are invalid, fails", func(t *testing.T) {
-			_, err := GetConsensusBenchmarkPrice(invalidPaos, f)
-			assert.EqualError(t, err, "fewer than f+1 observations have a valid price")
+			invalidMPaos := Convert(invalidPaos)
+			_, err := mercury.GetConsensusBenchmarkPrice(invalidMPaos, f)
+			assert.EqualError(t, err, "fewer than f+1 observations have a valid price (got: 0/4)")
 		})
 	})
 	t.Run("GetConsensusBid", func(t *testing.T) {
 		t.Run("when prices valid, gets median bid", func(t *testing.T) {
-			bid, err := GetConsensusBid(validPaos, f)
+			validMPaos := Convert(validPaos)
+			bid, err := mercury.GetConsensusBid(validMPaos, f)
 			require.NoError(t, err)
 			assert.Equal(t, "345", bid.String())
 		})
 
 		t.Run("if more than f+1 are invalid, fails", func(t *testing.T) {
-			_, err := GetConsensusBid(invalidPaos, f)
-			assert.EqualError(t, err, "fewer than f+1 observations have a valid price")
+			invalidMPaos := Convert(invalidPaos)
+			_, err := mercury.GetConsensusBid(invalidMPaos, f)
+			assert.EqualError(t, err, "fewer than f+1 observations have a valid price (got: 0/4)")
 		})
 	})
 	t.Run("GetConsensusAsk", func(t *testing.T) {
 		t.Run("when prices valid, gets median bid", func(t *testing.T) {
-			ask, err := GetConsensusAsk(validPaos, f)
+			valiMPaos := Convert(validPaos)
+			ask, err := mercury.GetConsensusAsk(valiMPaos, f)
 			require.NoError(t, err)
-
 			assert.Equal(t, "350", ask.String())
 		})
 
 		t.Run("if invalid, fails", func(t *testing.T) {
-			_, err := GetConsensusAsk(invalidPaos, f)
-			assert.EqualError(t, err, "fewer than f+1 observations have a valid price")
+			invalidMPaos := Convert(invalidPaos)
+			_, err := mercury.GetConsensusAsk(invalidMPaos, f)
+			assert.EqualError(t, err, "fewer than f+1 observations have a valid price (got: 0/4)")
 		})
 	})
 
@@ -84,18 +238,46 @@ func Test_AggregateFunctions(t *testing.T) {
 			_, _, _, err := GetConsensusCurrentBlock(validPaos, 3)
 			assert.EqualError(t, err, "no unique block with at least f+1 votes")
 		})
-		t.Run("if there are not at least f+1 in consensus about number", func(t *testing.T) {
-			badPaos := NewValidParsedAttributedObservations()
-			for i := range badPaos {
-				badPaos[i].CurrentBlockNum = int64(i)
+		t.Run("if there are not at least f+1 in consensus about block number", func(t *testing.T) {
+			badPaos := []ParsedAttributedObservation{
+				parsedAttributedObservation{
+					CurrentBlockNum:   100,
+					CurrentBlockValid: true,
+				},
+				parsedAttributedObservation{
+					CurrentBlockNum:   200,
+					CurrentBlockValid: true,
+				},
+				parsedAttributedObservation{
+					CurrentBlockNum:   300,
+					CurrentBlockValid: true,
+				},
+				parsedAttributedObservation{
+					CurrentBlockNum:   400,
+					CurrentBlockValid: true,
+				},
 			}
 			_, _, _, err := GetConsensusCurrentBlock(badPaos, f)
 			assert.EqualError(t, err, "no unique block with at least f+1 votes")
 		})
 		t.Run("if there are not at least f+1 in consensus about timestamp", func(t *testing.T) {
-			badPaos := NewValidParsedAttributedObservations()
-			for i := range badPaos {
-				badPaos[i].CurrentBlockTimestamp = uint64(i * 100)
+			badPaos := []ParsedAttributedObservation{
+				parsedAttributedObservation{
+					CurrentBlockTimestamp: 100,
+					CurrentBlockValid:     true,
+				},
+				parsedAttributedObservation{
+					CurrentBlockTimestamp: 200,
+					CurrentBlockValid:     true,
+				},
+				parsedAttributedObservation{
+					CurrentBlockTimestamp: 300,
+					CurrentBlockValid:     true,
+				},
+				parsedAttributedObservation{
+					CurrentBlockTimestamp: 400,
+					CurrentBlockValid:     true,
+				},
 			}
 			_, _, _, err := GetConsensusCurrentBlock(badPaos, f)
 			assert.EqualError(t, err, "no unique block with at least f+1 votes")
@@ -104,7 +286,7 @@ func Test_AggregateFunctions(t *testing.T) {
 			validFrom := int64(26014056)
 			// values below are from a real observed case of this happening in the wild
 			paos := []ParsedAttributedObservation{
-				ParsedAttributedObservation{
+				parsedAttributedObservation{
 					Timestamp:                    1686759784,
 					Observer:                     commontypes.OracleID(2),
 					BenchmarkPrice:               big.NewInt(90700),
@@ -118,7 +300,7 @@ func Test_AggregateFunctions(t *testing.T) {
 					MaxFinalizedBlockNumber:      0,
 					MaxFinalizedBlockNumberValid: false,
 				},
-				ParsedAttributedObservation{
+				parsedAttributedObservation{
 					Timestamp:                    1686759784,
 					Observer:                     commontypes.OracleID(3),
 					BenchmarkPrice:               big.NewInt(92000),
@@ -132,7 +314,7 @@ func Test_AggregateFunctions(t *testing.T) {
 					MaxFinalizedBlockNumber:      0,
 					MaxFinalizedBlockNumberValid: false,
 				},
-				ParsedAttributedObservation{
+				parsedAttributedObservation{
 					Timestamp:                    1686759784,
 					Observer:                     commontypes.OracleID(1),
 					BenchmarkPrice:               big.NewInt(67300),
@@ -146,7 +328,7 @@ func Test_AggregateFunctions(t *testing.T) {
 					MaxFinalizedBlockNumber:      0,
 					MaxFinalizedBlockNumberValid: false,
 				},
-				ParsedAttributedObservation{
+				parsedAttributedObservation{
 					Timestamp:                    1686759784,
 					Observer:                     commontypes.OracleID(0),
 					BenchmarkPrice:               big.NewInt(8600),
@@ -169,7 +351,7 @@ func Test_AggregateFunctions(t *testing.T) {
 			assert.GreaterOrEqual(t, num, validFrom)
 		})
 		pao := func(num int64, hash string, ts uint64) ParsedAttributedObservation {
-			return ParsedAttributedObservation{CurrentBlockNum: num, CurrentBlockHash: mustDecodeHex(hash), CurrentBlockTimestamp: ts, CurrentBlockValid: true}
+			return parsedAttributedObservation{CurrentBlockNum: num, CurrentBlockHash: mustDecodeHex(hash), CurrentBlockTimestamp: ts, CurrentBlockValid: true}
 		}
 		t.Run("when there are multiple possible blocks meeting > f+1 hashes, takes the hash with the most block numbers in agreement", func(t *testing.T) {
 			paos := []ParsedAttributedObservation{
@@ -257,13 +439,27 @@ func Test_AggregateFunctions(t *testing.T) {
 		})
 
 		t.Run("errors if there are not at least f+1 in consensus about number", func(t *testing.T) {
-			badPaos := NewValidParsedAttributedObservations()
-			for i := range badPaos {
-				badPaos[i].MaxFinalizedBlockNumber = int64(i)
+			badPaos := []ParsedAttributedObservation{
+				parsedAttributedObservation{
+					MaxFinalizedBlockNumber:      100,
+					MaxFinalizedBlockNumberValid: true,
+				},
+				parsedAttributedObservation{
+					MaxFinalizedBlockNumber:      200,
+					MaxFinalizedBlockNumberValid: true,
+				},
+				parsedAttributedObservation{
+					MaxFinalizedBlockNumber:      300,
+					MaxFinalizedBlockNumberValid: true,
+				},
+				parsedAttributedObservation{
+					MaxFinalizedBlockNumber:      400,
+					MaxFinalizedBlockNumberValid: true,
+				},
 			}
 
 			_, err := GetConsensusMaxFinalizedBlockNum(badPaos, f)
-			assert.EqualError(t, err, "no valid maxFinalizedBlockNumber with at least f+1 votes (got counts: map[0:1 1:1 2:1 3:1])")
+			assert.EqualError(t, err, "no valid maxFinalizedBlockNumber with at least f+1 votes (got counts: map[100:1 200:1 300:1 400:1])")
 		})
 	})
 }

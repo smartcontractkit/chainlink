@@ -76,7 +76,7 @@ LOOP:
 	for {
 		select {
 		case factory.updates <- envelope:
-			count += 1
+			count++
 			envelope, err = generateEnvelope()
 			require.NoError(t, err)
 		case <-ctx.Done():
@@ -149,7 +149,7 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 		monitor.Run(ctx, RDDData{feeds, nodes})
 	})
 
-	var count int64 = 0
+	var count int64
 	messages := []producerMessage{}
 
 	envelope, err := generateEnvelope()
@@ -160,7 +160,7 @@ func TestMultiFeedMonitorForPerformance(t *testing.T) {
 		for {
 			select {
 			case factory.updates <- envelope:
-				count += 1
+				count++
 				envelope, err = generateEnvelope()
 				require.NoError(t, err)
 			case <-ctx.Done():
@@ -287,7 +287,7 @@ func TestMultiFeedMonitorErroringFactories(t *testing.T) {
 			}
 		})
 
-		var countMessages int64 = 0
+		var countMessages int64
 		subs.Go(func() {
 		LOOP:
 			for {

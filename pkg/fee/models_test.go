@@ -5,9 +5,10 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 // This test is based on EVM Fixed Fee Estimator.

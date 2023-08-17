@@ -33,7 +33,7 @@ func TestFeedMonitor(t *testing.T) {
 		source2, err := sourceFactory2.NewSource(chainConfig, feedConfig)
 		require.NoError(t, err)
 
-		var bufferCapacity uint32 = 0 // no buffering
+		var bufferCapacity uint32 // no buffering
 
 		pollInterval := 100 * time.Millisecond
 		readTimeout := 100 * time.Millisecond
@@ -105,18 +105,18 @@ func TestFeedMonitor(t *testing.T) {
 		envelope, err := generateEnvelope()
 		require.NoError(t, err)
 
-		var countEnvelopes int64 = 0
-		var countMessages int64 = 0
+		var countEnvelopes int64
+		var countMessages int64
 
 	LOOP:
 		for {
 			select {
 			case sourceFactory1.updates <- envelope:
-				countEnvelopes += 1
+				countEnvelopes++
 			case sourceFactory2.updates <- envelope:
-				countEnvelopes += 1
+				countEnvelopes++
 			case <-producer.sendCh:
-				countMessages += 1
+				countMessages++
 			case <-ctx.Done():
 				break LOOP
 			}

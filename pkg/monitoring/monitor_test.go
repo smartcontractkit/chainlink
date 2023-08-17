@@ -101,8 +101,8 @@ func TestMonitor(t *testing.T) {
 	// Wait for the subscriptions to start.
 	<-time.After(2 * time.Second)
 
-	var transmissionsCounter uint64 = 0
-	var configsCounter uint64 = 0
+	var transmissionsCounter uint64
+	var configsCounter uint64
 	var countersSubs utils.Subprocesses
 	countersSubs.Go(func() {
 		for i := 0; i < 10; {

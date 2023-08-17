@@ -76,7 +76,7 @@ func TestPoller(t *testing.T) {
 				case <-poller.Updates():
 					select {
 					case <-time.After(testCase.processingTime):
-						readCount += 1
+						readCount++
 					case <-ctx.Done():
 						break COUNTER
 					}

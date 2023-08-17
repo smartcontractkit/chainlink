@@ -1,11 +1,12 @@
-package mercury
+package mercury_v1
 
 import (
 	"context"
+	crand "crypto/rand"
 	"math"
 	"math/big"
 	"math/rand"
-	reflect "reflect"
+	"reflect"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 )
 
 type testReportCodec struct {
@@ -71,7 +73,7 @@ func newReportingPlugin(t *testing.T, codec *testReportCodec) *reportingPlugin {
 	require.NoError(t, err)
 	return &reportingPlugin{
 		f:               1,
-		onchainConfig:   OnchainConfig{Min: big.NewInt(0), Max: big.NewInt(1000)},
+		onchainConfig:   mercury.OnchainConfig{Min: big.NewInt(0), Max: big.NewInt(1000)},
 		logger:          logger.Test(t),
 		reportCodec:     codec,
 		maxReportLength: maxReportLength,
@@ -81,41 +83,214 @@ func newReportingPlugin(t *testing.T, codec *testReportCodec) *reportingPlugin {
 func Test_ReportingPlugin_shouldReport(t *testing.T) {
 	rp := newReportingPlugin(t, &testReportCodec{})
 	repts := types.ReportTimestamp{}
-	paos := NewValidParsedAttributedObservations()
 
 	t.Run("reports if all reports have currentBlockNum > validFromBlockNum", func(t *testing.T) {
-		for i := range paos {
-			paos[i].CurrentBlockNum = 500
+		paos := []ParsedAttributedObservation{
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(345),
+				Bid:            big.NewInt(343),
+				Ask:            big.NewInt(347),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+				CurrentBlockNum:       500,
+				CurrentBlockTimestamp: 1682908180,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(335),
+				Bid:            big.NewInt(332),
+				Ask:            big.NewInt(336),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+				CurrentBlockNum:       500,
+				CurrentBlockTimestamp: 1682908180,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(347),
+				Bid:            big.NewInt(345),
+				Ask:            big.NewInt(350),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+				CurrentBlockNum:       500,
+				CurrentBlockTimestamp: 1682591344,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(346),
+				Bid:            big.NewInt(347),
+				Ask:            big.NewInt(350),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+				CurrentBlockNum:       500,
+				CurrentBlockTimestamp: 1682591344,
+				CurrentBlockValid:     true,
+			},
 		}
+
 		shouldReport, err := rp.shouldReport(499, repts, paos)
 		require.NoError(t, err)
 
 		assert.True(t, shouldReport)
 	})
-	t.Run("reporta if all reports have currentBlockNum == validFromBlockNum", func(t *testing.T) {
-		for i := range paos {
-			paos[i].CurrentBlockNum = 500
+	t.Run("reports if all reports have currentBlockNum == validFromBlockNum", func(t *testing.T) {
+		paos := []ParsedAttributedObservation{
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(345),
+				Bid:            big.NewInt(343),
+				Ask:            big.NewInt(347),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+				CurrentBlockNum:       500,
+				CurrentBlockTimestamp: 1682908180,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(335),
+				Bid:            big.NewInt(332),
+				Ask:            big.NewInt(336),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+				CurrentBlockNum:       500,
+				CurrentBlockTimestamp: 1682908180,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(347),
+				Bid:            big.NewInt(345),
+				Ask:            big.NewInt(350),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+				CurrentBlockNum:       500,
+				CurrentBlockTimestamp: 1682591344,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(346),
+				Bid:            big.NewInt(347),
+				Ask:            big.NewInt(350),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+				CurrentBlockNum:       500,
+				CurrentBlockTimestamp: 1682591344,
+				CurrentBlockValid:     true,
+			},
 		}
+
 		shouldReport, err := rp.shouldReport(500, repts, paos)
 		require.NoError(t, err)
 
 		assert.True(t, shouldReport)
 	})
-	t.Run("does not report if all reports have currentBlockNum < validFromBlockNum", func(t *testing.T) {
-		paos := NewValidParsedAttributedObservations()
-		for i := range paos {
-			paos[i].CurrentBlockNum = 499
+	t.Run("does not report if all observations have currentBlockNum < validFromBlockNum", func(t *testing.T) {
+		paos := []ParsedAttributedObservation{
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(345),
+				Bid:            big.NewInt(343),
+				Ask:            big.NewInt(347),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+				CurrentBlockNum:       499,
+				CurrentBlockTimestamp: 1682908180,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(335),
+				Bid:            big.NewInt(332),
+				Ask:            big.NewInt(336),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+				CurrentBlockNum:       499,
+				CurrentBlockTimestamp: 1682908180,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(347),
+				Bid:            big.NewInt(345),
+				Ask:            big.NewInt(350),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+				CurrentBlockNum:       499,
+				CurrentBlockTimestamp: 1682591344,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(346),
+				Bid:            big.NewInt(347),
+				Ask:            big.NewInt(350),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+				CurrentBlockNum:       499,
+				CurrentBlockTimestamp: 1682591344,
+				CurrentBlockValid:     true,
+			},
 		}
+
 		shouldReport, err := rp.shouldReport(500, repts, paos)
 		require.NoError(t, err)
 
 		assert.False(t, shouldReport)
 	})
 	t.Run("returns error if it cannot come to consensus about currentBlockNum", func(t *testing.T) {
-		paos := NewValidParsedAttributedObservations()
-		for i := range paos {
-			paos[i].CurrentBlockNum = 500 + int64(i)
+		paos := []ParsedAttributedObservation{
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(345),
+				Bid:            big.NewInt(343),
+				Ask:            big.NewInt(347),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+				CurrentBlockNum:       500,
+				CurrentBlockTimestamp: 1682908180,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(335),
+				Bid:            big.NewInt(332),
+				Ask:            big.NewInt(336),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("8f30cda279821c5bb6f72f7ab900aa5118215ce59fcf8835b12d0cdbadc9d7b0"),
+				CurrentBlockNum:       501,
+				CurrentBlockTimestamp: 1682908180,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(347),
+				Bid:            big.NewInt(345),
+				Ask:            big.NewInt(350),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+				CurrentBlockNum:       502,
+				CurrentBlockTimestamp: 1682591344,
+				CurrentBlockValid:     true,
+			},
+			parsedAttributedObservation{
+				BenchmarkPrice: big.NewInt(346),
+				Bid:            big.NewInt(347),
+				Ask:            big.NewInt(350),
+				PricesValid:    true,
+
+				CurrentBlockHash:      mustDecodeHex("40044147503a81e9f2a225f4717bf5faf5dc574f69943bdcd305d5ed97504a7e"),
+				CurrentBlockNum:       503,
+				CurrentBlockTimestamp: 1682591344,
+				CurrentBlockValid:     true,
+			},
 		}
+
 		shouldReport, err := rp.shouldReport(499, repts, paos)
 		require.NoError(t, err)
 
@@ -137,7 +312,7 @@ func randBigInt() *big.Int {
 
 func randBytes(n int) []byte {
 	b := make([]byte, n)
-	_, err := rand.Read(b)
+	_, err := crand.Read(b)
 	if err != nil {
 		panic(err)
 	}
@@ -145,7 +320,7 @@ func randBytes(n int) []byte {
 }
 
 func mustDecodeBigInt(b []byte) *big.Int {
-	n, err := DecodeValueInt192(b)
+	n, err := mercury.DecodeValueInt192(b)
 	if err != nil {
 		panic(err)
 	}
@@ -169,22 +344,22 @@ func Test_Plugin_Observation(t *testing.T) {
 
 		t.Run("when all observations are successful", func(t *testing.T) {
 			obs := Observation{
-				BenchmarkPrice: ObsResult[*big.Int]{
+				BenchmarkPrice: mercury.ObsResult[*big.Int]{
 					Val: randBigInt(),
 				},
-				Bid: ObsResult[*big.Int]{
+				Bid: mercury.ObsResult[*big.Int]{
 					Val: randBigInt(),
 				},
-				Ask: ObsResult[*big.Int]{
+				Ask: mercury.ObsResult[*big.Int]{
 					Val: randBigInt(),
 				},
-				CurrentBlockNum: ObsResult[int64]{
+				CurrentBlockNum: mercury.ObsResult[int64]{
 					Val: rand.Int63(),
 				},
-				CurrentBlockHash: ObsResult[[]byte]{
+				CurrentBlockHash: mercury.ObsResult[[]byte]{
 					Val: randBytes(32),
 				},
-				CurrentBlockTimestamp: ObsResult[uint64]{
+				CurrentBlockTimestamp: mercury.ObsResult[uint64]{
 					Val: rand.Uint64(),
 				},
 			}
@@ -216,27 +391,27 @@ func Test_Plugin_Observation(t *testing.T) {
 		t.Run("when all observations have failed", func(t *testing.T) {
 			obs := Observation{
 				// Vals should be ignored, this is asserted with .Zero below
-				BenchmarkPrice: ObsResult[*big.Int]{
+				BenchmarkPrice: mercury.ObsResult[*big.Int]{
 					Val: randBigInt(),
 					Err: errors.New("benchmarkPrice exploded"),
 				},
-				Bid: ObsResult[*big.Int]{
+				Bid: mercury.ObsResult[*big.Int]{
 					Val: randBigInt(),
 					Err: errors.New("bid exploded"),
 				},
-				Ask: ObsResult[*big.Int]{
+				Ask: mercury.ObsResult[*big.Int]{
 					Val: randBigInt(),
 					Err: errors.New("ask exploded"),
 				},
-				CurrentBlockNum: ObsResult[int64]{
+				CurrentBlockNum: mercury.ObsResult[int64]{
 					Err: errors.New("currentBlockNum exploded"),
 					Val: rand.Int63(),
 				},
-				CurrentBlockHash: ObsResult[[]byte]{
+				CurrentBlockHash: mercury.ObsResult[[]byte]{
 					Err: errors.New("currentBlockHash exploded"),
 					Val: randBytes(32),
 				},
-				CurrentBlockTimestamp: ObsResult[uint64]{
+				CurrentBlockTimestamp: mercury.ObsResult[uint64]{
 					Err: errors.New("currentBlockTimestamp exploded"),
 					Val: rand.Uint64(),
 				},
@@ -267,22 +442,22 @@ func Test_Plugin_Observation(t *testing.T) {
 
 		t.Run("when some observations have failed", func(t *testing.T) {
 			obs := Observation{
-				BenchmarkPrice: ObsResult[*big.Int]{
+				BenchmarkPrice: mercury.ObsResult[*big.Int]{
 					Val: randBigInt(),
 				},
-				Bid: ObsResult[*big.Int]{
+				Bid: mercury.ObsResult[*big.Int]{
 					Val: randBigInt(),
 				},
-				Ask: ObsResult[*big.Int]{
+				Ask: mercury.ObsResult[*big.Int]{
 					Err: errors.New("ask exploded"),
 				},
-				CurrentBlockNum: ObsResult[int64]{
+				CurrentBlockNum: mercury.ObsResult[int64]{
 					Err: errors.New("currentBlockNum exploded"),
 				},
-				CurrentBlockHash: ObsResult[[]byte]{
+				CurrentBlockHash: mercury.ObsResult[[]byte]{
 					Val: randBytes(32),
 				},
-				CurrentBlockTimestamp: ObsResult[uint64]{
+				CurrentBlockTimestamp: mercury.ObsResult[uint64]{
 					Val: rand.Uint64(),
 				},
 			}
@@ -309,30 +484,103 @@ func Test_Plugin_Observation(t *testing.T) {
 			// since previousReport is not nil, maxFinalizedBlockNumber is skipped
 			assert.False(t, p.MaxFinalizedBlockNumberValid)
 		})
+
+		t.Run("when encoding fails on some price observations", func(t *testing.T) {
+			obs := Observation{
+				BenchmarkPrice: mercury.ObsResult[*big.Int]{
+					// too large to encode
+					Val: new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil),
+				},
+				Bid: mercury.ObsResult[*big.Int]{
+					Val: randBigInt(),
+				},
+				Ask: mercury.ObsResult[*big.Int]{
+					Val: randBigInt(),
+				},
+				CurrentBlockNum: mercury.ObsResult[int64]{
+					Val: rand.Int63(),
+				},
+				CurrentBlockHash: mercury.ObsResult[[]byte]{
+					Val: randBytes(32),
+				},
+				CurrentBlockTimestamp: mercury.ObsResult[uint64]{
+					Val: rand.Uint64(),
+				},
+			}
+			rp.dataSource = mockDataSource{obs}
+
+			pbObs, err := rp.Observation(ctx, repts, previousReport)
+			require.NoError(t, err)
+
+			var p MercuryObservationProto
+			require.NoError(t, proto.Unmarshal(pbObs, &p))
+
+			assert.False(t, p.PricesValid)
+			assert.Zero(t, p.BenchmarkPrice)
+			assert.NotZero(t, p.Bid)
+			assert.NotZero(t, p.Ask)
+		})
+		t.Run("when encoding fails on all price observations", func(t *testing.T) {
+			obs := Observation{
+				BenchmarkPrice: mercury.ObsResult[*big.Int]{
+					// too large to encode
+					Val: new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil),
+				},
+				Bid: mercury.ObsResult[*big.Int]{
+					// too large to encode
+					Val: new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil),
+				},
+				Ask: mercury.ObsResult[*big.Int]{
+					// too large to encode
+					Val: new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil),
+				},
+				CurrentBlockNum: mercury.ObsResult[int64]{
+					Val: rand.Int63(),
+				},
+				CurrentBlockHash: mercury.ObsResult[[]byte]{
+					Val: randBytes(32),
+				},
+				CurrentBlockTimestamp: mercury.ObsResult[uint64]{
+					Val: rand.Uint64(),
+				},
+			}
+			rp.dataSource = mockDataSource{obs}
+
+			pbObs, err := rp.Observation(ctx, repts, previousReport)
+			require.NoError(t, err)
+
+			var p MercuryObservationProto
+			require.NoError(t, proto.Unmarshal(pbObs, &p))
+
+			assert.False(t, p.PricesValid)
+			assert.Zero(t, p.BenchmarkPrice)
+			assert.Zero(t, p.Bid)
+			assert.Zero(t, p.Ask)
+		})
 	})
 
 	t.Run("without previous report, includes maxFinalizedBlockNumber observation", func(t *testing.T) {
 		currentBlockNum := int64(rand.Int31())
 		obs := Observation{
-			BenchmarkPrice: ObsResult[*big.Int]{
+			BenchmarkPrice: mercury.ObsResult[*big.Int]{
 				Val: randBigInt(),
 			},
-			Bid: ObsResult[*big.Int]{
+			Bid: mercury.ObsResult[*big.Int]{
 				Val: randBigInt(),
 			},
-			Ask: ObsResult[*big.Int]{
+			Ask: mercury.ObsResult[*big.Int]{
 				Val: randBigInt(),
 			},
-			CurrentBlockNum: ObsResult[int64]{
+			CurrentBlockNum: mercury.ObsResult[int64]{
 				Val: currentBlockNum,
 			},
-			CurrentBlockHash: ObsResult[[]byte]{
+			CurrentBlockHash: mercury.ObsResult[[]byte]{
 				Val: randBytes(32),
 			},
-			CurrentBlockTimestamp: ObsResult[uint64]{
+			CurrentBlockTimestamp: mercury.ObsResult[uint64]{
 				Val: rand.Uint64(),
 			},
-			MaxFinalizedBlockNumber: ObsResult[int64]{
+			MaxFinalizedBlockNumber: mercury.ObsResult[int64]{
 				Val: currentBlockNum - 42,
 			},
 		}
@@ -381,9 +629,9 @@ var blockHash = randBytes(32)
 func newValidMercuryObservationProto() *MercuryObservationProto {
 	return &MercuryObservationProto{
 		Timestamp:                    42,
-		BenchmarkPrice:               MustEncodeValueInt192(big.NewInt(43)),
-		Bid:                          MustEncodeValueInt192(big.NewInt(44)),
-		Ask:                          MustEncodeValueInt192(big.NewInt(45)),
+		BenchmarkPrice:               mercury.MustEncodeValueInt192(big.NewInt(43)),
+		Bid:                          mercury.MustEncodeValueInt192(big.NewInt(44)),
+		Ask:                          mercury.MustEncodeValueInt192(big.NewInt(45)),
 		PricesValid:                  true,
 		CurrentBlockNum:              49,
 		CurrentBlockHash:             blockHash,
@@ -411,7 +659,7 @@ func Test_Plugin_parseAttributedObservation(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t,
-			ParsedAttributedObservation{
+			parsedAttributedObservation{
 				Timestamp:                    0x2a,
 				Observer:                     0x2a,
 				BenchmarkPrice:               big.NewInt(43),
@@ -437,7 +685,7 @@ func Test_Plugin_parseAttributedObservation(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.Equal(t,
-			ParsedAttributedObservation{
+			parsedAttributedObservation{
 				Observer:                     0x2a,
 				PricesValid:                  false,
 				CurrentBlockValid:            false,
@@ -572,7 +820,7 @@ func Test_Plugin_Report(t *testing.T) {
 				newValidMercuryObservationProto(),
 			}
 			for i := range obs {
-				obs[i].BenchmarkPrice = MustEncodeValueInt192(big.NewInt(-1)) // benchmark price below min of 0, cannot report
+				obs[i].BenchmarkPrice = mercury.MustEncodeValueInt192(big.NewInt(-1)) // benchmark price below min of 0, cannot report
 			}
 			aos := []types.AttributedObservation{
 				newAttributedObservation(t, obs[0]),
