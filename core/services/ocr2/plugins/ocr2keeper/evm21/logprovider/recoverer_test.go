@@ -189,7 +189,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 }
 
 func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
-	n := (RecoveryBatchSize*2 + 2)
+	n := (recoveryBatchSize*2 + 2)
 	filters := []upkeepFilter{}
 	for i := 0; i < n; i++ {
 		filters = append(filters, upkeepFilter{
@@ -199,10 +199,10 @@ func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
 	recoverer, _, _, _ := setupTestRecoverer(t, time.Millisecond*50, int64(100))
 
 	batch := recoverer.selectFilterBatch(filters)
-	require.Equal(t, RecoveryBatchSize, len(batch))
+	require.Equal(t, recoveryBatchSize, len(batch))
 
-	batch = recoverer.selectFilterBatch(filters[:RecoveryBatchSize/2])
-	require.Equal(t, RecoveryBatchSize/2, len(batch))
+	batch = recoverer.selectFilterBatch(filters[:recoveryBatchSize/2])
+	require.Equal(t, recoveryBatchSize/2, len(batch))
 }
 
 func TestLogRecoverer_FilterFinalizedStates(t *testing.T) {

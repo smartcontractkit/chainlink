@@ -24,7 +24,9 @@ var (
 	ErrNotFound             = errors.New("not found")
 	DefaultRecoveryInterval = 5 * time.Second
 	RecoveryCacheTTL        = 24*time.Hour - time.Second
-	RecoveryBatchSize       = 10
+
+	recoveryBatchSize  = 10
+	recoveryLogsBuffer = int64(10)
 )
 
 type LogRecoverer interface {
@@ -40,9 +42,11 @@ type logRecoverer struct {
 
 	cancel context.CancelFunc
 
-	lookbackBlocks int64
-	interval       time.Duration
-	lock           sync.RWMutex
+	lookbackBlocks *atomic.Int64
+	blockTime      *atomic.Int64
+
+	interval time.Duration
+	lock     sync.RWMutex
 
 	pending []ocr2keepers.UpkeepPayload
 	visited map[string]time.Time
@@ -60,10 +64,11 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, stateStore 
 		interval = DefaultRecoveryInterval
 	}
 
-	return &logRecoverer{
+	rec := &logRecoverer{
 		lggr: lggr.Named("LogRecoverer"),
 
-		lookbackBlocks: lookbackBlocks,
+		blockTime:      &atomic.Int64{},
+		lookbackBlocks: &atomic.Int64{},
 		interval:       interval,
 
 		pending:     make([]ocr2keepers.UpkeepPayload, 0),
@@ -73,6 +78,11 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, stateStore 
 		states:      stateStore,
 		packer:      packer,
 	}
+
+	rec.lookbackBlocks.Store(lookbackBlocks)
+	rec.blockTime.Store(defaultBlockTime)
+
+	return rec
 }
 
 func (r *logRecoverer) Start(pctx context.Context) error {
@@ -86,12 +96,23 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 	r.cancel = cancel
 	r.lock.Unlock()
 
+	blockTimeResolver := newBlockTimeResolver(r.poller)
+	blockTime, err := blockTimeResolver.BlockTime(ctx, defaultSampleSize)
+	if err != nil {
+		// TODO: TBD exit or just log a warning
+		// return fmt.Errorf("failed to compute block time: %w", err)
+		r.lggr.Warnw("failed to compute block time", "err", err)
+	}
+	if blockTime > 0 {
+		r.blockTime.Store(int64(blockTime))
+	}
+
+	r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
+
 	{
 		go func(ctx context.Context, interval time.Duration) {
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
-
-			r.lggr.Debug("Starting log recoverer")
 
 			for {
 				select {
@@ -139,9 +160,9 @@ func (r *logRecoverer) buildLogTriggerPayload(ctx context.Context, proposal ocr2
 			return ocr2keepers.UpkeepPayload{}, err
 		}
 
-		offsetBlock := r.getRecoveryOffsetBlock(latest)
-
-		if isRecoverable := uint64(proposal.Trigger.LogTriggerExtension.BlockNumber) < uint64(offsetBlock); isRecoverable {
+		start, offsetBlock := r.getRecoveryWindow(latest)
+		block := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
+		if isRecoverable := block < offsetBlock && block > start; isRecoverable {
 			upkeepStates, err := r.states.SelectByWorkIDsInRange(ctx, int64(proposal.Trigger.LogTriggerExtension.BlockNumber)-1, offsetBlock, proposal.WorkID)
 			if err != nil {
 				return ocr2keepers.UpkeepPayload{}, err
@@ -238,7 +259,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
-	offsetBlock := r.getRecoveryOffsetBlock(latest)
+	start, offsetBlock := r.getRecoveryWindow(latest)
 	if offsetBlock < 0 {
 		// too soon to recover, we don't have enough blocks
 		return nil
@@ -249,14 +270,14 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		return nil
 	}
 
-	// r.lggr.Debugw("recovering logs", "filters", filters, "offsetBlock", offsetBlock, "latestBlock", latest)
+	// r.lggr.Debugw("recovering logs", "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
 
 	var wg sync.WaitGroup
 	for _, f := range filters {
 		wg.Add(1)
 		go func(f upkeepFilter) {
 			defer wg.Done()
-			r.recoverFilter(ctx, f, offsetBlock)
+			r.recoverFilter(ctx, f, start, offsetBlock)
 		}(f)
 	}
 	wg.Wait()
@@ -265,9 +286,12 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 }
 
 // recoverFilter recovers logs for a single upkeep filter.
-func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, offsetBlock int64) error {
+func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startBlock, offsetBlock int64) error {
 	start := f.lastRePollBlock
-	end := start + 10
+	if start < startBlock {
+		start = startBlock
+	}
+	end := start + recoveryLogsBuffer
 	if end > offsetBlock {
 		end = offsetBlock
 	}
@@ -368,10 +392,12 @@ func (r *logRecoverer) filterFinalizedStates(f upkeepFilter, logs []logpoller.Lo
 	return filtered
 }
 
-// getRecoveryOffsetBlock returns the max block number that the recoverer will try to fetch logs.
-func (r *logRecoverer) getRecoveryOffsetBlock(latest int64) int64 {
-	lookbackBlocks := atomic.LoadInt64(&r.lookbackBlocks)
-	return latest - lookbackBlocks
+// getRecoveryWindow returns the block range of which the recoverer will try work on
+func (r *logRecoverer) getRecoveryWindow(latest int64) (int64, int64) {
+	lookbackBlocks := r.lookbackBlocks.Load()
+	blockTime := r.blockTime.Load()
+	start := int64(24*time.Hour) / blockTime
+	return latest - start, latest - lookbackBlocks
 }
 
 // getFilterBatch returns a batch of filters that are ready to be recovered.
@@ -394,7 +420,7 @@ func (r *logRecoverer) getFilterBatch(offsetBlock int64) []upkeepFilter {
 // Half of the batch is selected randomly, the other half is selected
 // in order of the oldest lastRePollBlock.
 func (r *logRecoverer) selectFilterBatch(filters []upkeepFilter) []upkeepFilter {
-	batchSize := RecoveryBatchSize
+	batchSize := recoveryBatchSize
 
 	if len(filters) < batchSize {
 		return filters
