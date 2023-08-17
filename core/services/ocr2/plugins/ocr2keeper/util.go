@@ -144,7 +144,7 @@ func EVMDependencies21(
 		rAddr,
 	)
 
-	orm := upkeepstate.NewORM(big.NewInt(chainID), db, lggr, dbCfg)
+	orm := upkeepstate.NewORM(chain.ID(), db, lggr, dbCfg)
 
 	us := upkeepstate.NewUpkeepStateStore(orm, lggr, scanner)
 	up := kevm21.NewUpkeepProvider(registry, chain.LogPoller())
