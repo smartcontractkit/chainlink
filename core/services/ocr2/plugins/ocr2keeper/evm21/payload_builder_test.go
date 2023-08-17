@@ -163,7 +163,7 @@ func TestNewPayloadBuilder(t *testing.T) {
 			},
 		},
 		{
-			name: "currently a conditional upkeep does not have a new payload built, and an empty payload is added to the list of payloads",
+			name: "for a conditional upkeep, a new payload with empty check data is added to the list of payloads",
 			activeList: &mockActiveUpkeepList{
 				IsActiveFn: func(id *big.Int) bool {
 					return true
@@ -180,7 +180,15 @@ func TestNewPayloadBuilder(t *testing.T) {
 				},
 			},
 			wantPayloads: []types.UpkeepPayload{
-				{},
+				{
+					UpkeepID: core.GenUpkeepID(types.ConditionTrigger, "def"),
+					WorkID:   "58f2f231792448679a75bac6efc2af4ba731901f0cb93a44a366525751cbabfb",
+					Trigger: types.Trigger{
+						BlockNumber: 1,
+						BlockHash:   [32]byte{1},
+					},
+					CheckData: make([]byte, 0),
+				},
 			},
 		},
 	} {

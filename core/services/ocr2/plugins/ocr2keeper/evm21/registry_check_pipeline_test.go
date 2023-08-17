@@ -16,9 +16,11 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
@@ -78,6 +80,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		checkHash   common.Hash
 		payload     ocr2keepers.UpkeepPayload
 		blocks      map[int64]string
+		poller      logpoller.LogPoller
 		state       encoding.PipelineExecutionState
 		retryable   bool
 		makeEthCall bool
@@ -96,7 +99,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 			state: encoding.CheckBlockTooOld,
 		},
 		{
-			name:        "check block number invalid",
+			name:        "for an invalid check block number, if hash does not match the check hash, return CheckBlockInvalid",
 			checkBlock:  big.NewInt(500),
 			latestBlock: ocr2keepers.BlockKey{Number: 560},
 			upkeepId:    big.NewInt(12345),
@@ -106,8 +109,41 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
 				WorkID:   "work",
 			},
-			state:       encoding.RpcFlakyFailure,
-			retryable:   true,
+			poller: &mockLogPoller{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+					return []logpoller.LogPollerBlock{
+						{
+							BlockHash: common.HexToHash("abcdef"),
+						},
+					}, nil
+				},
+			},
+			state:       encoding.CheckBlockInvalid,
+			retryable:   false,
+			makeEthCall: true,
+		},
+		{
+			name:        "for an invalid check block number, if hash does match the check hash, return NoPipelineError",
+			checkBlock:  big.NewInt(500),
+			latestBlock: ocr2keepers.BlockKey{Number: 560},
+			upkeepId:    big.NewInt(12345),
+			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
+			payload: ocr2keepers.UpkeepPayload{
+				UpkeepID: upkeepId,
+				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
+				WorkID:   "work",
+			},
+			poller: &mockLogPoller{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+					return []logpoller.LogPollerBlock{
+						{
+							BlockHash: common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
+						},
+					}, nil
+				},
+			},
+			state:       encoding.NoPipelineError,
+			retryable:   false,
 			makeEthCall: true,
 		},
 		{
@@ -152,8 +188,9 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 			}
 			bs.latestBlock.Store(&tc.latestBlock)
 			e := &EvmRegistry{
-				lggr: lggr,
-				bs:   bs,
+				lggr:   lggr,
+				bs:     bs,
+				poller: tc.poller,
 			}
 			if tc.makeEthCall {
 				client := new(evmClientMocks.Client)
@@ -166,6 +203,15 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 			assert.Equal(t, tc.retryable, retryable)
 		})
 	}
+}
+
+type mockLogPoller struct {
+	logpoller.LogPoller
+	GetBlocksRangeFn func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error)
+}
+
+func (p *mockLogPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+	return p.GetBlocksRangeFn(ctx, numbers, qopts...)
 }
 
 func TestRegistry_VerifyLogExists(t *testing.T) {

@@ -57,7 +57,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	}
 	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	provider, _ := setup(logger.TestLogger(t), lp, utilsABI, nil, filterStore, opts)
+	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	n := 10
@@ -134,7 +134,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	}
 	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	provider, _ := setup(logger.TestLogger(t), lp, utilsABI, nil, filterStore, opts)
+	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	n := 10
@@ -194,7 +194,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		}
 		lp, ethClient, utilsABI := setupDependencies(t, db, backend)
 		filterStore := logprovider.NewUpkeepFilterStore()
-		provider, _ := setup(logger.TestLogger(t), lp, utilsABI, nil, filterStore, opts)
+		provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
 		logProvider := provider.(logprovider.LogEventProviderTest)
 
 		rounds := 5
@@ -392,7 +392,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	defer func() {
 		logprovider.DefaultRecoveryInterval = origDefaultRecoveryInterval
 	}()
-	provider, recoverer := setup(logger.TestLogger(t), lp, utilsABI, &mockUpkeepStateStore{}, filterStore, opts)
+	provider, recoverer := setup(logger.TestLogger(t), lp, nil, utilsABI, &mockUpkeepStateStore{}, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	n := 10

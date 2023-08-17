@@ -22,7 +22,7 @@ import (
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, time.Millisecond*10, 0)
+	r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, time.Millisecond*10, 0)
 
 	tests := []struct {
 		name    string
@@ -250,6 +250,6 @@ func setupTestRecoverer(t *testing.T, interval time.Duration, lookbackBlocks int
 	lp := new(lpmocks.LogPoller)
 	statesReader := new(mocks.UpkeepStateReader)
 	filterStore := NewUpkeepFilterStore()
-	recoverer := NewLogRecoverer(logger.TestLogger(t), lp, statesReader, &mockedPacker{}, filterStore, interval, lookbackBlocks)
+	recoverer := NewLogRecoverer(logger.TestLogger(t), lp, nil, statesReader, &mockedPacker{}, filterStore, interval, lookbackBlocks)
 	return recoverer, filterStore, lp, statesReader
 }
