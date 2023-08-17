@@ -229,7 +229,15 @@ func (r *EvmRegistry) GetActiveUpkeepIDsByType(ctx context.Context, triggers ...
 }
 
 func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.UpkeepPayload) ([]ocr2keepers.CheckResult, error) {
-	r.lggr.Debugw("Checking upkeeps", "upkeeps", keys)
+	r.lggr.Infof("pipeline run starts with % %d upkeeps", len(keys))
+	for i, cr := range keys {
+		if cr.Trigger.LogTriggerExtension != nil {
+			r.lggr.Infof("log trigger upkeep %d id %s payload: tx hash %s log block number %d", i, cr.UpkeepID.String(), hexutil.Encode(cr.Trigger.LogTriggerExtension.TxHash[:]), cr.Trigger.BlockNumber)
+		} else {
+			r.lggr.Infof("conditional trigger upkeep %d id %s payload: check block number %d", i, cr.UpkeepID.String(), cr.Trigger.BlockNumber)
+		}
+	}
+
 	chResult := make(chan checkResult, 1)
 	go r.doCheck(ctx, keys, chResult)
 
