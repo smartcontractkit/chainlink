@@ -63,6 +63,7 @@ import (
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	evmmercurytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -293,7 +294,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 
 	for _, filter := range filters {
 		d.lggr.Debugf("Unregistering %s filter", filter)
-		err = lp.UnregisterFilter(filter, q)
+		err = lp.UnregisterFilter(filter, pg.WithQueryer(q))
 		if err != nil {
 			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
 		}
@@ -302,7 +303,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 }
 
 // ServicesForSpec returns the OCR2 services that need to run for this job
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
 		return nil, errors.Errorf("offchainreporting2.Delegate expects an *job.OCR2OracleSpec to be present, got %v", jb)
@@ -527,7 +528,7 @@ func (d *Delegate) newServicesMercury(
 
 	chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
 
-	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, d.mercuryORM, *spec.FeedID)
+	mercuryServices, err2 := mercury.NewServices(jb, mercuryProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, d.mercuryORM, (evmmercurytypes.FeedID)(*spec.FeedID))
 
 	if ocrcommon.ShouldCollectEnhancedTelemetryMercury(&jb) {
 		enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("Enhanced Telemetry Mercury"))
@@ -875,7 +876,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 
 	mc := d.cfg.Mercury().Credentials(credName)
 
-	keeperProvider, rgstry, encoder, transmitEventProvider, logProvider, wrappedKey, blockSub, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc, kb)
+	keeperProvider, rgstry, encoder, transmitEventProvider, logProvider, wrappedKey, blockSub, payloadBuilder, upkeepStateStore, up, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc, kb)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
@@ -911,23 +912,28 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		ContractTransmitter:          evmrelay.NewKeepersOCR3ContractTransmitter(keeperProvider.ContractTransmitter()),
 		ContractConfigTracker:        keeperProvider.ContractConfigTracker(),
 		KeepersDatabase:              ocrDB,
-		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
 		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Automation),
 		OffchainConfigDigester:       keeperProvider.OffchainConfigDigester(),
 		OffchainKeyring:              kb,
 		OnchainKeyring:               wrappedKey,
-		EventProvider:                transmitEventProvider,
-		Encoder:                      encoder,
-		Runnable:                     rgstry,
+		LocalConfig:                  lc,
 		LogProvider:                  logProvider,
-		CacheExpiration:              cfg.CacheExpiration.Value(),
-		CacheEvictionInterval:        cfg.CacheEvictionInterval.Value(),
-		MaxServiceWorkers:            cfg.MaxServiceWorkers,
-		ServiceQueueLength:           cfg.ServiceQueueLength,
+		EventProvider:                transmitEventProvider,
+		Runnable:                     rgstry,
+		Encoder:                      encoder,
 		BlockSubscriber:              blockSub,
 		RecoverableProvider:          new(mockRecoverableProvider),
+		PayloadBuilder:               payloadBuilder,
+		UpkeepProvider:               up,
+		UpkeepStateUpdater:           upkeepStateStore,
 		UpkeepTypeGetter:             ocr2keeper21core.GetUpkeepType,
+		WorkIDGenerator:              ocr2keeper21core.WorkIDGenerator,
+		// TODO: Clean up the config
+		CacheExpiration:       cfg.CacheExpiration.Value(),
+		CacheEvictionInterval: cfg.CacheEvictionInterval.Value(),
+		MaxServiceWorkers:     cfg.MaxServiceWorkers,
+		ServiceQueueLength:    cfg.ServiceQueueLength,
 	}
 
 	pluginService, err := ocr2keepers21.NewDelegate(dConf)
@@ -950,6 +956,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		runResultSaver,
 		keeperProvider,
 		rgstry,
+		blockSub,
 		transmitEventProvider,
 		pluginService,
 	}, nil

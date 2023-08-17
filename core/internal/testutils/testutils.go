@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rand"
+	"encoding/base64"
 	"flag"
 	"fmt"
 	"math"
@@ -439,4 +440,13 @@ func NewTestFlagSet() *flag.FlagSet {
 // Ptr takes pointer of anything
 func Ptr[T any](v T) *T {
 	return &v
+}
+
+func MustDecodeBase64(s string) (b []byte) {
+	var err error
+	b, err = base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return
 }

@@ -123,7 +123,7 @@ func (p *logEventProvider) Close() error {
 	return nil
 }
 
-func (p *logEventProvider) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedProposal) ([]ocr2keepers.UpkeepPayload, error) {
+func (p *logEventProvider) BuildPayloads(ctx context.Context, proposals ...ocr2keepers.CoordinatedBlockProposal) ([]ocr2keepers.UpkeepPayload, error) {
 	// TODO: implement
 	return []ocr2keepers.UpkeepPayload{}, nil
 }
