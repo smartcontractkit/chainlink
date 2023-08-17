@@ -76,6 +76,18 @@ func (r *EvmRegistry) getBlockAndUpkeepId(upkeepID ocr2keepers.UpkeepIdentifier,
 	return block, common.BytesToHash(trigger.BlockHash[:]), upkeepID.BigInt()
 }
 
+func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
+	blocks, err := r.poller.GetBlocksRange(r.ctx, []uint64{blockNumber.Uint64()})
+	if err != nil {
+		return [32]byte{}, err
+	}
+	if len(blocks) == 0 {
+		return [32]byte{}, fmt.Errorf("could not find block %d in log poller", blockNumber.Uint64())
+	}
+
+	return blocks[0].BlockHash, nil
+}
+
 func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
 	// TODO: we need to differentiate here b/w flaky errors and tx not found errors
 	txr, err := r.client.TransactionReceipt(r.ctx, txHash)

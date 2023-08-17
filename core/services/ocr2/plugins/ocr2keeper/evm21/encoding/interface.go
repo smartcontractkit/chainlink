@@ -31,16 +31,16 @@ const (
 	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
 
 	// pipeline execution error
-	NoPipelineError             PipelineExecutionState = 0
-	CheckBlockTooOld            PipelineExecutionState = 1
-	CheckBlockInvalid           PipelineExecutionState = 2
-	RpcFlakyFailure             PipelineExecutionState = 3
-	MercuryFlakyFailure         PipelineExecutionState = 4
-	PackUnpackDecodeFailed      PipelineExecutionState = 5
-	MercuryUnmarshalError       PipelineExecutionState = 6
-	InvalidMercuryRequest       PipelineExecutionState = 7
-	FailedToReadMercuryResponse PipelineExecutionState = 8
-	InvalidRevertDataInput      PipelineExecutionState = 9
+	NoPipelineError               PipelineExecutionState = 0
+	CheckBlockTooOld              PipelineExecutionState = 1
+	CheckBlockInvalid             PipelineExecutionState = 2
+	RpcFlakyFailure               PipelineExecutionState = 3
+	MercuryFlakyFailure           PipelineExecutionState = 4
+	PackUnpackDecodeFailed        PipelineExecutionState = 5
+	MercuryUnmarshalError         PipelineExecutionState = 6
+	InvalidMercuryRequest         PipelineExecutionState = 7
+	FailedToDecodeMercuryResponse PipelineExecutionState = 8
+	InvalidRevertDataInput        PipelineExecutionState = 9
 )
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo

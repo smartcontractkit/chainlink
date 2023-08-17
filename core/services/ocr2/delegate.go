@@ -919,7 +919,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		return nil, fmt.Errorf("get chainset: %w", err2)
 	}
 
-	keeperProvider, services, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, d.chainSet, d.pipelineRunner, mc, kb)
+	keeperProvider, services, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, chain, d.pipelineRunner, mc, kb)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
@@ -1135,7 +1135,6 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		keeperProvider,
 		rgstry,
 		logProvider,
-
 		pluginService,
 	}, nil
 }

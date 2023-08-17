@@ -25,6 +25,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 )
 
 const (
@@ -74,7 +75,7 @@ type MercuryData struct {
 	Error     error
 	Retryable bool
 	Bytes     [][]byte
-	State     PipelineExecutionState
+	State     encoding.PipelineExecutionState
 }
 
 // AdminOffchainConfig represents the administrative offchain config for each upkeep. It can be set by s_upkeepManager
@@ -88,7 +89,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers
 	lggr := r.lggr.With("where", "FeedLookup")
 	lookups := map[int]*FeedLookup{}
 	for i, res := range checkResults {
-		if res.IneligibilityReason != uint8(UpkeepFailureReasonTargetCheckReverted) {
+		if res.IneligibilityReason != uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
 			continue
 		}
 
@@ -107,7 +108,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers
 
 		if !allowed {
 			lggr.Warnf("upkeep %s block %d NOT allowed to query Mercury server", upkeepId, block)
-			checkResults[i].IneligibilityReason = uint8(UpkeepFailureReasonMercuryAccessNotAllowed)
+			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryAccessNotAllowed)
 			checkResults[i].Retryable = retryable
 			continue
 		}
@@ -168,19 +169,19 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 		return
 	}
 
-	if failureReason == uint8(UpkeepFailureReasonMercuryCallbackReverted) {
-		checkResults[i].IneligibilityReason = uint8(UpkeepFailureReasonMercuryCallbackReverted)
+	if failureReason == uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted) {
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted)
 		lggr.Debugf("upkeep %s block %d mercury callback reverts", lookup.upkeepId, lookup.block)
 		return
 	}
 
 	if !needed {
-		checkResults[i].IneligibilityReason = uint8(UpkeepFailureReasonUpkeepNotNeeded)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonUpkeepNotNeeded)
 		lggr.Debugf("upkeep %s block %d callback reports upkeep not needed", lookup.upkeepId, lookup.block)
 		return
 	}
 
-	checkResults[i].IneligibilityReason = uint8(UpkeepFailureReasonNone)
+	checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonNone)
 	checkResults[i].Eligible = true
 	checkResults[i].PerformData = performData
 	lggr.Infof("upkeep %s block %d successful with perform data: %s", lookup.upkeepId, lookup.block, hexutil.Encode(performData))
@@ -188,36 +189,36 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 
 // allowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
 // this upkeep is allowed to use Mercury service.
-func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (state PipelineExecutionState, retryable bool, allow bool, err error) {
+func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (state encoding.PipelineExecutionState, retryable bool, allow bool, err error) {
 	allowed, ok := r.mercury.allowListCache.Get(upkeepId.String())
 	if ok {
-		return NoPipelineError, false, allowed.(bool), nil
+		return encoding.NoPipelineError, false, allowed.(bool), nil
 	}
 
 	cfg, err := r.registry.GetUpkeepPrivilegeConfig(opts, upkeepId)
 	if err != nil {
-		return RpcFlakyFailure, true, false, fmt.Errorf("failed to get upkeep privilege config for upkeep ID %s: %v", upkeepId, err)
+		return encoding.RpcFlakyFailure, true, false, fmt.Errorf("failed to get upkeep privilege config for upkeep ID %s: %v", upkeepId, err)
 	}
 
 	var a AdminOffchainConfig
 	err = json.Unmarshal(cfg, &a)
 	if err != nil {
-		return MercuryUnmarshalError, false, false, fmt.Errorf("failed to unmarshal privilege config for upkeep ID %s: %v", upkeepId, err)
+		return encoding.MercuryUnmarshalError, false, false, fmt.Errorf("failed to unmarshal privilege config for upkeep ID %s: %v", upkeepId, err)
 	}
 	r.mercury.allowListCache.Set(upkeepId.String(), a.MercuryEnabled, cache.DefaultExpiration)
-	return NoPipelineError, false, a.MercuryEnabled, nil
+	return encoding.NoPipelineError, false, a.MercuryEnabled, nil
 }
 
 // decodeFeedLookup decodes the revert error FeedLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
-func (r *EvmRegistry) decodeFeedLookup(data []byte) (PipelineExecutionState, *FeedLookup, error) {
+func (r *EvmRegistry) decodeFeedLookup(data []byte) (encoding.PipelineExecutionState, *FeedLookup, error) {
 	e := r.mercury.abi.Errors["FeedLookup"]
 	unpack, err := e.Unpack(data)
 	if err != nil {
-		return PackUnpackDecodeFailed, nil, fmt.Errorf("unpack error: %w", err)
+		return encoding.PackUnpackDecodeFailed, nil, fmt.Errorf("unpack error: %w", err)
 	}
 	errorParameters := unpack.([]interface{})
 
-	return NoPipelineError, &FeedLookup{
+	return encoding.NoPipelineError, &FeedLookup{
 		feedParamKey: *abi.ConvertType(errorParameters[0], new(string)).(*string),
 		feeds:        *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
 		timeParamKey: *abi.ConvertType(errorParameters[2], new(string)).(*string),
@@ -226,10 +227,10 @@ func (r *EvmRegistry) decodeFeedLookup(data []byte) (PipelineExecutionState, *Fe
 	}, nil
 }
 
-func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup *FeedLookup) (PipelineExecutionState, bool, hexutil.Bytes, error) {
+func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup *FeedLookup) (encoding.PipelineExecutionState, bool, hexutil.Bytes, error) {
 	payload, err := r.abi.Pack("checkCallback", lookup.upkeepId, values, lookup.extraData)
 	if err != nil {
-		return PackUnpackDecodeFailed, false, nil, err
+		return encoding.PackUnpackDecodeFailed, false, nil, err
 	}
 
 	var b hexutil.Bytes
@@ -241,13 +242,13 @@ func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup
 	// call checkCallback function at the block which OCR3 has agreed upon
 	err = r.client.CallContext(ctx, &b, "eth_call", args, hexutil.EncodeUint64(lookup.block))
 	if err != nil {
-		return RpcFlakyFailure, true, nil, err
+		return encoding.RpcFlakyFailure, true, nil, err
 	}
-	return NoPipelineError, false, b, nil
+	return encoding.NoPipelineError, false, b, nil
 }
 
 // doMercuryRequest sends requests to Mercury API to retrieve ChainlinkBlob.
-func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr logger.Logger) (PipelineExecutionState, [][]byte, bool, error) {
+func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr logger.Logger) (encoding.PipelineExecutionState, [][]byte, bool, error) {
 	var isMercuryV03 bool
 	resultLen := len(ml.feeds)
 	ch := make(chan MercuryData, resultLen)
@@ -263,7 +264,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr
 		ch = make(chan MercuryData, resultLen)
 		go r.multiFeedsRequest(ctx, ch, ml, lggr)
 	} else {
-		return InvalidRevertDataInput, nil, false, fmt.Errorf("invalid label combination: feed param key %s and time param key %s", ml.feedParamKey, ml.timeParamKey)
+		return encoding.InvalidRevertDataInput, nil, false, fmt.Errorf("invalid label combination: feed param key %s and time param key %s", ml.feedParamKey, ml.timeParamKey)
 	}
 
 	var reqErr error
@@ -271,14 +272,14 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr
 	retryable := true
 	allSuccess := true
 	// in v0.2, use the last execution error as the state, if no execution errors, state will be no error
-	state := NoPipelineError
+	state := encoding.NoPipelineError
 	for i := 0; i < resultLen; i++ {
 		m := <-ch
 		if m.Error != nil {
 			reqErr = errors.Join(reqErr, m.Error)
 			retryable = retryable && m.Retryable
 			allSuccess = false
-			if m.State != NoPipelineError {
+			if m.State != encoding.NoPipelineError {
 				state = m.State
 			}
 			continue
@@ -306,7 +307,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
-		ch <- MercuryData{Index: index, Error: err, Retryable: false, State: InvalidMercuryRequest}
+		ch <- MercuryData{Index: index, Error: err, Retryable: false, State: encoding.InvalidMercuryRequest}
 		return
 	}
 
@@ -318,7 +319,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 	req.Header.Set(headerSignature, signature)
 
 	// in the case of multiple retries here, use the last attempt's data
-	state := NoPipelineError
+	state := encoding.NoPipelineError
 	retryable := false
 	sent := false
 	retryErr := retry.Do(
@@ -328,25 +329,25 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 			if err1 != nil {
 				lggr.Warnf("upkeep %s block %s GET request fails for feed %s: %v", ml.upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
 				retryable = true
-				state = MercuryFlakyFailure
+				state = encoding.MercuryFlakyFailure
 				return err1
 			}
 			defer resp.Body.Close()
 			body, err1 := io.ReadAll(resp.Body)
 			if err1 != nil {
 				retryable = false
-				state = FailedToDecodeMercuryResponse
+				state = encoding.FailedToDecodeMercuryResponse
 				return err1
 			}
 
 			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
 				lggr.Warnf("upkeep %s block %s received status code %d for feed %s", ml.upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
 				retryable = true
-				state = MercuryFlakyFailure
+				state = encoding.MercuryFlakyFailure
 				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
 			} else if resp.StatusCode != http.StatusOK {
 				retryable = false
-				state = InvalidMercuryRequest
+				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("FeedLookup upkeep %s block %s received status code %d for feed %s", ml.upkeepId.String(), ml.time.String(), resp.StatusCode, ml.feeds[index])
 			}
 
@@ -355,21 +356,21 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 			if err1 != nil {
 				lggr.Warnf("upkeep %s block %s failed to unmarshal body to MercuryV02Response for feed %s: %v", ml.upkeepId.String(), ml.time.String(), ml.feeds[index], err1)
 				retryable = false
-				state = MercuryUnmarshalError
+				state = encoding.MercuryUnmarshalError
 				return err1
 			}
 			blobBytes, err1 := hexutil.Decode(m.ChainlinkBlob)
 			if err1 != nil {
 				lggr.Warnf("upkeep %s block %s failed to decode chainlinkBlob %s for feed %s: %v", ml.upkeepId.String(), ml.time.String(), m.ChainlinkBlob, ml.feeds[index], err1)
 				retryable = false
-				state = FailedToDecodeMercuryResponse
+				state = encoding.FailedToDecodeMercuryResponse
 				return err1
 			}
 			ch <- MercuryData{
 				Index:     index,
 				Bytes:     [][]byte{blobBytes},
 				Retryable: false,
-				State:     NoPipelineError,
+				State:     encoding.NoPipelineError,
 			}
 			sent = true
 			return nil
@@ -406,7 +407,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
-		ch <- MercuryData{Index: 0, Error: err, Retryable: false, State: InvalidMercuryRequest}
+		ch <- MercuryData{Index: 0, Error: err, Retryable: false, State: encoding.InvalidMercuryRequest}
 		return
 	}
 
@@ -422,7 +423,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	req.Header.Set(headerUpkeepId, ml.upkeepId.String())
 
 	// in the case of multiple retries here, use the last attempt's data
-	state := NoPipelineError
+	state := encoding.NoPipelineError
 	retryable := false
 	sent := false
 	retryErr := retry.Do(
@@ -432,25 +433,25 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			if err1 != nil {
 				lggr.Warnf("upkeep %s block %s GET request fails for multi feed: %v", ml.upkeepId.String(), ml.time.String(), err1)
 				retryable = true
-				state = MercuryFlakyFailure
+				state = encoding.MercuryFlakyFailure
 				return err1
 			}
 			defer resp.Body.Close()
 			body, err1 := io.ReadAll(resp.Body)
 			if err1 != nil {
 				retryable = false
-				state = FailedToDecodeMercuryResponse
+				state = encoding.FailedToDecodeMercuryResponse
 				return err1
 			}
 
 			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
 				lggr.Warnf("upkeep %s block %s received status code %d for multi feed", ml.upkeepId.String(), ml.time.String(), resp.StatusCode)
 				retryable = true
-				state = MercuryFlakyFailure
+				state = encoding.MercuryFlakyFailure
 				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
 			} else if resp.StatusCode != http.StatusOK {
 				retryable = false
-				state = InvalidMercuryRequest
+				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("FeedLookup upkeep %s block %s received status code %d for multi feed", ml.upkeepId.String(), ml.time.String(), resp.StatusCode)
 			}
 
@@ -459,7 +460,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			if err1 != nil {
 				lggr.Warnf("upkeep %s block %s failed to unmarshal body to MercuryV03Response for multi feed: %v", ml.upkeepId.String(), ml.time.String(), err1)
 				retryable = false
-				state = MercuryUnmarshalError
+				state = encoding.MercuryUnmarshalError
 				return err1
 			}
 			var reportBytes [][]byte
@@ -469,7 +470,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				if err1 != nil {
 					lggr.Warnf("upkeep %s block %s failed to decode reportBlob %s for multi feed: %v", ml.upkeepId.String(), ml.time.String(), rsp.FullReport, err1)
 					retryable = false
-					state = FailedToDecodeMercuryResponse
+					state = encoding.FailedToDecodeMercuryResponse
 					return err1
 				}
 				reportBytes = append(reportBytes, b)
@@ -478,7 +479,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				Index:     0,
 				Bytes:     reportBytes,
 				Retryable: false,
-				State:     NoPipelineError,
+				State:     encoding.NoPipelineError,
 			}
 			sent = true
 			return nil

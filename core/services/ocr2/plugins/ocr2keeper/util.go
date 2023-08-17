@@ -118,17 +118,6 @@ func EVMDependencies21(
 	var keeperProvider evmrelay.OCR2KeeperProvider
 
 	oSpec := spec.OCR2OracleSpec
-
-	// get the chain from the config
-	chainID, err2 := spec.OCR2OracleSpec.RelayConfig.EVMChainID()
-	if err2 != nil {
-		return nil, nil, err2
-	}
-	chain, err2 = set.Get(big.NewInt(chainID))
-	if err2 != nil {
-		return nil, nil, fmt.Errorf("%w: %s", ErrNoChainFromSpec, err2)
-	}
-
 	// the provider will be returned as a dependency
 	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
 		return nil, nil, err
