@@ -473,7 +473,7 @@ var (
 )
 
 // determineSelectedNetworks uses `SELECTED_NETWORKS` to determine which networks to run the tests on.
-// Use DetermineSelectedNetwork for tests that only use one network
+// Use DetermineSelectedNetwork for tests that only  use one network
 func determineSelectedNetworks() []blockchain.EVMNetwork {
 	logging.Init()
 	selectedNetworks := make([]blockchain.EVMNetwork, 0)
