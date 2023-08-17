@@ -83,17 +83,23 @@ func (u *upkeepStateStore) Start(context.Context) error {
 
 	u.lggr.Debug("Starting upkeep state store")
 
-	ticker := time.NewTicker(GCInterval)
-	defer ticker.Stop()
+	{
+		go func(ctx context.Context) {
+			ticker := time.NewTicker(GCInterval)
+			defer ticker.Stop()
 
-	for {
-		select {
-		case <-ticker.C:
-			u.cleanup()
-		case <-ctx.Done():
-			return nil
-		}
+			for {
+				select {
+				case <-ticker.C:
+					u.cleanup()
+				case <-ctx.Done():
+
+				}
+			}
+		}(ctx)
 	}
+
+	return nil
 }
 
 func (u *upkeepStateStore) Close() error {
