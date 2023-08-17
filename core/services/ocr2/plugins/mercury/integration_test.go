@@ -321,7 +321,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 	}
 
 	// Bury it with finality depth
-	ch, err := bootstrapNode.App.GetChains().EVM.Get(testutils.SimulatedChainID)
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
@@ -651,7 +651,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 	}
 
 	// Bury it with finality depth
-	ch, err := bootstrapNode.App.GetChains().EVM.Get(testutils.SimulatedChainID)
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {
@@ -927,7 +927,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 	}
 
 	// Bury it with finality depth
-	ch, err := bootstrapNode.App.GetChains().EVM.Get(testutils.SimulatedChainID)
+	ch, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(testutils.SimulatedChainID.String())
 	require.NoError(t, err)
 	finalityDepth := ch.Config().EVM().FinalityDepth()
 	for i := 0; i < int(finalityDepth); i++ {

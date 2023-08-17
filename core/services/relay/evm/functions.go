@@ -3,6 +3,7 @@ package evm
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -82,13 +83,16 @@ func (p *functionsProvider) Name() string {
 	return p.configWatcher.Name()
 }
 
-func NewFunctionsProvider(chainSet evm.ChainSet, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
-	var relayConfig evmRelayTypes.RelayConfig
-	err := json.Unmarshal(rargs.RelayConfig, &relayConfig)
+func NewFunctionsProvider(chain evm.Chain, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
+	relayOpts := evmRelayTypes.NewRelayOpts(rargs)
+	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
 		return nil, err
 	}
-	chain, err := chainSet.Get(relayConfig.ChainID.ToInt())
+	expectedChainID := relayConfig.ChainID.String()
+	if expectedChainID != chain.ID().String() {
+		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), chain.ID().String())
+	}
 	if err != nil {
 		return nil, err
 	}
