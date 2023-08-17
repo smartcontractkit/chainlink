@@ -33,32 +33,26 @@ func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2kee
 		var payload ocr2keepers.UpkeepPayload
 		if b.upkeepList.IsActive(proposal.UpkeepID.BigInt()) {
 			b.lggr.Debugf("building payload for coordinated block proposal %+v", proposal)
+			checkData := []byte{}
+			var err error
 			switch core.GetUpkeepType(proposal.UpkeepID) {
 			case ocr2keepers.LogTrigger:
-
-				checkData, err := b.recoverer.GetProposalData(ctx, proposal)
+				checkData, err = b.recoverer.GetProposalData(ctx, proposal)
 				if err != nil {
-					b.lggr.Warnw("failed to get proposal data", "err", err, "upkeepID", proposal.UpkeepID)
-					break
+					b.lggr.Warnw("failed to get log proposal data", "err", err, "upkeepID", proposal.UpkeepID, "trigger", proposal.Trigger)
+					continue
 				}
-
-				payload, err = core.NewUpkeepPayload(
-					proposal.UpkeepID.BigInt(),
-					proposal.Trigger,
-					checkData,
-				)
-				if err != nil {
-					b.lggr.Warnw("error building upkeep payload", "err", err, "upkeepID", proposal.UpkeepID)
-					break
-				}
-
 			case ocr2keepers.ConditionTrigger:
-				// Trigger.BlockNumber and Trigger.BlockHash are already coordinated
-				// TODO: check for upkeepID being active upkeep here using b.active
+				// Empty checkData for conditionals
 			}
-
+			payload, err = core.NewUpkeepPayload(proposal.UpkeepID.BigInt(), proposal.Trigger, checkData)
+			if err != nil {
+				b.lggr.Warnw("error building upkeep payload", "err", err, "upkeepID", proposal.UpkeepID)
+				continue
+			}
 		} else {
 			b.lggr.Warnw("upkeep is not active, skipping", "upkeepID", proposal.UpkeepID)
+			continue
 		}
 
 		payloads[i] = payload
