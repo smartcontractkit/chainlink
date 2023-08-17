@@ -37,9 +37,9 @@ type insecureConfig interface {
 }
 
 // ValidatedOracleSpecToml validates an oracle spec that came from TOML
-func ValidatedOracleSpecToml(chainSet evm.ChainSet, tomlString string) (job.Job, error) {
+func ValidatedOracleSpecToml(legacyChains evm.LegacyChainContainer, tomlString string) (job.Job, error) {
 	return ValidatedOracleSpecTomlCfg(func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
-		c, err := chainSet.Get(id)
+		c, err := legacyChains.Get(id.String())
 		if err != nil {
 			return nil, err
 		}

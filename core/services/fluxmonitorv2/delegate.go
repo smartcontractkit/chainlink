@@ -21,7 +21,7 @@ type Delegate struct {
 	jobORM         job.ORM
 	pipelineORM    pipeline.ORM
 	pipelineRunner pipeline.Runner
-	chainSet       evm.ChainSet
+	legacyChains   evm.LegacyChainContainer
 	lggr           logger.Logger
 }
 
@@ -34,17 +34,17 @@ func NewDelegate(
 	pipelineORM pipeline.ORM,
 	pipelineRunner pipeline.Runner,
 	db *sqlx.DB,
-	chainSet evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 ) *Delegate {
 	return &Delegate{
-		db,
-		ethKeyStore,
-		jobORM,
-		pipelineORM,
-		pipelineRunner,
-		chainSet,
-		lggr.Named("FluxMonitor"),
+		db:             db,
+		ethKeyStore:    ethKeyStore,
+		jobORM:         jobORM,
+		pipelineORM:    pipelineORM,
+		pipelineRunner: pipelineRunner,
+		legacyChains:   legacyChains,
+		lggr:           lggr.Named("FluxMonitor"),
 	}
 }
 
@@ -63,7 +63,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job
 	if jb.FluxMonitorSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.FluxMonitorSpec to be present, got %v", jb)
 	}
-	chain, err := d.chainSet.Get(jb.FluxMonitorSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.FluxMonitorSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}

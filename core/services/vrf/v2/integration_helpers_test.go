@@ -245,8 +245,8 @@ func testMultipleConsumersNeedBHS(
 		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200)
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -392,8 +392,9 @@ func testMultipleConsumersNeedTrustedBHS(
 		v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000)
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
+	chain := app.GetRelayers().LegacyEVMChains().Slice()[0]
+	require.NoError(t, chain.LogPoller().Ready())
+	require.NoError(t, chain.LogPoller().Replay(testutils.Context(t), 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -778,8 +779,8 @@ func testBlockHeaderFeeder(
 		v2coordinatorAddress, v2plusCoordinatorAddress)
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -1684,7 +1685,7 @@ func testMaliciousConsumer(
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
-	ch, err := app.GetChains().EVM.Default()
+	ch, err := app.GetRelayers().LegacyEVMChains().Default()
 	require.NoError(t, err)
 	r, err := ch.Client().TransactionReceipt(testutils.Context(t), attempts[0].Hash)
 	require.NoError(t, err)

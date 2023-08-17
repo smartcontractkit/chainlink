@@ -447,9 +447,9 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				bs:   bs,
 			}
 			if tc.makeEthCall {
-				client := new(evmClientMocks.Client)
-				client.On("BlockByNumber", mock.Anything, tc.checkBlock).Return(nil, fmt.Errorf("error"))
-				e.client = client
+				poller := new(mocks.LogPoller)
+				poller.On("GetBlocksRange", mock.Anything, mock.Anything).Return(nil, fmt.Errorf("error"))
+				e.poller = poller
 			}
 
 			state, retryable := e.verifyCheckBlock(context.Background(), tc.checkBlock, tc.upkeepId, tc.checkHash)
