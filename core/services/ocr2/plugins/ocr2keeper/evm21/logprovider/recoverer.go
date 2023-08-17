@@ -260,7 +260,6 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
-	latest = latest + 400
 	r.lggr.Debugw("recover", "latestBlock", latest)
 	start, offsetBlock := r.getRecoveryWindow(latest)
 	if offsetBlock < 0 {
