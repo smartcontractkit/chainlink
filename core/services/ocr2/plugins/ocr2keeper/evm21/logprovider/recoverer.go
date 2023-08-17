@@ -22,11 +22,11 @@ import (
 
 var (
 	ErrNotFound             = errors.New("not found")
-	DefaultRecoveryInterval = 5 * time.Second
+	DefaultRecoveryInterval = 1 * time.Second
 	RecoveryCacheTTL        = 24*time.Hour - time.Second
 
 	recoveryBatchSize  = 10
-	recoveryLogsBuffer = int64(10)
+	recoveryLogsBuffer = int64(50)
 )
 
 type LogRecoverer interface {
@@ -186,7 +186,8 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 				return nil, errors.New("filter not found, upkeep is inactive") // TODO fix error msg
 			}
 
-			logs, err := r.poller.LogsWithSigs(int64(proposal.Trigger.LogTriggerExtension.BlockNumber)-1, offsetBlock, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
+			logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
+			logs, err := r.poller.LogsWithSigs(logBlock-1, logBlock+1, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
 			if err != nil {
 				return nil, fmt.Errorf("could not read logs: %w", err)
 			}
@@ -200,14 +201,15 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 					r.lggr.Warnw("failed to convert upkeepID to UpkeepIdentifier", "upkeepID", filter.upkeepID)
 					continue
 				}
+				trigger.BlockHash = proposal.Trigger.BlockHash
+				trigger.BlockNumber = proposal.Trigger.BlockNumber
 				wid := core.UpkeepWorkID(*upkeepId, trigger)
 				if wid == proposal.WorkID {
+					r.lggr.Debugw("found desired log", "upkeepId", upkeepId, "trigger.ext", trigger.LogTriggerExtension)
 					checkData, err := r.packer.PackLogData(log)
 					if err != nil {
-						r.lggr.Warnw("failed to pack log data", "err", err, "log", log)
-						continue
+						return nil, fmt.Errorf("failed to pack log data: %w", err)
 					}
-
 					return checkData, nil
 				}
 			}
@@ -228,6 +230,8 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 	copy(pending, r.pending)
 
 	r.pending = make([]ocr2keepers.UpkeepPayload, 0)
+
+	r.lggr.Debugf("found %d pending payloads", len(pending))
 
 	return pending, nil
 }
@@ -265,7 +269,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		return nil
 	}
 
-	// r.lggr.Debugw("recovering logs", "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
+	r.lggr.Debugw("recovering logs", "filters", filters, "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
 
 	var wg sync.WaitGroup
 	for _, f := range filters {
@@ -440,9 +444,8 @@ func (r *logRecoverer) selectFilterBatch(filters []upkeepFilter) []upkeepFilter 
 
 func logToTrigger(log logpoller.Log) ocr2keepers.Trigger {
 	t := ocr2keepers.NewTrigger(
-		// TODO: use zero values or latest block
-		ocr2keepers.BlockNumber(log.BlockNumber),
-		log.BlockHash,
+		0,
+		[32]byte{},
 	)
 	t.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{
 		TxHash:      log.TxHash,

@@ -43,7 +43,7 @@ type BlockSubscriber struct {
 	maxSubId         int
 	lastClearedBlock int64
 	lastSentBlock    int64
-	latestBlock      atomic.Int64
+	latestBlock      atomic.Pointer[ocr2keepers.BlockKey]
 	blockHistorySize int64
 	blockSize        int64
 	lggr             logger.Logger
@@ -60,7 +60,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr
 		blocks:           map[int64]string{},
 		blockHistorySize: blockHistorySize,
 		blockSize:        lookbackDepth,
-		latestBlock:      atomic.Int64{},
+		latestBlock:      atomic.Pointer[ocr2keepers.BlockKey]{},
 		lggr:             lggr.Named("BlockSubscriber"),
 	}
 }
@@ -242,7 +242,10 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 
 	history := bs.buildHistory(h.Number)
 
-	bs.latestBlock.Store(h.Number)
+	bs.latestBlock.Store(&ocr2keepers.BlockKey{
+		Number: ocr2keepers.BlockNumber(h.Number),
+		Hash:   h.Hash,
+	})
 	bs.lastSentBlock = h.Number
 	// send history to all subscribers
 	for _, subC := range bs.subscribers {

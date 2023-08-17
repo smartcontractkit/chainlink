@@ -44,7 +44,7 @@ func (o *LogEventProviderOptions) Defaults() {
 		o.AllowedLogsPerBlock = 128
 	}
 	if o.LogBlocksLookback == 0 {
-		o.LogBlocksLookback = 512
+		o.LogBlocksLookback = 200
 	}
 	if o.LogBufferSize == 0 {
 		o.LogBufferSize = int(o.LogBlocksLookback * 3)
@@ -65,6 +65,6 @@ func (o *LogEventProviderOptions) Defaults() {
 		o.ReadMaxBatchSize = 32
 	}
 	if o.Readers == 0 {
-		o.Readers = 2
+		o.Readers = 4
 	}
 }

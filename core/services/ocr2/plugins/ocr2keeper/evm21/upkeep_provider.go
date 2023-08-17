@@ -2,9 +2,7 @@ package evm
 
 import (
 	"context"
-	"fmt"
 
-	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -29,16 +27,11 @@ func NewUpkeepProvider(activeUpkeeps ActiveUpkeepList, bs *BlockSubscriber, lp l
 
 func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latestBlock := p.bs.latestBlock.Load()
-	h, ok := p.bs.queryBlocksMap(latestBlock)
-	if !ok {
-		return nil, fmt.Errorf("unable to find block %d in block history", latestBlock)
-	}
-	hash := common.HexToHash(h)
 	var payloads []ocr2keepers.UpkeepPayload
 	for _, uid := range p.activeUpkeeps.View(ocr2keepers.ConditionTrigger) {
 		payload, err := core.NewUpkeepPayload(
 			uid,
-			ocr2keepers.NewTrigger(ocr2keepers.BlockNumber(latestBlock), hash),
+			ocr2keepers.NewTrigger(ocr2keepers.BlockNumber(latestBlock.Number), latestBlock.Hash),
 			nil,
 		)
 		if err != nil {

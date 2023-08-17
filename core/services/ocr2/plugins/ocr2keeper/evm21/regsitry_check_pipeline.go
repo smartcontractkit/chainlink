@@ -103,7 +103,8 @@ func getIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, rea
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
 func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
 	// verify check block number is not too old
-	if r.bs.latestBlock.Load()-checkBlock.Int64() > validCheckBlockRange {
+	latestBlock := r.bs.latestBlock.Load()
+	if int64(latestBlock.Number)-checkBlock.Int64() > validCheckBlockRange {
 		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
 		return encoding.CheckBlockTooOld, false
 	}
@@ -171,6 +172,11 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	indices := map[int]int{}
 
 	for i, p := range payloads {
+		if p.Trigger.BlockNumber == 0 { // check block was not populated
+			latest := r.bs.latestBlock.Load()
+			copy(p.Trigger.BlockHash[:], latest.Hash[:])
+			p.Trigger.BlockNumber = latest.Number
+		}
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
 		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
 		if state != encoding.NoPipelineError {
