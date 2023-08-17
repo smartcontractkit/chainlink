@@ -986,12 +986,12 @@ func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId
 	h, ok = r.bs.queryBlocksMap(checkBlock.Int64())
 	if !ok {
 		r.lggr.Warnf("check block %s does not exist in block subscriber for upkeepId %s, querying eth client", checkBlock, upkeepId)
-		b, err := r.client.BlockByNumber(ctx, checkBlock)
+		hash, err := r.getBlockHash(checkBlock)
 		if err != nil {
 			r.lggr.Warnf("failed to query block %s: %s", checkBlock, err.Error())
 			return RpcFlakyFailure, true
 		}
-		h = b.Hash().Hex()
+		h = hash.Hex()
 	}
 	if checkHash.Hex() != h {
 		r.lggr.Warnf("check block %s hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", checkBlock, h, checkHash.Hex(), upkeepId)
