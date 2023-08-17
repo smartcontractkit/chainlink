@@ -26,7 +26,7 @@ func TestPacker_PackReport(t *testing.T) {
 		wantBytes  int
 	}{
 		{
-			name: "all non-zero values get encoded to a byte array of a specific length",
+			name: "all non-nil values get encoded to a byte array of a specific length",
 			report: automation21Utils.KeeperRegistryBase21Report{
 				FastGasWei: big.NewInt(0),
 				LinkNative: big.NewInt(0),
