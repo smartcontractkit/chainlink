@@ -22,7 +22,7 @@ import (
 
 var (
 	ErrNotFound             = errors.New("not found")
-	DefaultRecoveryInterval = 1 * time.Second
+	DefaultRecoveryInterval = 5 * time.Second
 	RecoveryCacheTTL        = 24*time.Hour - time.Second
 
 	recoveryBatchSize  = 10
@@ -117,7 +117,9 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 			for {
 				select {
 				case <-ticker.C:
-					r.recover(ctx)
+					if err := r.recover(ctx); err != nil {
+						r.lggr.Warnw("failed to recover logs", "err", err)
+					}
 				case <-ctx.Done():
 					return
 				}
@@ -258,11 +260,15 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
+	latest = latest + 400
+	r.lggr.Debugw("recover", "latestBlock", latest)
 	start, offsetBlock := r.getRecoveryWindow(latest)
 	if offsetBlock < 0 {
 		// too soon to recover, we don't have enough blocks
 		return nil
 	}
+
+	r.lggr.Debugw("get filters batch", "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
 
 	filters := r.getFilterBatch(offsetBlock)
 	if len(filters) == 0 {
