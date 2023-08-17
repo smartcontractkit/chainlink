@@ -69,7 +69,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 
 	assert.Equal(t, resource.Address, address)
 
-	require.Len(t, controller.app.Chains.EVM.Chains(), 1)
+	require.Len(t, controller.app.GetRelayers().LegacyEVMChains().Slice(), 1)
 
 	resp, cleanup = controller.client.Delete("/v2/nodes/evm/forwarders/" + resource.ID)
 	t.Cleanup(cleanup)

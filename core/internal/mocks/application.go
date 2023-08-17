@@ -127,20 +127,6 @@ func (_m *Application) GetAuditLogger() audit.AuditLogger {
 	return r0
 }
 
-// GetChains provides a mock function with given fields:
-func (_m *Application) GetChains() chainlink.Chains {
-	ret := _m.Called()
-
-	var r0 chainlink.Chains
-	if rf, ok := ret.Get(0).(func() chainlink.Chains); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(chainlink.Chains)
-	}
-
-	return r0
-}
-
 // GetConfig provides a mock function with given fields:
 func (_m *Application) GetConfig() chainlink.GeneralConfig {
 	ret := _m.Called()
@@ -263,6 +249,22 @@ func (_m *Application) GetLoopRegistry() *plugins.LoopRegistry {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*plugins.LoopRegistry)
+		}
+	}
+
+	return r0
+}
+
+// GetRelayers provides a mock function with given fields:
+func (_m *Application) GetRelayers() chainlink.RelayerChainInteroperators {
+	ret := _m.Called()
+
+	var r0 chainlink.RelayerChainInteroperators
+	if rf, ok := ret.Get(0).(func() chainlink.RelayerChainInteroperators); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(chainlink.RelayerChainInteroperators)
 		}
 	}
 
