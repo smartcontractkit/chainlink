@@ -956,6 +956,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		services.Registry(),
 		services.BlockSubscriber(),
 		services.LogEventProvider(),
+		services.LogRecoverer(),
 		services.TransmitEventProvider(),
 		pluginService,
 	}, nil
@@ -1078,6 +1079,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		keeperProvider,
 		rgstry,
 		logProvider,
+
 		pluginService,
 	}, nil
 }
