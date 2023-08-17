@@ -258,23 +258,6 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 	return pending, nil
 }
 
-func (r *logRecoverer) clean(ctx context.Context) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-
-	cleaned := 0
-	for id, t := range r.visited {
-		if time.Since(t) > RecoveryCacheTTL {
-			delete(r.visited, id)
-			cleaned++
-		}
-	}
-
-	if cleaned > 0 {
-		r.lggr.Debugw("gc: cleaned visited upkeeps", "cleaned", cleaned)
-	}
-}
-
 func (r *logRecoverer) recover(ctx context.Context) error {
 	latest, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
@@ -301,7 +284,9 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		wg.Add(1)
 		go func(f upkeepFilter) {
 			defer wg.Done()
-			r.recoverFilter(ctx, f, start, offsetBlock)
+			if err := r.recoverFilter(ctx, f, start, offsetBlock); err != nil {
+				r.lggr.Debugw("error recovering filter", "err", err.Error())
+			}
 		}(f)
 	}
 	wg.Wait()
@@ -435,10 +420,7 @@ func (r *logRecoverer) getRecoveryWindow(latest int64) (int64, int64) {
 // getFilterBatch returns a batch of filters that are ready to be recovered.
 func (r *logRecoverer) getFilterBatch(offsetBlock int64) []upkeepFilter {
 	filters := r.filterStore.GetFilters(func(f upkeepFilter) bool {
-		if f.lastRePollBlock > offsetBlock {
-			return false
-		}
-		return true
+		return f.lastRePollBlock <= offsetBlock
 	})
 
 	sort.Slice(filters, func(i, j int) bool {

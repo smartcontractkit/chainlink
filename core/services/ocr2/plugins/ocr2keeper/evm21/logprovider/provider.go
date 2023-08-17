@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -59,7 +58,6 @@ var _ LogEventProviderTest = &logEventProvider{}
 type logEventProvider struct {
 	lggr logger.Logger
 
-	sync   utils.StartStopOnce
 	cancel context.CancelFunc
 
 	poller logpoller.LogPoller

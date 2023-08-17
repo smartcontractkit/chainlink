@@ -77,10 +77,7 @@ func TestNewPayloadBuilder(t *testing.T) {
 			name: "for an inactive log trigger upkeep, an empty payload is added to the list of payloads",
 			activeList: &mockActiveUpkeepList{
 				IsActiveFn: func(id *big.Int) bool {
-					if core.GenUpkeepID(types.LogTrigger, "ghi").BigInt().Cmp(id) == 0 {
-						return false
-					}
-					return true
+					return core.GenUpkeepID(types.LogTrigger, "ghi").BigInt().Cmp(id) != 0
 				},
 			},
 			proposals: []types.CoordinatedBlockProposal{
