@@ -410,6 +410,22 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
     }
   }
 
+  function getUpkeepInfo(uint256 upkeepId) public view returns (KeeperRegistryBase2_1.UpkeepInfo memory) {
+    return registry.getUpkeep(upkeepId);
+  }
+
+  function getUpkeepTriggerConfig(uint256 upkeepId) public view returns (bytes memory) {
+    return registry.getUpkeepTriggerConfig(upkeepId);
+  }
+
+  function getUpkeepPrivilegeConfig(uint256 upkeepId) public view returns (bytes memory) {
+    return registry.getUpkeepPrivilegeConfig(upkeepId);
+  }
+
+  function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes memory cfg) external {
+    registry.setUpkeepPrivilegeConfig(upkeepId, cfg);
+  }
+
   function sendLog(uint256 upkeepId) external {
     uint256 blockNum = getBlockNumber();
     emit LogEmitted(upkeepId, blockNum, address(this));
