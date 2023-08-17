@@ -121,7 +121,7 @@ func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.Log
 
 	converted, ok := abi.ConvertType(out[0], new(automation_utils_2_1.LogTriggerConfig)).(*automation_utils_2_1.LogTriggerConfig)
 	if !ok {
-		return cfg, fmt.Errorf("failed to convert type")
+		return cfg, fmt.Errorf("failed to convert type during UnpackLogTriggerConfig")
 	}
 	return *converted, nil
 }

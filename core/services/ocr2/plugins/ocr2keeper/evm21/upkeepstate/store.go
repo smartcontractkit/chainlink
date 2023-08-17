@@ -63,6 +63,7 @@ func NewUpkeepStateStore(lggr logger.Logger, scanner PerformedLogsScanner) *upke
 // Start starts the upkeep state store.
 // it does background cleanup of the cache.
 func (u *upkeepStateStore) Start(pctx context.Context) error {
+	// todo: should this depend on pctx?
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
 
@@ -107,6 +108,7 @@ func (u *upkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, en
 		// all ids were found in the cache
 		return states, nil
 	}
+	// TODO: can we use content based querying here instead of requiring start/end?
 	if err := u.fetchPerformed(ctx, start, end); err != nil {
 		return nil, err
 	}

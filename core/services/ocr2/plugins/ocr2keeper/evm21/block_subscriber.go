@@ -25,8 +25,8 @@ const (
 	channelSize = 100
 	// lookbackDepth decides valid trigger block lookback range
 	lookbackDepth = 1024
-	// blockHistorySize decides the block history size
-	blockHistorySize = int64(128)
+	// blockHistorySize decides the block history size sent to subscribers
+	blockHistorySize = int64(256)
 )
 
 type BlockSubscriber struct {

@@ -997,6 +997,8 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	return []job.ServiceCtx{
 		runResultSaver,
 		keeperProvider,
+		// TODO: plugin upkeep state store
+		// TODO: plugin perform log scanner
 		services.Registry(),
 		services.BlockSubscriber(),
 		services.LogEventProvider(),

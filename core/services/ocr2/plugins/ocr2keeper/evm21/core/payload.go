@@ -18,7 +18,7 @@ func UpkeepWorkID(uid ocr2keepers.UpkeepIdentifier, trigger ocr2keepers.Trigger)
 	if trigger.LogTriggerExtension != nil {
 		triggerExtBytes = trigger.LogTriggerExtension.LogIdentifier()
 	}
-	// TODO (auto-4314): Ensure it works with conditionals and add unit tests
+	// TODO: add unit tests
 	hash := crypto.Keccak256(append(uid[:], triggerExtBytes...))
 	return hex.EncodeToString(hash[:])
 }

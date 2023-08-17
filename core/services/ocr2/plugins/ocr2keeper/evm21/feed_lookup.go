@@ -78,9 +78,9 @@ type MercuryData struct {
 	State     encoding.PipelineExecutionState
 }
 
-// AdminOffchainConfig represents the administrative offchain config for each upkeep. It can be set by s_upkeepManager
+// UpkeepPrivilegeConfig represents the administrative offchain config for each upkeep. It can be set by s_upkeepManager
 // role on the registry. Upkeeps allowed to use Mercury server will have this set to true.
-type AdminOffchainConfig struct {
+type UpkeepPrivilegeConfig struct {
 	MercuryEnabled bool `json:"mercuryEnabled"`
 }
 
@@ -90,14 +90,25 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers
 	lookups := map[int]*FeedLookup{}
 	for i, res := range checkResults {
 		if res.IneligibilityReason != uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
+			// Feedlookup only works when upkeep target check reverts
 			continue
 		}
 
 		block := big.NewInt(int64(res.Trigger.BlockNumber))
 		upkeepId := res.UpkeepID
 
-		opts := r.buildCallOpts(ctx, block)
+		// Try to decode the revert error into feed lookup format. User upkeeps can revert with any reason, see if they
+		// tried to call mercury
+		lggr.Infof("upkeep %s block %d trying to decodeFeedLookup performData=%s", upkeepId, block, hexutil.Encode(checkResults[i].PerformData))
+		lookup, err := r.decodeFeedLookup(res.PerformData)
+		if err != nil {
+			lggr.Warnf("upkeep %s block %d decodeFeedLookup failed: %v", upkeepId, block, err)
+			// Not feed lookup error, nothing to do here
+			continue
+		}
 
+		opts := r.buildCallOpts(ctx, block)
+		// TODO: Remove allowlist for v0.3
 		state, retryable, allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
 		if err != nil {
 			lggr.Warnf("upkeep %s block %d failed to query mercury allow list: %s", upkeepId, block, err)
@@ -109,17 +120,9 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers
 		if !allowed {
 			lggr.Warnf("upkeep %s block %d NOT allowed to query Mercury server", upkeepId, block)
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryAccessNotAllowed)
-			checkResults[i].Retryable = retryable
 			continue
 		}
 
-		lggr.Infof("upkeep %s block %d decodeFeedLookup performData=%s", upkeepId, block, hexutil.Encode(checkResults[i].PerformData))
-		state, lookup, err := r.decodeFeedLookup(res.PerformData)
-		if err != nil {
-			lggr.Warnf("upkeep %s block %d decodeFeedLookup: %v", upkeepId, block, err)
-			checkResults[i].PipelineExecutionState = uint8(state)
-			continue
-		}
 		lookup.upkeepId = upkeepId.BigInt()
 		// the block here is exclusively used to call checkCallback at this block, not to be confused with the block number
 		// in the revert for mercury v0.2, which is denoted by time in the struct bc starting from v0.3, only timestamp will be supported
@@ -200,7 +203,7 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 		return encoding.RpcFlakyFailure, true, false, fmt.Errorf("failed to get upkeep privilege config for upkeep ID %s: %v", upkeepId, err)
 	}
 
-	var a AdminOffchainConfig
+	var a UpkeepPrivilegeConfig
 	err = json.Unmarshal(cfg, &a)
 	if err != nil {
 		return encoding.MercuryUnmarshalError, false, false, fmt.Errorf("failed to unmarshal privilege config for upkeep ID %s: %v", upkeepId, err)
@@ -210,15 +213,15 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 }
 
 // decodeFeedLookup decodes the revert error FeedLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
-func (r *EvmRegistry) decodeFeedLookup(data []byte) (encoding.PipelineExecutionState, *FeedLookup, error) {
+func (r *EvmRegistry) decodeFeedLookup(data []byte) (*FeedLookup, error) {
 	e := r.mercury.abi.Errors["FeedLookup"]
 	unpack, err := e.Unpack(data)
 	if err != nil {
-		return encoding.PackUnpackDecodeFailed, nil, fmt.Errorf("unpack error: %w", err)
+		return nil, fmt.Errorf("unpack error: %w", err)
 	}
 	errorParameters := unpack.([]interface{})
 
-	return encoding.NoPipelineError, &FeedLookup{
+	return &FeedLookup{
 		feedParamKey: *abi.ConvertType(errorParameters[0], new(string)).(*string),
 		feeds:        *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
 		timeParamKey: *abi.ConvertType(errorParameters[2], new(string)).(*string),
@@ -264,6 +267,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr
 		ch = make(chan MercuryData, resultLen)
 		go r.multiFeedsRequest(ctx, ch, ml, lggr)
 	} else {
+		// TODO: This should result in upkeep ineligible since upkeep gave a wrong mercury input
 		return encoding.InvalidRevertDataInput, nil, false, fmt.Errorf("invalid label combination: feed param key %s and time param key %s", ml.feedParamKey, ml.timeParamKey)
 	}
 

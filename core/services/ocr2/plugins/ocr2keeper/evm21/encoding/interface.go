@@ -26,9 +26,10 @@ const (
 	// leaving a gap here for more onchain failure reasons in the future
 	// upkeep failure offchain reasons
 	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
-	UpkeepFailureReasonLogBlockNoLongerExists  UpkeepFailureReason = 31
-	UpkeepFailureReasonLogBlockInvalid         UpkeepFailureReason = 32
-	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
+	// todo: do we need these three separate reasons?
+	UpkeepFailureReasonLogBlockNoLongerExists UpkeepFailureReason = 31
+	UpkeepFailureReasonLogBlockInvalid        UpkeepFailureReason = 32
+	UpkeepFailureReasonTxHashNoLongerExists   UpkeepFailureReason = 33
 
 	// pipeline execution error
 	NoPipelineError               PipelineExecutionState = 0
@@ -40,7 +41,7 @@ const (
 	MercuryUnmarshalError         PipelineExecutionState = 6
 	InvalidMercuryRequest         PipelineExecutionState = 7
 	FailedToDecodeMercuryResponse PipelineExecutionState = 8
-	InvalidRevertDataInput        PipelineExecutionState = 9
+	InvalidRevertDataInput        PipelineExecutionState = 9 // todo: should this be UpkeepFailureReason?
 )
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
