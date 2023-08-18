@@ -193,10 +193,10 @@ func (p *logEventProvider) ReadLogs(ctx context.Context, force bool, ids ...*big
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
-	entries := p.getEntries(latest, force, ids...)
+	filters := p.getFilters(latest, force, ids...)
 
-	err = p.readLogs(ctx, latest, entries)
-	p.updateEntriesLastPoll(entries)
+	err = p.readLogs(ctx, latest, filters)
+	p.updateFiltersLastPoll(filters)
 	// p.lggr.Debugw("read logs for entries", "latestBlock", latest, "entries", len(entries), "err", err)
 	if err != nil {
 		return fmt.Errorf("fetched logs with errors: %w", err)
@@ -293,7 +293,7 @@ func (p *logEventProvider) getPartitionIds(hashFn hash.Hash, partition int) []*b
 	return ids
 }
 
-func (p *logEventProvider) updateEntriesLastPoll(entries []upkeepFilter) {
+func (p *logEventProvider) updateFiltersLastPoll(entries []upkeepFilter) {
 	p.filterStore.UpdateFilters(func(orig, f upkeepFilter) upkeepFilter {
 		if f.lastPollBlock > orig.lastPollBlock {
 			orig.lastPollBlock = f.lastPollBlock
@@ -302,9 +302,10 @@ func (p *logEventProvider) updateEntriesLastPoll(entries []upkeepFilter) {
 	}, entries...)
 }
 
-// getEntries returns the filters for the given upkeepIDs,
+// getFilters returns the filters for the given upkeepIDs,
 // returns empty filter for inactive upkeeps.
-func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big.Int) []upkeepFilter {
+// TODO: remove force
+func (p *logEventProvider) getFilters(latestBlock int64, force bool, ids ...*big.Int) []upkeepFilter {
 	var filters []upkeepFilter
 	p.filterStore.RangeFiltersByIDs(func(i int, f upkeepFilter) {
 		if len(f.addr) == 0 { // not found
@@ -325,9 +326,9 @@ func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big
 
 // readLogs calls log poller to get the logs for the given upkeep entries.
 //
-// TODO: batch entries by contract address and call log poller once per contract address
-// NOTE: the entries are already grouped by contract address
-func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries []upkeepFilter) (merr error) {
+// Exploratory: batch filters by contract address and call log poller once per contract address
+// NOTE: the filters are already grouped by contract address
+func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters []upkeepFilter) (merr error) {
 	lookbackBlocks := p.opts.LookbackBlocks
 	if latest < lookbackBlocks {
 		// special case of an empty or new blockchain (e.g. simulated chain)
@@ -336,52 +337,50 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries [
 	// maxBurst will be used to increase the burst limit to allow a long range scan
 	maxBurst := int(lookbackBlocks + 1)
 
-	for _, entry := range entries {
-		if len(entry.addr) == 0 {
+	for _, filter := range filters {
+		if len(filter.addr) == 0 {
 			continue
 		}
-		// start should either be the last block polled for the entry or the
-		// lookback range in the case this is the first time the entry is polled
-		start := entry.lastPollBlock
+		// start should either be the last block polled for the filter or the
+		// lookback range in the case this is the first time the filter is polled
+		start := filter.lastPollBlock
 		if start == 0 || start < latest-lookbackBlocks {
 			start = latest - lookbackBlocks
-			entry.blockLimiter.SetBurst(maxBurst)
+			filter.blockLimiter.SetBurst(maxBurst)
 		}
 
-		resv := entry.blockLimiter.ReserveN(time.Now(), int(latest-start))
+		resv := filter.blockLimiter.ReserveN(time.Now(), int(latest-start))
 		if !resv.OK() {
-			merr = errors.Join(merr, fmt.Errorf("%w: %s", ErrBlockLimitExceeded, entry.upkeepID.String()))
+			merr = errors.Join(merr, fmt.Errorf("%w: %s", ErrBlockLimitExceeded, filter.upkeepID.String()))
 			continue
 		}
 		// adding a buffer to check for reorged logs.
-		start = start - p.opts.LookbackBuffer
+		start = start - p.opts.ReorgBuffer
 		if start < 0 {
 			start = 0
 		}
 
-		logs, err := p.poller.LogsWithSigs(start, latest, entry.topics, common.BytesToAddress(entry.addr), pg.WithParentCtx(ctx))
+		logs, err := p.poller.LogsWithSigs(start, latest, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
 		if err != nil {
 			// cancel limit reservation as we failed to get logs
 			resv.Cancel()
-			// exit if the context was canceled
 			if ctx.Err() != nil {
+				// exit if the context was canceled
 				return merr
 			}
-
-			merr = errors.Join(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", entry.upkeepID.String(), err))
-
+			merr = errors.Join(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", filter.upkeepID.String(), err))
 			continue
 		}
 		// if this limiter's burst was set to the max ->
 		// reset it and cancel the reservation to allow further processing
-		if entry.blockLimiter.Burst() == maxBurst {
+		if filter.blockLimiter.Burst() == maxBurst {
 			resv.Cancel()
-			entry.blockLimiter.SetBurst(p.opts.BlockLimitBurst)
+			filter.blockLimiter.SetBurst(p.opts.BlockLimitBurst)
 		}
 
-		p.buffer.enqueue(entry.upkeepID, logs...)
+		p.buffer.enqueue(filter.upkeepID, logs...)
 
-		entry.lastPollBlock = latest
+		filter.lastPollBlock = latest
 	}
 
 	return merr

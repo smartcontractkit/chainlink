@@ -10,8 +10,8 @@ import (
 type LogEventProviderOptions struct {
 	// LookbackBlocks is the number of blocks to look back for logs.
 	LookbackBlocks int64
-	// LookbackBuffer is the number of blocks to add as a buffer to the lookback.
-	LookbackBuffer int64
+	// ReorgBuffer is the number of blocks to add as a buffer to the lookback.
+	ReorgBuffer int64
 	// BlockRateLimit is the rate limit on the range of blocks the we fetch logs for.
 	BlockRateLimit rate.Limit
 	// BlockLimitBurst is the burst upper limit on the range of blocks the we fetch logs for.
@@ -29,8 +29,8 @@ func (o *LogEventProviderOptions) Defaults() {
 	if o.LookbackBlocks == 0 {
 		o.LookbackBlocks = 200
 	}
-	if o.LookbackBuffer == 0 {
-		o.LookbackBuffer = 32
+	if o.ReorgBuffer == 0 {
+		o.ReorgBuffer = 32
 	}
 	if o.BlockRateLimit == 0 {
 		o.BlockRateLimit = rate.Every(time.Second)
