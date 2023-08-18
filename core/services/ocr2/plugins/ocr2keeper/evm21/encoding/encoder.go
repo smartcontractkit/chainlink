@@ -96,7 +96,6 @@ func (e reportEncoder) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error)
 	for i, upkeepId := range report.UpkeepIds {
 		triggerW, err := core.UnpackTrigger(upkeepId, report.Triggers[i])
 		if err != nil {
-			// TODO: log error and continue instead?
 			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
 		}
 		id := &ocr2keepers.UpkeepIdentifier{}

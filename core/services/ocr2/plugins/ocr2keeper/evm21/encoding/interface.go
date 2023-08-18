@@ -39,7 +39,7 @@ const (
 	MercuryUnmarshalError         PipelineExecutionState = 6
 	InvalidMercuryRequest         PipelineExecutionState = 7
 	FailedToDecodeMercuryResponse PipelineExecutionState = 8
-	InvalidRevertDataInput        PipelineExecutionState = 9 // todo: should this be UpkeepFailureReason
+	InvalidRevertDataInput        PipelineExecutionState = 9
 )
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo

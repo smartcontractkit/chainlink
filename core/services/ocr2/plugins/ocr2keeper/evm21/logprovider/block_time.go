@@ -12,8 +12,7 @@ import (
 
 var (
 	defaultSampleSize = int64(10)
-	// TODO: TBD
-	defaultBlockTime = int64(time.Second * 10)
+	defaultBlockTime  = time.Second * 1
 )
 
 type blockTimeResolver struct {
@@ -36,9 +35,7 @@ func (r *blockTimeResolver) BlockTime(ctx context.Context, blockSampleSize int64
 		return 0, fmt.Errorf("failed to get latest block from poller: %w", err)
 	}
 	if latest < blockSampleSize {
-		// TODO: TBD if we don't have enough blocks in the chain
-		// in case of simulated or new chains
-		return time.Second, nil
+		return defaultBlockTime, nil
 	}
 	blockTimes, err := r.getSampleTimestamps(ctx, blockSampleSize, latest)
 	if err != nil {
@@ -64,7 +61,6 @@ func (r *blockTimeResolver) getSampleTimestamps(ctx context.Context, blockSample
 	if err != nil {
 		return nil, fmt.Errorf("failed to get block range from poller: %w", err)
 	}
-	// TODO: check if we need to sort
 	sort.Slice(blocks, func(i, j int) bool {
 		return blocks[i].BlockNumber > blocks[j].BlockNumber
 	})

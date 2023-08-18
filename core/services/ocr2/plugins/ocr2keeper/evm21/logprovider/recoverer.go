@@ -88,7 +88,7 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 	// TODO: Ensure lookback blocks is at least as large as Finality Depth to
 	// ensure recoverer does not go beyond finality depth
 	rec.lookbackBlocks.Store(lookbackBlocks)
-	rec.blockTime.Store(defaultBlockTime)
+	rec.blockTime.Store(int64(defaultBlockTime))
 
 	return rec
 }
