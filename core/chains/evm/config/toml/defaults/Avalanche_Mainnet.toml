@@ -1,5 +1,8 @@
 ChainID = '43114'
 FinalityDepth = 1
+# eth_getBlockByNumber(latest) == eth_getBlockByNumber(finalized) https://docs.avax.network/build/dapp/advanced/integrate-exchange#determining-finality
+# Avalanche RPCs frequently experience rewinds, ie. they might report a block as finalized, and afterwards report a block at a lower height as finalized.
+# This violates an invariant that subsystems might expect, that finalized blocks reported always build on top of earlier reported finalized blocks.
 FinalityTagEnabled = false
 LinkContractAddress = '0x5947BB275c521040051D82396192181b413227A3'
 LogPollInterval = '3s'
