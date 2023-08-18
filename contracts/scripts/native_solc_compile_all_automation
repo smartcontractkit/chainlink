@@ -42,6 +42,8 @@ compileContract dev/automation/tests/LogUpkeepCounter.sol
 # Keepers x VRF v2
 compileContract KeepersVRFConsumer.sol
 
+compileContract automation/mocks/KeeperRegistrar1_2Mock.sol
+compileContract automation/mocks/KeeperRegistryCheckUpkeepGasUsageWrapper1_2Mock.sol
 
 SOLC_VERSION="0.8.16"
 
