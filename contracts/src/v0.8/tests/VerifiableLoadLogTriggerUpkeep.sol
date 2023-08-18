@@ -68,10 +68,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
 
   function performUpkeep(bytes calldata performData) external {
     uint256 startGas = gasleft();
-    (bytes memory values1, bytes memory values2, bytes memory extraData) = abi.decode(
-      performData,
-      (bytes, bytes, bytes)
-    );
+    (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
     (uint256 upkeepId, uint256 logBlockNumber, address addr) = abi.decode(extraData, (uint256, uint256, address));
 
     uint256 firstPerformBlock = firstPerformBlocks[upkeepId];
@@ -108,7 +105,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
     bytes[] memory values,
     bytes memory extraData
   ) external pure override returns (bool, bytes memory) {
-    bytes memory performData = abi.encode(values[0], values[1], extraData);
+    bytes memory performData = abi.encode(values, extraData);
     return (true, performData);
   }
 }
