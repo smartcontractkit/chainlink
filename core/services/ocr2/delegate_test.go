@@ -8,7 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -140,7 +139,9 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		require.NoError(t, err)
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("some transmitterID string")
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = nil
-		effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(&jb, legacyChains, customChainID.String(), lggr)
+		chain, err := legacyChains.Get(customChainID.String())
+		require.NoError(t, err)
+		effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(&jb, chain, lggr)
 		require.NoError(t, err)
 		require.Equal(t, "some transmitterID string", effectiveTransmitterID)
 		require.Equal(t, []string{"some transmitterID string"}, jb.OCR2OracleSpec.RelayConfig["sendingKeys"].([]string))
@@ -151,8 +152,10 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 			jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 			require.NoError(t, err)
 			setTestCase(&jb, tc, txManager)
+			chain, err := legacyChains.Get(customChainID.String())
+			require.NoError(t, err)
 
-			effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(&jb, legacyChains, customChainID.String(), lggr)
+			effectiveTransmitterID, err := ocr2.GetEVMEffectiveTransmitterID(&jb, chain, lggr)
 			if tc.expectedError {
 				require.Error(t, err)
 			} else {
@@ -173,8 +176,9 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		require.NoError(t, err)
 		jb.ForwardingAllowed = true
 		jb.OCR2OracleSpec.TransmitterID = null.StringFrom("0x7e57000000000000000000000000000000000001")
-		_, err = ocr2.GetEVMEffectiveTransmitterID(&jb, legacyChains, "-1", lggr)
+		chain, err := legacyChains.Get("not an id")
 		require.Error(t, err)
-		require.ErrorIs(t, err, chains.ErrNoSuchChainID)
+		_, err = ocr2.GetEVMEffectiveTransmitterID(&jb, chain, lggr)
+		require.Error(t, err)
 	})
 }
