@@ -101,7 +101,6 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 			// invalid log
 			continue
 		}
-
 		i := b.blockNumberIndex(log.BlockNumber)
 		currentBlock := b.blocks[i]
 		if currentBlock.blockNumber < log.BlockNumber {
@@ -233,7 +232,9 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 		return results[i].log.BlockNumber < results[j].log.BlockNumber
 	})
 
-	b.lggr.Debugw("Dequeued logs", "results", len(results), "start", start, "end", end)
+	if len(results) > 0 {
+		b.lggr.Debugw("Dequeued logs", "results", len(results), "start", start, "end", end)
+	}
 
 	return results
 }

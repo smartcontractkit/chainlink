@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core/mocks"
 )
 
@@ -39,10 +40,33 @@ func TestLogRecoverer_GetRecoverables(t *testing.T) {
 		{
 			"happy flow",
 			[]ocr2keepers.UpkeepPayload{
-				{WorkID: "1"}, {WorkID: "2"},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
 			},
 			[]ocr2keepers.UpkeepPayload{
-				{WorkID: "1"}, {WorkID: "2"},
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+			},
+			false,
+		},
+		{
+			"rate limiting",
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "4", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "5", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "6", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+			},
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "4", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "5", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
 			},
 			false,
 		},

@@ -251,15 +251,23 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 		return nil, nil
 	}
 
-	pending := make([]ocr2keepers.UpkeepPayload, len(r.pending))
-	copy(pending, r.pending)
+	logsCount := map[string]int{}
 
-	r.pending = make([]ocr2keepers.UpkeepPayload, 0)
+	var results, pending []ocr2keepers.UpkeepPayload
+	for _, payload := range r.pending {
+		uid := payload.UpkeepID.String()
+		if logsCount[uid] >= AllowedLogsPerUpkeep {
+			pending = append(pending, payload)
+			continue
+		}
+		logsCount[uid]++
+		results = append(results, payload)
+	}
+	r.pending = pending
 
 	r.lggr.Debugf("found %d pending payloads", len(pending))
 
-	// TODO: Add rate limiting on returned proposals on every call
-	return pending, nil
+	return results, nil
 }
 
 func (r *logRecoverer) recover(ctx context.Context) error {

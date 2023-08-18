@@ -85,9 +85,9 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	waitLogProvider(ctx, t, logProvider, 3)
 
-	logs, err := logProvider.GetLatestPayloads(ctx)
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(logs), n, "failed to get all logs")
+	allPayloads := collectPayloads(ctx, t, logProvider, n, 5)
+	require.GreaterOrEqual(t, len(allPayloads), n,
+		"failed to get logs after restart")
 
 	t.Run("Restart", func(t *testing.T) {
 		t.Log("restarting log provider")
@@ -110,9 +110,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		waitLogProvider(ctx, t, logProvider2, 2)
 
 		t.Log("getting logs after restart")
-
-		logsAfterRestart, err := logProvider2.GetLatestPayloads(ctx)
-		require.NoError(t, err)
+		logsAfterRestart := collectPayloads(ctx, t, logProvider2, n, 5)
 		require.GreaterOrEqual(t, len(logsAfterRestart), n,
 			"failed to get logs after restart")
 	})
@@ -161,13 +159,10 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	}()
 	defer logProvider.Close()
 
-	waitLogProvider(ctx, t, logProvider, 2)
+	waitLogProvider(ctx, t, logProvider, 3)
 
-	logs, err := logProvider.GetLatestPayloads(ctx)
-	require.NoError(t, err)
-	require.NoError(t, logProvider.Close())
-
-	require.GreaterOrEqual(t, len(logs), len(contracts), "failed to backfill logs")
+	allPayloads := collectPayloads(ctx, t, logProvider, n, 5)
+	require.GreaterOrEqual(t, len(allPayloads), len(contracts), "failed to backfill logs")
 }
 
 func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
@@ -442,6 +437,18 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 		break
 	}
 	require.NoError(t, lctx.Err(), "could not recover logs before timeout")
+}
+
+func collectPayloads(ctx context.Context, t *testing.T, logProvider logprovider.LogEventProvider, n, rounds int) []ocr2keepers.UpkeepPayload {
+	allPayloads := make([]ocr2keepers.UpkeepPayload, 0)
+	for ctx.Err() == nil && len(allPayloads) < n && rounds > 0 {
+		logs, err := logProvider.GetLatestPayloads(ctx)
+		require.NoError(t, err)
+		require.LessOrEqual(t, len(logs), logprovider.AllowedLogsPerUpkeep, "failed to get all logs")
+		allPayloads = append(allPayloads, logs...)
+		rounds--
+	}
+	return allPayloads
 }
 
 // waitLogProvider waits until the provider reaches the given partition
