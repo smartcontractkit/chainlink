@@ -255,11 +255,11 @@ jobs:
             pyroscope_env: ""
           - name: ocr
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: runlog
             nodes: 1
@@ -267,109 +267,109 @@ jobs:
             pyroscope_env: ""
           - name: vrf
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: forwarder_ocr
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
           - name: forwarders_ocr2
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
 
           # Keeper tests split out to use minimal environments
           - name: keeper-1
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperBasicSmoke$
           - name: keeper-2
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperBlockCountPerTurn/registry_1_1$
           - name: keeper-3
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperBlockCountPerTurn/registry_1_2$
           - name: keeper-4
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperBlockCountPerTurn/registry_1_3$
           - name: keeper-5
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperSimulation$
           - name: keeper-6
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperCheckPerformGasLimit/registry_1_2$
           - name: keeper-7
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperCheckPerformGasLimit/registry_1_3$
           - name: keeper-8
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperRegisterUpkeep$
           - name: keeper-9
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperAddFunds$
           - name: keeper-10
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperRemove$
           - name: keeper-11
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperPauseRegistry$
           - name: keeper-12
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperMigrateRegistry$
           - name: keeper-13
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperNodeDown/registry_1_1$
           - name: keeper-14
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperNodeDown/registry_1_2$
           - name: keeper-15
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
             file: keeper
             run: -run ^TestKeeperNodeDown/registry_1_3$
