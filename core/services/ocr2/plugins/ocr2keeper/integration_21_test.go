@@ -155,14 +155,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	}
 	g.Eventually(receivedBytes, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.Equal(payload1))
 
-	// check pipeline runs
-	var allRuns []pipeline.Run
-	for _, node := range nodes {
-		runs, err2 := node.App.PipelineORM().GetAllRuns()
-		require.NoError(t, err2)
-		allRuns = append(allRuns, runs...)
-	}
-	require.GreaterOrEqual(t, len(allRuns), 1)
+	checkPipelineRuns(t, nodes, 1)
 
 	// change payload
 	_, err = upkeepContract.SetBytesToSend(carrol, payload2)
@@ -207,164 +200,116 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
 	nodes := setupNodes(t, nodeKeys, registry, backend, steve)
-
-	<-time.After(time.Second * 5)
+	// wait for nodes to start
+	// TODO: find a better way to do this
+	<-time.After(time.Second * 10)
 
 	upkeeps := 1
 
 	_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(upkeeps+1))))
 	require.NoError(t, err)
-	ids, _, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, upkeeps)
-	require.Equal(t, upkeeps, len(ids))
-	require.Equal(t, len(contracts), len(ids))
+
 	backend.Commit()
 
-	go func(contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
-		<-time.After(time.Second * 5)
-		ctx := testutils.Context(t)
-		emits := 10
-		for i := 0; i < emits || ctx.Err() != nil; i++ {
-			<-time.After(time.Second)
-			t.Logf("EvmRegistry: calling upkeep contracts to emit events. run: %d", i+1)
-			for _, contract := range contracts {
-				_, err = contract.Start(carrol)
-				require.NoError(t, err)
-				backend.Commit()
-			}
+	ids, addrs, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, upkeeps)
+	require.Equal(t, upkeeps, len(ids))
+	require.Equal(t, len(ids), len(contracts))
+	require.Equal(t, len(ids), len(addrs))
+
+	backend.Commit()
+
+	emits := 10
+	go emitEvents(t, testutils.Context(t), emits, contracts, carrol, func() {
+		backend.Commit()
+		time.Sleep(time.Second)
+	})
+
+	listener, done := listenPerformed(t, backend, registry, ids, int64(1))
+	g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
+	done()
+
+	runs := checkPipelineRuns(t, nodes, (emits/2)*upkeeps) // TODO: TBD
+
+	t.Run("recovery backfill", func(t *testing.T) {
+		addr, contract := addrs[0], contracts[0]
+		upkeepID := registerUpkeep(t, registry, addr, carrol, steve, backend)
+		backend.Commit()
+		t.Logf("Registered new upkeep %s for address %s", upkeepID.String(), addr.String())
+		// blockBeforeEmits := backend.Blockchain().CurrentBlock().Number.Uint64()
+		// Emit 100 logs in a burst
+		emitEvents(t, testutils.Context(t), 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {})
+		// Mine enough blocks to ensre these logs don't fall into log provider range
+		dummyBlocks := 500
+		for i := 0; i < dummyBlocks; i++ {
+			backend.Commit()
+			time.Sleep(time.Millisecond * 10)
 		}
-	}(contracts)
+		t.Logf("Mined %d blocks", dummyBlocks)
 
-	performed, done := listenPerformed(t, backend, registry, ids, 1)
-	defer done()
+		// listener, done := listenPerformed(t, backend, registry, []*big.Int{upkeepID}, int64(blockBeforeEmits))
+		// defer done()
+		// g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 
-	receivedPerformedEvents := func() bool {
-		count := 0
-		performed.Range(func(key, value interface{}) bool {
-			count++
-			return true
-		})
-		return count > 0
+		expectedPostRecover := runs * 2 // TODO: TBD
+		waitPipelineRuns(t, nodes, expectedPostRecover, testutils.WaitTimeout(t), cltest.DBPollingInterval)
+
+	})
+}
+
+func waitPipelineRuns(t *testing.T, nodes []Node, n int, timeout, interval time.Duration) {
+	ctx, cancel := context.WithTimeout(testutils.Context(t), timeout)
+	defer cancel()
+	var allRuns []pipeline.Run
+	for len(allRuns) < n && ctx.Err() == nil {
+		for _, node := range nodes {
+			runs, err := node.App.PipelineORM().GetAllRuns()
+			require.NoError(t, err)
+			allRuns = runs
+		}
+		time.Sleep(interval)
 	}
-	g.Eventually(receivedPerformedEvents, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
+	runs := len(allRuns)
+	t.Logf("found %d pipeline runs", runs)
+	require.GreaterOrEqual(t, runs, n)
+}
 
-	// check pipeline runs
+func checkPipelineRuns(t *testing.T, nodes []Node, n int) int {
 	var allRuns []pipeline.Run
 	for _, node := range nodes {
 		runs, err2 := node.App.PipelineORM().GetAllRuns()
 		require.NoError(t, err2)
 		allRuns = append(allRuns, runs...)
 	}
-
-	require.GreaterOrEqual(t, len(allRuns), 1)
+	runs := len(allRuns)
+	t.Logf("found %d pipeline runs", runs)
+	require.GreaterOrEqual(t, runs, n)
+	return runs
 }
 
-func TestIntegration_KeeperPluginLogRecoverer(t *testing.T) {
-	g := gomega.NewWithT(t)
-
-	// setup blockchain
-	sergey := testutils.MustNewSimTransactor(t) // owns all the link
-	steve := testutils.MustNewSimTransactor(t)  // registry owner
-	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
-	genesisData := core.GenesisAlloc{
-		sergey.From: {Balance: assets.Ether(10000).ToInt()},
-		steve.From:  {Balance: assets.Ether(10000).ToInt()},
-		carrol.From: {Balance: assets.Ether(10000).ToInt()},
+func emitEvents(t *testing.T, ctx context.Context, n int, contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter, carrol *bind.TransactOpts, afterEmit func()) {
+	for i := 0; i < n && ctx.Err() == nil; i++ {
+		for _, contract := range contracts {
+			// t.Logf("[automation-ocr3 | EvmRegistry] calling upkeep contracts to emit events. run: %d; contract addr: %s", i+1, contract.Address().Hex())
+			_, err := contract.Start(carrol)
+			require.NoError(t, err)
+		}
+		afterEmit()
 	}
-	// Generate 5 keys for nodes (1 bootstrap + 4 ocr nodes) and fund them with ether
-	var nodeKeys [5]ethkey.KeyV2
-	for i := int64(0); i < 5; i++ {
-		nodeKeys[i] = cltest.MustGenerateRandomKey(t)
-		genesisData[nodeKeys[i].Address] = core.GenesisAccount{Balance: assets.Ether(1000).ToInt()}
-	}
+}
 
-	backend := cltest.NewSimulatedBackend(t, genesisData, uint32(ethconfig.Defaults.Miner.GasCeil))
-	stopMining := cltest.Mine(backend, 3*time.Second) // Should be greater than deltaRound since we cannot access old blocks on simulated blockchain
-	defer stopMining()
-
-	// Deploy registry
-	linkAddr, _, linkToken, err := link_token_interface.DeployLinkToken(sergey, backend)
-	require.NoError(t, err)
-	gasFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(60000000000))
-	require.NoError(t, err)
-	linkFeedAddr, _, _, err := mock_v3_aggregator_contract.DeployMockV3AggregatorContract(steve, backend, 18, big.NewInt(2000000000000000000))
-	require.NoError(t, err)
-	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
-
-	setupNodes(t, nodeKeys, registry, backend, steve)
-
-	_, err = linkToken.Transfer(sergey, carrol.From, big.NewInt(0).Mul(oneHunEth, big.NewInt(int64(5))))
-	require.NoError(t, err)
-
-	<-time.After(time.Second * 15)
-
-	// upkeeps := 1
-
-	// ids, _, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, upkeeps)
-	// require.Equal(t, upkeeps, len(ids))
-	// require.Equal(t, len(contracts), len(ids))
-	// backend.Commit()
-
-	// go func(contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter) {
-	// 	<-time.After(time.Second * 5)
-	// 	ctx := testutils.Context(t)
-	// 	emits := 10
-	// 	for i := 0; i < emits || ctx.Err() != nil; i++ {
-	// 		<-time.After(time.Second)
-	// 		t.Logf("EvmRegistry: calling upkeep contracts to emit events. run: %d", i+1)
-	// 		for _, contract := range contracts {
-	// 			_, err = contract.Start(carrol)
-	// 			require.NoError(t, err)
-	// 			backend.Commit()
-	// 		}
-	// 	}
-	// }(contracts)
-	// performed, doneListen := listenPerformed(t, backend, registry, ids, 1)
-	// receivedPerformedEvents := func() bool {
-	// 	count := 0
-	// 	performed.Range(func(key, value interface{}) bool {
-	// 		count++
-	// 		return true
-	// 	})
-	// 	return count > 0
-	// }
-	// g.Eventually(receivedPerformedEvents, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
-	// doneListen()
-	// Happy path log trigger is complete
-	// Now register a new log upkeep. It should get picked up as soon as it is regsitered and all of its logs should be performed
-
-	newIDs, _, newContracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, 1)
-	require.Equal(t, len(newIDs), 1)
-	require.Equal(t, len(newContracts), 1)
-	backend.Commit()
-	t.Logf("Registered new upkeep %s", newIDs[0].String())
-	// Emit 100 logs in a burst
-	emits := 100
-	for i := 0; i < emits; i++ {
-		_, err = newContracts[0].Start(carrol)
-		require.NoError(t, err)
-	}
-	// Mine enough blocks to ensre these logs don't fall into log provider range
-	blockDiff := 1000
-	for i := 0; i < blockDiff; i++ {
-		backend.Commit()
-	}
-	t.Logf("Mined %d blocks", blockDiff)
-
-	newPerformed, done := listenPerformed(t, backend, registry, newIDs, int64(1))
-	defer done()
-	receivedAllPerformedEvents := func() bool {
+func mapListener(m *sync.Map, n int) func() bool {
+	return func() bool {
 		count := 0
-		newPerformed.Range(func(key, value interface{}) bool {
+		m.Range(func(key, value interface{}) bool {
 			count++
 			return true
 		})
-		return count > 0
+		return count > n
 	}
-	g.Eventually(receivedAllPerformedEvents, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 }
 
-func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64) (*sync.Map, func()) {
-	performed := &sync.Map{}
+func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry *iregistry21.IKeeperRegistryMaster, ids []*big.Int, startBlock int64) (func() bool, func()) {
+	cache := &sync.Map{}
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	start := startBlock
 	go func() {
@@ -385,8 +330,8 @@ func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry 
 			require.NoError(t, err)
 			for iter.Next() {
 				if iter.Event != nil {
-					t.Logf("EvmRegistry: upkeep performed event emitted for ids %+v", ids)
-					performed.Store(iter.Event.Id.String(), true)
+					t.Logf("[automation-ocr3 | EvmRegistry] upkeep performed event emitted for id %s", iter.Event.Id.String())
+					cache.Store(iter.Event.Id.String(), true)
 				}
 			}
 			require.NoError(t, iter.Close())
@@ -394,7 +339,7 @@ func listenPerformed(t *testing.T, backend *backends.SimulatedBackend, registry 
 		}
 	}()
 
-	return performed, cancel
+	return mapListener(cache, 0), cancel
 }
 
 func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *backends.SimulatedBackend, usr *bind.TransactOpts) []Node {
@@ -646,21 +591,8 @@ func deployUpkeeps(t *testing.T, backend *backends.SimulatedBackend, carrol, ste
 			big.NewInt(100000),
 		)
 		require.NoError(t, err)
-		logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
-		logTriggerConfig, err := abi.Encode(map[string]interface{}{
-			"contractAddress": upkeepAddr,
-			"filterSelector":  0,                                                                    // no indexed topics filtered
-			"topic0":          "0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d", // event sig for Trigger()
-			"topic1":          "0x",
-			"topic2":          "0x",
-			"topic3":          "0x",
-		}, logTriggerConfigType)
-		require.NoError(t, err)
 
-		registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 1, []byte{}, logTriggerConfig, []byte{})
-		require.NoError(t, err)
-		backend.Commit()
-		upkeepID := getUpkeepIdFromTx21(t, registry, registrationTx, backend)
+		upkeepID := registerUpkeep(t, registry, upkeepAddr, carrol, steve, backend)
 
 		// Fund the upkeep
 		_, err = linkToken.Approve(carrol, registry.Address(), oneHunEth)
@@ -674,6 +606,26 @@ func deployUpkeeps(t *testing.T, backend *backends.SimulatedBackend, carrol, ste
 		addrs[i] = upkeepAddr
 	}
 	return ids, addrs, contracts
+}
+
+func registerUpkeep(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, upkeepAddr common.Address, carrol, steve *bind.TransactOpts, backend *backends.SimulatedBackend) *big.Int {
+	logTriggerConfigType := abi.MustNewType("tuple(address contractAddress, uint8 filterSelector, bytes32 topic0, bytes32 topic1, bytes32 topic2, bytes32 topic3)")
+	logTriggerConfig, err := abi.Encode(map[string]interface{}{
+		"contractAddress": upkeepAddr,
+		"filterSelector":  0,                                                                    // no indexed topics filtered
+		"topic0":          "0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d", // event sig for Trigger()
+		"topic1":          "0x",
+		"topic2":          "0x",
+		"topic3":          "0x",
+	}, logTriggerConfigType)
+	require.NoError(t, err)
+
+	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 1, []byte{}, logTriggerConfig, []byte{})
+	require.NoError(t, err)
+	backend.Commit()
+	upkeepID := getUpkeepIdFromTx21(t, registry, registrationTx, backend)
+
+	return upkeepID
 }
 
 func deployKeeper21Registry(
