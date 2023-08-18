@@ -237,11 +237,7 @@ func (d *Delegate) AfterJobCreated(spec job.Job)  {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	// If the job spec is malformed in any way, we report the error but return nil so that
-	//  the job deletion itself isn't blocked.  However, if UnregisterFilter returns an
-	//  error, that means it failed to remove a valid active filter from the db.  We do abort the job deletion
-	//  in that case, since it should be easy for the user to retry and will avoid leaving the db in
-	//  an inconsistent state.  This assumes UnregisterFilter will return nil if the filter wasn't found
-	//  at all (no rows deleted).
+	//  the job deletion itself isn't blocked.
 
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
@@ -254,56 +250,67 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 		d.lggr.Errorw("DeleteJob: "+ErrJobSpecNoRelayer.Error(), "err", err)
 		return nil
 	}
-	// only do cleanup for EVM
+	// we only have clean to do for the EVM
 	if rid.Network == relay.EVM {
+		d.cleanupEVM(jb, q, rid)
+	}
+	return nil
+}
 
-		chain, err := d.legacyChains.Get(rid.ChainID.String())
+// cleanupEVM is a helper for clean up EVM specific state when a job is deleted
+func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error {
+	//  If UnregisterFilter returns an
+	//  error, that means it failed to remove a valid active filter from the db.  We do abort the job deletion
+	//  in that case, since it should be easy for the user to retry and will avoid leaving the db in
+	//  an inconsistent state.  This assumes UnregisterFilter will return nil if the filter wasn't found
+	//  at all (no rows deleted).
+	spec := jb.OCR2OracleSpec
+	chain, err := d.legacyChains.Get(relayID.ChainID.String())
+	if err != nil {
+		d.lggr.Error("DeleteJob: failed to chain get chain %s", "err", relayID.ChainID, err)
+		return nil
+	}
+	lp := chain.LogPoller()
+
+	var filters []string
+	switch spec.PluginType {
+	case job.OCR2VRF:
+		filters, err = ocr2coordinator.FilterNamesFromSpec(spec)
 		if err != nil {
-			d.lggr.Error("DeleteJob: failed to chain get chain %s", "err", rid.ChainID, err)
-			return nil
+			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
 		}
-		lp := chain.LogPoller()
-
-		var filters []string
-		switch spec.PluginType {
-		case job.OCR2VRF:
-			filters, err = ocr2coordinator.FilterNamesFromSpec(spec)
-			if err != nil {
-				d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
-			}
-		case job.OCR2Keeper:
-			filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
-			if err != nil {
-				d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
-			}
-		default:
-			return nil
-		}
-
-		rargs := types.RelayArgs{
-			ExternalJobID: jb.ExternalJobID,
-			JobID:         spec.ID,
-			ContractID:    spec.ContractID,
-			New:           false,
-			RelayConfig:   spec.RelayConfig.Bytes(),
-		}
-
-		relayFilters, err := evmrelay.FilterNamesFromRelayArgs(rargs)
+	case job.OCR2Keeper:
+		filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
 		if err != nil {
-			d.lggr.Errorw("Failed to derive evm relay filter names from relay args", "err", err, "rargs", rargs)
-			return nil
+			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
+	default:
+		return nil
+	}
 
-		filters = append(filters, relayFilters...)
+	rargs := types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         spec.ID,
+		ContractID:    spec.ContractID,
+		New:           false,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+	}
 
-		for _, filter := range filters {
-			d.lggr.Debugf("Unregistering %s filter", filter)
-			err = lp.UnregisterFilter(filter, pg.WithQueryer(q))
-			if err != nil {
-				return errors.Wrapf(err, "Failed to unregister filter %s", filter)
-			}
+	relayFilters, err := evmrelay.FilterNamesFromRelayArgs(rargs)
+	if err != nil {
+		d.lggr.Errorw("Failed to derive evm relay filter names from relay args", "err", err, "rargs", rargs)
+		return nil
+	}
+
+	filters = append(filters, relayFilters...)
+
+	for _, filter := range filters {
+		d.lggr.Debugf("Unregistering %s filter", filter)
+		err = lp.UnregisterFilter(filter, pg.WithQueryer(q))
+		if err != nil {
+			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
 		}
-	} // EVM specific cleanup
+	}
 	return nil
 }
 
