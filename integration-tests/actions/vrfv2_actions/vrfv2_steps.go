@@ -152,7 +152,6 @@ func FundVRFCoordinatorV2Subscription(linkToken contracts.LinkToken, coordinator
 func SetupLocalLoadTestEnv(nodesFunding *big.Float, subFundingLINK *big.Int) (*test_env.CLClusterTestEnv, *VRFV2Contracts, [32]byte, error) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
-		WithLogWatcher().
 		WithMockServer(1).
 		WithCLNodes(1).
 		WithFunding(nodesFunding).

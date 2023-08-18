@@ -17,7 +17,6 @@ import (
 )
 
 type CLTestEnvBuilder struct {
-	hasLogWatch          bool
 	hasGeth              bool
 	hasMockServer        bool
 	hasForwarders        bool
@@ -41,11 +40,6 @@ func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
 		externalAdapterCount: 1,
 	}
-}
-
-func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
-	b.hasLogWatch = true
-	return b
 }
 
 func (b *CLTestEnvBuilder) WithCLNodes(clNodesCount int) *CLTestEnvBuilder {
@@ -85,13 +79,14 @@ func (b *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBu
 }
 
 func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
-	envConfigPath, isSet := os.LookupEnv("TEST_ENV_CONFIG_PATH")
+	envConfigPath, isSet := os.LookupEnv(EnvVarConfigPath)
 	if isSet {
+		_ = os.Setenv(EnvVarRyukDisabled, "true")
+		_ = os.Setenv(EnvVarReuseContainers, "true")
 		cfg, err := NewTestEnvConfigFromFile(envConfigPath)
 		if err != nil {
 			return nil, err
 		}
-		_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
 		return b.buildNewEnv(cfg)
 	}
 	return b.buildNewEnv(nil)
@@ -121,7 +116,8 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		}
 	}
 
-	if b.hasLogWatch {
+	_, isSet := os.LookupEnv(EnvVarLokiLogs)
+	if isSet {
 		te.LogWatch, err = logwatch.NewLogWatch(nil, nil)
 		if err != nil {
 			return nil, err
@@ -202,7 +198,6 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 				node.WithP2Pv1(),
 			)
 		}
-		//node.SetDefaultSimulatedGeth(cfg, te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl, b.hasForwarders)
 
 		var httpUrls []string
 		var wsUrls []string

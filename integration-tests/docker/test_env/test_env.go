@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	tc "github.com/testcontainers/testcontainers-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -17,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
+	"os"
 )
 
 var (
@@ -27,7 +26,7 @@ var (
 
 type CLClusterTestEnv struct {
 	Cfg      *TestEnvConfig
-	Network  *tc.DockerNetwork
+	Network  string
 	LogWatch *logwatch.LogWatch
 
 	/* components */
@@ -41,12 +40,12 @@ type CLClusterTestEnv struct {
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
-	utils.SetupCoreDockerEnvLogger()
-	network, err := docker.CreateNetwork()
+	SetupGlobalLogger()
+	network, err := docker.CreateNetwork("")
 	if err != nil {
 		return nil, err
 	}
-	networks := []string{network.Name}
+	networks := []string{network}
 	return &CLClusterTestEnv{
 		Network:    network,
 		Geth:       NewGeth(networks),
@@ -55,16 +54,16 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 }
 
 func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
-	utils.SetupCoreDockerEnvLogger()
-	network, err := docker.CreateNetwork()
+	SetupGlobalLogger()
+	network, err := docker.CreateNetwork(cfg.Networks[0])
 	if err != nil {
 		return nil, err
 	}
-	networks := []string{network.Name}
+	networks := []string{network}
 	log.Info().Interface("Cfg", cfg).Send()
 	return &CLClusterTestEnv{
 		Cfg:        cfg,
-		Network:    network,
+		Network:    cfg.Networks[0],
 		Geth:       NewGeth(networks, WithContainerName(cfg.Geth.ContainerName)),
 		MockServer: NewMockServer(networks, WithContainerName(cfg.MockServer.ContainerName)),
 	}, nil
@@ -78,7 +77,7 @@ func (te *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNet
 	var chains []test_env.PrivateGethChain
 	for _, evmNetwork := range evmNetworks {
 		n := evmNetwork
-		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{te.Network.Name}))
+		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{te.Network}))
 	}
 	te.PrivateGethChain = chains
 	return te
@@ -128,9 +127,10 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 				nodeContainerName = te.Cfg.Nodes[nodeIndex].NodeContainerName
 				dbContainerName = te.Cfg.Nodes[nodeIndex].DbContainerName
 			}
-			n := NewClNode([]string{te.Network.Name}, nodeConfig,
+			n := NewClNode([]string{te.Network}, nodeConfig,
 				WithNodeContainerName(nodeContainerName),
 				WithDbContainerName(dbContainerName),
+				WithLogWatch(te.LogWatch),
 			)
 			err := n.StartContainer()
 			if err != nil {
@@ -192,4 +192,11 @@ func (te *CLClusterTestEnv) Terminate() error {
 	// TESTCONTAINERS_RYUK_DISABLED=false by default so ryuk will remove all
 	// the containers and the Network
 	return nil
+}
+
+func IsContainersReusable() bool {
+	if _, isSet := os.LookupEnv(EnvVarReuseContainers); isSet {
+		return true
+	}
+	return false
 }

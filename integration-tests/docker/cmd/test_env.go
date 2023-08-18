@@ -10,7 +10,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/spf13/cobra"
 	"github.com/testcontainers/testcontainers-go"
 )
@@ -31,7 +30,7 @@ func main() {
 		Use:   "cl-cluster",
 		Short: "Basic CL cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			utils.SetupCoreDockerEnvLogger()
+			test_env.SetupGlobalLogger()
 			log.Info().Msg("Starting CL cluster test environment..")
 
 			_, err := test_env.NewCLTestEnvBuilder().

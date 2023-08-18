@@ -52,7 +52,7 @@ func (pg *PostgresDb) StartContainer() error {
 	c, err := tc.GenericContainer(context.Background(), tc.GenericContainerRequest{
 		ContainerRequest: *req,
 		Started:          true,
-		Reuse:            true,
+		Reuse:            IsContainersReusable(),
 	})
 	if err != nil {
 		return err

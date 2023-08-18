@@ -53,6 +53,7 @@ func ChainlinkNodeAddressesLocal(nodes []*client.ChainlinkClient) ([]common.Addr
 		}
 		addresses = append(addresses, common.HexToAddress(primaryAddress))
 	}
+	log.Warn().Any("Addresses", addresses).Msg("Chainlink node addresses")
 	return addresses, nil
 }
 
@@ -94,6 +95,7 @@ func DeployOCRContractsLocal(
 		transmitters = append(transmitters, addr)
 		payees = append(payees, client.GetDefaultWallet().Address())
 	}
+	log.Warn().Any("Addresses", transmitters).Msg("Chainlink node addresses (raw call)")
 
 	// Set Payees
 	for _, ocrInstance := range ocrInstances {
@@ -120,6 +122,10 @@ func DeployOCRContractsLocal(
 			transmitterAddresses,
 		)
 		if err != nil {
+			log.Error().
+				Any("Transmitters", transmitters).
+				Any("TransmitterAddresses", transmitterAddresses).
+				Send()
 			return nil, fmt.Errorf("error setting OCR config for contract '%s': %w", ocrInstance.Address(), err)
 		}
 		err = client.WaitForEvents()

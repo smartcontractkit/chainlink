@@ -63,7 +63,7 @@ func (ms *MockServer) StartContainer() error {
 	c, err := tc.GenericContainer(context.Background(), tc.GenericContainerRequest{
 		ContainerRequest: ms.getContainerRequest(),
 		Started:          true,
-		Reuse:            true,
+		Reuse:            IsContainersReusable(),
 	})
 	if err != nil {
 		return errors.Wrapf(err, "cannot start MockServer container")

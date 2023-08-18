@@ -1,4 +1,4 @@
-package utils
+package test_env
 
 import (
 	"github.com/rs/zerolog"
@@ -6,8 +6,8 @@ import (
 	"os"
 )
 
-func SetupCoreDockerEnvLogger() {
-	lvlStr := os.Getenv("CORE_DOCKER_ENV_LOG_LEVEL")
+func SetupGlobalLogger() {
+	lvlStr := os.Getenv(EnvVarLogLevel)
 	if lvlStr == "" {
 		lvlStr = "info"
 	}

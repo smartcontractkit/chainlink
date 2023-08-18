@@ -97,6 +97,7 @@ func (n *ClNode) Restart(cfg *chainlink.Config) error {
 		return err
 	}
 	n.NodeConfig = cfg
+	_ = os.Setenv(EnvVarReuseContainers, "true")
 	return n.StartContainer()
 }
 
@@ -225,7 +226,7 @@ func (n *ClNode) StartContainer() error {
 	container, err := tc.GenericContainer(context.Background(), tc.GenericContainerRequest{
 		ContainerRequest: *cReq,
 		Started:          true,
-		Reuse:            true,
+		Reuse:            IsContainersReusable(),
 	})
 	if err != nil {
 		return errors.Wrap(err, ErrStartCLNodeContainer)
