@@ -39,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -67,30 +68,6 @@ const (
 
 type CCIPTOMLEnv struct {
 	Networks []blockchain.EVMNetwork
-}
-
-var EvmChainIdToChainSelector = func(chainId uint64) (uint64, error) {
-	mapSelector := map[uint64]uint64{
-		// Testnets
-		420:      2664363617261496610,  // Optimism Goerli
-		1337:     3379446385462418246,  // Tests
-		2337:     12922642891491394802, // Tests
-		43113:    14767482510784806043, // Avax Fuji
-		80001:    12532609583862916517, // Polygon Mumbai
-		421613:   6101244977088475029,  // Arbitrum Goerli
-		11155111: 16015286601757825753, // Sepolia
-		// Mainnets
-		1:     5009297550715157269, // Ethereum
-		10:    3734403246176062136, // Optimism
-		137:   4051577828743386545, // Polygon
-		42161: 4949039107694359620, // Arbitrum
-		43114: 6433500567565415381, // Avalanche
-	}
-	chainSelector, ok := mapSelector[chainId]
-	if !ok {
-		return 0, fmt.Errorf("chain id %d not found in chain selector", chainId)
-	}
-	return chainSelector, nil
 }
 
 var (
@@ -512,11 +489,11 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 	if len(sourceCCIP.TransferAmount) != len(sourceCCIP.Common.BridgeTokens) {
 		sourceCCIP.TransferAmount = sourceCCIP.TransferAmount[:len(sourceCCIP.Common.BridgeTokens)]
 	}
-	sourceChainSelector, err := EvmChainIdToChainSelector(sourceCCIP.Common.ChainClient.GetChainID().Uint64())
+	sourceChainSelector, err := ccipconfig.SelectorFromChainId(sourceCCIP.Common.ChainClient.GetChainID().Uint64())
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	destChainSelector, err := EvmChainIdToChainSelector(sourceCCIP.DestinationChainId)
+	destChainSelector, err := ccipconfig.SelectorFromChainId(sourceCCIP.DestinationChainId)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -842,7 +819,7 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 	if err != nil {
 		return common.Hash{}, d, nil, fmt.Errorf("failed encoding the options field: %+v", err)
 	}
-	destChainSelector, err := EvmChainIdToChainSelector(sourceCCIP.DestinationChainId)
+	destChainSelector, err := ccipconfig.SelectorFromChainId(sourceCCIP.DestinationChainId)
 	if err != nil {
 		return common.Hash{}, d, nil, fmt.Errorf("failed getting the chain selector: %+v", err)
 	}
@@ -959,11 +936,11 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 	}
 
 	destCCIP.LoadContracts(lane)
-	sourceChainSelector, err := EvmChainIdToChainSelector(destCCIP.SourceChainId)
+	sourceChainSelector, err := ccipconfig.SelectorFromChainId(destCCIP.SourceChainId)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	destChainSelector, err := EvmChainIdToChainSelector(destCCIP.Common.ChainClient.GetChainID().Uint64())
+	destChainSelector, err := ccipconfig.SelectorFromChainId(destCCIP.Common.ChainClient.GetChainID().Uint64())
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -1884,7 +1861,6 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		CommitStore:      lane.Dest.CommitStore.EthAddress,
 		SourceChainName:  sourceChainClient.GetNetworkName(),
 		DestChainName:    destChainClient.GetNetworkName(),
-		SourceEvmChainId: sourceChainClient.GetChainID().Uint64(),
 		DestEvmChainId:   destChainClient.GetChainID().Uint64(),
 		SourceStartBlock: lane.Source.SrcStartBlock,
 		DestStartBlock:   currentBlockOnDest,

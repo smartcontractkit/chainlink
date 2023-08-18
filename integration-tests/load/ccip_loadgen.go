@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/router"
+	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -161,7 +162,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 	var sendTx *types.Transaction
 	var err error
 
-	destChainSelector, err := actions.EvmChainIdToChainSelector(sourceCCIP.DestinationChainId)
+	destChainSelector, err := ccipconfig.SelectorFromChainId(sourceCCIP.DestinationChainId)
 	if err != nil {
 		res.Error = err.Error()
 		res.Failed = true
