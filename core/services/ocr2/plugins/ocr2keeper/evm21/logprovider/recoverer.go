@@ -164,76 +164,70 @@ func (r *logRecoverer) GetProposalData(ctx context.Context, proposal ocr2keepers
 }
 
 func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) ([]byte, error) {
-	if r.filterStore.Has(proposal.UpkeepID.BigInt()) {
-		latest, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+	if !r.filterStore.Has(proposal.UpkeepID.BigInt()) {
+		return nil, fmt.Errorf("filter not found for upkeep %v", proposal.UpkeepID)
+	}
+	latest, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Ensure start block is above upkeep creation block
+	start, offsetBlock := r.getRecoveryWindow(latest)
+	logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
+	if logBlock == 0 {
+		number, _, err := r.getTxBlock(proposal.Trigger.LogTriggerExtension.TxHash)
 		if err != nil {
 			return nil, err
 		}
-
-		// TODO: Ensure start block is above upkeep creation block
-		start, offsetBlock := r.getRecoveryWindow(latest)
-		logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
-		if logBlock == 0 {
-			number, _, err := r.getTxBlock(proposal.Trigger.LogTriggerExtension.TxHash)
-			if err != nil {
-				return nil, err
-			}
-			if number == nil {
-				return nil, errors.New("failed to get tx block")
-			}
-			logBlock = number.Int64()
+		if number == nil {
+			return nil, errors.New("failed to get tx block")
 		}
-		fmt.Println("log block", logBlock, "start", start, "offsetBlock", offsetBlock)
-		if isRecoverable := logBlock < offsetBlock && logBlock > start; isRecoverable {
-			upkeepStates, err := r.states.SelectByWorkIDsInRange(ctx, int64(logBlock)-1, offsetBlock, proposal.WorkID)
+		logBlock = number.Int64()
+	}
+	if isRecoverable := logBlock < offsetBlock && logBlock > start; !isRecoverable {
+		return nil, errors.New("log block is not recoverable")
+	}
+	upkeepStates, err := r.states.SelectByWorkIDsInRange(ctx, int64(logBlock)-1, offsetBlock, proposal.WorkID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, upkeepState := range upkeepStates {
+		switch upkeepState {
+		case ocr2keepers.Performed, ocr2keepers.Ineligible:
+			return nil, errors.New("upkeep state is not recoverable")
+		default:
+			// we can proceed
+		}
+	}
+
+	var filter upkeepFilter
+	r.filterStore.RangeFiltersByIDs(func(i int, f upkeepFilter) {
+		filter = f
+	}, proposal.UpkeepID.BigInt())
+
+	if len(filter.addr) == 0 {
+		return nil, errors.New("filter not found, upkeep is inactive") // TODO fix error msg
+	}
+
+	logs, err := r.poller.LogsWithSigs(logBlock-1, logBlock+1, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("could not read logs: %w", err)
+	}
+
+	for _, log := range logs {
+		trigger := logToTrigger(log)
+		trigger.BlockHash = proposal.Trigger.BlockHash
+		trigger.BlockNumber = proposal.Trigger.BlockNumber
+		wid := core.UpkeepWorkID(proposal.UpkeepID, trigger)
+		if wid == proposal.WorkID {
+			r.lggr.Debugw("found log for proposal", "upkeepId", proposal.UpkeepID, "trigger.ext", trigger.LogTriggerExtension)
+			checkData, err := r.packer.PackLogData(log)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("failed to pack log data: %w", err)
 			}
-
-			for _, upkeepState := range upkeepStates {
-				switch upkeepState {
-				case ocr2keepers.Performed, ocr2keepers.Ineligible:
-					return nil, errors.New("upkeep state is not recoverable")
-				default:
-					// we can proceed
-				}
-			}
-
-			var filter upkeepFilter
-			r.filterStore.RangeFiltersByIDs(func(i int, f upkeepFilter) {
-				filter = f
-			}, proposal.UpkeepID.BigInt())
-
-			if len(filter.addr) == 0 {
-				return nil, errors.New("filter not found, upkeep is inactive") // TODO fix error msg
-			}
-
-			logs, err := r.poller.LogsWithSigs(logBlock-1, logBlock+1, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
-			if err != nil {
-				return nil, fmt.Errorf("could not read logs: %w", err)
-			}
-
-			upkeepId := &ocr2keepers.UpkeepIdentifier{}
-			// TODO do we need to use the filter upkeepID for correctness, or can we remove this block and use the upkeep ID on the proposal?
-			ok := upkeepId.FromBigInt(filter.upkeepID)
-			if !ok {
-				r.lggr.Warnw("failed to convert upkeepID to UpkeepIdentifier", "upkeepID", filter.upkeepID)
-				return nil, errors.New("failed to convert upkeepID to UpkeepIdentifier")
-			}
-			for _, log := range logs {
-				trigger := logToTrigger(log)
-				trigger.BlockHash = proposal.Trigger.BlockHash
-				trigger.BlockNumber = proposal.Trigger.BlockNumber
-				wid := core.UpkeepWorkID(*upkeepId, trigger)
-				if wid == proposal.WorkID {
-					r.lggr.Debugw("found desired log", "upkeepId", upkeepId, "trigger.ext", trigger.LogTriggerExtension)
-					checkData, err := r.packer.PackLogData(log)
-					if err != nil {
-						return nil, fmt.Errorf("failed to pack log data: %w", err)
-					}
-					return checkData, nil
-				}
-			}
+			return checkData, nil
 		}
 	}
 	return nil, fmt.Errorf("no log found for upkeepID %v and trigger %+v", proposal.UpkeepID, proposal.Trigger)
@@ -273,15 +267,12 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
-	r.lggr.Debugw("recover", "latestBlock", latest)
 	// TODO: Ensure start block is above upkeep creation block
 	start, offsetBlock := r.getRecoveryWindow(latest)
 	if offsetBlock < 0 {
 		// too soon to recover, we don't have enough blocks
 		return nil
 	}
-
-	r.lggr.Debugw("get filters batch", "startBlock", start, "offsetBlock", offsetBlock, "latestBlock", latest)
 
 	filters := r.getFilterBatch(offsetBlock)
 	if len(filters) == 0 {
@@ -347,7 +338,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 
 	added, alreadyPending := r.populatePending(f, filteredLogs)
 	if added > 0 {
-		r.lggr.Debugw("recovered logs", "count", added, "upkeepID", f.upkeepID)
+		r.lggr.Debugw("found missed logs", "count", added, "upkeepID", f.upkeepID)
 	} else if alreadyPending == 0 {
 		// no logs found or still in process, update the lastRePollBlock for this upkeep
 		r.filterStore.UpdateFilters(func(uf1, uf2 upkeepFilter) upkeepFilter {
