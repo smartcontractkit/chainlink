@@ -24,14 +24,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
 	registrylogica21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
 	registrylogicb21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -99,6 +102,9 @@ type ContractDeployer interface {
 	DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error)
 	DeployOffchainAggregatorV2(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregatorV2, error)
 	DeployKeeperRegistryCheckUpkeepGasUsageWrapper(keeperRegistryAddr string) (KeeperRegistryCheckUpkeepGasUsageWrapper, error)
+	DeployKeeperRegistry11Mock() (KeeperRegistry11Mock, error)
+	DeployKeeperRegistrar12Mock() (KeeperRegistrar12Mock, error)
+	DeployKeeperGasWrapperMock() (KeeperGasWrapperMock, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -316,6 +322,57 @@ func (e *EthereumContractDeployer) DeployStakingEventsMock() (StakingEventsMock,
 		client:     e.client,
 		eventsMock: instance.(*eth_contracts.StakingEventsMock),
 		address:    address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployKeeperRegistry11Mock() (KeeperRegistry11Mock, error) {
+	address, _, instance, err := e.client.DeployContract("KeeperRegistry11Mock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return keeper_registry_wrapper1_1_mock.DeployKeeperRegistryMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperRegistry11Mock{
+		client:       e.client,
+		registryMock: instance.(*keeper_registry_wrapper1_1_mock.KeeperRegistryMock),
+		address:      address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployKeeperRegistrar12Mock() (KeeperRegistrar12Mock, error) {
+	address, _, instance, err := e.client.DeployContract("KeeperRegistrar12Mock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return keeper_registrar_wrapper1_2_mock.DeployKeeperRegistrarMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperRegistrar12Mock{
+		client:        e.client,
+		registrarMock: instance.(*keeper_registrar_wrapper1_2_mock.KeeperRegistrarMock),
+		address:       address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployKeeperGasWrapperMock() (KeeperGasWrapperMock, error) {
+	address, _, instance, err := e.client.DeployContract("KeeperGasWrapperMock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return gas_wrapper_mock.DeployKeeperRegistryCheckUpkeepGasUsageWrapperMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperGasWrapperMock{
+		client:         e.client,
+		gasWrapperMock: instance.(*gas_wrapper_mock.KeeperRegistryCheckUpkeepGasUsageWrapperMock),
+		address:        address,
 	}, nil
 }
 
