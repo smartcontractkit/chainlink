@@ -99,18 +99,18 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 	u.lggr.Debug("Starting upkeep state store")
 
-	timer := time.NewTimer(u.cleanCadence)
+	ticker := time.NewTicker(u.cleanCadence)
 
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-timer.C:
+		case <-ticker.C:
 			if err := u.cleanup(ctx); err != nil {
 				u.lggr.Errorw("unable to clean old state values", "err", err)
 			}
 
-			_ = timer.Reset(utils.WithJitter(u.cleanCadence))
+			ticker.Reset(utils.WithJitter(u.cleanCadence))
 		}
 	}
 }
