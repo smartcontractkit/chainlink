@@ -193,7 +193,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   }
 
   // this function sets pipeline data and trigger config for log trigger upkeeps
-  function batchPreparingUpkeepsSimple(uint256[] calldata upkeepIds, uint8 log) external {
+  function batchPreparingUpkeepsSimple(uint256[] calldata upkeepIds, uint8 log, uint8 selector) external {
     uint256 len = upkeepIds.length;
     for (uint256 i = 0; i < len; i++) {
       uint256 upkeepId = upkeepIds[i];
@@ -209,7 +209,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
         }
         bytes memory triggerCfg = this.getLogTriggerConfig(
           address(this),
-          0,
+          selector,
           sig,
           bytes32(abi.encode(upkeepId)),
           bytes32(0),
