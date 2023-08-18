@@ -28,7 +28,7 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 		keyOrder[key.String()] = ix
 	}
 
-	allNodes, _, err := b.app.GetRelayers().NodeStatuses(ctx, 0, 1, evmrelayIdStrs...)
+	allNodes, _, err := b.app.GetRelayers().NodeStatuses(ctx, 0, -1, evmrelayIdStrs...)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
