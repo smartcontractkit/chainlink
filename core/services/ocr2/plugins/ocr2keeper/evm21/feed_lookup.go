@@ -149,7 +149,7 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 		return
 	}
 	for j, v := range values {
-		lggr.Infof("checkCallback values[%d]=%s", j, hexutil.Encode(v))
+		lggr.Infof("upkeep %s mercury response values[%d]=%s", lookup.upkeepId, j, hexutil.Encode(v))
 	}
 
 	state, retryable, mercuryBytes, err := r.checkCallback(ctx, values, lookup)
@@ -159,7 +159,7 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 		checkResults[i].PipelineExecutionState = uint8(state)
 		return
 	}
-	lggr.Infof("checkCallback mercuryBytes=%s", hexutil.Encode(mercuryBytes))
+	lggr.Infof("upkeep %s checkCallback mercuryBytes=%s", lookup.upkeepId, hexutil.Encode(mercuryBytes))
 
 	state, needed, performData, failureReason, _, err := r.packer.UnpackCheckCallbackResult(mercuryBytes)
 	if err != nil {
