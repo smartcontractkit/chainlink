@@ -257,7 +257,7 @@ jobs:
             run: -run ^TestSmokeCCIPRateLimit$
           - name: cron
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ""
 # Flakes
 #          - name: flux
@@ -266,31 +266,31 @@ jobs:
 #            pyroscope_env: ""
           - name: ocr
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-16cores-64GB
             pyroscope_env: ci-smoke-ocr-evm-simulated
           - name: ocr2
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-ocr2-evm-simulated
           - name: runlog
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ""
           - name: vrf
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf-evm-simulated
           - name: vrfv2
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf2-evm-simulated
           - name: forwarder_ocr
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
           - name: forwarders_ocr2
             nodes: 1
-            os: ubuntu-latest
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
 
           # Keeper tests split out to use minimal environments
