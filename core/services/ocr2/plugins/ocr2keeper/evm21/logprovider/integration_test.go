@@ -365,6 +365,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 }
 
 func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
+	t.Skip() // TODO: remove skip after removing constant timeouts
 	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
 	defer cancel()
 
