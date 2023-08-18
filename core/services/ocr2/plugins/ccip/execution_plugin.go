@@ -16,6 +16,7 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/evm_2_evm_offramp"
@@ -82,7 +83,7 @@ func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet,
 	if err != nil {
 		return nil, errors.Wrap(err, "failed loading onRamp")
 	}
-	dynamicOnRampConfig, err := onRamp.GetDynamicConfig(&bind.CallOpts{})
+	dynamicOnRampConfig, err := LoadOnRampDynamicConfig(onRamp, sourceChain.Client())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed loading onRamp config")
 	}
@@ -254,7 +255,7 @@ func UnregisterExecPluginLpFilters(ctx context.Context, q pg.Queryer, spec *job.
 		return errors.Wrap(err, "failed loading onRamp")
 	}
 
-	return unregisterExecutionPluginLpFilters(ctx, q, sourceChain.LogPoller(), destChain.LogPoller(), offRamp, offRampConfig, sourceOnRamp)
+	return unregisterExecutionPluginLpFilters(ctx, q, sourceChain.LogPoller(), destChain.LogPoller(), offRamp, offRampConfig, sourceOnRamp, sourceChain.Client())
 }
 
 func unregisterExecutionPluginLpFilters(
@@ -264,13 +265,14 @@ func unregisterExecutionPluginLpFilters(
 	destLP logpoller.LogPoller,
 	destOffRamp evm_2_evm_offramp.EVM2EVMOffRampInterface,
 	destOffRampConfig evm_2_evm_offramp.EVM2EVMOffRampStaticConfig,
-	sourceOnRamp evm_2_evm_onramp.EVM2EVMOnRampInterface) error {
+	sourceOnRamp evm_2_evm_onramp.EVM2EVMOnRampInterface,
+	sourceChainClient client.Client) error {
 	destOffRampDynCfg, err := destOffRamp.GetDynamicConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return err
 	}
 
-	onRampDynCfg, err := sourceOnRamp.GetDynamicConfig(&bind.CallOpts{Context: ctx})
+	onRampDynCfg, err := LoadOnRampDynamicConfig(sourceOnRamp, sourceChainClient)
 	if err != nil {
 		return err
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/evm_2_evm_onramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
@@ -45,6 +46,48 @@ func LoadOnRamp(onRampAddress common.Address, pluginName string, client client.C
 		return nil, errors.Wrap(err, "Invalid onRamp contract")
 	}
 	return observability.NewObservedEVM2EVMnRamp(onRampAddress, pluginName, client)
+}
+
+func LoadOnRampDynamicConfig(onRamp evm_2_evm_onramp.EVM2EVMOnRampInterface, client client.Client) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
+	versionString, err := onRamp.TypeAndVersion(&bind.CallOpts{})
+	if err != nil {
+		return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
+	}
+
+	_, version, err := ccipconfig.ParseTypeAndVersion(versionString)
+	if err != nil {
+		return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
+	}
+
+	var versionMapping = map[string]func(opts *bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error){
+		"1.0.0": func(opts *bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
+			legacyOnramp, err := evm_2_evm_onramp_1_0_0.NewEVM2EVMOnRamp(onRamp.Address(), client)
+			if err != nil {
+				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
+			}
+			legacyDynamicConfig, err := legacyOnramp.GetDynamicConfig(opts)
+			if err != nil {
+				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
+			}
+
+			return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
+				Router:          legacyDynamicConfig.Router,
+				MaxTokensLength: legacyDynamicConfig.MaxTokensLength,
+				PriceRegistry:   legacyDynamicConfig.PriceRegistry,
+				MaxDataSize:     legacyDynamicConfig.MaxDataSize,
+				MaxGasLimit:     legacyDynamicConfig.MaxGasLimit,
+			}, nil
+		},
+		"1.1.0": func(opts *bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
+			return onRamp.GetDynamicConfig(opts)
+		},
+	}
+
+	loadFunc, ok := versionMapping[version]
+	if !ok {
+		return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, errors.Errorf("Invalid onramp version: %s", version)
+	}
+	return loadFunc(&bind.CallOpts{})
 }
 
 func LoadOffRamp(offRampAddress common.Address, pluginName string, client client.Client) (evm_2_evm_offramp.EVM2EVMOffRampInterface, error) {
