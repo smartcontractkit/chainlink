@@ -67,13 +67,12 @@ func NewUpkeepStateStore(lggr logger.Logger, scanner PerformedLogsScanner) *upke
 // Start starts the upkeep state store.
 // it does background cleanup of the cache.
 func (u *upkeepStateStore) Start(context.Context) error {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	u.mu.Lock()
 	if u.cancel != nil {
 		u.mu.Unlock()
 		return fmt.Errorf("already started")
 	}
+	ctx, cancel := context.WithCancel(context.Background())
 	u.cancel = cancel
 	u.mu.Unlock()
 

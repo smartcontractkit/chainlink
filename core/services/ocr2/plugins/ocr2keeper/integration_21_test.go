@@ -41,12 +41,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -219,7 +216,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	backend.Commit()
 
 	emits := 10
-	go emitEvents(t, testutils.Context(t), emits, contracts, carrol, func() {
+	go emitEvents(testutils.Context(t), t, emits, contracts, carrol, func() {
 		backend.Commit()
 		time.Sleep(time.Second)
 	})
@@ -238,7 +235,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		// blockBeforeEmits := backend.Blockchain().CurrentBlock().Number.Uint64()
 		// Emit 100 logs in a burst
 		emits := 100
-		emitEvents(t, testutils.Context(t), 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {})
+		emitEvents(testutils.Context(t), t, 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {})
 		// Mine enough blocks to ensre these logs don't fall into log provider range
 		dummyBlocks := 500
 		for i := 0; i < dummyBlocks; i++ {
@@ -288,7 +285,7 @@ func checkPipelineRuns(t *testing.T, nodes []Node, n int) int {
 	return runs
 }
 
-func emitEvents(t *testing.T, ctx context.Context, n int, contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter, carrol *bind.TransactOpts, afterEmit func()) {
+func emitEvents(ctx context.Context, t *testing.T, n int, contracts []*log_upkeep_counter_wrapper.LogUpkeepCounter, carrol *bind.TransactOpts, afterEmit func()) {
 	for i := 0; i < n && ctx.Err() == nil; i++ {
 		for _, contract := range contracts {
 			// t.Logf("[automation-ocr3 | EvmRegistry] calling upkeep contracts to emit events. run: %d; contract addr: %s", i+1, contract.Address().Hex())
@@ -493,92 +490,6 @@ func setupNodes(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IK
 	backend.Commit()
 
 	return nodes
-}
-
-// This function just sets up the onchain contract config withoout setting up nodes and with a dummy offchain config
-func setupJustOnchainContractConfig(t *testing.T, nodeKeys [5]ethkey.KeyV2, registry *iregistry21.IKeeperRegistryMaster, backend *backends.SimulatedBackend, usr *bind.TransactOpts) {
-	var (
-		oracles []confighelper.OracleIdentityExtra
-	)
-	// Create 4 dummy oracles
-	for i := int64(0); i < 4; i++ {
-		cfg, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("dummy%d", i), func(c *chainlink.Config, s *chainlink.Secrets) {})
-		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t,
-			cfg, backend)
-		kb, _ := app.GetKeyStore().OCR2().Create(chaintype.EVM)
-		onchainPublicKey, _ := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
-		oracles = append(oracles, confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  onchainPublicKey,
-				TransmitAccount:   ocrTypes.Account(fmt.Sprintf("0x000000000000000000000000000000000000000%d", i)),
-				OffchainPublicKey: kb.OffchainPublicKey(),
-				PeerID:            fmt.Sprintf("oracle%d", i),
-			},
-			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
-		})
-	}
-	// Setup config on contract
-	configType := abi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint32 maxRevertDataSize, uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address[] registrars, address upkeepPrivilegeManager)")
-	onchainConfig, err := abi.Encode(map[string]interface{}{
-		"paymentPremiumPPB":      uint32(0),
-		"flatFeeMicroLink":       uint32(0),
-		"checkGasLimit":          uint32(6500000),
-		"stalenessSeconds":       uint32(90000),
-		"gasCeilingMultiplier":   uint16(2),
-		"minUpkeepSpend":         uint32(0),
-		"maxPerformGas":          uint32(5000000),
-		"maxCheckDataSize":       uint32(5000),
-		"maxPerformDataSize":     uint32(5000),
-		"maxRevertDataSize":      uint32(5000),
-		"fallbackGasPrice":       big.NewInt(60000000000),
-		"fallbackLinkPrice":      big.NewInt(2000000000000000000),
-		"transcoder":             testutils.NewAddress(),
-		"registrars":             []common.Address{testutils.NewAddress()},
-		"upkeepPrivilegeManager": testutils.NewAddress(),
-	}, configType)
-	require.NoError(t, err)
-	rawCfg, err := json.Marshal(config.OffchainConfig{})
-	if err != nil {
-		t.Logf("error creating off-chain config: %s", err)
-		t.FailNow()
-	}
-	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
-		5*time.Second,         // deltaProgress time.Duration,
-		10*time.Second,        // deltaResend time.Duration,
-		100*time.Millisecond,  // deltaInitial time.Duration,
-		1000*time.Millisecond, // deltaRound time.Duration,
-		40*time.Millisecond,   // deltaGrace time.Duration,
-		200*time.Millisecond,  // deltaRequestCertifiedCommit time.Duration,
-		30*time.Second,        // deltaStage time.Duration,
-		uint64(50),            // rMax uint8,
-		[]int{1, 1, 1, 1},     // s []int,
-		oracles,               // oracles []OracleIdentityExtra,
-		rawCfg,                // reportingPluginConfig []byte,
-		20*time.Millisecond,   // maxDurationQuery time.Duration,
-		1600*time.Millisecond, // maxDurationObservation time.Duration,
-		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
-		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
-		1,                     // f int,
-		onchainConfig,         // onchainConfig []byte,
-	)
-
-	require.NoError(t, err)
-	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
-	require.NoError(t, err)
-	transmitterAddresses, err := accountsToAddress(transmitters)
-	require.NoError(t, err)
-
-	_, err = registry.SetConfig(
-		usr,
-		signerAddresses,
-		transmitterAddresses,
-		threshold,
-		onchainConfig,
-		offchainConfigVersion,
-		offchainConfig,
-	)
-	require.NoError(t, err)
-	backend.Commit()
 }
 
 func deployUpkeeps(t *testing.T, backend *backends.SimulatedBackend, carrol, steve *bind.TransactOpts, linkToken *link_token_interface.LinkToken, registry *iregistry21.IKeeperRegistryMaster, n int) ([]*big.Int, []common.Address, []*log_upkeep_counter_wrapper.LogUpkeepCounter) {

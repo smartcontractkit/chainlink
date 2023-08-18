@@ -100,8 +100,8 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 		poll(backend.Commit())
 		go func() {
-			if err := logProvider2.Start(ctx); err != nil {
-				t.Logf("error starting log provider: %s", err)
+			if err2 := logProvider2.Start(ctx); err2 != nil {
+				t.Logf("error starting log provider: %s", err2)
 				t.Fail()
 			}
 		}()
