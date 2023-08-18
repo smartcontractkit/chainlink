@@ -109,7 +109,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
    * @param maxCount the max number of upkeep IDs requested
    * @return an array of active upkeep IDs
    */
-  function getActiveUpkeepIDs(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory) {
+  function getActiveUpkeepIDsDeployedByThisContract(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory) {
     uint256 maxIdx = s_upkeepIDs.length();
     if (startIndex >= maxIdx) revert IndexOutOfRange();
     if (maxCount == 0) {
@@ -120,6 +120,16 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
       ids[idx] = s_upkeepIDs.at(startIndex + idx);
     }
     return ids;
+  }
+
+  /**
+   * @notice gets an array of active upkeep IDs.
+   * @param startIndex the start index of upkeep IDs
+   * @param maxCount the max number of upkeep IDs requested
+   * @return an array of active upkeep IDs
+   */
+  function getAllActiveUpkeepIDsOnRegistry(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory) {
+    return registry.getActiveUpkeepIDs(startIndex, maxCount);
   }
 
   /**
@@ -438,7 +448,7 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
    * @notice finds all log trigger upkeeps and emits logs to serve as the initial trigger for upkeeps
    */
   function batchSendLogs() external {
-    uint256[] memory upkeepIds = registry.getActiveUpkeepIDs(0, 0);
+    uint256[] memory upkeepIds = this.getActiveUpkeepIDsDeployedByThisContract(0, 0);
     uint256 len = upkeepIds.length;
     uint256 blockNum = getBlockNumber();
     for (uint256 i = 0; i < len; i++) {
