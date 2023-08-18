@@ -204,13 +204,28 @@ func (dq *decryptionQueue) SetResult(ciphertextId decryptionPlugin.CiphertextId,
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
+	if err == nil && plaintext == nil {
+		dq.lggr.Errorf("received nil error and nil plaintext for ciphertextId %s", string(ciphertextId))
+		return
+	}
+
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if ok {
-		dq.lggr.Debugf("responding with result for pending decryption request ciphertextId %s", string(ciphertextId))
-		req.chPlaintext <- plaintext
+		if err != nil {
+			dq.lggr.Debugf("decryption error for ciphertextId %s", string(ciphertextId))
+		} else {
+			dq.lggr.Debugf("responding with result for pending decryption request ciphertextId %s", string(ciphertextId))
+			req.chPlaintext <- plaintext
+		}
 		close(req.chPlaintext)
 		delete(dq.pendingRequests, string(ciphertextId))
 	} else {
+		if err != nil {
+			// This is currently possible only for ErrAggregation, encountered during Report() phase.
+			dq.lggr.Debugf("received decryption error for ciphertextId %s which doesn't exist locally", string(ciphertextId))
+			return
+		}
+
 		// Cache plaintext result in completedRequests map for cacheTimeoutMs to account for delayed Decrypt() calls
 		timer := time.AfterFunc(dq.completedRequestsCacheTimeout, func() {
 			dq.lggr.Debugf("expired decryption result for ciphertextId %s from completedRequests cache", string(ciphertextId))
