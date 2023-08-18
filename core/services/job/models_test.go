@@ -60,7 +60,7 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 				ChainID:     tt.fields.ChainID,
 				RelayConfig: tt.fields.RelayConfig,
 			}
-			got, err := s.RelayIdentifier()
+			got, err := s.RelayID()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("OCR2OracleSpec.RelayIdentifier() error = %v, wantErr %v", err, tt.wantErr)
 				return

@@ -87,7 +87,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job, qopts ...pg.QOpt) (services 
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
 	s := spec.AsOCR2Spec()
-	rid, err := s.RelayIdentifier()
+	rid, err := s.RelayID()
 	if err != nil {
 		return nil, fmt.Errorf("ServicesForSpec: could not get relayer: %w", err)
 	}

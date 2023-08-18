@@ -249,7 +249,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 		return nil
 	}
 
-	rid, err := spec.RelayIdentifier()
+	rid, err := spec.RelayID()
 	if err != nil {
 		d.lggr.Errorw("DeleteJob: "+ErrJobSpecNoRelayer.Error(), "err", err)
 		return nil
@@ -330,7 +330,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	}
 	lggr := logger.Sugared(d.lggr.Named("OCR2").With(lggrCtx.Args()...))
 
-	rid, err := spec.RelayIdentifier()
+	rid, err := spec.RelayID()
 	if err != nil {
 		return nil, fmt.Errorf("ServicesForSpec: %w: %w", ErrJobSpecNoRelayer, err)
 	}
@@ -491,7 +491,7 @@ func (d *Delegate) newServicesMercury(
 		return nil, errors.Wrapf(err, "ServicesForSpec: mercury job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
 	}
 
-	rid, err := spec.RelayIdentifier()
+	rid, err := spec.RelayID()
 	if err != nil {
 		return nil, fmt.Errorf("mercury services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
@@ -574,7 +574,7 @@ func (d *Delegate) newServicesMedian(
 	enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
 	mConfig := median.NewMedianConfig(d.cfg.JobPipeline().MaxSuccessfulRuns(), d.cfg)
 
-	rid, err := spec.RelayIdentifier()
+	rid, err := spec.RelayID()
 	if err != nil {
 		return nil, fmt.Errorf("median services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
@@ -603,7 +603,7 @@ func (d *Delegate) newServicesDKG(
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	rid, err := spec.RelayIdentifier()
+	rid, err := spec.RelayID()
 	if err != nil {
 		return nil, fmt.Errorf("DKG services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
@@ -672,7 +672,7 @@ func (d *Delegate) newServicesOCR2VRF(
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
-	rid, err := spec.RelayIdentifier()
+	rid, err := spec.RelayID()
 	if err != nil {
 		return nil, fmt.Errorf("VRF services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
@@ -897,7 +897,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	}
 
 	mc := d.cfg.Mercury().Credentials(credName)
-	rid, err := spec.RelayIdentifier()
+	rid, err := spec.RelayID()
 	if err != nil {
 		return nil, fmt.Errorf("keeper2 services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
@@ -1009,7 +1009,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	spec *job.OCR2OracleSpec,
 ) ([]job.ServiceCtx, error) {
 
-	rid, err := spec.RelayIdentifier()
+	rid, err := spec.RelayID()
 	if err != nil {
 		return nil, fmt.Errorf("keepers2.0 services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
@@ -1144,7 +1144,7 @@ func (d *Delegate) newServicesOCR2Functions(
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
-	rid, err := spec.RelayIdentifier()
+	rid, err := spec.RelayID()
 	if err != nil {
 		return nil, fmt.Errorf("functions services: %w: %w", ErrJobSpecNoRelayer, err)
 	}

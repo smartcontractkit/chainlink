@@ -358,7 +358,7 @@ type OCR2OracleSpec struct {
 	CaptureAutomationCustomTelemetry  bool            `toml:"captureAutomationCustomTelemetry"`
 }
 
-func (s *OCR2OracleSpec) RelayIdentifier() (relay.Identifier, error) {
+func (s *OCR2OracleSpec) RelayID() (relay.Identifier, error) {
 	cid, err := s.getChainID()
 	if err != nil {
 		return relay.Identifier{}, err
