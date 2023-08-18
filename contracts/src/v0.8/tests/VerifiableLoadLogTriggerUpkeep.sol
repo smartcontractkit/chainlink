@@ -6,33 +6,25 @@ import "../dev/automation/2_1/interfaces/ILogAutomation.sol";
 import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
 contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface, ILogAutomation {
-  bool public autoLog;
   bool public useMercury;
+  uint8 public logNum;
 
   /**
    * @param _registrar a automation registrar 2.1 address
    * @param _useArb if this contract will use arbitrum block number
+   * @param _useMercury if the log trigger upkeeps will use mercury lookup
    */
   constructor(
     AutomationRegistrar2_1 _registrar,
     bool _useArb,
-    bool _autoLog,
     bool _useMercury
   ) VerifiableLoadBase(_registrar, _useArb) {
-    autoLog = _autoLog;
     useMercury = _useMercury;
+    logNum = 0;
   }
 
-  function setAutoLog(bool _autoLog) external {
-    autoLog = _autoLog;
-  }
-
-  function setUseMercury(bool _useMercury) external {
-    useMercury = _useMercury;
-  }
-
-  function setFeedsHex(string[] memory newFeeds) external {
-    feedsHex = newFeeds;
+  function setLog(uint8 _log) external {
+    logNum = _log;
   }
 
   function checkLog(Log calldata log, bytes memory checkData) external returns (bool, bytes memory) {
@@ -40,12 +32,16 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
     uint256 blockNum = getBlockNumber();
     uint256 uid = abi.decode(checkData, (uint256));
 
+    bytes32 sig = emittedSig;
+    if (logNum != 0) {
+      sig = emittedAgainSig;
+    }
     // filter by event signature
-    if (log.topics[0] == emittedSig) {
+    if (log.topics[0] == sig) {
       bytes memory t1 = abi.encodePacked(log.topics[1]); // bytes32 to bytes
       uint256 upkeepId = abi.decode(t1, (uint256));
       if (upkeepId != uid) {
-        revert UpkeepIdsDoNotMatch(address(this), upkeepId, uid);
+        revert("upkeep ids don't match");
       }
       bytes memory t2 = abi.encodePacked(log.topics[2]);
       uint256 blockNum = abi.decode(t2, (uint256));
@@ -67,12 +63,15 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
       bytes memory extraData = abi.encode(upkeepId, blockNum);
       return (true, abi.encode(values, extraData));
     }
-    revert EventSigDoNotMatch(address(this), log.topics[0], emittedSig);
+    revert("unexpected event sig");
   }
 
   function performUpkeep(bytes calldata performData) external {
     uint256 startGas = gasleft();
-    (bytes memory values1, bytes memory values2, bytes memory extraData) = abi.decode(performData, (bytes, bytes, bytes));
+    (bytes memory values1, bytes memory values2, bytes memory extraData) = abi.decode(
+      performData,
+      (bytes, bytes, bytes)
+    );
     (uint256 upkeepId, uint256 logBlockNumber, address addr) = abi.decode(extraData, (uint256, uint256, address));
 
     uint256 firstPerformBlock = firstPerformBlocks[upkeepId];
@@ -101,9 +100,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
     // minBalanceThresholdMultiplier (20) * min balance. If not, add addLinkAmount (0.2) to the upkeep
     // upkeepTopUpCheckInterval, minBalanceThresholdMultiplier, and addLinkAmount are configurable
     topUpFund(upkeepId, currentBlockNum);
-    if (autoLog) {
-      emit LogEmitted(upkeepId, currentBlockNum, address(this));
-    }
+    emit LogEmitted(upkeepId, currentBlockNum, address(this));
     burnPerformGas(upkeepId, startGas, currentBlockNum);
   }
 
