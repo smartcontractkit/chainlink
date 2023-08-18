@@ -218,7 +218,7 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64,
 	for _, workID := range performed {
 		if _, ok := u.cache[workID]; !ok {
 			s := &upkeepStateRecord{
-				WorkID:          "0x" + workID,
+				WorkID:          workID,
 				CompletionState: ocr2keepers.Performed,
 				AddedAt:         time.Now(),
 				BlockNumber:     uint64(end),

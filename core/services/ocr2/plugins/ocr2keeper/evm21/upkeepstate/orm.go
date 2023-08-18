@@ -2,7 +2,6 @@ package upkeepstate
 
 import (
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -44,7 +43,7 @@ func (o *orm) InsertUpkeepState(state persistedStateRecord, qopts ...pg.QOpt) er
 	    ON CONFLICT (evm_chain_id, work_id)
 	    DO NOTHING`
 
-	return q.ExecQ(query, o.chainID, normalizeWorkID(state.WorkID), state.CompletionState, state.BlockNumber, state.InsertedAt, state.UpkeepID, state.IneligibilityReason)
+	return q.ExecQ(query, o.chainID, state.WorkID, state.CompletionState, state.BlockNumber, state.InsertedAt, state.UpkeepID, state.IneligibilityReason)
 }
 
 // SelectStatesByWorkIDs searches the data store for stored states for the
@@ -52,14 +51,9 @@ func (o *orm) InsertUpkeepState(state persistedStateRecord, qopts ...pg.QOpt) er
 func (o *orm) SelectStatesByWorkIDs(workIDs []string, qopts ...pg.QOpt) (states []persistedStateRecord, err error) {
 	q := o.q.WithOpts(qopts...)
 
-	nWorkIDs := make([]string, len(workIDs))
-	for i, id := range workIDs {
-		nWorkIDs[i] = normalizeWorkID(id)
-	}
-
-	err = q.Select(&states, `SELECT upkeep_id, CONCAT('0x', work_id) AS work_id, completion_state, block_number, ineligibility_reason, inserted_at
+	err = q.Select(&states, `SELECT upkeep_id, work_id, completion_state, block_number, ineligibility_reason, inserted_at
 	  FROM evm_upkeep_states
-	  WHERE work_id = ANY($1) AND evm_chain_id = $2::NUMERIC`, pq.Array(nWorkIDs), o.chainID)
+	  WHERE work_id = ANY($1) AND evm_chain_id = $2::NUMERIC`, pq.Array(workIDs), o.chainID)
 
 	if err != nil {
 		return nil, err
@@ -74,8 +68,4 @@ func (o *orm) DeleteExpired(expired time.Time, qopts ...pg.QOpt) error {
 	_, err := q.Exec(`DELETE FROM evm_upkeep_states WHERE inserted_at <= $1 AND evm_chain_id::NUMERIC = $2`, expired, o.chainID)
 
 	return err
-}
-
-func normalizeWorkID(workID string) string {
-	return strings.Replace(workID, "0x", "", 1)
 }
