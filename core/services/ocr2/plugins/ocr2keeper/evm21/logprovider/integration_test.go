@@ -327,7 +327,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			BlockLimitBurst: 5,
 			// LogBlocksLookback is set low to reduce the number of blocks required
 			// to reset the block limiter to maxBurst
-			LogBlocksLookback: 50,
+			LookbackBlocks: 50,
 		})
 
 		defer deferFunc()
@@ -382,8 +382,8 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 
 	lookbackBlocks := int64(200)
 	opts := &logprovider.LogEventProviderOptions{
-		ReadInterval:      time.Second / 4,
-		LogBlocksLookback: lookbackBlocks,
+		ReadInterval:   time.Second / 4,
+		LookbackBlocks: lookbackBlocks,
 	}
 	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
@@ -568,7 +568,7 @@ func setup(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, util
 		opts.Defaults()
 	}
 	provider := logprovider.NewLogProvider(lggr, poller, packer, filterStore, opts)
-	recoverer := logprovider.NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, 0, opts.LogBlocksLookback)
+	recoverer := logprovider.NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, 0, opts.LookbackBlocks)
 
 	return provider, recoverer
 }

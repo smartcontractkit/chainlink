@@ -82,7 +82,7 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 	return &logEventProvider{
 		packer:      packer,
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
-		buffer:      newLogEventBuffer(lggr, opts.LogBufferSize, opts.BufferMaxBlockSize, opts.AllowedLogsPerBlock),
+		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), BufferMaxBlockSize, AllowedLogsPerBlock),
 		poller:      poller,
 		lock:        sync.RWMutex{},
 		opts:        opts,
@@ -104,7 +104,7 @@ func (p *logEventProvider) Start(context.Context) error {
 
 	readQ := make(chan []*big.Int, 32)
 
-	p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", p.opts.ReadMaxBatchSize, "readers", p.opts.Readers)
+	p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", p.opts.ReadBatchSize, "readers", p.opts.Readers)
 
 	{ // start readers
 		go func(ctx context.Context) {
@@ -155,7 +155,7 @@ func (p *logEventProvider) Name() string {
 func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	// TODO: Fitler logs below upkeep creation block here
 	latest := p.buffer.latestBlockSeen()
-	diff := latest - p.opts.LogBlocksLookback
+	diff := latest - p.opts.LookbackBlocks
 	if diff < 0 {
 		diff = latest
 	}
@@ -223,7 +223,7 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 		case <-ticker.C:
 			ids := p.getPartitionIds(h, int(partitionIdx))
 			if len(ids) > 0 {
-				maxBatchSize := p.opts.ReadMaxBatchSize
+				maxBatchSize := p.opts.ReadBatchSize
 				for len(ids) > maxBatchSize {
 					batch := ids[:maxBatchSize]
 					execute(batch)
@@ -265,7 +265,7 @@ func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big
 // getPartitionIds returns the upkeepIDs for the given partition and the number of partitions.
 // Partitioning is done by hashing the upkeepID and taking the modulus of the number of partitions.
 func (p *logEventProvider) getPartitionIds(hashFn hash.Hash, partition int) []*big.Int {
-	numOfPartitions := p.filterStore.Size() / p.opts.ReadMaxBatchSize
+	numOfPartitions := p.filterStore.Size() / p.opts.ReadBatchSize
 	if numOfPartitions < 1 {
 		numOfPartitions = 1
 	}
@@ -325,7 +325,7 @@ func (p *logEventProvider) getEntries(latestBlock int64, force bool, ids ...*big
 // TODO: batch entries by contract address and call log poller once per contract address
 // NOTE: the entries are already grouped by contract address
 func (p *logEventProvider) readLogs(ctx context.Context, latest int64, entries []upkeepFilter) (merr error) {
-	lookbackBlocks := p.opts.LogBlocksLookback
+	lookbackBlocks := p.opts.LookbackBlocks
 	if latest < lookbackBlocks {
 		// special case of an empty or new blockchain (e.g. simulated chain)
 		lookbackBlocks = latest

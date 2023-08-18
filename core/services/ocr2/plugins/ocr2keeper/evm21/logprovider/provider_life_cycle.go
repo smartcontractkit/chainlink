@@ -3,12 +3,18 @@ package logprovider
 import (
 	"bytes"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+)
+
+var (
+	// LogRetention is the amount of time to retain logs for.
+	LogRetention = 24 * time.Hour
 )
 
 func (p *logEventProvider) RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfig) error {
@@ -56,7 +62,7 @@ func (p *logEventProvider) newLogFilter(upkeepID *big.Int, cfg LogTriggerConfig)
 		Name:      p.filterName(upkeepID),
 		EventSigs: topics,
 		Addresses: []common.Address{cfg.ContractAddress},
-		Retention: p.opts.LogRetention,
+		Retention: LogRetention,
 	}
 }
 

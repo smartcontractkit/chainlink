@@ -13,7 +13,7 @@ func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, utilsA
 	filterStore := NewUpkeepFilterStore()
 	packer := NewLogEventsPacker(utilsABI)
 	provider := NewLogProvider(lggr, poller, packer, filterStore, nil)
-	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, 0, provider.opts.LogBlocksLookback)
+	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, 0, provider.opts.LookbackBlocks)
 
 	return provider, recoverer
 }

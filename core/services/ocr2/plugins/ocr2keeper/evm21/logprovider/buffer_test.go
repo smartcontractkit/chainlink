@@ -175,7 +175,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 	})
 
 	t.Run("enqueue logs overflow", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 2, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 2, 2, 10)
 
 		require.Equal(t, 2, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},

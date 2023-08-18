@@ -10,6 +10,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+var (
+	// AllowedLogsPerBlock is the maximum number of logs allowed per upkeep in a block.
+	AllowedLogsPerBlock = 128
+	// BufferMaxBlockSize is the maximum number of blocks in the buffer.
+	BufferMaxBlockSize = 1024
+)
+
 // fetchedLog holds the log and the ID of the upkeep
 type fetchedLog struct {
 	id  *big.Int
@@ -62,7 +69,7 @@ type logEventBuffer struct {
 	// size is the number of blocks supported by the buffer
 	size int32
 
-	maxBlockLogs, maxUpkeepLogsPerBlock int32
+	maxBlockLogs, maxUpkeepLogsPerBlock int
 	// blocks is the circular buffer of fetched blocks
 	blocks []fetchedBlock
 	// latestBlock is the latest block number seen
@@ -74,8 +81,8 @@ func newLogEventBuffer(lggr logger.Logger, size, maxBlockLogs, maxUpkeepLogsPerB
 		lggr:                  lggr.Named("KeepersRegistry.LogEventBuffer"),
 		size:                  int32(size),
 		blocks:                make([]fetchedBlock, size),
-		maxBlockLogs:          int32(maxBlockLogs),
-		maxUpkeepLogsPerBlock: int32(maxUpkeepLogsPerBlock),
+		maxBlockLogs:          maxBlockLogs,
+		maxUpkeepLogsPerBlock: maxUpkeepLogsPerBlock,
 	}
 }
 
