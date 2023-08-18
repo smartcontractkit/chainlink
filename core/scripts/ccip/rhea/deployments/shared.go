@@ -34,6 +34,9 @@ func getFinalityDepth(chain rhea.Chain) uint32 {
 		rhea.PolygonMumbai:  5,
 		rhea.ArbitrumGoerli: 5,
 		rhea.Sepolia:        4,
+		rhea.BASEGoerli:     5,
+		rhea.AvaxAnzSubnet:  1, // devnet without normal block production
+		rhea.BSCTestnet:     2,
 		// Mainnets
 		// We've made a bit of an effort to make these realistic, but they are *not* production-ready parameters, only use them for testing!!!
 		rhea.Ethereum: 96, // 3 epochs to be safe
@@ -59,6 +62,9 @@ func getOptimisticConfirmations(chain rhea.Chain) uint32 {
 		rhea.PolygonMumbai:  4,
 		rhea.ArbitrumGoerli: 1,
 		rhea.Quorum:         1,
+		rhea.BASEGoerli:     4,
+		rhea.AvaxAnzSubnet:  1, // devnet without normal block production
+		rhea.BSCTestnet:     2,
 		// Mainnets
 		rhea.Ethereum: 2,
 		rhea.Avax:     1,
@@ -83,6 +89,9 @@ func getMaxGasPrice(chain rhea.Chain) uint64 {
 		rhea.PolygonMumbai:  200e9,
 		rhea.ArbitrumGoerli: 200e9,
 		rhea.Quorum:         200e9,
+		rhea.AvaxAnzSubnet:  200e9,
+		rhea.BASEGoerli:     200e9,
+		rhea.BSCTestnet:     200e9,
 		// Mainnets
 		rhea.Ethereum: 200e9,
 		rhea.Avax:     200e9,

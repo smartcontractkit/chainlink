@@ -148,6 +148,11 @@ func setOnRampOnTokenPools(t *testing.T, sourceClient *EvmDeploymentConfig, onRa
 		rampUpdate := lock_release_token_pool.TokenPoolRampUpdate{
 			Ramp:    onRampAddress,
 			Allowed: true,
+			RateLimiterConfig: lock_release_token_pool.RateLimiterConfig{
+				IsEnabled: true,
+				Capacity:  new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)),
+				Rate:      new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1e9)),
+			},
 		}
 
 		// Configure offramp address on pool
