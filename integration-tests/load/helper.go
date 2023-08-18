@@ -195,7 +195,7 @@ func (l *loadArgs) Start() {
 					Gun:                   ccipLoad,
 					Logger:                ccipLoad.Lane.Logger,
 					SharedData:            l.TestCfg.MsgType,
-					LokiConfig:            wasp.NewEnvLokiConfig(),
+					//LokiConfig:            wasp.NewEnvLokiConfig(),
 					Labels: map[string]string{
 						"test_group":   "load",
 						"cluster":      "sdlc",

@@ -79,6 +79,9 @@ func NewConfigFromToml(tomlFile string, opts ...NodeConfigOpt) (*chainlink.Confi
 		return nil, err
 	}
 	var cfg chainlink.Config
+	if err != nil {
+		return nil, err
+	}
 	err = config.DecodeTOML(bytes.NewReader(b), &cfg)
 	if err != nil {
 		return nil, err
@@ -86,7 +89,7 @@ func NewConfigFromToml(tomlFile string, opts ...NodeConfigOpt) (*chainlink.Confi
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	return &cfg, err
+	return &cfg, nil
 }
 
 func WithOCR1() NodeConfigOpt {
@@ -179,11 +182,7 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 				HeadTracker: evmcfg.HeadTracker{
 					HistoryDepth: ptr(uint32(100)),
 				},
-				GasEstimator: evmcfg.GasEstimator{
-					LimitDefault:  ptr(uint32(6000000)),
-					PriceMax:      assets.GWei(200),
-					FeeCapDefault: assets.GWei(200),
-				},
+				GasEstimator: WithCCIPGasEstimator(network.ChainID),
 			},
 			Nodes: []*evmcfg.Node{
 				{
@@ -198,6 +197,27 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.EVM = evmConfigs
 	}
+}
+
+func WithCCIPGasEstimator(chainId int64) evmcfg.GasEstimator {
+	cfg := evmcfg.GasEstimator{
+		LimitDefault:  ptr(uint32(6000000)),
+		PriceMax:      assets.GWei(200),
+		FeeCapDefault: assets.GWei(200),
+	}
+	switch chainId {
+	case 421613:
+		cfg.LimitDefault = ptr(uint32(100000000))
+	case 420:
+		cfg.BumpThreshold = ptr(uint32(60))
+		cfg.BumpPercent = ptr(uint16(20))
+		cfg.BumpMin = assets.GWei(100)
+	case 5:
+		cfg.PriceMax = assets.GWei(500)
+		cfg.FeeCapDefault = assets.GWei(500)
+	}
+
+	return cfg
 }
 
 func WithVRFv2EVMEstimator(addr string) NodeConfigOpt {

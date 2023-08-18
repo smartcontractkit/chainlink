@@ -94,19 +94,6 @@ var EvmChainIdToChainSelector = func(chainId uint64) (uint64, error) {
 }
 
 var (
-	//go:embed clconfig/ccip-default.txt
-	CLConfig             string
-	DefaultCCIPCLNodeEnv = func(t *testing.T, networks []blockchain.EVMNetwork) string {
-		ccipTOML, err := client.MarshallTemplate(
-			CCIPTOMLEnv{
-				Networks: networks,
-			},
-			"ccip env toml", CLConfig)
-		require.NoError(t, err)
-		fmt.Println("Configuration", ccipTOML)
-		return ccipTOML
-	}
-
 	NetworkName = func(name string) string {
 		return strings.ReplaceAll(strings.ToLower(name), " ", "-")
 	}
