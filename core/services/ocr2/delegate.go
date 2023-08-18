@@ -252,7 +252,7 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	}
 	// we only have clean to do for the EVM
 	if rid.Network == relay.EVM {
-		d.cleanupEVM(jb, q, rid)
+		return d.cleanupEVM(jb, q, rid)
 	}
 	return nil
 }
@@ -267,7 +267,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 	spec := jb.OCR2OracleSpec
 	chain, err := d.legacyChains.Get(relayID.ChainID.String())
 	if err != nil {
-		d.lggr.Error("DeleteJob: failed to chain get chain %s", "err", relayID.ChainID, err)
+		d.lggr.Error("cleanupEVM: failed to chain get chain %s", "err", relayID.ChainID, err)
 		return nil
 	}
 	lp := chain.LogPoller()
@@ -345,13 +345,13 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	if rid.Network == relay.EVM {
 		lggr = logger.Sugared(lggr.With("evmChainID", rid.ChainID))
 
-		chain, err := d.legacyChains.Get(rid.ChainID.String())
-		if err != nil {
-			return nil, fmt.Errorf("ServicesForSpec: could not get EVM chain %s: %w", rid.ChainID, err)
+		chain, err2 := d.legacyChains.Get(rid.ChainID.String())
+		if err2 != nil {
+			return nil, fmt.Errorf("ServicesForSpec: could not get EVM chain %s: %w", rid.ChainID, err2)
 		}
-		effectiveTransmitterID, err = GetEVMEffectiveTransmitterID(&jb, chain, lggr)
-		if err != nil {
-			return nil, fmt.Errorf("ServicesForSpec failed to get evm transmitterID: %w", err)
+		effectiveTransmitterID, err2 = GetEVMEffectiveTransmitterID(&jb, chain, lggr)
+		if err2 != nil {
+			return nil, fmt.Errorf("ServicesForSpec failed to get evm transmitterID: %w", err2)
 		}
 	}
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
