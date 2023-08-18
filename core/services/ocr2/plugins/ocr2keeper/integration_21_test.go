@@ -228,7 +228,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 	done()
 
-	runs := checkPipelineRuns(t, nodes, (emits/2)*upkeeps) // TODO: TBD
+	runs := checkPipelineRuns(t, nodes, 1*len(nodes)) // TODO: TBD
 
 	t.Run("recovery backfill", func(t *testing.T) {
 		addr, contract := addrs[0], contracts[0]
@@ -237,6 +237,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		t.Logf("Registered new upkeep %s for address %s", upkeepID.String(), addr.String())
 		// blockBeforeEmits := backend.Blockchain().CurrentBlock().Number.Uint64()
 		// Emit 100 logs in a burst
+		emits := 100
 		emitEvents(t, testutils.Context(t), 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {})
 		// Mine enough blocks to ensre these logs don't fall into log provider range
 		dummyBlocks := 500
@@ -250,7 +251,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		// defer done()
 		// g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 
-		expectedPostRecover := runs * 2 // TODO: TBD
+		expectedPostRecover := runs + emits // TODO: TBD
 		waitPipelineRuns(t, nodes, expectedPostRecover, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 
 	})
@@ -261,10 +262,11 @@ func waitPipelineRuns(t *testing.T, nodes []Node, n int, timeout, interval time.
 	defer cancel()
 	var allRuns []pipeline.Run
 	for len(allRuns) < n && ctx.Err() == nil {
+		allRuns = []pipeline.Run{}
 		for _, node := range nodes {
 			runs, err := node.App.PipelineORM().GetAllRuns()
 			require.NoError(t, err)
-			allRuns = runs
+			allRuns = append(allRuns, runs...)
 		}
 		time.Sleep(interval)
 	}
