@@ -1,5 +1,6 @@
 ChainID = '421613'
 ChainType = 'arbitrum'
+FinalityTagEnabled = true
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
 LinkContractAddress = '0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28'
