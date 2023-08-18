@@ -2,6 +2,8 @@ package contracts
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"math/big"
 	"time"
 
@@ -50,6 +52,31 @@ type VRFCoordinatorV2 interface {
 	GetSubscription(ctx context.Context, subID uint64) (vrf_coordinator_v2.GetSubscription, error)
 }
 
+type VRFCoordinatorV2Plus interface {
+	SetLINKAndLINKETHFeed(
+		link string,
+		linkEthFeed string,
+	) error
+	SetConfig(
+		minimumRequestConfirmations uint16,
+		maxGasLimit uint32,
+		stalenessSeconds uint32,
+		gasAfterPaymentCalculation uint32,
+		fallbackWeiPerUnitLink *big.Int,
+		feeConfig vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig,
+	) error
+	RegisterProvingKey(
+		oracleAddr string,
+		publicProvingKey [2]*big.Int,
+	) error
+	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
+	CreateSubscription() error
+	AddConsumer(subId *big.Int, consumerAddress string) error
+	Address() string
+	GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2plus.GetSubscription, error)
+	FindSubscriptionID() (*big.Int, error)
+}
+
 type VRFConsumer interface {
 	Address() string
 	RequestRandomness(hash [32]byte, fee *big.Int) error
@@ -81,6 +108,14 @@ type VRFv2LoadTestConsumer interface {
 	Address() string
 	RequestRandomness(hash [32]byte, subID uint64, confs uint16, gasLimit uint32, numWords uint32, requestCount uint16) error
 	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_load_test_with_metrics.GetRequestStatus, error)
+	GetLastRequestId(ctx context.Context) (*big.Int, error)
+	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
+}
+
+type VRFv2PlusLoadTestConsumer interface {
+	Address() string
+	RequestRandomness(keyHash [32]byte, subID *big.Int, requestConfirmations uint16, callbackGasLimit uint32, nativePayment bool, numWords uint32, requestCount uint16) error
+	GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_v2plus_load_test_with_metrics.GetRequestStatus, error)
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
 }
