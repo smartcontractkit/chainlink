@@ -25,8 +25,9 @@ import (
 var (
 	ErrNotFound             = errors.New("not found")
 	DefaultRecoveryInterval = 5 * time.Second
-	RecoveryCacheTTL        = 24*time.Hour - time.Second
-	GCInterval              = time.Hour
+	// TODO: Reduce these intervals to allow sending same proposals again if they were not fulfilled
+	RecoveryCacheTTL = 24*time.Hour - time.Second
+	GCInterval       = time.Hour
 
 	recoveryBatchSize  = 10
 	recoveryLogsBuffer = int64(50)
@@ -84,6 +85,8 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 		client:      client,
 	}
 
+	// TODO: Ensure lookback blocks is at least as large as Finality Depth to
+	// ensure recoverer does not go beyond finality depth
 	rec.lookbackBlocks.Store(lookbackBlocks)
 	rec.blockTime.Store(defaultBlockTime)
 
@@ -174,6 +177,9 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 
 	// TODO: Ensure start block is above upkeep creation block
 	start, offsetBlock := r.getRecoveryWindow(latest)
+	if proposal.Trigger.LogTriggerExtension == nil {
+		return nil, errors.New("missing log trigger extension")
+	}
 	logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
 	if logBlock == 0 {
 		var number *big.Int
@@ -209,7 +215,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	}, proposal.UpkeepID.BigInt())
 
 	if len(filter.addr) == 0 {
-		return nil, errors.New("filter not found, upkeep is inactive") // TODO fix error msg
+		return nil, fmt.Errorf("invalid filter found for upkeepID %s", proposal.UpkeepID.String())
 	}
 
 	logs, err := r.poller.LogsWithSigs(logBlock-1, logBlock+1, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
@@ -219,6 +225,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 
 	for _, log := range logs {
 		trigger := logToTrigger(log)
+		// use coordinated proposal block number as checkblock/hash
 		trigger.BlockHash = proposal.Trigger.BlockHash
 		trigger.BlockNumber = proposal.Trigger.BlockNumber
 		wid := core.UpkeepWorkID(proposal.UpkeepID, trigger)
@@ -349,6 +356,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	if added > 0 {
 		r.lggr.Debugw("found missed logs", "count", added, "upkeepID", f.upkeepID)
 	} else if alreadyPending == 0 {
+		// TODO: Only update the lastRePollBlock if no filtered logs were found
 		// no logs found or still in process, update the lastRePollBlock for this upkeep
 		r.filterStore.UpdateFilters(func(uf1, uf2 upkeepFilter) upkeepFilter {
 			uf1.lastRePollBlock = end
@@ -369,6 +377,7 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 	alreadyPending := 0
 	for _, log := range filteredLogs {
 		trigger := logToTrigger(log)
+		// Set the checkBlock and Hash to zero so that the checkPipeline uses the latest block
 		trigger.BlockHash = [32]byte{}
 		trigger.BlockNumber = 0
 		upkeepId := &ocr2keepers.UpkeepIdentifier{}
@@ -396,9 +405,6 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 		r.visited[wid] = time.Now()
 		r.pending = append(r.pending, payload)
 	}
-	if len(r.pending) == 0 {
-		return 0, 0
-	}
 	return len(r.pending) - pendingSizeBefore, alreadyPending
 }
 
@@ -421,9 +427,8 @@ func (r *logRecoverer) filterFinalizedStates(f upkeepFilter, logs []logpoller.Lo
 func (r *logRecoverer) getRecoveryWindow(latest int64) (int64, int64) {
 	lookbackBlocks := r.lookbackBlocks.Load()
 	blockTime := r.blockTime.Load()
-	start := int64(24*time.Hour) / blockTime
-	// TODO: use max(finality depth, lookbackBlocks)
-	return latest - start, latest - lookbackBlocks
+	blocksInDay := int64(24*time.Hour) / blockTime
+	return latest - blocksInDay, latest - lookbackBlocks
 }
 
 // getFilterBatch returns a batch of filters that are ready to be recovered.
