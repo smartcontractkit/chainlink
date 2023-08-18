@@ -266,7 +266,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension),
 				WorkID:   "work",
 			},
-			reason:      encoding.UpkeepFailureReasonLogBlockNoLongerExists,
+			reason:      encoding.UpkeepFailureReasonTxHashNoLongerExists,
 			retryable:   false,
 			makeEthCall: true,
 			blocks: map[int64]string{

@@ -98,7 +98,7 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 }
 
 func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
-	// TODO: we need to differentiate here b/w flaky errors and tx not found errors
+	// TODO: do manual eth_getTransactionReceipt call to get block number and hash
 	txr, err := r.client.TransactionReceipt(r.ctx, txHash)
 	if err != nil {
 		return nil, common.Hash{}, err
@@ -179,7 +179,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	}
 	if bn == nil {
 		r.lggr.Warnf("tx hash %s does not exist on chain for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
-		return encoding.UpkeepFailureReasonLogBlockNoLongerExists, encoding.NoPipelineError, false
+		return encoding.UpkeepFailureReasonTxHashNoLongerExists, encoding.NoPipelineError, false
 	}
 	r.lggr.Debugf("tx hash %s exists on chain for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
@@ -354,7 +354,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 
 		if !simulatePerformSuccess {
-			r.lggr.Warnf("upkeepId %s is not eligible after simulation", checkResults[idx].UpkeepID.String())
+			r.lggr.Warnf("upkeepId %s is not eligible after simulation of perform", checkResults[idx].UpkeepID.String())
 			checkResults[performToKeyIdx[i]].Eligible = false
 		}
 	}

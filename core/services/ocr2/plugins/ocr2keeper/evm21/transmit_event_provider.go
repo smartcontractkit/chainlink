@@ -137,9 +137,8 @@ func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keep
 		[]common.Hash{
 			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
 			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
-			// TODO: enable once we have the corredponding types in ocr2keepers
-			// iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
-			// iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
 		pg.WithParentCtx(ctx),
@@ -298,7 +297,6 @@ func (l transmitEventLog) TransmitEventType() ocr2keepers.TransmitEventType {
 	case l.InsufficientFunds != nil:
 		return ocr2keepers.InsufficientFundsReportEvent
 	default:
-		// TODO: use unknown type
-		return ocr2keepers.TransmitEventType(0)
+		return ocr2keepers.UnknownEvent
 	}
 }

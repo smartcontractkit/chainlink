@@ -27,10 +27,7 @@ const (
 	// leaving a gap here for more onchain failure reasons in the future
 	// upkeep failure offchain reasons
 	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
-	// todo: do we need these three separate reasons?
-	UpkeepFailureReasonLogBlockNoLongerExists UpkeepFailureReason = 31
-	UpkeepFailureReasonLogBlockInvalid        UpkeepFailureReason = 32
-	UpkeepFailureReasonTxHashNoLongerExists   UpkeepFailureReason = 33
+	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
 
 	// pipeline execution error
 	NoPipelineError               PipelineExecutionState = 0
