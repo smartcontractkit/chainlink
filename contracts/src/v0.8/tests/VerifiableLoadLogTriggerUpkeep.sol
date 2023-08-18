@@ -6,8 +6,8 @@ import "../dev/automation/2_1/interfaces/ILogAutomation.sol";
 import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
 contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface, ILogAutomation {
-  //  bool public autoLog;
-  //  bool public useMercury;
+  bool public autoLog;
+  bool public useMercury;
 
   /**
    * @param _registrar a automation registrar 2.1 address
@@ -15,23 +15,21 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
    */
   constructor(
     AutomationRegistrar2_1 _registrar,
-    bool _useArb
-  )
-    //    bool _autoLog,
-    //    bool _useMercury
-    VerifiableLoadBase(_registrar, _useArb)
-  {
-    //    autoLog = _autoLog;
-    //    useMercury = _useMercury;
+    bool _useArb,
+    bool _autoLog,
+    bool _useMercury
+  ) VerifiableLoadBase(_registrar, _useArb) {
+    autoLog = _autoLog;
+    useMercury = _useMercury;
   }
 
-  //  function setAutoLog(bool _autoLog) external {
-  //    autoLog = _autoLog;
-  //  }
-  //
-  //  function setUseMercury(bool _useMercury) external {
-  //    useMercury = _useMercury;
-  //  }
+  function setAutoLog(bool _autoLog) external {
+    autoLog = _autoLog;
+  }
+
+  function setUseMercury(bool _useMercury) external {
+    useMercury = _useMercury;
+  }
 
   function setFeedsHex(string[] memory newFeeds) external {
     feedsHex = newFeeds;
@@ -55,27 +53,27 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
       bytes memory t3 = abi.encodePacked(log.topics[3]);
       address addr = abi.decode(t3, (address));
 
-      //      uint256 checkGasToBurn = checkGasToBurns[upkeepId];
-      //      while (startGas - gasleft() + 15000 < checkGasToBurn) {
-      //        dummyMap[blockhash(blockNum)] = false;
-      //      }
+      uint256 checkGasToBurn = checkGasToBurns[upkeepId];
+      while (startGas - gasleft() + 15000 < checkGasToBurn) {
+        dummyMap[blockhash(blockNum)] = false;
+      }
 
-      //if (useMercury) {
-      revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum, addr));
-      //}
+      if (useMercury) {
+        revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum, addr));
+      }
 
       // if we don't use mercury, create a perform data which resembles the output of checkCallback
-      //      bytes[] memory values = new bytes[](1);
-      //      bytes memory extraData = abi.encode(upkeepId, blockNum);
-      //      return (true, abi.encode(values, extraData));
+      bytes[] memory values = new bytes[](2);
+      bytes memory extraData = abi.encode(upkeepId, blockNum);
+      return (true, abi.encode(values, extraData));
     }
     revert EventSigDoNotMatch(address(this), log.topics[0], emittedSig);
   }
 
   function performUpkeep(bytes calldata performData) external {
     uint256 startGas = gasleft();
-    (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
-    (uint256 upkeepId, uint256 logBlockNumber, address addr) = abi.decode(extraData, (uint256, uint256, address));
+    //(bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
+    (uint256 upkeepId, uint256 logBlockNumber, address addr) = abi.decode(performData, (uint256, uint256, address));
 
     uint256 firstPerformBlock = firstPerformBlocks[upkeepId];
     uint256 previousPerformBlock = previousPerformBlocks[upkeepId];
@@ -103,9 +101,9 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
     // minBalanceThresholdMultiplier (20) * min balance. If not, add addLinkAmount (0.2) to the upkeep
     // upkeepTopUpCheckInterval, minBalanceThresholdMultiplier, and addLinkAmount are configurable
     topUpFund(upkeepId, currentBlockNum);
-    //if (autoLog) {
-    emit LogEmitted(upkeepId, currentBlockNum, address(this));
-    //}
+    if (autoLog) {
+      emit LogEmitted(upkeepId, currentBlockNum, address(this));
+    }
     burnPerformGas(upkeepId, startGas, currentBlockNum);
   }
 
@@ -113,7 +111,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
     bytes[] memory values,
     bytes memory extraData
   ) external pure override returns (bool, bytes memory) {
-    bytes memory performData = abi.encode(values, extraData);
+    //bytes memory performData = abi.encode(values, extraData);
     return (true, extraData);
   }
 }

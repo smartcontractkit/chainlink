@@ -157,7 +157,31 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   }
 
   // this function sets pipeline data and trigger config for log trigger upkeeps
-  function batchPreparingUpkeeps(uint256[] calldata upkeepIds) external {
+  function batchPreparingUpkeeps(
+    uint256[] calldata upkeepIds,
+    uint8 selector,
+    bytes32 topic0,
+    bytes32 topic1,
+    bytes32 topic2,
+    bytes32 topic3
+  ) external {
+    uint256 len = upkeepIds.length;
+    for (uint256 i = 0; i < len; i++) {
+      uint256 upkeepId = upkeepIds[i];
+
+      this.updateUpkeepPipelineData(upkeepId, abi.encode(upkeepId));
+
+      uint8 triggerType = registry.getTriggerType(upkeepId);
+      if (triggerType == 1) {
+        // currently no using a filter selector
+        bytes memory triggerCfg = this.getLogTriggerConfig(address(this), selector, topic0, topic2, topic2, topic3);
+        registry.setUpkeepTriggerConfig(upkeepId, triggerCfg);
+      }
+    }
+  }
+
+  // this function sets pipeline data and trigger config for log trigger upkeeps
+  function batchPreparingUpkeepsSimple(uint256[] calldata upkeepIds) external {
     uint256 len = upkeepIds.length;
     for (uint256 i = 0; i < len; i++) {
       uint256 upkeepId = upkeepIds[i];
@@ -258,6 +282,22 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
         emit UpkeepTopUp(upkeepId, addLinkAmount, blockNum);
       }
     }
+  }
+
+  function getMinBalanceForUpkeep(uint256 upkeepId) external view returns (uint96) {
+    return registry.getMinBalanceForUpkeep(upkeepId);
+  }
+
+  function getForwarder(uint256 upkeepID) external view returns (address) {
+    return registry.getForwarder(upkeepID);
+  }
+
+  function getBalance(uint256 id) external view returns (uint96 balance) {
+    return registry.getBalance(id);
+  }
+
+  function getTriggerType(uint256 upkeepId) external view returns (uint8) {
+    return registry.getTriggerType(upkeepId);
   }
 
   function burnPerformGas(uint256 upkeepId, uint256 startGas, uint256 blockNum) public {
