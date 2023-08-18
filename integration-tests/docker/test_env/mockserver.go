@@ -10,9 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
+
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 )
 
 type MockServer struct {
