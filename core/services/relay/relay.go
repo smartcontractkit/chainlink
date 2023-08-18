@@ -45,13 +45,13 @@ func (i *ID) String() string {
 }
 func NewID(n Network, c ChainID) (ID, error) {
 	id := ID{Network: n, ChainID: c}
-	err := id.Validate()
+	err := id.validate()
 	if err != nil {
 		return ID{}, err
 	}
 	return id, nil
 }
-func (i *ID) Validate() error {
+func (i *ID) validate() error {
 	// the only validation is to ensure that EVM chain ids are compatible with int64
 	if i.Network == EVM {
 		_, err := i.ChainID.Int64()
