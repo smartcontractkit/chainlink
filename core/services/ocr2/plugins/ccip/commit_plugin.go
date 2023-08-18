@@ -88,7 +88,11 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet, ne
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting the static config from the commitStore")
 	}
-	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(uint64(pluginConfig.SourceEvmChainId)))
+	chainId, err := ccipconfig.ChainIdFromSelector(staticConfig.SourceChainSelector)
+	if err != nil {
+		return nil, err
+	}
+	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(chainId))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open source chain")
 	}
@@ -120,11 +124,11 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet, ne
 	leafHasher := hasher.NewLeafHasher(staticConfig.SourceChainSelector, staticConfig.ChainSelector, onRamp.Address(), hasher.NewKeccakCtx())
 	// Note that lggr already has the jobName and contractID (commit store)
 	commitLggr := lggr.Named("CCIPCommit").With(
-		"sourceChain", ChainName(pluginConfig.SourceEvmChainId),
+		"sourceChain", ChainName(int64(chainId)),
 		"destChain", ChainName(destChainID))
-	checkFinalityTags, ok := checkFinalityTags[pluginConfig.SourceEvmChainId]
+	checkFinalityTags, ok := checkFinalityTags[int64(chainId)]
 	if !ok {
-		return nil, errors.Errorf("finality information for chain %d not supported", pluginConfig.SourceEvmChainId)
+		return nil, errors.Errorf("finality information for chain %d not supported", chainId)
 	}
 	wrappedPluginFactory := NewCommitReportingPluginFactory(
 		CommitPluginConfig{
@@ -271,17 +275,22 @@ func UnregisterCommitPluginLpFilters(ctx context.Context, q pg.Queryer, spec *jo
 	if err != nil {
 		return err
 	}
-
-	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(uint64(pluginConfig.SourceEvmChainId)))
-	if err != nil {
-		return err
-	}
-
 	commitStore, err := LoadCommitStore(common.HexToAddress(spec.ContractID), CommitPluginLabel, destChain.Client())
 	if err != nil {
 		return err
 	}
-
+	staticConfig, err := commitStore.GetStaticConfig(&bind.CallOpts{})
+	if err != nil {
+		return err
+	}
+	chainId, err := ccipconfig.ChainIdFromSelector(staticConfig.SourceChainSelector)
+	if err != nil {
+		return err
+	}
+	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(chainId))
+	if err != nil {
+		return err
+	}
 	return unregisterCommitPluginFilters(ctx, q, sourceChain.LogPoller(), destChain.LogPoller(), commitStore, common.HexToAddress(pluginConfig.OffRamp))
 }
 

@@ -66,7 +66,11 @@ func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet,
 	if err != nil {
 		return nil, err
 	}
-	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(uint64(pluginConfig.SourceEvmChainId)))
+	chainId, err := ccipconfig.ChainIdFromSelector(offRampConfig.SourceChainSelector)
+	if err != nil {
+		return nil, err
+	}
+	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(chainId))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open source chain")
 	}
@@ -96,7 +100,7 @@ func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet,
 	}
 
 	execLggr := lggr.Named("CCIPExecution").With(
-		"sourceChain", ChainName(pluginConfig.SourceEvmChainId),
+		"sourceChain", ChainName(int64(chainId)),
 		"destChain", ChainName(destChainID))
 
 	wrappedPluginFactory := NewExecutionReportingPluginFactory(
@@ -237,7 +241,11 @@ func UnregisterExecPluginLpFilters(ctx context.Context, q pg.Queryer, spec *job.
 	if err != nil {
 		return err
 	}
-	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(uint64(pluginConfig.SourceEvmChainId)))
+	chainId, err := ccipconfig.ChainIdFromSelector(offRampConfig.SourceChainSelector)
+	if err != nil {
+		return err
+	}
+	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(chainId))
 	if err != nil {
 		return errors.Wrap(err, "unable to open source chain")
 	}
