@@ -107,21 +107,6 @@ func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, err
 	return txr.BlockNumber, txr.BlockHash, nil
 }
 
-// todo: remove duplicate
-// getIneligibleCheckResultWithoutPerformData returns an ineligible check result with ineligibility reason and pipeline execution state but without perform data
-func getIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason encoding.UpkeepFailureReason, state encoding.PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
-	return ocr2keepers.CheckResult{
-		IneligibilityReason:    uint8(reason),
-		PipelineExecutionState: uint8(state),
-		Retryable:              retryable,
-		UpkeepID:               p.UpkeepID,
-		Trigger:                p.Trigger,
-		WorkID:                 p.WorkID,
-		FastGasWei:             big.NewInt(0),
-		LinkNative:             big.NewInt(0),
-	}
-}
-
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
 func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
 	// verify check block number is not too old
@@ -197,7 +182,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
 		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
 		if state != encoding.NoPipelineError {
-			results[i] = getIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, state, retryable)
+			results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, state, retryable)
 			continue
 		}
 
@@ -210,7 +195,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		case ocr2keepers.LogTrigger:
 			reason, state, retryable := r.verifyLogExists(upkeepId, p)
 			if reason != encoding.UpkeepFailureReasonNone || state != encoding.NoPipelineError {
-				results[i] = getIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)
+				results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, reason, state, retryable)
 				continue
 			}
 
@@ -219,7 +204,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack log trigger checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
-				results[i] = getIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, encoding.PackUnpackDecodeFailed, false)
+				results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, encoding.PackUnpackDecodeFailed, false)
 				continue
 			}
 		default:
@@ -229,12 +214,12 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 			if err != nil {
 				// pack error, no retryable
 				r.lggr.Warnf("failed to pack conditional checkUpkeep data for upkeepId %s with check data %s: %s", upkeepId, hexutil.Encode(p.CheckData), err)
-				results[i] = getIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, encoding.PackUnpackDecodeFailed, false)
+				results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, encoding.PackUnpackDecodeFailed, false)
 				continue
 			}
 		}
 		indices[len(checkReqs)] = i
-		results[i] = getIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false)
+		results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false)
 
 		var result string
 		checkReqs = append(checkReqs, rpc.BatchElem{

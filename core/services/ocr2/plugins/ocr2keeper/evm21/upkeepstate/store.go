@@ -128,7 +128,6 @@ func (u *upkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, en
 		// all ids were found in the cache
 		return states, nil
 	}
-	// TODO: can we use content based querying here instead of requiring start/end?
 	if err := u.fetchPerformed(ctx, start, end); err != nil {
 		return nil, err
 	}
