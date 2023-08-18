@@ -137,7 +137,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   // STATIC CONFIG
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "EVM2EVMOnRamp 1.0.0";
+  string public constant override typeAndVersion = "EVM2EVMOnRamp 1.1.0";
   /// @dev The metadata hash for this contract
   bytes32 internal immutable i_metadataHash;
   /// @dev Default gas limit for a transactions that did not specify

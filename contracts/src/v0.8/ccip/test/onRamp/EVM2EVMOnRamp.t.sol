@@ -69,7 +69,7 @@ contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
     assertEq(s_sourceTokens, s_onRamp.getSupportedTokens());
 
     // Initial values
-    assertEq("EVM2EVMOnRamp 1.0.0", s_onRamp.typeAndVersion());
+    assertEq("EVM2EVMOnRamp 1.1.0", s_onRamp.typeAndVersion());
     assertEq(OWNER, s_onRamp.owner());
     assertEq(1, s_onRamp.getExpectedNextSequenceNumber());
 

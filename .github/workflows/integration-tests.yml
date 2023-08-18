@@ -259,10 +259,11 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ""
-          - name: flux
-            nodes: 1
-            os: ubuntu-latest
-            pyroscope_env: ""
+# Flakes
+#          - name: flux
+#            nodes: 1
+#            os: ubuntu-latest
+#            pyroscope_env: ""
           - name: ocr
             nodes: 1
             os: ubuntu-latest

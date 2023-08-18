@@ -281,6 +281,48 @@ func (client *CCIPClient) applyFeeTokensUpdates(t *testing.T, sourceClient *rhea
 	client.Source.logger.Infof("Added feeTokens: %v to PriceRegistry: %s", feeTokens, client.Source.PriceRegistry.Address().Hex())
 }
 
+func (client *CCIPClient) setTokenPoolRateLimits(t *testing.T, token rhea.Token) {
+	if tokenConfig, ok := client.Source.SupportedTokens[token]; !ok || tokenConfig.TokenPoolType == rhea.FeeTokenOnly {
+		client.Source.logger.Infof("Token %s is not supported as transfer token", token)
+		return
+	}
+
+	if tokenConfig, ok := client.Dest.SupportedTokens[token]; !ok || tokenConfig.TokenPoolType == rhea.FeeTokenOnly {
+		client.Dest.logger.Infof("Token %s is not supported as transfer token", token)
+		return
+	}
+
+	sourceTokenConfig := client.Source.SupportedTokens[token]
+	if sourceTokenConfig.Pool.Address() == common.HexToAddress("") {
+		client.Source.logger.Infof("Token %s does not have a pool", token)
+		return
+	}
+
+	destTokenConfig := client.Dest.SupportedTokens[token]
+	if destTokenConfig.Pool.Address() == common.HexToAddress("") {
+		client.Dest.logger.Infof("Token %s does not have a pool", token)
+		return
+	}
+
+	rateLimitConfig := lock_release_token_pool.RateLimiterConfig{
+		IsEnabled: true,
+		Capacity:  big.NewInt(1_000_000),
+		Rate:      big.NewInt(555),
+	}
+
+	tx, err := sourceTokenConfig.Pool.SetOnRampRateLimiterConfig(client.Source.Owner, client.Source.OnRamp.Address(), rateLimitConfig)
+	shared.RequireNoError(t, err)
+	err = shared.WaitForMined(client.Source.logger, client.Source.Client.Client, tx.Hash(), true)
+	shared.RequireNoError(t, err)
+	client.Source.logger.Infof("Set rate limit config on onRamp for %s", token)
+
+	tx, err = destTokenConfig.Pool.SetOffRampRateLimiterConfig(client.Dest.Owner, client.Dest.OffRamp.Address(), rateLimitConfig)
+	shared.RequireNoError(t, err)
+	err = shared.WaitForMined(client.Dest.logger, client.Dest.Client.Client, tx.Hash(), true)
+	shared.RequireNoError(t, err)
+	client.Dest.logger.Infof("Set rate limit config on offRamp for %s", token)
+}
+
 func (client *CCIPClient) setOnRampFeeConfig(t *testing.T, sourceClient *rhea.EvmDeploymentConfig) {
 	var feeTokenConfig []evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs
 

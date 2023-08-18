@@ -108,7 +108,7 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet, ne
 	if err != nil {
 		return nil, err
 	}
-	dynamicOnRampConfig, err := onRamp.GetDynamicConfig(nil)
+	dynamicOnRampConfig, err := LoadOnRampDynamicConfig(onRamp, sourceChain.Client())
 	if err != nil {
 		return nil, err
 	}

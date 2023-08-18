@@ -137,7 +137,7 @@ contract CommitStore_constructor is PriceRegistrySetup, OCR2BaseSetup {
     // CommitStore initial values
     assertEq(0, commitStore.getLatestPriceEpochAndRound());
     assertEq(1, commitStore.getExpectedNextSequenceNumber());
-    assertEq(commitStore.typeAndVersion(), "CommitStore 1.0.0");
+    assertEq(commitStore.typeAndVersion(), "CommitStore 1.1.0");
     assertEq(OWNER, commitStore.owner());
     assertTrue(commitStore.isUnpausedAndARMHealthy());
   }
