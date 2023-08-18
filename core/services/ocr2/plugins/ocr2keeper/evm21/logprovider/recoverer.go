@@ -2,11 +2,11 @@ package logprovider
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"io"
 	"math/big"
-	"math/rand"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -452,7 +452,11 @@ func (r *logRecoverer) selectFilterBatch(filters []upkeepFilter) []upkeepFilter 
 	filters = filters[batchSize/2:]
 
 	for len(results) < batchSize && len(filters) != 0 {
-		i := rand.Intn(len(filters))
+		i, err := r.cryptoRandIntn(len(filters))
+		if err != nil {
+			r.lggr.Debugw("error generating random number", "error", err.Error())
+			continue
+		}
 		results = append(results, filters[i])
 		if i == 0 {
 			filters = filters[1:]
@@ -464,6 +468,15 @@ func (r *logRecoverer) selectFilterBatch(filters []upkeepFilter) []upkeepFilter 
 	}
 
 	return results
+}
+
+func (r *logRecoverer) cryptoRandIntn(limit int) (int, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(limit)))
+	if err != nil {
+		return 0, err
+	}
+
+	return int(n.Int64()), nil
 }
 
 func logToTrigger(log logpoller.Log) ocr2keepers.Trigger {
