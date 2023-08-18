@@ -83,8 +83,6 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 		encoded++
 	}
 
-	fmt.Printf("[automation-ocr3|EvmRegistry|Encoder] encoded %d out of %d results\n", encoded, len(results))
-
 	return e.packer.PackReport(report)
 }
 
