@@ -176,7 +176,8 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	start, offsetBlock := r.getRecoveryWindow(latest)
 	logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
 	if logBlock == 0 {
-		number, _, err := r.getTxBlock(proposal.Trigger.LogTriggerExtension.TxHash)
+		var number *big.Int
+		number, _, err = r.getTxBlock(proposal.Trigger.LogTriggerExtension.TxHash)
 		if err != nil {
 			return nil, err
 		}

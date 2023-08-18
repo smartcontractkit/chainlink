@@ -9,15 +9,21 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
@@ -268,6 +274,488 @@ func TestLogRecoverer_FilterFinalizedStates(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLogRecoverer_GetProposalData(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		proposal    ocr2keepers.CoordinatedBlockProposal
+		skipFilter  bool
+		filterStore UpkeepFilterStore
+		logPoller   logpoller.LogPoller
+		client      client.Client
+		stateReader core.UpkeepStateReader
+		wantBytes   []byte
+		expectErr   bool
+		wantErr     error
+	}{
+		{
+			name:      "passing an empty proposal with an empty upkeep ID returns an error",
+			proposal:  ocr2keepers.CoordinatedBlockProposal{},
+			expectErr: true,
+			wantErr:   errors.New("not a log trigger upkeep ID"),
+		},
+		{
+			name: "if a filter is not found for the upkeep ID, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+			},
+			skipFilter: true,
+			expectErr:  true,
+			wantErr:    errors.New("filter not found for upkeep 452312848583266388373324160190187140457511065560374322131410487042692349952"),
+		},
+		{
+			name: "if an error is encountered fetching the latest block, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 0,
+					},
+				},
+			},
+			filterStore: &mockFilterStore{
+				HasFn: func(id *big.Int) bool {
+					return true
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 0, errors.New("latest block boom")
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New("latest block boom"),
+		},
+		{
+			name: "if an error is encountered fetching the tx receipt, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 0,
+					},
+				},
+			},
+			filterStore: &mockFilterStore{
+				HasFn: func(id *big.Int) bool {
+					return true
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+			},
+			client: &mockClient{
+				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+					return nil, errors.New("tx receipt boom")
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New("tx receipt boom"),
+		},
+		{
+			name: "if the tx block is nil, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 0,
+					},
+				},
+			},
+			filterStore: &mockFilterStore{
+				HasFn: func(id *big.Int) bool {
+					return true
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+			},
+			client: &mockClient{
+				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+					return &types.Receipt{}, nil
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New("failed to get tx block"),
+		},
+		{
+			name: "if a log trigger extension block number is 0, and the block number on the tx receipt is not recoverable, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 0,
+					},
+				},
+			},
+			filterStore: &mockFilterStore{
+				HasFn: func(id *big.Int) bool {
+					return true
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+			},
+			client: &mockClient{
+				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+					return &types.Receipt{
+						BlockNumber: big.NewInt(200),
+					}, nil
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New("log block is not recoverable"),
+		},
+		{
+			name: "if a log block is not recoverable, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 200,
+					},
+				},
+			},
+			filterStore: &mockFilterStore{
+				HasFn: func(id *big.Int) bool {
+					return true
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New("log block is not recoverable"),
+		},
+		{
+			name: "if a log block is recoverable, when the upkeep state reader errors, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 80,
+					},
+				},
+			},
+			filterStore: &mockFilterStore{
+				HasFn: func(id *big.Int) bool {
+					return true
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+			},
+			stateReader: &mockStateReader{
+				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+					return nil, errors.New("upkeep state boom")
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New("upkeep state boom"),
+		},
+		{
+			name: "if a log block is recoverable, when the upkeep state reader returns a non recoverable state, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 80,
+					},
+				},
+			},
+			filterStore: &mockFilterStore{
+				HasFn: func(id *big.Int) bool {
+					return true
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+			},
+			stateReader: &mockStateReader{
+				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+					return []ocr2keepers.UpkeepState{
+						ocr2keepers.Ineligible,
+					}, nil
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New("upkeep state is not recoverable"),
+		},
+		{
+			name: "if a log block is recoverable, when the filter address is empty, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 80,
+					},
+				},
+			},
+			filterStore: &mockFilterStore{
+				HasFn: func(id *big.Int) bool {
+					return true
+				},
+				RangeFiltersByIDsFn: func(iterator func(int, upkeepFilter), ids ...*big.Int) {
+
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+			},
+			stateReader: &mockStateReader{
+				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+					return []ocr2keepers.UpkeepState{
+						ocr2keepers.UnknownState,
+					}, nil
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New("filter not found, upkeep is inactive"),
+		},
+		{
+			name: "if a log block is recoverable, when the log poller returns an error fetching logs, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 80,
+					},
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+					return nil, errors.New("logs with sigs boom")
+				},
+			},
+			stateReader: &mockStateReader{
+				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+					return []ocr2keepers.UpkeepState{
+						ocr2keepers.UnknownState,
+					}, nil
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New("could not read logs: logs with sigs boom"),
+		},
+		{
+			name: "if a log block is recoverable, when logs cannot be found for an upkeep ID, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 80,
+					},
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+					return []logpoller.Log{
+						{
+							BlockNumber: 80,
+						},
+					}, nil
+				},
+			},
+			stateReader: &mockStateReader{
+				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+					return []ocr2keepers.UpkeepState{
+						ocr2keepers.UnknownState,
+					}, nil
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New(`no log found for upkeepID 452312848583266388373324160190187140457511065560374322131410487042692349952 and trigger {"BlockNumber":0,"BlockHash":"0000000000000000000000000000000000000000000000000000000000000000","LogTriggerExtension":{"BlockHash":"0000000000000000000000000000000000000000000000000000000000000000","BlockNumber":80,"Index":0,"TxHash":"0000000000000000000000000000000000000000000000000000000000000000"}}`),
+		},
+		{
+			name: "happy path with empty check data",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: func() ocr2keepers.Trigger {
+					t := ocr2keepers.NewTrigger(
+						ocr2keepers.BlockNumber(80),
+						[32]byte{1},
+					)
+					t.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{
+						TxHash:      [32]byte{2},
+						Index:       uint32(3),
+						BlockHash:   [32]byte{1},
+						BlockNumber: ocr2keepers.BlockNumber(80),
+					}
+					return t
+				}(),
+				WorkID: "476453e1b49fc73fa6f97cb77272a07b57f2414a39b0267e58df8cb006d9c491",
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+					return []logpoller.Log{
+						{
+							BlockNumber: 80,
+							BlockHash:   [32]byte{1},
+							TxHash:      [32]byte{2},
+							LogIndex:    3,
+						},
+					}, nil
+				},
+			},
+			stateReader: &mockStateReader{
+				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+					return []ocr2keepers.UpkeepState{
+						ocr2keepers.UnknownState,
+					}, nil
+				},
+			},
+			wantBytes: []byte(nil),
+		},
+		{
+			name: "happy path with check data",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: func() ocr2keepers.Trigger {
+					t := ocr2keepers.NewTrigger(
+						ocr2keepers.BlockNumber(80),
+						[32]byte{1},
+					)
+					t.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{
+						TxHash:      [32]byte{2},
+						Index:       uint32(3),
+						BlockHash:   [32]byte{1},
+						BlockNumber: ocr2keepers.BlockNumber(80),
+					}
+					return t
+				}(),
+				WorkID: "476453e1b49fc73fa6f97cb77272a07b57f2414a39b0267e58df8cb006d9c491",
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+					return []logpoller.Log{
+						{
+							EvmChainId:     utils.NewBig(big.NewInt(1)),
+							LogIndex:       3,
+							BlockHash:      [32]byte{1},
+							BlockNumber:    80,
+							BlockTimestamp: time.Date(2022, 1, 1, 1, 1, 1, 1, time.UTC),
+							EventSig:       common.HexToHash("abc"),
+							TxHash:         [32]byte{2},
+							Data:           []byte{1, 2, 3},
+							CreatedAt:      time.Date(2022, 1, 1, 1, 1, 1, 1, time.UTC),
+						},
+					}, nil
+				},
+			},
+			stateReader: &mockStateReader{
+				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+					return []ocr2keepers.UpkeepState{
+						ocr2keepers.UnknownState,
+					}, nil
+				},
+			},
+			wantBytes: []byte{1, 2, 3},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			recoverer, filterStore, _, _ := setupTestRecoverer(t, time.Second, 10)
+
+			if !tc.skipFilter {
+				filterStore.AddActiveUpkeeps(upkeepFilter{
+					addr:     []byte("test"),
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123").BigInt(),
+				})
+			}
+
+			if tc.filterStore != nil {
+				recoverer.filterStore = tc.filterStore
+			}
+			if tc.logPoller != nil {
+				recoverer.poller = tc.logPoller
+			}
+			if tc.client != nil {
+				recoverer.client = tc.client
+			}
+			if tc.stateReader != nil {
+				recoverer.states = tc.stateReader
+			}
+
+			b, err := recoverer.GetProposalData(context.Background(), tc.proposal)
+			if tc.expectErr {
+				assert.Error(t, err)
+				assert.Equal(t, tc.wantErr.Error(), err.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.wantBytes, b)
+			}
+		})
+	}
+}
+
+type mockFilterStore struct {
+	UpkeepFilterStore
+	HasFn               func(id *big.Int) bool
+	RangeFiltersByIDsFn func(iterator func(int, upkeepFilter), ids ...*big.Int)
+}
+
+func (s *mockFilterStore) RangeFiltersByIDs(iterator func(int, upkeepFilter), ids ...*big.Int) {
+	s.RangeFiltersByIDsFn(iterator, ids...)
+}
+
+func (s *mockFilterStore) Has(id *big.Int) bool {
+	return s.HasFn(id)
+}
+
+type mockLogPoller struct {
+	logpoller.LogPoller
+	LatestBlockFn  func(qopts ...pg.QOpt) (int64, error)
+	LogsWithSigsFn func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error)
+}
+
+func (p *mockLogPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+	return p.LogsWithSigsFn(start, end, eventSigs, address, qopts...)
+}
+func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
+	return p.LatestBlockFn(qopts...)
+}
+
+type mockClient struct {
+	client.Client
+	TransactionReceiptFn func(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+}
+
+func (c *mockClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	return c.TransactionReceiptFn(ctx, txHash)
+}
+
+type mockStateReader struct {
+	SelectByWorkIDsInRangeFn func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
+}
+
+func (r *mockStateReader) SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+	return r.SelectByWorkIDsInRangeFn(ctx, start, end, workIDs...)
 }
 
 func setupTestRecoverer(t *testing.T, interval time.Duration, lookbackBlocks int64) (*logRecoverer, UpkeepFilterStore, *lpmocks.LogPoller, *mocks.UpkeepStateReader) {
