@@ -4,6 +4,7 @@
 ChainID = '56'
 # Keeping this >> 11 because it's not expensive and gives us a safety margin
 FinalityDepth = 50
+FinalityTagEnabled = true
 LinkContractAddress = '0x404460C6A5EdE2D891e8297795264fDe62ADBB75'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 3
