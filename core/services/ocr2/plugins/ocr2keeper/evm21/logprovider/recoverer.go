@@ -452,7 +452,7 @@ func (r *logRecoverer) selectFilterBatch(filters []upkeepFilter) []upkeepFilter 
 	filters = filters[batchSize/2:]
 
 	for len(results) < batchSize && len(filters) != 0 {
-		i, err := r.cryptoRandIntn(len(filters))
+		i, err := r.randIntn(len(filters))
 		if err != nil {
 			r.lggr.Debugw("error generating random number", "error", err.Error())
 			continue
@@ -470,7 +470,7 @@ func (r *logRecoverer) selectFilterBatch(filters []upkeepFilter) []upkeepFilter 
 	return results
 }
 
-func (r *logRecoverer) cryptoRandIntn(limit int) (int, error) {
+func (r *logRecoverer) randIntn(limit int) (int, error) {
 	n, err := rand.Int(rand.Reader, big.NewInt(int64(limit)))
 	if err != nil {
 		return 0, err
