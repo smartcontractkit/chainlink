@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
@@ -187,6 +188,12 @@ func newChain(id string, cfg config.Config, ks loop.Keystore, cfgs Configs, lggr
 	ch.txm = txm.NewTxm(ch.id, tc, cfg, ks, lggr)
 	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
 	return &ch, nil
+}
+func (c *chain) Status(ctx context.Context) (types.ChainStatus, error) {
+	panic("solana status unimplemented")
+}
+func (c *chain) Nodes(ctx context.Context, nodeIDs ...string) ([]types.NodeStatus, error) {
+	panic("solan nodes unimplemented")
 }
 
 func (c *chain) Name() string {

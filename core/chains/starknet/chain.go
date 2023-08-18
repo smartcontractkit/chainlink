@@ -10,6 +10,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
@@ -126,6 +128,13 @@ func (c *chain) HealthReport() map[string]error {
 	return report
 }
 
+// ChainService interface
+func (c *chain) Status(ctx context.Context) (relaytypes.ChainStatus, error) {
+	panic("cosmos status unimplemented")
+}
+func (c *chain) Nodes(ctx context.Context, nodeIDs ...string) ([]relaytypes.NodeStatus, error) {
+	panic("cosmos nodes unimplemented")
+}
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported
 }

@@ -34,6 +34,14 @@ func (c *ChainScoped) EVM() EVM {
 	return c.evmConfig
 }
 
+func (c *ChainScoped) TOMLString() (string, error) {
+	return c.evmConfig.c.TOMLString()
+}
+
+func (c *ChainScoped) Nodes() toml.EVMNodes {
+	return c.evmConfig.c.Nodes
+}
+
 func (c *ChainScoped) BlockEmissionIdleWarningThreshold() time.Duration {
 	return c.EVM().NodeNoNewHeadsThreshold()
 }

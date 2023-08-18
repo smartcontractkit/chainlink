@@ -26,6 +26,8 @@ import (
 
 	monitor "github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 
+	pkgtypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	txmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 
 	types "github.com/smartcontractkit/chainlink/v2/common/types"
@@ -240,6 +242,39 @@ func (_m *Chain) Name() string {
 	return r0
 }
 
+// Nodes provides a mock function with given fields: ctx, nodeIDs
+func (_m *Chain) Nodes(ctx context.Context, nodeIDs ...string) ([]pkgtypes.NodeStatus, error) {
+	_va := make([]interface{}, len(nodeIDs))
+	for _i := range nodeIDs {
+		_va[_i] = nodeIDs[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []pkgtypes.NodeStatus
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, ...string) ([]pkgtypes.NodeStatus, error)); ok {
+		return rf(ctx, nodeIDs...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, ...string) []pkgtypes.NodeStatus); ok {
+		r0 = rf(ctx, nodeIDs...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]pkgtypes.NodeStatus)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, ...string) error); ok {
+		r1 = rf(ctx, nodeIDs...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Ready provides a mock function with given fields:
 func (_m *Chain) Ready() error {
 	ret := _m.Called()
@@ -280,6 +315,30 @@ func (_m *Chain) Start(_a0 context.Context) error {
 	}
 
 	return r0
+}
+
+// Status provides a mock function with given fields: ctx
+func (_m *Chain) Status(ctx context.Context) (pkgtypes.ChainStatus, error) {
+	ret := _m.Called(ctx)
+
+	var r0 pkgtypes.ChainStatus
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (pkgtypes.ChainStatus, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) pkgtypes.ChainStatus); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Get(0).(pkgtypes.ChainStatus)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // TxManager provides a mock function with given fields:

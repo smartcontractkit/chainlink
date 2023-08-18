@@ -122,7 +122,7 @@ func (c *LegacyChains) Get(id string) (Chain, error) {
 type chain struct {
 	utils.StartStopOnce
 	id              *big.Int
-	cfg             evmconfig.ChainScopedConfig
+	cfg             *evmconfig.ChainScoped //evmconfig.ChainScopedConfig
 	client          evmclient.Client
 	txm             txmgr.TxManager
 	logger          logger.Logger
@@ -189,7 +189,7 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExt
 	return newChain(ctx, cfg, chain.Nodes, opts)
 }
 
-func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
+func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
 	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
 	l := opts.Logger.Named(chainID.String()).With("evmChainID", chainID.String())
 	var client evmclient.Client
@@ -368,6 +368,53 @@ func (c *chain) HealthReport() map[string]error {
 
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported
+}
+
+func (c *chain) Status(ctx context.Context) (types.ChainStatus, error) {
+	toml, err := c.cfg.TOMLString()
+	if err != nil {
+		return types.ChainStatus{}, err
+	}
+	return types.ChainStatus{
+		ID:      c.ID().String(),
+		Enabled: c.cfg.EVMEnabled(), // TODO is this the correct check? given that we have 1:1 relayer: chain can there be a disabled chain? or only non-existent relayer?
+		Config:  toml,
+	}, nil
+}
+
+func (c *chain) Nodes(ctx context.Context, nodeIDs ...string) ([]types.NodeStatus, error) {
+
+	nodes := c.cfg.Nodes()
+	result := make([]types.NodeStatus, len(nodes))
+	states := c.Client().NodeStates()
+	toml, err := c.cfg.TOMLString() // TODO is this the right value??
+	if err != nil {
+		return nil, err
+	}
+	for i := range nodes {
+		var (
+			nodeState string
+			exists    bool
+			nodeName  = *nodes[i].Name
+		)
+		if states == nil {
+			nodeState = "Unknown"
+		} else {
+			nodeState, exists = states[nodeName]
+			if !exists {
+				// The node is in the DB and the chain is enabled but it's not running
+				nodeState = "NotLoaded"
+			}
+		}
+		result = append(result, types.NodeStatus{
+			ChainID: c.ID().String(),
+			Name:    nodeName,
+			Config:  toml, //TODO what is this supposed to be? i haven't found any toml definition of a node
+			State:   nodeState,
+		})
+	}
+
+	return result, nil
 }
 
 func (c *chain) ID() *big.Int                             { return c.id }

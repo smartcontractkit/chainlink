@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
@@ -153,6 +154,14 @@ func (c *chain) HealthReport() map[string]error {
 			c.StartStopOnce.Healthy(),
 			c.txm.Healthy()),
 	}
+}
+
+// ChainService interface
+func (c *chain) Status(ctx context.Context) (relaytypes.ChainStatus, error) {
+	panic("cosmos status unimplemented")
+}
+func (c *chain) Nodes(ctx context.Context, nodeIDs ...string) ([]relaytypes.NodeStatus, error) {
+	panic("cosmos nodes unimplemented")
 }
 
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {

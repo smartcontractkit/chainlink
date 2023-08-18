@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
@@ -86,6 +87,12 @@ func (s *testChainService) Ready() error {
 // key is the dep name, value is nil if healthy, or error message otherwise.
 func (s *testChainService) HealthReport() map[string]error {
 	return map[string]error{}
+}
+func (c *testChainService) Status(ctx context.Context) (s types.ChainStatus, err error) {
+	return
+}
+func (c *testChainService) Nodes(ctx context.Context, nodeIDs ...string) (s []types.NodeStatus, err error) {
+	return
 }
 
 func (s *testChainService) SendTx(ctx context.Context, from string, to string, amount *big.Int, balanceCheck bool) error {

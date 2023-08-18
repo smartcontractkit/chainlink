@@ -4,17 +4,18 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"golang.org/x/exp/maps"
 )
 
-type ChainsKV[T ChainService] struct {
+type ChainsKV[T types.ChainService] struct {
 	// note: this is read only after construction so no need for mutex
 	chains map[string]T
 }
 
 var ErrNoSuchChainID = errors.New("chain id does not exist")
 
-func NewChainsKV[T ChainService](cs map[string]T) *ChainsKV[T] {
+func NewChainsKV[T types.ChainService](cs map[string]T) *ChainsKV[T] {
 
 	return &ChainsKV[T]{
 		chains: cs,
