@@ -1,5 +1,4 @@
 ChainID = '5'
-FinalityTagEnabled = true
 LinkContractAddress = '0x326C977E6efc84E512bB9C30f76E30c160eD06FB'
 MinContractPayment = '0.1 link'
 
