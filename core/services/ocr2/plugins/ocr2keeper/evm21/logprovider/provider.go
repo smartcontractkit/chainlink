@@ -96,6 +96,7 @@ func (p *logEventProvider) Start(context.Context) error {
 	p.lock.Lock()
 	if p.cancel != nil {
 		p.lock.Unlock()
+		cancel() // Cancel the created context
 		return errors.New("already started")
 	}
 	p.cancel = cancel
@@ -152,6 +153,7 @@ func (p *logEventProvider) Name() string {
 }
 
 func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+	// TODO: Fitler logs below upkeep creation block here
 	latest := p.buffer.latestBlockSeen()
 	diff := latest - p.opts.LogBlocksLookback
 	if diff < 0 {

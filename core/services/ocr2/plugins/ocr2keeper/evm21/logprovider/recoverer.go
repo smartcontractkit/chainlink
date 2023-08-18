@@ -96,6 +96,7 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 	r.lock.Lock()
 	if r.cancel != nil {
 		r.lock.Unlock()
+		cancel() // Cancel the created context
 		return errors.New("already started")
 	}
 	r.cancel = cancel
@@ -163,20 +164,22 @@ func (r *logRecoverer) GetProposalData(ctx context.Context, proposal ocr2keepers
 }
 
 func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) ([]byte, error) {
-	// TODO should we be querying the filter store with something other than upkeep ID?
 	if r.filterStore.Has(proposal.UpkeepID.BigInt()) {
-
 		latest, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
 		if err != nil {
 			return nil, err
 		}
 
+		// TODO: Ensure start block is above upkeep creation block
 		start, offsetBlock := r.getRecoveryWindow(latest)
 		logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
 		if logBlock == 0 {
 			number, _, err := r.getTxBlock(proposal.Trigger.LogTriggerExtension.TxHash)
 			if err != nil {
 				return nil, err
+			}
+			if number == nil {
+				return nil, errors.New("failed to get tx block")
 			}
 			logBlock = number.Int64()
 		}
@@ -233,11 +236,11 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 			}
 		}
 	}
-	return nil, fmt.Errorf("no log found for upkeepID %v", proposal.UpkeepID)
+	return nil, fmt.Errorf("no log found for upkeepID %v and trigger %+v", proposal.UpkeepID, proposal.Trigger)
 }
 
 func (r *logRecoverer) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
-	// TODO: we need to differentiate here b/w flaky errors and tx not found errors
+	// TODO: do manual eth_getTransactionReceipt call to get block number and hash
 	txr, err := r.client.TransactionReceipt(context.Background(), txHash)
 	if err != nil {
 		return nil, common.Hash{}, err
@@ -261,6 +264,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 
 	r.lggr.Debugf("found %d pending payloads", len(pending))
 
+	// TODO: Add rate limiting on returned proposals on every call
 	return pending, nil
 }
 
@@ -270,6 +274,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
 	r.lggr.Debugw("recover", "latestBlock", latest)
+	// TODO: Ensure start block is above upkeep creation block
 	start, offsetBlock := r.getRecoveryWindow(latest)
 	if offsetBlock < 0 {
 		// too soon to recover, we don't have enough blocks
@@ -322,8 +327,6 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	workIDs := make([]string, 0)
 	for _, log := range logs {
 		trigger := logToTrigger(log)
-		trigger.BlockHash = [32]byte{}
-		trigger.BlockNumber = 0
 		upkeepId := &ocr2keepers.UpkeepIdentifier{}
 		ok := upkeepId.FromBigInt(f.upkeepID)
 		if !ok {

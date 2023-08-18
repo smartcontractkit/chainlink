@@ -21,6 +21,8 @@ func (p *logEventProvider) RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfi
 		// TODO: check for updates
 		return errors.Errorf("filter for upkeep with id %s already registered", upkeepID.String())
 	}
+	// TODO: Backfill logs for the upkeep from creation block
+	// TODO: Handle different upkeeps using same filter
 	if err := p.poller.RegisterFilter(filter); err != nil {
 		return errors.Wrap(err, "failed to register upkeep filter")
 	}
