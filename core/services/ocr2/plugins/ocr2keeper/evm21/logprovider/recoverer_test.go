@@ -525,7 +525,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			expectErr: true,
-			wantErr:   errors.New("filter not found, upkeep is inactive"),
+			wantErr:   errors.New("invalid filter found for upkeepID 452312848583266388373324160190187140457511065560374322131410487042692349952"),
 		},
 		{
 			name: "if a log block is recoverable, when the log poller returns an error fetching logs, an error is returned",
