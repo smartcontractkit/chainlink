@@ -143,18 +143,9 @@ func (u *upkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, en
 		return nil, err
 	}
 
-	idsWithUnknownState := []string{}
-	for i, state := range states {
-		if state == ocr2keepers.UnknownState {
-			idsWithUnknownState = append(idsWithUnknownState, workIDs[i])
-		}
-	}
-
-	if len(idsWithUnknownState) > 0 {
-		// fetch values from the db to populate the cache with missing values here
-		if err := u.fetchFromDB(ctx, idsWithUnknownState...); err != nil {
-			return nil, err
-		}
+	// fetch values from the db to populate the cache with missing values here
+	if err := u.fetchFromDB(ctx, workIDs, states); err != nil {
+		return nil, err
 	}
 
 	// at this point all values should be in the cache. if values are missing
@@ -233,8 +224,19 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64,
 
 // fetchFromDB fetches all upkeeps indicated as ineligible from the db to
 // populate the cache
-func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs ...string) error {
-	states, err := u.orm.SelectStatesByWorkIDs(workIDs, pg.WithParentCtx(ctx))
+func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs []string, states []ocr2keepers.UpkeepState) error {
+	if len(workIDs) == 0 {
+		return nil
+	}
+
+	idsWithUnknownState := []string{}
+	for i, state := range states {
+		if state == ocr2keepers.UnknownState {
+			idsWithUnknownState = append(idsWithUnknownState, workIDs[i])
+		}
+	}
+
+	dbStates, err := u.orm.SelectStatesByWorkIDs(idsWithUnknownState, pg.WithParentCtx(ctx))
 	if err != nil {
 		return err
 	}
@@ -242,7 +244,7 @@ func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs ...string) e
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	for _, state := range states {
+	for _, state := range dbStates {
 		if _, ok := u.cache[state.WorkID]; !ok {
 			u.cache[state.WorkID] = &upkeepStateRecord{
 				WorkID:          state.WorkID,
