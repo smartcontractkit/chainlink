@@ -218,7 +218,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	emits := 10
 	go emitEvents(testutils.Context(t), t, emits, contracts, carrol, func() {
 		backend.Commit()
-		time.Sleep(time.Second)
+		time.Sleep(3 * time.Second)
 	})
 
 	listener, done := listenPerformed(t, backend, registry, ids, int64(1))
