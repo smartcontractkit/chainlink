@@ -64,7 +64,7 @@ contract MerkleMultiProofTest is BaseTest {
     assertEq(expectedRoot, root);
   }
 
-  function testMerkleRoot2(bytes32 left, bytes32 right) public {
+  function testFuzz_MerkleRoot2(bytes32 left, bytes32 right) public {
     bytes32[] memory leaves = new bytes32[](2);
     leaves[0] = left;
     leaves[1] = right;
@@ -91,7 +91,7 @@ contract MerkleMultiProofTest is BaseTest {
     assertEq(root, expectedRoot);
   }
 
-  function testMerkleMulti1of4(bytes32 leaf1, bytes32 proof1, bytes32 proof2) public {
+  function testFuzz_MerkleMulti1of4(bytes32 leaf1, bytes32 proof1, bytes32 proof2) public {
     bytes32[] memory leaves = new bytes32[](1);
     leaves[0] = leaf1;
     bytes32[] memory proofs = new bytes32[](2);
@@ -106,7 +106,7 @@ contract MerkleMultiProofTest is BaseTest {
     assertEq(MerkleMultiProof.merkleRoot(leaves, proofs, 0), result);
   }
 
-  function testMerkleMulti2of4(bytes32 leaf1, bytes32 leaf2, bytes32 proof1, bytes32 proof2) public {
+  function testFuzz_MerkleMulti2of4(bytes32 leaf1, bytes32 leaf2, bytes32 proof1, bytes32 proof2) public {
     bytes32[] memory leaves = new bytes32[](2);
     leaves[0] = leaf1;
     leaves[1] = leaf2;
@@ -124,7 +124,7 @@ contract MerkleMultiProofTest is BaseTest {
     assertEq(MerkleMultiProof.merkleRoot(leaves, proofs, 4), finalResult);
   }
 
-  function testMerkleMulti3of4(bytes32 leaf1, bytes32 leaf2, bytes32 leaf3, bytes32 proof) public {
+  function testFuzz_MerkleMulti3of4(bytes32 leaf1, bytes32 leaf2, bytes32 leaf3, bytes32 proof) public {
     bytes32[] memory leaves = new bytes32[](3);
     leaves[0] = leaf1;
     leaves[1] = leaf2;
@@ -142,7 +142,7 @@ contract MerkleMultiProofTest is BaseTest {
     assertEq(MerkleMultiProof.merkleRoot(leaves, proofs, 5), finalResult);
   }
 
-  function testMerkleMulti4of4(bytes32 leaf1, bytes32 leaf2, bytes32 leaf3, bytes32 leaf4) public {
+  function testFuzz_MerkleMulti4of4(bytes32 leaf1, bytes32 leaf2, bytes32 leaf3, bytes32 leaf4) public {
     bytes32[] memory leaves = new bytes32[](4);
     leaves[0] = leaf1;
     leaves[1] = leaf2;

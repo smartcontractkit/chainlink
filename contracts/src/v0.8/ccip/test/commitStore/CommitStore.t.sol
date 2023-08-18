@@ -145,7 +145,7 @@ contract CommitStore_constructor is PriceRegistrySetup, OCR2BaseSetup {
 
 /// @notice #setMinSeqNr
 contract CommitStore_setMinSeqNr is CommitStoreSetup {
-  function testSetMinSeqNrSuccess(uint64 minSeqNr) public {
+  function testFuzz_SetMinSeqNrSuccess(uint64 minSeqNr) public {
     s_commitStore.setMinSeqNr(minSeqNr);
 
     assertEq(s_commitStore.getExpectedNextSequenceNumber(), minSeqNr);
@@ -161,7 +161,7 @@ contract CommitStore_setMinSeqNr is CommitStoreSetup {
 
 /// @notice #setDynamicConfig
 contract CommitStore_setDynamicConfig is CommitStoreSetup {
-  function testSetDynamicConfigSuccess(address priceRegistry) public {
+  function testFuzz_SetDynamicConfigSuccess(address priceRegistry) public {
     vm.assume(priceRegistry != address(0));
     CommitStore.StaticConfig memory staticConfig = s_commitStore.getStaticConfig();
     CommitStore.DynamicConfig memory dynamicConfig = CommitStore.DynamicConfig({priceRegistry: priceRegistry});

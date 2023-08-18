@@ -84,7 +84,7 @@ contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
 }
 
 contract EVM2EVMOnRamp_payNops_fuzz is EVM2EVMOnRampSetup {
-  function test_fuzz_NopPayNopsSuccess(uint96 nopFeesJuels) public {
+  function testFuzz_NopPayNopsSuccess(uint96 nopFeesJuels) public {
     (EVM2EVMOnRamp.NopAndWeight[] memory nopsAndWeights, uint256 weightsTotal) = s_onRamp.getNops();
     // To avoid NoFeesToPay
     vm.assume(nopFeesJuels > weightsTotal);
@@ -365,7 +365,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
   }
 
   // Make sure any valid sender, receiver and feeAmount can be handled.
-  function test_fuzz_ForwardFromRouterSuccess(address originalSender, address receiver, uint96 feeTokenAmount) public {
+  function testFuzz_ForwardFromRouterSuccess(address originalSender, address receiver, uint96 feeTokenAmount) public {
     // To avoid RouterMustSetOriginalSender
     vm.assume(originalSender != address(0));
     vm.assume(uint160(receiver) >= 10);
@@ -846,7 +846,7 @@ contract EVM2EVMOnRamp_getTokenTransferFeeUSD is EVM2EVMOnRamp_getFeeSetup {
     assertEq(configUSDToValue(feeTokenConfig.minTokenTransferFeeUSD), feeAmount);
   }
 
-  function testTokenTransferFeeDuplicateTokens(uint256 transfers, uint256 amount) public {
+  function testFuzz_TokenTransferFeeDuplicateTokens(uint256 transfers, uint256 amount) public {
     // It shouldn't be possible to pay materially lower fees by splitting up the transfers.
     // Note it is possible to pay higher fees since the minimum fees are added.
     EVM2EVMOnRamp.DynamicConfig memory dynamicConfig = s_onRamp.getDynamicConfig();

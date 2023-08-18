@@ -78,7 +78,7 @@ contract ThirdPartyBurnMintTokenPool_lockOrBurn is ThirdPartyBurnMintTokenPoolSe
     deal(address(s_token), address(s_thirdPartyPoolWithAllowList), type(uint256).max);
   }
 
-  function testLockOrBurnNoAllowListSuccess(uint256 amount) public {
+  function testFuzz_LockOrBurnNoAllowListSuccess(uint256 amount) public {
     amount = bound(amount, 1, rateLimiterConfig().capacity);
     changePrank(s_allowedOnRamp);
 

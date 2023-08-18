@@ -101,7 +101,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
   event Burned(address indexed sender, uint256 amount);
   event TokensConsumed(uint256 tokens);
 
-  function testLockOrBurnSuccess(bytes32 destinationReceiver, uint256 amount) public {
+  function testFuzz_LockOrBurnSuccess(bytes32 destinationReceiver, uint256 amount) public {
     vm.assume(amount < rateLimiterConfig().capacity);
     vm.assume(amount > 0);
     changePrank(s_routerAllowedOnRamp);
@@ -136,7 +136,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
     assertEq(s_mockUSDC.s_nonce() - 1, nonce);
   }
 
-  function testLockOrBurnWithAllowListSuccess(bytes32 destinationReceiver, uint256 amount) public {
+  function testFuzz_LockOrBurnWithAllowListSuccess(bytes32 destinationReceiver, uint256 amount) public {
     vm.assume(amount < rateLimiterConfig().capacity);
     vm.assume(amount > 0);
     changePrank(s_routerAllowedOnRamp);
@@ -203,7 +203,7 @@ contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
 contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
   event Minted(address indexed sender, address indexed recipient, uint256 amount);
 
-  function testReleaseOrMintSuccess(address receiver, uint256 amount) public {
+  function testFuzz_ReleaseOrMintSuccess(address receiver, uint256 amount) public {
     amount = bound(amount, 0, rateLimiterConfig().capacity);
     changePrank(s_routerAllowedOffRamp);
 
@@ -267,9 +267,10 @@ contract USDCTokenPool_setDomains is USDCTokenPoolSetup {
 
   mapping(uint64 destChainSelector => USDCTokenPool.Domain domain) private s_chainToDomain;
 
-  /// forge-config: default.fuzz.runs = 10
-  /// forge-config: ccip.fuzz.runs = 10
-  function testSetDomainsSuccess(
+  // Setting lower fuzz run as 256 runs was causing differing gas results in snapshot.
+  /// forge-config: default.fuzz.runs = 32
+  /// forge-config: ccip.fuzz.runs = 32
+  function testFuzz_SetDomainsSuccess(
     bytes32[10] calldata allowedCallers,
     uint32[10] calldata domainIdentifiers,
     uint64[10] calldata destChainSelectors

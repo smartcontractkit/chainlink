@@ -313,7 +313,7 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     s_sourceRouter.ccipSend(wrongChain, message);
   }
 
-  function testUnsupportedFeeTokenReverts(address wrongFeeToken) public {
+  function testFuzz_UnsupportedFeeTokenReverts(address wrongFeeToken) public {
     // We have three fee tokens set, all others should revert.
     vm.assume(address(s_sourceFeeToken) != wrongFeeToken);
     vm.assume(address(s_sourceRouter.getWrappedNative()) != wrongFeeToken);
@@ -327,7 +327,7 @@ contract Router_ccipSend is EVM2EVMOnRampSetup {
     s_sourceRouter.ccipSend(DEST_CHAIN_ID, message);
   }
 
-  function testUnsupportedTokenReverts(address wrongToken) public {
+  function testFuzz_UnsupportedTokenReverts(address wrongToken) public {
     for (uint256 i = 0; i < s_sourceTokens.length; ++i) {
       vm.assume(address(s_sourceTokens[i]) != wrongToken);
     }
@@ -483,7 +483,7 @@ contract Router_applyRampUpdates is RouterSetup {
 
 /// @notice #setWrappedNative
 contract Router_setWrappedNative is EVM2EVMOnRampSetup {
-  function testSetWrappedNativeSuccess(address wrappedNative) public {
+  function testFuzz_SetWrappedNativeSuccess(address wrappedNative) public {
     s_sourceRouter.setWrappedNative(wrappedNative);
     assertEq(wrappedNative, s_sourceRouter.getWrappedNative());
   }
@@ -611,7 +611,7 @@ contract Router_routeMessage is EVM2EVMOffRampSetup {
     assertEq("", retData);
   }
 
-  function test_fuzz_ExecutionEventSuccess(bytes calldata error) public {
+  function testFuzz_ExecutionEventSuccess(bytes calldata error) public {
     Client.Any2EVMMessage memory message = generateReceiverMessage(SOURCE_CHAIN_ID);
     s_reverting_receiver.setErr(error);
 
