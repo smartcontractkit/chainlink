@@ -529,6 +529,42 @@ func (f *EthereumKeeperRegistry11Mock) EmitFundsWithdrawn(id *big.Int, amount *b
 	return f.client.ProcessTransaction(tx)
 }
 
+func (f *EthereumKeeperRegistry11Mock) EmitKeepersUpdated(keepers []common.Address, payees []common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.registryMock.EmitKeepersUpdated(opts, keepers, payees)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumKeeperRegistry11Mock) EmitUpkeepRegistered(id *big.Int, executeGas uint32, admin common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.registryMock.EmitUpkeepRegistered(opts, id, executeGas, admin)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumKeeperRegistry11Mock) EmitFundsAdded(id *big.Int, from common.Address, amount *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.registryMock.EmitFundsAdded(opts, id, from, amount)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
 func (f *EthereumKeeperRegistry11Mock) SetUpkeepCount(_upkeepCount *big.Int) error {
 	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
 	if err != nil {
@@ -634,6 +670,30 @@ type EthereumKeeperRegistrar12Mock struct {
 
 func (f *EthereumKeeperRegistrar12Mock) Address() string {
 	return f.address.Hex()
+}
+
+func (f *EthereumKeeperRegistrar12Mock) EmitRegistrationRequested(hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.registrarMock.EmitRegistrationRequested(opts, hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumKeeperRegistrar12Mock) EmitRegistrationApproved(hash [32]byte, displayName string, upkeepId *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.registrarMock.EmitRegistrationApproved(opts, hash, displayName, upkeepId)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
 }
 
 func (f *EthereumKeeperRegistrar12Mock) SetRegistrationConfig(_autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) error {

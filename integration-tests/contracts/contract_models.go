@@ -261,6 +261,9 @@ type KeeperRegistry11Mock interface {
 	EmitUpkeepPerformed(id *big.Int, success bool, from common.Address, payment *big.Int, performData []byte) error
 	EmitUpkeepCanceled(id *big.Int, atBlockHeight uint64) error
 	EmitFundsWithdrawn(id *big.Int, amount *big.Int, to common.Address) error
+	EmitKeepersUpdated(keepers []common.Address, payees []common.Address) error
+	EmitUpkeepRegistered(id *big.Int, executeGas uint32, admin common.Address) error
+	EmitFundsAdded(id *big.Int, from common.Address, amount *big.Int) error
 	SetUpkeepCount(_upkeepCount *big.Int) error
 	SetCanceledUpkeepList(_canceledUpkeepList []*big.Int) error
 	SetKeeperList(_keepers []common.Address) error
@@ -273,6 +276,8 @@ type KeeperRegistry11Mock interface {
 
 type KeeperRegistrar12Mock interface {
 	Address() string
+	EmitRegistrationRequested(hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) error
+	EmitRegistrationApproved(hash [32]byte, displayName string, upkeepId *big.Int) error
 	SetRegistrationConfig(_autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) error
 }
 
