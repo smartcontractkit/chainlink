@@ -10,6 +10,7 @@ var EvmChainIdToChainSelector = map[uint64]uint64{
 	1000:     11787463284727550157, // Tests
 	1337:     3379446385462418246,  // Tests
 	2337:     12922642891491394802, // Tests
+	43113:    14767482510784806043, // Avalanche Fuji
 	76578:    781901677223027175,   // AvaxAnzSubnet
 	84531:    5790810961207155433,  // BASE Goerli
 	80001:    12532609583862916517, // Polygon Mumbai
