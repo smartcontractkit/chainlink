@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/big"
 	"time"
 
 	"gopkg.in/guregu/null.v4"
@@ -70,6 +69,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
+
+var ErrJobSpecNoRelayer = errors.New("OCR2 job spec could not get relayer id")
 
 type RelayGetter interface {
 	Get(id relay.Identifier) (loop.Relayer, error)
@@ -247,66 +248,62 @@ func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 		d.lggr.Errorf("offchainreporting2.Delegate.OnDeleteJob called with wrong job type, ignoring non-OCR2 spec %v", jb)
 		return nil
 	}
-	if spec.Relay != relay.EVM {
-		return nil
-	}
 
-	chainID, err := spec.GetChainID()
+	rid, err := spec.RelayIdentifier()
 	if err != nil {
-		d.lggr.Errorw("OCR2 job spec missing chainID", "err", err)
+		d.lggr.Errorw("DeleteJob: "+ErrJobSpecNoRelayer.Error(), "err", err)
 		return nil
 	}
-	_, err = chainID.Int64()
-	if err != nil {
-		d.lggr.Errorw("OCR2 chainID not evm compatible", "err", err)
-		return nil
-	}
-	chain, err := d.legacyChains.Get(chainID.String())
-	if err != nil {
-		d.lggr.Error(err)
-		return nil
-	}
-	lp := chain.LogPoller()
+	// only do cleanup for EVM
+	if rid.Network == relay.EVM {
 
-	var filters []string
-	switch spec.PluginType {
-	case job.OCR2VRF:
-		filters, err = ocr2coordinator.FilterNamesFromSpec(spec)
+		chain, err := d.legacyChains.Get(rid.ChainID.String())
 		if err != nil {
-			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
+			d.lggr.Error("DeleteJob: failed to chain get chain %s", "err", rid.ChainID, err)
+			return nil
 		}
-	case job.OCR2Keeper:
-		filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
+		lp := chain.LogPoller()
+
+		var filters []string
+		switch spec.PluginType {
+		case job.OCR2VRF:
+			filters, err = ocr2coordinator.FilterNamesFromSpec(spec)
+			if err != nil {
+				d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
+			}
+		case job.OCR2Keeper:
+			filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
+			if err != nil {
+				d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
+			}
+		default:
+			return nil
+		}
+
+		rargs := types.RelayArgs{
+			ExternalJobID: jb.ExternalJobID,
+			JobID:         spec.ID,
+			ContractID:    spec.ContractID,
+			New:           false,
+			RelayConfig:   spec.RelayConfig.Bytes(),
+		}
+
+		relayFilters, err := evmrelay.FilterNamesFromRelayArgs(rargs)
 		if err != nil {
-			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
+			d.lggr.Errorw("Failed to derive evm relay filter names from relay args", "err", err, "rargs", rargs)
+			return nil
 		}
-	default:
-		return nil
-	}
 
-	rargs := types.RelayArgs{
-		ExternalJobID: jb.ExternalJobID,
-		JobID:         spec.ID,
-		ContractID:    spec.ContractID,
-		New:           false,
-		RelayConfig:   spec.RelayConfig.Bytes(),
-	}
+		filters = append(filters, relayFilters...)
 
-	relayFilters, err := evmrelay.FilterNamesFromRelayArgs(rargs)
-	if err != nil {
-		d.lggr.Errorw("Failed to derive evm relay filter names from relay args", "err", err, "rargs", rargs)
-		return nil
-	}
-
-	filters = append(filters, relayFilters...)
-
-	for _, filter := range filters {
-		d.lggr.Debugf("Unregistering %s filter", filter)
-		err = lp.UnregisterFilter(filter, pg.WithQueryer(q))
-		if err != nil {
-			return errors.Wrapf(err, "Failed to unregister filter %s", filter)
+		for _, filter := range filters {
+			d.lggr.Debugf("Unregistering %s filter", filter)
+			err = lp.UnregisterFilter(filter, pg.WithQueryer(q))
+			if err != nil {
+				return errors.Wrapf(err, "Failed to unregister filter %s", filter)
+			}
 		}
-	}
+	} // EVM specific cleanup
 	return nil
 }
 
@@ -333,21 +330,21 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	}
 	lggr := logger.Sugared(d.lggr.Named("OCR2").With(lggrCtx.Args()...))
 
-	if spec.Relay == relay.EVM {
-		chainID, err2 := spec.GetChainID()
-		if err2 != nil {
-			return nil, fmt.Errorf("ServicesForSpec failed to get chainID: %w", err2)
-		}
+	rid, err := spec.RelayIdentifier()
+	if err != nil {
+		return nil, fmt.Errorf("ServicesForSpec: %w: %w", ErrJobSpecNoRelayer, err)
+	}
 
-		_, err2 = chainID.Int64()
-		if err2 != nil {
-			return nil, fmt.Errorf("ServicesForSpec chainID not evm compatible: %w", err2)
-		}
-		lggr = logger.Sugared(lggr.With("evmChainID", chainID))
+	if rid.Network == relay.EVM {
+		lggr = logger.Sugared(lggr.With("evmChainID", rid.ChainID))
 
-		effectiveTransmitterID, err2 = GetEVMEffectiveTransmitterID(&jb, d.legacyChains, chainID.String(), lggr)
-		if err2 != nil {
-			return nil, fmt.Errorf("ServicesForSpec failed to get evm transmitterID: %w", err2)
+		chain, err := d.legacyChains.Get(rid.ChainID.String())
+		if err != nil {
+			return nil, fmt.Errorf("ServicesForSpec: could not get EVM chain %s: %w", rid.ChainID, err)
+		}
+		effectiveTransmitterID, err = GetEVMEffectiveTransmitterID(&jb, chain, lggr)
+		if err != nil {
+			return nil, fmt.Errorf("ServicesForSpec failed to get evm transmitterID: %w", err)
 		}
 	}
 	spec.RelayConfig["effectiveTransmitterID"] = effectiveTransmitterID
@@ -431,7 +428,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	}
 }
 
-func GetEVMEffectiveTransmitterID(jb *job.Job, legacyChains evm.LegacyChainContainer, chainID string, lggr logger.SugaredLogger) (string, error) {
+func GetEVMEffectiveTransmitterID(jb *job.Job, chain evm.Chain, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
 	if spec.PluginType == job.Mercury {
 		return spec.TransmitterID.String, nil
@@ -444,7 +441,6 @@ func GetEVMEffectiveTransmitterID(jb *job.Job, legacyChains evm.LegacyChainConta
 		if err != nil {
 			return "", err
 		}
-
 		if len(sendingKeys) > 1 && spec.PluginType != job.OCR2VRF {
 			return "", errors.New("only ocr2 vrf should have more than 1 sending key")
 		}
@@ -455,11 +451,9 @@ func GetEVMEffectiveTransmitterID(jb *job.Job, legacyChains evm.LegacyChainConta
 	// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
 	// ForwardingAllowed cannot be set with Mercury, so this should always be false for mercury jobs
 	if jb.ForwardingAllowed {
-		chain, err := legacyChains.Get(chainID)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to get chainset")
+		if chain == nil {
+			return "", fmt.Errorf("job forwarding requires non-nil chain")
 		}
-
 		effectiveTransmitterID, err := chain.TxManager().GetForwarderForEOA(common.HexToAddress(spec.TransmitterID.String))
 		if err == nil {
 			return effectiveTransmitterID.String(), nil
@@ -497,15 +491,22 @@ func (d *Delegate) newServicesMercury(
 		return nil, errors.Wrapf(err, "ServicesForSpec: mercury job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
 	}
 
-	chainID, err := spec.GetChainID()
+	rid, err := spec.RelayIdentifier()
 	if err != nil {
-		return nil, fmt.Errorf("ServicesForSpec failed to get chainID: %w", err)
+		return nil, fmt.Errorf("mercury services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
-	relayID := relay.Identifier{Network: spec.Relay, ChainID: chainID}
-	relayer, err := d.RelayGetter.Get(relayID)
+	if rid.Network != relay.EVM {
+		return nil, fmt.Errorf("mercury services: expected EVM relayer got %s", rid.Network)
+	}
+	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
 	}
+	chain, err := d.legacyChains.Get(rid.ChainID.String())
+	if err != nil {
+		return nil, fmt.Errorf("mercury services: failed to get chain %s: %w", rid.ChainID, err)
+	}
+
 	mercuryProvider, err2 := relayer.NewMercuryProvider(ctx,
 		types.RelayArgs{
 			ExternalJobID: jb.ExternalJobID,
@@ -519,15 +520,6 @@ func (d *Delegate) newServicesMercury(
 		})
 	if err2 != nil {
 		return nil, err2
-	}
-
-	_, err2 = chainID.Int64()
-	if err2 != nil {
-		return nil, fmt.Errorf("ServicesForSpec chainID not evm compatible: %w", err2)
-	}
-	chain, err2 := d.legacyChains.Get(chainID.String())
-	if err2 != nil {
-		return nil, fmt.Errorf("ServicesForSpec failed to get chain: %w", err2)
 	}
 
 	oracleArgsNoPlugin := libocr2.MercuryOracleArgs{
@@ -582,14 +574,13 @@ func (d *Delegate) newServicesMedian(
 	enhancedTelemChan := make(chan ocrcommon.EnhancedTelemetryData, 100)
 	mConfig := median.NewMedianConfig(d.cfg.JobPipeline().MaxSuccessfulRuns(), d.cfg)
 
-	chainID, err := spec.GetChainID()
+	rid, err := spec.RelayIdentifier()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get chainID from spec: %w", err)
+		return nil, fmt.Errorf("median services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
-	relayID := relay.Identifier{Network: spec.Relay, ChainID: chainID}
-	relayer, err := d.RelayGetter.Get(relayID)
+	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
+		return nil, fmt.Errorf("median services; failed to get relay %s is it enabled?: %w", spec.Relay, err)
 	}
 
 	medianServices, err2 := median.NewMedianServices(ctx, jb, d.isNewlyCreatedJob, relayer, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, mConfig, enhancedTelemChan, errorLog)
@@ -612,17 +603,17 @@ func (d *Delegate) newServicesDKG(
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	chainID, err2 := spec.GetChainID()
-	if err2 != nil {
-		return nil, err2
+	rid, err := spec.RelayIdentifier()
+	if err != nil {
+		return nil, fmt.Errorf("DKG services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
-	evmChainID, err2 := chainID.Int64()
-	if err2 != nil {
-		return nil, fmt.Errorf("ServicesForSpec chainID not evm compatible: %w", err2)
+	if rid.Network != relay.EVM {
+		return nil, fmt.Errorf("DKG services: expected EVM relayer got %s", rid.Network)
 	}
-	chain, err2 := d.legacyChains.Get(chainID.String())
+
+	chain, err2 := d.legacyChains.Get(rid.ChainID.String())
 	if err2 != nil {
-		return nil, fmt.Errorf("get chainset: %w", err2)
+		return nil, fmt.Errorf("DKG services: failed to get chain %s: %w", rid.ChainID, err2)
 	}
 	ocr2vrfRelayer := evmrelay.NewOCR2VRFRelayer(d.db, chain, lggr.Named("OCR2VRFRelayer"), d.ethKs)
 	dkgProvider, err2 := ocr2vrfRelayer.NewDKGProvider(
@@ -665,7 +656,7 @@ func (d *Delegate) newServicesDKG(
 		oracleArgsNoPlugin,
 		d.db,
 		d.cfg.Database(),
-		big.NewInt(evmChainID),
+		chain.ID(),
 		spec.Relay,
 	)
 }
@@ -680,17 +671,17 @@ func (d *Delegate) newServicesOCR2VRF(
 	lc ocrtypes.LocalConfig,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	chainID, err2 := spec.GetChainID()
-	if err2 != nil {
-		return nil, err2
+
+	rid, err := spec.RelayIdentifier()
+	if err != nil {
+		return nil, fmt.Errorf("VRF services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
-	evmChainID, err2 := chainID.Int64()
-	if err2 != nil {
-		return nil, fmt.Errorf("chainID not evm compatible: %w", err2)
+	if rid.Network != relay.EVM {
+		return nil, fmt.Errorf("VRF services: expected EVM relayer got %s", rid.Network)
 	}
-	chain, err2 := d.legacyChains.Get(chainID.String())
+	chain, err2 := d.legacyChains.Get(rid.ChainID.String())
 	if err2 != nil {
-		return nil, fmt.Errorf("get chainset: %w", err2)
+		return nil, fmt.Errorf("VRF services: failed to get chain (%s): %w", rid.ChainID, err2)
 	}
 	if jb.ForwardingAllowed != chain.Config().EVM().Transactions().ForwardersEnabled() {
 		return nil, errors.New("transaction forwarding settings must be consistent for ocr2vrf")
@@ -834,7 +825,7 @@ func (d *Delegate) newServicesOCR2VRF(
 		KeyID:                              keyID,
 		DKGReportingPluginFactoryDecorator: dkgReportingPluginFactoryDecorator,
 		VRFReportingPluginFactoryDecorator: vrfReportingPluginFactoryDecorator,
-		DKGSharePersistence:                persistence.NewShareDB(d.db, lggr.Named("DKGShareDB"), d.cfg.Database(), big.NewInt(evmChainID), spec.Relay),
+		DKGSharePersistence:                persistence.NewShareDB(d.db, lggr.Named("DKGShareDB"), d.cfg.Database(), chain.ID(), spec.Relay),
 	})
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "new ocr2vrf")
@@ -906,17 +897,17 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	}
 
 	mc := d.cfg.Mercury().Credentials(credName)
-	chainID, err2 := spec.GetChainID()
-	if err2 != nil {
-		return nil, err2
+	rid, err := spec.RelayIdentifier()
+	if err != nil {
+		return nil, fmt.Errorf("keeper2 services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
-	_, err2 = chainID.Int64()
-	if err2 != nil {
-		return nil, fmt.Errorf("ServicesForSpec chainID not evm compatible: %w", err2)
+	if rid.Network != relay.EVM {
+		return nil, fmt.Errorf("keeper2 services: expected EVM relayer got %s", rid.Network)
 	}
-	chain, err2 := d.legacyChains.Get(chainID.String())
+
+	chain, err2 := d.legacyChains.Get(rid.ChainID.String())
 	if err2 != nil {
-		return nil, fmt.Errorf("get chainset: %w", err2)
+		return nil, fmt.Errorf("keeper2 services: failed to get chain %s: %w", rid.ChainID, err2)
 	}
 
 	keeperProvider, rgstry, encoder, transmitEventProvider, logProvider, wrappedKey, blockSub, payloadBuilder, upkeepStateStore, up, err2 := ocr2keeper.EVMDependencies21(jb, d.db, lggr, chain, d.pipelineRunner, mc, kb)
@@ -1017,18 +1008,19 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	cfg ocr2keeper.PluginConfig,
 	spec *job.OCR2OracleSpec,
 ) ([]job.ServiceCtx, error) {
-	chainID, err2 := spec.GetChainID()
-	if err2 != nil {
-		return nil, err2
+
+	rid, err := spec.RelayIdentifier()
+	if err != nil {
+		return nil, fmt.Errorf("keepers2.0 services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
-	_, err2 = chainID.Int64()
-	if err2 != nil {
-		return nil, fmt.Errorf("ServicesForSpec chainID not evm compatible: %w", err2)
+	if rid.Network != relay.EVM {
+		return nil, fmt.Errorf("keepers2.0 services: expected EVM relayer got %s", rid.Network)
 	}
-	chain, err2 := d.legacyChains.Get(chainID.String())
+	chain, err2 := d.legacyChains.Get(rid.ChainID.String())
 	if err2 != nil {
-		return nil, fmt.Errorf("get chainset: %w", err2)
+		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
 	}
+
 	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(jb, d.db, lggr, chain, d.pipelineRunner)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
@@ -1151,17 +1143,17 @@ func (d *Delegate) newServicesOCR2Functions(
 	ocrLogger commontypes.Logger,
 ) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.Relay != relay.EVM {
-		return nil, fmt.Errorf("unsupported relay: %s", spec.Relay)
-	}
 
-	relayerID, err := spec.RelayIdentifier()
+	rid, err := spec.RelayIdentifier()
 	if err != nil {
-		return nil, fmt.Errorf("functions: OCR2 Delegate could not get relayer: %w", err)
+		return nil, fmt.Errorf("functions services: %w: %w", ErrJobSpecNoRelayer, err)
 	}
-	chain, err := d.legacyChains.Get(relayerID.ChainID.String())
+	if rid.Network != relay.EVM {
+		return nil, fmt.Errorf("functions services: expected EVM relayer got %s", rid.Network)
+	}
+	chain, err := d.legacyChains.Get(rid.ChainID.String())
 	if err != nil {
-		return nil, fmt.Errorf("functions: OCR2 Delegate could not find chain id (%s) given in the spec: %w", relayerID.ChainID, err)
+		return nil, fmt.Errorf("functions services: failed to get chain %s: %w", rid.ChainID, err)
 	}
 	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmrelaytypes.FunctionsProvider, error) {
 		return evmrelay.NewFunctionsProvider(

@@ -43,6 +43,24 @@ func (i *Identifier) Name() string {
 func (i *Identifier) String() string {
 	return i.Name()
 }
+func NewIdentifier(n Network, c ChainID) (Identifier, error) {
+	id := Identifier{Network: n, ChainID: c}
+	err := id.Validate()
+	if err != nil {
+		return Identifier{}, err
+	}
+	return id, nil
+}
+func (i *Identifier) Validate() error {
+	// the only validation is to ensure that EVM chain ids are compatible with int64
+	if i.Network == EVM {
+		_, err := i.ChainID.Int64()
+		if err != nil {
+			return fmt.Errorf("RelayIdentifier invalid: EVM relayer must have integer-compatible chain ID: %w", err)
+		}
+	}
+	return nil
+}
 
 var idRegex = regexp.MustCompile(
 	fmt.Sprintf("^((%s)|(%s)|(%s)|(%s))\\.", EVM, Cosmos, Solana, StarkNet),
