@@ -27,6 +27,9 @@ import (
 var (
 	ErrHeadNotAvailable   = fmt.Errorf("head not available")
 	ErrBlockLimitExceeded = fmt.Errorf("block limit exceeded")
+
+	// AllowedLogsPerUpkeep is the maximum number of logs allowed per upkeep every single call.
+	AllowedLogsPerUpkeep = 5
 )
 
 // LogTriggerConfig is an alias for log trigger config.
@@ -159,7 +162,7 @@ func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.Upk
 	if diff < 0 {
 		diff = latest
 	}
-	logs := p.buffer.dequeue(int(diff))
+	logs := p.buffer.dequeue(int(diff), AllowedLogsPerUpkeep)
 
 	// p.lggr.Debugw("got latest logs from buffer", "latest", latest, "diff", diff, "logs", len(logs))
 
@@ -172,9 +175,9 @@ func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.Upk
 			p.lggr.Warnw("failed to pack log data", "err", err, "log", log)
 			continue
 		}
-		payload, err := core.NewUpkeepPayload(l.id, trig, checkData)
+		payload, err := core.NewUpkeepPayload(l.upkeepID, trig, checkData)
 		if err != nil {
-			p.lggr.Warnw("failed to create upkeep payload", "err", err, "id", l.id, "trigger", trig, "checkData", checkData)
+			p.lggr.Warnw("failed to create upkeep payload", "err", err, "id", l.upkeepID, "trigger", trig, "checkData", checkData)
 			continue
 		}
 

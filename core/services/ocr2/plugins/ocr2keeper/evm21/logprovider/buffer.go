@@ -19,8 +19,8 @@ var (
 
 // fetchedLog holds the log and the ID of the upkeep
 type fetchedLog struct {
-	id  *big.Int
-	log logpoller.Log
+	upkeepID *big.Int
+	log      logpoller.Log
 }
 
 // fetchedBlock holds the logs fetched for a block
@@ -33,23 +33,13 @@ type fetchedBlock struct {
 	visited []fetchedLog
 }
 
-// Reset resets the block to the given block number, if the block is newer than the current block.
-func (b fetchedBlock) Reset(block int64) (fetchedBlock, int64) {
-	if b.blockNumber < block {
-		return fetchedBlock{
-			blockNumber: block,
-		}, b.blockNumber
-	}
-	return b, b.blockNumber
-}
-
 // Has returns true if the block has the log,
 // and the number of logs for that upkeep in the block.
 func (b fetchedBlock) Has(id *big.Int, log logpoller.Log) (bool, int) {
 	allLogs := append(b.logs, b.visited...)
 	upkeepLogs := 0
 	for _, l := range allLogs {
-		if l.id.Cmp(id) != 0 {
+		if l.upkeepID.Cmp(id) != 0 {
 			continue
 		}
 		upkeepLogs++
@@ -111,24 +101,26 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 			// invalid log
 			continue
 		}
+
 		i := b.blockNumberIndex(log.BlockNumber)
-		block, prevBlock := b.blocks[i].Reset(log.BlockNumber)
-		if prevBlock > 0 {
-			if prevBlock > log.BlockNumber {
-				lggr.Debugw("Skipping old log", "currentBlock", block.blockNumber, "newBlock", log.BlockNumber)
-				continue
-			} else if prevBlock < log.BlockNumber {
-				lggr.Debugw("Overriding block", "prevBlock", prevBlock, "newBlock", log.BlockNumber)
-			}
+		currentBlock := b.blocks[i]
+		if currentBlock.blockNumber < log.BlockNumber {
+			lggr.Debugw("Got log on a new block", "prevBlock", currentBlock.blockNumber, "newBlock", log.BlockNumber)
+			currentBlock.blockNumber = log.BlockNumber
+			currentBlock.logs = nil
+			currentBlock.visited = nil
+		} else if currentBlock.blockNumber > log.BlockNumber {
+			// not expected to happen
+			lggr.Debugw("Skipping log from old block", "currentBlock", currentBlock.blockNumber, "newBlock", log.BlockNumber)
+			continue
 		}
-		if len(block.logs)+1 > maxBlockLogs {
+		if len(currentBlock.logs)+1 > maxBlockLogs {
 			lggr.Debugw("Reached max logs number per block, dropping log", "blockNumber", log.BlockNumber,
 				"blockHash", log.BlockHash, "txHash", log.TxHash, "logIndex", log.LogIndex)
 			continue
 		}
-		if has, upkeepLogs := block.Has(id, log); has {
-			// lggr.Debugw("Skipping existing log", "blockNumber", log.BlockNumber,
-			// 	"blockHash", log.BlockHash, "txHash", log.TxHash, "logIndex", log.LogIndex)
+		if has, upkeepLogs := currentBlock.Has(id, log); has {
+			// Skipping existing log
 			continue
 		} else if upkeepLogs+1 > maxUpkeepLogs {
 			lggr.Debugw("Reached max logs number per upkeep, dropping log", "blockNumber", log.BlockNumber,
@@ -136,8 +128,8 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 			continue
 		}
 		// lggr.Debugw("Adding log", "i", i, "blockBlock", block.blockNumber, "logBlock", log.BlockNumber, "id", id)
-		block.logs = append(block.logs, fetchedLog{id: id, log: log})
-		b.blocks[i] = block
+		currentBlock.logs = append(currentBlock.logs, fetchedLog{upkeepID: id, log: log})
+		b.blocks[i] = currentBlock
 		added++
 		if log.BlockNumber > latestBlock {
 			latestBlock = log.BlockNumber
@@ -193,7 +185,7 @@ func (b *logEventBuffer) peekRange(start, end int64) []fetchedLog {
 }
 
 // peek returns the logs in range [latestBlock-blocks, latestBlock]
-func (b *logEventBuffer) dequeue(blocks int) []fetchedLog {
+func (b *logEventBuffer) dequeue(blocks, upkeepLimit int) []fetchedLog {
 	latestBlock := b.latestBlockSeen()
 	if latestBlock == 0 {
 		return nil
@@ -201,15 +193,17 @@ func (b *logEventBuffer) dequeue(blocks int) []fetchedLog {
 	if blocks > int(latestBlock) {
 		blocks = int(latestBlock) - 1
 	}
-	return b.dequeueRange(latestBlock-int64(blocks), latestBlock)
+	return b.dequeueRange(latestBlock-int64(blocks), latestBlock, upkeepLimit)
 }
 
 // dequeueRange returns the logs between start and end inclusive.
-func (b *logEventBuffer) dequeueRange(start, end int64) []fetchedLog {
+func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetchedLog {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
 	blocksInRange := b.getBlocksInRange(int(start), int(end))
+
+	logsCount := map[string]int{}
 
 	var results []fetchedLog
 	for i, block := range blocksInRange {
@@ -217,9 +211,21 @@ func (b *logEventBuffer) dequeueRange(start, end int64) []fetchedLog {
 		if block.blockNumber < start || block.blockNumber > end {
 			continue
 		}
-		results = append(results, block.logs...)
-		block.visited = append(block.visited, block.logs...)
-		block.logs = nil
+		var remainingLogs, blockResults []fetchedLog
+		for _, log := range block.logs {
+			if logsCount[log.upkeepID.String()] >= upkeepLimit {
+				remainingLogs = append(remainingLogs, log)
+				continue
+			}
+			logsCount[log.upkeepID.String()]++
+			blockResults = append(blockResults, log)
+		}
+		if len(blockResults) == 0 {
+			continue
+		}
+		block.visited = append(block.visited, blockResults...)
+		results = append(results, blockResults...)
+		block.logs = remainingLogs
 		b.blocks[i] = block
 	}
 
@@ -266,6 +272,7 @@ func (b *logEventBuffer) normalRange(start, end int) (int, int) {
 		start++
 	}
 	if start == end {
+		// TODO: check
 		// ensure we have at least one block in range
 		end++
 	}
