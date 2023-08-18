@@ -225,7 +225,7 @@ func (u *upkeepStateStore) cleanup() {
 
 // cleanDB cleans up records in the DB that are older than the TTL.
 func (u *upkeepStateStore) cleanDB() {
-	// TODO: implement
+	// TODO: implement persistence
 }
 
 // cleanupCache removes any records from the cache that are older than the TTL.
