@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/parse"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -656,6 +657,37 @@ func (w *WebServer) setFrom(f *WebServer) {
 	w.TLS.setFrom(&f.TLS)
 }
 
+func (w *WebServer) ValidateConfig() (err error) {
+	// Validate WebServer config, assert LDAP fields when AuthMethod set to LDAP
+	if *w.AuthenticationMethod == string(sessions.LDAPAuth) {
+		if *w.LDAP.BaseDN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseDN", Value: "", Msg: "LDAP BaseDN can not be empty"})
+		}
+		if *w.LDAP.BaseUserAttr == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseUserAttr", Value: "", Msg: "LDAP BaseUserAttr can not be empty"})
+		}
+		if *w.LDAP.UsersDN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.UsersDN", Value: "", Msg: "LDAP UsersDN can not be empty"})
+		}
+		if *w.LDAP.GroupsDN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.GroupsDN", Value: "", Msg: "LDAP GroupsDN can not be empty"})
+		}
+		if *w.LDAP.AdminUserGroupCN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Value: "", Msg: "LDAP AdminUserGroupCN can not be empty"})
+		}
+		if *w.LDAP.EditUserGroupCN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Value: "", Msg: "LDAP ReadUserGroupCN can not be empty"})
+		}
+		if *w.LDAP.RunUserGroupCN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Value: "", Msg: "LDAP RunUserGroupCN can not be empty"})
+		}
+		if *w.LDAP.ReadUserGroupCN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.ReadUserGroupCN", Value: "", Msg: "LDAP ReadUserGroupCN can not be empty"})
+		}
+	}
+	return err
+}
+
 type WebServerMFA struct {
 	RPID     *string
 	RPOrigin *string
@@ -796,7 +828,7 @@ func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 }
 
 type WebServerLDAPSecrets struct {
-	ServerAddress     *models.Secret
+	ServerAddress     *models.SecretURL
 	ReadOnlyUserLogin *models.Secret
 	ReadOnlyUserPass  *models.Secret
 }

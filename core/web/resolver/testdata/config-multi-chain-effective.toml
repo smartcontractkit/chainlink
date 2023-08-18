@@ -61,6 +61,7 @@ MaxAgeDays = 0
 MaxBackups = 1
 
 [WebServer]
+AuthenticationMethod = 'local'
 AllowOrigins = 'http://localhost:3000,http://localhost:6688'
 BridgeResponseURL = ''
 BridgeCacheTTL = '0s'

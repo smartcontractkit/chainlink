@@ -187,7 +187,7 @@ func (l *ldapConfig) ServerAddress() string {
 	if l.s.ServerAddress == nil {
 		return ""
 	}
-	return string(*l.s.ServerAddress)
+	return l.s.ServerAddress.URL().String()
 }
 
 func (l *ldapConfig) ReadOnlyUserLogin() string {
