@@ -346,6 +346,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	t.Log("waiting for log poller to get updated")
 	// let the log poller work
 	b, err := ethClient.BlockByHash(ctx, backend.Commit())
+	require.NoError(t, err)
 	latestBlock := b.Number().Int64()
 	for {
 		latestPolled, lberr := lp.LatestBlock(pg.WithParentCtx(ctx))
