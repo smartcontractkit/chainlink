@@ -26,6 +26,7 @@ var (
 	ErrNotFound             = errors.New("not found")
 	DefaultRecoveryInterval = 5 * time.Second
 	RecoveryCacheTTL        = 24*time.Hour - time.Second
+	GCInterval              = time.Hour
 
 	recoveryBatchSize  = 10
 	recoveryLogsBuffer = int64(50)
@@ -118,12 +119,17 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
 
+			gcTicker := time.NewTicker(GCInterval)
+			defer gcTicker.Stop()
+
 			for {
 				select {
 				case <-ticker.C:
 					if err := r.recover(ctx); err != nil {
 						r.lggr.Warnw("failed to recover logs", "err", err)
 					}
+				case <-gcTicker.C:
+					r.clean(ctx)
 				case <-ctx.Done():
 					return
 				}
@@ -469,4 +475,21 @@ func logToTrigger(log logpoller.Log) ocr2keepers.Trigger {
 		BlockNumber: ocr2keepers.BlockNumber(log.BlockNumber),
 	}
 	return t
+}
+
+func (r *logRecoverer) clean(ctx context.Context) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	cleaned := 0
+	for id, t := range r.visited {
+		if time.Since(t) > RecoveryCacheTTL {
+			delete(r.visited, id)
+			cleaned++
+		}
+	}
+
+	if cleaned > 0 {
+		r.lggr.Debugw("gc: cleaned visited upkeeps", "cleaned", cleaned)
+	}
 }
