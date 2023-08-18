@@ -1102,12 +1102,6 @@ observationSource                      = """
 	return MarshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }
 
-//generate_proof          [type=vrfv2plus
-//                         publicKey="$(jobSpec.publicKey)"
-//                         requestBlockHash="$(jobRun.logBlockHash)"
-//                         requestBlockNumber="$(jobRun.logBlockNumber)"
-//                         topics="$(jobRun.logTopics)"]
-
 // VRFV2PlusJobSpec represents a VRFV2 job
 type VRFV2PlusJobSpec struct {
 	Name                     string        `toml:"name"`
