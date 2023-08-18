@@ -73,7 +73,7 @@ import (
 var ErrJobSpecNoRelayer = errors.New("OCR2 job spec could not get relayer id")
 
 type RelayGetter interface {
-	Get(id relay.Identifier) (loop.Relayer, error)
+	Get(id relay.ID) (loop.Relayer, error)
 }
 type Delegate struct {
 	db                    *sqlx.DB

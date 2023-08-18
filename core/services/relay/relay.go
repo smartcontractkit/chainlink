@@ -30,28 +30,28 @@ var (
 	}
 )
 
-// Identifier uniquely identifies a relayer by network and chain id
-type Identifier struct {
+// ID uniquely identifies a relayer by network and chain id
+type ID struct {
 	Network Network
 	ChainID ChainID
 }
 
-func (i *Identifier) Name() string {
+func (i *ID) Name() string {
 	return fmt.Sprintf("%s.%s", i.Network, i.ChainID.String())
 }
 
-func (i *Identifier) String() string {
+func (i *ID) String() string {
 	return i.Name()
 }
-func NewIdentifier(n Network, c ChainID) (Identifier, error) {
-	id := Identifier{Network: n, ChainID: c}
+func NewID(n Network, c ChainID) (ID, error) {
+	id := ID{Network: n, ChainID: c}
 	err := id.Validate()
 	if err != nil {
-		return Identifier{}, err
+		return ID{}, err
 	}
 	return id, nil
 }
-func (i *Identifier) Validate() error {
+func (i *ID) Validate() error {
 	// the only validation is to ensure that EVM chain ids are compatible with int64
 	if i.Network == EVM {
 		_, err := i.ChainID.Int64()
@@ -66,7 +66,7 @@ var idRegex = regexp.MustCompile(
 	fmt.Sprintf("^((%s)|(%s)|(%s)|(%s))\\.", EVM, Cosmos, Solana, StarkNet),
 )
 
-func (i *Identifier) UnmarshalString(s string) error {
+func (i *ID) UnmarshalString(s string) error {
 	idxs := idRegex.FindStringIndex(s)
 	if idxs == nil {
 		return fmt.Errorf("error unmarshaling Identifier. %q does not match expected pattern", s)
@@ -74,7 +74,7 @@ func (i *Identifier) UnmarshalString(s string) error {
 	// ignore the `.` in the match by dropping last rune
 	network := s[idxs[0] : idxs[1]-1]
 	chainID := s[idxs[1]:]
-	newID := &Identifier{ChainID: ChainID(chainID)}
+	newID := &ID{ChainID: ChainID(chainID)}
 	for n := range SupportedRelays {
 		if Network(network) == n {
 			newID.Network = n

@@ -16,12 +16,12 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 	tests := []struct {
 		name    string
 		fields  fields
-		want    relay.Identifier
+		want    relay.ID
 		wantErr bool
 	}{
 		{name: "err no chain id",
 			fields:  fields{},
-			want:    relay.Identifier{},
+			want:    relay.ID{},
 			wantErr: true,
 		},
 		{
@@ -30,7 +30,7 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 				Relay:   relay.EVM,
 				ChainID: "1",
 			},
-			want: relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID("1")},
+			want: relay.ID{Network: relay.EVM, ChainID: relay.ChainID("1")},
 		},
 		{
 			name: "evm implicitly configured",
@@ -38,7 +38,7 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 				Relay:       relay.EVM,
 				RelayConfig: map[string]any{"chainID": 1},
 			},
-			want: relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID("1")},
+			want: relay.ID{Network: relay.EVM, ChainID: relay.ChainID("1")},
 		},
 		{
 			name: "evm implicitly configured with bad value",
@@ -46,7 +46,7 @@ func TestOCR2OracleSpec_RelayIdentifier(t *testing.T) {
 				Relay:       relay.EVM,
 				RelayConfig: map[string]any{"chainID": float32(1)},
 			},
-			want:    relay.Identifier{},
+			want:    relay.ID{},
 			wantErr: true,
 		},
 	}

@@ -69,9 +69,9 @@ func TestLoader_Nodes(t *testing.T) {
 	ctx := InjectDataloader(testutils.Context(t), app)
 
 	chainID1, chainID2, notAnID := big.NewInt(1), big.NewInt(2), big.NewInt(3)
-	relayID1 := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(chainID1.String())}
-	relayID2 := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(chainID2.String())}
-	notARelayID := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(notAnID.String())}
+	relayID1 := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(chainID1.String())}
+	relayID2 := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(chainID2.String())}
+	notARelayID := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(notAnID.String())}
 
 	genNodeStat := func(id string) relaytypes.NodeStatus {
 		return relaytypes.NodeStatus{

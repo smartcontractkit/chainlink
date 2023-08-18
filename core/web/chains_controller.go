@@ -79,7 +79,7 @@ func (cc *chainsController[R]) Show(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, cc.errNotEnabled)
 		return
 	}
-	relayID := relay.Identifier{Network: cc.network, ChainID: relay.ChainID(c.Param("ID"))}
+	relayID := relay.ID{Network: cc.network, ChainID: relay.ChainID(c.Param("ID"))}
 	chain, err := cc.chainStats.ChainStatus(c, relayID)
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, err)

@@ -23,7 +23,7 @@ import (
 )
 
 type RelayGetter interface {
-	Get(relay.Identifier) (loop.Relayer, error)
+	Get(relay.ID) (loop.Relayer, error)
 }
 
 // Delegate creates Bootstrap jobs

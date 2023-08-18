@@ -36,7 +36,7 @@ func TestIdentifier_UnmarshalString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := &Identifier{}
+			i := &ID{}
 			err := i.UnmarshalString(tt.args.s)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Identifier.UnmarshalString() error = %v, wantErr %v", err, tt.wantErr)
