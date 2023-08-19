@@ -105,7 +105,7 @@ func (dq *decryptionQueue) getResult(ciphertextId decryptionPlugin.CiphertextId,
 
 	req, ok := dq.completedRequests[string(ciphertextId)]
 	if ok {
-		dq.lggr.Debugf("ciphertextId %s was already decrypted by the DON", string(ciphertextId))
+		dq.lggr.Debugf("ciphertextId %s was already decrypted by the DON", ciphertextId)
 		chPlaintext <- req.plaintext
 		req.timer.Stop()
 		delete(dq.completedRequests, string(ciphertextId))
@@ -126,7 +126,7 @@ func (dq *decryptionQueue) getResult(ciphertextId decryptionPlugin.CiphertextId,
 		chPlaintext,
 		ciphertext,
 	}
-	dq.lggr.Debugf("ciphertextId %s added to pendingRequestQueue", string(ciphertextId))
+	dq.lggr.Debugf("ciphertextId %s added to pendingRequestQueue", ciphertextId)
 
 	return chPlaintext, nil
 }
@@ -144,21 +144,21 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 			break
 		}
 
-		requestId := dq.pendingRequestQueue[i]
-		pendingRequest, exists := dq.pendingRequests[string(requestId)]
+		ciphertextId := dq.pendingRequestQueue[i]
+		pendingRequest, exists := dq.pendingRequests[string(ciphertextId)]
 
 		if !exists {
-			dq.lggr.Debugf("pending decryption request for ciphertextId %s expired", string(requestId))
+			dq.lggr.Debugf("pending decryption request for ciphertextId %s expired", ciphertextId)
 			indicesToRemove[i] = struct{}{}
 			continue
 		}
 
 		requestToAdd := decryptionPlugin.DecryptionRequest{
-			CiphertextId: requestId,
+			CiphertextId: ciphertextId,
 			Ciphertext:   pendingRequest.ciphertext,
 		}
 
-		requestTotalLen := len(requestId) + len(pendingRequest.ciphertext)
+		requestTotalLen := len(ciphertextId) + len(pendingRequest.ciphertext)
 
 		if (totalBytes + requestTotalLen) > totalBytesLimit {
 			dq.lggr.Debug("totalBytesLimit reached in GetRequests")
@@ -194,7 +194,7 @@ func (dq *decryptionQueue) GetCiphertext(ciphertextId decryptionPlugin.Ciphertex
 
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if !ok {
-		return nil, errors.New("ciphertext not found")
+		return nil, fmt.Errorf("ciphertextID %s not found", ciphertextId)
 	}
 
 	return req.ciphertext, nil
@@ -205,16 +205,16 @@ func (dq *decryptionQueue) SetResult(ciphertextId decryptionPlugin.CiphertextId,
 	defer dq.mu.Unlock()
 
 	if err == nil && plaintext == nil {
-		dq.lggr.Errorf("received nil error and nil plaintext for ciphertextId %s", string(ciphertextId))
+		dq.lggr.Errorf("received nil error and nil plaintext for ciphertextId %s", ciphertextId)
 		return
 	}
 
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if ok {
 		if err != nil {
-			dq.lggr.Debugf("decryption error for ciphertextId %s", string(ciphertextId))
+			dq.lggr.Debugf("decryption error for ciphertextId %s", ciphertextId)
 		} else {
-			dq.lggr.Debugf("responding with result for pending decryption request ciphertextId %s", string(ciphertextId))
+			dq.lggr.Debugf("responding with result for pending decryption request ciphertextId %s", ciphertextId)
 			req.chPlaintext <- plaintext
 		}
 		close(req.chPlaintext)
@@ -222,19 +222,19 @@ func (dq *decryptionQueue) SetResult(ciphertextId decryptionPlugin.CiphertextId,
 	} else {
 		if err != nil {
 			// This is currently possible only for ErrAggregation, encountered during Report() phase.
-			dq.lggr.Debugf("received decryption error for ciphertextId %s which doesn't exist locally", string(ciphertextId))
+			dq.lggr.Debugf("received decryption error for ciphertextId %s which doesn't exist locally", ciphertextId)
 			return
 		}
 
 		// Cache plaintext result in completedRequests map for cacheTimeoutMs to account for delayed Decrypt() calls
 		timer := time.AfterFunc(dq.completedRequestsCacheTimeout, func() {
-			dq.lggr.Debugf("expired decryption result for ciphertextId %s from completedRequests cache", string(ciphertextId))
+			dq.lggr.Debugf("expired decryption result for ciphertextId %s from completedRequests cache", ciphertextId)
 			dq.mu.Lock()
 			delete(dq.completedRequests, string(ciphertextId))
 			dq.mu.Unlock()
 		})
 
-		dq.lggr.Debugf("adding decryption result for ciphertextId %s to completedRequests cache", string(ciphertextId))
+		dq.lggr.Debugf("adding decryption result for ciphertextId %s to completedRequests cache", ciphertextId)
 		dq.completedRequests[string(ciphertextId)] = completedRequest{
 			plaintext,
 			timer,
