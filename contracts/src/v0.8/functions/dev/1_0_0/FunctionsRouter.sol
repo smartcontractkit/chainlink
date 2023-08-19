@@ -347,6 +347,10 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       commitment.client
     );
 
+    if (err.length > 0) {
+      result.success = false;
+    }
+
     resultCode = result.success
       ? FunctionsResponse.FulfillResult.USER_SUCCESS
       : FunctionsResponse.FulfillResult.USER_ERROR;
