@@ -119,7 +119,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   /// @dev Struct to hold the transfer fee configuration for token transfers
   struct TokenTransferFeeConfig {
-    uint16 ratio; // // ----┐ Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
+    uint16 ratio; // -------┐ Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
     uint32 destGas; // -----┘ Gas charged to execute the token transfer at destination
   }
 
