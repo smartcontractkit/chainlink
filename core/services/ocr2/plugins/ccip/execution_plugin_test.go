@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/evm_2_evm_onramp"
 	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 )
 
 func TestGetExecutionPluginFilterNamesFromSpec(t *testing.T) {
@@ -78,6 +80,7 @@ func TestGetExecutionPluginFilterNames(t *testing.T) {
 		}, nil)
 
 	mockOnRamp := mock_contracts.NewEVM2EVMOnRampInterface(t)
+	mockOnRamp.On("TypeAndVersion", mock.Anything).Return(fmt.Sprintf("%s %s", ccipconfig.EVM2EVMOnRamp, "1.1.0"), nil)
 	mockOnRamp.On("GetDynamicConfig", mock.Anything).Return(
 		evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 			PriceRegistry: srcPriceRegAddr,
@@ -117,6 +120,7 @@ func TestGetExecutionPluginFilterNames(t *testing.T) {
 			OnRamp:      onRampAddr,
 		},
 		mockOnRamp,
+		nil,
 	)
 	assert.NoError(t, err)
 

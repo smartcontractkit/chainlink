@@ -1,20 +1,25 @@
 package test_env
 
 import (
-	"sync"
-
 	"math/big"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+
+	tc "github.com/testcontainers/testcontainers-go"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	tc "github.com/testcontainers/testcontainers-go"
-	"go.uber.org/multierr"
 )
 
 var (
@@ -28,9 +33,13 @@ type CLClusterTestEnv struct {
 	LogWatch *logwatch.LogWatch
 
 	/* components */
-	CLNodes    []*ClNode
-	Geth       *Geth
-	MockServer *MockServer
+	CLNodes          []*ClNode
+	Geth             *Geth                       // for tests using --dev networks
+	PrivateGethChain []test_env.PrivateGethChain // for tests using non-dev networks
+	MockServer       *MockServer
+	EVMClient        blockchain.EVMClient
+	ContractDeployer contracts.ContractDeployer
+	ContractLoader   contracts.ContractLoader
 }
 
 func NewTestEnv() (*CLClusterTestEnv, error) {
@@ -64,10 +73,34 @@ func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 }
 
 func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
-	te.Geth.EthClient.ParallelTransactions(enabled)
+	te.EVMClient.ParallelTransactions(enabled)
 }
 
-func (te *CLClusterTestEnv) StartGeth() error {
+func (m *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
+	var chains []test_env.PrivateGethChain
+	for _, evmNetwork := range evmNetworks {
+		n := evmNetwork
+		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{m.Network.Name}))
+	}
+	m.PrivateGethChain = chains
+	return m
+}
+
+func (m *CLClusterTestEnv) StartPrivateGethChain() error {
+	for _, chain := range m.PrivateGethChain {
+		err := chain.PrimaryNode.Start()
+		if err != nil {
+			return err
+		}
+		err = chain.PrimaryNode.ConnectToClient()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, InternalDockerUrls, error) {
 	return te.Geth.StartContainer()
 }
 
@@ -85,20 +118,17 @@ func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
 func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int) error {
-	var wg sync.WaitGroup
-	var errs = []error{}
-	var mu sync.Mutex
+	eg := &errgroup.Group{}
+	nodes := make(chan *ClNode, count)
 
 	// Start nodes
 	for i := 0; i < count; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		nodeIndex := i
+		eg.Go(func() error {
 			var nodeContainerName, dbContainerName string
 			if te.Cfg != nil {
-				nodeContainerName = te.Cfg.Nodes[i].NodeContainerName
-				dbContainerName = te.Cfg.Nodes[i].DbContainerName
+				nodeContainerName = te.Cfg.Nodes[nodeIndex].NodeContainerName
+				dbContainerName = te.Cfg.Nodes[nodeIndex].DbContainerName
 			}
 			n := NewClNode([]string{te.Network.Name}, nodeConfig,
 				WithNodeContainerName(nodeContainerName),
@@ -106,22 +136,22 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 			)
 			err := n.StartContainer()
 			if err != nil {
-				mu.Lock()
-				errs = append(errs, err)
-				mu.Unlock()
-			} else {
-				mu.Lock()
-				te.CLNodes = append(te.CLNodes, n)
-				mu.Unlock()
+				return err
 			}
-		}()
+			nodes <- n
+			return nil
+		})
 	}
 
-	wg.Wait()
-
-	if len(errs) > 0 {
-		return multierr.Combine(errs...)
+	if err := eg.Wait(); err != nil {
+		return err
 	}
+	close(nodes)
+
+	for node := range nodes {
+		te.CLNodes = append(te.CLNodes, node)
+	}
+
 	return nil
 }
 
@@ -141,11 +171,11 @@ func (te *CLClusterTestEnv) ChainlinkNodeAddresses() ([]common.Address, error) {
 // FundChainlinkNodes will fund all the provided Chainlink nodes with a set amount of native currency
 func (te *CLClusterTestEnv) FundChainlinkNodes(amount *big.Float) error {
 	for _, cl := range te.CLNodes {
-		if err := cl.Fund(te.Geth.EthClient, amount); err != nil {
+		if err := cl.Fund(te.EVMClient, amount); err != nil {
 			return errors.Wrap(err, ErrFundCLNode)
 		}
 	}
-	return te.Geth.EthClient.WaitForEvents()
+	return te.EVMClient.WaitForEvents()
 }
 
 func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
@@ -162,6 +192,6 @@ func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 
 func (te *CLClusterTestEnv) Terminate() error {
 	// TESTCONTAINERS_RYUK_DISABLED=false by defualt so ryuk will remove all
-	// the containers and the network
+	// the containers and the Network
 	return nil
 }

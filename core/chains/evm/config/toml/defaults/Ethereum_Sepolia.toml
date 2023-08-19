@@ -1,6 +1,7 @@
 ChainID = '11155111'
 LinkContractAddress = '0xb227f007804c16546Bd054dfED2E7A1fD5437678'
 MinContractPayment = '0.1 link'
+FinalityTagEnabled = true
 
 [GasEstimator]
 EIP1559DynamicFees = true

@@ -150,7 +150,7 @@ contract TokenPool_setOnRampRateLimiterConfig is TokenPoolSetup {
     s_tokenPool.applyRampUpdates(onRampUpdates1, new TokenPool.RampUpdate[](0));
   }
 
-  function testSetRateLimiterConfigSuccess(uint128 capacity, uint128 rate, uint32 newTime) public {
+  function testFuzz_SetRateLimiterConfigSuccess(uint128 capacity, uint128 rate, uint32 newTime) public {
     // Bucket updates only work on increasing time
     vm.assume(newTime >= block.timestamp);
     vm.warp(newTime);
@@ -203,7 +203,7 @@ contract TokenPool_setOffRampRateLimiterConfig is TokenPoolSetup {
     s_tokenPool.applyRampUpdates(new TokenPool.RampUpdate[](0), offRampUpdates1);
   }
 
-  function testSetRateLimiterConfigSuccess(uint128 capacity, uint128 rate, uint32 newTime) public {
+  function testFuzz_SetRateLimiterConfigSuccess(uint128 capacity, uint128 rate, uint32 newTime) public {
     // Bucket updates only work on increasing time
     vm.assume(newTime >= block.timestamp);
     vm.warp(newTime);

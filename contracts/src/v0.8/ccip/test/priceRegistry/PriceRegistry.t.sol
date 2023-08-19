@@ -270,7 +270,7 @@ contract PriceRegistry_convertTokenAmount is PriceRegistrySetup {
     assertEq(s_priceRegistry.convertTokenAmount(s_weth, amount, s_sourceTokens[0]), expected);
   }
 
-  function test_fuzz_ConvertTokenAmountSuccess(
+  function testFuzz_ConvertTokenAmountSuccess(
     uint256 feeTokenAmount,
     uint192 usdPerFeeToken,
     uint160 usdPerLinkToken,

@@ -44,7 +44,7 @@ contract LockReleaseTokenPool_lockOrBurn is LockReleaseTokenPoolSetup {
   event Locked(address indexed sender, uint256 amount);
   event TokensConsumed(uint256 tokens);
 
-  function testLockOrBurnNoAllowListSuccess(uint256 amount) public {
+  function testFuzz_LockOrBurnNoAllowListSuccess(uint256 amount) public {
     amount = bound(amount, 1, rateLimiterConfig().capacity);
     changePrank(s_allowedOnRamp);
 
@@ -96,7 +96,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
   event TokensConsumed(uint256 tokens);
   event Released(address indexed sender, address indexed recipient, uint256 amount);
 
-  function testReleaseOrMintSuccess(address recipient, uint256 amount) public {
+  function testFuzz_ReleaseOrMintSuccess(address recipient, uint256 amount) public {
     // Since the owner already has tokens this would break the checks
     vm.assume(recipient != OWNER);
     vm.assume(recipient != address(0));
@@ -138,7 +138,7 @@ contract LockReleaseTokenPool_releaseOrMint is LockReleaseTokenPoolSetup {
 }
 
 contract LockReleaseTokenPool_getProvidedLiquidity is LockReleaseTokenPoolSetup {
-  function testGetProvidedLiquiditySuccess(uint256 amount) public {
+  function testFuzz_GetProvidedLiquiditySuccess(uint256 amount) public {
     s_token.approve(address(s_lockReleaseTokenPool), amount);
 
     s_lockReleaseTokenPool.addLiquidity(amount);
@@ -148,7 +148,7 @@ contract LockReleaseTokenPool_getProvidedLiquidity is LockReleaseTokenPoolSetup 
 }
 
 contract LockReleaseTokenPool_addLiquidity is LockReleaseTokenPoolSetup {
-  function testAddLiquiditySuccess(uint256 amount) public {
+  function testFuzz_AddLiquiditySuccess(uint256 amount) public {
     uint256 balancePre = s_token.balanceOf(OWNER);
     s_token.approve(address(s_lockReleaseTokenPool), amount);
 
@@ -160,7 +160,7 @@ contract LockReleaseTokenPool_addLiquidity is LockReleaseTokenPoolSetup {
 
   // Reverts
 
-  function testExceedsAllowance(uint256 amount) public {
+  function testFuzz_ExceedsAllowance(uint256 amount) public {
     vm.assume(amount > 0);
     vm.expectRevert("ERC20: insufficient allowance");
     s_lockReleaseTokenPool.addLiquidity(amount);
@@ -168,7 +168,7 @@ contract LockReleaseTokenPool_addLiquidity is LockReleaseTokenPoolSetup {
 }
 
 contract LockReleaseTokenPool_removeLiquidity is LockReleaseTokenPoolSetup {
-  function testRemoveLiquiditySuccess(uint256 amount) public {
+  function testFuzz_RemoveLiquiditySuccess(uint256 amount) public {
     uint256 balancePre = s_token.balanceOf(OWNER);
     s_token.approve(address(s_lockReleaseTokenPool), amount);
     s_lockReleaseTokenPool.addLiquidity(amount);
@@ -179,7 +179,7 @@ contract LockReleaseTokenPool_removeLiquidity is LockReleaseTokenPoolSetup {
   }
 
   // Reverts
-  function testWithdrawalTooHighReverts(uint256 balance, uint256 withdrawal) public {
+  function testFuzz_WithdrawalTooHighReverts(uint256 balance, uint256 withdrawal) public {
     vm.assume(balance < withdrawal);
     s_token.approve(address(s_lockReleaseTokenPool), balance);
     s_lockReleaseTokenPool.addLiquidity(balance);

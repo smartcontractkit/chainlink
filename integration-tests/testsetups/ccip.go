@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-env/client"
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -28,8 +29,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ccip/laneconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
 const (
@@ -97,6 +100,7 @@ type CCIPTestConfig struct {
 	MsgType                 string
 	PhaseTimeout            time.Duration
 	TestDuration            time.Duration
+	LocalCluster            bool
 	ExistingDeployment      bool
 	ExistingEnv             string
 	ReuseContracts          bool
@@ -351,6 +355,16 @@ func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string) *CCIPTes
 		}
 	}
 
+	local, _ := utils.GetEnv("CCIP_DEPLOY_ON_LOCAL")
+	if local != "" {
+		e, err := strconv.ParseBool(local)
+		if err != nil {
+			allError = multierr.Append(allError, err)
+		} else {
+			p.LocalCluster = e
+		}
+	}
+
 	existing, _ := utils.GetEnv("CCIP_TESTS_ON_EXISTING_DEPLOYMENT")
 	if existing != "" {
 		e, err := strconv.ParseBool(existing)
@@ -413,6 +427,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	networkA, networkB blockchain.EVMNetwork,
 	chainClientA, chainClientB blockchain.EVMClient,
 	transferAmounts []*big.Int,
+	tokenDeployerFns []blockchain.ContractDeployer,
 	numOfCommitNodes int,
 	commitAndExecOnSameDON, bidirectional bool,
 	newBootstrap bool,
@@ -424,7 +439,9 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	namespace := o.Cfg.ExistingEnv
 	if ccipEnv != nil {
 		k8Env = ccipEnv.K8Env
-		namespace = k8Env.Cfg.Namespace
+		if k8Env != nil {
+			namespace = k8Env.Cfg.Namespace
+		}
 	}
 	configureCLNode := !o.Cfg.ExistingDeployment
 	setUpFuncs, ctx := errgroup.WithContext(context.Background())
@@ -512,7 +529,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	setUpFuncs.Go(func() error {
 		lggr.Info().Msgf("Setting up lane %s to %s", networkA.Name, networkB.Name)
 		err := ccipLaneA2B.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, nil, nil,
-			transferAmounts, newBootstrap, configureCLNode, o.Cfg.ExistingDeployment)
+			transferAmounts, tokenDeployerFns, newBootstrap, configureCLNode, o.Cfg.ExistingDeployment)
 		if err != nil {
 			allErrors = multierr.Append(allErrors, fmt.Errorf("deploying lane %s to %s; err - %+v", networkA.Name, networkB.Name, err))
 		}
@@ -530,7 +547,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 			destCommon := ccipLaneA2B.Source.Common.CopyAddresses(ccipLaneB2A.Context, ccipLaneB2A.DestChain, o.Cfg.ExistingDeployment)
 			lggr.Info().Msgf("Setting up lane %s to %s", networkB.Name, networkA.Name)
 			err := ccipLaneB2A.DeployNewCCIPLane(numOfCommitNodes, commitAndExecOnSameDON, srcCommon, destCommon,
-				transferAmounts, false, configureCLNode, o.Cfg.ExistingDeployment)
+				transferAmounts, tokenDeployerFns, false, configureCLNode, o.Cfg.ExistingDeployment)
 			if err != nil {
 				allErrors = multierr.Append(allErrors, fmt.Errorf("deploying lane %s to %s; err -  %+v", networkB.Name, networkA.Name, err))
 			}
@@ -576,8 +593,9 @@ func CCIPDefaultTestSetUp(
 	t *testing.T,
 	lggr zerolog.Logger,
 	envName string,
-	clProps map[string]interface{},
+	numOfCLNodes int64,
 	transferAmounts []*big.Int,
+	tokenDeployerFns []blockchain.ContractDeployer,
 	numOfCommitNodes int, commitAndExecOnSameDON, bidirectional bool,
 	inputs *CCIPTestConfig,
 ) *CCIPTestSetUpOutputs {
@@ -617,24 +635,36 @@ func CCIPDefaultTestSetUp(
 	defer cancel()
 
 	configureCLNode := !inputs.ExistingDeployment
+	var deployCL func() error
+	var local *test_env.CLClusterTestEnv
 	if configureCLNode {
-		clProps["db"] = inputs.CLNodeDBResourceProfile
-		clProps["chainlink"] = map[string]interface{}{
-			"resources": inputs.CLNodeResourceProfile,
+		if inputs.LocalCluster {
+			local, deployCL = DeployLocalCluster(t, numOfCLNodes, inputs.AllNetworks)
+			ccipEnv = &actions.CCIPTestEnv{
+				LocalCluster: local,
+			}
+		} else {
+			clProps := make(map[string]interface{})
+			clProps["replicas"] = strconv.FormatInt(numOfCLNodes, 10)
+			clProps["db"] = inputs.CLNodeDBResourceProfile
+			clProps["chainlink"] = map[string]interface{}{
+				"resources": inputs.CLNodeResourceProfile,
+			}
+
+			// deploy the env if configureCLNode is true
+			k8Env = DeployEnvironments(
+				t,
+				&environment.Config{
+					TTL:             inputs.EnvTTL,
+					NamespacePrefix: envName,
+					Test:            t,
+				}, clProps, inputs.GethResourceProfile, inputs.AllNetworks)
+			ccipEnv = &actions.CCIPTestEnv{K8Env: k8Env}
 		}
 
-		// deploy the env if configureCLNode is true
-		k8Env = DeployEnvironments(
-			t,
-			&environment.Config{
-				TTL:             inputs.EnvTTL,
-				NamespacePrefix: envName,
-				Test:            t,
-			}, clProps, inputs.GethResourceProfile, inputs.AllNetworks)
-		ccipEnv = &actions.CCIPTestEnv{K8Env: k8Env}
 		ccipEnv.CLNodeWithKeyReady, ctx = errgroup.WithContext(parent)
 		setUpArgs.Env = ccipEnv
-		if ccipEnv.K8Env.WillUseRemoteRunner() {
+		if ccipEnv.K8Env != nil && ccipEnv.K8Env.WillUseRemoteRunner() {
 			return setUpArgs
 		}
 	} else {
@@ -653,15 +683,32 @@ func CCIPDefaultTestSetUp(
 	}
 
 	chainByChainID := make(map[int64]blockchain.EVMClient)
-	for _, network := range inputs.AllNetworks {
-		ec, err := blockchain.NewEVMClient(network, k8Env)
-		require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-		chains = append(chains, ec)
-		chainByChainID[network.ChainID] = ec
+	if inputs.LocalCluster {
+		require.NotNil(t, ccipEnv.LocalCluster, "Local cluster shouldn't be nil")
+		for _, n := range ccipEnv.LocalCluster.PrivateGethChain {
+			chainByChainID[n.PrimaryNode.EVMClient.GetChainID().Int64()] = n.PrimaryNode.EVMClient
+			chains = append(chains, n.PrimaryNode.EVMClient)
+		}
+	} else {
+		for _, network := range inputs.AllNetworks {
+			ec, err := blockchain.NewEVMClient(network, k8Env)
+			require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
+			chains = append(chains, ec)
+			chainByChainID[network.ChainID] = ec
+		}
 	}
+
 	t.Cleanup(func() {
 		if configureCLNode {
 			lggr.Info().Msg("Tearing down the environment")
+			if ccipEnv.LocalCluster != nil {
+				err := ccipEnv.LocalCluster.Terminate()
+				require.NoError(t, err, "Local cluster termination shouldn't fail")
+				for k := range setUpArgs.Reporter.LaneStats {
+					setUpArgs.Reporter.LaneStats[k].Finalize(k)
+				}
+				return
+			}
 			err = actions.TeardownSuite(t, ccipEnv.K8Env, utils.ProjectRoot, ccipEnv.CLNodes, setUpArgs.Reporter,
 				zapcore.ErrorLevel, chains...)
 			require.NoError(t, err, "Environment teardown shouldn't fail")
@@ -674,6 +721,12 @@ func CCIPDefaultTestSetUp(
 	})
 	if configureCLNode {
 		ccipEnv.CLNodeWithKeyReady.Go(func() error {
+			if ccipEnv.LocalCluster != nil {
+				err = deployCL()
+				if err != nil {
+					return err
+				}
+			}
 			return ccipEnv.SetUpNodesAndKeys(ctx, inputs.NodeFunding, chains)
 		})
 	}
@@ -687,6 +740,9 @@ func CCIPDefaultTestSetUp(
 		inputs.NetworkPairs[i].ChainClientA = chainByChainID[n.NetworkA.ChainID]
 		inputs.NetworkPairs[i].ChainClientB = chainByChainID[n.NetworkB.ChainID]
 
+		n.NetworkA = *inputs.NetworkPairs[i].ChainClientA.GetNetworkConfig()
+		n.NetworkB = *inputs.NetworkPairs[i].ChainClientB.GetNetworkConfig()
+
 		// if sequential lane addition is true, continue after adding the first bidirectional lane
 		// and add rest of the lanes later, after the previously added lane(s) starts getting requests
 		// this is mainly used for testing the new lane addition functionality while other lanes are running
@@ -696,7 +752,7 @@ func CCIPDefaultTestSetUp(
 		err = setUpArgs.AddLanesForNetworkPair(
 			lggr, n.NetworkA, n.NetworkB,
 			chainByChainID[n.NetworkA.ChainID], chainByChainID[n.NetworkB.ChainID],
-			transferAmounts, numOfCommitNodes, commitAndExecOnSameDON,
+			transferAmounts, tokenDeployerFns, numOfCommitNodes, commitAndExecOnSameDON,
 			bidirectional, newBootstrap)
 		require.NoError(t, err)
 		err = laneconfig.WriteLanesToJSON(setUpArgs.LaneConfigFile, setUpArgs.LaneConfig)
@@ -730,8 +786,39 @@ func CCIPExistingDeploymentTestSetUp(
 	bidirectional bool,
 	input *CCIPTestConfig,
 ) *CCIPTestSetUpOutputs {
-	return CCIPDefaultTestSetUp(t, lggr, "ccip-runner", nil, transferAmounts,
-		0, false, bidirectional, input)
+	return CCIPDefaultTestSetUp(t, lggr, "ccip-runner", 0, transferAmounts,
+		nil, 0, false, bidirectional, input)
+}
+
+func DeployLocalCluster(
+	t *testing.T,
+	noOfCLNodes int64,
+	networks []blockchain.EVMNetwork,
+) (*test_env.CLClusterTestEnv, func() error) {
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithPrivateGethChains(networks).
+		WithMockServer(1).
+		Build()
+	require.NoError(t, err)
+	// a func to start the CL nodes asynchronously
+	deployCL := func() error {
+		var nonDevGethNetworks []blockchain.EVMNetwork
+		for i, n := range env.PrivateGethChain {
+			nonDevGethNetworks = append(nonDevGethNetworks, *n.NetworkConfig)
+			nonDevGethNetworks[i].URLs = []string{n.PrimaryNode.InternalWsUrl}
+			nonDevGethNetworks[i].HTTPURLs = []string{n.PrimaryNode.InternalHttpUrl}
+		}
+		if nonDevGethNetworks == nil {
+			return errors.New("cannot create nodes with custom config without nonDevGethNetworks")
+		}
+		toml, err := node.NewConfigFromToml("ccip",
+			node.WithPrivateEVMs(nonDevGethNetworks))
+		if err != nil {
+			return err
+		}
+		return env.StartClNodes(toml, int(noOfCLNodes))
+	}
+	return env, deployCL
 }
 
 // DeployEnvironments deploys K8 env for CCIP tests. For tests running on simulated geth it deploys -
@@ -815,7 +902,12 @@ func DeployEnvironments(
 		*/
 	}
 
-	clProps["toml"] = actions.DefaultCCIPCLNodeEnv(t, nets)
+	tomlCfg, err := node.NewConfigFromToml("ccip",
+		node.WithPrivateEVMs(nets))
+	tomlStr, err := tomlCfg.TOMLString()
+	require.NoError(t, err)
+	clProps["toml"] = tomlStr
+
 	err = testEnvironment.
 		AddHelm(chainlink.New(0, clProps)).
 		Run()

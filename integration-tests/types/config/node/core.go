@@ -1,53 +1,67 @@
 package node
 
 import (
+	"bytes"
+	"embed"
+	"fmt"
 	"math/big"
 	"net"
+	"path/filepath"
 	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
+
+	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"go.uber.org/zap/zapcore"
 )
 
-var BaseConf = &chainlink.Config{
-	Core: toml.Core{
-		RootDir: ptr("/home/chainlink"),
-		Database: toml.Database{
-			MaxIdleConns:     ptr(int64(20)),
-			MaxOpenConns:     ptr(int64(40)),
-			MigrateOnStartup: ptr(true),
-		},
-		Log: toml.Log{
-			Level:       ptr(toml.LogLevel(zapcore.DebugLevel)),
-			JSONConsole: ptr(true),
-		},
-		WebServer: toml.WebServer{
-			AllowOrigins:   ptr("*"),
-			HTTPPort:       ptr[uint16](6688),
-			SecureCookies:  ptr(false),
-			SessionTimeout: models.MustNewDuration(time.Hour * 999),
-			TLS: toml.WebServerTLS{
-				HTTPSPort: ptr[uint16](0),
+var (
+	BaseConf = &chainlink.Config{
+		Core: toml.Core{
+			RootDir: ptr("/home/chainlink"),
+			Database: toml.Database{
+				MaxIdleConns:     ptr(int64(20)),
+				MaxOpenConns:     ptr(int64(40)),
+				MigrateOnStartup: ptr(true),
 			},
-			RateLimit: toml.WebServerRateLimit{
-				Authenticated:   ptr(int64(2000)),
-				Unauthenticated: ptr(int64(100)),
+			Log: toml.Log{
+				Level:       ptr(toml.LogLevel(zapcore.DebugLevel)),
+				JSONConsole: ptr(true),
 			},
+			WebServer: toml.WebServer{
+				AllowOrigins:   ptr("*"),
+				HTTPPort:       ptr[uint16](6688),
+				SecureCookies:  ptr(false),
+				SessionTimeout: models.MustNewDuration(time.Hour * 999),
+				TLS: toml.WebServerTLS{
+					HTTPSPort: ptr[uint16](0),
+				},
+				RateLimit: toml.WebServerRateLimit{
+					Authenticated:   ptr(int64(2000)),
+					Unauthenticated: ptr(int64(100)),
+				},
+			},
+			Feature: toml.Feature{
+				LogPoller:    ptr(true),
+				FeedsManager: ptr(true),
+				UICSAKeys:    ptr(true),
+			},
+			P2P: toml.P2P{},
 		},
-		Feature: toml.Feature{
-			LogPoller:    ptr(true),
-			FeedsManager: ptr(true),
-			UICSAKeys:    ptr(true),
-		},
-		P2P: toml.P2P{},
-	},
-}
+	}
+	//go:embed defaults/*.toml
+	defaultsFS embed.FS
+)
 
 type NodeConfigOpt = func(c *chainlink.Config)
 
@@ -56,6 +70,26 @@ func NewConfig(baseConf *chainlink.Config, opts ...NodeConfigOpt) *chainlink.Con
 		opt(baseConf)
 	}
 	return baseConf
+}
+
+func NewConfigFromToml(tomlFile string, opts ...NodeConfigOpt) (*chainlink.Config, error) {
+	path := filepath.Join("defaults", tomlFile+".toml")
+	b, err := defaultsFS.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var cfg chainlink.Config
+	if err != nil {
+		return nil, err
+	}
+	err = config.DecodeTOML(bytes.NewReader(b), &cfg)
+	if err != nil {
+		return nil, err
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return &cfg, nil
 }
 
 func WithOCR1() NodeConfigOpt {
@@ -93,24 +127,38 @@ func WithP2Pv2() NodeConfigOpt {
 	}
 }
 
-func SetDefaultSimulatedGeth(cfg *chainlink.Config, ws, http string, forwarders bool) {
+func SetChainConfig(
+	cfg *chainlink.Config,
+	wsUrls,
+	httpUrls []string,
+	chain blockchain.EVMNetwork,
+	forwarders bool,
+) {
 	if cfg.EVM == nil {
+		var nodes []*evmcfg.Node
+		for i, _ := range wsUrls {
+			node := evmcfg.Node{
+				Name:     ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
+				WSURL:    mustURL(wsUrls[i]),
+				HTTPURL:  mustURL(httpUrls[i]),
+				SendOnly: ptr(false),
+			}
+
+			nodes = append(nodes, &node)
+		}
+		var chainConfig evmcfg.Chain
+		if chain.Simulated {
+			chainConfig = evmcfg.Chain{
+				AutoCreateKey:      ptr(true),
+				FinalityDepth:      ptr[uint32](1),
+				MinContractPayment: assets.NewLinkFromJuels(0),
+			}
+		}
 		cfg.EVM = evmcfg.EVMConfigs{
 			{
-				ChainID: utils.NewBig(big.NewInt(1337)),
-				Chain: evmcfg.Chain{
-					AutoCreateKey:      ptr(true),
-					FinalityDepth:      ptr[uint32](1),
-					MinContractPayment: assets.NewLinkFromJuels(0),
-				},
-				Nodes: []*evmcfg.Node{
-					{
-						Name:     ptr("1337_primary_local_0"),
-						WSURL:    mustURL(ws),
-						HTTPURL:  mustURL(http),
-						SendOnly: ptr(false),
-					},
-				},
+				ChainID: utils.NewBig(big.NewInt(chain.ChainID)),
+				Chain:   chainConfig,
+				Nodes:   nodes,
 			},
 		}
 		if forwarders {
@@ -121,37 +169,65 @@ func SetDefaultSimulatedGeth(cfg *chainlink.Config, ws, http string, forwarders 
 	}
 }
 
-func WithSimulatedEVM(httpUrl, wsUrl string) NodeConfigOpt {
-	return func(c *chainlink.Config) {
-		c.EVM = evmcfg.EVMConfigs{
-			{
-				ChainID: utils.NewBig(big.NewInt(1337)),
-				Chain: evmcfg.Chain{
-					AutoCreateKey:      ptr(true),
-					FinalityDepth:      ptr[uint32](1),
-					MinContractPayment: assets.NewLinkFromJuels(0),
+func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
+	var evmConfigs []*evmcfg.EVMConfig
+	for _, network := range networks {
+		evmConfigs = append(evmConfigs, &evmcfg.EVMConfig{
+			ChainID: utils.NewBig(big.NewInt(network.ChainID)),
+			Chain: evmcfg.Chain{
+				AutoCreateKey:      ptr(true),
+				FinalityDepth:      ptr[uint32](50),
+				MinContractPayment: assets.NewLinkFromJuels(0),
+				LogPollInterval:    models.MustNewDuration(1 * time.Second),
+				HeadTracker: evmcfg.HeadTracker{
+					HistoryDepth: ptr(uint32(100)),
 				},
-				Nodes: []*evmcfg.Node{
-					{
-						Name:     ptr("1337_primary_local_0"),
-						WSURL:    mustURL(wsUrl),
-						HTTPURL:  mustURL(httpUrl),
-						SendOnly: ptr(false),
-					},
+				GasEstimator: WithCCIPGasEstimator(network.ChainID),
+			},
+			Nodes: []*evmcfg.Node{
+				{
+					Name:     ptr(network.Name),
+					WSURL:    mustURL(network.URLs[0]),
+					HTTPURL:  mustURL(network.HTTPURLs[0]),
+					SendOnly: ptr(false),
 				},
 			},
-		}
+		})
+	}
+	return func(c *chainlink.Config) {
+		c.EVM = evmConfigs
 	}
 }
 
+func WithCCIPGasEstimator(chainId int64) evmcfg.GasEstimator {
+	cfg := evmcfg.GasEstimator{
+		LimitDefault:  ptr(uint32(6000000)),
+		PriceMax:      assets.GWei(200),
+		FeeCapDefault: assets.GWei(200),
+	}
+	switch chainId {
+	case 421613:
+		cfg.LimitDefault = ptr(uint32(100000000))
+	case 420:
+		cfg.BumpThreshold = ptr(uint32(60))
+		cfg.BumpPercent = ptr(uint16(20))
+		cfg.BumpMin = assets.GWei(100)
+	case 5:
+		cfg.PriceMax = assets.GWei(500)
+		cfg.FeeCapDefault = assets.GWei(500)
+	}
+
+	return cfg
+}
+
 func WithVRFv2EVMEstimator(addr string) NodeConfigOpt {
-	est := assets.Wei(*big.NewInt(350000))
+	est := assets.GWei(vrfv2_constants.MaxGasPriceGWei)
 	return func(c *chainlink.Config) {
 		c.EVM[0].KeySpecific = evmcfg.KeySpecificConfig{
 			{
 				Key: ptr(ethkey.EIP55Address(addr)),
 				GasEstimator: evmcfg.KeySpecificGasEstimator{
-					PriceMax: ptr(est),
+					PriceMax: est,
 				},
 			},
 		}

@@ -28,16 +28,16 @@ func TestVRFBasic(t *testing.T) {
 	require.NoError(t, err)
 	env.ParallelTransactions(true)
 
-	lt, err := actions.DeployLINKToken(env.Geth.ContractDeployer)
+	lt, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	contracts, err := vrfv1.DeployVRFContracts(env.Geth.ContractDeployer, env.Geth.EthClient, lt)
+	contracts, err := vrfv1.DeployVRFContracts(env.ContractDeployer, env.EVMClient, lt)
 	require.NoError(t, err, "Deploying VRF Contracts shouldn't fail")
 
 	err = lt.Transfer(contracts.Consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Funding consumer contract shouldn't fail")
-	_, err = env.Geth.ContractDeployer.DeployVRFContract()
+	_, err = env.ContractDeployer.DeployVRFContract()
 	require.NoError(t, err, "Deploying VRF contract shouldn't fail")
-	err = env.Geth.EthClient.WaitForEvents()
+	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 
 	for _, n := range env.CLNodes {

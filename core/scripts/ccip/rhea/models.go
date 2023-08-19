@@ -56,6 +56,7 @@ const (
 	ArbitrumGoerli Chain = "ethereum-testnet-goerli-arbitrum-1"
 	OptimismGoerli Chain = "ethereum-testnet-goerli-optimism-1"
 	BASEGoerli     Chain = "ethereum-testnet-goerli-base-1"
+	AvaxAnzSubnet  Chain = "avalanche-testnet-anz-subnet"
 	// Mainnets
 	Ethereum Chain = "ethereum-mainnet"
 	Optimism Chain = "optimism-mainnet"
@@ -72,6 +73,7 @@ var evmChainIdToChainSelector = map[uint64]uint64{
 	420:      2664363617261496610,  // Optimism Goerli
 	1337:     3379446385462418246,  // Quorem
 	43113:    14767482510784806043, // Avax Fuji
+	76578:    781901677223027175,   // AvaxAnzSubnet
 	84531:    5790810961207155433,  // BASE Goerli
 	80001:    12532609583862916517, // Polygon Mumbai
 	421613:   6101244977088475029,  // Arbitrum Goerli
@@ -119,6 +121,7 @@ const (
 	NZ_DC      Token = "NZ$DC"
 	SG_DC      Token = "SG$DC"
 	BetSwirl   Token = "BETS"
+	WCBS       Token = "WCBS"
 )
 
 func GetAllTokens() []Token {
@@ -128,7 +131,8 @@ func GetAllTokens() []Token {
 		InsurAce, ZUSD, STEADY,
 		SUPER, BondToken, BankToken,
 		SNXUSD, FUGAZIUSDC, Alongside,
-		CCIP_BnM, CCIP_LnM, A_DC, NZ_DC, SG_DC, BetSwirl,
+		CCIP_BnM, CCIP_LnM, A_DC, NZ_DC,
+		SG_DC, BetSwirl, WCBS,
 	}
 }
 
@@ -154,6 +158,7 @@ var tokenSymbols = map[Token]string{
 	NZ_DC:      "NZ$DC",
 	SG_DC:      "SG$DC",
 	BetSwirl:   "BETS",
+	WCBS:       "wcbs",
 }
 
 func (token Token) Symbol() string {
@@ -182,6 +187,7 @@ var tokenDecimalMultiplier = map[Token]uint8{
 	NZ_DC:      6,
 	SG_DC:      6,
 	BetSwirl:   18,
+	WCBS:       18,
 }
 
 func (token Token) Decimals() uint8 {
@@ -214,6 +220,7 @@ func (token Token) Price() *big.Int {
 		NZ_DC:      big.NewFloat(1),
 		SG_DC:      big.NewFloat(1),
 		BetSwirl:   big.NewFloat(1),
+		WCBS:       big.NewFloat(1),
 	}
 
 	tokenValue := big.NewInt(0)

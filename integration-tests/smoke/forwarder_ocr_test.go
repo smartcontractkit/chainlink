@@ -29,38 +29,38 @@ func TestForwarderOCRBasic(t *testing.T) {
 	workerNodeAddresses, err := actions.ChainlinkNodeAddressesLocal(workerNodes)
 	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
-	linkTokenContract, err := env.Geth.ContractDeployer.DeployLinkTokenContract()
+	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	err = actions.FundChainlinkNodesLocal(workerNodes, env.Geth.EthClient, big.NewFloat(.05))
+	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
-		t, env.Geth.ContractDeployer, linkTokenContract, env.Geth.EthClient, len(workerNodes),
+		t, env.ContractDeployer, linkTokenContract, env.EVMClient, len(workerNodes),
 	)
 	for i := range workerNodes {
 		actions.AcceptAuthorizedReceiversOperator(
-			t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, env.Geth.EthClient, env.Geth.ContractLoader,
+			t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, env.EVMClient, env.ContractLoader,
 		)
 		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
-		err = actions.TrackForwarderLocal(env.Geth.EthClient, authorizedForwarders[i], workerNodes[i])
+		err = actions.TrackForwarderLocal(env.EVMClient, authorizedForwarders[i], workerNodes[i])
 		require.NoError(t, err)
-		err = env.Geth.EthClient.WaitForEvents()
+		err = env.EVMClient.WaitForEvents()
 	}
 	ocrInstances, err := actions.DeployOCRContractsForwarderFlowLocal(
 		1,
 		linkTokenContract,
-		env.Geth.ContractDeployer,
+		env.ContractDeployer,
 		workerNodes,
 		authorizedForwarders,
-		env.Geth.EthClient,
+		env.EVMClient,
 	)
 
 	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockServer.Client)
 	require.NoError(t, err, "failed to setup forwarder jobs")
-	err = actions.StartNewRound(1, ocrInstances, env.Geth.EthClient)
+	err = actions.StartNewRound(1, ocrInstances, env.EVMClient)
 	require.NoError(t, err)
-	err = env.Geth.EthClient.WaitForEvents()
+	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 	//time.Sleep(999 * time.Second)
 
@@ -70,9 +70,9 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockServer.Client)
 	require.NoError(t, err)
-	err = actions.StartNewRound(2, ocrInstances, env.Geth.EthClient)
+	err = actions.StartNewRound(2, ocrInstances, env.EVMClient)
 	require.NoError(t, err)
-	err = env.Geth.EthClient.WaitForEvents()
+	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
 	answer, err = ocrInstances[0].GetLatestAnswer(context.Background())

@@ -230,3 +230,26 @@ test_soak_ccip: ## Run ccip load tests with verbose logging
 	CCIP_LOAD_TEST_RATEUNIT=1m \
 	CCIP_LOAD_TEST_RATE=5 \
 	go test -timeout 24h -count=1 -v $(args) -v -run ^TestLoadCCIPStableRPS$$ ./load
+
+
+# image: the name for the chainlink image being built, example: image=chainlink
+# tag: the tag for the chainlink image being built, example: tag=latest
+# example usage: make build_docker_image image=chainlink tag=latest
+.PHONY:
+build_docker_image:
+	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t $(image):$(tag) ../
+
+# example usage: make test_smoke_ccip_simulated_local image=chainlink tag=latest
+.PHONY: test_smoke_ccip_simulated_local
+test_smoke_ccip_simulated_local:
+	DATABASE_URL="postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable" \
+    SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2"  \
+    CCIP_DEPLOY_ON_LOCAL=True  \
+    CCIP_NO_OF_NETWORKS=2  \
+    CHAINLINK_IMAGE=$(image)  \
+    CHAINLINK_VERSION=$(tag)  \
+    CCIP_TESTS_ON_EXISTING_DEPLOYMENT=False  \
+    ENV_JOB_IMAGE=""  \
+	go test -timeout 24h -count=1 -v -run ^TestSmokeCCIPForBidirectionalLane$$ ./smoke
+
+

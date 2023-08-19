@@ -415,9 +415,14 @@ func BinarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.In
 // Get RLP encoded headers of a list of block numbers
 // Makes RPC network call eth_getBlockByNumber to blockchain RPC node
 // to fetch header info
-func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, hashes []string, err error) {
+func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks bool) (headers [][]byte, hashes []string, err error) {
 
 	hashes = make([]string, 0)
+
+	var offset *big.Int = big.NewInt(0)
+	if getParentBlocks {
+		offset = big.NewInt(1)
+	}
 
 	headers = [][]byte{}
 	var rlpHeader []byte
@@ -428,7 +433,7 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, 
 			// Get child block since it's the one that has the parent hash in its header.
 			h, err := env.AvaxEc.HeaderByNumber(
 				context.Background(),
-				new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
+				new(big.Int).Set(blockNum).Add(blockNum, offset),
 			)
 			if err != nil {
 				return nil, hashes, fmt.Errorf("failed to get header: %+v", err)
@@ -447,12 +452,12 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, 
 			//bh := crypto.Keccak256Hash(rlpHeader)
 			//fmt.Println("Calculated BH:", bh.String(),
 			//	"fetched BH:", h.Hash(),
-			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)).String())
+			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, offset).String())
 
 		} else if IsPolygonEdgeNetwork(env.ChainID) {
 
 			// Get child block since it's the one that has the parent hash in its header.
-			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1))
+			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
 			var hash string
 			rlpHeader, hash, err = GetPolygonEdgeRLPHeader(env.Jc, nextBlockNum)
 			if err != nil {
@@ -465,7 +470,7 @@ func GetRlpHeaders(env Environment, blockNumbers []*big.Int) (headers [][]byte, 
 			// Get child block since it's the one that has the parent hash in its header.
 			h, err := env.Ec.HeaderByNumber(
 				context.Background(),
-				new(big.Int).Set(blockNum).Add(blockNum, big.NewInt(1)),
+				new(big.Int).Set(blockNum).Add(blockNum, offset),
 			)
 			if err != nil {
 				return nil, hashes, fmt.Errorf("failed to get header: %+v", err)
@@ -503,7 +508,7 @@ func CalculateLatestBlockHeader(env Environment, blockNumberInput int) (err erro
 	blockNumber = blockNumber - 1
 
 	blockNumberBigInts := []*big.Int{big.NewInt(int64(blockNumber))}
-	headers, hashes, err := GetRlpHeaders(env, blockNumberBigInts)
+	headers, hashes, err := GetRlpHeaders(env, blockNumberBigInts, true)
 	if err != nil {
 		fmt.Println(err)
 		return err

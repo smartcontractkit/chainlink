@@ -23,7 +23,6 @@ func NewCCIPJobSpecParams(sourceChainConfig *rhea.EVMChainConfig, sourceLane rhe
 		SourceStartBlock:       sourceLane.DeploySettings.DeployedAtBlock,
 		DestStartBlock:         destLane.DeploySettings.DeployedAtBlock,
 		P2PV2Bootstrappers:     []string{}, // Set in env vars
-		SourceEvmChainId:       sourceChainConfig.EvmChainId,
 		DestEvmChainId:         destChainConfig.EvmChainId,
 		Version:                version,
 	}

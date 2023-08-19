@@ -121,7 +121,7 @@ func TestMetaERC20SameChain(t *testing.T) {
 }
 
 func TestMetaERC20CrossChain(t *testing.T) {
-	ccipContracts := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.DestChainID)
+	ccipContracts := integrationtesthelpers.SetupCCIPIntegrationTH(t, testhelpers.SourceChainID, testhelpers.SourceChainSelector, testhelpers.DestChainID, testhelpers.DestChainSelector)
 
 	// holder1Key sends tokens to holder2
 	holder1Key, holder1 := generateKeyAndTransactor(t, ccipContracts.Source.Chain.Blockchain().Config().ChainID.Uint64())
@@ -192,7 +192,7 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 
 		deadline := big.NewInt(int64(ccipContracts.Source.Chain.Blockchain().CurrentHeader().Time + uint64(time.Hour)))
 
-		calldata, calldataHash, err := metatx.GenerateMetaTransferCalldata(holder2.From, amount, ccipContracts.Dest.ChainID)
+		calldata, calldataHash, err := metatx.GenerateMetaTransferCalldata(holder2.From, amount, ccipContracts.Dest.ChainSelector)
 		require.NoError(t, err)
 
 		signature, domainSeparatorHash, typeHash, forwarderNonce, err := metatx.SignMetaTransfer(

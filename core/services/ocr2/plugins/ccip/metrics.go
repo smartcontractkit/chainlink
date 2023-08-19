@@ -125,6 +125,8 @@ func ChainName(chainID int64) string {
 		return "avalanche-testnet-fuji"
 	case 43114:
 		return "avalanche-mainnet"
+	case 76578:
+		return "avalanche-testnet-anz-subnet"
 	case 80001:
 		return "polygon-testnet-mumbai"
 	case 11155111:

@@ -110,7 +110,6 @@ var (
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
 		FinalityTag:               true,
-		TimeToReachFinality:       blockchain.JSONStrDuration{Duration: 30 * time.Second},
 		DefaultGasLimit:           6000000,
 	}
 
@@ -126,7 +125,6 @@ var (
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
 		FinalityTag:               true,
-		TimeToReachFinality:       blockchain.JSONStrDuration{Duration: 30 * time.Second},
 		DefaultGasLimit:           6000000,
 	}
 
@@ -141,6 +139,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 5 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+		FinalityTag:               true,
+		DefaultGasLimit:           6000000,
 	}
 
 	KlaytnMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -248,7 +248,6 @@ var (
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
 		FinalityTag:               true,
-		TimeToReachFinality:       blockchain.JSONStrDuration{Duration: 30 * time.Second},
 		DefaultGasLimit:           6000000,
 	}
 
@@ -316,9 +315,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
-		// though Avalanche has finality tag enabled, it is not accurate at the moment, so we use finality depth instead
-		FinalityDepth:   35,
-		DefaultGasLimit: 6000000,
+		FinalityDepth:             35,
+		DefaultGasLimit:           6000000,
 	}
 
 	AvalancheFuji = blockchain.EVMNetwork{
@@ -331,9 +329,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
-		// though Avalanche has finality tag enabled, it is not accurate at the moment, so we use finality depth instead
-		FinalityDepth:   35,
-		DefaultGasLimit: 6000000,
+		FinalityDepth:             35,
+		DefaultGasLimit:           6000000,
 	}
 
 	Quorum = blockchain.EVMNetwork{
