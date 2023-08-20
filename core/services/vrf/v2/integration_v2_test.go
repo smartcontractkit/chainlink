@@ -224,6 +224,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	// Deploy old VRF v2 coordinator from bytecode
 	err, oldRootContractAddress, oldRootContract := deployOldCoordinator(
 		t, linkAddress, bhsAddress, linkEthFeed, backend, neil)
+	require.NoError(t, err)
 
 	// Deploy the VRFOwner contract, which will own the VRF coordinator
 	// in some tests.

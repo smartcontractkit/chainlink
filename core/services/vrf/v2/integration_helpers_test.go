@@ -181,14 +181,12 @@ func testMultipleConsumersNeedBHS(
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
 
 	// generate n BHS keys to make sure BHS job rotates sending keys
-	var bhsKeys []ethkey.KeyV2
 	var bhsKeyAddresses []string
 	var keySpecificOverrides []toml.KeySpecific
 	var keys []interface{}
 	gasLanePriceWei := assets.GWei(10)
 	for i := 0; i < nConsumers; i++ {
 		bhsKey := cltest.MustGenerateRandomKey(t)
-		bhsKeys = append(bhsKeys, bhsKey)
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address.String())
 		keys = append(keys, bhsKey)
 		keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
@@ -321,7 +319,6 @@ func testMultipleConsumersNeedTrustedBHS(
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
 
 	// generate n BHS keys to make sure BHS job rotates sending keys
-	var bhsKeys []ethkey.KeyV2
 	var bhsKeyAddresses []common.Address
 	var bhsKeyAddressesStrings []string
 	var keySpecificOverrides []toml.KeySpecific
@@ -329,7 +326,6 @@ func testMultipleConsumersNeedTrustedBHS(
 	gasLanePriceWei := assets.GWei(10)
 	for i := 0; i < nConsumers; i++ {
 		bhsKey := cltest.MustGenerateRandomKey(t)
-		bhsKeys = append(bhsKeys, bhsKey)
 		bhsKeyAddressesStrings = append(bhsKeyAddressesStrings, bhsKey.Address.String())
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address)
 		keys = append(keys, bhsKey)
