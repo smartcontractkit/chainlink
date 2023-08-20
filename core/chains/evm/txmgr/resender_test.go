@@ -39,13 +39,14 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
+	_, fromAddress3 := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	txStore := cltest.NewTestTxStore(t, db, logCfg)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
 
 	txConfig := ccfg.EVM().Transactions()
-	var addr1TxesRawHex, addr2TxesRawHex []string
+	var addr1TxesRawHex, addr2TxesRawHex, addr3TxesRawHex []string
 	// fewer than EvmMaxInFlightTransactions
 	for i := uint32(0); i < txConfig.MaxInFlight()/2; i++ {
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(i), fromAddress, originalBroadcastAt)
@@ -58,12 +59,18 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 		addr2TxesRawHex = append(addr2TxesRawHex, hexutil.Encode(etx.TxAttempts[0].SignedRawTx))
 	}
 
+	// more than EvmMaxInFlightTransactions
+	for i := uint32(0); i < txConfig.MaxInFlight()*2; i++ {
+		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, int64(i), fromAddress3, originalBroadcastAt)
+		addr3TxesRawHex = append(addr3TxesRawHex, hexutil.Encode(etx.TxAttempts[0].SignedRawTx))
+	}
+
 	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
 
+	var resentHex = make(map[string]struct{})
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.MatchedBy(func(elems []rpc.BatchElem) bool {
-		resentHex := make([]string, len(elems))
-		for i, elem := range elems {
-			resentHex[i] = elem.Args[0].(string)
+		for _, elem := range elems {
+			resentHex[elem.Args[0].(string)] = struct{}{}
 		}
 		assert.Len(t, elems, len(addr1TxesRawHex)+len(addr2TxesRawHex)+int(txConfig.MaxInFlight()))
 		// All addr1TxesRawHex should be included
@@ -71,12 +78,12 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 			assert.Contains(t, resentHex, addr)
 		}
 		// All addr2TxesRawHex should be included
-		for _, addr := range addr1TxesRawHex {
+		for _, addr := range addr2TxesRawHex {
 			assert.Contains(t, resentHex, addr)
 		}
 		// Up to limit EvmMaxInFlightTransactions addr3TxesRawHex should be included
-		for i, addr := range addr1TxesRawHex {
-			if i > int(txConfig.MaxInFlight()) {
+		for i, addr := range addr3TxesRawHex {
+			if i >= int(txConfig.MaxInFlight()) {
 				// Above limit EvmMaxInFlightTransactions addr3TxesRawHex should NOT be included
 				assert.NotContains(t, resentHex, addr)
 			} else {
