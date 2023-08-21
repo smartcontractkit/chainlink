@@ -50,9 +50,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice the error thrown if the discount or surcharge is invalid
   error InvalidSurcharge();
 
-  /// @notice the error thrown if the token is invalid
-  error InvalidToken();
-
   /// @notice the error thrown if the discount is invalid
   error InvalidDiscount();
 
@@ -163,7 +160,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     //decode the fee, it will always be native or LINK
-    (Common.Asset memory fee, Common.Asset memory reward) = getFeeAndReward(msg.sender, report, quote);
+    (Common.Asset memory fee, Common.Asset memory reward) = getFeeAndReward(subscriber, report, quote);
 
     //keep track of change in case of any over payment
     uint256 change;

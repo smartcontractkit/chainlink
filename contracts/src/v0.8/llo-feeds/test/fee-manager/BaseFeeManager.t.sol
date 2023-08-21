@@ -8,6 +8,7 @@ import {RewardManager} from "../../dev/RewardManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/mocks/WERC20Mock.sol";
+import {FeeManagerProxy} from "../mocks/FeeManagerProxy.sol";
 
 /**
  * @title BaseFeeManagerTest
@@ -19,6 +20,7 @@ contract BaseFeeManagerTest is Test {
   //contracts
   FeeManager internal feeManager;
   RewardManager internal rewardManager;
+  FeeManagerProxy internal feeManagerProxy;
 
   ERC20Mock internal link;
   WERC20Mock internal native;
@@ -86,8 +88,12 @@ contract BaseFeeManagerTest is Test {
     link = new ERC20Mock("LINK", "LINK", ADMIN, 0);
     native = new WERC20Mock();
 
+    feeManagerProxy = new FeeManagerProxy();
     rewardManager = new RewardManager(getLinkAddress());
-    feeManager = new FeeManager(getLinkAddress(), getNativeAddress(), PROXY, address(rewardManager));
+    feeManager = new FeeManager(getLinkAddress(), getNativeAddress(), address(feeManagerProxy), address(rewardManager));
+
+    //link the feeManager to the proxy
+    feeManagerProxy.setFeeManager(feeManager);
 
     //link the feeManager to the reward manager
     rewardManager.setFeeManager(address(feeManager));
@@ -282,13 +288,30 @@ contract BaseFeeManagerTest is Test {
     vm.deal(recipient, quantity);
   }
 
-  function processFee(bytes memory payload, address subscriber, uint256 wrappedNativeValue, address sender) public {
+  function ProcessFeeAsUser(
+    bytes memory payload,
+    address subscriber,
+    uint256 wrappedNativeValue,
+    address sender
+  ) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
     changePrank(sender);
 
     //process the fee
     feeManager.processFee{value: wrappedNativeValue}(payload, subscriber);
+
+    //change ProcessFeeAsUserback to the original address
+    changePrank(originalAddr);
+  }
+
+  function processFee(bytes memory payload, address subscriber, uint256 wrappedNativeValue) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(subscriber);
+
+    //process the fee
+    feeManagerProxy.processFee{value: wrappedNativeValue}(payload);
 
     //change back to the original address
     changePrank(originalAddr);
