@@ -171,6 +171,32 @@ func TestResolver_Job(t *testing.T) {
 				}
 			}
 		`
+		exampleJobResult = `
+				{
+					"job": {
+						"id": "1",
+						"createdAt": "2021-01-01T00:00:00Z",
+						"externalJobID": "00000000-0000-0000-0000-000000000001",
+						"gasLimit": 123,
+						"maxTaskDuration": "1s",
+						"name": "job1",
+						"schemaVersion": 1,
+						"spec": {
+							"__typename": "OCRSpec"
+						},
+						"runs": {
+							"__typename": "JobRunsPayload",
+							"results": [{
+								"id": "200"
+							}],
+							"metadata": {
+								"total": 1
+							}
+						},
+						"observationSource": "ds1 [type=bridge name=voter_turnout];"
+					}
+				}
+			`
 	)
 
 	testCases := []GQLTestCase{
@@ -204,33 +230,8 @@ func TestResolver_Job(t *testing.T) {
 					On("CountPipelineRunsByJobID", int32(1)).
 					Return(int32(1), nil)
 			},
-			query: query,
-			result: `
-				{
-					"job": {
-						"id": "1",
-						"createdAt": "2021-01-01T00:00:00Z",
-						"externalJobID": "00000000-0000-0000-0000-000000000001",
-						"gasLimit": 123,
-						"maxTaskDuration": "1s",
-						"name": "job1",
-						"schemaVersion": 1,
-						"spec": {
-							"__typename": "OCRSpec"
-						},
-						"runs": {
-							"__typename": "JobRunsPayload",
-							"results": [{
-								"id": "200"
-							}],
-							"metadata": {
-								"total": 1
-							}
-						},
-						"observationSource": "ds1 [type=bridge name=voter_turnout];"
-					}
-				}
-			`,
+			query:  query,
+			result: exampleJobResult,
 		},
 		{
 			name:          "not found",
@@ -248,6 +249,38 @@ func TestResolver_Job(t *testing.T) {
 					}
 				}
 			`,
+		},
+		{
+			name:          "show job when chainID is disabled",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+					ID:              1,
+					Name:            null.StringFrom("job1"),
+					SchemaVersion:   1,
+					GasLimit:        clnull.Uint32From(123),
+					MaxTaskDuration: models.Interval(1 * time.Second),
+					ExternalJobID:   externalJobID,
+					CreatedAt:       f.Timestamp(),
+					Type:            job.OffchainReporting,
+					OCROracleSpec:   &job.OCROracleSpec{},
+					PipelineSpec: &pipeline.Spec{
+						DotDagSource: "ds1 [type=bridge name=voter_turnout];",
+					},
+				}, errors.New("failed to get chain with id xxx"))
+				f.Mocks.jobORM.
+					On("FindPipelineRunIDsByJobID", int32(1), 0, 50).
+					Return([]int64{200}, nil)
+				f.Mocks.jobORM.
+					On("FindPipelineRunsByIDs", []int64{200}).
+					Return([]pipeline.Run{{ID: 200}}, nil)
+				f.Mocks.jobORM.
+					On("CountPipelineRunsByJobID", int32(1)).
+					Return(int32(1), nil)
+			},
+			query:  query,
+			result: exampleJobResult,
 		},
 	}
 
