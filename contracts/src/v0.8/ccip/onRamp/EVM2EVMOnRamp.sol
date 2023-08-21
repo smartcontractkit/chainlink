@@ -119,16 +119,16 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   /// @dev Struct to hold the transfer fee configuration for token transfers
   struct TokenTransferFeeConfig {
-    uint16 ratio; // -------┐ Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
-    uint32 destGas; // -----┘ Gas charged to execute the token transfer at destination
+    uint16 ratio; // ---------------┐ Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
+    uint32 destGasOverhead; // -----┘ Gas charged to execute the token transfer on the destination chain
   }
 
   /// @dev Same as TokenTransferFeeConfig
   /// token included so that an array of these can be passed in to setTokenTransferFeeConfig
   struct TokenTransferFeeConfigArgs {
-    address token; // ------┐ Token address
-    uint16 ratio; //        | Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
-    uint32 destGas; // -----┘ Gas charged to execute the token transfer at destination
+    address token; // --------------┐ Token address
+    uint16 ratio; //                | Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
+    uint32 destGasOverhead; // -----┘ Gas charged to execute the token transfer on the destination chain
   }
 
   /// @dev Nop address and weight, used to set the nops and their weights
@@ -566,7 +566,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
       }
 
       tokenTransferFeeUSD += bpsFeeUSD;
-      tokenTransferGas += transferFeeConfig.destGas;
+      tokenTransferGas += transferFeeConfig.destGasOverhead;
     }
 
     // Convert USD values with 2 decimals to 18 decimals.
@@ -637,7 +637,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
       s_tokenTransferFeeConfig[configArg.token] = TokenTransferFeeConfig({
         ratio: configArg.ratio,
-        destGas: configArg.destGas
+        destGasOverhead: configArg.destGasOverhead
       });
     }
     emit TokenTransferFeeConfigSet(tokenTransferFeeConfigArgs);
