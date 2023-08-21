@@ -3,7 +3,6 @@ package testsetups
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -464,8 +463,8 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	lastValue := 0
 	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP
 	defer newRoundTrigger.Stop()
-	err := o.observeOCREvents()
-	require.NoError(o.t, err, "Error subscribing to OCR events")
+	go o.observeOCREvents()
+	//require.NoError(o.t, err, "Error subscribing to OCR events")
 
 	for {
 		select {
@@ -524,59 +523,46 @@ func (o *OCRSoakTest) observeOCREvents() error {
 	}
 	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
 	require.NoError(o.t, err, "Error retrieving OCR contract ABI")
+
 	o.filterQuery = geth.FilterQuery{
 		Addresses: ocrAddresses,
 		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
+		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
+		ToBlock:   big.NewInt(0).SetUint64(o.startingBlockNum),
 	}
 
-	// Convert struct to JSON
-	jsonData, err := json.Marshal(o.filterQuery)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		o.log.Info().Str("Address", string(jsonData)).Msg("Filter Query")
-	}
-
-	eventLogs := make(chan types.Log)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	eventSub, err := o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		defer cancel()
-		for {
-			select {
-			case event := <-eventLogs:
-				answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
-				if err != nil {
-					log.Warn().
-						Err(err).
-						Str("Address", event.Address.Hex()).
-						Uint64("Block Number", event.BlockNumber).
-						Msg("Error parsing event as AnswerUpdated")
-					continue
-				}
-				o.log.Info().
+	var (
+		contractEvents []types.Log
+		timeout        = time.Second * 15
+	)
+	for err != nil {
+		log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
+		cancel()
+		if err != nil {
+			event := contractEvents[0]
+			answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
+			if err != nil {
+				log.Warn().
+					Err(err).
 					Str("Address", event.Address.Hex()).
 					Uint64("Block Number", event.BlockNumber).
-					Uint64("Round ID", answerUpdated.RoundId.Uint64()).
-					Int64("Answer", answerUpdated.Current.Int64()).
-					Msg("Answer Updated Event")
-			case err = <-eventSub.Err():
-				for err != nil {
-					o.log.Info().
-						Err(err).
-						Interface("Query", o.filterQuery).
-						Msg("Error while subscribed to OCR Logs. Resubscribing")
-					ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
-					eventSub, err = o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
-				}
+					Msg("Error parsing event as AnswerUpdated")
+				continue
 			}
+			o.log.Info().
+				Str("Address", event.Address.Hex()).
+				Uint64("Block Number", event.BlockNumber).
+				Uint64("Round ID", answerUpdated.RoundId.Uint64()).
+				Int64("Answer", answerUpdated.Current.Int64()).
+				Msg("Answer Updated Event")
+			log.Warn().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Error collecting on-chain events, trying again")
+			timeout *= 2
+			o.filterQuery.FromBlock.Add(o.filterQuery.FromBlock, big.NewInt(1))
+			o.filterQuery.ToBlock.Add(o.filterQuery.ToBlock, big.NewInt(1))
 		}
-	}()
+	}
 
 	return nil
 }
