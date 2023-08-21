@@ -677,6 +677,7 @@ func CCIPDefaultTestSetUp(
 			})
 		err = k8Env.Run()
 		require.NoErrorf(t, err, "error creating environment remote runner")
+		setUpArgs.Env = &actions.CCIPTestEnv{K8Env: k8Env}
 		if k8Env.WillUseRemoteRunner() {
 			return setUpArgs
 		}
@@ -737,8 +738,11 @@ func CCIPDefaultTestSetUp(
 			// create bootstrap job once
 			newBootstrap = true
 		}
-		inputs.NetworkPairs[i].ChainClientA = chainByChainID[n.NetworkA.ChainID]
-		inputs.NetworkPairs[i].ChainClientB = chainByChainID[n.NetworkB.ChainID]
+		var ok bool
+		inputs.NetworkPairs[i].ChainClientA, ok = chainByChainID[n.NetworkA.ChainID]
+		require.True(t, ok, "Chain client for chainID %d not found", n.NetworkA.ChainID)
+		inputs.NetworkPairs[i].ChainClientB, ok = chainByChainID[n.NetworkB.ChainID]
+		require.True(t, ok, "Chain client for chainID %d not found", n.NetworkB.ChainID)
 
 		n.NetworkA = *inputs.NetworkPairs[i].ChainClientA.GetNetworkConfig()
 		n.NetworkB = *inputs.NetworkPairs[i].ChainClientB.GetNetworkConfig()
