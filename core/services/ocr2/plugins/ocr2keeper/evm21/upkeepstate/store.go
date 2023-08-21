@@ -110,7 +110,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 	{
 		go func(ctx context.Context) {
-			ticker := time.NewTicker(GCInterval)
+			ticker := time.NewTicker(u.cleanCadence)
 			defer ticker.Stop()
 
 			for {

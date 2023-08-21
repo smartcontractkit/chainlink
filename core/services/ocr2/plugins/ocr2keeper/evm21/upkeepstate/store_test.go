@@ -379,14 +379,7 @@ func TestUpkeepStateStore_Service(t *testing.T) {
 	store.retention = 500 * time.Millisecond
 	store.cleanCadence = 100 * time.Millisecond
 
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-	go func() {
-		assert.NoError(t, store.Start(context.Background()), "no error from starting service")
-
-		wg.Done()
-	}()
+	assert.NoError(t, store.Start(context.Background()), "no error from starting service")
 
 	// add a value to set up the test
 	require.NoError(t, store.SetUpkeepState(context.Background(), ocr2keepers.CheckResult{
@@ -414,8 +407,6 @@ func TestUpkeepStateStore_Service(t *testing.T) {
 	require.Equal(t, []ocr2keepers.UpkeepState{ocr2keepers.UnknownState}, values, "selected values should match expected")
 
 	assert.NoError(t, store.Close(), "no error from closing service")
-
-	wg.Wait()
 }
 
 func createUpkeepIDForTest(v int64) ocr2keepers.UpkeepIdentifier {
