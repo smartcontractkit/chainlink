@@ -535,7 +535,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 		contractEvents []types.Log
 		timeout        = time.Second * 15
 	)
-	for err != nil {
+	for err == nil {
 		log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
