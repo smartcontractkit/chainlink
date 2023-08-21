@@ -27,6 +27,8 @@ type LogEventProviderOptions struct {
 // Defaults sets the default values for the options.
 func (o *LogEventProviderOptions) Defaults() {
 	if o.LookbackBlocks == 0 {
+		// TODO: Ensure lookback blocks is at least as large as Finality Depth to
+		// ensure recoverer does not go beyond finality depth
 		o.LookbackBlocks = 200
 	}
 	if o.ReorgBuffer == 0 {

@@ -304,7 +304,7 @@ func (p *logEventProvider) updateFiltersLastPoll(entries []upkeepFilter) {
 
 // getFilters returns the filters for the given upkeepIDs,
 // returns empty filter for inactive upkeeps.
-// TODO: remove force
+// TODO: Cleanup force variable as it is always passed as true.
 func (p *logEventProvider) getFilters(latestBlock int64, force bool, ids ...*big.Int) []upkeepFilter {
 	var filters []upkeepFilter
 	p.filterStore.RangeFiltersByIDs(func(i int, f upkeepFilter) {

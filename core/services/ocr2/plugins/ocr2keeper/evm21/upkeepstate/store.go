@@ -36,14 +36,14 @@ var (
 type upkeepStateRecord struct {
 	workID string
 	state  ocr2keepers.UpkeepState
-	block  uint64
 
 	addedAt time.Time
 }
 
 // upkeepStateStore implements UpkeepStateStore.
-// It stores the state of ineligible upkeeps in a local, in-memory cache (TODO: save in DB).
+// It stores the state of ineligible upkeeps in a local, in-memory cache.
 // In addition, performed events are fetched by the scanner on demand.
+// TODO: Add DB persistence
 type upkeepStateStore struct {
 	lggr logger.Logger
 
@@ -121,7 +121,6 @@ func (u *upkeepStateStore) Close() error {
 // SelectByWorkIDs returns the current state of the upkeep for the provided ids.
 // If an id is not found, the state is returned as StateUnknown.
 // We first check the cache, and if any ids are missing, we fetch them from the scanner.
-// TODO: fetch from DB
 func (u *upkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 	states, ok := u.selectFromCache(workIDs...)
 	if ok {
@@ -144,7 +143,7 @@ func (u *upkeepStateStore) SetUpkeepState(_ context.Context, result ocr2keepers.
 		return nil
 	}
 
-	u.upsertStateRecord(result.WorkID, ocr2keepers.Ineligible, uint64(result.Trigger.BlockNumber))
+	u.upsertStateRecord(result.WorkID, ocr2keepers.Ineligible)
 
 	return nil
 }
@@ -152,8 +151,7 @@ func (u *upkeepStateStore) SetUpkeepState(_ context.Context, result ocr2keepers.
 // upsertStateRecord inserts or updates a record for the provided
 // check result. If an item already exists in the data store, the state and
 // block are updated.
-// TODO: persist to DB
-func (u *upkeepStateStore) upsertStateRecord(workID string, s ocr2keepers.UpkeepState, b uint64) {
+func (u *upkeepStateStore) upsertStateRecord(workID string, s ocr2keepers.UpkeepState) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
@@ -165,7 +163,6 @@ func (u *upkeepStateStore) upsertStateRecord(workID string, s ocr2keepers.Upkeep
 		}
 	}
 	record.state = s
-	record.block = b
 
 	u.cache[workID] = record
 }
@@ -186,7 +183,6 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64,
 				workID:  workID,
 				state:   ocr2keepers.Performed,
 				addedAt: time.Now(),
-				block:   uint64(end), // TODO: use block number from log
 			}
 			u.cache[workID] = s
 		}
@@ -224,7 +220,6 @@ func (u *upkeepStateStore) cleanup() {
 
 // cleanDB cleans up records in the DB that are older than the TTL.
 func (u *upkeepStateStore) cleanDB() {
-	// TODO: implement persistence
 }
 
 // cleanupCache removes any records from the cache that are older than the TTL.

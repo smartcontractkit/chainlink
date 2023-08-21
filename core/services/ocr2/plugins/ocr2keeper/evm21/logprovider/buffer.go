@@ -273,8 +273,9 @@ func (b *logEventBuffer) normalRange(start, end int) (int, int) {
 		start++
 	}
 	if start == end {
-		// TODO: check if we really need this
-		// ensure we have at least one block in range
+		// ensure we have at least one block in range as end is exclusive
+		// TODO: verify if we really need to do this here or if this can be removed safely
+		// as start is aligned in line 285
 		end++
 	}
 	if end-start > size {

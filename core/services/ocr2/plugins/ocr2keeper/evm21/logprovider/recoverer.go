@@ -41,6 +41,7 @@ type LogRecoverer interface {
 	io.Closer
 }
 
+// TODO: Ensure that the logs enqueued into pending reach a final state
 type logRecoverer struct {
 	lggr logger.Logger
 
@@ -85,8 +86,6 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 		client:      client,
 	}
 
-	// TODO: Ensure lookback blocks is at least as large as Finality Depth to
-	// ensure recoverer does not go beyond finality depth
 	rec.lookbackBlocks.Store(lookbackBlocks)
 	rec.blockTime.Store(int64(defaultBlockTime))
 
@@ -356,8 +355,6 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	if added > 0 {
 		r.lggr.Debugw("found missed logs", "count", added, "upkeepID", f.upkeepID)
 	} else if alreadyPending == 0 {
-		// TODO: Only update the lastRePollBlock if no filtered logs were found
-		// no logs found or still in process, update the lastRePollBlock for this upkeep
 		r.filterStore.UpdateFilters(func(uf1, uf2 upkeepFilter) upkeepFilter {
 			uf1.lastRePollBlock = end
 			return uf1
