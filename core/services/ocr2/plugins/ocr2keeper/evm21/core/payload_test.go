@@ -16,7 +16,6 @@ func TestWorkID(t *testing.T) {
 		upkeepID string
 		trigger  ocr2keepers.Trigger
 		expected string
-		errored  bool
 	}{
 		{
 			name:     "happy flow no extension",
@@ -36,7 +35,7 @@ func TestWorkID(t *testing.T) {
 		},
 		{
 			name:     "happy flow with extension",
-			upkeepID: genUpkeepID(ocr2keepers.LogTrigger, "12345").String(),
+			upkeepID: GenUpkeepID(ocr2keepers.LogTrigger, "12345").String(),
 			trigger: ocr2keepers.Trigger{
 				BlockNumber: 123,
 				BlockHash:   common.HexToHash("0xabcdef"),
@@ -45,7 +44,7 @@ func TestWorkID(t *testing.T) {
 					TxHash: common.HexToHash("0x12345"),
 				},
 			},
-			expected: "91ace35299de40860e17d31adbc64bee48f437362cedd3b69ccf749a2f38d8e5",
+			expected: "278fb23f812503265e1d8e8531e1df62ad593455917eed7872f24c634a048a11",
 		},
 		{
 			name:     "empty upkeepID",
@@ -61,19 +60,18 @@ func TestWorkID(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// Convert the string to a big.Int
-			var upkeepID big.Int
-			_, success := upkeepID.SetString(tc.upkeepID, 10)
+			var id big.Int
+			_, success := id.SetString(tc.upkeepID, 10)
 			if !success {
 				t.Fatal("Invalid big integer value")
 			}
-
-			res, err := UpkeepWorkID(&upkeepID, tc.trigger)
-			if tc.errored {
-				assert.Error(t, err)
-				return
+			uid := &ocr2keepers.UpkeepIdentifier{}
+			ok := uid.FromBigInt(&id)
+			if !ok {
+				t.Fatal("Invalid upkeep identifier")
 			}
-			assert.NoError(t, err)
 
+			res := UpkeepWorkID(*uid, tc.trigger)
 			assert.Equal(t, tc.expected, res, "UpkeepWorkID mismatch")
 		})
 	}
