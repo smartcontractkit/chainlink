@@ -46,8 +46,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     address transmitter,
     FunctionsResponse.FulfillResult resultCode,
     bytes response,
-    bytes error,
-    bytes returnData
+    bytes err,
+    bytes callbackReturnData
   );
 
   event RequestNotProcessed(
@@ -369,8 +369,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       transmitter: transmitter,
       resultCode: resultCode,
       response: response,
-      error: err,
-      returnData: result.returnData
+      err: err,
+      callbackReturnData: result.returnData
     });
 
     return (resultCode, receipt.callbackGasCostJuels);
