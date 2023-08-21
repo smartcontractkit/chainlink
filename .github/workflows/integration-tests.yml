@@ -138,6 +138,45 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
 
+  build-test-binary:
+    environment: integration
+    permissions:
+      id-token: write
+      contents: read
+    name: Build Test Binary
+    runs-on: ubuntu20.04-16cores-64GB
+    needs: [changes]
+    steps:
+      - name: Collect Metrics
+        if: needs.changes.outputs.src == 'true'
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Build Test Binary
+        continue-on-error: true
+      - name: Checkout the repo
+        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Setup Go
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35
+        with:
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          go_mod_path: ./integration-tests/go.mod
+          cache_key_id: core-e2e
+          cache_restore_only: 'true'
+      - name: Build Test Binary
+        run: |
+          cd integration-tests
+          go test -c -o smoke_test_binary ./smoke
+      - name: Store The Test Binary
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
+        with:
+          name: smoke_test_binary
+          path: ./integration-tests/smoke_test_binary
+
   eth-smoke-tests-matrix:
     environment: integration
     permissions:
@@ -235,7 +274,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes]
+    needs: [build-chainlink, changes, build-test-binary]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -249,130 +288,124 @@ jobs:
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ""
+            run: -test.run ^TestCronBasic$
           - name: flux
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ""
+            run: -test.run ^TestFluxBasic$
           - name: ocr
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-ocr-evm-simulated
+            run: -test.run ^TestOCRBasic$
           - name: ocr2
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-ocr2-evm-simulated
+            run: -test.run ^TestOCRv2Basic$
           - name: runlog
             nodes: 1
             os: ubuntu-latest
             pyroscope_env: ""
+            run: -test.run ^TestRunLogBasic$
           - name: vrf
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf-evm-simulated
+            run: -test.run ^TestVRFBasic$
           - name: vrfv2
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf2-evm-simulated
+            run: -test.run ^TestVRFv2Basic$
           - name: forwarder_ocr
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+            run: -test.run ^TestForwarderOCRBasic$
           - name: forwarders_ocr2
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
+            run: -test.run ^TestForwarderOCR2Basic$
 
           # Keeper tests split out to use minimal environments
           - name: keeper-1
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperBasicSmoke$
+            run: -test.run ^TestKeeperBasicSmoke$
           - name: keeper-2
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperBlockCountPerTurn/registry_1_1$
+            run: -test.run ^TestKeeperBlockCountPerTurn/registry_1_1$
           - name: keeper-3
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperBlockCountPerTurn/registry_1_2$
+            run: -test.run ^TestKeeperBlockCountPerTurn/registry_1_2$
           - name: keeper-4
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperBlockCountPerTurn/registry_1_3$
+            run: -test.run ^TestKeeperBlockCountPerTurn/registry_1_3$
           - name: keeper-5
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperSimulation$
+            run: -test.run ^TestKeeperSimulation$
           - name: keeper-6
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperCheckPerformGasLimit/registry_1_2$
+            run: -test.run ^TestKeeperCheckPerformGasLimit/registry_1_2$
           - name: keeper-7
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperCheckPerformGasLimit/registry_1_3$
+            run: -test.run ^TestKeeperCheckPerformGasLimit/registry_1_3$
           - name: keeper-8
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperRegisterUpkeep$
+            run: -test.run ^TestKeeperRegisterUpkeep$
           - name: keeper-9
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperAddFunds$
+            run: -test.run ^TestKeeperAddFunds$
           - name: keeper-10
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperRemove$
+            run: -test.run ^TestKeeperRemove$
           - name: keeper-11
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperPauseRegistry$
+            run: -test.run ^TestKeeperPauseRegistry$
           - name: keeper-12
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperMigrateRegistry$
+            run: -test.run ^TestKeeperMigrateRegistry$
           - name: keeper-13
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperNodeDown/registry_1_1$
+            run: -test.run ^TestKeeperNodeDown/registry_1_1$
           - name: keeper-14
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperNodeDown/registry_1_2$
+            run: -test.run ^TestKeeperNodeDown/registry_1_2$
           - name: keeper-15
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperNodeDown/registry_1_3$
+            run: -test.run ^TestKeeperNodeDown/registry_1_3$
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}
     steps:
@@ -380,15 +413,12 @@ jobs:
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Build Go Test Command
-        id: build-go-test-command
-        run: |
-          # if the matrix.product.run is set, use it for a different command
-          if [ "${{ matrix.product.run }}" != "" ]; then
-            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Download Test Binary
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
+        with:
+          name: smoke_test_binary
+          path: ./integration-tests/binary
+
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
@@ -398,7 +428,12 @@ jobs:
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: |
+            make test_need_operator_assets
+            cd ./integration-tests
+            mv ./binary/smoke_test_binary ./smoke_test_binary
+            sudo chmod +x ./smoke_test_binary
+            go tool test2json ./smoke_test_binary -test.v -test.timeout 30m -test.count=1 -test.parallel=${{ matrix.product.nodes }} ${{ matrix.product.run }} 2>&1 | tee /tmp/gotest.log
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
