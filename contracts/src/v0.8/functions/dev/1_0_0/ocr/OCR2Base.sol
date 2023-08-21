@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ConfirmedOwner} from "../../../../ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
 import {OCR2Abstract} from "./OCR2Abstract.sol";
 
 /**
@@ -16,6 +16,7 @@ import {OCR2Abstract} from "./OCR2Abstract.sol";
  */
 abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   error ReportInvalid();
+  error InvalidConfig(string message);
 
   bool internal immutable i_uniqueReports;
 
@@ -24,6 +25,12 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   }
 
   uint256 private constant maxUint32 = (1 << 32) - 1;
+
+  // incremented each time a new config is posted. This count is incorporated
+  // into the config digest, to prevent replay attacks.
+  uint32 internal s_configCount;
+  uint32 internal s_latestConfigBlockNumber; // makes it easier for offchain systems
+  // to extract config from logs.
 
   // Storing these fields used on the hot path in a ConfigInfo variable reduces the
   // retrieval of all of them to a single SLOAD. If any further fields are
@@ -34,12 +41,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     uint8 n;
   }
   ConfigInfo internal s_configInfo;
-
-  // incremented each time a new config is posted. This count is incorporated
-  // into the config digest, to prevent replay attacks.
-  uint32 internal s_configCount;
-  uint32 internal s_latestConfigBlockNumber; // makes it easier for offchain systems
-  // to extract config from logs.
 
   // Used for s_oracles[a].role, where a is an address, to track the purpose
   // of the address, or to indicate that the address is unset.
@@ -75,14 +76,14 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
 
   // Reverts transaction if config args are invalid
   modifier checkConfigValid(
-    uint256 _numSigners,
-    uint256 _numTransmitters,
-    uint256 _f
+    uint256 numSigners,
+    uint256 numTransmitters,
+    uint256 f
   ) {
-    require(_numSigners <= maxNumOracles, "too many signers");
-    require(_f > 0, "f must be positive");
-    require(_numSigners == _numTransmitters, "oracle addresses out of registration");
-    require(_numSigners > 3 * _f, "faulty-oracle f too high");
+    if (numSigners > MAX_NUM_ORACLES) revert InvalidConfig("too many signers");
+    if (f == 0) revert InvalidConfig("f must be positive");
+    if (numSigners != numTransmitters) revert InvalidConfig("oracle addresses out of registration");
+    if (numSigners <= 3 * f) revert InvalidConfig("faulty-oracle f too high");
     _;
   }
 
@@ -145,7 +146,8 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       s_transmitters.pop();
     }
 
-    for (uint256 i = 0; i < args.signers.length; ++i) {
+    // Bounded by MAX_NUM_ORACLES in OCR2Abstract.sol
+    for (uint256 i = 0; i < args.signers.length; i++) {
       // add new signer/transmitter addresses
       require(s_oracles[args.signers[i]].role == Role.Unset, "repeated signer address");
       s_oracles[args.signers[i]] = Oracle(uint8(i), Role.Signer);
@@ -184,8 +186,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       args.offchainConfigVersion,
       args.offchainConfig
     );
-
-    _afterSetConfig(args.f, args.onchainConfig);
   }
 
   function configDigestFromConfigData(
@@ -244,20 +244,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
 
   function _beforeSetConfig(uint8 _f, bytes memory _onchainConfig) internal virtual;
 
-  function _afterSetConfig(uint8 _f, bytes memory _onchainConfig) internal virtual;
-
-  /**
-   * @dev hook to allow additional validation of the report by the extending contract
-   * @param configDigest separation tag for current config (see configDigestFromConfigData)
-   * @param epochAndRound 27 byte padding, 4-byte epoch and 1-byte round
-   * @param report serialized report
-   */
-  function _validateReport(
-    bytes32 configDigest,
-    uint40 epochAndRound,
-    bytes memory report
-  ) internal virtual returns (bool);
-
   /**
    * @dev hook called after the report has been fully validated
    * for the extending contract to handle additional logic, such as oracle payment
@@ -270,7 +256,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     uint256 initialGas,
     address transmitter,
     uint8 signerCount,
-    address[maxNumOracles] memory signers,
+    address[MAX_NUM_ORACLES] memory signers,
     bytes calldata report
   ) internal virtual;
 
@@ -332,10 +318,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       bytes32 configDigest = reportContext[0];
       uint32 epochAndRound = uint32(uint256(reportContext[1]));
 
-      if (!_validateReport(configDigest, epochAndRound, report)) {
-        revert ReportInvalid();
-      }
-
       emit Transmitted(configDigest, uint32(epochAndRound >> 8));
 
       ConfigInfo memory configInfo = s_configInfo;
@@ -360,7 +342,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       );
     }
 
-    address[maxNumOracles] memory signed;
+    address[MAX_NUM_ORACLES] memory signed;
     uint8 signerCount = 0;
 
     {
@@ -368,6 +350,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       bytes32 h = keccak256(abi.encodePacked(keccak256(report), reportContext));
 
       Oracle memory o;
+      // Bounded by MAX_NUM_ORACLES in OCR2Abstract.sol
       for (uint256 i = 0; i < rs.length; ++i) {
         address signer = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
         o = s_oracles[signer];

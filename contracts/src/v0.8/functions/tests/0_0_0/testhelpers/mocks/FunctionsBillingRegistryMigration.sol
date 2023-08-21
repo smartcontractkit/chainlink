@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {LinkTokenInterface} from "../../../../../interfaces/LinkTokenInterface.sol";
+import {LinkTokenInterface} from "../../../../../shared/interfaces/LinkTokenInterface.sol";
 import {AggregatorV3Interface} from "../../../../../interfaces/AggregatorV3Interface.sol";
 import {FunctionsBillingRegistryInterface} from "./FunctionsBillingRegistryInterface.sol";
 import {FunctionsOracleInterface} from "./FunctionsOracleInterface.sol";
 import {FunctionsClientInterface} from "./FunctionsClientInterface.sol";
 import {TypeAndVersionInterface} from "../../../../../interfaces/TypeAndVersionInterface.sol";
-import {ERC677ReceiverInterface} from "../../../../../interfaces/ERC677ReceiverInterface.sol";
+import {IERC677Receiver} from "../../../../../shared/interfaces/IERC677Receiver.sol";
 import {AuthorizedOriginReceiverInterface} from "./AuthorizedOriginReceiverInterface.sol";
 import {ConfirmedOwnerUpgradeable} from "./ConfirmedOwnerUpgradeable.sol";
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
-import {SafeCast} from "../../../../../shared/vendor/openzeppelin-solidity/v.4.8.0/contracts/utils/SafeCast.sol";
-import {PausableUpgradeable} from "../../../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/security/PausableUpgradeable.sol";
-import {Initializable} from "../../../../../shared/vendor/@openzeppelin/contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
+import {SafeCast} from "../../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
+import {PausableUpgradeable} from "../../../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/security/PausableUpgradeable.sol";
+import {Initializable} from "../../../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Billing Registry contract
@@ -25,7 +25,7 @@ contract FunctionsBillingRegistryMigration is
   ConfirmedOwnerUpgradeable,
   PausableUpgradeable,
   FunctionsBillingRegistryInterface,
-  ERC677ReceiverInterface,
+  IERC677Receiver,
   AuthorizedReceiver
 {
   LinkTokenInterface public LINK;

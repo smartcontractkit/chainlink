@@ -2,21 +2,23 @@ package evm
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+var _ ocr2keepers.TransmitEventProvider = &TransmitEventProvider{}
 
 type TransmitEventProvider struct {
 	sync     utils.StartStopOnce
@@ -49,14 +51,15 @@ func NewTransmitEventProvider(
 	if err != nil {
 		return nil, err
 	}
-	// Add log filters for the log poller so that it can poll and find the logs that
-	// we need.
 	err = logPoller.RegisterFilter(logpoller.Filter{
 		Name: TransmitEventProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
-			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
-			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
-			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
+			// These are the events that are emitted when a node transmits a report
+			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),               // Happy path: report performed the upkeep
+			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),           // Report checkBlockNumber was reorged
+			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(), // Upkeep didn't have sufficient funds when report reached chain, perform was aborted early
+			// Report was too old when it reached the chain. For conditionals upkeep was already performed on a higher block than checkBlockNum
+			// for logs upkeep was already performed for the particular log
 			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
 		},
 		Addresses: []common.Address{registryAddress},
@@ -120,7 +123,7 @@ func (c *TransmitEventProvider) HealthReport() map[string]error {
 	return map[string]error{c.Name(): c.sync.Healthy()}
 }
 
-func (c *TransmitEventProvider) Events(ctx context.Context) ([]ocr2keepers.TransmitEvent, error) {
+func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.TransmitEvent, error) {
 	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
@@ -134,9 +137,8 @@ func (c *TransmitEventProvider) Events(ctx context.Context) ([]ocr2keepers.Trans
 		[]common.Hash{
 			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
 			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
-			// TODO: enable once we have the corredponding types in ocr2keepers
-			// iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
-			// iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
 		pg.WithParentCtx(ctx),
@@ -209,15 +211,36 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 	vals := []ocr2keepers.TransmitEvent{}
 
 	for _, l := range logs {
-		upkeepId := ocr2keepers.UpkeepIdentifier(l.Id().Bytes())
-		triggerID := l.TriggerID()
+		id := l.Id()
+		upkeepId := &ocr2keepers.UpkeepIdentifier{}
+		ok := upkeepId.FromBigInt(id)
+		if !ok {
+			return nil, core.ErrInvalidUpkeepID
+		}
+		triggerW, err := core.UnpackTrigger(id, l.Trigger())
+		if err != nil {
+			return nil, fmt.Errorf("%w: failed to unpack trigger", err)
+		}
+		trigger := ocr2keepers.NewTrigger(
+			ocr2keepers.BlockNumber(triggerW.BlockNum),
+			triggerW.BlockHash,
+		)
+		switch core.GetUpkeepType(*upkeepId) {
+		case ocr2keepers.LogTrigger:
+			trigger.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{}
+			trigger.LogTriggerExtension.TxHash = triggerW.TxHash
+			trigger.LogTriggerExtension.Index = triggerW.LogIndex
+		default:
+		}
+		workID := core.UpkeepWorkID(*upkeepId, trigger)
 		vals = append(vals, ocr2keepers.TransmitEvent{
 			Type:            l.TransmitEventType(),
-			TransmitBlock:   BlockKeyHelper[int64]{}.MakeBlockKey(l.BlockNumber),
+			TransmitBlock:   ocr2keepers.BlockNumber(l.BlockNumber),
 			Confirmations:   latestBlock - l.BlockNumber,
-			TransactionHash: l.TxHash.Hex(),
-			ID:              hex.EncodeToString(triggerID[:]),
-			UpkeepID:        upkeepId,
+			TransactionHash: l.TxHash,
+			WorkID:          workID,
+			UpkeepID:        *upkeepId,
+			CheckBlock:      trigger.BlockNumber,
 		})
 	}
 
@@ -248,18 +271,18 @@ func (l transmitEventLog) Id() *big.Int {
 	}
 }
 
-func (l transmitEventLog) TriggerID() [32]byte {
+func (l transmitEventLog) Trigger() []byte {
 	switch {
 	case l.Performed != nil:
-		return l.Performed.UpkeepTriggerID
+		return l.Performed.Trigger
 	case l.Stale != nil:
-		return l.Stale.UpkeepTriggerID
+		return l.Stale.Trigger
 	case l.Reorged != nil:
-		return l.Reorged.UpkeepTriggerID
+		return l.Reorged.Trigger
 	case l.InsufficientFunds != nil:
-		return l.InsufficientFunds.UpkeepTriggerID
+		return l.InsufficientFunds.Trigger
 	default:
-		return [32]byte{}
+		return []byte{}
 	}
 }
 
@@ -270,12 +293,10 @@ func (l transmitEventLog) TransmitEventType() ocr2keepers.TransmitEventType {
 	case l.Stale != nil:
 		return ocr2keepers.StaleReportEvent
 	case l.Reorged != nil:
-		// TODO: use reorged event type
-		return ocr2keepers.TransmitEventType(2)
+		return ocr2keepers.ReorgReportEvent
 	case l.InsufficientFunds != nil:
-		// TODO: use insufficient funds event type
-		return ocr2keepers.TransmitEventType(3)
+		return ocr2keepers.InsufficientFundsReportEvent
 	default:
-		return ocr2keepers.TransmitEventType(0)
+		return ocr2keepers.UnknownEvent
 	}
 }

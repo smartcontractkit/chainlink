@@ -118,9 +118,8 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
     v1Coordinator.addConsumer(subId, address(testConsumer));
 
     // subscription exists in V1 coordinator before migration
-    (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) = v1Coordinator.getSubscription(
-      subId
-    );
+    (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers) = v1Coordinator
+      .getSubscription(subId);
     assertEq(balance, DEFAULT_LINK_FUNDING);
     assertEq(ethBalance, DEFAULT_NATIVE_FUNDING);
     assertEq(owner, address(OWNER));

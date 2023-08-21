@@ -167,7 +167,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   /////////////////////////////
 
   /**
-   * @notice sets the privledge config for an upkeep
+   * @notice sets the privilege config for an upkeep
    */
   function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes calldata newPrivilegeConfig) external {
     if (msg.sender != s_storage.upkeepPrivilegeManager) {
@@ -189,7 +189,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   }
 
   /**
-   * @notice allows the owner to withdraw any LINK accidentially sent to the contract
+   * @notice allows the owner to withdraw any LINK accidentally sent to the contract
    */
   function recoverFunds() external onlyOwner {
     uint256 total = i_link.balanceOf(address(this));
@@ -240,8 +240,8 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   }
 
   /**
-   * @notice sets a generic bytes field used to indicate the privledges that this admin address had
-   * @param admin the address to set privledges for
+   * @notice sets a generic bytes field used to indicate the privilege that this admin address had
+   * @param admin the address to set privilege for
    * @param newPrivilegeConfig the privileges that this admin has
    */
   function setAdminPrivilegeConfig(address admin, bytes calldata newPrivilegeConfig) external {
@@ -501,5 +501,12 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    */
   function getForwarder(uint256 upkeepID) external view returns (IAutomationForwarder) {
     return s_upkeep[upkeepID].forwarder;
+  }
+
+  /**
+   * @notice returns the upkeep's forwarder contract
+   */
+  function hasDedupKey(bytes32 dedupKey) external view returns (bool) {
+    return s_dedupKeys[dedupKey];
   }
 }

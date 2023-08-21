@@ -15,6 +15,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cbor"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_oracle"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmrelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -120,23 +122,24 @@ const (
 
 type FunctionsListener struct {
 	utils.StartStopOnce
-	oracle            *ocr2dr_oracle.OCR2DROracle
-	oracleHexAddr     string
-	job               job.Job
-	bridgeAccessor    BridgeAccessor
-	logBroadcaster    log.Broadcaster
-	shutdownWaitGroup sync.WaitGroup
-	mbOracleEvents    *utils.Mailbox[log.Broadcast]
-	serviceContext    context.Context
-	serviceCancel     context.CancelFunc
-	chStop            chan struct{}
-	pluginORM         ORM
-	pluginConfig      config.PluginConfig
-	s4Storage         s4.Storage
-	logger            logger.Logger
-	mailMon           *utils.MailboxMonitor
-	urlsMonEndpoint   commontypes.MonitoringEndpoint
-	decryptor         threshold.Decryptor
+	client             client.Client
+	contractAddressHex string
+	job                job.Job
+	bridgeAccessor     BridgeAccessor
+	logBroadcaster     log.Broadcaster
+	shutdownWaitGroup  sync.WaitGroup
+	mbOracleEvents     *utils.Mailbox[log.Broadcast]
+	serviceContext     context.Context
+	serviceCancel      context.CancelFunc
+	chStop             chan struct{}
+	pluginORM          ORM
+	pluginConfig       config.PluginConfig
+	s4Storage          s4.Storage
+	logger             logger.Logger
+	mailMon            *utils.MailboxMonitor
+	urlsMonEndpoint    commontypes.MonitoringEndpoint
+	decryptor          threshold.Decryptor
+	logPollerWrapper   evmrelayTypes.LogPollerWrapper
 }
 
 func formatRequestId(requestId [32]byte) string {
@@ -144,8 +147,9 @@ func formatRequestId(requestId [32]byte) string {
 }
 
 func NewFunctionsListener(
-	oracle *ocr2dr_oracle.OCR2DROracle,
 	job job.Job,
+	client client.Client,
+	contractAddressHex string,
 	bridgeAccessor BridgeAccessor,
 	pluginORM ORM,
 	pluginConfig config.PluginConfig,
@@ -155,22 +159,24 @@ func NewFunctionsListener(
 	mailMon *utils.MailboxMonitor,
 	urlsMonEndpoint commontypes.MonitoringEndpoint,
 	decryptor threshold.Decryptor,
+	logPollerWrapper evmrelayTypes.LogPollerWrapper,
 ) *FunctionsListener {
 	return &FunctionsListener{
-		oracle:          oracle,
-		oracleHexAddr:   oracle.Address().Hex(),
-		job:             job,
-		bridgeAccessor:  bridgeAccessor,
-		logBroadcaster:  logBroadcaster,
-		mbOracleEvents:  utils.NewHighCapacityMailbox[log.Broadcast](),
-		chStop:          make(chan struct{}),
-		pluginORM:       pluginORM,
-		pluginConfig:    pluginConfig,
-		s4Storage:       s4Storage,
-		logger:          lggr,
-		mailMon:         mailMon,
-		urlsMonEndpoint: urlsMonEndpoint,
-		decryptor:       decryptor,
+		client:             client,
+		contractAddressHex: contractAddressHex,
+		job:                job,
+		bridgeAccessor:     bridgeAccessor,
+		logBroadcaster:     logBroadcaster,
+		mbOracleEvents:     utils.NewHighCapacityMailbox[log.Broadcast](),
+		chStop:             make(chan struct{}),
+		pluginORM:          pluginORM,
+		pluginConfig:       pluginConfig,
+		s4Storage:          s4Storage,
+		logger:             lggr,
+		mailMon:            mailMon,
+		urlsMonEndpoint:    urlsMonEndpoint,
+		decryptor:          decryptor,
+		logPollerWrapper:   logPollerWrapper,
 	}
 }
 
@@ -178,28 +184,47 @@ func NewFunctionsListener(
 func (l *FunctionsListener) Start(context.Context) error {
 	return l.StartOnce("FunctionsListener", func() error {
 		l.serviceContext, l.serviceCancel = context.WithCancel(context.Background())
-		unsubscribeLogs := l.logBroadcaster.Register(l, log.ListenerOpts{
-			Contract: l.oracle.Address(),
-			ParseLog: l.oracle.ParseLog,
-			LogsWithTopics: map[common.Hash][][]log.Topic{
-				ocr2dr_oracle.OCR2DROracleOracleRequest{}.Topic():        {},
-				ocr2dr_oracle.OCR2DROracleOracleResponse{}.Topic():       {},
-				ocr2dr_oracle.OCR2DROracleUserCallbackError{}.Topic():    {},
-				ocr2dr_oracle.OCR2DROracleUserCallbackRawError{}.Topic(): {},
-				ocr2dr_oracle.OCR2DROracleResponseTransmitted{}.Topic():  {},
-			},
-			MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
-		})
+		contractAddress := common.HexToAddress(l.contractAddressHex)
+		var unsubscribeLogs func()
+
+		switch l.pluginConfig.ContractVersion {
+		case 0:
+			oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(contractAddress, l.client)
+			if err != nil {
+				return err
+			}
+			unsubscribeLogs = l.logBroadcaster.Register(l, log.ListenerOpts{
+				Contract: oracleContract.Address(),
+				ParseLog: oracleContract.ParseLog,
+				LogsWithTopics: map[common.Hash][][]log.Topic{
+					ocr2dr_oracle.OCR2DROracleOracleRequest{}.Topic():        {},
+					ocr2dr_oracle.OCR2DROracleOracleResponse{}.Topic():       {},
+					ocr2dr_oracle.OCR2DROracleUserCallbackError{}.Topic():    {},
+					ocr2dr_oracle.OCR2DROracleUserCallbackRawError{}.Topic(): {},
+					ocr2dr_oracle.OCR2DROracleResponseTransmitted{}.Topic():  {},
+				},
+				MinIncomingConfirmations: l.pluginConfig.MinIncomingConfirmations,
+			})
+			l.shutdownWaitGroup.Add(1)
+			go l.processOracleEventsV0()
+		case 1:
+			l.shutdownWaitGroup.Add(1)
+			go l.processOracleEventsV1()
+		default:
+			return errors.New("Functions: unsupported PluginConfig.ContractVersion")
+		}
+
 		if l.pluginConfig.ListenerEventHandlerTimeoutSec == 0 {
 			l.logger.Warn("listenerEventHandlerTimeoutSec set to zero! ORM calls will never time out.")
 		}
-		l.shutdownWaitGroup.Add(4)
-		go l.processOracleEvents()
+		l.shutdownWaitGroup.Add(3)
 		go l.timeoutRequests()
 		go l.pruneRequests()
 		go func() {
 			<-l.chStop
-			unsubscribeLogs()
+			if unsubscribeLogs != nil {
+				unsubscribeLogs() // v0 only
+			}
 			l.shutdownWaitGroup.Done()
 		}()
 
@@ -229,7 +254,7 @@ func (l *FunctionsListener) HandleLog(lb log.Broadcast) {
 	}
 
 	switch log := log.(type) {
-	case *ocr2dr_oracle.OCR2DROracleOracleRequest, *ocr2dr_oracle.OCR2DROracleOracleResponse, *ocr2dr_oracle.OCR2DROracleUserCallbackError, *ocr2dr_oracle.OCR2DROracleUserCallbackRawError, *ocr2dr_oracle.OCR2DROracleResponseTransmitted:
+	case *ocr2dr_oracle.OCR2DROracleOracleRequest, *ocr2dr_oracle.OCR2DROracleOracleResponse, *ocr2dr_oracle.OCR2DROracleUserCallbackError, *ocr2dr_oracle.OCR2DROracleUserCallbackRawError, *ocr2dr_oracle.OCR2DROracleResponseTransmitted, *functions_coordinator.FunctionsCoordinatorOracleRequest, *functions_coordinator.FunctionsCoordinatorOracleResponse:
 		wasOverCapacity := l.mbOracleEvents.Deliver(lb)
 		if wasOverCapacity {
 			l.logger.Error("OracleRequest log mailbox is over capacity - dropped the oldest log")
@@ -244,7 +269,7 @@ func (l *FunctionsListener) JobID() int32 {
 	return l.job.ID
 }
 
-func (l *FunctionsListener) processOracleEvents() {
+func (l *FunctionsListener) processOracleEventsV0() {
 	defer l.shutdownWaitGroup.Done()
 	for {
 		select {
@@ -276,6 +301,7 @@ func (l *FunctionsListener) processOracleEvents() {
 				}
 
 				switch log := log.(type) {
+				// Version 0
 				case *ocr2dr_oracle.OCR2DROracleOracleRequest:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleRequest").Inc()
 					l.shutdownWaitGroup.Add(1)
@@ -283,20 +309,54 @@ func (l *FunctionsListener) processOracleEvents() {
 				case *ocr2dr_oracle.OCR2DROracleOracleResponse:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "OracleResponse").Inc()
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("OracleResponse", log.RequestId, lb)
+					go l.handleOracleResponseV0("OracleResponse", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackError:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackError").Inc()
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("UserCallbackError", log.RequestId, lb)
+					go l.handleOracleResponseV0("UserCallbackError", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleUserCallbackRawError:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "UserCallbackRawError").Inc()
 					l.shutdownWaitGroup.Add(1)
-					go l.handleOracleResponse("UserCallbackRawError", log.RequestId, lb)
+					go l.handleOracleResponseV0("UserCallbackRawError", log.RequestId, lb)
 				case *ocr2dr_oracle.OCR2DROracleResponseTransmitted:
 					promOracleEvent.WithLabelValues(log.Raw.Address.Hex(), "ResponseTransmitted").Inc()
 				default:
 					l.logger.Warnf("Unexpected log type %T", log)
 				}
+			}
+		}
+	}
+}
+
+func (l *FunctionsListener) processOracleEventsV1() {
+	defer l.shutdownWaitGroup.Done()
+	freqMillis := l.pluginConfig.ListenerEventsCheckFrequencyMillis
+	if freqMillis == 0 {
+		l.logger.Errorw("ListenerEventsCheckFrequencyMillis must set to more than 0 in PluginConfig")
+		return
+	}
+	ticker := time.NewTicker(time.Duration(freqMillis) * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-l.chStop:
+			return
+		case <-ticker.C:
+			requests, responses, err := l.logPollerWrapper.LatestEvents()
+			if err != nil {
+				l.logger.Errorw("error when calling LatestEvents()", "err", err)
+				break
+			}
+			l.logger.Debugw("processOracleEventsV1: processing v1 events", "nRequests", len(requests), "nResponses", len(responses))
+			for _, request := range requests {
+				request := request
+				l.shutdownWaitGroup.Add(1)
+				go l.handleOracleRequestV1(&request)
+			}
+			for _, response := range responses {
+				response := response
+				l.shutdownWaitGroup.Add(1)
+				go l.handleOracleResponseV1(&response)
 			}
 		}
 	}
@@ -312,9 +372,9 @@ func (l *FunctionsListener) getNewHandlerContext() (context.Context, context.Can
 
 func (l *FunctionsListener) setError(ctx context.Context, requestId RequestID, errType ErrType, errBytes []byte) {
 	if errType == INTERNAL_ERROR {
-		promRequestInternalError.WithLabelValues(l.oracleHexAddr).Inc()
+		promRequestInternalError.WithLabelValues(l.contractAddressHex).Inc()
 	} else {
-		promRequestComputationError.WithLabelValues(l.oracleHexAddr).Inc()
+		promRequestComputationError.WithLabelValues(l.contractAddressHex).Inc()
 	}
 	readyForProcessing := errType != INTERNAL_ERROR
 	if err := l.pluginORM.SetError(requestId, errType, errBytes, time.Now(), readyForProcessing, pg.WithParentCtx(ctx)); err != nil {
@@ -338,33 +398,32 @@ func (l *FunctionsListener) getMaxSecretsSize(flags RequestFlags) uint32 {
 	return l.pluginConfig.MaxSecretsSizesList[idx]
 }
 
-// TODO (FUN-662): call from LogPoller in a separate goroutine
-func (l *FunctionsListener) HandleOracleRequestV1(request *functions_coordinator.FunctionsCoordinatorOracleRequest, coordinatorContractAddress *common.Address, lb log.Broadcast) {
-	l.logger.Infow("oracle request v1 received", "requestID", formatRequestId(request.RequestId))
+func (l *FunctionsListener) handleOracleRequestV1(request *evmrelayTypes.OracleRequest) {
+	defer l.shutdownWaitGroup.Done()
+	l.logger.Infow("handleOracleRequestV1: oracle request v1 received", "requestID", formatRequestId(request.RequestId))
 	ctx, cancel := l.getNewHandlerContext()
 	defer cancel()
 
 	callbackGasLimit := uint32(request.CallbackGasLimit)
 	newReq := &Request{
 		RequestID:                  request.RequestId,
-		RequestTxHash:              &request.Raw.TxHash,
+		RequestTxHash:              &request.TxHash,
 		ReceivedAt:                 time.Now(),
 		Flags:                      request.Flags[:],
 		CallbackGasLimit:           &callbackGasLimit,
-		CoordinatorContractAddress: coordinatorContractAddress,
+		CoordinatorContractAddress: &request.CoordinatorContract,
+		OnchainMetadata:            request.OnchainMetadata,
 	}
 	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
 		if errors.Is(err, ErrDuplicateRequestID) {
-			l.logger.Warnw("received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
-			l.markLogConsumed(lb, pg.WithParentCtx(ctx))
+			l.logger.Warnw("handleOracleRequestV1: received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
 		} else {
-			l.logger.Errorw("failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
+			l.logger.Errorw("handleOracleRequestV1: failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
 		}
 		return
 	}
-	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 
-	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
+	promRequestDataSize.WithLabelValues(l.contractAddressHex).Observe(float64(len(request.Data)))
 	requestData, err := l.parseCBOR(request.RequestId, request.Data, l.getMaxCBORsize(request.Flags))
 	if err != nil {
 		l.setError(ctx, request.RequestId, USER_ERROR, []byte(err.Error()))
@@ -392,7 +451,7 @@ func (l *FunctionsListener) handleOracleRequestV0(request *ocr2dr_oracle.OCR2DRO
 	}
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 
-	promRequestDataSize.WithLabelValues(l.oracleHexAddr).Observe(float64(len(request.Data)))
+	promRequestDataSize.WithLabelValues(l.contractAddressHex).Observe(float64(len(request.Data)))
 	requestData, err := l.parseCBOR(request.RequestId, request.Data, l.pluginConfig.MaxRequestSizeBytes)
 	if err != nil {
 		l.setError(ctx, request.RequestId, USER_ERROR, []byte(err.Error()))
@@ -420,10 +479,19 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 	startTime := time.Now()
 	defer func() {
 		duration := time.Since(startTime)
-		promComputationDuration.WithLabelValues(l.oracleHexAddr).Observe(float64(duration.Milliseconds()))
+		promComputationDuration.WithLabelValues(l.contractAddressHex).Observe(float64(duration.Milliseconds()))
 	}()
 	requestIDStr := formatRequestId(requestID)
 	l.logger.Infow("processing request", "requestID", requestIDStr)
+
+	if l.pluginConfig.ContractVersion == 1 && l.pluginConfig.EnableRequestSignatureCheck {
+		err := VerifyRequestSignature(subscriptionOwner, requestData)
+		if err != nil {
+			l.logger.Errorw("invalid request signature", "requestID", requestIDStr, "err", err)
+			l.setError(ctx, requestID, USER_ERROR, []byte(err.Error()))
+			return
+		}
+	}
 
 	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient()
 	if err != nil {
@@ -440,7 +508,6 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 	}
 	if userErr != nil {
 		l.logger.Debugw("user error during getSecrets", "requestID", requestIDStr, "err", userErr)
-		fmt.Println("userError", userErr.Error())
 		l.setError(ctx, requestID, USER_ERROR, []byte(userErr.Error()))
 		return
 	}
@@ -476,10 +543,10 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 		}
 		l.logger.Debugw("saving computation error", "requestID", requestIDStr)
 		l.setError(ctx, requestID, USER_ERROR, computationError)
-		promComputationErrorSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationError)))
+		promComputationErrorSize.WithLabelValues(l.contractAddressHex).Set(float64(len(computationError)))
 	} else {
-		promRequestComputationSuccess.WithLabelValues(l.oracleHexAddr).Inc()
-		promComputationResultSize.WithLabelValues(l.oracleHexAddr).Set(float64(len(computationResult)))
+		promRequestComputationSuccess.WithLabelValues(l.contractAddressHex).Inc()
+		promComputationResultSize.WithLabelValues(l.contractAddressHex).Set(float64(len(computationResult)))
 		l.logger.Debugw("saving computation result", "requestID", requestIDStr)
 		if err2 := l.pluginORM.SetResult(requestID, computationResult, time.Now(), pg.WithParentCtx(ctx)); err2 != nil {
 			l.logger.Errorw("call to SetResult failed", "requestID", requestIDStr, "err", err2)
@@ -487,7 +554,19 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 	}
 }
 
-func (l *FunctionsListener) handleOracleResponse(responseType string, requestID [32]byte, lb log.Broadcast) {
+func (l *FunctionsListener) handleOracleResponseV1(response *evmrelayTypes.OracleResponse) {
+	defer l.shutdownWaitGroup.Done()
+	l.logger.Infow("oracle response v1 received", "requestID", formatRequestId(response.RequestId))
+
+	ctx, cancel := l.getNewHandlerContext()
+	defer cancel()
+	if err := l.pluginORM.SetConfirmed(response.RequestId, pg.WithParentCtx(ctx)); err != nil {
+		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(response.RequestId), "err", err)
+	}
+	promRequestConfirmed.WithLabelValues(l.contractAddressHex, "OracleResponse").Inc()
+}
+
+func (l *FunctionsListener) handleOracleResponseV0(responseType string, requestID [32]byte, lb log.Broadcast) {
 	defer l.shutdownWaitGroup.Done()
 	l.logger.Infow("oracle response received", "type", responseType, "requestID", formatRequestId(requestID))
 
@@ -496,7 +575,7 @@ func (l *FunctionsListener) handleOracleResponse(responseType string, requestID 
 	if err := l.pluginORM.SetConfirmed(requestID, pg.WithParentCtx(ctx)); err != nil {
 		l.logger.Errorw("setting CONFIRMED state failed", "requestID", formatRequestId(requestID), "err", err)
 	}
-	promRequestConfirmed.WithLabelValues(l.oracleHexAddr, responseType).Inc()
+	promRequestConfirmed.WithLabelValues(l.contractAddressHex, responseType).Inc()
 	l.markLogConsumed(lb, pg.WithParentCtx(ctx))
 }
 
@@ -529,7 +608,7 @@ func (l *FunctionsListener) timeoutRequests() {
 				break
 			}
 			if len(ids) > 0 {
-				promRequestTimeout.WithLabelValues(l.oracleHexAddr).Add(float64(len(ids)))
+				promRequestTimeout.WithLabelValues(l.contractAddressHex).Add(float64(len(ids)))
 				var idStrs []string
 				for _, id := range ids {
 					idStrs = append(idStrs, formatRequestId(id))
@@ -575,7 +654,7 @@ func (l *FunctionsListener) pruneRequests() {
 				break
 			}
 			if nPruned > 0 {
-				promPrunedRequests.WithLabelValues(l.oracleHexAddr).Add(float64(nPruned))
+				promPrunedRequests.WithLabelValues(l.contractAddressHex).Add(float64(nPruned))
 				l.logger.Debugw("pruned requests from the DB", "nTotal", nTotal, "nPruned", nPruned, "elapsedMillis", elapsedMillis)
 			} else {
 				l.logger.Debugw("no pruned requests at this time", "nTotal", nTotal, "elapsedMillis", elapsedMillis)
@@ -601,7 +680,7 @@ func (l *FunctionsListener) reportSourceCodeDomains(requestId RequestID, domains
 
 func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID string, subscriptionOwner common.Address, requestData *RequestData) (decryptedSecrets string, userError, internalError error) {
 	if l.decryptor == nil {
-		l.logger.Errorf("Decryptor not configured")
+		l.logger.Warn("Decryptor not configured")
 		return "", nil, nil
 	}
 

@@ -9,13 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Changed
+- Simple passwords are no longer allowed for production builds
+
+## 2.4.0 - UNRELEASED
 ### Fixed
 - Updated `v2/keys/evm` and `v2/keys/eth` routes to return 400 and 404 status codes where appropriate. Previously 500s were returned when requested resources were not found or client requests could not be parsed. 
+- Fixed withdrawing ETH from CL node for EIP1559 enabled chains. Previously would error out unless validation was overridden with `allowHigherAmounts`.
 
 ### Added
 - Added the ability to specify and merge fields from multiple secrets files. Overrides of fields and keys are not allowed.
 
-## 2.3.0 - UNRELEASED
+### Upcoming Breaking Change
+- Starting in 2.5.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:
+```
+AllowSimplePasswords=true
+```
+- To migrate on production builds, update the database password set in Database.URL to be 16 - 50 characters without leading or trailing whitespace. URI parsing rules apply to the chosen password - refer to RFC 3986 for special character escape rules. 
+
+<!-- unreleasedstop -->
+
+## 2.3.0 - 2023-07-28
 
 ### Added
 - Add a new field called `Order` (range from 1 to 100) to `EVM.Nodes` that is used for the `PriorityLevel` node selector and also as a tie-breaker for `HighestHead` and `TotalDifficulty`. `Order` levels are considered in ascending order. If not defined it will default to `Order = 100` (last level).
@@ -69,8 +83,6 @@ Node operators may wish to add alerting based around these metrics.
 ### Removed
 - Legacy chain types Optimism and Optimism2. OptimismBedrock is now used to handle Optimism's special cases.
 - Optimism Kovan configurations along with legacy error messages.
-
-<!-- unreleasedstop -->
 
 # 2.2.0 - 2023-06-12
 

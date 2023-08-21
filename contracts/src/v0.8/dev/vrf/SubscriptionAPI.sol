@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../interfaces/LinkTokenInterface.sol";
-import "../../ConfirmedOwner.sol";
+import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/interfaces/IERC677Receiver.sol";
 import "../interfaces/IVRFSubscriptionV2Plus.sol";
 
-abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677ReceiverInterface, IVRFSubscriptionV2Plus {
+abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscriptionV2Plus {
+  using EnumerableSet for EnumerableSet.UintSet;
+
   /// @dev may not be provided upon construction on some chains due to lack of availability
   LinkTokenInterface public LINK;
   /// @dev may not be provided upon construction on some chains due to lack of availability
@@ -32,6 +34,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
   event EthFundsRecovered(address to, uint256 amount);
   error LinkAlreadySet();
   error FailedToSendEther();
+  error IndexOutOfRange();
 
   // We use the subscription struct (1 word)
   // at fulfillment time.
@@ -41,8 +44,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     // a uint96 is large enough to hold around ~8e28 wei, or 80 billion ether.
     // That should be enough to cover most (if not all) subscriptions.
     uint96 ethBalance; // Common eth balance used for all consumer requests.
-
-    // TODO: put back request count?
+    uint64 reqCount;
   }
   // We use the config for the mgmt APIs
   struct SubscriptionConfig {
@@ -62,6 +64,13 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
   mapping(uint256 => Subscription) /* subId */ /* subscription */ internal s_subscriptions;
   // subscription nonce used to construct subID. Rises monotonically
   uint64 public s_currentSubNonce;
+  // track all subscription id's that were created by this contract
+  // note: access should be through the getActiveSubscriptionIds() view function
+  // which takes a starting index and a max number to fetch in order to allow
+  // "pagination" of the subscription ids. in the event a very large number of
+  // subscription id's are stored in this set, they cannot be retrieved in a
+  // single RPC call without violating various size limits.
+  EnumerableSet.UintSet internal s_subIds;
   // s_totalBalance tracks the total link sent to/from
   // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
   // A discrepancy with this contract's link balance indicates someone
@@ -83,6 +92,36 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
   event SubscriptionCanceled(uint256 indexed subId, address to, uint256 amountLink, uint256 amountEth);
   event SubscriptionOwnerTransferRequested(uint256 indexed subId, address from, address to);
   event SubscriptionOwnerTransferred(uint256 indexed subId, address from, address to);
+
+  struct Config {
+    uint16 minimumRequestConfirmations;
+    uint32 maxGasLimit;
+    // Reentrancy protection.
+    bool reentrancyLock;
+    // stalenessSeconds is how long before we consider the feed price to be stale
+    // and fallback to fallbackWeiPerUnitLink.
+    uint32 stalenessSeconds;
+    // Gas to cover oracle payment after we calculate the payment.
+    // We make it configurable in case those operations are repriced.
+    // The recommended number is below, though it may vary slightly
+    // if certain chains do not implement certain EIP's.
+    // 21000 + // base cost of the transaction
+    // 100 + 5000 + // warm subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
+    // 2*2100 + 5000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
+    // 4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
+    // 6685 + // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
+    // Total: 37,185 gas.
+    uint32 gasAfterPaymentCalculation;
+  }
+  Config public s_config;
+
+  error Reentrant();
+  modifier nonReentrant() {
+    if (s_config.reentrancyLock) {
+      revert Reentrant();
+    }
+    _;
+  }
 
   constructor() ConfirmedOwner(msg.sender) {}
 
@@ -227,13 +266,19 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
    */
   function getSubscription(
     uint256 subId
-  ) public view override returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers) {
+  )
+    public
+    view
+    override
+    returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers)
+  {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     return (
       s_subscriptions[subId].balance,
       s_subscriptions[subId].ethBalance,
+      s_subscriptions[subId].reqCount,
       s_subscriptionConfigs[subId].owner,
       s_subscriptionConfigs[subId].consumers
     );
@@ -242,18 +287,41 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
+  function getActiveSubscriptionIds(
+    uint256 startIndex,
+    uint256 maxCount
+  ) external view override returns (uint256[] memory) {
+    uint256 numSubs = s_subIds.length();
+    if (startIndex >= numSubs) revert IndexOutOfRange();
+    uint256 endIndex = startIndex + maxCount;
+    endIndex = endIndex > numSubs || maxCount == 0 ? numSubs : endIndex;
+    uint256[] memory ids = new uint256[](endIndex - startIndex);
+    for (uint256 idx = 0; idx < ids.length; idx++) {
+      ids[idx] = s_subIds.at(idx + startIndex);
+    }
+    return ids;
+  }
+
+  /**
+   * @inheritdoc IVRFSubscriptionV2Plus
+   */
   function createSubscription() external override nonReentrant returns (uint256) {
+    // Generate a subscription id that is globally unique.
     uint256 subId = uint256(
       keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1), address(this), s_currentSubNonce))
     );
+    // Increment the subscription nonce counter.
     s_currentSubNonce++;
+    // Initialize storage variables.
     address[] memory consumers = new address[](0);
-    s_subscriptions[subId] = Subscription({balance: 0, ethBalance: 0});
+    s_subscriptions[subId] = Subscription({balance: 0, ethBalance: 0, reqCount: 0});
     s_subscriptionConfigs[subId] = SubscriptionConfig({
       owner: msg.sender,
       requestedOwner: address(0),
       consumers: consumers
     });
+    // Update the s_subIds set, which tracks all subscription ids created in this contract.
+    s_subIds.add(subId);
 
     emit SubscriptionCreated(subId, msg.sender);
     return subId;
@@ -321,6 +389,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, ReentrancyGuard, ERC677Rece
     }
     delete s_subscriptionConfigs[subId];
     delete s_subscriptions[subId];
+    s_subIds.remove(subId);
     s_totalBalance -= balance;
     s_totalEthBalance -= ethBalance;
     return (balance, ethBalance);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../interfaces/LinkTokenInterface.sol";
+import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/VRFCoordinatorV2Interface.sol";
 import "../../dev/VRFConsumerBaseV2Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";

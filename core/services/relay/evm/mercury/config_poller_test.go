@@ -82,7 +82,8 @@ func TestMercuryConfigPoller(t *testing.T) {
 		offchainTransmitters[i] = oracles[i].OffchainPublicKey
 		encodedTransmitter[i] = ocrtypes2.Account(fmt.Sprintf("%x", oracles[i].OffchainPublicKey[:]))
 	}
-	_, err = th.verifierContract.SetConfig(th.user, feedIDBytes, signerAddresses, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+
+	_, err = th.verifierContract.SetConfig(th.user, feedIDBytes, signerAddresses, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, nil)
 	require.NoError(t, err, "failed to setConfig with feed ID")
 	th.backend.Commit()
 
@@ -124,34 +125,39 @@ func TestNotify(t *testing.T) {
 	th := SetupTH(t, feedID)
 	th.subscription.On("Events").Return((<-chan pg.Event)(eventCh))
 
+	addressPgHex := th.verifierAddress.Hex()[2:]
+
 	notify := th.configPoller.Notify()
 	assert.Empty(t, notify)
 
 	eventCh <- pg.Event{} // Empty event
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{Payload: "address"} // missing topic values
+	eventCh <- pg.Event{Payload: addressPgHex} // missing topic values
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{Payload: "address:val1"} // missing feedId topic value
+	eventCh <- pg.Event{Payload: addressPgHex + ":val1"} // missing feedId topic value
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{Payload: "address:8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1,val2"} // wrong index
+	eventCh <- pg.Event{Payload: addressPgHex + ":8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1,val2"} // wrong index
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{Payload: "address:val1,val2,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // wrong index
+	eventCh <- pg.Event{Payload: addressPgHex + ":val1,val2,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // wrong index
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{Payload: "address:val1,0x8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // 0x prefix
+	eventCh <- pg.Event{Payload: addressPgHex + ":val1,0x8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // 0x prefix
 	assert.Empty(t, notify)
 
-	eventCh <- pg.Event{Payload: "address:val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"}
+	eventCh <- pg.Event{Payload: "wrong_address:val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // wrong address
+	assert.Empty(t, notify)
+
+	eventCh <- pg.Event{Payload: addressPgHex + ":val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // expected event to notify on
 	assert.Eventually(t, func() bool { <-notify; return true }, time.Second, 10*time.Millisecond)
 
-	eventCh <- pg.Event{Payload: "address:val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // try second time
+	eventCh <- pg.Event{Payload: addressPgHex + ":val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1"} // try second time
 	assert.Eventually(t, func() bool { <-notify; return true }, time.Second, 10*time.Millisecond)
 
-	eventCh <- pg.Event{Payload: "address:val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1:additional"}
+	eventCh <- pg.Event{Payload: addressPgHex + ":val1,8257737fdf4f79639585fd0ed01bea93c248a9ad940e98dd27f41c9b6230fed1:additional"} // additional colon separated parts
 	assert.Eventually(t, func() bool { <-notify; return true }, time.Second, 10*time.Millisecond)
 }
 

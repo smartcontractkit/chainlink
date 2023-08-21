@@ -5,7 +5,7 @@ import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol
 
 abstract contract OCR2Abstract is ITypeAndVersion {
   // Maximum number of oracles the offchain reporting protocol is designed for
-  uint256 internal constant maxNumOracles = 31;
+  uint256 internal constant MAX_NUM_ORACLES = 31;
 
   /**
    * @notice triggers a new run of the offchain reporting protocol
