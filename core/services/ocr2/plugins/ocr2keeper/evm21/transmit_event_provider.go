@@ -51,14 +51,15 @@ func NewTransmitEventProvider(
 	if err != nil {
 		return nil, err
 	}
-	// Add log filters for the log poller so that it can poll and find the logs that
-	// we need.
 	err = logPoller.RegisterFilter(logpoller.Filter{
 		Name: TransmitEventProviderFilterName(contract.Address()),
 		EventSigs: []common.Hash{
-			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
-			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
-			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
+			// These are the events that are emitted when a node transmits a report
+			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),               // Happy path: report performed the upkeep
+			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),           // Report checkBlockNumber was reorged
+			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(), // Upkeep didn't have sufficient funds when report reached chain, perform was aborted early
+			// Report was too old when it reached the chain. For conditionals upkeep was already performed on a higher block than checkBlockNum
+			// for logs upkeep was already performed for the particular log
 			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
 		},
 		Addresses: []common.Address{registryAddress},
@@ -136,9 +137,8 @@ func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keep
 		[]common.Hash{
 			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
 			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
-			// TODO: enable once we have the corredponding types in ocr2keepers
-			// iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
-			// iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterReorgedUpkeepReport{}.Topic(),
+			iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport{}.Topic(),
 		},
 		c.registryAddress,
 		pg.WithParentCtx(ctx),
@@ -232,10 +232,7 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 			trigger.LogTriggerExtension.Index = triggerW.LogIndex
 		default:
 		}
-		workID, err := core.UpkeepWorkID(id, trigger)
-		if err != nil {
-			return nil, err
-		}
+		workID := core.UpkeepWorkID(*upkeepId, trigger)
 		vals = append(vals, ocr2keepers.TransmitEvent{
 			Type:            l.TransmitEventType(),
 			TransmitBlock:   ocr2keepers.BlockNumber(l.BlockNumber),
@@ -300,7 +297,6 @@ func (l transmitEventLog) TransmitEventType() ocr2keepers.TransmitEventType {
 	case l.InsufficientFunds != nil:
 		return ocr2keepers.InsufficientFundsReportEvent
 	default:
-		// TODO: use unknown type
-		return ocr2keepers.TransmitEventType(0)
+		return ocr2keepers.UnknownEvent
 	}
 }

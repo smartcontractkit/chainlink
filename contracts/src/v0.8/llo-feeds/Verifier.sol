@@ -199,7 +199,10 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifier
-  function verify(bytes calldata signedReport, address sender) external override returns (bytes memory response) {
+  function verify(
+    bytes calldata signedReport,
+    address sender
+  ) external override returns (bytes memory verifierResponse) {
     if (msg.sender != i_verifierProxyAddr) revert AccessForbidden();
     (
       bytes32[3] memory reportContext,
