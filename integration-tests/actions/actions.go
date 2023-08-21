@@ -56,7 +56,7 @@ func FundChainlinkNodes(
 			return err
 		}
 	}
-	return client.WaitForEvents()
+	return nil
 }
 
 // FundChainlinkNodesAddress will fund all of the provided Chainlink nodes address at given index with a set amount of native currency

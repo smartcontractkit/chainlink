@@ -536,34 +536,46 @@ func (o *OCRSoakTest) observeOCREvents() error {
 		timeout        = time.Second * 15
 	)
 	for err == nil {
-		log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
+		// log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
-		cancel()
-		if err != nil {
-			event := contractEvents[0]
-			answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
-			if err != nil {
-				log.Warn().
-					Err(err).
-					Str("Address", event.Address.Hex()).
-					Uint64("Block Number", event.BlockNumber).
-					Msg("Error parsing event as AnswerUpdated")
-				continue
-			}
-			o.log.Info().
-				Str("Address", event.Address.Hex()).
-				Uint64("Block Number", event.BlockNumber).
-				Uint64("Round ID", answerUpdated.RoundId.Uint64()).
-				Int64("Answer", answerUpdated.Current.Int64()).
-				Msg("Answer Updated Event")
-			log.Warn().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Error collecting on-chain events, trying again")
-			timeout *= 2
+
+		latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
+		if latestBlockNum > o.filterQuery.FromBlock.Uint64() {
+			contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
 			o.filterQuery.FromBlock.Add(o.filterQuery.FromBlock, big.NewInt(1))
 			o.filterQuery.ToBlock.Add(o.filterQuery.ToBlock, big.NewInt(1))
+		} else {
+			cancel()
+			continue
+		}
+
+		cancel()
+		if err == nil {
+			if len(contractEvents) > 0 {
+				event := contractEvents[0]
+				answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
+				if err != nil {
+					log.Warn().
+						Err(err).
+						Str("Address", event.Address.Hex()).
+						Uint64("Block Number", event.BlockNumber).
+						Msg("Error parsing event as AnswerUpdated")
+					continue
+				}
+				o.log.Info().
+					Str("Address", event.Address.Hex()).
+					Uint64("Block Number", event.BlockNumber).
+					Uint64("Round ID", answerUpdated.RoundId.Uint64()).
+					Int64("Answer", answerUpdated.Current.Int64()).
+					Msg("Answer Updated Event")
+				timeout *= 2
+			}
+			// if latestBlockNum > o.filterQuery.FromBlock.Uint64() {
+			// 	o.filterQuery.FromBlock.Add(o.filterQuery.FromBlock, big.NewInt(1))
+			// 	o.filterQuery.ToBlock.Add(o.filterQuery.ToBlock, big.NewInt(1))
+			// }
 		}
 	}
-
 	return nil
 }
 
