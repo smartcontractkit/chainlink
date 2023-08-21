@@ -3553,6 +3553,46 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
+    it('reverts if signers or transmitters are the zero address', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfigTypeSafe(
+            [randomAddress(), randomAddress(), randomAddress(), zeroAddress],
+            [
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+            ],
+            f,
+            newConfig,
+            offchainVersion,
+            offchainBytes,
+          ),
+        'InvalidSigner()',
+      )
+
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfigTypeSafe(
+            [
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+            ],
+            [randomAddress(), randomAddress(), randomAddress(), zeroAddress],
+            f,
+            newConfig,
+            offchainVersion,
+            offchainBytes,
+          ),
+        'InvalidTransmitter()',
+      )
+    })
+
     it('updates the onchainConfig and configDigest', async () => {
       const old = await registry.getState()
       const oldConfig = old.config

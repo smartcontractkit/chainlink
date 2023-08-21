@@ -279,9 +279,11 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
       address temp;
       for (uint256 i = 0; i < signers.length; i++) {
         if (s_signers[signers[i]].active) revert RepeatedSigner();
+        if (signers[i] == ZERO_ADDRESS) revert InvalidSigner();
         s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
 
         temp = transmitters[i];
+        if (temp == ZERO_ADDRESS) revert InvalidTransmitter();
         transmitter = s_transmitters[temp];
         if (transmitter.active) revert RepeatedTransmitter();
         transmitter.active = true;
