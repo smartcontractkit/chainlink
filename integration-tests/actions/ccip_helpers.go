@@ -91,7 +91,7 @@ type CCIPCommon struct {
 	Deployer           *ccip.CCIPContractsDeployer
 	FeeToken           *ccip.LinkToken
 	FeeTokenPool       *ccip.LockReleaseTokenPool
-	BridgeTokens       []*ccip.LinkToken // as of now considering the bridge token is same as link token
+	BridgeTokens       []*ccip.ERC20Token // as of now considering the bridge token is same as link token
 	TokenPrices        []*big.Int
 	BridgeTokenPools   []*ccip.LockReleaseTokenPool
 	RateLimiterConfig  ccip.RateLimiterConfig
@@ -110,12 +110,13 @@ func (ccipModule *CCIPCommon) CopyAddresses(ctx context.Context, chainClient blo
 	for _, pool := range ccipModule.BridgeTokenPools {
 		pools = append(pools, &ccip.LockReleaseTokenPool{EthAddress: pool.EthAddress})
 	}
-	var tokens []*ccip.LinkToken
+	var tokens []*ccip.ERC20Token
 	for _, token := range ccipModule.BridgeTokens {
-		tokens = append(tokens, &ccip.LinkToken{
-			EthAddress: token.EthAddress,
+		tokens = append(tokens, &ccip.ERC20Token{
+			ContractAddress: token.ContractAddress,
 		})
 	}
+
 	grp, _ := errgroup.WithContext(ctx)
 	c := &CCIPCommon{
 		ChainClient: chainClient,
@@ -187,11 +188,11 @@ func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig)
 			ccipModule.WrappedNative = common.HexToAddress(conf.WrappedNative)
 		}
 		if len(conf.BridgeTokens) > 0 {
-			var tokens []*ccip.LinkToken
+			var tokens []*ccip.ERC20Token
 			for _, token := range conf.BridgeTokens {
 				if common.IsHexAddress(token) {
-					tokens = append(tokens, &ccip.LinkToken{
-						EthAddress: common.HexToAddress(token),
+					tokens = append(tokens, &ccip.ERC20Token{
+						ContractAddress: common.HexToAddress(token),
 					})
 				}
 			}
@@ -220,7 +221,7 @@ func (ccipModule *CCIPCommon) ApproveTokens() error {
 		if err != nil {
 			return errors.WithStack(err)
 		}
-		if token.EthAddress == ccipModule.FeeToken.EthAddress {
+		if token.ContractAddress == ccipModule.FeeToken.EthAddress {
 			isApproved = true
 		}
 	}
@@ -324,16 +325,23 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	if len(ccipModule.BridgeTokens) == 0 {
 		// deploy bridge token.
 		for i := len(ccipModule.BridgeTokens); i < noOfTokens; i++ {
-			var token *ccip.LinkToken
+			var token *ccip.ERC20Token
 			var err error
 			if len(tokenDeployerFns) != noOfTokens {
-				token, err = cd.DeployLinkTokenContract()
+				// we deploy link token and cast it to ERC20Token
+				linkToken, err := cd.DeployLinkTokenContract()
+				if err != nil {
+					return fmt.Errorf("deploying bridge token contract shouldn't fail %+v", err)
+				}
+				token, err = cd.NewERC20TokenContract(common.HexToAddress(linkToken.Address()))
 			} else {
 				token, err = cd.DeployERC20TokenContract(tokenDeployerFns[i])
 			}
+
 			if err != nil {
 				return fmt.Errorf("deploying bridge token contract shouldn't fail %+v", err)
 			}
+
 			ccipModule.BridgeTokens = append(ccipModule.BridgeTokens, token)
 		}
 		err = ccipModule.ChainClient.WaitForEvents()
@@ -341,9 +349,9 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 			return fmt.Errorf("error in waiting for bridge token deployment %+v", err)
 		}
 	} else {
-		var tokens []*ccip.LinkToken
+		var tokens []*ccip.ERC20Token
 		for _, token := range ccipModule.BridgeTokens {
-			newToken, err := cd.NewLinkTokenContract(common.HexToAddress(token.Address()))
+			newToken, err := cd.NewERC20TokenContract(common.HexToAddress(token.Address()))
 			if err != nil {
 				return fmt.Errorf("getting new bridge token contract shouldn't fail %+v", err)
 			}
@@ -530,7 +538,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		}
 		for i, token := range sourceCCIP.Common.BridgeTokens {
 			priceUpdates.TokenPriceUpdates = append(priceUpdates.TokenPriceUpdates, price_registry.InternalTokenPriceUpdate{
-				SourceToken: token.EthAddress,
+				SourceToken: token.ContractAddress,
 				UsdPerToken: sourceCCIP.Common.TokenPrices[i],
 			})
 		}
@@ -549,11 +557,11 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		var tokenTransferFeeConfig []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs
 		for i, token := range sourceCCIP.Common.BridgeTokens {
 			tokensAndPools = append(tokensAndPools, evm_2_evm_onramp.InternalPoolUpdate{
-				Token: token.EthAddress,
+				Token: token.ContractAddress,
 				Pool:  sourceCCIP.Common.BridgeTokenPools[i].EthAddress,
 			})
 			tokenTransferFeeConfig = append(tokenTransferFeeConfig, evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
-				Token: token.EthAddress,
+				Token: token.ContractAddress,
 				Ratio: 5_0, // 5 bps
 			})
 		}
@@ -583,6 +591,15 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 			[]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs{
 				{
 					Token:                  common.HexToAddress(sourceCCIP.Common.FeeToken.Address()),
+					NetworkFeeUSD:          1_00,
+					MinTokenTransferFeeUSD: 1_00,
+					MaxTokenTransferFeeUSD: 5000_00,
+					GasMultiplier:          GasFeeMultiplier,
+					PremiumMultiplier:      1e18,
+					Enabled:                true,
+				},
+				{
+					Token:                  sourceCCIP.Common.WrappedNative,
 					NetworkFeeUSD:          1_00,
 					MinTokenTransferFeeUSD: 1_00,
 					MaxTokenTransferFeeUSD: 5000_00,
@@ -647,14 +664,14 @@ func (sourceCCIP *SourceCCIPModule) CollectBalanceRequirements() []testhelpers.B
 		balancesReq = append(balancesReq, testhelpers.BalanceReq{
 			Name:   fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), sourceCCIP.Sender.Hex()),
 			Addr:   sourceCCIP.Sender,
-			Getter: GetterForLinkToken(token, sourceCCIP.Sender.Hex()),
+			Getter: GetterForLinkToken(token.BalanceOf, sourceCCIP.Sender.Hex()),
 		})
 	}
 	for i, pool := range sourceCCIP.Common.BridgeTokenPools {
 		balancesReq = append(balancesReq, testhelpers.BalanceReq{
 			Name:   fmt.Sprintf("BridgeToken-%s-TokenPool-%s", sourceCCIP.Common.BridgeTokens[i].Address(), pool.Address()),
 			Addr:   pool.EthAddress,
-			Getter: GetterForLinkToken(sourceCCIP.Common.BridgeTokens[i], pool.Address()),
+			Getter: GetterForLinkToken(sourceCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
 		})
 	}
 
@@ -662,22 +679,22 @@ func (sourceCCIP *SourceCCIPModule) CollectBalanceRequirements() []testhelpers.B
 		balancesReq = append(balancesReq, testhelpers.BalanceReq{
 			Name:   fmt.Sprintf("FeeToken-%s-Address-%s", sourceCCIP.Common.FeeToken.Address(), sourceCCIP.Sender.Hex()),
 			Addr:   sourceCCIP.Sender,
-			Getter: GetterForLinkToken(sourceCCIP.Common.FeeToken, sourceCCIP.Sender.Hex()),
+			Getter: GetterForLinkToken(sourceCCIP.Common.FeeToken.BalanceOf, sourceCCIP.Sender.Hex()),
 		})
 		balancesReq = append(balancesReq, testhelpers.BalanceReq{
 			Name:   fmt.Sprintf("FeeToken-%s-Router-%s", sourceCCIP.Common.FeeToken.Address(), sourceCCIP.Common.Router.Address()),
 			Addr:   sourceCCIP.Common.Router.EthAddress,
-			Getter: GetterForLinkToken(sourceCCIP.Common.FeeToken, sourceCCIP.Common.Router.Address()),
+			Getter: GetterForLinkToken(sourceCCIP.Common.FeeToken.BalanceOf, sourceCCIP.Common.Router.Address()),
 		})
 		balancesReq = append(balancesReq, testhelpers.BalanceReq{
 			Name:   fmt.Sprintf("FeeToken-%s-OnRamp-%s", sourceCCIP.Common.FeeToken.Address(), sourceCCIP.OnRamp.Address()),
 			Addr:   sourceCCIP.OnRamp.EthAddress,
-			Getter: GetterForLinkToken(sourceCCIP.Common.FeeToken, sourceCCIP.OnRamp.Address()),
+			Getter: GetterForLinkToken(sourceCCIP.Common.FeeToken.BalanceOf, sourceCCIP.OnRamp.Address()),
 		})
 		balancesReq = append(balancesReq, testhelpers.BalanceReq{
 			Name:   fmt.Sprintf("FeeToken-%s-Prices-%s", sourceCCIP.Common.FeeToken.Address(), sourceCCIP.Common.PriceRegistry.Address()),
 			Addr:   sourceCCIP.Common.PriceRegistry.EthAddress,
-			Getter: GetterForLinkToken(sourceCCIP.Common.FeeToken, sourceCCIP.Common.PriceRegistry.Address()),
+			Getter: GetterForLinkToken(sourceCCIP.Common.FeeToken.BalanceOf, sourceCCIP.Common.PriceRegistry.Address()),
 		})
 	}
 	return balancesReq
@@ -692,7 +709,7 @@ func (sourceCCIP *SourceCCIPModule) UpdateBalance(
 		name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), sourceCCIP.Sender.Hex())
 		balances.Update(name, BalanceItem{
 			Address:  sourceCCIP.Sender,
-			Getter:   GetterForLinkToken(token, sourceCCIP.Sender.Hex()),
+			Getter:   GetterForLinkToken(token.BalanceOf, sourceCCIP.Sender.Hex()),
 			AmtToSub: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
 		})
 	}
@@ -700,7 +717,7 @@ func (sourceCCIP *SourceCCIPModule) UpdateBalance(
 		name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", sourceCCIP.Common.BridgeTokens[i].Address(), pool.Address())
 		balances.Update(name, BalanceItem{
 			Address:  pool.EthAddress,
-			Getter:   GetterForLinkToken(sourceCCIP.Common.BridgeTokens[i], pool.Address()),
+			Getter:   GetterForLinkToken(sourceCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
 			AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
 		})
 	}
@@ -709,23 +726,23 @@ func (sourceCCIP *SourceCCIPModule) UpdateBalance(
 		name := fmt.Sprintf("FeeToken-%s-Address-%s", sourceCCIP.Common.FeeToken.Address(), sourceCCIP.Sender.Hex())
 		balances.Update(name, BalanceItem{
 			Address:  sourceCCIP.Sender,
-			Getter:   GetterForLinkToken(sourceCCIP.Common.FeeToken, sourceCCIP.Sender.Hex()),
+			Getter:   GetterForLinkToken(sourceCCIP.Common.FeeToken.BalanceOf, sourceCCIP.Sender.Hex()),
 			AmtToSub: totalFee,
 		})
 		name = fmt.Sprintf("FeeToken-%s-Prices-%s", sourceCCIP.Common.FeeToken.Address(), sourceCCIP.Common.PriceRegistry.Address())
 		balances.Update(name, BalanceItem{
 			Address: sourceCCIP.Common.PriceRegistry.EthAddress,
-			Getter:  GetterForLinkToken(sourceCCIP.Common.FeeToken, sourceCCIP.Common.PriceRegistry.Address()),
+			Getter:  GetterForLinkToken(sourceCCIP.Common.FeeToken.BalanceOf, sourceCCIP.Common.PriceRegistry.Address()),
 		})
 		name = fmt.Sprintf("FeeToken-%s-Router-%s", sourceCCIP.Common.FeeToken.Address(), sourceCCIP.Common.Router.Address())
 		balances.Update(name, BalanceItem{
 			Address: sourceCCIP.Common.Router.EthAddress,
-			Getter:  GetterForLinkToken(sourceCCIP.Common.FeeToken, sourceCCIP.Common.Router.Address()),
+			Getter:  GetterForLinkToken(sourceCCIP.Common.FeeToken.BalanceOf, sourceCCIP.Common.Router.Address()),
 		})
 		name = fmt.Sprintf("FeeToken-%s-OnRamp-%s", sourceCCIP.Common.FeeToken.Address(), sourceCCIP.OnRamp.Address())
 		balances.Update(name, BalanceItem{
 			Address:  sourceCCIP.OnRamp.EthAddress,
-			Getter:   GetterForLinkToken(sourceCCIP.Common.FeeToken, sourceCCIP.OnRamp.Address()),
+			Getter:   GetterForLinkToken(sourceCCIP.Common.FeeToken.BalanceOf, sourceCCIP.OnRamp.Address()),
 			AmtToAdd: totalFee,
 		})
 	}
@@ -978,7 +995,7 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		}
 		for i, token := range destCCIP.Common.BridgeTokens {
 			priceUpdates.TokenPriceUpdates = append(priceUpdates.TokenPriceUpdates, price_registry.InternalTokenPriceUpdate{
-				SourceToken: token.EthAddress,
+				SourceToken: token.ContractAddress,
 				UsdPerToken: destCCIP.Common.TokenPrices[i],
 			})
 		}
@@ -1041,7 +1058,12 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		pool := destCCIP.Common.BridgeTokenPools[i]
 		pools = append(pools, pool.EthAddress)
 		if !destCCIP.Common.ExistingDeployment {
-			err = pool.AddLiquidity(token, destCCIP.Common.poolFunds)
+			bal, err := token.BalanceOf(context.Background(), destCCIP.Common.ChainClient.GetDefaultWallet().Address())
+			if err != nil {
+				return err
+			}
+			log.Info().Msg(fmt.Sprintf("dest token %s balance %s", token.Address(), bal.String()))
+			err = pool.AddLiquidity(token.Approve, token.Address(), destCCIP.Common.poolFunds)
 			if err != nil {
 				return fmt.Errorf("adding liquidity token to dest pool shouldn't fail %+v", err)
 			}
@@ -1125,31 +1147,31 @@ func (destCCIP *DestCCIPModule) CollectBalanceRequirements() []testhelpers.Balan
 		destBalancesReq = append(destBalancesReq, testhelpers.BalanceReq{
 			Name:   fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), destCCIP.ReceiverDapp.Address()),
 			Addr:   destCCIP.ReceiverDapp.EthAddress,
-			Getter: GetterForLinkToken(token, destCCIP.ReceiverDapp.Address()),
+			Getter: GetterForLinkToken(token.BalanceOf, destCCIP.ReceiverDapp.Address()),
 		})
 	}
 	for i, pool := range destCCIP.Common.BridgeTokenPools {
 		destBalancesReq = append(destBalancesReq, testhelpers.BalanceReq{
 			Name:   fmt.Sprintf("BridgeToken-%s-TokenPool-%s", destCCIP.Common.BridgeTokens[i].Address(), pool.Address()),
 			Addr:   pool.EthAddress,
-			Getter: GetterForLinkToken(destCCIP.Common.BridgeTokens[i], pool.Address()),
+			Getter: GetterForLinkToken(destCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
 		})
 	}
 	if destCCIP.Common.FeeToken.Address() != common.HexToAddress("0x0").String() {
 		destBalancesReq = append(destBalancesReq, testhelpers.BalanceReq{
 			Name:   fmt.Sprintf("FeeToken-%s-Address-%s", destCCIP.Common.FeeToken.Address(), destCCIP.ReceiverDapp.Address()),
 			Addr:   destCCIP.ReceiverDapp.EthAddress,
-			Getter: GetterForLinkToken(destCCIP.Common.FeeToken, destCCIP.ReceiverDapp.Address()),
+			Getter: GetterForLinkToken(destCCIP.Common.FeeToken.BalanceOf, destCCIP.ReceiverDapp.Address()),
 		})
 		destBalancesReq = append(destBalancesReq, testhelpers.BalanceReq{
 			Name:   fmt.Sprintf("FeeToken-%s-OffRamp-%s", destCCIP.Common.FeeToken.Address(), destCCIP.OffRamp.Address()),
 			Addr:   destCCIP.OffRamp.EthAddress,
-			Getter: GetterForLinkToken(destCCIP.Common.FeeToken, destCCIP.OffRamp.Address()),
+			Getter: GetterForLinkToken(destCCIP.Common.FeeToken.BalanceOf, destCCIP.OffRamp.Address()),
 		})
 		destBalancesReq = append(destBalancesReq, testhelpers.BalanceReq{
 			Name:   fmt.Sprintf("FeeToken-%s-FeeTokenPool-%s", destCCIP.Common.FeeToken.Address(), destCCIP.Common.FeeTokenPool.Address()),
 			Addr:   destCCIP.Common.FeeTokenPool.EthAddress,
-			Getter: GetterForLinkToken(destCCIP.Common.FeeToken, destCCIP.Common.FeeTokenPool.Address()),
+			Getter: GetterForLinkToken(destCCIP.Common.FeeToken.BalanceOf, destCCIP.Common.FeeTokenPool.Address()),
 		})
 	}
 	return destBalancesReq
@@ -1164,7 +1186,7 @@ func (destCCIP *DestCCIPModule) UpdateBalance(
 		name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), destCCIP.ReceiverDapp.Address())
 		balance.Update(name, BalanceItem{
 			Address:  destCCIP.ReceiverDapp.EthAddress,
-			Getter:   GetterForLinkToken(token, destCCIP.ReceiverDapp.Address()),
+			Getter:   GetterForLinkToken(token.BalanceOf, destCCIP.ReceiverDapp.Address()),
 			AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
 		})
 	}
@@ -1172,7 +1194,7 @@ func (destCCIP *DestCCIPModule) UpdateBalance(
 		name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", destCCIP.Common.BridgeTokens[i].Address(), pool.Address())
 		balance.Update(name, BalanceItem{
 			Address:  pool.EthAddress,
-			Getter:   GetterForLinkToken(destCCIP.Common.BridgeTokens[i], pool.Address()),
+			Getter:   GetterForLinkToken(destCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
 			AmtToSub: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
 		})
 	}
@@ -1180,18 +1202,18 @@ func (destCCIP *DestCCIPModule) UpdateBalance(
 		name := fmt.Sprintf("FeeToken-%s-OffRamp-%s", destCCIP.Common.FeeToken.Address(), destCCIP.OffRamp.Address())
 		balance.Update(name, BalanceItem{
 			Address: destCCIP.OffRamp.EthAddress,
-			Getter:  GetterForLinkToken(destCCIP.Common.FeeToken, destCCIP.OffRamp.Address()),
+			Getter:  GetterForLinkToken(destCCIP.Common.FeeToken.BalanceOf, destCCIP.OffRamp.Address()),
 		})
 		name = fmt.Sprintf("FeeToken-%s-FeeTokenPool-%s", destCCIP.Common.FeeToken.Address(), destCCIP.Common.FeeTokenPool.Address())
 		balance.Update(name, BalanceItem{
 			Address: destCCIP.Common.FeeTokenPool.EthAddress,
-			Getter:  GetterForLinkToken(destCCIP.Common.FeeToken, destCCIP.Common.FeeTokenPool.Address()),
+			Getter:  GetterForLinkToken(destCCIP.Common.FeeToken.BalanceOf, destCCIP.Common.FeeTokenPool.Address()),
 		})
 
 		name = fmt.Sprintf("FeeToken-%s-Address-%s", destCCIP.Common.FeeToken.Address(), destCCIP.ReceiverDapp.Address())
 		balance.Update(name, BalanceItem{
 			Address: destCCIP.ReceiverDapp.EthAddress,
-			Getter:  GetterForLinkToken(destCCIP.Common.FeeToken, destCCIP.ReceiverDapp.Address()),
+			Getter:  GetterForLinkToken(destCCIP.Common.FeeToken.BalanceOf, destCCIP.ReceiverDapp.Address()),
 		})
 	}
 }
@@ -2304,9 +2326,11 @@ func AssertBalances(t *testing.T, bas []testhelpers.BalanceAssertion) {
 	logEvent.Msg("balance assertions succeeded")
 }
 
-func GetterForLinkToken(token *ccip.LinkToken, addr string) func(t *testing.T, _ common.Address) *big.Int {
+type BalFunc func(ctx context.Context, addr string) (*big.Int, error)
+
+func GetterForLinkToken(getBalance BalFunc, addr string) func(t *testing.T, _ common.Address) *big.Int {
 	return func(t *testing.T, _ common.Address) *big.Int {
-		balance, err := token.BalanceOf(context.Background(), addr)
+		balance, err := getBalance(context.Background(), addr)
 		assert.NoError(t, err)
 		return balance
 	}

@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -67,16 +68,16 @@ func (e *CCIPContractsDeployer) DeployLinkTokenContract() (*LinkToken, error) {
 	}, err
 }
 
-func (e *CCIPContractsDeployer) DeployERC20TokenContract(deployerFn blockchain.ContractDeployer) (*LinkToken, error) {
-	address, _, instance, err := e.evmClient.DeployContract("ERC20 Token", deployerFn)
+func (e *CCIPContractsDeployer) DeployERC20TokenContract(deployerFn blockchain.ContractDeployer) (*ERC20Token, error) {
+	address, _, instance, err := e.evmClient.DeployContract("Custom ERC20 Token", deployerFn)
 	if err != nil {
 		return nil, err
 	}
 
-	return &LinkToken{
-		client:     e.evmClient,
-		instance:   instance.(*link_token_interface.LinkToken),
-		EthAddress: *address,
+	return &ERC20Token{
+		client:          e.evmClient,
+		instance:        instance.(*erc20.ERC20),
+		ContractAddress: *address,
 	}, err
 }
 
@@ -96,6 +97,25 @@ func (e *CCIPContractsDeployer) NewLinkTokenContract(addr common.Address) (*Link
 		client:     e.evmClient,
 		instance:   token,
 		EthAddress: addr,
+	}, err
+}
+
+func (e *CCIPContractsDeployer) NewERC20TokenContract(addr common.Address) (*ERC20Token, error) {
+	token, err := erc20.NewERC20(addr, e.evmClient.Backend())
+
+	if err != nil {
+		return nil, err
+	}
+	log.Info().
+		Str("Contract Address", addr.Hex()).
+		Str("Contract Name", "Link Token").
+		Str("From", e.evmClient.GetDefaultWallet().Address()).
+		Str("Network Name", e.evmClient.GetNetworkConfig().Name).
+		Msg("New contract")
+	return &ERC20Token{
+		client:          e.evmClient,
+		instance:        token,
+		ContractAddress: addr,
 	}, err
 }
 

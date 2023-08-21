@@ -246,6 +246,7 @@ test_smoke_ccip_simulated_local:
     SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2"  \
     CCIP_DEPLOY_ON_LOCAL=True  \
     CCIP_NO_OF_NETWORKS=2  \
+    CCIP_MSG_TYPE=WithToken \
     CHAINLINK_IMAGE=$(image)  \
     CHAINLINK_VERSION=$(tag)  \
     CCIP_TESTS_ON_EXISTING_DEPLOYMENT=False  \
