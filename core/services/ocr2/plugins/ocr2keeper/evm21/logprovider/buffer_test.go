@@ -175,7 +175,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 	})
 
 	t.Run("enqueue logs overflow", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 2, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 2, 2, 10)
 
 		require.Equal(t, 2, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -230,14 +230,14 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		results := buf.peekRange(int64(1), int64(2))
 		require.Equal(t, 2, len(results))
 		verifyBlockNumbers(t, results, 1, 2)
-		removed := buf.dequeueRange(int64(1), int64(2))
+		removed := buf.dequeueRange(int64(1), int64(2), 2)
 		require.Equal(t, 2, len(removed))
 		results = buf.peekRange(int64(1), int64(2))
 		require.Equal(t, 0, len(results))
 	})
 
 	t.Run("enqueue peek and dequeue", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 4, 10, 10)
 
 		require.Equal(t, buf.enqueue(big.NewInt(10),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 10},
@@ -250,10 +250,11 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		results := buf.peek(8)
 		require.Equal(t, 4, len(results))
 		verifyBlockNumbers(t, results, 1, 2, 3, 3)
-		removed := buf.dequeue(8)
+		removed := buf.dequeue(8, 5)
 		require.Equal(t, 4, len(removed))
 		buf.lock.Lock()
 		require.Equal(t, 0, len(buf.blocks[0].logs))
+		require.Equal(t, int64(2), buf.blocks[1].blockNumber)
 		require.Equal(t, 1, len(buf.blocks[1].visited))
 		buf.lock.Unlock()
 	})
@@ -294,6 +295,20 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		results := buf.peekRange(int64(0), int64(5))
 		fmt.Println(results)
 		verifyBlockNumbers(t, results, 2, 3, 4, 4)
+	})
+
+	t.Run("dequeue with limits", func(t *testing.T) {
+		buf := newLogEventBuffer(logger.TestLogger(t), 3, 5, 10)
+		require.Equal(t, buf.enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 4, TxHash: common.HexToHash("0x4"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 5, TxHash: common.HexToHash("0x5"), LogIndex: 0},
+		), 5)
+
+		logs := buf.dequeue(10, 2)
+		require.Equal(t, 2, len(logs))
 	})
 }
 

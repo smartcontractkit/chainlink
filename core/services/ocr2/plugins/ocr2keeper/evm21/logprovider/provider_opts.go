@@ -8,63 +8,45 @@ import (
 
 // LogEventProviderOptions holds the options for the log event provider.
 type LogEventProviderOptions struct {
-	// LogRetention is the amount of time to retain logs for.
-	LogRetention time.Duration
-	// AllowedLogsPerBlock is the maximum number of logs allowed per block in the buffer.
-	BufferMaxBlockSize int
-	// LogBufferSize is the number of blocks in the buffer.
-	LogBufferSize int
-	// AllowedLogsPerBlock is the maximum number of logs allowed per block & upkeep in the buffer.
-	AllowedLogsPerBlock int
-	// LogBlocksLookback is the number of blocks to look back for logs.
-	LogBlocksLookback int64
-	// LookbackBuffer is the number of blocks to add as a buffer to the lookback.
-	LookbackBuffer int64
-	// BlockRateLimit is the rate limit for fetching logs per block.
+	// LookbackBlocks is the number of blocks to look back for logs.
+	LookbackBlocks int64
+	// ReorgBuffer is the number of blocks to add as a buffer to the lookback.
+	ReorgBuffer int64
+	// BlockRateLimit is the rate limit on the range of blocks the we fetch logs for.
 	BlockRateLimit rate.Limit
-	// BlockLimitBurst is the burst limit for fetching logs per block.
+	// BlockLimitBurst is the burst upper limit on the range of blocks the we fetch logs for.
 	BlockLimitBurst int
 	// ReadInterval is the interval to fetch logs in the background.
 	ReadInterval time.Duration
-	// ReadMaxBatchSize is the max number of items in one read batch / partition.
-	ReadMaxBatchSize int
+	// ReadBatchSize is the max number of items in one read batch / partition.
+	ReadBatchSize int
 	// Readers is the number of reader workers to spawn.
 	Readers int
 }
 
 // Defaults sets the default values for the options.
 func (o *LogEventProviderOptions) Defaults() {
-	if o.LogRetention == 0 {
-		o.LogRetention = 24 * time.Hour
+	if o.LookbackBlocks == 0 {
+		// TODO: Ensure lookback blocks is at least as large as Finality Depth to
+		// ensure recoverer does not go beyond finality depth
+		o.LookbackBlocks = 200
 	}
-	if o.BufferMaxBlockSize == 0 {
-		o.BufferMaxBlockSize = 1024
-	}
-	if o.AllowedLogsPerBlock == 0 {
-		o.AllowedLogsPerBlock = 128
-	}
-	if o.LogBlocksLookback == 0 {
-		o.LogBlocksLookback = 512
-	}
-	if o.LogBufferSize == 0 {
-		o.LogBufferSize = int(o.LogBlocksLookback * 3)
-	}
-	if o.LookbackBuffer == 0 {
-		o.LookbackBuffer = 32
+	if o.ReorgBuffer == 0 {
+		o.ReorgBuffer = 32
 	}
 	if o.BlockRateLimit == 0 {
 		o.BlockRateLimit = rate.Every(time.Second)
 	}
 	if o.BlockLimitBurst == 0 {
-		o.BlockLimitBurst = int(o.LogBlocksLookback)
+		o.BlockLimitBurst = int(o.LookbackBlocks)
 	}
 	if o.ReadInterval == 0 {
 		o.ReadInterval = time.Second
 	}
-	if o.ReadMaxBatchSize == 0 {
-		o.ReadMaxBatchSize = 32
+	if o.ReadBatchSize == 0 {
+		o.ReadBatchSize = 32
 	}
 	if o.Readers == 0 {
-		o.Readers = 2
+		o.Readers = 4
 	}
 }
