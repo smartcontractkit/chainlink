@@ -15,6 +15,10 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   LinkTokenInterface public LINK;
   /// @dev may not be provided upon construction on some chains due to lack of availability
   AggregatorV3Interface public LINK_ETH_FEED;
+  /// @dev may not be provided upon construction on some chains due to lack of availability
+  AggregatorV3Interface public LINK_USD_FEED;
+  /// @dev may not be provided upon construction on some chains due to lack of availability
+  AggregatorV3Interface public ETH_USD_FEED;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -130,14 +134,16 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * used by this coordinator
    * @param link - address of link token
    * @param linkEthFeed address of the link eth feed
+   * @param ethUSDFeed address of the eth usd feed
    */
-  function setLINKAndLINKETHFeed(address link, address linkEthFeed) external onlyOwner {
+  function setLINKAndFeeds(address link, address linkEthFeed, address ethUSDFeed) external onlyOwner {
     // Disallow re-setting link token because the logic wouldn't really make sense
     if (address(LINK) != address(0)) {
       revert LinkAlreadySet();
     }
     LINK = LinkTokenInterface(link);
     LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
+    ETH_USD_FEED = AggregatorV3Interface(ethUSDFeed);
   }
 
   /**

@@ -28,6 +28,9 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   error ProvingKeyAlreadyRegistered(bytes32 keyHash);
   error NoSuchProvingKey(bytes32 keyHash);
   error InvalidLinkWeiPrice(int256 linkWei);
+  error InvalidEthUSDPrice(int256 ethUSD);
+  error InvalidLinkUSDPrice(int256 linkUSD);
+  error InvalidUSDPrice(address feed, int256 price);
   error InsufficientGasForConsumer(uint256 have, uint256 want);
   error NoCorrespondingRequest();
   error IncorrectCommitment();
@@ -67,22 +70,37 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   );
 
   int256 public s_fallbackWeiPerUnitLink;
+  int256 public s_fallbackUSDPerUnitEth;
+  int256 public s_fallbackUSDPerUnitLink;
 
   FeeConfig public s_feeConfig;
   struct FeeConfig {
-    // Flat fee charged per fulfillment in millionths of link
-    // So fee range is [0, 2^32/10^6].
-    uint32 fulfillmentFlatFeeLinkPPM;
-    // Flat fee charged per fulfillment in millionths of eth.
-    // So fee range is [0, 2^32/10^6].
-    uint32 fulfillmentFlatFeeEthPPM;
+    // Flat fee charged per fulfillment in 1e-8 of USD
+    // i.e 1 USD == 100000000 "USD-8"
+    // in other words, this is USD with 8 decimals rather than 2.
+    // So for uint40, the maximum USD we can charge per premium is
+    // max(uint40) * 1e-8 USD == 1099511627775 * 1e-8 ~= 10,995 USD
+    // which should be more than enough.
+    uint40 fulfillmentFlatFeeLinkUSD;
+    // Flat fee charged per fulfillment in 1e-8 of USD.
+    // i.e 1 USD == 100000000 "USD-8"
+    // in other words, this is USD with 8 decimals rather than 2.
+    // So for uint40, the maximum USD we can charge per premium is
+    // max(uint40) * 1e-8 USD == 1099511627775 * 1e-8 ~= 10,995 USD
+    // which should be more than enough.
+    uint40 fulfillmentFlatFeeEthUSD;
   }
+  /// @dev this is the number of decimals used in the fee config numbers described
+  /// @dev in the FeeConfig struct.
+  uint8 public constant USD_FEE_DECIMALS = 8;
   event ConfigSet(
     uint16 minimumRequestConfirmations,
     uint32 maxGasLimit,
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
+    int256 fallbackUSDPerUnitEth,
+    int256 fallbackUSDPerUnitLink,
     FeeConfig feeConfig
   );
 
@@ -150,6 +168,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
     int256 fallbackWeiPerUnitLink,
+    int256 fallbackUSDPerUnitEth,
+    int256 fallbackUSDPerUnitLink,
     FeeConfig memory feeConfig
   ) external onlyOwner {
     if (minimumRequestConfirmations > MAX_REQUEST_CONFIRMATIONS) {
@@ -162,6 +182,12 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     if (fallbackWeiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(fallbackWeiPerUnitLink);
     }
+    if (fallbackUSDPerUnitEth <= 0) {
+      revert InvalidEthUSDPrice(fallbackUSDPerUnitEth);
+    }
+    if (fallbackUSDPerUnitLink <= 0) {
+      revert InvalidLinkUSDPrice(fallbackUSDPerUnitLink);
+    }
     s_config = Config({
       minimumRequestConfirmations: minimumRequestConfirmations,
       maxGasLimit: maxGasLimit,
@@ -171,12 +197,16 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     });
     s_feeConfig = feeConfig;
     s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
+    s_fallbackUSDPerUnitEth = fallbackUSDPerUnitEth;
+    s_fallbackUSDPerUnitLink = fallbackUSDPerUnitLink;
     emit ConfigSet(
       minimumRequestConfirmations,
       maxGasLimit,
       stalenessSeconds,
       gasAfterPaymentCalculation,
       fallbackWeiPerUnitLink,
+      fallbackUSDPerUnitEth,
+      fallbackUSDPerUnitLink,
       s_feeConfig
     );
   }
@@ -459,7 +489,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         calculatePaymentAmountEth(
           startGas,
           gasAfterPaymentCalculation,
-          s_feeConfig.fulfillmentFlatFeeEthPPM,
+          s_feeConfig.fulfillmentFlatFeeEthUSD,
           weiPerUnitGas
         );
     }
@@ -467,7 +497,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       calculatePaymentAmountLink(
         startGas,
         gasAfterPaymentCalculation,
-        s_feeConfig.fulfillmentFlatFeeLinkPPM,
+        s_feeConfig.fulfillmentFlatFeeLinkUSD,
         weiPerUnitGas
       );
   }
@@ -475,7 +505,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   function calculatePaymentAmountEth(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
-    uint32 fulfillmentFlatFeePPM,
+    uint40 fulfillmentFlatFeeEthUSD,
     uint256 weiPerUnitGas
   ) internal view returns (uint96) {
     // Will return non-zero on chains that have this enabled
@@ -483,20 +513,67 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     // calculate the payment without the premium
     uint256 baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft());
     // calculate the flat fee in wei
-    uint256 flatFeeWei = 1e12 * uint256(fulfillmentFlatFeePPM);
+    uint256 flatFeeWei = calculateFlatFeeFromUSD(fulfillmentFlatFeeEthUSD, ETH_USD_FEED);
     // return the final fee with the flat fee and l1 cost (if applicable) added
     return uint96(baseFeeWei + flatFeeWei + l1CostWei);
+  }
+
+  /**
+   * @notice Calculate the flat fee in wei or in juels from the USD fee
+   * @notice depending on whether the feed provided is the ETH_USD_FEED or the LINK_ETH_FEED.
+   * @notice this is done because there would be unnecessary code duplication and bloat otherwise.
+   * @param fulfillmentFlatFeeUSD the flat fee in USD, this is either s_feeConfig.fulfillmentFlatFeeEthUSD or s_feeConfig.fulfillmentFlatFeeLinkUSD
+   * @param feed the feed to use to calculate the fee, this is either ETH_USD_FEED or LINK_ETH_FEED
+  */
+  function calculateFlatFeeFromUSD(uint40 fulfillmentFlatFeeUSD, AggregatorV3Interface feed) internal view returns (uint256 fee) {
+    // if the fee is zero return zero.
+    // this is likely the situation where we don't have a feed, therefore the code below would
+    // revert due to zero addresses on the feed fields.
+    if (fulfillmentFlatFeeUSD == 0) {
+      return 0;
+    }
+
+    // Note that both LINK and the native token of EVM chains have 18 decimals.
+    // Therefore, we can use the same logic for both.
+    int256 usdPerUnitCrypto;
+    uint8 decimals;
+    (usdPerUnitCrypto, decimals) = getUSDFeedData(feed);
+    if (usdPerUnitCrypto <= 0) {
+      revert InvalidUSDPrice(address(feed), usdPerUnitCrypto);
+    }
+    if (decimals < USD_FEE_DECIMALS) {
+      // because our representation has more decimals, we need to divide by the
+      // difference to match the number of decimals in the aggregator contract.
+      uint8 decimalDiff = USD_FEE_DECIMALS - decimals;
+      // USD / (USD / {ETH|LINK}) = USD * ({ETH|LINK} / USD) = USD * ((1e18 {wei|juels}/{ETH|LINK}) / USD) = {wei|juels}
+      // divide additionally by the decimal difference since the premium denomination is
+      // in more decimals than the aggregator contract.
+      fee = (uint256(fulfillmentFlatFeeUSD) * 1 ether) / (uint256(usdPerUnitCrypto) * uint256(10**decimalDiff));
+    } else if (decimals > USD_FEE_DECIMALS) {
+      // because our representation has less decimals, we need to multiply by
+      // the difference to match the number of decimals in the aggregator contract.
+      uint8 decimalDiff = decimals - USD_FEE_DECIMALS;
+      // USD / (USD / {ETH|LINK}) = USD * ({ETH|LINK} / USD) = USD * ((1e18 {wei|juels}/{ETH|LINK}) / USD) = {wei|juels}
+      // multiply additionally by the decimal difference since the premium denomination is
+      // in less decimals than the aggregator contract.
+      fee = (uint256(fulfillmentFlatFeeUSD) * 1 ether * uint256(10**decimalDiff)) / uint256(usdPerUnitCrypto);
+    } else {
+      // our representation is the same as the one in the aggregator contract,
+      // so we can just do the conversion right away.
+      // USD / (USD / {ETH|LINK}) = USD * ({ETH|LINK} / USD) = USD * ((1e18 {wei|juels}/{ETH|LINK}) / USD) = {wei|juels}
+      fee = (uint256(fulfillmentFlatFeeUSD) * 1 ether) / uint256(usdPerUnitCrypto);
+    }
   }
 
   // Get the amount of gas used for fulfillment
   function calculatePaymentAmountLink(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
-    uint32 fulfillmentFlatFeeLinkPPM,
+    uint40 fulfillmentFlatFeeLinkUSD,
     uint256 weiPerUnitGas
   ) internal view returns (uint96) {
     int256 weiPerUnitLink;
-    weiPerUnitLink = getFeedData();
+    weiPerUnitLink = getLINKEthFeedData();
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
@@ -505,14 +582,14 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
       uint256(weiPerUnitLink);
-    uint256 fee = 1e12 * uint256(fulfillmentFlatFeeLinkPPM);
+    uint256 fee = calculateFlatFeeFromUSD(fulfillmentFlatFeeLinkUSD, LINK_ETH_FEED);
     if (paymentNoFee > (1e27 - fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
     return uint96(paymentNoFee + fee);
   }
 
-  function getFeedData() private view returns (int256) {
+  function getLINKEthFeedData() private view returns (int256) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
@@ -523,6 +600,24 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
     return weiPerUnitLink;
+  }
+
+  function getUSDFeedData(AggregatorV3Interface feed) private view returns (int256 answer, uint8 decimals) {
+    uint32 stalenessSeconds = s_config.stalenessSeconds;
+    bool staleFallback = stalenessSeconds > 0;
+    uint256 timestamp;
+    (, answer, , timestamp, ) = feed.latestRoundData();
+    // solhint-disable-next-line not-rely-on-time
+    if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
+      if (feed == ETH_USD_FEED) {
+        answer = s_fallbackUSDPerUnitEth;
+      } else if (feed == LINK_ETH_FEED) {
+        answer = s_fallbackWeiPerUnitLink;
+      } else {
+        revert(); // Should never happen
+      }
+    }
+    decimals = feed.decimals();
   }
 
   /*
