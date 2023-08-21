@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_exposed_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/exposed_verifier"
 )
 
 // Adapted from: https://github.com/smartcontractkit/offchain-reporting/blob/991ebe1462fd56826a1ddfb34287d542acb2baee/lib/offchainreporting2/chains/evmutil/config_digest_test.go
@@ -32,7 +32,7 @@ func TestConfigCalculationMatches(t *testing.T) {
 		core.GenesisAlloc{owner.From: {Balance: new(big.Int).Lsh(big.NewInt(1), 60)}},
 		ethconfig.Defaults.Miner.GasCeil,
 	)
-	_, _, eoa, err := mercury_exposed_verifier.DeployMercuryExposedVerifier(
+	_, _, eoa, err := exposed_verifier.DeployExposedVerifier(
 		owner, backend,
 	)
 	backend.Commit()

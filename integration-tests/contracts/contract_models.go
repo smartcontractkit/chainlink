@@ -256,6 +256,36 @@ type OffchainAggregatorEventsMock interface {
 	NewTransmission(aggregatorRoundId uint32, answer *big.Int, transmitter common.Address, observations []*big.Int, observers []byte, rawReportContext [32]byte) error
 }
 
+type KeeperRegistry11Mock interface {
+	Address() string
+	EmitUpkeepPerformed(id *big.Int, success bool, from common.Address, payment *big.Int, performData []byte) error
+	EmitUpkeepCanceled(id *big.Int, atBlockHeight uint64) error
+	EmitFundsWithdrawn(id *big.Int, amount *big.Int, to common.Address) error
+	EmitKeepersUpdated(keepers []common.Address, payees []common.Address) error
+	EmitUpkeepRegistered(id *big.Int, executeGas uint32, admin common.Address) error
+	EmitFundsAdded(id *big.Int, from common.Address, amount *big.Int) error
+	SetUpkeepCount(_upkeepCount *big.Int) error
+	SetCanceledUpkeepList(_canceledUpkeepList []*big.Int) error
+	SetKeeperList(_keepers []common.Address) error
+	SetConfig(_paymentPremiumPPB uint32, _flatFeeMicroLink uint32, _blockCountPerTurn *big.Int, _checkGasLimit uint32, _stalenessSeconds *big.Int, _gasCeilingMultiplier uint16, _fallbackGasPrice *big.Int, _fallbackLinkPrice *big.Int) error
+	SetUpkeep(id *big.Int, _target common.Address, _executeGas uint32, _balance *big.Int, _admin common.Address, _maxValidBlocknumber uint64, _lastKeeper common.Address, _checkData []byte) error
+	SetMinBalance(id *big.Int, minBalance *big.Int) error
+	SetCheckUpkeepData(id *big.Int, performData []byte, maxLinkPayment *big.Int, gasLimit *big.Int, adjustedGasWei *big.Int, linkEth *big.Int) error
+	SetPerformUpkeepSuccess(id *big.Int, success bool) error
+}
+
+type KeeperRegistrar12Mock interface {
+	Address() string
+	EmitRegistrationRequested(hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) error
+	EmitRegistrationApproved(hash [32]byte, displayName string, upkeepId *big.Int) error
+	SetRegistrationConfig(_autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) error
+}
+
+type KeeperGasWrapperMock interface {
+	Address() string
+	SetMeasureCheckGasResult(result bool, payload []byte, gas *big.Int) error
+}
+
 type MockAggregatorProxy interface {
 	Address() string
 	UpdateAggregator(aggregator common.Address) error

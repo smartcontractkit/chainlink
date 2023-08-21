@@ -14,23 +14,25 @@ var (
 	ErrMultipleChains = errors.New("more than one chain available, you must specify evmChainID parameter")
 )
 
-func getChain(cs evm.ChainSet, chainIDstr string) (chain evm.Chain, err error) {
+func getChain(legacyChains evm.LegacyChainContainer, chainIDstr string) (chain evm.Chain, err error) {
+	if legacyChains.Len() > 1 {
+		return nil, ErrMultipleChains
+	}
+
 	if chainIDstr != "" && chainIDstr != "<nil>" {
-		chainID, ok := big.NewInt(0).SetString(chainIDstr, 10)
+		// evm keys are expected to be parsable as a big int
+		_, ok := big.NewInt(0).SetString(chainIDstr, 10)
 		if !ok {
 			return nil, ErrInvalidChainID
 		}
-		chain, err = cs.Get(chainID)
+		chain, err = legacyChains.Get(chainIDstr)
 		if err != nil {
 			return nil, ErrMissingChainID
 		}
 		return chain, nil
 	}
 
-	if cs.ChainCount() > 1 {
-		return nil, ErrMultipleChains
-	}
-	chain, err = cs.Default()
+	chain, err = legacyChains.Default()
 	if err != nil {
 		return nil, err
 	}

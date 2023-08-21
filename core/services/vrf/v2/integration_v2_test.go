@@ -224,6 +224,7 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	// Deploy old VRF v2 coordinator from bytecode
 	err, oldRootContractAddress, oldRootContract := deployOldCoordinator(
 		t, linkAddress, bhsAddress, linkEthFeed, backend, neil)
+	require.NoError(t, err)
 
 	// Deploy the VRFOwner contract, which will own the VRF coordinator
 	// in some tests.
@@ -1751,7 +1752,7 @@ func TestIntegrationVRFV2(t *testing.T) {
 	})
 
 	// We should see the response count present
-	chain, err := app.Chains.EVM.Get(big.NewInt(1337))
+	chain, err := app.GetRelayers().LegacyEVMChains().Get(big.NewInt(1337).String())
 	require.NoError(t, err)
 
 	q := pg.NewQ(app.GetSqlxDB(), app.Logger, app.Config.Database())

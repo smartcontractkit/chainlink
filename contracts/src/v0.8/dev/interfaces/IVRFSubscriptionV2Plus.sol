@@ -72,6 +72,15 @@ interface IVRFSubscriptionV2Plus {
     returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers);
 
   /**
+   * @notice Paginate through all active VRF subscriptions.
+   * @param startIndex index of the subscription to start from
+   * @param maxCount maximum number of subscriptions to return, 0 to return all
+   * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
+   * @dev should consider keeping the blockheight constant to ensure a holistic picture of the contract state
+   */
+  function getActiveSubscriptionIds(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
+
+  /**
    * @notice Fund a subscription with ETH.
    * @param subId - ID of the subscription
    * @notice This method expects msg.value to be greater than 0.

@@ -81,7 +81,7 @@ func deployUniverse(e helpers.Environment) {
 	flatFeeEthPPM := deployCmd.Int64("flat-fee-eth-ppm", 500, "fulfillment flat fee ETH ppm")
 
 	helpers.ParseArgs(
-		deployCmd, os.Args[2:],
+		deployCmd, os.Args[2:], "uncompressed-pub-key", "oracle-address",
 	)
 
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()

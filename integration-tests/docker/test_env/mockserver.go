@@ -10,9 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
+
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 )
 
 type MockServer struct {
@@ -26,7 +27,7 @@ type MockServer struct {
 func NewMockServer(networks []string, opts ...EnvComponentOption) *MockServer {
 	ms := &MockServer{
 		EnvComponent: EnvComponent{
-			ContainerName: fmt.Sprintf("%s-%s", "mockserver", uuid.NewString()[0:3]),
+			ContainerName: fmt.Sprintf("%s-%s", "mockserver", uuid.NewString()[0:8]),
 			Networks:      networks,
 		},
 	}
@@ -92,7 +93,7 @@ func (ms *MockServer) StartContainer() error {
 func (ms *MockServer) getContainerRequest() tc.ContainerRequest {
 	return tc.ContainerRequest{
 		Name:         ms.ContainerName,
-		Image:        "mockserver/mockserver:5.11.2",
+		Image:        "mockserver/mockserver:5.15.0",
 		ExposedPorts: []string{"1080/tcp"},
 		Env: map[string]string{
 			"SERVER_PORT": "1080",
