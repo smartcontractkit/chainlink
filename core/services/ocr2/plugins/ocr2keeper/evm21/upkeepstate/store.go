@@ -44,9 +44,8 @@ var (
 
 // upkeepStateRecord is a record that we save in a local cache.
 type upkeepStateRecord struct {
-	workID      string
-	state       ocr2keepers.UpkeepState
-	blockNumber uint64
+	workID string
+	state  ocr2keepers.UpkeepState
 
 	addedAt time.Time
 }
@@ -202,7 +201,6 @@ func (u *upkeepStateStore) upsertStateRecord(ctx context.Context, workID string,
 		}
 	}
 
-	record.blockNumber = b
 	record.state = s
 
 	u.cache[workID] = record
@@ -211,7 +209,6 @@ func (u *upkeepStateStore) upsertStateRecord(ctx context.Context, workID string,
 		UpkeepID:            utils.NewBig(upkeepID),
 		WorkID:              record.workID,
 		CompletionState:     uint8(record.state),
-		BlockNumber:         int64(record.blockNumber),
 		IneligibilityReason: reason,
 		InsertedAt:          record.addedAt,
 	}, pg.WithParentCtx(ctx))
@@ -230,10 +227,9 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64,
 	for _, workID := range performed {
 		if _, ok := u.cache[workID]; !ok {
 			s := &upkeepStateRecord{
-				workID:      workID,
-				state:       ocr2keepers.Performed,
-				addedAt:     time.Now(),
-				blockNumber: uint64(end),
+				workID:  workID,
+				state:   ocr2keepers.Performed,
+				addedAt: time.Now(),
 			}
 
 			u.cache[workID] = s
@@ -268,10 +264,9 @@ func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs []string, st
 	for _, state := range dbStates {
 		if _, ok := u.cache[state.WorkID]; !ok {
 			u.cache[state.WorkID] = &upkeepStateRecord{
-				workID:      state.WorkID,
-				state:       ocr2keepers.UpkeepState(state.CompletionState),
-				blockNumber: uint64(state.BlockNumber),
-				addedAt:     state.InsertedAt,
+				workID:  state.WorkID,
+				state:   ocr2keepers.UpkeepState(state.CompletionState),
+				addedAt: state.InsertedAt,
 			}
 		}
 	}
