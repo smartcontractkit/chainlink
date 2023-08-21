@@ -27,16 +27,16 @@ func getFinalityDepth(chain rhea.Chain) uint32 {
 	// those higher than others.
 	var finalityDepthPerChain = map[rhea.Chain]uint32{
 		// Testnets
-		rhea.Goerli:         4,
-		rhea.OptimismGoerli: 5,
+		rhea.Goerli:         4, // We use finality tag
+		rhea.OptimismGoerli: 5, // We use finality tag
 		rhea.Quorum:         4,
-		rhea.AvaxFuji:       2, // Should be 1 theoretically
-		rhea.PolygonMumbai:  5,
-		rhea.ArbitrumGoerli: 5,
-		rhea.Sepolia:        4,
-		rhea.BASEGoerli:     5,
-		rhea.AvaxAnzSubnet:  1, // devnet without normal block production
-		rhea.BSCTestnet:     2,
+		rhea.AvaxFuji:       35,  // Implements strange finality tag, use 35 instead
+		rhea.PolygonMumbai:  550, // No finality tag available
+		rhea.ArbitrumGoerli: 5,   // We use finality tag
+		rhea.Sepolia:        4,   // We use finality tag
+		rhea.BASEGoerli:     5,   // We use finality tag
+		rhea.AvaxAnzSubnet:  1,   // devnet without normal block production
+		rhea.BSCTestnet:     2,   //  We use finality tag
 		// Mainnets
 		// We've made a bit of an effort to make these realistic, but they are *not* production-ready parameters, only use them for testing!!!
 		rhea.Ethereum: 96, // 3 epochs to be safe
