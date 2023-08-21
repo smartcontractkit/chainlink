@@ -15,17 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
-type Keystore interface {
-	Accounts(ctx context.Context) (accounts []string, err error)
-	// Sign returns data signed by account.
-	// nil data can be used as a no-op to check for account existence.
-	Sign(ctx context.Context, account string, data []byte) (signed []byte, err error)
-}
-
-type PluginRelayer interface {
-	NewRelayer(ctx context.Context, config string, keystore Keystore) (Relayer, error)
-}
-
 var _ PluginRelayer = (*PluginRelayerClient)(nil)
 
 type PluginRelayerClient struct {
@@ -159,23 +148,6 @@ func (k *keystoreServer) Sign(ctx context.Context, request *pb.SignRequest) (*pb
 		return nil, err
 	}
 	return &pb.SignReply{SignedData: signed}, nil
-}
-
-// Relayer extends [types.Relayer] and includes [context.Context]s.
-type Relayer interface {
-	types.Service
-
-	NewConfigProvider(context.Context, types.RelayArgs) (types.ConfigProvider, error)
-	NewMedianProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.MedianProvider, error)
-	NewMercuryProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.MercuryProvider, error)
-	NewFunctionsProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.FunctionsProvider, error)
-
-	ChainStatus(ctx context.Context, id string) (types.ChainStatus, error)
-	ChainStatuses(ctx context.Context, offset, limit int) (chains []types.ChainStatus, count int, err error)
-
-	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
-
-	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 var _ Relayer = (*relayerClient)(nil)

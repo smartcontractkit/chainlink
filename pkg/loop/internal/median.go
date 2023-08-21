@@ -20,15 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
-type ErrorLog interface {
-	SaveError(ctx context.Context, msg string) error
-}
-
-type PluginMedian interface {
-	// NewMedianFactory returns a new ReportingPluginFactory. If provider implements GRPCClientConn, it can be forwarded efficiently via proxy.
-	NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog ErrorLog) (ReportingPluginFactory, error)
-}
-
 var _ PluginMedian = (*PluginMedianClient)(nil)
 
 type PluginMedianClient struct {
