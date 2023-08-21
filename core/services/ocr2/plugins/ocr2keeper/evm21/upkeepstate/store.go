@@ -242,15 +242,15 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64,
 // fetchFromDB fetches all upkeeps indicated as ineligible from the db to
 // populate the cache
 func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs []string, states []ocr2keepers.UpkeepState) error {
-	if len(workIDs) == 0 {
-		return nil
-	}
-
 	idsWithUnknownState := []string{}
 	for i, state := range states {
 		if state == ocr2keepers.UnknownState {
 			idsWithUnknownState = append(idsWithUnknownState, workIDs[i])
 		}
+	}
+
+	if len(idsWithUnknownState) == 0 {
+		return nil
 	}
 
 	dbStates, err := u.orm.SelectStatesByWorkIDs(idsWithUnknownState, pg.WithParentCtx(ctx))
