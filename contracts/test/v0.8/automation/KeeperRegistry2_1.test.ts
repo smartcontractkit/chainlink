@@ -2863,6 +2863,18 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
+    describe('after the registration is paused, then cancelled', () => {
+      it('allows the admin to withdraw', async () => {
+        const balance = await registry.getBalance(upkeepId)
+        const payee = await payee1.getAddress()
+        await registry.connect(admin).pauseUpkeep(upkeepId)
+        await registry.connect(owner).cancelUpkeep(upkeepId)
+        await expect(() =>
+          registry.connect(admin).withdrawFunds(upkeepId, payee),
+        ).to.changeTokenBalance(linkToken, payee1, balance)
+      })
+    })
+
     describe('after the registration is cancelled', () => {
       beforeEach(async () => {
         await registry.connect(owner).cancelUpkeep(upkeepId)
