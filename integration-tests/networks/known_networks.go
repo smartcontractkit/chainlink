@@ -444,7 +444,7 @@ var (
 		ChainID:                   1442,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      0,
 		GasEstimationBuffer:       1000,
 	}
