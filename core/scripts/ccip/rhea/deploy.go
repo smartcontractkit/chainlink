@@ -40,9 +40,11 @@ const (
 	DEST_GAS_PER_PAYLOAD_BYTE         = 16
 	DEFAULT_GAS_LIMIT                 = 200_000
 	MAX_NOP_FEES_LINK                 = 100_000_000
-	TOKEN_BPS                         = 5_0
-	LOCK_RELEASE_DEST_GAS_OVERHEAD    = 340_000
-	BURN_MINT_DEST_GAS_OVERHEAD       = 290_000
+	// Token transfer fee ratio defaults to 5 bps, in multiples of 0.1bps
+	TOKEN_BPS = 5_0
+	// Approx token transfer gas usage on destination chain for given pool types
+	LOCK_RELEASE_DEST_GAS_OVERHEAD = 340_000
+	BURN_MINT_DEST_GAS_OVERHEAD    = 290_000
 )
 
 // DeployLanes will deploy all source and Destination chain contracts using the
