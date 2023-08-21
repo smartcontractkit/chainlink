@@ -43,8 +43,8 @@ const (
 	// Token transfer fee ratio defaults to 5 bps, in multiples of 0.1bps
 	TOKEN_BPS = 5_0
 	// Approx token transfer gas usage on destination chain for given pool types
-	LOCK_RELEASE_DEST_GAS_OVERHEAD = 340_000
-	BURN_MINT_DEST_GAS_OVERHEAD    = 290_000
+	LOCK_RELEASE_DEST_GAS_OVERHEAD = 34_000
+	BURN_MINT_DEST_GAS_OVERHEAD    = 29_000
 )
 
 // DeployLanes will deploy all source and Destination chain contracts using the
