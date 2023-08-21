@@ -22,22 +22,22 @@ import (
 )
 
 func TestLogEventProvider_GetEntries(t *testing.T) {
-	p := New(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
 
 	_, f := newEntry(p, 1)
 	p.filterStore.AddActiveUpkeeps(f)
 
 	t.Run("no entries", func(t *testing.T) {
-		entries := p.getEntries(0, false, big.NewInt(0))
+		entries := p.getFilters(0, false, big.NewInt(0))
 		require.Len(t, entries, 1)
 		require.Equal(t, len(entries[0].addr), 0)
 	})
 
 	t.Run("has entry with lower lastPollBlock", func(t *testing.T) {
-		entries := p.getEntries(0, false, f.upkeepID)
+		entries := p.getFilters(0, false, f.upkeepID)
 		require.Len(t, entries, 1)
 		require.Greater(t, len(entries[0].addr), 0)
-		entries = p.getEntries(10, false, f.upkeepID)
+		entries = p.getFilters(10, false, f.upkeepID)
 		require.Len(t, entries, 1)
 		require.Greater(t, len(entries[0].addr), 0)
 	})
@@ -47,18 +47,18 @@ func TestLogEventProvider_GetEntries(t *testing.T) {
 		f.lastPollBlock = 3
 		p.filterStore.AddActiveUpkeeps(f)
 
-		entries := p.getEntries(1, false, f.upkeepID)
+		entries := p.getFilters(1, false, f.upkeepID)
 		require.Len(t, entries, 1)
 		require.Equal(t, len(entries[0].addr), 0)
 
-		entries = p.getEntries(1, true, f.upkeepID)
+		entries = p.getFilters(1, true, f.upkeepID)
 		require.Len(t, entries, 1)
 		require.Greater(t, len(entries[0].addr), 0)
 	})
 }
 
 func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
-	p := New(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
 
 	n := 10
 
@@ -71,7 +71,7 @@ func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
 	t.Run("no entries", func(t *testing.T) {
 		_, f := newEntry(p, n*2)
 		f.lastPollBlock = 10
-		p.updateEntriesLastPoll([]upkeepFilter{f})
+		p.updateFiltersLastPoll([]upkeepFilter{f})
 
 		filters := p.filterStore.GetFilters(nil)
 		for _, f := range filters {
@@ -84,14 +84,14 @@ func TestLogEventProvider_UpdateEntriesLastPoll(t *testing.T) {
 		f2.lastPollBlock = 10
 		_, f1 := newEntry(p, n-1)
 		f1.lastPollBlock = 10
-		p.updateEntriesLastPoll([]upkeepFilter{f1, f2})
+		p.updateFiltersLastPoll([]upkeepFilter{f1, f2})
 
 		p.filterStore.RangeFiltersByIDs(func(_ int, f upkeepFilter) {
 			require.Equal(t, int64(10), f.lastPollBlock)
 		}, f1.upkeepID, f2.upkeepID)
 
 		// update with same block
-		p.updateEntriesLastPoll([]upkeepFilter{f1})
+		p.updateFiltersLastPoll([]upkeepFilter{f1})
 
 		// checking other entries are not updated
 		_, f := newEntry(p, 1)
@@ -172,9 +172,9 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 			defer cancel()
 
 			readInterval := 10 * time.Millisecond
-			p := New(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), &LogEventProviderOptions{
-				ReadMaxBatchSize: tc.maxBatchSize,
-				ReadInterval:     readInterval,
+			p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), &LogEventProviderOptions{
+				ReadBatchSize: tc.maxBatchSize,
+				ReadInterval:  readInterval,
 			})
 
 			var ids []*big.Int
@@ -248,7 +248,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 		},
 	}, nil)
 
-	p := New(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
 
 	var ids []*big.Int
 	for i := 0; i < 10; i++ {
