@@ -383,10 +383,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
-	var ids []utils.Big
-	for _, c := range cfg.EVMConfigs() {
-		ids = append(ids, *c.ChainID)
-	}
 
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"))

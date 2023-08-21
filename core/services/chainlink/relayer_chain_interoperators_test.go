@@ -184,19 +184,19 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 		expectedEVMChainCnt   int
 		expectedEVMNodeCnt    int
-		expectedEVMRelayerIds []relay.Identifier
+		expectedEVMRelayerIds []relay.ID
 
 		expectedSolanaChainCnt   int
 		expectedSolanaNodeCnt    int
-		expectedSolanaRelayerIds []relay.Identifier
+		expectedSolanaRelayerIds []relay.ID
 
 		expectedStarknetChainCnt   int
 		expectedStarknetNodeCnt    int
-		expectedStarknetRelayerIds []relay.Identifier
+		expectedStarknetRelayerIds []relay.ID
 
 		expectedCosmosChainCnt   int
 		expectedCosmosNodeCnt    int
-		expectedCosmosRelayerIds []relay.Identifier
+		expectedCosmosRelayerIds []relay.ID
 	}{
 
 		{name: "2 evm chains with 3 nodes",
@@ -212,7 +212,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
-			expectedEVMRelayerIds: []relay.Identifier{
+			expectedEVMRelayerIds: []relay.ID{
 				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID1.String())},
 				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
 			},
@@ -225,7 +225,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			},
 			expectedSolanaChainCnt: 2,
 			expectedSolanaNodeCnt:  2,
-			expectedSolanaRelayerIds: []relay.Identifier{
+			expectedSolanaRelayerIds: []relay.ID{
 				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
 				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
 			},
@@ -238,7 +238,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			},
 			expectedStarknetChainCnt: 2,
 			expectedStarknetNodeCnt:  4,
-			expectedStarknetRelayerIds: []relay.Identifier{
+			expectedStarknetRelayerIds: []relay.ID{
 				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
 				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
 			},
@@ -253,7 +253,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			},
 			expectedCosmosChainCnt: 2,
 			expectedCosmosNodeCnt:  2,
-			expectedCosmosRelayerIds: []relay.Identifier{
+			expectedCosmosRelayerIds: []relay.ID{
 				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
 				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
 			},
@@ -282,28 +282,28 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,
-			expectedEVMRelayerIds: []relay.Identifier{
+			expectedEVMRelayerIds: []relay.ID{
 				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID1.String())},
 				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
 			},
 
 			expectedSolanaChainCnt: 2,
 			expectedSolanaNodeCnt:  2,
-			expectedSolanaRelayerIds: []relay.Identifier{
+			expectedSolanaRelayerIds: []relay.ID{
 				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
 				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
 			},
 
 			expectedStarknetChainCnt: 2,
 			expectedStarknetNodeCnt:  4,
-			expectedStarknetRelayerIds: []relay.Identifier{
+			expectedStarknetRelayerIds: []relay.ID{
 				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
 				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
 			},
 
 			expectedCosmosChainCnt: 2,
 			expectedCosmosNodeCnt:  2,
-			expectedCosmosRelayerIds: []relay.Identifier{
+			expectedCosmosRelayerIds: []relay.ID{
 				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
 				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
 			},
@@ -363,7 +363,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 			}
 
-			allRelayerIds := [][]relay.Identifier{
+			allRelayerIds := [][]relay.ID{
 				tt.expectedEVMRelayerIds,
 				tt.expectedCosmosRelayerIds,
 				tt.expectedSolanaRelayerIds,
@@ -394,7 +394,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				}
 			}
 
-			expectedMissing := relay.Identifier{Network: relay.Cosmos, ChainID: "not a chain id"}
+			expectedMissing := relay.ID{Network: relay.Cosmos, ChainID: "not a chain id"}
 			unwanted, err := cr.Get(expectedMissing)
 			assert.Nil(t, unwanted)
 			assert.ErrorIs(t, err, chainlink.ErrNoSuchRelayer)
