@@ -553,9 +553,9 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 				Pool:  sourceCCIP.Common.BridgeTokenPools[i].EthAddress,
 			})
 			tokenTransferFeeConfig = append(tokenTransferFeeConfig, evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
-				Token:   token.EthAddress,
-				Ratio:   5_0, // 5 bps
-				DestGas: 34_000,
+				Token:           token.EthAddress,
+				Ratio:           5_0, // 5 bps
+				DestGasOverhead: 34_000,
 			})
 		}
 		tokensAndPools = append(tokensAndPools, evm_2_evm_onramp.InternalPoolUpdate{
@@ -563,9 +563,9 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 			Pool:  sourceCCIP.Common.FeeTokenPool.EthAddress,
 		})
 		tokenTransferFeeConfig = append(tokenTransferFeeConfig, evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
-			Token:   common.HexToAddress(sourceCCIP.Common.FeeToken.Address()),
-			Ratio:   1,
-			DestGas: 34_000,
+			Token:           common.HexToAddress(sourceCCIP.Common.FeeToken.Address()),
+			Ratio:           1,
+			DestGasOverhead: 34_000,
 		})
 
 		sourceCCIP.SrcStartBlock, err = sourceCCIP.Common.ChainClient.LatestBlockNumber(context.Background())
