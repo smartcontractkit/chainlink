@@ -32,7 +32,9 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 	}
 
 	t.Cleanup(func() {
-		setUpOutput.Balance.Verify(t)
+		if TestCfg.MsgType == actions.TokenTransfer {
+			setUpOutput.Balance.Verify(t)
+		}
 		setUpOutput.TearDown()
 	})
 	for i := range setUpOutput.Lanes {
@@ -202,7 +204,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			tc.lane.Logger.Info().Interface("rate limit", rlOnRamp).Msg("OnRamp rate limiter state")
 			require.True(t, rlOnRamp.IsEnabled, "OnRamp rate limiter should be enabled")
 
-			tokenPrice, err := src.Common.PriceRegistry.Instance.GetTokenPrice(nil, src.Common.BridgeTokens[0].EthAddress)
+			tokenPrice, err := src.Common.PriceRegistry.Instance.GetTokenPrice(nil, src.Common.BridgeTokens[0].ContractAddress)
 			require.NoError(t, err)
 			tc.lane.Logger.Info().Str("tokenPrice.Value", tokenPrice.Value.String()).Msg("Price Registry Token Price")
 

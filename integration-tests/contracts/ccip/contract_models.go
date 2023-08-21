@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -34,6 +35,67 @@ type ARMConfig struct {
 	ARMWeightsByParticipants map[string]*big.Int // mapping : ARM participant address => weight
 	ThresholdForBlessing     *big.Int
 	ThresholdForBadSignal    *big.Int
+}
+
+type ERC20Token struct {
+	client          blockchain.EVMClient
+	instance        *erc20.ERC20
+	ContractAddress common.Address
+}
+
+func (token *ERC20Token) Address() string {
+	return token.ContractAddress.Hex()
+}
+
+func (token *ERC20Token) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(token.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	balance, err := token.instance.BalanceOf(opts, common.HexToAddress(addr))
+	if err != nil {
+		return nil, err
+	}
+	return balance, nil
+}
+
+func (l *ERC20Token) Approve(to string, amount *big.Int) error {
+	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	log.Info().
+		Str("From", l.client.GetDefaultWallet().Address()).
+		Str("To", to).
+		Str("Token", l.Address()).
+		Str("Amount", amount.String()).
+		Uint64("Nonce", opts.Nonce.Uint64()).
+		Str("Network Name", l.client.GetNetworkConfig().Name).
+		Msg("Approving ERC20 Transfer")
+	tx, err := l.instance.Approve(opts, common.HexToAddress(to), amount)
+	if err != nil {
+		return err
+	}
+	return l.client.ProcessTransaction(tx)
+}
+
+func (l *ERC20Token) Transfer(to string, amount *big.Int) error {
+	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	log.Info().
+		Str("From", l.client.GetDefaultWallet().Address()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Uint64("Nonce", opts.Nonce.Uint64()).
+		Str("Network Name", l.client.GetNetworkConfig().Name).
+		Msg("Transferring ERC20")
+	tx, err := l.instance.Transfer(opts, common.HexToAddress(to), amount)
+	if err != nil {
+		return err
+	}
+	return l.client.ProcessTransaction(tx)
 }
 
 type LinkToken struct {
@@ -129,12 +191,14 @@ func (pool *LockReleaseTokenPool) RemoveLiquidity(amount *big.Int) error {
 	return pool.client.ProcessTransaction(tx)
 }
 
-func (pool *LockReleaseTokenPool) AddLiquidity(linkToken *LinkToken, amount *big.Int) error {
+type tokenApproveFn func(string, *big.Int) error
+
+func (pool *LockReleaseTokenPool) AddLiquidity(approveFn tokenApproveFn, tokenAddr string, amount *big.Int) error {
 	log.Info().
-		Str("Link Token", linkToken.Address()).
+		Str("Link Token", tokenAddr).
 		Str("Token Pool", pool.Address()).
 		Msg("Initiating transferring of token to token pool")
-	err := linkToken.Approve(pool.Address(), amount)
+	err := approveFn(pool.Address(), amount)
 	if err != nil {
 		return err
 	}
@@ -155,7 +219,7 @@ func (pool *LockReleaseTokenPool) AddLiquidity(linkToken *LinkToken, amount *big
 	}
 	log.Info().
 		Str("Token Pool", pool.Address()).
-		Str("Link Token", linkToken.Address()).
+		Str("Link Token", tokenAddr).
 		Str("Network Name", pool.client.GetNetworkConfig().Name).
 		Msg("Liquidity added")
 	return pool.client.ProcessTransaction(tx)
